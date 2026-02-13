@@ -31,6 +31,8 @@ properties:
       - firstExposure
       - experimentDuration
     description: Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override.
+  lookbackOverride:
+    $ref: "./LookbackOverride.yaml"
   statsEngine:
     enum:
       - bayesian

@@ -201,6 +201,9 @@ tags:
   - name: FeatureWithRevisions_model
     x-displayName: FeatureWithRevisions
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureWithRevisions" />
+  - name: LookbackOverride_model
+    x-displayName: LookbackOverride
+    description: <SchemaDefinition schemaRef="#/components/schemas/LookbackOverride" />
   - name: Member_model
     x-displayName: Member
     description: <SchemaDefinition schemaRef="#/components/schemas/Member" />
@@ -1988,6 +1991,8 @@ paths:
                     - firstExposure
                     - experimentDuration
                   description: Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override.
+                lookbackOverride:
+                  $ref: '#/components/schemas/LookbackOverride'
                 statsEngine:
                   type: string
                   enum:
@@ -2350,6 +2355,8 @@ paths:
                     - firstExposure
                     - experimentDuration
                   description: Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override.
+                lookbackOverride:
+                  $ref: '#/components/schemas/LookbackOverride'
                 statsEngine:
                   type: string
                   enum:
@@ -13694,6 +13701,8 @@ components:
             - firstExposure
             - experimentDuration
           description: Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override.
+        lookbackOverride:
+          $ref: '#/components/schemas/LookbackOverride'
         statsEngine:
           enum:
             - bayesian
@@ -13718,6 +13727,30 @@ components:
             $ref: '#/components/schemas/ExperimentMetric'
         activationMetric:
           $ref: '#/components/schemas/ExperimentMetric'
+    LookbackOverride:
+      type: object
+      description: 'Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting.'
+      required:
+        - type
+        - value
+      properties:
+        type:
+          enum:
+            - date
+            - window
+        value:
+          type:
+            - number
+            - string
+          format: date-time
+          description: For "window" type - numeric value (e.g. 7 for 7 days). For "date" type - ISO 8601 date string.
+        valueUnit:
+          enum:
+            - minutes
+            - hours
+            - days
+            - weeks
+          description: 'The unit of the lookback override value, only used if type is "window".'
     ExperimentResults:
       type: object
       required:
@@ -15167,6 +15200,7 @@ x-tagGroups:
       - FeatureRule_model
       - FeatureSafeRolloutRule_model
       - FeatureWithRevisions_model
+      - LookbackOverride_model
       - Member_model
       - Metric_model
       - MetricAnalysis_model

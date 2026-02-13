@@ -1601,6 +1601,18 @@ export async function toExperimentApiInterface(
       queryFilter: experiment.queryFilter || "",
       inProgressConversions: experiment.skipPartialData ? "exclude" : "include",
       attributionModel: experiment.attributionModel || "firstExposure",
+      lookbackOverride: experiment.lookbackOverride
+        ? experiment.lookbackOverride.type === "date"
+          ? {
+              type: "date" as const,
+              value: experiment.lookbackOverride?.value.toISOString(),
+            }
+          : {
+              type: "window" as const,
+              value: experiment.lookbackOverride?.value,
+              valueUnit: experiment.lookbackOverride?.valueUnit,
+            }
+        : undefined,
       statsEngine: scopedSettings.statsEngine.value || DEFAULT_STATS_ENGINE,
       goals: experiment.goalMetrics.map((m) =>
         getExperimentMetric(experiment, m),
@@ -2672,6 +2684,21 @@ export function postExperimentApiPayloadToInterface(
     queryFilter: payload.queryFilter || "",
     skipPartialData: payload.inProgressConversions === "strict",
     attributionModel: payload.attributionModel || "firstExposure",
+    ...(payload.lookbackOverride
+      ? {
+          lookbackOverride:
+            payload.lookbackOverride.type === "date"
+              ? {
+                  type: "date" as const,
+                  value: new Date(payload.lookbackOverride.value as string),
+                }
+              : {
+                  type: "window" as const,
+                  value: payload.lookbackOverride.value as number,
+                  valueUnit: payload.lookbackOverride.valueUnit!,
+                },
+        }
+      : {}),
     ...(payload.statsEngine ? { statsEngine: payload.statsEngine } : {}),
     variations:
       payload.variations.map((v) => ({
@@ -2763,6 +2790,7 @@ export function updateExperimentApiPayloadToInterface(
     excludeFromPayload,
     inProgressConversions,
     attributionModel,
+    lookbackOverride,
     statsEngine,
     regressionAdjustmentEnabled,
     sequentialTestingEnabled,
@@ -2803,6 +2831,21 @@ export function updateExperimentApiPayloadToInterface(
       ? { skipPartialData: inProgressConversions === "strict" }
       : {}),
     ...(attributionModel !== undefined ? { attributionModel } : {}),
+    ...(lookbackOverride !== undefined
+      ? {
+          lookbackOverride:
+            lookbackOverride.type === "date"
+              ? {
+                  type: "date" as const,
+                  value: new Date(lookbackOverride.value),
+                }
+              : {
+                  type: "window" as const,
+                  value: lookbackOverride.value,
+                  valueUnit: lookbackOverride.valueUnit!,
+                },
+        }
+      : {}),
     ...(statsEngine !== undefined ? { statsEngine } : {}),
     ...(regressionAdjustmentEnabled !== undefined
       ? { regressionAdjustmentEnabled }

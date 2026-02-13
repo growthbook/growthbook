@@ -1,0 +1,23 @@
+type: object
+description: Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting.
+required:
+  - type
+  - value
+properties:
+  type:
+    enum:
+      - date
+      - window
+  value:
+    type:
+      - number
+      - string
+    format: date-time
+    description: For "window" type - numeric value (e.g. 7 for 7 days). For "date" type - ISO 8601 date string.
+  valueUnit:
+    enum:
+      - minutes
+      - hours
+      - days
+      - weeks
+    description: The unit of the lookback override value, only used if type is "window".

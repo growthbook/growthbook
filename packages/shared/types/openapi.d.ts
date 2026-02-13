@@ -3125,6 +3125,21 @@ export interface components {
          * @enum {unknown}
          */
         attributionModel: "firstExposure" | "experimentDuration";
+        /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. */
+        lookbackOverride?: {
+          /** @enum {unknown} */
+          type: "date" | "window";
+          /**
+           * Format: date-time 
+           * @description For "window" type - numeric value (e.g. 7 for 7 days). For "date" type - ISO 8601 date string.
+           */
+          value: OneOf<[number, string]>;
+          /**
+           * @description The unit of the lookback override value, only used if type is "window". 
+           * @enum {unknown}
+           */
+          valueUnit?: "minutes" | "hours" | "days" | "weeks";
+        };
         /** @enum {unknown} */
         statsEngine: "bayesian" | "frequentist";
         regressionAdjustmentEnabled?: boolean;
@@ -3234,6 +3249,21 @@ export interface components {
        * @enum {unknown}
        */
       attributionModel: "firstExposure" | "experimentDuration";
+      /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. */
+      lookbackOverride?: {
+        /** @enum {unknown} */
+        type: "date" | "window";
+        /**
+         * Format: date-time 
+         * @description For "window" type - numeric value (e.g. 7 for 7 days). For "date" type - ISO 8601 date string.
+         */
+        value: OneOf<[number, string]>;
+        /**
+         * @description The unit of the lookback override value, only used if type is "window". 
+         * @enum {unknown}
+         */
+        valueUnit?: "minutes" | "hours" | "days" | "weeks";
+      };
       /** @enum {unknown} */
       statsEngine: "bayesian" | "frequentist";
       regressionAdjustmentEnabled?: boolean;
@@ -3284,6 +3314,21 @@ export interface components {
         };
       };
     };
+    /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. */
+    LookbackOverride: {
+      /** @enum {unknown} */
+      type: "date" | "window";
+      /**
+       * Format: date-time 
+       * @description For "window" type - numeric value (e.g. 7 for 7 days). For "date" type - ISO 8601 date string.
+       */
+      value: OneOf<[number, string]>;
+      /**
+       * @description The unit of the lookback override value, only used if type is "window". 
+       * @enum {unknown}
+       */
+      valueUnit?: "minutes" | "hours" | "days" | "weeks";
+    };
     ExperimentResults: {
       id: string;
       dateUpdated: string;
@@ -3308,6 +3353,21 @@ export interface components {
          * @enum {unknown}
          */
         attributionModel: "firstExposure" | "experimentDuration";
+        /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. */
+        lookbackOverride?: {
+          /** @enum {unknown} */
+          type: "date" | "window";
+          /**
+           * Format: date-time 
+           * @description For "window" type - numeric value (e.g. 7 for 7 days). For "date" type - ISO 8601 date string.
+           */
+          value: OneOf<[number, string]>;
+          /**
+           * @description The unit of the lookback override value, only used if type is "window". 
+           * @enum {unknown}
+           */
+          valueUnit?: "minutes" | "hours" | "days" | "weeks";
+        };
         /** @enum {unknown} */
         statsEngine: "bayesian" | "frequentist";
         regressionAdjustmentEnabled?: boolean;
@@ -3459,6 +3519,21 @@ export interface components {
          * @enum {unknown}
          */
         attributionModel: "firstExposure" | "experimentDuration";
+        /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. */
+        lookbackOverride?: {
+          /** @enum {unknown} */
+          type: "date" | "window";
+          /**
+           * Format: date-time 
+           * @description For "window" type - numeric value (e.g. 7 for 7 days). For "date" type - ISO 8601 date string.
+           */
+          value: OneOf<[number, string]>;
+          /**
+           * @description The unit of the lookback override value, only used if type is "window". 
+           * @enum {unknown}
+           */
+          valueUnit?: "minutes" | "hours" | "days" | "weeks";
+        };
         /** @enum {unknown} */
         statsEngine: "bayesian" | "frequentist";
         regressionAdjustmentEnabled?: boolean;
@@ -9398,6 +9473,21 @@ export interface operations {
                    * @enum {unknown}
                    */
                   attributionModel: "firstExposure" | "experimentDuration";
+                  /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. */
+                  lookbackOverride?: {
+                    /** @enum {unknown} */
+                    type: "date" | "window";
+                    /**
+                     * Format: date-time 
+                     * @description For "window" type - numeric value (e.g. 7 for 7 days). For "date" type - ISO 8601 date string.
+                     */
+                    value: OneOf<[number, string]>;
+                    /**
+                     * @description The unit of the lookback override value, only used if type is "window". 
+                     * @enum {unknown}
+                     */
+                    valueUnit?: "minutes" | "hours" | "days" | "weeks";
+                  };
                   /** @enum {unknown} */
                   statsEngine: "bayesian" | "frequentist";
                   regressionAdjustmentEnabled?: boolean;
@@ -9542,6 +9632,21 @@ export interface operations {
            * @enum {string}
            */
           attributionModel?: "firstExposure" | "experimentDuration";
+          /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. */
+          lookbackOverride?: {
+            /** @enum {unknown} */
+            type: "date" | "window";
+            /**
+             * Format: date-time 
+             * @description For "window" type - numeric value (e.g. 7 for 7 days). For "date" type - ISO 8601 date string.
+             */
+            value: OneOf<[number, string]>;
+            /**
+             * @description The unit of the lookback override value, only used if type is "window". 
+             * @enum {unknown}
+             */
+            valueUnit?: "minutes" | "hours" | "days" | "weeks";
+          };
           /** @enum {string} */
           statsEngine?: "bayesian" | "frequentist";
           variations: ({
@@ -9690,6 +9795,21 @@ export interface operations {
                  * @enum {unknown}
                  */
                 attributionModel: "firstExposure" | "experimentDuration";
+                /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. */
+                lookbackOverride?: {
+                  /** @enum {unknown} */
+                  type: "date" | "window";
+                  /**
+                   * Format: date-time 
+                   * @description For "window" type - numeric value (e.g. 7 for 7 days). For "date" type - ISO 8601 date string.
+                   */
+                  value: OneOf<[number, string]>;
+                  /**
+                   * @description The unit of the lookback override value, only used if type is "window". 
+                   * @enum {unknown}
+                   */
+                  valueUnit?: "minutes" | "hours" | "days" | "weeks";
+                };
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
@@ -9879,6 +9999,21 @@ export interface operations {
                  * @enum {unknown}
                  */
                 attributionModel: "firstExposure" | "experimentDuration";
+                /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. */
+                lookbackOverride?: {
+                  /** @enum {unknown} */
+                  type: "date" | "window";
+                  /**
+                   * Format: date-time 
+                   * @description For "window" type - numeric value (e.g. 7 for 7 days). For "date" type - ISO 8601 date string.
+                   */
+                  value: OneOf<[number, string]>;
+                  /**
+                   * @description The unit of the lookback override value, only used if type is "window". 
+                   * @enum {unknown}
+                   */
+                  valueUnit?: "minutes" | "hours" | "days" | "weeks";
+                };
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
@@ -10027,6 +10162,21 @@ export interface operations {
            * @enum {string}
            */
           attributionModel?: "firstExposure" | "experimentDuration";
+          /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. */
+          lookbackOverride?: {
+            /** @enum {unknown} */
+            type: "date" | "window";
+            /**
+             * Format: date-time 
+             * @description For "window" type - numeric value (e.g. 7 for 7 days). For "date" type - ISO 8601 date string.
+             */
+            value: OneOf<[number, string]>;
+            /**
+             * @description The unit of the lookback override value, only used if type is "window". 
+             * @enum {unknown}
+             */
+            valueUnit?: "minutes" | "hours" | "days" | "weeks";
+          };
           /** @enum {string} */
           statsEngine?: "bayesian" | "frequentist";
           variations?: ({
@@ -10175,6 +10325,21 @@ export interface operations {
                  * @enum {unknown}
                  */
                 attributionModel: "firstExposure" | "experimentDuration";
+                /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. */
+                lookbackOverride?: {
+                  /** @enum {unknown} */
+                  type: "date" | "window";
+                  /**
+                   * Format: date-time 
+                   * @description For "window" type - numeric value (e.g. 7 for 7 days). For "date" type - ISO 8601 date string.
+                   */
+                  value: OneOf<[number, string]>;
+                  /**
+                   * @description The unit of the lookback override value, only used if type is "window". 
+                   * @enum {unknown}
+                   */
+                  valueUnit?: "minutes" | "hours" | "days" | "weeks";
+                };
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
@@ -10323,6 +10488,21 @@ export interface operations {
                  * @enum {unknown}
                  */
                 attributionModel: "firstExposure" | "experimentDuration";
+                /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. */
+                lookbackOverride?: {
+                  /** @enum {unknown} */
+                  type: "date" | "window";
+                  /**
+                   * Format: date-time 
+                   * @description For "window" type - numeric value (e.g. 7 for 7 days). For "date" type - ISO 8601 date string.
+                   */
+                  value: OneOf<[number, string]>;
+                  /**
+                   * @description The unit of the lookback override value, only used if type is "window". 
+                   * @enum {unknown}
+                   */
+                  valueUnit?: "minutes" | "hours" | "days" | "weeks";
+                };
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
@@ -11336,6 +11516,21 @@ export interface operations {
                  * @enum {unknown}
                  */
                 attributionModel: "firstExposure" | "experimentDuration";
+                /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. */
+                lookbackOverride?: {
+                  /** @enum {unknown} */
+                  type: "date" | "window";
+                  /**
+                   * Format: date-time 
+                   * @description For "window" type - numeric value (e.g. 7 for 7 days). For "date" type - ISO 8601 date string.
+                   */
+                  value: OneOf<[number, string]>;
+                  /**
+                   * @description The unit of the lookback override value, only used if type is "window". 
+                   * @enum {unknown}
+                   */
+                  valueUnit?: "minutes" | "hours" | "days" | "weeks";
+                };
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
@@ -16223,6 +16418,7 @@ export type ApiExperiment = z.infer<typeof openApiValidators.apiExperimentValida
 export type ApiExperimentSnapshot = z.infer<typeof openApiValidators.apiExperimentSnapshotValidator>;
 export type ApiExperimentMetric = z.infer<typeof openApiValidators.apiExperimentMetricValidator>;
 export type ApiExperimentAnalysisSettings = z.infer<typeof openApiValidators.apiExperimentAnalysisSettingsValidator>;
+export type ApiLookbackOverride = z.infer<typeof openApiValidators.apiLookbackOverrideValidator>;
 export type ApiExperimentResults = z.infer<typeof openApiValidators.apiExperimentResultsValidator>;
 export type ApiExperimentWithEnhancedStatus = z.infer<typeof openApiValidators.apiExperimentWithEnhancedStatusValidator>;
 export type ApiDataSource = z.infer<typeof openApiValidators.apiDataSourceValidator>;
