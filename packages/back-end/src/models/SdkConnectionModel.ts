@@ -425,7 +425,7 @@ export async function deleteSDKConnectionModel(
   sdkConnection: SDKConnectionInterface,
 ) {
   await SDKConnectionModel.deleteOne({
-    organization: sdkConnection.organization,
+    organization: context.org.id,
     id: sdkConnection.id,
   });
 
