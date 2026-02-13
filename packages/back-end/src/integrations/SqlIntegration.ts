@@ -1009,7 +1009,7 @@ export default abstract class SqlIntegration
           -- Get aggregated metric per user by day
           SELECT
           ${populationSQL ? "p" : "f"}.${baseIdType} AS ${baseIdType}
-            , ${this.dateTrunc("timestamp")} AS date
+            , ${this.dateTrunc("f.timestamp")} AS date
             , ${metricData.numeratorAggFns.fullAggregationFunction(`f.${metricData.alias}_value`)} AS value
             , ${metricData.numeratorAggFns.partialAggregationFunction(`f.${metricData.alias}_value`)} AS value_for_reaggregation
                   ${
@@ -1738,7 +1738,7 @@ export default abstract class SqlIntegration
           )
         ),
         20, 
-        99999
+      99999
       )`;
     }
 
@@ -4476,7 +4476,7 @@ export default abstract class SqlIntegration
     FROM 
       __banditPeriodStatistics
     GROUP BY
-      ${dimensionCols.map((d) => `${d.alias}`).join(" AND ")}
+      ${dimensionCols.map((d) => `${d.alias}`).join(", ")}
   ),
   __banditPeriodWeights AS (
     SELECT
