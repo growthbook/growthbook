@@ -3125,17 +3125,17 @@ export interface components {
          * @enum {unknown}
          */
         attributionModel: "firstExposure" | "experimentDuration";
-        /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. */
+        /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. For type "window", value must be a non-negative number and valueUnit is required. */
         lookbackOverride?: {
           /** @enum {unknown} */
           type: "date" | "window";
           /**
            * Format: date-time 
-           * @description For "window" type - numeric value (e.g. 7 for 7 days). For "date" type - ISO 8601 date string.
+           * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
            */
           value: OneOf<[number, string]>;
           /**
-           * @description The unit of the lookback override value, only used if type is "window". 
+           * @description Used when type is "window". Defaults to "days". 
            * @enum {unknown}
            */
           valueUnit?: "minutes" | "hours" | "days" | "weeks";
@@ -3249,17 +3249,17 @@ export interface components {
        * @enum {unknown}
        */
       attributionModel: "firstExposure" | "experimentDuration";
-      /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. */
+      /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. For type "window", value must be a non-negative number and valueUnit is required. */
       lookbackOverride?: {
         /** @enum {unknown} */
         type: "date" | "window";
         /**
          * Format: date-time 
-         * @description For "window" type - numeric value (e.g. 7 for 7 days). For "date" type - ISO 8601 date string.
+         * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
          */
         value: OneOf<[number, string]>;
         /**
-         * @description The unit of the lookback override value, only used if type is "window". 
+         * @description Used when type is "window". Defaults to "days". 
          * @enum {unknown}
          */
         valueUnit?: "minutes" | "hours" | "days" | "weeks";
@@ -3314,17 +3314,17 @@ export interface components {
         };
       };
     };
-    /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. */
+    /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. For type "window", value must be a non-negative number and valueUnit is required. */
     LookbackOverride: {
       /** @enum {unknown} */
       type: "date" | "window";
       /**
        * Format: date-time 
-       * @description For "window" type - numeric value (e.g. 7 for 7 days). For "date" type - ISO 8601 date string.
+       * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
        */
       value: OneOf<[number, string]>;
       /**
-       * @description The unit of the lookback override value, only used if type is "window". 
+       * @description Used when type is "window". Defaults to "days". 
        * @enum {unknown}
        */
       valueUnit?: "minutes" | "hours" | "days" | "weeks";
@@ -3353,17 +3353,17 @@ export interface components {
          * @enum {unknown}
          */
         attributionModel: "firstExposure" | "experimentDuration";
-        /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. */
+        /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. For type "window", value must be a non-negative number and valueUnit is required. */
         lookbackOverride?: {
           /** @enum {unknown} */
           type: "date" | "window";
           /**
            * Format: date-time 
-           * @description For "window" type - numeric value (e.g. 7 for 7 days). For "date" type - ISO 8601 date string.
+           * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
            */
           value: OneOf<[number, string]>;
           /**
-           * @description The unit of the lookback override value, only used if type is "window". 
+           * @description Used when type is "window". Defaults to "days". 
            * @enum {unknown}
            */
           valueUnit?: "minutes" | "hours" | "days" | "weeks";
@@ -3519,17 +3519,17 @@ export interface components {
          * @enum {unknown}
          */
         attributionModel: "firstExposure" | "experimentDuration";
-        /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. */
+        /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. For type "window", value must be a non-negative number and valueUnit is required. */
         lookbackOverride?: {
           /** @enum {unknown} */
           type: "date" | "window";
           /**
            * Format: date-time 
-           * @description For "window" type - numeric value (e.g. 7 for 7 days). For "date" type - ISO 8601 date string.
+           * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
            */
           value: OneOf<[number, string]>;
           /**
-           * @description The unit of the lookback override value, only used if type is "window". 
+           * @description Used when type is "window". Defaults to "days". 
            * @enum {unknown}
            */
           valueUnit?: "minutes" | "hours" | "days" | "weeks";
@@ -9473,17 +9473,17 @@ export interface operations {
                    * @enum {unknown}
                    */
                   attributionModel: "firstExposure" | "experimentDuration";
-                  /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. */
+                  /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. For type "window", value must be a non-negative number and valueUnit is required. */
                   lookbackOverride?: {
                     /** @enum {unknown} */
                     type: "date" | "window";
                     /**
                      * Format: date-time 
-                     * @description For "window" type - numeric value (e.g. 7 for 7 days). For "date" type - ISO 8601 date string.
+                     * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
                      */
                     value: OneOf<[number, string]>;
                     /**
-                     * @description The unit of the lookback override value, only used if type is "window". 
+                     * @description Used when type is "window". Defaults to "days". 
                      * @enum {unknown}
                      */
                     valueUnit?: "minutes" | "hours" | "days" | "weeks";
@@ -9632,17 +9632,17 @@ export interface operations {
            * @enum {string}
            */
           attributionModel?: "firstExposure" | "experimentDuration";
-          /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. */
+          /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. For type "window", value must be a non-negative number and valueUnit is required. */
           lookbackOverride?: {
             /** @enum {unknown} */
             type: "date" | "window";
             /**
              * Format: date-time 
-             * @description For "window" type - numeric value (e.g. 7 for 7 days). For "date" type - ISO 8601 date string.
+             * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
              */
             value: OneOf<[number, string]>;
             /**
-             * @description The unit of the lookback override value, only used if type is "window". 
+             * @description Used when type is "window". Defaults to "days". 
              * @enum {unknown}
              */
             valueUnit?: "minutes" | "hours" | "days" | "weeks";
@@ -9795,17 +9795,17 @@ export interface operations {
                  * @enum {unknown}
                  */
                 attributionModel: "firstExposure" | "experimentDuration";
-                /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. */
+                /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. For type "window", value must be a non-negative number and valueUnit is required. */
                 lookbackOverride?: {
                   /** @enum {unknown} */
                   type: "date" | "window";
                   /**
                    * Format: date-time 
-                   * @description For "window" type - numeric value (e.g. 7 for 7 days). For "date" type - ISO 8601 date string.
+                   * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
                    */
                   value: OneOf<[number, string]>;
                   /**
-                   * @description The unit of the lookback override value, only used if type is "window". 
+                   * @description Used when type is "window". Defaults to "days". 
                    * @enum {unknown}
                    */
                   valueUnit?: "minutes" | "hours" | "days" | "weeks";
@@ -9999,17 +9999,17 @@ export interface operations {
                  * @enum {unknown}
                  */
                 attributionModel: "firstExposure" | "experimentDuration";
-                /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. */
+                /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. For type "window", value must be a non-negative number and valueUnit is required. */
                 lookbackOverride?: {
                   /** @enum {unknown} */
                   type: "date" | "window";
                   /**
                    * Format: date-time 
-                   * @description For "window" type - numeric value (e.g. 7 for 7 days). For "date" type - ISO 8601 date string.
+                   * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
                    */
                   value: OneOf<[number, string]>;
                   /**
-                   * @description The unit of the lookback override value, only used if type is "window". 
+                   * @description Used when type is "window". Defaults to "days". 
                    * @enum {unknown}
                    */
                   valueUnit?: "minutes" | "hours" | "days" | "weeks";
@@ -10162,17 +10162,17 @@ export interface operations {
            * @enum {string}
            */
           attributionModel?: "firstExposure" | "experimentDuration";
-          /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. */
+          /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. For type "window", value must be a non-negative number and valueUnit is required. */
           lookbackOverride?: {
             /** @enum {unknown} */
             type: "date" | "window";
             /**
              * Format: date-time 
-             * @description For "window" type - numeric value (e.g. 7 for 7 days). For "date" type - ISO 8601 date string.
+             * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
              */
             value: OneOf<[number, string]>;
             /**
-             * @description The unit of the lookback override value, only used if type is "window". 
+             * @description Used when type is "window". Defaults to "days". 
              * @enum {unknown}
              */
             valueUnit?: "minutes" | "hours" | "days" | "weeks";
@@ -10325,17 +10325,17 @@ export interface operations {
                  * @enum {unknown}
                  */
                 attributionModel: "firstExposure" | "experimentDuration";
-                /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. */
+                /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. For type "window", value must be a non-negative number and valueUnit is required. */
                 lookbackOverride?: {
                   /** @enum {unknown} */
                   type: "date" | "window";
                   /**
                    * Format: date-time 
-                   * @description For "window" type - numeric value (e.g. 7 for 7 days). For "date" type - ISO 8601 date string.
+                   * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
                    */
                   value: OneOf<[number, string]>;
                   /**
-                   * @description The unit of the lookback override value, only used if type is "window". 
+                   * @description Used when type is "window". Defaults to "days". 
                    * @enum {unknown}
                    */
                   valueUnit?: "minutes" | "hours" | "days" | "weeks";
@@ -10488,17 +10488,17 @@ export interface operations {
                  * @enum {unknown}
                  */
                 attributionModel: "firstExposure" | "experimentDuration";
-                /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. */
+                /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. For type "window", value must be a non-negative number and valueUnit is required. */
                 lookbackOverride?: {
                   /** @enum {unknown} */
                   type: "date" | "window";
                   /**
                    * Format: date-time 
-                   * @description For "window" type - numeric value (e.g. 7 for 7 days). For "date" type - ISO 8601 date string.
+                   * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
                    */
                   value: OneOf<[number, string]>;
                   /**
-                   * @description The unit of the lookback override value, only used if type is "window". 
+                   * @description Used when type is "window". Defaults to "days". 
                    * @enum {unknown}
                    */
                   valueUnit?: "minutes" | "hours" | "days" | "weeks";
@@ -11516,17 +11516,17 @@ export interface operations {
                  * @enum {unknown}
                  */
                 attributionModel: "firstExposure" | "experimentDuration";
-                /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. */
+                /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. For type "window", value must be a non-negative number and valueUnit is required. */
                 lookbackOverride?: {
                   /** @enum {unknown} */
                   type: "date" | "window";
                   /**
                    * Format: date-time 
-                   * @description For "window" type - numeric value (e.g. 7 for 7 days). For "date" type - ISO 8601 date string.
+                   * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
                    */
                   value: OneOf<[number, string]>;
                   /**
-                   * @description The unit of the lookback override value, only used if type is "window". 
+                   * @description Used when type is "window". Defaults to "days". 
                    * @enum {unknown}
                    */
                   valueUnit?: "minutes" | "hours" | "days" | "weeks";

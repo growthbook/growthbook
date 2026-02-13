@@ -8,7 +8,10 @@ import {
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { PiCaretRightFill } from "react-icons/pi";
 import { datetime, getValidDate } from "shared/dates";
-import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
+import {
+  DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+} from "shared/constants";
 import { isProjectListValidForProject } from "shared/util";
 import { getScopedSettings } from "shared/settings";
 import Collapsible from "react-collapsible";
@@ -171,7 +174,9 @@ const AnalysisForm: FC<{
             }
           : {
               ...experiment.lookbackOverride,
-              valueUnit: experiment.lookbackOverride.valueUnit ?? "days",
+              valueUnit:
+                experiment.lookbackOverride.valueUnit ??
+                DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
             }
         : undefined,
       statsEngine: experiment.statsEngine,
@@ -856,6 +861,7 @@ const AnalysisForm: FC<{
                     </div>
                   }
                   transitionTime={100}
+                  lazyRender={true}
                 >
                   <div className="rounded px-3 pt-3 pb-1 bg-highlight">
                     {datasourceProperties?.experimentSegments && (

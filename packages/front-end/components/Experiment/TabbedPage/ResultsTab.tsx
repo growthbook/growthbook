@@ -169,10 +169,7 @@ export default function ResultsTab({
     }));
   }, [setAnalysisBarSettings, setAnalysisSettings]);
 
-  const endDate =
-    experiment.phases.length > 0
-      ? experiment.phases[experiment.phases.length - 1].dateEnded
-      : null;
+  const endDate = snapshot?.settings?.endDate;
   return (
     <div>
       {isBandit && hasResults ? (

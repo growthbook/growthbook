@@ -146,7 +146,6 @@ const experimentSchema = new mongoose.Schema({
     valueUnit: {
       type: String,
       enum: ["minutes", "hours", "days", "weeks"],
-      default: "hours",
     },
   },
   decisionFrameworkSettings: {

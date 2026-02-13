@@ -65,6 +65,7 @@ import {
   updateExperimentValidator,
   SafeRolloutSnapshotAnalysis,
   IncrementalRefreshInterface,
+  LookbackOverrideValueUnit,
 } from "shared/validators";
 import { Dimension } from "shared/types/integrations";
 import {
@@ -2580,6 +2581,48 @@ export function toMetricApiInterface(
 export const toNamespaceRange = (
   raw: number[] | undefined,
 ): [number, number] => [raw?.[0] ?? 0, raw?.[1] ?? 1];
+
+/**
+ * Converts an API lookbackOverride payload to the internal representation.
+ * Validates that "date" values are strings (not raw numbers) and that
+ * "window" values are non-negative numbers with a valid unit.
+ */
+function toLookbackOverrideForSave(lookbackOverride: {
+  type: string;
+  value: string | number;
+  valueUnit?: LookbackOverrideValueUnit;
+}): NonNullable<ExperimentInterface["lookbackOverride"]> {
+  if (lookbackOverride.type === "date") {
+    if (typeof lookbackOverride.value === "number") {
+      throw new Error(
+        "lookbackOverride date value must be an ISO 8601 string, not a number",
+      );
+    }
+    const d = new Date(lookbackOverride.value);
+    if (isNaN(d.getTime())) {
+      throw new Error("lookbackOverride date value is not a valid date string");
+    }
+    return { type: "date", value: d };
+  } else if (lookbackOverride.type === "window") {
+    const num =
+      typeof lookbackOverride.value === "string"
+        ? parseFloat(lookbackOverride.value)
+        : lookbackOverride.value;
+    if (!Number.isFinite(num) || num < 0) {
+      throw new Error(
+        "lookbackOverride window value must be a non-negative number",
+      );
+    }
+    return {
+      type: "window",
+      value: num,
+      valueUnit:
+        lookbackOverride.valueUnit ?? DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
+    };
+  }
+  throw new Error("Invalid lookbackOverride.type");
+}
+
 /**
  * Converts the OpenAPI POST /experiment payload to a {@link ExperimentInterface}
  * @param payload
@@ -2686,17 +2729,7 @@ export function postExperimentApiPayloadToInterface(
     attributionModel: payload.attributionModel || "firstExposure",
     ...(payload.lookbackOverride
       ? {
-          lookbackOverride:
-            payload.lookbackOverride.type === "date"
-              ? {
-                  type: "date" as const,
-                  value: new Date(payload.lookbackOverride.value as string),
-                }
-              : {
-                  type: "window" as const,
-                  value: payload.lookbackOverride.value as number,
-                  valueUnit: payload.lookbackOverride.valueUnit!,
-                },
+          lookbackOverride: toLookbackOverrideForSave(payload.lookbackOverride),
         }
       : {}),
     ...(payload.statsEngine ? { statsEngine: payload.statsEngine } : {}),
@@ -2832,19 +2865,7 @@ export function updateExperimentApiPayloadToInterface(
       : {}),
     ...(attributionModel !== undefined ? { attributionModel } : {}),
     ...(lookbackOverride !== undefined
-      ? {
-          lookbackOverride:
-            lookbackOverride.type === "date"
-              ? {
-                  type: "date" as const,
-                  value: new Date(lookbackOverride.value),
-                }
-              : {
-                  type: "window" as const,
-                  value: lookbackOverride.value,
-                  valueUnit: lookbackOverride.valueUnit!,
-                },
-        }
+      ? { lookbackOverride: toLookbackOverrideForSave(lookbackOverride) }
       : {}),
     ...(statsEngine !== undefined ? { statsEngine } : {}),
     ...(regressionAdjustmentEnabled !== undefined
