@@ -29,14 +29,14 @@ export const postAttribute = async (
   }
   const { org } = context;
 
-  if (tags.length > 0) {
-    await addTags(org.id, tags);
-  }
-
   const attributeSchema = org.settings?.attributeSchema || [];
 
   if (attributeSchema.some((a) => a.property === property)) {
     context.throwBadRequestError("An attribute with that name already exists");
+  }
+
+  if (tags.length > 0) {
+    await addTags(org.id, tags);
   }
 
   const newAttribute: SDKAttribute = {

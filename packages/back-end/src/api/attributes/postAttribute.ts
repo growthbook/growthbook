@@ -16,11 +16,6 @@ export const postAttribute = createApiRequestHandler(postAttributeValidator)(
 
     const org = req.context.org;
 
-    const tags = (req.body as { tags?: string[] }).tags ?? [];
-    if (tags.length > 0) {
-      await addTags(org.id, tags);
-    }
-
     if (
       org.settings?.attributeSchema?.some(
         (attr) => attr.property === attribute.property,
@@ -33,6 +28,11 @@ export const postAttribute = createApiRequestHandler(postAttributeValidator)(
 
     if (!req.context.permissions.canCreateAttribute(attribute))
       req.context.permissions.throwPermissionError();
+
+    const tags = (req.body as { tags?: string[] }).tags ?? [];
+    if (tags.length > 0) {
+      await addTags(org.id, tags);
+    }
 
     const updates: Partial<OrganizationInterface> = {
       settings: {

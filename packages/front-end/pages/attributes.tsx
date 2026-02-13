@@ -189,9 +189,9 @@ const FeatureAttributesPage = (): React.ReactElement => {
       return { attributeFeatures, attributeExperiments, attributeGroups };
     }, [features, experiments, savedGroups, attributeSchema]);
 
-  const [showReferences, setShowReferences] = useState<number | null>(null);
+  const [showReferences, setShowReferences] = useState<string | null>(null);
 
-  const drawRow = (v: SDKAttribute, i: number) => {
+  const drawRow = (v: SDKAttribute, _: number) => {
     const features = [...(attributeFeatures?.[v.property] ?? [])];
     const experiments = [...(attributeExperiments?.[v.property] ?? [])];
     const groups = [...(attributeGroups?.[v.property] ?? [])];
@@ -199,7 +199,10 @@ const FeatureAttributesPage = (): React.ReactElement => {
     const numReferences = features.length + experiments.length + groups.length;
 
     return (
-      <tr className={v.archived ? "disabled" : ""} key={"attr-row-" + i}>
+      <tr
+        className={v.archived ? "disabled" : ""}
+        key={"attr-row-" + v.property}
+      >
         <td className="text-gray font-weight-bold" style={{ width: "17%" }}>
           {v.property}{" "}
           {v.archived && (
@@ -236,7 +239,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
           <Tooltip
             delay={0}
             tipPosition="bottom"
-            state={showReferences === i}
+            state={showReferences === v.property}
             popperStyle={{ marginLeft: 50, marginTop: 15 }}
             flipTheme={false}
             ignoreMouseEvents={true}
@@ -359,7 +362,9 @@ const FeatureAttributesPage = (): React.ReactElement => {
               className="link-purple nowrap"
               onClick={(e) => {
                 e.preventDefault();
-                setShowReferences(showReferences !== i ? i : null);
+                setShowReferences(
+                  showReferences !== v.property ? v.property : null,
+                );
               }}
             >
               {numReferences > MAX_REFERENCES
@@ -367,7 +372,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                 : numReferences}{" "}
               reference
               {numReferences !== 1 && "s"}
-              {showReferences === i ? (
+              {showReferences === v.property ? (
                 <BiHide className="ml-2" />
               ) : (
                 <BiShow className="ml-2" />
