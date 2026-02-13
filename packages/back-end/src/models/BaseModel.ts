@@ -768,7 +768,7 @@ export abstract class BaseModel<
       );
     }
 
-    await this.afterUpdate(doc, updates, newDoc, options?.writeOptions);
+    await this.afterUpdate(doc, allUpdates, newDoc, options?.writeOptions);
     await this.afterCreateOrUpdate(newDoc, options?.writeOptions);
 
     // Update tags if needed
