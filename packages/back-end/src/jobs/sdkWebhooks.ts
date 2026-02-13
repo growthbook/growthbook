@@ -25,6 +25,7 @@ import { ApiReqContext } from "back-end/types/api";
 
 const SDK_WEBHOOKS_JOB_NAME = "fireWebhooks";
 type SDKWebhookJob = Job<{
+  organizationId: string;
   webhookId: string;
   retryCount: number;
 }>;
@@ -41,27 +42,43 @@ const fireWebhooks = async (job: SDKWebhookJob) => {
 
   if (!webhookId) {
     logger.error(
-      {
-        webhookId,
-      },
+      { webhookId },
       "SDK webhook: No webhook provided for webhook job",
     );
     return;
   }
 
+  let webhookModel: WebhookInterface | null = null;
+  let organizationId: string | undefined = job.attrs.data?.organizationId;
+  if (!organizationId) {
+    webhookModel =
+      await SdkWebhookModel.dangerousFindSdkWebhookByIdAcrossOrgs(webhookId);
+    organizationId = webhookModel?.organization;
+  }
+
+  if (!organizationId) {
+    logger.error(
+      { webhookId },
+      "SDK webhook: Missing organizationId for webhook job",
+    );
+    return;
+  }
+
+  const context = await getContextForAgendaJobByOrgId(organizationId);
+
   const webhook =
-    await SdkWebhookModel.dangerousFindSdkWebhookByIdAcrossOrgs(webhookId);
+    webhookModel ?? (await context.models.sdkWebhooks.getById(webhookId));
   if (!webhook || !webhook.sdks) {
     logger.error(
       {
         webhookId,
+        organizationId,
       },
       "SDK webhook: No webhook found for id",
     );
     return;
   }
 
-  const context = await getContextForAgendaJobByOrgId(webhook.organization);
   await fireSdkWebhook(context, webhook);
 };
 
@@ -100,6 +117,7 @@ export default function addSdkWebhooksJob(ag: Agenda) {
 }
 async function queueSingleSdkWebhookJob(webhook: WebhookInterface) {
   const job = agenda.create(SDK_WEBHOOKS_JOB_NAME, {
+    organizationId: webhook.organization,
     webhookId: webhook.id,
     retryCount: 0,
   }) as SDKWebhookJob;

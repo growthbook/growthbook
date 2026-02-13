@@ -12,6 +12,7 @@ import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
 
 const WEBHOOK_JOB_NAME = "fireWebhook";
 type WebhookJob = Job<{
+  organizationId: string;
   webhookId: string;
   retryCount: number;
 }>;
@@ -29,7 +30,16 @@ export default function (ag: Agenda) {
       await SdkWebhookModel.dangerousFindSdkWebhookByIdAcrossOrgs(webhookId);
     if (!webhook) return;
 
-    const context = await getContextForAgendaJobByOrgId(webhook.organization);
+    const organizationId =
+      job.attrs.data?.organizationId ?? webhook.organization;
+
+    if (webhook.organization !== organizationId) {
+      throw new Error(
+        `Legacy webhook job organizationId mismatch: job has ${organizationId}, webhook has ${webhook.organization} (webhookId=${webhookId})`,
+      );
+    }
+
+    const context = await getContextForAgendaJobByOrgId(organizationId);
 
     const { features, dateUpdated } = await getFeatureDefinitions({
       context,
@@ -147,6 +157,7 @@ export async function queueLegacySdkWebhooks(
     }
 
     const job = agenda.create(WEBHOOK_JOB_NAME, {
+      organizationId: webhook.organization,
       webhookId: webhook.id,
       retryCount: 0,
     }) as WebhookJob;

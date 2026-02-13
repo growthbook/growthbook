@@ -18,7 +18,7 @@ import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizatio
 
 const PROXY_UPDATE_JOB_NAME = "proxyUpdate";
 type ProxyUpdateJob = Job<{
-  orgId: string;
+  organizationId: string;
   connectionId: string;
   useCloudProxy: boolean;
   retryCount: number;
@@ -26,7 +26,7 @@ type ProxyUpdateJob = Job<{
 
 const proxyUpdate = async (job: ProxyUpdateJob) => {
   const connectionId = job.attrs.data?.connectionId;
-  const orgId = job.attrs.data?.orgId;
+  const organizationId = job.attrs.data?.organizationId;
   const useCloudProxy = job.attrs.data?.useCloudProxy;
   if (!connectionId) {
     logger.error(
@@ -39,18 +39,18 @@ const proxyUpdate = async (job: ProxyUpdateJob) => {
     return;
   }
 
-  if (!orgId) {
+  if (!organizationId) {
     logger.error(
       {
         connectionId,
         useCloudProxy,
       },
-      "proxyUpdate: No orgId provided for proxy update job",
+      "proxyUpdate: No organizationId provided for proxy update job",
     );
     return;
   }
 
-  const context = await getContextForAgendaJobByOrgId(orgId);
+  const context = await getContextForAgendaJobByOrgId(organizationId);
 
   const connection = await findSDKConnectionById(context, connectionId);
   if (!connection) {
@@ -158,14 +158,14 @@ export default function addProxyUpdateJob(ag: Agenda) {
 }
 
 export async function queueSingleProxyUpdate(
-  orgId: string,
+  organizationId: string,
   connection: SDKConnectionInterface,
   useCloudProxy: boolean = false,
 ) {
   if (!connectionSupportsProxyUpdate(connection, useCloudProxy)) return;
 
   const job = agenda.create(PROXY_UPDATE_JOB_NAME, {
-    orgId,
+    organizationId,
     connectionId: connection.id,
     retryCount: 0,
     useCloudProxy,
