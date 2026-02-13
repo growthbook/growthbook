@@ -1738,7 +1738,7 @@ export default abstract class SqlIntegration
           )
         ),
         20, 
-      99999
+        99999
       )`;
     }
 
