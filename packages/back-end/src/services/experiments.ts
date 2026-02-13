@@ -4,6 +4,7 @@ import { z } from "zod";
 import { isEqual } from "lodash";
 import cloneDeep from "lodash/cloneDeep";
 import {
+  DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
   DEFAULT_METRIC_CAPPING,
   DEFAULT_METRIC_CAPPING_VALUE,
   DEFAULT_METRIC_WINDOW,
@@ -529,7 +530,8 @@ export function getSnapshotSettings({
     lookbackOverride?.type === "window"
       ? {
           value: lookbackOverride.value,
-          unit: (lookbackOverride.valueUnit ?? "hours") as ConversionWindowUnit,
+          unit: (lookbackOverride.valueUnit ??
+            DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT) as ConversionWindowUnit,
         }
       : lookbackOverride?.type === "date"
         ? {

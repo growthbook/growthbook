@@ -202,7 +202,7 @@ export default function ResultsTab({
                 label="Engine"
                 value={
                   analysis?.settings?.statsEngine === "frequentist"
-                    ? `Frequentist${analysis?.settings?.sequentialTesting ? " Sequential" : ""}`
+                    ? "Frequentist"
                     : "Bayesian"
                 }
               />
@@ -219,6 +219,16 @@ export default function ResultsTab({
                   label="Post-Stratification"
                   value={
                     analysis?.settings?.postStratificationEnabled
+                      ? "Enabled"
+                      : "Disabled"
+                  }
+                />
+              ) : null}
+              {analysis?.settings?.statsEngine === "frequentist" ? (
+                <Metadata
+                  label="Sequential"
+                  value={
+                    analysis?.settings?.sequentialTesting
                       ? "Enabled"
                       : "Disabled"
                   }

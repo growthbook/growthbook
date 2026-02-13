@@ -171,7 +171,7 @@ const AnalysisForm: FC<{
             }
           : {
               ...experiment.lookbackOverride,
-              valueUnit: experiment.lookbackOverride.valueUnit ?? "hours",
+              valueUnit: experiment.lookbackOverride.valueUnit ?? "days",
             }
         : undefined,
       statsEngine: experiment.statsEngine,

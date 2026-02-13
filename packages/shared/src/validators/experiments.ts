@@ -178,7 +178,12 @@ export type ExperimentDecisionFrameworkSettings = z.infer<
   typeof experimentDecisionFrameworkSettings
 >;
 
-export const lookbackOverrideValueUnit = z.enum(["minutes", "hours", "days"]);
+export const lookbackOverrideValueUnit = z.enum([
+  "minutes",
+  "hours",
+  "days",
+  "weeks",
+]);
 export type LookbackOverrideValueUnit = z.infer<
   typeof lookbackOverrideValueUnit
 >;

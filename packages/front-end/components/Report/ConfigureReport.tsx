@@ -4,7 +4,10 @@ import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { getValidDate } from "shared/dates";
 import { DifferenceType } from "shared/types/stats";
-import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
+import {
+  DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+} from "shared/constants";
 import Button from "@/ui/Button";
 import DatePicker from "@/components/DatePicker";
 import useApi from "@/hooks/useApi";
@@ -83,7 +86,7 @@ export default function ConfigureReport({
                 ...report.experimentAnalysisSettings.lookbackOverride,
                 valueUnit:
                   report.experimentAnalysisSettings.lookbackOverride
-                    .valueUnit ?? "hours",
+                    .valueUnit ?? DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
               }
           : undefined,
       },

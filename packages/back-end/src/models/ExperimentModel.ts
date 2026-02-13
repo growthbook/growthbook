@@ -145,7 +145,7 @@ const experimentSchema = new mongoose.Schema({
     value: mongoose.Schema.Types.Mixed, // Date for "date" type, Number for "window" type
     valueUnit: {
       type: String,
-      enum: ["minutes", "hours", "days"],
+      enum: ["minutes", "hours", "days", "weeks"],
       default: "hours",
     },
   },

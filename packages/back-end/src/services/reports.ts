@@ -6,6 +6,7 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_STATS_ENGINE,
   DEFAULT_TARGET_MDE,
+  DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
 } from "shared/constants";
 import {
   isFactMetric,
@@ -670,7 +671,8 @@ export function getReportSnapshotSettings({
     lookbackOverride?.type === "window"
       ? {
           value: lookbackOverride.value,
-          unit: (lookbackOverride.valueUnit ?? "hours") as ConversionWindowUnit,
+          unit: (lookbackOverride.valueUnit ??
+            DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT) as ConversionWindowUnit,
         }
       : lookbackOverride?.type === "date"
         ? {

@@ -5,6 +5,10 @@ import {
   LookbackOverride,
   LookbackOverrideValueUnit,
 } from "shared/types/experiment";
+import {
+  DEFAULT_LOOKBACK_OVERRIDE_VALUE_DAYS,
+  DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
+} from "shared/constants";
 import DatePicker from "@/components/DatePicker";
 import Field from "@/components/Forms/Field";
 import RadioGroup from "@/ui/RadioGroup";
@@ -66,7 +70,10 @@ const MetricAnalysisWindowSelector: FC<MetricAnalysisWindowSelectorProps> = ({
       onAttributionModelChange("experimentDuration");
       onLookbackOverrideChange({
         type: "date",
-        value: new Date(endDate.getTime() - 14 * 24 * 60 * 60 * 1000),
+        value: new Date(
+          endDate.getTime() -
+            DEFAULT_LOOKBACK_OVERRIDE_VALUE_DAYS * 24 * 60 * 60 * 1000,
+        ),
       });
     }
   };
@@ -91,7 +98,7 @@ const MetricAnalysisWindowSelector: FC<MetricAnalysisWindowSelectorProps> = ({
             ]}
             sort={false}
             disabled={disabled}
-            helpText="Optionally override all metric windows in this experiment."
+            helpText="Apply custom metric window behavior in this experiment."
           />
         </Box>
         {mode === "custom" && lookbackOverride && (
@@ -104,14 +111,19 @@ const MetricAnalysisWindowSelector: FC<MetricAnalysisWindowSelectorProps> = ({
                     onLookbackOverrideChange({
                       type: "date",
                       value: new Date(
-                        endDate.getTime() - 14 * 24 * 60 * 60 * 1000,
+                        endDate.getTime() -
+                          DEFAULT_LOOKBACK_OVERRIDE_VALUE_DAYS *
+                            24 *
+                            60 *
+                            60 *
+                            1000,
                       ),
                     });
                   } else if (v === "window") {
                     onLookbackOverrideChange({
                       type: "window",
-                      value: 14,
-                      valueUnit: "days",
+                      value: DEFAULT_LOOKBACK_OVERRIDE_VALUE_DAYS,
+                      valueUnit: DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
                     });
                   }
                 }}
@@ -174,7 +186,10 @@ const MetricAnalysisWindowSelector: FC<MetricAnalysisWindowSelectorProps> = ({
                     disabled={disabled}
                   />
                   <SelectField
-                    value={lookbackOverride.valueUnit ?? "hours"}
+                    value={
+                      lookbackOverride.valueUnit ??
+                      DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT
+                    }
                     onChange={(v) => {
                       onLookbackOverrideChange({
                         ...lookbackOverride,
@@ -185,6 +200,7 @@ const MetricAnalysisWindowSelector: FC<MetricAnalysisWindowSelectorProps> = ({
                       { label: "Minutes", value: "minutes" },
                       { label: "Hours", value: "hours" },
                       { label: "Days", value: "days" },
+                      { label: "Weeks", value: "weeks" },
                     ]}
                     disabled={disabled}
                   />
