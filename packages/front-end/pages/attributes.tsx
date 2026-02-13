@@ -203,20 +203,23 @@ const FeatureAttributesPage = (): React.ReactElement => {
         className={v.archived ? "disabled" : ""}
         key={"attr-row-" + v.property}
       >
-        <td className="text-gray font-weight-bold" style={{ width: "17%" }}>
+        <td
+          className="text-gray font-weight-bold"
+          style={{ width: "17%", minWidth: 90 }}
+        >
           {v.property}{" "}
           {v.archived && (
             <span className="badge badge-secondary ml-2">archived</span>
           )}
         </td>
-        <td className="text-gray" style={{ width: "38%" }}>
+        <td className="text-gray" style={{ minWidth: 120 }}>
           {v.description ? (
             <Markdown className="mb-0">{v.description}</Markdown>
           ) : null}
         </td>
         <td
           className="text-gray"
-          style={{ maxWidth: "20vw", wordWrap: "break-word" }}
+          style={{ width: "15%", minWidth: 90, wordWrap: "break-word" }}
         >
           {v.datatype}
           {v.datatype === "enum" && <>: ({v.enum})</>}
@@ -226,16 +229,16 @@ const FeatureAttributesPage = (): React.ReactElement => {
             </p>
           )}
         </td>
-        <td className="">
+        <td className="" style={{ paddingRight: "1rem", minWidth: 80 }}>
           <ProjectBadges
             resourceType="attribute"
             projectIds={(v.projects || []).length > 0 ? v.projects : undefined}
           />
         </td>
-        <td>
+        <td style={{ minWidth: 100 }}>
           <SortedTags tags={v.tags || []} useFlex={true} />
         </td>
-        <td className="text-gray">
+        <td className="text-gray" style={{ minWidth: 85 }}>
           <Tooltip
             delay={0}
             tipPosition="bottom"
@@ -380,71 +383,83 @@ const FeatureAttributesPage = (): React.ReactElement => {
             </a>
           )}
         </td>
-        <td className="text-gray">{v.hashAttribute && <>yes</>}</td>
-        <td>
+        <td className="text-gray" style={{ minWidth: 70 }}>
+          <div
+            style={{ display: "flex", justifyContent: "center" }}
+            className="w-100"
+          >
+            {v.hashAttribute && <>yes</>}
+          </div>
+        </td>
+        <td style={{ minWidth: 44 }}>
           {permissionsUtil.canCreateAttribute(v) ? (
-            <MoreMenu>
-              {!v.archived && (
+            <div
+              style={{ display: "flex", justifyContent: "center" }}
+              className="w-100"
+            >
+              <MoreMenu>
+                {!v.archived && (
+                  <button
+                    className="dropdown-item"
+                    onClick={() => {
+                      setModalData(v.property);
+                    }}
+                  >
+                    Edit
+                  </button>
+                )}
                 <button
                   className="dropdown-item"
-                  onClick={() => {
-                    setModalData(v.property);
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    const updatedAttribute: SDKAttribute = {
+                      property: v.property,
+                      datatype: v.datatype,
+                      projects: v.projects,
+                      format: v.format,
+                      enum: v.enum,
+                      hashAttribute: v.hashAttribute,
+                      archived: !v.archived,
+                      tags: v.tags,
+                    };
+                    await apiCall<{
+                      res: number;
+                    }>("/attribute", {
+                      method: "PUT",
+                      body: JSON.stringify(updatedAttribute),
+                    });
+                    refreshOrganization();
                   }}
                 >
-                  Edit
+                  {v.archived ? "Unarchive" : "Archive"}
                 </button>
-              )}
-              <button
-                className="dropdown-item"
-                onClick={async (e) => {
-                  e.preventDefault();
-                  const updatedAttribute: SDKAttribute = {
-                    property: v.property,
-                    datatype: v.datatype,
-                    projects: v.projects,
-                    format: v.format,
-                    enum: v.enum,
-                    hashAttribute: v.hashAttribute,
-                    archived: !v.archived,
-                    tags: v.tags,
-                  };
-                  await apiCall<{
-                    res: number;
-                  }>("/attribute", {
-                    method: "PUT",
-                    body: JSON.stringify(updatedAttribute),
-                  });
-                  refreshOrganization();
-                }}
-              >
-                {v.archived ? "Unarchive" : "Archive"}
-              </button>
-              <DeleteButton
-                displayName="Attribute"
-                deleteMessage={
-                  <>
-                    Are you sure you want to delete the{" "}
-                    {v.hashAttribute ? "identifier " : ""}
-                    {v.datatype} attribute:{" "}
-                    <code className="font-weight-bold">{v.property}</code>?
-                    <br />
-                    This action cannot be undone.
-                  </>
-                }
-                className="dropdown-item text-danger"
-                onClick={async () => {
-                  await apiCall<{
-                    status: number;
-                  }>("/attribute/", {
-                    method: "DELETE",
-                    body: JSON.stringify({ id: v.property }),
-                  });
-                  refreshOrganization();
-                }}
-                text="Delete"
-                useIcon={false}
-              />
-            </MoreMenu>
+                <DeleteButton
+                  displayName="Attribute"
+                  deleteMessage={
+                    <>
+                      Are you sure you want to delete the{" "}
+                      {v.hashAttribute ? "identifier " : ""}
+                      {v.datatype} attribute:{" "}
+                      <code className="font-weight-bold">{v.property}</code>?
+                      <br />
+                      This action cannot be undone.
+                    </>
+                  }
+                  className="dropdown-item text-danger"
+                  onClick={async () => {
+                    await apiCall<{
+                      status: number;
+                    }>("/attribute/", {
+                      method: "DELETE",
+                      body: JSON.stringify({ id: v.property }),
+                    });
+                    refreshOrganization();
+                  }}
+                  text="Delete"
+                  useIcon={false}
+                />
+              </MoreMenu>
+            </div>
           ) : null}
         </td>
       </tr>
@@ -494,19 +509,41 @@ const FeatureAttributesPage = (): React.ReactElement => {
               </Flex>
             </Box>
           )}
-          <table className="table gbtable appbox table-hover">
+          <table
+            className="table gbtable appbox table-hover"
+            style={{ tableLayout: "fixed", minWidth: 900 }}
+          >
             <thead
               className="sticky-top shadow-sm"
               style={{ top: HEADER_HEIGHT_PX + "px", zIndex: 900 }}
             >
               <tr>
-                <SortableTH field="property">Attribute</SortableTH>
-                <SortableTH field="description">Description</SortableTH>
-                <SortableTH field="datatype">Data Type</SortableTH>
-                <th>Projects</th>
-                <th>Tags</th>
-                <th>References</th>
-                <th>
+                <SortableTH
+                  field="property"
+                  style={{ width: "17%", minWidth: 90 }}
+                >
+                  Attribute
+                </SortableTH>
+                <SortableTH field="description" style={{ minWidth: 120 }}>
+                  Description
+                </SortableTH>
+                <SortableTH
+                  field="datatype"
+                  style={{ width: "15%", minWidth: 90 }}
+                >
+                  Data Type
+                </SortableTH>
+                <th
+                  style={{ width: "15%", minWidth: 80, paddingRight: "1rem" }}
+                >
+                  Projects
+                </th>
+                <th style={{ width: "15%", minWidth: 100 }}>Tags</th>
+                <th style={{ width: "10%", minWidth: 85 }}>References</th>
+                <th
+                  style={{ width: "10%", minWidth: 70 }}
+                  className="text-center"
+                >
                   Identifier{" "}
                   <Tooltip body="Any attribute that uniquely identifies a user, account, device, or similar.">
                     <FaQuestionCircle
@@ -514,7 +551,10 @@ const FeatureAttributesPage = (): React.ReactElement => {
                     />
                   </Tooltip>
                 </th>
-                <th style={{ width: 30 }}></th>
+                <th
+                  style={{ width: 44, minWidth: 44 }}
+                  className="text-center"
+                ></th>
               </tr>
             </thead>
             <tbody>
