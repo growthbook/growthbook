@@ -150,10 +150,10 @@ export function getNewExperimentDatasourceDefaults({
     validDatasources[0];
 
   const initialUserIdType = initialHashAttribute
-    ? initialDatasource.settings?.userIdTypes?.find((t) =>
+    ? (initialDatasource.settings?.userIdTypes?.find((t) =>
         t.attributes?.includes(initialHashAttribute),
-      )?.userIdType
-    : undefined;
+      )?.userIdType ?? "anonymous_id")
+    : "anonymous_id";
 
   return {
     datasource: initialDatasource.id,

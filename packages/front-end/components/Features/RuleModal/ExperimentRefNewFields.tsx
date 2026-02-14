@@ -5,15 +5,18 @@ import {
   FeatureRule,
   SavedGroupTargeting,
 } from "shared/types/feature";
-import React from "react";
+import React, { useMemo } from "react";
 import Collapsible from "react-collapsible";
-import { Flex, Tooltip, Text } from "@radix-ui/themes";
+import { Flex, Tooltip } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
 import { PiCaretRightFill } from "react-icons/pi";
 import Field from "@/components/Forms/Field";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import SelectField from "@/components/Forms/SelectField";
+import SelectField, {
+  GroupedValue,
+  SingleValue,
+} from "@/components/Forms/SelectField";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
 import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
@@ -49,6 +52,8 @@ import {
   useCustomFields,
 } from "@/hooks/useCustomFields";
 import HelperText from "@/ui/HelperText";
+import { getExposureQuery } from "@/services/datasources";
+import Text from "@/ui/Text";
 
 export default function ExperimentRefNewFields({
   step,
@@ -155,7 +160,60 @@ export default function ExperimentRefNewFields({
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
 
-  // Find EAQs that are linked to the hash attribute
+  const hashAttribute = form.watch("hashAttribute");
+
+  const hashAttributeToIdentifierTypeMap = useMemo(() => {
+    const attributeToIdentifierType = new Map<string, string>();
+    for (const userIdType of datasource?.settings?.userIdTypes ?? []) {
+      for (const attribute of userIdType.attributes ?? []) {
+        attributeToIdentifierType.set(attribute, userIdType.userIdType);
+      }
+    }
+    return attributeToIdentifierType;
+  }, [datasource?.settings?.userIdTypes]);
+
+  const groupedExposureQueries: (GroupedValue | SingleValue)[] = useMemo(() => {
+    const matchHashAttribute = exposureQueries?.filter((q) => {
+      return (
+        q.userIdType === hashAttributeToIdentifierTypeMap.get(hashAttribute)
+      );
+    });
+    const remainingExposureQueries = exposureQueries?.filter(
+      (q) => !matchHashAttribute?.includes(q),
+    );
+    if (matchHashAttribute?.length) {
+      const group1 = {
+        label: "Matches Hash Attribute",
+        options: matchHashAttribute.map((q) => {
+          return {
+            label: q.name,
+            value: q.id,
+          };
+        }),
+      };
+      if (!remainingExposureQueries || remainingExposureQueries.length === 0) {
+        return [group1];
+      }
+      const group2 = {
+        label: "Does Not Match Hash Attribute",
+        options: remainingExposureQueries.map((q) => {
+          return {
+            label: q.name,
+            value: q.id,
+          };
+        }),
+      };
+      return [group1, group2];
+    }
+    return (
+      remainingExposureQueries?.map((q) => {
+        return {
+          label: q.name,
+          value: q.id,
+        };
+      }) ?? []
+    );
+  }, [exposureQueries, hashAttributeToIdentifierTypeMap, hashAttribute]);
 
   const { data: sdkConnectionsData } = useSDKConnections();
   const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
@@ -224,7 +282,7 @@ export default function ExperimentRefNewFields({
                   return (
                     <Flex as="div" align="baseline">
                       <Text>{value.label}</Text>
-                      <Text size="1" className="text-muted" ml="auto">
+                      <Text size="small" color="text-mid" ml="auto">
                         Created {date(t.dateCreated)}
                       </Text>
                     </Flex>
@@ -292,9 +350,23 @@ export default function ExperimentRefNewFields({
               options={attributeSchema
                 .filter((s) => !hasHashAttributes || s.hashAttribute)
                 .map((s) => ({ label: s.property, value: s.property }))}
-              value={form.watch("hashAttribute")}
+              value={hashAttribute}
               onChange={(v) => {
                 form.setValue("hashAttribute", v);
+                // Try and find a matching exposure query for the new hash attribute
+                const userIdType = datasource?.settings?.userIdTypes?.find(
+                  (t) => t.attributes?.includes(v),
+                )?.userIdType;
+                if (userIdType) {
+                  const exposureQueryId = getExposureQuery(
+                    datasource?.settings,
+                    "",
+                    userIdType,
+                  )?.id;
+                  if (exposureQueryId) {
+                    form.setValue("exposureQueryId", exposureQueryId);
+                  }
+                }
               }}
               helpText={
                 "Will be hashed together with the Tracking Key to determine which variation to assign"
@@ -467,12 +539,7 @@ export default function ExperimentRefNewFields({
                 value={form.watch("exposureQueryId") ?? ""}
                 onChange={(v) => form.setValue("exposureQueryId", v)}
                 required
-                options={exposureQueries?.map((q) => {
-                  return {
-                    label: q.name,
-                    value: q.id,
-                  };
-                })}
+                options={groupedExposureQueries}
                 formatOptionLabel={({ label, value }) => {
                   const userIdType = exposureQueries?.find(
                     (e) => e.id === value,

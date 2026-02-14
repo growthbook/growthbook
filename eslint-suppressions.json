@@ -389,11 +389,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/RuleModal/ExperimentRefNewFields.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Features/RuleModal/SafeRolloutFields.tsx": {
     "no-restricted-imports": {
       "count": 1
