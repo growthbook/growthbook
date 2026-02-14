@@ -121,6 +121,8 @@ const AnalysisForm: FC<{
   }
 
   const phaseObj = experiment.phases[phase];
+  console.log("phaseObj", phaseObj);
+  console.log("editDates", editDates);
 
   const form = useForm({
     defaultValues: {
