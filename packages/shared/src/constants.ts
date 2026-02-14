@@ -203,7 +203,7 @@ export const entityEvents = {
   archetype: ["created", "deleted", "updated"],
   team: ["create", "delete", "update"],
   vercelNativeIntegration: ["create", "update", "delete"],
-  factTable: ["autocreate"],
+  factTable: ["autocreate", "create", "update", "delete"],
   customField: ["create", "update", "delete"],
   experimentTemplate: ["create", "update", "delete"],
   safeRollout: ["create", "update", "delete"],
