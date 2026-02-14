@@ -182,7 +182,7 @@ export default function ExperimentRefNewFields({
       (q) => !matchHashAttribute?.includes(q),
     );
     if (matchHashAttribute?.length) {
-      const group1 = {
+      const matches = {
         label: "Matches Hash Attribute",
         options: matchHashAttribute.map((q) => {
           return {
@@ -192,9 +192,9 @@ export default function ExperimentRefNewFields({
         }),
       };
       if (!remainingExposureQueries || remainingExposureQueries.length === 0) {
-        return [group1];
+        return [matches];
       }
-      const group2 = {
+      const doesNotMatch = {
         label: "Does Not Match Hash Attribute",
         options: remainingExposureQueries.map((q) => {
           return {
@@ -203,7 +203,7 @@ export default function ExperimentRefNewFields({
           };
         }),
       };
-      return [group1, group2];
+      return [matches, doesNotMatch];
     }
     return (
       remainingExposureQueries?.map((q) => {
