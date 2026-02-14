@@ -1619,13 +1619,15 @@ paths:
                   type: boolean
                 includeRuleIds:
                   type: boolean
-                includeProjectId:
+                includeProjectIdInMetadata:
                   type: boolean
-                includeCustomFields:
+                includeCustomFieldsInMetadata:
+                  type: boolean
+                allowedCustomFieldsInMetadata:
                   type: array
                   items:
                     type: string
-                includeTagsInPayload:
+                includeTagsInMetadata:
                   type: boolean
                 proxyEnabled:
                   type: boolean
@@ -1716,13 +1718,15 @@ paths:
                   type: boolean
                 includeRuleIds:
                   type: boolean
-                includeProjectId:
+                includeProjectIdInMetadata:
                   type: boolean
-                includeCustomFields:
+                includeCustomFieldsInMetadata:
+                  type: boolean
+                allowedCustomFieldsInMetadata:
                   type: array
                   items:
                     type: string
-                includeTagsInPayload:
+                includeTagsInMetadata:
                   type: boolean
                 proxyEnabled:
                   type: boolean
@@ -13373,13 +13377,15 @@ components:
           type: boolean
         includeRuleIds:
           type: boolean
-        includeProjectId:
+        includeProjectIdInMetadata:
           type: boolean
-        includeCustomFields:
+        includeCustomFieldsInMetadata:
+          type: boolean
+        allowedCustomFieldsInMetadata:
           type: array
           items:
             type: string
-        includeTagsInPayload:
+        includeTagsInMetadata:
           type: boolean
         key:
           type: string

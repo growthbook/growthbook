@@ -168,9 +168,10 @@ export type SDKPayloadParams = Pick<
   | "hashSecureAttributes"
   | "savedGroupReferencesEnabled"
   | "remoteEvalEnabled"
-  | "includeProjectId"
-  | "includeCustomFields"
-  | "includeTagsInPayload"
+  | "includeProjectIdInMetadata"
+  | "includeCustomFieldsInMetadata"
+  | "allowedCustomFieldsInMetadata"
+  | "includeTagsInMetadata"
 > &
   Partial<Pick<SDKConnectionInterface, "organization">> & {
     // Extend languages to allow "legacy" for old API keys
@@ -209,9 +210,10 @@ export async function getPayloadParamsFromApiKey(
       includeExperimentNames: connection.includeExperimentNames,
       includeRedirectExperiments: connection.includeRedirectExperiments,
       includeRuleIds: connection.includeRuleIds,
-      includeProjectId: connection.includeProjectId,
-      includeCustomFields: connection.includeCustomFields,
-      includeTagsInPayload: connection.includeTagsInPayload,
+      includeProjectIdInMetadata: connection.includeProjectIdInMetadata,
+      includeCustomFieldsInMetadata: connection.includeCustomFieldsInMetadata,
+      allowedCustomFieldsInMetadata: connection.allowedCustomFieldsInMetadata,
+      includeTagsInMetadata: connection.includeTagsInMetadata,
       hashSecureAttributes: connection.hashSecureAttributes,
       remoteEvalEnabled: connection.remoteEvalEnabled,
       savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
@@ -264,9 +266,10 @@ export async function getPayloadParamsFromApiKey(
       languages: ["legacy"], // "legacy" marker for computing basic capabilities (bucketingV2)
       sdkVersion: "0.0.0",
       // Legacy API keys don't include metadata
-      includeProjectId: false,
-      includeCustomFields: [],
-      includeTagsInPayload: false,
+      includeProjectIdInMetadata: false,
+      includeCustomFieldsInMetadata: false,
+      allowedCustomFieldsInMetadata: [],
+      includeTagsInMetadata: false,
     };
   }
 }
@@ -327,9 +330,10 @@ export async function getFeatureDefinitionsWithCache({
       includeExperimentNames: params.includeExperimentNames,
       includeRedirectExperiments: params.includeRedirectExperiments,
       includeRuleIds: params.includeRuleIds,
-      includeProjectId: params.includeProjectId,
-      includeCustomFields: params.includeCustomFields,
-      includeTagsInPayload: params.includeTagsInPayload,
+      includeProjectIdInMetadata: params.includeProjectIdInMetadata,
+      includeCustomFieldsInMetadata: params.includeCustomFieldsInMetadata,
+      allowedCustomFieldsInMetadata: params.allowedCustomFieldsInMetadata,
+      includeTagsInMetadata: params.includeTagsInMetadata,
       hashSecureAttributes: params.hashSecureAttributes,
       savedGroupReferencesEnabled:
         params.savedGroupReferencesEnabled !== undefined

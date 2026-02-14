@@ -205,9 +205,10 @@ export default function SetupFlow() {
               includeVisualExperiments: canUseVisualEditor,
               includeRedirectExperiments: canUseUrlRedirects,
               includeRuleIds: true,
-              includeProjectId: false,
-              includeCustomFields: [],
-              includeTagsInPayload: false,
+              includeProjectIdInMetadata: false,
+              includeCustomFieldsInMetadata: false,
+              allowedCustomFieldsInMetadata: [],
+              includeTagsInMetadata: false,
             };
 
             const res = await apiCall<{ connection: SDKConnectionInterface }>(

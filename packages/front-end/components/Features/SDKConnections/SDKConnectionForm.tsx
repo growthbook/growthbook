@@ -126,10 +126,6 @@ export default function SDKConnectionForm({
 
   const [languageError, setLanguageError] = useState<string | null>(null);
 
-  const [showCustomFields, setShowCustomFields] = useState(
-    (initialValue.includeCustomFields || []).length > 0,
-  );
-
   const form = useForm({
     defaultValues: {
       name: initialValue.name ?? "",
@@ -162,9 +158,28 @@ export default function SDKConnectionForm({
       remoteEvalEnabled: initialValue.remoteEvalEnabled ?? false,
       savedGroupReferencesEnabled:
         initialValue.savedGroupReferencesEnabled ?? false,
-      includeProjectId: initialValue.includeProjectId ?? false,
-      includeCustomFields: initialValue.includeCustomFields ?? [],
-      includeTagsInPayload: initialValue.includeTagsInPayload ?? false,
+      includeProjectIdInMetadata:
+        initialValue.includeProjectIdInMetadata ??
+        (initialValue as { includeProjectId?: boolean }).includeProjectId ??
+        false,
+      includeCustomFieldsInMetadata:
+        initialValue.includeCustomFieldsInMetadata ??
+        (
+          initialValue.allowedCustomFieldsInMetadata ??
+          (initialValue as { includeCustomFields?: string[] })
+            .includeCustomFields ??
+          []
+        ).length > 0,
+      allowedCustomFieldsInMetadata:
+        initialValue.allowedCustomFieldsInMetadata ??
+        (initialValue as { includeCustomFields?: string[] })
+          .includeCustomFields ??
+        [],
+      includeTagsInMetadata:
+        initialValue.includeTagsInMetadata ??
+        (initialValue as { includeTagsInPayload?: boolean })
+          .includeTagsInPayload ??
+        false,
     },
   });
 
@@ -1140,8 +1155,10 @@ export default function SDKConnectionForm({
           <Box>
             <Checkbox
               weight="regular"
-              value={form.watch("includeProjectId")}
-              setValue={(val) => form.setValue("includeProjectId", val)}
+              value={form.watch("includeProjectIdInMetadata")}
+              setValue={(val) =>
+                form.setValue("includeProjectIdInMetadata", val)
+              }
               label={
                 <>
                   Include Project IDs{" "}
@@ -1166,11 +1183,11 @@ export default function SDKConnectionForm({
           <Box>
             <Checkbox
               weight="regular"
-              value={showCustomFields}
+              value={form.watch("includeCustomFieldsInMetadata")}
               setValue={(val) => {
-                setShowCustomFields(val);
+                form.setValue("includeCustomFieldsInMetadata", val);
                 if (!val) {
-                  form.setValue("includeCustomFields", []);
+                  form.setValue("allowedCustomFieldsInMetadata", []);
                 }
               }}
               label={
@@ -1192,14 +1209,14 @@ export default function SDKConnectionForm({
                 </>
               }
             />
-            {showCustomFields && (
+            {form.watch("includeCustomFieldsInMetadata") && (
               <Box mt="2">
                 <MultiSelectField
                   placeholder="None selected"
                   containerClassName="w-100 mb-0"
-                  value={form.watch("includeCustomFields") || []}
+                  value={form.watch("allowedCustomFieldsInMetadata") || []}
                   onChange={(fields) =>
-                    form.setValue("includeCustomFields", fields)
+                    form.setValue("allowedCustomFieldsInMetadata", fields)
                   }
                   options={(customFields || []).map((cf) => ({
                     label: cf.name,
@@ -1214,8 +1231,8 @@ export default function SDKConnectionForm({
           <Box>
             <Checkbox
               weight="regular"
-              value={form.watch("includeTagsInPayload")}
-              setValue={(val) => form.setValue("includeTagsInPayload", val)}
+              value={form.watch("includeTagsInMetadata")}
+              setValue={(val) => form.setValue("includeTagsInMetadata", val)}
               label={
                 <>
                   Include tags{" "}

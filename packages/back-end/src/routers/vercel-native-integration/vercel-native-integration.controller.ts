@@ -513,9 +513,10 @@ export async function provisionResource(req: Request, res: Response) {
     hashSecureAttributes: false,
     projects: [project.id],
     encryptPayload: false,
-    includeProjectId: false,
-    includeCustomFields: [],
-    includeTagsInPayload: false,
+    includeProjectIdInMetadata: false,
+    includeCustomFieldsInMetadata: false,
+    allowedCustomFieldsInMetadata: [],
+    includeTagsInMetadata: false,
     managedBy,
   });
 

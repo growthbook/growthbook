@@ -118,9 +118,10 @@ export function generateFeaturesPayload({
   prereqStateCache = {},
   safeRolloutMap,
   holdoutsMap,
-  includeProjectId,
-  includeCustomFields,
-  includeTagsInPayload,
+  includeProjectIdInMetadata,
+  includeCustomFieldsInMetadata,
+  allowedCustomFieldsInMetadata,
+  includeTagsInMetadata,
   projectsMap,
 }: {
   features: FeatureInterface[];
@@ -133,9 +134,10 @@ export function generateFeaturesPayload({
     string,
     { holdout: HoldoutInterface; experiment: ExperimentInterface }
   >;
-  includeProjectId?: boolean;
-  includeCustomFields?: string[];
-  includeTagsInPayload?: boolean;
+  includeProjectIdInMetadata?: boolean;
+  includeCustomFieldsInMetadata?: boolean;
+  allowedCustomFieldsInMetadata?: string[];
+  includeTagsInMetadata?: boolean;
   projectsMap?: Map<string, ProjectInterface>;
 }): Record<string, FeatureDefinition> {
   prereqStateCache[environment] = prereqStateCache[environment] || {};
@@ -161,7 +163,7 @@ export function generateFeaturesPayload({
       const metadata: Record<string, unknown> = {};
 
       // Project ID
-      if (includeProjectId && feature.project && projectsMap) {
+      if (includeProjectIdInMetadata && feature.project && projectsMap) {
         const project = projectsMap.get(feature.project);
         if (project) {
           metadata.projects = [project.publicId || project.id];
@@ -169,9 +171,13 @@ export function generateFeaturesPayload({
       }
 
       // Custom fields (filtered by whitelist)
-      if (includeCustomFields?.length && feature.customFields) {
+      if (
+        includeCustomFieldsInMetadata &&
+        allowedCustomFieldsInMetadata?.length &&
+        feature.customFields
+      ) {
         const filtered: Record<string, unknown> = {};
-        for (const fieldId of includeCustomFields) {
+        for (const fieldId of allowedCustomFieldsInMetadata) {
           if (feature.customFields[fieldId] !== undefined) {
             filtered[fieldId] = feature.customFields[fieldId];
           }
@@ -182,7 +188,7 @@ export function generateFeaturesPayload({
       }
 
       // Tags (ALL tags if enabled - no filtering)
-      if (includeTagsInPayload && feature.tags?.length) {
+      if (includeTagsInMetadata && feature.tags?.length) {
         metadata.tags = feature.tags;
       }
 
@@ -257,9 +263,10 @@ export function generateAutoExperimentsPayload({
   features,
   environment,
   prereqStateCache = {},
-  includeProjectId,
-  includeCustomFields,
-  includeTagsInPayload,
+  includeProjectIdInMetadata,
+  includeCustomFieldsInMetadata,
+  allowedCustomFieldsInMetadata,
+  includeTagsInMetadata,
   projectsMap,
 }: {
   visualExperiments: VisualExperiment[];
@@ -268,9 +275,10 @@ export function generateAutoExperimentsPayload({
   features: FeatureInterface[];
   environment: string;
   prereqStateCache?: Record<string, Record<string, PrerequisiteStateResult>>;
-  includeProjectId?: boolean;
-  includeCustomFields?: string[];
-  includeTagsInPayload?: boolean;
+  includeProjectIdInMetadata?: boolean;
+  includeCustomFieldsInMetadata?: boolean;
+  allowedCustomFieldsInMetadata?: string[];
+  includeTagsInMetadata?: boolean;
   projectsMap?: Map<string, ProjectInterface>;
 }): AutoExperimentWithProject[] {
   prereqStateCache[environment] = prereqStateCache[environment] || {};
@@ -413,7 +421,7 @@ export function generateAutoExperimentsPayload({
       const metadata: Record<string, unknown> = {};
 
       // Project ID
-      if (includeProjectId && e.project && projectsMap) {
+      if (includeProjectIdInMetadata && e.project && projectsMap) {
         const project = projectsMap.get(e.project);
         if (project) {
           metadata.projects = [project.publicId || project.id];
@@ -421,9 +429,13 @@ export function generateAutoExperimentsPayload({
       }
 
       // Custom fields (filtered by whitelist)
-      if (includeCustomFields?.length && e.customFields) {
+      if (
+        includeCustomFieldsInMetadata &&
+        allowedCustomFieldsInMetadata?.length &&
+        e.customFields
+      ) {
         const filtered: Record<string, unknown> = {};
-        for (const fieldId of includeCustomFields) {
+        for (const fieldId of allowedCustomFieldsInMetadata) {
           if (e.customFields[fieldId] !== undefined) {
             filtered[fieldId] = e.customFields[fieldId];
           }
@@ -434,7 +446,7 @@ export function generateAutoExperimentsPayload({
       }
 
       // Tags (ALL tags if enabled - no filtering)
-      if (includeTagsInPayload && e.tags?.length) {
+      if (includeTagsInMetadata && e.tags?.length) {
         metadata.tags = e.tags;
       }
 
@@ -1081,9 +1093,10 @@ export type FeatureDefinitionArgs = {
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
   includeRuleIds?: boolean;
-  includeProjectId?: boolean;
-  includeCustomFields?: string[];
-  includeTagsInPayload?: boolean;
+  includeProjectIdInMetadata?: boolean;
+  includeCustomFieldsInMetadata?: boolean;
+  allowedCustomFieldsInMetadata?: string[];
+  includeTagsInMetadata?: boolean;
   hashSecureAttributes?: boolean;
   savedGroupReferencesEnabled?: boolean;
 };
@@ -1109,9 +1122,10 @@ export async function getFeatureDefinitions({
   includeExperimentNames,
   includeRedirectExperiments,
   includeRuleIds,
-  includeProjectId,
-  includeCustomFields,
-  includeTagsInPayload,
+  includeProjectIdInMetadata,
+  includeCustomFieldsInMetadata,
+  allowedCustomFieldsInMetadata,
+  includeTagsInMetadata,
   hashSecureAttributes,
   savedGroupReferencesEnabled,
 }: FeatureDefinitionArgs): Promise<FeatureDefinitionSDKPayload> {
@@ -1151,7 +1165,7 @@ export async function getFeatureDefinitions({
 
   // Load projects if metadata is requested
   let projectsMap: Map<string, ProjectInterface> | undefined;
-  if (includeProjectId) {
+  if (includeProjectIdInMetadata) {
     const allProjects = await context.models.projects.getAll();
     projectsMap = new Map(allProjects.map((p) => [p.id, p]));
   }
@@ -1169,9 +1183,10 @@ export async function getFeatureDefinitions({
     prereqStateCache,
     safeRolloutMap,
     holdoutsMap,
-    includeProjectId,
-    includeCustomFields,
-    includeTagsInPayload,
+    includeProjectIdInMetadata,
+    includeCustomFieldsInMetadata,
+    allowedCustomFieldsInMetadata,
+    includeTagsInMetadata,
     projectsMap,
   });
 
@@ -1196,9 +1211,10 @@ export async function getFeatureDefinitions({
     features,
     environment,
     prereqStateCache,
-    includeProjectId,
-    includeCustomFields,
-    includeTagsInPayload,
+    includeProjectIdInMetadata,
+    includeCustomFieldsInMetadata,
+    allowedCustomFieldsInMetadata,
+    includeTagsInMetadata,
     projectsMap,
   });
 

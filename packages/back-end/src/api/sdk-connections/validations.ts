@@ -57,9 +57,10 @@ interface CreateSdkConnectionRequestBody
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
   includeRuleIds?: boolean;
-  includeProjectId?: boolean;
-  includeCustomFields?: string[];
-  includeTagsInPayload?: boolean;
+  includeProjectIdInMetadata?: boolean;
+  includeCustomFieldsInMetadata?: boolean;
+  allowedCustomFieldsInMetadata?: string[];
+  includeTagsInMetadata?: boolean;
   proxyHost?: string;
   hashSecureAttributes?: boolean;
 }
@@ -164,9 +165,10 @@ export async function validatePostPayload(
     includeExperimentNames = false,
     includeRedirectExperiments = false,
     includeRuleIds = false,
-    includeProjectId = false,
-    includeCustomFields = [],
-    includeTagsInPayload = false,
+    includeProjectIdInMetadata = false,
+    includeCustomFieldsInMetadata = false,
+    allowedCustomFieldsInMetadata = [],
+    includeTagsInMetadata = false,
     proxyEnabled,
     proxyHost,
     hashSecureAttributes = false,
@@ -200,9 +202,10 @@ export async function validatePostPayload(
     includeExperimentNames,
     includeRedirectExperiments,
     includeRuleIds,
-    includeProjectId,
-    includeCustomFields,
-    includeTagsInPayload,
+    includeProjectIdInMetadata,
+    includeCustomFieldsInMetadata,
+    allowedCustomFieldsInMetadata,
+    includeTagsInMetadata,
     proxyEnabled,
     proxyHost,
     hashSecureAttributes,
@@ -229,9 +232,10 @@ export async function validatePutPayload(
     includeExperimentNames,
     includeRedirectExperiments,
     includeRuleIds,
-    includeProjectId,
-    includeCustomFields,
-    includeTagsInPayload,
+    includeProjectIdInMetadata,
+    includeCustomFieldsInMetadata,
+    allowedCustomFieldsInMetadata,
+    includeTagsInMetadata,
     proxyEnabled,
     proxyHost,
     hashSecureAttributes,
@@ -266,9 +270,10 @@ export async function validatePutPayload(
     includeExperimentNames,
     includeRedirectExperiments,
     includeRuleIds,
-    includeProjectId,
-    includeCustomFields,
-    includeTagsInPayload,
+    includeProjectIdInMetadata,
+    includeCustomFieldsInMetadata,
+    allowedCustomFieldsInMetadata,
+    includeTagsInMetadata,
     proxyEnabled,
     proxyHost,
     hashSecureAttributes,
