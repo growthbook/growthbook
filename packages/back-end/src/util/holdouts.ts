@@ -26,7 +26,9 @@ export function getAffectedSDKPayloadKeys(
 
   const environments = getEnabledEnvironments(holdout, allowedEnvs);
 
-  const projects = new Set(holdout.projects);
+  const projects = new Set(
+    holdout.projects.length > 0 ? holdout.projects : [""],
+  );
   keys.push(...getSDKPayloadKeys(environments, projects));
 
   // Unique the list

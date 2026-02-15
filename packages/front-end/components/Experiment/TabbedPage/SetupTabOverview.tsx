@@ -7,8 +7,8 @@ import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import Collapsible from "react-collapsible";
 import { FaAngleRight } from "react-icons/fa";
-import { Box, Flex, ScrollArea, Heading } from "@radix-ui/themes";
-import { HoldoutInterface } from "shared/validators";
+import { Box, Flex, ScrollArea } from "@radix-ui/themes";
+import { HoldoutInterfaceStringDates } from "shared/validators";
 import { upperFirst } from "lodash";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { PreLaunchChecklist } from "@/components/Experiment/PreLaunchChecklist";
@@ -28,10 +28,14 @@ import { useUser } from "@/services/UserContext";
 import EditDescriptionModal from "@/components/Experiment/EditDescriptionModal";
 import HoldoutTimeline from "@/components/Experiment/holdout/HoldoutTimeline";
 import EditHypothesisModal from "@/components/Experiment/EditHypothesisModal";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import { useAuth } from "@/services/auth";
+import { HoldoutSchedule } from "@/components/Holdout/HoldoutSchedule";
+import Heading from "@/ui/Heading";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
-  holdout?: HoldoutInterface;
+  holdout?: HoldoutInterfaceStringDates;
   holdoutExperiments?: ExperimentInterfaceStringDates[];
   visualChangesets: VisualChangesetInterface[];
   mutate: () => void;
@@ -42,6 +46,7 @@ export interface Props {
   checklistItemsRemaining: number | null;
   setChecklistItemsRemaining: (value: number | null) => void;
   envs: string[];
+  editHoldoutSchedule?: (() => void) | null;
 }
 
 export default function SetupTabOverview({
@@ -57,6 +62,7 @@ export default function SetupTabOverview({
   checklistItemsRemaining,
   setChecklistItemsRemaining,
   envs,
+  editHoldoutSchedule,
 }: Props) {
   const { aiEnabled, aiAgreedTo } = useAISettings();
   const [showOptInModal, setShowOptInModal] = useState(false);
@@ -71,7 +77,7 @@ export default function SetupTabOverview({
   const customFields = useCustomFields();
 
   const permissionsUtil = usePermissionsUtil();
-
+  const { apiCall } = useAuth();
   const canEditExperiment =
     !experiment.archived &&
     permissionsUtil.canViewExperimentModal(experiment.project) &&
@@ -88,6 +94,20 @@ export default function SetupTabOverview({
     new Date(experiment.phases[0].dateStarted) &&
     holdoutExperiments.length > 0 &&
     holdoutExperiments.some((e) => e.status !== "draft");
+  const canEditHoldoutSchedule =
+    isHoldout && holdout && canEditExperiment && editHoldoutSchedule;
+  const holdoutHasSchedule =
+    isHoldout &&
+    holdout &&
+    Object.values(holdout.statusUpdateSchedule ?? {}).some(
+      (value) => value !== null,
+    );
+  const showAddHoldoutSchedule =
+    canEditHoldoutSchedule &&
+    !holdoutHasSchedule &&
+    experiment.status !== "stopped" &&
+    !experiment.archived;
+
   const { hasCommercialFeature } = useUser();
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
 
@@ -123,7 +143,14 @@ export default function SetupTabOverview({
         />
       ) : null}
       <div>
-        <h2>Overview</h2>
+        <Flex justify="between" align="baseline" mb="3">
+          <h2>Overview</h2>
+          {showAddHoldoutSchedule ? (
+            <Button variant="ghost" onClick={() => editHoldoutSchedule()}>
+              + Add Schedule
+            </Button>
+          ) : null}
+        </Flex>
         {experiment.status === "draft" && experiment.type !== "holdout" ? (
           <PreLaunchChecklist
             experiment={experiment}
@@ -136,6 +163,51 @@ export default function SetupTabOverview({
             checklistItemsRemaining={checklistItemsRemaining}
             setChecklistItemsRemaining={setChecklistItemsRemaining}
           />
+        ) : null}
+        {isHoldout && holdout && holdoutHasSchedule && editHoldoutSchedule ? (
+          <Frame id="holdout-schedule" style={{ scrollMarginTop: "100px" }}>
+            <Flex align="center" justify="between" className="text-dark">
+              <Heading color="text-high" mb="0" as="h4" size="small">
+                Holdout Schedule
+              </Heading>
+              <Flex align="center" gap="2">
+                {canEditHoldoutSchedule ? (
+                  <>
+                    <DeleteButton
+                      text="Delete"
+                      displayName="Schedule"
+                      deleteMessage="Deleting the schedule will remove the automatic transition of the Holdout from start, to analysis, to stopped. Manual intervention will be required for each transition if no schedule is set."
+                      onClick={async () => {
+                        await apiCall<HoldoutInterfaceStringDates>(
+                          `/holdout/${holdout.id}`,
+                          {
+                            method: "PUT",
+                            body: JSON.stringify({
+                              statusUpdateSchedule: null,
+                              nextScheduledStatusUpdate: null,
+                            }),
+                          },
+                        );
+                        mutate();
+                      }}
+                      useRadix={true}
+                    />
+                    <Button
+                      variant="ghost"
+                      stopPropagation={true}
+                      mr={experiment.description ? "3" : "0"}
+                      onClick={() => {
+                        editHoldoutSchedule();
+                      }}
+                    >
+                      Edit
+                    </Button>
+                  </>
+                ) : null}
+              </Flex>
+            </Flex>
+            <HoldoutSchedule holdout={holdout} experiment={experiment} />
+          </Frame>
         ) : null}
         <Frame>
           <Collapsible
@@ -152,7 +224,7 @@ export default function SetupTabOverview({
                 }}
               >
                 <Flex align="center" justify="between" className="text-dark">
-                  <Heading mb="0" as="h4" size="3">
+                  <Heading color="text-high" mb="0" as="h4" size="small">
                     Description
                   </Heading>
                   <Flex align="center" gap="2">
@@ -229,7 +301,7 @@ export default function SetupTabOverview({
         {!isBandit && !isHoldout && (
           <Frame>
             <Flex align="start" justify="between" mb="3">
-              <Heading as="h4" size="3">
+              <Heading color="text-high" as="h4" size="small">
                 Hypothesis
               </Heading>
               {canEditExperiment && (

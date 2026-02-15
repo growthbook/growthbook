@@ -5,7 +5,6 @@ import {
   createSDKConnection,
 } from "back-end/src/models/SdkConnectionModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { auditDetailsCreate } from "back-end/src/services/audit";
 import { validatePostPayload } from "./validations.js";
 
 export const postSdkConnection = createApiRequestHandler(
@@ -20,15 +19,6 @@ export const postSdkConnection = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
 
   const connection = await createSDKConnection(req.context, params);
-
-  await req.audit({
-    event: "sdk-connection.create",
-    entity: {
-      object: "sdk-connection",
-      id: connection.id,
-    },
-    details: auditDetailsCreate(connection),
-  });
 
   return {
     sdkConnection: toApiSDKConnectionInterface(connection),

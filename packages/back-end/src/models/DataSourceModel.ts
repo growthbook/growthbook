@@ -27,9 +27,19 @@ import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { logger } from "back-end/src/util/logger";
 import { deleteClickhouseUser } from "back-end/src/services/clickhouse";
-import { deleteFactTable, getFactTable } from "./FactTableModel.js";
+import { createModelAuditLogger } from "back-end/src/services/audit";
+import { deleteFactTable, getFactTable } from "./FactTableModel";
 
 const { cloneDeep, isEqual } = lodash;
+
+const audit = createModelAuditLogger({
+  entity: "datasource",
+  createEvent: "datasource.create",
+  updateEvent: "datasource.update",
+  deleteEvent: "datasource.delete",
+  omitDetails: true,
+});
+
 const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
   id: String,
   name: String,
@@ -210,6 +220,8 @@ export async function deleteDatasource(
     id: datasource.id,
     organization: context.org.id,
   });
+
+  await audit.logDelete(context, datasource);
 }
 
 /**
@@ -295,7 +307,9 @@ export async function createDataSource(
     await queueCreateInformationSchema(datasource.id, context.org.id);
   }
 
-  return toInterface(model);
+  const datasourceInterface = toInterface(model);
+  await audit.logCreate(context, datasourceInterface);
+  return datasourceInterface;
 }
 
 // Add any missing exposure query ids and validate any new, changed, or previously errored queries
@@ -380,6 +394,8 @@ export async function updateDataSource(
       $set: updates,
     },
   );
+
+  await audit.logUpdate(context, datasource, { ...datasource, ...updates });
 }
 
 function isLocked(datasource: DataSourceInterface): boolean {

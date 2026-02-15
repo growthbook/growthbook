@@ -16,10 +16,19 @@ import {
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
 import { generateEmbeddings } from "back-end/src/enterprise/services/ai";
+import { createModelAuditLogger } from "back-end/src/services/audit";
 import { queriesSchema } from "./QueryModel.js";
 import { ImpactEstimateModel } from "./ImpactEstimateModel.js";
 import { removeMetricFromExperiments } from "./ExperimentModel.js";
 import { addTagsDiff } from "./TagModel.js";
+
+const audit = createModelAuditLogger({
+  entity: "metric",
+  createEvent: "metric.create",
+  updateEvent: "metric.update",
+  deleteEvent: "metric.delete",
+  autocreateEvent: "metric.autocreate",
+});
 
 export const ALLOWED_METRIC_TYPES = [
   "binomial",
@@ -170,7 +179,9 @@ export async function insertMetric(
     context.permissions.throwPermissionError();
   }
 
-  return toInterface(await MetricModel.create(metric));
+  const created = toInterface(await MetricModel.create(metric));
+  await audit.logCreate(context, created);
+  return created;
 }
 
 export async function insertMetrics(
@@ -195,7 +206,11 @@ export async function insertMetrics(
       context.permissions.throwPermissionError();
     }
   }
-  return (await MetricModel.insertMany(metrics)).map(toInterface);
+  const created = (await MetricModel.insertMany(metrics)).map(toInterface);
+  for (const metric of created) {
+    await audit.logAutocreate(context, metric);
+  }
+  return created;
 }
 
 export async function deleteMetricById(
@@ -232,6 +247,8 @@ export async function deleteMetricById(
     id: metric.id,
     organization: context.org.id,
   });
+
+  await audit.logDelete(context, metric);
 }
 
 /**
@@ -574,6 +591,8 @@ export async function updateMetric(
   }
 
   await addTagsDiff(context.org.id, metric.tags || [], updates.tags || []);
+
+  await audit.logUpdate(context, metric, { ...metric, ...updates });
 }
 
 export async function removeSegmentFromAllMetrics(
