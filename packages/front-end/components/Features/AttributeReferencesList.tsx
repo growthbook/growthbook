@@ -11,22 +11,22 @@ import Badge from "@/ui/Badge";
 import ProjectBadges from "@/components/ProjectBadges";
 import Pagination from "@/ui/Pagination";
 
-const PER_PAGE = 50;
+const PER_PAGE = 20;
 
-interface SavedGroupReferencesListProps {
+interface AttributeReferencesListProps {
   features?: FeatureInterface[];
   experiments?: ExperimentInterfaceStringDates[];
-  savedGroups?: SavedGroupWithoutValues[];
+  conditionGroups?: SavedGroupWithoutValues[];
 }
 
-const SavedGroupReferencesList: FC<SavedGroupReferencesListProps> = ({
+const AttributeReferencesList: FC<AttributeReferencesListProps> = ({
   features = [],
   experiments = [],
-  savedGroups = [],
+  conditionGroups = [],
 }) => {
   const [featuresPage, setFeaturesPage] = useState(1);
   const [experimentsPage, setExperimentsPage] = useState(1);
-  const [savedGroupsPage, setSavedGroupsPage] = useState(1);
+  const [conditionGroupsPage, setConditionGroupsPage] = useState(1);
 
   const featuresStart = (featuresPage - 1) * PER_PAGE;
   const featuresPageItems = features.slice(
@@ -38,15 +38,15 @@ const SavedGroupReferencesList: FC<SavedGroupReferencesListProps> = ({
     experimentsStart,
     experimentsStart + PER_PAGE,
   );
-  const savedGroupsStart = (savedGroupsPage - 1) * PER_PAGE;
-  const savedGroupsPageItems = savedGroups.slice(
-    savedGroupsStart,
-    savedGroupsStart + PER_PAGE,
+  const conditionGroupsStart = (conditionGroupsPage - 1) * PER_PAGE;
+  const conditionGroupsPageItems = conditionGroups.slice(
+    conditionGroupsStart,
+    conditionGroupsStart + PER_PAGE,
   );
 
   return (
-    <Box className="saved-group-references-list">
-      <style>{`.saved-group-references-list .Collapsible { width: 100%; }`}</style>
+    <Box className="attr-references-list">
+      <style>{`.attr-references-list .Collapsible { width: 100%; }`}</style>
       {features.length > 0 && (
         <Flex
           gap="2"
@@ -74,7 +74,6 @@ const SavedGroupReferencesList: FC<SavedGroupReferencesListProps> = ({
                 margin: 0,
                 paddingLeft: "var(--space-4)",
                 marginTop: "var(--space-2)",
-                listStyle: "none",
               }}
             >
               {featuresPageItems.map((feature) => (
@@ -136,7 +135,6 @@ const SavedGroupReferencesList: FC<SavedGroupReferencesListProps> = ({
                 margin: 0,
                 paddingLeft: "var(--space-4)",
                 marginTop: "var(--space-2)",
-                listStyle: "none",
               }}
             >
               {experimentsPageItems.map((experiment) => (
@@ -178,7 +176,7 @@ const SavedGroupReferencesList: FC<SavedGroupReferencesListProps> = ({
           </Collapsible>
         </Flex>
       )}
-      {savedGroups.length > 0 && (
+      {conditionGroups.length > 0 && (
         <Flex
           gap="2"
           p="3"
@@ -192,9 +190,12 @@ const SavedGroupReferencesList: FC<SavedGroupReferencesListProps> = ({
               <Flex align="center" gap="1">
                 <PiCaretRightFill className="chevron" />
                 <Heading as="h3" size="small" mb="0">
-                  Saved Groups
+                  Condition Groups
                 </Heading>
-                <Badge radius="full" label={savedGroups.length.toString()} />
+                <Badge
+                  radius="full"
+                  label={conditionGroups.length.toString()}
+                />
               </Flex>
             }
             open={true}
@@ -205,16 +206,12 @@ const SavedGroupReferencesList: FC<SavedGroupReferencesListProps> = ({
                 margin: 0,
                 paddingLeft: "var(--space-4)",
                 marginTop: "var(--space-2)",
-                listStyle: "none",
               }}
             >
-              {savedGroupsPageItems.map((savedGroup) => (
+              {conditionGroupsPageItems.map((savedGroup) => (
                 <li key={savedGroup.id}>
                   <Flex justify="between" align="center" gap="2" my="1">
-                    <Link
-                      href={`/saved-groups/${savedGroup.id}`}
-                      target="_blank"
-                    >
+                    <Link href="/saved-groups#conditionGroups" target="_blank">
                       {savedGroup.groupName ?? savedGroup.id}
                     </Link>
                     <ProjectBadges
@@ -230,12 +227,12 @@ const SavedGroupReferencesList: FC<SavedGroupReferencesListProps> = ({
                 </li>
               ))}
             </ul>
-            {savedGroups.length > PER_PAGE && (
+            {conditionGroups.length > PER_PAGE && (
               <Pagination
-                numItemsTotal={savedGroups.length}
+                numItemsTotal={conditionGroups.length}
                 perPage={PER_PAGE}
-                currentPage={savedGroupsPage}
-                onPageChange={setSavedGroupsPage}
+                currentPage={conditionGroupsPage}
+                onPageChange={setConditionGroupsPage}
                 className="mt-2"
               />
             )}
@@ -246,4 +243,4 @@ const SavedGroupReferencesList: FC<SavedGroupReferencesListProps> = ({
   );
 };
 
-export default SavedGroupReferencesList;
+export default AttributeReferencesList;
