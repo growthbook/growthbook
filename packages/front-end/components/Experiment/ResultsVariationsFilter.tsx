@@ -1,11 +1,11 @@
 import { MdFilterAlt, MdOutlineFilterAltOff } from "react-icons/md";
 import React, { useEffect } from "react";
-import { BsXCircle } from "react-icons/bs";
 import { FaX } from "react-icons/fa6";
 import { useForm } from "react-hook-form";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
 import ButtonSelectField from "@/components/Forms/ButtonSelectField";
+import { Popover } from "@/ui/Popover";
+import Link from "@/ui/Link";
 
 export default function ResultsVariationsFilter({
   variationNames,
@@ -63,55 +63,40 @@ export default function ResultsVariationsFilter({
       className="col position-relative d-flex align-items-end px-0 font-weight-normal"
       style={{ maxWidth: 20 }}
     >
-      <Tooltip
-        body={
-          filteringApplied
-            ? "Variation filters applied"
-            : "No variation filters applied"
+      <Popover
+        open={showVariationsFilter}
+        onOpenChange={setShowVariationsFilter}
+        side="bottom"
+        align="start"
+        showCloseButton
+        contentStyle={{ width: 245 }}
+        trigger={
+          <Link
+            title={
+              filteringApplied
+                ? "Variation filters applied"
+                : "No variation filters applied"
+            }
+            className={`d-inline-block px-1 ${
+              filteringApplied ? "btn-link-filter-on" : "btn-link-filter-off"
+            }`}
+            style={{ transform: "scale(1.1)", marginRight: -4 }}
+          >
+            {filteringApplied ? (
+              <MdFilterAlt
+                className="position-relative"
+                style={{ bottom: 1 }}
+              />
+            ) : (
+              <MdOutlineFilterAltOff
+                className="position-relative"
+                style={{ bottom: 1 }}
+              />
+            )}
+          </Link>
         }
-        usePortal={true}
-      >
-        <a
-          role="button"
-          onClick={() => setShowVariationsFilter(!showVariationsFilter)}
-          className={`d-inline-block px-1 ${
-            filteringApplied ? "btn-link-filter-on" : "btn-link-filter-off"
-          }`}
-          style={{ transform: "scale(1.1)", marginRight: -4 }}
-        >
-          {filteringApplied ? (
-            <MdFilterAlt className="position-relative" style={{ bottom: 1 }} />
-          ) : (
-            <MdOutlineFilterAltOff
-              className="position-relative"
-              style={{ bottom: 1 }}
-            />
-          )}
-        </a>
-      </Tooltip>
-      <Tooltip
-        tipPosition="bottom"
-        usePortal={true}
-        style={{ position: "absolute" }}
-        popperStyle={{ marginLeft: 17, marginTop: -2 }}
-        state={showVariationsFilter}
-        body={
-          <div style={{ width: 245 }}>
-            <a
-              role="button"
-              style={{
-                top: 3,
-                right: 5,
-              }}
-              className="position-absolute text-gray cursor-pointer"
-              onClick={(e) => {
-                e.preventDefault();
-                setShowVariationsFilter(false);
-              }}
-            >
-              <BsXCircle size={16} />
-            </a>
-
+        content={
+          <>
             <div className="mt-1 mb-4">
               <label className="uppercase-title mb-1">Order variations</label>
               <ButtonSelectField
@@ -193,11 +178,9 @@ export default function ResultsVariationsFilter({
                 Close
               </button>
             </div>
-          </div>
+          </>
         }
-      >
-        <></>
-      </Tooltip>
+      />
     </div>
   );
 }
