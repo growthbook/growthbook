@@ -13,3 +13,4 @@ packages/back-end/src/templates/javascript.js
 # Auto-generated files
 packages/shared/src/validators/openapi.ts
 packages/shared/types/openapi.d.ts
+packages/shared/src/sdk-versioning/sdk-versions-data.generated.ts
