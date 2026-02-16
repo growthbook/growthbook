@@ -2,7 +2,7 @@ import path from "path";
 import { fileURLToPath } from "node:url";
 import fs from "fs";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const _dir = path.dirname(fileURLToPath(import.meta.url));
 import md5 from "md5";
 import { LicenseUserCodes } from "shared/enterprise";
 import { DefaultMemberRole, OrgMemberInfo } from "shared/types/organization";
@@ -47,7 +47,7 @@ export async function getLicenseMetaData() {
       }
     }
 
-    const rootPath = path.join(__dirname, "..", "..", "..", "..");
+    const rootPath = path.join(_dir, "..", "..", "..", "..");
 
     if (fs.existsSync(path.join(rootPath, "buildinfo", "SHA"))) {
       gitSha = fs

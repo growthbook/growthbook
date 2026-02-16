@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "node:url";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const _dir = path.dirname(fileURLToPath(import.meta.url));
 import { Request, Response } from "express";
 import {
   ExperimentInterface,
@@ -93,7 +93,7 @@ type CompressedExperimentOptions = {
 };
 
 const baseScript = fs
-  .readFileSync(path.join(__dirname, "..", "templates", "javascript.js"))
+  .readFileSync(path.join(_dir, "..", "templates", "javascript.js"))
   .toString("utf-8")
   .replace(/\/\*\s*eslint-.*\*\//, "")
   .replace(/\n\/\/.*/g, "");

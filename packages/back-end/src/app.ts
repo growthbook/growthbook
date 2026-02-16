@@ -2,7 +2,7 @@ import path from "path";
 import { fileURLToPath } from "node:url";
 import { existsSync, readFileSync } from "fs";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const _dir = path.dirname(fileURLToPath(import.meta.url));
 import bodyParser from "body-parser";
 import cookieParser from "cookie-parser";
 import express, { ErrorRequestHandler, Request, Response } from "express";
@@ -192,7 +192,7 @@ let robotsTxt = "";
 app.get("/robots.txt", (_req, res) => {
   if (!robotsTxt) {
     const file =
-      process.env.ROBOTS_TXT_PATH || path.join(__dirname, "..", "robots.txt");
+      process.env.ROBOTS_TXT_PATH || path.join(_dir, "..", "robots.txt");
     if (existsSync(file)) {
       robotsTxt = readFileSync(file).toString();
     } else {

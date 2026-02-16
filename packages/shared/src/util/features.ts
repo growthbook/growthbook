@@ -29,11 +29,11 @@ import {
   conditionHasSavedGroupErrors,
   expandNestedSavedGroups,
 } from "../sdk-versioning/index.js";
+import { recursiveWalk } from "./walk.js";
 import {
   getMatchingRules,
   includeExperimentInPayload,
   isDefined,
-  recursiveWalk,
 } from "./index.js";
 
 export const DRAFT_REVISION_STATUSES = [

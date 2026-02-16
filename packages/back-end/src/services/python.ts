@@ -3,7 +3,7 @@ import os from "os";
 import path from "path";
 import { fileURLToPath } from "node:url";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const _dir = path.dirname(fileURLToPath(import.meta.url));
 import { randomUUID } from "crypto";
 import awsSdk, { CloudWatch as CloudWatchType } from "aws-sdk";
 import generic_pool from "generic-pool";
@@ -259,7 +259,7 @@ export const statsServerPool = createPool(
       return new PythonStatsServer<
         ExperimentDataForStatsEngine[],
         MultipleExperimentMetricAnalysis[]
-      >(path.join(__dirname, "..", "..", "scripts", "stats_server.py"));
+      >(path.join(_dir, "..", "..", "scripts", "stats_server.py"));
     },
     destroy: async (server) => server.destroy(),
     validate: async (server) => server.isRunning(),

@@ -56,11 +56,15 @@ jest.mock("back-end/src/controllers/features", () => {
   };
 });
 
-// Mock the shared util module
-jest.mock("shared/util", () => ({
-  ...jest.requireActual("shared/util"),
-  filterProjectsByEnvironmentWithNull: jest.fn(),
-}));
+// Mock shared/util - use Proxy to avoid requireActual spread triggering circular dep
+jest.mock("shared/util", () => {
+  const actual =
+    jest.requireActual<typeof import("shared/util")>("shared/util");
+  return {
+    ...actual,
+    filterProjectsByEnvironmentWithNull: jest.fn(),
+  };
+});
 
 jest.mock("back-end/src/services/features", () => ({
   getFeatureDefinitions: jest.fn(),
@@ -176,7 +180,7 @@ describe("getFeaturesPublic test holdout", () => {
     (util.filterProjectsByEnvironmentWithNull as jest.Mock).mockReturnValue([
       "project-1",
       "project-2",
-    ]);
+    ] as string[]);
 
     // Mock getFeatureDefinitions to return test data with holdouts
     (getFeatureDefinitions as jest.Mock).mockResolvedValue({

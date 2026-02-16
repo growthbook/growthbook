@@ -31,11 +31,15 @@ import {
   updateSDKPayload,
 } from "back-end/src/models/SdkPayloadModel";
 
-// Mock shared/util functions
-jest.mock("shared/util", () => ({
-  ...jest.requireActual("shared/util"),
-  getSavedGroupsValuesFromInterfaces: jest.fn().mockReturnValue({}),
-}));
+// Mock shared/util - use same pattern as features-public to avoid circular dep
+jest.mock("shared/util", () => {
+  const actual =
+    jest.requireActual<typeof import("shared/util")>("shared/util");
+  return {
+    ...actual,
+    getSavedGroupsValuesFromInterfaces: jest.fn().mockReturnValue({}),
+  };
+});
 
 // Mock config to prevent MongoDB log messages
 jest.mock("back-end/src/init/config", () => ({

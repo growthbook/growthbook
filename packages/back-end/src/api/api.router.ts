@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "fs";
 import path from "path";
 import { fileURLToPath } from "node:url";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const _dir = path.dirname(fileURLToPath(import.meta.url));
 import { Router, Request } from "express";
 import rateLimit from "express-rate-limit";
 import bodyParser from "body-parser";
@@ -45,7 +45,7 @@ const router = Router();
 let openapiSpec: string;
 router.get("/openapi.yaml", (req, res) => {
   if (!openapiSpec) {
-    const file = path.join(__dirname, "..", "..", "generated", "spec.yaml");
+    const file = path.join(_dir, "..", "..", "generated", "spec.yaml");
     if (existsSync(file)) {
       openapiSpec = readFileSync(file).toString();
     }

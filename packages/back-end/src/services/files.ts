@@ -2,7 +2,7 @@ import path from "path";
 import { fileURLToPath } from "node:url";
 import fs from "fs";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const _dir = path.dirname(fileURLToPath(import.meta.url));
 import AWS from "aws-sdk";
 import { Storage } from "@google-cloud/storage";
 import {
@@ -48,7 +48,7 @@ async function getS3(): Promise<AWS.S3> {
 }
 
 export function getUploadsDir() {
-  return path.join(__dirname, "..", "..", "uploads");
+  return path.join(_dir, "..", "..", "uploads");
 }
 
 export async function uploadFile(

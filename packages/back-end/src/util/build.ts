@@ -4,7 +4,7 @@ import path from "path";
 import { fileURLToPath } from "node:url";
 import fs from "fs";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const _dir = path.dirname(fileURLToPath(import.meta.url));
 
 let build: { sha: string; date: string; lastVersion: string };
 export function getBuild() {
@@ -14,7 +14,7 @@ export function getBuild() {
       date: "",
       lastVersion: "",
     };
-    const rootPath = path.join(__dirname, "..", "..", "..", "..", "buildinfo");
+    const rootPath = path.join(_dir, "..", "..", "..", "..", "buildinfo");
     if (fs.existsSync(path.join(rootPath, "SHA"))) {
       build.sha = fs.readFileSync(path.join(rootPath, "SHA")).toString().trim();
     }
@@ -28,7 +28,7 @@ export function getBuild() {
     // Read version from package.json
     try {
       const packageJSONPath = path.join(
-        __dirname,
+        _dir,
         "..",
         "..",
         "..",

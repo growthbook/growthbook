@@ -1,3 +1,4 @@
+import { createRequire } from "node:module";
 import uniqid from "uniqid";
 import lodash from "lodash";
 const { isEqual } = lodash;
@@ -24,16 +25,22 @@ import {
   SafeRolloutSnapshotInterface,
 } from "../validators/safe-rollout-snapshot.js";
 import { HoldoutInterfaceStringDates } from "../validators/holdout.js";
-import { featureHasEnvironment } from "./features.js";
 
-export * from "./features.js";
-export * from "./saved-groups.js";
-export * from "./metric-time-series.js";
-export * from "./types.js";
-export * from "./errors.js";
+const require = createRequire(import.meta.url);
+let _featureHasEnvironment: (feature: unknown, env: unknown) => boolean;
+function getFeatureHasEnvironment() {
+  if (!_featureHasEnvironment) {
+    _featureHasEnvironment = require("./features.js").featureHasEnvironment;
+  }
+  return _featureHasEnvironment;
+}
 
-export const DEFAULT_ENVIRONMENT_IDS = ["production", "dev", "staging", "test"];
+// Export first so DEFAULT_ENVIRONMENT_IDS is available when circular deps load util
+export { DEFAULT_ENVIRONMENT_IDS } from "./constants.js";
+export * from "./walk.js";
 
+// All util-defined exports must come BEFORE export * from features to avoid TDZ;
+// features imports from util and triggers this module to load while we're exporting
 export function getAffectedEnvsForExperiment({
   experiment,
   orgEnvironments,
@@ -80,7 +87,7 @@ export function getAffectedEnvsForExperiment({
           );
 
           if (env) {
-            if (featureHasEnvironment(linkedFeature, env)) {
+            if (getFeatureHasEnvironment()(linkedFeature, env)) {
               envs.add(match.environmentId);
             }
           }
@@ -259,8 +266,11 @@ export function isValidEnvironment(
   return environments.includes(env);
 }
 
-export const hasVisualChanges = (visualChanges: VisualChange[]) =>
-  visualChanges.some((vc) => !!vc.css || !!vc.domMutations.length || !!vc.js);
+export function hasVisualChanges(visualChanges: VisualChange[]): boolean {
+  return visualChanges.some(
+    (vc) => !!vc.css || !!vc.domMutations.length || !!vc.js,
+  );
+}
 
 export type MatchingRule = {
   environmentId: string;
@@ -342,27 +352,6 @@ export function returnZeroIfNotFinite(x: number): number {
 export function isDefined<T>(x: T | undefined | null): x is T {
   return x !== undefined && x !== null;
 }
-
-// eslint-disable-next-line
-type Node = [string, any];
-// eslint-disable-next-line
-export type NodeHandler = (node: Node, object: any) => void;
-
-// Recursively traverses the given object and calls onNode on each key/value pair.
-// If onNode modifies the object in place, it walks the new values as they're inserted, updated, or deleted
-// eslint-disable-next-line
-export const recursiveWalk = (object: any, onNode: NodeHandler) => {
-  // Base case: stop recursion once you hit a primitive or null
-  if (object === null || typeof object !== "object") {
-    return;
-  }
-  // If currently walking over an object or array, iterate the entries and call onNode before recurring
-  Object.entries(object).forEach((node) => {
-    onNode(node, object);
-    // Recompute the reference for the recursive call as the key may have changed
-    recursiveWalk(object[node[0]], onNode);
-  });
-};
 
 export function truncateString(s: string, numChars: number) {
   if (s.length > numChars) {
@@ -547,3 +536,9 @@ export function parseProcessLogBase() {
 export function capitalizeFirstCharacter(s: string) {
   return s.charAt(0).toLocaleUpperCase() + s.slice(1);
 }
+
+export * from "./features.js";
+export * from "./saved-groups.js";
+export * from "./metric-time-series.js";
+export * from "./types.js";
+export * from "./errors.js";

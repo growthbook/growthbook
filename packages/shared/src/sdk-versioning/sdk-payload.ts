@@ -16,9 +16,8 @@ import {
 import {
   getSavedGroupValueType,
   getTypedSavedGroupValues,
-  NodeHandler,
-  recursiveWalk,
-} from "../util/index.js";
+} from "../util/saved-groups.js";
+import { NodeHandler, recursiveWalk } from "../util/walk.js";
 import { SDKCapability } from "./types.js";
 
 const strictFeatureKeys = ["defaultValue", "rules"];

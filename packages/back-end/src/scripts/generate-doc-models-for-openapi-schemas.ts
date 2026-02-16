@@ -2,7 +2,7 @@ import path from "path";
 import { fileURLToPath } from "node:url";
 import fs from "fs";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const _dir = path.dirname(fileURLToPath(import.meta.url));
 import { load, dump } from "js-yaml";
 import { capitalizeFirstCharacter } from "shared/util";
 import { z } from "zod";
@@ -113,7 +113,7 @@ function formatPathVariables(pathFragment: string) {
 }
 
 async function run() {
-  const specPath = path.join(__dirname, "../api/openapi/openapi.yaml");
+  const specPath = path.join(_dir, "../api/openapi/openapi.yaml");
   const api = load(fs.readFileSync(specPath, "utf-8"));
 
   if (!isValidApi(api)) {
@@ -130,7 +130,7 @@ async function run() {
 
   // Before generating types, programmatically add all models to the spec
   const models = fs
-    .readdirSync(path.join(__dirname, "../api/openapi/schemas"))
+    .readdirSync(path.join(_dir, "../api/openapi/schemas"))
     .filter((fileName) => !fileName.includes("index"))
     .map((fileName) => fileName.replace(".yaml", ""));
 
@@ -230,10 +230,7 @@ async function run() {
   });
 
   const output = dump(api);
-  fs.writeFileSync(
-    path.join(__dirname, "../api/openapi/openapi.tmp.yaml"),
-    output,
-  );
+  fs.writeFileSync(path.join(_dir, "../api/openapi/openapi.tmp.yaml"), output);
 }
 
 run()

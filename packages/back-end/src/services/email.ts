@@ -2,7 +2,7 @@ import path from "path";
 import { fileURLToPath } from "node:url";
 import nodemailer from "nodemailer";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const _dir = path.dirname(fileURLToPath(import.meta.url));
 import nunjucks from "nunjucks";
 import { OrganizationInterface } from "shared/types/organization";
 import {
@@ -24,12 +24,9 @@ export function isEmailEnabled(): boolean {
 
 const noHyperlink = (str: string) => str.replace(/[^a-zA-Z0-9\s]/g, "");
 
-const env = nunjucks.configure(
-  path.join(__dirname, "..", "templates", "email"),
-  {
-    autoescape: true,
-  },
-);
+const env = nunjucks.configure(path.join(_dir, "..", "templates", "email"), {
+  autoescape: true,
+});
 
 env.addFilter("noHyperlink", noHyperlink);
 
