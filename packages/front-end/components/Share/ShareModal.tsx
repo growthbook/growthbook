@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Box } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -7,11 +7,21 @@ import {
   PresentationSlide,
 } from "shared/types/presentation";
 import {
-  resetServerContext,
-  DragDropContext,
-  Droppable,
-  Draggable,
-} from "react-beautiful-dnd";
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { GrDrag } from "react-icons/gr";
 import { FaCheck, FaRegTrashAlt } from "react-icons/fa";
 import { FiAlertTriangle } from "react-icons/fi";
@@ -163,6 +173,58 @@ export const presentationThemes = {
 };
 export const defaultTheme = "purple";
 
+const grid = 4;
+
+function SortableSlideItem({
+  id,
+  experiment,
+  onDelete,
+}: {
+  id: string;
+  experiment: ExperimentInterfaceStringDates | undefined;
+  onDelete: () => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style: React.CSSProperties = {
+    userSelect: "none",
+    padding: grid * 2,
+    margin: `0 0 ${grid}px 0`,
+    background: isDragging ? "lightgreen" : "",
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="shared-exp-div">
+      <div className="d-flex align-items-center">
+        <span className="drag-handle mr-2" {...attributes} {...listeners}>
+          <GrDrag />
+        </span>
+        <h5 className="mb-0">{experiment?.name ?? id}</h5>
+        <div className="ml-auto">
+          <span
+            className="delete-exp cursor-pointer"
+            onClick={(e) => {
+              e.preventDefault();
+              onDelete();
+            }}
+          >
+            <FaRegTrashAlt />
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const ShareModal = ({
   modalState,
   setModalState,
@@ -278,6 +340,29 @@ const ShareModal = ({
     }
   });
 
+  const slides = form.watch("slides") ?? [];
+  const sortableIds = useMemo(() => slides.map((s) => s.id), [slides]);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
+
+  const handleDragEnd = (event: {
+    active: { id: string };
+    over: { id: string } | null;
+  }) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = slides.findIndex((s) => s.id === active.id);
+    const newIndex = slides.findIndex((s) => s.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    form.setValue("slides", arrayMove(slides, oldIndex, newIndex));
+  };
+
   if (experiments.length === 0) {
     return (
       <div className="alert alert-danger" style={{ marginTop: "1rem" }}>
@@ -338,118 +423,9 @@ const ShareModal = ({
     form.setValue("slides", exps);
   };
 
-  const reorder = (slides, startIndex, endIndex) => {
-    const result = [...slides];
-    const [removed] = result.splice(startIndex, 1);
-    result.splice(endIndex, 0, removed);
-    return result;
+  const removeSlide = (exp: ExperimentInterfaceStringDates) => {
+    setSelectedExperiments(exp);
   };
-
-  const onDragEnd = (result) => {
-    // dropped outside the list
-    if (!result.destination) {
-      return;
-    }
-    form.setValue(
-      "slides",
-      reorder(value.slides, result.source.index, result.destination.index),
-    );
-  };
-  const grid = 4;
-  const getItemStyle = (isDragging, draggableStyle) => ({
-    // some basic styles to make the items look a bit nicer
-    userSelect: "none",
-    padding: grid * 2,
-    margin: `0 0 ${grid}px 0`,
-    // change background colour if dragging
-    background: isDragging ? "lightgreen" : "",
-
-    // styles we need to apply on draggables
-    ...draggableStyle,
-  });
-  resetServerContext();
-
-  let counter = 0;
-  const selectedList: JSX.Element[] = [];
-  //const expOptionsList = [];
-
-  selectedExperiments.forEach((exp: ExperimentInterfaceStringDates, id) => {
-    selectedList.push(
-      <Draggable key={id} draggableId={id} index={counter++}>
-        {(provided, snapshot) => (
-          <div
-            ref={provided.innerRef}
-            {...provided.draggableProps}
-            className="shared-exp-div"
-            style={getItemStyle(
-              snapshot.isDragging,
-              provided.draggableProps.style,
-            )}
-          >
-            <div className="d-flex align-items-center">
-              <span className="drag-handle mr-2" {...provided.dragHandleProps}>
-                <GrDrag />
-              </span>
-              <h5 className="mb-0">{exp.name}</h5>
-              <div className="ml-auto">
-                <span
-                  className="delete-exp cursor-pointer"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setSelectedExperiments(exp);
-                  }}
-                >
-                  <FaRegTrashAlt />
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-      </Draggable>,
-    );
-    // adding options for each experiment... disabled for now
-    // expOptionsList.push(
-    //   <div>
-    //     {exp.name}
-    //     <div className="row">
-    //       <div className="col">
-    //         <div className="form-group form-check">
-    //           <label className="form-check-label">
-    //             <input
-    //               type="checkbox"
-    //               className="form-check-input"
-    //               checked={value.options[id]?.showScreenShots}
-    //               onChange={(e) => {
-    //                 const opt = { ...value.options };
-    //                 opt[id].showScreenShots = e.target.checked;
-    //                 const tmp = {
-    //                   ...value,
-    //                   options: opt,
-    //                 };
-    //                 manualUpdate(tmp);
-    //               }}
-    //               id="checkbox-showscreenshots"
-    //             />
-    //             Show screen shots (if avaliable)
-    //           </label>
-    //         </div>
-    //         <div className="form-row form-inline">
-    //           <div className="form-group">
-    //             <label className="mr-3">Graph type</label>
-    //             <select
-    //               className="form-control"
-    //               {...inputProps.options[id].graphType}
-    //             >
-    //               <option selected>{defaultGraph}</option>
-    //               <option>violin</option>
-    //             </select>
-    //           </div>
-    //         </div>
-    //       </div>
-    //     </div>
-    //   </div>
-    // );
-  });
 
   const presThemes: { value: string; label: string }[] = [];
   for (const [key, value] of Object.entries(presentationThemes)) {
@@ -499,28 +475,36 @@ const ShareModal = ({
           <div className="col-sm-12 col-md-4 mb-5">
             <h4>Selected experiments to share</h4>
             <div className="selected-area h-100">
-              <DragDropContext onDragEnd={onDragEnd}>
-                <Droppable droppableId="droppable">
-                  {(provided) => (
-                    <div
-                      {...provided.droppableProps}
-                      ref={provided.innerRef}
-                      className=""
-                    >
-                      {selectedList.length ? (
-                        selectedList.map((l) => {
-                          return l;
-                        })
-                      ) : (
-                        <span className="text-muted">
-                          Choose experiments from the list
-                        </span>
-                      )}
-                      {provided.placeholder}
-                    </div>
-                  )}
-                </Droppable>
-              </DragDropContext>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={sortableIds}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div>
+                    {slides.length ? (
+                      slides.map((slide) => (
+                        <SortableSlideItem
+                          key={slide.id}
+                          id={slide.id}
+                          experiment={byId.get(slide.id)}
+                          onDelete={() => {
+                            const exp = byId.get(slide.id);
+                            if (exp) removeSlide(exp);
+                          }}
+                        />
+                      ))
+                    ) : (
+                      <span className="text-muted">
+                        Choose experiments from the list
+                      </span>
+                    )}
+                  </div>
+                </SortableContext>
+              </DndContext>
             </div>
           </div>
           <div className="col-sm-12 col-md-8">
