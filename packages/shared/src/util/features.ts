@@ -34,7 +34,7 @@ import {
   getMatchingRules,
   includeExperimentInPayload,
   isDefined,
-} from "./index.js";
+} from "./util-core.js";
 
 export const DRAFT_REVISION_STATUSES = [
   "draft",

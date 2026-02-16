@@ -1,7 +1,6 @@
 import { Request, Response } from "express";
 import * as util from "shared/util";
-import * as featuresController from "back-end/src/controllers/features";
-const { getFeaturesPublic } = featuresController;
+import { getFeaturesPublic } from "back-end/src/controllers/features";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { getSDKPayload } from "back-end/src/models/SdkPayloadModel";
 import { findSDKConnectionByKey } from "back-end/src/models/SdkConnectionModel";
@@ -42,29 +41,10 @@ jest.mock("back-end/src/util/logger", () => ({
   },
 }));
 
-// Mock the functions that are used in the test
-jest.mock("back-end/src/controllers/features", () => {
-  const actual = jest.requireActual("back-end/src/controllers/features");
-  const mockGetPayloadParamsFromApiKey = jest.fn();
-  const mockGetFeatureDefinitionsFilteredByEnvironment = jest.fn();
-
-  return {
-    ...actual,
-    getPayloadParamsFromApiKey: mockGetPayloadParamsFromApiKey,
-    getFeatureDefinitionsFilteredByEnvironment:
-      mockGetFeatureDefinitionsFilteredByEnvironment,
-  };
-});
-
-// Mock shared/util - use Proxy to avoid requireActual spread triggering circular dep
-jest.mock("shared/util", () => {
-  const actual =
-    jest.requireActual<typeof import("shared/util")>("shared/util");
-  return {
-    ...actual,
-    filterProjectsByEnvironmentWithNull: jest.fn(),
-  };
-});
+jest.mock("shared/util", () => ({
+  ...jest.requireActual<typeof import("shared/util")>("shared/util"),
+  filterProjectsByEnvironmentWithNull: jest.fn(),
+}));
 
 jest.mock("back-end/src/services/features", () => ({
   getFeatureDefinitions: jest.fn(),
@@ -129,6 +109,11 @@ describe("getFeaturesPublic test holdout", () => {
       set: mockSet,
     };
 
+    (util.filterProjectsByEnvironmentWithNull as jest.Mock).mockReturnValue([
+      "project-1",
+      "project-2",
+    ] as string[]);
+
     jest.clearAllMocks();
   });
 
@@ -154,9 +139,6 @@ describe("getFeaturesPublic test holdout", () => {
       },
     };
 
-    // Setup mocks for the functions that getFeatureDefinitions calls
-    console.log("Setting up mock for getPayloadParamsFromApiKey");
-
     // Mock the SDK connection lookup
     (findSDKConnectionByKey as jest.Mock).mockResolvedValue({
       organization: "test-org-id",
@@ -175,7 +157,6 @@ describe("getFeaturesPublic test holdout", () => {
       connected: true,
     });
 
-    console.log("Mock setup complete");
     (getContextForAgendaJobByOrgId as jest.Mock).mockResolvedValue(mockContext);
     (util.filterProjectsByEnvironmentWithNull as jest.Mock).mockReturnValue([
       "project-1",
@@ -256,26 +237,20 @@ describe("getFeaturesPublic test holdout", () => {
     // This will call the real getFeatureDefinitions function
     await getFeaturesPublic(mockRequest as Request, mockResponse as Response);
 
-    // Debug: Log the actual response
-    console.log("Status calls:", mockStatus.mock.calls);
-    console.log("JSON calls:", mockJson.mock.calls);
-
     // Verify that the response was successful
     expect(mockStatus).toHaveBeenCalledWith(200);
     expect(mockJson).toHaveBeenCalledTimes(1);
-    console.log(mockJson.mock.calls[0][0]);
     // Verify the response structure
     const responseData = mockJson.mock.calls[0][0];
     expect(responseData).toMatchObject(expectedFeatureResponseWithHoldout);
   });
   it("test getFeaturesPublic that holdouts dont show when feature and holdout dont have the same projects", async () => {
-    // Mock the payload parameters - feature is in project-1, holdout is in project-2
-    const mockPayloadParams = {
+    // Mock SDK connection with projects: ["project-1"] - feature in project-1, holdout in project-2
+    (findSDKConnectionByKey as jest.Mock).mockResolvedValue({
       organization: "test-org-id",
-      capabilities: ["prerequisites"],
       environment: "production",
-      encrypted: false,
       projects: ["project-1"],
+      encryptPayload: false,
       encryptionKey: undefined,
       includeVisualExperiments: false,
       includeDraftExperiments: false,
@@ -285,7 +260,8 @@ describe("getFeaturesPublic test holdout", () => {
       hashSecureAttributes: false,
       remoteEvalEnabled: false,
       savedGroupReferencesEnabled: false,
-    };
+      connected: true,
+    });
 
     // Mock the context
     const mockContext = {
@@ -298,10 +274,6 @@ describe("getFeaturesPublic test holdout", () => {
       },
     };
 
-    // Setup mocks for the functions that getFeatureDefinitions calls
-    (
-      featuresController.getPayloadParamsFromApiKey as jest.Mock
-    ).mockResolvedValue(mockPayloadParams);
     (getContextForAgendaJobByOrgId as jest.Mock).mockResolvedValue(mockContext);
     (util.filterProjectsByEnvironmentWithNull as jest.Mock).mockReturnValue([
       "project-1",

@@ -1,4 +1,3 @@
-import { createRequire } from "node:module";
 import uniqid from "uniqid";
 import lodash from "lodash";
 const { isEqual } = lodash;
@@ -13,9 +12,8 @@ import {
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
 } from "shared/types/experiment-snapshot";
-import { FeatureInterface, FeatureRule } from "shared/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import { ExperimentReportVariation } from "shared/types/report";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
 import { VisualChange } from "shared/types/visual-changeset";
 import { SavedGroupInterface } from "shared/types/saved-group";
@@ -25,22 +23,21 @@ import {
   SafeRolloutSnapshotInterface,
 } from "../validators/safe-rollout-snapshot.js";
 import { HoldoutInterfaceStringDates } from "../validators/holdout.js";
-
-const require = createRequire(import.meta.url);
-let _featureHasEnvironment: (feature: unknown, env: unknown) => boolean;
-function getFeatureHasEnvironment() {
-  if (!_featureHasEnvironment) {
-    _featureHasEnvironment = require("./features.js").featureHasEnvironment;
-  }
-  return _featureHasEnvironment;
-}
+import { experimentHasLinkedChanges, getMatchingRules } from "./util-core.js";
+import { featureHasEnvironment } from "./features.js";
 
 // Export first so DEFAULT_ENVIRONMENT_IDS is available when circular deps load util
 export { DEFAULT_ENVIRONMENT_IDS } from "./constants.js";
 export * from "./walk.js";
+export {
+  getMatchingRules,
+  includeExperimentInPayload,
+  isDefined,
+  isValidEnvironment,
+  experimentHasLinkedChanges,
+  type MatchingRule,
+} from "./util-core.js";
 
-// All util-defined exports must come BEFORE export * from features to avoid TDZ;
-// features imports from util and triggers this module to load while we're exporting
 export function getAffectedEnvsForExperiment({
   experiment,
   orgEnvironments,
@@ -87,7 +84,7 @@ export function getAffectedEnvsForExperiment({
           );
 
           if (env) {
-            if (getFeatureHasEnvironment()(linkedFeature, env)) {
+            if (featureHasEnvironment(linkedFeature, env)) {
               envs.add(match.environmentId);
             }
           }
@@ -158,15 +155,6 @@ export function generateVariationId() {
   return uniqid("var_");
 }
 
-export function experimentHasLinkedChanges(
-  exp: ExperimentInterface | ExperimentInterfaceStringDates,
-): boolean {
-  if (exp.hasVisualChangesets) return true;
-  if (exp.hasURLRedirects) return true;
-  if (exp.linkedFeatures && exp.linkedFeatures.length > 0) return true;
-  return false;
-}
-
 export function experimentHasLiveLinkedChanges(
   exp: ExperimentInterface | ExperimentInterfaceStringDates,
   linkedFeatures: LinkedFeatureInfo[],
@@ -178,59 +166,6 @@ export function experimentHasLiveLinkedChanges(
     }
     return false;
   }
-  return true;
-}
-
-export function includeExperimentInPayload(
-  exp: ExperimentInterface | ExperimentInterfaceStringDates,
-  linkedFeatures: FeatureInterface[] = [],
-): boolean {
-  // Archived experiments are always excluded
-  if (exp.archived) return false;
-
-  if (!experimentHasLinkedChanges(exp)) return false;
-
-  // Exclude if experiment is a draft and there are no visual changes (feature flags always ignore draft experiment rules)
-  if (
-    !exp.hasVisualChangesets &&
-    !exp.hasURLRedirects &&
-    exp.status === "draft"
-  )
-    return false;
-
-  if (!exp.phases?.length) return false;
-
-  // Stopped experiments are only included if they are currently releasing a winning variant
-  if (exp.status === "stopped") {
-    if (exp.excludeFromPayload) return false;
-    if (!exp.releasedVariationId) return false;
-  }
-
-  // If there are only linked features, make sure the rules/envs are published
-  if (
-    linkedFeatures.length > 0 &&
-    !exp.hasVisualChangesets &&
-    !exp.hasURLRedirects
-  ) {
-    const hasFeaturesWithPublishedRules = linkedFeatures.some((feature) => {
-      if (feature.archived) return false;
-      const rules = getMatchingRules(
-        feature,
-        (r) => r.type === "experiment-ref" && r.experimentId === exp.id,
-        Object.keys(feature.environmentSettings),
-      );
-      return rules.some((r) => {
-        if (!r.environmentEnabled) return false;
-        if (r.rule.enabled === false) return false;
-        return true;
-      });
-    });
-
-    if (!hasFeaturesWithPublishedRules) {
-      return false;
-    }
-  }
-
   return true;
 }
 
@@ -259,61 +194,10 @@ export function includeHoldoutInPayload(
   return true;
 }
 
-export function isValidEnvironment(
-  env: string,
-  environments: string[],
-): boolean {
-  return environments.includes(env);
-}
-
 export function hasVisualChanges(visualChanges: VisualChange[]): boolean {
   return visualChanges.some(
     (vc) => !!vc.css || !!vc.domMutations.length || !!vc.js,
   );
-}
-
-export type MatchingRule = {
-  environmentId: string;
-  i: number;
-  environmentEnabled: boolean;
-  rule: FeatureRule;
-};
-
-export function getMatchingRules(
-  feature: FeatureInterface,
-  filter: (rule: FeatureRule) => boolean,
-  environments: string[],
-  revision?: FeatureRevisionInterface,
-  omitDisabledEnvironments: boolean = false,
-): MatchingRule[] {
-  const matches: MatchingRule[] = [];
-
-  if (feature.environmentSettings) {
-    Object.entries(feature.environmentSettings).forEach(
-      ([environmentId, settings]) => {
-        if (!isValidEnvironment(environmentId, environments)) return;
-
-        if (omitDisabledEnvironments && !settings.enabled) return;
-
-        const rules = revision ? revision.rules[environmentId] : settings.rules;
-
-        if (rules) {
-          rules.forEach((rule, i) => {
-            if (filter(rule)) {
-              matches.push({
-                rule,
-                i,
-                environmentEnabled: settings.enabled,
-                environmentId,
-              });
-            }
-          });
-        }
-      },
-    );
-  }
-
-  return matches;
 }
 
 export function isProjectListValidForProject(
@@ -346,11 +230,6 @@ export function returnZeroIfNotFinite(x: number): number {
     return x;
   }
   return 0;
-}
-
-// Typeguard to help with type narrowing for built-ins such as Array.prototype.filter
-export function isDefined<T>(x: T | undefined | null): x is T {
-  return x !== undefined && x !== null;
 }
 
 export function truncateString(s: string, numChars: number) {
