@@ -36,7 +36,7 @@
     "watch-compile": "swc src -w --out-dir dist",
     "watch-dev": "delay 1 && nodemon --exec 'node --enable-source-maps --no-node-snapshot' --watch dist --watch '../shared/dist' -e js ./dist/server.js",
     "migrate-encryption-key": "GB_STATS_ENGINE_MIN_POOL_SIZE=0 CRON_ENABLED=false ./src/scripts/migrate-encryption-key.sh",
-    "generate-api-models": "DISABLE_PYTHON_MONITOR=1 GB_STATS_ENGINE_MIN_POOL_SIZE=0 ts-node src/scripts/generate-doc-models-for-openapi-schemas.ts",
+    "generate-api-models": "DISABLE_PYTHON_MONITOR=1 GB_STATS_ENGINE_MIN_POOL_SIZE=0 tsx src/scripts/generate-doc-models-for-openapi-schemas.ts",
     "generate-api-types": "pnpm generate-api-models && swagger-cli bundle -t yaml src/api/openapi/openapi.tmp.yaml -o generated/spec.yaml && node src/scripts/generate-openapi.mjs"
   },
   "dependencies": {
@@ -190,6 +190,7 @@
   },
   "optionalDependencies": {
     "@apidevtools/swagger-parser": "^10.1.0",
+    "tsx": "^4.7.0",
     "concurrently": "^7.4.0",
     "json-schema-to-zod": "^2.6.1",
     "nodemon": "^2.0.20",
