@@ -843,8 +843,8 @@ const AnalysisForm: FC<{
           <>
             {isBandit && orgSettings?.useStickyBucketing && (
               <Checkbox
-                mt="4"
-                mb="2"
+                mt="3"
+                mb="3"
                 size="lg"
                 label={
                   <Link
