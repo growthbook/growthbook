@@ -28,7 +28,7 @@ import { ApiReqContext } from "back-end/types/api";
 import { logger } from "back-end/src/util/logger";
 import { deleteClickhouseUser } from "back-end/src/services/clickhouse";
 import { createModelAuditLogger } from "back-end/src/services/audit";
-import { deleteFactTable, getFactTable } from "./FactTableModel";
+import { deleteFactTable, getFactTable } from "./FactTableModel.js";
 
 const { cloneDeep, isEqual } = lodash;
 

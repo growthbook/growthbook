@@ -9,7 +9,7 @@ import {
   Text,
 } from "@radix-ui/themes";
 import { PiArrowSquareOut, PiCaretDownFill } from "react-icons/pi";
-import { CommercialFeature } from "shared/src/enterprise/license-consts";
+import { CommercialFeature } from "shared/enterprise";
 import router from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import UpgradeModal from "@/components/Settings/UpgradeModal";

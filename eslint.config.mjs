@@ -30,6 +30,9 @@ export default defineConfig([
     "docs/build",
     "packages/sdk-js/scripts",
     "**/*.tsbuildinfo",
+    "**/*.d.ts", // declaration files cause import plugin stack overflow
+    "packages/shared/types.js", // self-referential export causes import plugin recursion
+    "packages/shared/demo-datasource.js", // barrel re-export; import plugin can't resolve dist
   ]),
   {
     extends: fixupConfigRules(

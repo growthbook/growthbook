@@ -1,4 +1,41 @@
 {
+  "packages/back-end/jest.config.cjs": {
+    "prettier/prettier": {
+      "count": 1
+    }
+  },
+  "packages/back-end/scripts/add-js-extensions-to-output.cjs": {
+    "@typescript-eslint/no-require-imports": {
+      "count": 2
+    },
+    "prettier/prettier": {
+      "count": 10
+    }
+  },
+  "packages/back-end/scripts/remove-js-extensions.cjs": {
+    "@typescript-eslint/no-require-imports": {
+      "count": 2
+    },
+    "prettier/prettier": {
+      "count": 2
+    }
+  },
+  "packages/back-end/scripts/watch-add-js.cjs": {
+    "@typescript-eslint/no-require-imports": {
+      "count": 3
+    },
+    "prettier/prettier": {
+      "count": 6
+    }
+  },
+  "packages/back-end/scripts/watch-shared-add-js.cjs": {
+    "@typescript-eslint/no-require-imports": {
+      "count": 3
+    },
+    "prettier/prettier": {
+      "count": 5
+    }
+  },
   "packages/back-end/src/scripts/generate-openapi.mjs": {
     "prettier/prettier": {
       "count": 1
@@ -1027,6 +1064,38 @@
   "packages/sdk-react/rollup.config.mjs": {
     "prettier/prettier": {
       "count": 2
+    }
+  },
+  "packages/shared/scripts/add-js-extensions-to-output.cjs": {
+    "@typescript-eslint/no-require-imports": {
+      "count": 2
+    },
+    "prettier/prettier": {
+      "count": 12
+    }
+  },
+  "packages/shared/scripts/generate-sdk-versions-data.cjs": {
+    "@typescript-eslint/no-require-imports": {
+      "count": 2
+    },
+    "prettier/prettier": {
+      "count": 3
+    }
+  },
+  "packages/shared/scripts/remove-js-extensions.cjs": {
+    "@typescript-eslint/no-require-imports": {
+      "count": 2
+    },
+    "prettier/prettier": {
+      "count": 3
+    }
+  },
+  "packages/shared/scripts/watch-add-js.cjs": {
+    "@typescript-eslint/no-require-imports": {
+      "count": 3
+    },
+    "prettier/prettier": {
+      "count": 8
     }
   }
 }
