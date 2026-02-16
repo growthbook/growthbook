@@ -281,6 +281,7 @@ function getSafeRolloutSnapshotSettings({
   metricGroups,
   datasource,
   customFields,
+  useStickyBucketing,
 }: {
   safeRollout: SafeRolloutInterface;
   safeRolloutRule: SafeRolloutRule;
@@ -292,6 +293,7 @@ function getSafeRolloutSnapshotSettings({
   metricGroups: MetricGroupInterface[];
   datasource?: DataSourceInterface;
   customFields?: Record<string, unknown>;
+  useStickyBucketing?: boolean;
 }): SafeRolloutSnapshotSettings {
   const defaultPriorSettings = orgPriorSettings ?? {
     override: false,
@@ -355,6 +357,7 @@ function getSafeRolloutSnapshotSettings({
       { id: "1", weight: 0.5 },
     ],
     coverage: 1, //hardcoded for now
+    useStickyBucketing,
   };
 }
 
@@ -409,6 +412,7 @@ export async function _createSafeRolloutSnapshot({
     metricGroups,
     datasource,
     customFields,
+    useStickyBucketing: organization.settings?.useStickyBucketing,
   });
   const data: CreateProps<SafeRolloutSnapshotInterface> = {
     safeRolloutId: safeRollout.id,

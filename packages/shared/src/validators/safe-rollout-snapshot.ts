@@ -170,6 +170,7 @@ const safeRolloutSnapshotSettings = z.object({
   coverage: z.number().optional(),
   phase: z.object({ index: z.string() }).optional(),
   customFields: z.record(z.string(), z.unknown()).optional(),
+  useStickyBucketing: z.boolean().optional(),
 });
 
 export type SafeRolloutSnapshotSettings = z.infer<
