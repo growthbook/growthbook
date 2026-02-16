@@ -8,11 +8,6 @@ const cspHeader = `
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // We already run eslint and typescript in CI/CD
-  // Disable here to speed up production builds
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -36,27 +31,16 @@ const nextConfig = {
     },
   ],
   transpilePackages: ["echarts", "zrender"],
-  webpack: (config) => {
-    config.module.rules.push({
-      test: /ace-builds.*\/worker-.*$/,
-      type: "asset/resource",
-    });
-
-    // Suppress OpenTelemetry dynamic require warnings from Sentry
-    config.ignoreWarnings = [
-      ...(config.ignoreWarnings || []),
-      {
-        module: /@opentelemetry\/instrumentation/,
-        message:
-          /Critical dependency: the request of a dependency is an expression/,
-      },
-    ];
-
-    return config;
-  },
   productionBrowserSourceMaps: true,
-  experimental: {
-    instrumentationHook: true,
+  sassOptions: {
+    silenceDeprecations: [
+      "legacy-js-api",
+      "import",
+      "slash-div",
+      "color-functions",
+      "global-builtin",
+      "abs-percent",
+    ],
   },
 };
 
