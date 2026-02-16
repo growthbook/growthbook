@@ -1,9 +1,8 @@
-import dynamic from "next/dynamic";
 import {
   tomorrow as dark,
   ghcolors as light,
 } from "react-syntax-highlighter/dist/cjs/styles/prism";
-import { Suspense } from "react";
+import { lazy, Suspense } from "react";
 import cloneDeep from "lodash/cloneDeep";
 import clsx from "clsx";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
@@ -11,9 +10,7 @@ import { Language } from "./Code";
 import PrismFallback from "./PrismFallback";
 
 // Lazy-load syntax highlighting to improve page load time
-const Prism = dynamic(() => import("./Prism"), {
-  suspense: true,
-});
+const Prism = lazy(() => import("./Prism"));
 
 export interface Props {
   code: string;

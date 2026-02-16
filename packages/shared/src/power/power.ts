@@ -1,4 +1,3 @@
-// @ts-expect-error - ESM requires full path to index.js
 import normal from "@stdlib/stats/base/dists/normal/lib/index.js";
 import { OrganizationSettings } from "shared/types/organization";
 import { MetricPriorSettings } from "shared/types/fact-table";

@@ -1,5 +1,4 @@
 import { z } from "zod";
-// @ts-expect-error - ESM requires full path to index.js
 import normal from "@stdlib/stats/base/dists/normal/lib/index.js";
 import { eachDayOfInterval, formatISO, subDays } from "date-fns";
 import {

@@ -1,12 +1,3 @@
-declare module "dirty-json" {
-  export function parse(
-    text: string,
-    // eslint-disable-next-line
-    config?: Record<string, any>,
-    // eslint-disable-next-line
-  ): Record<string, any>;
-}
-
 declare module "@stdlib/stats/base/dists/normal/lib/index.js" {
   const normal: {
     cdf: (x: number, mu: number, sigma: number) => number;

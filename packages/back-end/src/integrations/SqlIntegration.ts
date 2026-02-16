@@ -1,7 +1,6 @@
 import lodash from "lodash";
 import bs58 from "bs58";
 import { getValidDate } from "shared/dates";
-// @ts-expect-error - @stdlib package has no TypeScript type definitions
 import normal from "@stdlib/stats/base/dists/normal/lib/index.js";
 import { format as formatDate, subDays } from "date-fns";
 import {

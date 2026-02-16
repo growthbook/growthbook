@@ -1,8 +1,13 @@
 import clsx from "clsx";
-import React, { CSSProperties, ReactElement, Suspense, useState } from "react";
+import React, {
+  CSSProperties,
+  lazy,
+  ReactElement,
+  Suspense,
+  useState,
+} from "react";
 import { FaCompressAlt, FaExpandAlt } from "react-icons/fa";
 import cloneDeep from "lodash/cloneDeep";
-import dynamic from "next/dynamic";
 import {
   ghcolors as light,
   tomorrow as dark,
@@ -13,9 +18,7 @@ import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import PrismFallback from "./PrismFallback";
 
 // Lazy-load syntax highlighting to improve page load time
-const Prism = dynamic(() => import("./Prism"), {
-  suspense: true,
-});
+const Prism = lazy(() => import("./Prism"));
 
 export type Language =
   | "none"

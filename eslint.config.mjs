@@ -30,7 +30,9 @@ export default defineConfig([
     "docs/build",
     "packages/sdk-js/scripts",
     "**/*.tsbuildinfo",
-    "**/*.d.ts", // declaration files cause import plugin stack overflow
+    // These cause import plugin export-map stack overflow due to circular re-exports.
+    "packages/shared/types.d.ts",
+    "packages/shared/validators.d.ts",
     // Shared barrel files re-export from dist/; import resolver fails when dist absent (e.g. CI before build)
     "packages/shared/*.js",
   ]),
@@ -298,6 +300,11 @@ export default defineConfig([
       "./packages/back-end/test/**/*",
       "./packages/back-end/src/scripts/**/*",
       "./packages/back-end/**/*.test.{ts,tsx,js,jsx}",
+      "./packages/back-end/add-js-extensions.js",
+      "./packages/back-end/fix-*.js",
+      "./packages/back-end/merge-lodash.js",
+      "./packages/shared/add-js-extensions.js",
+      "./packages/shared/fix-lodash.js",
     ],
 
     rules: {
