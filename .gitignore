@@ -48,3 +48,6 @@ charts/**/*.tgz
 
 # Preview environment generated files
 preview/Dockerfile.generated
+
+# Next.js generated (path varies by dev vs build)
+packages/front-end/next-env.d.ts
