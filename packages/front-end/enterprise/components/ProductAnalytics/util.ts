@@ -69,11 +69,11 @@ export function createEmptyValue(
         valueColumn: null,
         unit: factTable?.userIdTypes[0] ?? null,
       } as FactTableValue;
-    case "database":
+    case "data_source":
       return {
         ...base,
         name: "Count",
-        type: "database",
+        type: "data_source",
         valueType: "count",
         valueColumn: null,
         unit: null,
@@ -110,7 +110,7 @@ export function createEmptyDataset(type: DatasetType): ProductAnalyticsDataset {
     return { type, values: [] };
   } else if (type === "fact_table") {
     return { type, values: [], factTableId: null };
-  } else if (type === "database") {
+  } else if (type === "data_source") {
     return {
       type,
       values: [],
@@ -157,7 +157,7 @@ export function getCommonColumns(
         columns = columns.filter((c) => valueColumnNames.has(c.column));
       }
     }
-  } else if (dataset.type === "database") {
+  } else if (dataset.type === "data_source") {
     columns = Object.keys(dataset.columnTypes).map((name) => ({
       column: name,
       name,
@@ -181,7 +181,7 @@ export function removeIncompleteValues(
       ...dataset,
       values: dataset.values.filter((v) => v.unit && v.valueType),
     };
-  } else if (dataset.type === "database") {
+  } else if (dataset.type === "data_source") {
     return {
       ...dataset,
       values: dataset.values.filter((v) => {

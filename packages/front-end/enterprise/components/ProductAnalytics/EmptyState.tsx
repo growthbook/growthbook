@@ -82,7 +82,7 @@ export default function EmptyState() {
               width: "160px",
             }}
             onClick={() => {
-              changeDatasetType("database");
+              changeDatasetType("data_source");
               if (datasources.length > 0) {
                 setDraftExploreState((prev) => ({
                   ...prev,
@@ -93,9 +93,9 @@ export default function EmptyState() {
           >
             <Flex direction="column" align="center" gap="1">
               <PiCode size={24} />
-              <Text weight="medium">Database</Text>
+              <Text weight="medium">Data Source</Text>
               <Text size="small" color="text-low" align="center">
-                Explore a table in your database
+                Explore a table in your Data Source
               </Text>
             </Flex>
           </Button>

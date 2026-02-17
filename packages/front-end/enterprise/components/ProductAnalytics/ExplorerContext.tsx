@@ -100,7 +100,7 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
   const [explorerCache, setExplorerCache] = useState<ExplorerCache>({
     metric: null,
     fact_table: null,
-    database: null,
+    data_source: null,
   });
 
   const hasPendingChanges = useMemo(
@@ -148,7 +148,7 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
         return;
 
       if (
-        cleanedDataset.type === "database" &&
+        cleanedDataset.type === "data_source" &&
         (!cleanedDataset.datasource ||
           !cleanedDataset.table ||
           !cleanedDataset.timestampColumn)

@@ -15,7 +15,7 @@ const metricValueValidator = baseValueValidator.extend({
 });
 export type MetricValue = z.infer<typeof metricValueValidator>;
 
-export type DatasetType = "metric" | "fact_table" | "database";
+export type DatasetType = "metric" | "fact_table" | "data_source";
 
 const metricDatasetValidator = z
   .object({
@@ -45,7 +45,7 @@ const factTableDatasetValidator = z
 
 // Database
 const databaseValueValidator = baseValueValidator.extend({
-  type: z.literal("database"),
+  type: z.literal("data_source"),
   valueType: z.enum(valueType),
   valueColumn: z.string().nullable(),
   unit: z.string().nullable(),
@@ -54,7 +54,7 @@ export type DatabaseValue = z.infer<typeof databaseValueValidator>;
 
 const databaseDatasetValidator = z
   .object({
-    type: z.literal("database"),
+    type: z.literal("data_source"),
     datasource: z.string(),
     table: z.string(),
     path: z.string(),

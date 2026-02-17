@@ -21,12 +21,12 @@ const VALUE_TYPE_OPTIONS: {
   { value: "sum", label: "Sum" },
 ];
 
-export default function SqlTabContent() {
+export default function DatasourceTabContent() {
   const { draftExploreState, addValueToDataset, updateValueInDataset } =
     useExplorerContext();
 
   const dataset =
-    draftExploreState.dataset?.type === "database"
+    draftExploreState.dataset?.type === "data_source"
       ? draftExploreState.dataset
       : null;
   const values: DatabaseValue[] = dataset?.values || [];
@@ -139,7 +139,7 @@ export default function SqlTabContent() {
           <Button
             size="sm"
             variant="outline"
-            onClick={() => addValueToDataset("database")}
+            onClick={() => addValueToDataset("data_source")}
           >
             <Flex align="center" gap="2">
               <PiPlus size={14} />

@@ -1,5 +1,6 @@
 import React, { useCallback } from "react";
 import { Flex, Box } from "@radix-ui/themes";
+import { DatasetType } from "shared/validators";
 import Text from "@/ui/Text";
 import SelectField from "@/components/Forms/SelectField";
 import Button from "@/ui/Button";
@@ -7,11 +8,9 @@ import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/Exp
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MetricTabContent from "./MetricTabContent";
 import FactTableTabContent from "./FactTableTabContent";
-import SqlTabContent from "./SqlTabContent";
+import DatasourceTabContent from "./DatasourceTabContent";
 import GroupBySection from "./GroupBySection";
 import DatabaseConfigurator from "./DatabaseConfigurator";
-
-type DatasetType = "metric" | "fact_table" | "database";
 
 export default function ExplorerSideBar() {
   const { draftExploreState, setDraftExploreState, changeDatasetType } =
@@ -31,7 +30,7 @@ export default function ExplorerSideBar() {
       changeDatasetType(newType);
 
       // If switching to SQL and datasources are available, default to the first one
-      if (newType === "database" && datasources.length > 0) {
+      if (newType === "data_source" && datasources.length > 0) {
         setDraftExploreState((prev) => ({
           ...prev,
           dataset: {
@@ -71,7 +70,7 @@ export default function ExplorerSideBar() {
           options={[
             { label: "Metric", value: "metric" },
             { label: "Fact Table", value: "fact_table" },
-            { label: "Database", value: "database" },
+            { label: "Data Source", value: "data_source" },
           ]}
         />
 
@@ -97,7 +96,7 @@ export default function ExplorerSideBar() {
           </>
         )}
 
-        {activeType === "database" && (
+        {activeType === "data_source" && (
           <DatabaseConfigurator dataset={dataset} />
         )}
       </Flex>
@@ -105,7 +104,7 @@ export default function ExplorerSideBar() {
       <Box p="0">
         {activeType === "metric" && <MetricTabContent />}
         {activeType === "fact_table" && <FactTableTabContent />}
-        {activeType === "database" && <SqlTabContent />}
+        {activeType === "data_source" && <DatasourceTabContent />}
       </Box>
 
       {dataset?.values?.length > 0 && <GroupBySection />}

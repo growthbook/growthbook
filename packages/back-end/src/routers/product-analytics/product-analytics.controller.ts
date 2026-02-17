@@ -93,7 +93,7 @@ export const postProductAnalyticsRun = async (
       throw new BadRequestError("No datasource found");
     }
     datasource = await getDataSourceById(context, datasourceId);
-  } else if (dataset.type === "database") {
+  } else if (dataset.type === "data_source") {
     datasource = await getDataSourceById(context, dataset.datasource);
   } else {
     throw new BadRequestError("Invalid dataset type");

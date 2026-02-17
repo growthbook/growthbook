@@ -133,7 +133,7 @@ function getFactTableGroups({
   }
 
   switch (config.dataset.type) {
-    case "database":
+    case "data_source":
       return [
         {
           index: 0,
