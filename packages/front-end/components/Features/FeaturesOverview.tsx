@@ -61,9 +61,9 @@ import EventUser from "@/components/Avatar/EventUser";
 import RevertModal from "@/components/Features/RevertModal";
 import EditRevisionCommentModal from "@/components/Features/EditRevisionCommentModal";
 import FixConflictsModal from "@/components/Features/FixConflictsModal";
+import CompareRevisionsModal from "@/components/Features/CompareRevisionsModal";
 import Revisionlog from "@/components/Features/RevisionLog";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
-import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
@@ -147,6 +147,8 @@ export default function FeaturesOverview({
   const [revertIndex, setRevertIndex] = useState(0);
 
   const [editCommentModel, setEditCommentModal] = useState(false);
+  const [compareRevisionsModalOpen, setCompareRevisionsModalOpen] =
+    useState(false);
 
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
@@ -174,9 +176,11 @@ export default function FeaturesOverview({
 
   const dependents = dependentFeatures.length + dependentExperiments.length;
 
-  const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
-    timeout: 800,
-  });
+  const { performCopy, copySuccess, copySupported, copyCooldown } =
+    useCopyToClipboard({
+      timeout: 800,
+      cooldown: 500,
+    });
 
   const mergeResult = useMemo(() => {
     if (!feature || !revision) return null;
@@ -1047,27 +1051,33 @@ export default function FeaturesOverview({
                     />
                   </Box>
                   <Box mx="6">
-                    <a
-                      title="Copy a link to this revision"
-                      href={`/features/${fid}?v=${version}`}
-                      className="position-relative"
-                      onClick={(e) => {
-                        if (!copySupported) return;
-
-                        e.preventDefault();
-                        const url =
-                          window.location.href.replace(/[?#].*/, "") +
-                          `?v=${version}`;
-                        performCopy(url);
-                      }}
+                    <Tooltip
+                      body={
+                        copySuccess
+                          ? "Copied to clipboard!"
+                          : "Copy a link to this revision"
+                      }
+                      tipPosition="top"
+                      state={copySuccess}
+                      ignoreMouseEvents={!!copySuccess}
+                      shouldDisplay={!copyCooldown}
                     >
-                      <FaLink />
-                      {copySuccess ? (
-                        <SimpleTooltip position="right">
-                          Copied to clipboard!
-                        </SimpleTooltip>
-                      ) : null}
-                    </a>
+                      <Link
+                        href={`/features/${fid}?v=${version}`}
+                        className="position-relative"
+                        onClick={(e) => {
+                          if (!copySupported) return;
+
+                          e.preventDefault();
+                          const url =
+                            window.location.href.replace(/[?#].*/, "") +
+                            `?v=${version}`;
+                          performCopy(url);
+                        }}
+                      >
+                        <FaLink />
+                      </Link>
+                    </Tooltip>
                   </Box>
                 </Flex>
                 <Flex
@@ -1078,6 +1088,15 @@ export default function FeaturesOverview({
                   style={{ whiteSpace: "nowrap" }}
                   gap="4"
                 >
+                  {(revisionList?.length ?? 0) >= 2 && (
+                    <Button
+                      variant="soft"
+                      size="sm"
+                      onClick={() => setCompareRevisionsModalOpen(true)}
+                    >
+                      Compare revisions...
+                    </Button>
+                  )}
                   {renderRevisionCTA()}
                 </Flex>
               </Flex>
@@ -1340,6 +1359,15 @@ export default function FeaturesOverview({
             close={() => setPrerequisiteModal(null)}
             i={prerequisiteModal.i}
             mutate={mutate}
+          />
+        )}
+        {compareRevisionsModalOpen && (
+          <CompareRevisionsModal
+            feature={feature}
+            revisionList={revisionList || []}
+            revisions={revisions}
+            currentVersion={version ?? feature.version}
+            onClose={() => setCompareRevisionsModalOpen(false)}
           />
         )}
       </Box>
