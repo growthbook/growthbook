@@ -229,4 +229,13 @@ export class HoldoutModel extends BaseClass {
     const { [featureId]: _, ...linkedFeatures } = holdout.linkedFeatures;
     await this.updateById(holdoutId, { linkedFeatures });
   }
+  /*
+   * Gets the first holdout that is linked to an experiment
+   * @param experimentId - The id of the experiment
+   * @returns The holdout
+   */
+  public async getByExperimentId(experimentId: string) {
+    const holdout = await this._findOne({ experimentId });
+    return holdout;
+  }
 }
