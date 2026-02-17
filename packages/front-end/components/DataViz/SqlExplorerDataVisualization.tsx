@@ -47,6 +47,14 @@ function parseYValue(
   return undefined;
 }
 
+const CHART_ANIMATION_CONFIG = {
+  animation: true,
+  animationDuration: 300,
+  animationEasing: "linear" as const,
+  symbol: "circle",
+  symbolSize: 4,
+};
+
 function aggregate(
   values: (string | number)[],
   aggregation: yAxisAggregationType,
@@ -671,6 +679,7 @@ export function DataVisualizationDisplay({
       return [
         {
           name: xField,
+          ...CHART_ANIMATION_CONFIG,
           type:
             dataVizConfig.chartType === "area"
               ? "line"
@@ -696,6 +705,7 @@ export function DataVisualizationDisplay({
       const dimensionKey = combination.join(", ");
       return {
         name: dimensionKey,
+        ...CHART_ANIMATION_CONFIG,
         type:
           dataVizConfig.chartType === "area" ? "line" : dataVizConfig.chartType,
         ...(dataVizConfig.chartType === "area" && { areaStyle: {} }),

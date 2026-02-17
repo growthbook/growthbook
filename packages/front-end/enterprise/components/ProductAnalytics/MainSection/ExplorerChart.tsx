@@ -161,7 +161,9 @@ export default function ExplorerChart() {
       const baseLineCommonSeriesConfig = {
         ...commonSeriesConfig,
         type: "line",
-        smooth: true,
+        animation: true,
+        animationDuration: 300,
+        animationEasing: "linear",
         symbol: "circle",
         symbolSize: 4,
       };
