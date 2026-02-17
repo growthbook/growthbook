@@ -82,13 +82,11 @@ const genFormDefaultValues = ({
   permissions: permissionsUtil,
   featureToDuplicate,
   project,
-  customFields,
 }: {
   environments: ReturnType<typeof useEnvironments>;
   permissions: ReturnType<typeof usePermissionsUtil>;
   featureToDuplicate?: FeatureInterface;
   project: string;
-  customFields?: ReturnType<typeof useCustomFields>;
 }): Pick<
   FeatureInterface,
   | "valueType"
@@ -107,14 +105,6 @@ const genFormDefaultValues = ({
     permissions: permissionsUtil,
     project,
   });
-  const customFieldValues = customFields
-    ? Object.fromEntries(
-        customFields.map((field) => [
-          field.id,
-          featureToDuplicate?.customFields?.[field.id] ?? field.defaultValue,
-        ]),
-      )
-    : {};
 
   return featureToDuplicate
     ? {
@@ -125,7 +115,7 @@ const genFormDefaultValues = ({
         project: featureToDuplicate.project ?? project,
         tags: featureToDuplicate.tags,
         environmentSettings,
-        customFields: customFieldValues,
+        customFields: featureToDuplicate.customFields,
         holdout: featureToDuplicate.holdout?.id
           ? featureToDuplicate.holdout
           : undefined,
@@ -138,7 +128,7 @@ const genFormDefaultValues = ({
         project,
         tags: [],
         environmentSettings,
-        customFields: customFieldValues,
+        customFields: {},
         holdout: undefined,
       };
 };
@@ -158,25 +148,23 @@ export default function FeatureModal({
   const { hasCommercialFeature } = useUser();
   const { requireProjectForFeatures } = useOrgSettings();
 
-  const customFields = filterCustomFieldsForSectionAndProject(
-    useCustomFields(),
-    "feature",
-    project,
-  );
-
-  const holdoutsEnabled = useFeatureIsOn("holdouts_feature");
-
   const defaultValues = genFormDefaultValues({
     environments,
     permissions: permissionsUtil,
     featureToDuplicate,
     project,
-    customFields: hasCommercialFeature("custom-metadata")
-      ? customFields
-      : undefined,
   });
 
   const form = useForm({ defaultValues });
+
+  const selectedProject = form.watch("project");
+  const customFields = filterCustomFieldsForSectionAndProject(
+    useCustomFields(),
+    "feature",
+    selectedProject,
+  );
+
+  const holdoutsEnabled = useFeatureIsOn("holdouts_feature");
 
   const projectOptions = useProjectOptions(
     (project) =>
@@ -184,7 +172,6 @@ export default function FeatureModal({
       permissionsUtil.canManageFeatureDrafts({ project }),
     project ? [project] : [],
   );
-  const selectedProject = form.watch("project");
   const { projectId: demoProjectId } = useDemoDataSourceProject();
 
   const [showTags, setShowTags] = useState(!!featureToDuplicate?.tags?.length);
