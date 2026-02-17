@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { datetime } from "shared/dates";
 import { DRAFT_REVISION_STATUSES } from "shared/util";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
@@ -24,6 +25,8 @@ import {
 import { ExpandableDiff } from "./DraftModal";
 import RevisionStatusBadge from "./RevisionStatusBadge";
 import styles from "./CompareRevisionsModal.module.scss";
+
+const STORAGE_KEY_PREFIX = "feature:compare-revisions";
 
 export interface Props {
   feature: FeatureInterface;
@@ -49,7 +52,16 @@ export default function CompareRevisionsModal({
   const { apiCall } = useAuth();
   const liveVersion = feature.version;
 
-  const [showDiscarded, setShowDiscarded] = useState(false);
+  const [showDiscarded, setShowDiscarded] = useLocalStorage(
+    `${STORAGE_KEY_PREFIX}:showDiscarded`,
+    false,
+  );
+  const [diffViewModeRaw, setDiffViewModeRaw] = useLocalStorage<string>(
+    `${STORAGE_KEY_PREFIX}:diffViewMode`,
+    "steps",
+  );
+  const diffViewMode = diffViewModeRaw === "single" ? "single" : "steps";
+
   const filteredRevisionList = useMemo(
     () =>
       showDiscarded
@@ -164,7 +176,6 @@ export default function CompareRevisionsModal({
   const anyLoading = loadingVersions.size > 0;
 
   const [diffPage, setDiffPage] = useState(0);
-  const [diffViewMode, setDiffViewMode] = useState<"steps" | "single">("steps");
   const canToggleDiffView = selectedSorted.length > 2;
   const prevShowDiscardedRef = useRef(showDiscarded);
   useEffect(() => {
@@ -310,8 +321,8 @@ export default function CompareRevisionsModal({
     >
       <Flex style={{ flex: 1, minHeight: 0 }}>
         <Box
-          style={{ width: 360, minWidth: 320, minHeight: 0 }}
-          className={`${styles.sidebar} border-end overflow-auto`}
+          style={{ width: 360, minWidth: 200, minHeight: 0 }}
+          className={`${styles.sidebar} ${styles.sidebarLeft} overflow-auto`}
         >
           {(quickActionRanges.draftRange ||
             quickActionRanges.liveRange ||
@@ -541,7 +552,7 @@ export default function CompareRevisionsModal({
                   </Text>
                   <Select
                     value={diffViewMode}
-                    setValue={(v) => setDiffViewMode(v as "steps" | "single")}
+                    setValue={(v) => setDiffViewModeRaw(v)}
                     disabled={!canToggleDiffView}
                     size="2"
                     mb="0"
@@ -590,7 +601,7 @@ export default function CompareRevisionsModal({
                       No changes between these revisions.
                     </Text>
                   ) : (
-                    <Flex direction="column" gap="1">
+                    <Flex direction="column" gap="4">
                       {stepDiffs.map((d) => (
                         <ExpandableDiff
                           key={d.title}
