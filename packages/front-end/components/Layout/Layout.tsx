@@ -20,6 +20,7 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { AppFeatures } from "@/types/app-features";
 import { WhiteButton } from "@/ui/Button";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import AIChatPanel from "@/components/AIChat/AIChatPanel";
 import ProjectSelector from "./ProjectSelector";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import TopNav from "./TopNav";
@@ -623,6 +624,8 @@ const Layout = (): React.ReactElement => {
         showNotices={true}
         toggleLeftMenu={() => setOpen(!open)}
       />
+
+      <AIChatPanel />
     </>
   );
 };

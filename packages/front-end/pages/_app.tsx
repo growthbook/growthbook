@@ -38,6 +38,7 @@ import { growthbook } from "@/services/utils";
 import { UserContextProvider } from "@/services/UserContext";
 import { SidebarOpenProvider } from "@/components/Layout/SidebarOpenProvider";
 import { HoverTooltipProvider } from "@/hooks/useHoverTooltip";
+import { AIChatProvider } from "@/services/AIChatContext";
 
 // Make useLayoutEffect isomorphic (for SSR)
 if (typeof window === "undefined") React.useLayoutEffect = React.useEffect;
@@ -192,17 +193,19 @@ function App({
                           {organizationRequired ? (
                             <GetStartedProvider>
                               <DefinitionsProvider>
-                                {liteLayout ? <LayoutLite /> : <Layout />}
-                                <main className={`main ${parts[0]}`}>
-                                  <GuidedGetStartedBar />
-                                  <OrganizationMessagesContainer />
-                                  <DemoDataSourceGlobalBannerContainer />
-                                  <DefinitionsGuard>
-                                    <Component
-                                      {...{ ...pageProps, envReady: ready }}
-                                    />
-                                  </DefinitionsGuard>
-                                </main>
+                                <AIChatProvider>
+                                  {liteLayout ? <LayoutLite /> : <Layout />}
+                                  <main className={`main ${parts[0]}`}>
+                                    <GuidedGetStartedBar />
+                                    <OrganizationMessagesContainer />
+                                    <DemoDataSourceGlobalBannerContainer />
+                                    <DefinitionsGuard>
+                                      <Component
+                                        {...{ ...pageProps, envReady: ready }}
+                                      />
+                                    </DefinitionsGuard>
+                                  </main>
+                                </AIChatProvider>
                               </DefinitionsProvider>
                             </GetStartedProvider>
                           ) : (

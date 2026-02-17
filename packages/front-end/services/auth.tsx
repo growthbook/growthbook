@@ -41,6 +41,7 @@ export interface AuthContextValue {
     options?: RequestInit,
     errorHandler?: ErrorHandler,
   ) => Promise<T>;
+  getAuthHeaders: () => Record<string, string>;
   orgId: string | null;
   setOrgId?: (orgId: string) => void;
   organizations?: UserOrganizations;
@@ -61,6 +62,7 @@ export const AuthContext = React.createContext<AuthContextValue>({
     let x: any;
     return x;
   },
+  getAuthHeaders: () => ({}),
   orgId: null,
 });
 
@@ -390,6 +392,17 @@ export const AuthProvider: React.FC<{
     [token, _makeApiCall],
   );
 
+  const getAuthHeaders = useCallback((): Record<string, string> => {
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+    if (orgId) {
+      headers["X-Organization"] = orgId;
+    }
+    return headers;
+  }, [token, orgId]);
+
   const wrappedSetOrganizations = useCallback(
     (orgs: UserOrganizations, superAdmin: boolean) => {
       setOrganizations(orgs);
@@ -490,6 +503,7 @@ export const AuthProvider: React.FC<{
           await redirectWithTimeout(res.redirectURI || window.location.origin);
         },
         apiCall,
+        getAuthHeaders,
         orgId,
         setOrgId,
         organizations: orgList,

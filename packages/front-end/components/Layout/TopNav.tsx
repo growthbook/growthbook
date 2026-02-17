@@ -5,6 +5,7 @@ import {
   PiPlusBold,
   PiCaretDownFill,
   PiCircleHalf,
+  PiChatCircleDots,
   PiFiles,
   PiKey,
   PiListChecks,
@@ -43,6 +44,8 @@ import Checkbox from "@/ui/Checkbox";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import AccountPlanNotices from "@/components/Layout/AccountPlanNotices";
 import AccountPlanBadge from "@/components/Layout/AccountPlanBadge";
+import { useAIChatPanel } from "@/services/AIChatContext";
+import { useAISettings } from "@/hooks/useOrgSettings";
 import styles from "./TopNav.module.scss";
 import { usePageHead } from "./PageHead";
 
@@ -60,9 +63,14 @@ const TopNav: FC<{
 
   const { breadcrumb } = usePageHead();
 
-  const { updateUser, name, email, organization } = useUser();
+  const { updateUser, name, email, organization, hasCommercialFeature } =
+    useUser();
 
   const { apiCall, logout, organizations, orgId, setOrgId } = useAuth();
+
+  const { isOpen: isChatOpen, setIsOpen: setChatOpen } = useAIChatPanel();
+  const { aiEnabled } = useAISettings();
+  const showAIChat = aiEnabled && hasCommercialFeature("ai-suggestions");
 
   // The current org might not be in the organizations list if the user is a superAdmin
   // and selected the org from the /admin page. So we add it here.
@@ -449,6 +457,20 @@ const TopNav: FC<{
                 <AccountPlanBadge />
               </div>
             </>
+          )}
+          {showAIChat && (
+            <button
+              className={`nav-link btn btn-link ${styles.iconButton || ""}`}
+              onClick={() => setChatOpen(!isChatOpen)}
+              title="AI Chat"
+              style={{
+                fontSize: 20,
+                padding: "4px 8px",
+                color: isChatOpen ? "var(--violet-9)" : undefined,
+              }}
+            >
+              <PiChatCircleDots />
+            </button>
           )}
           {renderOrganizationDropDown()}
           <DropdownMenu

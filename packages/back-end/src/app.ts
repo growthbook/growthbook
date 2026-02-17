@@ -89,6 +89,7 @@ const uploadController = wrapController(uploadControllerRaw);
 import { isEmailEnabled } from "./services/email";
 import { init } from "./init";
 import { aiRouter } from "./routers/ai/ai.router";
+import { aiChatRouter } from "./routers/ai-chat/ai-chat.router";
 import { getCustomLogProps, httpLogger, logger } from "./util/logger";
 import { usersRouter } from "./routers/users/users.router";
 import { organizationsRouter } from "./routers/organizations/organizations.router";
@@ -1016,6 +1017,8 @@ app.get("/meta/ai", (req, res) => {
 });
 
 app.use("/ai", aiRouter);
+
+app.use("/ai-chat", aiChatRouter);
 
 // Fallback 404 route if nothing else matches
 app.use(function (req, res) {
