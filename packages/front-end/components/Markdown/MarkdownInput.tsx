@@ -108,7 +108,7 @@ const MarkdownInput: FC<{
       start !== end && selectedText
         ? selectedText
         : getLinkLabelFromUrl(pasted);
-    const markdownLink = `[${linkLabel}](${pasted})`;
+    const markdownLink = `[${linkLabel}](<${pasted}>)`;
     const newValue = value.slice(0, start) + markdownLink + value.slice(end);
     setValue(newValue);
 

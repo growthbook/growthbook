@@ -304,6 +304,8 @@ const FeatureAttributesPage = (): React.ReactElement => {
                       hashAttribute: v.hashAttribute,
                       archived: !v.archived,
                       tags: v.tags,
+                      description: v.description,
+                      disableEqualityConditions: v.disableEqualityConditions,
                     };
                     await apiCall<{
                       res: number;
