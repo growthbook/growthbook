@@ -539,6 +539,7 @@ export default function ExperimentRefNewFields({
                 value={form.watch("exposureQueryId") ?? ""}
                 onChange={(v) => form.setValue("exposureQueryId", v)}
                 required
+                sort={false}
                 options={groupedExposureQueries}
                 formatOptionLabel={({ label, value }) => {
                   const userIdType = exposureQueries?.find(
