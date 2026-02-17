@@ -17,7 +17,8 @@
     "type-check": "tsc --pretty --noEmit",
     "generate-sdk-report": "node -r @swc-node/register ./src/sdk-versioning/sdk-report.ts ./src/sdk-versioning/CAPABILITIES.md",
     "gen-event-webhook-for-docs": "pnpm exec tsx ./scripts/gen-event-webhook-doc.ts",
-    "gen-sdk-resources-for-docs": "pnpm build && pnpm exec tsx ./scripts/gen-sdk-resources.ts"
+    "gen-sdk-resources-for-docs": "pnpm build && pnpm exec tsx ./scripts/gen-sdk-resources.ts",
+    "gen-commercial-features-for-docs": "pnpm build && pnpm exec tsx ./scripts/gen-commercial-features-for-docs.ts"
   },
   "dependencies": {
     "@dqbd/tiktoken": "^1.0.21",
