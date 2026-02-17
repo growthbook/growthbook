@@ -13,6 +13,8 @@ import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
+import { Select, SelectItem } from "@/ui/Select";
+import Switch from "@/ui/Switch";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import EventUser from "@/components/Avatar/EventUser";
 import {
@@ -76,11 +78,20 @@ export default function CompareRevisionsModal({
   const { apiCall } = useAuth();
   const liveVersion = feature.version;
 
+  const [showDiscarded, setShowDiscarded] = useState(false);
+  const filteredRevisionList = useMemo(
+    () =>
+      showDiscarded
+        ? revisionList
+        : revisionList.filter((r) => r.status !== "discarded"),
+    [revisionList, showDiscarded],
+  );
+
   const versionsDesc = useMemo(() => {
-    const list = [...revisionList];
+    const list = [...filteredRevisionList];
     list.sort((a, b) => b.version - a.version);
     return list.map((r) => r.version);
-  }, [revisionList]);
+  }, [filteredRevisionList]);
 
   const versionsAsc = useMemo(
     () => [...versionsDesc].sort((a, b) => a - b),
@@ -147,8 +158,11 @@ export default function CompareRevisionsModal({
   );
 
   const selectedSorted = useMemo(
-    () => [...selectedVersions].sort((a, b) => a - b),
-    [selectedVersions],
+    () =>
+      [...selectedVersions]
+        .filter((v) => filteredRevisionList.some((r) => r.version === v))
+        .sort((a, b) => a - b),
+    [selectedVersions, filteredRevisionList],
   );
 
   const isRangeEqual = useCallback(
@@ -179,6 +193,31 @@ export default function CompareRevisionsModal({
   const anyLoading = loadingVersions.size > 0;
 
   const [diffPage, setDiffPage] = useState(0);
+  const [diffViewMode, setDiffViewMode] = useState<"steps" | "single">("steps");
+  const canToggleDiffView = selectedSorted.length > 2;
+  const prevShowDiscardedRef = useRef(showDiscarded);
+  useEffect(() => {
+    if (prevShowDiscardedRef.current === showDiscarded) return;
+    prevShowDiscardedRef.current = showDiscarded;
+    if (!showDiscarded) {
+      setSelectedVersions((prev) => {
+        const next = prev.filter((v) =>
+          filteredRevisionList.some((r) => r.version === v),
+        );
+        return next.length > 0 ? next : prev;
+      });
+    } else {
+      setSelectedVersions((prev) => {
+        if (prev.length === 0) return prev;
+        const min = Math.min(...prev);
+        const max = Math.max(...prev);
+        const filled = revisionList
+          .filter((r) => r.version >= min && r.version <= max)
+          .map((r) => r.version);
+        return [...new Set(filled)].sort((a, b) => a - b);
+      });
+    }
+  }, [showDiscarded, filteredRevisionList, revisionList]);
   useEffect(() => {
     setDiffPage((p) =>
       steps.length === 0 ? 0 : Math.min(p, steps.length - 1),
@@ -220,16 +259,23 @@ export default function CompareRevisionsModal({
     });
   };
 
-  const revisionListByVersion = useMemo(
-    () => new Map(revisionList.map((r) => [r.version, r])),
+  const hasDiscardedRevisions = useMemo(
+    () => revisionList.some((r) => r.status === "discarded"),
     [revisionList],
   );
 
+  const revisionListByVersion = useMemo(
+    () => new Map(filteredRevisionList.map((r) => [r.version, r])),
+    [filteredRevisionList],
+  );
+
   const mostRecentDraftVersion = useMemo(() => {
-    const drafts = revisionList.filter((r) => DRAFT_STATUSES.has(r.status));
+    const drafts = filteredRevisionList.filter((r) =>
+      DRAFT_STATUSES.has(r.status),
+    );
     if (drafts.length === 0) return null;
     return Math.max(...drafts.map((r) => r.version));
-  }, [revisionList]);
+  }, [filteredRevisionList]);
 
   const quickActionRanges = useMemo(() => {
     const draftRange: number[] | null =
@@ -260,6 +306,21 @@ export default function CompareRevisionsModal({
       : { defaultValue: "", rules: {} },
     draft: stepRevB
       ? revisionToDiffInput(stepRevB)
+      : { defaultValue: "", rules: {} },
+  });
+
+  const singleRevFirst =
+    selectedSorted.length >= 2 ? getFullRevision(selectedSorted[0]) : null;
+  const singleRevLast =
+    selectedSorted.length >= 2
+      ? getFullRevision(selectedSorted[selectedSorted.length - 1])
+      : null;
+  const mergedDiffs = useFeatureRevisionDiff({
+    current: singleRevFirst
+      ? revisionToDiffInput(singleRevFirst)
+      : { defaultValue: "", rules: {} },
+    draft: singleRevLast
+      ? revisionToDiffInput(singleRevLast)
       : { defaultValue: "", rules: {} },
   });
 
@@ -362,8 +423,21 @@ export default function CompareRevisionsModal({
           )}
           <Box className={styles.section} pb="3">
             <Text size="medium" weight="regular" color="text-mid" mb="2" as="p">
-              Select a range of revisions
+              Select range of revisions
             </Text>
+            {hasDiscardedRevisions && (
+              <Flex gap="2" mb="2" justify="end" align="center">
+                <Text size="small" color="text-low">
+                  Show discarded revisions
+                </Text>
+                <Switch
+                  size="1"
+                  value={showDiscarded}
+                  onChange={setShowDiscarded}
+                  color="gray"
+                />
+              </Flex>
+            )}
             <Flex direction="column" className={styles.revisionsList}>
               {versionsDesc.map((v) => {
                 const minRev = revisionListByVersion.get(v);
@@ -428,52 +502,112 @@ export default function CompareRevisionsModal({
             <LoadingOverlay />
           ) : (
             <>
-              <Flex align="center" justify="between" mb="3" gap="4">
-                <Heading as="h2" size="small" mb="0">
-                  Step {safeDiffPage + 1} of {steps.length}
-                </Heading>
-                <Flex gap="2">
-                  <Button
-                    variant="soft"
-                    size="sm"
-                    disabled={safeDiffPage <= 0}
-                    onClick={() => setDiffPage((p) => Math.max(0, p - 1))}
+              <Flex align="center" justify="between" mb="3" gap="4" wrap="wrap">
+                <Flex align="center" gap="4">
+                  {diffViewMode === "steps" && (
+                    <>
+                      <Heading as="h2" size="small" mb="0">
+                        Step {safeDiffPage + 1} of {steps.length}
+                      </Heading>
+                      <Flex gap="2">
+                        <Button
+                          variant="soft"
+                          size="sm"
+                          disabled={safeDiffPage <= 0}
+                          onClick={() => setDiffPage((p) => Math.max(0, p - 1))}
+                        >
+                          Previous
+                        </Button>
+                        <Button
+                          variant="soft"
+                          size="sm"
+                          disabled={safeDiffPage >= steps.length - 1}
+                          onClick={() =>
+                            setDiffPage((p) =>
+                              Math.min(steps.length - 1, p + 1),
+                            )
+                          }
+                        >
+                          Next
+                        </Button>
+                      </Flex>
+                    </>
+                  )}
+                  {diffViewMode === "single" && selectedSorted.length >= 2 && (
+                    <Heading as="h2" size="small" mb="0">
+                      Revision {selectedSorted[0]} → Revision{" "}
+                      {selectedSorted[selectedSorted.length - 1]}
+                    </Heading>
+                  )}
+                </Flex>
+                <Flex align="center" gap="2">
+                  <Text size="medium" weight="medium" color="text-mid">
+                    Show diff as
+                  </Text>
+                  <Select
+                    value={diffViewMode}
+                    setValue={(v) => setDiffViewMode(v as "steps" | "single")}
+                    disabled={!canToggleDiffView}
+                    size="2"
+                    mb="0"
                   >
-                    Previous
-                  </Button>
-                  <Button
-                    variant="soft"
-                    size="sm"
-                    disabled={safeDiffPage >= steps.length - 1}
-                    onClick={() =>
-                      setDiffPage((p) => Math.min(steps.length - 1, p + 1))
-                    }
-                  >
-                    Next
-                  </Button>
+                    <SelectItem value="steps">Steps</SelectItem>
+                    <SelectItem value="single">Single diff</SelectItem>
+                  </Select>
                 </Flex>
               </Flex>
-              {currentStep && (
-                <Text size="large" color="text-low" mb="3" as="p">
-                  Revision {currentStep[0]} → Revision {currentStep[1]}
-                </Text>
-              )}
-              {stepRevA && stepRevB && stepDiffs.length === 0 ? (
-                <Text color="text-low">
-                  No changes between these revisions.
-                </Text>
+              {diffViewMode === "single" ? (
+                selectedSorted.length < 2 ? (
+                  <Text color="text-low">
+                    Select at least two revisions to see the merged diff.
+                  </Text>
+                ) : singleRevFirst && singleRevLast ? (
+                  mergedDiffs.length === 0 ? (
+                    <Text color="text-low">
+                      No changes between Revision {selectedSorted[0]} and
+                      Revision {selectedSorted[selectedSorted.length - 1]}.
+                    </Text>
+                  ) : (
+                    <Flex direction="column" gap="1">
+                      {mergedDiffs.map((d) => (
+                        <ExpandableDiff
+                          key={d.title}
+                          title={d.title}
+                          a={d.a}
+                          b={d.b}
+                          defaultOpen
+                        />
+                      ))}
+                    </Flex>
+                  )
+                ) : (
+                  <LoadingOverlay />
+                )
               ) : (
-                <Flex direction="column" gap="1">
-                  {stepDiffs.map((d) => (
-                    <ExpandableDiff
-                      key={d.title}
-                      title={d.title}
-                      a={d.a}
-                      b={d.b}
-                      defaultOpen
-                    />
-                  ))}
-                </Flex>
+                <>
+                  {currentStep && (
+                    <Text size="large" color="text-high" mb="3" as="p">
+                      Revision {currentStep[0]} → Revision {currentStep[1]}
+                    </Text>
+                  )}
+                  {stepRevA && stepRevB && stepDiffs.length === 0 ? (
+                    <Text color="text-low">
+                      No changes between these revisions.
+                    </Text>
+                  ) : (
+                    <Flex direction="column" gap="1">
+                      {stepDiffs.map((d) => (
+                        <ExpandableDiff
+                          key={d.title}
+                          title={d.title}
+                          a={d.a}
+                          b={d.b}
+                          defaultOpen
+                        />
+                      ))}
+                    </Flex>
+                  )}
+                </>
               )}
             </>
           )}
