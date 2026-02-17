@@ -734,6 +734,7 @@ export function DataVisualizationDisplay({
         axisPointer: {
           type: dataVizConfig?.chartType === "bar" ? "shadow" : "cross",
         },
+        backgroundColor: "var(--color-panel-solid)",
         valueFormatter: (value: number) => {
           if (!yConfig?.type) {
             return value;

@@ -223,6 +223,7 @@ export default function ExplorerChart() {
         appendTo: "body",
         trigger: "axis",
         padding: [10, 14],
+        backgroundColor: "var(--color-panel-solid)",
         axisPointer: {
           type:
             chartType === "bar" || chartType === "horizontalBar"
