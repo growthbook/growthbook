@@ -20,7 +20,9 @@ import { LicenseInterface } from "shared/enterprise";
 import { DataSourceInterface } from "shared/types/datasource";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
 import { useForm } from "react-hook-form";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
+import DiffViewerClient, {
+  DiffMethod,
+} from "@/components/DiffViewer/DiffViewerClient";
 import Field from "@/components/Forms/Field";
 import Pagination from "@/components/Pagination";
 import { useUser } from "@/services/UserContext";
@@ -1245,7 +1247,7 @@ function EditSSOModal({
       ) : currentSSO?.metadata ? (
         <>
           <h3 className="mt-3">Changes</h3>
-          <ReactDiffViewer
+          <DiffViewerClient
             oldValue={sortObj(currentSSO)}
             newValue={sortObj(generateSSOConnection(currentValue))}
             compareMethod={DiffMethod.LINES}

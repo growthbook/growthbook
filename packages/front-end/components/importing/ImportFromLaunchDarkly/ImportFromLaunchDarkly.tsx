@@ -13,7 +13,9 @@ import { MdPending } from "react-icons/md";
 import { cloneDeep, isEqual } from "lodash";
 import { Environment } from "shared/types/organization";
 import Link from "next/link";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
+import DiffViewerClient, {
+  DiffMethod,
+} from "@/components/DiffViewer/DiffViewerClient";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -129,7 +131,7 @@ function FeatureDiff({
   const b = JSON.stringify(featureComp[1], null, 2);
 
   return (
-    <ReactDiffViewer
+    <DiffViewerClient
       oldValue={a}
       newValue={b}
       compareMethod={DiffMethod.LINES}

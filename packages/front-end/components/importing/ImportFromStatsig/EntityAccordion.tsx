@@ -1,6 +1,8 @@
 import React from "react";
 import { FaChevronDown, FaChevronRight } from "react-icons/fa";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
+import DiffViewerClient, {
+  DiffMethod,
+} from "@/components/DiffViewer/DiffViewerClient";
 import { transformPayloadForDiffDisplay } from "@/services/importing/statsig/util";
 
 interface EntityAccordionProps {
@@ -170,7 +172,7 @@ export const EntityAccordionContent: React.FC<EntityAccordionContentProps> = ({
                 }}
                 className="diff-viewer-wrapper"
               >
-                <ReactDiffViewer
+                <DiffViewerClient
                   oldValue={existingJson}
                   newValue={transformedData}
                   compareMethod={DiffMethod.LINES}

@@ -1,5 +1,4 @@
 import { FeatureInterface } from "shared/types/feature";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
 import { useState, useMemo } from "react";
 import { FaAngleDown, FaAngleRight, FaArrowLeft } from "react-icons/fa";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -10,6 +9,9 @@ import {
   mergeResultHasChanges,
 } from "shared/util";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import DiffViewerClient, {
+  DiffMethod,
+} from "@/components/DiffViewer/DiffViewerClient";
 import {
   getAffectedRevisionEnvs,
   useEnvironments,
@@ -68,7 +70,7 @@ export function ExpandableDiff({
       </div>
       {open && (
         <div className="list-group-item list-group-item-light">
-          <ReactDiffViewer
+          <DiffViewerClient
             oldValue={a}
             newValue={b}
             compareMethod={DiffMethod.LINES}

@@ -1,7 +1,9 @@
 import { FeatureInterface } from "shared/types/feature";
 import { filterEnvironmentsByFeature } from "shared/util";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
 import { Flex, useThemeContext, Text } from "@radix-ui/themes";
+import DiffViewerClient, {
+  DiffMethod,
+} from "@/components/DiffViewer/DiffViewerClient";
 import { getRules, useEnvironments } from "@/services/features";
 import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
@@ -123,7 +125,7 @@ export default function CompareEnvironmentsModal({
       />
 
       {sourceEnv && targetEnv && sourceEnv !== targetEnv && (
-        <ReactDiffViewer
+        <DiffViewerClient
           oldValue={JSON.stringify(rulesByEnv[targetEnv], null, 2)}
           newValue={JSON.stringify(rulesByEnv[sourceEnv], null, 2)}
           compareMethod={DiffMethod.LINES}

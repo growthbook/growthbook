@@ -1,5 +1,4 @@
 import { FeatureInterface } from "shared/types/feature";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
 import { useState, useMemo } from "react";
 import { FaAngleDown, FaAngleRight, FaCheck } from "react-icons/fa";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -11,6 +10,9 @@ import {
   filterEnvironmentsByFeature,
 } from "shared/util";
 import clsx from "clsx";
+import DiffViewerClient, {
+  DiffMethod,
+} from "@/components/DiffViewer/DiffViewerClient";
 import { useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import PagedModal from "@/components/Modal/PagedModal";
@@ -101,7 +103,7 @@ export function ExpandableConflict({
                 <h4 className="mb-0">External Change</h4>
                 <div className="ml-3">The change that is currently live</div>
               </div>
-              <ReactDiffViewer
+              <DiffViewerClient
                 oldValue={conflict.base}
                 newValue={conflict.live}
                 compareMethod={DiffMethod.LINES}
@@ -117,7 +119,7 @@ export function ExpandableConflict({
                 <h4 className="mb-0">Your Change</h4>
                 <div className="ml-3">The change in this draft</div>
               </div>
-              <ReactDiffViewer
+              <DiffViewerClient
                 oldValue={conflict.base}
                 newValue={conflict.revision}
                 compareMethod={DiffMethod.LINES}
