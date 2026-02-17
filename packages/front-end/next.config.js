@@ -13,8 +13,17 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  // Enable Turbopack with empty config to silence migration warning
-  turbopack: {},
+  turbopack: {
+    // Ace workers: load as raw text so we can create Blob URLs. Turbopack doesn't support
+    // webpack's asset/resource the same way - raw-loader gives us the worker source,
+    // which we convert to blob: URLs that Ace can load.
+    rules: {
+      "**/ace-builds/**/worker-*.js": {
+        loaders: ["raw-loader"],
+        as: "*.js",
+      },
+    },
+  },
   experimental: {
     turbopackFileSystemCacheForDev: true,
     turbopackFileSystemCacheForBuild: true,
@@ -50,9 +59,11 @@ const nextConfig = {
   ],
   transpilePackages: ["echarts", "zrender"],
   webpack: (config) => {
+    // Ace workers: use raw-loader (same as Turbopack) so we get source and create
+    // Blob URLs. asset/resource only works with webpack, not Turbopack.
     config.module.rules.push({
-      test: /ace-builds.*\/worker-.*$/,
-      type: "asset/resource",
+      test: /ace-builds.*\/worker-.*\.js$/,
+      use: "raw-loader",
     });
 
     // Suppress OpenTelemetry dynamic require warnings from Sentry
