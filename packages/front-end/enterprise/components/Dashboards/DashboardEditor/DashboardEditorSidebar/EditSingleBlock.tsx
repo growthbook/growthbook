@@ -1032,9 +1032,6 @@ export default function EditSingleBlock({
                           meta?.context !== "menu", // Show icon when NOT in dropdown mode
                         );
                       }}
-                      formatGroupLabel={(group) => (
-                        <div className="pb-1 pt-2">{group.label}</div>
-                      )}
                     />
                     {shouldShowEditorField(block, "_toggleSortByMetricIds") &&
                       blockHasFieldOfType(block, "metricIds", isStringArray) &&

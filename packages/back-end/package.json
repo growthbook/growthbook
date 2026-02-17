@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "engines": {
-    "node": ">=18"
+    "node": ">=24"
   },
   "scripts": {
     "build:emails": "mkdir -p dist/templates && cp -r src/templates/* dist/templates",
@@ -24,7 +24,7 @@
     "watch-compile": "swc src -w --out-dir dist",
     "watch-dev": "delay 1 && nodemon --exec 'node --enable-source-maps --no-node-snapshot' --watch dist --watch '../shared/dist' -e js ./dist/server.js",
     "migrate-encryption-key": "GB_STATS_ENGINE_MIN_POOL_SIZE=0 CRON_ENABLED=false ./src/scripts/migrate-encryption-key.sh",
-    "generate-api-models": "ts-node src/scripts/generate-doc-models-for-openapi-schemas.ts",
+    "generate-api-models": "DISABLE_PYTHON_MONITOR=1 GB_STATS_ENGINE_MIN_POOL_SIZE=0 ts-node src/scripts/generate-doc-models-for-openapi-schemas.ts",
     "generate-api-types": "pnpm generate-api-models && swagger-cli bundle -t yaml src/api/openapi/openapi.tmp.yaml -o generated/spec.yaml && node src/scripts/generate-openapi.mjs"
   },
   "dependencies": {
@@ -51,12 +51,12 @@
     "@opentelemetry/exporter-logs-otlp-http": "~0.57.0",
     "@opentelemetry/exporter-metrics-otlp-proto": "~0.57.0",
     "@opentelemetry/instrumentation-pino": "~0.57.0",
-    "@opentelemetry/winston-transport": "~0.21.0",
     "@opentelemetry/resources": "~1.30.0",
     "@opentelemetry/sdk-logs": "~0.57.0",
     "@opentelemetry/sdk-metrics": "~1.30.0",
     "@opentelemetry/sdk-node": "~0.57.0",
     "@opentelemetry/semantic-conventions": "~1.30.0",
+    "@opentelemetry/winston-transport": "~0.21.0",
     "@sentry/cli-linux-x64": "^2.58.4",
     "@sentry/node": "^10.36.0",
     "@stdlib/random": "^0.1.1",
@@ -90,7 +90,7 @@
     "generic-pool": "^3.9.0",
     "googleapis": "^59.0.0",
     "handlebars": "^4.7.8",
-    "isolated-vm": "5.0.4",
+    "isolated-vm": "^6.0.2",
     "jose": "^4.15.5",
     "js-yaml": "^4.1.0",
     "json5": "^2.2.3",
@@ -171,6 +171,7 @@
     "jest": "^27.1.1",
     "minimist": "^1.2.8",
     "mongodb-memory-server": "^9.2.0",
+    "node-gyp": "^12.2.0",
     "rimraf": "^3.0.2",
     "supertest": "^7.0.0",
     "typescript": "5.7.3"

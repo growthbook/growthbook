@@ -797,6 +797,71 @@ export async function getExperimentsUsingMetric({
   return experiments;
 }
 
+/**
+ * Batch version of getExperimentsUsingMetric that efficiently fetches experiments
+ * for multiple metrics in a single query.
+ *
+ * Returns a flat array of experiments that use any of the given metrics
+ * (directly or via a metric group). The caller is responsible for filtering
+ * the results to determine which experiments use which buific metrics.
+ */
+export async function getExperimentsUsingMetrics({
+  context,
+  metricIds,
+  metricToGroupIds,
+  limit,
+}: {
+  context: ReqContext | ApiReqContext;
+  metricIds: string[];
+  // Map from metric ID to group IDs to search for metric usage
+  // by including usage via metric groups. If passed in empty,
+  // this query will ignore metric usage via metric groups.
+  metricToGroupIds: Map<string, string[]>;
+  limit?: number;
+}): Promise<ExperimentInterface[]> {
+  if (metricIds.length === 0) {
+    return [];
+  }
+
+  // Build the search criteria: for each metric, include the metric itself
+  // and any metric groups that contain it
+  const allSearchIds: string[] = [];
+  for (const metricId of metricIds) {
+    const groupIds = metricToGroupIds.get(metricId) || [];
+    allSearchIds.push(metricId, ...groupIds);
+  }
+
+  // Deduplicate search IDs
+  const uniqueSearchIds = [...new Set(allSearchIds)];
+
+  // Build the query
+  const query: FilterQuery<ExperimentDocument> = {
+    organization: context.org.id,
+    $or: [
+      { metrics: { $in: uniqueSearchIds } },
+      { goalMetrics: { $in: uniqueSearchIds } },
+      { guardrails: { $in: uniqueSearchIds } },
+      { guardrailMetrics: { $in: uniqueSearchIds } },
+      { secondaryMetrics: { $in: uniqueSearchIds } },
+      { activationMetric: { $in: uniqueSearchIds } },
+    ],
+    archived: {
+      $ne: true,
+    },
+  };
+
+  // Query all experiments that use any of these metrics/groups in a single query
+  const experiments = await findExperiments(
+    context,
+    query,
+    // hard cap at 10000 to prevent too many results
+    limit !== undefined ? limit : 10000,
+    { _id: -1 },
+  );
+
+  return experiments;
+}
+
 export async function getRecentExperimentsUsingMetric(
   context: ReqContext | ApiReqContext,
   metricId: string,
