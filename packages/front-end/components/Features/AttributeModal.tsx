@@ -283,15 +283,14 @@ export default function AttributeModal({ close, attribute }: Props) {
           />
           {form.watch("format") === "version" && (
             <Callout status="warning" contentsAs="div">
-              <strong>Warning:</strong> Version string attributes are only
-              supported in{" "}
-              <Tooltip
-                body={<MinSDKVersionsList capability="semverTargeting" />}
-              >
-                <span className="text-primary">some SDK versions</span>
-              </Tooltip>
-              . Do not use this format if you are using an incompatible SDK as
-              it will break any filtering based on the attribute.
+            <Callout status="warning">
+Version string attributes are only
+supported in{" "}
+<Tooltip
+@@ -286,7 +292,7 @@ export default function AttributeModal({ close, attribute }: Props) {
+</Tooltip>
+. Do not use this format if you are using an incompatible SDK as
+it will break any filtering based on the attribute.
             </Callout>
           )}
 
