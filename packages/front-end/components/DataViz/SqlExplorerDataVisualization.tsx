@@ -732,7 +732,7 @@ export function DataVisualizationDisplay({
         appendTo: "body",
         trigger: "axis",
         axisPointer: {
-          type: "shadow",
+          type: dataVizConfig?.chartType === "bar" ? "shadow" : "cross",
         },
         valueFormatter: (value: number) => {
           if (!yConfig?.type) {
@@ -809,13 +809,14 @@ export function DataVisualizationDisplay({
     };
   }, [
     dataset,
+    dataVizConfig?.chartType,
     dataVizConfig.title,
-    anchorYAxisToZero,
     textColor,
     dimensionFields.length,
     xConfig?.type,
     xConfig?.dateAggregationUnit,
     xField,
+    anchorYAxisToZero,
     yConfig?.aggregation,
     yConfig?.type,
     yField,
