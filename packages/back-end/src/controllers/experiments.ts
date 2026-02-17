@@ -1061,7 +1061,11 @@ export async function postExperiments(
   }
 
   let result:
-    | { metricIds: string[]; datasource: DataSourceInterface | null }
+    | {
+        metricIds: string[];
+        datasource: DataSourceInterface | null;
+        invalidMetricIds: string[];
+      }
     | undefined;
 
   try {
@@ -1074,10 +1078,32 @@ export async function postExperiments(
     return;
   }
 
-  const { metricIds, datasource } = result;
+  const { metricIds, datasource, invalidMetricIds } = result;
 
   const experimentType = data.type ?? "standard";
   const holdoutId = data.holdoutId;
+
+  // TODO: Added as a hotfix. Remove when issue is resolved.
+  let filteredGoalMetrics = data.goalMetrics;
+  let filteredSecondaryMetrics = data.secondaryMetrics;
+  let filteredGuardrailMetrics = data.guardrailMetrics;
+  let filteredActivationMetric = data.activationMetric;
+  if (invalidMetricIds.length) {
+    filteredGoalMetrics = data.goalMetrics?.filter(
+      (id) => !invalidMetricIds.includes(id),
+    );
+    filteredSecondaryMetrics = data.secondaryMetrics?.filter(
+      (id) => !invalidMetricIds.includes(id),
+    );
+    filteredGuardrailMetrics = data.guardrailMetrics?.filter(
+      (id) => !invalidMetricIds.includes(id),
+    );
+    filteredActivationMetric = data.activationMetric
+      ? !invalidMetricIds.includes(data.activationMetric)
+        ? data.activationMetric
+        : ""
+      : "";
+  }
 
   const obj: Omit<ExperimentInterface, "id" | "uid"> = {
     organization: data.organization,
@@ -1108,10 +1134,10 @@ export async function postExperiments(
     tags: data.tags || [],
     description: data.description || "",
     hypothesis: data.hypothesis || "",
-    goalMetrics: data.goalMetrics || [],
-    secondaryMetrics: data.secondaryMetrics || [],
-    guardrailMetrics: data.guardrailMetrics || [],
-    activationMetric: data.activationMetric || "",
+    goalMetrics: filteredGoalMetrics || [],
+    secondaryMetrics: filteredSecondaryMetrics || [],
+    guardrailMetrics: filteredGuardrailMetrics || [],
+    activationMetric: filteredActivationMetric || "",
     metricOverrides: data.metricOverrides || [],
     segment: data.segment || "",
     queryFilter: data.queryFilter || "",
@@ -1361,6 +1387,8 @@ export async function postExperiment(
 
   const metricMap = await getMetricMap(context);
 
+  const invalidMetricIds: string[] = [];
+
   if (newMetricIds.length) {
     for (let i = 0; i < newMetricIds.length; i++) {
       const metric = metricMap.get(newMetricIds[i]);
@@ -1393,12 +1421,32 @@ export async function postExperiment(
           }
         } else {
           // new metric that's not recognized...
-          res.status(403).json({
-            status: 403,
-            message: "Unknown metric: " + newMetricIds[i],
-          });
-          return;
+          invalidMetricIds.push(newMetricIds[i]);
+          // TODO: Commented out as a hotfix. Remove when we figure out why this is happening from the UI
+          // res.status(403).json({
+          //   status: 403,
+          //   message: "Unknown metric: " + newMetricIds[i],
+          // });
+          // return;
         }
+      }
+    }
+    // Filter out invalid metric ids from the data
+    if (invalidMetricIds.length) {
+      data.goalMetrics = data.goalMetrics?.filter(
+        (id) => !invalidMetricIds.includes(id),
+      );
+      data.secondaryMetrics = data.secondaryMetrics?.filter(
+        (id) => !invalidMetricIds.includes(id),
+      );
+      data.guardrailMetrics = data.guardrailMetrics?.filter(
+        (id) => !invalidMetricIds.includes(id),
+      );
+      if (
+        data.activationMetric &&
+        invalidMetricIds.includes(data.activationMetric)
+      ) {
+        data.activationMetric = "";
       }
     }
   }

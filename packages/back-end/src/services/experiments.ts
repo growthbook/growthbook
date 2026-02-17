@@ -3379,7 +3379,11 @@ export async function computeResultsStatus({
 export async function validateExperimentData(
   context: ReqContext,
   data: Partial<ExperimentInterfaceStringDates>,
-): Promise<{ metricIds: string[]; datasource: DataSourceInterface | null }> {
+): Promise<{
+  metricIds: string[];
+  datasource: DataSourceInterface | null;
+  invalidMetricIds: string[];
+}> {
   let datasource: DataSourceInterface | null = null;
   if (data.datasource) {
     datasource = await getDataSourceById(context, data.datasource);
@@ -3387,6 +3391,8 @@ export async function validateExperimentData(
       throw new Error("Invalid datasource: " + data.datasource);
     }
   }
+
+  const invalidMetricIds: string[] = [];
 
   // Validate that specified metrics exist and belong to the organization
   const allMetricGroups = await context.models.metricGroups.getAll();
@@ -3418,11 +3424,13 @@ export async function validateExperimentData(
           }
         } else {
           // new metric that's not recognized...
-          throw new Error("Unknown metric: " + metricIds[i]);
+          invalidMetricIds.push(metricIds[i]);
+          // TODO: Commented out as a hotfix. Remove when we figure out why this is happening from the UI
+          // throw new Error("Unknown metric: " + metricIds[i]);
         }
       }
     }
   }
 
-  return { metricIds, datasource };
+  return { metricIds, datasource, invalidMetricIds };
 }
