@@ -19,9 +19,11 @@ export default function RevisionStatusBadge({ revision, liveVersion }: Props) {
     case "discarded":
       return <Badge label="Discarded" radius="full" color="red" />;
     case "pending-review":
+      return <Badge label="Pending review" radius="full" color="blue" />;
     case "changes-requested":
+      return <Badge label="Changes requested" radius="full" color="amber" />;
     case "approved":
-      return <Badge label={revision.status} radius="full" color="gray" />;
+      return <Badge label="Approved" radius="full" color="gray" />;
     default:
       return null;
   }
