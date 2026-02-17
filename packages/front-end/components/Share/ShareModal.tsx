@@ -42,6 +42,7 @@ import Avatar from "@/ui/Avatar";
 import { capitalizeFirstLetter } from "@/services/utils";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
+import PremiumCallout from "@/ui/PremiumCallout";
 import Preview from "./Preview";
 
 export const presentationThemes = {
@@ -199,7 +200,7 @@ const ShareModal = ({
   const [logoUploading, setLogoUploading] = useState(false);
   const { getUserDisplay, hasCommercialFeature } = useUser();
   const { blockFileUploads } = useOrgSettings();
-  const hasPresentationStyling = hasCommercialFeature("presentation-styling");
+  const hasPresentationStyling = hasCommercialFeature("adv-presentations");
   const canUploadLogo = hasUploadSupport() && !blockFileUploads;
   const { data: themesData, mutate: mutateThemes } = useApi<{
     status: number;
@@ -257,7 +258,7 @@ const ShareModal = ({
     }
   }, [modalState, existing]);
 
-  // Reset theme away from "custom" if user doesn't have presentation-styling
+  // Reset theme away from "custom" if user doesn't have adv-presentations
   useEffect(() => {
     if (!hasPresentationStyling && form.getValues("theme") === "custom") {
       form.setValue("theme", defaultTheme);
@@ -905,23 +906,24 @@ const ShareModal = ({
                             onChange={handleThemeChange}
                             options={presThemes}
                           />
-                          {hasPresentationStyling &&
-                            value.theme !== "custom" && (
-                              <div className="mt-2 d-flex gap-2 flex-wrap align-items-center">
-                                <button
-                                  type="button"
-                                  className="btn btn-link btn-sm p-0"
-                                  onClick={() => {
-                                    setSelectedSavedThemeId(null);
-                                    setSaveThemeName("");
-                                    form.setValue("theme", "custom");
-                                  }}
-                                >
-                                  New custom theme
-                                </button>
-                              </div>
-                            )}
                         </Box>
+                        {!hasPresentationStyling && (
+                          <>
+                            <Box></Box>
+                            <Box>
+                              <PremiumCallout
+                                mt="3"
+                                commercialFeature="adv-presentations"
+                                dismissable={false}
+                                id="adv-presentations-new-pres"
+                              >
+                                <strong>Customize your presentations</strong>:
+                                Add logos, theme colors, and select advanced
+                                options.
+                              </PremiumCallout>
+                            </Box>
+                          </>
+                        )}
                         {value.theme === "custom" && hasPresentationStyling && (
                           <>
                             {(canUploadLogo || value.logoUrl) && (

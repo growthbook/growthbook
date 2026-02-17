@@ -21,7 +21,7 @@ const PresentPage = (): React.ReactElement => {
   const router = useRouter();
   const { pid, slide: slideParam } = router.query;
   const { hasCommercialFeature } = useUser();
-  const hasPresentationStyling = hasCommercialFeature("presentation-styling");
+  const hasPresentationStyling = hasCommercialFeature("adv-presentations");
 
   const initialSlideIndex = useMemo(() => {
     if (slideParam === undefined || Array.isArray(slideParam)) return 0;

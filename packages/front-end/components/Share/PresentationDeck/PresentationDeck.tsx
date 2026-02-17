@@ -40,7 +40,6 @@ function runPresentationCelebration(
       RANDOM_CELEBRATION_TYPES[
         Math.floor(Math.random() * RANDOM_CELEBRATION_TYPES.length)
       ];
-    console.log("random type", type);
   } else if (celebration === "stars") {
     type = "sparkles";
   } else {
@@ -112,6 +111,12 @@ export function PresentationDeck({
 
   const currentSlideConfig = slides[slideIndex];
   const totalStepsInSlide = currentSlideConfig?.steps ?? 0;
+
+  const totalSlides = slides.reduce((acc, s) => acc + 1 + (s.steps ?? 0), 0);
+  const previousPositions = slides
+    .slice(0, slideIndex)
+    .reduce((acc, s) => acc + 1 + (s.steps ?? 0), 0);
+  const currentPosition = previousPositions + stepIndex;
 
   // Size the celebration canvas to the container when in preview (so confetti is confined)
   useEffect(() => {
@@ -188,71 +193,60 @@ export function PresentationDeck({
     }
   }, []);
 
-  // When in preview, listen for custom navigate events (e.g. from ShareModal step 1
-  // when focus is outside the deck and Radix Tabs would otherwise steal arrow keys)
-  useEffect(() => {
-    if (!preview) return;
-    const handleNavigate = (e: CustomEvent<{ direction: "next" | "prev" }>) => {
-      if (e.detail.direction === "next") goNext();
-      else goPrev();
-    };
-    window.addEventListener(
-      "presentation-deck-navigate",
-      handleNavigate as EventListener,
-    );
-    return () =>
-      window.removeEventListener(
-        "presentation-deck-navigate",
-        handleNavigate as EventListener,
-      );
-  }, [preview, goNext, goPrev]);
-
   // Keyboard navigation
+  const goNextRef = useRef(goNext);
+  const goPrevRef = useRef(goPrev);
+  const onSlideChangeRef = useRef(onSlideChange);
+  const exitFullscreenRef = useRef(exitFullscreen);
+  const slidesRef = useRef(slides);
+
+  useEffect(() => {
+    // keep refs up to date without forcing re-subscribe of the keydown listener
+    goNextRef.current = goNext;
+    goPrevRef.current = goPrev;
+    onSlideChangeRef.current = onSlideChange;
+    exitFullscreenRef.current = exitFullscreen;
+    slidesRef.current = slides;
+  }, [goNext, goPrev, onSlideChange, exitFullscreen, slides]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
       const isInput =
         target.tagName === "INPUT" ||
         target.tagName === "TEXTAREA" ||
-        target.tagName === "SELECT" ||
         target.isContentEditable;
 
       if (isInput) return;
+
       if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") {
         e.preventDefault();
-        goNext();
+        goNextRef.current();
       } else if (
         e.key === "ArrowLeft" ||
         e.key === "PageUp" ||
         e.key === "Backspace"
       ) {
         e.preventDefault();
-        goPrev();
+        goPrevRef.current();
       } else if (e.key === "Home") {
         e.preventDefault();
         setSlideIndex(0);
         setStepIndex(0);
-        onSlideChange?.(0);
+        onSlideChangeRef.current?.(0);
       } else if (e.key === "End") {
         e.preventDefault();
-        setSlideIndex(slides.length - 1);
-        setStepIndex(slides[slides.length - 1]?.steps ?? 0);
-        onSlideChange?.(slides.length - 1);
+        const s = slidesRef.current;
+        setSlideIndex(s.length - 1);
+        setStepIndex(s[s.length - 1]?.steps ?? 0);
+        onSlideChangeRef.current?.(s.length - 1);
       } else if (e.key === "Escape" && isFullscreen) {
-        exitFullscreen();
+        exitFullscreenRef.current();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [
-    goNext,
-    goPrev,
-    isFullscreen,
-    slides.length,
-    onSlideChange,
-    slides,
-    exitFullscreen,
-  ]);
+  }, [isFullscreen]);
 
   useEffect(() => {
     const handler = () => {
@@ -413,15 +407,7 @@ export function PresentationDeck({
             style={{
               width: `${
                 slides.length > 0
-                  ? (() => {
-                      const stepProgress =
-                        totalStepsInSlide > 0
-                          ? stepIndex / totalStepsInSlide
-                          : 1;
-                      return (
-                        ((slideIndex + stepProgress) / slides.length) * 100
-                      );
-                    })()
+                  ? (currentPosition / (totalSlides - 1)) * 100
                   : 0
               }%`,
               height: "100%",

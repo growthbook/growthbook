@@ -1014,11 +1014,6 @@
       "count": 2
     }
   },
-  "packages/front-end/pages/presentations.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/pages/product-analytics/dashboards/index.tsx": {
     "no-restricted-imports": {
       "count": 1
