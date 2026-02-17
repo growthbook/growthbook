@@ -1,5 +1,5 @@
 import { FC } from "react";
-import { StylesConfig } from "react-select";
+import { CSSObjectWithLabel, StylesConfig } from "react-select";
 import { TagInterface } from "shared/types/tag";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -80,7 +80,7 @@ const TagsInput: FC<{
           ...styles[":active"],
           backgroundColor: displayColor + "90",
         },
-      };
+      } as CSSObjectWithLabel;
     },
     control: (styles, { isFocused }) => {
       return {
@@ -88,7 +88,7 @@ const TagsInput: FC<{
         boxShadow: `0px 0px 0px 1px ${
           isFocused ? "var(--violet-8)" : undefined
         }`,
-      };
+      } as CSSObjectWithLabel;
     },
     multiValue: (styles, { data }) => {
       const color = findClosestRadixColor(data.color) || "#029dd1";
@@ -96,14 +96,14 @@ const TagsInput: FC<{
         ...styles,
         borderRadius: 4,
         backgroundColor: `var(--${color}-a3)`,
-      };
+      } as CSSObjectWithLabel;
     },
     multiValueLabel: (styles, { data }) => {
       const color = findClosestRadixColor(data.color) || "#029dd1";
       return {
         ...styles,
         color: `var(--${color}-11)`,
-      };
+      } as CSSObjectWithLabel;
     },
     multiValueRemove: (styles, { data }) => {
       return {
@@ -113,7 +113,7 @@ const TagsInput: FC<{
           backgroundColor: data.color + "cc",
           color: "#ffffff",
         },
-      };
+      } as CSSObjectWithLabel;
     },
   };
 

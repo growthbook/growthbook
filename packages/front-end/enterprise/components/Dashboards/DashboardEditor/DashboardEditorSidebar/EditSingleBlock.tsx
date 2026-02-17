@@ -20,7 +20,7 @@ import {
   PiCaretRightFill,
 } from "react-icons/pi";
 import { UNSUPPORTED_METRIC_EXPLORER_TYPES } from "shared/constants";
-import { FormatOptionLabelMeta } from "react-select";
+import { CSSObjectWithLabel, FormatOptionLabelMeta } from "react-select";
 import Collapsible from "react-collapsible";
 import {
   getAvailableMetricsFilters,
@@ -894,10 +894,11 @@ export default function EditSingleBlock({
                       placeholder="All Metrics"
                       containerClassName="mb-0"
                       customStyles={{
-                        placeholder: (base) => ({
-                          ...base,
-                          color: "var(--text-color-main)",
-                        }),
+                        placeholder: (base) =>
+                          ({
+                            ...base,
+                            color: "var(--text-color-main)",
+                          }) as CSSObjectWithLabel,
                       }}
                       value={block.metricIds}
                       onChange={(value) => {

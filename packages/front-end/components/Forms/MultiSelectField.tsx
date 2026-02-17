@@ -16,9 +16,13 @@ import ReactSelect, {
   OptionProps,
   FormatOptionLabelMeta,
   ClearIndicatorProps,
+  IndicatorsContainerProps,
+  MultiValueRemoveProps,
+  MenuListProps,
 } from "react-select";
 import {
   DndContext,
+  DragEndEvent,
   closestCenter,
   KeyboardSensor,
   PointerSensor,
@@ -116,6 +120,9 @@ const SortableMultiValue = (props: MultiValueProps<SingleValue>) => {
   );
 };
 
+const MultiValueLabelFixed =
+  components.MultiValueLabel as unknown as React.FC<MultiValueGenericProps>;
+
 const SortableMultiValueLabel = (props: MultiValueGenericProps) => {
   const sortableContext = useContext(SortableMultiValueContext);
   const title = props.data?.tooltip || props.data?.label || "";
@@ -126,12 +133,12 @@ const SortableMultiValueLabel = (props: MultiValueGenericProps) => {
       ...sortableContext.attributes,
       ...sortableContext.listeners,
       style: {
-        ...props.innerProps.style,
+        ...(props.innerProps as { style?: React.CSSProperties }).style,
         cursor: "grab",
       },
     }),
   };
-  return <components.MultiValueLabel {...props} innerProps={innerProps} />;
+  return <MultiValueLabelFixed {...props} innerProps={innerProps} />;
 };
 
 const OptionWithTitle = (props: OptionProps<SingleValue>) => {
@@ -140,10 +147,13 @@ const OptionWithTitle = (props: OptionProps<SingleValue>) => {
   return <div title={props.data?.tooltip}>{option}</div>;
 };
 
+const InputFixed = components.Input as unknown as React.FC<InputProps>;
+
 const Input = (props: InputProps) => {
-  // @ts-expect-error will be passed down
-  const { onPaste } = props.selectProps;
-  return <components.Input onPaste={onPaste} {...props} />;
+  const { onPaste } = props.selectProps as unknown as {
+    onPaste?: React.ClipboardEventHandler;
+  };
+  return <InputFixed onPaste={onPaste} {...props} />;
 };
 
 function CopyButton({ value }: { value: string[] }) {
@@ -182,9 +192,10 @@ function CopyButton({ value }: { value: string[] }) {
   );
 }
 
-function IndicatorsContainerWithCopyButton(
-  props: React.ComponentProps<typeof components.IndicatorsContainer>,
-) {
+const IndicatorsContainerFixed =
+  components.IndicatorsContainer as unknown as React.FC<IndicatorsContainerProps>;
+
+function IndicatorsContainerWithCopyButton(props: IndicatorsContainerProps) {
   const selectProps = props.selectProps as unknown as {
     showCopyButton?: boolean;
     value?: Array<{ value: string; label: string }>;
@@ -194,35 +205,40 @@ function IndicatorsContainerWithCopyButton(
   const options = selectProps?.value;
 
   if (!showCopy || !options || options.length === 0) {
-    return <components.IndicatorsContainer {...props} />;
+    return <IndicatorsContainerFixed {...props} />;
   }
 
   // Extract just the value strings from the option objects
   const values = options.map((opt) => opt.value);
 
   return (
-    <components.IndicatorsContainer {...props}>
+    <IndicatorsContainerFixed {...props}>
       <CopyButton value={values} />
       {props.children}
-    </components.IndicatorsContainer>
+    </IndicatorsContainerFixed>
   );
 }
+
+const ClearIndicatorFixed = components.ClearIndicator as unknown as React.FC<
+  ClearIndicatorProps<ColorOption, true>
+>;
 
 function CustomClearIndicator(props: ClearIndicatorProps<ColorOption, true>) {
   return (
-    <components.ClearIndicator {...props}>
+    <ClearIndicatorFixed {...props}>
       <PiXBold />
-    </components.ClearIndicator>
+    </ClearIndicatorFixed>
   );
 }
 
-function CustomMultiValueRemove(
-  props: React.ComponentProps<typeof components.MultiValueRemove>,
-) {
+const MultiValueRemoveFixed =
+  components.MultiValueRemove as unknown as React.FC<MultiValueRemoveProps>;
+
+function CustomMultiValueRemove(props: MultiValueRemoveProps) {
   return (
-    <components.MultiValueRemove {...props}>
+    <MultiValueRemoveFixed {...props}>
       <PiXBold />
-    </components.MultiValueRemove>
+    </MultiValueRemoveFixed>
   );
 }
 
@@ -293,14 +309,11 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
     [selected],
   );
 
-  const handleDragEnd = (event: {
-    active: { id: string };
-    over: { id: string } | null;
-  }) => {
+  const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (over && active.id !== over.id) {
-      const oldIndex = parseInt(active.id, 10);
-      const newIndex = parseInt(over.id, 10);
+      const oldIndex = parseInt(String(active.id), 10);
+      const newIndex = parseInt(String(over.id), 10);
       if (!Number.isNaN(oldIndex) && !Number.isNaN(newIndex)) {
         onChange(
           arrayMove(
@@ -418,19 +431,21 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
         : creatable
           ? {
               IndicatorSeparator: () => null,
-              MenuList: (
-                props: React.ComponentProps<typeof components.MenuList>,
-              ) => (
-                <>
-                  <div
-                    className="px-2 py-1"
-                    style={{ fontWeight: 500, fontSize: "85%" }}
-                  >
-                    <strong>Select an option or create one</strong>
-                  </div>
-                  <components.MenuList {...props} />
-                </>
-              ),
+              MenuList: (props: MenuListProps) => {
+                const MenuListFixed =
+                  components.MenuList as unknown as React.FC<MenuListProps>;
+                return (
+                  <>
+                    <div
+                      className="px-2 py-1"
+                      style={{ fontWeight: 500, fontSize: "85%" }}
+                    >
+                      <strong>Select an option or create one</strong>
+                    </div>
+                    <MenuListFixed {...props} />
+                  </>
+                );
+              },
             }
           : { IndicatorSeparator: () => null }),
     },

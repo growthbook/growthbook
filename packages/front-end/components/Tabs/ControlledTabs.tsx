@@ -11,6 +11,19 @@ import clsx from "clsx";
 import TabButton from "./TabButton";
 import TabButtons from "./TabButtons";
 
+interface TabProps {
+  display: string;
+  id?: string;
+  anchor?: string;
+  visible?: boolean;
+  count?: number;
+  lazy?: boolean;
+  action?: ReactElement;
+  className?: string;
+  padding?: boolean;
+  forceRenderOnFocus?: boolean;
+}
+
 const ControlledTabs: FC<{
   orientation?: "vertical" | "horizontal";
   className?: string;
@@ -53,10 +66,10 @@ const ControlledTabs: FC<{
   }, [defaultTab, active]);
 
   const anchorMap = new Map<string, string>();
-  let activeChosen = null;
-  let backupActive = null;
+  let activeChosen: string | null = null;
+  let backupActive: string | null = null;
   Children.forEach(children, (child) => {
-    if (!isValidElement(child)) return;
+    if (!isValidElement<TabProps>(child)) return;
     const { display, anchor, visible } = child.props;
     const id = child.props?.id ?? display;
     if (anchor) {
@@ -79,7 +92,7 @@ const ControlledTabs: FC<{
   }).length;
 
   Children.forEach(children, (child, i) => {
-    if (!isValidElement(child)) return;
+    if (!isValidElement<TabProps>(child)) return;
     const {
       display,
       count,

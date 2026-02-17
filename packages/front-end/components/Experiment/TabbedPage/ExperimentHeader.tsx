@@ -185,7 +185,7 @@ export default function ExperimentHeader({
   const [saveShareLevelStatus, setSaveShareLevelStatus] = useState<
     null | "loading" | "success" | "fail"
   >(null);
-  const saveShareLevelTimeout = useRef<number | undefined>();
+  const saveShareLevelTimeout = useRef<number | undefined>(undefined);
   const { performCopy, copySuccess } = useCopyToClipboard({
     timeout: 800,
   });

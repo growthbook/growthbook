@@ -38,10 +38,13 @@ export interface BaseSearchFiltersProps {
   setSearchValue: (value: string) => void;
 }
 
-export const FilterHeading: FC<{
+export const FilterHeading = ({
+  heading,
+  open,
+}: {
   heading: string;
   open: boolean;
-}> = ({ heading, open }) => {
+}): React.ReactNode => {
   return (
     <IconButton
       variant="ghost"

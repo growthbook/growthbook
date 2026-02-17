@@ -38,7 +38,7 @@ export default function BayesianPriorSettings({
           <Flex gap="3">
             <Checkbox
               disabled={hasFileConfig()}
-              value={form.watch("metricDefaults.priorSettings.proper")}
+              value={form.watch("metricDefaults.priorSettings.proper") ?? false}
               setValue={(v) =>
                 form.setValue("metricDefaults.priorSettings.proper", v)
               }
@@ -79,7 +79,7 @@ export default function BayesianPriorSettings({
                     {...form.register("metricDefaults.priorSettings.stddev", {
                       valueAsNumber: true,
                       validate: (v) => {
-                        return !(v <= 0);
+                        return !(v !== undefined && v <= 0);
                       },
                     })}
                   />
@@ -88,13 +88,14 @@ export default function BayesianPriorSettings({
               <div>
                 <Box className="text-muted" mt="3">
                   {`Your prior distribution specifies that the average lift is ${percentFormatter.format(
-                    form.watch("metricDefaults.priorSettings.mean"),
+                    form.watch("metricDefaults.priorSettings.mean") ?? 0,
                   )}, and that ~68% of experiment lifts lie between ${percentFormatter.format(
-                    -1 * form.watch("metricDefaults.priorSettings.stddev") +
-                      form.watch("metricDefaults.priorSettings.mean"),
+                    -1 *
+                      (form.watch("metricDefaults.priorSettings.stddev") ?? 0) +
+                      (form.watch("metricDefaults.priorSettings.mean") ?? 0),
                   )} and ${percentFormatter.format(
-                    form.watch("metricDefaults.priorSettings.stddev") +
-                      form.watch("metricDefaults.priorSettings.mean"),
+                    (form.watch("metricDefaults.priorSettings.stddev") ?? 0) +
+                      (form.watch("metricDefaults.priorSettings.mean") ?? 0),
                   )}`}
                 </Box>
               </div>

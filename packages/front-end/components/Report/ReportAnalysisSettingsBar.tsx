@@ -37,7 +37,7 @@ export default function ReportAnalysisSettingsBar({
   ssrPolyfills?: SSRPolyfills;
   canUpdateReport?: boolean;
   setEditAnalysisOpen?: (o: boolean) => void;
-  runQueriesButtonRef?: RefObject<HTMLButtonElement>;
+  runQueriesButtonRef?: RefObject<HTMLButtonElement | null>;
 }) {
   const { apiCall } = useAuth();
 

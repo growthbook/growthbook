@@ -350,8 +350,8 @@ const ShareModal = ({
   );
 
   const handleDragEnd = (event: {
-    active: { id: string };
-    over: { id: string } | null;
+    active: { id: string | number };
+    over: { id: string | number } | null;
   }) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
@@ -754,7 +754,7 @@ const ShareModal = ({
                   </label>
                   <div className="col-sm-12 col-md-8">
                     <SelectField
-                      value={form.watch("customTheme.headingFont")}
+                      value={form.watch("customTheme.headingFont") ?? ""}
                       onChange={(v) =>
                         form.setValue("customTheme.headingFont", v)
                       }
@@ -768,7 +768,7 @@ const ShareModal = ({
                   </label>
                   <div className="col-sm-12 col-md-8">
                     <SelectField
-                      value={form.watch("customTheme.bodyFont")}
+                      value={form.watch("customTheme.bodyFont") ?? ""}
                       onChange={(v) => form.setValue("customTheme.bodyFont", v)}
                       options={fontOptions}
                     />

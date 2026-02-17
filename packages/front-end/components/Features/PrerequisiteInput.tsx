@@ -17,6 +17,7 @@ import {
   Separator,
   Text,
 } from "@radix-ui/themes";
+import { CSSObjectWithLabel } from "react-select";
 import Collapsible from "react-collapsible";
 import { useFeaturesNames } from "@/hooks/useFeaturesNames";
 import { useArrayIncrementer } from "@/hooks/useIncrementer";
@@ -454,11 +455,12 @@ export default function PrerequisiteInput({
                               <SelectField
                                 useMultilineLabels={true}
                                 containerStyles={{
-                                  control: (base) => ({
-                                    ...base,
-                                    minHeight: 38,
-                                    maxHeight: 38,
-                                  }),
+                                  control: (base) =>
+                                    ({
+                                      ...base,
+                                      minHeight: 38,
+                                      maxHeight: 38,
+                                    }) as CSSObjectWithLabel,
                                 }}
                                 value={getDisplayOperator(
                                   conds?.[0]?.[0]?.operator || "",

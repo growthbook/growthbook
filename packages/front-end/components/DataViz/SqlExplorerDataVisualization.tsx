@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
+import * as echarts from "echarts/core";
 import Decimal from "decimal.js";
 import {
   DataVizConfig,
@@ -865,7 +866,10 @@ export function DataVisualizationDisplay({
           style={{ width: "100%", minHeight: "350px", height: "80%" }}
           onChartReady={(chart) => {
             if (chartId && chartsContext && chart) {
-              chartsContext.registerChart(chartId, chart);
+              chartsContext.registerChart(
+                chartId,
+                chart as unknown as echarts.ECharts,
+              );
             }
           }}
         />

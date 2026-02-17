@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { ReactElement } from "react";
+import { ReactElement, ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/ui/Button";
@@ -7,7 +7,7 @@ import Button from "@/ui/Button";
 export interface Props {
   className?: string;
   containerClassName?: string;
-  children: string | ReactElement;
+  children: ReactNode;
   edit?: () => void;
   additionalActions?: ReactElement;
   disabledMessage?: false | null | undefined | string | ReactElement;

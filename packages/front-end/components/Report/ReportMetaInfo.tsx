@@ -88,7 +88,7 @@ export default function ReportMetaInfo({
   const [saveShareLevelStatus, setSaveShareLevelStatus] = useState<
     null | "loading" | "success" | "fail"
   >(null);
-  const saveShareLevelTimeout = useRef<number | undefined>();
+  const saveShareLevelTimeout = useRef<number | undefined>(undefined);
 
   const [editLevel, setEditLevel] = useState<EditLevel>(
     report.editLevel || "organization",
@@ -96,7 +96,7 @@ export default function ReportMetaInfo({
   const [saveEditLevelStatus, setSaveEditLevelStatus] = useState<
     null | "loading" | "success" | "fail"
   >(null);
-  const saveEditLevelTimeout = useRef<number | undefined>();
+  const saveEditLevelTimeout = useRef<number | undefined>(undefined);
 
   const generalForm = useForm<Partial<ExperimentSnapshotReportInterface>>({
     defaultValues: {

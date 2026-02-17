@@ -87,8 +87,8 @@ export default function MetricGroupDetails({
         }
 
         if (over && active.id !== over.id) {
-          const oldIndex = getMetricIndex(active.id);
-          const newIndex = getMetricIndex(over.id);
+          const oldIndex = getMetricIndex(String(active.id));
+          const newIndex = getMetricIndex(String(over.id));
 
           if (oldIndex === -1 || newIndex === -1) return;
 
@@ -114,7 +114,7 @@ export default function MetricGroupDetails({
         if (!canEdit) {
           return;
         }
-        setActiveId(active.id);
+        setActiveId(String(active.id));
       }}
     >
       <table style={{ borderCollapse: "separate", borderSpacing: "0" }}>

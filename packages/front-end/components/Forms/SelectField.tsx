@@ -1,4 +1,4 @@
-import { FC, useMemo, useRef, ReactNode, useState } from "react";
+import React, { FC, useMemo, useRef, ReactNode, useState } from "react";
 import ReactSelect, {
   components,
   InputProps,
@@ -83,10 +83,13 @@ export function useSelectOptions(
   }, [options, initialOption]);
 }
 
+const InputFixed = components.Input as unknown as React.FC<InputProps>;
+
 const Input = (props: InputProps) => {
-  // @ts-expect-error will be passed down
-  const { onPaste } = props.selectProps;
-  return <components.Input onPaste={onPaste} {...props} />;
+  const { onPaste } = props.selectProps as unknown as {
+    onPaste?: React.ClipboardEventHandler;
+  };
+  return <InputFixed onPaste={onPaste} {...props} />;
 };
 
 export const ReactSelectProps = {
@@ -335,6 +338,7 @@ const SelectField: FC<SelectFieldProps> = ({
                 formatOptionLabel={formatOptionLabel}
                 formatGroupLabel={formatGroupLabel}
                 isSearchable={!!isSearchable}
+                // @ts-expect-error onPaste is passed through selectProps to custom Input component
                 onPaste={onPaste}
                 components={{
                   Input,
@@ -364,6 +368,7 @@ const SelectField: FC<SelectFieldProps> = ({
                 formatOptionLabel={formatOptionLabel}
                 formatGroupLabel={formatGroupLabel}
                 isSearchable={!!isSearchable}
+                // @ts-expect-error onPaste is passed through selectProps to custom Input component
                 onPaste={onPaste}
                 components={{
                   Input,

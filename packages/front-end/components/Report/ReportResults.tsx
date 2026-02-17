@@ -41,7 +41,7 @@ export default function ReportResults({
   ssrPolyfills?: SSRPolyfills;
   canEdit?: boolean;
   setEditAnalysisOpen?: (o: boolean) => void;
-  runQueriesButtonRef?: RefObject<HTMLButtonElement>;
+  runQueriesButtonRef?: RefObject<HTMLButtonElement | null>;
   showDetails?: boolean;
 }) {
   const phases = report.experimentMetadata.phases;
