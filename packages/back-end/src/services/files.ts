@@ -13,33 +13,36 @@ import {
 } from "back-end/src/util/secrets";
 
 let s3: AWS.S3;
+let awsTempCredentials: AWS.TemporaryCredentials | null = null;
+
 async function getS3(): Promise<AWS.S3> {
   if (!s3) {
     AWS.config.update({ region: S3_REGION });
     if (AWS_ASSUME_ROLE) {
-      const sts = new AWS.STS();
-      const response = await sts
-        .assumeRole({
-          RoleArn: AWS_ASSUME_ROLE,
-          RoleSessionName: "growthbook-uploads",
-        })
-        .promise();
+      // Use TemporaryCredentials so the SDK will automatically refresh
+      // STS credentials when they expire instead of fetching them once.
+      awsTempCredentials = new AWS.TemporaryCredentials({
+        RoleArn: AWS_ASSUME_ROLE,
+        RoleSessionName: "growthbook-uploads",
+      });
 
-      const awsCredentials = response.Credentials;
-      if (!awsCredentials) {
-        throw new Error("Failed to assume role");
-      }
       s3 = new AWS.S3({
         signatureVersion: "v4",
-        credentials: {
-          accessKeyId: awsCredentials.AccessKeyId,
-          secretAccessKey: awsCredentials.SecretAccessKey,
-          sessionToken: awsCredentials.SessionToken,
-        },
+        credentials: awsTempCredentials,
       });
     } else {
       s3 = new AWS.S3({ signatureVersion: "v4" });
     }
+  }
+  // Eagerly refresh expired/expiring credentials before returning the client.
+  // This ensures even synchronous operations like getSignedUrl use valid creds.
+  if (awsTempCredentials && awsTempCredentials.needsRefresh()) {
+    await new Promise<void>((resolve, reject) => {
+      awsTempCredentials!.refresh((err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
   }
   return s3;
 }
@@ -117,8 +120,7 @@ export function getImageData(filePath: string) {
     throw new Error("File not found");
   }
 
-  const readableStream = fs.createReadStream(fullPath);
-  return readableStream;
+  return fs.createReadStream(fullPath);
 }
 
 export async function getSignedImageUrl(
@@ -155,9 +157,7 @@ export async function getSignedImageUrl(
     };
 
     const s3Client = await getS3();
-    const signedUrl = s3Client.getSignedUrl("getObject", params);
-
-    return signedUrl;
+    return s3Client.getSignedUrl("getObject", params);
   } else if (UPLOAD_METHOD === "google-cloud") {
     const storage = new Storage();
     const bucket = storage.bucket(GCS_BUCKET_NAME);
