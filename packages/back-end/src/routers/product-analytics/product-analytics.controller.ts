@@ -132,11 +132,12 @@ export const postProductAnalyticsRun = async (
       ...results,
     });
   } catch (e) {
+    const error = e instanceof Error ? e : new Error(String(e));
     // Still return 200 so the application can handle the error gracefully
     return res.status(200).json({
       status: 200,
       sql,
-      error: e.message,
+      error: error.message,
       rows: [],
       rawRows: [],
     });

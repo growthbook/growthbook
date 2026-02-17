@@ -31,10 +31,10 @@ export function useExploreData() {
         setData(response);
         setLastRefreshedAt(new Date());
 
-        // For now, use mock data generator
-        // await new Promise((resolve) => setTimeout(resolve, 500));
-        // const mockResponse = generateMockExploreData(config);
-        // setData(mockResponse);
+        if (response.error) {
+          setError(new Error(response.error));
+          return;
+        }
       } catch (e) {
         const err = e instanceof Error ? e : new Error(String(e));
         setError(err);

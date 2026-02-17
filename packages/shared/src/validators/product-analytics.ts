@@ -186,6 +186,7 @@ export const productAnalyticsResultRowValidator = z.object({
 export const productAnalyticsResultValidator = z.object({
   rows: z.array(productAnalyticsResultRowValidator),
   sql: z.string().optional(),
+  error: z.string().nullable().optional(),
 });
 
 export type ProductAnalyticsConfig = z.infer<

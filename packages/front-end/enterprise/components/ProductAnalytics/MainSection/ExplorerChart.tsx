@@ -257,6 +257,8 @@ export default function ExplorerChart() {
     return exploreData.rows.every((r) => r.values.length === 0);
   }, [exploreData]);
 
+  if (exploreData?.sql && exploreData?.error) return null;
+
   return (
     <Box
       position="relative"
