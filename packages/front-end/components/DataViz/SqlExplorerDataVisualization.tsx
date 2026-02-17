@@ -333,6 +333,7 @@ export function DataVisualizationDisplay({
 
   const { theme } = useAppearanceUITheme();
   const textColor = theme === "dark" ? "#FFFFFF" : "#1F2D5C";
+  const tooltipBackgroundColor = theme === "dark" ? "#1c2339" : "#FFFFFF";
 
   // Helper: Generate all combinations of dimension values across all dimensions
   const generateAllDimensionCombinations = useCallback(
@@ -734,7 +735,8 @@ export function DataVisualizationDisplay({
         axisPointer: {
           type: dataVizConfig?.chartType === "bar" ? "shadow" : "cross",
         },
-        backgroundColor: "var(--color-panel-solid)",
+        textStyle: { color: textColor },
+        backgroundColor: tooltipBackgroundColor,
         valueFormatter: (value: number) => {
           if (!yConfig?.type) {
             return value;
@@ -813,6 +815,7 @@ export function DataVisualizationDisplay({
     dataVizConfig?.chartType,
     dataVizConfig.title,
     textColor,
+    tooltipBackgroundColor,
     dimensionFields.length,
     xConfig?.type,
     xConfig?.dateAggregationUnit,

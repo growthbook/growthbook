@@ -48,6 +48,7 @@ export default function ExplorerChart() {
     useExplorerContext();
   const { theme } = useAppearanceUITheme();
   const textColor = theme === "dark" ? "#FFFFFF" : "#1F2D5C";
+  const tooltipBackgroundColor = theme === "dark" ? "#1c2339" : "#FFFFFF";
   const gridLineColor =
     theme === "dark" ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.06)";
   const chartsContext = useDashboardCharts();
@@ -223,7 +224,8 @@ export default function ExplorerChart() {
         appendTo: "body",
         trigger: "axis",
         padding: [10, 14],
-        backgroundColor: "var(--color-panel-solid)",
+        backgroundColor: tooltipBackgroundColor,
+        textStyle: { color: textColor },
         axisPointer: {
           type:
             chartType === "bar" || chartType === "horizontalBar"
@@ -242,7 +244,13 @@ export default function ExplorerChart() {
       yAxis,
       series: seriesConfigs,
     };
-  }, [exploreData, submittedExploreState, textColor, gridLineColor]);
+  }, [
+    exploreData?.rows,
+    submittedExploreState,
+    textColor,
+    gridLineColor,
+    tooltipBackgroundColor,
+  ]);
 
   const hasEmptyData = useMemo(() => {
     if (!exploreData?.rows?.length) return true;
