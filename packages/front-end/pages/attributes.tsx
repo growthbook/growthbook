@@ -194,7 +194,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
     null,
   );
 
-  const drawRow = (v: SDKAttribute, _: number) => {
+  const drawRow = (v: SDKAttribute) => {
     const features = [...(attributeFeatures?.[v.property] ?? [])];
     const experiments = [...(attributeExperiments?.[v.property] ?? [])];
     const groups = [...(attributeGroups?.[v.property] ?? [])];
