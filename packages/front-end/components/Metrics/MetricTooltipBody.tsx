@@ -32,7 +32,7 @@ interface MetricToolTipCompProps {
 interface MetricInfo {
   show: boolean;
   label: string;
-  body: string | number | JSX.Element;
+  body: string | number | React.ReactNode;
   markdown?: boolean;
 }
 

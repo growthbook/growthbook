@@ -20,7 +20,7 @@ const USE_SEARCH_BOX = false;
 // Common interfaces
 export interface SearchFiltersItem {
   id: string;
-  name: string | JSX.Element;
+  name: string | React.ReactNode;
   searchValue: string;
   operator?: SearchTermFilterOperator;
   negated?: boolean;
@@ -61,7 +61,7 @@ export const FilterHeading: FC<{
 };
 
 export const FilterItem: FC<{
-  item: string | JSX.Element;
+  item: string | React.ReactNode;
   exists: boolean;
 }> = ({ item, exists }) => {
   return (

@@ -38,7 +38,7 @@ const Link = forwardRef<HTMLAnchorElement, Props>(
   ) => {
     const isCustomDarkColor = color === "dark";
 
-    let childrenWrapper: JSX.Element | null;
+    let childrenWrapper: React.ReactNode | null;
     let radixProps = props;
 
     if (href === undefined) {

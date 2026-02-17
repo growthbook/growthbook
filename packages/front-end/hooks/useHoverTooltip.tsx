@@ -486,7 +486,9 @@ export function HoverTooltip({
     enabled,
   });
 
-  const child = React.Children.only(children);
+  const child = React.Children.only(children) as React.ReactElement<
+    React.HTMLAttributes<HTMLElement>
+  >;
 
   const clonedChild = React.cloneElement(child, {
     ...triggerProps,

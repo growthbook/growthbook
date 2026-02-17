@@ -19,7 +19,7 @@ type Props = {
   label?: string;
   className?: string;
   containerClassName?: string;
-  header?: string | JSX.Element;
+  header?: string | React.ReactNode;
   headerClassName?: string;
   emptyHelperText?: string;
   aiSuggestFunction?: () => Promise<string>;

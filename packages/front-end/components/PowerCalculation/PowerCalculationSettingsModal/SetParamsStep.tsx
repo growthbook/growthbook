@@ -411,7 +411,7 @@ export const SetParamsStep = ({
 }) => {
   const metricValuesSource = form.watch("metricValuesData.source");
 
-  let inputModal: JSX.Element | null = null;
+  let inputModal: React.ReactNode | null = null;
   switch (metricValuesSource) {
     case "segment":
     case "factTable":

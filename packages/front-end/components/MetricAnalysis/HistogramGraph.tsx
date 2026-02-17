@@ -1,5 +1,5 @@
 import React, { FC, useCallback, useEffect, useMemo, useState } from "react";
-import { ParentSizeModern } from "@visx/responsive";
+import { ParentSize } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { scaleLinear } from "@visx/scale";
 import { AxisBottom, AxisLeft } from "@visx/axis";
@@ -230,9 +230,9 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
   );
 
   return (
-    <ParentSizeModern style={{ position: "relative" }}>
+    <ParentSize style={{ position: "relative" }}>
       {({ width: parentWidth }) => {
-        // parentWidth is the width from ParentSizeModern
+        // parentWidth is the width from ParentSize
         const currentXMax = parentWidth - marginRight - marginLeft; // This is the actual drawable xMax
 
         const contentXScale = getContentXScale(currentXMax);
@@ -417,7 +417,7 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
           </>
         );
       }}
-    </ParentSizeModern>
+    </ParentSize>
   );
 };
 

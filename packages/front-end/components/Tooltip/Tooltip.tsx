@@ -17,7 +17,7 @@ import { RadixTheme } from "@/services/RadixTheme";
 import { GBInfo } from "@/components/Icons";
 
 interface Props extends HTMLAttributes<HTMLDivElement> {
-  body: string | JSX.Element;
+  body: string | React.ReactNode;
   popperClassName?: string;
   popperStyle?: CSSProperties;
   tipMinWidth?: string;

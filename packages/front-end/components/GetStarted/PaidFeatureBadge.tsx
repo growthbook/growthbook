@@ -9,7 +9,7 @@ import Badge from "@/ui/Badge";
 
 export type Props = {
   commercialFeature?: CommercialFeature;
-  premiumText?: string | JSX.Element;
+  premiumText?: string | React.ReactNode;
   useTip?: boolean;
   variant?: "outline" | "solid";
 } & MarginProps;

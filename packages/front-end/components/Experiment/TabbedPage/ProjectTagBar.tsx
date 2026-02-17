@@ -98,7 +98,7 @@ export default function ProjectTagBar({
     return `${startDate} - ${endDate}`;
   };
 
-  const renderTotalRuntimeTooltip = (): JSX.Element | string => {
+  const renderTotalRuntimeTooltip = (): React.ReactNode | string => {
     const phases = experiment.phases || [];
     const numPhases = phases.length;
     const isHoldout = experiment.type === "holdout";

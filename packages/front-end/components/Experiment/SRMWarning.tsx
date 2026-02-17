@@ -22,7 +22,7 @@ const LearnMore = ({
 }: {
   type: "simple" | "with_modal";
   setOpen: (boolean) => void;
-  body: string | JSX.Element;
+  body: string | React.ReactNode;
 }) => {
   if (type === "with_modal") {
     return (

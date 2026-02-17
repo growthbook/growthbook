@@ -60,7 +60,13 @@ export const Tabs = forwardRef<HTMLDivElement, TabsProps>(function Tabs(
   if (defaultValue && persistInURL) {
     const possibleValues = new Set<string>();
     Children.forEach(children, (child) => {
-      if (isValidElement(child) && child.props.value) {
+      if (
+        isValidElement(child) &&
+        child.props &&
+        typeof child.props === "object" &&
+        "value" in child.props &&
+        typeof child.props.value === "string"
+      ) {
         possibleValues.add(child.props.value);
       } else if (
         isValidElement(child) &&
@@ -73,7 +79,9 @@ export const Tabs = forwardRef<HTMLDivElement, TabsProps>(function Tabs(
         child.props.children.forEach((c: ReactNode) => {
           if (
             isValidElement(c) &&
-            c.props.value &&
+            c.props &&
+            typeof c.props === "object" &&
+            "value" in c.props &&
             typeof c.props.value === "string"
           ) {
             possibleValues.add(c.props.value);

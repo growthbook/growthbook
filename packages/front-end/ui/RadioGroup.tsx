@@ -6,7 +6,7 @@ import HelperText, { getRadixColor } from "@/ui/HelperText";
 export type RadioOptions = {
   value: string;
   label?: string;
-  description?: string | JSX.Element;
+  description?: string | React.ReactNode;
   error?: string;
   errorLevel?: "error" | "warning";
   renderOnSelect?: ReactElement;

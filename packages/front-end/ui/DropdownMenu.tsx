@@ -301,7 +301,7 @@ export function DropdownMenuLabel({
   textSize,
   textColor = "gray",
   ...props
-}: DropdownMenuLabelProps): JSX.Element {
+}: DropdownMenuLabelProps): React.ReactNode {
   return (
     <RadixDropdownMenu.Label {...props}>
       <Text color={textColor} size={textSize} style={textStyle}>
@@ -318,7 +318,7 @@ export function DropdownMenuSeparator() {
 export function DropdownMenuGroup({
   children,
   ...props
-}: React.ComponentProps<typeof RadixDropdownMenu.Group>): JSX.Element {
+}: React.ComponentProps<typeof RadixDropdownMenu.Group>): React.ReactNode {
   return (
     <RadixDropdownMenu.Group {...props}>{children}</RadixDropdownMenu.Group>
   );

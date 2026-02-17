@@ -2,7 +2,7 @@ import React, { useCallback, useMemo, useState } from "react";
 import { BarRounded, BarStack } from "@visx/shape";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import { Group } from "@visx/group";
-import { ParentSizeModern } from "@visx/responsive";
+import { ParentSize } from "@visx/responsive";
 import { scaleBand, scaleLinear } from "@visx/scale";
 import { GridRows } from "@visx/grid";
 import format from "date-fns/format";
@@ -349,7 +349,7 @@ export default function ExperimentGraph({
         </div>
       </div>
 
-      <ParentSizeModern>
+      <ParentSize>
         {({ width }) => {
           const margin = [15, 30, 30, 30];
           const yMax = height - margin[0] - margin[2];
@@ -626,7 +626,7 @@ export default function ExperimentGraph({
             </div>
           );
         }}
-      </ParentSizeModern>
+      </ParentSize>
     </>
   );
 }

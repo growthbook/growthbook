@@ -12,7 +12,7 @@ import {
 export interface Props {
   type: LinkedChange;
   canAddChanges: boolean;
-  children: JSX.Element | null;
+  children: React.ReactNode | null;
   changeCount: number;
   experimentStatus: ExperimentStatus;
   onAddChange: () => void;

@@ -385,7 +385,7 @@ export default function FeaturesOverview({
   };
 
   const renderRevisionCTA = () => {
-    const actions: JSX.Element[] = [];
+    const actions: React.ReactNode[] = [];
 
     if (canEditDrafts) {
       if (isLocked && !isLive) {

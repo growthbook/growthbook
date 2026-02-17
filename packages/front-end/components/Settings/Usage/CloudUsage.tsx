@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { DailyUsage, UsageLimits } from "shared/types/organization";
-import { ParentSizeModern } from "@visx/responsive";
+import { ParentSize } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { AreaClosed } from "@visx/shape";
 import { scaleLinear, scaleTime } from "@visx/scale";
@@ -292,7 +292,7 @@ function DailyGraph({
   return (
     <div>
       <div style={{ width: width }}>
-        <ParentSizeModern style={{ position: "relative" }}>
+        <ParentSize style={{ position: "relative" }}>
           {({ width }) => {
             const yMax = height - margin[0] - margin[2];
             const xMax = width - margin[1] - margin[3];
@@ -375,7 +375,7 @@ function DailyGraph({
               </div>
             );
           }}
-        </ParentSizeModern>
+        </ParentSize>
       </div>
     </div>
   );

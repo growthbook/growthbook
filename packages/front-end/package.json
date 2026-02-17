@@ -66,7 +66,7 @@
     "diff2html": "^3.4.56",
     "dirty-json": "^0.9.2",
     "echarts": "^6.0.0",
-    "echarts-for-react": "^3.0.2",
+    "echarts-for-react": "^3.0.6",
     "echarts-simple-transform": "^1.0.0",
     "handlebars": "^4.7.8",
     "js-confetti": "^0.11.0",
