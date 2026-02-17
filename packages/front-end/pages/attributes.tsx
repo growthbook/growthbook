@@ -72,6 +72,15 @@ const FeatureAttributesPage = (): React.ReactElement => {
 
   const hasArchived = attributeSchema.some((a) => a.archived);
 
+  const attributesWithIndex = useMemo(
+    () =>
+      attributesWithComputedFields.map((a, i) => ({
+        ...a,
+        originalIndex: i,
+      })),
+    [attributesWithComputedFields],
+  );
+
   const {
     items: filteredAttributes,
     searchInputProps,
@@ -80,7 +89,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
     isFiltered,
     SortableTH,
   } = useSearch({
-    items: attributesWithComputedFields,
+    items: attributesWithIndex,
     localStorageKey: "attributes",
     defaultSortField: "property",
     searchFields: [
@@ -385,7 +394,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                   />
                 </Box>
                 <AttributeSearchFilters
-                  attributes={attributesWithComputedFields}
+                  attributes={attributesWithIndex}
                   searchInputProps={searchInputProps}
                   setSearchValue={setSearchValue}
                   syntaxFilters={syntaxFilters}
