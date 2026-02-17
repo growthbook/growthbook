@@ -10,19 +10,13 @@ import { isEqual, pick } from "lodash";
 import { evalCondition } from "@growthbook/growthbook";
 import { baseSchema } from "shared/validators";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
-import {
-  AuditInterfaceTemplate,
-  EntityType,
-  EventTypes,
-  EventType,
-} from "shared/types/audit";
+import { EntityType, EventType } from "shared/types/audit";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
 import {
-  auditDetailsCreate,
-  auditDetailsDelete,
-  auditDetailsUpdate,
+  createModelAuditLogger,
+  type AuditLogConfig,
 } from "back-end/src/services/audit";
 import {
   ForeignKeys,
@@ -73,13 +67,6 @@ const updateSchema = <T extends BaseSchema>(schema: T) =>
     })
     .partial()
     .strict() as unknown as UpdateZodObject<T>;
-
-type AuditLogConfig<Entity extends EntityType> = {
-  entity: Entity;
-  createEvent: EventTypes<Entity>;
-  updateEvent: EventTypes<Entity>;
-  deleteEvent: EventTypes<Entity>;
-};
 
 // DeepPartial makes all properties (including nested) optional
 type DeepPartial<T> = T extends object
@@ -157,6 +144,7 @@ export abstract class BaseModel<
 
   protected context: Context;
   protected config: ModelConfig<T, E, ApiT>;
+  private _auditLogger: ReturnType<typeof createModelAuditLogger> | null;
 
   public constructor(context: Context) {
     this.context = context;
@@ -164,6 +152,9 @@ export abstract class BaseModel<
     this.validator = this.config.schema;
     this.createValidator = this.getCreateValidator();
     this.updateValidator = this.getUpdateValidator();
+    this._auditLogger = this.config.auditLog
+      ? createModelAuditLogger(this.config.auditLog)
+      : null;
     this.updateIndexes();
   }
 
@@ -671,24 +662,8 @@ export abstract class BaseModel<
 
     await this._dangerousGetCollection().insertOne(doc);
 
-    if (this.config.auditLog) {
-      try {
-        await this.context.auditLog({
-          entity: {
-            object: this.config.auditLog.entity,
-            id: doc.id,
-            name:
-              ("name" in doc && typeof doc.name === "string" && doc.name) || "",
-          },
-          event: this.config.auditLog.createEvent,
-          details: auditDetailsCreate(doc),
-        } as AuditInterfaceTemplate<E>);
-      } catch (e) {
-        this.context.logger.error(
-          e,
-          `Error creating audit log for ${this.config.auditLog.createEvent}`,
-        );
-      }
+    if (this._auditLogger) {
+      await this._auditLogger.logCreate(this.context, doc);
     }
 
     await this.afterCreate(doc, writeOptions);
@@ -770,7 +745,7 @@ export abstract class BaseModel<
       );
     }
 
-    await this.beforeUpdate(doc, updates, newDoc, options?.writeOptions);
+    await this.beforeUpdate(doc, allUpdates, newDoc, options?.writeOptions);
 
     await this.customValidation(newDoc, options?.writeOptions);
 
@@ -784,31 +759,16 @@ export abstract class BaseModel<
       },
     );
 
-    const auditEvent = options?.auditEvent || this.config.auditLog?.updateEvent;
-    if (this.config.auditLog) {
-      try {
-        await this.context.auditLog({
-          entity: {
-            object: this.config.auditLog.entity,
-            id: doc.id,
-            name:
-              ("name" in newDoc &&
-                typeof newDoc.name === "string" &&
-                newDoc.name) ||
-              "",
-          },
-          event: auditEvent,
-          details: auditDetailsUpdate(doc, newDoc),
-        } as AuditInterfaceTemplate<E>);
-      } catch (e) {
-        this.context.logger.error(
-          e,
-          `Error creating audit log for ${auditEvent}`,
-        );
-      }
+    if (this._auditLogger) {
+      await this._auditLogger.logUpdate(
+        this.context,
+        doc,
+        newDoc,
+        options?.auditEvent,
+      );
     }
 
-    await this.afterUpdate(doc, updates, newDoc, options?.writeOptions);
+    await this.afterUpdate(doc, allUpdates, newDoc, options?.writeOptions);
     await this.afterCreateOrUpdate(newDoc, options?.writeOptions);
 
     // Update tags if needed
@@ -835,24 +795,8 @@ export abstract class BaseModel<
       id: doc.id,
     });
 
-    if (this.config.auditLog) {
-      try {
-        await this.context.auditLog({
-          entity: {
-            object: this.config.auditLog.entity,
-            id: doc.id,
-            name:
-              ("name" in doc && typeof doc.name === "string" && doc.name) || "",
-          },
-          event: this.config.auditLog.deleteEvent,
-          details: auditDetailsDelete(doc),
-        } as AuditInterfaceTemplate<E>);
-      } catch (e) {
-        this.context.logger.error(
-          e,
-          `Error creating audit log for ${this.config.auditLog.deleteEvent}`,
-        );
-      }
+    if (this._auditLogger) {
+      await this._auditLogger.logDelete(this.context, doc);
     }
 
     await this.afterDelete(doc, writeOptions);

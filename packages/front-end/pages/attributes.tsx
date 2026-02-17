@@ -1,18 +1,20 @@
-import React, { Fragment, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { FaQuestionCircle } from "react-icons/fa";
 import { Box, Flex } from "@radix-ui/themes";
+import { BiShow } from "react-icons/bi";
 import { SDKAttribute } from "shared/types/organization";
 import { recursiveWalk } from "shared/util";
-import { BiHide, BiShow } from "react-icons/bi";
-import { BsXCircle } from "react-icons/bs";
 import { FeatureInterface } from "shared/validators";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { SavedGroupWithoutValues } from "shared/types/saved-group";
+import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
+import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
 import { useAttributeSchema, useFeaturesList } from "@/services/features";
 import AttributeModal from "@/components/Features/AttributeModal";
+import AttributeReferencesList from "@/components/Features/AttributeReferencesList";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
@@ -25,9 +27,8 @@ import Field from "@/components/Forms/Field";
 import AttributeSearchFilters from "@/components/Search/AttributeSearchFilters";
 import SortedTags from "@/components/Tags/SortedTags";
 import Markdown from "@/components/Markdown/Markdown";
+import Link from "@/ui/Link";
 
-const MAX_REFERENCES = 100;
-const MAX_REFERENCES_PER_TYPE = 10;
 const HEADER_HEIGHT_PX = 55;
 
 const FeatureAttributesPage = (): React.ReactElement => {
@@ -189,7 +190,9 @@ const FeatureAttributesPage = (): React.ReactElement => {
       return { attributeFeatures, attributeExperiments, attributeGroups };
     }, [features, experiments, savedGroups, attributeSchema]);
 
-  const [showReferences, setShowReferences] = useState<string | null>(null);
+  const [showReferencesModal, setShowReferencesModal] = useState<number | null>(
+    null,
+  );
 
   const drawRow = (v: SDKAttribute, _: number) => {
     const features = [...(attributeFeatures?.[v.property] ?? [])];
@@ -239,148 +242,28 @@ const FeatureAttributesPage = (): React.ReactElement => {
           <SortedTags tags={v.tags || []} useFlex={true} />
         </td>
         <td className="text-gray" style={{ minWidth: 85 }}>
-          <Tooltip
-            delay={0}
-            tipPosition="bottom"
-            state={showReferences === v.property}
-            popperStyle={{ marginLeft: 50, marginTop: 15 }}
-            flipTheme={false}
-            ignoreMouseEvents={true}
-            body={
-              <div
-                className="pl-3 pr-0 py-2"
-                style={{ minWidth: 250, maxWidth: 350 }}
-              >
-                <a
-                  role="button"
-                  style={{ top: 3, right: 5 }}
-                  className="position-absolute text-dark-gray cursor-pointer"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setShowReferences(null);
-                  }}
-                >
-                  <BsXCircle size={16} />
-                </a>
-                <div style={{ maxHeight: 300, overflowY: "auto" }}>
-                  {features.length > 0 && (
-                    <>
-                      <div className="mt-1 text-muted font-weight-bold">
-                        Features:
-                      </div>
-                      <div className="mb-2">
-                        <ul className="pl-3 mb-0">
-                          {features.map((feature, j) => (
-                            <Fragment key={"features-" + j}>
-                              {j < MAX_REFERENCES_PER_TYPE ? (
-                                <li
-                                  key={"f_" + j}
-                                  className="my-1"
-                                  style={{ maxWidth: 320 }}
-                                >
-                                  <a href={`/features/${feature.id}`}>
-                                    {feature.id}
-                                  </a>
-                                </li>
-                              ) : j === MAX_REFERENCES_PER_TYPE ? (
-                                <li key={"f_" + j} className="my-1">
-                                  <em>{features.length - j} more...</em>
-                                </li>
-                              ) : null}
-                            </Fragment>
-                          ))}
-                        </ul>
-                      </div>
-                    </>
-                  )}
-                  {experiments.length > 0 && (
-                    <>
-                      <div className="mt-1 text-muted font-weight-bold">
-                        Experiments:
-                      </div>
-                      <div className="mb-2">
-                        <ul className="pl-3 mb-0">
-                          {experiments.map((exp, j) => (
-                            <Fragment key={"exps-" + j}>
-                              {j < MAX_REFERENCES_PER_TYPE ? (
-                                <li
-                                  key={"e_" + j}
-                                  className="my-1"
-                                  style={{ maxWidth: 320 }}
-                                >
-                                  <a href={`/experiment/${exp.id}`}>
-                                    {exp.name}
-                                  </a>
-                                </li>
-                              ) : j === MAX_REFERENCES_PER_TYPE ? (
-                                <li key={"e_" + j} className="my-1">
-                                  <em>{experiments.length - j} more...</em>
-                                </li>
-                              ) : null}
-                            </Fragment>
-                          ))}
-                        </ul>
-                      </div>
-                    </>
-                  )}
-                  {groups.length > 0 && (
-                    <>
-                      <div className="mt-1 text-muted font-weight-bold">
-                        Condition Groups:
-                      </div>
-                      <div className="mb-2">
-                        <ul className="pl-3 mb-0">
-                          {groups.map((group, j) => (
-                            <Fragment key={"saved-groups" + j}>
-                              {j < MAX_REFERENCES_PER_TYPE ? (
-                                <li
-                                  key={"g_" + j}
-                                  className="my-1"
-                                  style={{ maxWidth: 320 }}
-                                >
-                                  <a href={`/saved-groups#conditionGroups`}>
-                                    {group.groupName}
-                                  </a>
-                                </li>
-                              ) : j === MAX_REFERENCES_PER_TYPE ? (
-                                <li key={"g_" + j} className="my-1">
-                                  <em>{groups.length - j} more...</em>
-                                </li>
-                              ) : null}
-                            </Fragment>
-                          ))}
-                        </ul>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-            }
-          >
-            <></>
-          </Tooltip>
-          {numReferences > 0 && (
-            <a
-              role="button"
-              className="link-purple nowrap"
-              onClick={(e) => {
-                e.preventDefault();
-                setShowReferences(
-                  showReferences !== v.property ? v.property : null,
+          {numReferences > 0 ? (
+            <Link
+              onClick={() => {
+                const schemaIndex = attributeSchema.findIndex(
+                  (a) => a.property === v.property,
                 );
+                if (schemaIndex >= 0) setShowReferencesModal(schemaIndex);
               }}
+              className="nowrap"
             >
-              {numReferences > MAX_REFERENCES
-                ? MAX_REFERENCES + "+"
-                : numReferences}{" "}
-              reference
-              {numReferences !== 1 && "s"}
-              {showReferences === v.property ? (
-                <BiHide className="ml-2" />
-              ) : (
-                <BiShow className="ml-2" />
-              )}
-            </a>
+              <BiShow /> {numReferences} reference
+              {numReferences === 1 ? "" : "s"}
+            </Link>
+          ) : (
+            <Tooltip body="No features, experiments, or condition groups reference this attribute.">
+              <span
+                className="nowrap"
+                style={{ color: "var(--gray-10)", cursor: "not-allowed" }}
+              >
+                <BiShow /> 0 references
+              </span>
+            </Tooltip>
           )}
         </td>
         <td className="text-gray" style={{ minWidth: 70 }}>
@@ -582,6 +465,39 @@ const FeatureAttributesPage = (): React.ReactElement => {
           </table>
         </div>
       </div>
+      {showReferencesModal !== null &&
+        attributeSchema?.[showReferencesModal] && (
+          <Modal
+            header={`'${attributeSchema[showReferencesModal].property}' References`}
+            trackingEventModalType="show-attribute-references"
+            close={() => setShowReferencesModal(null)}
+            open={true}
+            useRadixButton={true}
+            closeCta="Close"
+          >
+            <Text as="p" mb="3">
+              This attribute is referenced by the following features,
+              experiments, and condition groups.
+            </Text>
+            <AttributeReferencesList
+              features={
+                attributeFeatures?.[
+                  attributeSchema[showReferencesModal].property
+                ] ?? []
+              }
+              experiments={
+                attributeExperiments?.[
+                  attributeSchema[showReferencesModal].property
+                ] ?? []
+              }
+              conditionGroups={
+                attributeGroups?.[
+                  attributeSchema[showReferencesModal].property
+                ] ?? []
+              }
+            />
+          </Modal>
+        )}
       {modalData !== null && (
         <AttributeModal
           close={() => setModalData(null)}
