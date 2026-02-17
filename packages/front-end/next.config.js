@@ -15,6 +15,10 @@ const nextConfig = {
   },
   // Enable Turbopack with empty config to silence migration warning
   turbopack: {},
+  experimental: {
+    turbopackFileSystemCacheForDev: true,
+    turbopackFileSystemCacheForBuild: true,
+  },
   sassOptions: {
     silenceDeprecations: [
       "legacy-js-api",
