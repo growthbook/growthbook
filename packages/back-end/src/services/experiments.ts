@@ -3425,7 +3425,7 @@ export async function validateExperimentData(
         } else {
           // new metric that's not recognized...
           invalidMetricIds.push(metricIds[i]);
-          // TODO: Commented out as a hotfix. Remove when we figure out why this is happening from the UI
+          // TODO: Commented out as a hotfix. Remove when issue #5316 is fixed.
           // throw new Error("Unknown metric: " + metricIds[i]);
         }
       }

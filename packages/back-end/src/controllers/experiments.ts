@@ -1083,7 +1083,7 @@ export async function postExperiments(
   const experimentType = data.type ?? "standard";
   const holdoutId = data.holdoutId;
 
-  // TODO: Added as a hotfix. Remove when issue is resolved.
+  // TODO: Added as a hotfix. Remove when issue #5316 is fixed.
   // Filter out invalid metric ids from the data
   if (invalidMetricIds.length) {
     data.goalMetrics = data.goalMetrics?.filter(
@@ -1420,7 +1420,7 @@ export async function postExperiment(
         } else {
           // new metric that's not recognized...
           invalidMetricIds.push(newMetricIds[i]);
-          // TODO: Commented out as a hotfix. Remove when we figure out why this is happening from the UI
+          // TODO: Commented out as a hotfix. Remove when issue #5316 is fixed.
           // res.status(403).json({
           //   status: 403,
           //   message: "Unknown metric: " + newMetricIds[i],
@@ -1430,7 +1430,7 @@ export async function postExperiment(
       }
     }
 
-    // TODO: Added as a hotfix. Remove when issue is resolved.
+    // TODO: Added as a hotfix. Remove when issue #5316 is fixed.
     // Filter out invalid metric ids from the data
     if (invalidMetricIds.length) {
       data.goalMetrics = data.goalMetrics?.filter(
