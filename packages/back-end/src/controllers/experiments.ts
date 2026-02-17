@@ -1084,25 +1084,23 @@ export async function postExperiments(
   const holdoutId = data.holdoutId;
 
   // TODO: Added as a hotfix. Remove when issue is resolved.
-  let filteredGoalMetrics = data.goalMetrics;
-  let filteredSecondaryMetrics = data.secondaryMetrics;
-  let filteredGuardrailMetrics = data.guardrailMetrics;
-  let filteredActivationMetric = data.activationMetric;
+  // Filter out invalid metric ids from the data
   if (invalidMetricIds.length) {
-    filteredGoalMetrics = data.goalMetrics?.filter(
+    data.goalMetrics = data.goalMetrics?.filter(
       (id) => !invalidMetricIds.includes(id),
     );
-    filteredSecondaryMetrics = data.secondaryMetrics?.filter(
+    data.secondaryMetrics = data.secondaryMetrics?.filter(
       (id) => !invalidMetricIds.includes(id),
     );
-    filteredGuardrailMetrics = data.guardrailMetrics?.filter(
+    data.guardrailMetrics = data.guardrailMetrics?.filter(
       (id) => !invalidMetricIds.includes(id),
     );
-    filteredActivationMetric = data.activationMetric
-      ? !invalidMetricIds.includes(data.activationMetric)
-        ? data.activationMetric
-        : ""
-      : "";
+    if (
+      data.activationMetric &&
+      invalidMetricIds.includes(data.activationMetric)
+    ) {
+      data.activationMetric = "";
+    }
   }
 
   const obj: Omit<ExperimentInterface, "id" | "uid"> = {
@@ -1134,10 +1132,10 @@ export async function postExperiments(
     tags: data.tags || [],
     description: data.description || "",
     hypothesis: data.hypothesis || "",
-    goalMetrics: filteredGoalMetrics || [],
-    secondaryMetrics: filteredSecondaryMetrics || [],
-    guardrailMetrics: filteredGuardrailMetrics || [],
-    activationMetric: filteredActivationMetric || "",
+    goalMetrics: data.goalMetrics || [],
+    secondaryMetrics: data.secondaryMetrics || [],
+    guardrailMetrics: data.guardrailMetrics || [],
+    activationMetric: data.activationMetric || "",
     metricOverrides: data.metricOverrides || [],
     segment: data.segment || "",
     queryFilter: data.queryFilter || "",
@@ -1431,6 +1429,8 @@ export async function postExperiment(
         }
       }
     }
+
+    // TODO: Added as a hotfix. Remove when issue is resolved.
     // Filter out invalid metric ids from the data
     if (invalidMetricIds.length) {
       data.goalMetrics = data.goalMetrics?.filter(
