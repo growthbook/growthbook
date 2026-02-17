@@ -35,7 +35,7 @@ const INITIAL_EXPLORE_STATE: ProductAnalyticsConfig = {
     {
       dimensionType: "date",
       column: "date",
-      dateGranularity: "day",
+      dateGranularity: "auto",
     },
   ],
   chartType: "line",
