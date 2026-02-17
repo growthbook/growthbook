@@ -473,8 +473,28 @@ export default function CompareRevisionsModal({
             <Text color="text-low">
               Select at least two revisions in the list to see the diff.
             </Text>
-          ) : anyLoading && !allLoaded ? (
-            <LoadingOverlay />
+          ) : !allLoaded ? (
+            anyLoading ? (
+              <LoadingOverlay />
+            ) : (
+              <Flex direction="column" gap="3" align="start">
+                <Text color="text-low">
+                  Some revisions could not be loaded. You can retry or choose
+                  different revisions.
+                </Text>
+                <Button
+                  variant="soft"
+                  size="sm"
+                  onClick={() => {
+                    selectedSorted
+                      .filter((v) => !getFullRevision(v))
+                      .forEach((v) => fetchRevision(v));
+                  }}
+                >
+                  Retry loading
+                </Button>
+              </Flex>
+            )
           ) : (
             <>
               <Flex align="center" justify="between" mb="3" gap="4" wrap="wrap">
