@@ -1,4 +1,3 @@
-import { useRouter } from "next/router";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import React, { useMemo, useState } from "react";
@@ -18,6 +17,7 @@ import { BiHide, BiShow } from "react-icons/bi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { BsClock } from "react-icons/bs";
 import {
+  PiArrowsLeftRightBold,
   PiCheckCircleFill,
   PiCircleDuotone,
   PiFileX,
@@ -25,7 +25,7 @@ import {
   PiPlusCircleBold,
 } from "react-icons/pi";
 import { FeatureUsageLookback } from "shared/types/integrations";
-import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { Box, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
 import { RxListBullet } from "react-icons/rx";
 import {
   SafeRolloutInterface,
@@ -122,9 +122,6 @@ export default function FeaturesOverview({
   version: number | null;
   setVersion: (v: number) => void;
 }) {
-  const router = useRouter();
-  const { fid } = router.query;
-
   const settings = useOrgSettings();
   const [edit, setEdit] = useState(false);
   const [draftModal, setDraftModal] = useState(false);
@@ -1039,6 +1036,7 @@ export default function FeaturesOverview({
                 <Flex
                   align="center"
                   justify="between"
+                  gap="2"
                   width={{ initial: "98%", sm: "70%", md: "60%", lg: "50%" }}
                 >
                   <Box width="100%">
@@ -1050,35 +1048,32 @@ export default function FeaturesOverview({
                       revisions={revisionList || []}
                     />
                   </Box>
-                  <Box mx="6">
-                    <Tooltip
-                      body={
-                        copySuccess
-                          ? "Copied to clipboard!"
-                          : "Copy a link to this revision"
-                      }
-                      tipPosition="top"
-                      state={copySuccess}
-                      ignoreMouseEvents={!!copySuccess}
-                      shouldDisplay={!copyCooldown}
+                  <Tooltip
+                    body={
+                      copySuccess
+                        ? "Copied to clipboard!"
+                        : "Copy a link to this revision"
+                    }
+                    tipPosition="top"
+                    state={copySuccess}
+                    ignoreMouseEvents={!!copySuccess}
+                    shouldDisplay={!copyCooldown}
+                  >
+                    <IconButton
+                      variant="ghost"
+                      size="3"
+                      onClick={() => {
+                        if (!copySupported) return;
+                        const url =
+                          window.location.href.replace(/[?#].*/, "") +
+                          `?v=${version}`;
+                        performCopy(url);
+                      }}
+                      style={{ margin: 0 }}
                     >
-                      <Link
-                        href={`/features/${fid}?v=${version}`}
-                        className="position-relative"
-                        onClick={(e) => {
-                          if (!copySupported) return;
-
-                          e.preventDefault();
-                          const url =
-                            window.location.href.replace(/[?#].*/, "") +
-                            `?v=${version}`;
-                          performCopy(url);
-                        }}
-                      >
-                        <FaLink />
-                      </Link>
-                    </Tooltip>
-                  </Box>
+                      <FaLink size={14} />
+                    </IconButton>
+                  </Tooltip>
                 </Flex>
                 <Flex
                   align={{ initial: "center", xs: "center", sm: "start" }}
@@ -1086,15 +1081,16 @@ export default function FeaturesOverview({
                   flexShrink="0"
                   direction={{ initial: "row", xs: "column", sm: "row" }}
                   style={{ whiteSpace: "nowrap" }}
-                  gap="4"
+                  gap="2"
                 >
                   {(revisionList?.length ?? 0) >= 2 && (
                     <Button
-                      variant="soft"
+                      variant="ghost"
                       size="sm"
                       onClick={() => setCompareRevisionsModalOpen(true)}
+                      icon={<PiArrowsLeftRightBold size={14} />}
                     >
-                      Compare revisions...
+                      Compare revisions
                     </Button>
                   )}
                   {renderRevisionCTA()}

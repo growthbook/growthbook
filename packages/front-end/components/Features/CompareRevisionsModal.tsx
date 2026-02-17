@@ -6,12 +6,12 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { datetime } from "shared/dates";
+import { DRAFT_REVISION_STATUSES } from "shared/util";
 import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
-import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import { Select, SelectItem } from "@/ui/Select";
 import Switch from "@/ui/Switch";
@@ -22,14 +22,8 @@ import {
   FeatureRevisionDiffInput,
 } from "@/hooks/useFeatureRevisionDiff";
 import { ExpandableDiff } from "./DraftModal";
+import RevisionStatusBadge from "./RevisionStatusBadge";
 import styles from "./CompareRevisionsModal.module.scss";
-
-const DRAFT_STATUSES = new Set([
-  "draft",
-  "pending-review",
-  "changes-requested",
-  "approved",
-]);
 
 export interface Props {
   feature: FeatureInterface;
@@ -43,29 +37,6 @@ function revisionToDiffInput(
   r: FeatureRevisionInterface,
 ): FeatureRevisionDiffInput {
   return { defaultValue: r.defaultValue, rules: r.rules ?? {} };
-}
-
-function getRevisionStatusBadge(
-  revision: MinimalFeatureRevisionInterface,
-  liveVersion: number,
-) {
-  if (revision.version === liveVersion) {
-    return <Badge label="Live" radius="full" color="teal" />;
-  }
-  switch (revision.status) {
-    case "draft":
-      return <Badge label="Draft" radius="full" color="indigo" />;
-    case "published":
-      return <Badge label="Locked" radius="full" color="gray" />;
-    case "discarded":
-      return <Badge label="Discarded" radius="full" color="red" />;
-    case "pending-review":
-    case "changes-requested":
-    case "approved":
-      return <Badge label={revision.status} radius="full" color="gray" />;
-    default:
-      return null;
-  }
 }
 
 export default function CompareRevisionsModal({
@@ -271,7 +242,7 @@ export default function CompareRevisionsModal({
 
   const mostRecentDraftVersion = useMemo(() => {
     const drafts = filteredRevisionList.filter((r) =>
-      DRAFT_STATUSES.has(r.status),
+      DRAFT_REVISION_STATUSES.includes(r.status),
     );
     if (drafts.length === 0) return null;
     return Math.max(...drafts.map((r) => r.version));
@@ -471,8 +442,12 @@ export default function CompareRevisionsModal({
                           width="100%"
                         >
                           <Text weight="semibold">Revision {v}</Text>
-                          {minRev &&
-                            getRevisionStatusBadge(minRev, liveVersion)}
+                          {minRev && (
+                            <RevisionStatusBadge
+                              revision={minRev}
+                              liveVersion={liveVersion}
+                            />
+                          )}
                         </Flex>
                         {date && minRev && (
                           <Text size="small" color="text-low">
