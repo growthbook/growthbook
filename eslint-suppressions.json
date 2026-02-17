@@ -694,11 +694,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/SavedGroups/SavedGroupReferencesList.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/SchemaBrowser/EditSqlModal.tsx": {
     "no-restricted-imports": {
       "count": 1
