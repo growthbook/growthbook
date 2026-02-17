@@ -2938,6 +2938,10 @@ html {
 }
 
 .new-share {
+  .scrolly {
+    max-height: 40vh;
+    overflow-y: auto;
+  }
   .selected-area {
     background-color: rgba(27, 103, 235, 0.036);
   }
@@ -3017,18 +3021,99 @@ html {
     margin: 0;
     font-weight: 400;
   }
-  .variation-result {
+  .variation-result,
+  .result-winner,
+  .result-lost,
+  .result-dnf,
+  .result-inconclusive {
     font-weight: bold;
+    font-size: 1.5rem;
+  }
+  .presentation-appear {
+    animation: presentation-appear-fade 0.4s ease forwards;
+  }
+}
+@keyframes presentation-appear-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }
 .presentation-preview {
   width: 100%;
   height: 350px;
+  overflow: hidden;
   > div {
     width: 200%;
     height: 700px;
     transform-origin: top left;
     transform: scale(0.5);
+  }
+}
+
+// Custom presentation deck (replaces Spectacle)
+.presentation-deck {
+  &.presentation-deck-preview {
+    max-height: 700px;
+    .presentation-deck-footer {
+      padding: 0.25rem 0.5rem;
+      font-size: 0.85rem;
+    }
+    .presentation-slide-dots button {
+      width: 6px !important;
+      height: 6px !important;
+      min-width: 6px;
+      &[style*="width: 20px"] {
+        width: 12px !important;
+      }
+    }
+  }
+}
+
+.presentation-transition-fade {
+  .presentation-slide-content {
+    animation: presentation-fade-in 0.3s ease;
+  }
+}
+@keyframes presentation-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.presentation-transition-slide-next {
+  .presentation-slide-content {
+    animation: presentation-slide-in-from-right 0.35s ease;
+  }
+}
+.presentation-transition-slide-prev {
+  .presentation-slide-content {
+    animation: presentation-slide-in-from-left 0.35s ease;
+  }
+}
+@keyframes presentation-slide-in-from-right {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+@keyframes presentation-slide-in-from-left {
+  from {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
   }
 }
 
