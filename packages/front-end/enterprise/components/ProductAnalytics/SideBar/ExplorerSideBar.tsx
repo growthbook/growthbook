@@ -10,7 +10,7 @@ import MetricTabContent from "./MetricTabContent";
 import FactTableTabContent from "./FactTableTabContent";
 import DatasourceTabContent from "./DatasourceTabContent";
 import GroupBySection from "./GroupBySection";
-import DatabaseConfigurator from "./DatabaseConfigurator";
+import DatasourceConfigurator from "./DatasourceConfigurator";
 
 export default function ExplorerSideBar() {
   const { draftExploreState, setDraftExploreState, changeDatasetType } =
@@ -97,7 +97,7 @@ export default function ExplorerSideBar() {
         )}
 
         {activeType === "data_source" && (
-          <DatabaseConfigurator dataset={dataset} />
+          <DatasourceConfigurator dataset={dataset} />
         )}
       </Flex>
 

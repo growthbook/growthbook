@@ -26,7 +26,7 @@ type TableOption = {
   tablePath: string;
 };
 
-export default function DatabaseConfigurator({
+export default function DatasourceConfigurator({
   dataset,
 }: {
   dataset: ProductAnalyticsDataset;
@@ -43,7 +43,7 @@ export default function DatabaseConfigurator({
   const [fetching, setFetching] = useState<boolean>(false);
   const [retryCount, setRetryCount] = useState(1);
 
-  const databaseDataset = dataset?.type === "database" ? dataset : null;
+  const databaseDataset = dataset?.type === "data_source" ? dataset : null;
   const datasourceId = databaseDataset?.datasource;
   const tableId = databaseDataset?.table;
 
@@ -169,7 +169,7 @@ export default function DatabaseConfigurator({
     <Flex direction="column" gap="2">
       <>
         <Text weight="medium" mt="2">
-          Data source
+          Data Source
         </Text>
         <SelectField
           value={datasourceId || ""}
@@ -229,29 +229,31 @@ export default function DatabaseConfigurator({
             placeholder="Select table..."
             forceUndefinedValueToNull
           />
-          <>
-            <Text weight="medium" mt="2">
-              Timestamp column
-            </Text>
-            <SelectField
-              disabled={!tableData}
-              value={databaseDataset?.timestampColumn || ""}
-              onChange={(timestampColumn) =>
-                setDraftExploreState((prev) => ({
-                  ...prev,
-                  dataset: { ...dataset, timestampColumn },
-                }))
-              }
-              options={
-                tableData?.columns.map((c) => ({
-                  label: c.columnName,
-                  value: c.columnName,
-                })) || []
-              }
-              placeholder="Select timestamp column..."
-              forceUndefinedValueToNull
-            />
-          </>
+          {tableData && (
+            <>
+              <Text weight="medium" mt="2">
+                Timestamp column
+              </Text>
+              <SelectField
+                disabled={!tableData}
+                value={databaseDataset?.timestampColumn || ""}
+                onChange={(timestampColumn) =>
+                  setDraftExploreState((prev) => ({
+                    ...prev,
+                    dataset: { ...dataset, timestampColumn },
+                  }))
+                }
+                options={
+                  tableData?.columns.map((c) => ({
+                    label: c.columnName,
+                    value: c.columnName,
+                  })) || []
+                }
+                placeholder="Select timestamp column..."
+                forceUndefinedValueToNull
+              />
+            </>
+          )}
         </>
       ) : datasourceId && informationSchema ? (
         <Callout status="error" mt="2">

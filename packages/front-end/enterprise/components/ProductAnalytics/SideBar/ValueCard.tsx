@@ -84,6 +84,16 @@ export default function ValueCard({
     });
   };
 
+  let supportsUnitSelection = false;
+
+  if (
+    draftExploreState.dataset.type === "fact_table" ||
+    draftExploreState.dataset.type === "data_source"
+  ) {
+    supportsUnitSelection =
+      draftExploreState.dataset.values[index].valueType === "unit_count";
+  }
+
   return (
     <Box
       style={{
@@ -171,7 +181,7 @@ export default function ValueCard({
             </Box>
           )}
         </Box>
-        {draftExploreState.dataset.type !== "database" && (
+        {draftExploreState.dataset.type !== "data_source" && (
           <Flex justify="between" align="center" mt="2">
             <Button
               size="xs"
@@ -191,7 +201,7 @@ export default function ValueCard({
               </Flex>
             </Button>
 
-            {factTable && (
+            {factTable && supportsUnitSelection && (
               <DropdownMenu
                 open={unitDropdownOpen}
                 onOpenChange={setUnitDropdownOpen}

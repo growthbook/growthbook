@@ -16,7 +16,7 @@ export const VALUE_TYPE_OPTIONS: {
   value: "unit_count" | "count" | "sum";
   label: string;
 }[] = [
-  { value: "count", label: "Count" },
+  { value: "count", label: "Row count" },
   { value: "unit_count", label: "Unit count" },
   { value: "sum", label: "Sum" },
 ];
