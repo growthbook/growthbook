@@ -32,13 +32,21 @@ export default function MultipleExposureWarning({
     experiment?.type === "multi-armed-bandit" ||
     experimentType === "multi-armed-bandit";
   if (isBandit) {
+    const orgStickyBucketing = !!settings?.useStickyBucketing;
     if (experiment) {
-      const orgStickyBucketing = !!settings?.useStickyBucketing;
       const usingStickyBucketing =
         orgStickyBucketing && !experiment.disableStickyBucketing;
       if (!usingStickyBucketing) {
         return null;
       }
+    } else {
+      // If experiment object is not provided, we can't determine if sticky
+      // bucketing is enabled on the experiment. To avoid showing warnings for
+      // non-sticky-bucketing bandits, we hide the warning when we can't confirm.
+      // If org sticky bucketing is not enabled, the bandit definitely doesn't use it.
+      // If org sticky bucketing is enabled but we don't have the experiment object,
+      // we can't know if disableStickyBucketing is true, so we hide to be safe.
+      return null;
     }
   }
 

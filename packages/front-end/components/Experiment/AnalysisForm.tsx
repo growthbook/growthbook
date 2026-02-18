@@ -184,8 +184,11 @@ const AnalysisForm: FC<{
         experiment.banditBurnInValue ?? scopedSettings.banditBurnInValue.value,
       banditBurnInUnit:
         experiment.banditBurnInUnit ?? scopedSettings.banditBurnInUnit.value,
-      banditConversionWindowValue: undefined as number | undefined,
-      banditConversionWindowUnit: "hours" as "hours" | "days",
+      banditConversionWindowValue: experiment.banditConversionWindowValue as
+        | number
+        | undefined,
+      banditConversionWindowUnit: (experiment.banditConversionWindowUnit ??
+        "hours") as "hours" | "days",
       disableStickyBucketing: experiment.disableStickyBucketing ?? false,
     },
   });

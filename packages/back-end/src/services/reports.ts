@@ -530,7 +530,9 @@ export async function createReportSnapshot({
     metricGroups,
     datasource,
     experiment,
-    useStickyBucketing: organization.settings?.useStickyBucketing,
+    useStickyBucketing:
+      organization.settings?.useStickyBucketing &&
+      !experiment?.disableStickyBucketing,
   });
 
   const snapshotType = "report";

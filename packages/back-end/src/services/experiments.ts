@@ -1060,7 +1060,9 @@ export async function createSnapshot({
     reweight,
     datasource,
     incrementalRefreshModel,
-    useStickyBucketing: organization.settings?.useStickyBucketing,
+    useStickyBucketing:
+      organization.settings?.useStickyBucketing &&
+      !experiment.disableStickyBucketing,
   });
 
   const data: ExperimentSnapshotInterface = {
@@ -1630,6 +1632,8 @@ export async function toExperimentApiInterface(
           banditScheduleUnit: experiment.banditScheduleUnit ?? "days",
           banditBurnInValue: experiment.banditBurnInValue ?? 1,
           banditBurnInUnit: experiment.banditBurnInUnit ?? "days",
+          banditConversionWindowValue: experiment.banditConversionWindowValue,
+          banditConversionWindowUnit: experiment.banditConversionWindowUnit,
         }
       : null),
     linkedFeatures: experiment.linkedFeatures || [],
@@ -2696,6 +2700,22 @@ export function postExperimentApiPayloadToInterface(
         settings,
       }),
     );
+    // Preserve conversion window fields from payload if provided
+    if (
+      "banditConversionWindowValue" in payload &&
+      payload.banditConversionWindowValue !== undefined
+    ) {
+      obj.banditConversionWindowValue =
+        payload.banditConversionWindowValue as number;
+    }
+    if (
+      "banditConversionWindowUnit" in payload &&
+      payload.banditConversionWindowUnit !== undefined
+    ) {
+      obj.banditConversionWindowUnit = payload.banditConversionWindowUnit as
+        | "hours"
+        | "days";
+    }
   }
 
   return obj;
@@ -2752,6 +2772,10 @@ export function updateExperimentApiPayloadToInterface(
     customMetricSlices,
     customFields,
     autoRefresh,
+    banditScheduleValue,
+    banditScheduleUnit,
+    banditBurnInValue,
+    banditBurnInUnit,
   } = payload;
   let changes: ExperimentInterface = {
     ...(trackingKey ? { trackingKey } : {}),
@@ -2851,6 +2875,18 @@ export function updateExperimentApiPayloadToInterface(
     ...(customMetricSlices !== undefined ? { customMetricSlices } : {}),
     ...(customFields !== undefined ? { customFields } : {}),
     ...(autoRefresh !== undefined ? { autoSnapshots: !!autoRefresh } : {}),
+    ...(banditScheduleValue !== undefined ? { banditScheduleValue } : {}),
+    ...(banditScheduleUnit !== undefined ? { banditScheduleUnit } : {}),
+    ...(banditBurnInValue !== undefined ? { banditBurnInValue } : {}),
+    ...(banditBurnInUnit !== undefined ? { banditBurnInUnit } : {}),
+    ...("banditConversionWindowValue" in payload &&
+    payload.banditConversionWindowValue !== undefined
+      ? { banditConversionWindowValue: payload.banditConversionWindowValue }
+      : {}),
+    ...("banditConversionWindowUnit" in payload &&
+    payload.banditConversionWindowUnit !== undefined
+      ? { banditConversionWindowUnit: payload.banditConversionWindowUnit }
+      : {}),
     dateUpdated: new Date(),
   } as ExperimentInterface;
 

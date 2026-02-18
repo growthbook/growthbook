@@ -276,6 +276,8 @@ const experimentSchema = new mongoose.Schema({
   banditScheduleUnit: String,
   banditBurnInValue: Number,
   banditBurnInUnit: String,
+  banditConversionWindowValue: Number,
+  banditConversionWindowUnit: String,
   customFields: {},
   templateId: String,
   shareLevel: String,

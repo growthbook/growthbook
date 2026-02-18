@@ -336,8 +336,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       banditScheduleUnit: scopedSettings.banditScheduleUnit.value,
       banditBurnInValue: scopedSettings.banditBurnInValue.value,
       banditBurnInUnit: scopedSettings.banditScheduleUnit.value,
-      banditConversionWindowValue: undefined,
-      banditConversionWindowUnit: "hours" as "hours" | "days",
+      banditConversionWindowValue: initialValue?.banditConversionWindowValue,
+      banditConversionWindowUnit:
+        initialValue?.banditConversionWindowUnit ??
+        ("hours" as "hours" | "days"),
       templateId: initialValue?.templateId || "",
       holdoutId: initialValue?.holdoutId || undefined,
       customMetricSlices: initialValue?.customMetricSlices || [],

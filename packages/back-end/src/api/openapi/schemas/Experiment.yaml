@@ -218,6 +218,13 @@ properties:
     enum:
       - "days"
       - "hours"
+  banditConversionWindowValue:
+    type: number
+  banditConversionWindowUnit:
+    type: string
+    enum:
+      - "days"
+      - "hours"
   linkedFeatures:
     type: array
     items:

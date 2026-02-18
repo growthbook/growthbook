@@ -252,6 +252,13 @@ properties:
     enum:
       - "days"
       - "hours"
+  banditConversionWindowValue:
+    type: number
+  banditConversionWindowUnit:
+    type: string
+    enum:
+      - "days"
+      - "hours"
   customFields:
     type: object
     additionalProperties:
