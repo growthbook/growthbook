@@ -3865,6 +3865,10 @@ paths:
                   type: array
                   items:
                     type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
       responses:
         '200':
           content:
@@ -3934,6 +3938,10 @@ paths:
                     - isoCountryCode
                   description: The attribute's format
                 projects:
+                  type: array
+                  items:
+                    type: string
+                tags:
                   type: array
                   items:
                     type: string
@@ -12675,6 +12683,10 @@ components:
             - date
             - isoCountryCode
         projects:
+          type: array
+          items:
+            type: string
+        tags:
           type: array
           items:
             type: string
