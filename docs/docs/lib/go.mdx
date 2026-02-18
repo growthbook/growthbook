@@ -740,7 +740,7 @@ experimentCallback := func(ctx context.Context, exp *gb.Experiment, result *gb.E
         Event:  "Experiment Viewed",
         Properties: map[string]interface{}{
             "experiment_id":   exp.Key,
-            "variation_id":    result.VariationID,
+            "variation_id":    result.VariationId,
             "variation_value": result.Value,
             "in_experiment":   result.InExperiment,
             "hash_used":       result.HashUsed,
@@ -749,7 +749,7 @@ experimentCallback := func(ctx context.Context, exp *gb.Experiment, result *gb.E
     })
 
     log.Printf("User %s entered experiment %s with variation %d",
-        userCtx.UserID, exp.Key, result.VariationID)
+        userCtx.UserID, exp.Key, result.VariationId)
 }
 
 // Create client with tracking
@@ -841,11 +841,11 @@ func (tm *TrackingManager) ExperimentCallback(
         Event:  "Experiment Viewed",
         Properties: map[string]interface{}{
             "experiment_id": exp.Key,
-            "variation_id":  result.VariationID,
+            "variation_id":  result.VariationId,
         },
     })
 
-    tm.monitoring.RecordExperiment(exp.Key, result.VariationID)
+    tm.monitoring.RecordExperiment(exp.Key, result.VariationId)
 }
 
 func (tm *TrackingManager) FeatureUsageCallback(
@@ -943,7 +943,7 @@ func createSegmentCallback(segmentClient analytics.Client) gb.ExperimentCallback
             Event:  "Experiment Viewed",
             Properties: analytics.NewProperties().
                 Set("experimentId", exp.Key).
-                Set("variationId", result.VariationID).
+                Set("variationId", result.VariationId).
                 Set("variationValue", result.Value),
         })
     }
