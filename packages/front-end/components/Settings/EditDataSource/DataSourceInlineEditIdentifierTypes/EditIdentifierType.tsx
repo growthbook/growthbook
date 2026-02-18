@@ -84,7 +84,6 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
           label="Identifier Type"
           {...form.register("idType")}
           pattern="^[a-z_]+$"
-          title="Only lowercase letters and underscores allowed"
           readOnly={mode === "edit"}
           required
           error={fieldError}

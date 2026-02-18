@@ -41,9 +41,8 @@ export const postCustomField = async (
     type,
     values,
     required,
-    index,
     projects,
-    section,
+    sections,
   } = req.body;
 
   const context = getContextFromReq(req);
@@ -62,14 +61,16 @@ export const postCustomField = async (
   }
   const existingFields = await context.models.customFields.getCustomFields();
 
-  // check if this name already exists:
-  if (existingFields) {
+  // check if this name already exists for any overlapping section:
+  if (existingFields && sections?.length) {
     const existingCustomField = existingFields.fields.find(
-      (field) => field.name === name && field.section === section,
+      (field) =>
+        field.name === name &&
+        field.sections?.some((s) => sections.includes(s)),
     );
     if (existingCustomField) {
       return context.throwBadRequestError(
-        "Custom field name already exists for this section",
+        "Custom field name already exists for one or more of the selected sections",
       );
     }
   }
@@ -83,9 +84,8 @@ export const postCustomField = async (
     type,
     values,
     required,
-    index: !!index,
     projects,
-    section,
+    sections: sections ?? ["feature"],
   });
 
   if (!updated) {
@@ -173,9 +173,8 @@ type PutCustomFieldRequest = AuthRequest<
     type: CustomFieldTypes;
     values?: string;
     required: boolean;
-    index?: boolean;
     projects?: string[];
-    section: CustomFieldSection;
+    sections?: CustomFieldSection[];
   },
   { id: string }
 >;
@@ -204,9 +203,8 @@ export const putCustomField = async (
     type,
     values,
     required,
-    index,
     projects,
-    section,
+    sections,
   } = req.body;
   const { id } = req.params;
 
@@ -215,6 +213,13 @@ export const putCustomField = async (
   }
 
   req.checkPermissions("manageCustomFields");
+
+  const existingField =
+    await context.models.customFields.getCustomFieldByFieldId(id);
+
+  if (!existingField) {
+    return context.throwNotFoundError("Custom field not found");
+  }
 
   const newCustomFields = await context.models.customFields.updateCustomField(
     id,
@@ -226,9 +231,8 @@ export const putCustomField = async (
       type,
       values,
       required,
-      index: !!index,
       projects,
-      section,
+      sections: sections ?? existingField.sections ?? ["feature"],
     },
   );
 
@@ -248,12 +252,14 @@ export const putCustomField = async (
 type DeleteCustomFieldRequest = AuthRequest<
   Record<string, never>,
   { id: string },
-  Record<string, never>
+  { index?: number }
 >;
 
 /**
  * DELETE /custom-fields/:id
- * Delete one custom-field resource by ID
+ * Delete one custom-field resource by ID. For legacy data with duplicate ids,
+ * pass ?index=N as tiebreaker; if index doesn't match, the first occurrence
+ * is deleted.
  * @param req
  * @param res
  */
@@ -264,9 +270,13 @@ export const deleteCustomField = async (
   req.checkPermissions("manageCustomFields");
 
   const { id } = req.params;
+  const { index } = req.query;
   const context = getContextFromReq(req);
 
-  const customFields = await context.models.customFields.deleteCustomField(id);
+  const customFields = await context.models.customFields.deleteCustomField(
+    id,
+    index,
+  );
 
   if (!customFields) {
     return context.throwNotFoundError("Custom field not found");

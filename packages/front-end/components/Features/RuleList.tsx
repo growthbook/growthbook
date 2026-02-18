@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
+import { Flex } from "@radix-ui/themes";
 import {
   DndContext,
   DragOverlay,
@@ -110,6 +111,7 @@ export default function RuleList({
     permissionsUtil.canManageFeatureDrafts(feature);
 
   return (
+    <Flex direction="column" gap="3">
     <DndContext
       sensors={sensors}
       collisionDetection={closestCenter}
@@ -213,5 +215,6 @@ export default function RuleList({
         ) : null}
       </DragOverlay>
     </DndContext>
+    </Flex>
   );
 }

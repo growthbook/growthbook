@@ -1510,18 +1510,18 @@ export function getEqualWeights(n: number, precision: number = 4): number[] {
   );
 }
 
-export async function generateTrackingKey(
+export async function generateTrackingKey<
+  T = ExperimentInterface | ExperimentInterfaceStringDates,
+>(
   exp: Partial<ExperimentInterface>,
-  getExperimentByKey?: (
-    key: string,
-  ) => Promise<ExperimentInterface | ExperimentInterfaceStringDates | null>,
+  getEntityByKey?: (key: string) => Promise<T | null>,
 ): Promise<string> {
   // Try to generate a unique tracking key based on the experiment name
   let n = 1;
   let found: null | string = null;
   while (n < 10 && !found) {
     const key = generate(exp.name || exp.id || "", n);
-    if (!getExperimentByKey || !(await getExperimentByKey(key))) {
+    if (!getEntityByKey || !(await getEntityByKey(key))) {
       found = key;
     }
     n++;

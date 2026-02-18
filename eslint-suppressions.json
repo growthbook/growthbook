@@ -1004,11 +1004,6 @@
       "count": 1
     }
   },
-  "packages/front-end/pages/settings/tags.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/pages/sql-explorer/[id].tsx": {
     "no-restricted-imports": {
       "count": 1

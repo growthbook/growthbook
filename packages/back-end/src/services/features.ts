@@ -46,6 +46,7 @@ import {
   FeatureDefinitionWithProject,
   FeatureDefinitionWithProjects,
 } from "shared/types/sdk";
+import { ProjectInterface } from "shared/types/project";
 import {
   ApiFeatureWithRevisions,
   ApiFeatureEnvironment,
@@ -92,11 +93,8 @@ import {
   getParsedCondition,
 } from "back-end/src/util/features";
 import { ReqContext } from "back-end/types/request";
-import {
-  getSDKPayload,
-  getSDKPayloadCacheLocation,
-  updateSDKPayload,
-} from "back-end/src/models/SdkPayloadModel";
+import { updateSDKPayload } from "back-end/src/models/SdkPayloadModel";
+import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
 import { logger } from "back-end/src/util/logger";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
@@ -120,6 +118,11 @@ export function generateFeaturesPayload({
   prereqStateCache = {},
   safeRolloutMap,
   holdoutsMap,
+  includeProjectIdInMetadata,
+  includeCustomFieldsInMetadata,
+  allowedCustomFieldsInMetadata,
+  includeTagsInMetadata,
+  projectsMap,
 }: {
   features: FeatureInterface[];
   experimentMap: Map<string, ExperimentInterface>;
@@ -131,6 +134,11 @@ export function generateFeaturesPayload({
     string,
     { holdout: HoldoutInterface; experiment: ExperimentInterface }
   >;
+  includeProjectIdInMetadata?: boolean;
+  includeCustomFieldsInMetadata?: boolean;
+  allowedCustomFieldsInMetadata?: string[];
+  includeTagsInMetadata?: boolean;
+  projectsMap?: Map<string, ProjectInterface>;
 }): Record<string, FeatureDefinition> {
   prereqStateCache[environment] = prereqStateCache[environment] || {};
 
@@ -151,7 +159,43 @@ export function generateFeaturesPayload({
       holdoutsMap,
     });
     if (def) {
-      defs[feature.id] = def;
+      // Add metadata if any fields are requested
+      const metadata: Record<string, unknown> = {};
+
+      // Project ID
+      if (includeProjectIdInMetadata && feature.project && projectsMap) {
+        const project = projectsMap.get(feature.project);
+        if (project) {
+          metadata.projects = [project.publicId || project.id];
+        }
+      }
+
+      // Custom fields (filtered by whitelist)
+      if (
+        includeCustomFieldsInMetadata &&
+        allowedCustomFieldsInMetadata?.length &&
+        feature.customFields
+      ) {
+        const filtered: Record<string, unknown> = {};
+        for (const fieldId of allowedCustomFieldsInMetadata) {
+          if (feature.customFields[fieldId] !== undefined) {
+            filtered[fieldId] = feature.customFields[fieldId];
+          }
+        }
+        if (Object.keys(filtered).length > 0) {
+          metadata.customFields = filtered;
+        }
+      }
+
+      // Tags (ALL tags if enabled - no filtering)
+      if (includeTagsInMetadata && feature.tags?.length) {
+        metadata.tags = feature.tags;
+      }
+
+      defs[feature.id] = {
+        ...def,
+        ...(Object.keys(metadata).length > 0 && { metadata }),
+      };
     }
   });
 
@@ -219,6 +263,11 @@ export function generateAutoExperimentsPayload({
   features,
   environment,
   prereqStateCache = {},
+  includeProjectIdInMetadata,
+  includeCustomFieldsInMetadata,
+  allowedCustomFieldsInMetadata,
+  includeTagsInMetadata,
+  projectsMap,
 }: {
   visualExperiments: VisualExperiment[];
   urlRedirectExperiments: URLRedirectExperiment[];
@@ -226,6 +275,11 @@ export function generateAutoExperimentsPayload({
   features: FeatureInterface[];
   environment: string;
   prereqStateCache?: Record<string, Record<string, PrerequisiteStateResult>>;
+  includeProjectIdInMetadata?: boolean;
+  includeCustomFieldsInMetadata?: boolean;
+  allowedCustomFieldsInMetadata?: string[];
+  includeTagsInMetadata?: boolean;
+  projectsMap?: Map<string, ProjectInterface>;
 }): AutoExperimentWithProject[] {
   prereqStateCache[environment] = prereqStateCache[environment] || {};
 
@@ -363,6 +417,44 @@ export function generateAutoExperimentsPayload({
         exp.persistQueryString = true;
       }
 
+      // Add metadata if any fields are requested
+      const metadata: Record<string, unknown> = {};
+
+      // Project ID
+      if (includeProjectIdInMetadata && e.project && projectsMap) {
+        const project = projectsMap.get(e.project);
+        if (project) {
+          metadata.projects = [project.publicId || project.id];
+        }
+      }
+
+      // Custom fields (filtered by whitelist)
+      if (
+        includeCustomFieldsInMetadata &&
+        allowedCustomFieldsInMetadata?.length &&
+        e.customFields
+      ) {
+        const filtered: Record<string, unknown> = {};
+        for (const fieldId of allowedCustomFieldsInMetadata) {
+          if (e.customFields[fieldId] !== undefined) {
+            filtered[fieldId] = e.customFields[fieldId];
+          }
+        }
+        if (Object.keys(filtered).length > 0) {
+          metadata.customFields = filtered;
+        }
+      }
+
+      // Tags (ALL tags if enabled - no filtering)
+      if (includeTagsInMetadata && e.tags?.length) {
+        metadata.tags = e.tags;
+      }
+
+      if (Object.keys(metadata).length > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (exp as any).metadata = metadata;
+      }
+
       return exp;
     });
   return sdkExperiments.filter(isValidSDKExperiment);
@@ -483,7 +575,7 @@ export function queueSDKPayloadRefresh(data: {
 }) {
   // Capture stack trace at the entry point to include the original caller
   const rawStack = new Error().stack || "";
-  const stackTrace = rawStack.replace(/^Error\n/, ""); // Remove "Error" since this is informational only
+  const stackTrace = rawStack.replace(/^Error.*?\n/, "");
   refreshSDKPayloadCache({ ...data, stackTrace }).catch((e) => {
     logger.error(e, "Error refreshing SDK Payload Cache");
   });
@@ -531,6 +623,13 @@ async function refreshSDKPayloadCache({
   if (!payloadKeys.length && !sdkConnectionsToUpdate?.length) {
     logger.debug("Skipping SDK Payload refresh - no environments affected");
     return;
+  }
+
+  // Clear any cache entries for legacy API keys since they can't be tracked individually
+  try {
+    await context.models.sdkConnectionCache.deleteAllLegacyCacheEntries();
+  } catch (e) {
+    logger.warn(e, "Failed to delete legacy cache entries");
   }
 
   const experimentMap = await getAllPayloadExperiments(context);
@@ -614,8 +713,8 @@ async function refreshSDKPayloadCache({
       (sg) => sg.id in savedGroupsInUse,
     );
 
-    // If we need to generate a new env-level payload cache
-    // TODO: remove this once we are fully transitioned to new per-connection cache
+    // TODO: Remove legacy cache write (SdkPayloadCache collection)
+    // We will remove this call after sunsetting SdkPayloadCache
     if (payloadKeyEnvironments.has(environment)) {
       promises.push(async () => {
         logger.debug(
@@ -738,11 +837,15 @@ async function refreshSDKPayloadCache({
               }
             : undefined;
 
-        await context.models.sdkConnectionCache.upsert(
-          connection.key,
-          JSON.stringify(contents),
-          auditContext,
-        );
+        // Only write to cache if SDK_PAYLOAD_CACHE is not set to "none"
+        const storageLocation = getSDKPayloadCacheLocation();
+        if (storageLocation !== "none") {
+          await context.models.sdkConnectionCache.upsert(
+            connection.key,
+            JSON.stringify(contents),
+            auditContext,
+          );
+        }
       } catch (e) {
         logger.error(e, "Error updating SDK connection cache");
       }
@@ -990,6 +1093,10 @@ export type FeatureDefinitionArgs = {
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
   includeRuleIds?: boolean;
+  includeProjectIdInMetadata?: boolean;
+  includeCustomFieldsInMetadata?: boolean;
+  allowedCustomFieldsInMetadata?: string[];
+  includeTagsInMetadata?: boolean;
   hashSecureAttributes?: boolean;
   savedGroupReferencesEnabled?: boolean;
 };
@@ -1015,63 +1122,14 @@ export async function getFeatureDefinitions({
   includeExperimentNames,
   includeRedirectExperiments,
   includeRuleIds,
+  includeProjectIdInMetadata,
+  includeCustomFieldsInMetadata,
+  allowedCustomFieldsInMetadata,
+  includeTagsInMetadata,
   hashSecureAttributes,
   savedGroupReferencesEnabled,
 }: FeatureDefinitionArgs): Promise<FeatureDefinitionSDKPayload> {
-  // Return cached payload from Mongo if exists
-  try {
-    const cached = await getSDKPayload({
-      organization: context.org.id,
-      environment,
-    });
-    if (cached) {
-      if (projects === null) {
-        // null projects have nothing in the payload. They result from environment project scrubbing.
-        return {
-          features: {},
-          experiments: [],
-          dateUpdated: cached.dateUpdated,
-          savedGroups: {},
-        };
-      }
-      let attributes: SDKAttributeSchema | undefined = undefined;
-      let secureAttributeSalt: string | undefined = undefined;
-      const { features, experiments, savedGroupsInUse, holdouts } =
-        cached.contents;
-      const usedSavedGroups = await context.models.savedGroups.getByIds(
-        savedGroupsInUse || [],
-      );
-      if (hashSecureAttributes) {
-        // Note: We don't check for whether the org has the hash-secure-attributes premium feature here because
-        // if they ever get downgraded for any reason we would be exposing secure attributes in the payload
-        // which would expose private data publicly.
-        secureAttributeSalt = context.org.settings?.secureAttributeSalt;
-        attributes = context.org.settings?.attributeSchema;
-      }
-
-      return await getFeatureDefinitionsResponse({
-        features,
-        experiments: experiments || [],
-        holdouts: holdouts || {},
-        dateUpdated: cached.dateUpdated,
-        encryptionKey,
-        includeVisualExperiments,
-        includeDraftExperiments,
-        includeExperimentNames,
-        includeRedirectExperiments,
-        includeRuleIds,
-        attributes,
-        secureAttributeSalt,
-        projects: projects || [],
-        capabilities,
-        usedSavedGroups: usedSavedGroups || [],
-        savedGroupReferencesEnabled,
-        organization: context.org,
-      });
-    }
-  } catch (e) {
-    logger.error(e, "Failed to fetch SDK payload from cache");
-  }
+  // JIT generation (no cache lookup)
 
   // By default, we fetch ALL features/experiments/etc since we cache the result
   // and re-use it across multiple SDK connections with different settings.
@@ -1105,6 +1163,13 @@ export async function getFeatureDefinitions({
   const holdoutsMap =
     await context.models.holdout.getAllPayloadHoldouts(environment);
 
+  // Load projects if metadata is requested
+  let projectsMap: Map<string, ProjectInterface> | undefined;
+  if (includeProjectIdInMetadata) {
+    const allProjects = await context.models.projects.getAll();
+    projectsMap = new Map(allProjects.map((p) => [p.id, p]));
+  }
+
   const prereqStateCache: Record<
     string,
     Record<string, PrerequisiteStateResult>
@@ -1118,6 +1183,11 @@ export async function getFeatureDefinitions({
     prereqStateCache,
     safeRolloutMap,
     holdoutsMap,
+    includeProjectIdInMetadata,
+    includeCustomFieldsInMetadata,
+    allowedCustomFieldsInMetadata,
+    includeTagsInMetadata,
+    projectsMap,
   });
 
   const holdoutFeatureDefinitions = generateHoldoutsPayload({
@@ -1141,6 +1211,11 @@ export async function getFeatureDefinitions({
     features,
     environment,
     prereqStateCache,
+    includeProjectIdInMetadata,
+    includeCustomFieldsInMetadata,
+    allowedCustomFieldsInMetadata,
+    includeTagsInMetadata,
+    projectsMap,
   });
 
   const savedGroupsInUse = filterUsedSavedGroups(
@@ -1153,7 +1228,8 @@ export async function getFeatureDefinitions({
     (sg) => sg.id in savedGroupsInUse,
   );
 
-  // Cache in Mongo
+  // TODO: Remove legacy cache write (SdkPayloadCache collection)
+  // We will remove this call after sunsetting SdkPayloadCache
   await updateSDKPayload({
     organization: context.org.id,
     environment,

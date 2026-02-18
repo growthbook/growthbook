@@ -1619,6 +1619,16 @@ paths:
                   type: boolean
                 includeRuleIds:
                   type: boolean
+                includeProjectIdInMetadata:
+                  type: boolean
+                includeCustomFieldsInMetadata:
+                  type: boolean
+                allowedCustomFieldsInMetadata:
+                  type: array
+                  items:
+                    type: string
+                includeTagsInMetadata:
+                  type: boolean
                 proxyEnabled:
                   type: boolean
                 proxyHost:
@@ -1707,6 +1717,16 @@ paths:
                 includeRedirectExperiments:
                   type: boolean
                 includeRuleIds:
+                  type: boolean
+                includeProjectIdInMetadata:
+                  type: boolean
+                includeCustomFieldsInMetadata:
+                  type: boolean
+                allowedCustomFieldsInMetadata:
+                  type: array
+                  items:
+                    type: string
+                includeTagsInMetadata:
                   type: boolean
                 proxyEnabled:
                   type: boolean
@@ -10493,24 +10513,24 @@ paths:
                   type: string
                 required:
                   type: boolean
-                index:
-                  type: boolean
                 projects:
                   type: array
                   items:
                     type: string
-                section:
-                  description: What type of objects this custom field is applicable to
-                  type: string
-                  enum:
-                    - feature
-                    - experiment
+                sections:
+                  description: 'What types of objects this custom field is applicable to (feature, experiment)'
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - feature
+                      - experiment
               required:
                 - id
                 - name
                 - type
                 - required
-                - section
+                - sections
               additionalProperties: false
       responses:
         '200':
@@ -10588,19 +10608,19 @@ paths:
                         type: string
                       required:
                         type: boolean
-                      index:
-                        type: boolean
                       creator:
                         type: string
                       projects:
                         type: array
                         items:
                           type: string
-                      section:
-                        type: string
-                        enum:
-                          - feature
-                          - experiment
+                      sections:
+                        type: array
+                        items:
+                          type: string
+                          enum:
+                            - feature
+                            - experiment
                       active:
                         type: boolean
                     required:
@@ -10610,7 +10630,7 @@ paths:
                       - name
                       - type
                       - required
-                      - section
+                      - sections
                     additionalProperties: false
     get:
       $skipValidatorGeneration: true
@@ -10700,19 +10720,19 @@ paths:
                       type: string
                     required:
                       type: boolean
-                    index:
-                      type: boolean
                     creator:
                       type: string
                     projects:
                       type: array
                       items:
                         type: string
-                    section:
-                      type: string
-                      enum:
-                        - feature
-                        - experiment
+                    sections:
+                      type: array
+                      items:
+                        type: string
+                        enum:
+                          - feature
+                          - experiment
                     active:
                       type: boolean
                   required:
@@ -10722,7 +10742,7 @@ paths:
                     - name
                     - type
                     - required
-                    - section
+                    - sections
                   additionalProperties: false
   '/custom-fields/{id}':
     delete:
@@ -10733,6 +10753,11 @@ paths:
           required: true
           schema:
             type: string
+        - name: index
+          in: query
+          required: false
+          schema:
+            type: number
       tags:
         - CustomFields
       summary: Delete a single customField
@@ -10842,19 +10867,19 @@ paths:
                         type: string
                       required:
                         type: boolean
-                      index:
-                        type: boolean
                       creator:
                         type: string
                       projects:
                         type: array
                         items:
                           type: string
-                      section:
-                        type: string
-                        enum:
-                          - feature
-                          - experiment
+                      sections:
+                        type: array
+                        items:
+                          type: string
+                          enum:
+                            - feature
+                            - experiment
                       active:
                         type: boolean
                     required:
@@ -10864,7 +10889,7 @@ paths:
                       - name
                       - type
                       - required
-                      - section
+                      - sections
                     additionalProperties: false
     put:
       $skipValidatorGeneration: true
@@ -10944,18 +10969,18 @@ paths:
                   type: string
                 required:
                   type: boolean
-                index:
-                  type: boolean
                 projects:
                   type: array
                   items:
                     type: string
-                section:
-                  description: What type of objects this custom field is applicable to
-                  type: string
-                  enum:
-                    - feature
-                    - experiment
+                sections:
+                  description: 'What types of objects this custom field is applicable to (feature, experiment)'
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - feature
+                      - experiment
               additionalProperties: false
       responses:
         '200':
@@ -11033,19 +11058,19 @@ paths:
                         type: string
                       required:
                         type: boolean
-                      index:
-                        type: boolean
                       creator:
                         type: string
                       projects:
                         type: array
                         items:
                           type: string
-                      section:
-                        type: string
-                        enum:
-                          - feature
-                          - experiment
+                      sections:
+                        type: array
+                        items:
+                          type: string
+                          enum:
+                            - feature
+                            - experiment
                       active:
                         type: boolean
                     required:
@@ -11055,7 +11080,7 @@ paths:
                       - name
                       - type
                       - required
-                      - section
+                      - sections
                     additionalProperties: false
   '/metric-groups/{id}':
     get:
@@ -12193,19 +12218,19 @@ components:
           type: string
         required:
           type: boolean
-        index:
-          type: boolean
         creator:
           type: string
         projects:
           type: array
           items:
             type: string
-        section:
-          type: string
-          enum:
-            - feature
-            - experiment
+        sections:
+          type: array
+          items:
+            type: string
+            enum:
+              - feature
+              - experiment
         active:
           type: boolean
       required:
@@ -12215,7 +12240,7 @@ components:
         - name
         - type
         - required
-        - section
+        - sections
       additionalProperties: false
       $skipValidatorGeneration: true
     MetricGroup:
@@ -13351,6 +13376,16 @@ components:
         includeRedirectExperiments:
           type: boolean
         includeRuleIds:
+          type: boolean
+        includeProjectIdInMetadata:
+          type: boolean
+        includeCustomFieldsInMetadata:
+          type: boolean
+        allowedCustomFieldsInMetadata:
+          type: array
+          items:
+            type: string
+        includeTagsInMetadata:
           type: boolean
         key:
           type: string

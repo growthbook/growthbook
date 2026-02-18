@@ -197,6 +197,7 @@ export default function SetupFlow() {
               languages: value.languages,
               sdkVersion: getLatestSDKVersion(value.languages[0]),
               environment: value.environment,
+              projects: project ? [project] : [],
               encryptPayload: canUseSecureConnection,
               hashSecureAttributes: canUseSecureConnection,
               includeExperimentNames: !canUseSecureConnection,
@@ -204,7 +205,10 @@ export default function SetupFlow() {
               includeVisualExperiments: canUseVisualEditor,
               includeRedirectExperiments: canUseUrlRedirects,
               includeRuleIds: true,
-              projects: project ? [project] : [],
+              includeProjectIdInMetadata: false,
+              includeCustomFieldsInMetadata: false,
+              allowedCustomFieldsInMetadata: [],
+              includeTagsInMetadata: false,
             };
 
             const res = await apiCall<{ connection: SDKConnectionInterface }>(

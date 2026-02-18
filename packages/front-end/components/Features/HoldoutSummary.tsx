@@ -21,7 +21,7 @@ export default function HoldoutSummary({
   holdoutWeight: number;
 }) {
   return (
-    <>
+    <Box>
       <Flex direction="row" gap="2" mb="3">
         <Text weight="medium">HOLDOUT</Text>
         <Badge
@@ -40,9 +40,11 @@ export default function HoldoutSummary({
           }
         />
       </Flex>
-      <Flex direction="row" gap="2">
-        <Text weight="medium">SERVE</Text>
-        <Box width="100%">
+      <Flex gap="3">
+        <Box>
+          <Text weight="medium">SERVE</Text>
+        </Box>
+        <Box flexGrow="1">
           <ValueDisplay
             value={value}
             type={feature.valueType}
@@ -51,6 +53,6 @@ export default function HoldoutSummary({
         </Box>
       </Flex>
       <ValidateValue value={value} feature={feature} />
-    </>
+    </Box>
   );
 }

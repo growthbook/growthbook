@@ -15,8 +15,8 @@ export function filterCustomFieldsForSectionAndProject(
   // if (!project) {
   //   return customFields;
   // }
-  const filteredCustomFields = customFields?.filter(
-    (v) => v.section === section,
+  const filteredCustomFields = customFields?.filter((v) =>
+    v.sections?.includes(section),
   );
   if (!filteredCustomFields || filteredCustomFields.length === 0 || !project) {
     return filteredCustomFields;

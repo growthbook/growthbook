@@ -5,7 +5,16 @@ import {
   ProjectSettings,
   projectValidator,
 } from "shared/validators";
+import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { MakeModelClass } from "./BaseModel";
+
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/-{2,}/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
 
 type MigratedProject = Omit<ProjectInterface, "settings"> & {
   settings: Partial<ProjectInterface["settings"]>;
@@ -31,6 +40,7 @@ const BaseClass = MakeModelClass({
 interface CreateProjectProps {
   name: string;
   description?: string;
+  publicId?: string;
   id?: string;
   managedBy?: ManagedBy;
 }
@@ -58,6 +68,104 @@ export class ProjectModel extends BaseClass {
     };
 
     return { ...doc, settings };
+  }
+
+  protected async beforeCreate(data: Partial<ProjectInterface>) {
+    // Auto-generate publicId if not provided
+    if (!data.publicId && data.name) {
+      const baseSlug = slugify(data.name);
+      let publicId = baseSlug;
+      let counter = 1;
+      const MAX_ATTEMPTS = 1000;
+
+      // Check for uniqueness
+      while (counter <= MAX_ATTEMPTS) {
+        const existing = await this._findOne({
+          organization: this.context.org.id,
+          publicId,
+        });
+        if (!existing) break;
+        publicId = `${baseSlug}-${counter}`;
+        counter++;
+      }
+
+      if (counter > MAX_ATTEMPTS) {
+        throw new Error(
+          `Failed to generate unique publicId for project "${data.name}" after ${MAX_ATTEMPTS} attempts`,
+        );
+      }
+
+      data.publicId = publicId;
+    } else if (data.publicId) {
+      // Validate manually provided publicId format
+      if (!/^[a-z0-9-]+$/.test(data.publicId)) {
+        this.context.throwBadRequestError(
+          "publicId must contain only lowercase letters, numbers, and dashes",
+        );
+      }
+
+      // Check for uniqueness
+      const existing = await this._findOne({
+        organization: this.context.org.id,
+        publicId: data.publicId,
+      });
+      if (existing) {
+        this.context.throwBadRequestError(
+          `A project with publicId "${data.publicId}" already exists in this organization`,
+        );
+      }
+    }
+  }
+
+  protected async beforeUpdate(
+    original: ProjectInterface,
+    updates: Partial<ProjectInterface>,
+  ) {
+    // Validate publicId if it's being updated
+    if (
+      updates.publicId !== undefined &&
+      updates.publicId !== original.publicId
+    ) {
+      // Validate format
+      if (!/^[a-z0-9-]+$/.test(updates.publicId)) {
+        this.context.throwBadRequestError(
+          "publicId must contain only lowercase letters, numbers, and dashes",
+        );
+      }
+
+      // Check for uniqueness
+      const existing = await this._findOne({
+        organization: this.context.org.id,
+        publicId: updates.publicId,
+      });
+      if (existing && existing.id !== original.id) {
+        this.context.throwBadRequestError(
+          `A project with publicId "${updates.publicId}" already exists in this organization`,
+        );
+      }
+    }
+  }
+
+  protected async afterUpdate(
+    original: ProjectInterface,
+    updates: Partial<ProjectInterface>,
+  ) {
+    // If publicId changed, trigger cache refresh
+    if (
+      updates.publicId !== undefined &&
+      updates.publicId !== original.publicId
+    ) {
+      queueSDKPayloadRefresh({
+        context: this.context,
+        payloadKeys: [],
+        sdkConnections: [],
+        auditContext: {
+          event: "updated",
+          model: "project",
+          id: original.id,
+        },
+      });
+    }
   }
 
   public create(project: CreateProjectProps) {

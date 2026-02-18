@@ -1,19 +1,25 @@
 import { FeatureInterface } from "shared/types/feature";
-import React, { forwardRef } from "react";
+import React, { forwardRef, useState } from "react";
 import Link from "next/link";
-import { Box, Card, Flex, Heading } from "@radix-ui/themes";
+import { Box, Card, Flex, Heading, IconButton } from "@radix-ui/themes";
 import { HoldoutInterface } from "shared/validators";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { PiArrowBendRightDown, PiArrowSquareOut } from "react-icons/pi";
+import { PiArrowBendRightDown } from "react-icons/pi";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import { useAuth } from "@/services/auth";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Badge from "@/ui/Badge";
 import useApi from "@/hooks/useApi";
 import Callout from "@/ui/Callout";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import TruncatedConditionDisplay from "@/components/SavedGroups/TruncatedConditionDisplay";
+import Text from "@/ui/Text";
+import {
+  DropdownMenu,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/ui/DropdownMenu";
 import HoldoutSummary from "./HoldoutSummary";
 
 interface Props {
@@ -35,6 +41,8 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
       linkedExperiments: ExperimentInterfaceStringDates[];
       envs: string[];
     }>(`/holdout/${feature.holdout?.id}`);
+
+    const [dropdownOpen, setDropdownOpen] = useState(false);
 
     const permissionsUtil = usePermissionsUtil();
 
@@ -72,26 +80,48 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                   : "var(--green-9)",
               }}
             ></div>
-            <Flex align="start" justify="between" gap="3" p="1" px="2">
+            <Flex align="start" justify="between" gap="3" p="1" pr="2">
               <Box style={{ width: ruleCount > 1 ? "14px" : "0px" }} />
               <Box>
                 <Badge label={<>1</>} radius="full" color="gray" />
               </Box>
-              <Box flexGrow="1" pr="2">
-                <Flex align="center" justify="between" mb="3" flexGrow="1">
+              <Box flexGrow="1" style={{ minWidth: 0, maxWidth: "100%" }}>
+                <Flex
+                  align="center"
+                  justify="between"
+                  mb="3"
+                  flexGrow="1"
+                  style={{ minWidth: 0, maxWidth: "100%" }}
+                >
                   <Flex
                     flexGrow="1"
                     gap="3"
                     justify="between"
                     mr="3"
                     align="center"
+                    style={{ minWidth: 0, maxWidth: "100%" }}
                   >
-                    <Heading as="h4" size="3" weight="medium" mb="0">
+                    <Heading
+                      as="h4"
+                      size="3"
+                      weight="medium"
+                      mb="0"
+                      className="w-100"
+                      style={{
+                        minWidth: 0,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        // prevent overflow-hidden from cutting off badge edges
+                        marginTop: -10,
+                        marginBottom: -10,
+                        paddingTop: 10,
+                        paddingBottom: 10,
+                      }}
+                    >
                       <Flex gap="3" align="center">
                         <div>Holdout: </div>
                         <Link href={`/holdout/${feature.holdout?.id}`}>
                           {holdout.name}
-                          <PiArrowSquareOut className="ml-1" />
                         </Link>
                         <ExperimentStatusIndicator
                           experimentData={holdoutExperiment}
@@ -111,38 +141,57 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                     )}
                   </Flex>
                   {canEdit && (
-                    <Flex>
-                      <MoreMenu useRadix={true} size={14}>
-                        <a
-                          href="#"
-                          className="dropdown-item"
-                          onClick={(e) => {
-                            e.preventDefault();
+                    <DropdownMenu
+                      trigger={
+                        <IconButton
+                          variant="ghost"
+                          color="gray"
+                          radius="full"
+                          size="2"
+                          highContrast
+                          mt="1"
+                        >
+                          <BsThreeDotsVertical size={18} />
+                        </IconButton>
+                      }
+                      open={dropdownOpen}
+                      onOpenChange={setDropdownOpen}
+                      menuPlacement="end"
+                      variant="soft"
+                    >
+                      <DropdownMenuGroup>
+                        <DropdownMenuItem
+                          onClick={() => {
                             setRuleModal();
+                            setDropdownOpen(false);
                           }}
                         >
                           Edit
-                        </a>
-                        {/* Do we want to delete holdouts? Do we want a confirmation modal? */}
-                        <DeleteButton
-                          className="dropdown-item"
-                          displayName="Rule"
-                          useIcon={false}
-                          text="Delete"
-                          onClick={async () => {
-                            await apiCall(
-                              `/holdout/${feature.holdout?.id}/feature/${feature.id}`,
-                              {
-                                method: "DELETE",
-                              },
-                            );
-                            await mutate();
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          color="red"
+                          confirmation={{
+                            confirmationTitle: "Delete Holdout Rule",
+                            cta: "Delete",
+                            submit: async () => {
+                              await apiCall(
+                                `/holdout/${feature.holdout?.id}/feature/${feature.id}`,
+                                {
+                                  method: "DELETE",
+                                },
+                              );
+                              await mutate();
+                            },
                           }}
-                        />
-                      </MoreMenu>
-                    </Flex>
+                        >
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuGroup>
+                    </DropdownMenu>
                   )}
                 </Flex>
+                <Box>{/* Callouts would go here if needed */}</Box>
                 <Box style={{ opacity: isInactive ? 0.6 : 1 }}>
                   {holdoutExperiment.status === "stopped" && (
                     <Callout status="info">
@@ -153,35 +202,21 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                     </Callout>
                   )}
                 </Box>
-                {!isInactive && (
-                  <Box style={{ opacity: isInactive ? 0.6 : 1 }} mt="3">
-                    {hasCondition && (
-                      <Flex align="center" justify="start" gap="3">
-                        <Box pb="3">
-                          <strong className="font-weight-semibold">IF</strong>
-                        </Box>
-                        <Box
-                          width="100%"
-                          flexShrink="4"
-                          flexGrow="1"
-                          overflowX="auto"
-                          pb="3"
-                        >
-                          <TruncatedConditionDisplay
-                            condition={
-                              holdoutExperiment.phases[0].condition || ""
-                            }
-                            savedGroups={
-                              holdoutExperiment.phases[0].savedGroups
-                            }
-                            prerequisites={
-                              holdoutExperiment.phases[0].prerequisites
-                            }
-                            maxLength={500}
-                          />
-                        </Box>
-                      </Flex>
-                    )}
+                <Box style={{ opacity: isInactive ? 0.6 : 1 }} mt="3">
+                  {hasCondition && (
+                    <Box mb="3">
+                      <TruncatedConditionDisplay
+                        condition={holdoutExperiment.phases[0].condition || ""}
+                        savedGroups={holdoutExperiment.phases[0].savedGroups}
+                        prerequisites={
+                          holdoutExperiment.phases[0].prerequisites
+                        }
+                        maxLength={500}
+                        prefix={<Text weight="medium">IF</Text>}
+                      />
+                    </Box>
+                  )}
+                  {!isInactive && (
                     <HoldoutSummary
                       feature={feature}
                       value={feature.holdout?.value || ""}
@@ -191,8 +226,8 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                           holdoutExperiment.phases[0].variationWeights[0] || 1
                       }
                     />
-                  </Box>
-                )}
+                  )}
+                </Box>
               </Box>
             </Flex>
           </Card>
