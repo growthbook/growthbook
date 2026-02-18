@@ -46,7 +46,7 @@ export const useCopyToClipboard = ({
 
   useEffect(
     function clearCooldownAfterDelay() {
-      if (cooldown == null || cooldown <= 0 || !inCooldown) return;
+      if (!cooldown || cooldown <= 0 || !inCooldown) return;
 
       const timer = window.setTimeout(() => {
         setInCooldown(false);
@@ -64,7 +64,7 @@ export const useCopyToClipboard = ({
       if (success) {
         const timer = window.setTimeout(() => {
           setSuccess(false);
-          if (cooldown != null && cooldown > 0) {
+          if (cooldown && cooldown > 0) {
             setInCooldown(true);
           }
         }, timeout);

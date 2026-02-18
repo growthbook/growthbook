@@ -157,7 +157,7 @@ export default function CompareRevisionsModal({
   }, [versionsDesc, currentVersion]);
 
   const [selectedVersions, setSelectedVersions] = useState<number[]>(() => {
-    if (defaultAdjacentVersion == null) return [currentVersion];
+    if (!defaultAdjacentVersion) return [currentVersion];
     const pair = [currentVersion, defaultAdjacentVersion].sort((a, b) => a - b);
     return pair;
   });
@@ -215,7 +215,7 @@ export default function CompareRevisionsModal({
 
   const isRangeEqual = useCallback(
     (a: number[], b: number[] | null) =>
-      b != null && a.length === b.length && a.every((v, i) => v === b[i]),
+      !!b && a.length === b.length && a.every((v, i) => v === b[i]),
     [],
   );
   const steps = useMemo(() => {
@@ -237,7 +237,7 @@ export default function CompareRevisionsModal({
     });
   }, [neededVersions, getFullRevision, fetchRevision]);
 
-  const allLoaded = selectedSorted.every((v) => getFullRevision(v) != null);
+  const allLoaded = selectedSorted.every((v) => !!getFullRevision(v));
   const anyLoading = loadingVersions.size > 0;
 
   const [diffPage, setDiffPage] = useState(0);
@@ -340,16 +340,16 @@ export default function CompareRevisionsModal({
 
   const quickActionRanges = useMemo(() => {
     const draftLow =
-      mostRecentDraftVersion != null && liveVersion != null
+      mostRecentDraftVersion && liveVersion
         ? Math.min(mostRecentDraftVersion, liveVersion)
         : null;
     const draftHigh =
-      mostRecentDraftVersion != null && liveVersion != null
+      mostRecentDraftVersion && liveVersion
         ? Math.max(mostRecentDraftVersion, liveVersion)
         : null;
     const draftRange: number[] | null =
-      draftLow != null &&
-      draftHigh != null &&
+      draftLow &&
+      draftHigh &&
       draftLow !== draftHigh &&
       versionsAsc.includes(draftLow) &&
       versionsAsc.includes(draftHigh)
@@ -546,24 +546,24 @@ export default function CompareRevisionsModal({
                           width="100%"
                         >
                           <Text weight="semibold">Revision {v}</Text>
-                          {minRev && (
+                          {minRev ? (
                             <RevisionStatusBadge
                               revision={minRev}
                               liveVersion={liveVersion}
                             />
-                          )}
+                          ) : null}
                         </Flex>
-                        {date && minRev && (
+                        {date && minRev ? (
                           <Text size="small" color="text-low">
                             {datetime(date)} ·{" "}
                             <EventUser user={minRev.createdBy} display="name" />
                           </Text>
-                        )}
-                        {showBase && fullRev && fullRev.baseVersion !== 0 && (
+                        ) : null}
+                        {showBase && fullRev && fullRev.baseVersion !== 0 ? (
                           <HelperText status="info" size="sm" mt="1">
                             based on: {fullRev.baseVersion}
                           </HelperText>
-                        )}
+                        ) : null}
                       </Flex>
                     </label>
                   </Box>
