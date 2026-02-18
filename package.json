@@ -126,6 +126,7 @@
       "lz4",
       "mongodb-memory-server",
       "protobufjs",
+      "sharp",
       "unrs-resolver",
       "yarn"
     ]
