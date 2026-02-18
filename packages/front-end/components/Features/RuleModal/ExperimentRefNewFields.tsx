@@ -11,6 +11,7 @@ import { Flex, Tooltip } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
 import { PiCaretRightFill } from "react-icons/pi";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import Field from "@/components/Forms/Field";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import SelectField, {
@@ -221,7 +222,10 @@ export default function ExperimentRefNewFields({
     );
   }, [exposureQueries, hashAttributeToIdentifierTypeMap, hashAttribute]);
 
-  const getMatchingExposureQuery = (attribute: string) => {
+  const getMatchingExposureQuery = (
+    attribute: string,
+    datasource: DataSourceInterfaceWithParams | null,
+  ) => {
     const userIdType = datasource?.settings?.userIdTypes?.find((t) =>
       t.attributes?.includes(attribute),
     )?.userIdType;
@@ -370,7 +374,7 @@ export default function ExperimentRefNewFields({
               onChange={(v) => {
                 form.setValue("hashAttribute", v);
                 // Try and find a matching exposure query for the new hash attribute
-                const exposureQueryId = getMatchingExposureQuery(v);
+                const exposureQueryId = getMatchingExposureQuery(v, datasource);
                 if (exposureQueryId) {
                   form.setValue("exposureQueryId", exposureQueryId);
                 }
@@ -520,6 +524,15 @@ export default function ExperimentRefNewFields({
                 const activationMetric = form.watch("activationMetric");
                 if (activationMetric && !isValidMetric(activationMetric)) {
                   form.setValue("activationMetric", "");
+                }
+
+                // Try and find a matching exposure query for the new datasource
+                const exposureQueryId = getMatchingExposureQuery(
+                  hashAttribute,
+                  getDatasourceById(newDatasource),
+                );
+                if (exposureQueryId) {
+                  form.setValue("exposureQueryId", exposureQueryId);
                 }
               }}
               options={datasources.map((d) => {
