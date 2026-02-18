@@ -869,8 +869,8 @@ importers:
         specifier: ^9.7.2
         version: 9.7.2(@babel/core@7.28.5)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       styled-jsx:
-        specifier: ^5.1.7
-        version: 5.1.7(@babel/core@7.28.5)(react@18.2.0)
+        specifier: 5.1.6
+        version: 5.1.6(@babel/core@7.28.5)(react@18.2.0)
       swr:
         specifier: ^2.2.5
         version: 2.2.5(react@18.2.0)
@@ -1059,7 +1059,7 @@ importers:
         version: 7.0.2(rollup@4.53.3)
       ts-jest:
         specifier: ^27.0.5
-        version: 27.1.5(@babel/core@7.28.5)(@types/jest@27.0.1)(babel-jest@27.5.1(@babel/core@7.28.5))(jest@27.5.1(ts-node@10.9.1(@swc/core@1.3.4)(@swc/wasm@1.2.130)(@types/node@22.8.6)(typescript@5.7.3)))(typescript@5.7.3)
+        version: 27.1.5(@babel/core@7.28.5)(@types/jest@27.0.1)(babel-jest@27.5.1(@babel/core@7.28.5))(jest@27.5.1)(typescript@5.7.3)
       typescript:
         specifier: 5.7.3
         version: 5.7.3
@@ -1126,7 +1126,7 @@ importers:
         version: 4.53.3
       ts-jest:
         specifier: ^27.0.5
-        version: 27.1.5(@babel/core@7.28.5)(@types/jest@27.0.1)(babel-jest@27.5.1(@babel/core@7.28.5))(jest@27.5.1(ts-node@10.9.1(@swc/core@1.3.4)(@swc/wasm@1.2.130)(@types/node@22.8.6)(typescript@5.7.3)))(typescript@5.7.3)
+        version: 27.1.5(@babel/core@7.28.5)(@types/jest@27.0.1)(babel-jest@27.5.1(@babel/core@7.28.5))(jest@27.5.1)(typescript@5.7.3)
       typescript:
         specifier: 5.7.3
         version: 5.7.3
@@ -13002,19 +13002,6 @@ packages:
       babel-plugin-macros:
         optional: true
 
-  styled-jsx@5.1.7:
-    resolution: {integrity: sha512-HPLmEIYprxCeWDMLYiaaAhsV3yGfIlCqzuVOybE6fjF3SUJmH67nCoMDO+nAvHNHo46OfvpCNu4Rcue82dMNFg==}
-    engines: {node: '>= 12.0.0'}
-    peerDependencies:
-      '@babel/core': '*'
-      babel-plugin-macros: '*'
-      react: '>= 16.8.0 || 17.x.x || ^18.0.0-0 || ^19.0.0-0'
-    peerDependenciesMeta:
-      '@babel/core':
-        optional: true
-      babel-plugin-macros:
-        optional: true
-
   styled-system@5.1.5:
     resolution: {integrity: sha512-7VoD0o2R3RKzOzPK0jYrVnS8iJdfkKsQJNiLRDjikOpQVqQHns/DXWaPZOH4tIKkhAT7I6wIsy9FWTWh2X3q+A==}
 
@@ -22692,7 +22679,7 @@ snapshots:
 
   axios@1.12.2:
     dependencies:
-      follow-redirects: 1.15.6(debug@4.4.3)
+      follow-redirects: 1.15.6(debug@4.3.4)
       form-data: 4.0.5
       proxy-from-env: 1.1.0
     transitivePeerDependencies:
@@ -28236,7 +28223,7 @@ snapshots:
 
   presto-client@1.1.0(patch_hash=9fd1f0ac9c8a83e477d0fbea5a3b9c67665121c24b78fa4d5af0cf112c3d1efb):
     dependencies:
-      follow-redirects: 1.15.6(debug@4.4.3)
+      follow-redirects: 1.15.6(debug@4.3.4)
     transitivePeerDependencies:
       - debug
 
@@ -29803,13 +29790,6 @@ snapshots:
     optionalDependencies:
       '@babel/core': 7.28.5
 
-  styled-jsx@5.1.7(@babel/core@7.28.5)(react@18.2.0):
-    dependencies:
-      client-only: 0.0.1
-      react: 18.2.0
-    optionalDependencies:
-      '@babel/core': 7.28.5
-
   styled-system@5.1.5:
     dependencies:
       '@styled-system/background': 5.1.2
@@ -30112,7 +30092,7 @@ snapshots:
     dependencies:
       typescript: 5.7.3
 
-  ts-jest@27.1.5(@babel/core@7.28.5)(@types/jest@27.0.1)(babel-jest@27.5.1(@babel/core@7.28.5))(jest@27.5.1(ts-node@10.9.1(@swc/core@1.3.4)(@swc/wasm@1.2.130)(@types/node@22.8.6)(typescript@5.7.3)))(typescript@5.7.3):
+  ts-jest@27.1.5(@babel/core@7.28.5)(@types/jest@27.0.1)(babel-jest@27.5.1(@babel/core@7.28.5))(jest@27.5.1)(typescript@5.7.3):
     dependencies:
       bs-logger: 0.2.6
       fast-json-stable-stringify: 2.1.0

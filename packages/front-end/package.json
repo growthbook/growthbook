@@ -105,7 +105,7 @@
     "scim2-parse-filter": "^0.2.8",
     "shared": "workspace:*",
     "spectacle": "^9.7.2",
-    "styled-jsx": "^5.1.7",
+    "styled-jsx": "5.1.6",
     "swr": "^2.2.5",
     "uniqid": "^5.3.0",
     "uuid": "^9.0.0",
