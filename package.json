@@ -82,6 +82,7 @@
       "@octokit/plugin-paginate-rest@9": "^9.2.2",
       "@octokit/request@8": "^8.4.1",
       "@octokit/request-error@5": "^5.1.1",
+      "baseline-browser-mapping": "^2.9.19",
       "brace-expansion@1": "^1.1.12",
       "diff@4": "^4.0.4",
       "execa": "^5.0.0",

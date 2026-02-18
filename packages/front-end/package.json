@@ -130,7 +130,6 @@
     "@types/react-syntax-highlighter": "^15.5.4",
     "@types/react-textarea-autosize": "^8.0.0",
     "@types/react-transition-group": "^4.4.6",
-    "baseline-browser-mapping": "^2.9.19",
     "eslint-plugin-react-hooks": "^4.6.0",
     "identity-obj-proxy": "^3.0.0",
     "raw-loader": "^4.0.2",

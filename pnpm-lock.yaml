@@ -11,6 +11,7 @@ overrides:
   '@octokit/plugin-paginate-rest@9': ^9.2.2
   '@octokit/request@8': ^8.4.1
   '@octokit/request-error@5': ^5.1.1
+  baseline-browser-mapping: ^2.9.19
   brace-expansion@1: ^1.1.12
   diff@4: ^4.0.4
   execa: ^5.0.0
@@ -938,9 +939,6 @@ importers:
       '@types/react-transition-group':
         specifier: ^4.4.6
         version: 4.4.6
-      baseline-browser-mapping:
-        specifier: ^2.9.19
-        version: 2.9.19
       eslint-plugin-react-hooks:
         specifier: ^4.6.0
         version: 4.6.0(eslint@9.39.2)
@@ -7478,10 +7476,6 @@ packages:
 
   base64-js@1.5.1:
     resolution: {integrity: sha512-AKpaYlHn8t4SVbOHCy+b5+KKgvR4vrsD8vbvrbiQJps7fKDTkjkDry6ji0rUJjC0kzbNePLwzxq8iypo41qeWA==}
-
-  baseline-browser-mapping@2.8.21:
-    resolution: {integrity: sha512-JU0h5APyQNsHOlAM7HnQnPToSDQoEBZqzu/YBlqDnEeymPnZDREeXJA3KBMQee+dKteAxZ2AtvQEvVYdZf241Q==}
-    hasBin: true
 
   baseline-browser-mapping@2.9.19:
     resolution: {integrity: sha512-ipDqC8FrAl/76p2SSWKSI+H9tFwm7vYqXQrItCuiVPt26Km0jS+NzSsBWAaBusvSbQcfJG+JitdMm+wZAgTYqg==}
@@ -22826,8 +22820,6 @@ snapshots:
 
   base64-js@1.5.1: {}
 
-  baseline-browser-mapping@2.8.21: {}
-
   baseline-browser-mapping@2.9.19: {}
 
   basic-ftp@5.0.3: {}
@@ -22938,7 +22930,7 @@ snapshots:
 
   browserslist@4.27.0:
     dependencies:
-      baseline-browser-mapping: 2.8.21
+      baseline-browser-mapping: 2.9.19
       caniuse-lite: 1.0.30001754
       electron-to-chromium: 1.5.243
       node-releases: 2.0.27
