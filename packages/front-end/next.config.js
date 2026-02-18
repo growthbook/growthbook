@@ -8,11 +8,6 @@ const cspHeader = `
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // We already run eslint and typescript in CI/CD
-  // Disable here to speed up production builds
-  typescript: {
-    ignoreBuildErrors: true,
-  },
   turbopack: {
     // Ace workers: load as raw text so we can create Blob URLs. Turbopack doesn't support
     // webpack's asset/resource the same way - raw-loader gives us the worker source,
