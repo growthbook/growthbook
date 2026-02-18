@@ -54,6 +54,10 @@ function minutes(n: number) {
   return n * 60 * 1000;
 }
 export const SSOConnectionIdCookie = new Cookie("SSO_CONNECTION_ID", days(30));
-export const RefreshTokenCookie = new Cookie("AUTH_REFRESH_TOKEN", days(30), "/auth");
+export const RefreshTokenCookie = new Cookie(
+  "AUTH_REFRESH_TOKEN",
+  days(30),
+  "/auth",
+);
 export const IdTokenCookie = new Cookie("AUTH_ID_TOKEN", minutes(15));
 export const AuthChecksCookie = new Cookie("AUTH_CHECKS", minutes(10));
