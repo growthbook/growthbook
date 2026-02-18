@@ -1,9 +1,5 @@
 import { Flex } from "@radix-ui/themes";
-import {
-  ColumnInterface,
-  FactTableInterface,
-  RowFilter,
-} from "shared/types/fact-table";
+import { FactTableInterface, RowFilter } from "shared/types/fact-table";
 import { PiCaretDown, PiCaretUp, PiPlus, PiX } from "react-icons/pi";
 import { useState } from "react";
 import Collapsible from "react-collapsible";
@@ -19,15 +15,15 @@ import Button from "@/ui/Button";
 
 export type RowFilterInputVariant = "default" | "compact";
 
-const NUMBER_PATTERN = "^-?(\\d+|\\d*\\.\\d+)$";
-const numberRegex = new RegExp(NUMBER_PATTERN);
+export const NUMBER_PATTERN = "^-?(\\d+|\\d*\\.\\d+)$";
 
-function getAllowedOperators(
-  datatype: ColumnInterface["datatype"],
-): RowFilter["operator"][] {
+export const numberRegex = new RegExp(NUMBER_PATTERN);
+
+export function getAllowedOperators(datatype: string): RowFilter["operator"][] {
   if (datatype === "boolean") {
     return ["is_true", "is_false", "is_null", "not_null"];
-  } else if (datatype === "number") {
+  }
+  if (datatype === "number") {
     return [
       "=",
       "!=",
@@ -40,7 +36,8 @@ function getAllowedOperators(
       "is_null",
       "not_null",
     ];
-  } else if (datatype === "string") {
+  }
+  if (datatype === "string") {
     return [
       "=",
       "!=",
@@ -53,10 +50,30 @@ function getAllowedOperators(
       "is_null",
       "not_null",
     ];
-  } else {
-    return ["=", "!=", "in", "not_in", "is_null", "not_null"];
   }
+  return ["=", "!=", "in", "not_in", "is_null", "not_null"];
 }
+
+export const operatorLabelMap: Record<RowFilter["operator"], string> = {
+  "=": "=",
+  "!=": "!=",
+  "<": "<",
+  "<=": "<=",
+  ">": ">",
+  ">=": ">=",
+  in: "in",
+  not_in: "not in",
+  is_true: "is true",
+  is_false: "is false",
+  is_null: "is null",
+  not_null: "is not null",
+  sql_expr: "SQL Expression",
+  saved_filter: "Saved Filter",
+  contains: "contains",
+  not_contains: "not contains",
+  starts_with: "starts with",
+  ends_with: "ends with",
+};
 
 export function RowFilterInput({
   value,
@@ -187,27 +204,6 @@ export function RowFilterInput({
         let inputType: "text" | "number" = "text";
 
         if (operatorInputRequired) {
-          const operatorLabelMap: Record<RowFilter["operator"], string> = {
-            "=": "=",
-            "!=": "!=",
-            "<": "<",
-            "<=": "<=",
-            ">": ">",
-            ">=": ">=",
-            in: "in",
-            not_in: "not in",
-            is_true: "is true",
-            is_false: "is false",
-            is_null: "is null",
-            not_null: "is not null",
-            sql_expr: "SQL Expression",
-            saved_filter: "Saved Filter",
-            contains: "contains",
-            not_contains: "not contains",
-            starts_with: "starts with",
-            ends_with: "ends with",
-          };
-
           const { datatype, topValues } = getColumnInfo(
             factTable,
             filter.column,

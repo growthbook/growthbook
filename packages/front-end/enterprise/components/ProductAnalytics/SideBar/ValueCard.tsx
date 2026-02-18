@@ -17,6 +17,7 @@ import { RowFilterInput } from "@/components/FactTables/RowFilterInput";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Text from "@/ui/Text";
+import { DataSourceRowFilterInput } from "./DataSourceRowFilterInput";
 import styles from "./ValueCard.module.scss";
 
 type RowFilter = z.infer<typeof rowFilterValidator>;
@@ -50,6 +51,11 @@ export default function ValueCard({
     if (factTableId) {
       factTable = getFactTableById(factTableId);
     }
+  }
+
+  let dataSourceId = "";
+  if (draftExploreState.dataset?.type === "data_source") {
+    dataSourceId = draftExploreState.dataset.datasource;
   }
 
   const displayName = (name ?? "").trim();
@@ -92,6 +98,18 @@ export default function ValueCard({
   ) {
     supportsUnitSelection =
       draftExploreState.dataset.values[index].valueType === "unit_count";
+  }
+
+  let canAddFilter = false;
+  if (
+    draftExploreState.dataset.type === "fact_table" ||
+    draftExploreState.dataset.type === "metric"
+  ) {
+    canAddFilter = !!factTable;
+  } else if (draftExploreState.dataset.type === "data_source" && dataSourceId) {
+    canAddFilter =
+      !!dataSourceId &&
+      Object.keys(draftExploreState.dataset.columnTypes || {}).length > 0;
   }
 
   return (
@@ -180,57 +198,68 @@ export default function ValueCard({
               />
             </Box>
           )}
-        </Box>
-        {draftExploreState.dataset.type !== "data_source" && (
-          <Flex justify="between" align="center" mt="2">
-            <Button
-              size="xs"
-              variant="ghost"
-              style={{ maxWidth: "fit-content" }}
-              onClick={() => {
-                handleFiltersChange([
-                  ...filters,
-                  { column: "", operator: "=", values: [] },
-                ]);
-              }}
-              disabled={!factTable}
-            >
-              <Flex align="center" gap="2">
-                <PiPlus size={14} />
-                Add Filter
-              </Flex>
-            </Button>
-
-            {factTable && supportsUnitSelection && (
-              <DropdownMenu
-                open={unitDropdownOpen}
-                onOpenChange={setUnitDropdownOpen}
-                trigger={
-                  <Button size="xs" variant="ghost">
-                    <Flex align="center" gap="2">
-                      {draftExploreState.dataset.values[index].unit ?? ""}
-                    </Flex>
-                  </Button>
-                }
-              >
-                {factTable?.userIdTypes.map((t) => (
-                  <DropdownMenuItem
-                    key={t}
-                    onClick={() => {
-                      updateValueInDataset(index, {
-                        ...draftExploreState.dataset.values[index],
-                        unit: t || null,
-                      });
-                      setUnitDropdownOpen(false);
-                    }}
-                  >
-                    <Text>{t}</Text>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenu>
+          {draftExploreState.dataset.type === "data_source" &&
+            Object.keys(draftExploreState.dataset.columnTypes || {}).length >
+              0 && (
+              <Box mt="2">
+                <DataSourceRowFilterInput
+                  columnTypes={draftExploreState.dataset.columnTypes ?? {}}
+                  value={filters}
+                  setValue={handleFiltersChange}
+                  variant="compact"
+                  hideAddButton
+                />
+              </Box>
             )}
-          </Flex>
-        )}
+        </Box>
+        <Flex justify="between" align="center" mt="2">
+          <Button
+            size="xs"
+            variant="ghost"
+            style={{ maxWidth: "fit-content" }}
+            onClick={() => {
+              handleFiltersChange([
+                ...filters,
+                { column: "", operator: "=", values: [] },
+              ]);
+            }}
+            disabled={!canAddFilter}
+          >
+            <Flex align="center" gap="2">
+              <PiPlus size={14} />
+              Add Filter
+            </Flex>
+          </Button>
+
+          {factTable && supportsUnitSelection && (
+            <DropdownMenu
+              open={unitDropdownOpen}
+              onOpenChange={setUnitDropdownOpen}
+              trigger={
+                <Button size="xs" variant="ghost">
+                  <Flex align="center" gap="2">
+                    {draftExploreState.dataset.values[index].unit ?? ""}
+                  </Flex>
+                </Button>
+              }
+            >
+              {factTable?.userIdTypes.map((t) => (
+                <DropdownMenuItem
+                  key={t}
+                  onClick={() => {
+                    updateValueInDataset(index, {
+                      ...draftExploreState.dataset.values[index],
+                      unit: t || null,
+                    });
+                    setUnitDropdownOpen(false);
+                  }}
+                >
+                  <Text>{t}</Text>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenu>
+          )}
+        </Flex>
       </Collapsible>
     </Box>
   );
