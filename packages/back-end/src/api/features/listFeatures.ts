@@ -1,4 +1,3 @@
-import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import { ListFeaturesResponse } from "shared/types/openapi";
 import { listFeaturesValidator } from "shared/validators";
 import { getFeatureRevisionsByFeaturesCurrentVersion } from "back-end/src/models/FeatureRevisionModel";
@@ -11,8 +10,8 @@ import {
 import {
   getApiFeatureObj,
   getSavedGroupMap,
-  getFeatureDefinitions,
 } from "back-end/src/services/features";
+import { getFeatureDefinitionsWithCache } from "back-end/src/controllers/features";
 import {
   applyPagination,
   createApiRequestHandler,
@@ -90,16 +89,9 @@ export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
       ) {
         throw new Error("Invalid SDK connection key");
       }
-      const payload = await getFeatureDefinitions({
+      const payload = await getFeatureDefinitionsWithCache({
         context: req.context,
-        capabilities: getConnectionSDKCapabilities(sdkConnection),
-        environment: sdkConnection.environment,
-        projects: sdkConnection.projects,
-        includeVisualExperiments: sdkConnection.includeVisualExperiments,
-        includeDraftExperiments: sdkConnection.includeDraftExperiments,
-        includeExperimentNames: sdkConnection.includeExperimentNames,
-        includeRedirectExperiments: sdkConnection.includeRedirectExperiments,
-        savedGroupReferencesEnabled: sdkConnection.savedGroupReferencesEnabled,
+        params: sdkConnection,
       });
       const filteredFeatures = features
         .filter((f) => f.id in payload.features)
