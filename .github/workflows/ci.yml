@@ -83,7 +83,7 @@ jobs:
           cd docs
           pnpm install
           pnpm gen
-          [[ -n $(git status --porcelain) ]] && echo "You need to run pnpm gen-doc" && git status --porcelain && exit 1 || true
+          [[ -n $(git status --porcelain) ]] && echo "You need to run pnpm doc-gen" && git status --porcelain && exit 1 || true
 
       - name: Type-check
         run: |
