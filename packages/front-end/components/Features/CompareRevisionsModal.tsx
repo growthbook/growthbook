@@ -69,11 +69,18 @@ function RevisionCompareLabel({
           </Text>
           <RevisionStatusBadge revision={revA} liveVersion={liveVersion} />
         </Flex>
-        {revA && (
-          <Text as="div" size="small" color="text-low">
-            based on: {revA.baseVersion}
-          </Text>
-        )}
+        {revA &&
+          revA.baseVersion !== 0 &&
+          (DRAFT_REVISION_STATUSES.includes(revA.status) &&
+          revA.baseVersion !== liveVersion ? (
+            <HelperText status="warning" size="sm">
+              based on: {revA.baseVersion}
+            </HelperText>
+          ) : (
+            <Text as="div" size="small" color="text-low">
+              based on: {revA.baseVersion}
+            </Text>
+          ))}
       </Flex>
       <PiArrowsLeftRightBold size={16} />
       <Flex direction="column">
@@ -83,11 +90,18 @@ function RevisionCompareLabel({
           </Text>
           <RevisionStatusBadge revision={revB} liveVersion={liveVersion} />
         </Flex>
-        {revB && (
-          <Text as="div" size="small" color="text-low">
-            based on: {revB.baseVersion}
-          </Text>
-        )}
+        {revB &&
+          revB.baseVersion !== 0 &&
+          (DRAFT_REVISION_STATUSES.includes(revB.status) &&
+          revB.baseVersion !== liveVersion ? (
+            <HelperText status="warning" size="sm">
+              based on: {revB.baseVersion}
+            </HelperText>
+          ) : (
+            <Text as="div" size="small" color="text-low">
+              based on: {revB.baseVersion}
+            </Text>
+          ))}
       </Flex>
     </Flex>
   );
@@ -297,18 +311,19 @@ export default function CompareRevisionsModal({
     [revisionList],
   );
 
-  // Show when the selection includes a draft whose base is not current live —
-  // publishing that draft would do a 3-way merge, so the pairwise diff here may differ from the actual result.
-  const showMergeWarning = useMemo(() => {
-    return selectedSorted.some((version) => {
-      const full = getFullRevision(version);
-      if (!full) return false;
+  // Returns true when a revision is a draft whose base is not the current live
+  // version — publishing it would use a 3-way merge, so the diff shown may
+  // not match the actual published result.
+  const isOutOfOrderDraft = useCallback(
+    (rev: FeatureRevisionInterface | null): boolean => {
+      if (!rev) return false;
       return (
-        DRAFT_REVISION_STATUSES.includes(full.status) &&
-        full.baseVersion !== liveVersion
+        DRAFT_REVISION_STATUSES.includes(rev.status) &&
+        rev.baseVersion !== liveVersion
       );
-    });
-  }, [selectedSorted, getFullRevision, liveVersion]);
+    },
+    [liveVersion],
+  );
 
   const revisionListByVersion = useMemo(
     () => new Map(filteredRevisionList.map((r) => [r.version, r])),
@@ -392,7 +407,7 @@ export default function CompareRevisionsModal({
     >
       <Flex style={{ flex: 1, minHeight: 0 }}>
         <Box
-          style={{ width: 360, minWidth: 200, minHeight: 0 }}
+          style={{ width: 300, minWidth: 300, minHeight: 0 }}
           className={`${styles.sidebar} ${styles.sidebarLeft} overflow-auto`}
         >
           {(quickActionRanges.draftRange ||
@@ -498,10 +513,7 @@ export default function CompareRevisionsModal({
               {versionsDesc.map((v) => {
                 const minRev = revisionListByVersion.get(v);
                 const fullRev = getFullRevision(v);
-                const showBase =
-                  fullRev &&
-                  DRAFT_REVISION_STATUSES.includes(fullRev.status) &&
-                  fullRev.baseVersion !== liveVersion;
+                const showBase = isOutOfOrderDraft(fullRev);
                 const date =
                   minRev?.status === "published"
                     ? minRev?.datePublished
@@ -547,7 +559,7 @@ export default function CompareRevisionsModal({
                             <EventUser user={minRev.createdBy} display="name" />
                           </Text>
                         )}
-                        {showBase && (
+                        {showBase && fullRev && fullRev.baseVersion !== 0 && (
                           <HelperText status="info" size="sm" mt="1">
                             based on: {fullRev.baseVersion}
                           </HelperText>
@@ -662,7 +674,11 @@ export default function CompareRevisionsModal({
                     mb="3"
                   />
                 )}
-                {showMergeWarning && (
+                {(diffViewMode === "single"
+                  ? isOutOfOrderDraft(singleRevFirst) ||
+                    isOutOfOrderDraft(singleRevLast)
+                  : isOutOfOrderDraft(stepRevA) ||
+                    isOutOfOrderDraft(stepRevB)) && (
                   <Callout status="info" size="sm" mb="4">
                     A draft in this comparison is based on an older version than
                     what is currently live. When you publish, it will be merged
