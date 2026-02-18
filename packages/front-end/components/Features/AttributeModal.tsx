@@ -18,6 +18,7 @@ import { useUser } from "@/services/UserContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
+import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import MinSDKVersionsList from "./MinSDKVersionsList";
@@ -155,11 +156,11 @@ export default function AttributeModal({ close, attribute }: Props) {
         {...form.register("property")}
       />
       {attribute && form.watch("property") !== attribute ? (
-        <div className="alert alert-warning">
+        <Callout status="warning">
           Be careful changing the attribute name. Any existing targeting
           conditions that use this attribute will NOT be updated automatically
           and will still reference the old attribute name.
-        </div>
+        </Callout>
       ) : null}
       <div className="form-group">
         <label>
@@ -281,7 +282,7 @@ export default function AttributeModal({ close, attribute }: Props) {
             helpText="Affects the targeting attribute UI and string comparison logic. More formats coming soon."
           />
           {form.watch("format") === "version" && (
-            <div className="alert alert-warning">
+            <Callout status="warning" contentsAs="div">
               <strong>Warning:</strong> Version string attributes are only
               supported in{" "}
               <Tooltip
@@ -291,7 +292,7 @@ export default function AttributeModal({ close, attribute }: Props) {
               </Tooltip>
               . Do not use this format if you are using an incompatible SDK as
               it will break any filtering based on the attribute.
-            </div>
+            </Callout>
           )}
 
           {!form.watch("format") && (

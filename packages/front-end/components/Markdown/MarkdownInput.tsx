@@ -101,11 +101,14 @@ const MarkdownInput: FC<{
 
     e.preventDefault();
 
-    const linkLabel = getLinkLabelFromUrl(pasted);
-    const markdownLink = `[${linkLabel}](${pasted})`;
-
     const start = textarea.selectionStart ?? 0;
     const end = textarea.selectionEnd ?? start;
+    const selectedText = value.slice(start, end).trim();
+    const linkLabel =
+      start !== end && selectedText
+        ? selectedText
+        : getLinkLabelFromUrl(pasted);
+    const markdownLink = `[${linkLabel}](<${pasted}>)`;
     const newValue = value.slice(0, start) + markdownLink + value.slice(end);
     setValue(newValue);
 

@@ -39,6 +39,10 @@ export const postAttribute = async (
     context.throwBadRequestError("An attribute with that name already exists");
   }
 
+  if (tags.length > 0) {
+    await addTags(org.id, tags);
+  }
+
   const newAttribute: SDKAttribute = {
     property,
     description,
