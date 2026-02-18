@@ -5,9 +5,10 @@ import {
 } from "shared/types/feature-revision";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiArrowsLeftRightBold } from "react-icons/pi";
+import { PiArrowsLeftRightBold, PiWarningBold } from "react-icons/pi";
 import { datetime } from "shared/dates";
 import { DRAFT_REVISION_STATUSES } from "shared/util";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
@@ -15,6 +16,7 @@ import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Button from "@/ui/Button";
+import Link from "@/ui/Link";
 import { Select, SelectItem } from "@/ui/Select";
 import Switch from "@/ui/Switch";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -51,6 +53,8 @@ function RevisionCompareLabel({
   revA,
   revB,
   liveVersion,
+  revAFailed = false,
+  revBFailed = false,
   mb,
 }: {
   versionA: number;
@@ -58,15 +62,26 @@ function RevisionCompareLabel({
   revA: FeatureRevisionInterface | null;
   revB: FeatureRevisionInterface | null;
   liveVersion: number;
+  revAFailed?: boolean;
+  revBFailed?: boolean;
   mb?: "1" | "2" | "3" | "4";
 }) {
   return (
     <Flex align="center" gap="4" wrap="nowrap" mb={mb}>
       <Flex direction="column">
         <Flex align="center" justify="between" gap="2">
-          <Text weight="semibold" size="medium">
-            Revision {versionA}
-          </Text>
+          <Flex align="center" gap="1">
+            {revAFailed && (
+              <Tooltip body="Could not load revision">
+                <PiWarningBold
+                  style={{ color: "var(--red-9)", flexShrink: 0 }}
+                />
+              </Tooltip>
+            )}
+            <Text weight="semibold" size="medium">
+              Revision {versionA}
+            </Text>
+          </Flex>
           <RevisionStatusBadge revision={revA} liveVersion={liveVersion} />
         </Flex>
         {revA &&
@@ -85,9 +100,18 @@ function RevisionCompareLabel({
       <PiArrowsLeftRightBold size={16} />
       <Flex direction="column">
         <Flex align="center" justify="between" gap="2">
-          <Text weight="semibold" size="medium">
-            Revision {versionB}
-          </Text>
+          <Flex align="center" gap="1">
+            {revBFailed && (
+              <Tooltip body="Could not load revision">
+                <PiWarningBold
+                  style={{ color: "var(--red-9)", flexShrink: 0 }}
+                />
+              </Tooltip>
+            )}
+            <Text weight="semibold" size="medium">
+              Revision {versionB}
+            </Text>
+          </Flex>
           <RevisionStatusBadge revision={revB} liveVersion={liveVersion} />
         </Flex>
         {revB &&
@@ -168,6 +192,7 @@ export default function CompareRevisionsModal({
   const [loadingVersions, setLoadingVersions] = useState<Set<number>>(
     new Set(),
   );
+  const [failedVersions, setFailedVersions] = useState<Set<number>>(new Set());
   const fetchingRef = useRef<Set<number>>(new Set());
 
   const getFullRevision = useCallback(
@@ -179,25 +204,66 @@ export default function CompareRevisionsModal({
     [revisions, fetchedRevisions],
   );
 
-  const fetchRevision = useCallback(
-    async (version: number) => {
-      if (getFullRevision(version)) return;
-      if (fetchingRef.current.has(version)) return;
-      fetchingRef.current.add(version);
-      setLoadingVersions((prev) => new Set(prev).add(version));
+  const fetchRevisions = useCallback(
+    async (versions: number[]) => {
+      // Filter out already cached or currently in-flight versions
+      const toFetch = versions.filter(
+        (v) => !getFullRevision(v) && !fetchingRef.current.has(v),
+      );
+      if (!toFetch.length) return;
+
+      // Clear any previous failures for versions we're about to (re)fetch
+      setFailedVersions((prev) => {
+        if (!toFetch.some((v) => prev.has(v))) return prev;
+        const next = new Set(prev);
+        toFetch.forEach((v) => next.delete(v));
+        return next;
+      });
+
+      toFetch.forEach((v) => fetchingRef.current.add(v));
+      setLoadingVersions((prev) => {
+        const next = new Set(prev);
+        toFetch.forEach((v) => next.add(v));
+        return next;
+      });
+
       try {
         const response = await apiCall<{
           revisions: FeatureRevisionInterface[];
-        }>(`/feature/${feature.id}?v=${version}`);
-        const rev = response.revisions?.find((r) => r.version === version);
-        if (rev) {
-          setFetchedRevisions((prev) => ({ ...prev, [version]: rev }));
+        }>(`/feature/${feature.id}/revisions?versions=${toFetch.join(",")}`);
+        const returnedVersions = new Set(
+          response.revisions?.map((r) => r.version) ?? [],
+        );
+        if (returnedVersions.size) {
+          setFetchedRevisions((prev) => {
+            const next = { ...prev };
+            response.revisions.forEach((r) => {
+              next[r.version] = r;
+            });
+            return next;
+          });
         }
+        // Versions that were requested but not returned are definitively missing
+        const missing = toFetch.filter((v) => !returnedVersions.has(v));
+        if (missing.length) {
+          setFailedVersions((prev) => {
+            const next = new Set(prev);
+            missing.forEach((v) => next.add(v));
+            return next;
+          });
+        }
+      } catch {
+        // Network / server error — all requested versions failed
+        setFailedVersions((prev) => {
+          const next = new Set(prev);
+          toFetch.forEach((v) => next.add(v));
+          return next;
+        });
       } finally {
-        fetchingRef.current.delete(version);
+        toFetch.forEach((v) => fetchingRef.current.delete(v));
         setLoadingVersions((prev) => {
           const next = new Set(prev);
-          next.delete(version);
+          toFetch.forEach((v) => next.delete(v));
           return next;
         });
       }
@@ -232,13 +298,16 @@ export default function CompareRevisionsModal({
   );
 
   useEffect(() => {
-    neededVersions.forEach((v) => {
-      if (!getFullRevision(v)) fetchRevision(v);
-    });
-  }, [neededVersions, getFullRevision, fetchRevision]);
+    const missing = [...neededVersions].filter((v) => !getFullRevision(v));
+    if (missing.length) fetchRevisions(missing);
+  }, [neededVersions, getFullRevision, fetchRevisions]);
 
-  const allLoaded = selectedSorted.every((v) => !!getFullRevision(v));
-  const anyLoading = loadingVersions.size > 0;
+  // A version is failed if the fetch completed but it wasn't returned
+  const isVersionFailed = useCallback(
+    (v: number) =>
+      failedVersions.has(v) && !loadingVersions.has(v) && !getFullRevision(v),
+    [failedVersions, loadingVersions, getFullRevision],
+  );
 
   const [diffPage, setDiffPage] = useState(0);
   const canToggleDiffView = selectedSorted.length > 2;
@@ -372,6 +441,18 @@ export default function CompareRevisionsModal({
   const currentStep = steps[safeDiffPage];
   const stepRevA = currentStep ? getFullRevision(currentStep[0]) : null;
   const stepRevB = currentStep ? getFullRevision(currentStep[1]) : null;
+
+  // Versions needed by whichever diff view is currently shown
+  const displayVersions =
+    steps.length === 0
+      ? []
+      : diffViewMode === "steps" && currentStep
+        ? [currentStep[0], currentStep[1]]
+        : selectedSorted.length >= 2
+          ? [selectedSorted[0], selectedSorted[selectedSorted.length - 1]]
+          : [];
+  const displayLoading = displayVersions.some((v) => loadingVersions.has(v));
+  const displayFailed = displayVersions.filter((v) => isVersionFailed(v));
   const stepDiffs = useFeatureRevisionDiff({
     current: stepRevA
       ? revisionToDiffInput(stepRevA)
@@ -549,7 +630,19 @@ export default function CompareRevisionsModal({
                           gap="2"
                           width="100%"
                         >
-                          <Text weight="semibold">Revision {v}</Text>
+                          <Flex align="center" gap="1">
+                            {isSelected && isVersionFailed(v) && (
+                              <Tooltip body="Could not load revision">
+                                <PiWarningBold
+                                  style={{
+                                    color: "var(--red-9)",
+                                    flexShrink: 0,
+                                  }}
+                                />
+                              </Tooltip>
+                            )}
+                            <Text weight="semibold">Revision {v}</Text>
+                          </Flex>
                           {minRev ? (
                             <RevisionStatusBadge
                               revision={minRev}
@@ -586,28 +679,6 @@ export default function CompareRevisionsModal({
             <Text color="text-low">
               Select at least two revisions in the list to see the diff.
             </Text>
-          ) : !allLoaded ? (
-            anyLoading ? (
-              <LoadingOverlay />
-            ) : (
-              <Flex direction="column" gap="3" align="start">
-                <Text color="text-low">
-                  Some revisions could not be loaded. You can retry or choose
-                  different revisions.
-                </Text>
-                <Button
-                  variant="soft"
-                  size="sm"
-                  onClick={() => {
-                    selectedSorted
-                      .filter((v) => !getFullRevision(v))
-                      .forEach((v) => fetchRevision(v));
-                  }}
-                >
-                  Retry loading
-                </Button>
-              </Flex>
-            )
           ) : (
             <>
               <Flex align="center" justify="between" mb="3" gap="4" wrap="wrap">
@@ -648,6 +719,10 @@ export default function CompareRevisionsModal({
                       revA={singleRevFirst}
                       revB={singleRevLast}
                       liveVersion={liveVersion}
+                      revAFailed={isVersionFailed(selectedSorted[0])}
+                      revBFailed={isVersionFailed(
+                        selectedSorted[selectedSorted.length - 1],
+                      )}
                     />
                   )}
                 </Flex>
@@ -675,40 +750,62 @@ export default function CompareRevisionsModal({
                     revA={stepRevA}
                     revB={stepRevB}
                     liveVersion={liveVersion}
+                    revAFailed={isVersionFailed(currentStep[0])}
+                    revBFailed={isVersionFailed(currentStep[1])}
                     mb="3"
                   />
                 )}
-                {(diffViewMode === "single"
-                  ? isOutOfOrderDraft(singleRevFirst) ||
-                    isOutOfOrderDraft(singleRevLast)
-                  : isOutOfOrderDraft(stepRevA) ||
-                    isOutOfOrderDraft(stepRevB)) && (
-                  <Callout status="info" size="sm" mb="4">
-                    A draft in this comparison is based on an older version than
-                    what is currently live. When you publish, it will be merged
-                    with the live version, so the result may differ from the
-                    diff shown here.
+                {displayLoading ? (
+                  <LoadingOverlay />
+                ) : displayFailed.length > 0 ? (
+                  <Callout status="error" contentsAs="div" mt="4">
+                    <Flex gap="4" align="start">
+                      <span>
+                        Could not load revision
+                        {displayFailed.length > 1 ? "s" : ""}{" "}
+                        {displayFailed.join(", ")}.
+                      </span>
+                      <Link onClick={() => fetchRevisions(displayFailed)}>
+                        Reload revision{displayFailed.length > 1 ? "s" : ""}
+                      </Link>
+                    </Flex>
                   </Callout>
-                )}
-                {(diffViewMode === "single" ? mergedDiffs : stepDiffs)
-                  .length === 0 ? (
-                  <Text color="text-low">
-                    No changes between these revisions.
-                  </Text>
                 ) : (
-                  <Flex direction="column" gap="4">
-                    {(diffViewMode === "single" ? mergedDiffs : stepDiffs).map(
-                      (d) => (
-                        <ExpandableDiff
-                          key={d.title}
-                          title={d.title}
-                          a={d.a}
-                          b={d.b}
-                          defaultOpen
-                        />
-                      ),
+                  <>
+                    {(diffViewMode === "single"
+                      ? isOutOfOrderDraft(singleRevFirst) ||
+                        isOutOfOrderDraft(singleRevLast)
+                      : isOutOfOrderDraft(stepRevA) ||
+                        isOutOfOrderDraft(stepRevB)) && (
+                      <Callout status="info" size="sm" mb="4">
+                        A draft in this comparison is based on an older version
+                        than what is currently live. When you publish, it will
+                        be merged with the live version, so the result may
+                        differ from the diff shown here.
+                      </Callout>
                     )}
-                  </Flex>
+                    {(diffViewMode === "single" ? mergedDiffs : stepDiffs)
+                      .length === 0 ? (
+                      <Text color="text-low">
+                        No changes between these revisions.
+                      </Text>
+                    ) : (
+                      <Flex direction="column" gap="4">
+                        {(diffViewMode === "single"
+                          ? mergedDiffs
+                          : stepDiffs
+                        ).map((d) => (
+                          <ExpandableDiff
+                            key={d.title}
+                            title={d.title}
+                            a={d.a}
+                            b={d.b}
+                            defaultOpen
+                          />
+                        ))}
+                      </Flex>
+                    )}
+                  </>
                 )}
               </>
             </>
