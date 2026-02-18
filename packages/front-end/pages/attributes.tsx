@@ -454,7 +454,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
             <tbody>
               {attributeSchema?.length > 0 ? (
                 <>
-                  {filteredAttributes.map((v, i) => drawRow(v, i))}
+                  {filteredAttributes.map((v) => drawRow(v))}
                   {!filteredAttributes.length && isFiltered && (
                     <tr>
                       <td colSpan={8} className="text-center text-gray">
