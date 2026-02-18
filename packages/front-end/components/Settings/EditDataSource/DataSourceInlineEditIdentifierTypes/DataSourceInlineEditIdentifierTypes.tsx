@@ -79,8 +79,8 @@ export const DataSourceInlineEditIdentifierTypes: FC<
   );
 
   const handleAdd = useCallback(() => {
-    setUiMode("add");
     setEditingIndex(userIdTypes.length);
+    setUiMode("add");
   }, [userIdTypes]);
 
   if (!dataSource) {
@@ -155,11 +155,11 @@ export const DataSourceInlineEditIdentifierTypes: FC<
       {/* endregion Identity Type empty state */}
 
       {/* region Add/Edit modal */}
-      {(uiMode === "edit" || uiMode === "add") && recordEditing ? (
+      {uiMode === "edit" || uiMode === "add" ? (
         <EditIdentifierType
           mode={uiMode}
           onCancel={handleCancel}
-          userIdType={recordEditing?.userIdType}
+          userIdType={recordEditing?.userIdType ?? ""}
           description={recordEditing?.description}
           attributes={recordEditing?.attributes}
           onSave={handleSave(editingIndex)}

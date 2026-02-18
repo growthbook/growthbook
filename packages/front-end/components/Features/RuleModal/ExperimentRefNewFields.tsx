@@ -163,10 +163,13 @@ export default function ExperimentRefNewFields({
   const hashAttribute = form.watch("hashAttribute");
 
   const hashAttributeToIdentifierTypeMap = useMemo(() => {
-    const attributeToIdentifierType = new Map<string, string>();
+    const attributeToIdentifierType = new Map<string, string[]>();
     for (const userIdType of datasource?.settings?.userIdTypes ?? []) {
       for (const attribute of userIdType.attributes ?? []) {
-        attributeToIdentifierType.set(attribute, userIdType.userIdType);
+        attributeToIdentifierType.set(attribute, [
+          ...(attributeToIdentifierType.get(attribute) ?? []),
+          userIdType.userIdType,
+        ]);
       }
     }
     return attributeToIdentifierType;
@@ -174,36 +177,39 @@ export default function ExperimentRefNewFields({
 
   const groupedExposureQueries: (GroupedValue | SingleValue)[] = useMemo(() => {
     const matchHashAttribute = exposureQueries?.filter((q) => {
-      return (
-        q.userIdType === hashAttributeToIdentifierTypeMap.get(hashAttribute)
-      );
+      return hashAttributeToIdentifierTypeMap
+        .get(hashAttribute)
+        ?.includes(q.userIdType);
     });
     const remainingExposureQueries = exposureQueries?.filter(
       (q) => !matchHashAttribute?.includes(q),
     );
-    if (matchHashAttribute?.length) {
-      const matches = {
-        label: "Matches Hash Attribute",
-        options: matchHashAttribute.map((q) => {
-          return {
-            label: q.name,
-            value: q.id,
-          };
-        }),
-      };
-      if (!remainingExposureQueries || remainingExposureQueries.length === 0) {
-        return [matches];
-      }
-      const doesNotMatch = {
-        label: "Does Not Match Hash Attribute",
-        options: remainingExposureQueries.map((q) => {
-          return {
-            label: q.name,
-            value: q.id,
-          };
-        }),
-      };
-      return [matches, doesNotMatch];
+    if (hashAttributeToIdentifierTypeMap.size > 0) {
+      const matches = matchHashAttribute
+        ? {
+            label: "Matches Hash Attribute",
+            options: matchHashAttribute.map((q) => {
+              return {
+                label: q.name,
+                value: q.id,
+              };
+            }),
+          }
+        : null;
+
+      const doesNotMatch = remainingExposureQueries
+        ? {
+            label: "Does Not Match Hash Attribute",
+            options: remainingExposureQueries.map((q) => {
+              return {
+                label: q.name,
+                value: q.id,
+              };
+            }),
+          }
+        : null;
+
+      return [matches, doesNotMatch].filter((x) => x !== null);
     }
     return (
       remainingExposureQueries?.map((q) => {
@@ -214,6 +220,16 @@ export default function ExperimentRefNewFields({
       }) ?? []
     );
   }, [exposureQueries, hashAttributeToIdentifierTypeMap, hashAttribute]);
+
+  const getMatchingExposureQuery = (attribute: string) => {
+    const userIdType = datasource?.settings?.userIdTypes?.find((t) =>
+      t.attributes?.includes(attribute),
+    )?.userIdType;
+    if (userIdType) {
+      return getExposureQuery(datasource?.settings, "", userIdType)?.id ?? null;
+    }
+    return null;
+  };
 
   const { data: sdkConnectionsData } = useSDKConnections();
   const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
@@ -354,18 +370,9 @@ export default function ExperimentRefNewFields({
               onChange={(v) => {
                 form.setValue("hashAttribute", v);
                 // Try and find a matching exposure query for the new hash attribute
-                const userIdType = datasource?.settings?.userIdTypes?.find(
-                  (t) => t.attributes?.includes(v),
-                )?.userIdType;
-                if (userIdType) {
-                  const exposureQueryId = getExposureQuery(
-                    datasource?.settings,
-                    "",
-                    userIdType,
-                  )?.id;
-                  if (exposureQueryId) {
-                    form.setValue("exposureQueryId", exposureQueryId);
-                  }
+                const exposureQueryId = getMatchingExposureQuery(v);
+                if (exposureQueryId) {
+                  form.setValue("exposureQueryId", exposureQueryId);
                 }
               }}
               helpText={
