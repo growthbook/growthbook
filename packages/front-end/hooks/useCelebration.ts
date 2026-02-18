@@ -7,7 +7,7 @@ type Randomness = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 export type CelebrationType =
   | "confetti" // classic colored circles
   | "emoji" // party emojis (🎉 🏆 ✨ etc.)
-  | "sparkles" // star/sparkle emojis
+  | "stars" // star/sparkle emojis
   | "colors" // custom color burst
   | "cash"; // money/cash emojis
 
@@ -32,7 +32,7 @@ export function runCelebration(
         confettiNumber: 40,
       });
       break;
-    case "sparkles":
+    case "stars":
       jsConfetti.addConfetti({
         emojis: ["✨", "⭐", "🌟", "✶", "✦"],
         emojiSize: 60,

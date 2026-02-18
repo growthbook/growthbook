@@ -23,7 +23,7 @@ export type PresentationCelebrationType =
 const RANDOM_CELEBRATION_TYPES: CelebrationType[] = [
   "confetti",
   "emoji",
-  "sparkles",
+  "stars",
   "colors",
   "cash",
 ];
@@ -40,8 +40,6 @@ function runPresentationCelebration(
       RANDOM_CELEBRATION_TYPES[
         Math.floor(Math.random() * RANDOM_CELEBRATION_TYPES.length)
       ];
-  } else if (celebration === "stars") {
-    type = "sparkles";
   } else {
     type = celebration;
   }
