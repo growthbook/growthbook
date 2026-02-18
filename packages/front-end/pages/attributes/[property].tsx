@@ -248,9 +248,6 @@ export default function AttributeDetailPage() {
         <Flex align="center" justify="between" mb="4">
           <Heading as="h1" size="2x-large">
             {attribute.property}
-            {attribute.archived && (
-              <span className="badge badge-secondary ml-2">archived</span>
-            )}
           </Heading>
           {canEdit && (
             <DropdownMenu
@@ -354,18 +351,31 @@ export default function AttributeDetailPage() {
           </Flex>
         </Flex>
 
+        {attribute.archived && (
+          <Callout status="info" mb="4">
+            <strong>This attribute is archived.</strong> It will not be
+            available when creating or editing targeting rules.
+          </Callout>
+        )}
+
         <Box mb="4">
           <Frame>
             <div className="mh-350px" style={{ overflowY: "auto" }}>
               <MarkdownInlineEdit
                 value={attribute.description || ""}
                 save={async (description) => {
+                  const payload = { ...attribute, description };
+                  // Backend expects specific types or omitted, not null
+                  if (payload.archived === null) delete payload.archived;
+                  if (payload.hashAttribute === null)
+                    delete payload.hashAttribute;
+                  if (payload.tags === null) delete payload.tags;
+                  if (payload.projects === null) delete payload.projects;
+                  if (payload.format === null) delete payload.format;
+                  if (payload.enum === null) delete payload.enum;
                   await apiCall("/attribute", {
                     method: "PUT",
-                    body: JSON.stringify({
-                      ...attribute,
-                      description,
-                    }),
+                    body: JSON.stringify(payload),
                   });
                   await refreshOrganization();
                 }}
