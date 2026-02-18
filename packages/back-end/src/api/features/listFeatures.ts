@@ -91,7 +91,11 @@ export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
       }
       const payload = await getFeatureDefinitionsWithCache({
         context: req.context,
-        params: sdkConnection,
+        params: {
+          ...sdkConnection,
+          encryptPayload: false, // Force unencrypted for filtering
+          encryptionKey: "", // Ensure no encryption
+        },
       });
       const filteredFeatures = features
         .filter((f) => f.id in payload.features)
