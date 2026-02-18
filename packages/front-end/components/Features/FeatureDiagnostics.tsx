@@ -134,6 +134,7 @@ export default function FeatureDiagnostics({
   const evalItems = useAddComputedFields(
     results ?? [],
     (row) => {
+      const timestampDate = getValidDate(row.timestamp);
       // Compute display values for all columns
       const displayValues: Record<string, string> = {};
       columns.forEach((key) => {
@@ -141,20 +142,22 @@ export default function FeatureDiagnostics({
       });
 
       return {
-        timestamp: format(getValidDate(row.timestamp), "PPpp"),
+        timestamp: format(timestampDate, "PPpp"),
+        timestampSort: timestampDate.getTime(),
         ...displayValues,
       } as {
         timestamp: string;
-      } & Record<string, string>;
+        timestampSort: number;
+      } & Record<string, string | number>;
     },
     [results, columns],
   );
 
   const { items, pagination, SortableTH, searchInputProps } = useSearch({
     items: evalItems,
-    defaultSortField: "timestamp",
+    defaultSortField: "timestampSort",
     defaultSortDir: -1,
-    localStorageKey: "feature-diagnostics",
+    localStorageKey: "feature-diagnostics-v2",
     searchFields: ["timestamp", ...columns],
     pageSize: 25,
   });
@@ -300,7 +303,7 @@ export default function FeatureDiagnostics({
               <Table mt="6" className="table gbtable responsive-table">
                 <TableHeader>
                   <TableRow>
-                    <SortableTH field="timestamp">Timestamp</SortableTH>
+                    <SortableTH field="timestampSort">Timestamp</SortableTH>
                     {columns.map((key) => (
                       <SortableTH key={key} field={key}>
                         {key
