@@ -79,6 +79,8 @@ const factTableSchema = new mongoose.Schema({
 });
 
 factTableSchema.index({ id: 1, organization: 1 }, { unique: true });
+// Compound indexes for API list filtering
+factTableSchema.index({ organization: 1, datasource: 1 });
 
 type FactTableDocument = mongoose.Document & FactTableInterface;
 
@@ -140,10 +142,33 @@ function createPropsToInterface(
   };
 }
 
+export interface FactTableFilterOptions {
+  datasourceId?: string;
+  projectId?: string;
+}
+
 export async function getAllFactTablesForOrganization(
   context: ReqContext | ApiReqContext,
+  options?: FactTableFilterOptions,
 ) {
-  const docs = await FactTableModel.find({ organization: context.org.id });
+  // Build query with optional filters
+  const query: Record<string, unknown> = { organization: context.org.id };
+
+  if (options?.datasourceId) {
+    query.datasource = options.datasourceId;
+  }
+
+  if (options?.projectId) {
+    // Match if: projects array contains the projectId OR projects is empty/missing
+    // (empty projects means the fact table is available to all projects)
+    query.$or = [
+      { projects: options.projectId },
+      { projects: { $size: 0 } },
+      { projects: { $exists: false } },
+    ];
+  }
+
+  const docs = await FactTableModel.find(query).sort({ id: 1 });
   return docs
     .map((doc) => toInterface(doc))
     .filter((f) => context.permissions.canReadMultiProjectResource(f.projects));
