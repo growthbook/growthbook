@@ -118,7 +118,7 @@ const CompletedExperimentList = ({
                 ) : null}
               </>
             );
-            const expTypes: JSX.Element[] = [];
+            const expTypes: React.ReactNode[] = [];
             if (e.hasVisualChangesets) {
               expTypes.push(
                 <Tooltip

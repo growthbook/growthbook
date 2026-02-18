@@ -7,7 +7,7 @@ import LoadingSpinner from "./LoadingSpinner";
 
 interface AuthorizedImageProps extends React.HTMLProps<HTMLImageElement> {
   imageCache?: Record<string, { url: string; expiresAt: string }>;
-  onErrorMsg?: (msg: string) => JSX.Element | null;
+  onErrorMsg?: (msg: string) => React.ReactNode | null;
   isPublic?: boolean;
   shareUid?: string;
   shareType?: "experiment" | "report";

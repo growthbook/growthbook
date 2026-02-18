@@ -81,7 +81,7 @@ function MetricAnalysisOverview({
     metricType === "proportion" || metricType === "retention"
       ? formatNumber(result.units * result.mean)
       : formatter(result.units * result.mean, formatterOptions);
-  let denominatorText: string | JSX.Element = (
+  let denominatorText: string | React.ReactNode = (
     <>
       {"Unique "}
       <code>{userIdType}</code>

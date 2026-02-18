@@ -1,7 +1,7 @@
 import React from "react";
 import { BarStackHorizontal } from "@visx/shape";
 import { scaleBand, scaleLinear, scaleOrdinal } from "@visx/scale";
-import { ParentSizeModern } from "@visx/responsive";
+import { ParentSize } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { truncateString } from "shared/util";
 
@@ -43,7 +43,7 @@ export default function BarChart100({
 
   return (
     <div>
-      <ParentSizeModern style={{ position: "relative" }}>
+      <ParentSize style={{ position: "relative" }}>
         {({ width }) => {
           const yMax = height - margin[0] - margin[2];
           const xMax = width - margin[1] - margin[3];
@@ -92,7 +92,7 @@ export default function BarChart100({
             </svg>
           );
         }}
-      </ParentSizeModern>
+      </ParentSize>
       <div style={{ maxHeight: 200, overflowY: "auto" }}>
         <table className="w-100 gbtable table table-sm">
           <tbody>

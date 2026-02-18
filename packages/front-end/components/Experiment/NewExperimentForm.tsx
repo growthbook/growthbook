@@ -1098,7 +1098,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                       }
                       conditionKey={conditionKey}
                       namespaceFormPrefix={"phases.0."}
-                      coverage={form.watch("phases.0.coverage")}
+                      coverage={form.watch("phases.0.coverage") ?? 1}
                       setCoverage={(coverage) =>
                         form.setValue("phases.0.coverage", coverage)
                       }
@@ -1110,9 +1110,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                           return {
                             value: v.key || "",
                             name: v.name,
-                            weight: form.watch(
-                              `phases.0.variationWeights.${i}`,
-                            ),
+                            weight:
+                              form.watch(`phases.0.variationWeights.${i}`) ?? 0,
                             id: v.id,
                           };
                         }) ?? []
@@ -1179,7 +1178,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                       }
                       conditionKey={conditionKey}
                       namespaceFormPrefix={"phases.0."}
-                      coverage={form.watch("phases.0.coverage")}
+                      coverage={form.watch("phases.0.coverage") ?? 1}
                       setCoverage={(coverage) =>
                         form.setValue("phases.0.coverage", coverage)
                       }
@@ -1191,9 +1190,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                           return {
                             value: v.key || "",
                             name: v.name,
-                            weight: form.watch(
-                              `phases.0.variationWeights.${i}`,
-                            ),
+                            weight:
+                              form.watch(`phases.0.variationWeights.${i}`) ?? 0,
                             id: v.id,
                           };
                         }) ?? []
@@ -1329,7 +1327,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     return {
                       value: v.key || "",
                       name: v.name,
-                      weight: form.watch(`phases.0.variationWeights.${i}`),
+                      weight: form.watch(`phases.0.variationWeights.${i}`) ?? 0,
                       id: v.id,
                     };
                   }) ?? []

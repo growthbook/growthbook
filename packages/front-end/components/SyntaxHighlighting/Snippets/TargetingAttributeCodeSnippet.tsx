@@ -127,7 +127,7 @@ export default function TargetingAttributeCodeSnippet({
     ([k]) => !defaultAttributes.includes(k),
   );
 
-  const attributesSnippets: JSX.Element[] = [];
+  const attributesSnippets: React.ReactNode[] = [];
 
   // Start of the Language Specific Snippets
   if (language === "javascript" || language === "react") {

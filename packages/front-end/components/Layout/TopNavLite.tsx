@@ -169,7 +169,7 @@ export default function TopNavLite({ pageTitle }: { pageTitle?: string }) {
     ));
   };
   const renderTitleOrBreadCrumb = () => {
-    let titleOrBreadCrumb: string | JSX.Element[] = pageTitle || "";
+    let titleOrBreadCrumb: string | React.ReactNode[] = pageTitle || "";
     if (breadcrumb.length > 0) {
       titleOrBreadCrumb = renderBreadCrumb();
     }

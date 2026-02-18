@@ -1,5 +1,5 @@
 import { FC, useMemo, useState } from "react";
-import { ParentSizeModern } from "@visx/responsive";
+import { ParentSize } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { GridColumns, GridRows } from "@visx/grid";
 import { scaleLinear, scaleTime } from "@visx/scale";
@@ -355,7 +355,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
   const max = Math.max(...datapoints.map((d) => d.d.getTime()));
 
   return (
-    <ParentSizeModern>
+    <ParentSize>
       {({ width }) => {
         const yMax = height - margin[0] - margin[2];
         const xMax = width - margin[1] - margin[3];
@@ -625,7 +625,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
           </div>
         );
       }}
-    </ParentSizeModern>
+    </ParentSize>
   );
 };
 export default ExperimentDateGraph;

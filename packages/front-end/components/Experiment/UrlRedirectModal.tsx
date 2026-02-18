@@ -207,7 +207,7 @@ const UrlRedirectModal: FC<{
         <div className="mt-3">
           <h4>Destination URLs</h4>
           {experiment.variations.map((v, i) => {
-            let warning: string | JSX.Element | undefined;
+            let warning: string | React.ReactNode | undefined;
             const destinationMatchesOrigin =
               !!form.watch("originUrl") &&
               form.watch(`destinationUrls.${i}`) &&

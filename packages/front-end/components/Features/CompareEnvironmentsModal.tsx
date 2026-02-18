@@ -1,6 +1,6 @@
 import { FeatureInterface } from "shared/types/feature";
 import { filterEnvironmentsByFeature } from "shared/util";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
+import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
 import { Flex, useThemeContext, Text } from "@radix-ui/themes";
 import { getRules, useEnvironments } from "@/services/features";
 import Modal from "@/components/Modal";

@@ -1,23 +1,41 @@
-import { FC, MouseEventHandler, ReactNode, useState } from "react";
+import React, {
+  createContext,
+  FC,
+  MouseEventHandler,
+  ReactNode,
+  useContext,
+  useMemo,
+  useState,
+} from "react";
 import ReactSelect, {
   components,
   MultiValueGenericProps,
   MultiValueProps,
   InputProps,
-  Props,
   StylesConfig,
   OptionProps,
   FormatOptionLabelMeta,
   ClearIndicatorProps,
+  IndicatorsContainerProps,
+  MultiValueRemoveProps,
+  MenuListProps,
 } from "react-select";
 import {
-  SortableContainer,
-  SortableContainerProps,
-  SortableElement,
-  SortEndHandler,
-  SortableHandle,
-} from "react-sortable-hoc";
-import { arrayMove } from "@dnd-kit/sortable";
+  DndContext,
+  DragEndEvent,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  rectSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import CreatableSelect from "react-select/creatable";
 import { isDefined } from "shared/util";
 import clsx from "clsx";
@@ -33,27 +51,95 @@ import {
 import Field, { FieldProps } from "@/components/Forms/Field";
 import { ColorOption } from "@/components/Tags/TagsInput";
 
-const SortableMultiValue = SortableElement(
-  (props: MultiValueProps<SingleValue>) => {
-    // Hack to stop the dropdown from opening when the user starts dragging
-    const onMouseDown: MouseEventHandler<HTMLDivElement> = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-    };
-    const innerProps = { ...props.innerProps, onMouseDown };
-    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '{ innerProps: { onMouseDown: MouseEventHandl... Remove this comment to see the full error message
-    return <components.MultiValue {...props} innerProps={innerProps} />;
-  },
-);
+const SortableMultiValueContext = createContext<{
+  attributes: Record<string, unknown>;
+  listeners: Record<string, unknown>;
+} | null>(null);
 
-// eslint-disable-next-line
-const SortableMultiValueLabel = SortableHandle<any>(
-  (props: MultiValueGenericProps) => {
-    const title = props.data?.tooltip || props.data?.label || "";
-    const innerProps = { ...props.innerProps, title };
-    return <components.MultiValueLabel {...props} innerProps={innerProps} />;
-  },
-);
+const SortableMultiValue = (props: MultiValueProps<SingleValue>) => {
+  const valueArray = props.selectProps.value;
+  const index =
+    (props as MultiValueProps<SingleValue> & { index?: number }).index ??
+    ((Array.isArray(valueArray)
+      ? (valueArray as SingleValue[]).findIndex(
+          (v) => v?.value === props.data?.value,
+        )
+      : -1) ||
+      0);
+  const id = String(index);
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  // Hack to stop the dropdown from opening when the user starts dragging
+  const onMouseDown: MouseEventHandler<HTMLDivElement> = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const style: React.CSSProperties = {
+    transition,
+    ...(isDragging
+      ? { opacity: 0.5, cursor: "grabbing" }
+      : {
+          transform: CSS.Transform.toString(transform),
+        }),
+  };
+
+  const innerProps = {
+    ...props.innerProps,
+    ref: setNodeRef,
+    style: {
+      ...(props.innerProps && "style" in props.innerProps
+        ? (props.innerProps as { style?: React.CSSProperties }).style
+        : {}),
+      ...style,
+    },
+    onMouseDown,
+  };
+
+  const contextValue = useMemo(
+    () => ({
+      attributes: attributes as unknown as Record<string, unknown>,
+      listeners: (listeners ?? {}) as unknown as Record<string, unknown>,
+    }),
+    [attributes, listeners],
+  );
+
+  return (
+    <SortableMultiValueContext.Provider value={contextValue}>
+      {/* @ts-expect-error TS(2322) If you come across this, please fix it!: Type '{ innerProps: { ... } }' - react-select component prop typing */}
+      <components.MultiValue {...props} innerProps={innerProps} />
+    </SortableMultiValueContext.Provider>
+  );
+};
+
+const MultiValueLabelFixed =
+  components.MultiValueLabel as unknown as React.FC<MultiValueGenericProps>;
+
+const SortableMultiValueLabel = (props: MultiValueGenericProps) => {
+  const sortableContext = useContext(SortableMultiValueContext);
+  const title = props.data?.tooltip || props.data?.label || "";
+  const innerProps = {
+    ...props.innerProps,
+    title,
+    ...(sortableContext && {
+      ...sortableContext.attributes,
+      ...sortableContext.listeners,
+      style: {
+        ...(props.innerProps as { style?: React.CSSProperties }).style,
+        cursor: "grab",
+      },
+    }),
+  };
+  return <MultiValueLabelFixed {...props} innerProps={innerProps} />;
+};
 
 const OptionWithTitle = (props: OptionProps<SingleValue>) => {
   // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '{ children: ReactNode; innerRef: (instance: ... Remove this comment to see the full error message
@@ -61,18 +147,13 @@ const OptionWithTitle = (props: OptionProps<SingleValue>) => {
   return <div title={props.data?.tooltip}>{option}</div>;
 };
 
-const SortableSelect = SortableContainer(ReactSelect) as React.ComponentClass<
-  Props<SingleValue, true> & SortableContainerProps
->;
-
-const SortableCreatableSelect = SortableContainer(
-  CreatableSelect,
-) as React.ComponentClass<Props<SingleValue, true> & SortableContainerProps>;
+const InputFixed = components.Input as unknown as React.FC<InputProps>;
 
 const Input = (props: InputProps) => {
-  // @ts-expect-error will be passed down
-  const { onPaste } = props.selectProps;
-  return <components.Input onPaste={onPaste} {...props} />;
+  const { onPaste } = props.selectProps as unknown as {
+    onPaste?: React.ClipboardEventHandler;
+  };
+  return <InputFixed onPaste={onPaste} {...props} />;
 };
 
 function CopyButton({ value }: { value: string[] }) {
@@ -111,9 +192,10 @@ function CopyButton({ value }: { value: string[] }) {
   );
 }
 
-function IndicatorsContainerWithCopyButton(
-  props: React.ComponentProps<typeof components.IndicatorsContainer>,
-) {
+const IndicatorsContainerFixed =
+  components.IndicatorsContainer as unknown as React.FC<IndicatorsContainerProps>;
+
+function IndicatorsContainerWithCopyButton(props: IndicatorsContainerProps) {
   const selectProps = props.selectProps as unknown as {
     showCopyButton?: boolean;
     value?: Array<{ value: string; label: string }>;
@@ -123,35 +205,40 @@ function IndicatorsContainerWithCopyButton(
   const options = selectProps?.value;
 
   if (!showCopy || !options || options.length === 0) {
-    return <components.IndicatorsContainer {...props} />;
+    return <IndicatorsContainerFixed {...props} />;
   }
 
   // Extract just the value strings from the option objects
   const values = options.map((opt) => opt.value);
 
   return (
-    <components.IndicatorsContainer {...props}>
+    <IndicatorsContainerFixed {...props}>
       <CopyButton value={values} />
       {props.children}
-    </components.IndicatorsContainer>
+    </IndicatorsContainerFixed>
   );
 }
+
+const ClearIndicatorFixed = components.ClearIndicator as unknown as React.FC<
+  ClearIndicatorProps<ColorOption, true>
+>;
 
 function CustomClearIndicator(props: ClearIndicatorProps<ColorOption, true>) {
   return (
-    <components.ClearIndicator {...props}>
+    <ClearIndicatorFixed {...props}>
       <PiXBold />
-    </components.ClearIndicator>
+    </ClearIndicatorFixed>
   );
 }
 
-function CustomMultiValueRemove(
-  props: React.ComponentProps<typeof components.MultiValueRemove>,
-) {
+const MultiValueRemoveFixed =
+  components.MultiValueRemove as unknown as React.FC<MultiValueRemoveProps>;
+
+function CustomMultiValueRemove(props: MultiValueRemoveProps) {
   return (
-    <components.MultiValueRemove {...props}>
+    <MultiValueRemoveFixed {...props}>
       <PiXBold />
-    </components.MultiValueRemove>
+    </MultiValueRemoveFixed>
   );
 }
 
@@ -208,7 +295,36 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
   // eslint-disable-next-line
   const fieldProps = otherProps as any;
 
-  const Component = creatable ? SortableCreatableSelect : SortableSelect;
+  const Component = creatable ? CreatableSelect : ReactSelect;
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 4 },
+    }),
+    useSensor(KeyboardSensor),
+  );
+
+  const sortableIds = useMemo(
+    () => selected.map((_, i) => String(i)),
+    [selected],
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = parseInt(String(active.id), 10);
+      const newIndex = parseInt(String(over.id), 10);
+      if (!Number.isNaN(oldIndex) && !Number.isNaN(newIndex)) {
+        onChange(
+          arrayMove(
+            selected.map((v) => v.value),
+            oldIndex,
+            newIndex,
+          ),
+        );
+      }
+    }
+  };
 
   const handlePaste =
     userOnPaste ??
@@ -271,15 +387,6 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
       }
     });
 
-  const onSortEnd: SortEndHandler = ({ oldIndex, newIndex }) => {
-    onChange(
-      arrayMove(
-        selected.map((v) => v.value),
-        oldIndex,
-        newIndex,
-      ),
-    );
-  };
   const mergeStyles = customStyles
     ? {
         styles: {
@@ -288,131 +395,114 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
         },
       }
     : {};
+
+  const selectProps = {
+    onPaste: handlePaste,
+    showCopyButton,
+    classNamePrefix: "gb-multi-select",
+    formatOptionLabel,
+    formatGroupLabel,
+    isDisabled: disabled || false,
+    options: sorted,
+    isMulti: true as const,
+    onChange: (selectedOptions: SingleValue[] | null) => {
+      onChange(selectedOptions?.map((s) => s.value) ?? []);
+    },
+    isValidNewOption: (val: string) => {
+      if (!pattern) return !!val;
+      return new RegExp(pattern).test(val);
+    },
+    components: {
+      MultiValue: SortableMultiValue,
+      MultiValueLabel: SortableMultiValueLabel,
+      MultiValueRemove: CustomMultiValueRemove,
+      Option: OptionWithTitle,
+      Input,
+      ClearIndicator: CustomClearIndicator,
+      ...(showCopyButton
+        ? { IndicatorsContainer: IndicatorsContainerWithCopyButton }
+        : {}),
+      ...(creatable && noMenu
+        ? {
+            Menu: () => null,
+            DropdownIndicator: () => null,
+            IndicatorSeparator: () => null,
+          }
+        : creatable
+          ? {
+              IndicatorSeparator: () => null,
+              MenuList: (props: MenuListProps) => {
+                const MenuListFixed =
+                  components.MenuList as unknown as React.FC<MenuListProps>;
+                return (
+                  <>
+                    <div
+                      className="px-2 py-1"
+                      style={{ fontWeight: 500, fontSize: "85%" }}
+                    >
+                      <strong>Select an option or create one</strong>
+                    </div>
+                    <MenuListFixed {...props} />
+                  </>
+                );
+              },
+            }
+          : { IndicatorSeparator: () => null }),
+    },
+    ...(creatable && noMenu
+      ? {
+          onKeyDown: (e: React.KeyboardEvent) => {
+            const v = (e.target as HTMLInputElement).value;
+            if (e.code === "Enter" && (!v || value.includes(v))) {
+              e.preventDefault();
+            }
+          },
+        }
+      : {}),
+    closeMenuOnSelect,
+    autoFocus,
+    value: selected,
+    ...(creatable
+      ? {
+          formatCreateLabel: (input: string) => (
+            <span>
+              <span className="text-muted">Create</span>{" "}
+              <span
+                className="badge bg-purple-light-2"
+                style={{
+                  fontWeight: 600,
+                  padding: "3px 6px",
+                  lineHeight: "1.5",
+                  borderRadius: "2px",
+                }}
+              >
+                {input}
+              </span>
+            </span>
+          ),
+        }
+      : {}),
+    placeholder: initialOption ?? placeholder,
+    isOptionDisabled,
+    ...ReactSelectProps,
+    ...mergeStyles,
+  };
+
   return (
     <Field
       {...fieldProps}
       customClassName={clsx(customClassName, { "cursor-disabled": disabled })}
-      render={(id, ref) => {
-        return (
-          <Component
-            onPaste={handlePaste}
-            showCopyButton={showCopyButton}
-            useDragHandle
-            classNamePrefix="gb-multi-select"
-            helperClass="multi-select-container"
-            axis="xy"
-            onSortEnd={(s, e) => {
-              onSortEnd(s, e);
-              // The following is a hack to clean up elements that might be
-              // left in the dom after dragging. Hopefully we can remove this
-              // if react-select and react-sortable fixes it.
-              setTimeout(() => {
-                const nodes = document.querySelectorAll(
-                  "body > .multi-select-container",
-                );
-                nodes.forEach((n) => {
-                  n.remove();
-                });
-              }, 100);
-            }}
-            distance={4}
-            getHelperDimensions={({ node }) => node.getBoundingClientRect()}
-            id={id}
-            ref={ref}
-            formatOptionLabel={formatOptionLabel}
-            formatGroupLabel={formatGroupLabel}
-            isDisabled={disabled || false}
-            options={sorted}
-            isMulti={true}
-            onChange={(selected) => {
-              onChange(selected?.map((s) => s.value) ?? []);
-            }}
-            isValidNewOption={(value) => {
-              if (!pattern) return !!value;
-              return new RegExp(pattern).test(value);
-            }}
-            components={{
-              MultiValue: SortableMultiValue,
-              MultiValueLabel: SortableMultiValueLabel,
-              MultiValueRemove: CustomMultiValueRemove,
-              Option: OptionWithTitle,
-              Input,
-              ClearIndicator: CustomClearIndicator,
-              ...(showCopyButton
-                ? { IndicatorsContainer: IndicatorsContainerWithCopyButton }
-                : {}),
-              ...(creatable && noMenu
-                ? {
-                    Menu: () => null,
-                    DropdownIndicator: () => null,
-                    IndicatorSeparator: () => null,
-                  }
-                : creatable
-                  ? {
-                      IndicatorSeparator: () => null,
-                      MenuList: (props) => {
-                        return (
-                          <>
-                            <div
-                              className="px-2 py-1"
-                              style={{
-                                fontWeight: 500,
-                                fontSize: "85%",
-                              }}
-                            >
-                              <strong>Select an option or create one</strong>
-                            </div>
-                            <components.MenuList {...props} />
-                          </>
-                        );
-                      },
-                    }
-                  : {
-                      IndicatorSeparator: () => null,
-                    }),
-            }}
-            {...(creatable && noMenu
-              ? {
-                  // Prevent multi-select from submitting if you type the same value twice
-                  onKeyDown: (e) => {
-                    const v = (e.target as HTMLInputElement).value;
-                    if (e.code === "Enter" && (!v || value.includes(v))) {
-                      e.preventDefault();
-                    }
-                  },
-                }
-              : {})}
-            closeMenuOnSelect={closeMenuOnSelect}
-            autoFocus={autoFocus}
-            value={selected}
-            {...(creatable
-              ? {
-                  formatCreateLabel: (input: string) => {
-                    return (
-                      <span>
-                        <span className="text-muted">Create</span>{" "}
-                        <span
-                          className="badge bg-purple-light-2"
-                          style={{
-                            fontWeight: 600,
-                            padding: "3px 6px",
-                            lineHeight: "1.5",
-                            borderRadius: "2px",
-                          }}
-                        >
-                          {input}
-                        </span>
-                      </span>
-                    );
-                  },
-                }
-              : {})}
-            placeholder={initialOption ?? placeholder}
-            isOptionDisabled={isOptionDisabled}
-            {...{ ...ReactSelectProps, ...mergeStyles }}
-          />
-        );
-      }}
+      render={(id, ref) => (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext items={sortableIds} strategy={rectSortingStrategy}>
+            <Component {...selectProps} id={id} ref={ref} />
+          </SortableContext>
+        </DndContext>
+      )}
     />
   );
 };

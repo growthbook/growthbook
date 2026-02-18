@@ -3,6 +3,10 @@ import CreatableSelect from "react-select/creatable";
 import {
   components as SelectComponents,
   ClearIndicatorProps,
+  MultiValueRemoveProps,
+  InputProps,
+  MultiValueGenericProps,
+  IndicatorsContainerProps,
 } from "react-select";
 import TextareaAutosize from "react-textarea-autosize";
 import { PiCopy, PiRepeatBold, PiXBold } from "react-icons/pi";
@@ -28,36 +32,40 @@ const baseComponents = {
   DropdownIndicator: null,
 };
 
+const ClearIndicatorFixed =
+  SelectComponents.ClearIndicator as unknown as React.FC<
+    ClearIndicatorProps<{ value: string; label: string }, true>
+  >;
+
 function CustomClearIndicator(
   props: ClearIndicatorProps<{ value: string; label: string }, true>,
 ) {
   return (
-    <SelectComponents.ClearIndicator {...props}>
+    <ClearIndicatorFixed {...props}>
       <PiXBold />
-    </SelectComponents.ClearIndicator>
+    </ClearIndicatorFixed>
   );
 }
 
-function CustomMultiValueRemove(
-  props: React.ComponentProps<typeof SelectComponents.MultiValueRemove>,
-) {
+const MultiValueRemoveFixed =
+  SelectComponents.MultiValueRemove as unknown as React.FC<MultiValueRemoveProps>;
+
+function CustomMultiValueRemove(props: MultiValueRemoveProps) {
   return (
-    <SelectComponents.MultiValueRemove {...props}>
+    <MultiValueRemoveFixed {...props}>
       <PiXBold />
-    </SelectComponents.MultiValueRemove>
+    </MultiValueRemoveFixed>
   );
 }
 
-function InputWithPasteHandler(
-  props: React.ComponentProps<typeof SelectComponents.Input>,
-) {
+const InputFixed = SelectComponents.Input as unknown as React.FC<InputProps>;
+
+function InputWithPasteHandler(props: InputProps) {
   const selectProps = props.selectProps as unknown as {
     onPasteCapture?: (event: React.ClipboardEvent) => void;
   };
 
-  return (
-    <SelectComponents.Input {...props} onPaste={selectProps.onPasteCapture} />
-  );
+  return <InputFixed {...props} onPaste={selectProps.onPasteCapture} />;
 }
 
 function RawTextModeToggleButton({
@@ -116,10 +124,11 @@ function CopyButton({ value }: { value: string[] }) {
   );
 }
 
+const IndicatorsContainerFixed =
+  SelectComponents.IndicatorsContainer as unknown as React.FC<IndicatorsContainerProps>;
+
 /** Wrapper that adds a raw-text-mode toggle button when selectProps provides onToggleRawTextMode. */
-function IndicatorsContainerWithButtons(
-  props: React.ComponentProps<typeof SelectComponents.IndicatorsContainer>,
-) {
+function IndicatorsContainerWithButtons(props: IndicatorsContainerProps) {
   const selectProps = props.selectProps as unknown as Record<string, unknown>;
   const onToggleRawTextMode = selectProps?.onToggleRawTextMode;
   const showToggle = typeof onToggleRawTextMode === "function";
@@ -127,11 +136,11 @@ function IndicatorsContainerWithButtons(
   const value = selectProps?.value as string[] | undefined;
 
   if (!showToggle && !showCopy) {
-    return <SelectComponents.IndicatorsContainer {...props} />;
+    return <IndicatorsContainerFixed {...props} />;
   }
 
   return (
-    <SelectComponents.IndicatorsContainer {...props}>
+    <IndicatorsContainerFixed {...props}>
       {showCopy && value && <CopyButton value={value} />}
       {showToggle && (
         <RawTextModeToggleButton
@@ -140,7 +149,7 @@ function IndicatorsContainerWithButtons(
         />
       )}
       {props.children}
-    </SelectComponents.IndicatorsContainer>
+    </IndicatorsContainerFixed>
   );
 }
 
@@ -165,14 +174,12 @@ export default function StringArrayField({
   const components = {
     ...baseComponents,
     Input: InputWithPasteHandler,
-    MultiValueLabel: (
-      props: React.ComponentProps<typeof SelectComponents.MultiValueLabel>,
-    ) => {
-      const title = props.data as string;
+    MultiValueLabel: (props: MultiValueGenericProps) => {
+      const MultiValueLabelFixed =
+        SelectComponents.MultiValueLabel as unknown as React.FC<MultiValueGenericProps>;
+      const title = props.data as unknown as string;
       const innerProps = { ...props.innerProps, title };
-      return (
-        <SelectComponents.MultiValueLabel {...props} innerProps={innerProps} />
-      );
+      return <MultiValueLabelFixed {...props} innerProps={innerProps} />;
     },
     MultiValueRemove: CustomMultiValueRemove,
     ClearIndicator: CustomClearIndicator,
@@ -298,26 +305,31 @@ export default function StringArrayField({
           );
         }
 
+        // Custom props (onToggleRawTextMode, showCopyButton, onPasteCapture) are passed through
+        // selectProps to custom components. We spread them as `any` to bypass react-select's strict typing.
+        const customSelectProps = {
+          onToggleRawTextMode: enableRawTextMode
+            ? () => setRawTextMode(true)
+            : undefined,
+          showCopyButton,
+          onPasteCapture: handlePaste,
+        } as Record<string, unknown>;
+
         return (
           <CreatableSelect
             id={id}
             ref={ref}
             isDisabled={disabled}
             components={components}
-            onToggleRawTextMode={
-              enableRawTextMode ? () => setRawTextMode(true) : undefined
-            }
-            showCopyButton={showCopyButton}
-            onPasteCapture={handlePaste}
             inputValue={inputValue}
             isClearable
             classNamePrefix="gb-select"
             isMulti
             menuIsOpen={false}
             autoFocus={autoFocus}
-            getOptionLabel={(option) => option}
-            getOptionValue={(option) => option}
-            onChange={(val) => onChange(val as string[])}
+            getOptionLabel={(option: { label: string }) => option.label}
+            getOptionValue={(option: { value: string }) => option.value}
+            onChange={(val) => onChange(val as unknown as string[])}
             onInputChange={(val) => setInputValue(val)}
             onKeyDown={(event) => handleKeyDown(event)}
             onBlur={() => {
@@ -336,6 +348,7 @@ export default function StringArrayField({
             placeholder={placeholder}
             value={value}
             {...ReactSelectProps}
+            {...customSelectProps}
           />
         );
       }}

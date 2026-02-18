@@ -3,7 +3,7 @@ import { extent } from "@visx/vendor/d3-array";
 import { Group } from "@visx/group";
 import { Line, LinePath } from "@visx/shape";
 import { scaleTime, scaleLinear } from "@visx/scale";
-import { ParentSizeModern } from "@visx/responsive";
+import { ParentSize } from "@visx/responsive";
 import { useTooltip, useTooltipInPortal } from "@visx/tooltip";
 import { localPoint } from "@visx/event";
 import { curveLinear } from "@visx/curve";
@@ -34,7 +34,7 @@ export default function SafeRolloutTimeSeriesGraph({
   ssrPolyfills,
 }: SafeRolloutTimeSeriesGraphProps) {
   return (
-    <ParentSizeModern>
+    <ParentSize>
       {({ width, height }) => (
         <SafeRolloutTimeSeriesGraphContent
           data={data}
@@ -44,7 +44,7 @@ export default function SafeRolloutTimeSeriesGraph({
           ssrPolyfills={ssrPolyfills}
         />
       )}
-    </ParentSizeModern>
+    </ParentSize>
   );
 }
 

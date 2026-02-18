@@ -8,6 +8,7 @@ import {
 } from "shared/experiments";
 import { Flex, Text } from "@radix-ui/themes";
 import { PiInfoFill } from "react-icons/pi";
+import { CSSObjectWithLabel } from "react-select";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import SelectField, {
@@ -287,14 +288,15 @@ const MetricsSelector: FC<{
       onChange={onChange}
       customStyles={{
         group: groupOptions
-          ? (base, state) => ({
-              ...base,
-              borderBottom:
-                state.selectProps.options?.length >= 1 &&
-                state.selectProps.options[0] === state.data
-                  ? "1px solid #e9ecef"
-                  : "none",
-            })
+          ? (base, state) =>
+              ({
+                ...base,
+                borderBottom:
+                  state.selectProps.options?.length >= 1 &&
+                  state.selectProps.options[0] === state.data
+                    ? "1px solid #e9ecef"
+                    : "none",
+              }) as CSSObjectWithLabel
           : undefined,
       }}
       options={

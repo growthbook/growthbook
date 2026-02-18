@@ -2,7 +2,7 @@ import React from "react";
 import { Group } from "@visx/group";
 import { Arc, Line } from "@visx/shape";
 import { LinearGradient } from "@visx/gradient";
-import { ParentSizeModern } from "@visx/responsive";
+import { ParentSize } from "@visx/responsive";
 import { Text } from "@visx/text";
 import { Box } from "@radix-ui/themes";
 
@@ -45,7 +45,7 @@ const RateDial: React.FC<RateDialProps> = ({
 
   return (
     <Box>
-      <ParentSizeModern>
+      <ParentSize>
         {({ width }) => {
           const heightRadius =
             height / (1 + Math.cos((Math.PI / 180) * (180 - dialDegrees / 2)));
@@ -73,7 +73,7 @@ const RateDial: React.FC<RateDialProps> = ({
             dialDegrees > 180 ? radius + margin.bottom : height - margin.bottom;
 
           // Generate tick marks and labels
-          const ticks: JSX.Element[] = [];
+          const ticks: React.ReactNode[] = [];
           const tickIncrement = 100 / numTicks;
           for (let i = 0; i <= 100; i += tickIncrement) {
             const angle = percentToAngle(i);
@@ -94,7 +94,7 @@ const RateDial: React.FC<RateDialProps> = ({
               </React.Fragment>,
             );
           }
-          const percents: JSX.Element[] = [];
+          const percents: React.ReactNode[] = [];
           const percentIncrement = 100 / numPercents;
           for (let i = 0; i <= 100; i += percentIncrement) {
             const angle = percentToAngle(i);
@@ -165,8 +165,8 @@ const RateDial: React.FC<RateDialProps> = ({
                   outerRadius={outerRadius}
                   fill={dialColorHighlight}
                 />
-                {showTicks && ticks}
-                {showPercent && percents}
+                {showTicks && (ticks as React.ReactNode)}
+                {showPercent && (percents as React.ReactNode)}
                 <Line
                   from={{
                     x: -1 * 5 * Math.sin(dialAngle),
@@ -195,7 +195,7 @@ const RateDial: React.FC<RateDialProps> = ({
             </svg>
           );
         }}
-      </ParentSizeModern>
+      </ParentSize>
     </Box>
   );
 };

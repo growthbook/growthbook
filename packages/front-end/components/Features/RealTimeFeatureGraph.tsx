@@ -1,7 +1,7 @@
 import { AxisBottom } from "@visx/axis";
 import { AreaStack } from "@visx/shape";
 import { scaleLinear, scaleTime } from "@visx/scale";
-import { ParentSizeModern } from "@visx/responsive";
+import { ParentSize } from "@visx/responsive";
 import { Group } from "@visx/group";
 import React from "react";
 import { FeatureRealtimeUsageRecord } from "shared/types/realtime";
@@ -27,7 +27,7 @@ export default function RealTimeFeatureGraph({
 
   return (
     <div style={{ width: width }}>
-      <ParentSizeModern style={{ position: "relative" }}>
+      <ParentSize style={{ position: "relative" }}>
         {({ width }) => {
           const yMax = height - margin[0] - margin[2];
           const xMax = width - margin[1] - margin[3];
@@ -94,7 +94,7 @@ export default function RealTimeFeatureGraph({
             </>
           );
         }}
-      </ParentSizeModern>
+      </ParentSize>
     </div>
   );
 }

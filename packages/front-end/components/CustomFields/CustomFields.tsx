@@ -3,7 +3,9 @@ import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
 import {
   closestCenter,
   DndContext,
+  DragEndEvent,
   DragOverlay,
+  DragStartEvent,
   KeyboardSensor,
   MouseSensor,
   TouchSensor,
@@ -188,22 +190,19 @@ const CustomFields: FC = () => {
     useSensor(KeyboardSensor, {}),
   );
 
-  function handleDragStart(event: { active: { id: string } }) {
-    setActiveId(event.active.id);
+  function handleDragStart(event: DragStartEvent) {
+    setActiveId(String(event.active.id));
   }
 
-  async function handleDragEnd(event: {
-    active: { id: string };
-    over: { id: string } | null;
-  }) {
+  async function handleDragEnd(event: DragEndEvent) {
     if (!items) {
       setActiveId(undefined);
       return;
     }
     const { active, over } = event;
     if (over && active.id !== over.id) {
-      const oldIndex = items.findIndex((x) => x.id === active.id);
-      const newIndex = items.findIndex((x) => x.id === over.id);
+      const oldIndex = items.findIndex((x) => x.id === String(active.id));
+      const newIndex = items.findIndex((x) => x.id === String(over.id));
       if (oldIndex >= 0 && newIndex >= 0) {
         const newItems = arrayMove(items, oldIndex, newIndex);
         setItems(newItems);

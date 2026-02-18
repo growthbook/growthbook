@@ -6,6 +6,7 @@ import { useMemo } from "react";
 import { getValidDate } from "shared/dates";
 import { Box, Text, Flex } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
+import * as echarts from "echarts/core";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { isString } from "shared/util";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
@@ -240,7 +241,10 @@ export default function MetricExplorerBlock({
           style={{ width: "100%", minHeight: "450px", height: "80%" }}
           onChartReady={(chart) => {
             if (chartsContext && chart) {
-              chartsContext.registerChart(chartId, chart);
+              chartsContext.registerChart(
+                chartId,
+                chart as unknown as echarts.ECharts,
+              );
             }
           }}
         />

@@ -41,7 +41,7 @@ export default function AccountPlanNotices() {
     </Box>
   );
 
-  let cdnUsageMessage: JSX.Element | null = null;
+  let cdnUsageMessage: React.ReactNode | null = null;
   if (usage?.cdn.status === "approaching") {
     cdnUsageMessage = (
       <>
@@ -110,7 +110,7 @@ export default function AccountPlanNotices() {
     </Box>
   );
 
-  let managedWarehouseUsageMessage: JSX.Element | null = null;
+  let managedWarehouseUsageMessage: React.ReactNode | null = null;
   if (usage?.managedClickhouse?.status === "approaching") {
     managedWarehouseUsageMessage = (
       <>

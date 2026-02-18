@@ -16,6 +16,14 @@ import Modal from "@/components/Modal";
 import { DocSection } from "@/components/DocLink";
 import track, { TrackEventProps } from "@/services/track";
 
+interface PageProps {
+  display: string;
+  enabled?: boolean;
+  validate?: () => Promise<void>;
+  customNext?: () => void;
+  children?: ReactNode;
+}
+
 type Props = {
   header: string | ReactNode | null;
   subHeader?: string | ReactNode;
@@ -105,7 +113,7 @@ const PagedModal: FC<Props> = (props) => {
   let nextStep: number | undefined = undefined;
   let prevStep: number | undefined = undefined;
   Children.forEach(children, (child) => {
-    if (!isValidElement(child)) return;
+    if (!isValidElement<PageProps>(child)) return;
     const { display, enabled, validate, customNext } = child.props;
     if (content && enabled !== false && !nextStep) {
       nextStep = steps.length;
@@ -113,7 +121,7 @@ const PagedModal: FC<Props> = (props) => {
     if (step === steps.length) {
       content = <>{child}</>;
     }
-    steps.push({ display, enabled, validate, customNext });
+    steps.push({ display, enabled: enabled ?? true, validate, customNext });
   });
 
   prevStep = step - 1;
@@ -166,7 +174,8 @@ const PagedModal: FC<Props> = (props) => {
       if (typeof display === "string") {
         pageName = display;
       } else {
-        const children = (display as ReactElement)?.props?.children;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const children = (display as any)?.props?.children;
         if (children instanceof Array) {
           pageName = children
             .map((c) => (typeof c === "string" ? c : " "))

@@ -158,7 +158,7 @@ export default function DataVizConfigPanel({
                 onBlur={(e) => {
                   onDataVizConfigChange({
                     ...dataVizConfig,
-                    title: e.target.value,
+                    title: (e.target as HTMLInputElement).value,
                   });
                 }}
                 onKeyDown={(e) => {
@@ -168,7 +168,7 @@ export default function DataVizConfigPanel({
                     e.preventDefault();
                     onDataVizConfigChange({
                       ...dataVizConfig,
-                      title: e.target.value,
+                      title: (e.target as HTMLInputElement).value,
                     });
                   }
                 }}

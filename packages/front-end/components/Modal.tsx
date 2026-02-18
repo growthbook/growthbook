@@ -65,7 +65,7 @@ type ModalProps = {
   children: ReactNode;
   bodyClassName?: string;
   headerClassName?: string;
-  formRef?: React.RefObject<HTMLFormElement>;
+  formRef?: React.RefObject<HTMLFormElement | null>;
   customValidation?: () => Promise<boolean> | boolean;
   increasedElevation?: boolean;
   stickyFooter?: boolean;

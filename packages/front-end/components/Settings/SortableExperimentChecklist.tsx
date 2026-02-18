@@ -138,8 +138,8 @@ export default function SortableExperimentChecklist({
         onDragEnd={async ({ active, over }) => {
           if (!over?.id) return;
           if (active.id !== over.id) {
-            const oldIndex = getTaskIndex(active.id);
-            const newIndex = getTaskIndex(over.id);
+            const oldIndex = getTaskIndex(String(active.id));
+            const newIndex = getTaskIndex(String(over.id));
 
             if (oldIndex === -1 || newIndex === -1) return;
 

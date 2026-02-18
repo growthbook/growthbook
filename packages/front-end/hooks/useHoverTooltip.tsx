@@ -486,23 +486,25 @@ export function HoverTooltip({
     enabled,
   });
 
-  const child = React.Children.only(children);
+  const child = React.Children.only(children) as React.ReactElement<
+    React.HTMLAttributes<HTMLElement>
+  >;
 
   const clonedChild = React.cloneElement(child, {
     ...triggerProps,
-    onMouseEnter: (e: React.MouseEvent) => {
+    onMouseEnter: (e: React.MouseEvent<HTMLElement>) => {
       triggerProps.onMouseEnter(e);
       child.props.onMouseEnter?.(e);
     },
-    onMouseMove: (e: React.MouseEvent) => {
+    onMouseMove: (e: React.MouseEvent<HTMLElement>) => {
       triggerProps.onMouseMove(e);
       child.props.onMouseMove?.(e);
     },
-    onMouseLeave: (e: React.MouseEvent) => {
+    onMouseLeave: (e: React.MouseEvent<HTMLElement>) => {
       triggerProps.onMouseLeave(e);
       child.props.onMouseLeave?.(e);
     },
-    onClick: (e: React.MouseEvent) => {
+    onClick: (e: React.MouseEvent<HTMLElement>) => {
       triggerProps.onClick(e);
       child.props.onClick?.(e);
     },

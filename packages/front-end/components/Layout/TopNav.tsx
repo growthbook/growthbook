@@ -362,7 +362,7 @@ const TopNav: FC<{
     ));
   };
   const renderTitleOrBreadCrumb = () => {
-    let titleOrBreadCrumb: string | JSX.Element[] = pageTitle;
+    let titleOrBreadCrumb: string | React.ReactNode[] = pageTitle;
     if (breadcrumb.length > 0) {
       titleOrBreadCrumb = renderBreadCrumb();
     }

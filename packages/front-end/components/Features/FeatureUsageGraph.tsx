@@ -1,6 +1,6 @@
 import { BarStack } from "@visx/shape";
 import { scaleBand, scaleLinear, scaleOrdinal } from "@visx/scale";
-import { ParentSizeModern } from "@visx/responsive";
+import { ParentSize } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { LegendItem, LegendLabel, LegendOrdinal } from "@visx/legend";
 import { AxisBottom, AxisLeft } from "@visx/axis";
@@ -24,7 +24,7 @@ import { Box, Flex, Grid } from "@radix-ui/themes";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { defaultStyles, TooltipWithBounds, useTooltip } from "@visx/tooltip";
 import { localPoint } from "@visx/event";
-import { SeriesPoint } from "@visx/shape/lib/types";
+import type { SeriesPoint } from "@visx/shape";
 import { datetime } from "shared/dates";
 import stringify from "json-stringify-pretty-compact";
 import useApi from "@/hooks/useApi";
@@ -430,7 +430,7 @@ export default function FeatureUsageGraph({
   return (
     <div style={{ marginBottom: -10, position: "relative" }}>
       <div style={{ width: width }}>
-        <ParentSizeModern style={{ position: "relative" }}>
+        <ParentSize style={{ position: "relative" }}>
           {({ width }) => {
             const yMax = height - margin[0] - margin[2];
             const xMax = width - margin[1] - margin[3];
@@ -606,7 +606,7 @@ export default function FeatureUsageGraph({
               </div>
             );
           }}
-        </ParentSizeModern>
+        </ParentSize>
         {showLegend && (
           <div className="mt-2">
             <LegendOrdinal

@@ -1,6 +1,7 @@
 import { FilterConfiguration } from "shared/validators";
 import { Box, Flex, Text, TextField } from "@radix-ui/themes";
 import { PiTrash } from "react-icons/pi";
+import { CSSObjectWithLabel } from "react-select";
 import { Select, SelectItem } from "@/ui/Select";
 import Button from "@/ui/Button";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -401,12 +402,13 @@ export default function DataVizFilter({
                   }),
                 )}
                 customStyles={{
-                  multiValueLabel: (styles) => ({
-                    ...styles,
-                    whiteSpace: "normal",
-                    wordBreak: "break-word",
-                    color: "var(--color-text-high)",
-                  }),
+                  multiValueLabel: (styles) =>
+                    ({
+                      ...styles,
+                      whiteSpace: "normal",
+                      wordBreak: "break-word",
+                      color: "var(--color-text-high)",
+                    }) as CSSObjectWithLabel,
                 }}
                 onChange={(values) => {
                   updateFilterConfig({ values });

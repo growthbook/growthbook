@@ -1,6 +1,6 @@
 import React, { FC, useMemo } from "react";
 import { format } from "date-fns";
-import { ParentSizeModern } from "@visx/responsive";
+import { ParentSize } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { GridColumns, GridRows } from "@visx/grid";
@@ -513,7 +513,7 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
   }, [lastDataPointIndexWithHelperText, sortedDatesWithData]);
 
   return (
-    <ParentSizeModern>
+    <ParentSize>
       {({ width }) => {
         const yMax = Math.max(0, height - margin[0] - margin[2]);
         const xMax = Math.max(0, width - margin[1] - margin[3]);
@@ -918,7 +918,7 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
           </div>
         );
       }}
-    </ParentSizeModern>
+    </ParentSize>
   );
 };
 export default ExperimentTimeSeriesGraph;

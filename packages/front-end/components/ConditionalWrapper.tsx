@@ -4,6 +4,7 @@ import {
   FC,
   isValidElement,
   cloneElement,
+  ReactElement,
 } from "react";
 
 const ConditionalWrapper: FC<{
@@ -13,7 +14,9 @@ const ConditionalWrapper: FC<{
 }> = ({ condition, wrapper, children }) => {
   if (condition && wrapper) {
     if (isValidElement(wrapper)) {
-      return cloneElement(wrapper, {}, children);
+      return cloneElement(wrapper as ReactElement<{ children?: ReactNode }>, {
+        children,
+      });
     } else if (typeof wrapper === "function") {
       const Component = wrapper as ComponentType<{ children: ReactNode }>;
       return <Component>{children}</Component>;

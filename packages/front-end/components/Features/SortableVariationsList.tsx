@@ -52,8 +52,8 @@ const SortableVariationsList: FC<{
         if (!setVariations) return;
 
         if (over && active.id !== over.id) {
-          const oldIndex = getVariationIndex(active.id);
-          const newIndex = getVariationIndex(over.id);
+          const oldIndex = getVariationIndex(String(active.id));
+          const newIndex = getVariationIndex(String(over.id));
 
           if (oldIndex === -1 || newIndex === -1) return;
 

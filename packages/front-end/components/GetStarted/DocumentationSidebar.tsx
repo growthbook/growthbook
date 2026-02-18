@@ -95,7 +95,7 @@ function LinkItem(
 function getLinksFor(
   type: Props["type"],
   isVercelIntegration?: boolean,
-): JSX.Element {
+): React.ReactNode {
   switch (type) {
     case "get-started":
     case "data-source":

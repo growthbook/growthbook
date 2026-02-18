@@ -2,7 +2,7 @@ import React, { useMemo } from "react";
 import { Group } from "@visx/group";
 import { BarRounded, BarStack } from "@visx/shape";
 import { scaleBand, scaleLinear, scaleOrdinal } from "@visx/scale";
-import { ParentSizeModern } from "@visx/responsive";
+import { ParentSize } from "@visx/responsive";
 import { ComputedExperimentInterface } from "shared/types/experiment";
 import { green, red, amber, slate } from "@radix-ui/colors";
 import { Box, Flex, Heading } from "@radix-ui/themes";
@@ -155,7 +155,7 @@ export default function ExecExperimentsGraph({
     >
       <Box flexGrow="1">
         <Heading size="3">Experiment Status</Heading>
-        <ParentSizeModern>
+        <ParentSize>
           {({ width }) => {
             // Vertical Stacked Bar Graph
             const yMax = height - margin.top - margin.bottom;
@@ -380,7 +380,7 @@ export default function ExecExperimentsGraph({
               </>
             );
           }}
-        </ParentSizeModern>
+        </ParentSize>
       </Box>
     </Flex>
   );

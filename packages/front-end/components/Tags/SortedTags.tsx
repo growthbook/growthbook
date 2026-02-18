@@ -52,7 +52,7 @@ export default function SortedTags({
     });
   };
   const renderFlexContainer = (
-    child: JSX.Element | JSX.Element[],
+    child: React.ReactNode | React.ReactNode[],
     shouldUseFlex = useFlex,
   ) => {
     return shouldUseFlex ? (

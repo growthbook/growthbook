@@ -10,6 +10,7 @@ import {
   PiTextAa,
 } from "react-icons/pi";
 import { FaMagic } from "react-icons/fa";
+import { CSSObjectWithLabel } from "react-select";
 import clsx from "clsx";
 import format from "date-fns/format";
 import { Box, Flex, Text, IconButton, Separator } from "@radix-ui/themes";
@@ -518,7 +519,12 @@ function ConditionAndGroupInput({
             useMultilineLabels={true}
             value={field}
             containerStyles={{
-              control: (base) => ({ ...base, minHeight: 38, maxHeight: 38 }),
+              control: (base) =>
+                ({
+                  ...base,
+                  minHeight: 38,
+                  maxHeight: 38,
+                }) as CSSObjectWithLabel,
             }}
             options={
               props.allowNestedSavedGroups
@@ -883,11 +889,12 @@ function ConditionAndGroupInput({
                 <Box flexGrow="1">
                   <SelectField
                     containerStyles={{
-                      control: (base) => ({
-                        ...base,
-                        minHeight: 38,
-                        maxHeight: 38,
-                      }),
+                      control: (base) =>
+                        ({
+                          ...base,
+                          minHeight: 38,
+                          maxHeight: 38,
+                        }) as CSSObjectWithLabel,
                     }}
                     useMultilineLabels={true}
                     value={getDisplayOperator(operator)}
@@ -1034,11 +1041,12 @@ function ConditionAndGroupInput({
                         <SelectField
                           useMultilineLabels={true}
                           containerStyles={{
-                            control: (base) => ({
-                              ...base,
-                              minHeight: 38,
-                              maxHeight: 38,
-                            }),
+                            control: (base) =>
+                              ({
+                                ...base,
+                                minHeight: 38,
+                                maxHeight: 38,
+                              }) as CSSObjectWithLabel,
                           }}
                           options={attribute.enum.map((v) => ({
                             label: v,

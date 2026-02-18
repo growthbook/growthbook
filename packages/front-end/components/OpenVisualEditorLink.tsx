@@ -136,7 +136,7 @@ const OpenVisualEditorLink: FC<{
   openSettings?: () => void;
   useRadix?: boolean;
   useLink?: boolean;
-  button?: string | JSX.Element;
+  button?: string | React.ReactNode;
 }> = ({
   visualChangeset,
   openSettings,

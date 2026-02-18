@@ -58,16 +58,20 @@ const Dropdown: FC<{
   const content = Children.map(children, (child) => {
     if (!isValidElement(child)) return null;
 
-    if (child.type === DropdownLink && child.props.closeOnClick !== false) {
-      return cloneElement(child as ReactElement, {
+    const element = child as ReactElement<{
+      onClick?: () => void | Promise<void>;
+      closeOnClick?: boolean;
+    }>;
+    if (element.type === DropdownLink && element.props.closeOnClick !== false) {
+      return cloneElement(element, {
         onClick: () => {
-          child.props.onClick();
+          element.props.onClick?.();
           setOpen?.(false);
         },
       });
     }
 
-    return child;
+    return element;
   });
 
   return (

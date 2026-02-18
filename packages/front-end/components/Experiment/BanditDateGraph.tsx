@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { FC, useEffect, useMemo, useState } from "react";
-import { ParentSizeModern } from "@visx/responsive";
+import { ParentSize } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { GridColumns, GridRows } from "@visx/grid";
 import { scaleLinear, scaleTime } from "@visx/scale";
@@ -560,7 +560,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
   ));
 
   return (
-    <ParentSizeModern>
+    <ParentSize>
       {({ width }) => {
         const xMax = width - margin[1] - margin[3];
 
@@ -1003,7 +1003,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
           </div>
         );
       }}
-    </ParentSizeModern>
+    </ParentSize>
   );
 };
 export default BanditDateGraph;

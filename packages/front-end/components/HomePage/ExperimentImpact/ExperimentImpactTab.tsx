@@ -32,9 +32,9 @@ export default function ExperimentImpactTab({
   const expRows: ReactElement[] = [];
   let anyNullImpact = false;
   experimentImpactData.experiments.forEach((e, ei) => {
-    const variations: JSX.Element[] = [];
-    const impactsScaled: JSX.Element[] = [];
-    const impactsTotal: JSX.Element[] = [];
+    const variations: React.ReactNode[] = [];
+    const impactsScaled: React.ReactNode[] = [];
+    const impactsTotal: React.ReactNode[] = [];
     if (!e.error) {
       e.experiment.variations.forEach((v, i) => {
         if (i === 0) return;

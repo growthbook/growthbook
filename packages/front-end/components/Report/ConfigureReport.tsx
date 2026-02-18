@@ -49,7 +49,7 @@ export default function ConfigureReport({
   mutate: () => Promise<unknown> | unknown;
   close: () => void;
   canEdit?: boolean;
-  runQueriesButtonRef?: RefObject<HTMLButtonElement>;
+  runQueriesButtonRef?: RefObject<HTMLButtonElement | null>;
 }) {
   const { getDatasourceById, segments } = useDefinitions();
   const orgSettings = useOrgSettings();
@@ -150,9 +150,11 @@ export default function ConfigureReport({
   const isBandit = experiment?.type === "multi-armed-bandit";
 
   const hasMetrics =
-    form.watch("experimentAnalysisSettings.goalMetrics").length > 0 ||
-    form.watch("experimentAnalysisSettings.guardrailMetrics").length > 0 ||
-    form.watch("experimentAnalysisSettings.secondaryMetrics").length > 0;
+    (form.watch("experimentAnalysisSettings.goalMetrics")?.length ?? 0) > 0 ||
+    (form.watch("experimentAnalysisSettings.guardrailMetrics")?.length ?? 0) >
+      0 ||
+    (form.watch("experimentAnalysisSettings.secondaryMetrics")?.length ?? 0) >
+      0;
 
   if (upgradeModal) {
     return (
@@ -829,9 +831,10 @@ export default function ConfigureReport({
                   return {
                     value: v.key || "",
                     name: v.name,
-                    weight: form.watch(
-                      `experimentMetadata.phases.${latestPhaseIndex}.variationWeights.${i}`,
-                    ),
+                    weight:
+                      form.watch(
+                        `experimentMetadata.phases.${latestPhaseIndex}.variationWeights.${i}`,
+                      ) ?? 0,
                     id: v.id,
                   };
                 }) ?? []

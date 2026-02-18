@@ -13,7 +13,6 @@ import {
   SiDatabricks,
   SiGoogleanalytics,
   SiGooglebigquery,
-  SiMicrosoftsqlserver,
   SiMixpanel,
   SiMysql,
   SiPostgresql,
@@ -475,7 +474,7 @@ export const dataSourceConnections: {
   {
     type: "mssql",
     display: "MS SQL Server",
-    icon: <SiMicrosoftsqlserver />,
+    icon: <BsDatabase />,
     docs: "mssql",
     default: {
       server: "",

@@ -120,8 +120,8 @@ export default function RuleList({
         }
 
         if (over && active.id !== over.id) {
-          const oldIndex = getRuleIndex(active.id);
-          const newIndex = getRuleIndex(over.id);
+          const oldIndex = getRuleIndex(String(active.id));
+          const newIndex = getRuleIndex(String(over.id));
 
           if (oldIndex === -1 || newIndex === -1) return;
 
@@ -148,7 +148,7 @@ export default function RuleList({
         if (!canEdit) {
           return;
         }
-        setActiveId(active.id);
+        setActiveId(String(active.id));
       }}
     >
       {inactiveRules.length === items.length && hideInactive && (

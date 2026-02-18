@@ -11,8 +11,8 @@ import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 interface Props extends HTMLAttributes<HTMLDivElement> {
   commercialFeature?: CommercialFeature;
   children?: ReactNode;
-  body?: string | JSX.Element | null;
-  premiumText?: string | JSX.Element;
+  body?: string | React.ReactNode | null;
+  premiumText?: string | React.ReactNode;
   tipMinWidth?: string;
   tipPosition?: "bottom" | "top" | "left" | "right";
   className?: string;

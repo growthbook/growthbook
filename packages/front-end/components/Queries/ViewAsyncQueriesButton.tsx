@@ -9,13 +9,13 @@ const ViewAsyncQueriesButton: FC<{
   queries: string[];
   savedQueries?: string[];
   error?: string;
-  display?: string | JSX.Element | null;
+  display?: string | React.ReactNode | null;
   color?: string;
   className?: string;
   inline?: boolean;
   ctaComponent?: (onClick: () => void) => ReactNode;
   condensed?: boolean;
-  icon?: JSX.Element | string | null;
+  icon?: React.ReactNode | string | null;
   status?: QueryStatus;
   hideQueryCount?: boolean;
 }> = ({

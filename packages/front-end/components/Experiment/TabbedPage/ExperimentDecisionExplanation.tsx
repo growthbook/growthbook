@@ -12,7 +12,7 @@ interface Props {
     variationId: string;
     decidingRule: DecisionCriteriaRule | null;
   }[];
-  variationNames: Record<string, JSX.Element>;
+  variationNames: Record<string, React.ReactNode>;
   showDecisionCriteria: boolean;
   setShowDecisionCriteria: (show: boolean) => void;
   showDecisionCriteriaLink?: boolean;

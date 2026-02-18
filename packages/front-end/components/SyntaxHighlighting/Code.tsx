@@ -13,9 +13,7 @@ import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import PrismFallback from "./PrismFallback";
 
 // Lazy-load syntax highlighting to improve page load time
-const Prism = dynamic(() => import("./Prism"), {
-  suspense: true,
-});
+const Prism = dynamic(() => import("./Prism"));
 
 export type Language =
   | "none"

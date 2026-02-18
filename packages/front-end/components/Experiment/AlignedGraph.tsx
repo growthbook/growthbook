@@ -2,7 +2,7 @@ import React, { DetailedHTMLProps, FC, HTMLAttributes } from "react";
 import { GridColumns } from "@visx/grid";
 import { Axis, Orientation, AxisLeft } from "@visx/axis";
 import { scaleLinear } from "@visx/scale";
-import ParentSize from "@visx/responsive/lib/components/ParentSize";
+import { ParentSize } from "@visx/responsive";
 import { Line } from "@visx/shape";
 import { ViolinPlot } from "@visx/stats";
 import normal from "@stdlib/stats/base/dists/normal";

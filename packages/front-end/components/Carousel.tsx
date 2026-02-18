@@ -19,9 +19,10 @@ const Carousel: FC<{
   const num = Children.count(children);
   if (maxChildHeight) {
     children = Children.map(children, (child) => {
-      return cloneElement(child as ReactElement, {
+      const element = child as ReactElement<{ style?: React.CSSProperties }>;
+      return cloneElement(element, {
         style: {
-          ...(child as ReactElement).props.style,
+          ...element.props.style,
           maxHeight: maxChildHeight,
         },
       });

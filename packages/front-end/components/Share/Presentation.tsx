@@ -85,7 +85,7 @@ const Presentation = ({
     em.set(e?.experiment?.id ?? "", e);
   });
 
-  const expSlides: JSX.Element[] = [];
+  const expSlides: React.ReactNode[] = [];
   // use the list of experiments from the presentation or, if missing the
   // presentation (in the case of preview), from the list of experiments
   // passed in.
@@ -98,7 +98,7 @@ const Presentation = ({
     // get the results in the right shape:
     const e = em.get(eid);
     // get the info on which variation to mark as winner/loser
-    const variationExtra: JSX.Element[] = [];
+    const variationExtra: React.ReactNode[] = [];
     let sideExtra = <></>;
     const variationsPlural =
       (e?.experiment?.variations?.length || 0) !== 1

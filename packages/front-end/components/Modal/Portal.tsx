@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 export const PORTAL_CONTAINER_ID = "portal-root";
 
 const Portal: FC<{ children: ReactNode }> = ({ children }) => {
-  const ref = useRef<HTMLElement>();
+  const ref = useRef<HTMLElement | null>(null);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {

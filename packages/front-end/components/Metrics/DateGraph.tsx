@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { MetricType } from "shared/types/metric";
 import { FC, Fragment, useEffect, useMemo, useState } from "react";
-import { ParentSizeModern } from "@visx/responsive";
+import { ParentSize } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { GridColumns, GridRows } from "@visx/grid";
 import { scaleLinear, scaleTime } from "@visx/scale";
@@ -475,7 +475,7 @@ const DateGraph: FC<DateGraphProps> = ({
   ]);
 
   return (
-    <ParentSizeModern style={{ position: "relative" }}>
+    <ParentSize style={{ position: "relative" }}>
       {({ width }) => {
         const xMax = width - marginRight - marginLeft;
 
@@ -871,7 +871,7 @@ const DateGraph: FC<DateGraphProps> = ({
           </>
         );
       }}
-    </ParentSizeModern>
+    </ParentSize>
   );
 };
 export default DateGraph;

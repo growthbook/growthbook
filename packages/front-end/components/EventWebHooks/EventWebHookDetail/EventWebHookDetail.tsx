@@ -73,9 +73,11 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
   const { apiCall } = useAuth();
   const { mutate: mutateEventLogs } = useEventWebhookLogs(webhookId);
   const [state, setStateRaw] = useState<State>();
-  const stateTimeout = useRef<undefined | ReturnType<typeof setTimeout>>();
+  const stateTimeout = useRef<undefined | ReturnType<typeof setTimeout>>(
+    undefined,
+  );
 
-  const setState = useCallback((state) => {
+  const setState = useCallback((state: State) => {
     setStateRaw(state);
 
     if (stateTimeout.current) clearTimeout(stateTimeout.current);

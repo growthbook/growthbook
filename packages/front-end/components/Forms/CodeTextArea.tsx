@@ -245,7 +245,7 @@ export default function CodeTextArea({
   });
 
   // Throttle cursor updates to avoid excessive re-renders
-  const cursorUpdateTimeoutRef = useRef<NodeJS.Timeout>();
+  const cursorUpdateTimeoutRef = useRef<NodeJS.Timeout>(undefined);
 
   const heightProps =
     fullHeight || resizable ? { height: "100%" } : { minLines, maxLines };

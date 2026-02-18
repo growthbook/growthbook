@@ -48,7 +48,7 @@ export default function RunningExperimentDecisionBanner({
       )
       .filter((v) => v !== undefined);
 
-  const variationNames: Record<string, JSX.Element> = {};
+  const variationNames: Record<string, React.ReactNode> = {};
   variations.forEach((v, i) => {
     variationNames[v.id] = (
       <Flex
@@ -67,7 +67,7 @@ export default function RunningExperimentDecisionBanner({
   });
   if (decidedVariations.length === 0) return null;
 
-  let decisionContent: JSX.Element | null = null;
+  let decisionContent: React.ReactNode | null = null;
   if (runningExperimentStatus.status === "ship-now") {
     decisionContent = (
       <>
