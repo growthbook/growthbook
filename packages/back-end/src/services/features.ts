@@ -8,6 +8,7 @@ import {
   FeatureRule as FeatureDefinitionRule,
   getAutoExperimentChangeType,
   GrowthBook,
+  VariationMeta,
 } from "@growthbook/growthbook";
 import {
   evalDeterministicPrereqValue,
@@ -831,22 +832,26 @@ export async function getFeatureDefinitionsResponse({
   if (!includeExperimentNames) {
     // Remove names from visual editor experiments
     experiments = experiments?.map((exp) => {
-      return {
-        ...omit(exp, ["name", "meta"]),
-        meta: exp.meta ? exp.meta.map((m) => omit(m, ["name"])) : undefined,
-      };
+      const scrubbedExp: Omit<AutoExperimentWithProject, "name"> & {
+        meta?: VariationMeta[];
+      } = omit(exp, ["name", "meta"]);
+      if (exp.meta) {
+        scrubbedExp.meta = exp.meta.map((m) => omit(m, ["name"]));
+      }
+      return scrubbedExp;
     });
 
     // Remove names from every feature rule
     for (const k in features) {
       if (features[k]?.rules) {
         features[k].rules = features[k].rules?.map((rule) => {
-          return {
-            ...omit(rule, ["name", "meta"]),
-            meta: rule.meta
-              ? rule.meta.map((m) => omit(m, ["name"]))
-              : undefined,
-          };
+          const scrubbedRule: Omit<FeatureDefinitionRule, "name"> & {
+            meta?: VariationMeta[];
+          } = omit(rule, ["name", "meta"]);
+          if (rule.meta) {
+            scrubbedRule.meta = rule.meta.map((m) => omit(m, ["name"]));
+          }
+          return scrubbedRule;
         });
       }
     }

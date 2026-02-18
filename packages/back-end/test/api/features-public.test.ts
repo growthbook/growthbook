@@ -1,12 +1,10 @@
 import { Request, Response } from "express";
-import * as util from "shared/util";
 import * as featuresController from "back-end/src/controllers/features";
 const { getFeaturesPublic } = featuresController;
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { findSDKConnectionByKey } from "back-end/src/models/SdkConnectionModel";
 import { getFeatureDefinitions } from "back-end/src/services/features";
 
-// Mock Python stats server to avoid Python process spawning
 jest.mock("back-end/src/services/python", () => ({
   createPool: jest.fn(() => ({
     acquire: jest.fn(),
@@ -15,7 +13,6 @@ jest.mock("back-end/src/services/python", () => ({
   })),
 }));
 
-// Mock secrets to avoid environment issues
 jest.mock("back-end/src/util/secrets", () => ({
   CACHE_CONTROL_MAX_AGE: 30,
   CACHE_CONTROL_STALE_WHILE_REVALIDATE: 3600,
@@ -24,14 +21,12 @@ jest.mock("back-end/src/util/secrets", () => ({
   JWT_SECRET: "test-secret",
 }));
 
-// Mock auth to avoid authentication issues
 jest.mock("back-end/src/services/auth", () => ({
   getAuthConnection: () => ({
     middleware: jest.fn(),
   }),
 }));
 
-// Mock logger to prevent console output during tests
 jest.mock("back-end/src/util/logger", () => ({
   logger: {
     error: jest.fn(),
@@ -41,7 +36,6 @@ jest.mock("back-end/src/util/logger", () => ({
   },
 }));
 
-// Mock the functions that are used in the test
 jest.mock("back-end/src/controllers/features", () => {
   const actual = jest.requireActual("back-end/src/controllers/features");
   const mockGetPayloadParamsFromApiKey = jest.fn();
@@ -52,7 +46,6 @@ jest.mock("back-end/src/controllers/features", () => {
   };
 });
 
-// Mock the shared util module
 jest.mock("shared/util", () => ({
   ...jest.requireActual("shared/util"),
   filterProjectsByEnvironmentWithNull: jest.fn(),
@@ -68,7 +61,7 @@ jest.mock("back-end/src/services/organizations", () => ({
 }));
 
 jest.mock("back-end/src/models/SdkConnectionCacheModel", () => ({
-  getSDKPayloadCacheLocation: jest.fn().mockReturnValue("none"), // Skip cache, use JIT
+  getSDKPayloadCacheLocation: jest.fn().mockReturnValue("none"),
   SdkConnectionCacheModel: jest.fn(),
 }));
 
@@ -134,20 +127,11 @@ describe("getFeaturesPublic test holdout", () => {
           ],
         },
       },
-      models: {
-        safeRollout: {
-          getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
-        },
-        holdout: {
-          getAllPayloadHoldouts: jest.fn().mockResolvedValue(new Map()),
-        },
-      },
     };
 
-    // Setup mocks for the functions that getFeatureDefinitions calls
-    console.log("Setting up mock for getPayloadParamsFromApiKey");
+    (getContextForAgendaJobByOrgId as jest.Mock).mockResolvedValue(mockContext);
 
-    // Mock the SDK connection lookup
+    // Mock the SDK connection lookup so getPayloadParamsFromApiKey works
     (findSDKConnectionByKey as jest.Mock).mockResolvedValue({
       key: "sdk-test-key",
       organization: "test-org-id",
@@ -168,13 +152,6 @@ describe("getFeaturesPublic test holdout", () => {
       connected: true,
     });
 
-    console.log("Mock setup complete");
-    (getContextForAgendaJobByOrgId as jest.Mock).mockResolvedValue(mockContext);
-    (util.filterProjectsByEnvironmentWithNull as jest.Mock).mockReturnValue([
-      "project-1",
-      "project-2",
-    ]);
-
     // Mock getFeatureDefinitions (from services/features) to return test data with holdouts
     (getFeatureDefinitions as jest.Mock).mockResolvedValue({
       features: {
@@ -184,19 +161,9 @@ describe("getFeaturesPublic test holdout", () => {
           rules: [
             {
               id: "holdout_abc123",
-              parentConditions: [
-                {
-                  id: "$holdout:hld_test_holdout",
-                  condition: { value: "holdoutcontrol" },
-                },
-              ],
               force: "holdout_value",
             },
           ],
-        },
-        "cached-feature": {
-          defaultValue: "cached_value",
-          rules: [],
         },
       },
       experiments: [],
@@ -204,47 +171,38 @@ describe("getFeaturesPublic test holdout", () => {
       savedGroups: {},
     });
 
-    // Mock getPayloadParamsFromApiKey
-    (
-      featuresController.getPayloadParamsFromApiKey as jest.Mock
-    ).mockResolvedValue({
-      key: "sdk-test-key",
-      organization: "test-org-id",
-      environment: "production",
-      projects: ["project-1", "project-2"],
-      encryptPayload: false,
-      encryptionKey: "",
-      languages: ["javascript"],
-      sdkVersion: "1.0.0",
-      includeVisualExperiments: false,
-      includeDraftExperiments: false,
-      includeExperimentNames: true,
-      includeRedirectExperiments: false,
-      includeRuleIds: true,
-      hashSecureAttributes: false,
-      remoteEvalEnabled: false,
-      savedGroupReferencesEnabled: false,
-    });
-
     // Call the actual getFeaturesPublic function
-    // This will call the real getFeatureDefinitions function
+    // This calls getFeatureDefinitionsWithCache which calls our mocked getFeatureDefinitions
     await getFeaturesPublic(mockRequest as Request, mockResponse as Response);
 
-    // Debug: Log the actual response
-    console.log("Status calls:", mockStatus.mock.calls);
-    console.log("JSON calls:", mockJson.mock.calls);
-
     // Verify that the response was successful
+    if (mockStatus.mock.calls[0]?.[0] !== 200) {
+      console.log("Error response:", mockJson.mock.calls[0]?.[0]);
+    }
     expect(mockStatus).toHaveBeenCalledWith(200);
     expect(mockJson).toHaveBeenCalledTimes(1);
-    console.log(mockJson.mock.calls[0][0]);
+
     // Verify the response structure
     const responseData = mockJson.mock.calls[0][0];
     expect(responseData).toMatchObject(expectedFeatureResponseWithHoldout);
   });
+
   it("test getFeaturesPublic that holdouts dont show when feature and holdout dont have the same projects", async () => {
-    // Mock the payload parameters - feature is in project-1, holdout is in project-2
-    const mockPayloadParams = {
+    // Mock the context
+    const mockContext = {
+      org: {
+        id: "test-org-id",
+        name: "Test Organization",
+        settings: {
+          environments: [{ id: "production", projects: ["project-1"] }],
+        },
+      },
+    };
+
+    (getContextForAgendaJobByOrgId as jest.Mock).mockResolvedValue(mockContext);
+
+    // Mock the SDK connection lookup so getPayloadParamsFromApiKey works
+    (findSDKConnectionByKey as jest.Mock).mockResolvedValue({
       key: "sdk-test-key",
       organization: "test-org-id",
       environment: "production",
@@ -261,35 +219,12 @@ describe("getFeaturesPublic test holdout", () => {
       hashSecureAttributes: false,
       remoteEvalEnabled: false,
       savedGroupReferencesEnabled: false,
-    };
-
-    // Mock the context
-    const mockContext = {
-      org: {
-        id: "test-org-id",
-        name: "Test Organization",
-        settings: {
-          environments: [{ id: "production", projects: ["project-1"] }],
-        },
-      },
-    };
-
-    // Setup mocks for the functions that getFeatureDefinitions calls
-    (
-      featuresController.getPayloadParamsFromApiKey as jest.Mock
-    ).mockResolvedValue(mockPayloadParams);
-    (getContextForAgendaJobByOrgId as jest.Mock).mockResolvedValue(mockContext);
-    (util.filterProjectsByEnvironmentWithNull as jest.Mock).mockReturnValue([
-      "project-1",
-    ]);
+      connected: true,
+    });
 
     // Mock getFeatureDefinitions to return test data where holdout is not included
     (getFeatureDefinitions as jest.Mock).mockResolvedValue({
       features: {
-        "cached-feature": {
-          defaultValue: "cached_value",
-          rules: [],
-        },
         "feature-with-holdout": {
           defaultValue: "default_value",
           rules: [
@@ -305,7 +240,7 @@ describe("getFeaturesPublic test holdout", () => {
             },
           ],
         },
-        // Note: holdout is not included because it's in a different project
+        // Note: $holdout:hld_test_holdout is NOT included because it's in a different project
       },
       experiments: [],
       dateUpdated: new Date("2023-01-01"),
@@ -313,14 +248,15 @@ describe("getFeaturesPublic test holdout", () => {
     });
 
     // Call the actual getFeaturesPublic function
-    // This will call the real getFeatureDefinitions function
+    // This calls getFeatureDefinitionsWithCache which calls our mocked getFeatureDefinitions
     await getFeaturesPublic(mockRequest as Request, mockResponse as Response);
 
     // Verify that the response was successful
     expect(mockStatus).toHaveBeenCalledWith(200);
     expect(mockJson).toHaveBeenCalledTimes(1);
 
-    // Verify the response structure - holdout should NOT be included
+    // Verify the response structure - the feature has a rule with parentConditions
+    // referencing a holdout that doesn't exist in the payload (dead reference)
     const responseData = mockJson.mock.calls[0][0];
     expect(responseData).toMatchObject({
       status: 200,
@@ -340,8 +276,11 @@ describe("getFeaturesPublic test holdout", () => {
             },
           ],
         },
-        // Note: "$holdout:hld_test_holdout" should NOT be present
       },
     });
+    // Verify the holdout feature flag is not in the payload
+    expect(responseData.features).not.toHaveProperty(
+      "$holdout:hld_test_holdout",
+    );
   });
 });
