@@ -179,11 +179,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/Experiment/PhaseSelector.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/RefreshSnapshotButton.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -219,11 +214,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/TabbedPage/ExperimentHeader.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/TabbedPage/Implementation.tsx": {
     "no-restricted-imports": {
       "count": 2
@@ -240,11 +230,6 @@
     }
   },
   "packages/front-end/components/Experiment/TabbedPage/RunningExperimentDecisionBanner.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Experiment/TabbedPage/SetupTabOverview.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -310,11 +295,6 @@
     }
   },
   "packages/front-end/components/Features/CompareEnvironmentsModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/ConditionDisplay.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -394,11 +374,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/PrerequisiteTargetingField.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Features/RevisionDropdown.tsx": {
     "no-restricted-imports": {
       "count": 2
@@ -411,7 +386,7 @@
   },
   "packages/front-end/components/Features/Rule.tsx": {
     "no-restricted-imports": {
-      "count": 2
+      "count": 1
     }
   },
   "packages/front-end/components/Features/RuleModal/ExperimentRefNewFields.tsx": {
@@ -440,11 +415,6 @@
     }
   },
   "packages/front-end/components/Features/SafeRolloutSummary.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/SavedGroupTargetingDisplay.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -724,16 +694,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/SavedGroups/SavedGroupReferencesList.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/SavedGroups/TruncatedConditionDisplay.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/SchemaBrowser/EditSqlModal.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -972,11 +932,6 @@
   "packages/front-end/pages/datasources/[did].tsx": {
     "no-restricted-imports": {
       "count": 2
-    }
-  },
-  "packages/front-end/pages/design-system/index.tsx": {
-    "no-restricted-imports": {
-      "count": 1
     }
   },
   "packages/front-end/pages/experiments/template/[tid].tsx": {

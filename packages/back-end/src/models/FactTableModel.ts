@@ -15,6 +15,15 @@ import { ApiFactTable, ApiFactTableFilter } from "shared/types/openapi";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { promiseAllChunks } from "back-end/src/util/promise";
+import { createModelAuditLogger } from "back-end/src/services/audit";
+
+const audit = createModelAuditLogger({
+  entity: "factTable",
+  createEvent: "factTable.create",
+  updateEvent: "factTable.update",
+  deleteEvent: "factTable.delete",
+  autocreateEvent: "factTable.autocreate",
+});
 
 const factTableSchema = new mongoose.Schema({
   id: String,
@@ -66,6 +75,7 @@ const factTableSchema = new mongoose.Schema({
   ],
   archived: Boolean,
   autoSliceUpdatesEnabled: Boolean,
+  columnRefreshPending: Boolean,
 });
 
 factTableSchema.index({ id: 1, organization: 1 }, { unique: true });
@@ -126,6 +136,7 @@ function createPropsToInterface(
     columns,
     columnsError: null,
     managedBy: props.managedBy || "",
+    columnRefreshPending: props.columnRefreshPending || false,
   };
 }
 
@@ -236,6 +247,9 @@ export async function createFactTable(
   );
 
   const factTable = toInterface(doc);
+
+  await audit.logCreate(context, factTable);
+
   return factTable;
 }
 
@@ -287,6 +301,8 @@ export async function updateFactTable(
       },
     },
   );
+
+  await audit.logUpdate(context, factTable, { ...factTable, ...changes });
 }
 
 // This is called from a background cronjob to re-sync all of the columns
@@ -576,6 +592,8 @@ export async function deleteFactTable(
     id: factTable.id,
     organization: factTable.organization,
   });
+
+  await audit.logDelete(context, factTable);
 }
 
 export async function deleteAllFactTablesForAProject({

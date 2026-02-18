@@ -1,24 +1,29 @@
 import { FeatureInterface, FeaturePrerequisite } from "shared/types/feature";
 import { FaExclamationCircle, FaQuestion } from "react-icons/fa";
 import { Environment } from "shared/types/organization";
-import React from "react";
+import React, { useState } from "react";
 import {
   FaRegCircleCheck,
   FaRegCircleQuestion,
   FaRegCircleXmark,
 } from "react-icons/fa6";
+import { BsThreeDotsVertical } from "react-icons/bs";
+import { IconButton } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ValueDisplay from "@/components/Features/ValueDisplay";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import {
   PrerequisiteStateResult,
   usePrerequisiteStates,
 } from "@/hooks/usePrerequisiteStates";
+import {
+  DropdownMenu,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+} from "@/ui/DropdownMenu";
 
 interface Props {
   i: number;
@@ -42,6 +47,7 @@ export default function PrerequisiteStatusRow({
   const permissionsUtil = usePermissionsUtil();
   const canEdit = permissionsUtil.canViewFeatureModal(feature.project);
   const { apiCall } = useAuth();
+  const [open, setOpen] = useState(false);
 
   const envs = environments.map((e) => e.id);
 
@@ -81,37 +87,57 @@ export default function PrerequisiteStatusRow({
           </div>
           <div>
             {canEdit && (
-              <MoreMenu>
-                <a
-                  href="#"
-                  className="dropdown-item"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setPrerequisiteModal({ i });
-                  }}
-                >
-                  Edit
-                </a>
-                <DeleteButton
-                  className="dropdown-item"
-                  displayName="Rule"
-                  useIcon={false}
-                  text="Delete"
-                  onClick={async () => {
-                    track("Delete Prerequisite", {
-                      prerequisiteIndex: i,
-                    });
-                    await apiCall<{ version: number }>(
-                      `/feature/${feature.id}/prerequisite`,
-                      {
-                        method: "DELETE",
-                        body: JSON.stringify({ i }),
+              <DropdownMenu
+                trigger={
+                  <IconButton
+                    variant="ghost"
+                    color="gray"
+                    radius="full"
+                    size="2"
+                    highContrast
+                    mt="1"
+                  >
+                    <BsThreeDotsVertical size={18} />
+                  </IconButton>
+                }
+                open={open}
+                onOpenChange={setOpen}
+                menuPlacement="end"
+                variant="soft"
+              >
+                <DropdownMenuGroup>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setPrerequisiteModal({ i });
+                      setOpen(false);
+                    }}
+                  >
+                    Edit
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    color="red"
+                    confirmation={{
+                      confirmationTitle: "Delete Prerequisite",
+                      cta: "Delete",
+                      submit: async () => {
+                        track("Delete Prerequisite", {
+                          prerequisiteIndex: i,
+                        });
+                        await apiCall<{ version: number }>(
+                          `/feature/${feature.id}/prerequisite`,
+                          {
+                            method: "DELETE",
+                            body: JSON.stringify({ i }),
+                          },
+                        );
+                        mutate();
                       },
-                    );
-                    mutate();
-                  }}
-                />
-              </MoreMenu>
+                    }}
+                  >
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+              </DropdownMenu>
             )}
           </div>
         </div>

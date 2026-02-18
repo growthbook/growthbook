@@ -349,10 +349,23 @@ export async function testQueryValidity(
   const sql = integration.getTestValidityQuery(query.query, testDays);
   try {
     const results = await integration.runTestQuery(sql);
-    if (results.results.length === 0) {
-      return "No rows returned";
+
+    let columns: Set<string>;
+
+    // For datasources where the result includes columns, use column metadata
+    if (results.columns) {
+      const columnNames = results.columns.map((c) => c.name);
+      if (columnNames.length === 0) {
+        return "Unable to determine columns from query";
+      }
+      columns = new Set(columnNames);
+    } else {
+      // For other datasources, extract from first row (requires LIMIT 1+)
+      if (results.results.length === 0) {
+        return "No rows returned";
+      }
+      columns = new Set(Object.keys(results.results[0]));
     }
-    const columns = new Set(Object.keys(results.results[0]));
 
     const missingColumns: string[] = [];
     for (const col of requiredColumns) {

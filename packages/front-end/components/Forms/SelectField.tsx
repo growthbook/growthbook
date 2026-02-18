@@ -3,6 +3,7 @@ import ReactSelect, {
   components,
   InputProps,
   FormatOptionLabelMeta,
+  StylesConfig,
 } from "react-select";
 import cloneDeep from "lodash/cloneDeep";
 import clsx from "clsx";
@@ -41,6 +42,7 @@ export type SelectFieldProps = Omit<
   isOptionDisabled?: (_: Option) => boolean;
   forceUndefinedValueToNull?: boolean;
   useMultilineLabels?: boolean;
+  containerStyles?: StylesConfig<SingleValue, boolean>;
 };
 
 export function useSelectOptions(
@@ -137,10 +139,15 @@ export const ReactSelectProps = {
           : {}),
       };
     },
-    input: (styles) => {
+    input: (styles, state) => {
+      // When focused, constrain the grid columns to prevent unbounded growth
+      const isFocused = !!state.selectProps.menuIsOpen;
       return {
         ...styles,
         color: "var(--text-color-main)",
+        ...(isFocused && {
+          gridTemplateColumns: "0 minmax(2px, 1fr)",
+        }),
       };
     },
     singleValue: (styles) => {
@@ -162,7 +169,7 @@ const multilineStyles = {
     display: "-webkit-box",
     WebkitLineClamp: 2,
     WebkitBoxOrient: "vertical",
-    lineHeight: "1.1",
+    lineHeight: "1.2",
   }),
 };
 
@@ -190,6 +197,7 @@ const SelectField: FC<SelectFieldProps> = ({
   // forces re-render when input is undefined
   forceUndefinedValueToNull = false,
   useMultilineLabels = false,
+  containerStyles = {},
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
@@ -208,6 +216,39 @@ const SelectField: FC<SelectFieldProps> = ({
   const fieldProps = otherProps as any;
 
   const selectRef = useRef(null);
+
+  // chain merge React Select styles
+  const mergedStyles: StylesConfig<SingleValue, false> = useMemo(() => {
+    const baseStyles = {
+      ...ReactSelectProps.styles,
+      ...(useMultilineLabels ? multilineStyles : {}),
+    };
+
+    const merged: StylesConfig<SingleValue, false> = { ...baseStyles };
+
+    // For each key in containerStyles, merge it with the base style function
+    Object.keys(containerStyles).forEach((key) => {
+      const baseStyleFn = baseStyles[key];
+      const containerStyleFn = containerStyles[key];
+
+      if (
+        typeof containerStyleFn === "function" &&
+        typeof baseStyleFn === "function"
+      ) {
+        merged[key] = (base, state) => {
+          const baseResult = baseStyleFn(base, state);
+          const containerResult = containerStyleFn(baseResult, state);
+          return containerResult;
+        };
+      } else if (typeof containerStyleFn === "function") {
+        merged[key] = containerStyleFn;
+      } else {
+        merged[key] = containerStyleFn;
+      }
+    });
+
+    return merged;
+  }, [useMultilineLabels, containerStyles]);
 
   if (!options.length && createable) {
     return (
@@ -243,10 +284,7 @@ const SelectField: FC<SelectFieldProps> = ({
             {createable ? (
               <CreatableSelect
                 {...ReactSelectProps}
-                styles={{
-                  ...ReactSelectProps.styles,
-                  ...(useMultilineLabels ? multilineStyles : {}),
-                }}
+                styles={mergedStyles}
                 id={id}
                 ref={ref}
                 classNamePrefix="gb-select"
@@ -300,16 +338,14 @@ const SelectField: FC<SelectFieldProps> = ({
                 onPaste={onPaste}
                 components={{
                   Input,
+                  IndicatorSeparator: () => null,
                 }}
                 isOptionDisabled={isOptionDisabled}
               />
             ) : (
               <ReactSelect
                 {...ReactSelectProps}
-                styles={{
-                  ...ReactSelectProps.styles,
-                  ...(useMultilineLabels ? multilineStyles : {}),
-                }}
+                styles={mergedStyles}
                 id={id}
                 ref={ref}
                 isClearable={isClearable}
@@ -331,6 +367,7 @@ const SelectField: FC<SelectFieldProps> = ({
                 onPaste={onPaste}
                 components={{
                   Input,
+                  IndicatorSeparator: () => null,
                 }}
                 isOptionDisabled={isOptionDisabled}
               />
