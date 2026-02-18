@@ -276,6 +276,8 @@ export default function DatasourceConfigurator({
                   ...prev.dataset,
                   table: value,
                   path: selectedTable?.tablePath || "",
+                  columnTypes: {},
+                  timestampColumn: "",
                 },
               }));
             }}
