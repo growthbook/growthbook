@@ -219,7 +219,9 @@ const FeatureAttributesPage = (): React.ReactElement => {
           className="text-gray font-weight-bold"
           style={{ width: "17%", minWidth: 90 }}
         >
-          {v.property}{" "}
+          <Link href={`/attributes/${encodeURIComponent(v.property)}`}>
+            {v.property}
+          </Link>{" "}
           {v.archived && (
             <span className="badge badge-secondary ml-2">archived</span>
           )}

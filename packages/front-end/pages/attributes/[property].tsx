@@ -22,7 +22,8 @@ import AttributeModal from "@/components/Features/AttributeModal";
 import ProjectBadges from "@/components/ProjectBadges";
 import Modal from "@/components/Modal";
 import Callout from "@/ui/Callout";
-import Markdown from "@/components/Markdown/Markdown";
+import Frame from "@/ui/Frame";
+import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import SortedTags from "@/components/Tags/SortedTags";
 import {
   DropdownMenu,
@@ -353,14 +354,31 @@ export default function AttributeDetailPage() {
           </Flex>
         </Flex>
 
-        {attribute.description && (
-          <Box mb="4">
-            <Heading as="h3" size="small" mb="2">
-              Description
-            </Heading>
-            <Markdown>{attribute.description}</Markdown>
-          </Box>
-        )}
+        <Box mb="4">
+          <Frame>
+            <div className="mh-350px" style={{ overflowY: "auto" }}>
+              <MarkdownInlineEdit
+                value={attribute.description || ""}
+                save={async (description) => {
+                  await apiCall("/attribute", {
+                    method: "PUT",
+                    body: JSON.stringify({
+                      ...attribute,
+                      description,
+                    }),
+                  });
+                  await refreshOrganization();
+                }}
+                canCreate={canEdit}
+                canEdit={canEdit}
+                label="description"
+                header="Description"
+                headerClassName="h4"
+                containerClassName="mb-1"
+              />
+            </div>
+          </Frame>
+        </Box>
 
         <hr />
       </div>
