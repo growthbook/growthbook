@@ -5,6 +5,14 @@ ARG UPGRADE_PIP="true"
 
 # Build the python gbstats package
 FROM python:${PYTHON_MAJOR}-slim AS pybuild
+ARG PYTHON_MAJOR
+
+COPY --from=ghcr.io/astral-sh/uv:0.10.2 /uv /usr/local/bin/uv
+
+ENV UV_LINK_MODE=copy \
+    UV_COMPILE_BYTECODE=1 \
+    UV_PYTHON=python${PYTHON_MAJOR}
+
 ARG PYPI_MIRROR_URL
 ARG UPGRADE_PIP
 WORKDIR /usr/local/src/app
@@ -22,24 +30,15 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN \
   if [ "$UPGRADE_PIP" = "true" ]; then pip install --upgrade pip; fi \
   && if [ -n "$PYPI_MIRROR_URL" ]; then \
-    export PIP_INDEX_URL="$PYPI_MIRROR_URL" \
-    && export PIP_TRUSTED_HOST=$(echo "$PYPI_MIRROR_URL" | sed -e 's|^[^/]*//||' -e 's|/.*$||') \
-    && pip install --no-cache-dir poetry==1.8.5 \
-    && poetry source add --priority=primary mirror "$PYPI_MIRROR_URL" \
-    && poetry lock --no-update \
-    && poetry install --no-root --without dev --no-interaction --no-ansi \
-    && poetry build \
-    && poetry export -f requirements.txt --output requirements.txt \
-    && pip install --no-cache-dir -r requirements.txt \
-    && pip install --no-cache-dir dist/*.whl ddtrace==4.3.2; \
-  else \
-    pip install --no-cache-dir poetry==1.8.5 \
-    && poetry install --no-root --without dev --no-interaction --no-ansi \
-    && poetry build \
-    && poetry export -f requirements.txt --output requirements.txt \
-    && pip install --no-cache-dir -r requirements.txt \
-    && pip install --no-cache-dir dist/*.whl ddtrace==4.3.2; \
-  fi
+    mirror_host=$(echo "$PYPI_MIRROR_URL" | sed -e 's|^[^/]*//||' -e 's|/.*$||') \
+    && export UV_DEFAULT_INDEX="$PYPI_MIRROR_URL" \
+    && export UV_INSECURE_HOST="$mirror_host" \
+    && export PIP_INDEX_URL="$PYPI_MIRROR_URL" \
+    && export PIP_TRUSTED_HOST="$mirror_host"; \
+  fi \
+  && uv sync --frozen --no-dev --no-install-project --active \
+  && uv build --wheel \
+  && pip install --no-cache-dir dist/*.whl ddtrace==4.3.2
 
 # Build the nodejs app
 FROM node:${NODE_MAJOR}-slim AS nodebuild
@@ -91,7 +90,7 @@ RUN \
   && find node_modules -type f -name "LICENSE*" -delete \
   && find node_modules -type f -name "README*" -delete \
   && find node_modules -type d -name benchmarks -prune -exec rm -rf {} + \
-  && rm -f packages/stats/poetry.lock
+  && rm -f packages/stats/uv.lock
 RUN pnpm postinstall
 
 # Package the full app together
