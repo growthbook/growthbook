@@ -12,7 +12,7 @@ const BaseClass = MakeModelClass({
   idPrefix: "secret_",
   // If true, `id` is globally unique across all orgs
   // If false (default), the `organization`/`id` combo is unique.
-  globallyUniqueIds: false,
+  globallyUniquePrimaryKeys: false,
   readonlyFields: [],
   additionalIndexes: [
     {
