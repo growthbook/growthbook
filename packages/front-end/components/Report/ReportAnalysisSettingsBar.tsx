@@ -1,6 +1,6 @@
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { ExperimentSnapshotReportInterface } from "shared/types/report";
-import { getEffectiveLookbackOverride } from "shared/types/experiment";
+import { getEffectiveLookbackOverride } from "shared/experiments";
 import { getSnapshotAnalysis } from "shared/util";
 import { ago, date, datetime, getValidDate } from "shared/dates";
 import React, { RefObject, useEffect, useMemo, useState } from "react";

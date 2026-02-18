@@ -3,7 +3,7 @@ import {
   ExperimentSnapshotReportInterface,
   MetricSnapshotSettings,
 } from "shared/types/report";
-import { getEffectiveLookbackOverride } from "shared/types/experiment";
+import { getEffectiveLookbackOverride } from "shared/experiments";
 import { getSnapshotAnalysis } from "shared/util";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,

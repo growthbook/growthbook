@@ -19,6 +19,7 @@ import {
   expandAllSliceMetricsInMap,
   parseSliceMetricId,
   SliceLevelsData,
+  getEffectiveLookbackOverride,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
 import uniqid from "uniqid";
@@ -38,7 +39,6 @@ import {
   ExperimentInterface,
   ExperimentPhase,
   MetricOverride,
-  getEffectiveLookbackOverride,
 } from "shared/types/experiment";
 import {
   ExperimentSnapshotAnalysisSettings,

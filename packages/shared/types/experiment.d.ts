@@ -32,7 +32,6 @@ export {
   ExperimentResultsType,
   Screenshot,
   Variation,
-  getEffectiveLookbackOverride,
 } from "shared/validators";
 
 export {

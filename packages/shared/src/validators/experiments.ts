@@ -116,22 +116,6 @@ export const attributionModel = [
 ] as const;
 export type AttributionModel = (typeof attributionModel)[number];
 
-/**
- * Returns the LookbackOverride only when both conditions are met:
- *   1. attributionModel === "lookbackOverride"
- *   2. lookbackOverride is defined
- * Use this everywhere you need to decide whether to apply a lookback override.
- */
-export function getEffectiveLookbackOverride(
-  attributionModel: AttributionModel | undefined,
-  lookbackOverride: LookbackOverride | undefined,
-): LookbackOverride | undefined {
-  if (attributionModel === "lookbackOverride" && lookbackOverride) {
-    return lookbackOverride;
-  }
-  return undefined;
-}
-
 export const implementationType = [
   "visual",
   "code",

@@ -5,12 +5,14 @@ import {
   blockHasFieldOfType,
 } from "shared/enterprise";
 import { MetricSnapshotSettings } from "shared/types/report";
-import { getEffectiveLookbackOverride } from "shared/types/experiment";
+import {
+  getEffectiveLookbackOverride,
+  isPrecomputedDimension,
+} from "shared/experiments";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-import { isPrecomputedDimension } from "shared/experiments";
 import { isString } from "shared/util";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import BreakDownResults from "@/components/Experiment/BreakDownResults";

@@ -45,6 +45,7 @@ import {
   parseSliceMetricId,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
+  getEffectiveLookbackOverride,
 } from "shared/experiments";
 import { hoursBetween } from "shared/dates";
 import { v4 as uuidv4 } from "uuid";
@@ -66,7 +67,6 @@ import {
   SafeRolloutSnapshotAnalysis,
   IncrementalRefreshInterface,
   LookbackOverrideValueUnit,
-  getEffectiveLookbackOverride,
 } from "shared/validators";
 import { Dimension } from "shared/types/integrations";
 import {

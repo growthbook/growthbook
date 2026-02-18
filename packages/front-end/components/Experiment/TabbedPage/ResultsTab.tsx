@@ -1,10 +1,10 @@
-import {
-  ExperimentInterfaceStringDates,
-  getEffectiveLookbackOverride,
-} from "shared/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FactTableColumnType } from "shared/types/fact-table";
 import { getScopedSettings } from "shared/settings";
-import { isPrecomputedDimension } from "shared/experiments";
+import {
+  isPrecomputedDimension,
+  getEffectiveLookbackOverride,
+} from "shared/experiments";
 import React, { useState, useCallback } from "react";
 import {
   ExperimentSnapshotReportArgs,

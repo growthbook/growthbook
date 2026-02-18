@@ -9,8 +9,8 @@ import {
 } from "shared/constants";
 import {
   ExperimentInterfaceStringDates,
-  getEffectiveLookbackOverride,
 } from "shared/types/experiment";
+import { getEffectiveLookbackOverride } from "shared/experiments";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import useOrgSettings from "@/hooks/useOrgSettings";
