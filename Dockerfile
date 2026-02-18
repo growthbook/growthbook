@@ -32,7 +32,7 @@ RUN \
     && poetry export -f requirements.txt --output requirements.txt \
     && pip install --no-cache-dir -r requirements.txt \
     && pip install --no-cache-dir dist/*.whl ddtrace==4.3.2 \
-    && pip uninstall -y poetry poetry-core poetry-plugin-export keyring jaraco.classes jaraco.context jaraco.functools setuptools wheel; \
+    && pip uninstall -y poetry poetry-core poetry-plugin-export keyring jaraco.classes setuptools wheel; \
   else \
     pip install --no-cache-dir poetry==1.8.5 \
     && poetry install --no-root --without dev --no-interaction --no-ansi \
@@ -40,7 +40,7 @@ RUN \
     && poetry export -f requirements.txt --output requirements.txt \
     && pip install --no-cache-dir -r requirements.txt \
     && pip install --no-cache-dir dist/*.whl ddtrace==4.3.2 \
-    && pip uninstall -y poetry poetry-core poetry-plugin-export keyring jaraco.classes jaraco.context jaraco.functools setuptools wheel;\
+    && pip uninstall -y poetry poetry-core poetry-plugin-export keyring jaraco.classes setuptools wheel;\
   fi
 
 # Build the nodejs app
