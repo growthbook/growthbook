@@ -182,7 +182,10 @@ export abstract class BaseModel<
     this.createValidator = this.getCreateValidator();
     this.updateValidator = this.getUpdateValidator();
     this._auditLogger = this.config.auditLog
-      ? createModelAuditLogger(this.config.auditLog, this.getEntityId)
+      ? createModelAuditLogger(
+          this.config.auditLog,
+          this.getEntityId.bind(this),
+        )
       : null;
     this.updateIndexes();
   }
