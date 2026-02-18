@@ -464,7 +464,7 @@ const baseSDKInfo = {
   },
   edgeUtils: {
     name: "Edge Utils",
-    version: "0.2.5",
+    version: getLatestSDKVersion("edge-other"),
     github:
       "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-utils",
     examples: [],
@@ -498,6 +498,29 @@ const baseSDKInfo = {
       ...defineSDKCapabilityVersion(
         "flutter",
         getSDKCapabilities("flutter", getLatestSDKVersion("flutter")),
+      ),
+    ],
+  },
+  roku: {
+    name: "Roku SDK",
+    version: getLatestSDKVersion("roku"),
+    github: "https://github.com/growthbook/growthbook-roku",
+    examples: [
+      {
+        url: "https://github.com/growthbook/growthbook-roku/tree/main/examples",
+        name: "Roku examples",
+      },
+      {
+        url: "https://www.npmjs.com/package/growthbook-roku",
+        name: "npm package",
+      },
+    ],
+    packageRepos: [],
+    capabilities: [
+      ...defaultCapabilities,
+      ...defineSDKCapabilityVersion(
+        "roku",
+        getSDKCapabilities("roku", getLatestSDKVersion("roku")),
       ),
     ],
   },

@@ -114,6 +114,7 @@ export class SafeRolloutModel extends BaseClass {
         "analysisSummary",
         "pastNotifications",
         "rampUpSchedule",
+        "dateUpdated",
       ];
 
       // Check for disallowed field updates
