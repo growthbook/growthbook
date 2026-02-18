@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Flex } from "@radix-ui/themes";
+import { FaRedo } from "react-icons/fa";
 import {
   InformationSchemaInterfaceWithPaths,
   InformationSchemaTablesInterface,
@@ -17,6 +18,8 @@ import useApi from "@/hooks/useApi";
 import Callout from "@/ui/Callout";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import BuildTablesCard from "./BuildTablesCard";
 import PendingTablesCard from "./PendingTablesCard";
 
@@ -165,12 +168,47 @@ export default function DatasourceConfigurator({
     }
   }, [fetching, mutate, retryCount, informationSchema]);
 
+  const showRefreshButton =
+    datasourceId &&
+    informationSchema &&
+    !informationSchema.error &&
+    informationSchema.status === "COMPLETE";
+
   return (
     <Flex direction="column" gap="2">
       <>
-        <Text weight="medium" mt="2">
-          Data Source
-        </Text>
+        <Flex justify="between" align="center" mt="2">
+          <Text weight="medium">Data Source</Text>
+          {showRefreshButton && (
+            <Tooltip
+              body={
+                <div>
+                  <div>
+                    {`Last Updated: ${new Date(
+                      informationSchema.dateUpdated,
+                    ).toLocaleString()}`}
+                  </div>
+                  {!canRunQueries ? (
+                    <div className="alert alert-warning mt-2">
+                      You do not have permission to refresh this information
+                      schema.
+                    </div>
+                  ) : null}
+                </div>
+              }
+              tipPosition="top"
+            >
+              <button
+                type="button"
+                className="btn btn-link p-0 text-secondary"
+                disabled={fetching || !canRunQueries}
+                onClick={() => refreshOrCreateInfoSchema("PUT")}
+              >
+                {fetching ? <LoadingSpinner /> : <FaRedo />}
+              </button>
+            </Tooltip>
+          )}
+        </Flex>
         <SelectField
           value={datasourceId || ""}
           onChange={(datasource) =>
@@ -202,6 +240,25 @@ export default function DatasourceConfigurator({
       ) : (informationSchema?.status === "PENDING" || fetching) &&
         datasourceId ? (
         <PendingTablesCard mutate={mutate} />
+      ) : error ? (
+        <Callout status="error" mt="2">
+          <Flex direction="column" gap="2">
+            <span>{error}</span>
+            <Tooltip
+              body="You do not have permission to retry generating an information schema for this datasource."
+              shouldDisplay={!canRunQueries}
+            >
+              <button
+                type="button"
+                disabled={!canRunQueries}
+                className="btn btn-link"
+                onClick={() => refreshOrCreateInfoSchema("PUT")}
+              >
+                Retry
+              </button>
+            </Tooltip>
+          </Flex>
+        </Callout>
       ) : tableOptions.length > 0 ? (
         <>
           <Text weight="medium" mt="2">
