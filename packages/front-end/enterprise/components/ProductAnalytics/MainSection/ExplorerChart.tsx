@@ -81,6 +81,8 @@ export default function ExplorerChart() {
     const seriesMeta: Record<string, { metricId: string; name: string }> = {};
 
     const numMetrics = submittedExploreState?.dataset?.values?.length ?? 0;
+    const numDimensions = submittedExploreState?.dimensions?.length ?? 0;
+
     rows.forEach((row) => {
       // First dimension is the X-axis value (Date or Category)
       const xValue = row.dimensions[0] || "";
@@ -131,53 +133,48 @@ export default function ExplorerChart() {
     const sortedXValues = Array.from(uniqueXValues).sort();
 
     // 3. Build Series
+    const seriesColor = (i: number) => CHART_COLORS[i % CHART_COLORS.length];
+
     const seriesConfigs = Object.keys(dataMap).map((seriesKey, idx) => {
       const { name } = seriesMeta[seriesKey];
       const seriesDataMap = dataMap[seriesKey];
 
-      // Map values to the sorted X-axis, filling gaps with 0
-      let data: number[][] | number[] = [];
+      if (chartType === "bar" || chartType === "horizontalBar") {
+        // Single metric + single dimension: one series with itemStyle per bar so each bar gets a different color (no grouping)
+        if (numMetrics === 1 && numDimensions === 1) {
+          const data = sortedXValues.map((x, i) => ({
+            value: seriesDataMap[x] ?? 0,
+            itemStyle: { color: seriesColor(i) },
+          }));
+          return { name, data, type: "bar" as const };
+        }
+        const data = sortedXValues.map((x) => seriesDataMap[x] ?? 0);
+        return {
+          name,
+          data,
+          color: seriesColor(idx),
+          type: "bar" as const,
+        };
+      }
+
       if (chartType === "line" || chartType === "area") {
-        data = sortedXValues.map((x) => [
+        const data = sortedXValues.map((x) => [
           new Date(x).getTime(),
           seriesDataMap[x] ?? 0,
         ]);
-      } else {
-        data = sortedXValues.map((x) => seriesDataMap[x] ?? 0);
-      }
-
-      const commonSeriesConfig = {
-        name,
-        data,
-        color: CHART_COLORS[idx % CHART_COLORS.length],
-      };
-
-      if (chartType === "bar" || chartType === "horizontalBar") {
-        return {
-          ...commonSeriesConfig,
-          type: "bar",
+        const lineConfig = {
+          name,
+          data,
+          color: seriesColor(idx),
+          type: "line" as const,
+          animation: true,
+          animationDuration: 300,
+          animationEasing: "linear" as const,
+          symbol: "circle" as const,
+          symbolSize: 4,
         };
-      }
-
-      const baseLineCommonSeriesConfig = {
-        ...commonSeriesConfig,
-        type: "line",
-        animation: true,
-        animationDuration: 300,
-        animationEasing: "linear",
-        symbol: "circle",
-        symbolSize: 4,
-      };
-
-      if (chartType === "line") {
-        return baseLineCommonSeriesConfig;
-      }
-
-      if (chartType === "area") {
-        return {
-          ...baseLineCommonSeriesConfig,
-          areaStyle: {},
-        };
+        if (chartType === "line") return lineConfig;
+        if (chartType === "area") return { ...lineConfig, areaStyle: {} };
       }
     });
 
