@@ -355,15 +355,19 @@ export default function CompareRevisionsModal({
       versionsAsc.includes(draftHigh)
         ? versionsAsc.filter((v) => v >= draftLow && v <= draftHigh)
         : null;
-    const livePrev = liveVersion - 1;
+    const prevLockedVersion = revisionList
+      .filter((r) => r.status === "published" && r.version < liveVersion)
+      .reduce<
+        number | null
+      >((best, r) => (best === null || r.version > best ? r.version : best), null);
     const liveRange: number[] | null =
-      versionsAsc.includes(livePrev) && versionsAsc.includes(liveVersion)
-        ? [livePrev, liveVersion]
+      prevLockedVersion !== null && versionsAsc.includes(liveVersion)
+        ? [prevLockedVersion, liveVersion]
         : null;
     const allRange: number[] | null =
       versionsAsc.length >= 2 ? [...versionsAsc] : null;
     return { draftRange, liveRange, allRange };
-  }, [mostRecentDraftVersion, liveVersion, versionsAsc]);
+  }, [mostRecentDraftVersion, liveVersion, versionsAsc, revisionList]);
 
   const currentStep = steps[safeDiffPage];
   const stepRevA = currentStep ? getFullRevision(currentStep[0]) : null;
