@@ -17,6 +17,7 @@ import format from "date-fns/format";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Checkbox from "@/ui/Checkbox";
+import Switch from "@/ui/Switch";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Modal from "@/components/Modal";
@@ -129,6 +130,35 @@ export default function CompareAuditEventsModal<T>({
     "steps",
   );
   const diffViewMode = diffViewModeRaw === "single" ? "single" : "steps";
+
+  // ---- Section visibility toggles ----
+  // All sections are visible by default; a missing key means "visible".
+  const [visibleSections, setVisibleSections] = useLocalStorage<
+    Record<string, boolean>
+  >(`${STORAGE_KEY_PREFIX}:${config.entityType}:visibleSections`, {});
+
+  const sectionLabels = useMemo(
+    () => [
+      ...(config.sections ?? []).map((s) => s.label),
+      // "Other changes" is auto-emitted by useAuditDiff when sections exist
+      ...(config.sections?.length ? ["Other changes"] : []),
+    ],
+    [config],
+  );
+
+  const isSectionVisible = useCallback(
+    (label: string) => visibleSections[label] !== false,
+    [visibleSections],
+  );
+
+  const toggleSection = useCallback(
+    (label: string) =>
+      setVisibleSections((prev) => ({
+        ...prev,
+        [label]: prev[label] === false,
+      })),
+    [setVisibleSections],
+  );
 
   const {
     entries,
@@ -421,14 +451,43 @@ export default function CompareAuditEventsModal<T>({
     return map;
   }, [flatEntries, config]);
 
+  // ---- Filtered entry list for the left column ----
+  // Hide entries whose changed sections are entirely invisible.
+  // Entries with no section changes (e.g. create events) are always shown.
+  const visibleFlatEntries = useMemo(() => {
+    if (!sectionLabels.length) return flatEntries;
+    return flatEntries.filter((entry) => {
+      const changed = entrySectionLabels.get(entry.id);
+      if (!changed?.length) return true;
+      return changed.some(isSectionVisible);
+    });
+  }, [flatEntries, entrySectionLabels, sectionLabels, isSectionVisible]);
+
+  // When section toggles cause visibleFlatEntries to shrink, ensure the
+  // selection still contains at least 2 visible entries; if not, reset to
+  // the top 2 visible entries.
+  useEffect(() => {
+    const visibleIds = new Set(visibleFlatEntries.map((e) => e.id));
+    setSelectedIds((prev) => {
+      const valid = prev.filter((id) => visibleIds.has(id));
+      if (valid.length >= 2) return valid.length === prev.length ? prev : valid;
+      if (visibleFlatEntries.length >= 2) {
+        return [visibleFlatEntries[0].id, visibleFlatEntries[1].id];
+      }
+      return visibleFlatEntries.map((e) => e.id);
+    });
+  }, [visibleFlatEntries]);
+
   // ---- Render helpers ----
   const getEntryLabel = useCallback(
     (entry: CoarsenedAuditEntry<T>) => {
       const base = getEventLabel(entry.event);
-      const sections = entrySectionLabels.get(entry.id);
-      return sections?.length ? `${base}: ${sections.join(", ")}` : base;
+      const sections = (entrySectionLabels.get(entry.id) ?? []).filter(
+        isSectionVisible,
+      );
+      return sections.length ? `${base}: ${sections.join(", ")}` : base;
     },
-    [getEventLabel, entrySectionLabels],
+    [getEventLabel, entrySectionLabels, isSectionVisible],
   );
 
   const renderEntryRow = (entry: CoarsenedAuditEntry<T>) => {
@@ -463,9 +522,11 @@ export default function CompareAuditEventsModal<T>({
                 )}
                 <Text weight="semibold">
                   {(() => {
-                    const sectionLabels = entrySectionLabels.get(entry.id);
-                    if (!sectionLabels?.length) return label;
-                    return `${label}: ${sectionLabels.join(", ")}`;
+                    const changed = (
+                      entrySectionLabels.get(entry.id) ?? []
+                    ).filter(isSectionVisible);
+                    if (!changed.length) return label;
+                    return `${label}: ${changed.join(", ")}`;
                   })()}
                 </Text>
               </Flex>
@@ -506,7 +567,13 @@ export default function CompareAuditEventsModal<T>({
     );
   };
 
-  const activeDiffs = diffViewMode === "single" ? mergedDiffs : stepDiffs;
+  const activeDiffs = useMemo(
+    () =>
+      (diffViewMode === "single" ? mergedDiffs : stepDiffs).filter((d) =>
+        isSectionVisible(d.label),
+      ),
+    [diffViewMode, mergedDiffs, stepDiffs, isSectionVisible],
+  );
 
   return (
     <Modal
@@ -613,7 +680,7 @@ export default function CompareAuditEventsModal<T>({
                 Select range of revisions
               </Text>
             </Flex>
-            <Flex align="center" gap="2" mb="3">
+            <Flex align="center" gap="2" mb={sectionLabels.length ? "2" : "3"}>
               <Text color="text-low" weight="medium">
                 Group by
               </Text>
@@ -629,55 +696,79 @@ export default function CompareAuditEventsModal<T>({
               </Select>
             </Flex>
 
+            {sectionLabels.length > 0 && (
+              <Flex direction="column" gap="2" mb="3">
+                {sectionLabels.map((label) => (
+                  <Flex key={label} gap="2" justify="end" align="center">
+                    <Text size="small" color="text-low">
+                      {label}
+                    </Text>
+                    <Switch
+                      size="1"
+                      value={isSectionVisible(label)}
+                      onChange={() => toggleSection(label)}
+                    />
+                  </Flex>
+                ))}
+              </Flex>
+            )}
+
             {loading && !flatEntries.length ? (
               <LoadingOverlay />
             ) : error ? (
               <Callout status="error">{error}</Callout>
             ) : flatEntries.length === 0 ? (
               <Text color="text-low">No change history found.</Text>
+            ) : visibleFlatEntries.length === 0 ? (
+              <Text color="text-low">
+                No changes match the current section filters.
+              </Text>
             ) : (
               <Flex direction="column" className={styles.revisionsList}>
-                {flatEntries.reduce<React.ReactNode[]>((nodes, entry, i) => {
-                  const prev = flatEntries[i - 1];
-                  const bucketKey = getSeparatorBucketKey(
-                    entry.dateStart,
-                    groupBy,
-                  );
-                  const prevBucketKey = prev
-                    ? getSeparatorBucketKey(prev.dateStart, groupBy)
-                    : null;
-                  if (prevBucketKey === null || bucketKey !== prevBucketKey) {
-                    nodes.push(
-                      <Flex
-                        key={`sep-${entry.id}`}
-                        align="center"
-                        gap="2"
-                        px="2"
-                        py="1"
-                      >
-                        <Box
-                          style={{
-                            flex: 1,
-                            height: 1,
-                            background: "var(--gray-6)",
-                          }}
-                        />
-                        <Text size="medium" weight="medium" color="text-low">
-                          {getSeparatorLabel(entry.dateStart, groupBy)}
-                        </Text>
-                        <Box
-                          style={{
-                            flex: 1,
-                            height: 1,
-                            background: "var(--gray-6)",
-                          }}
-                        />
-                      </Flex>,
+                {visibleFlatEntries.reduce<React.ReactNode[]>(
+                  (nodes, entry, i) => {
+                    const prev = visibleFlatEntries[i - 1];
+                    const bucketKey = getSeparatorBucketKey(
+                      entry.dateStart,
+                      groupBy,
                     );
-                  }
-                  nodes.push(renderEntryRow(entry));
-                  return nodes;
-                }, [])}
+                    const prevBucketKey = prev
+                      ? getSeparatorBucketKey(prev.dateStart, groupBy)
+                      : null;
+                    if (prevBucketKey === null || bucketKey !== prevBucketKey) {
+                      nodes.push(
+                        <Flex
+                          key={`sep-${entry.id}`}
+                          align="center"
+                          gap="2"
+                          px="2"
+                          py="1"
+                        >
+                          <Box
+                            style={{
+                              flex: 1,
+                              height: 1,
+                              background: "var(--gray-6)",
+                            }}
+                          />
+                          <Text size="medium" weight="medium" color="text-low">
+                            {getSeparatorLabel(entry.dateStart, groupBy)}
+                          </Text>
+                          <Box
+                            style={{
+                              flex: 1,
+                              height: 1,
+                              background: "var(--gray-6)",
+                            }}
+                          />
+                        </Flex>,
+                      );
+                    }
+                    nodes.push(renderEntryRow(entry));
+                    return nodes;
+                  },
+                  [],
+                )}
                 {hasMore && (
                   <Box mt="2">
                     <Link onClick={loadMore} color="violet">

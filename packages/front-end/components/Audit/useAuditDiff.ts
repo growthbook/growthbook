@@ -76,7 +76,7 @@ function computeAuditDiff<T>(
     const prePick = pickKeys(pre, otherKeys);
     const postPick = pickKeys(post, otherKeys);
     if (postPick) {
-      const item = buildDiffItem("Other changes", prePick, postPick);
+      const item = buildDiffItem("other changes", prePick, postPick);
       if (item) diffs.push(item);
     }
   }

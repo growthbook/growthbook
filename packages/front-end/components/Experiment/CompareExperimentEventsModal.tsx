@@ -37,12 +37,20 @@ const EXPERIMENT_DIFF_CONFIG: AuditDiffConfig<ExperimentInterfaceStringDates> =
     defaultGroupBy: "minute",
     sections: [
       {
-        label: "Variations",
-        keys: ["variations"],
+        // coverage, condition, savedGroups, prerequisites, namespace, seed,
+        // variationWeights — the fields that affect SDK bucketing/targeting.
+        // A custom render will surface only these sub-fields once implemented.
+        label: "User targeting",
+        keys: ["phases"],
       },
       {
-        label: "Phases",
+        // dateStarted, dateEnded, name, reason, lookbackStartDate, banditEvents
+        label: "Phase info",
         keys: ["phases"],
+      },
+      {
+        label: "Variations",
+        keys: ["variations"],
       },
       {
         label: "Metrics",

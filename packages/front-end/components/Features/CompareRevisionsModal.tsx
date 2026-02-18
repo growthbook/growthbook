@@ -145,6 +145,10 @@ export default function CompareRevisionsModal({
     `${STORAGE_KEY_PREFIX}:showDiscarded`,
     false,
   );
+  const [showDrafts, setShowDrafts] = useLocalStorage(
+    `${STORAGE_KEY_PREFIX}:showDrafts`,
+    true,
+  );
   const [diffViewModeRaw, setDiffViewModeRaw] = useLocalStorage<string>(
     `${STORAGE_KEY_PREFIX}:diffViewMode`,
     "steps",
@@ -153,10 +157,13 @@ export default function CompareRevisionsModal({
 
   const filteredRevisionList = useMemo(
     () =>
-      showDiscarded
-        ? revisionList
-        : revisionList.filter((r) => r.status !== "discarded"),
-    [revisionList, showDiscarded],
+      revisionList.filter((r) => {
+        if (r.status === "discarded" && !showDiscarded) return false;
+        if (DRAFT_REVISION_STATUSES.includes(r.status) && !showDrafts)
+          return false;
+        return true;
+      }),
+    [revisionList, showDiscarded, showDrafts],
   );
 
   const versionsDesc = useMemo(() => {
@@ -320,7 +327,13 @@ export default function CompareRevisionsModal({
         const next = prev.filter((v) =>
           filteredRevisionList.some((r) => r.version === v),
         );
-        return next.length > 0 ? next : prev;
+        if (next.length >= 2) return next;
+        const top2 = [...filteredRevisionList]
+          .sort((a, b) => b.version - a.version)
+          .slice(0, 2)
+          .map((r) => r.version)
+          .sort((a, b) => a - b);
+        return top2.length >= 2 ? top2 : prev;
       });
     } else {
       setSelectedVersions((prev) => {
@@ -334,6 +347,27 @@ export default function CompareRevisionsModal({
       });
     }
   }, [showDiscarded, filteredRevisionList, revisionList]);
+
+  const prevShowDraftsRef = useRef(showDrafts);
+  useEffect(() => {
+    if (prevShowDraftsRef.current === showDrafts) return;
+    prevShowDraftsRef.current = showDrafts;
+    // When hiding drafts, drop any selected versions that are no longer visible
+    if (!showDrafts) {
+      setSelectedVersions((prev) => {
+        const next = prev.filter((v) =>
+          filteredRevisionList.some((r) => r.version === v),
+        );
+        if (next.length >= 2) return next;
+        const top2 = [...filteredRevisionList]
+          .sort((a, b) => b.version - a.version)
+          .slice(0, 2)
+          .map((r) => r.version)
+          .sort((a, b) => a - b);
+        return top2.length >= 2 ? top2 : prev;
+      });
+    }
+  }, [showDrafts, filteredRevisionList]);
   useEffect(() => {
     setDiffPage((p) =>
       steps.length === 0 ? 0 : Math.min(p, steps.length - 1),
@@ -407,6 +441,10 @@ export default function CompareRevisionsModal({
 
   const hasDiscardedRevisions = useMemo(
     () => revisionList.some((r) => r.status === "discarded"),
+    [revisionList],
+  );
+  const hasDraftRevisions = useMemo(
+    () => revisionList.some((r) => DRAFT_REVISION_STATUSES.includes(r.status)),
     [revisionList],
   );
 
@@ -611,16 +649,23 @@ export default function CompareRevisionsModal({
             <Text size="medium" weight="medium" color="text-mid" mb="2" as="p">
               Select range of revisions
             </Text>
+            {hasDraftRevisions && (
+              <Flex gap="2" mb="1" justify="end" align="center">
+                <Text size="small" color="text-low">
+                  Show drafts
+                </Text>
+                <Switch size="1" value={showDrafts} onChange={setShowDrafts} />
+              </Flex>
+            )}
             {hasDiscardedRevisions && (
               <Flex gap="2" mb="2" justify="end" align="center">
                 <Text size="small" color="text-low">
-                  Show discarded revisions
+                  Show discarded
                 </Text>
                 <Switch
                   size="1"
                   value={showDiscarded}
                   onChange={setShowDiscarded}
-                  color="gray"
                 />
               </Flex>
             )}

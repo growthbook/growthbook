@@ -5,6 +5,7 @@ import {
   AuditUserLoggedIn,
   AuditUserSystem,
 } from "shared/types/audit";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useAuth } from "@/services/auth";
 import {
   AuditDiffConfig,
@@ -191,7 +192,8 @@ export function useAuditEntries<T>(
 ): UseAuditEntriesResult<T> {
   const { apiCall } = useAuth();
 
-  const [groupBy, setGroupBy] = useState<GroupByOption>(
+  const [groupBy, setGroupBy] = useLocalStorage<GroupByOption>(
+    `audit:compare-events:${config.entityType}:groupBy`,
     config.defaultGroupBy ?? "minute",
   );
   const [rawEntries, setRawEntries] = useState<RawAuditEntry<T>[]>([]);
