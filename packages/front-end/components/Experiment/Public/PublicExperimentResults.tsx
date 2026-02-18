@@ -7,7 +7,10 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-import {ExperimentInterfaceStringDates} from "shared/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  getEffectiveLookbackOverride,
+} from "shared/types/experiment";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -137,7 +140,10 @@ export default function PublicExperimentResults({
             reportDate={snapshot.dateCreated}
             isLatestPhase={phase === experiment.phases.length - 1}
             sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
-            lookbackOverride={experiment.lookbackOverride}
+            lookbackOverride={getEffectiveLookbackOverride(
+              snapshot?.settings?.attributionModel,
+              snapshot?.settings?.lookbackOverride,
+            )}
             differenceType={analysis?.settings?.differenceType || "relative"}
             ssrPolyfills={ssrPolyfills}
           >

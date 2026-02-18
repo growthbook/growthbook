@@ -3,6 +3,7 @@ import {
   ExperimentSnapshotReportInterface,
   MetricSnapshotSettings,
 } from "shared/types/report";
+import { getEffectiveLookbackOverride } from "shared/types/experiment";
 import { getSnapshotAnalysis } from "shared/util";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
@@ -187,9 +188,10 @@ export default function ReportResults({
             reportDate={snapshot.dateCreated}
             isLatestPhase={phase === phases.length - 1}
             sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
-            lookbackOverride={
-              report.experimentAnalysisSettings.lookbackOverride
-            }
+            lookbackOverride={getEffectiveLookbackOverride(
+              snapshot?.settings?.attributionModel,
+              snapshot?.settings?.lookbackOverride,
+            )}
             differenceType={analysis?.settings.differenceType}
             ssrPolyfills={ssrPolyfills}
             isReportContext

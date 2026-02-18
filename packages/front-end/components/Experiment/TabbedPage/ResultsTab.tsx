@@ -1,4 +1,7 @@
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  getEffectiveLookbackOverride,
+} from "shared/types/experiment";
 import { FactTableColumnType } from "shared/types/fact-table";
 import { getScopedSettings } from "shared/settings";
 import { isPrecomputedDimension } from "shared/experiments";
@@ -240,7 +243,10 @@ export default function ResultsTab({
                   value={activationMetric.name}
                 />
               ) : null}
-              {experiment.lookbackOverride ? (
+              {getEffectiveLookbackOverride(
+                experiment.attributionModel,
+                experiment.lookbackOverride,
+              ) && experiment.lookbackOverride ? (
                 <Metadata
                   label="Lookback Enforced"
                   value={

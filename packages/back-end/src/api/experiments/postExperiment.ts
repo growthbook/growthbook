@@ -133,6 +133,16 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       validateVariationIds(req.body.variations as Variation[]);
     }
 
+    // Validate attributionModel + lookbackOverride consistency
+    if (
+      req.body.attributionModel === "lookbackOverride" &&
+      !req.body.lookbackOverride
+    ) {
+      throw new Error(
+        "lookbackOverride is required when attributionModel is 'lookbackOverride'",
+      );
+    }
+
     // transform into exp interface; set sane defaults
     const newExperiment = postExperimentApiPayloadToInterface(
       {

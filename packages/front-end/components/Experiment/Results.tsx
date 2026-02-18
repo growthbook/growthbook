@@ -1,4 +1,7 @@
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  getEffectiveLookbackOverride,
+} from "shared/types/experiment";
 import React, { FC, useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
@@ -340,7 +343,10 @@ const Results: FC<{
           reportDate={snapshot?.dateCreated ?? new Date()}
           isLatestPhase={phase === experiment.phases.length - 1}
           sequentialTestingEnabled={analysis.settings?.sequentialTesting}
-          lookbackOverride={experiment.lookbackOverride}
+          lookbackOverride={getEffectiveLookbackOverride(
+            snapshot?.settings?.attributionModel,
+            snapshot?.settings?.lookbackOverride,
+          )}
           differenceType={analysis.settings?.differenceType || "relative"}
           baselineRow={analysisBarSettings.baselineRow}
           variationFilter={analysisBarSettings.variationFilter}

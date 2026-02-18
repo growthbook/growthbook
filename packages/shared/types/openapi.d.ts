@@ -3121,10 +3121,10 @@ export interface components {
         /** @enum {unknown} */
         inProgressConversions: "include" | "exclude";
         /**
-         * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+         * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
          * @enum {unknown}
          */
-        attributionModel: "firstExposure" | "experimentDuration";
+        attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
         /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. For type "window", value must be a non-negative number and valueUnit is required. */
         lookbackOverride?: {
           /** @enum {unknown} */
@@ -3245,10 +3245,10 @@ export interface components {
       /** @enum {unknown} */
       inProgressConversions: "include" | "exclude";
       /**
-       * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+       * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
        * @enum {unknown}
        */
-      attributionModel: "firstExposure" | "experimentDuration";
+      attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
       /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. For type "window", value must be a non-negative number and valueUnit is required. */
       lookbackOverride?: {
         /** @enum {unknown} */
@@ -3349,10 +3349,10 @@ export interface components {
         /** @enum {unknown} */
         inProgressConversions: "include" | "exclude";
         /**
-         * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+         * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
          * @enum {unknown}
          */
-        attributionModel: "firstExposure" | "experimentDuration";
+        attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
         /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. For type "window", value must be a non-negative number and valueUnit is required. */
         lookbackOverride?: {
           /** @enum {unknown} */
@@ -3515,10 +3515,10 @@ export interface components {
         /** @enum {unknown} */
         inProgressConversions: "include" | "exclude";
         /**
-         * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+         * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
          * @enum {unknown}
          */
-        attributionModel: "firstExposure" | "experimentDuration";
+        attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
         /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. For type "window", value must be a non-negative number and valueUnit is required. */
         lookbackOverride?: {
           /** @enum {unknown} */
@@ -4099,7 +4099,7 @@ export interface components {
       sequentialTestingEnabled: boolean;
       sequentialTestingTuningParameter: number;
       /** @enum {string} */
-      attributionModel: "firstExposure" | "experimentDuration";
+      attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
       targetMDE: number;
       delayHours: number;
       windowType: string;
@@ -9469,10 +9469,10 @@ export interface operations {
                   /** @enum {unknown} */
                   inProgressConversions: "include" | "exclude";
                   /**
-                   * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                   * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
                    * @enum {unknown}
                    */
-                  attributionModel: "firstExposure" | "experimentDuration";
+                  attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
                   /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. For type "window", value must be a non-negative number and valueUnit is required. */
                   lookbackOverride?: {
                     /** @enum {unknown} */
@@ -9628,10 +9628,10 @@ export interface operations {
           /** @enum {string} */
           inProgressConversions?: "loose" | "strict";
           /**
-           * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+           * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
            * @enum {string}
            */
-          attributionModel?: "firstExposure" | "experimentDuration";
+          attributionModel?: "firstExposure" | "experimentDuration" | "lookbackOverride";
           /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. For type "window", value must be a non-negative number and valueUnit is required. */
           lookbackOverride?: {
             /** @enum {unknown} */
@@ -9791,10 +9791,10 @@ export interface operations {
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
                 /**
-                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
                  * @enum {unknown}
                  */
-                attributionModel: "firstExposure" | "experimentDuration";
+                attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
                 /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. For type "window", value must be a non-negative number and valueUnit is required. */
                 lookbackOverride?: {
                   /** @enum {unknown} */
@@ -9995,10 +9995,10 @@ export interface operations {
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
                 /**
-                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
                  * @enum {unknown}
                  */
-                attributionModel: "firstExposure" | "experimentDuration";
+                attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
                 /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. For type "window", value must be a non-negative number and valueUnit is required. */
                 lookbackOverride?: {
                   /** @enum {unknown} */
@@ -10158,10 +10158,10 @@ export interface operations {
           /** @enum {string} */
           inProgressConversions?: "loose" | "strict";
           /**
-           * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+           * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
            * @enum {string}
            */
-          attributionModel?: "firstExposure" | "experimentDuration";
+          attributionModel?: "firstExposure" | "experimentDuration" | "lookbackOverride";
           /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. For type "window", value must be a non-negative number and valueUnit is required. */
           lookbackOverride?: {
             /** @enum {unknown} */
@@ -10321,10 +10321,10 @@ export interface operations {
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
                 /**
-                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
                  * @enum {unknown}
                  */
-                attributionModel: "firstExposure" | "experimentDuration";
+                attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
                 /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. For type "window", value must be a non-negative number and valueUnit is required. */
                 lookbackOverride?: {
                   /** @enum {unknown} */
@@ -10484,10 +10484,10 @@ export interface operations {
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
                 /**
-                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
                  * @enum {unknown}
                  */
-                attributionModel: "firstExposure" | "experimentDuration";
+                attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
                 /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. For type "window", value must be a non-negative number and valueUnit is required. */
                 lookbackOverride?: {
                   /** @enum {unknown} */
@@ -11512,10 +11512,10 @@ export interface operations {
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
                 /**
-                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
                  * @enum {unknown}
                  */
-                attributionModel: "firstExposure" | "experimentDuration";
+                attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
                 /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. For type "window", value must be a non-negative number and valueUnit is required. */
                 lookbackOverride?: {
                   /** @enum {unknown} */
@@ -14636,7 +14636,7 @@ export interface operations {
               sequentialTestingEnabled: boolean;
               sequentialTestingTuningParameter: number;
               /** @enum {string} */
-              attributionModel: "firstExposure" | "experimentDuration";
+              attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
               targetMDE: number;
               delayHours: number;
               windowType: string;

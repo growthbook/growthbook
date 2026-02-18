@@ -5,6 +5,7 @@ import {
   blockHasFieldOfType,
 } from "shared/enterprise";
 import { MetricSnapshotSettings } from "shared/types/report";
+import { getEffectiveLookbackOverride } from "shared/types/experiment";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_STATS_ENGINE,
@@ -120,7 +121,10 @@ export default function ExperimentDimensionBlock({
       isLatestPhase={true}
       sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
       differenceType={differenceType}
-      lookbackOverride={experiment.lookbackOverride}
+      lookbackOverride={getEffectiveLookbackOverride(
+        snapshot.settings.attributionModel,
+        snapshot.settings.lookbackOverride,
+      )}
       baselineRow={baselineRow}
       variationFilter={variationFilter}
     >

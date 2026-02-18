@@ -1157,6 +1157,15 @@ export async function postExperiments(
     organization: org,
   });
 
+  // Validate attributionModel + lookbackOverride consistency
+  if (obj.attributionModel === "lookbackOverride" && !obj.lookbackOverride) {
+    return res.status(400).json({
+      status: 400,
+      message:
+        "lookbackOverride is required when attributionModel is 'lookbackOverride'",
+    });
+  }
+
   try {
     validateVariationIds(obj.variations);
 
@@ -1549,6 +1558,24 @@ export async function postExperiment(
       type: "date",
       value: getValidDate(changes.lookbackOverride.value),
     };
+  }
+
+  // Validate attributionModel + lookbackOverride consistency
+  {
+    const effectiveAttrModel =
+      changes.attributionModel ?? experiment.attributionModel;
+    const effectiveLookback =
+      "lookbackOverride" in changes
+        ? changes.lookbackOverride
+        : experiment.lookbackOverride;
+    if (effectiveAttrModel === "lookbackOverride" && !effectiveLookback) {
+      res.status(400).json({
+        status: 400,
+        message:
+          "lookbackOverride is required when attributionModel is 'lookbackOverride'",
+      });
+      return;
+    }
   }
 
   // If changing phase start/end dates (from "Configure Analysis" modal)

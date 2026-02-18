@@ -48,11 +48,12 @@ const MetricAnalysisWindowSelector: FC<MetricAnalysisWindowSelectorProps> = ({
   const endDate = analysisEndDate ?? phaseEndDate ?? new Date();
   const [localWindowValue, setLocalWindowValue] = useState<string | null>(null);
 
-  const mode: MetricAnalysisWindowMode = lookbackOverride
-    ? "custom"
-    : attributionModel === "experimentDuration"
-      ? "ignore"
-      : "metric";
+  const mode: MetricAnalysisWindowMode =
+    attributionModel === "lookbackOverride" && lookbackOverride
+      ? "custom"
+      : attributionModel === "experimentDuration"
+        ? "ignore"
+        : "metric";
 
   const lookbackDateAfterPresentOrExperiment =
     lookbackOverride?.type === "date"
@@ -67,7 +68,7 @@ const MetricAnalysisWindowSelector: FC<MetricAnalysisWindowSelectorProps> = ({
       onAttributionModelChange("experimentDuration");
       onLookbackOverrideChange(undefined);
     } else {
-      onAttributionModelChange("experimentDuration");
+      onAttributionModelChange("lookbackOverride");
       onLookbackOverrideChange({
         type: "date",
         value: new Date(

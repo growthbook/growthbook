@@ -1,5 +1,6 @@
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { ExperimentSnapshotReportInterface } from "shared/types/report";
+import { getEffectiveLookbackOverride } from "shared/types/experiment";
 import { getSnapshotAnalysis } from "shared/util";
 import { ago, date, datetime, getValidDate } from "shared/dates";
 import React, { RefObject, useEffect, useMemo, useState } from "react";
@@ -66,7 +67,10 @@ export default function ReportAnalysisSettingsBar({
     ? getDatasourceById(report.experimentAnalysisSettings.datasource)?.settings
     : undefined;
 
-  const lookbackOverride = report.experimentAnalysisSettings.lookbackOverride;
+  const lookbackOverride = getEffectiveLookbackOverride(
+    report.experimentAnalysisSettings.attributionModel,
+    report.experimentAnalysisSettings.lookbackOverride,
+  );
 
   const userIdType = datasourceSettings?.queries?.exposure?.find(
     (e) => e.id === report.experimentAnalysisSettings.exposureQueryId,

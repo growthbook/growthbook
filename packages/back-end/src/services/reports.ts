@@ -38,6 +38,7 @@ import {
   ExperimentInterface,
   ExperimentPhase,
   MetricOverride,
+  getEffectiveLookbackOverride,
 } from "shared/types/experiment";
 import {
   ExperimentSnapshotAnalysisSettings,
@@ -666,7 +667,10 @@ export function getReportSnapshotSettings({
   );
 
   const endDate = report.experimentAnalysisSettings.dateEnded || new Date();
-  const lookbackOverride = report.experimentAnalysisSettings.lookbackOverride;
+  const lookbackOverride = getEffectiveLookbackOverride(
+    report.experimentAnalysisSettings.attributionModel,
+    report.experimentAnalysisSettings.lookbackOverride,
+  );
   const phaseLookbackWindow =
     lookbackOverride?.type === "window"
       ? {
@@ -711,6 +715,7 @@ export function getReportSnapshotSettings({
       report.experimentAnalysisSettings.activationMetric || null,
     attributionModel:
       report.experimentAnalysisSettings.attributionModel || "firstExposure",
+    lookbackOverride: lookbackOverride,
     skipPartialData: !!report.experimentAnalysisSettings.skipPartialData,
     segment: report.experimentAnalysisSettings.segment || "",
     queryFilter: report.experimentAnalysisSettings.queryFilter || "",

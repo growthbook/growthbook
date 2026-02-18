@@ -66,6 +66,7 @@ import {
   SafeRolloutSnapshotAnalysis,
   IncrementalRefreshInterface,
   LookbackOverrideValueUnit,
+  getEffectiveLookbackOverride,
 } from "shared/validators";
 import { Dimension } from "shared/types/integrations";
 import {
@@ -526,7 +527,10 @@ export function getSnapshotSettings({
   }
 
   const phaseEndDate = phase.dateEnded || currentDate;
-  const lookbackOverride = experiment.lookbackOverride;
+  const lookbackOverride = getEffectiveLookbackOverride(
+    experiment.attributionModel,
+    experiment.lookbackOverride,
+  );
   const phaseLookbackWindow =
     lookbackOverride?.type === "window"
       ? {
@@ -633,6 +637,7 @@ export function getSnapshotSettings({
   return {
     activationMetric: experiment.activationMetric || null,
     attributionModel: experiment.attributionModel || "firstExposure",
+    lookbackOverride: lookbackOverride,
     skipPartialData: !!experiment.skipPartialData,
     segment: experiment.segment || "",
     queryFilter: experiment.queryFilter || "",
@@ -2733,6 +2738,7 @@ export function postExperimentApiPayloadToInterface(
         }
       : {}),
     ...(payload.statsEngine ? { statsEngine: payload.statsEngine } : {}),
+    // Note: attributionModel + lookbackOverride consistency is validated by the controller
     variations:
       payload.variations.map((v) => ({
         ...v,

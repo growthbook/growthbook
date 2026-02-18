@@ -95,7 +95,8 @@ properties:
     enum:
       - firstExposure
       - experimentDuration
-    description: Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override.
+      - lookbackOverride
+    description: Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided.
   lookbackOverride:
     $ref: "../schemas/LookbackOverride.yaml"
   statsEngine:
