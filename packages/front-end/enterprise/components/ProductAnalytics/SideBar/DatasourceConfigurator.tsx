@@ -6,6 +6,7 @@ import {
   InformationSchemaTablesInterface,
 } from "shared/types/integrations";
 import { ProductAnalyticsDataset } from "shared/src/validators/product-analytics";
+import { PiCheck } from "react-icons/pi";
 import SelectField from "@/components/Forms/SelectField";
 import {
   getInferredTimestampColumn,
@@ -20,6 +21,8 @@ import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import Button from "@/ui/Button";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import BuildTablesCard from "./BuildTablesCard";
 import PendingTablesCard from "./PendingTablesCard";
 
@@ -35,6 +38,7 @@ export default function DatasourceConfigurator({
   dataset: ProductAnalyticsDataset;
 }) {
   const { datasources } = useDefinitions();
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const { setDraftExploreState } = useExplorerContext();
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
@@ -289,46 +293,53 @@ export default function DatasourceConfigurator({
             forceUndefinedValueToNull
           />
           {tableData && (
-            <>
-              <Text weight="medium" mt="2">
-                Timestamp Column
-              </Text>
-              <SelectField
-                disabled={!tableData}
-                value={databaseDataset?.timestampColumn || ""}
-                onChange={(timestampColumn) =>
-                  setDraftExploreState((prev) => ({
-                    ...prev,
-                    dataset: { ...dataset, timestampColumn },
-                  }))
-                }
-                options={
-                  tableData?.columns.map((c) => ({
-                    label: c.columnName,
-                    value: c.columnName,
-                  })) || []
-                }
-                formatOptionLabel={({ value, label }) => {
-                  let dataType = "";
-                  if (dataset?.type === "data_source") {
-                    dataType = dataset.columnTypes[value];
+            <Flex direction="column" gap="2" mt="2">
+              <Text weight="medium">Timestamp Column</Text>
+              <Flex justify="between" align="center">
+                <Text color="text-low">
+                  {databaseDataset?.timestampColumn ||
+                    "Select timestamp column..."}
+                </Text>
+                <DropdownMenu
+                  open={dropdownOpen}
+                  onOpenChange={setDropdownOpen}
+                  trigger={
+                    <Button size="xs" variant="ghost">
+                      <Text weight="semibold" size="small">
+                        {!databaseDataset?.timestampColumn
+                          ? "select"
+                          : "change"}
+                      </Text>
+                    </Button>
                   }
-                  return (
-                    <Flex
-                      direction="row"
-                      gap="2"
-                      align="center"
-                      justify="between"
+                >
+                  {tableData.columns.map((column) => (
+                    <DropdownMenuItem
+                      key={column.columnName}
+                      onClick={() => {
+                        setDraftExploreState((prev) => ({
+                          ...prev,
+                          dataset: {
+                            ...prev.dataset,
+                            timestampColumn: column.columnName,
+                          },
+                        }));
+                      }}
                     >
-                      <span>{label}</span>
-                      <span className="text-muted">{dataType}</span>
-                    </Flex>
-                  );
-                }}
-                placeholder="Select timestamp column..."
-                forceUndefinedValueToNull
-              />
-            </>
+                      <Flex align="center" justify="between" gap="2">
+                        <Flex align="center" width="20px">
+                          {databaseDataset?.timestampColumn ===
+                          column.columnName ? (
+                            <PiCheck size={16} />
+                          ) : null}
+                        </Flex>
+                        {column.columnName}
+                      </Flex>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenu>
+              </Flex>
+            </Flex>
           )}
         </>
       ) : datasourceId && informationSchema ? (
