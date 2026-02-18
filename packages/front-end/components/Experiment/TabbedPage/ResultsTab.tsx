@@ -172,7 +172,8 @@ export default function ResultsTab({
     }));
   }, [setAnalysisBarSettings, setAnalysisSettings]);
 
-  const endDate = snapshot?.settings?.endDate;
+  const endDate =
+    experiment.status !== "running" ? snapshot?.settings?.endDate : undefined;
   return (
     <div>
       {isBandit && hasResults ? (

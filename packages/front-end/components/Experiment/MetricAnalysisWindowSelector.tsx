@@ -17,11 +17,6 @@ import HelperText from "@/ui/HelperText";
 import { GBInfo } from "@/components/Icons";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
 
-export type MetricAnalysisWindowMode =
-  | "metric" // Use Metric Settings
-  | "ignore" // Ignore Conversion Windows
-  | "custom"; // Use Custom Lookback Window
-
 export type MetricAnalysisWindowSelectorProps = {
   attributionModel: AttributionModel;
   lookbackOverride: LookbackOverride | undefined;
@@ -48,23 +43,17 @@ const MetricAnalysisWindowSelector: FC<MetricAnalysisWindowSelectorProps> = ({
   const endDate = analysisEndDate ?? phaseEndDate ?? new Date();
   const [localWindowValue, setLocalWindowValue] = useState<string | null>(null);
 
-  const mode: MetricAnalysisWindowMode =
-    attributionModel === "lookbackOverride" && lookbackOverride
-      ? "custom"
-      : attributionModel === "experimentDuration"
-        ? "ignore"
-        : "metric";
-
   const lookbackDateAfterPresentOrExperiment =
     lookbackOverride?.type === "date"
       ? lookbackOverride.value > endDate
       : false;
-  const handleModeChange = (v: string) => {
-    if (!v) return;
-    if (v === "metric") {
+  const handleModeChange = (next: string) => {
+    if (next === attributionModel) return;
+    if (!next) return;
+    if (next === "firstExposure") {
       onAttributionModelChange("firstExposure");
       onLookbackOverrideChange(undefined);
-    } else if (v === "ignore") {
+    } else if (next === "experimentDuration") {
       onAttributionModelChange("experimentDuration");
       onLookbackOverrideChange(undefined);
     } else {
@@ -90,19 +79,25 @@ const MetricAnalysisWindowSelector: FC<MetricAnalysisWindowSelectorProps> = ({
               </AttributionModelTooltip>
             }
             labelClassName="font-weight-bold"
-            value={mode}
+            value={attributionModel}
             onChange={handleModeChange}
             options={[
-              { label: "Respect Metric Settings", value: "metric" },
-              { label: "Ignore Conversion Windows", value: "ignore" },
-              { label: "Use Custom Lookback Window", value: "custom" },
+              { label: "Respect Metric Settings", value: "firstExposure" },
+              {
+                label: "Ignore Conversion Windows",
+                value: "experimentDuration",
+              },
+              {
+                label: "Use Custom Lookback Window",
+                value: "lookbackOverride",
+              },
             ]}
             sort={false}
             disabled={disabled}
             helpText="Apply custom metric window behavior in this experiment."
           />
         </Box>
-        {mode === "custom" && lookbackOverride && (
+        {attributionModel === "lookbackOverride" && lookbackOverride && (
           <Box className="appbox bg-light p-3">
             <Box mb="2">
               <RadioGroup

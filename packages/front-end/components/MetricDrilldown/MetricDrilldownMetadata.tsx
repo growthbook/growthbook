@@ -4,7 +4,7 @@ import { quantileMetricType, isFactMetric } from "shared/experiments";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { StatsEngine } from "shared/types/stats";
 import { LookbackOverride } from "shared/validators";
-import { datetime } from "shared/dates";
+import { date } from "shared/dates";
 import Metadata from "@/ui/Metadata";
 import FactMetricTypeDisplayName from "@/components/Metrics/FactMetricTypeDisplayName";
 import { getPercentileLabel } from "@/services/metrics";
@@ -90,10 +90,10 @@ export function MetricDrilldownMetadata({
       metricForSnapshot, but would require potentially reconstructing more settings*/}
       {lookbackOverride ? (
         <Metadata
-          label="Lookback Window Enforced"
+          label="Lookback Window Override"
           value={
             lookbackOverride.type === "date"
-              ? `From ${datetime(lookbackOverride.value)} to now/end of experiment`
+              ? `${date(lookbackOverride.value)} - now/end`
               : `${lookbackOverride.value} ${lookbackOverride.valueUnit}`
           }
         />
