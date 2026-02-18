@@ -5,6 +5,7 @@ import {
 } from "shared/types/feature-revision";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import { PiArrowsLeftRightBold } from "react-icons/pi";
 import { datetime } from "shared/dates";
 import { DRAFT_REVISION_STATUSES } from "shared/util";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
@@ -22,6 +23,8 @@ import {
   useFeatureRevisionDiff,
   FeatureRevisionDiffInput,
 } from "@/hooks/useFeatureRevisionDiff";
+import Callout from "@/ui/Callout";
+import HelperText from "@/ui/HelperText";
 import { ExpandableDiff } from "./DraftModal";
 import RevisionStatusBadge from "./RevisionStatusBadge";
 import styles from "./CompareRevisionsModal.module.scss";
@@ -40,6 +43,54 @@ function revisionToDiffInput(
   r: FeatureRevisionInterface,
 ): FeatureRevisionDiffInput {
   return { defaultValue: r.defaultValue, rules: r.rules ?? {} };
+}
+
+function RevisionCompareLabel({
+  versionA,
+  versionB,
+  revA,
+  revB,
+  liveVersion,
+  mb,
+}: {
+  versionA: number;
+  versionB: number;
+  revA: FeatureRevisionInterface | null;
+  revB: FeatureRevisionInterface | null;
+  liveVersion: number;
+  mb?: "1" | "2" | "3" | "4";
+}) {
+  return (
+    <Flex align="center" gap="4" wrap="nowrap" mb={mb}>
+      <Flex direction="column">
+        <Flex align="center" justify="between" gap="2">
+          <Text weight="semibold" size="medium">
+            Revision {versionA}
+          </Text>
+          <RevisionStatusBadge revision={revA} liveVersion={liveVersion} />
+        </Flex>
+        {revA && (
+          <Text as="div" size="small" color="text-low">
+            based on: {revA.baseVersion}
+          </Text>
+        )}
+      </Flex>
+      <PiArrowsLeftRightBold size={16} />
+      <Flex direction="column">
+        <Flex align="center" justify="between" gap="2">
+          <Text weight="semibold" size="medium">
+            Revision {versionB}
+          </Text>
+          <RevisionStatusBadge revision={revB} liveVersion={liveVersion} />
+        </Flex>
+        {revB && (
+          <Text as="div" size="small" color="text-low">
+            based on: {revB.baseVersion}
+          </Text>
+        )}
+      </Flex>
+    </Flex>
+  );
 }
 
 export default function CompareRevisionsModal({
@@ -246,6 +297,19 @@ export default function CompareRevisionsModal({
     [revisionList],
   );
 
+  // Show when the selection includes a draft whose base is not current live —
+  // publishing that draft would do a 3-way merge, so the pairwise diff here may differ from the actual result.
+  const showMergeWarning = useMemo(() => {
+    return selectedSorted.some((version) => {
+      const full = getFullRevision(version);
+      if (!full) return false;
+      return (
+        DRAFT_REVISION_STATUSES.includes(full.status) &&
+        full.baseVersion !== liveVersion
+      );
+    });
+  }, [selectedSorted, getFullRevision, liveVersion]);
+
   const revisionListByVersion = useMemo(
     () => new Map(filteredRevisionList.map((r) => [r.version, r])),
     [filteredRevisionList],
@@ -260,14 +324,21 @@ export default function CompareRevisionsModal({
   }, [filteredRevisionList]);
 
   const quickActionRanges = useMemo(() => {
+    const draftLow =
+      mostRecentDraftVersion != null && liveVersion != null
+        ? Math.min(mostRecentDraftVersion, liveVersion)
+        : null;
+    const draftHigh =
+      mostRecentDraftVersion != null && liveVersion != null
+        ? Math.max(mostRecentDraftVersion, liveVersion)
+        : null;
     const draftRange: number[] | null =
-      mostRecentDraftVersion != null &&
-      mostRecentDraftVersion !== liveVersion &&
-      versionsAsc.includes(liveVersion) &&
-      versionsAsc.includes(mostRecentDraftVersion)
-        ? versionsAsc.filter(
-            (v) => v >= liveVersion && v <= mostRecentDraftVersion,
-          )
+      draftLow != null &&
+      draftHigh != null &&
+      draftLow !== draftHigh &&
+      versionsAsc.includes(draftLow) &&
+      versionsAsc.includes(draftHigh)
+        ? versionsAsc.filter((v) => v >= draftLow && v <= draftHigh)
         : null;
     const livePrev = liveVersion - 1;
     const liveRange: number[] | null =
@@ -350,7 +421,8 @@ export default function CompareRevisionsModal({
                     <Flex direction="column" gap="1" style={{ minWidth: 0 }}>
                       <Text weight="semibold">Most recent draft changes</Text>
                       <Text size="small" color="text-low">
-                        Revisions {quickActionRanges.draftRange[0]} →{" "}
+                        Revisions {quickActionRanges.draftRange[0]}{" "}
+                        <PiArrowsLeftRightBold />{" "}
                         {
                           quickActionRanges.draftRange[
                             quickActionRanges.draftRange.length - 1
@@ -372,7 +444,8 @@ export default function CompareRevisionsModal({
                     <Flex direction="column" gap="1" style={{ minWidth: 0 }}>
                       <Text weight="semibold">Most recent live changes</Text>
                       <Text size="small" color="text-low">
-                        Revisions {quickActionRanges.liveRange[0]} →{" "}
+                        Revisions {quickActionRanges.liveRange[0]}{" "}
+                        <PiArrowsLeftRightBold />{" "}
                         {quickActionRanges.liveRange[1]}
                       </Text>
                     </Flex>
@@ -390,7 +463,8 @@ export default function CompareRevisionsModal({
                     <Flex direction="column" gap="1" style={{ minWidth: 0 }}>
                       <Text weight="semibold">All changes</Text>
                       <Text size="small" color="text-low">
-                        Revisions {quickActionRanges.allRange[0]} →{" "}
+                        Revisions {quickActionRanges.allRange[0]}{" "}
+                        <PiArrowsLeftRightBold />{" "}
                         {
                           quickActionRanges.allRange[
                             quickActionRanges.allRange.length - 1
@@ -423,6 +497,11 @@ export default function CompareRevisionsModal({
             <Flex direction="column" className={styles.revisionsList}>
               {versionsDesc.map((v) => {
                 const minRev = revisionListByVersion.get(v);
+                const fullRev = getFullRevision(v);
+                const showBase =
+                  fullRev &&
+                  DRAFT_REVISION_STATUSES.includes(fullRev.status) &&
+                  fullRev.baseVersion !== liveVersion;
                 const date =
                   minRev?.status === "published"
                     ? minRev?.datePublished
@@ -436,11 +515,13 @@ export default function CompareRevisionsModal({
                     className={`${styles.row} ${isSelected ? styles.rowSelected : ""}`}
                   >
                     <label htmlFor={rowId}>
-                      <Checkbox
-                        id={rowId}
-                        value={isSelected}
-                        setValue={() => toggleVersion(v)}
-                      />
+                      <span style={{ pointerEvents: "none" }}>
+                        <Checkbox
+                          id={rowId}
+                          value={isSelected}
+                          setValue={() => toggleVersion(v)}
+                        />
+                      </span>
                       <Flex
                         direction="column"
                         gap="1"
@@ -465,6 +546,11 @@ export default function CompareRevisionsModal({
                             {datetime(date)} ·{" "}
                             <EventUser user={minRev.createdBy} display="name" />
                           </Text>
+                        )}
+                        {showBase && (
+                          <HelperText status="info" size="sm" mt="1">
+                            based on: {fullRev.baseVersion}
+                          </HelperText>
                         )}
                       </Flex>
                     </label>
@@ -540,10 +626,13 @@ export default function CompareRevisionsModal({
                     </>
                   )}
                   {diffViewMode === "single" && selectedSorted.length >= 2 && (
-                    <Heading as="h2" size="small" mb="0">
-                      Revision {selectedSorted[0]} → Revision{" "}
-                      {selectedSorted[selectedSorted.length - 1]}
-                    </Heading>
+                    <RevisionCompareLabel
+                      versionA={selectedSorted[0]}
+                      versionB={selectedSorted[selectedSorted.length - 1]}
+                      revA={singleRevFirst}
+                      revB={singleRevLast}
+                      liveVersion={liveVersion}
+                    />
                   )}
                 </Flex>
                 <Flex align="center" gap="2">
@@ -562,47 +651,34 @@ export default function CompareRevisionsModal({
                   </Select>
                 </Flex>
               </Flex>
-              {diffViewMode === "single" ? (
-                selectedSorted.length < 2 ? (
+              <>
+                {diffViewMode === "steps" && currentStep && (
+                  <RevisionCompareLabel
+                    versionA={currentStep[0]}
+                    versionB={currentStep[1]}
+                    revA={stepRevA}
+                    revB={stepRevB}
+                    liveVersion={liveVersion}
+                    mb="3"
+                  />
+                )}
+                {showMergeWarning && (
+                  <Callout status="info" size="sm" mb="4">
+                    A draft in this comparison is based on an older version than
+                    what is currently live. When you publish, it will be merged
+                    with the live version, so the result may differ from the
+                    diff shown here.
+                  </Callout>
+                )}
+                {(diffViewMode === "single" ? mergedDiffs : stepDiffs)
+                  .length === 0 ? (
                   <Text color="text-low">
-                    Select at least two revisions to see the merged diff.
+                    No changes between these revisions.
                   </Text>
-                ) : singleRevFirst && singleRevLast ? (
-                  mergedDiffs.length === 0 ? (
-                    <Text color="text-low">
-                      No changes between Revision {selectedSorted[0]} and
-                      Revision {selectedSorted[selectedSorted.length - 1]}.
-                    </Text>
-                  ) : (
-                    <Flex direction="column" gap="1">
-                      {mergedDiffs.map((d) => (
-                        <ExpandableDiff
-                          key={d.title}
-                          title={d.title}
-                          a={d.a}
-                          b={d.b}
-                          defaultOpen
-                        />
-                      ))}
-                    </Flex>
-                  )
                 ) : (
-                  <LoadingOverlay />
-                )
-              ) : (
-                <>
-                  {currentStep && (
-                    <Text size="large" color="text-high" mb="3" as="p">
-                      Revision {currentStep[0]} → Revision {currentStep[1]}
-                    </Text>
-                  )}
-                  {stepRevA && stepRevB && stepDiffs.length === 0 ? (
-                    <Text color="text-low">
-                      No changes between these revisions.
-                    </Text>
-                  ) : (
-                    <Flex direction="column" gap="4">
-                      {stepDiffs.map((d) => (
+                  <Flex direction="column" gap="4">
+                    {(diffViewMode === "single" ? mergedDiffs : stepDiffs).map(
+                      (d) => (
                         <ExpandableDiff
                           key={d.title}
                           title={d.title}
@@ -610,11 +686,11 @@ export default function CompareRevisionsModal({
                           b={d.b}
                           defaultOpen
                         />
-                      ))}
-                    </Flex>
-                  )}
-                </>
-              )}
+                      ),
+                    )}
+                  </Flex>
+                )}
+              </>
             </>
           )}
         </Box>
