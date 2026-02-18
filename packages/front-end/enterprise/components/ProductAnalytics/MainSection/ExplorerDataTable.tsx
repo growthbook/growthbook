@@ -2,6 +2,86 @@ import { useMemo } from "react";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 
+type ColumnSlot =
+  | { type: "dimension"; key: string; dimIndex: number }
+  | {
+      type: "metric";
+      key: string;
+      metricIndex: number;
+      sub: "numerator" | "denominator" | "value" | "single";
+    };
+
+function getDimensionCellValue(
+  row: { dimensions: (string | null)[] },
+  dimIndex: number,
+  context: {
+    dimensionColumnHeaders: string[];
+    submittedExploreState: { dimensions?: { dimensionType?: string }[] } | null;
+  },
+): unknown {
+  const dimension = row.dimensions[dimIndex];
+  const { dimensionColumnHeaders, submittedExploreState } = context;
+  if (dimension) {
+    const currentDimension = submittedExploreState?.dimensions?.[dimIndex];
+    if (currentDimension?.dimensionType === "date") {
+      return new Date(dimension).toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+    }
+    return dimension;
+  }
+  if (dimensionColumnHeaders[0] === "Total") return "Total";
+  return "";
+}
+
+function getMetricCellValue(
+  row: {
+    values: { numerator?: number | null; denominator?: number | null }[];
+  },
+  metricIndex: number,
+  sub: "numerator" | "denominator" | "value" | "single",
+): unknown {
+  const value = row.values[metricIndex];
+  if (sub === "numerator") {
+    return value?.numerator != null ? value.numerator : "";
+  }
+  if (sub === "denominator") {
+    return value?.denominator != null ? value.denominator : "";
+  }
+  if (sub === "value" || sub === "single") {
+    if (value?.numerator != null && value?.denominator != null) {
+      return (value.numerator / value.denominator).toFixed(2);
+    }
+    if (value?.numerator != null && sub === "single") {
+      const val = value.denominator
+        ? value.numerator / value.denominator
+        : value.numerator;
+      return val.toFixed(2);
+    }
+    return "";
+  }
+  return "";
+}
+
+function getSlotValue(
+  row: {
+    dimensions: (string | null)[];
+    values: { numerator?: number | null; denominator?: number | null }[];
+  },
+  slot: ColumnSlot,
+  context: {
+    dimensionColumnHeaders: string[];
+    submittedExploreState: { dimensions?: { dimensionType?: string }[] } | null;
+  },
+): unknown {
+  if (slot.type === "dimension") {
+    return getDimensionCellValue(row, slot.dimIndex, context);
+  }
+  return getMetricCellValue(row, slot.metricIndex, slot.sub);
+}
+
 export default function ExplorerDataTable() {
   const { exploreData, submittedExploreState, loading, exploreError } =
     useExplorerContext();
@@ -28,6 +108,89 @@ export default function ExplorerDataTable() {
     return submittedExploreState?.dataset?.values.map((v) => v.name) || [];
   }, [submittedExploreState?.dataset?.values]);
 
+  const hasDenominatorAt = useMemo(() => {
+    const rawRows = exploreData?.rows || [];
+    const numValues = valueColumnHeaders.length;
+    const out: boolean[] = [];
+    for (let i = 0; i < numValues; i++) {
+      out[i] = rawRows.some((row) => row.values[i]?.denominator != null);
+    }
+    return out;
+  }, [exploreData?.rows, valueColumnHeaders.length]);
+
+  const hasAnyDenominator = hasDenominatorAt.some(Boolean);
+
+  const columnSchema = useMemo((): ColumnSlot[] => {
+    const schema: ColumnSlot[] = [];
+    dimensionColumnHeaders.forEach((label, i) => {
+      schema.push({ type: "dimension", key: label, dimIndex: i });
+    });
+    valueColumnHeaders.forEach((name, i) => {
+      if (hasDenominatorAt[i]) {
+        schema.push({
+          type: "metric",
+          key: `${name}_Numerator`,
+          metricIndex: i,
+          sub: "numerator",
+        });
+        schema.push({
+          type: "metric",
+          key: `${name}_Denominator`,
+          metricIndex: i,
+          sub: "denominator",
+        });
+        schema.push({
+          type: "metric",
+          key: `${name}_Value`,
+          metricIndex: i,
+          sub: "value",
+        });
+      } else {
+        schema.push({
+          type: "metric",
+          key: name,
+          metricIndex: i,
+          sub: "single",
+        });
+      }
+    });
+    return schema;
+  }, [dimensionColumnHeaders, valueColumnHeaders, hasDenominatorAt]);
+
+  const orderedColumnKeys = useMemo(
+    () => columnSchema.map((s) => s.key),
+    [columnSchema],
+  );
+
+  const headerStructure = useMemo((): {
+    row1: { label: string; colSpan?: number; rowSpan?: number }[];
+    row2Labels: string[];
+  } | null => {
+    if (!hasAnyDenominator) return null;
+    const row1: { label: string; colSpan?: number; rowSpan?: number }[] = [];
+    const row2Labels: string[] = [];
+    for (const slot of columnSchema) {
+      if (slot.type === "dimension") {
+        row1.push({ label: slot.key, rowSpan: 2 });
+      } else {
+        if (slot.sub === "numerator" || slot.sub === "single") {
+          row1.push({
+            label: valueColumnHeaders[slot.metricIndex],
+            colSpan: slot.sub === "single" ? 1 : 3,
+          });
+        }
+        row2Labels.push(
+          slot.sub === "numerator"
+            ? "Numerator"
+            : slot.sub === "denominator"
+              ? "Denominator"
+              : "Value",
+        );
+      }
+    }
+    return { row1, row2Labels };
+  }, [hasAnyDenominator, columnSchema, valueColumnHeaders]);
+
   const rowData = useMemo(() => {
     const rawRows = exploreData?.rows || [];
     const isTimeseries =
@@ -42,79 +205,24 @@ export default function ExplorerDataTable() {
         })
       : rawRows;
 
-    const numValues = valueColumnHeaders.length;
-    const hasDenominatorAt: boolean[] = [];
-    for (let i = 0; i < numValues; i++) {
-      hasDenominatorAt[i] = rowsToProcess.some(
-        (row) => row.values[i]?.denominator != null,
+    const context = {
+      dimensionColumnHeaders,
+      submittedExploreState,
+    };
+
+    return rowsToProcess.map((row) => {
+      const values = columnSchema.map((slot) =>
+        getSlotValue(row, slot, context),
       );
-    }
-
-    // Build rows to pass to DisplayTestQueryResults
-    const rows: Record<string, unknown>[] = [];
-    for (const row of rowsToProcess) {
-      const rowObject: Record<string, unknown> = {};
-
-      // Add dimension values
-      for (let i = 0; i < dimensionColumnHeaders.length; i++) {
-        const dimension = row.dimensions[i];
-        const columnName = dimensionColumnHeaders[i];
-
-        if (dimension) {
-          const currentDimension = submittedExploreState?.dimensions?.[i];
-          if (currentDimension?.dimensionType === "date") {
-            rowObject[columnName] = new Date(dimension).toLocaleDateString(
-              undefined,
-              {
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              },
-            );
-          } else {
-            rowObject[columnName] = dimension;
-          }
-        } else if (dimensionColumnHeaders[0] === "Total") {
-          rowObject[columnName] = "Total";
-        } else {
-          rowObject[columnName] = "";
-        }
-      }
-
-      // Add value columns
-      for (let i = 0; i < numValues; i++) {
-        const value = row.values[i];
-        const baseName = valueColumnHeaders[i];
-
-        if (value?.numerator) {
-          let val = value.numerator;
-          if (value.denominator) {
-            val /= value.denominator;
-          }
-          rowObject[baseName] = val.toFixed(2);
-        } else {
-          rowObject[baseName] = "";
-        }
-
-        if (hasDenominatorAt[i]) {
-          if (value?.denominator != null) {
-            rowObject["Value"] = value.numerator ?? "";
-            rowObject["Units"] = value.denominator;
-          } else {
-            rowObject["Value"] = "";
-            rowObject["Units"] = "";
-          }
-        }
-      }
-
-      rows.push(rowObject);
-    }
-    return rows;
+      return Object.fromEntries(
+        columnSchema.map((slot, i) => [slot.key, values[i]]),
+      ) as Record<string, unknown>;
+    });
   }, [
     exploreData?.rows,
-    submittedExploreState?.dimensions,
     dimensionColumnHeaders,
-    valueColumnHeaders,
+    columnSchema,
+    submittedExploreState,
   ]);
 
   if (loading) return null;
@@ -129,6 +237,8 @@ export default function ExplorerDataTable() {
       allowDownload={true}
       showSampleHeader={false}
       showDuration={false}
+      headerStructure={headerStructure ?? undefined}
+      orderedColumnKeys={orderedColumnKeys}
     />
   );
 }

@@ -10,6 +10,11 @@ import Callout from "@/ui/Callout";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { AreaWithHeader } from "@/components/SchemaBrowser/SqlExplorerModal";
 
+export type HeaderStructure = {
+  row1: { label: string; colSpan?: number; rowSpan?: number }[];
+  row2Labels: string[];
+};
+
 export type Props = {
   results: Record<string, unknown>[];
   duration: number;
@@ -21,6 +26,8 @@ export type Props = {
   showSampleHeader?: boolean;
   renderedSQLLabel?: string;
   showDuration?: boolean;
+  headerStructure?: HeaderStructure;
+  orderedColumnKeys?: string[];
 };
 
 export default function DisplayTestQueryResults({
@@ -34,9 +41,12 @@ export default function DisplayTestQueryResults({
   showSampleHeader = true,
   renderedSQLLabel = "Rendered SQL",
   showDuration = true,
+  headerStructure,
+  orderedColumnKeys,
 }: Props) {
   const [downloadError, setDownloadError] = useState<string | null>(null);
-  const cols = Object.keys(results?.[0] || {});
+  const cols = orderedColumnKeys ?? Object.keys(results?.[0] || {});
+  const useTwoRowHeader = headerStructure != null && orderedColumnKeys != null;
 
   const forceShowSql = error || !results.length;
 
@@ -208,19 +218,40 @@ export default function DisplayTestQueryResults({
                     backgroundColor: "var(--color-panel-solid)",
                   }}
                 >
-                  <tr>
-                    {cols.map((col) => (
-                      <th key={col}>{col}</th>
-                    ))}
-                  </tr>
+                  {useTwoRowHeader && headerStructure ? (
+                    <>
+                      <tr>
+                        {headerStructure.row1.map((cell, idx) => (
+                          <th
+                            key={idx}
+                            rowSpan={cell.rowSpan}
+                            colSpan={cell.colSpan ?? 1}
+                          >
+                            {cell.label}
+                          </th>
+                        ))}
+                      </tr>
+                      <tr>
+                        {headerStructure.row2Labels.map((label, idx) => (
+                          <th key={idx}>{label}</th>
+                        ))}
+                      </tr>
+                    </>
+                  ) : (
+                    <tr>
+                      {cols.map((col) => (
+                        <th key={col}>{col}</th>
+                      ))}
+                    </tr>
+                  )}
                 </thead>
                 <tbody>
                   {results
                     .slice((page - 1) * pageSize, page * pageSize)
                     .map((result, i) => (
                       <tr key={i}>
-                        {Object.values(result).map((val, j) => (
-                          <td key={j}>{JSON.stringify(val)}</td>
+                        {cols.map((key, j) => (
+                          <td key={j}>{JSON.stringify(result[key])}</td>
                         ))}
                       </tr>
                     ))}
