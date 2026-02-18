@@ -179,6 +179,7 @@ export type SDKAttribute = {
   format?: SDKAttributeFormat;
   projects?: string[];
   disableEqualityConditions?: boolean;
+  tags?: string[];
 };
 
 export type SDKAttributeSchema = SDKAttribute[];
