@@ -42,6 +42,14 @@ export default function ExplorerDataTable() {
         })
       : rawRows;
 
+    const numValues = valueColumnHeaders.length;
+    const hasDenominatorAt: boolean[] = [];
+    for (let i = 0; i < numValues; i++) {
+      hasDenominatorAt[i] = rowsToProcess.some(
+        (row) => row.values[i]?.denominator != null,
+      );
+    }
+
     // Build rows to pass to DisplayTestQueryResults
     const rows: Record<string, unknown>[] = [];
     for (const row of rowsToProcess) {
@@ -74,18 +82,28 @@ export default function ExplorerDataTable() {
       }
 
       // Add value columns
-      for (let i = 0; i < row.values.length; i++) {
+      for (let i = 0; i < numValues; i++) {
         const value = row.values[i];
-        const columnName = valueColumnHeaders[i];
+        const baseName = valueColumnHeaders[i];
 
         if (value?.numerator) {
           let val = value.numerator;
           if (value.denominator) {
             val /= value.denominator;
           }
-          rowObject[columnName] = val.toFixed(2);
+          rowObject[baseName] = val.toFixed(2);
         } else {
-          rowObject[columnName] = "";
+          rowObject[baseName] = "";
+        }
+
+        if (hasDenominatorAt[i]) {
+          if (value?.denominator != null) {
+            rowObject["Value"] = value.numerator ?? "";
+            rowObject["Units"] = value.denominator;
+          } else {
+            rowObject["Value"] = "";
+            rowObject["Units"] = "";
+          }
         }
       }
 
