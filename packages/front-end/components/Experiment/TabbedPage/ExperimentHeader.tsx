@@ -77,6 +77,7 @@ export interface Props {
   duplicate?: (() => void) | null;
   setStatusModal: (open: boolean) => void;
   setAuditModal: (open: boolean) => void;
+  setCompareModal: (open: boolean) => void;
   setWatchersModal: (open: boolean) => void;
   editResult?: () => void;
   safeToEdit: boolean;
@@ -136,6 +137,7 @@ export default function ExperimentHeader({
   mutate,
   duplicate,
   setAuditModal,
+  setCompareModal,
   setStatusModal,
   setWatchersModal,
   safeToEdit,
@@ -989,6 +991,14 @@ export default function ExperimentHeader({
                 }}
               >
                 Audit log
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  setCompareModal(true);
+                  setDropdownOpen(false);
+                }}
+              >
+                Compare changes
               </DropdownMenuItem>
               {/* Only show the separator if one of the following cases is true to avoid double separators */}
               {(showConvertButton ||

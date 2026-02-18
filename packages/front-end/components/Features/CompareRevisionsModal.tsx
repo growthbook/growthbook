@@ -350,8 +350,6 @@ export default function CompareRevisionsModal({
 
   const toggleVersion = (version: number) => {
     setSelectedVersions((prev) => {
-      const low = Math.min(...prev);
-      const high = Math.max(...prev);
       if (prev.includes(version)) {
         if (prev.length <= 2) return prev;
         const left = prev.filter((v) => v < version).sort((a, b) => a - b);
@@ -369,6 +367,38 @@ export default function CompareRevisionsModal({
         if (right.length >= 2) return right;
         return prev;
       }
+
+      const idx = versionsDesc.indexOf(version);
+      if (idx === -1) return prev;
+
+      // Find the current selection range as indices in versionsDesc (newest-first)
+      const prevIndices = prev
+        .map((v) => versionsDesc.indexOf(v))
+        .filter((i) => i !== -1)
+        .sort((a, b) => a - b);
+
+      if (prevIndices.length > 0) {
+        const startIdx = prevIndices[0]; // newest selected (lowest display index)
+        const endIdx = prevIndices[prevIndices.length - 1]; // oldest selected
+
+        // If 4+ positions outside the current range, clear and pair with the
+        // item immediately below (older) instead of expanding.
+        if (idx <= startIdx - 4 || idx >= endIdx + 4) {
+          if (idx < versionsDesc.length - 1) {
+            return [versionsDesc[idx + 1], versionsDesc[idx]].sort(
+              (a, b) => a - b,
+            );
+          }
+          // Clicked the very last (oldest) revision — round up to the two newest
+          if (versionsDesc.length >= 2) {
+            return [versionsDesc[1], versionsDesc[0]].sort((a, b) => a - b);
+          }
+          return prev;
+        }
+      }
+
+      const low = Math.min(...prev);
+      const high = Math.max(...prev);
       const newLow = Math.min(low, version);
       const newHigh = Math.max(high, version);
       return versionsAsc.filter((v) => v >= newLow && v <= newHigh);
@@ -498,10 +528,10 @@ export default function CompareRevisionsModal({
           {(quickActionRanges.draftRange ||
             quickActionRanges.liveRange ||
             quickActionRanges.allRange) && (
-            <Box className={`${styles.section} border-bottom`}>
+            <Box className={`${styles.section} border-bottom`} pb="2">
               <Text
                 size="medium"
-                weight="regular"
+                weight="medium"
                 color="text-mid"
                 mb="2"
                 as="p"
@@ -578,7 +608,7 @@ export default function CompareRevisionsModal({
             </Box>
           )}
           <Box className={styles.section} pb="3">
-            <Text size="medium" weight="regular" color="text-mid" mb="2" as="p">
+            <Text size="medium" weight="medium" color="text-mid" mb="2" as="p">
               Select range of revisions
             </Text>
             {hasDiscardedRevisions && (
