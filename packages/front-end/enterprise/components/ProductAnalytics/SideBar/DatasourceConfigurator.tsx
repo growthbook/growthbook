@@ -289,7 +289,7 @@ export default function DatasourceConfigurator({
           {tableData && (
             <>
               <Text weight="medium" mt="2">
-                Timestamp column
+                Timestamp Column
               </Text>
               <SelectField
                 disabled={!tableData}
@@ -306,6 +306,23 @@ export default function DatasourceConfigurator({
                     value: c.columnName,
                   })) || []
                 }
+                formatOptionLabel={({ value, label }) => {
+                  let dataType = "";
+                  if (dataset?.type === "data_source") {
+                    dataType = dataset.columnTypes[value];
+                  }
+                  return (
+                    <Flex
+                      direction="row"
+                      gap="2"
+                      align="center"
+                      justify="between"
+                    >
+                      <span>{label}</span>
+                      <span className="text-muted">{dataType}</span>
+                    </Flex>
+                  );
+                }}
                 placeholder="Select timestamp column..."
                 forceUndefinedValueToNull
               />
