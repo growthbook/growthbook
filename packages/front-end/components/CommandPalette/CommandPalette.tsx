@@ -62,16 +62,60 @@ const SECTION_ICONS: Record<
 
 const MAX_PER_SECTION = 5;
 
-const CommandPalette: FC = () => {
+/**
+ * Lightweight wrapper that handles global Cmd/Ctrl+K and custom event listeners.
+ * Only mounts the heavy CommandPalette (with data hooks) when the palette is open.
+ */
+export const CommandPaletteLauncher: FC = () => {
   const [open, setOpen] = useState(false);
+  const previousFocusRef = useRef<Element | null>(null);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setOpen((prev) => {
+          if (!prev) {
+            previousFocusRef.current = document.activeElement;
+          }
+          return !prev;
+        });
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, []);
+
+  useEffect(() => {
+    const handler = () => {
+      previousFocusRef.current = document.activeElement;
+      setOpen(true);
+    };
+    document.addEventListener("open-command-palette", handler);
+    return () => document.removeEventListener("open-command-palette", handler);
+  }, []);
+
+  if (!open) return null;
+
+  return (
+    <CommandPalette
+      onClose={() => {
+        setOpen(false);
+        if (previousFocusRef.current instanceof HTMLElement) {
+          previousFocusRef.current.focus();
+        }
+      }}
+    />
+  );
+};
+
+const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
-  const previousFocusRef = useRef<Element | null>(null);
   const router = useRouter();
 
-  // Data sources — only fetched once the component mounts (SWR cache)
   const { features } = useFeaturesNames();
   const { experiments } = useExperiments();
   const { metrics, factMetrics, metricGroups, savedGroups } = useDefinitions();
@@ -247,13 +291,8 @@ const CommandPalette: FC = () => {
   }, [selectedIndex]);
 
   const closeAndReset = useCallback(() => {
-    setOpen(false);
-    setQuery("");
-    setSelectedIndex(0);
-    if (previousFocusRef.current instanceof HTMLElement) {
-      previousFocusRef.current.focus();
-    }
-  }, []);
+    onClose();
+  }, [onClose]);
 
   const navigateTo = useCallback(
     (url: string) => {
@@ -263,50 +302,13 @@ const CommandPalette: FC = () => {
     [router, closeAndReset],
   );
 
-  // Global Cmd/Ctrl+K listener
+  // Lock body scroll when mounted
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-        e.preventDefault();
-        setOpen((prev) => {
-          if (!prev) {
-            previousFocusRef.current = document.activeElement;
-          }
-          return !prev;
-        });
-      }
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, []);
-
-  // Listen for custom event from other UI elements (e.g. TopNav search button)
-  useEffect(() => {
-    const handler = () => {
-      previousFocusRef.current = document.activeElement;
-      setOpen(true);
-    };
-    document.addEventListener("open-command-palette", handler);
-    return () => document.removeEventListener("open-command-palette", handler);
-  }, []);
-
-  // Lock body scroll and focus input when open
-  useEffect(() => {
-    if (open) {
-      document.body.style.overflow = "hidden";
-      // Use nested rAF to ensure Portal has mounted before focusing
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          inputRef.current?.focus();
-        });
-      });
-    } else {
-      document.body.style.overflow = "";
-    }
+    document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = "";
     };
-  }, [open]);
+  }, []);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -339,8 +341,6 @@ const CommandPalette: FC = () => {
     },
     [flatResults, selectedIndex, navigateTo, closeAndReset],
   );
-
-  if (!open) return null;
 
   let flatIndex = 0;
 

@@ -38,7 +38,7 @@ import { growthbook } from "@/services/utils";
 import { UserContextProvider } from "@/services/UserContext";
 import { SidebarOpenProvider } from "@/components/Layout/SidebarOpenProvider";
 import { HoverTooltipProvider } from "@/hooks/useHoverTooltip";
-import CommandPalette from "@/components/CommandPalette/CommandPalette";
+import { CommandPaletteLauncher } from "@/components/CommandPalette/CommandPalette";
 
 // Make useLayoutEffect isomorphic (for SSR)
 if (typeof window === "undefined") React.useLayoutEffect = React.useEffect;
@@ -194,7 +194,7 @@ function App({
                             <GetStartedProvider>
                               <DefinitionsProvider>
                                 {liteLayout ? <LayoutLite /> : <Layout />}
-                                <CommandPalette />
+                                <CommandPaletteLauncher />
                                 <main className={`main ${parts[0]}`}>
                                   <GuidedGetStartedBar />
                                   <OrganizationMessagesContainer />
