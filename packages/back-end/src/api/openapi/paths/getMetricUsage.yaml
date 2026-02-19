@@ -6,7 +6,7 @@ description: |
   access or read access to experiments across all projects, this endpoint may not return the latest usage data across
   all experiments. 
 tags:
-  - metrics
+  - usage
 operationId: getMetricUsage
 parameters:
   - name: ids

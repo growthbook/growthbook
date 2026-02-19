@@ -1,7 +1,7 @@
 import type { AutoExperiment } from "@growthbook/growthbook";
 import { FeatureDefinition } from "./api";
 
-// If this changes, also increment the LATEST_SDK_PAYLOAD_SCHEMA_VERSION constant
+/** @deprecated Legacy cache format. Use SdkConnectionCacheModel instead. */
 export type SDKPayloadContents = {
   features: Record<string, FeatureDefinition>;
   holdouts?: Record<string, FeatureDefinition>;
@@ -33,6 +33,7 @@ interface Filter {
 
 type VariationRange = [number, number];
 
+/** @deprecated Legacy cache interface. Use SdkConnectionCacheModel instead. */
 export interface SDKPayloadInterface {
   organization: string;
   environment: string;
@@ -42,6 +43,7 @@ export interface SDKPayloadInterface {
   contents: SDKPayloadContents;
 }
 
+/** @deprecated Legacy cache interface. Use SdkConnectionCacheModel instead. */
 export type SDKStringifiedPayloadInterface = Omit<
   SDKPayloadInterface,
   "contents"

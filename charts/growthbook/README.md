@@ -6,19 +6,7 @@
     <a href="https://slack.growthbook.io?ref=readme-badge"><img src="https://img.shields.io/badge/slack-join-E01E5A?logo=slack" alt="Join us on Slack" height="22"/></a>
 </p>
 
-Create a free [GrowthBook Cloud](https://app.growthbook.io) account to get started quickly.
-
-Or run it yourself with:
-
-```sh
-git clone https://github.com/growthbook/growthbook.git
-cd growthbook
-docker compose up -d
-```
-
-Then visit http://localhost:3000. View the full [Self-Hosting Instructions](https://docs.growthbook.io/self-host) for more details.
-
-[![GrowthBook Screenshot](/features-screenshot.png)](https://www.growthbook.io)
+View our [Kubernetes Docs](https://docs.growthbook.io/self-host/kubernetes) to get started.
 
 ## Our Philosophy
 
@@ -48,19 +36,3 @@ Join [our Slack community](https://slack.growthbook.io?ref=readme-support) if yo
 Or email us at [hello@growthbook.io](mailto:hello@growthbook.io) if Slack isn't your thing.
 
 We're here to help - and to make GrowthBook even better!
-
-## Contributors
-
-We ❤️ all contributions, big and small!
-
-Read [CONTRIBUTING.md](/CONTRIBUTING.md) for how to setup your local development environment.
-
-If you want to, you can reach out via [Slack](https://slack.growthbook.io?ref=readme-contributing) or [email](mailto:hello@growthbook.io) and we'll set up a pair programming session to get you started.
-
-## License
-
-GrowthBook is an Open Core product. The bulk of the code is under the permissive MIT license. There are several directories that are governed under a separate commercial license, the GrowthBook Enterprise License.
-
-View the `LICENSE` file in this repository for the full text and details.
-
-![GrowthBook Repository Stats](https://repobeats.axiom.co/api/embed/13ffc63ec5ce7fe45efa95dd326d9185517f0a15.svg "GrowthBook Repository Stats")
