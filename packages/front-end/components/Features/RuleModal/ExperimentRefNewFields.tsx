@@ -187,10 +187,10 @@ export default function ExperimentRefNewFields({
     );
     if (hashAttributeToIdentifierTypeMap.size > 0) {
       const matches =
-        (matchHashAttribute?.length ?? 0) > 0
+        matchHashAttribute && matchHashAttribute.length > 0
           ? {
               label: "Matches Hash Attribute",
-              options: matchHashAttribute!.map((q) => {
+              options: matchHashAttribute.map((q) => {
                 return {
                   label: q.name,
                   value: q.id,
@@ -200,10 +200,10 @@ export default function ExperimentRefNewFields({
           : null;
 
       const doesNotMatch =
-        (remainingExposureQueries?.length ?? 0) > 0
+        remainingExposureQueries && remainingExposureQueries.length > 0
           ? {
               label: "Does Not Match Hash Attribute",
-              options: remainingExposureQueries!.map((q) => {
+              options: remainingExposureQueries.map((q) => {
                 return {
                   label: q.name,
                   value: q.id,
