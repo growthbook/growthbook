@@ -257,6 +257,13 @@ export const CREATE_BLOCK_TYPE: {
     metricAnalysisId: "",
     ...(initialValues || {}),
   }),
+  "product-analytics-explorer": ({ initialValues }) => ({
+    type: "product-analytics-explorer",
+    title: "",
+    description: "",
+    explorerAnalysisId: "",
+    ...(initialValues || {}),
+  }),
 };
 
 export function createDashboardBlocksFromTemplate(

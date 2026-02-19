@@ -26,11 +26,13 @@ import {
   BLOCK_TYPE_INFO,
   isBlockTypeAllowed,
 } from "@/enterprise/components/Dashboards/DashboardEditor";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import EditSingleBlock from "./EditSingleBlock";
 
 // Block types that are allowed in general dashboards (non-experiment specific)
 const GENERAL_DASHBOARD_BLOCK_TYPES: DashboardBlockType[] = [
   "markdown",
+  "product-analytics-explorer",
   "sql-explorer",
   "metric-explorer",
 ];
@@ -189,6 +191,18 @@ export default function DashboardEditorSidebar({
                     style={{ color: "var(--color-text-high" }}
                   >
                     {BLOCK_TYPE_INFO[bType].name}
+                    {BLOCK_TYPE_INFO[bType].deprecated ? (
+                      <Tooltip body="This feature is deprecated in favor of the Data Visualization block.">
+                        <Text
+                          color="gray"
+                          size="1"
+                          className="ml-2"
+                          style={{ fontStyle: "italic" }}
+                        >
+                          Deprecated
+                        </Text>
+                      </Tooltip>
+                    ) : null}
                   </Text>
                   <div style={{ flex: 1 }} />
                   <Text color="violet" className="ml-auto show-target instant">

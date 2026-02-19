@@ -62,6 +62,7 @@ import {
 } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
 import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor";
 import MetricExplorerSettings from "./MetricExplorerSettings";
+import ProductAnalyticsExplorerSettings from "./ProductAnalyticsExplorerSettings";
 
 type RequiredField = {
   field: string;
@@ -1620,6 +1621,12 @@ export default function EditSingleBlock({
             )}
             {block.type === "metric-explorer" && (
               <MetricExplorerSettings block={block} setBlock={setBlock} />
+            )}
+            {block.type === "product-analytics-explorer" && (
+              <ProductAnalyticsExplorerSettings
+                block={block}
+                setBlock={setBlock}
+              />
             )}
           </Flex>
           <Flex mt="5" gap="3" align="center" justify="center">
