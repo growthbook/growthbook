@@ -25,6 +25,7 @@ import { createTemporaryDashboard } from "@/pages/product-analytics/dashboards/n
 import DashboardsTabMoreMenu from "./DashboardsTabMoreMenu";
 import DashboardEditor from "./DashboardEditor";
 import DashboardSnapshotProvider from "./DashboardSnapshotProvider";
+import DashboardSeriesDisplayProvider from "./DashboardSeriesDisplayProvider";
 import DashboardModal from "./DashboardModal";
 import DashboardWorkspace from "./DashboardWorkspace";
 import DashboardSelector from "./DashboardSelector";
@@ -41,6 +42,7 @@ export type CreateDashboardArgs = {
     updateSchedule?: DashboardUpdateSchedule;
     blocks?: DashboardBlockData<DashboardBlockInterface>[];
     projects?: string[];
+    seriesDisplaySettings?: DashboardInterface["seriesDisplaySettings"];
   };
 };
 export type UpdateDashboardArgs = {
@@ -55,6 +57,7 @@ export type UpdateDashboardArgs = {
     enableAutoUpdates: boolean;
     updateSchedule?: DashboardUpdateSchedule;
     projects?: string[];
+    seriesDisplaySettings?: DashboardInterface["seriesDisplaySettings"];
   }>;
 };
 export type SubmitDashboard<
@@ -208,6 +211,7 @@ function DashboardsTab({
                 enableAutoUpdates: data.enableAutoUpdates,
                 shareLevel: data.shareLevel,
                 userId: data.userId,
+                seriesDisplaySettings: data.seriesDisplaySettings,
               }
             : {
                 blocks: data.blocks ?? [],
@@ -216,6 +220,7 @@ function DashboardsTab({
                 enableAutoUpdates: data.enableAutoUpdates,
                 shareLevel: data.shareLevel,
                 experimentId: experiment.id,
+                seriesDisplaySettings: data.seriesDisplaySettings,
               },
         ),
       });
@@ -291,249 +296,270 @@ function DashboardsTab({
       dashboard={dashboard}
       mutateDefinitions={mutateDashboards}
     >
-      {canEdit && isEditing && dashboard ? (
-        <DashboardWorkspace
-          experiment={experiment}
-          dashboard={dashboard}
-          submitDashboard={submitDashboard}
-          mutate={mutateDashboards}
-          close={(savedDashboardId?: string) => {
-            setIsEditing(false);
-            setDashboardFirstSave(false);
-            if (dashboardId === "new") {
-              // If we have a saved dashboard ID, use it; otherwise reset to empty
-              setDashboardId(savedDashboardId || "");
-            }
-          }}
-          updateTemporaryDashboard={updateTemporaryDashboard}
-          isTabActive={isTabActive}
-          dashboardFirstSave={dashboardFirstSave}
-          initialEditBlockIndex={initialEditBlockIndex}
-          onConsumeInitialEditBlockIndex={() => setInitialEditBlockIndex(null)}
-        />
-      ) : (
-        <div>
-          {showUpgradeModal && (
-            <UpgradeModal
-              close={() => setShowUpgradeModal(false)}
-              source="experiment-dashboards-tab"
-              commercialFeature="dashboards"
+      <DashboardSeriesDisplayProvider
+        dashboard={dashboard}
+        //MKTODO: Do I need to handle onSave differently or take in the updateTemporaryDashboard function here?
+        onSave={async (updatedSettings) => {
+          if (dashboard?.id && dashboardId) {
+            await submitDashboard({
+              method: "PUT",
+              dashboardId: dashboard.id,
+              data: {
+                seriesDisplaySettings: updatedSettings,
+              },
+            });
+          }
+        }}
+      >
+        <>
+          {canEdit && isEditing && dashboard ? (
+            <DashboardWorkspace
+              experiment={experiment}
+              dashboard={dashboard}
+              submitDashboard={submitDashboard}
+              mutate={mutateDashboards}
+              close={(savedDashboardId?: string) => {
+                setIsEditing(false);
+                setDashboardFirstSave(false);
+                if (dashboardId === "new") {
+                  // If we have a saved dashboard ID, use it; otherwise reset to empty
+                  setDashboardId(savedDashboardId || "");
+                }
+              }}
+              updateTemporaryDashboard={updateTemporaryDashboard}
+              isTabActive={isTabActive}
+              dashboardFirstSave={dashboardFirstSave}
+              initialEditBlockIndex={initialEditBlockIndex}
+              onConsumeInitialEditBlockIndex={() =>
+                setInitialEditBlockIndex(null)
+              }
             />
-          )}
-          {showCreateModal && (
-            <DashboardModal
-              mode="create"
-              close={() => setShowCreateModal(false)}
-              submit={async (data) => {
-                await submitDashboard({ method: "POST", data });
-                setIsEditing(true);
-              }}
-            />
-          )}
-          {dashboard && showEditModal && (
-            <DashboardModal
-              mode="edit"
-              close={() => setShowEditModal(false)}
-              initial={{
-                editLevel: dashboard.editLevel,
-                shareLevel: dashboard.shareLevel || "published",
-                enableAutoUpdates: dashboard.enableAutoUpdates,
-                updateSchedule: dashboard.updateSchedule || undefined,
-                title: dashboard.title,
-                projects: dashboard.projects || [],
-                userId: dashboard.userId,
-              }}
-              submit={async (data) => {
-                await submitDashboard({
-                  method: "PUT",
-                  dashboardId: dashboard.id,
-                  data,
-                });
-              }}
-            />
-          )}
-          {dashboard && showDuplicateModal && (
-            <DashboardModal
-              mode="duplicate"
-              close={() => setShowDuplicateModal(false)}
-              initial={{
-                editLevel: dashboard.editLevel,
-                shareLevel: dashboard.shareLevel || "published",
-                enableAutoUpdates: dashboard.enableAutoUpdates,
-                updateSchedule: dashboard.updateSchedule || undefined,
-                title: `Copy of ${dashboard.title}`,
-                projects: dashboard.projects || [],
-                userId: dashboard.userId,
-              }}
-              submit={async (data) => {
-                await submitDashboard({
-                  method: "POST",
-                  data: {
-                    ...data,
-                    blocks: blocks.map(getBlockData),
-                  },
-                });
-                setIsEditing(true);
-              }}
-            />
-          )}
-          <div className="position-relative">
-            {dashboards.length === 0 ? (
-              <Flex
-                direction="column"
-                align="center"
-                justify="center"
-                px="80px"
-                pt="60px"
-                pb="70px"
-                className="appbox"
-                gap="5"
-              >
-                <Flex direction="column">
-                  <Heading weight="medium" align="center">
-                    Build a Custom Dashboard
-                  </Heading>
-                  <Text align="center">
-                    Create a tailored view of your experiment. Highlight key
-                    insights, add context, and share a clear story with your
-                    team.
-                  </Text>
-                </Flex>
-                <Flex align="center" justify="center">
-                  <Button
-                    size="sm"
-                    onClick={createOrPromptUpgrade}
-                    disabled={!canCreate}
+          ) : (
+            <div>
+              {showUpgradeModal && (
+                <UpgradeModal
+                  close={() => setShowUpgradeModal(false)}
+                  source="experiment-dashboards-tab"
+                  commercialFeature="dashboards"
+                />
+              )}
+              {showCreateModal && (
+                <DashboardModal
+                  mode="create"
+                  close={() => setShowCreateModal(false)}
+                  submit={async (data) => {
+                    await submitDashboard({ method: "POST", data });
+                    setIsEditing(true);
+                  }}
+                />
+              )}
+              {dashboard && showEditModal && (
+                <DashboardModal
+                  mode="edit"
+                  close={() => setShowEditModal(false)}
+                  initial={{
+                    editLevel: dashboard.editLevel,
+                    shareLevel: dashboard.shareLevel || "published",
+                    enableAutoUpdates: dashboard.enableAutoUpdates,
+                    updateSchedule: dashboard.updateSchedule || undefined,
+                    title: dashboard.title,
+                    projects: dashboard.projects || [],
+                    userId: dashboard.userId,
+                  }}
+                  submit={async (data) => {
+                    await submitDashboard({
+                      method: "PUT",
+                      dashboardId: dashboard.id,
+                      data,
+                    });
+                  }}
+                />
+              )}
+              {dashboard && showDuplicateModal && (
+                <DashboardModal
+                  mode="duplicate"
+                  close={() => setShowDuplicateModal(false)}
+                  initial={{
+                    editLevel: dashboard.editLevel,
+                    shareLevel: dashboard.shareLevel || "published",
+                    enableAutoUpdates: dashboard.enableAutoUpdates,
+                    updateSchedule: dashboard.updateSchedule || undefined,
+                    title: `Copy of ${dashboard.title}`,
+                    projects: dashboard.projects || [],
+                    userId: dashboard.userId,
+                  }}
+                  submit={async (data) => {
+                    await submitDashboard({
+                      method: "POST",
+                      data: {
+                        ...data,
+                        blocks: blocks.map(getBlockData),
+                      },
+                    });
+                    setIsEditing(true);
+                  }}
+                />
+              )}
+              <div className="position-relative">
+                {dashboards.length === 0 ? (
+                  <Flex
+                    direction="column"
+                    align="center"
+                    justify="center"
+                    px="80px"
+                    pt="60px"
+                    pb="70px"
+                    className="appbox"
+                    gap="5"
                   >
-                    Create Dashboard{" "}
-                    <PaidFeatureBadge commercialFeature="dashboards" />
-                  </Button>
-                </Flex>
-              </Flex>
-            ) : (
-              <>
-                <Flex align="center" justify="between" mb="1">
-                  <Flex gap="1" align="center">
-                    {dashboards.length > 0 && !showDashboardView ? (
-                      <Flex gap="4" align="center">
-                        <DashboardSelector
-                          dashboards={dashboards}
-                          defaultDashboard={defaultDashboard}
-                          value={dashboardId}
-                          setValue={setDashboardId}
-                          canCreate={canCreate}
-                          onCreateNew={createOrPromptUpgrade}
-                        />
-                        <PaidFeatureBadge commercialFeature="dashboards" />
-                      </Flex>
-                    ) : (
-                      <></>
-                    )}
-                  </Flex>
-                  {dashboard && !showDashboardView ? (
-                    <Flex gap="4" align="center">
-                      <Tooltip
-                        state={copySuccess}
-                        ignoreMouseEvents
-                        delay={0}
-                        tipPosition="left"
-                        body="URL copied to clipboard"
-                        innerClassName="px-2 py-1"
-                      >
-                        <DashboardsTabMoreMenu
-                          dashboard={dashboard}
-                          experiment={experiment}
-                          dashboardId={dashboardId}
-                          canEdit={canEdit}
-                          canUpdateExperiment={canUpdateExperiment}
-                          canCreate={canCreate}
-                          canDelete={canDelete}
-                          updateSchedule={updateSchedule}
-                          copySupported={copySupported}
-                          mutateExperiment={mutateExperiment}
-                          setIsEditing={setIsEditing}
-                          setShowEditModal={setShowEditModal}
-                          setShowDuplicateModal={setShowDuplicateModal}
-                          toggleAutoUpdates={toggleAutoUpdates}
-                          performCopy={performCopy}
-                          mutateDashboards={mutateDashboards}
-                          setDashboardId={setDashboardId}
-                        />
-                      </Tooltip>
+                    <Flex direction="column">
+                      <Heading weight="medium" align="center">
+                        Build a Custom Dashboard
+                      </Heading>
+                      <Text align="center">
+                        Create a tailored view of your experiment. Highlight key
+                        insights, add context, and share a clear story with your
+                        team.
+                      </Text>
                     </Flex>
-                  ) : null}
-                </Flex>
-                {dashboard ? (
-                  <>
-                    {dashboard.blocks.length === 0 ? (
-                      <Flex
-                        direction="column"
-                        align="center"
-                        justify="center"
-                        px="80px"
-                        pt="60px"
-                        pb="70px"
-                        className="appbox"
-                        gap="5"
+                    <Flex align="center" justify="center">
+                      <Button
+                        size="sm"
+                        onClick={createOrPromptUpgrade}
+                        disabled={!canCreate}
                       >
-                        {canEdit ? (
-                          <>
-                            <Flex direction="column">
-                              <Heading weight="medium" align="center">
-                                Build a Custom Dashboard
-                              </Heading>
-                              <Text align="center">
-                                Choose a block type to get started. Rearrange
-                                blocks to tell a story with experiment data.
-                              </Text>
-                            </Flex>
-                            <Button
-                              onClick={() => {
-                                setIsEditing(true);
-                              }}
-                            >
-                              Edit
-                            </Button>
-                          </>
+                        Create Dashboard{" "}
+                        <PaidFeatureBadge commercialFeature="dashboards" />
+                      </Button>
+                    </Flex>
+                  </Flex>
+                ) : (
+                  <>
+                    <Flex align="center" justify="between" mb="1">
+                      <Flex gap="1" align="center">
+                        {dashboards.length > 0 && !showDashboardView ? (
+                          <Flex gap="4" align="center">
+                            <DashboardSelector
+                              dashboards={dashboards}
+                              defaultDashboard={defaultDashboard}
+                              value={dashboardId}
+                              setValue={setDashboardId}
+                              canCreate={canCreate}
+                              onCreateNew={createOrPromptUpgrade}
+                            />
+                            <PaidFeatureBadge commercialFeature="dashboards" />
+                          </Flex>
                         ) : (
-                          // TODO: empty state without permissions
-                          <Heading weight="medium" align="center">
-                            This Dashboard is empty
-                          </Heading>
+                          <></>
                         )}
                       </Flex>
-                    ) : (
-                      <DashboardEditor
-                        isTabActive={isTabActive}
-                        id={dashboard.id}
-                        title={dashboard.title}
-                        initialEditLevel={dashboard.editLevel}
-                        ownerId={dashboard.userId}
-                        initialShareLevel={dashboard.shareLevel}
-                        dashboardOwnerId={dashboard.userId}
-                        blocks={blocks}
-                        projects={
-                          experiment.project ? [experiment.project] : []
-                        }
-                        isEditing={false}
-                        updateSchedule={dashboard.updateSchedule}
-                        enableAutoUpdates={dashboard.enableAutoUpdates}
-                        nextUpdate={experiment.nextSnapshotAttempt}
-                        isGeneralDashboard={false}
-                        enterEditModeForBlock={enterEditModeForBlock}
-                        setBlock={canEdit ? memoizedSetBlock : undefined}
-                        mutate={mutateDashboards}
-                        switchToExperimentView={switchToExperimentView}
-                        setIsEditing={setIsEditing}
-                      />
-                    )}
+                      {dashboard && !showDashboardView ? (
+                        <Flex gap="4" align="center">
+                          <Tooltip
+                            state={copySuccess}
+                            ignoreMouseEvents
+                            delay={0}
+                            tipPosition="left"
+                            body="URL copied to clipboard"
+                            innerClassName="px-2 py-1"
+                          >
+                            <DashboardsTabMoreMenu
+                              dashboard={dashboard}
+                              experiment={experiment}
+                              dashboardId={dashboardId}
+                              canEdit={canEdit}
+                              canUpdateExperiment={canUpdateExperiment}
+                              canCreate={canCreate}
+                              canDelete={canDelete}
+                              updateSchedule={updateSchedule}
+                              copySupported={copySupported}
+                              mutateExperiment={mutateExperiment}
+                              setIsEditing={setIsEditing}
+                              setShowEditModal={setShowEditModal}
+                              setShowDuplicateModal={setShowDuplicateModal}
+                              toggleAutoUpdates={toggleAutoUpdates}
+                              performCopy={performCopy}
+                              mutateDashboards={mutateDashboards}
+                              setDashboardId={setDashboardId}
+                            />
+                          </Tooltip>
+                        </Flex>
+                      ) : null}
+                    </Flex>
+                    {dashboard ? (
+                      <>
+                        {dashboard.blocks.length === 0 ? (
+                          <Flex
+                            direction="column"
+                            align="center"
+                            justify="center"
+                            px="80px"
+                            pt="60px"
+                            pb="70px"
+                            className="appbox"
+                            gap="5"
+                          >
+                            {canEdit ? (
+                              <>
+                                <Flex direction="column">
+                                  <Heading weight="medium" align="center">
+                                    Build a Custom Dashboard
+                                  </Heading>
+                                  <Text align="center">
+                                    Choose a block type to get started.
+                                    Rearrange blocks to tell a story with
+                                    experiment data.
+                                  </Text>
+                                </Flex>
+                                <Button
+                                  onClick={() => {
+                                    setIsEditing(true);
+                                  }}
+                                >
+                                  Edit
+                                </Button>
+                              </>
+                            ) : (
+                              // TODO: empty state without permissions
+                              <Heading weight="medium" align="center">
+                                This Dashboard is empty
+                              </Heading>
+                            )}
+                          </Flex>
+                        ) : (
+                          <DashboardEditor
+                            isTabActive={isTabActive}
+                            id={dashboard.id}
+                            title={dashboard.title}
+                            initialEditLevel={dashboard.editLevel}
+                            ownerId={dashboard.userId}
+                            initialShareLevel={dashboard.shareLevel}
+                            dashboardOwnerId={dashboard.userId}
+                            blocks={blocks}
+                            projects={
+                              experiment.project ? [experiment.project] : []
+                            }
+                            isEditing={false}
+                            updateSchedule={dashboard.updateSchedule}
+                            enableAutoUpdates={dashboard.enableAutoUpdates}
+                            nextUpdate={experiment.nextSnapshotAttempt}
+                            isGeneralDashboard={false}
+                            enterEditModeForBlock={enterEditModeForBlock}
+                            setBlock={canEdit ? memoizedSetBlock : undefined}
+                            mutate={mutateDashboards}
+                            switchToExperimentView={switchToExperimentView}
+                            setIsEditing={setIsEditing}
+                          />
+                        )}
+                      </>
+                    ) : null}
                   </>
-                ) : null}
-              </>
-            )}
-          </div>
-        </div>
-      )}
+                )}
+              </div>
+            </div>
+          )}
+        </>
+      </DashboardSeriesDisplayProvider>
     </DashboardSnapshotProvider>
   );
 }

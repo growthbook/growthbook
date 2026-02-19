@@ -28,6 +28,7 @@ import {
 } from "@/enterprise/components/Dashboards/DashboardsTab";
 import { useAuth } from "@/services/auth";
 import DashboardWorkspace from "@/enterprise/components/Dashboards/DashboardWorkspace";
+import DashboardSeriesDisplayProvider from "@/enterprise/components/Dashboards/DashboardSeriesDisplayProvider";
 import { DocLink } from "@/components/DocLink";
 import EmptyState from "@/components/EmptyState";
 import ProjectBadges from "@/components/ProjectBadges";
@@ -155,17 +156,32 @@ export default function DashboardsPage() {
   return (
     <>
       {isEditing && dashboard && (
-        <DashboardWorkspace
-          experiment={null}
+        <DashboardSeriesDisplayProvider
           dashboard={dashboard}
-          submitDashboard={submitDashboard}
-          mutate={mutateDashboards}
-          close={() => {
-            setSaving(true);
-            router.push(`/product-analytics/dashboards/${dashboard.id}`);
+          onSave={async (updatedSettings) => {
+            if (dashboard?.id) {
+              await submitDashboard({
+                method: "PUT",
+                dashboardId: dashboard.id,
+                data: {
+                  seriesDisplaySettings: updatedSettings,
+                },
+              });
+            }
           }}
-          isTabActive={true}
-        />
+        >
+          <DashboardWorkspace
+            experiment={null}
+            dashboard={dashboard}
+            submitDashboard={submitDashboard}
+            mutate={mutateDashboards}
+            close={() => {
+              setSaving(true);
+              router.push(`/product-analytics/dashboards/${dashboard.id}`);
+            }}
+            isTabActive={true}
+          />
+        </DashboardSeriesDisplayProvider>
       )}
       {showEditModal && (
         <DashboardModal

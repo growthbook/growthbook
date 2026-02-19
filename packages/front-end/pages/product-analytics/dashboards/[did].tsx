@@ -18,6 +18,7 @@ import Callout from "@/ui/Callout";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import PremiumCallout from "@/ui/PremiumCallout";
+import DashboardSeriesDisplayProvider from "@/enterprise/components/Dashboards/DashboardSeriesDisplayProvider";
 
 function SingleDashboardPage() {
   const router = useRouter();
@@ -74,6 +75,7 @@ function SingleDashboardPage() {
         enableAutoUpdates?: DashboardInterface["enableAutoUpdates"];
         blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
         userId?: string;
+        seriesDisplaySettings?: DashboardInterface["seriesDisplaySettings"];
       };
     }) => {
       const res = (await apiCall(
@@ -88,6 +90,7 @@ function SingleDashboardPage() {
                   editLevel: data.editLevel,
                   enableAutoUpdates: data.enableAutoUpdates,
                   userId: data.userId,
+                  seriesDisplaySettings: data.seriesDisplaySettings,
                 }
               : data,
           ),
@@ -170,47 +173,62 @@ function SingleDashboardPage() {
         dashboard={dashboard}
         mutateDefinitions={mutate}
       >
-        {isEditing && dashboard ? (
-          <DashboardWorkspace
-            experiment={null}
-            dashboard={dashboard}
-            submitDashboard={({ method, dashboardId, data }) =>
-              submitDashboard({ method, dashboardId, data })
+        <DashboardSeriesDisplayProvider
+          dashboard={dashboard}
+          onSave={async (updatedSettings) => {
+            if (dashboard?.id) {
+              await submitDashboard({
+                method: "PUT",
+                dashboardId: dashboard.id,
+                data: {
+                  seriesDisplaySettings: updatedSettings,
+                },
+              });
             }
-            mutate={mutate}
-            close={() => {
-              setIsEditing(false);
-              setInitialEditBlockIndex(null);
-            }}
-            isTabActive={true}
-            initialEditBlockIndex={initialEditBlockIndex}
-            onConsumeInitialEditBlockIndex={() =>
-              setInitialEditBlockIndex(null)
-            }
-          />
-        ) : (
-          <DashboardEditor
-            isTabActive
-            id={dashboard.id}
-            initialEditLevel={dashboard.editLevel}
-            ownerId={dashboard.userId}
-            initialShareLevel={dashboard.shareLevel}
-            dashboardOwnerId={dashboard.userId}
-            isGeneralDashboard={true}
-            isEditing={false}
-            title={dashboard.title}
-            blocks={dashboard.blocks}
-            enableAutoUpdates={dashboard.enableAutoUpdates}
-            setBlock={canEdit ? memoizedSetBlock : undefined}
-            projects={dashboard.projects ? dashboard.projects : []}
-            mutate={mutate}
-            updateSchedule={dashboard.updateSchedule || undefined}
-            nextUpdate={dashboard.nextUpdate}
-            dashboardLastUpdated={dashboard.lastUpdated}
-            setIsEditing={setIsEditing}
-            enterEditModeForBlock={enterEditModeForBlock}
-          />
-        )}
+          }}
+        >
+          {isEditing && dashboard ? (
+            <DashboardWorkspace
+              experiment={null}
+              dashboard={dashboard}
+              submitDashboard={({ method, dashboardId, data }) =>
+                submitDashboard({ method, dashboardId, data })
+              }
+              mutate={mutate}
+              close={() => {
+                setIsEditing(false);
+                setInitialEditBlockIndex(null);
+              }}
+              isTabActive={true}
+              initialEditBlockIndex={initialEditBlockIndex}
+              onConsumeInitialEditBlockIndex={() =>
+                setInitialEditBlockIndex(null)
+              }
+            />
+          ) : (
+            <DashboardEditor
+              isTabActive
+              id={dashboard.id}
+              initialEditLevel={dashboard.editLevel}
+              ownerId={dashboard.userId}
+              initialShareLevel={dashboard.shareLevel}
+              dashboardOwnerId={dashboard.userId}
+              isGeneralDashboard={true}
+              isEditing={false}
+              title={dashboard.title}
+              blocks={dashboard.blocks}
+              enableAutoUpdates={dashboard.enableAutoUpdates}
+              setBlock={canEdit ? memoizedSetBlock : undefined}
+              projects={dashboard.projects ? dashboard.projects : []}
+              mutate={mutate}
+              updateSchedule={dashboard.updateSchedule || undefined}
+              nextUpdate={dashboard.nextUpdate}
+              dashboardLastUpdated={dashboard.lastUpdated}
+              setIsEditing={setIsEditing}
+              enterEditModeForBlock={enterEditModeForBlock}
+            />
+          )}
+        </DashboardSeriesDisplayProvider>
       </DashboardSnapshotProvider>
     </div>
   );
