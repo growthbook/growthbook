@@ -17,7 +17,6 @@ type Props = {
   canEdit?: boolean;
   canCreate?: boolean;
   label?: string;
-  className?: string;
   containerClassName?: string;
   header?: string | JSX.Element;
   headerClassName?: string;
@@ -33,7 +32,6 @@ export default function MarkdownInlineEdit({
   canEdit = true,
   canCreate = true,
   label = "description",
-  className = "",
   containerClassName = "",
   header = "",
   headerClassName = "h3",
@@ -53,8 +51,8 @@ export default function MarkdownInlineEdit({
 
   if (edit) {
     return (
+      <Box className="position-relative">
       <form
-        className={"position-relative" + " " + className}
         onSubmit={async (e) => {
           e.preventDefault();
           if (loading) return;
@@ -70,27 +68,23 @@ export default function MarkdownInlineEdit({
         }}
       >
         {header && (
-          <Flex align={"center"} justify="between">
+          <Box className={containerClassName}>
+          <Flex align={"start"} justify="between">
             <div className={headerClassName}>{header}</div>{" "}
             {aiSuggestFunction && (
               <Flex gap="2">
-                <div className="col-auto">
-                  <button
-                    className="btn btn-link mr-2 ml-3"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setEdit(false);
-                    }}
-                  >
-                    cancel
-                  </button>
-                  <button type="submit" className="btn btn-primary">
+                  <Button variant="ghost" onClick={() => {
+                    setEdit(false);
+                  }}>
+                    Cancel
+                  </Button>
+                  <Button type="submit">
                     Save
-                  </button>
-                </div>
+                  </Button>
               </Flex>
             )}
           </Flex>
+          </Box>
         )}
         {loading && <LoadingOverlay />}
         <MarkdownInput
@@ -106,11 +100,12 @@ export default function MarkdownInlineEdit({
           showButtons={!aiSuggestFunction}
         />
       </form>
+      </Box>
     );
   }
 
   return (
-    <Box className={className} style={{ position: "relative" }}>
+    <Box className="position-relative">
       {loading && (
         <LoadingOverlay
           text={aiSuggestFunction ? "Generating..." : "Loading..."}
