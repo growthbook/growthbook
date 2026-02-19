@@ -797,6 +797,7 @@ export interface components {
       /** @enum {string} */
       format?: "" | "version" | "date" | "isoCountryCode";
       projects?: (string)[];
+      tags?: (string)[];
     };
     Segment: {
       id: string;
@@ -11829,6 +11830,7 @@ export interface operations {
                 /** @enum {string} */
                 format?: "" | "version" | "date" | "isoCountryCode";
                 projects?: (string)[];
+                tags?: (string)[];
               })[];
           };
         };
@@ -11860,6 +11862,7 @@ export interface operations {
            */
           format?: "" | "version" | "date" | "isoCountryCode";
           projects?: (string)[];
+          tags?: (string)[];
         };
       };
     };
@@ -11878,6 +11881,7 @@ export interface operations {
               /** @enum {string} */
               format?: "" | "version" | "date" | "isoCountryCode";
               projects?: (string)[];
+              tags?: (string)[];
             };
           };
         };
@@ -11913,6 +11917,7 @@ export interface operations {
            */
           format?: "" | "version" | "date" | "isoCountryCode";
           projects?: (string)[];
+          tags?: (string)[];
         };
       };
     };
@@ -11931,6 +11936,7 @@ export interface operations {
               /** @enum {string} */
               format?: "" | "version" | "date" | "isoCountryCode";
               projects?: (string)[];
+              tags?: (string)[];
             };
           };
         };
