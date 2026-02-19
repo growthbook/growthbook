@@ -173,9 +173,7 @@ const ExperimentsPage = (): React.ReactElement => {
                     onClick={() => {
                       setOpenNewExperimentModal(true);
                     }}
-                    disabled={
-                      !hasMultiArmedBanditFeature || !hasStickyBucketFeature
-                    }
+                    disabled={!hasMultiArmedBanditFeature}
                   >
                     Add Bandit
                   </Button>
