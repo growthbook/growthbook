@@ -1,7 +1,6 @@
 import { Response } from "express";
 import { parse, filter } from "scim2-parse-filter";
 import { isRoleValid } from "shared/permissions";
-import { Member } from "shared/types/organization";
 import {
   BasicScimGroup,
   ScimError,
@@ -12,6 +11,7 @@ import {
 import {
   addMembersToTeam,
   expandOrgMembers,
+  getMembersOfTeam,
   removeMembersFromTeam,
 } from "back-end/src/services/organizations";
 
@@ -79,12 +79,10 @@ export async function patchGroup(
       } else if (normalizedOp === "replace" && normalizedPath === "members") {
         // Replace all team members with requested members
         if (value) {
-          const prevMembers: Member[] = org.members.filter((member) =>
-            member.teams?.includes(id),
-          );
+          const prevMembers = getMembersOfTeam(org, id);
           await removeMembersFromTeam({
             organization: org,
-            userIds: prevMembers.map((m) => m.id),
+            userIds: prevMembers,
             teamId: id,
           });
 

@@ -444,8 +444,6 @@ export interface paths {
   };
   "/teams/{teamId}/members": {
     post: operations["addTeamMembers"];
-  };
-  "/teams/{teamId}/members/{memberId}": {
     delete: operations["removeTeamMember"];
   };
 }
@@ -677,7 +675,7 @@ export interface components {
           teams?: (string)[];
           project: string;
         })[];
-      members?: (string)[];
+      members: readonly (string)[];
       managedByIdp: boolean;
       managedBy?: {
         /** @constant */
@@ -16278,7 +16276,7 @@ export interface operations {
                   teams?: (string)[];
                   project: string;
                 })[];
-              members?: (string)[];
+              members: readonly (string)[];
               managedByIdp: boolean;
               managedBy?: {
                 /** @constant */
@@ -16305,8 +16303,10 @@ export interface operations {
           name?: string;
           createdBy?: string;
           description?: string;
+          /** @description The global role for members of this team */
           role?: string;
           limitAccessByEnvironment?: boolean;
+          /** @description An empty array means 'all environments' */
           environments?: (string)[];
           projectRoles?: ({
               role: string;
@@ -16315,7 +16315,6 @@ export interface operations {
               teams?: (string)[];
               project: string;
             })[];
-          members?: (string)[];
           managedBy?: {
             /** @constant */
             type: "vercel";
@@ -16348,7 +16347,7 @@ export interface operations {
                   teams?: (string)[];
                   project: string;
                 })[];
-              members?: (string)[];
+              members: readonly (string)[];
               managedByIdp: boolean;
               managedBy?: {
                 /** @constant */
@@ -16404,7 +16403,7 @@ export interface operations {
                     teams?: (string)[];
                     project: string;
                   })[];
-                members?: (string)[];
+                members: readonly (string)[];
                 managedByIdp: boolean;
                 managedBy?: {
                   /** @constant */
@@ -16426,9 +16425,11 @@ export interface operations {
           name: string;
           createdBy?: string;
           description: string;
+          /** @description The global role for members of this team */
           role: string;
-          limitAccessByEnvironment: boolean;
-          environments: (string)[];
+          limitAccessByEnvironment?: boolean;
+          /** @description An empty array means 'all environments' */
+          environments?: (string)[];
           projectRoles?: ({
               role: string;
               limitAccessByEnvironment: boolean;
@@ -16436,7 +16437,6 @@ export interface operations {
               teams?: (string)[];
               project: string;
             })[];
-          members?: (string)[];
           managedBy?: {
             /** @constant */
             type: "vercel";
@@ -16469,7 +16469,7 @@ export interface operations {
                   teams?: (string)[];
                   project: string;
                 })[];
-              members?: (string)[];
+              members: readonly (string)[];
               managedByIdp: boolean;
               managedBy?: {
                 /** @constant */
@@ -16510,7 +16510,13 @@ export interface operations {
     parameters: {
       path: {
         teamId: string;
-        memberId: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          members: (string)[];
+        };
       };
     };
     responses: {

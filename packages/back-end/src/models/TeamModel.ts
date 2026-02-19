@@ -6,7 +6,7 @@ import {
   apiUpdateTeamBody,
   teamSchema,
 } from "shared/validators";
-import { TeamInterface } from "shared/types/team";
+import { ApiTeamInterface, TeamInterface } from "shared/types/team";
 import { areProjectRolesValid, isRoleValid } from "shared/permissions";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
@@ -16,6 +16,7 @@ import {
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 import {
   addMembersToTeam,
+  getMembersOfTeam,
   removeMembersFromTeam,
 } from "back-end/src/services/organizations";
 import { statusCodeReturn } from "back-end/src/util/handler";
@@ -29,6 +30,12 @@ const BaseClass = MakeModelClass({
   globallyUniqueIds: false,
   readonlyFields: [],
   additionalIndexes: [],
+  defaultValues: {
+    createdBy: "",
+    limitAccessByEnvironment: false,
+    environments: [],
+    managedByIdp: false,
+  },
   apiConfig: {
     modelKey: "teams",
     modelSingular: "team",
@@ -65,7 +72,7 @@ const BaseClass = MakeModelClass({
         },
       }),
       defineCustomApiHandler({
-        pathFragment: "/:teamId/members/:memberId",
+        pathFragment: "/:teamId/members",
         verb: "delete",
         operationId: "removeTeamMember",
         validator: apiRemoveTeamMemberValidator,
@@ -79,7 +86,7 @@ const BaseClass = MakeModelClass({
           if (!team) return req.context.throwNotFoundError();
           await removeMembersFromTeam({
             organization: req.context.org,
-            userIds: [req.params.memberId],
+            userIds: req.body.members,
             teamId: team.id,
           });
           return {
@@ -116,9 +123,7 @@ export class TeamModel extends BaseClass {
 
   protected async beforeDelete(team: TeamInterface) {
     const org = this.context.org;
-    const members = org.members.filter((member) =>
-      member.teams?.includes(team.id),
-    );
+    const members = getMembersOfTeam(org, team.id);
 
     if (members.length !== 0) {
       return this.context.throwBadRequestError(
@@ -157,5 +162,15 @@ export class TeamModel extends BaseClass {
       .find({})
       .toArray();
     return docs.map(removeMongooseFields);
+  }
+
+  protected toApiInterface(doc: TeamInterface): ApiTeamInterface {
+    const members = getMembersOfTeam(this.context.org, doc.id);
+    return {
+      ...doc,
+      members,
+      dateCreated: doc.dateCreated.toISOString(),
+      dateUpdated: doc.dateUpdated.toISOString(),
+    };
   }
 }

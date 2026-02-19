@@ -25,7 +25,7 @@ export const apiTeamValidator = apiBaseSchema.safeExtend({
   limitAccessByEnvironment: z.boolean(),
   environments: z.array(z.string()),
   projectRoles: z.array(projectMemberRole).optional(),
-  members: z.array(z.string()).optional(),
+  members: z.array(z.string()).readonly(),
   managedByIdp: z.boolean(),
   managedBy: managedByValidator.optional(),
   defaultProject: z.string().optional(),
@@ -35,11 +35,13 @@ export const apiCreateTeamBody = z.strictObject({
   name: z.string(),
   createdBy: z.string().optional(),
   description: z.string(),
-  role: z.string(),
-  limitAccessByEnvironment: z.boolean(),
-  environments: z.array(z.string()),
+  role: z.string().describe("The global role for members of this team"),
+  limitAccessByEnvironment: z.boolean().optional(),
+  environments: z
+    .array(z.string())
+    .optional()
+    .describe("An empty array means 'all environments'"),
   projectRoles: z.array(projectMemberRole).optional(),
-  members: z.array(z.string()).optional(),
   managedBy: managedByValidator.optional(),
   defaultProject: z.string().optional(),
 });
@@ -53,7 +55,7 @@ export const apiAddTeamMembersValidator = {
 };
 
 export const apiRemoveTeamMemberValidator = {
-  bodySchema: z.never(),
+  bodySchema: z.strictObject({ members: z.array(z.string()) }),
   querySchema: z.never(),
-  paramsSchema: z.strictObject({ teamId: z.string(), memberId: z.string() }),
+  paramsSchema: z.strictObject({ teamId: z.string() }),
 };

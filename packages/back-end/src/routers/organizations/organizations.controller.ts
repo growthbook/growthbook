@@ -41,6 +41,7 @@ import {
   findVerifiedOrgsForNewUser,
   getContextFromReq,
   getInviteUrl,
+  getMembersOfTeam,
   getNumberOfUniqueMembersAndInvites,
   importConfig,
   inviteUser,
@@ -912,9 +913,7 @@ export async function getOrganization(
   const teams = await context.models.teams.getAll();
 
   const teamsWithMembers: TeamInterface[] = teams.map((team) => {
-    const memberIds = org.members
-      .filter((member) => member.teams?.includes(team.id))
-      .map((m) => m.id);
+    const memberIds = getMembersOfTeam(org, team.id);
     return {
       ...team,
       members: memberIds,

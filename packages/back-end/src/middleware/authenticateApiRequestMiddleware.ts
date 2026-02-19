@@ -17,6 +17,7 @@ import {
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
 import { ReqContextClass } from "back-end/src/services/context";
+import { TeamModel } from "back-end/src/models/TeamModel";
 
 export default function authenticateApiRequestMiddleware(
   req: Request & ApiRequestLocals,
@@ -110,7 +111,7 @@ export default function authenticateApiRequestMiddleware(
         throw new Error("Could not find user attached to this API key");
       }
 
-      const teams = await req.context.models.teams.getAll();
+      const teams = await TeamModel.dangerousGetTeamsForOrganization(org.id);
 
       const eventAudit: EventUserApiKey = {
         type: "api_key",

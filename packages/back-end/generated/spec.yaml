@@ -11529,6 +11529,7 @@ paths:
                             - project
                           additionalProperties: false
                       members:
+                        readOnly: true
                         type: array
                         items:
                           type: string
@@ -11559,6 +11560,7 @@ paths:
                       - role
                       - limitAccessByEnvironment
                       - environments
+                      - members
                       - managedByIdp
                     additionalProperties: false
     delete:
@@ -11617,10 +11619,12 @@ paths:
                 description:
                   type: string
                 role:
+                  description: The global role for members of this team
                   type: string
                 limitAccessByEnvironment:
                   type: boolean
                 environments:
+                  description: An empty array means 'all environments'
                   type: array
                   items:
                     type: string
@@ -11649,10 +11653,6 @@ paths:
                       - environments
                       - project
                     additionalProperties: false
-                members:
-                  type: array
-                  items:
-                    type: string
                 managedBy:
                   anyOf:
                     - type: object
@@ -11732,6 +11732,7 @@ paths:
                             - project
                           additionalProperties: false
                       members:
+                        readOnly: true
                         type: array
                         items:
                           type: string
@@ -11762,6 +11763,7 @@ paths:
                       - role
                       - limitAccessByEnvironment
                       - environments
+                      - members
                       - managedByIdp
                     additionalProperties: false
   /teams:
@@ -11790,10 +11792,12 @@ paths:
                 description:
                   type: string
                 role:
+                  description: The global role for members of this team
                   type: string
                 limitAccessByEnvironment:
                   type: boolean
                 environments:
+                  description: An empty array means 'all environments'
                   type: array
                   items:
                     type: string
@@ -11822,10 +11826,6 @@ paths:
                       - environments
                       - project
                     additionalProperties: false
-                members:
-                  type: array
-                  items:
-                    type: string
                 managedBy:
                   anyOf:
                     - type: object
@@ -11845,8 +11845,6 @@ paths:
                 - name
                 - description
                 - role
-                - limitAccessByEnvironment
-                - environments
               additionalProperties: false
       responses:
         '200':
@@ -11911,6 +11909,7 @@ paths:
                             - project
                           additionalProperties: false
                       members:
+                        readOnly: true
                         type: array
                         items:
                           type: string
@@ -11941,6 +11940,7 @@ paths:
                       - role
                       - limitAccessByEnvironment
                       - environments
+                      - members
                       - managedByIdp
                     additionalProperties: false
     get:
@@ -12018,6 +12018,7 @@ paths:
                               - project
                             additionalProperties: false
                         members:
+                          readOnly: true
                           type: array
                           items:
                             type: string
@@ -12048,6 +12049,7 @@ paths:
                         - role
                         - limitAccessByEnvironment
                         - environments
+                        - members
                         - managedByIdp
                       additionalProperties: false
   '/teams/{teamId}/members':
@@ -12094,16 +12096,10 @@ paths:
                 required:
                   - status
                 additionalProperties: false
-  '/teams/{teamId}/members/{memberId}':
     delete:
       $skipValidatorGeneration: true
       parameters:
         - name: teamId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: memberId
           in: path
           required: true
           schema:
@@ -12114,7 +12110,22 @@ paths:
       operationId: removeTeamMember
       x-codeSamples:
         - lang: cURL
-          source: 'curl -X DELETE https://api.growthbook.io/api/v1/teams/{teamId}/members/{memberId} -u secret_abc123DEF456'
+          source: 'curl -X DELETE https://api.growthbook.io/api/v1/teams/{teamId}/members -d ''{ ... }'' -u secret_abc123DEF456'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $schema: 'https://json-schema.org/draft/2020-12/schema'
+              type: object
+              properties:
+                members:
+                  type: array
+                  items:
+                    type: string
+              required:
+                - members
+              additionalProperties: false
       responses:
         '200':
           content:
@@ -13011,6 +13022,7 @@ components:
               - project
             additionalProperties: false
         members:
+          readOnly: true
           type: array
           items:
             type: string
@@ -13041,6 +13053,7 @@ components:
         - role
         - limitAccessByEnvironment
         - environments
+        - members
         - managedByIdp
       additionalProperties: false
       $skipValidatorGeneration: true
