@@ -211,6 +211,7 @@ const startExperimentIncrementalRefreshQueries = async (
   }
 
   const settings = integration.datasource.settings;
+  const partitionSettings = settings.pipelineSettings?.partitionSettings;
 
   // Only include metrics tied to this experiment, which is goverend by the snapshotSettings.metricSettings
   // after the introduction of metric slices
@@ -341,6 +342,7 @@ const startExperimentIncrementalRefreshQueries = async (
     incrementalRefreshStartTime: params.incrementalRefreshStartTime,
     factTableMap: params.factTableMap,
     lastMaxTimestamp: lastMaxTimestamp || null,
+    partitionSettings,
   };
 
   let createUnitsTableQuery: QueryPointer | null = null;
@@ -534,6 +536,7 @@ const startExperimentIncrementalRefreshQueries = async (
           metrics: group.metrics,
           factTableMap: params.factTableMap,
           metricSourceTableFullName,
+          partitionSettings,
         }),
         dependencies: [updateUnitsTableQuery.query],
         run: (query, setExternalId) =>
@@ -551,6 +554,7 @@ const startExperimentIncrementalRefreshQueries = async (
       unitsSourceTableFullName: unitsTableFullName,
       metrics: group.metrics,
       lastMaxTimestamp: existingSource?.maxTimestamp || null,
+      partitionSettings,
     };
 
     const insertMetricsSourceDataQuery = await startQuery({

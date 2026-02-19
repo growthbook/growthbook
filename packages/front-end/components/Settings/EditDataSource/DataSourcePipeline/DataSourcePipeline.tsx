@@ -1,5 +1,7 @@
 import { useCallback, useState } from "react";
 import { DataSourceType } from "shared/types/datasource";
+import type { PartitionSettings } from "shared/types/integrations";
+import { getRequiredColumnsForPipelineSettings } from "shared/enterprise";
 import { Box, Card, Flex, Heading, Text } from "@radix-ui/themes";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -127,6 +129,15 @@ export default function DataSourcePipeline({
                   }${pipelineSettings.writeDataset}`}
                 </code>
               </Box>
+              {pipelineSettings.mode === "incremental" &&
+              pipelineSettings.partitionSettings ? (
+                <Box>
+                  <Text weight="medium">Partition Strategy: </Text>
+                  <PartitionSettingsSummary
+                    settings={pipelineSettings.partitionSettings}
+                  />
+                </Box>
+              ) : null}
             </Flex>
           )}
         </Flex>
@@ -140,5 +151,26 @@ export default function DataSourcePipeline({
         />
       ) : null}
     </Box>
+  );
+}
+
+function PartitionSettingsSummary({
+  settings,
+}: {
+  settings: PartitionSettings;
+}) {
+  const columns = getRequiredColumnsForPipelineSettings({
+    allowWriting: true,
+    mode: "incremental",
+    writeDataset: "",
+    unitsTableRetentionHours: 24,
+    partitionSettings: settings,
+  });
+
+  return (
+    <code>
+      {settings.type}
+      {columns.length > 0 ? ` (${columns.join(", ")})` : ""}
+    </code>
   );
 }

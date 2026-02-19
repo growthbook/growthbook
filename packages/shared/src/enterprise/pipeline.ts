@@ -94,6 +94,29 @@ export function getPipelineValidationDropTableQuery({
   });
 }
 
+export function getRequiredColumnsForPipelineSettings(
+  settings: DataSourcePipelineSettings,
+): string[] {
+  const partitionSettings = settings.partitionSettings;
+  const type = partitionSettings?.type;
+  if (!type) return [];
+
+  switch (type) {
+    case "yearMonthDay":
+      return [
+        partitionSettings.yearColumn,
+        partitionSettings.monthColumn,
+        partitionSettings.dayColumn,
+      ];
+    case "date":
+      return [partitionSettings.dateColumn];
+    case "timestamp":
+      return [];
+    default:
+      return (type satisfies never) ? [] : [];
+  }
+}
+
 export function bigQueryCreateTablePartitions(columns: string[]) {
   // TODO(incremental-refresh): Is there a way to ensure the first argument is always a date column?
   const partitionBy = `PARTITION BY TIMESTAMP_TRUNC(\`${columns[0]}\`, HOUR)`;
