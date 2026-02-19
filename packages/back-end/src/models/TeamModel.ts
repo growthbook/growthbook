@@ -1,5 +1,7 @@
 import {
+  apiAddTeamMembersValidator,
   apiCreateTeamBody,
+  apiRemoveTeamMemberValidator,
   apiTeamValidator,
   apiUpdateTeamBody,
   teamSchema,
@@ -10,6 +12,12 @@ import {
   getCollection,
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
+import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
+import {
+  addMembersToTeam,
+  removeMembersFromTeam,
+} from "back-end/src/services/organizations";
+import { statusCodeReturn } from "back-end/src/util/handler";
 import { MakeModelClass } from "./BaseModel";
 
 const COLLECTION = "teams";
@@ -31,6 +39,54 @@ const BaseClass = MakeModelClass({
     },
     pathBase: "/teams",
     includeDefaultCrud: true,
+    customHandlers: [
+      defineCustomApiHandler({
+        pathFragment: "/:teamId/members",
+        verb: "post",
+        operationId: "addTeamMembers",
+        validator: apiAddTeamMembersValidator,
+        zodReturnObject: statusCodeReturn,
+        reqHandler: async (req) => {
+          if (!req.context.permissions.canManageTeam())
+            req.context.permissions.throwPermissionError();
+          const team = await req.context.models.teams.getById(
+            req.params.teamId,
+          );
+          if (!team) return req.context.throwNotFoundError();
+          await addMembersToTeam({
+            organization: req.context.org,
+            userIds: req.body.members,
+            teamId: team.id,
+          });
+          return {
+            status: 200,
+          };
+        },
+      }),
+      defineCustomApiHandler({
+        pathFragment: "/:teamId/members/:memberId",
+        verb: "delete",
+        operationId: "removeTeamMember",
+        validator: apiRemoveTeamMemberValidator,
+        zodReturnObject: statusCodeReturn,
+        reqHandler: async (req) => {
+          if (!req.context.permissions.canManageTeam())
+            req.context.permissions.throwPermissionError();
+          const team = await req.context.models.teams.getById(
+            req.params.teamId,
+          );
+          if (!team) return req.context.throwNotFoundError();
+          await removeMembersFromTeam({
+            organization: req.context.org,
+            userIds: [req.params.memberId],
+            teamId: team.id,
+          });
+          return {
+            status: 200,
+          };
+        },
+      }),
+    ],
   },
 });
 

@@ -11653,8 +11653,6 @@ paths:
                   type: array
                   items:
                     type: string
-                managedByIdp:
-                  type: boolean
                 managedBy:
                   anyOf:
                     - type: object
@@ -11828,8 +11826,6 @@ paths:
                   type: array
                   items:
                     type: string
-                managedByIdp:
-                  type: boolean
                 managedBy:
                   anyOf:
                     - type: object
@@ -11847,12 +11843,10 @@ paths:
                   type: string
               required:
                 - name
-                - createdBy
                 - description
                 - role
                 - limitAccessByEnvironment
                 - environments
-                - managedByIdp
               additionalProperties: false
       responses:
         '200':
@@ -12056,6 +12050,84 @@ paths:
                         - environments
                         - managedByIdp
                       additionalProperties: false
+  '/teams/{teamId}/members':
+    post:
+      $skipValidatorGeneration: true
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: string
+      tags:
+        - Teams
+      summary: ''
+      operationId: addTeamMembers
+      x-codeSamples:
+        - lang: cURL
+          source: 'curl -X POST https://api.growthbook.io/api/v1/teams/{teamId}/members -d ''{ ... }'' -u secret_abc123DEF456'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $schema: 'https://json-schema.org/draft/2020-12/schema'
+              type: object
+              properties:
+                members:
+                  type: array
+                  items:
+                    type: string
+              required:
+                - members
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $schema: 'https://json-schema.org/draft/2020-12/schema'
+                type: object
+                properties:
+                  status:
+                    type: number
+                required:
+                  - status
+                additionalProperties: false
+  '/teams/{teamId}/members/{memberId}':
+    delete:
+      $skipValidatorGeneration: true
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: string
+      tags:
+        - Teams
+      summary: ''
+      operationId: removeTeamMember
+      x-codeSamples:
+        - lang: cURL
+          source: 'curl -X DELETE https://api.growthbook.io/api/v1/teams/{teamId}/members/{memberId} -u secret_abc123DEF456'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $schema: 'https://json-schema.org/draft/2020-12/schema'
+                type: object
+                properties:
+                  status:
+                    type: number
+                required:
+                  - status
+                additionalProperties: false
 components:
   parameters:
     id:

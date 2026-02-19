@@ -442,6 +442,12 @@ export interface paths {
     /** Create a single team */
     post: operations["createTeam"];
   };
+  "/teams/{teamId}/members": {
+    post: operations["addTeamMembers"];
+  };
+  "/teams/{teamId}/members/{memberId}": {
+    delete: operations["removeTeamMember"];
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -16310,7 +16316,6 @@ export interface operations {
               project: string;
             })[];
           members?: (string)[];
-          managedByIdp?: boolean;
           managedBy?: {
             /** @constant */
             type: "vercel";
@@ -16419,7 +16424,7 @@ export interface operations {
       content: {
         "application/json": {
           name: string;
-          createdBy: string;
+          createdBy?: string;
           description: string;
           role: string;
           limitAccessByEnvironment: boolean;
@@ -16432,7 +16437,6 @@ export interface operations {
               project: string;
             })[];
           members?: (string)[];
-          managedByIdp: boolean;
           managedBy?: {
             /** @constant */
             type: "vercel";
@@ -16474,6 +16478,46 @@ export interface operations {
               };
               defaultProject?: string;
             };
+          };
+        };
+      };
+    };
+  };
+  addTeamMembers: {
+    parameters: {
+      path: {
+        teamId: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          members: (string)[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            status: number;
+          };
+        };
+      };
+    };
+  };
+  removeTeamMember: {
+    parameters: {
+      path: {
+        teamId: string;
+        memberId: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            status: number;
           };
         };
       };

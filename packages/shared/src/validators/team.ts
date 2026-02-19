@@ -45,3 +45,15 @@ export const apiCreateTeamBody = z.strictObject({
 });
 
 export const apiUpdateTeamBody = apiCreateTeamBody.partial();
+
+export const apiAddTeamMembersValidator = {
+  bodySchema: z.strictObject({ members: z.array(z.string()) }),
+  querySchema: z.never(),
+  paramsSchema: z.strictObject({ teamId: z.string() }),
+};
+
+export const apiRemoveTeamMemberValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.strictObject({ teamId: z.string(), memberId: z.string() }),
+};
