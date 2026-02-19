@@ -79,6 +79,15 @@ const EXPERIMENT_DIFF_CONFIG: AuditDiffConfig<ExperimentInterfaceStringDates> =
         stripSubKeysLabel: "Phases: other changes",
       },
       {
+        label: "User targeting",
+        keys: [
+          "excludeFromPayload",
+          "bucketVersion",
+          "minBucketVersion",
+          "disableStickyBucketing",
+        ],
+      },
+      {
         label: "Phase info",
         keys: ["phases"],
         pickSubKeys: [
@@ -96,7 +105,7 @@ const EXPERIMENT_DIFF_CONFIG: AuditDiffConfig<ExperimentInterfaceStringDates> =
         keys: ["variations"],
       },
       {
-        label: "Metrics",
+        label: "Analysis Settings",
         keys: [
           "goalMetrics",
           "secondaryMetrics",
@@ -104,11 +113,6 @@ const EXPERIMENT_DIFF_CONFIG: AuditDiffConfig<ExperimentInterfaceStringDates> =
           "activationMetric",
           "metricOverrides",
           "decisionFrameworkSettings",
-        ],
-      },
-      {
-        label: "Analysis Settings",
-        keys: [
           "hashAttribute",
           "fallbackAttribute",
           "hashVersion",
@@ -125,10 +129,14 @@ const EXPERIMENT_DIFF_CONFIG: AuditDiffConfig<ExperimentInterfaceStringDates> =
           "sequentialTestingTuningParameter",
           "attributionModel",
           "customMetricSlices",
+          "banditBurnInUnit",
+          "banditBurnInValue",
+          "banditScheduleUnit",
+          "banditScheduleValue",
         ],
       },
       {
-        label: "Settings",
+        label: "Metadata",
         keys: [
           "name",
           "description",

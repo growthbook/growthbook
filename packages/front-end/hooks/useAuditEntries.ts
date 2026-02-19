@@ -72,14 +72,15 @@ function coarsenEntries<T>(
   let current: CoarsenedAuditEntry<T> | null = null;
   let currentAuthorKey = "";
   let currentBucketKey = "";
+  let currentEvent = "";
 
   for (const entry of sorted) {
     if (!entry.postSnapshot) continue; // skip unparseable entries
 
     const authorKey = getAuthorKey(entry.user);
     const bucketKey = getTimeBucketKey(entry.dateCreated, groupBy);
-    const groupKey = `${bucketKey}||${authorKey}`;
-    const prevGroupKey = `${currentBucketKey}||${currentAuthorKey}`;
+    const groupKey = `${bucketKey}||${authorKey}||${entry.event}`;
+    const prevGroupKey = `${currentBucketKey}||${currentAuthorKey}||${currentEvent}`;
 
     if (current && groupKey === prevGroupKey) {
       // Merge into current group — update post to latest, extend date range
@@ -108,6 +109,7 @@ function coarsenEntries<T>(
       };
       currentAuthorKey = authorKey;
       currentBucketKey = bucketKey;
+      currentEvent = entry.event;
     }
   }
   if (current) result.push(current);
@@ -127,7 +129,8 @@ function splitCoarsenedEntry<T>(
   return raw
     .map((r, i) => {
       if (!r.postSnapshot) return null;
-      const pre = i === 0 ? entry.preSnapshot : (raw[i - 1].postSnapshot ?? null);
+      const pre =
+        i === 0 ? entry.preSnapshot : (raw[i - 1].postSnapshot ?? null);
       return {
         id: r.id,
         rawIds: [r.id],
@@ -373,7 +376,9 @@ export function useAuditEntries<T>(
   );
 
   const entries = coarsenEntries(rawEntries, groupBy);
-  const markers = [...rawMarkers].sort((a, b) => b.date.getTime() - a.date.getTime());
+  const markers = [...rawMarkers].sort(
+    (a, b) => b.date.getTime() - a.date.getTime(),
+  );
 
   return {
     entries,

@@ -25,8 +25,17 @@
   transition: background-color 0.15s ease;
   box-sizing: border-box;
 
+  .viewSingleButton {
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+
   &:hover {
     background-color: var(--violet-2);
+
+    .viewSingleButton {
+      opacity: 1;
+    }
   }
 }
 
@@ -41,6 +50,17 @@
 .rowSpacer {
   width: 16px;
   flex-shrink: 0;
+}
+
+.filterRow {
+  .eyeButton {
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+
+  &:hover .eyeButton {
+    opacity: 1;
+  }
 }
 
 .quickActionsList {

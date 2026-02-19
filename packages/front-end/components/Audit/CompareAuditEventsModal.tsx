@@ -5,7 +5,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
   PiArrowsLeftRightBold,
   PiArrowClockwise,
@@ -13,6 +13,7 @@ import {
   PiWarningBold,
   PiCaretDownBold,
   PiX,
+  PiEyeBold,
 } from "react-icons/pi";
 import { datetime } from "shared/dates";
 import format from "date-fns/format";
@@ -152,7 +153,8 @@ export default function CompareAuditEventsModal<T>({
 
   const sectionLabels = useMemo(
     () => [
-      ...(config.sections ?? []).map((s) => s.label),
+      // Deduplicate: multiple sections may share a label (for multi-widget diffs)
+      ...new Set((config.sections ?? []).map((s) => s.label)),
       // "Other changes" is auto-emitted by useAuditDiff when sections exist
       ...(config.sections?.length ? ["Other changes"] : []),
     ],
@@ -403,19 +405,21 @@ export default function CompareAuditEventsModal<T>({
         // Clicking an endpoint shrinks the range to the nearest visible item inward.
         // flatIds[low] is the newer (top) endpoint; flatIds[high] is the older (bottom).
         if (prev.includes(id)) {
-          if (high - low <= 1) return prev; // already at minimum 2 items
+          if (high === low) return prev; // already at minimum 1 item
           if (idx === low) {
             let newLow = low + 1;
-            while (newLow < high && !visibleIdSet.has(flatIds[newLow]))
+            while (newLow <= high && !visibleIdSet.has(flatIds[newLow]))
               newLow++;
-            if (newLow >= high) return prev; // no visible item found
+            if (newLow > high) return prev; // no visible item found
+            // newLow === high collapses to a single-item selection
             return [flatIds[newLow], flatIds[high]];
           }
           if (idx === high) {
             let newHigh = high - 1;
-            while (newHigh > low && !visibleIdSet.has(flatIds[newHigh]))
+            while (newHigh >= low && !visibleIdSet.has(flatIds[newHigh]))
               newHigh--;
-            if (newHigh <= low) return prev; // no visible item found
+            if (newHigh < low) return prev; // no visible item found
+            // newHigh === low collapses to a single-item selection
             return [flatIds[low], flatIds[newHigh]];
           }
           return prev;
@@ -474,13 +478,14 @@ export default function CompareAuditEventsModal<T>({
     : null;
 
   const singleEntryFirst =
-    selectedSorted.length >= 2
+    selectedSorted.length >= 1
       ? (entryById.get(selectedSorted[selectedSorted.length - 1]) ?? null)
       : null;
   const singleEntryLast =
-    selectedSorted.length >= 2
+    selectedSorted.length >= 1
       ? (entryById.get(selectedSorted[0]) ?? null)
       : null;
+  const isSingleEntry = selectedSorted.length === 1;
 
   // For diffing: pre of step A is its postSnapshot, post of step B is its postSnapshot.
   // For a create entry (pre=null), show as "created with these values".
@@ -490,21 +495,27 @@ export default function CompareAuditEventsModal<T>({
     config,
   });
 
+  // When a single entry is selected, diff its own preSnapshot→postSnapshot.
+  // For multi-entry ranges, use oldest.postSnapshot→newest.postSnapshot (merged net diff).
   const mergedDiffs = useAuditDiff<T>({
-    pre: singleEntryFirst?.postSnapshot ?? null,
+    pre: isSingleEntry
+      ? (singleEntryFirst?.preSnapshot ?? null)
+      : (singleEntryFirst?.postSnapshot ?? null),
     post: singleEntryLast?.postSnapshot ?? null,
     config,
   });
 
   // ---- Display state ----
   const displayIds =
-    steps.length === 0
-      ? []
-      : diffViewMode === "steps" && currentStep
-        ? [currentStep[0], currentStep[1]]
-        : selectedSorted.length >= 2
-          ? [selectedSorted[selectedSorted.length - 1], selectedSorted[0]]
-          : [];
+    isSingleEntry && singleEntryFirst
+      ? [singleEntryFirst.id]
+      : steps.length === 0
+        ? []
+        : diffViewMode === "steps" && currentStep
+          ? [currentStep[0], currentStep[1]]
+          : selectedSorted.length >= 2
+            ? [selectedSorted[selectedSorted.length - 1], selectedSorted[0]]
+            : [];
   const displayFailed = displayIds.filter((id) => isEntryFailed(id));
 
   // ---- Quick actions ----
@@ -514,14 +525,22 @@ export default function CompareAuditEventsModal<T>({
     setDiffPage(0);
   }, []);
 
+  // When loadAll completes, flatIds from the closure is stale. Use a ref so a
+  // useEffect can apply the selection once the fresh flatIds is available.
+  const pendingSelectAllRef = useRef(false);
   const handleLoadAll = useCallback(async () => {
+    pendingSelectAllRef.current = true;
+    isDefaultPairRef.current = false;
     await loadAll();
-    // After loading all, select the full range via its two endpoints.
+  }, [loadAll]);
+  useEffect(() => {
+    if (!pendingSelectAllRef.current) return;
+    if (hasMore || loadingAll) return;
+    pendingSelectAllRef.current = false;
     if (flatIds.length >= 2) {
       setSelectedIds([flatIds[0], flatIds[flatIds.length - 1]]);
     }
-    isDefaultPairRef.current = false;
-  }, [loadAll, flatIds]);
+  }, [hasMore, loadingAll, flatIds]);
 
   // ---- Per-entry changed section labels ----
   // Mixed list for rendering: visible entries interleaved with noise-group
@@ -693,13 +712,36 @@ export default function CompareAuditEventsModal<T>({
         className={`${styles.row} ${isSelected ? styles.rowSelected : ""}`}
       >
         <label htmlFor={rowId}>
-          <span style={{ pointerEvents: "none" }}>
-            <Checkbox
-              id={rowId}
-              value={isSelected}
-              setValue={() => toggleSelection(entry.id)}
-            />
-          </span>
+          <Flex direction="column" align="center" gap="1">
+            <span style={{ pointerEvents: "none" }}>
+              <Checkbox
+                id={rowId}
+                value={isSelected}
+                setValue={() => toggleSelection(entry.id)}
+              />
+            </span>
+            <Tooltip
+              body="View this entry only"
+              tipPosition="right"
+              className={styles.viewSingleButton}
+            >
+              <IconButton
+                variant="ghost"
+                size="1"
+                radius="full"
+                style={{ marginLeft: -10 }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  isDefaultPairRef.current = false;
+                  setSelectedIds([entry.id, entry.id]);
+                  setDiffPage(0);
+                }}
+              >
+                <PiEyeBold size={16} />
+              </IconButton>
+            </Tooltip>
+          </Flex>
           <Flex direction="column" gap="1" style={{ flex: 1, minWidth: 0 }}>
             <Flex align="center" justify="between" gap="2" width="100%">
               <Flex align="center" gap="1">
@@ -712,6 +754,10 @@ export default function CompareAuditEventsModal<T>({
                 )}
                 <Text weight="semibold">
                   {(() => {
+                    const isUpdateEvent =
+                      !config.updateEventNames ||
+                      config.updateEventNames.includes(entry.event);
+                    if (!isUpdateEvent) return label;
                     const changed = entrySectionLabels.get(entry.id) ?? [];
                     if (!changed.length) return label;
                     return `${label}: ${changed.join(", ")}`;
@@ -903,8 +949,8 @@ export default function CompareAuditEventsModal<T>({
                             )
                           }
                         >
-                          <Flex align="center" gap="2">
-                            <span style={{ width: 16, display: "inline-flex" }}>
+                          <Flex align="center">
+                            <span style={{ width: 24, display: "inline-flex" }}>
                               <PiX size={16} />
                             </span>
                             Remove all filters
@@ -925,8 +971,8 @@ export default function CompareAuditEventsModal<T>({
                           )
                         }
                       >
-                        <Flex align="center" gap="2">
-                          <span style={{ width: 16, display: "inline-flex" }}>
+                        <Flex align="center">
+                          <span style={{ width: 24, display: "inline-flex" }}>
                             <PiClockClockwise size={16} />
                           </span>
                           {isAtDefault
@@ -935,28 +981,71 @@ export default function CompareAuditEventsModal<T>({
                         </Flex>
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      {sectionLabels.map((label) => (
-                        <DropdownMenuItem
-                          key={label}
-                          onClick={() => toggleSection(label)}
-                        >
-                          <Flex align="center" gap="2">
-                            <span
-                              style={{
-                                width: 24,
-                                display: "inline-flex",
-                                pointerEvents: "none",
-                              }}
-                            >
-                              <Checkbox
-                                value={isSectionVisible(label)}
-                                setValue={() => {}}
-                              />
-                            </span>
-                            Show {label}
-                          </Flex>
-                        </DropdownMenuItem>
-                      ))}
+                      {sectionLabels.map((label) => {
+                        const isOnlyVisible =
+                          isSectionVisible(label) &&
+                          sectionLabels.every(
+                            (l) => l === label || !isSectionVisible(l),
+                          );
+                        return (
+                          <DropdownMenuItem
+                            key={label}
+                            onClick={() => toggleSection(label)}
+                          >
+                            <Flex align="center" className={styles.filterRow}>
+                              <span
+                                style={{
+                                  width: 24,
+                                  display: "inline-flex",
+                                  pointerEvents: "none",
+                                }}
+                              >
+                                <Checkbox
+                                  value={isSectionVisible(label)}
+                                  setValue={() => {}}
+                                />
+                              </span>
+                              <Tooltip
+                                shouldDisplay={!isOnlyVisible}
+                                body="Show only this item"
+                                tipPosition="left"
+                                className={styles.eyeButton}
+                                innerClassName="py-1 px-2"
+                              >
+                                <IconButton
+                                  variant="ghost"
+                                  size="1"
+                                  radius="full"
+                                  style={{
+                                    marginTop: 0,
+                                    marginBottom: 0,
+                                    marginLeft: -6,
+                                    marginRight: 0,
+                                  }}
+                                  disabled={isOnlyVisible}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setVisibleSections(
+                                      sectionLabels.reduce<
+                                        Record<string, boolean>
+                                      >(
+                                        (acc, l) => ({
+                                          ...acc,
+                                          [l]: l === label,
+                                        }),
+                                        {},
+                                      ),
+                                    );
+                                  }}
+                                >
+                                  <PiEyeBold size={14} />
+                                </IconButton>
+                              </Tooltip>
+                              Show {label}
+                            </Flex>
+                          </DropdownMenuItem>
+                        );
+                      })}
                     </DropdownMenu>
                   );
                 })()}
@@ -1083,9 +1172,9 @@ export default function CompareAuditEventsModal<T>({
           className={`${styles.sidebar} overflow-auto`}
           style={{ minHeight: 0 }}
         >
-          {steps.length === 0 ? (
+          {steps.length === 0 && !isSingleEntry ? (
             <Text color="text-low">
-              Select at least two entries in the list to see the diff.
+              Select at least one entry in the list to see the diff.
             </Text>
           ) : (
             <>
@@ -1123,7 +1212,29 @@ export default function CompareAuditEventsModal<T>({
                   )}
                   {diffViewMode === "single" &&
                     singleEntryFirst &&
-                    singleEntryLast && (
+                    singleEntryLast &&
+                    (isSingleEntry ? (
+                      <Flex direction="column">
+                        <Flex align="center" gap="1">
+                          {isEntryFailed(singleEntryFirst.id) && (
+                            <Tooltip body="Could not load entry">
+                              <PiWarningBold
+                                style={{
+                                  color: "var(--red-9)",
+                                  flexShrink: 0,
+                                }}
+                              />
+                            </Tooltip>
+                          )}
+                          <Text weight="semibold" size="medium">
+                            {getEntryLabel(singleEntryFirst)}
+                          </Text>
+                        </Flex>
+                        <Text as="div" size="small" color="text-low">
+                          {datetime(singleEntryFirst.dateStart)}
+                        </Text>
+                      </Flex>
+                    ) : (
                       <AuditEntryCompareLabel
                         entryA={singleEntryFirst}
                         entryB={singleEntryLast}
@@ -1132,23 +1243,25 @@ export default function CompareAuditEventsModal<T>({
                         entryAFailed={isEntryFailed(singleEntryFirst.id)}
                         entryBFailed={isEntryFailed(singleEntryLast.id)}
                       />
-                    )}
+                    ))}
                 </Flex>
-                <Flex align="center" gap="2">
-                  <Text size="medium" weight="medium" color="text-mid">
-                    Show diff as
-                  </Text>
-                  <Select
-                    value={diffViewMode}
-                    setValue={(v) => setDiffViewModeRaw(v)}
-                    disabled={!canToggleDiffView}
-                    size="2"
-                    mb="0"
-                  >
-                    <SelectItem value="steps">Steps</SelectItem>
-                    <SelectItem value="single">Single diff</SelectItem>
-                  </Select>
-                </Flex>
+                {!isSingleEntry && (
+                  <Flex align="center" gap="2">
+                    <Text size="medium" weight="medium" color="text-mid">
+                      Show diff as
+                    </Text>
+                    <Select
+                      value={diffViewMode}
+                      setValue={(v) => setDiffViewModeRaw(v)}
+                      disabled={!canToggleDiffView}
+                      size="2"
+                      mb="0"
+                    >
+                      <SelectItem value="steps">Steps</SelectItem>
+                      <SelectItem value="single">Single diff</SelectItem>
+                    </Select>
+                  </Flex>
+                )}
               </Flex>
 
               {/* Step label */}

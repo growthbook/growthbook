@@ -7,11 +7,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Box, Flex } from "@radix-ui/themes";
 import {
-  DropdownMenu,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from "@/ui/DropdownMenu";
-import {
   PiArrowsLeftRightBold,
   PiClockClockwise,
   PiWarningBold,
@@ -19,6 +14,11 @@ import {
 } from "react-icons/pi";
 import { datetime } from "shared/dates";
 import { DRAFT_REVISION_STATUSES } from "shared/util";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/ui/DropdownMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Checkbox from "@/ui/Checkbox";
@@ -417,11 +417,17 @@ export default function CompareRevisionsModal({
       // versionsDesc[startIdx] is the newer (top) endpoint; versionsDesc[endIdx] is the older.
       // Visibility = presence in filteredRevisionList (respects draft/discarded filters).
       if (prev.includes(version)) {
-        if (startIdx === -1 || endIdx === -1 || endIdx - startIdx <= 1) return prev;
-        const visibleVersions = new Set(filteredRevisionList.map((r) => r.version));
+        if (startIdx === -1 || endIdx === -1 || endIdx - startIdx <= 1)
+          return prev;
+        const visibleVersions = new Set(
+          filteredRevisionList.map((r) => r.version),
+        );
         if (idx === startIdx) {
           let newStart = startIdx + 1;
-          while (newStart < endIdx && !visibleVersions.has(versionsDesc[newStart]))
+          while (
+            newStart < endIdx &&
+            !visibleVersions.has(versionsDesc[newStart])
+          )
             newStart++;
           if (newStart >= endIdx) return prev; // no visible item found
           return [versionsDesc[newStart], versionsDesc[endIdx]].sort(
@@ -430,7 +436,10 @@ export default function CompareRevisionsModal({
         }
         if (idx === endIdx) {
           let newEnd = endIdx - 1;
-          while (newEnd > startIdx && !visibleVersions.has(versionsDesc[newEnd]))
+          while (
+            newEnd > startIdx &&
+            !visibleVersions.has(versionsDesc[newEnd])
+          )
             newEnd--;
           if (newEnd <= startIdx) return prev; // no visible item found
           return [versionsDesc[startIdx], versionsDesc[newEnd]].sort(
@@ -751,8 +760,8 @@ export default function CompareRevisionsModal({
                             if (hasDiscardedRevisions) setShowDiscarded(true);
                           }}
                         >
-                          <Flex align="center" gap="2">
-                            <span style={{ width: 16, display: "inline-flex" }}>
+                          <Flex align="center">
+                            <span style={{ width: 24, display: "inline-flex" }}>
                               <PiX size={16} />
                             </span>
                             Remove all filters
@@ -766,8 +775,8 @@ export default function CompareRevisionsModal({
                           setShowDiscarded(false);
                         }}
                       >
-                        <Flex align="center" gap="2">
-                          <span style={{ width: 16, display: "inline-flex" }}>
+                        <Flex align="center">
+                          <span style={{ width: 24, display: "inline-flex" }}>
                             <PiClockClockwise size={16} />
                           </span>
                           {isAtDefault
@@ -781,7 +790,7 @@ export default function CompareRevisionsModal({
                           key={opt.label}
                           onClick={() => opt.toggle()}
                         >
-                          <Flex align="center" gap="2">
+                          <Flex align="center">
                             <span
                               style={{
                                 width: 24,
@@ -789,7 +798,10 @@ export default function CompareRevisionsModal({
                                 pointerEvents: "none",
                               }}
                             >
-                              <Checkbox value={!opt.hidden} setValue={() => {}} />
+                              <Checkbox
+                                value={!opt.hidden}
+                                setValue={() => {}}
+                              />
                             </span>
                             {opt.label}
                           </Flex>
