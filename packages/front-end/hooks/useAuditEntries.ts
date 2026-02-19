@@ -9,6 +9,7 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useAuth } from "@/services/auth";
 import {
   AuditDiffConfig,
+  AuditEventMarker,
   AuditUserInfo,
   CoarsenedAuditEntry,
   GroupByOption,
@@ -86,6 +87,10 @@ function coarsenEntries<T>(
       current.dateEnd = entry.dateCreated;
       current.event = entry.event;
       current.rawIds.push(entry.id);
+      current.rawSnapshots.push({
+        pre: entry.preSnapshot,
+        post: entry.postSnapshot,
+      });
       current.count += 1;
     } else {
       if (current) result.push(current);
@@ -98,6 +103,7 @@ function coarsenEntries<T>(
         user: toAuditUserInfo(entry.user),
         preSnapshot: entry.preSnapshot,
         postSnapshot: entry.postSnapshot,
+        rawSnapshots: [{ pre: entry.preSnapshot, post: entry.postSnapshot }],
         count: 1,
       };
       currentAuthorKey = authorKey;
@@ -121,6 +127,7 @@ function splitCoarsenedEntry<T>(
   return raw
     .map((r, i) => {
       if (!r.postSnapshot) return null;
+      const pre = i === 0 ? entry.preSnapshot : (raw[i - 1].postSnapshot ?? null);
       return {
         id: r.id,
         rawIds: [r.id],
@@ -128,9 +135,9 @@ function splitCoarsenedEntry<T>(
         dateStart: r.dateCreated,
         dateEnd: r.dateCreated,
         user: toAuditUserInfo(r.user),
-        preSnapshot:
-          i === 0 ? entry.preSnapshot : (raw[i - 1].postSnapshot ?? null),
+        preSnapshot: pre,
         postSnapshot: r.postSnapshot,
+        rawSnapshots: [{ pre, post: r.postSnapshot }],
         count: 1,
       } as CoarsenedAuditEntry<T>;
     })
@@ -161,6 +168,7 @@ function parseDetails<T>(
 
 interface FetchPageResult<T> {
   parsed: RawAuditEntry<T>[];
+  markers: AuditEventMarker[];
   total: number;
   nextCursor: string | null;
 }
@@ -168,6 +176,8 @@ interface FetchPageResult<T> {
 interface UseAuditEntriesResult<T> {
   /** Coarsened entries sorted newest-first, ready for the left column. */
   entries: CoarsenedAuditEntry<T>[];
+  /** Non-diffable event markers sorted newest-first, to be interleaved in the left column. */
+  markers: AuditEventMarker[];
   loading: boolean;
   loadingAll: boolean;
   error: string | null;
@@ -197,6 +207,7 @@ export function useAuditEntries<T>(
     config.defaultGroupBy ?? "minute",
   );
   const [rawEntries, setRawEntries] = useState<RawAuditEntry<T>[]>([]);
+  const [rawMarkers, setRawMarkers] = useState<AuditEventMarker[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [total, setTotal] = useState(0);
@@ -224,23 +235,51 @@ export function useAuditEntries<T>(
         nextCursor: string | null;
       }>(`/history/${config.entityType}/${entityId}?${params.toString()}`);
 
+      const labelOnlyMap = new Map(
+        (config.labelOnlyEvents ?? []).map((l) => [l.event, l]),
+      );
+      const allIncluded = new Set([
+        ...config.includedEvents,
+        ...labelOnlyMap.keys(),
+      ]);
+
       const filtered = (res.events ?? []).filter((e) =>
-        config.includedEvents.includes(e.event),
+        allIncluded.has(e.event),
       );
 
-      const parsed: RawAuditEntry<T>[] = filtered.map((e) => {
-        const { pre, post } = parseDetails<T>(e.details, e.event);
-        return {
-          id: e.id,
-          event: e.event,
-          dateCreated: new Date(e.dateCreated),
-          user: e.user,
-          preSnapshot: pre,
-          postSnapshot: post,
-        };
-      });
+      const parsed: RawAuditEntry<T>[] = [];
+      const markers: AuditEventMarker[] = [];
 
-      return { parsed, total: res.total, nextCursor: res.nextCursor };
+      for (const e of filtered) {
+        const labelOnlyEntry = labelOnlyMap.get(e.event);
+        if (labelOnlyEntry) {
+          let details: Record<string, unknown> | null = null;
+          try {
+            details = e.details ? JSON.parse(e.details) : null;
+          } catch {
+            // ignore
+          }
+          markers.push({
+            id: e.id,
+            event: e.event,
+            date: new Date(e.dateCreated),
+            user: toAuditUserInfo(e.user),
+            label: labelOnlyEntry.getLabel(details),
+          });
+        } else {
+          const { pre, post } = parseDetails<T>(e.details, e.event);
+          parsed.push({
+            id: e.id,
+            event: e.event,
+            dateCreated: new Date(e.dateCreated),
+            user: e.user,
+            preSnapshot: pre,
+            postSnapshot: post,
+          });
+        }
+      }
+
+      return { parsed, markers, total: res.total, nextCursor: res.nextCursor };
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [apiCall, config.entityType, entityId],
@@ -252,6 +291,7 @@ export function useAuditEntries<T>(
     setLoading(true);
     setError(null);
     setRawEntries([]);
+    setRawMarkers([]);
     setCursor(null);
     setHasMore(false);
     setTotal(0);
@@ -261,6 +301,7 @@ export function useAuditEntries<T>(
         const result = await fetchPage(null);
         if (cancelled || !isMounted.current) return;
         setRawEntries(result.parsed);
+        setRawMarkers(result.markers);
         setTotal(result.total);
         setCursor(result.nextCursor);
         setHasMore(!!result.nextCursor);
@@ -286,6 +327,7 @@ export function useAuditEntries<T>(
         const result = await fetchPage(cursor);
         if (!isMounted.current) return;
         setRawEntries((prev) => [...prev, ...result.parsed]);
+        setRawMarkers((prev) => [...prev, ...result.markers]);
         setCursor(result.nextCursor);
         setHasMore(!!result.nextCursor);
       } catch {
@@ -302,14 +344,17 @@ export function useAuditEntries<T>(
     try {
       let nextCursor = cursor;
       const accumulated: RawAuditEntry<T>[] = [];
+      const accumulatedMarkers: AuditEventMarker[] = [];
       while (nextCursor) {
         const result = await fetchPage(nextCursor);
         if (!isMounted.current) return;
         accumulated.push(...result.parsed);
+        accumulatedMarkers.push(...result.markers);
         nextCursor = result.nextCursor;
       }
       if (!isMounted.current) return;
       setRawEntries((prev) => [...prev, ...accumulated]);
+      setRawMarkers((prev) => [...prev, ...accumulatedMarkers]);
       setCursor(null);
       setHasMore(false);
     } catch {
@@ -328,9 +373,11 @@ export function useAuditEntries<T>(
   );
 
   const entries = coarsenEntries(rawEntries, groupBy);
+  const markers = [...rawMarkers].sort((a, b) => b.date.getTime() - a.date.getTime());
 
   return {
     entries,
+    markers,
     loading,
     loadingAll,
     error,

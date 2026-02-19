@@ -9,15 +9,21 @@ import { Box, Flex } from "@radix-ui/themes";
 import {
   PiArrowsLeftRightBold,
   PiArrowClockwise,
+  PiClockClockwise,
   PiWarningBold,
   PiCaretDownBold,
+  PiX,
 } from "react-icons/pi";
 import { datetime } from "shared/dates";
 import format from "date-fns/format";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/ui/DropdownMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Checkbox from "@/ui/Checkbox";
-import Switch from "@/ui/Switch";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Modal from "@/components/Modal";
@@ -30,7 +36,12 @@ import Badge from "@/ui/Badge";
 import { ExpandableDiff } from "@/components/Features/DraftModal";
 import { useAuditEntries } from "@/hooks/useAuditEntries";
 import { getChangedSectionLabels, useAuditDiff } from "./useAuditDiff";
-import { AuditDiffConfig, CoarsenedAuditEntry, GroupByOption } from "./types";
+import {
+  AuditDiffConfig,
+  AuditEventMarker,
+  CoarsenedAuditEntry,
+  GroupByOption,
+} from "./types";
 import styles from "./CompareAuditEventsModal.module.scss";
 
 const STORAGE_KEY_PREFIX = "audit:compare-events";
@@ -135,7 +146,9 @@ export default function CompareAuditEventsModal<T>({
   // All sections are visible by default; a missing key means "visible".
   const [visibleSections, setVisibleSections] = useLocalStorage<
     Record<string, boolean>
-  >(`${STORAGE_KEY_PREFIX}:${config.entityType}:visibleSections`, {});
+  >(`${STORAGE_KEY_PREFIX}:${config.entityType}:visibleSections`, {
+    "Other changes": false,
+  });
 
   const sectionLabels = useMemo(
     () => [
@@ -162,6 +175,7 @@ export default function CompareAuditEventsModal<T>({
 
   const {
     entries,
+    markers,
     loading,
     loadingAll,
     error,
@@ -184,12 +198,20 @@ export default function CompareAuditEventsModal<T>({
     (entry: CoarsenedAuditEntry<T>) => {
       const children = expandEntry(entry);
       setExpandedGroups((prev) => ({ ...prev, [entry.id]: children }));
-      // If the group was selected, replace its id with all child ids so they
-      // all appear checked after expansion.
+      // If the group was a selected endpoint, replace it with the appropriate
+      // boundary child to maintain exactly 2 endpoints.
+      // prev[0] is the newer endpoint, prev[1] is the older endpoint.
       setSelectedIds((prev) => {
         if (!prev.includes(entry.id)) return prev;
         const childIds = children.map((c) => c.id);
-        return prev.flatMap((id) => (id === entry.id ? childIds : [id]));
+        if (childIds.length === 0) return prev;
+        return prev.map((id, i) =>
+          id === entry.id
+            ? i === 0
+              ? childIds[0] // newer endpoint → newest child
+              : childIds[childIds.length - 1] // older endpoint → oldest child
+            : id,
+        );
       });
     },
     [expandEntry],
@@ -264,10 +286,21 @@ export default function CompareAuditEventsModal<T>({
   }, [flatIds, pendingPairId, hasMore]);
 
   const selectedSorted = useMemo(() => {
-    // Keep in the order they appear in flatEntries (newest-first in array,
-    // but conceptually oldest → newest for diffing)
-    return flatIds.filter((id) => selectedIds.includes(id));
+    // selectedIds holds exactly 2 endpoints; expand to include every entry
+    // between them (filter-agnostic) so steps and diffs cover the full range.
+    if (selectedIds.length < 2)
+      return flatIds.filter((id) => selectedIds.includes(id));
+    const i0 = flatIds.indexOf(selectedIds[0]);
+    const i1 = flatIds.indexOf(selectedIds[1]);
+    if (i0 === -1 || i1 === -1)
+      return flatIds.filter((id) => selectedIds.includes(id));
+    return flatIds.slice(Math.min(i0, i1), Math.max(i0, i1) + 1);
   }, [flatIds, selectedIds]);
+
+  const selectedSortedSet = useMemo(
+    () => new Set(selectedSorted),
+    [selectedSorted],
+  );
 
   // For step navigation — walk adjacent pairs newest→oldest in display order,
   // but diff as earlier→later snapshot
@@ -302,6 +335,41 @@ export default function CompareAuditEventsModal<T>({
     [flatEntries],
   );
 
+  // Uses the union of changed sections across every raw sub-event snapshot so
+  // that sections which cancel out net-wise still appear in the title.
+  const entrySectionLabels = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const entry of flatEntries) {
+      if (config.sections?.length) {
+        const seen = new Set<string>();
+        for (const { pre, post } of entry.rawSnapshots) {
+          for (const label of getChangedSectionLabels(pre, post, config)) {
+            seen.add(label);
+          }
+        }
+        map.set(entry.id, Array.from(seen));
+      }
+    }
+    return map;
+  }, [flatEntries, config]);
+
+  // ---- Filtered entry list for the left column ----
+  // Hide entries whose changed sections are entirely invisible.
+  // Entries with no section changes (e.g. create events) are always shown.
+  const visibleFlatEntries = useMemo(() => {
+    if (!sectionLabels.length) return flatEntries;
+    return flatEntries.filter((entry) => {
+      const changed = entrySectionLabels.get(entry.id);
+      if (!changed?.length) return true;
+      return changed.some(isSectionVisible);
+    });
+  }, [flatEntries, entrySectionLabels, sectionLabels, isSectionVisible]);
+
+  const visibleIdSet = useMemo(
+    () => new Set(visibleFlatEntries.map((e) => e.id)),
+    [visibleFlatEntries],
+  );
+
   const toggleSelection = useCallback(
     (id: string) => {
       const idx = flatIds.indexOf(id);
@@ -332,16 +400,37 @@ export default function CompareAuditEventsModal<T>({
         const low = flatIds.indexOf(prev[0] ?? "");
         const high = flatIds.indexOf(prev[prev.length - 1] ?? "");
 
+        // Clicking an endpoint shrinks the range to the nearest visible item inward.
+        // flatIds[low] is the newer (top) endpoint; flatIds[high] is the older (bottom).
         if (prev.includes(id)) {
-          if (prev.length <= 2) return prev;
-          // Split — keep the larger side
-          const left = prev.filter((sid) => flatIds.indexOf(sid) < idx);
-          const right = prev.filter((sid) => flatIds.indexOf(sid) > idx);
-          if (left.length >= 2 && right.length >= 2)
-            return left.length >= right.length ? left : right;
-          if (left.length >= 2) return left;
-          if (right.length >= 2) return right;
+          if (high - low <= 1) return prev; // already at minimum 2 items
+          if (idx === low) {
+            let newLow = low + 1;
+            while (newLow < high && !visibleIdSet.has(flatIds[newLow]))
+              newLow++;
+            if (newLow >= high) return prev; // no visible item found
+            return [flatIds[newLow], flatIds[high]];
+          }
+          if (idx === high) {
+            let newHigh = high - 1;
+            while (newHigh > low && !visibleIdSet.has(flatIds[newHigh]))
+              newHigh--;
+            if (newHigh <= low) return prev; // no visible item found
+            return [flatIds[low], flatIds[newHigh]];
+          }
           return prev;
+        }
+
+        // Clicking within the range: shorten by moving the nearer endpoint.
+        // Tiebreaker: move the newer (top) endpoint. flatIds[low] is newer.
+        if (low !== -1 && high !== -1 && idx > low && idx < high) {
+          const distToNewer = idx - low;
+          const distToOlder = high - idx;
+          if (distToNewer <= distToOlder) {
+            return [flatIds[idx], flatIds[high]];
+          } else {
+            return [flatIds[low], flatIds[idx]];
+          }
         }
 
         // Far click: clear the selection and pair with the item immediately
@@ -355,16 +444,14 @@ export default function CompareAuditEventsModal<T>({
 
         const newLow = Math.min(low === -1 ? idx : low, idx);
         const newHigh = Math.max(high === -1 ? idx : high, idx);
-        const result = flatIds.slice(newLow, newHigh + 1);
-        // Guard: stale/invalid prev can produce a 1-item slice — fall back to
-        // the default pair so the UI is never left with a single selection.
-        if (result.length < 2 && flatIds.length >= 2) {
+        // Store only the two endpoints; selectedSorted derives the full range.
+        if (newLow === newHigh && flatIds.length >= 2) {
           return [flatIds[0], flatIds[1]];
         }
-        return result;
+        return [flatIds[newLow], flatIds[newHigh]];
       });
     },
-    [flatIds, selectedIds, hasMore, loadMore],
+    [flatIds, selectedIds, hasMore, loadMore, visibleIdSet],
   );
 
   // ---- Failed entry tracking ----
@@ -429,69 +516,172 @@ export default function CompareAuditEventsModal<T>({
 
   const handleLoadAll = useCallback(async () => {
     await loadAll();
-    // After loading all, select everything
-    setSelectedIds(flatIds);
+    // After loading all, select the full range via its two endpoints.
+    if (flatIds.length >= 2) {
+      setSelectedIds([flatIds[0], flatIds[flatIds.length - 1]]);
+    }
     isDefaultPairRef.current = false;
   }, [loadAll, flatIds]);
 
   // ---- Per-entry changed section labels ----
-  // Computed once over all flat entries; avoids calling a hook in a loop.
-  const entrySectionLabels = useMemo(() => {
-    const map = new Map<string, string[]>();
-    for (const entry of flatEntries) {
-      if (config.sections?.length) {
-        const labels = getChangedSectionLabels(
-          entry.preSnapshot,
-          entry.postSnapshot,
-          config,
-        );
-        map.set(entry.id, labels);
+  // Mixed list for rendering: visible entries interleaved with noise-group
+  // placeholders (hidden changes + marker events) so date separators still
+  // appear across filtered-out / non-diffable items.
+  type NoiseItem = {
+    type: "noise";
+    /** Date of the first (most recent) item added to this group. */
+    date: Date;
+    hiddenCount: number;
+    /** Per-event-type marker rollups, in insertion order. */
+    markers: { event: string; label: string; count: number }[];
+  };
+  type LeftColItem =
+    | { type: "entry"; entry: CoarsenedAuditEntry<T> }
+    | NoiseItem;
+
+  const leftColumnItems = useMemo((): LeftColItem[] => {
+    // Merge-sort flatEntries and markers newest-first into one stream.
+    type MergedItem =
+      | { date: Date; kind: "entry"; entry: CoarsenedAuditEntry<T> }
+      | { date: Date; kind: "marker"; marker: AuditEventMarker };
+
+    const merged: MergedItem[] = [
+      ...flatEntries.map(
+        (entry): MergedItem => ({
+          date: entry.dateStart,
+          kind: "entry",
+          entry,
+        }),
+      ),
+      ...markers.map(
+        (marker): MergedItem => ({ date: marker.date, kind: "marker", marker }),
+      ),
+    ].sort((a, b) => b.date.getTime() - a.date.getTime());
+
+    const items: LeftColItem[] = [];
+
+    // Selected endpoints are always shown as full entry rows regardless of filters,
+    // so the user always sees what they've selected.
+    const selectedEndpoints = new Set(selectedIds);
+
+    // Active noise group: accumulates hidden entries + markers within a weekly bucket.
+    // Flushed whenever a visible entry appears or the week changes.
+    type NoiseGroup = {
+      weekBucket: string;
+      date: Date;
+      hiddenCount: number;
+      markersByEvent: Map<string, { label: string; count: number }>;
+      markerEventOrder: string[];
+    };
+    let noise: NoiseGroup | null = null;
+
+    const flushNoise = () => {
+      if (!noise) return;
+      items.push({
+        type: "noise",
+        date: noise.date,
+        hiddenCount: noise.hiddenCount,
+        markers: noise.markerEventOrder.map((ev) => ({
+          event: ev,
+          label: noise!.markersByEvent.get(ev)!.label,
+          count: noise!.markersByEvent.get(ev)!.count,
+        })),
+      });
+      noise = null;
+    };
+
+    // Weekly bucket key for coarsening noise groups.
+    const weekBucket = (date: Date) => format(date, "RRRR-'W'II");
+
+    for (const item of merged) {
+      if (item.kind === "marker") {
+        const bucket = weekBucket(item.marker.date);
+        if (noise && noise.weekBucket !== bucket) flushNoise();
+        if (!noise) {
+          noise = {
+            weekBucket: bucket,
+            date: item.date,
+            hiddenCount: 0,
+            markersByEvent: new Map(),
+            markerEventOrder: [],
+          };
+        }
+        const existing = noise.markersByEvent.get(item.marker.event);
+        if (existing) {
+          existing.count++;
+        } else {
+          noise.markersByEvent.set(item.marker.event, {
+            label: item.marker.label,
+            count: 1,
+          });
+          noise.markerEventOrder.push(item.marker.event);
+        }
+        continue;
+      }
+
+      // Diffable entry
+      const entry = item.entry;
+      const changed = entrySectionLabels.get(entry.id);
+      const isVisible =
+        !sectionLabels.length ||
+        !changed?.length ||
+        changed.some(isSectionVisible) ||
+        selectedEndpoints.has(entry.id); // endpoints always visible
+
+      if (isVisible) {
+        flushNoise();
+        items.push({ type: "entry", entry });
+      } else {
+        const bucket = weekBucket(entry.dateStart);
+        if (noise && noise.weekBucket !== bucket) flushNoise();
+        if (!noise) {
+          noise = {
+            weekBucket: bucket,
+            date: item.date,
+            hiddenCount: 0,
+            markersByEvent: new Map(),
+            markerEventOrder: [],
+          };
+        }
+        noise.hiddenCount++;
       }
     }
-    return map;
-  }, [flatEntries, config]);
+    flushNoise();
+    return items;
+  }, [
+    flatEntries,
+    markers,
+    entrySectionLabels,
+    sectionLabels,
+    isSectionVisible,
+    selectedIds,
+  ]);
 
-  // ---- Filtered entry list for the left column ----
-  // Hide entries whose changed sections are entirely invisible.
-  // Entries with no section changes (e.g. create events) are always shown.
-  const visibleFlatEntries = useMemo(() => {
-    if (!sectionLabels.length) return flatEntries;
-    return flatEntries.filter((entry) => {
-      const changed = entrySectionLabels.get(entry.id);
-      if (!changed?.length) return true;
-      return changed.some(isSectionVisible);
-    });
-  }, [flatEntries, entrySectionLabels, sectionLabels, isSectionVisible]);
-
-  // When section toggles cause visibleFlatEntries to shrink, ensure the
-  // selection still contains at least 2 visible entries; if not, reset to
-  // the top 2 visible entries.
-  useEffect(() => {
-    const visibleIds = new Set(visibleFlatEntries.map((e) => e.id));
-    setSelectedIds((prev) => {
-      const valid = prev.filter((id) => visibleIds.has(id));
-      if (valid.length >= 2) return valid.length === prev.length ? prev : valid;
-      if (visibleFlatEntries.length >= 2) {
-        return [visibleFlatEntries[0].id, visibleFlatEntries[1].id];
-      }
-      return visibleFlatEntries.map((e) => e.id);
-    });
-  }, [visibleFlatEntries]);
+  // Selection is filter-agnostic: filters only affect visual grouping in the
+  // left column, not which entries contribute to the diff range.
 
   // ---- Render helpers ----
   const getEntryLabel = useCallback(
     (entry: CoarsenedAuditEntry<T>) => {
+      if (config.overrideEventLabel) {
+        const override = config.overrideEventLabel(entry);
+        if (override !== null) return override;
+      }
       const base = getEventLabel(entry.event);
-      const sections = (entrySectionLabels.get(entry.id) ?? []).filter(
-        isSectionVisible,
-      );
-      return sections.length ? `${base}: ${sections.join(", ")}` : base;
+      const isUpdateEvent =
+        !config.updateEventNames ||
+        config.updateEventNames.includes(entry.event);
+      if (isUpdateEvent) {
+        const sections = entrySectionLabels.get(entry.id) ?? [];
+        return sections.length ? `${base}: ${sections.join(", ")}` : base;
+      }
+      return config.entityLabel ? `${base} ${config.entityLabel}` : base;
     },
-    [getEventLabel, entrySectionLabels, isSectionVisible],
+    [getEventLabel, entrySectionLabels, config],
   );
 
   const renderEntryRow = (entry: CoarsenedAuditEntry<T>) => {
-    const isSelected = selectedIds.includes(entry.id);
+    const isSelected = selectedSortedSet.has(entry.id);
     const failed = isEntryFailed(entry.id);
     const label = getEventLabel(entry.event);
     const rowId = `audit-entry-${entry.id}`;
@@ -522,9 +712,7 @@ export default function CompareAuditEventsModal<T>({
                 )}
                 <Text weight="semibold">
                   {(() => {
-                    const changed = (
-                      entrySectionLabels.get(entry.id) ?? []
-                    ).filter(isSectionVisible);
+                    const changed = entrySectionLabels.get(entry.id) ?? [];
                     if (!changed.length) return label;
                     return `${label}: ${changed.join(", ")}`;
                   })()}
@@ -568,11 +756,8 @@ export default function CompareAuditEventsModal<T>({
   };
 
   const activeDiffs = useMemo(
-    () =>
-      (diffViewMode === "single" ? mergedDiffs : stepDiffs).filter((d) =>
-        isSectionVisible(d.label),
-      ),
-    [diffViewMode, mergedDiffs, stepDiffs, isSectionVisible],
+    () => (diffViewMode === "single" ? mergedDiffs : stepDiffs),
+    [diffViewMode, mergedDiffs, stepDiffs],
   );
 
   return (
@@ -641,7 +826,10 @@ export default function CompareAuditEventsModal<T>({
                     if (hasMore) {
                       await handleLoadAll();
                     } else {
-                      applyQuickAction(flatIds);
+                      applyQuickAction([
+                        flatIds[0],
+                        flatIds[flatIds.length - 1],
+                      ]);
                     }
                   }}
                 >
@@ -670,17 +858,110 @@ export default function CompareAuditEventsModal<T>({
           {/* Group by + entry list */}
           <Box className={styles.section} pb="3">
             <Flex align="center" justify="between" mb="2">
-              <Text
-                size="medium"
-                weight="medium"
-                color="text-mid"
-                mb="2"
-                as="p"
-              >
+              <Text size="medium" weight="medium" color="text-mid">
                 Select range of revisions
               </Text>
+              {sectionLabels.length > 0 &&
+                (() => {
+                  const isDefaultVisible = (l: string) => l !== "Other changes";
+                  const activeFilterCount = sectionLabels.filter(
+                    (l) => !isSectionVisible(l),
+                  ).length;
+                  const isShowingAll = activeFilterCount === 0;
+                  const isAtDefault = sectionLabels.every(
+                    (l) => isSectionVisible(l) === isDefaultVisible(l),
+                  );
+                  return (
+                    <DropdownMenu
+                      modal={true}
+                      trigger={
+                        <Link>
+                          Filters
+                          {activeFilterCount > 0 && (
+                            <Badge
+                              color="indigo"
+                              variant="solid"
+                              radius="full"
+                              label={String(activeFilterCount)}
+                              style={{ minWidth: 18, height: 18, marginTop: 1 }}
+                              ml="1"
+                            />
+                          )}
+                        </Link>
+                      }
+                      menuPlacement="end"
+                      variant="soft"
+                    >
+                      {!isShowingAll && (
+                        <DropdownMenuItem
+                          onClick={() =>
+                            setVisibleSections(
+                              sectionLabels.reduce<Record<string, boolean>>(
+                                (acc, l) => ({ ...acc, [l]: true }),
+                                {},
+                              ),
+                            )
+                          }
+                        >
+                          <Flex align="center" gap="2">
+                            <span style={{ width: 16, display: "inline-flex" }}>
+                              <PiX size={16} />
+                            </span>
+                            Remove all filters
+                          </Flex>
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem
+                        disabled={isAtDefault}
+                        onClick={() =>
+                          setVisibleSections(
+                            sectionLabels.reduce<Record<string, boolean>>(
+                              (acc, l) => ({
+                                ...acc,
+                                [l]: isDefaultVisible(l),
+                              }),
+                              {},
+                            ),
+                          )
+                        }
+                      >
+                        <Flex align="center" gap="2">
+                          <span style={{ width: 16, display: "inline-flex" }}>
+                            <PiClockClockwise size={16} />
+                          </span>
+                          {isAtDefault
+                            ? "Using default filters"
+                            : "Use default filters"}
+                        </Flex>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      {sectionLabels.map((label) => (
+                        <DropdownMenuItem
+                          key={label}
+                          onClick={() => toggleSection(label)}
+                        >
+                          <Flex align="center" gap="2">
+                            <span
+                              style={{
+                                width: 24,
+                                display: "inline-flex",
+                                pointerEvents: "none",
+                              }}
+                            >
+                              <Checkbox
+                                value={isSectionVisible(label)}
+                                setValue={() => {}}
+                              />
+                            </span>
+                            Show {label}
+                          </Flex>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenu>
+                  );
+                })()}
             </Flex>
-            <Flex align="center" gap="2" mb={sectionLabels.length ? "2" : "3"}>
+            <Flex align="center" gap="2" mb="3">
               <Text color="text-low" weight="medium">
                 Group by
               </Text>
@@ -696,79 +977,88 @@ export default function CompareAuditEventsModal<T>({
               </Select>
             </Flex>
 
-            {sectionLabels.length > 0 && (
-              <Flex direction="column" gap="2" mb="3">
-                {sectionLabels.map((label) => (
-                  <Flex key={label} gap="2" justify="end" align="center">
-                    <Text size="small" color="text-low">
-                      {label}
-                    </Text>
-                    <Switch
-                      size="1"
-                      value={isSectionVisible(label)}
-                      onChange={() => toggleSection(label)}
-                    />
-                  </Flex>
-                ))}
-              </Flex>
-            )}
-
             {loading && !flatEntries.length ? (
               <LoadingOverlay />
             ) : error ? (
               <Callout status="error">{error}</Callout>
             ) : flatEntries.length === 0 ? (
               <Text color="text-low">No change history found.</Text>
-            ) : visibleFlatEntries.length === 0 ? (
-              <Text color="text-low">
-                No changes match the current section filters.
-              </Text>
             ) : (
               <Flex direction="column" className={styles.revisionsList}>
-                {visibleFlatEntries.reduce<React.ReactNode[]>(
-                  (nodes, entry, i) => {
-                    const prev = visibleFlatEntries[i - 1];
-                    const bucketKey = getSeparatorBucketKey(
-                      entry.dateStart,
-                      groupBy,
+                {leftColumnItems.reduce<React.ReactNode[]>((nodes, item, i) => {
+                  const prev = leftColumnItems[i - 1];
+                  const getItemDate = (it: LeftColItem) =>
+                    it.type === "entry" ? it.entry.dateStart : it.date;
+                  const date = getItemDate(item);
+                  const prevDate = prev ? getItemDate(prev) : null;
+                  const bucketKey = getSeparatorBucketKey(date, groupBy);
+                  const prevBucketKey = prevDate
+                    ? getSeparatorBucketKey(prevDate, groupBy)
+                    : null;
+                  if (prevBucketKey === null || bucketKey !== prevBucketKey) {
+                    nodes.push(
+                      <Flex
+                        key={`sep-${i}`}
+                        align="center"
+                        gap="2"
+                        px="2"
+                        py="1"
+                      >
+                        <Box
+                          style={{
+                            flex: 1,
+                            height: 1,
+                            background: "var(--gray-6)",
+                          }}
+                        />
+                        <Text size="medium" weight="medium" color="text-low">
+                          {getSeparatorLabel(date, groupBy)}
+                        </Text>
+                        <Box
+                          style={{
+                            flex: 1,
+                            height: 1,
+                            background: "var(--gray-6)",
+                          }}
+                        />
+                      </Flex>,
                     );
-                    const prevBucketKey = prev
-                      ? getSeparatorBucketKey(prev.dateStart, groupBy)
-                      : null;
-                    if (prevBucketKey === null || bucketKey !== prevBucketKey) {
-                      nodes.push(
-                        <Flex
-                          key={`sep-${entry.id}`}
-                          align="center"
-                          gap="2"
-                          px="2"
-                          py="1"
-                        >
-                          <Box
-                            style={{
-                              flex: 1,
-                              height: 1,
-                              background: "var(--gray-6)",
-                            }}
-                          />
-                          <Text size="medium" weight="medium" color="text-low">
-                            {getSeparatorLabel(entry.dateStart, groupBy)}
-                          </Text>
-                          <Box
-                            style={{
-                              flex: 1,
-                              height: 1,
-                              background: "var(--gray-6)",
-                            }}
-                          />
-                        </Flex>,
+                  }
+                  if (item.type === "entry") {
+                    nodes.push(renderEntryRow(item.entry));
+                  } else {
+                    // Noise item: hidden count on one line, then each marker type
+                    const lines: string[] = [];
+                    if (item.hiddenCount > 0) {
+                      lines.push(
+                        `${item.hiddenCount} ${item.hiddenCount === 1 ? "change" : "changes"} hidden`,
                       );
                     }
-                    nodes.push(renderEntryRow(entry));
-                    return nodes;
-                  },
-                  [],
-                )}
+                    for (const m of item.markers) {
+                      lines.push(
+                        m.count > 1 ? `${m.label} ×${m.count}` : m.label,
+                      );
+                    }
+                    nodes.push(
+                      <Flex
+                        key={`noise-${i}`}
+                        direction="column"
+                        gap="1"
+                        px="2"
+                        py="1"
+                      >
+                        {lines.map((line) => (
+                          <Flex key={line} align="center" py="1">
+                            <Text color="text-low" size="small">
+                              {line}
+                            </Text>
+                          </Flex>
+                        ))}
+                      </Flex>,
+                    );
+                  }
+                  return nodes;
+                }, [])}
                 {hasMore && (
                   <Box mt="2">
                     <Link onClick={loadMore} color="violet">
@@ -903,7 +1193,9 @@ export default function CompareAuditEventsModal<T>({
                         title={d.label}
                         a={d.a}
                         b={d.b}
-                        defaultOpen
+                        defaultOpen={
+                          !d.defaultCollapsed && isSectionVisible(d.label)
+                        }
                       />
                     </Box>
                   ))}

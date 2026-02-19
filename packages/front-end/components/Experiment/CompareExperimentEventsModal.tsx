@@ -4,7 +4,7 @@ import { AuditDiffConfig } from "@/components/Audit/types";
 
 /**
  * Audit events that represent meaningful model-level changes to an experiment.
- * Non-model events (refresh, screenshot operations) are excluded.
+ * Non-model events are either in labelOnlyEvents (shown as info labels) or excluded entirely.
  */
 export const INCLUDED_EXPERIMENT_EVENTS = [
   "experiment.create",
@@ -34,19 +34,62 @@ const EXPERIMENT_DIFF_CONFIG: AuditDiffConfig<ExperimentInterfaceStringDates> =
   {
     entityType: "experiment",
     includedEvents: [...INCLUDED_EXPERIMENT_EVENTS],
+    labelOnlyEvents: [
+      {
+        event: "experiment.refresh",
+        getLabel: () => "Refreshed",
+      },
+    ],
     defaultGroupBy: "minute",
+    entityLabel: "Experiment",
+    updateEventNames: ["experiment.update", "experiment.phase"],
+    overrideEventLabel: (entry) => {
+      if (entry.event === "experiment.status") {
+        const status = entry.postSnapshot?.status;
+        return status ? `Status changed (${status})` : null;
+      }
+      if (entry.event === "experiment.phase.delete") {
+        const pre = entry.preSnapshot?.phases ?? [];
+        const post = entry.postSnapshot?.phases ?? [];
+        let idx = pre.length - 1;
+        for (let i = 0; i < pre.length; i++) {
+          if (i >= post.length || pre[i].dateStarted !== post[i].dateStarted) {
+            idx = i;
+            break;
+          }
+        }
+        return `Phase deleted (${idx})`;
+      }
+      return null;
+    },
     sections: [
       {
-        // coverage, condition, savedGroups, prerequisites, namespace, seed,
-        // variationWeights — the fields that affect SDK bucketing/targeting.
-        // A custom render will surface only these sub-fields once implemented.
         label: "User targeting",
         keys: ["phases"],
+        pickSubKeys: [
+          "coverage",
+          "condition",
+          "savedGroups",
+          "prerequisites",
+          "namespace",
+          "seed",
+          "variationWeights",
+        ],
+        stripSubKeys: ["banditEvents"],
+        stripSubKeysLabel: "Phases: other changes",
       },
       {
-        // dateStarted, dateEnded, name, reason, lookbackStartDate, banditEvents
         label: "Phase info",
         keys: ["phases"],
+        pickSubKeys: [
+          "dateStarted",
+          "dateEnded",
+          "name",
+          "reason",
+          "lookbackStartDate",
+        ],
+        stripSubKeys: ["banditEvents"],
+        stripSubKeysLabel: "Phases: other changes",
       },
       {
         label: "Variations",

@@ -4,8 +4,19 @@ import {
   MinimalFeatureRevisionInterface,
 } from "shared/types/feature-revision";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
 import { Box, Flex } from "@radix-ui/themes";
-import { PiArrowsLeftRightBold, PiWarningBold } from "react-icons/pi";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/ui/DropdownMenu";
+import {
+  PiArrowsLeftRightBold,
+  PiClockClockwise,
+  PiWarningBold,
+  PiX,
+} from "react-icons/pi";
 import { datetime } from "shared/dates";
 import { DRAFT_REVISION_STATUSES } from "shared/util";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -18,7 +29,7 @@ import Modal from "@/components/Modal";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import { Select, SelectItem } from "@/ui/Select";
-import Switch from "@/ui/Switch";
+import Badge from "@/ui/Badge";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import EventUser from "@/components/Avatar/EventUser";
 import {
@@ -278,17 +289,30 @@ export default function CompareRevisionsModal({
     [apiCall, feature.id, getFullRevision],
   );
 
-  const selectedSorted = useMemo(
-    () =>
-      [...selectedVersions]
+  const selectedSorted = useMemo(() => {
+    // selectedVersions holds exactly 2 endpoints [lo, hi]; expand to all
+    // visible (non-filtered) versions between them for stepped diffing.
+    if (selectedVersions.length < 2) {
+      return [...selectedVersions]
         .filter((v) => filteredRevisionList.some((r) => r.version === v))
-        .sort((a, b) => a - b),
-    [selectedVersions, filteredRevisionList],
-  );
+        .sort((a, b) => a - b);
+    }
+    const lo = Math.min(...selectedVersions);
+    const hi = Math.max(...selectedVersions);
+    return filteredRevisionList
+      .filter((r) => r.version >= lo && r.version <= hi)
+      .map((r) => r.version)
+      .sort((a, b) => a - b);
+  }, [selectedVersions, filteredRevisionList]);
 
+  // Compare ranges by their endpoints only (both arrays are sorted ascending).
   const isRangeEqual = useCallback(
     (a: number[], b: number[] | null) =>
-      !!b && a.length === b.length && a.every((v, i) => v === b[i]),
+      !!b &&
+      a.length >= 2 &&
+      b.length >= 2 &&
+      Math.min(...a) === Math.min(...b) &&
+      Math.max(...a) === Math.max(...b),
     [],
   );
   const steps = useMemo(() => {
@@ -299,10 +323,12 @@ export default function CompareRevisionsModal({
     return pairs.reverse();
   }, [selectedSorted]);
 
-  const neededVersions = useMemo(
+  const selectedSortedSet = useMemo(
     () => new Set(selectedSorted),
     [selectedSorted],
   );
+
+  const neededVersions = selectedSortedSet;
 
   useEffect(() => {
     const missing = [...neededVersions].filter((v) => !getFullRevision(v));
@@ -318,56 +344,47 @@ export default function CompareRevisionsModal({
 
   const [diffPage, setDiffPage] = useState(0);
   const canToggleDiffView = selectedSorted.length > 2;
+  // Helper: reset endpoints to the two newest visible versions.
+  const resetToTopTwo = useCallback(
+    (prev: number[]) => {
+      const top2 = [...filteredRevisionList]
+        .sort((a, b) => b.version - a.version)
+        .slice(0, 2)
+        .map((r) => r.version)
+        .sort((a, b) => a - b);
+      return top2.length >= 2 ? top2 : prev;
+    },
+    [filteredRevisionList],
+  );
+
   const prevShowDiscardedRef = useRef(showDiscarded);
   useEffect(() => {
     if (prevShowDiscardedRef.current === showDiscarded) return;
     prevShowDiscardedRef.current = showDiscarded;
     if (!showDiscarded) {
+      // If hiding discarded revision knocks out either endpoint, reset.
       setSelectedVersions((prev) => {
-        const next = prev.filter((v) =>
-          filteredRevisionList.some((r) => r.version === v),
-        );
-        if (next.length >= 2) return next;
-        const top2 = [...filteredRevisionList]
-          .sort((a, b) => b.version - a.version)
-          .slice(0, 2)
-          .map((r) => r.version)
-          .sort((a, b) => a - b);
-        return top2.length >= 2 ? top2 : prev;
-      });
-    } else {
-      setSelectedVersions((prev) => {
-        if (prev.length === 0) return prev;
-        const min = Math.min(...prev);
-        const max = Math.max(...prev);
-        const filled = revisionList
-          .filter((r) => r.version >= min && r.version <= max)
-          .map((r) => r.version);
-        return [...new Set(filled)].sort((a, b) => a - b);
+        const visibleSet = new Set(filteredRevisionList.map((r) => r.version));
+        if (prev.every((v) => visibleSet.has(v))) return prev;
+        return resetToTopTwo(prev);
       });
     }
-  }, [showDiscarded, filteredRevisionList, revisionList]);
+    // When showing discarded: selectedSorted auto-expands to include them.
+  }, [showDiscarded, filteredRevisionList, resetToTopTwo]);
 
   const prevShowDraftsRef = useRef(showDrafts);
   useEffect(() => {
     if (prevShowDraftsRef.current === showDrafts) return;
     prevShowDraftsRef.current = showDrafts;
-    // When hiding drafts, drop any selected versions that are no longer visible
     if (!showDrafts) {
+      // If hiding drafts knocks out either endpoint, reset.
       setSelectedVersions((prev) => {
-        const next = prev.filter((v) =>
-          filteredRevisionList.some((r) => r.version === v),
-        );
-        if (next.length >= 2) return next;
-        const top2 = [...filteredRevisionList]
-          .sort((a, b) => b.version - a.version)
-          .slice(0, 2)
-          .map((r) => r.version)
-          .sort((a, b) => a - b);
-        return top2.length >= 2 ? top2 : prev;
+        const visibleSet = new Set(filteredRevisionList.map((r) => r.version));
+        if (prev.every((v) => visibleSet.has(v))) return prev;
+        return resetToTopTwo(prev);
       });
     }
-  }, [showDrafts, filteredRevisionList]);
+  }, [showDrafts, filteredRevisionList, resetToTopTwo]);
   useEffect(() => {
     setDiffPage((p) =>
       steps.length === 0 ? 0 : Math.min(p, steps.length - 1),
@@ -384,24 +401,6 @@ export default function CompareRevisionsModal({
 
   const toggleVersion = (version: number) => {
     setSelectedVersions((prev) => {
-      if (prev.includes(version)) {
-        if (prev.length <= 2) return prev;
-        const left = prev.filter((v) => v < version).sort((a, b) => a - b);
-        const right = prev.filter((v) => v > version).sort((a, b) => a - b);
-        if (left.length >= 2 && right.length >= 2) {
-          return left.includes(currentVersion)
-            ? left
-            : right.includes(currentVersion)
-              ? right
-              : left.length >= right.length
-                ? left
-                : right;
-        }
-        if (left.length >= 2) return left;
-        if (right.length >= 2) return right;
-        return prev;
-      }
-
       const idx = versionsDesc.indexOf(version);
       if (idx === -1) return prev;
 
@@ -411,9 +410,53 @@ export default function CompareRevisionsModal({
         .filter((i) => i !== -1)
         .sort((a, b) => a - b);
 
+      const startIdx = prevIndices[0] ?? -1; // newest selected (lowest display index)
+      const endIdx = prevIndices[prevIndices.length - 1] ?? -1; // oldest selected
+
+      // Clicking an endpoint shrinks the range to the nearest visible item inward.
+      // versionsDesc[startIdx] is the newer (top) endpoint; versionsDesc[endIdx] is the older.
+      // Visibility = presence in filteredRevisionList (respects draft/discarded filters).
+      if (prev.includes(version)) {
+        if (startIdx === -1 || endIdx === -1 || endIdx - startIdx <= 1) return prev;
+        const visibleVersions = new Set(filteredRevisionList.map((r) => r.version));
+        if (idx === startIdx) {
+          let newStart = startIdx + 1;
+          while (newStart < endIdx && !visibleVersions.has(versionsDesc[newStart]))
+            newStart++;
+          if (newStart >= endIdx) return prev; // no visible item found
+          return [versionsDesc[newStart], versionsDesc[endIdx]].sort(
+            (a, b) => a - b,
+          );
+        }
+        if (idx === endIdx) {
+          let newEnd = endIdx - 1;
+          while (newEnd > startIdx && !visibleVersions.has(versionsDesc[newEnd]))
+            newEnd--;
+          if (newEnd <= startIdx) return prev; // no visible item found
+          return [versionsDesc[startIdx], versionsDesc[newEnd]].sort(
+            (a, b) => a - b,
+          );
+        }
+        return prev;
+      }
+
       if (prevIndices.length > 0) {
-        const startIdx = prevIndices[0]; // newest selected (lowest display index)
-        const endIdx = prevIndices[prevIndices.length - 1]; // oldest selected
+        // Clicking within the range: shorten by moving the nearer endpoint.
+        // versionsDesc is newest-first, so startIdx (lower) = newer, endIdx (higher) = older.
+        // Tiebreaker: move the newer (top) endpoint.
+        if (idx > startIdx && idx < endIdx) {
+          const distToNewer = idx - startIdx;
+          const distToOlder = endIdx - idx;
+          if (distToNewer <= distToOlder) {
+            return [versionsDesc[idx], versionsDesc[endIdx]].sort(
+              (a, b) => a - b,
+            );
+          } else {
+            return [versionsDesc[startIdx], versionsDesc[idx]].sort(
+              (a, b) => a - b,
+            );
+          }
+        }
 
         // If 4+ positions outside the current range, clear and pair with the
         // item immediately below (older) instead of expanding.
@@ -435,7 +478,8 @@ export default function CompareRevisionsModal({
       const high = Math.max(...prev);
       const newLow = Math.min(low, version);
       const newHigh = Math.max(high, version);
-      return versionsAsc.filter((v) => v >= newLow && v <= newHigh);
+      // Store only the two endpoints; selectedSorted derives all intermediate visible versions.
+      return [newLow, newHigh];
     });
   };
 
@@ -490,7 +534,7 @@ export default function CompareRevisionsModal({
       draftLow !== draftHigh &&
       versionsAsc.includes(draftLow) &&
       versionsAsc.includes(draftHigh)
-        ? versionsAsc.filter((v) => v >= draftLow && v <= draftHigh)
+        ? [draftLow, draftHigh]
         : null;
     const prevLockedVersion = revisionList
       .filter((r) => r.status === "published" && r.version < liveVersion)
@@ -502,7 +546,9 @@ export default function CompareRevisionsModal({
         ? [prevLockedVersion, liveVersion]
         : null;
     const allRange: number[] | null =
-      versionsAsc.length >= 2 ? [...versionsAsc] : null;
+      versionsAsc.length >= 2
+        ? [versionsAsc[0], versionsAsc[versionsAsc.length - 1]]
+        : null;
     return { draftRange, liveRange, allRange };
   }, [mostRecentDraftVersion, liveVersion, versionsAsc, revisionList]);
 
@@ -646,29 +692,113 @@ export default function CompareRevisionsModal({
             </Box>
           )}
           <Box className={styles.section} pb="3">
-            <Text size="medium" weight="medium" color="text-mid" mb="2" as="p">
-              Select range of revisions
-            </Text>
-            {hasDraftRevisions && (
-              <Flex gap="2" mb="1" justify="end" align="center">
-                <Text size="small" color="text-low">
-                  Show drafts
-                </Text>
-                <Switch size="1" value={showDrafts} onChange={setShowDrafts} />
-              </Flex>
-            )}
-            {hasDiscardedRevisions && (
-              <Flex gap="2" mb="2" justify="end" align="center">
-                <Text size="small" color="text-low">
-                  Show discarded
-                </Text>
-                <Switch
-                  size="1"
-                  value={showDiscarded}
-                  onChange={setShowDiscarded}
-                />
-              </Flex>
-            )}
+            <Flex align="center" justify="between" mb="2">
+              <Text size="medium" weight="medium" color="text-mid">
+                Select range of revisions
+              </Text>
+              {(hasDraftRevisions || hasDiscardedRevisions) &&
+                (() => {
+                  const opts = [
+                    ...(hasDraftRevisions
+                      ? [
+                          {
+                            label: "Show drafts",
+                            hidden: !showDrafts,
+                            toggle: () => setShowDrafts((v) => !v),
+                          },
+                        ]
+                      : []),
+                    ...(hasDiscardedRevisions
+                      ? [
+                          {
+                            label: "Show discarded",
+                            hidden: !showDiscarded,
+                            toggle: () => setShowDiscarded((v) => !v),
+                          },
+                        ]
+                      : []),
+                  ];
+                  const count = opts.filter((o) => o.hidden).length;
+                  const isShowingAll = count === 0;
+                  const isAtDefault =
+                    (!hasDraftRevisions || showDrafts) &&
+                    (!hasDiscardedRevisions || !showDiscarded);
+                  return (
+                    <DropdownMenu
+                      modal={true}
+                      trigger={
+                        <Link>
+                          Filters
+                          {count > 0 && (
+                            <Badge
+                              color="indigo"
+                              variant="solid"
+                              radius="full"
+                              label={String(count)}
+                              style={{ minWidth: 18, height: 18, marginTop: 1 }}
+                              ml="1"
+                            />
+                          )}
+                        </Link>
+                      }
+                      menuPlacement="end"
+                      variant="soft"
+                    >
+                      {!isShowingAll && (
+                        <DropdownMenuItem
+                          onClick={() => {
+                            if (hasDraftRevisions) setShowDrafts(true);
+                            if (hasDiscardedRevisions) setShowDiscarded(true);
+                          }}
+                        >
+                          <Flex align="center" gap="2">
+                            <span style={{ width: 16, display: "inline-flex" }}>
+                              <PiX size={16} />
+                            </span>
+                            Remove all filters
+                          </Flex>
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem
+                        disabled={isAtDefault}
+                        onClick={() => {
+                          setShowDrafts(true);
+                          setShowDiscarded(false);
+                        }}
+                      >
+                        <Flex align="center" gap="2">
+                          <span style={{ width: 16, display: "inline-flex" }}>
+                            <PiClockClockwise size={16} />
+                          </span>
+                          {isAtDefault
+                            ? "Using default filters"
+                            : "Use default filters"}
+                        </Flex>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      {opts.map((opt) => (
+                        <DropdownMenuItem
+                          key={opt.label}
+                          onClick={() => opt.toggle()}
+                        >
+                          <Flex align="center" gap="2">
+                            <span
+                              style={{
+                                width: 24,
+                                display: "inline-flex",
+                                pointerEvents: "none",
+                              }}
+                            >
+                              <Checkbox value={!opt.hidden} setValue={() => {}} />
+                            </span>
+                            {opt.label}
+                          </Flex>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenu>
+                  );
+                })()}
+            </Flex>
             <Flex direction="column" className={styles.revisionsList}>
               {versionsDesc.map((v) => {
                 const minRev = revisionListByVersion.get(v);
@@ -678,7 +808,7 @@ export default function CompareRevisionsModal({
                   minRev?.status === "published"
                     ? minRev?.datePublished
                     : minRev?.dateUpdated;
-                const isSelected = selectedVersions.includes(v);
+                const isSelected = selectedSortedSet.has(v);
                 const rowId = `compare-rev-${v}`;
                 return (
                   <Box
