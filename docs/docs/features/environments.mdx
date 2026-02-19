@@ -5,6 +5,8 @@ sidebar_label: Environments
 slug: /features/environments
 ---
 
+import CommercialFeature from '@site/src/components/CommercialFeature';
+
 # Environments
 
 GrowthBook comes with one environment by default (**production**), but you can add as many as you need on the
@@ -47,11 +49,7 @@ In the UI, you can only use parent environments for the default environment name
 `production`, `dev`, `staging`, and `test`. For arbitrary environment inheritance you can use the
 [API endpoint](/api#tag/environments/operation/postEnvironment)
 
-:::note
-
-API-driven **Environment Inheritance** is a GrowthBook Enterprise feature.
-
-:::
+<CommercialFeature feature="environment-inheritance" />
 
 Common Use Cases
 
