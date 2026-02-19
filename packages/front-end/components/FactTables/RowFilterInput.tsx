@@ -1,7 +1,7 @@
 import { Flex } from "@radix-ui/themes";
 import { FactTableInterface, RowFilter } from "shared/types/fact-table";
 import { PiCaretDown, PiCaretUp, PiPlus, PiX } from "react-icons/pi";
-import { useState } from "react";
+import { useState, useEffect, useRef, ComponentProps } from "react";
 import Collapsible from "react-collapsible";
 import Text from "@/ui/Text";
 import Field from "@/components/Forms/Field";
@@ -81,12 +81,15 @@ export function RowFilterInput({
   factTable,
   variant = "default",
   hideAddButton = false,
+  deferTextInputUpdates = false,
 }: {
   value: RowFilter[];
   setValue: (value: RowFilter[]) => void;
   factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">;
   variant?: RowFilterInputVariant;
   hideAddButton?: boolean;
+  /** When true, free-text filter values are held in local state and only committed on blur. Prevents parent re-renders on every keystroke. */
+  deferTextInputUpdates?: boolean;
 }) {
   const [rowDeleted, setRowDeleted] = useState(false);
   const [collapsedFilters, setCollapsedFilters] = useState<Set<number>>(
@@ -431,6 +434,17 @@ export function RowFilterInput({
                 placeholder={isCompact ? "Select value..." : undefined}
                 required
               />
+            ) : deferTextInputUpdates ? (
+              <DeferredField
+                value={filter.values?.[0] || ""}
+                onCommit={(v) => updateRowFilter({ values: [v] })}
+                textarea={filter.operator === "sql_expr"}
+                minRows={1}
+                autoFocus={autoFocus}
+                type={inputType === "number" ? "text" : inputType}
+                inputMode={inputType === "number" ? "decimal" : undefined}
+                required
+              />
             ) : (
               <Field
                 value={filter.values?.[0] || ""}
@@ -608,6 +622,56 @@ export function RowFilterInput({
           </div>
         ))}
     </Flex>
+  );
+}
+
+/**
+ * A wrapper around Field that holds its value in local state and only
+ * calls `onCommit` when the user blurs or presses Enter.
+ */
+export function DeferredField({
+  value,
+  onCommit,
+  ...fieldProps
+}: Omit<ComponentProps<typeof Field>, "onChange" | "onBlur" | "onKeyDown"> & {
+  value: string;
+  onCommit: (value: string) => void;
+}) {
+  const [localValue, setLocalValue] = useState(value);
+  const localRef = useRef(localValue);
+
+  // Sync from parent when the canonical value changes externally
+  useEffect(() => {
+    setLocalValue(value);
+    localRef.current = value;
+  }, [value]);
+
+  const commit = () => {
+    onCommit(localRef.current);
+  };
+
+  return (
+    <Field
+      {...fieldProps}
+      value={localValue}
+      onChange={(e) => {
+        const v = e.target.value;
+        // For numeric fields, only allow valid partial number input
+        if (fieldProps.inputMode === "decimal" && v !== "") {
+          if (!/^-?\.?$|^-?\d*\.?\d*$/.test(v)) return;
+        }
+        localRef.current = v;
+        setLocalValue(v);
+      }}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          commit();
+          (e.target as HTMLInputElement).blur();
+        }
+      }}
+    />
   );
 }
 

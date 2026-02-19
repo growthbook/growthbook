@@ -13,7 +13,12 @@ export function useExploreData() {
   const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
 
   const fetchData = useCallback(
-    async (config: ProductAnalyticsConfig) => {
+    async (
+      config: ProductAnalyticsConfig,
+    ): Promise<{
+      data: ProductAnalyticsResult | null;
+      error: Error | null;
+    }> => {
       setLoading(true);
       setError(null);
 
@@ -32,13 +37,16 @@ export function useExploreData() {
         setLastRefreshedAt(new Date());
 
         if (response.error) {
-          setError(new Error(response.error));
-          return;
+          const err = new Error(response.error);
+          setError(err);
+          return { data: response, error: err };
         }
+        return { data: response, error: null };
       } catch (e) {
         const err = e instanceof Error ? e : new Error(String(e));
         setError(err);
         setData(null);
+        return { data: null, error: err };
       } finally {
         setLoading(false);
       }

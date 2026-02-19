@@ -33,8 +33,10 @@ export default function ExplorerMainSection() {
             disabled={loading || !draftExploreState?.dataset?.values?.length}
             onClick={handleSubmit}
           >
-            <PiArrowsClockwise style={{ marginRight: "8px" }} />
-            Update
+            <Flex align="center" gap="1">
+              <PiArrowsClockwise />
+              Update
+            </Flex>
           </Button>
           <DateRangePicker />
           {["line", "area"].includes(draftExploreState.chartType) && (

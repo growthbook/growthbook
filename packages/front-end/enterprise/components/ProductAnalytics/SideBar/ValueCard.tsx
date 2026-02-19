@@ -195,6 +195,7 @@ export default function ValueCard({
                 setValue={handleFiltersChange}
                 variant="compact"
                 hideAddButton
+                deferTextInputUpdates
               />
             </Box>
           )}
@@ -208,6 +209,7 @@ export default function ValueCard({
                   setValue={handleFiltersChange}
                   variant="compact"
                   hideAddButton
+                  deferTextInputUpdates
                 />
               </Box>
             )}

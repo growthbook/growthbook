@@ -4,13 +4,11 @@ import { BsFillBarChartLineFill } from "react-icons/bs";
 import { PiCode, PiTable } from "react-icons/pi";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Heading from "@/ui/Heading";
 
 export default function EmptyState() {
-  const { changeDatasetType, setDraftExploreState } = useExplorerContext();
-  const { datasources } = useDefinitions();
+  const { changeDatasetType } = useExplorerContext();
 
   return (
     <Box m="7">
@@ -83,12 +81,6 @@ export default function EmptyState() {
             }}
             onClick={() => {
               changeDatasetType("data_source");
-              if (datasources.length > 0) {
-                setDraftExploreState((prev) => ({
-                  ...prev,
-                  dataset: { ...prev.dataset, datasource: datasources[0].id },
-                }));
-              }
             }}
           >
             <Flex direction="column" align="center" gap="1">

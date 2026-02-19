@@ -12,6 +12,7 @@ import SelectField, {
 import StringArrayField from "@/components/Forms/StringArrayField";
 import Button from "@/ui/Button";
 import {
+  DeferredField,
   getAllowedOperators,
   NUMBER_PATTERN,
   operatorLabelMap,
@@ -39,12 +40,15 @@ export function DataSourceRowFilterInput({
   columnTypes,
   variant = "default",
   hideAddButton = false,
+  deferTextInputUpdates = false,
 }: {
   value: RowFilter[];
   setValue: (value: RowFilter[]) => void;
   columnTypes: ColumnTypesMap;
   variant?: DataSourceRowFilterInputVariant;
   hideAddButton?: boolean;
+  /** When true, free-text filter values are held in local state and only committed on blur. Prevents parent re-renders on every keystroke. */
+  deferTextInputUpdates?: boolean;
 }) {
   const [rowDeleted, setRowDeleted] = useState(false);
   const [collapsedFilters, setCollapsedFilters] = useState<Set<number>>(
@@ -225,6 +229,17 @@ export function DataSourceRowFilterInput({
                 delimiters={["Enter", "Tab"]}
                 autoFocus={autoFocus}
                 pattern={inputType === "number" ? NUMBER_PATTERN : undefined}
+                required
+              />
+            ) : deferTextInputUpdates ? (
+              <DeferredField
+                value={filter.values?.[0] ?? ""}
+                onCommit={(v) => updateRowFilter({ values: [v] })}
+                textarea={filter.operator === "sql_expr"}
+                minRows={1}
+                autoFocus={autoFocus}
+                type={inputType === "number" ? "text" : inputType}
+                inputMode={inputType === "number" ? "decimal" : undefined}
                 required
               />
             ) : (

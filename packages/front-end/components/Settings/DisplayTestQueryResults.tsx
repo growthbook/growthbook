@@ -76,6 +76,7 @@ export default function DisplayTestQueryResults({
 
   return (
     <Tabs
+      key={forceShowSql ? "sql" : "results"}
       defaultValue={forceShowSql ? "sql" : "results"}
       style={{
         overflow: "hidden",

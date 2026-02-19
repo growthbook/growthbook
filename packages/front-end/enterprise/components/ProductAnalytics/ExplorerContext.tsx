@@ -7,7 +7,6 @@ import React, {
   ReactNode,
   useEffect,
 } from "react";
-import isEqual from "lodash/isEqual";
 import { ColumnInterface } from "shared/types/fact-table";
 import {
   ProductAnalyticsConfig,
@@ -17,12 +16,14 @@ import {
 } from "shared/src/validators/product-analytics";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
+  cleanConfigForSubmission,
+  compareConfig,
   createEmptyDataset,
   createEmptyValue,
   generateUniqueValueName,
   getCommonColumns,
-  getMaxDimensions,
-  removeIncompleteValues,
+  isSubmittableConfig,
+  validateDimensions,
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useExploreData } from "./useExploreData";
 
@@ -48,15 +49,26 @@ const INITIAL_EXPLORE_STATE: ProductAnalyticsConfig = {
   },
 };
 
-type ExplorerCache = {
-  [key in DatasetType]: ProductAnalyticsConfig | null;
+type ExplorerCacheValue = {
+  draftState: ProductAnalyticsConfig | null;
+  submittedState: ProductAnalyticsConfig | null;
+  exploreData: ProductAnalyticsResult | null;
+  exploreError: Error | null;
+  lastRefreshedAt: Date | null;
 };
+
+type ExplorerCache = {
+  [key in DatasetType]: ExplorerCacheValue | null;
+};
+
+type SetDraftStateAction =
+  | ProductAnalyticsConfig
+  | ((prevState: ProductAnalyticsConfig) => ProductAnalyticsConfig);
 
 export interface ExplorerContextValue {
   // ─── State ─────────────────────────────────────────────────────────────
   draftExploreState: ProductAnalyticsConfig;
   submittedExploreState: ProductAnalyticsConfig | null;
-  hasPendingChanges: boolean;
   exploreData: ProductAnalyticsResult | null;
   exploreError: string | null;
   loading: boolean;
@@ -65,9 +77,7 @@ export interface ExplorerContextValue {
   isEmpty: boolean;
 
   // ─── Modifiers ─────────────────────────────────────────────────────────
-  setDraftExploreState: React.Dispatch<
-    React.SetStateAction<ProductAnalyticsConfig>
-  >;
+  setDraftExploreState: (action: SetDraftStateAction) => void;
   handleSubmit: () => Promise<void>;
   addValueToDataset: (datasetType: DatasetType) => void;
   updateValueInDataset: (index: number, value: ProductAnalyticsValue) => void;
@@ -78,35 +88,93 @@ export interface ExplorerContextValue {
 }
 
 const ExplorerContext = createContext<ExplorerContextValue | null>(null);
+const AUTO_SUBMIT = true;
 
 interface ExplorerProviderProps {
   children: ReactNode;
 }
 
 export function ExplorerProvider({ children }: ExplorerProviderProps) {
-  const { data, loading, fetchData, error, lastRefreshedAt } = useExploreData();
+  const { loading, fetchData } = useExploreData();
+  const {
+    getFactTableById,
+    getFactMetricById,
+    factMetrics,
+    factTables,
+    datasources,
+  } = useDefinitions();
 
-  const { getFactTableById, getFactMetricById, factMetrics, factTables } =
-    useDefinitions();
-
-  const [draftExploreState, setDraftExploreState] =
-    useState<ProductAnalyticsConfig>(INITIAL_EXPLORE_STATE);
-
-  const [submittedExploreState, setSubmittedExploreState] =
-    useState<ProductAnalyticsConfig | null>(null);
-
-  const [isEmpty, setIsEmpty] = useState(true);
-
+  const [activeExplorerType, setActiveExplorerType] =
+    useState<DatasetType | null>(null);
   const [explorerCache, setExplorerCache] = useState<ExplorerCache>({
     metric: null,
     fact_table: null,
     data_source: null,
   });
 
-  const hasPendingChanges = useMemo(
-    () => !isEqual(draftExploreState, submittedExploreState),
-    [draftExploreState, submittedExploreState],
+  const isEmpty = activeExplorerType === null;
+
+  const draftExploreState: ProductAnalyticsConfig = isEmpty
+    ? INITIAL_EXPLORE_STATE
+    : (explorerCache[activeExplorerType]?.draftState ?? INITIAL_EXPLORE_STATE);
+
+  const setDraftExploreState = useCallback(
+    (newStateOrUpdater: SetDraftStateAction) => {
+      if (isEmpty) return;
+
+      setExplorerCache((prev) => {
+        const currentDraft =
+          prev[activeExplorerType]?.draftState ?? INITIAL_EXPLORE_STATE;
+        const newState =
+          typeof newStateOrUpdater === "function"
+            ? newStateOrUpdater(currentDraft)
+            : newStateOrUpdater;
+
+        // Validate dimensions against commonColumns
+        const validatedState = validateDimensions(
+          newState,
+          getFactTableById,
+          getFactMetricById,
+        );
+
+        return {
+          ...prev,
+          [activeExplorerType]: {
+            ...prev[activeExplorerType],
+            draftState: validatedState,
+          },
+        };
+      });
+    },
+    [activeExplorerType, getFactTableById, getFactMetricById, isEmpty],
   );
+
+  const setSubmittedExploreState = useCallback(
+    (state: ProductAnalyticsConfig) => {
+      if (isEmpty) return;
+      setExplorerCache((prev) => ({
+        ...prev,
+        [activeExplorerType]: {
+          ...prev[activeExplorerType],
+          submittedState: state,
+        },
+      }));
+    },
+    [activeExplorerType, isEmpty],
+  );
+
+  const data = isEmpty
+    ? null
+    : (explorerCache[activeExplorerType]?.exploreData ?? null);
+  const error = isEmpty
+    ? null
+    : (explorerCache[activeExplorerType]?.exploreError ?? null);
+  const lastRefreshedAt = isEmpty
+    ? null
+    : (explorerCache[activeExplorerType]?.lastRefreshedAt ?? null);
+  const submittedExploreState = isEmpty
+    ? null
+    : (explorerCache[activeExplorerType]?.submittedState ?? null);
 
   const commonColumns = useMemo(() => {
     return getCommonColumns(
@@ -116,53 +184,61 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
     );
   }, [draftExploreState.dataset, getFactTableById, getFactMetricById]);
 
-  useEffect(() => {
-    // 1. Validate dimensions against commonColumns
-    let validDimensions = draftExploreState.dimensions.filter((d) => {
-      if (d.dimensionType !== "dynamic") return true;
-      return commonColumns.some((c) => c.column === d.column);
-    });
+  const cleanedDraftExploreState = useMemo(() => {
+    return cleanConfigForSubmission(draftExploreState);
+  }, [draftExploreState]);
 
-    // 1a. Truncate dimensions if they exceed the max number of dimensions
-    const maxDimensions = getMaxDimensions(draftExploreState.dataset);
-    if (validDimensions.length > maxDimensions) {
-      validDimensions = validDimensions.slice(0, maxDimensions);
-    }
+  const { needsFetch, needsUpdate } = useMemo(() => {
+    return compareConfig(
+      submittedExploreState ?? null,
+      cleanedDraftExploreState,
+    );
+  }, [submittedExploreState, cleanedDraftExploreState]);
 
-    if (validDimensions.length !== draftExploreState.dimensions.length) {
-      setDraftExploreState((prev) => ({
-        ...prev,
-        dimensions: validDimensions,
-      }));
-      return; // Re-render with valid dimensions before submitting
-    }
+  const isSubmittable = useMemo(() => {
+    return isSubmittableConfig(cleanedDraftExploreState);
+  }, [cleanedDraftExploreState]);
 
-    // 2. Auto-submit if there are pending changes
-    if (hasPendingChanges && draftExploreState.dataset.values.length > 0) {
-      const cleanedDataset = removeIncompleteValues(draftExploreState.dataset);
-      if (cleanedDataset.values.length === 0) return;
-      if (
-        cleanedDataset.type == "fact_table" &&
-        cleanedDataset.factTableId === null
-      )
-        return;
-
-      if (
-        cleanedDataset.type === "data_source" &&
-        (!cleanedDataset.datasource ||
-          !cleanedDataset.table ||
-          !cleanedDataset.timestampColumn)
-      )
-        return;
-      fetchData({ ...draftExploreState, dataset: cleanedDataset });
-      setSubmittedExploreState(draftExploreState);
-    }
-  }, [commonColumns, hasPendingChanges, draftExploreState, fetchData]);
+  const doSubmit = useCallback(async () => {
+    if (isEmpty || !isSubmittable) return;
+    setSubmittedExploreState(cleanedDraftExploreState);
+    const { data, error } = await fetchData(cleanedDraftExploreState);
+    setExplorerCache((prev) => ({
+      ...prev,
+      [activeExplorerType]: {
+        ...prev[activeExplorerType],
+        exploreData: data,
+        exploreError: error,
+        lastRefreshedAt: new Date(),
+      },
+    }));
+  }, [
+    setSubmittedExploreState,
+    fetchData,
+    activeExplorerType,
+    isEmpty,
+    isSubmittable,
+    cleanedDraftExploreState,
+  ]);
 
   const handleSubmit = useCallback(async () => {
-    await fetchData(draftExploreState);
-    setSubmittedExploreState(draftExploreState);
-  }, [draftExploreState, fetchData]);
+    await doSubmit();
+  }, [doSubmit]);
+
+  useEffect(() => {
+    if (needsFetch && AUTO_SUBMIT && isSubmittable) {
+      doSubmit();
+    } else if (needsUpdate && isSubmittable) {
+      setSubmittedExploreState(cleanedDraftExploreState);
+    }
+  }, [
+    needsFetch,
+    needsUpdate,
+    doSubmit,
+    cleanedDraftExploreState,
+    setSubmittedExploreState,
+    isSubmittable,
+  ]);
 
   const createDefaultValue = useCallback(
     (datasetType: DatasetType): ProductAnalyticsValue => {
@@ -198,7 +274,7 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
         } as ProductAnalyticsConfig;
       });
     },
-    [createDefaultValue],
+    [createDefaultValue, setDraftExploreState],
   );
 
   const updateValueInDataset = useCallback(
@@ -220,45 +296,49 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
         } as ProductAnalyticsConfig;
       });
     },
-    [],
+    [setDraftExploreState],
   );
 
-  const deleteValueFromDataset = useCallback((index: number) => {
-    setDraftExploreState((prev) => {
-      if (!prev.dataset) {
-        return prev;
-      }
-      const newValues = [
-        ...prev.dataset.values.slice(0, index),
-        ...prev.dataset.values.slice(index + 1),
-      ];
-      return {
-        ...prev,
-        dataset: { ...prev.dataset, values: newValues },
-      } as ProductAnalyticsConfig;
-    });
-  }, []);
+  const deleteValueFromDataset = useCallback(
+    (index: number) => {
+      setDraftExploreState((prev) => {
+        if (!prev.dataset) {
+          return prev;
+        }
+        const newValues = [
+          ...prev.dataset.values.slice(0, index),
+          ...prev.dataset.values.slice(index + 1),
+        ];
+        return {
+          ...prev,
+          dataset: { ...prev.dataset, values: newValues },
+        } as ProductAnalyticsConfig;
+      });
+    },
+    [setDraftExploreState],
+  );
 
-  const updateTimestampColumn = useCallback((column: string) => {
-    setDraftExploreState((prev) => {
-      if (!prev.dataset) {
-        return prev;
-      }
-      return {
-        ...prev,
-        dataset: { ...prev.dataset, timestampColumn: column },
-      } as ProductAnalyticsConfig;
-    });
-  }, []);
+  const updateTimestampColumn = useCallback(
+    (column: string) => {
+      setDraftExploreState((prev) => {
+        if (!prev.dataset) {
+          return prev;
+        }
+        return {
+          ...prev,
+          dataset: { ...prev.dataset, timestampColumn: column },
+        } as ProductAnalyticsConfig;
+      });
+    },
+    [setDraftExploreState],
+  );
 
-  // changes chart type and updates dimensions
   const changeChartType = useCallback(
     (chartType: ProductAnalyticsConfig["chartType"]) => {
       setDraftExploreState((prev) => {
         let dimensions = prev.dimensions;
         // Time-series charts (line, area) need date dimensions
-        const isTimeSeriesChart =
-          chartType === "line" || chartType === "area" || chartType === "table";
+        const isTimeSeriesChart = chartType === "line" || chartType === "area";
 
         if (!isTimeSeriesChart) {
           dimensions = dimensions.filter((d) => d.dimensionType !== "date");
@@ -271,46 +351,37 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
         return { ...prev, chartType, dimensions };
       });
     },
-    [],
+    [setDraftExploreState],
   );
 
   const changeDatasetType = useCallback(
     (type: DatasetType) => {
-      setDraftExploreState((prev) => {
-        const currentType = prev.dataset.type;
-        // if (!isEmpty && currentType === type) return prev;
+      setActiveExplorerType(type);
 
-        // Save the current config to the cache
-        if (!isEmpty) {
-          setExplorerCache((cache) => ({
-            ...cache,
-            [currentType]: prev,
-          }));
-        }
-        // Restore from cache if available, otherwise create a fresh default
-        const cached = explorerCache[type];
-        if (cached) {
-          return cached;
-        }
-
-        const defaultDataset = createEmptyDataset(type);
-        return {
-          ...prev,
+      // if explorer cache is null for this type, we should create a default draft state
+      if (!explorerCache[type]) {
+        const defaultDataset = createEmptyDataset(type, datasources[0]?.id);
+        const defaultDraftState = {
+          ...INITIAL_EXPLORE_STATE,
           dataset: { ...defaultDataset, values: [createDefaultValue(type)] },
         } as ProductAnalyticsConfig;
-      });
-      if (isEmpty) {
-        setIsEmpty(false);
+        setExplorerCache((prev) => ({
+          ...prev,
+          [type]: {
+            ...prev[type],
+            draftState: defaultDraftState,
+          },
+        }));
+        return defaultDraftState;
       }
     },
-    [createDefaultValue, explorerCache, isEmpty],
+    [explorerCache, createDefaultValue, datasources],
   );
 
   const value = useMemo<ExplorerContextValue>(
     () => ({
       draftExploreState,
       submittedExploreState,
-      hasPendingChanges,
       exploreData: data,
       exploreError: error?.message || null,
       loading,
@@ -329,12 +400,12 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
     [
       draftExploreState,
       submittedExploreState,
-      hasPendingChanges,
       data,
       loading,
       error,
       lastRefreshedAt,
       commonColumns,
+      setDraftExploreState,
       handleSubmit,
       addValueToDataset,
       updateValueInDataset,

@@ -15,7 +15,7 @@ import DatasourceConfigurator from "./DatasourceConfigurator";
 export default function ExplorerSideBar() {
   const { draftExploreState, setDraftExploreState, changeDatasetType } =
     useExplorerContext();
-  const { factTables, datasources } = useDefinitions();
+  const { factTables } = useDefinitions();
 
   const dataset = draftExploreState.dataset;
   const activeType: DatasetType = dataset?.type ?? "metric";
@@ -28,19 +28,8 @@ export default function ExplorerSideBar() {
     (value: string) => {
       const newType = value as DatasetType;
       changeDatasetType(newType);
-
-      // If switching to SQL and datasources are available, default to the first one
-      if (newType === "data_source" && datasources.length > 0) {
-        setDraftExploreState((prev) => ({
-          ...prev,
-          dataset: {
-            ...prev.dataset,
-            datasource: datasources[0].id,
-          },
-        }));
-      }
     },
-    [changeDatasetType, datasources, setDraftExploreState],
+    [changeDatasetType],
   );
 
   return (

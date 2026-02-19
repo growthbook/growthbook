@@ -2,6 +2,7 @@ import {
   ColumnInterface,
   FactMetricInterface,
   FactTableInterface,
+  RowFilter,
 } from "shared/types/fact-table";
 import type {
   MetricValue,
@@ -10,7 +11,9 @@ import type {
   ProductAnalyticsValue,
   DatasetType,
   ProductAnalyticsDataset,
+  ProductAnalyticsConfig,
 } from "shared/validators";
+import { isEqual } from "lodash";
 
 export const VALUE_TYPE_OPTIONS: {
   value: "unit_count" | "count" | "sum";
@@ -105,7 +108,10 @@ export function generateUniqueValueName(
   return `${baseName} ${i}`;
 }
 
-export function createEmptyDataset(type: DatasetType): ProductAnalyticsDataset {
+export function createEmptyDataset(
+  type: DatasetType,
+  datasource?: string,
+): ProductAnalyticsDataset {
   if (type === "metric") {
     return { type, values: [] };
   } else if (type === "fact_table") {
@@ -114,7 +120,7 @@ export function createEmptyDataset(type: DatasetType): ProductAnalyticsDataset {
     return {
       type,
       values: [],
-      datasource: "",
+      datasource: datasource ?? "",
       table: "",
       path: "",
       timestampColumn: "",
@@ -169,32 +175,6 @@ export function getCommonColumns(
     .filter((c) => !c.deleted)
     .sort((a, b) => (a.name || a.column).localeCompare(b.name || b.column))
     .map((c) => ({ column: c.column, name: c.name }));
-}
-
-export function removeIncompleteValues(
-  dataset: ProductAnalyticsDataset,
-): ProductAnalyticsDataset {
-  if (dataset.type === "metric") {
-    return { ...dataset, values: dataset.values.filter((v) => v.metricId) };
-  } else if (dataset.type === "fact_table") {
-    return {
-      ...dataset,
-      values: dataset.values.filter((v) => v.unit && v.valueType),
-    };
-  } else if (dataset.type === "data_source") {
-    return {
-      ...dataset,
-      values: dataset.values.filter((v) => {
-        // Count operations don't need a valueColumn
-        if (v.valueType === "count" || v.valueType === "unit_count") {
-          return true;
-        }
-        // Sum operations need a valueColumn
-        return !!v.valueColumn;
-      }),
-    };
-  }
-  return dataset;
 }
 
 export function getMaxDimensions(dataset: ProductAnalyticsDataset): number {
@@ -263,4 +243,185 @@ export function getInferredTimestampColumn(
   );
 
   return commonNameColumn || null;
+}
+
+/** Ensures that dimensions are valid and within the allowed number of dimensions for the dataset type.
+ *  Returns a new config with the allowed dimensions (same config object if no changes were made). */
+export function validateDimensions(
+  config: ProductAnalyticsConfig,
+  getFactTableById: (id: string) => FactTableInterface | null,
+  getFactMetricById: (id: string) => FactMetricInterface | null,
+): ProductAnalyticsConfig {
+  // Validate dimensions against commonColumns
+  const columns = getCommonColumns(
+    config.dataset,
+    getFactTableById,
+    getFactMetricById,
+  );
+  const maxDims = getMaxDimensions(config.dataset);
+
+  let validDimensions = config.dimensions.filter((d) => {
+    if (d.dimensionType !== "dynamic") return true;
+    return columns.some((c) => c.column === d.column);
+  });
+  if (validDimensions.length > maxDims) {
+    validDimensions = validDimensions.slice(0, maxDims);
+  }
+
+  const validatedState =
+    validDimensions.length !== config.dimensions.length
+      ? { ...config, dimensions: validDimensions }
+      : config;
+
+  return validatedState;
+}
+
+function hasNonEmptyValues(values: string[] | undefined): boolean {
+  return (values ?? []).some((v) => v !== "");
+}
+
+/** Checks if a filter is complete (has a column and values). */
+function isCompleteFilter(filter: RowFilter): boolean {
+  if (filter.operator === "sql_expr" || filter.operator === "saved_filter") {
+    return hasNonEmptyValues(filter.values);
+  }
+  if (
+    ["is_true", "is_false", "is_null", "not_null"].includes(filter.operator)
+  ) {
+    return !!filter.column;
+  }
+  return !!filter.column && hasNonEmptyValues(filter.values);
+}
+
+/** Removes incomplete (partially configured) row filters from a value. */
+function cleanRowFilters<T extends ProductAnalyticsValue>(value: T): T {
+  return {
+    ...value,
+    rowFilters: value.rowFilters.filter(isCompleteFilter),
+  } as T;
+}
+
+/** Removes incomplete (partially configured) inputs (values, filters) from a dataset. (e.g. sum values without a value column) */
+export function removeIncompleteInputs(
+  dataset: ProductAnalyticsDataset,
+): ProductAnalyticsDataset {
+  if (dataset.type === "metric") {
+    return {
+      ...dataset,
+      values: dataset.values.filter((v) => v.metricId).map(cleanRowFilters),
+    };
+  } else if (dataset.type === "fact_table") {
+    return {
+      ...dataset,
+      values: dataset.values
+        .filter((v) => {
+          if (v.valueType === "count" || v.valueType === "unit_count") {
+            return true;
+          }
+          return !!v.valueColumn;
+        })
+        .map(cleanRowFilters),
+    };
+  } else if (dataset.type === "data_source") {
+    return {
+      ...dataset,
+      values: dataset.values
+        .filter((v) => {
+          if (v.valueType === "count" || v.valueType === "unit_count") {
+            return true;
+          }
+          return !!v.valueColumn;
+        })
+        .map(cleanRowFilters),
+    };
+  }
+  return dataset;
+}
+
+/** Prepares a config for submission by removing incomplete inputs (values, filters) from the dataset. */
+export function cleanConfigForSubmission(
+  config: ProductAnalyticsConfig,
+): ProductAnalyticsConfig {
+  const cleanedDataset = removeIncompleteInputs(config.dataset);
+  return {
+    ...config,
+    dataset: cleanedDataset,
+  };
+}
+
+const TIMESERIES_CHART_TYPES: Set<string> = new Set(["line", "area"]);
+const CUMULATIVE_CHART_TYPES: Set<string> = new Set([
+  "bar",
+  "horizontalBar",
+  "bigNumber",
+  "table",
+]);
+
+/** Returns the category of a chart type (timeseries or cumulative).
+ *  Used to determine if a fetch or local update is needed. */
+function getChartCategory(
+  chartType: ProductAnalyticsConfig["chartType"],
+): string {
+  if (CUMULATIVE_CHART_TYPES.has(chartType)) return "cumulative";
+  if (TIMESERIES_CHART_TYPES.has(chartType)) return "timeseries";
+  throw new Error(`Invalid chart type: ${chartType}`);
+}
+
+/** Strips fields that only affect rendering, not data fetching. */
+function toFetchKey(config: ProductAnalyticsConfig): unknown {
+  return {
+    ...config,
+    chartType: getChartCategory(config.chartType),
+    dataset: {
+      ...config.dataset,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      values: config.dataset.values.map(({ name, ...rest }) => rest),
+    },
+  };
+}
+
+/** Checks if a config is minimally complete in order to be submitted
+ *  metrics just need at least 1 value
+ *  fact tables just need a fact table id
+ *  data sources just need a datasource, table, and timestamp column
+ */
+export function isSubmittableConfig(
+  cleanedConfig: ProductAnalyticsConfig,
+): boolean {
+  if (cleanedConfig.dataset.values.length === 0) return false;
+  if (
+    cleanedConfig.dataset.type == "fact_table" &&
+    cleanedConfig.dataset.factTableId === null
+  )
+    return false;
+
+  if (
+    cleanedConfig.dataset.type === "data_source" &&
+    (!cleanedConfig.dataset.datasource ||
+      !cleanedConfig.dataset.table ||
+      !cleanedConfig.dataset.timestampColumn)
+  )
+    return false;
+  return true;
+}
+
+/** Compares two configs and determines if a fetch or local update is needed. */
+export function compareConfig(
+  lastSubmittedConfig: ProductAnalyticsConfig | null,
+  newConfig: ProductAnalyticsConfig,
+): { needsFetch: boolean; needsUpdate: boolean } {
+  if (!lastSubmittedConfig) {
+    const hasValues = newConfig.dataset.values.length > 0;
+    return { needsFetch: hasValues, needsUpdate: hasValues };
+  }
+
+  if (isEqual(lastSubmittedConfig, newConfig)) {
+    return { needsFetch: false, needsUpdate: false };
+  }
+
+  const needsFetch = !isEqual(
+    toFetchKey(lastSubmittedConfig),
+    toFetchKey(newConfig),
+  );
+  return { needsFetch, needsUpdate: true };
 }

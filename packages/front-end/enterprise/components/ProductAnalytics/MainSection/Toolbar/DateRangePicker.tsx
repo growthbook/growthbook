@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Flex } from "@radix-ui/themes";
 import { dateRangePredefined, lookbackUnit } from "shared/validators";
 import { Select, SelectItem } from "@/ui/Select";
@@ -20,18 +20,36 @@ export default function DateRangePicker() {
   const { draftExploreState, setDraftExploreState } = useExplorerContext();
   const { dateRange } = draftExploreState;
 
-  const handleCustomLookbackValueChange = (
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    const value = e.target.value ? parseInt(e.target.value) : null;
-    console.log("value", value);
-    if ((value !== null && value < 1) || (value !== null && isNaN(value))) {
+  const [localLookbackValue, setLocalLookbackValue] = useState<string | null>(
+    null,
+  );
+  const latestLookbackRef = useRef<string>("");
+  const skipBlurCommitRef = useRef(false);
+
+  useEffect(() => {
+    if (dateRange.predefined !== "customLookback") {
+      setLocalLookbackValue(null);
+      latestLookbackRef.current = "";
+    }
+  }, [dateRange.predefined]);
+
+  const commitLookbackValue = (value: string) => {
+    const parsed = value ? parseInt(value, 10) : null;
+    const isValid = parsed !== null && parsed >= 1 && !isNaN(parsed);
+
+    if (!isValid) {
+      // Revert to last valid value - don't update state, just clear local state
+      setLocalLookbackValue(null);
+      latestLookbackRef.current = "";
       return;
     }
+
     setDraftExploreState((prev) => ({
       ...prev,
-      dateRange: { ...prev.dateRange, lookbackValue: value },
+      dateRange: { ...prev.dateRange, lookbackValue: parsed },
     }));
+    setLocalLookbackValue(null);
+    latestLookbackRef.current = "";
   };
 
   return (
@@ -68,9 +86,39 @@ export default function DateRangePicker() {
             }}
             placeholder="#"
             min="1"
-            value={dateRange.lookbackValue?.toString() || ""}
+            value={
+              localLookbackValue !== null
+                ? localLookbackValue
+                : dateRange.lookbackValue?.toString() || ""
+            }
+            onFocus={() => {
+              latestLookbackRef.current =
+                dateRange.lookbackValue?.toString() || "";
+            }}
             onChange={(e) => {
-              handleCustomLookbackValueChange(e);
+              const v = e.target.value;
+              latestLookbackRef.current = v;
+              setLocalLookbackValue(v);
+            }}
+            onBlur={() => {
+              if (skipBlurCommitRef.current) {
+                skipBlurCommitRef.current = false;
+                return;
+              }
+              const toCommit = latestLookbackRef.current;
+              commitLookbackValue(toCommit);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                const toCommit =
+                  latestLookbackRef.current ||
+                  dateRange.lookbackValue?.toString() ||
+                  "";
+                commitLookbackValue(toCommit);
+                skipBlurCommitRef.current = true;
+                (e.target as HTMLInputElement).blur();
+              }
             }}
           />
           <Select
