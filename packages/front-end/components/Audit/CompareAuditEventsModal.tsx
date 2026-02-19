@@ -846,7 +846,7 @@ export default function CompareAuditEventsModal<T>({
                     }
                   >
                     <Box className={styles.rowSpacer} />
-                    <Flex direction="column" gap="1">
+                    <Flex direction="column" gap="1" style={{ minWidth: 0 }}>
                       <Text weight="semibold">Most recent change</Text>
                       <Text size="small" color="text-low" as="div">
                         <span
@@ -855,6 +855,7 @@ export default function CompareAuditEventsModal<T>({
                             overflow: "hidden",
                             textOverflow: "ellipsis",
                             whiteSpace: "nowrap",
+                            width: "100%",
                           }}
                         >
                           {getEntryLabel(flatEntries[0])}
@@ -1155,7 +1156,7 @@ export default function CompareAuditEventsModal<T>({
               Select at least one entry in the list to see the diff.
             </Text>
           ) : (
-            <>
+            <Box pb="4">
               {/* Header row */}
               <Flex align="center" justify="between" mb="3" gap="4" wrap="wrap">
                 <Flex align="center" gap="4">
@@ -1291,7 +1292,7 @@ export default function CompareAuditEventsModal<T>({
                   ))}
                 </Flex>
               )}
-            </>
+            </Box>
           )}
         </Box>
       </Flex>
