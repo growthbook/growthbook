@@ -42,6 +42,30 @@ const EXPERIMENT_DIFF_CONFIG: AuditDiffConfig<ExperimentInterfaceStringDates> =
     ],
     defaultGroupBy: "minute",
     entityLabel: "Experiment",
+    normalizeSnapshot: (snapshot) => {
+      // Deep-clone and parse any JSON string `condition` fields so the diff
+      // viewer shows structured objects rather than escaped string blobs.
+      const parseConditions = (obj: unknown): unknown => {
+        if (Array.isArray(obj)) return obj.map(parseConditions);
+        if (obj !== null && typeof obj === "object") {
+          const result: Record<string, unknown> = {};
+          for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+            if (k === "condition" && typeof v === "string") {
+              try {
+                result[k] = JSON.parse(v);
+              } catch {
+                result[k] = v;
+              }
+            } else {
+              result[k] = parseConditions(v);
+            }
+          }
+          return result;
+        }
+        return obj;
+      };
+      return parseConditions(snapshot) as ExperimentInterfaceStringDates;
+    },
     updateEventNames: ["experiment.update", "experiment.phase"],
     overrideEventLabel: (entry) => {
       if (entry.event === "experiment.status") {

@@ -104,6 +104,13 @@ export interface AuditDiffConfig<T> {
    */
   overrideEventLabel?: (entry: CoarsenedAuditEntry<T>) => string | null;
   /**
+   * Optional view-only snapshot transform applied JIT before diffing.
+   * Use this to parse embedded JSON strings (e.g. condition fields) into
+   * objects so the diff viewer renders them as structured diffs.
+   * The original snapshot record is never mutated.
+   */
+  normalizeSnapshot?: (snapshot: T) => T;
+  /**
    * Events that carry no diffable experiment snapshot (e.g. experiment.refresh).
    * These are fetched alongside diffable events but shown as plain non-selectable
    * text labels in the left column rather than comparison entries.

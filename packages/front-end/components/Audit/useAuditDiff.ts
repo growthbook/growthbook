@@ -78,6 +78,13 @@ function computeAuditDiff<T>(
 ): AuditDiffItem[] {
   if (!post) return [];
 
+  // Apply view-only snapshot normalization (e.g. parse embedded JSON strings).
+  if (config.normalizeSnapshot) {
+    const norm = config.normalizeSnapshot;
+    if (pre) pre = norm(pre);
+    post = norm(post);
+  }
+
   const sections = config.sections ?? [];
 
   const claimedKeys = new Set<keyof T>();
