@@ -155,8 +155,8 @@ export const productAnalyticsConfigValidator = z
       predefined: z.enum(dateRangePredefined),
       lookbackValue: z.number().nullable(),
       lookbackUnit: z.enum(lookbackUnit).nullable(),
-      startDate: z.date().nullable(),
-      endDate: z.date().nullable(),
+      startDate: z.coerce.date().nullable(),
+      endDate: z.coerce.date().nullable(),
     }),
   })
   .strict();

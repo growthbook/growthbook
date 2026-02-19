@@ -402,6 +402,14 @@ export function isSubmittableConfig(
       !cleanedConfig.dataset.timestampColumn)
   )
     return false;
+
+  if (
+    cleanedConfig.dateRange.predefined === "customDateRange" &&
+    (!cleanedConfig.dateRange.startDate || !cleanedConfig.dateRange.endDate)
+  ) {
+    return false;
+  }
+
   return true;
 }
 
