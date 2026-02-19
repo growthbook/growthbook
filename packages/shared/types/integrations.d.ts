@@ -301,6 +301,21 @@ export interface ExperimentUnitsQueryParams extends ExperimentBaseQueryParams {
   includeIdJoins: boolean;
 }
 
+export type PartitionSettings =
+  | {
+      type: "yearMonthDay";
+      yearColumn: string;
+      monthColumn: string;
+      dayColumn: string;
+    }
+  | {
+      type: "timestamp";
+    }
+  | {
+      type: "date";
+      dateColumn: string;
+    };
+
 export interface CreateExperimentIncrementalUnitsQueryParams {
   settings: ExperimentSnapshotSettings;
   activationMetric: ExperimentMetricInterface | null;
@@ -315,6 +330,7 @@ export interface UpdateExperimentIncrementalUnitsQueryParams
   incrementalRefreshStartTime: Date;
   lastMaxTimestamp: Date | null;
   unitsTempTableFullName: string;
+  partitionSettings?: PartitionSettings;
 }
 
 export interface DropOldIncrementalUnitsQueryParams {
@@ -341,6 +357,7 @@ export interface CreateMetricSourceTableQueryParams {
   metrics: FactMetricInterface[];
   factTableMap: FactTableMap;
   metricSourceTableFullName: string;
+  partitionSettings?: PartitionSettings;
 }
 
 export interface InsertMetricSourceDataQueryParams {
@@ -351,6 +368,7 @@ export interface InsertMetricSourceDataQueryParams {
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
   lastMaxTimestamp: Date | null;
+  partitionSettings?: PartitionSettings;
 }
 
 export interface DropMetricSourceCovariateTableQueryParams {
@@ -371,6 +389,7 @@ export interface InsertMetricSourceCovariateDataQueryParams {
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
   lastCovariateSuccessfulMaxTimestamp: Date | null;
+  partitionSettings?: PartitionSettings;
 }
 
 export interface IncrementalRefreshStatisticsQueryParams {

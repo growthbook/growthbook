@@ -8,6 +8,7 @@ import {
   RowFilter,
 } from "shared/types/fact-table";
 import { ExposureQuery } from "shared/types/datasource";
+import { PartitionSettings } from "shared/types/integrations";
 import BigQuery from "back-end/src/integrations/BigQuery";
 import { factTableFactory } from "./factories/FactTable.factory";
 import { factMetricFactory } from "./factories/FactMetric.factory";
@@ -17,6 +18,73 @@ describe("bigquery integration", () => {
   beforeEach(() => {
     // @ts-expect-error -- context not needed for test
     bqIntegration = new BigQuery("", {});
+  });
+
+  const normalizeSql = (sql: string) => sql.replace(/\s+/g, " ").trim();
+
+  it("builds yearMonthDay partition where clauses", () => {
+    const partitionSettings: PartitionSettings = {
+      type: "yearMonthDay",
+      yearColumn: "year_col",
+      monthColumn: "month_col",
+      dayColumn: "day_col",
+    };
+
+    expect(
+      normalizeSql(
+        bqIntegration["getPartitionWhereClause"]({
+          partitionSettings,
+          startDate: new Date(Date.UTC(2024, 0, 15)),
+          endDate: new Date(Date.UTC(2024, 1, 10)),
+          tableAlias: "m",
+        }),
+      ),
+    ).toBe(
+      normalizeSql(`
+        (
+          (m.year_col = '2024' AND m.month_col = '01' AND m.day_col >= '15')
+          OR (m.year_col = '2024' AND m.month_col > '01')
+          OR (m.year_col > '2024')
+        )
+        AND
+        (
+          (m.year_col = '2024' AND m.month_col = '02' AND m.day_col <= '10')
+          OR (m.year_col = '2024' AND m.month_col < '02')
+          OR (m.year_col < '2024')
+        )
+      `),
+    );
+  });
+
+  it("builds date partition where clauses", () => {
+    const partitionSettings: PartitionSettings = {
+      type: "date",
+      dateColumn: "partition_date",
+    };
+
+    expect(
+      normalizeSql(
+        bqIntegration["getPartitionWhereClause"]({
+          partitionSettings,
+          startDate: new Date(Date.UTC(2024, 0, 15)),
+          endDate: new Date(Date.UTC(2024, 1, 10)),
+          tableAlias: "m",
+        }),
+      ),
+    ).toBe(
+      "m.partition_date >= '2024-01-15' AND m.partition_date <= '2024-02-10'",
+    );
+  });
+
+  it("returns no partition clause for timestamp partition settings", () => {
+    const partitionSettings: PartitionSettings = { type: "timestamp" };
+
+    expect(
+      bqIntegration["getPartitionWhereClause"]({
+        partitionSettings,
+        startDate: new Date(Date.UTC(2024, 0, 15)),
+      }),
+    ).toBe("");
   });
 
   it("builds the correct aggregate metric column", () => {

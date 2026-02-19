@@ -118,6 +118,7 @@ import {
   CreateMetricSourceCovariateTableQueryParams,
   CovariatePhaseStartSettings,
   PipelineIntegration,
+  PartitionSettings,
 } from "shared/types/integrations";
 import { MetricAnalysisSettings } from "shared/types/metric-analysis";
 import { MetricInterface, MetricType } from "shared/types/metric";
@@ -5675,6 +5676,7 @@ ORDER BY column_name, count DESC
     endDate,
     experimentId,
     addFiltersToWhere,
+    additionalWhere,
     exclusiveStartDateFilter,
     exclusiveEndDateFilter,
     phase,
@@ -5688,6 +5690,7 @@ ORDER BY column_name, count DESC
     endDate: Date | null;
     experimentId?: string;
     addFiltersToWhere?: boolean;
+    additionalWhere?: string[];
     phase?: PhaseSQLVar;
     customFields?: Record<string, unknown>;
     // Additional filter to ensure we only get
@@ -5736,6 +5739,11 @@ ORDER BY column_name, count DESC
         ? this.toTimestampWithMs
         : this.toTimestamp;
       where.push(`m.timestamp ${operator} ${timestampFn(endDate)}`);
+    }
+    if (additionalWhere?.length) {
+      where.push(
+        ...additionalWhere.filter(Boolean).map((clause) => `(${clause})`),
+      );
     }
 
     const metricCols: string[] = [];
@@ -6939,10 +6947,100 @@ ORDER BY column_name, count DESC
     );
   }
 
+  private getDatePartitionParts(date: Date) {
+    const iso = date.toISOString();
+    return {
+      year: iso.substring(0, 4),
+      month: iso.substring(5, 7),
+      day: iso.substring(8, 10),
+      date: iso.substring(0, 10),
+    };
+  }
+
+  private qualifyPartitionColumn(column: string, tableAlias?: string): string {
+    const trimmed = column.trim();
+    if (!tableAlias) return trimmed;
+    if (
+      trimmed.includes(".") ||
+      trimmed.includes("(") ||
+      trimmed.includes(")") ||
+      trimmed.includes("`") ||
+      trimmed.includes(`"`) ||
+      /\s/.test(trimmed)
+    ) {
+      return trimmed;
+    }
+    return `${tableAlias}.${trimmed}`;
+  }
+
+  getPartitionWhereClause({
+    partitionSettings,
+    startDate,
+    endDate,
+    tableAlias,
+  }: {
+    partitionSettings?: PartitionSettings;
+    startDate: Date;
+    endDate?: Date | null;
+    tableAlias?: string;
+  }): string {
+    if (!partitionSettings || partitionSettings.type === "timestamp") {
+      return "";
+    }
+
+    if (partitionSettings.type === "date") {
+      const dateColumn = this.qualifyPartitionColumn(
+        partitionSettings.dateColumn,
+        tableAlias,
+      );
+      const start = this.getDatePartitionParts(startDate).date;
+      const clauses = [`${dateColumn} >= '${start}'`];
+      if (endDate) {
+        clauses.push(
+          `${dateColumn} <= '${this.getDatePartitionParts(endDate).date}'`,
+        );
+      }
+      return clauses.join(" AND ");
+    }
+
+    const yearColumn = this.qualifyPartitionColumn(
+      partitionSettings.yearColumn,
+      tableAlias,
+    );
+    const monthColumn = this.qualifyPartitionColumn(
+      partitionSettings.monthColumn,
+      tableAlias,
+    );
+    const dayColumn = this.qualifyPartitionColumn(
+      partitionSettings.dayColumn,
+      tableAlias,
+    );
+    const start = this.getDatePartitionParts(startDate);
+
+    const startClause = `(
+      (${yearColumn} = '${start.year}' AND ${monthColumn} = '${start.month}' AND ${dayColumn} >= '${start.day}')
+      OR (${yearColumn} = '${start.year}' AND ${monthColumn} > '${start.month}')
+      OR (${yearColumn} > '${start.year}')
+    )`;
+
+    if (!endDate) {
+      return startClause;
+    }
+
+    const end = this.getDatePartitionParts(endDate);
+    const endClause = `(
+      (${yearColumn} = '${end.year}' AND ${monthColumn} = '${end.month}' AND ${dayColumn} <= '${end.day}')
+      OR (${yearColumn} = '${end.year}' AND ${monthColumn} < '${end.month}')
+      OR (${yearColumn} < '${end.year}')
+    )`;
+
+    return `${startClause} AND ${endClause}`;
+  }
+
   getUpdateExperimentIncrementalUnitsQuery(
     params: UpdateExperimentIncrementalUnitsQueryParams,
   ): string {
-    const { settings, segment, factTableMap } = params;
+    const { settings, segment, factTableMap, partitionSettings } = params;
     const { exposureQuery, activationMetric, experimentDimensions } =
       this.parseExperimentParams(params);
 
@@ -6971,6 +7069,16 @@ ORDER BY column_name, count DESC
     // TODO(incremental-refresh): What if "skip partial data" is true?
     // Does the conversionWindowsHour need to be set different?
     const endDate = this.getExperimentEndDate(settings, 0);
+    const incrementalStartDate =
+      lastMaxTimestampBinds && params.lastMaxTimestamp
+        ? params.lastMaxTimestamp
+        : settings.startDate;
+    const incrementalStartDateIso = incrementalStartDate.toISOString();
+    const partitionWhereClause = this.getPartitionWhereClause({
+      partitionSettings,
+      startDate: incrementalStartDate,
+      endDate,
+    });
 
     // Segment and SQL filter only check against new exposures
     return format(
@@ -7013,7 +7121,15 @@ ORDER BY column_name, count DESC
             startDate: settings.startDate,
             endDate: settings.endDate,
             experimentId: settings.experimentId,
-            // TODO(incremental-refresh): add incremental start data as template variable
+            customFields: {
+              ...settings.customFields,
+              incrementalStartDate: incrementalStartDateIso
+                .substring(0, 19)
+                .replace("T", " "),
+              incrementalStartYear: incrementalStartDateIso.substring(0, 4),
+              incrementalStartMonth: incrementalStartDateIso.substring(5, 7),
+              incrementalStartDay: incrementalStartDateIso.substring(8, 10),
+            },
           })}
         )
         , __filteredNewExposures AS (
@@ -7034,6 +7150,7 @@ ORDER BY column_name, count DESC
                 : `AND timestamp >= ${this.toTimestampWithMs(settings.startDate)}`
             }
             ${endDate ? `AND timestamp <= ${this.toTimestampWithMs(endDate)}` : ""}
+            ${partitionWhereClause ? `AND (${partitionWhereClause})` : ""}
             
         )
         , __jointExposures AS (
@@ -7278,6 +7395,12 @@ ORDER BY column_name, count DESC
     }
     const factTableWithMetricData = factTablesWithMetricData[0];
     const metricData = factTableWithMetricData.metricData;
+    const covariatePartitionWhereClause = this.getPartitionWhereClause({
+      partitionSettings: params.partitionSettings,
+      startDate: factTableWithMetricData.minCovariateStartDate,
+      endDate: factTableWithMetricData.maxCovariateEndDate,
+      tableAlias: "m",
+    });
 
     const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE({
       objects: [
@@ -7315,6 +7438,9 @@ ORDER BY column_name, count DESC
             index: i,
           })),
           addFiltersToWhere: true,
+          additionalWhere: covariatePartitionWhereClause
+            ? [covariatePartitionWhereClause]
+            : undefined,
           // Need to do < the end date to exclude the end date itself
           exclusiveEndDateFilter: true,
           castIdToString: true,
@@ -7601,6 +7727,12 @@ ORDER BY column_name, count DESC
     }
     const factTableWithMetricData = factTablesWithMetricData[0];
     const metricData = factTableWithMetricData.metricData;
+    const metricPartitionWhereClause = this.getPartitionWhereClause({
+      partitionSettings: params.partitionSettings,
+      startDate: factTableWithMetricData.metricStart,
+      endDate: factTableWithMetricData.metricEnd,
+      tableAlias: "m",
+    });
 
     // Get consistent column names using the helper
     const columnNames = this.getMetricSourceTableColumns(
@@ -7627,6 +7759,9 @@ ORDER BY column_name, count DESC
           endDate: factTableWithMetricData.metricEnd,
           castIdToString: true,
           addFiltersToWhere: true,
+          additionalWhere: metricPartitionWhereClause
+            ? [metricPartitionWhereClause]
+            : undefined,
           // if last max timestamp is later than metric start and thus the start
           // date, we need to get data strictly greater than, not just greater than
           // or equal to the start date

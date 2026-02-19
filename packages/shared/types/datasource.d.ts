@@ -11,6 +11,7 @@ import { DatabricksConnectionParams } from "./integrations/databricks";
 import { MetricType } from "./metric";
 import { MssqlConnectionParams } from "./integrations/mssql";
 import { FactTableColumnType } from "./fact-table";
+import type { PartitionSettings } from "./integrations";
 
 export type DataSourceType =
   | "growthbook_clickhouse"
@@ -229,6 +230,10 @@ export type DataSourcePipelineSettings = {
    * even when mode is "incremental". They will fall back to standard queries.
    */
   excludedExperimentIds?: string[];
+  /**
+   * Optional partition pruning strategy used by incremental refresh.
+   */
+  partitionSettings?: PartitionSettings;
 };
 
 export type MaterializedColumnType = "" | "identifier" | "dimension";

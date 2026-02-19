@@ -55,6 +55,26 @@ describe("backend", () => {
       ).toEqual("SELECT amount as value from db.purchase");
     });
 
+    it("replaces incremental start template variables", () => {
+      expect(
+        compileSqlTemplate(
+          `SELECT '{{incrementalStartDate}}' as full, '{{incrementalStartYear}}' as year, '{{incrementalStartMonth}}' as month, '{{incrementalStartDay}}' as day`,
+          {
+            startDate,
+            endDate,
+            customFields: {
+              incrementalStartDate: "2023-03-04 05:06:07",
+              incrementalStartYear: "2023",
+              incrementalStartMonth: "03",
+              incrementalStartDay: "04",
+            },
+          },
+        ),
+      ).toEqual(
+        "SELECT '2023-03-04 05:06:07' as full, '2023' as year, '03' as month, '04' as day",
+      );
+    });
+
     it("throws error when eventName is in sql but is not set", () => {
       expect(() => {
         compileSqlTemplate(`SELECT {{ snakecase eventName }}`, {
@@ -85,7 +105,7 @@ describe("backend", () => {
           customFields: { foo: "bar" },
         });
       }).toThrowError(
-        "Unknown variable: unknown. Available variables: customFields, phase, startDateUnix, startDateISO, startDate, startYear, startMonth, startDay, endDateUnix, endDateISO, endDate, endYear, endMonth, endDay, experimentId",
+        "Unknown variable: unknown. Available variables: customFields, phase, startDateUnix, startDateISO, startDate, startYear, startMonth, startDay, incrementalStartDate, incrementalStartYear, incrementalStartMonth, incrementalStartDay, endDateUnix, endDateISO, endDate, endYear, endMonth, endDay, experimentId",
       );
     });
 
@@ -108,7 +128,7 @@ describe("backend", () => {
           endDate,
         });
       }).toThrowError(
-        "Unknown variable: unknown. Available variables: customFields, phase, startDateUnix, startDateISO, startDate, startYear, startMonth, startDay, endDateUnix, endDateISO, endDate, endYear, endMonth, endDay, experimentId",
+        "Unknown variable: unknown. Available variables: customFields, phase, startDateUnix, startDateISO, startDate, startYear, startMonth, startDay, incrementalStartDate, incrementalStartYear, incrementalStartMonth, incrementalStartDay, endDateUnix, endDateISO, endDate, endYear, endMonth, endDay, experimentId",
       );
     });
 
