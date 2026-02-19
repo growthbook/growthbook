@@ -428,6 +428,20 @@ export interface paths {
     /** Create a single metricGroup */
     post: operations["createMetricGroup"];
   };
+  "/teams/{id}": {
+    /** Get a single team */
+    get: operations["getTeam"];
+    /** Update a single team */
+    put: operations["updateTeam"];
+    /** Delete a single team */
+    delete: operations["deleteTeam"];
+  };
+  "/teams": {
+    /** Get all teams */
+    get: operations["listTeams"];
+    /** Create a single team */
+    post: operations["createTeam"];
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -637,6 +651,34 @@ export interface components {
       metrics: (string)[];
       datasource: string;
       archived: boolean;
+    };
+    Team: {
+      id: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      name: string;
+      createdBy: string;
+      description: string;
+      role: string;
+      limitAccessByEnvironment: boolean;
+      environments: (string)[];
+      projectRoles?: ({
+          role: string;
+          limitAccessByEnvironment: boolean;
+          environments: (string)[];
+          teams?: (string)[];
+          project: string;
+        })[];
+      members?: (string)[];
+      managedByIdp: boolean;
+      managedBy?: {
+        /** @constant */
+        type: "vercel";
+        resourceId: string;
+      };
+      defaultProject?: string;
     };
     PaginationFields: {
       limit: number;
@@ -16194,6 +16236,243 @@ export interface operations {
               metrics: (string)[];
               datasource: string;
               archived: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  getTeam: {
+    /** Get a single team */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            team: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              createdBy: string;
+              description: string;
+              role: string;
+              limitAccessByEnvironment: boolean;
+              environments: (string)[];
+              projectRoles?: ({
+                  role: string;
+                  limitAccessByEnvironment: boolean;
+                  environments: (string)[];
+                  teams?: (string)[];
+                  project: string;
+                })[];
+              members?: (string)[];
+              managedByIdp: boolean;
+              managedBy?: {
+                /** @constant */
+                type: "vercel";
+                resourceId: string;
+              };
+              defaultProject?: string;
+            };
+          };
+        };
+      };
+    };
+  };
+  updateTeam: {
+    /** Update a single team */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          name?: string;
+          createdBy?: string;
+          description?: string;
+          role?: string;
+          limitAccessByEnvironment?: boolean;
+          environments?: (string)[];
+          projectRoles?: ({
+              role: string;
+              limitAccessByEnvironment: boolean;
+              environments: (string)[];
+              teams?: (string)[];
+              project: string;
+            })[];
+          members?: (string)[];
+          managedByIdp?: boolean;
+          managedBy?: {
+            /** @constant */
+            type: "vercel";
+            resourceId: string;
+          };
+          defaultProject?: string;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            team: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              createdBy: string;
+              description: string;
+              role: string;
+              limitAccessByEnvironment: boolean;
+              environments: (string)[];
+              projectRoles?: ({
+                  role: string;
+                  limitAccessByEnvironment: boolean;
+                  environments: (string)[];
+                  teams?: (string)[];
+                  project: string;
+                })[];
+              members?: (string)[];
+              managedByIdp: boolean;
+              managedBy?: {
+                /** @constant */
+                type: "vercel";
+                resourceId: string;
+              };
+              defaultProject?: string;
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteTeam: {
+    /** Delete a single team */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
+          };
+        };
+      };
+    };
+  };
+  listTeams: {
+    /** Get all teams */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            teams: ({
+                id: string;
+                /** Format: date-time */
+                dateCreated: string;
+                /** Format: date-time */
+                dateUpdated: string;
+                name: string;
+                createdBy: string;
+                description: string;
+                role: string;
+                limitAccessByEnvironment: boolean;
+                environments: (string)[];
+                projectRoles?: ({
+                    role: string;
+                    limitAccessByEnvironment: boolean;
+                    environments: (string)[];
+                    teams?: (string)[];
+                    project: string;
+                  })[];
+                members?: (string)[];
+                managedByIdp: boolean;
+                managedBy?: {
+                  /** @constant */
+                  type: "vercel";
+                  resourceId: string;
+                };
+                defaultProject?: string;
+              })[];
+          };
+        };
+      };
+    };
+  };
+  createTeam: {
+    /** Create a single team */
+    requestBody: {
+      content: {
+        "application/json": {
+          name: string;
+          createdBy: string;
+          description: string;
+          role: string;
+          limitAccessByEnvironment: boolean;
+          environments: (string)[];
+          projectRoles?: ({
+              role: string;
+              limitAccessByEnvironment: boolean;
+              environments: (string)[];
+              teams?: (string)[];
+              project: string;
+            })[];
+          members?: (string)[];
+          managedByIdp: boolean;
+          managedBy?: {
+            /** @constant */
+            type: "vercel";
+            resourceId: string;
+          };
+          defaultProject?: string;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            team: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              createdBy: string;
+              description: string;
+              role: string;
+              limitAccessByEnvironment: boolean;
+              environments: (string)[];
+              projectRoles?: ({
+                  role: string;
+                  limitAccessByEnvironment: boolean;
+                  environments: (string)[];
+                  teams?: (string)[];
+                  project: string;
+                })[];
+              members?: (string)[];
+              managedByIdp: boolean;
+              managedBy?: {
+                /** @constant */
+                type: "vercel";
+                resourceId: string;
+              };
+              defaultProject?: string;
             };
           };
         };

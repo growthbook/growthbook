@@ -1,4 +1,9 @@
-import { teamSchema } from "shared/validators";
+import {
+  apiCreateTeamBody,
+  apiTeamValidator,
+  apiUpdateTeamBody,
+  teamSchema,
+} from "shared/validators";
 import { TeamInterface } from "shared/types/team";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
@@ -15,24 +20,51 @@ const BaseClass = MakeModelClass({
   globallyUniqueIds: false,
   readonlyFields: [],
   additionalIndexes: [],
+  apiConfig: {
+    modelKey: "teams",
+    modelSingular: "team",
+    modelPlural: "teams",
+    apiInterface: apiTeamValidator,
+    schemas: {
+      createBody: apiCreateTeamBody,
+      updateBody: apiUpdateTeamBody,
+    },
+    pathBase: "/teams",
+    includeDefaultCrud: true,
+  },
 });
 
 export class TeamModel extends BaseClass {
   protected canCreate(): boolean {
-    return true;
-    // return this.context.permissions.canCreateEventWebhook();
+    return this.context.permissions.canManageTeam();
   }
   protected canRead(): boolean {
-    return true;
-    // return this.context.permissions.canViewEventWebhook();
+    return this.context.permissions.canManageTeam();
   }
   protected canUpdate(): boolean {
-    return true;
-    // return this.context.permissions.canUpdateEventWebhook();
+    return this.context.permissions.canManageTeam();
   }
   protected canDelete(): boolean {
-    return true;
-    // return this.context.permissions.canDeleteEventWebhook();
+    return this.context.permissions.canManageTeam();
+  }
+
+  protected async beforeDelete(team: TeamInterface) {
+    const org = this.context.org;
+    const members = org.members.filter((member) =>
+      member.teams?.includes(team.id),
+    );
+
+    if (members.length !== 0) {
+      return this.context.throwBadRequestError(
+        "Cannot delete a team that has members. Please delete members before retrying.",
+      );
+    }
+
+    if (team?.managedByIdp) {
+      return this.context.throwBadRequestError(
+        "Cannot delete a team that is being managed by an idP. Please delete the team through your idP.",
+      );
+    }
   }
 
   public async findByName(name: string) {

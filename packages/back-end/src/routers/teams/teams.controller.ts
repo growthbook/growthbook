@@ -178,7 +178,6 @@ export const deleteTeamById = async (
   res: Response<DeleteTeamResponse>,
 ) => {
   const context = getContextFromReq(req);
-  const { org } = context;
   const { id } = req.params;
 
   if (!context.permissions.canManageTeam()) {
@@ -187,24 +186,6 @@ export const deleteTeamById = async (
 
   const team = await context.models.teams.getById(id);
   if (!team) return context.throwNotFoundError();
-
-  const members = org.members.filter((member) => member.teams?.includes(id));
-
-  if (members.length !== 0) {
-    return res.status(400).json({
-      status: 400,
-      message:
-        "Cannot delete a team that has members. Please delete members before retrying.",
-    });
-  }
-
-  if (team?.managedByIdp) {
-    return res.status(400).json({
-      status: 400,
-      message:
-        "Cannot delete a team that is being managed by an idP. Please delete the team through your idP.",
-    });
-  }
 
   await context.models.teams.delete(team);
 
