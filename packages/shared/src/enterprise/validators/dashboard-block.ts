@@ -257,13 +257,33 @@ export type MetricExplorerBlockInterface = z.infer<
   typeof metricExplorerBlockInterface
 >;
 
-const productAnalyticsExplorerBlockInterface = baseBlockInterface.extend({
-  type: z.literal("product-analytics-explorer"),
+const productAnalyticsExplorerBaseInterface = baseBlockInterface.extend({
   explorerAnalysisId: z.string(),
 });
 
-export type ProductAnalyticsExplorerBlockInterface = z.infer<
-  typeof productAnalyticsExplorerBlockInterface
+const metricExplorationBlockInterface =
+  productAnalyticsExplorerBaseInterface.extend({
+    type: z.literal("metric-exploration"),
+  });
+
+const factTableExplorationBlockInterface =
+  productAnalyticsExplorerBaseInterface.extend({
+    type: z.literal("fact-table-exploration"),
+  });
+
+const dataSourceExplorationBlockInterface =
+  productAnalyticsExplorerBaseInterface.extend({
+    type: z.literal("data-source-exploration"),
+  });
+
+export type MetricExplorationBlockInterface = z.infer<
+  typeof metricExplorationBlockInterface
+>;
+export type FactTableExplorationBlockInterface = z.infer<
+  typeof factTableExplorationBlockInterface
+>;
+export type DataSourceExplorationBlockInterface = z.infer<
+  typeof dataSourceExplorationBlockInterface
 >;
 // Blocks that are the same for both the standard interface and the api interface
 const standardAndApiCommonBlocks = [
@@ -278,7 +298,9 @@ const standardAndApiCommonBlocks = [
 
 export const dashboardBlockInterface = z.discriminatedUnion("type", [
   metricExplorerBlockInterface,
-  productAnalyticsExplorerBlockInterface,
+  metricExplorationBlockInterface,
+  factTableExplorationBlockInterface,
+  dataSourceExplorationBlockInterface,
   ...standardAndApiCommonBlocks,
 ]);
 export const apiDashboardBlockInterface = z.discriminatedUnion("type", [
@@ -322,7 +344,9 @@ export const createDashboardBlockInterface = z.discriminatedUnion("type", [
   experimentTrafficBlockInterface.omit(createOmits),
   sqlExplorerBlockInterface.omit(createOmits),
   metricExplorerBlockInterface.omit(createOmits),
-  productAnalyticsExplorerBlockInterface.omit(createOmits),
+  metricExplorationBlockInterface.omit(createOmits),
+  factTableExplorationBlockInterface.omit(createOmits),
+  dataSourceExplorationBlockInterface.omit(createOmits),
 ]);
 export const apiCreateDashboardBlockInterface = z.discriminatedUnion("type", [
   markdownBlockInterface.omit(createOmits),
@@ -372,7 +396,15 @@ export const dashboardBlockPartial = z.discriminatedUnion("type", [
     .omit(createOmits)
     .partial()
     .required({ type: true }),
-  productAnalyticsExplorerBlockInterface
+  metricExplorationBlockInterface
+    .omit(createOmits)
+    .partial()
+    .required({ type: true }),
+  factTableExplorationBlockInterface
+    .omit(createOmits)
+    .partial()
+    .required({ type: true }),
+  dataSourceExplorationBlockInterface
     .omit(createOmits)
     .partial()
     .required({ type: true }),

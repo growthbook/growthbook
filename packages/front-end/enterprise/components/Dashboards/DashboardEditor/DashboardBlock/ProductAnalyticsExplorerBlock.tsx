@@ -1,15 +1,24 @@
-import { ProductAnalyticsExplorerBlockInterface } from "shared/enterprise";
+import {
+  MetricExplorationBlockInterface,
+  FactTableExplorationBlockInterface,
+  DataSourceExplorationBlockInterface,
+} from "shared/enterprise";
 import { Box } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import { BlockProps } from ".";
 
 export default function ProductAnalyticsExplorerBlock({
   block,
-}: BlockProps<ProductAnalyticsExplorerBlockInterface>) {
+  // MKTODO: Can we make this a discriminated union?
+}: BlockProps<
+  | MetricExplorationBlockInterface
+  | FactTableExplorationBlockInterface
+  | DataSourceExplorationBlockInterface
+>) {
   if (!block.explorerAnalysisId) {
     return (
       <Box p="4" style={{ textAlign: "center" }}>
-        <Text>Configure this block to display metric explorer data.</Text>
+        <Text>Configure this block to display explorer data.</Text>
       </Box>
     );
   }

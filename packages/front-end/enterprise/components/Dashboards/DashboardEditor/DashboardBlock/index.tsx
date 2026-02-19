@@ -126,7 +126,9 @@ const BLOCK_COMPONENTS: {
   "experiment-traffic": ExperimentTrafficBlock,
   "sql-explorer": SqlExplorerBlock,
   "metric-explorer": MetricExplorerBlock,
-  "product-analytics-explorer": ProductAnalyticsExplorerBlock,
+  "metric-exploration": ProductAnalyticsExplorerBlock,
+  "fact-table-exploration": ProductAnalyticsExplorerBlock,
+  "data-source-exploration": ProductAnalyticsExplorerBlock,
 };
 
 export default function DashboardBlock<T extends DashboardBlockInterface>({

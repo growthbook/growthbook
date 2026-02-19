@@ -1622,12 +1622,14 @@ export default function EditSingleBlock({
             {block.type === "metric-explorer" && (
               <MetricExplorerSettings block={block} setBlock={setBlock} />
             )}
-            {block.type === "product-analytics-explorer" && (
-              <ProductAnalyticsExplorerSettings
-                block={block}
-                setBlock={setBlock}
-              />
-            )}
+            {block.type === "metric-exploration" ||
+              block.type === "fact-table-exploration" ||
+              (block.type === "data-source-exploration" && (
+                <ProductAnalyticsExplorerSettings
+                  block={block}
+                  setBlock={setBlock}
+                />
+              ))}
           </Flex>
           <Flex mt="5" gap="3" align="center" justify="center">
             <Button

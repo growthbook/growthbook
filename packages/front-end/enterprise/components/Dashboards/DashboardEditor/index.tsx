@@ -89,16 +89,23 @@ export const BLOCK_TYPE_INFO: Record<
   "sql-explorer": {
     name: "SQL Query",
     icon: <PiFileSqlDuotone />,
-    deprecated: true,
   },
   "metric-explorer": {
     name: "Metric",
     icon: <PiFileSqlDuotone />,
     deprecated: true,
   },
-  "product-analytics-explorer": {
-    name: "Product Analytics Explorer",
-    icon: <PiFileSqlDuotone />,
+  "metric-exploration": {
+    name: "Metric Exploration",
+    icon: <PiTableDuotone />,
+  },
+  "fact-table-exploration": {
+    name: "Fact Table Exploration",
+    icon: <PiTableDuotone />,
+  },
+  "data-source-exploration": {
+    name: "Data Source Exploration",
+    icon: <PiTableDuotone />,
   },
 };
 
@@ -112,7 +119,9 @@ export const BLOCK_SUBGROUPS: [string, DashboardBlockType[]][] = [
     "Other",
     [
       "markdown",
-      "product-analytics-explorer",
+      "metric-exploration",
+      "fact-table-exploration",
+      "data-source-exploration",
       "sql-explorer",
       "metric-explorer",
     ],
@@ -124,7 +133,9 @@ export const GENERAL_DASHBOARD_BLOCK_TYPES: DashboardBlockType[] = [
   "markdown",
   "sql-explorer",
   "metric-explorer",
-  "product-analytics-explorer",
+  "metric-exploration",
+  "fact-table-exploration",
+  "data-source-exploration",
 ];
 
 // Helper function to check if a block type is allowed for the given dashboard type
@@ -191,29 +202,22 @@ function AddBlockDropdown({
                 </Text>
               </DropdownMenuLabel>
             )}
-            {allowedBlockTypes.map((bType) => (
-              <DropdownMenuItem
-                key={bType}
-                onClick={() => {
-                  setDropdownOpen(false);
-                  addBlockType(bType);
-                }}
-              >
-                {BLOCK_TYPE_INFO[bType].name}
-                {BLOCK_TYPE_INFO[bType].deprecated ? (
-                  <Tooltip body="This feature is deprecated in favor of the Data Visualization block.">
-                    <Text
-                      color="gray"
-                      size="1"
-                      className="ml-2"
-                      style={{ fontStyle: "italic" }}
-                    >
-                      Deprecated
-                    </Text>
-                  </Tooltip>
-                ) : null}
-              </DropdownMenuItem>
-            ))}
+            {allowedBlockTypes.map((bType) => {
+              if (BLOCK_TYPE_INFO[bType].deprecated) {
+                return null;
+              }
+              return (
+                <DropdownMenuItem
+                  key={bType}
+                  onClick={() => {
+                    setDropdownOpen(false);
+                    addBlockType(bType);
+                  }}
+                >
+                  {BLOCK_TYPE_INFO[bType].name}
+                </DropdownMenuItem>
+              );
+            })}
             {i < BLOCK_SUBGROUPS.length - 1 && <DropdownMenuSeparator />}
           </Fragment>
         );
