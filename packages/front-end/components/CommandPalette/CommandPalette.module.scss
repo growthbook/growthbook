@@ -10,9 +10,9 @@
 }
 
 .dialog {
-  background: var(--surface-background-color);
-  border: 1px solid var(--border-color-200);
-  border-radius: 12px;
+  background: var(--color-panel-solid);
+  border: 1px solid var(--slate-a3);
+  border-radius: 6px;
   width: 100%;
   max-width: 600px;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2);
@@ -26,14 +26,14 @@
   display: flex;
   align-items: center;
   padding: 12px 16px;
-  border-bottom: 1px solid var(--border-color-200);
+  border-bottom: 1px solid var(--slate-a3);
   gap: 10px;
 }
 
 .searchIcon {
   color: var(--text-color-muted);
   flex-shrink: 0;
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .input {
@@ -41,7 +41,7 @@
   border: none;
   outline: none;
   background: transparent;
-  font-size: 16px;
+  font-size: 14px;
   color: var(--text-color-main);
 
   &::placeholder {
@@ -59,7 +59,7 @@
 .empty {
   padding: 24px 16px;
   text-align: center;
-  color: var(--text-color-muted);
+  color: var(--color-text-disabled);
   font-size: 14px;
 }
 
@@ -115,7 +115,7 @@
 
 .footer {
   padding: 8px 16px;
-  border-top: 1px solid var(--border-color-200);
+  border-top: 1px solid var(--slate-a3);
   display: flex;
   align-items: center;
   gap: 16px;
@@ -130,7 +130,8 @@
   font-size: 11px;
   font-family: inherit;
   background: var(--slate-a3, rgba(0, 0, 0, 0.05));
-  border: 1px solid var(--border-color-200);
+  border: 1px solid var(--slate-a3);
   border-radius: 4px;
   margin: 0 2px;
+  color: var(--text-color-mid);
 }

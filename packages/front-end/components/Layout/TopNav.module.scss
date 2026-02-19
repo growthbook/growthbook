@@ -87,24 +87,6 @@ $sidebarwidth: 240px;
   width: 100%;
 }
 
-.searchButton {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  color: var(--text-color-muted);
-  cursor: pointer;
-  padding: 6px;
-  border-radius: 6px;
-  margin-right: 8px;
-
-  &:hover {
-    color: var(--text-color-main);
-    background: var(--slate-a3, rgba(0, 0, 0, 0.05));
-  }
-}
-
 .dropdownItemIconColor {
   &:focus {
     svg {

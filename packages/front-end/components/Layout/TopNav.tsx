@@ -2,7 +2,6 @@ import { FC, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FaAngleRight, FaBars } from "react-icons/fa";
 import {
-  PiMagnifyingGlass,
   PiPlusBold,
   PiCaretDownFill,
   PiCircleHalf,
@@ -451,16 +450,6 @@ const TopNav: FC<{
               </div>
             </>
           )}
-          <button
-            className={styles.searchButton}
-            onClick={() => {
-              document.dispatchEvent(new Event("open-command-palette"));
-            }}
-            aria-label="Search (Ctrl+K)"
-            title="Search (Ctrl+K)"
-          >
-            <PiMagnifyingGlass size={18} />
-          </button>
           {renderOrganizationDropDown()}
           <DropdownMenu
             variant="solid"

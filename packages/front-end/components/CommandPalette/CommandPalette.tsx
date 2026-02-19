@@ -7,7 +7,7 @@ import {
   BsGraphUp,
   BsBarChartLine,
 } from "react-icons/bs";
-import { PiFlask } from "react-icons/pi";
+import { PiFolderDuotone, PiFlask, PiUsersThree } from "react-icons/pi";
 import { getMetricLink } from "shared/experiments";
 import Portal from "@/components/Modal/Portal";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -16,7 +16,12 @@ import { useExperiments } from "@/hooks/useExperiments";
 import { useDashboards } from "@/hooks/useDashboards";
 import styles from "./CommandPalette.module.scss";
 
-type CommandPaletteItemType = "feature" | "experiment" | "metric" | "dashboard";
+type CommandPaletteItemType =
+  | "feature"
+  | "experiment"
+  | "metric"
+  | "dashboard"
+  | "savedGroup";
 
 interface CommandPaletteItem {
   id: string;
@@ -25,12 +30,14 @@ interface CommandPaletteItem {
   description: string;
   url: string;
   tags: string;
+  icon?: FC<{ className?: string }>;
 }
 
 const SECTION_ORDER: CommandPaletteItemType[] = [
   "feature",
   "experiment",
   "metric",
+  "savedGroup",
   "dashboard",
 ];
 
@@ -38,6 +45,7 @@ const SECTION_LABELS: Record<CommandPaletteItemType, string> = {
   feature: "Features",
   experiment: "Experiments",
   metric: "Metrics",
+  savedGroup: "Saved Groups",
   dashboard: "Dashboards",
 };
 
@@ -48,6 +56,7 @@ const SECTION_ICONS: Record<
   feature: BsToggleOn,
   experiment: PiFlask,
   metric: BsGraphUp,
+  savedGroup: PiUsersThree,
   dashboard: BsBarChartLine,
 };
 
@@ -65,7 +74,7 @@ const CommandPalette: FC = () => {
   // Data sources — only fetched once the component mounts (SWR cache)
   const { features } = useFeaturesNames();
   const { experiments } = useExperiments();
-  const { metrics, factMetrics } = useDefinitions();
+  const { metrics, factMetrics, metricGroups, savedGroups } = useDefinitions();
   const { dashboards } = useDashboards(false);
 
   // Build unified item list
@@ -120,6 +129,30 @@ const CommandPalette: FC = () => {
       });
     }
 
+    for (const mg of metricGroups) {
+      if (mg.archived) continue;
+      result.push({
+        id: `metric::mg-${mg.id}`,
+        type: "metric",
+        name: mg.name,
+        description: mg.description || "",
+        url: `/metric-groups/${mg.id}`,
+        tags: (mg.tags || []).join(" "),
+        icon: PiFolderDuotone,
+      });
+    }
+
+    for (const sg of savedGroups) {
+      result.push({
+        id: `savedGroup::${sg.id}`,
+        type: "savedGroup",
+        name: sg.groupName,
+        description: "",
+        url: `/saved-groups/${sg.id}`,
+        tags: "",
+      });
+    }
+
     for (const d of dashboards) {
       if (d.isDeleted) continue;
       result.push({
@@ -133,7 +166,15 @@ const CommandPalette: FC = () => {
     }
 
     return result;
-  }, [features, experiments, metrics, factMetrics, dashboards]);
+  }, [
+    features,
+    experiments,
+    metrics,
+    factMetrics,
+    metricGroups,
+    savedGroups,
+    dashboards,
+  ]);
 
   // MiniSearch index
   const miniSearch = useMemo(() => {
@@ -164,6 +205,7 @@ const CommandPalette: FC = () => {
       feature: [],
       experiment: [],
       metric: [],
+      savedGroup: [],
       dashboard: [],
     };
 
@@ -248,12 +290,16 @@ const CommandPalette: FC = () => {
     return () => document.removeEventListener("open-command-palette", handler);
   }, []);
 
-  // Lock body scroll when open
+  // Lock body scroll and focus input when open
   useEffect(() => {
     if (open) {
       document.body.style.overflow = "hidden";
-      // Focus input on next frame
-      requestAnimationFrame(() => inputRef.current?.focus());
+      // Use nested rAF to ensure Portal has mounted before focusing
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          inputRef.current?.focus();
+        });
+      });
     } else {
       document.body.style.overflow = "";
     }
@@ -315,6 +361,7 @@ const CommandPalette: FC = () => {
               ref={inputRef}
               className={styles.input}
               type="text"
+              autoFocus
               placeholder="Search features, experiments, metrics..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -333,7 +380,7 @@ const CommandPalette: FC = () => {
               SECTION_ORDER.map((type) => {
                 const sectionItems = groupedResults[type];
                 if (sectionItems.length === 0) return null;
-                const Icon = SECTION_ICONS[type];
+                const SectionIcon = SECTION_ICONS[type];
                 return (
                   <div key={type}>
                     <div className={styles.sectionHeader}>
@@ -341,6 +388,7 @@ const CommandPalette: FC = () => {
                     </div>
                     {sectionItems.map((item) => {
                       const idx = flatIndex++;
+                      const Icon = item.icon || SectionIcon;
                       return (
                         <div
                           key={item.id}
