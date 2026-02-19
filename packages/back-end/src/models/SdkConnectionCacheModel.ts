@@ -4,6 +4,9 @@ import {
 } from "shared/validators";
 import { MakeModelClass } from "./BaseModel";
 
+// Increment this if we change the payload contents in a backwards-incompatible way
+export const LATEST_SDK_PAYLOAD_SCHEMA_VERSION = 1;
+
 const BaseClass = MakeModelClass({
   schema: sdkConnectionCacheValidator,
   collectionName: "sdkcache",
@@ -29,7 +32,10 @@ export class SdkConnectionCacheModel extends BaseClass {
   }
 
   public async getById(id: string) {
-    return await this._findOne({ id });
+    return await this._findOne({
+      id,
+      schemaVersion: LATEST_SDK_PAYLOAD_SCHEMA_VERSION,
+    });
   }
 
   public async upsert(
@@ -37,12 +43,15 @@ export class SdkConnectionCacheModel extends BaseClass {
     contents: string,
     auditContext?: SdkConnectionCacheAuditContext,
   ) {
-    const existing = await this.getById(id);
+    // Find existing doc by id only (ignore version) to support version upgrades
+    const existing = await this._findOne({ id });
     const updateData: {
       contents: string;
+      schemaVersion: number;
       audit?: SdkConnectionCacheAuditContext;
     } = {
       contents,
+      schemaVersion: LATEST_SDK_PAYLOAD_SCHEMA_VERSION,
     };
     if (auditContext) {
       updateData.audit = auditContext;
