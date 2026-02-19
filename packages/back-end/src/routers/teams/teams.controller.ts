@@ -1,5 +1,4 @@
 import type { Response } from "express";
-import { areProjectRolesValid, isRoleValid } from "shared/permissions";
 import { TeamInterface } from "shared/types/team";
 import { MemberRoleWithProjects } from "shared/types/organization";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
@@ -59,17 +58,6 @@ export const postTeam = async (
     });
   }
 
-  // Ensure role is valid
-  if (
-    !isRoleValid(permissions.role, org) ||
-    !areProjectRolesValid(permissions.projectRoles, org)
-  ) {
-    return res.status(400).json({
-      status: 400,
-      message: "Invalid role",
-    });
-  }
-
   const team = await context.models.teams.create({
     name,
     createdBy: userName,
@@ -116,8 +104,6 @@ export const updateTeam = async (
   res: Response<PutTeamResponse>,
 ) => {
   const context = getContextFromReq(req);
-  const { org } = context;
-  const { name, description, permissions, defaultProject } = req.body;
   const { id } = req.params;
 
   if (!context.permissions.canManageTeam()) {
@@ -133,22 +119,10 @@ export const updateTeam = async (
     });
   }
 
-  // Ensure role is valid
-  if (
-    !isRoleValid(permissions.role, org) ||
-    !areProjectRolesValid(permissions.projectRoles, org)
-  ) {
-    return res.status(400).json({
-      status: 400,
-      message: "Invalid role",
-    });
-  }
-
+  const { permissions, ...updates } = req.body;
   await context.models.teams.update(team, {
-    name,
-    description,
+    ...updates,
     projectRoles: [],
-    defaultProject,
     ...permissions,
     managedByIdp: team.managedByIdp,
   });

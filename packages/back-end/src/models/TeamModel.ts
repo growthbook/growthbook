@@ -7,6 +7,7 @@ import {
   teamSchema,
 } from "shared/validators";
 import { TeamInterface } from "shared/types/team";
+import { areProjectRolesValid, isRoleValid } from "shared/permissions";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   getCollection,
@@ -102,6 +103,15 @@ export class TeamModel extends BaseClass {
   }
   protected canDelete(): boolean {
     return this.context.permissions.canManageTeam();
+  }
+
+  protected async customValidation(doc: TeamInterface) {
+    if (
+      !isRoleValid(doc.role, this.context.org) ||
+      !areProjectRolesValid(doc.projectRoles, this.context.org)
+    ) {
+      return this.context.throwBadRequestError("Invalid role");
+    }
   }
 
   protected async beforeDelete(team: TeamInterface) {
