@@ -171,6 +171,7 @@ export interface SnapshotBanditSettings {
     weights: number[];
     totalUsers: number;
   }[];
+  useFirstExposure?: boolean;
 }
 
 // Settings that control which queries are run
@@ -199,7 +200,6 @@ export interface ExperimentSnapshotSettings {
   variations: SnapshotSettingsVariation[];
   coverage?: number;
   banditSettings?: SnapshotBanditSettings;
-  useStickyBucketing?: boolean;
   /** @deprecated */
   manual?: boolean;
 }

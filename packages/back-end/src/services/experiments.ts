@@ -604,6 +604,7 @@ export function getSnapshotSettings({
                     0,
                   ) ?? 0,
               })) ?? [],
+          useFirstExposure: useStickyBucketing,
         }
       : undefined;
 
@@ -635,7 +636,6 @@ export function getSnapshotSettings({
     })),
     coverage: phase.coverage ?? 1,
     banditSettings,
-    useStickyBucketing,
   };
 }
 
