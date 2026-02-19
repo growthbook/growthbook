@@ -120,6 +120,9 @@ tags:
   - name: attributes
     x-displayName: Attributes
     description: Used when targeting feature flags and experiments.
+  - name: usage
+    x-displayName: Usage
+    description: Usage information for metrics in experiments.
   - name: Archetype_model
     x-displayName: Archetype
     description: <SchemaDefinition schemaRef="#/components/schemas/Archetype" />
@@ -3350,7 +3353,7 @@ paths:
         access or read access to experiments across all projects, this endpoint may not return the latest usage data across
         all experiments. 
       tags:
-        - metrics
+        - usage
       operationId: getMetricUsage
       parameters:
         - name: ids
@@ -15147,6 +15150,7 @@ x-tagGroups:
       - queries
       - settings
       - attributes
+      - usage
       - Dashboards
       - CustomFields
       - MetricGroups
