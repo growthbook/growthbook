@@ -10,10 +10,6 @@ import {
   ScimGroupPatchRequest,
 } from "back-end/types/scim";
 import {
-  findTeamById,
-  updateTeamMetadata,
-} from "back-end/src/models/TeamModel";
-import {
   addMembersToTeam,
   expandOrgMembers,
   removeMembersFromTeam,
@@ -28,7 +24,7 @@ export async function patchGroup(
 
   const org = req.organization;
 
-  const team = await findTeamById(id, org.id);
+  const team = await req.context.models.teams.getById(id);
 
   if (!team) {
     return res.status(404).json({
@@ -110,7 +106,7 @@ export async function patchGroup(
             });
           }
         }
-        await updateTeamMetadata(team.id, org.id, {
+        await req.context.models.teams.update(team, {
           ...team,
           name: (value as BasicScimGroup).displayName,
           managedByIdp: true,

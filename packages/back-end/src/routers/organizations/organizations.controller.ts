@@ -128,7 +128,6 @@ import {
   countAllAuditsByEntityType,
   countAllAuditsByEntityTypeParent,
 } from "back-end/src/models/AuditModel";
-import { getTeamsForOrganization } from "back-end/src/models/TeamModel";
 import { getAllFactTablesForOrganization } from "back-end/src/models/FactTableModel";
 import { fireSdkWebhook } from "back-end/src/jobs/sdkWebhooks";
 import {
@@ -910,7 +909,7 @@ export async function getOrganization(
 
   const expandedMembers = await expandOrgMembers(members, userId);
 
-  const teams = await getTeamsForOrganization(org.id);
+  const teams = await context.models.teams.getAll();
 
   const teamsWithMembers: TeamInterface[] = teams.map((team) => {
     const memberIds = org.members
