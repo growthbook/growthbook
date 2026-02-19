@@ -5,15 +5,14 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
+// eslint-disable-next-line no-restricted-imports
+import { Box, Checkbox as RadixCheckbox, Flex } from "@radix-ui/themes";
 import {
   PiArrowsLeftRightBold,
-  PiArrowClockwise,
   PiClockClockwise,
   PiWarningBold,
   PiCaretDownBold,
   PiX,
-  PiEyeBold,
 } from "react-icons/pi";
 import { datetime } from "shared/dates";
 import format from "date-fns/format";
@@ -32,10 +31,11 @@ import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import { Select, SelectItem } from "@/ui/Select";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import Callout from "@/ui/Callout";
 import Badge from "@/ui/Badge";
 import { ExpandableDiff } from "@/components/Features/DraftModal";
-import { useAuditEntries } from "@/hooks/useAuditEntries";
+import { PAGE_LIMIT, useAuditEntries } from "@/hooks/useAuditEntries";
 import { getChangedSectionLabels, useAuditDiff } from "./useAuditDiff";
 import {
   AuditDiffConfig,
@@ -120,7 +120,7 @@ function getSeparatorLabel(date: Date, groupBy: GroupByOption): string {
   if (groupBy === "day") {
     return format(date, isCurrentYear ? "MMM d" : "MMM d, yyyy");
   }
-  return format(date, isCurrentYear ? "MMM d · h aaa" : "MMM d, yyyy · h aaa");
+  return format(date, isCurrentYear ? "MMM d" : "MMM d, yyyy");
 }
 
 export interface CompareAuditEventsModalProps<T> {
@@ -141,22 +141,22 @@ export default function CompareAuditEventsModal<T>({
     `${STORAGE_KEY_PREFIX}:diffViewMode`,
     "steps",
   );
-  const diffViewMode = diffViewModeRaw === "single" ? "single" : "steps";
+  const diffViewModeStored = diffViewModeRaw === "single" ? "single" : "steps";
 
   // ---- Section visibility toggles ----
   // All sections are visible by default; a missing key means "visible".
   const [visibleSections, setVisibleSections] = useLocalStorage<
     Record<string, boolean>
   >(`${STORAGE_KEY_PREFIX}:${config.entityType}:visibleSections`, {
-    "Other changes": false,
+    "other changes": false,
   });
 
   const sectionLabels = useMemo(
     () => [
       // Deduplicate: multiple sections may share a label (for multi-widget diffs)
       ...new Set((config.sections ?? []).map((s) => s.label)),
-      // "Other changes" is auto-emitted by useAuditDiff when sections exist
-      ...(config.sections?.length ? ["Other changes"] : []),
+      // "other changes" is auto-emitted by useAuditDiff when sections exist
+      ...(config.sections?.length ? ["other changes"] : []),
     ],
     [config],
   );
@@ -330,8 +330,6 @@ export default function CompareAuditEventsModal<T>({
     );
   }, [steps.length]);
 
-  const canToggleDiffView = selectedSorted.length > 2;
-
   const entryById = useMemo(
     () => new Map(flatEntries.map((e) => [e.id, e])),
     [flatEntries],
@@ -437,13 +435,9 @@ export default function CompareAuditEventsModal<T>({
           }
         }
 
-        // Far click: clear the selection and pair with the item immediately
-        // below (older). Round up to [0, 1] if clicking the last loaded item.
+        // Far click: jump to single-item view for the clicked entry.
         if (low !== -1 && high !== -1 && (idx <= low - 4 || idx >= high + 4)) {
-          if (idx < flatIds.length - 1) {
-            return [flatIds[idx], flatIds[idx + 1]];
-          }
-          return flatIds.length >= 2 ? [flatIds[0], flatIds[1]] : prev;
+          return [flatIds[idx], flatIds[idx]];
         }
 
         const newLow = Math.min(low === -1 ? idx : low, idx);
@@ -486,6 +480,8 @@ export default function CompareAuditEventsModal<T>({
       ? (entryById.get(selectedSorted[0]) ?? null)
       : null;
   const isSingleEntry = selectedSorted.length === 1;
+  // Single-entry selection has no steps — always use merged diff view.
+  const diffViewMode = isSingleEntry ? "single" : diffViewModeStored;
 
   // For diffing: pre of step A is its postSnapshot, post of step B is its postSnapshot.
   // For a create entry (pre=null), show as "created with these values".
@@ -701,6 +697,9 @@ export default function CompareAuditEventsModal<T>({
 
   const renderEntryRow = (entry: CoarsenedAuditEntry<T>) => {
     const isSelected = selectedSortedSet.has(entry.id);
+    const isExclusivelySelected =
+      selectedIds[0] === entry.id &&
+      selectedIds[selectedIds.length - 1] === entry.id;
     const failed = isEntryFailed(entry.id);
     const label = getEventLabel(entry.event);
     const rowId = `audit-entry-${entry.id}`;
@@ -712,36 +711,31 @@ export default function CompareAuditEventsModal<T>({
         className={`${styles.row} ${isSelected ? styles.rowSelected : ""}`}
       >
         <label htmlFor={rowId}>
-          <Flex direction="column" align="center" gap="1">
-            <span style={{ pointerEvents: "none" }}>
-              <Checkbox
-                id={rowId}
-                value={isSelected}
-                setValue={() => toggleSelection(entry.id)}
-              />
-            </span>
-            <Tooltip
-              body="View this entry only"
-              tipPosition="right"
-              className={styles.viewSingleButton}
-            >
-              <IconButton
-                variant="ghost"
-                size="1"
-                radius="full"
-                style={{ marginLeft: -10 }}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
+          {!isExclusivelySelected && (
+            <div className={styles.viewSingleWrapper}>
+              <Button
+                variant="outline"
+                size="xs"
+                className={styles.viewSingleButton}
+                onClick={async (e) => {
+                  e?.preventDefault();
+                  e?.stopPropagation();
                   isDefaultPairRef.current = false;
                   setSelectedIds([entry.id, entry.id]);
                   setDiffPage(0);
                 }}
               >
-                <PiEyeBold size={16} />
-              </IconButton>
-            </Tooltip>
-          </Flex>
+                View
+              </Button>
+            </div>
+          )}
+          <span style={{ pointerEvents: "none" }}>
+            <Checkbox
+              id={rowId}
+              value={isSelected}
+              setValue={() => toggleSelection(entry.id)}
+            />
+          </span>
           <Flex direction="column" gap="1" style={{ flex: 1, minWidth: 0 }}>
             <Flex align="center" justify="between" gap="2" width="100%">
               <Flex align="center" gap="1">
@@ -854,10 +848,17 @@ export default function CompareAuditEventsModal<T>({
                     <Box className={styles.rowSpacer} />
                     <Flex direction="column" gap="1">
                       <Text weight="semibold">Most recent change</Text>
-                      <Text size="small" color="text-low">
-                        {getEventLabel(flatEntries[1].event)}{" "}
-                        <PiArrowsLeftRightBold />{" "}
-                        {getEventLabel(flatEntries[0].event)}
+                      <Text size="small" color="text-low" as="div">
+                        <span
+                          style={{
+                            display: "block",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {getEntryLabel(flatEntries[0])}
+                        </span>
                       </Text>
                     </Flex>
                   </Box>
@@ -883,14 +884,7 @@ export default function CompareAuditEventsModal<T>({
                   <Flex direction="column" gap="1">
                     <Flex align="center" gap="2">
                       <Text weight="semibold">All changes</Text>
-                      {loadingAll && (
-                        <PiArrowClockwise
-                          style={{
-                            animation: "spin 1s linear infinite",
-                            flexShrink: 0,
-                          }}
-                        />
-                      )}
+                      {loadingAll && <LoadingSpinner />}
                     </Flex>
                     <Text size="small" color="text-low">
                       {total} total
@@ -909,7 +903,7 @@ export default function CompareAuditEventsModal<T>({
               </Text>
               {sectionLabels.length > 0 &&
                 (() => {
-                  const isDefaultVisible = (l: string) => l !== "Other changes";
+                  const isDefaultVisible = (l: string) => l !== "other changes";
                   const activeFilterCount = sectionLabels.filter(
                     (l) => !isSectionVisible(l),
                   ).length;
@@ -949,7 +943,7 @@ export default function CompareAuditEventsModal<T>({
                             )
                           }
                         >
-                          <Flex align="center">
+                          <Flex align="center" gap="1">
                             <span style={{ width: 24, display: "inline-flex" }}>
                               <PiX size={16} />
                             </span>
@@ -971,7 +965,7 @@ export default function CompareAuditEventsModal<T>({
                           )
                         }
                       >
-                        <Flex align="center">
+                        <Flex align="center" gap="1">
                           <span style={{ width: 24, display: "inline-flex" }}>
                             <PiClockClockwise size={16} />
                           </span>
@@ -990,57 +984,31 @@ export default function CompareAuditEventsModal<T>({
                         return (
                           <DropdownMenuItem
                             key={label}
-                            onClick={() => toggleSection(label)}
+                            // Row click = show only this section
+                            onClick={() => {
+                              if (!isOnlyVisible) {
+                                setVisibleSections(
+                                  sectionLabels.reduce<Record<string, boolean>>(
+                                    (acc, l) => ({ ...acc, [l]: l === label }),
+                                    {},
+                                  ),
+                                );
+                              }
+                            }}
                           >
-                            <Flex align="center" className={styles.filterRow}>
-                              <span
-                                style={{
-                                  width: 24,
-                                  display: "inline-flex",
-                                  pointerEvents: "none",
+                            <Flex align="center" gap="1">
+                              <div
+                                className={`rt-CheckboxItem ${styles.filterCheckbox}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleSection(label);
                                 }}
                               >
-                                <Checkbox
-                                  value={isSectionVisible(label)}
-                                  setValue={() => {}}
+                                <RadixCheckbox
+                                  checked={isSectionVisible(label)}
+                                  color="violet"
                                 />
-                              </span>
-                              <Tooltip
-                                shouldDisplay={!isOnlyVisible}
-                                body="Show only this item"
-                                tipPosition="left"
-                                className={styles.eyeButton}
-                                innerClassName="py-1 px-2"
-                              >
-                                <IconButton
-                                  variant="ghost"
-                                  size="1"
-                                  radius="full"
-                                  style={{
-                                    marginTop: 0,
-                                    marginBottom: 0,
-                                    marginLeft: -6,
-                                    marginRight: 0,
-                                  }}
-                                  disabled={isOnlyVisible}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setVisibleSections(
-                                      sectionLabels.reduce<
-                                        Record<string, boolean>
-                                      >(
-                                        (acc, l) => ({
-                                          ...acc,
-                                          [l]: l === label,
-                                        }),
-                                        {},
-                                      ),
-                                    );
-                                  }}
-                                >
-                                  <PiEyeBold size={14} />
-                                </IconButton>
-                              </Tooltip>
+                              </div>
                               Show {label}
                             </Flex>
                           </DropdownMenuItem>
@@ -1149,16 +1117,26 @@ export default function CompareAuditEventsModal<T>({
                   return nodes;
                 }, [])}
                 {hasMore && (
-                  <Box mt="2">
-                    <Link onClick={loadMore} color="violet">
-                      {loading ? (
-                        <PiArrowClockwise
-                          style={{ animation: "spin 1s linear infinite" }}
-                        />
-                      ) : null}{" "}
-                      Load more
-                    </Link>
-                  </Box>
+                  <Flex gap="4" mt="1" justify="between">
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      onClick={loadMore}
+                      disabled={loading || loadingAll}
+                    >
+                      {loading && <LoadingSpinner />}
+                      {`Load ${PAGE_LIMIT} more`}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      onClick={handleLoadAll}
+                      disabled={loading || loadingAll}
+                    >
+                      {loadingAll && <LoadingSpinner />}
+                      {`Load all (${total})`}
+                    </Button>
+                  </Flex>
                 )}
               </Flex>
             )}
@@ -1253,7 +1231,6 @@ export default function CompareAuditEventsModal<T>({
                     <Select
                       value={diffViewMode}
                       setValue={(v) => setDiffViewModeRaw(v)}
-                      disabled={!canToggleDiffView}
                       size="2"
                       mb="0"
                     >

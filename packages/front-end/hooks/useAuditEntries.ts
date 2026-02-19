@@ -15,8 +15,7 @@ import {
   GroupByOption,
 } from "@/components/Audit/types";
 
-const PAGE_LIMIT = 50;
-const LOAD_ALL_CAP = 200;
+export const PAGE_LIMIT = 100;
 
 interface RawAuditEntry<T> {
   id: string;
@@ -186,8 +185,6 @@ interface UseAuditEntriesResult<T> {
   error: string | null;
   hasMore: boolean;
   total: number;
-  /** Whether "All changes" quick action is safe to offer (total <= cap). */
-  canLoadAll: boolean;
   loadMore: () => void;
   loadAll: () => Promise<void>;
   /**
@@ -388,7 +385,6 @@ export function useAuditEntries<T>(
     error,
     hasMore,
     total,
-    canLoadAll: total <= LOAD_ALL_CAP,
     loadMore,
     loadAll,
     expandEntry,

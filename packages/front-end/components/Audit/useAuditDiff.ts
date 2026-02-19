@@ -100,8 +100,18 @@ function computeAuditDiff<T>(
   }
 
   for (const section of sections) {
-    const prePick = pickKeys(pre, section.keys, section.stripSubKeys, section.pickSubKeys);
-    const postPick = pickKeys(post, section.keys, section.stripSubKeys, section.pickSubKeys);
+    const prePick = pickKeys(
+      pre,
+      section.keys,
+      section.stripSubKeys,
+      section.pickSubKeys,
+    );
+    const postPick = pickKeys(
+      post,
+      section.keys,
+      section.stripSubKeys,
+      section.pickSubKeys,
+    );
     if (!postPick) continue;
     const item = buildDiffItem(section.label, prePick, postPick, section);
     if (item) diffs.push(item);
@@ -114,7 +124,7 @@ function computeAuditDiff<T>(
     const prePick = pickKeys(pre, otherKeys);
     const postPick = pickKeys(post, otherKeys);
     if (postPick) {
-      const item = buildDiffItem("Other changes", prePick, postPick);
+      const item = buildDiffItem("other changes", prePick, postPick);
       if (item) diffs.push(item);
     }
   }
@@ -149,7 +159,8 @@ function computeAuditDiff<T>(
       );
     }
     const item = buildDiffItem(label, preObj, postObj);
-    if (item) diffs.push({ ...item, defaultCollapsed: true, isCompanion: true });
+    if (item)
+      diffs.push({ ...item, defaultCollapsed: true, isCompanion: true });
   }
 
   return diffs;

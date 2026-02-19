@@ -343,7 +343,6 @@ export default function CompareRevisionsModal({
   );
 
   const [diffPage, setDiffPage] = useState(0);
-  const canToggleDiffView = selectedSorted.length > 2;
   // Helper: reset endpoints to the two newest visible versions.
   const resetToTopTwo = useCallback(
     (prev: number[]) => {
@@ -950,7 +949,6 @@ export default function CompareRevisionsModal({
                   <Select
                     value={diffViewMode}
                     setValue={(v) => setDiffViewModeRaw(v)}
-                    disabled={!canToggleDiffView}
                     size="2"
                     mb="0"
                   >

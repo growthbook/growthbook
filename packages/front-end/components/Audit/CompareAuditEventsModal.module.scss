@@ -1,5 +1,6 @@
 .sidebar {
   padding: var(--space-3);
+  padding-bottom: 0;
 }
 
 .sidebarLeft {
@@ -15,6 +16,7 @@
 }
 
 .row {
+  position: relative;
   width: 100%;
   padding: var(--space-2);
   border-radius: var(--radius-2);
@@ -25,15 +27,28 @@
   transition: background-color 0.15s ease;
   box-sizing: border-box;
 
-  .viewSingleButton {
+  .viewSingleWrapper {
+    position: absolute;
+    top: -8px;
+    right: -4px;
     opacity: 0;
+    background-color: var(--color-background) !important;
+    border-radius: var(--radius-2);
     transition: opacity 0.15s ease;
+    .viewSingleButton {
+      opacity: 0.5;
+      &:hover {
+        opacity: 1;
+      }
+    }
+    &:hover {
+      opacity: 1;
+    }
   }
 
   &:hover {
     background-color: var(--violet-2);
-
-    .viewSingleButton {
+    .viewSingleWrapper {
       opacity: 1;
     }
   }
@@ -52,14 +67,20 @@
   flex-shrink: 0;
 }
 
-.filterRow {
-  .eyeButton {
-    opacity: 0;
-    transition: opacity 0.15s ease;
-  }
+.filterCheckbox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 4px;
+  margin: -8px;
+  margin-right: 0;
+  border-radius: var(--radius-4);
+  transition: background-color 0.15s ease;
 
-  &:hover .eyeButton {
-    opacity: 1;
+  &:hover {
+    background-color: var(--violet-a3);
   }
 }
 
@@ -73,4 +94,5 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+  padding-bottom: var(--space-1);
 }

@@ -37,7 +37,7 @@ const EXPERIMENT_DIFF_CONFIG: AuditDiffConfig<ExperimentInterfaceStringDates> =
     labelOnlyEvents: [
       {
         event: "experiment.refresh",
-        getLabel: () => "Refreshed",
+        getLabel: () => "Refreshed analysis",
       },
     ],
     defaultGroupBy: "minute",
@@ -105,7 +105,7 @@ const EXPERIMENT_DIFF_CONFIG: AuditDiffConfig<ExperimentInterfaceStringDates> =
         keys: ["variations"],
       },
       {
-        label: "Analysis Settings",
+        label: "Analysis settings",
         keys: [
           "goalMetrics",
           "secondaryMetrics",
