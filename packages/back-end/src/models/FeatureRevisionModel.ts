@@ -204,6 +204,26 @@ export async function getRevision({
   return doc ? toInterface(doc, context) : null;
 }
 
+export async function getRevisionsByVersions({
+  context,
+  organization,
+  featureId,
+  versions,
+}: {
+  context: ReqContext | ApiReqContext;
+  organization: string;
+  featureId: string;
+  versions: number[];
+}) {
+  const docs = await FeatureRevisionModel.find({
+    organization,
+    featureId,
+    version: { $in: versions },
+  }).select("-log");
+
+  return docs.map((doc) => toInterface(doc, context));
+}
+
 export async function getRevisionsByStatus(
   context: ReqContext,
   statuses: string[],

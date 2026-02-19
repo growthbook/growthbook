@@ -45,6 +45,10 @@ requestBody:
             type: array
             items:
               type: string
+          tags:
+            type: array
+            items:
+              type: string
 responses:
   "200":
     content:

@@ -88,12 +88,14 @@ export function getDefaultFactMetricProps({
     denominator: existing?.denominator || null,
     datasource:
       existing?.datasource ||
-      getNewExperimentDatasourceDefaults(
+      getNewExperimentDatasourceDefaults({
         datasources,
         settings,
         project,
-        initialFactTable ? { datasource: initialFactTable?.datasource } : {},
-      ).datasource,
+        initialValue: initialFactTable
+          ? { datasource: initialFactTable?.datasource }
+          : {},
+      }).datasource,
     inverse: existing?.inverse || false,
     cappingSettings: existing?.cappingSettings || {
       type: "",

@@ -77,7 +77,7 @@
   "pnpm": {
     "overrides": {
       "@babel/runtime@7": "^7.28.6",
-      "@growthbook/growthbook": "1.6.4",
+      "@growthbook/growthbook": "1.6.5",
       "@grpc/grpc-js@1.8": "1.8.22",
       "@octokit/plugin-paginate-rest@9": "^9.2.2",
       "@octokit/request@8": "^8.4.1",

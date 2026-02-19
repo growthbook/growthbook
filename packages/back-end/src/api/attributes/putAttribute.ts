@@ -4,6 +4,7 @@ import { OrganizationInterface } from "shared/types/organization";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
+import { addTagsDiff } from "back-end/src/models/TagModel";
 import { validatePayload } from "./validations";
 
 export const putAttribute = createApiRequestHandler(putAttributeValidator)(
@@ -28,6 +29,11 @@ export const putAttribute = createApiRequestHandler(putAttributeValidator)(
       !req.context.permissions.canUpdateAttribute(attribute, updatedAttribute)
     )
       req.context.permissions.throwPermissionError();
+
+    const bodyTags = req.body.tags;
+    if (bodyTags !== undefined) {
+      await addTagsDiff(org.id, attribute.tags || [], bodyTags);
+    }
 
     const updates: Partial<OrganizationInterface> = {
       settings: {

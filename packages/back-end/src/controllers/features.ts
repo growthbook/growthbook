@@ -102,6 +102,7 @@ import {
   discardRevision,
   getMinimalRevisions,
   getRevision,
+  getRevisionsByVersions,
   getLatestRevisions,
   getRevisionsByStatus,
   hasDraft,
@@ -2708,6 +2709,43 @@ export async function getFeatures(
     features,
     hasArchived,
   });
+}
+
+export async function getFeatureRevisions(
+  req: AuthRequest<null, { id: string }, { versions?: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const { id } = req.params;
+
+  const feature = await getFeature(context, id);
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  const versionsParam = req.query.versions ?? "";
+  const versions = versionsParam
+    .split(",")
+    .map((v) => parseInt(v.trim(), 10))
+    .filter((v) => !isNaN(v) && v > 0);
+
+  if (!versions.length) {
+    return res.status(400).json({
+      status: 400,
+      message:
+        "versions query param is required (comma-separated list of version numbers)",
+    });
+  }
+
+  const revisions = await getRevisionsByVersions({
+    context,
+    organization: org.id,
+    featureId: id,
+    versions,
+  });
+
+  return res.status(200).json({ status: 200, revisions });
 }
 
 export async function getRevisionLog(

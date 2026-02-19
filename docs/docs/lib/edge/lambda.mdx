@@ -54,6 +54,12 @@ You may either use our turnkey Edge App for Lambda@Edge or build your own app fr
 
 Our Edge App runs as a smart proxy layer between your application and your end users. In absence of Visual or URL Redirect experiments, the Edge App will simply proxy the user request to your site and return the response, optionally injecting a fully-bootstrapped JavaScript SDK onto the rendered HTML page. If the request URL matches an Visual or URL Redirect experiment and the targeting conditions are satisfied, the Edge App may also perform one or more URL redirects behind the scenes (the public-facing URL does not change) and/or mutate the DOM for Visual Experiments. Additionally, by using [lifecycle hooks](#lifecycle-hooks) you can perform custom logic such as feature flagging as well as proxying and early returns.
 
+:::caution Body size constraints
+
+`viewer-request` responses are currently limited to **40 KB**! Please ensure the DOM returned by both your origin server and by your Lambda function are optimized. You also may need to skip SDK injection when using Lambda@Edge.
+
+:::
+
 :::note URL Redirects on edge
 
 The Edge App defaults to running URL Redirect Experiments in the browser only. This is because edge redirects load a separate page's content without altering the URL. After the redirect, some sites may experience problems with loading assets or endpoints with relative paths.

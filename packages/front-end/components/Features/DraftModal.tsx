@@ -42,12 +42,14 @@ export function ExpandableDiff({
   title,
   a,
   b,
+  defaultOpen = false,
 }: {
   title: string;
   a: string;
   b: string;
+  defaultOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
 
   if (a === b) return null;
 

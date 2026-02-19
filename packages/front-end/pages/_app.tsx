@@ -38,6 +38,7 @@ import { growthbook } from "@/services/utils";
 import { UserContextProvider } from "@/services/UserContext";
 import { SidebarOpenProvider } from "@/components/Layout/SidebarOpenProvider";
 import { HoverTooltipProvider } from "@/hooks/useHoverTooltip";
+import { CommandPaletteLauncher } from "@/components/CommandPalette/CommandPalette";
 import { AIChatProvider } from "@/services/AIChatContext";
 
 // Make useLayoutEffect isomorphic (for SSR)
@@ -195,6 +196,7 @@ function App({
                               <DefinitionsProvider>
                                 <AIChatProvider>
                                   {liteLayout ? <LayoutLite /> : <Layout />}
+                                  <CommandPaletteLauncher />
                                   <main className={`main ${parts[0]}`}>
                                     <GuidedGetStartedBar />
                                     <OrganizationMessagesContainer />

@@ -435,11 +435,11 @@ export default function RuleModal({
           archived: false,
           autoSnapshots: true,
           // Use template datasource/exposure query id if available
-          ...getNewExperimentDatasourceDefaults(
+          ...getNewExperimentDatasourceDefaults({
             datasources,
             settings,
-            feature.project || "",
-          ),
+            project: feature.project || "",
+          }),
           hashAttribute: values.hashAttribute,
           fallbackAttribute: values.fallbackAttribute || "",
           disableStickyBucketing: values.disableStickyBucketing ?? false,

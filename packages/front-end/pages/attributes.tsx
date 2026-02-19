@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { FaQuestionCircle } from "react-icons/fa";
+import { Box, Flex } from "@radix-ui/themes";
 import { BiShow } from "react-icons/bi";
 import { SDKAttribute } from "shared/types/organization";
 import { recursiveWalk } from "shared/util";
@@ -21,12 +22,19 @@ import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useExperiments } from "@/hooks/useExperiments";
 import Button from "@/ui/Button";
+import { useAddComputedFields, useSearch } from "@/services/search";
+import Field from "@/components/Forms/Field";
+import AttributeSearchFilters from "@/components/Search/AttributeSearchFilters";
+import SortedTags from "@/components/Tags/SortedTags";
+import Markdown from "@/components/Markdown/Markdown";
 import Link from "@/ui/Link";
+
+const HEADER_HEIGHT_PX = 55;
 
 const FeatureAttributesPage = (): React.ReactElement => {
   const permissionsUtil = usePermissionsUtil();
   const { apiCall } = useAuth();
-  const { project, savedGroups } = useDefinitions();
+  const { project, getProjectById, savedGroups } = useDefinitions();
   const attributeSchema = useAttributeSchema(true, project);
 
   const canCreateAttributes = permissionsUtil.canViewAttributeModal(project);
@@ -36,6 +44,76 @@ const FeatureAttributesPage = (): React.ReactElement => {
 
   const { features } = useFeaturesList({ useCurrentProject: false });
   const { experiments } = useExperiments();
+
+  const attributesWithComputedFields = useAddComputedFields(
+    attributeSchema,
+    (attr) => {
+      const projectNames = (attr.projects || []).map(
+        (pid) => getProjectById(pid)?.name ?? pid,
+      );
+      const datatypeSearch = [
+        attr.datatype,
+        attr.datatype === "enum" && attr.enum ? attr.enum : "",
+        attr.format ? `format ${attr.format}` : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+      return {
+        ...attr,
+        id: attr.property,
+        projectNames,
+        projectNamesSearch: projectNames.filter(Boolean).join(" "),
+        datatypeSearch,
+        tagsSearch: (attr.tags || []).join(" "),
+      };
+    },
+    [getProjectById],
+  );
+
+  const hasArchived = attributeSchema.some((a) => a.archived);
+
+  const attributesWithIndex = useMemo(
+    () =>
+      attributesWithComputedFields.map((a, i) => ({
+        ...a,
+        originalIndex: i,
+      })),
+    [attributesWithComputedFields],
+  );
+
+  const {
+    items: filteredAttributes,
+    searchInputProps,
+    setSearchValue,
+    syntaxFilters,
+    isFiltered,
+    SortableTH,
+  } = useSearch({
+    items: attributesWithIndex,
+    localStorageKey: "attributes",
+    defaultSortField: "property",
+    searchFields: [
+      "property^3",
+      "description",
+      "datatype",
+      "datatypeSearch",
+      "projectNamesSearch",
+      "tagsSearch",
+    ],
+    updateSearchQueryOnChange: true,
+    searchTermFilters: {
+      is: (item) => {
+        const is: string[] = [item.datatype];
+        if (item.archived) is.push("archived");
+        return is;
+      },
+      datatype: (item) => item.datatype,
+      project: (item) => item.projectNames || [],
+      identifier: (item) =>
+        item.hashAttribute ? ["yes", "true"] : ["no", "false"],
+      tag: (item) => item.tags || [],
+    },
+  });
 
   const { attributeFeatures, attributeExperiments, attributeGroups } =
     useMemo(() => {
@@ -125,7 +203,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
     null,
   );
 
-  const drawRow = (v: SDKAttribute, i: number) => {
+  const drawRow = (v: SDKAttribute) => {
     const features = [...(attributeFeatures?.[v.property] ?? [])];
     const experiments = [...(attributeExperiments?.[v.property] ?? [])];
     const groups = [...(attributeGroups?.[v.property] ?? [])];
@@ -133,19 +211,27 @@ const FeatureAttributesPage = (): React.ReactElement => {
     const numReferences = features.length + experiments.length + groups.length;
 
     return (
-      <tr className={v.archived ? "disabled" : ""} key={"attr-row-" + i}>
-        <td className="text-gray font-weight-bold" style={{ width: "17%" }}>
+      <tr
+        className={v.archived ? "disabled" : ""}
+        key={"attr-row-" + v.property}
+      >
+        <td
+          className="text-gray font-weight-bold"
+          style={{ width: "17%", minWidth: 90 }}
+        >
           {v.property}{" "}
           {v.archived && (
             <span className="badge badge-secondary ml-2">archived</span>
           )}
         </td>
-        <td className="text-gray" style={{ width: "38%" }}>
-          {v.description}
+        <td className="text-gray" style={{ minWidth: 120 }}>
+          {v.description ? (
+            <Markdown className="mb-0">{v.description}</Markdown>
+          ) : null}
         </td>
         <td
           className="text-gray"
-          style={{ maxWidth: "20vw", wordWrap: "break-word" }}
+          style={{ width: "15%", minWidth: 90, wordWrap: "break-word" }}
         >
           {v.datatype}
           {v.datatype === "enum" && <>: ({v.enum})</>}
@@ -155,15 +241,26 @@ const FeatureAttributesPage = (): React.ReactElement => {
             </p>
           )}
         </td>
-        <td className="">
+        <td className="" style={{ paddingRight: "1rem", minWidth: 80 }}>
           <ProjectBadges
             resourceType="attribute"
             projectIds={(v.projects || []).length > 0 ? v.projects : undefined}
           />
         </td>
-        <td className="text-gray">
+        <td style={{ minWidth: 100 }}>
+          <SortedTags tags={v.tags || []} useFlex={true} />
+        </td>
+        <td className="text-gray" style={{ minWidth: 85 }}>
           {numReferences > 0 ? (
-            <Link onClick={() => setShowReferencesModal(i)} className="nowrap">
+            <Link
+              onClick={() => {
+                const schemaIndex = attributeSchema.findIndex(
+                  (a) => a.property === v.property,
+                );
+                if (schemaIndex >= 0) setShowReferencesModal(schemaIndex);
+              }}
+              className="nowrap"
+            >
               <BiShow /> {numReferences} reference
               {numReferences === 1 ? "" : "s"}
             </Link>
@@ -178,70 +275,85 @@ const FeatureAttributesPage = (): React.ReactElement => {
             </Tooltip>
           )}
         </td>
-        <td className="text-gray">{v.hashAttribute && <>yes</>}</td>
-        <td>
+        <td className="text-gray" style={{ minWidth: 70 }}>
+          <div
+            style={{ display: "flex", justifyContent: "center" }}
+            className="w-100"
+          >
+            {v.hashAttribute && <>yes</>}
+          </div>
+        </td>
+        <td style={{ minWidth: 44 }}>
           {permissionsUtil.canCreateAttribute(v) ? (
-            <MoreMenu>
-              {!v.archived && (
+            <div
+              style={{ display: "flex", justifyContent: "center" }}
+              className="w-100"
+            >
+              <MoreMenu>
+                {!v.archived && (
+                  <button
+                    className="dropdown-item"
+                    onClick={() => {
+                      setModalData(v.property);
+                    }}
+                  >
+                    Edit
+                  </button>
+                )}
                 <button
                   className="dropdown-item"
-                  onClick={() => {
-                    setModalData(v.property);
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    const updatedAttribute: SDKAttribute = {
+                      property: v.property,
+                      datatype: v.datatype,
+                      projects: v.projects,
+                      format: v.format,
+                      enum: v.enum,
+                      hashAttribute: v.hashAttribute,
+                      archived: !v.archived,
+                      tags: v.tags,
+                      description: v.description,
+                      disableEqualityConditions: v.disableEqualityConditions,
+                    };
+                    await apiCall<{
+                      res: number;
+                    }>("/attribute", {
+                      method: "PUT",
+                      body: JSON.stringify(updatedAttribute),
+                    });
+                    refreshOrganization();
                   }}
                 >
-                  Edit
+                  {v.archived ? "Unarchive" : "Archive"}
                 </button>
-              )}
-              <button
-                className="dropdown-item"
-                onClick={async (e) => {
-                  e.preventDefault();
-                  const updatedAttribute: SDKAttribute = {
-                    property: v.property,
-                    datatype: v.datatype,
-                    projects: v.projects,
-                    format: v.format,
-                    enum: v.enum,
-                    hashAttribute: v.hashAttribute,
-                    archived: !v.archived,
-                  };
-                  await apiCall<{
-                    res: number;
-                  }>("/attribute", {
-                    method: "PUT",
-                    body: JSON.stringify(updatedAttribute),
-                  });
-                  refreshOrganization();
-                }}
-              >
-                {v.archived ? "Unarchive" : "Archive"}
-              </button>
-              <DeleteButton
-                displayName="Attribute"
-                deleteMessage={
-                  <>
-                    Are you sure you want to delete the{" "}
-                    {v.hashAttribute ? "identifier " : ""}
-                    {v.datatype} attribute:{" "}
-                    <code className="font-weight-bold">{v.property}</code>?
-                    <br />
-                    This action cannot be undone.
-                  </>
-                }
-                className="dropdown-item text-danger"
-                onClick={async () => {
-                  await apiCall<{
-                    status: number;
-                  }>("/attribute/", {
-                    method: "DELETE",
-                    body: JSON.stringify({ id: v.property }),
-                  });
-                  refreshOrganization();
-                }}
-                text="Delete"
-                useIcon={false}
-              />
-            </MoreMenu>
+                <DeleteButton
+                  displayName="Attribute"
+                  deleteMessage={
+                    <>
+                      Are you sure you want to delete the{" "}
+                      {v.hashAttribute ? "identifier " : ""}
+                      {v.datatype} attribute:{" "}
+                      <code className="font-weight-bold">{v.property}</code>?
+                      <br />
+                      This action cannot be undone.
+                    </>
+                  }
+                  className="dropdown-item text-danger"
+                  onClick={async () => {
+                    await apiCall<{
+                      status: number;
+                    }>("/attribute/", {
+                      method: "DELETE",
+                      body: JSON.stringify({ id: v.property }),
+                    });
+                    refreshOrganization();
+                  }}
+                  text="Delete"
+                  useIcon={false}
+                />
+              </MoreMenu>
+            </div>
           ) : null}
         </td>
       </tr>
@@ -271,15 +383,61 @@ const FeatureAttributesPage = (): React.ReactElement => {
               </p>
             </div>
           </div>
-          <table className="table gbtable appbox table-hover">
-            <thead>
+          {attributeSchema?.length > 0 && (
+            <Box className="mb-3">
+              <Flex justify="between" gap="3" align="center">
+                <Box className="relative" style={{ width: "40%" }}>
+                  <Field
+                    placeholder="Search..."
+                    type="search"
+                    {...searchInputProps}
+                  />
+                </Box>
+                <AttributeSearchFilters
+                  attributes={attributesWithIndex}
+                  searchInputProps={searchInputProps}
+                  setSearchValue={setSearchValue}
+                  syntaxFilters={syntaxFilters}
+                  hasArchived={hasArchived}
+                />
+              </Flex>
+            </Box>
+          )}
+          <table
+            className="table gbtable appbox table-hover"
+            style={{ tableLayout: "fixed", minWidth: 900 }}
+          >
+            <thead
+              className="sticky-top shadow-sm"
+              style={{ top: HEADER_HEIGHT_PX + "px", zIndex: 900 }}
+            >
               <tr>
-                <th>Attribute</th>
-                <th>Description</th>
-                <th>Data Type</th>
-                <th>Projects</th>
-                <th>References</th>
-                <th>
+                <SortableTH
+                  field="property"
+                  style={{ width: "17%", minWidth: 90 }}
+                >
+                  Attribute
+                </SortableTH>
+                <SortableTH field="description" style={{ minWidth: 120 }}>
+                  Description
+                </SortableTH>
+                <SortableTH
+                  field="datatype"
+                  style={{ width: "15%", minWidth: 90 }}
+                >
+                  Data Type
+                </SortableTH>
+                <th
+                  style={{ width: "15%", minWidth: 80, paddingRight: "1rem" }}
+                >
+                  Projects
+                </th>
+                <th style={{ width: "15%", minWidth: 100 }}>Tags</th>
+                <th style={{ width: "10%", minWidth: 85 }}>References</th>
+                <th
+                  style={{ width: "10%", minWidth: 70 }}
+                  className="text-center"
+                >
                   Identifier{" "}
                   <Tooltip body="Any attribute that uniquely identifies a user, account, device, or similar.">
                     <FaQuestionCircle
@@ -287,16 +445,28 @@ const FeatureAttributesPage = (): React.ReactElement => {
                     />
                   </Tooltip>
                 </th>
-                <th style={{ width: 30 }}></th>
+                <th
+                  style={{ width: 44, minWidth: 44 }}
+                  className="text-center"
+                ></th>
               </tr>
             </thead>
             <tbody>
               {attributeSchema?.length > 0 ? (
-                <>{attributeSchema.map((v, i) => drawRow(v, i))}</>
+                <>
+                  {filteredAttributes.map((v) => drawRow(v))}
+                  {!filteredAttributes.length && isFiltered && (
+                    <tr>
+                      <td colSpan={8} className="text-center text-gray">
+                        No matching attributes found.
+                      </td>
+                    </tr>
+                  )}
+                </>
               ) : (
                 <>
                   <tr>
-                    <td colSpan={7} className="text-center text-gray">
+                    <td colSpan={8} className="text-center text-gray">
                       <em>No attributes defined.</em>
                     </td>
                   </tr>

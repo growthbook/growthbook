@@ -35,6 +35,8 @@ import {
   ToInterface,
 } from "back-end/src/util/mongo.util";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
+import { determineNextDate } from "back-end/src/services/experiments";
+import { shouldRecalculateNextUpdate } from "back-end/src/enterprise/services/dashboards";
 
 export type DashboardDocument = mongoose.Document & DashboardInterface;
 type LegacyDashboardDocument = Omit<
@@ -380,6 +382,24 @@ export class DashboardModel extends BaseClass {
         savedQueryId: newIdMapping[block.savedQueryId] ?? block.savedQueryId,
       };
     });
+  }
+
+  protected async beforeUpdate(
+    existing: DashboardDocument,
+    updates: UpdateProps<DashboardDocument>,
+    _newDoc: DashboardDocument,
+  ) {
+    // Recalculate nextUpdate if auto-updates are enabled and schedule is being updated
+    if (updates.enableAutoUpdates === false) {
+      // Auto-updates being disabled - clear the nextUpdate
+      updates.nextUpdate = undefined;
+    } else if (shouldRecalculateNextUpdate(updates, existing)) {
+      // Recalculate nextUpdate based on the schedule
+      const schedule = updates.updateSchedule ?? existing.updateSchedule;
+      updates.nextUpdate = schedule
+        ? (determineNextDate(schedule) ?? undefined)
+        : undefined;
+    }
   }
 
   public toApiInterface(dashboard: DashboardInterface): ApiDashboardInterface {
