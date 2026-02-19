@@ -12,7 +12,6 @@ export const sdkConnectionCacheAuditContextValidator = z.object({
 
 export const sdkConnectionCacheValidator = baseSchema.extend({
   contents: z.string(),
-  schemaVersion: z.number(),
   audit: sdkConnectionCacheAuditContextValidator.optional(),
 });
 
