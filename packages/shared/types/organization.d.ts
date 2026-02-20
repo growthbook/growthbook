@@ -18,7 +18,18 @@ import {
   SubscriptionInfo,
 } from "shared/enterprise";
 import { AIModel, EmbeddingModel } from "shared/ai";
-import { AgreementType, environment } from "shared/validators";
+import {
+  AgreementType,
+  environment,
+  expandedMember,
+  expandedMemberInfo,
+  invite,
+  member,
+  memberRoleInfo,
+  memberRoleWithProjects,
+  pendingMember,
+  projectMemberRole,
+} from "shared/validators";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
 import { ApiKeyInterface } from "shared/types/apikey";
 import { TeamInterface } from "shared/types/team";
@@ -93,50 +104,23 @@ export type Role = {
   displayName?: string;
 };
 
-export interface MemberRoleInfo {
-  role: string;
-  limitAccessByEnvironment: boolean;
-  environments: string[];
-  teams?: string[];
-}
+export type MemberRoleInfo = z.infer<typeof memberRoleInfo>;
 
-export interface ProjectMemberRole extends MemberRoleInfo {
-  project: string;
-}
+export type ProjectMemberRole = z.infer<typeof projectMemberRole>;
 
-export interface MemberRoleWithProjects extends MemberRoleInfo {
-  projectRoles?: ProjectMemberRole[];
-}
+export type MemberRoleWithProjects = z.infer<typeof memberRoleWithProjects>;
 
-export interface Invite extends MemberRoleWithProjects {
-  email: string;
-  key: string;
-  dateCreated: Date;
-}
+export type Invite = z.infer<typeof invite>;
 
-export interface PendingMember extends MemberRoleWithProjects {
-  id: string;
-  name: string;
-  email: string;
-  dateCreated: Date;
-}
+export type PendingMember = z.infer<typeof pendingMember>;
 
-export interface Member extends MemberRoleWithProjects {
-  id: string;
-  dateCreated?: Date;
-  externalId?: string;
-  managedByIdp?: boolean;
-  lastLoginDate?: Date;
-}
+export type Member = z.infer<typeof member>;
 
-export interface ExpandedMemberInfo {
-  email: string;
-  name: string;
-  verified: boolean;
-  numTeams?: number;
-}
+export type ExpandedMemberInfo = z.infer<
+  z.ZodObject<typeof expandedMemberInfo>
+>;
 
-export type ExpandedMember = Member & ExpandedMemberInfo;
+export type ExpandedMember = z.infer<typeof expandedMember>;
 
 export interface NorthStarMetric {
   //enabled: boolean;
@@ -179,6 +163,7 @@ export type SDKAttribute = {
   format?: SDKAttributeFormat;
   projects?: string[];
   disableEqualityConditions?: boolean;
+  tags?: string[];
 };
 
 export type SDKAttributeSchema = SDKAttribute[];

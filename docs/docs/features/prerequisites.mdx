@@ -6,8 +6,9 @@ slug: /features/prerequisites
 ---
 
 import MaxWidthImage from "@site/src/components/MaxWidthImage";
+import CommercialFeature from '@site/src/components/CommercialFeature';
 
-# Prerequisite Features
+<CommercialFeature feature="prerequisites" />
 
 <iframe width="560" height="315" style={{aspectRatio: "16/9", width: "100%", height: "auto"}} src="https://www.youtube-nocookie.com/embed/5W7JfvHVI3E?si=CGkhcxHMDUwU-ENM" title="YouTube video player" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen></iframe>
 
@@ -24,10 +25,6 @@ There are two types of prerequisite features in GrowthBook: **Top-level Prerequi
 ## Top-Level Prerequisites
 
 Top-level prerequisites are defined per dependent feature. They function similarly to a feature's kill switches: if the prerequisite feature is not serving `true` then the dependent feature will not be enabled.
-
-:::note
-**Top-level Prerequisites** is a GrowthBook Pro and Enterprise feature.
-:::
 
 <MaxWidthImage maxWidth={700}>
   ![Top-level prerequisites](/images/features/feature-top-level-prerequisites.png)
@@ -77,10 +74,7 @@ Inline prerequisite targeting allows finer-grained control over prerequisite beh
 2. Inline prerequisites can be applied to individual experiments which may not be linked to a specific feature (such as visual experiments).
 3. Inline prerequisite targeting is not limited to boolean features. You can specify any evaluation condition you'd like (ex: prerequisite value is: greater than 3, in a list of allowed values, or matches a regex pattern). You can even do advanced targeting with JSON.
 
-:::note
-**Inline Prerequisite Targeting** is a GrowthBook Enterprise feature only.
-
-:::
+<CommercialFeature feature="prerequisite-targeting" />
 
 To create an inline prerequisite within a feature, simply add prerequisiting targeting to an existing rule or create a new rule with prerequisite targeting. You can specify one or more prerequisite features within the same project and give each a custom evaluation condition. A similar flow exists while editing the targeting rules of an experiment.
 

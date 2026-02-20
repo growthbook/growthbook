@@ -165,19 +165,23 @@ export function ConditionRow({
         >
           {attributeSlot}
         </Box>
-        {operatorSlot != undefined && (
+        {operatorSlot !== undefined && (
           <Box style={{ minWidth: 150, flex: "1 1 0" }}>{operatorSlot}</Box>
         )}
         <Box
           style={{
             minWidth: 300,
-            flex: "2 1 0",
+            flex:
+              operatorSlot !== undefined
+                ? "2 1 0"
+                : // `2 1 0` would have been grid-aligned, but we need more space for saved group labels ($savedGroups, $notSavedGroups)
+                  "1.5 1 0",
           }}
         >
           {valueSlot}
         </Box>
       </Flex>
-      {removeSlot != undefined && (
+      {removeSlot !== undefined && (
         <Box flexShrink="0" pt="3">
           {removeSlot}
         </Box>

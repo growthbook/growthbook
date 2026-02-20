@@ -19,6 +19,9 @@ const compat = new FlatCompat({
   recommendedConfig: js.configs.recommended,
   allConfig: js.configs.all,
 });
+// Strip invalid "name" property from Next.js flat config (ESLint 9 rejects it)
+const { name: _nextName, ...nextRecommendedConfig } =
+  nextEslintPluginNext.configs.recommended;
 
 export default defineConfig([
   globalIgnores([
@@ -31,6 +34,7 @@ export default defineConfig([
     "packages/sdk-js/scripts",
     "**/*.tsbuildinfo",
   ]),
+  nextRecommendedConfig,
   {
     extends: fixupConfigRules(
       compat.extends(
@@ -41,7 +45,6 @@ export default defineConfig([
         "plugin:@typescript-eslint/eslint-recommended",
         "plugin:@typescript-eslint/recommended",
         "plugin:prettier/recommended",
-        "plugin:@next/eslint-plugin-next/recommended",
         "plugin:react-hooks/recommended",
       ),
     ),
@@ -50,7 +53,6 @@ export default defineConfig([
       react: fixupPluginRules(react),
       "@typescript-eslint": fixupPluginRules(typescriptEslint),
       prettier: fixupPluginRules(prettier),
-      "@next/next": fixupPluginRules(nextEslintPluginNext),
       "no-async-foreach": noAsyncForeach,
     },
 

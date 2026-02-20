@@ -1,11 +1,14 @@
 import { HoldoutInterface, holdoutValidator } from "shared/validators";
 import { ExperimentInterface } from "shared/types/experiment";
+import { getCollection } from "back-end/src/util/mongo.util";
 import { MakeModelClass } from "./BaseModel";
 import { getExperimentById } from "./ExperimentModel";
 
+const COLLECTION_NAME = "holdouts";
+
 const BaseClass = MakeModelClass({
   schema: holdoutValidator,
-  collectionName: "holdouts",
+  collectionName: COLLECTION_NAME,
   idPrefix: "hld_",
   auditLog: {
     entity: "holdout",
@@ -14,6 +17,11 @@ const BaseClass = MakeModelClass({
     deleteEvent: "holdout.delete",
   },
   globallyUniqueIds: false,
+  additionalIndexes: [
+    {
+      fields: { "nextScheduledStatusUpdate.date": 1 },
+    },
+  ],
 });
 
 export class HoldoutModel extends BaseClass {
@@ -36,6 +44,121 @@ export class HoldoutModel extends BaseClass {
 
   protected hasPremiumFeature(): boolean {
     return this.context.hasPremiumFeature("holdouts");
+  }
+
+  protected async beforeUpdate(
+    existing: HoldoutInterface,
+    updates: Partial<HoldoutInterface>,
+  ) {
+    const holdoutExperiment = await getExperimentById(
+      this.context,
+      existing.experimentId,
+    );
+    if (!holdoutExperiment) {
+      throw new Error("Holdout experiment not found");
+    }
+
+    const { startAt, startAnalysisPeriodAt, stopAt } =
+      updates.statusUpdateSchedule ?? {};
+
+    const now = new Date();
+
+    // Check if one of the scheduled dates is in the past
+    if (
+      startAt &&
+      holdoutExperiment.status === "draft" &&
+      new Date(startAt) < now
+    ) {
+      throw new Error("Scheduled start date cannot be in the past");
+    }
+    if (
+      startAnalysisPeriodAt &&
+      holdoutExperiment.status === "running" &&
+      !existing.analysisStartDate &&
+      new Date(startAnalysisPeriodAt) < now
+    ) {
+      throw new Error("Scheduled analysis start date cannot be in the past");
+    }
+    if (
+      stopAt &&
+      holdoutExperiment.status !== "stopped" &&
+      new Date(stopAt) < now
+    ) {
+      throw new Error("Scheduled stop date cannot be in the past");
+    }
+
+    // Check date dependencies
+    if (
+      holdoutExperiment.status === "draft" &&
+      stopAt &&
+      (!startAt || !startAnalysisPeriodAt)
+    ) {
+      throw new Error(
+        "To set a stop date, you must also set a start date and an analysis start date",
+      );
+    }
+    if (
+      holdoutExperiment.status === "draft" &&
+      startAnalysisPeriodAt &&
+      !startAt
+    ) {
+      throw new Error(
+        "To set an analysis start date, you must first set a start date",
+      );
+    }
+
+    if (
+      holdoutExperiment.status === "running" &&
+      !existing.analysisStartDate &&
+      stopAt &&
+      !startAnalysisPeriodAt
+    ) {
+      throw new Error(
+        "To set a stop date, you must first set an analysis start date",
+      );
+    }
+
+    // Check if the dates are consecutive
+    const dateError =
+      (startAt &&
+        startAnalysisPeriodAt &&
+        holdoutExperiment.status === "draft" &&
+        startAt > startAnalysisPeriodAt) ||
+      (startAt &&
+        stopAt &&
+        holdoutExperiment.status === "draft" &&
+        startAt > stopAt) ||
+      (startAnalysisPeriodAt &&
+        stopAt &&
+        !existing.analysisStartDate &&
+        startAnalysisPeriodAt > stopAt);
+    if (dateError) {
+      throw new Error("Scheduled dates must be consecutive");
+    }
+  }
+
+  public static async getAllHoldoutsToUpdate(): Promise<
+    { id: string; organization: string }[]
+  > {
+    const now = new Date();
+
+    const holdouts = await getCollection<HoldoutInterface>(COLLECTION_NAME)
+      .find({
+        "nextScheduledStatusUpdate.date": {
+          $lte: now,
+          $exists: true,
+          $ne: null,
+        },
+      })
+      .project({
+        id: true,
+        organization: true,
+      })
+      .limit(100)
+      .sort({ "nextScheduledStatusUpdate.date": 1 })
+      .toArray();
+
+    return holdouts.map((h) => ({ id: h.id, organization: h.organization }));
   }
 
   public async getAllPayloadHoldouts(

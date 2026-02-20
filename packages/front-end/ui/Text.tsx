@@ -13,7 +13,7 @@ type TextWhiteSpace =
   | "pre-line"
   | "break-spaces";
 // NB: We might need to expand this to support RadixTextProps["color"], but being conservative for now.
-type TextColors = "text-high" | "text-mid" | "text-low";
+type TextColors = "text-high" | "text-mid" | "text-low" | "text-disabled";
 
 const radixSizeMap: Record<TextSizes, RadixTextProps["size"] | undefined> = {
   small: "1",
@@ -82,6 +82,8 @@ export default function Text({
     style.color = "var(--color-text-mid)";
   } else if (color === "text-low") {
     style.color = "var(--color-text-low)";
+  } else if (color === "text-disabled") {
+    style.color = "var(--color-text-disabled)";
   }
 
   return (

@@ -178,14 +178,9 @@ const DataSourcesPage: FC = () => {
           <Button
             onClick={async () => {
               try {
-                await apiCall(
-                  isCloud() && gb.isOn("new-sample-data")
-                    ? "/demo-datasource-project/new"
-                    : "/demo-datasource-project",
-                  {
-                    method: "POST",
-                  },
-                );
+                await apiCall("/demo-datasource-project", {
+                  method: "POST",
+                });
                 track("Create Sample Project", {
                   source: "sample-project-page",
                 });

@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
+import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import Frame from "@/ui/Frame";
 
@@ -28,6 +29,7 @@ import SliderStories from "@/ui/Slider.stories";
 import StepperStories from "@/ui/Stepper.stories";
 import SwitchStories from "@/ui/Switch.stories";
 import TabsStories from "@/ui/Tabs.stories";
+import ProgressBarStories from "@/ui/ProgressBar.stories";
 
 type StoryEntry = {
   name: string;
@@ -71,6 +73,7 @@ export default function DesignSystemPage() {
     { name: "Metadata", Stories: MetadataStories },
     { name: "Popover", Stories: PopoverStories },
     { name: "PremiumCallout", Stories: PremiumCalloutStories },
+    { name: "ProgressBar", Stories: ProgressBarStories },
     { name: "RadioCards", Stories: RadioCardsStories },
     { name: "RadioGroup", Stories: RadioGroupStories },
     { name: "Select", Stories: SelectStories },
@@ -103,7 +106,7 @@ export default function DesignSystemPage() {
             minWidth: 220,
           }}
         >
-          <Text as="div" weight="bold" className="mb-2">
+          <Text as="div" weight="semibold" mb="2">
             Components
           </Text>
           <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>

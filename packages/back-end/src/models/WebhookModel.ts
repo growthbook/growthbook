@@ -118,11 +118,8 @@ export class SdkWebhookModel extends BaseClass {
     return doc ? this.migrate(removeMongooseFields(doc)) : null;
   }
 
-  public async countSdkWebhooksByOrg(organization: string) {
-    return await this._dangerousGetCollection().countDocuments({
-      organization,
-      useSdkMode: true,
-    });
+  public async countSdkWebhooksByOrg() {
+    return await this._countDocuments({});
   }
 
   public getDefaultCreateProps(sdkConnectionId: string) {

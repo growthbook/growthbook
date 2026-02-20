@@ -5,7 +5,8 @@ import {
   getContextForAgendaJobByOrgId,
   getExperimentOverrides,
 } from "back-end/src/services/organizations";
-import { getFeatureDefinitions } from "back-end/src/services/features";
+import { getFeatureDefinitionsWithCache } from "back-end/src/controllers/features";
+import { formatLegacyCacheKey } from "back-end/src/models/SdkConnectionCacheModel";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
@@ -31,12 +32,29 @@ export default function (ag: Agenda) {
 
     const context = await getContextForAgendaJobByOrgId(webhook.organization);
 
-    const { features, dateUpdated } = await getFeatureDefinitions({
-      context,
-      capabilities: ["bucketingV2"],
+    // Build synthetic cache key for legacy webhook
+    const cacheKey = formatLegacyCacheKey({
+      apiKey: `webhook_${webhookId}`,
       environment:
         webhook.environment === undefined ? "production" : webhook.environment,
-      projects: webhook.project ? [webhook.project] : [],
+      project: webhook.project || "",
+    });
+
+    const { features, dateUpdated } = await getFeatureDefinitionsWithCache({
+      context,
+      params: {
+        key: cacheKey,
+        organization: context.org.id,
+        environment:
+          webhook.environment === undefined
+            ? "production"
+            : webhook.environment,
+        projects: webhook.project ? [webhook.project] : [],
+        encryptPayload: false,
+        encryptionKey: "",
+        languages: ["legacy"],
+        sdkVersion: "0.0.0",
+      },
     });
 
     // eslint-disable-next-line

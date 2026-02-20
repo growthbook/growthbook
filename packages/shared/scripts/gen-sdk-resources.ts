@@ -464,7 +464,7 @@ const baseSDKInfo = {
   },
   edgeUtils: {
     name: "Edge Utils",
-    version: "0.2.5",
+    version: getLatestSDKVersion("edge-other"),
     github:
       "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-utils",
     examples: [],

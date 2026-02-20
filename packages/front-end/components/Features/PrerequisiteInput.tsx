@@ -453,6 +453,13 @@ export default function PrerequisiteInput({
                             <Box flexGrow="1">
                               <SelectField
                                 useMultilineLabels={true}
+                                containerStyles={{
+                                  control: (base) => ({
+                                    ...base,
+                                    minHeight: 38,
+                                    maxHeight: 38,
+                                  }),
+                                }}
                                 value={getDisplayOperator(
                                   conds?.[0]?.[0]?.operator || "",
                                 )}
