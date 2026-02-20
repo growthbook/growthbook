@@ -223,6 +223,8 @@ export interface OrganizationSettings {
   aiEnabled?: boolean;
   defaultAIModel?: AIModel;
   embeddingModel?: EmbeddingModel;
+  aiChatModel?: AIModel;
+  aiChatContext?: string;
   /** @deprecated */
   openAIDefaultModel?: AIModel;
   implementationTypes?: ImplementationType[];

@@ -125,7 +125,7 @@ export async function deleteConversationHandler(
 }
 
 export async function postMessage(
-  req: AuthRequest<{ message: string }, { id: string }>,
+  req: AuthRequest<{ message: string; currentPage?: string }, { id: string }>,
   res: Response,
 ) {
   const context = assertAIChatEnabled(req);
@@ -157,6 +157,7 @@ export async function postMessage(
       context,
       conversationId: conversation.id,
       userMessage: req.body.message,
+      currentPage: req.body.currentPage,
       onChunk: (chunk) => {
         res.write(
           `data: ${JSON.stringify({ type: "text-delta", content: chunk })}\n\n`,

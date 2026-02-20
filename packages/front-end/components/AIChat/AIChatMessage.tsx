@@ -1,6 +1,6 @@
 import { FC, useState } from "react";
 import clsx from "clsx";
-import { PiCaretDown, PiCaretRight, PiUser, PiRobot } from "react-icons/pi";
+import { PiCaretDown, PiCaretRight, PiUser } from "react-icons/pi";
 import { AIChatMessageInterface } from "shared/ai-chat";
 import Markdown from "@/components/Markdown/Markdown";
 import styles from "./AIChatPanel.module.scss";
@@ -21,7 +21,11 @@ const AIChatMessage: FC<Props> = ({ message, toolCallResults }) => {
       })}
     >
       <div className={styles.messageIcon}>
-        {isUser ? <PiUser size={16} /> : <PiRobot size={16} />}
+        {isUser ? (
+          <PiUser size={16} />
+        ) : (
+          <img src="/images/abbie-head.png" alt="Abbie" width={24} />
+        )}
       </div>
       <div className={styles.messageContent}>
         {isUser ? (

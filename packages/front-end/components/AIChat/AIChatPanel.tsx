@@ -1,5 +1,5 @@
 import { FC, useEffect, useRef, useState } from "react";
-import { PiX, PiPlus, PiList, PiRobot } from "react-icons/pi";
+import { PiX, PiPlus, PiList } from "react-icons/pi";
 import clsx from "clsx";
 import { useAIChat } from "@/services/AIChatContext";
 import Markdown from "@/components/Markdown/Markdown";
@@ -56,8 +56,8 @@ const AIChatPanel: FC = () => {
             <PiList size={18} />
           </button>
           <span className={styles.headerTitle}>
-            <PiRobot size={16} />
-            GrowthBook AI
+            <img src="/images/abbie-head.png" alt="Abbie" width={24} />
+            Abbie
           </span>
         </div>
         <div className={styles.headerRight}>
@@ -100,7 +100,12 @@ const AIChatPanel: FC = () => {
       >
         {messages.length === 0 && !isStreaming && (
           <div className={styles.emptyState}>
-            <PiRobot size={40} className="text-muted mb-2" />
+            <img
+              src="/images/abbie-full.png"
+              alt="Abbie"
+              style={{ width: 120, height: "auto" }}
+              className="mb-2"
+            />
             <p className="text-muted mb-1">
               Ask me about your experiments and features
             </p>
@@ -119,7 +124,7 @@ const AIChatPanel: FC = () => {
         {isStreaming && streamingContent && (
           <div className={clsx(styles.message, styles.assistantMessage)}>
             <div className={styles.messageIcon}>
-              <PiRobot size={16} />
+              <img src="/images/abbie-head.png" alt="Abbie" width={24} />
             </div>
             <div className={styles.messageContent}>
               <Markdown className={styles.messageText}>

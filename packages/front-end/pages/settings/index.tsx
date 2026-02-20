@@ -173,6 +173,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
       aiEnabled: settings.aiEnabled ?? false,
       defaultAIModel: settings.defaultAIModel || "gpt-4o-mini",
       embeddingModel: settings.embeddingModel || "text-embedding-ada-002",
+      aiChatModel: settings.aiChatModel || undefined,
+      aiChatContext: settings.aiChatContext || "",
       disableLegacyMetricCreation:
         settings.disableLegacyMetricCreation ?? false,
       defaultFeatureRulesInAllEnvs:
@@ -231,6 +233,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
     aiEnabled: form.watch("aiEnabled"),
     defaultAIModel: form.watch("defaultAIModel"),
     embeddingModel: form.watch("embeddingModel"),
+    aiChatModel: form.watch("aiChatModel"),
+    aiChatContext: form.watch("aiChatContext"),
     disableLegacyMetricCreation: form.watch("disableLegacyMetricCreation"),
     defaultFeatureRulesInAllEnvs: form.watch("defaultFeatureRulesInAllEnvs"),
     preferredEnvironment: form.watch("preferredEnvironment") || "",

@@ -224,7 +224,10 @@ export function AIChatProvider({ children }: { children: ReactNode }) {
               "Content-Type": "application/json",
               ...getAuthHeaders(),
             },
-            body: JSON.stringify({ message: content }),
+            body: JSON.stringify({
+              message: content,
+              currentPage: window.location.pathname,
+            }),
             signal: abort.signal,
             credentials: "include",
           },

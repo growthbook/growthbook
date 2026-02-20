@@ -6,6 +6,7 @@ export const createConversationValidator = z.object({
 
 export const sendMessageValidator = z.object({
   message: z.string().min(1),
+  currentPage: z.string().optional(),
 });
 
 export const confirmActionValidator = z.object({

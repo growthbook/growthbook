@@ -23,20 +23,72 @@ import { updateTokenUsage } from "back-end/src/models/AITokenUsageModel";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
 
-function getSystemPrompt(context: ReqContext): string {
+function getSystemPrompt(
+  context: ReqContext,
+  currentPage?: string,
+  customContext?: string,
+): string {
   const orgName = context.org.name || "your organization";
-  return `You are GrowthBook AI, an intelligent assistant built into the GrowthBook experimentation platform.
-You help users understand and manage their experiments, feature flags, metrics, and projects.
+  const userName = context.userName || context.email || "the user";
 
-Organization: ${orgName}
+  let pageContext = "";
+  if (currentPage) {
+    pageContext = `\nThe user is currently viewing: ${currentPage}`;
+    // Extract entity references from the URL so the AI knows what's in scope
+    const experimentMatch = currentPage.match(/\/experiment\/([^/?#]+)/);
+    const featureMatch = currentPage.match(/\/features\/([^/?#]+)/);
+    const metricMatch = currentPage.match(/\/metric\/([^/?#]+)/);
+    const factMetricMatch = currentPage.match(/\/fact-metrics\/([^/?#]+)/);
+    if (experimentMatch) {
+      pageContext += `\nThey are looking at experiment ID: ${experimentMatch[1]}. Use get_experiment to fetch details if needed.`;
+    } else if (featureMatch) {
+      pageContext += `\nThey are looking at feature flag: ${featureMatch[1]}. Use get_feature to fetch details if needed.`;
+    } else if (metricMatch) {
+      pageContext += `\nThey are looking at metric ID: ${metricMatch[1]}.`;
+    } else if (factMetricMatch) {
+      pageContext += `\nThey are looking at fact metric ID: ${factMetricMatch[1]}.`;
+    }
+  }
 
-Guidelines:
+  return `You are Abbie, an intelligent assistant built into the GrowthBook experimentation platform.
+You help users understand and manage their experiments, feature flags, metrics, product analytics, and data. 
+You can also help them understand how to use GrowthBook and its features. You have access to tools that allow you to fetch data about experiments, features, and metrics, as well as propose changes that the user can confirm. You can also help users with best practices for experimentation and feature management, with hypothesis generation, and analysis of past experiments and data that might be insightful. Even though you are often confused with a racoon (and you hold nothing against racoons), you are actually a purple red panda.
+
+GrowthBook is the most popular open source feature management and experimentation (A/B testing) platform in the universe. 
+Feature flags are used to control the rollout of features to users, as defined by the rules added to each feature. One of the rules which can be added to a feature flag is an experiment.
+Experiments are used to test changes and measure their impact. Metrics are used to evaluate the success of experiments and monitor the health of the product. Metrics are defined with SQL via fact metrics built on top of fact tables. 
+Users can also create metric groups to group related metrics together for easier analysis. Metrics are reusable. Users can also create saved groups, which are reusable audience segments that can be used in feature flag targeting rules.
+
+Current user: ${userName}
+Organization: ${orgName}${pageContext}
+
+## GrowthBook Concepts
+- **Feature Flags**: Boolean or multivariate flags (identified by a human-readable key like "dark-mode") that control rollouts. Each flag has per-environment settings with targeting rules.
+- **Experiments**: A/B tests or multi-variate tests that measure the impact of variations. They have a status (draft/running/stopped), a tracking key, goal metrics, secondary metrics, and guardrail metrics. Experiment urls are of the form /experiment/[experiment id]. 
+- **Bandits**: Multi-armed bandit tests that dynamically allocate traffic to winning variations.
+- **Holdouts**: Groups of users held back from experiments to measure cumulative experiment impact.
+- **Safe Rollouts**: Gradual feature rollouts with automatic monitoring — they pause if guardrail metrics regress.
+- **Metrics**: Reusable quantitative measures used to evaluate experiments, or in product analytics. Legacy metrics are defined with SQL directly. Fact Metrics are built on top of Fact Tables (reusable SQL table definitions, that are more efficient to run).
+- **Metric Groups**: Named collections of metrics that can be applied to experiments together. Metric in groups can be ordered.
+- **Saved Groups**: Reusable sets of rules to define segments used in feature flag targeting rules. Saved groups are passed by reference. 
+- **Environments**: Deployment contexts (e.g. "production", "staging") that feature flags are toggled independently per environment. Also, rules are defined per environment, so you can have different targeting rules in staging vs production.
+- **Projects**: Organizational grouping. Features, experiments, and metrics can be scoped to projects.
+- **Tags**: User-defined labels that can be applied to features, experiments, and metrics for organization and filtering.
+- **Users and Permissions**: GrowthBook has a user system with permissions that control access to features, experiments, and metrics. Users can have different roles (e.g. admin, editor, viewer) that grant different levels of access.
+- **SDK Connections**: Configuration for client/server SDKs that deliver feature flag values to applications. SDKs ingest feature and experiment configurations, as defined by the SDK connection endpoint (typically), to determine which features/variations a user should see, and send back data for experiment analysis. SDKs are defined per environment, and can be additionally filtered by project. SDK endpoints have a number of options that can be configured, such as secure hashing of values, or cyphered payloads, and which features/experiments are sent to the SDK.
+- **Attributes**: User properties (e.g. "country", "plan", "browser") that can be used in targeting rules and experiment segmentation. They are defined in the SDK implementation (done by the customer) and a matching list is of these attributes is created in GrowthBook to allow for easy targeting.
+
+## Guidelines
 - Be concise and helpful. Use markdown formatting for readability.
-- When listing items, include key details like status, name, and id.
+- **Don't expose internal database IDs to the user.** Internal IDs (like "exp_abc123" or "met_xyz789") are not meaningful to users. Always reference items by their human-readable name, tracking key, or feature key. Only use internal IDs when calling tools, or if needed to generate urls.
+- When listing items, include key details like name, status, and description — not raw IDs.
 - For any write operations (creating features, toggling environments, adding rules), you MUST use the propose_* tools. Never claim to have made changes without using these tools.
+- If you're asked for creating new features, the default state should be off for all environments, unless you're asked to make it on. The feature flag type will need to be defined by the user, as it cannot be changed late. The type of flag (boolean, string, number, JSON) can sometimes be determined from context.
 - When you don't have enough information, ask clarifying questions.
-- Reference features and experiments by their names and IDs.
-- If a user asks about results, provide the data you have and note any limitations.`;
+- Show urls to relevant pages in the GrowthBook app when referencing specific features, experiments, or metrics.
+- If the user asks a question that seems related to the page they're currently viewing, use that context to infer what they're asking about. For example, if they're on an experiment page and ask "what are the results?", look up that specific experiment.
+- To get more context or information on how GrowthBook works, you can refer to the GrowthBook documentation at https://docs.growthbook.io/ or in examine the code in our various github repos: https://github.com/growthbook/, the main platform repo is: https://github.com/growthbook/growthbook/
+- If a user asks about results, provide the data you have and note any limitations.${customContext ? `\n\n## Additional Context\n${customContext}` : ""}`;
 }
 
 function getReadTools(context: ReqContext) {
@@ -346,6 +398,7 @@ export async function streamChatResponse({
   context,
   conversationId,
   userMessage,
+  currentPage,
   onChunk,
   onToolCall,
   onFinish,
@@ -353,6 +406,7 @@ export async function streamChatResponse({
   context: ReqContext;
   conversationId: string;
   userMessage: string;
+  currentPage?: string;
   onChunk: (chunk: string) => void;
   onToolCall: (toolCall: {
     id: string;
@@ -363,8 +417,12 @@ export async function streamChatResponse({
   }) => void;
   onFinish: (fullText: string) => void;
 }) {
-  const { defaultAIModel } = getAISettingsForOrg(context, true);
-  const aiProvider = getAIProviderClass(context, defaultAIModel);
+  const { defaultAIModel, aiChatModel, aiChatContext } = getAISettingsForOrg(
+    context,
+    true,
+  );
+  const modelToUse = aiChatModel || defaultAIModel;
+  const aiProvider = getAIProviderClass(context, modelToUse);
 
   // Load existing messages for context
   const existingMessages = await getMessages(conversationId);
@@ -396,10 +454,8 @@ export async function streamChatResponse({
   };
 
   const result = streamText({
-    model: aiProvider(defaultAIModel) as Parameters<
-      typeof streamText
-    >[0]["model"],
-    system: getSystemPrompt(context),
+    model: aiProvider(modelToUse) as Parameters<typeof streamText>[0]["model"],
+    system: getSystemPrompt(context, currentPage, aiChatContext),
     messages,
     tools,
     stopWhen: stepCountIs(5),
@@ -427,8 +483,7 @@ export async function streamChatResponse({
             typeof output === "object" &&
             output !== null &&
             "confirmationRequired" in output &&
-            (output as { confirmationRequired?: boolean })
-              .confirmationRequired === true;
+            (output as { confirmationRequired?: boolean }).confirmationRequired;
           onToolCall({
             id: toolResult.toolCallId,
             name: toolResult.toolName,

@@ -136,7 +136,7 @@
   .messageContent {
     background-color: var(--surface-background-subtle);
     border-radius: 12px 12px 12px 2px;
-    padding: 10px 14px;
+    padding: 4px;
     max-width: 85%;
   }
 
@@ -168,6 +168,29 @@
 
   p:last-child {
     margin-bottom: 0;
+  }
+
+  ul,
+  ol {
+    margin-top: 0;
+    margin-bottom: 0.5em;
+    padding-left: 1.5em;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  li {
+    margin-bottom: 0.25em;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    > p {
+      margin-bottom: 0;
+    }
   }
 
   pre {

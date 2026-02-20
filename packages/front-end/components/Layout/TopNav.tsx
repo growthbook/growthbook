@@ -462,7 +462,7 @@ const TopNav: FC<{
             <button
               className={`nav-link btn btn-link ${styles.iconButton || ""}`}
               onClick={() => setChatOpen(!isChatOpen)}
-              title="AI Chat"
+              title="Abbie"
               style={{
                 fontSize: 20,
                 padding: "4px 8px",

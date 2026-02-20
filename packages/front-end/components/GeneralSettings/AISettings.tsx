@@ -637,6 +637,66 @@ export default function AISettings({
             <Flex gap="4">
               <Box width="220px" flexShrink="0">
                 <Heading size="4" as="h4">
+                  AI Chat
+                </Heading>
+              </Box>
+
+              <Flex align="start" direction="column" flexGrow="1" pt="6">
+                <Box mb="6" width="100%">
+                  {!isCloud() && (
+                    <Box mb="3">
+                      <Text
+                        as="label"
+                        htmlFor="aiChatModel"
+                        size="2"
+                        className="font-weight-semibold"
+                      >
+                        Model
+                      </Text>
+                      <SelectField
+                        id="aiChatModel"
+                        value={form.watch("aiChatModel") || ""}
+                        onChange={(v) =>
+                          form.setValue("aiChatModel", v, {
+                            shouldDirty: true,
+                          })
+                        }
+                        options={PROMPT_MODEL_LABELS}
+                        helpText="Select a model specifically for AI chat. If not set, the default AI model will be used."
+                      />
+                      {(() => {
+                        const modelToCheck = form.watch("aiChatModel") || "";
+                        if (!modelToCheck) return null;
+                        return <ApiKeyWarning model={modelToCheck} />;
+                      })()}
+                    </Box>
+                  )}
+                  <Box mb="3">
+                    <Text
+                      as="label"
+                      htmlFor="aiChatContext"
+                      size="2"
+                      className="font-weight-semibold"
+                    >
+                      Custom Context
+                    </Text>
+                    <Field
+                      textarea={true}
+                      id="aiChatContext"
+                      placeholder="Enter any additional context or instructions for the AI chat assistant..."
+                      helpText="This text will be included in every AI chat response as additional context."
+                      {...form.register("aiChatContext")}
+                    />
+                  </Box>
+                </Box>
+              </Flex>
+            </Flex>
+          </Frame>
+
+          <Frame>
+            <Flex gap="4">
+              <Box width="220px" flexShrink="0">
+                <Heading size="4" as="h4">
                   Prompts
                 </Heading>
               </Box>
