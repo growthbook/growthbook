@@ -129,6 +129,8 @@ export function createApiRequestHandler<
   };
 }
 
+export const statusCodeReturn = z.strictObject({ status: z.number() });
+
 export async function validateIsSuperUserRequest(req: {
   user?: UserInterface;
   organization: OrganizationInterface;

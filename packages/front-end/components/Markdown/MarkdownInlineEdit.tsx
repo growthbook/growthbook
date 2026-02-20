@@ -17,7 +17,6 @@ type Props = {
   canEdit?: boolean;
   canCreate?: boolean;
   label?: string;
-  className?: string;
   containerClassName?: string;
   header?: string | JSX.Element;
   headerClassName?: string;
@@ -33,7 +32,6 @@ export default function MarkdownInlineEdit({
   canEdit = true,
   canCreate = true,
   label = "description",
-  className = "",
   containerClassName = "",
   header = "",
   headerClassName = "h3",
@@ -53,64 +51,62 @@ export default function MarkdownInlineEdit({
 
   if (edit) {
     return (
-      <form
-        className={"position-relative" + " " + className}
-        onSubmit={async (e) => {
-          e.preventDefault();
-          if (loading) return;
-          setError(null);
-          setLoading(true);
-          try {
-            await save(val);
-            setEdit(false);
-          } catch (e) {
-            setError(e.message);
-          }
-          setLoading(false);
-        }}
-      >
-        {header && (
-          <Flex align={"center"} justify="between">
-            <div className={headerClassName}>{header}</div>{" "}
-            {aiSuggestFunction && (
-              <Flex gap="2">
-                <div className="col-auto">
-                  <button
-                    className="btn btn-link mr-2 ml-3"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setEdit(false);
-                    }}
-                  >
-                    cancel
-                  </button>
-                  <button type="submit" className="btn btn-primary">
-                    Save
-                  </button>
-                </div>
+      <Box position="relative">
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (loading) return;
+            setError(null);
+            setLoading(true);
+            try {
+              await save(val);
+              setEdit(false);
+            } catch (e) {
+              setError(e.message);
+            }
+            setLoading(false);
+          }}
+        >
+          {header && (
+            <Box className={containerClassName}>
+              <Flex align={"start"} justify="between">
+                <div className={headerClassName}>{header}</div>{" "}
+                {aiSuggestFunction && (
+                  <Flex gap="2">
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        setEdit(false);
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button type="submit">Save</Button>
+                  </Flex>
+                )}
               </Flex>
-            )}
-          </Flex>
-        )}
-        {loading && <LoadingOverlay />}
-        <MarkdownInput
-          value={val}
-          setValue={setVal}
-          cta={"Save"}
-          error={error ?? undefined}
-          autofocus={true}
-          onCancel={() => setEdit(false)}
-          aiSuggestFunction={aiSuggestFunction}
-          aiButtonText={aiButtonText}
-          aiSuggestionHeader={aiSuggestionHeader}
-          showButtons={!aiSuggestFunction}
-        />
-      </form>
+            </Box>
+          )}
+          {loading && <LoadingOverlay />}
+          <MarkdownInput
+            value={val}
+            setValue={setVal}
+            cta={"Save"}
+            error={error ?? undefined}
+            autofocus={true}
+            onCancel={() => setEdit(false)}
+            aiSuggestFunction={aiSuggestFunction}
+            aiButtonText={aiButtonText}
+            aiSuggestionHeader={aiSuggestionHeader}
+            showButtons={!aiSuggestFunction}
+          />
+        </form>
+      </Box>
     );
   }
 
   return (
-    <Box className={className} style={{ position: "relative" }}>
+    <Box position="relative">
       {loading && (
         <LoadingOverlay
           text={aiSuggestFunction ? "Generating..." : "Loading..."}

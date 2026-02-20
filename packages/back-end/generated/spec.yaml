@@ -120,6 +120,9 @@ tags:
   - name: attributes
     x-displayName: Attributes
     description: Used when targeting feature flags and experiments.
+  - name: usage
+    x-displayName: Usage
+    description: Usage information for metrics in experiments.
   - name: Archetype_model
     x-displayName: Archetype
     description: <SchemaDefinition schemaRef="#/components/schemas/Archetype" />
@@ -255,6 +258,9 @@ tags:
   - name: MetricGroup_model
     x-displayName: MetricGroup
     description: <SchemaDefinition schemaRef="#/components/schemas/MetricGroup" />
+  - name: Team_model
+    x-displayName: Team
+    description: <SchemaDefinition schemaRef="#/components/schemas/Team" />
 paths:
   /features:
     get:
@@ -3364,7 +3370,7 @@ paths:
         access or read access to experiments across all projects, this endpoint may not return the latest usage data across
         all experiments. 
       tags:
-        - metrics
+        - usage
       operationId: getMetricUsage
       parameters:
         - name: ids
@@ -3879,6 +3885,10 @@ paths:
                   type: array
                   items:
                     type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
       responses:
         '200':
           content:
@@ -3948,6 +3958,10 @@ paths:
                     - isoCountryCode
                   description: The attribute's format
                 projects:
+                  type: array
+                  items:
+                    type: string
+                tags:
                   type: array
                   items:
                     type: string
@@ -11453,6 +11467,695 @@ paths:
                         - datasource
                         - archived
                       additionalProperties: false
+  '/teams/{id}':
+    get:
+      $skipValidatorGeneration: true
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      tags:
+        - Teams
+      summary: Get a single team
+      operationId: getTeam
+      x-codeSamples:
+        - lang: cURL
+          source: 'curl -X GET https://api.growthbook.io/api/v1/teams/{id} -u secret_abc123DEF456'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - team
+                properties:
+                  team:
+                    $schema: 'https://json-schema.org/draft/2020-12/schema'
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      dateCreated:
+                        type: string
+                        format: date-time
+                        pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                      dateUpdated:
+                        type: string
+                        format: date-time
+                        pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                      name:
+                        type: string
+                      createdBy:
+                        type: string
+                      description:
+                        type: string
+                      role:
+                        type: string
+                      limitAccessByEnvironment:
+                        type: boolean
+                      environments:
+                        type: array
+                        items:
+                          type: string
+                      projectRoles:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            role:
+                              type: string
+                            limitAccessByEnvironment:
+                              type: boolean
+                            environments:
+                              type: array
+                              items:
+                                type: string
+                            teams:
+                              type: array
+                              items:
+                                type: string
+                            project:
+                              type: string
+                          required:
+                            - role
+                            - limitAccessByEnvironment
+                            - environments
+                            - project
+                          additionalProperties: false
+                      members:
+                        readOnly: true
+                        type: array
+                        items:
+                          type: string
+                      managedByIdp:
+                        type: boolean
+                      managedBy:
+                        anyOf:
+                          - type: object
+                            properties:
+                              type:
+                                type: string
+                                const: vercel
+                              resourceId:
+                                type: string
+                            required:
+                              - type
+                              - resourceId
+                            additionalProperties: false
+                      defaultProject:
+                        type: string
+                    required:
+                      - id
+                      - dateCreated
+                      - dateUpdated
+                      - name
+                      - createdBy
+                      - description
+                      - role
+                      - limitAccessByEnvironment
+                      - environments
+                      - members
+                      - managedByIdp
+                    additionalProperties: false
+    delete:
+      $skipValidatorGeneration: true
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      tags:
+        - Teams
+      summary: Delete a single team
+      operationId: deleteTeam
+      x-codeSamples:
+        - lang: cURL
+          source: 'curl -X DELETE https://api.growthbook.io/api/v1/teams/{id} -u secret_abc123DEF456'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - deletedId
+                properties:
+                  deletedId:
+                    type: string
+    put:
+      $skipValidatorGeneration: true
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      tags:
+        - Teams
+      summary: Update a single team
+      operationId: updateTeam
+      x-codeSamples:
+        - lang: cURL
+          source: 'curl -X PUT https://api.growthbook.io/api/v1/teams/{id} -d ''{ ... }'' -u secret_abc123DEF456'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $schema: 'https://json-schema.org/draft/2020-12/schema'
+              type: object
+              properties:
+                name:
+                  type: string
+                createdBy:
+                  type: string
+                description:
+                  type: string
+                role:
+                  description: The global role for members of this team
+                  type: string
+                limitAccessByEnvironment:
+                  type: boolean
+                environments:
+                  description: An empty array means 'all environments'
+                  type: array
+                  items:
+                    type: string
+                projectRoles:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      role:
+                        type: string
+                      limitAccessByEnvironment:
+                        type: boolean
+                      environments:
+                        type: array
+                        items:
+                          type: string
+                      teams:
+                        type: array
+                        items:
+                          type: string
+                      project:
+                        type: string
+                    required:
+                      - role
+                      - limitAccessByEnvironment
+                      - environments
+                      - project
+                    additionalProperties: false
+                managedBy:
+                  anyOf:
+                    - type: object
+                      properties:
+                        type:
+                          type: string
+                          const: vercel
+                        resourceId:
+                          type: string
+                      required:
+                        - type
+                        - resourceId
+                      additionalProperties: false
+                defaultProject:
+                  type: string
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - team
+                properties:
+                  team:
+                    $schema: 'https://json-schema.org/draft/2020-12/schema'
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      dateCreated:
+                        type: string
+                        format: date-time
+                        pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                      dateUpdated:
+                        type: string
+                        format: date-time
+                        pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                      name:
+                        type: string
+                      createdBy:
+                        type: string
+                      description:
+                        type: string
+                      role:
+                        type: string
+                      limitAccessByEnvironment:
+                        type: boolean
+                      environments:
+                        type: array
+                        items:
+                          type: string
+                      projectRoles:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            role:
+                              type: string
+                            limitAccessByEnvironment:
+                              type: boolean
+                            environments:
+                              type: array
+                              items:
+                                type: string
+                            teams:
+                              type: array
+                              items:
+                                type: string
+                            project:
+                              type: string
+                          required:
+                            - role
+                            - limitAccessByEnvironment
+                            - environments
+                            - project
+                          additionalProperties: false
+                      members:
+                        readOnly: true
+                        type: array
+                        items:
+                          type: string
+                      managedByIdp:
+                        type: boolean
+                      managedBy:
+                        anyOf:
+                          - type: object
+                            properties:
+                              type:
+                                type: string
+                                const: vercel
+                              resourceId:
+                                type: string
+                            required:
+                              - type
+                              - resourceId
+                            additionalProperties: false
+                      defaultProject:
+                        type: string
+                    required:
+                      - id
+                      - dateCreated
+                      - dateUpdated
+                      - name
+                      - createdBy
+                      - description
+                      - role
+                      - limitAccessByEnvironment
+                      - environments
+                      - members
+                      - managedByIdp
+                    additionalProperties: false
+  /teams:
+    post:
+      $skipValidatorGeneration: true
+      parameters: []
+      tags:
+        - Teams
+      summary: Create a single team
+      operationId: createTeam
+      x-codeSamples:
+        - lang: cURL
+          source: 'curl -X POST https://api.growthbook.io/api/v1/teams -d ''{ ... }'' -u secret_abc123DEF456'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $schema: 'https://json-schema.org/draft/2020-12/schema'
+              type: object
+              properties:
+                name:
+                  type: string
+                createdBy:
+                  type: string
+                description:
+                  type: string
+                role:
+                  description: The global role for members of this team
+                  type: string
+                limitAccessByEnvironment:
+                  type: boolean
+                environments:
+                  description: An empty array means 'all environments'
+                  type: array
+                  items:
+                    type: string
+                projectRoles:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      role:
+                        type: string
+                      limitAccessByEnvironment:
+                        type: boolean
+                      environments:
+                        type: array
+                        items:
+                          type: string
+                      teams:
+                        type: array
+                        items:
+                          type: string
+                      project:
+                        type: string
+                    required:
+                      - role
+                      - limitAccessByEnvironment
+                      - environments
+                      - project
+                    additionalProperties: false
+                managedBy:
+                  anyOf:
+                    - type: object
+                      properties:
+                        type:
+                          type: string
+                          const: vercel
+                        resourceId:
+                          type: string
+                      required:
+                        - type
+                        - resourceId
+                      additionalProperties: false
+                defaultProject:
+                  type: string
+              required:
+                - name
+                - description
+                - role
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - team
+                properties:
+                  team:
+                    $schema: 'https://json-schema.org/draft/2020-12/schema'
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      dateCreated:
+                        type: string
+                        format: date-time
+                        pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                      dateUpdated:
+                        type: string
+                        format: date-time
+                        pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                      name:
+                        type: string
+                      createdBy:
+                        type: string
+                      description:
+                        type: string
+                      role:
+                        type: string
+                      limitAccessByEnvironment:
+                        type: boolean
+                      environments:
+                        type: array
+                        items:
+                          type: string
+                      projectRoles:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            role:
+                              type: string
+                            limitAccessByEnvironment:
+                              type: boolean
+                            environments:
+                              type: array
+                              items:
+                                type: string
+                            teams:
+                              type: array
+                              items:
+                                type: string
+                            project:
+                              type: string
+                          required:
+                            - role
+                            - limitAccessByEnvironment
+                            - environments
+                            - project
+                          additionalProperties: false
+                      members:
+                        readOnly: true
+                        type: array
+                        items:
+                          type: string
+                      managedByIdp:
+                        type: boolean
+                      managedBy:
+                        anyOf:
+                          - type: object
+                            properties:
+                              type:
+                                type: string
+                                const: vercel
+                              resourceId:
+                                type: string
+                            required:
+                              - type
+                              - resourceId
+                            additionalProperties: false
+                      defaultProject:
+                        type: string
+                    required:
+                      - id
+                      - dateCreated
+                      - dateUpdated
+                      - name
+                      - createdBy
+                      - description
+                      - role
+                      - limitAccessByEnvironment
+                      - environments
+                      - members
+                      - managedByIdp
+                    additionalProperties: false
+    get:
+      $skipValidatorGeneration: true
+      parameters: []
+      tags:
+        - Teams
+      summary: Get all teams
+      operationId: listTeams
+      x-codeSamples:
+        - lang: cURL
+          source: 'curl -X GET https://api.growthbook.io/api/v1/teams -u secret_abc123DEF456'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - teams
+                properties:
+                  teams:
+                    $schema: 'https://json-schema.org/draft/2020-12/schema'
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        dateCreated:
+                          type: string
+                          format: date-time
+                          pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                        dateUpdated:
+                          type: string
+                          format: date-time
+                          pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                        name:
+                          type: string
+                        createdBy:
+                          type: string
+                        description:
+                          type: string
+                        role:
+                          type: string
+                        limitAccessByEnvironment:
+                          type: boolean
+                        environments:
+                          type: array
+                          items:
+                            type: string
+                        projectRoles:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              role:
+                                type: string
+                              limitAccessByEnvironment:
+                                type: boolean
+                              environments:
+                                type: array
+                                items:
+                                  type: string
+                              teams:
+                                type: array
+                                items:
+                                  type: string
+                              project:
+                                type: string
+                            required:
+                              - role
+                              - limitAccessByEnvironment
+                              - environments
+                              - project
+                            additionalProperties: false
+                        members:
+                          readOnly: true
+                          type: array
+                          items:
+                            type: string
+                        managedByIdp:
+                          type: boolean
+                        managedBy:
+                          anyOf:
+                            - type: object
+                              properties:
+                                type:
+                                  type: string
+                                  const: vercel
+                                resourceId:
+                                  type: string
+                              required:
+                                - type
+                                - resourceId
+                              additionalProperties: false
+                        defaultProject:
+                          type: string
+                      required:
+                        - id
+                        - dateCreated
+                        - dateUpdated
+                        - name
+                        - createdBy
+                        - description
+                        - role
+                        - limitAccessByEnvironment
+                        - environments
+                        - members
+                        - managedByIdp
+                      additionalProperties: false
+  '/teams/{teamId}/members':
+    post:
+      $skipValidatorGeneration: true
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: string
+      tags:
+        - Teams
+      summary: ''
+      operationId: addTeamMembers
+      x-codeSamples:
+        - lang: cURL
+          source: 'curl -X POST https://api.growthbook.io/api/v1/teams/{teamId}/members -d ''{ ... }'' -u secret_abc123DEF456'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $schema: 'https://json-schema.org/draft/2020-12/schema'
+              type: object
+              properties:
+                members:
+                  type: array
+                  items:
+                    type: string
+              required:
+                - members
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $schema: 'https://json-schema.org/draft/2020-12/schema'
+                type: object
+                properties:
+                  status:
+                    type: number
+                required:
+                  - status
+                additionalProperties: false
+    delete:
+      $skipValidatorGeneration: true
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: string
+      tags:
+        - Teams
+      summary: ''
+      operationId: removeTeamMember
+      x-codeSamples:
+        - lang: cURL
+          source: 'curl -X DELETE https://api.growthbook.io/api/v1/teams/{teamId}/members -d ''{ ... }'' -u secret_abc123DEF456'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $schema: 'https://json-schema.org/draft/2020-12/schema'
+              type: object
+              properties:
+                members:
+                  type: array
+                  items:
+                    type: string
+              required:
+                - members
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $schema: 'https://json-schema.org/draft/2020-12/schema'
+                type: object
+                properties:
+                  status:
+                    type: number
+                required:
+                  - status
+                additionalProperties: false
 components:
   parameters:
     id:
@@ -12282,6 +12985,95 @@ components:
         - archived
       additionalProperties: false
       $skipValidatorGeneration: true
+    Team:
+      $schema: 'https://json-schema.org/draft/2020-12/schema'
+      type: object
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+          pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+        dateUpdated:
+          type: string
+          format: date-time
+          pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+        name:
+          type: string
+        createdBy:
+          type: string
+        description:
+          type: string
+        role:
+          type: string
+        limitAccessByEnvironment:
+          type: boolean
+        environments:
+          type: array
+          items:
+            type: string
+        projectRoles:
+          type: array
+          items:
+            type: object
+            properties:
+              role:
+                type: string
+              limitAccessByEnvironment:
+                type: boolean
+              environments:
+                type: array
+                items:
+                  type: string
+              teams:
+                type: array
+                items:
+                  type: string
+              project:
+                type: string
+            required:
+              - role
+              - limitAccessByEnvironment
+              - environments
+              - project
+            additionalProperties: false
+        members:
+          readOnly: true
+          type: array
+          items:
+            type: string
+        managedByIdp:
+          type: boolean
+        managedBy:
+          anyOf:
+            - type: object
+              properties:
+                type:
+                  type: string
+                  const: vercel
+                resourceId:
+                  type: string
+              required:
+                - type
+                - resourceId
+              additionalProperties: false
+        defaultProject:
+          type: string
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - name
+        - createdBy
+        - description
+        - role
+        - limitAccessByEnvironment
+        - environments
+        - members
+        - managedByIdp
+      additionalProperties: false
+      $skipValidatorGeneration: true
     PaginationFields:
       type: object
       required:
@@ -12689,6 +13481,10 @@ components:
             - date
             - isoCountryCode
         projects:
+          type: array
+          items:
+            type: string
+        tags:
           type: array
           items:
             type: string
@@ -15156,9 +15952,11 @@ x-tagGroups:
       - queries
       - settings
       - attributes
+      - usage
       - Dashboards
       - CustomFields
       - MetricGroups
+      - Teams
   - name: Models
     tags:
       - Archetype_model
@@ -15206,3 +16004,4 @@ x-tagGroups:
       - Dashboard_model
       - CustomField_model
       - MetricGroup_model
+      - Team_model
