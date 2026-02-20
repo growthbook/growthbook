@@ -1,5 +1,5 @@
 type: object
-description: Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. For type "window", value must be a non-negative number and valueUnit is required.
+description: Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required.
 required:
   - type
   - value

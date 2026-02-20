@@ -3172,7 +3172,7 @@ export interface components {
          * @enum {unknown}
          */
         attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
-        /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. For type "window", value must be a non-negative number and valueUnit is required. */
+        /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
         lookbackOverride?: {
           /** @enum {unknown} */
           type: "date" | "window";
@@ -3296,7 +3296,7 @@ export interface components {
        * @enum {unknown}
        */
       attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
-      /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. For type "window", value must be a non-negative number and valueUnit is required. */
+      /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
       lookbackOverride?: {
         /** @enum {unknown} */
         type: "date" | "window";
@@ -3361,7 +3361,7 @@ export interface components {
         };
       };
     };
-    /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. For type "window", value must be a non-negative number and valueUnit is required. */
+    /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
     LookbackOverride: {
       /** @enum {unknown} */
       type: "date" | "window";
@@ -3400,7 +3400,7 @@ export interface components {
          * @enum {unknown}
          */
         attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
-        /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. For type "window", value must be a non-negative number and valueUnit is required. */
+        /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
         lookbackOverride?: {
           /** @enum {unknown} */
           type: "date" | "window";
@@ -3566,7 +3566,7 @@ export interface components {
          * @enum {unknown}
          */
         attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
-        /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. For type "window", value must be a non-negative number and valueUnit is required. */
+        /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
         lookbackOverride?: {
           /** @enum {unknown} */
           type: "date" | "window";
@@ -9520,7 +9520,7 @@ export interface operations {
                    * @enum {unknown}
                    */
                   attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
-                  /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. For type "window", value must be a non-negative number and valueUnit is required. */
+                  /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
                   lookbackOverride?: {
                     /** @enum {unknown} */
                     type: "date" | "window";
@@ -9679,7 +9679,7 @@ export interface operations {
            * @enum {string}
            */
           attributionModel?: "firstExposure" | "experimentDuration" | "lookbackOverride";
-          /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. For type "window", value must be a non-negative number and valueUnit is required. */
+          /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
           lookbackOverride?: {
             /** @enum {unknown} */
             type: "date" | "window";
@@ -9842,7 +9842,7 @@ export interface operations {
                  * @enum {unknown}
                  */
                 attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
-                /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. For type "window", value must be a non-negative number and valueUnit is required. */
+                /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
                 lookbackOverride?: {
                   /** @enum {unknown} */
                   type: "date" | "window";
@@ -10046,7 +10046,7 @@ export interface operations {
                  * @enum {unknown}
                  */
                 attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
-                /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. For type "window", value must be a non-negative number and valueUnit is required. */
+                /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
                 lookbackOverride?: {
                   /** @enum {unknown} */
                   type: "date" | "window";
@@ -10209,7 +10209,7 @@ export interface operations {
            * @enum {string}
            */
           attributionModel?: "firstExposure" | "experimentDuration" | "lookbackOverride";
-          /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. For type "window", value must be a non-negative number and valueUnit is required. */
+          /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
           lookbackOverride?: {
             /** @enum {unknown} */
             type: "date" | "window";
@@ -10372,7 +10372,7 @@ export interface operations {
                  * @enum {unknown}
                  */
                 attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
-                /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. For type "window", value must be a non-negative number and valueUnit is required. */
+                /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
                 lookbackOverride?: {
                   /** @enum {unknown} */
                   type: "date" | "window";
@@ -10535,7 +10535,7 @@ export interface operations {
                  * @enum {unknown}
                  */
                 attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
-                /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. For type "window", value must be a non-negative number and valueUnit is required. */
+                /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
                 lookbackOverride?: {
                   /** @enum {unknown} */
                   type: "date" | "window";
@@ -11563,7 +11563,7 @@ export interface operations {
                  * @enum {unknown}
                  */
                 attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
-                /** @description Controls the lookback override for the experiment. If set, takes precedence over attributionModel setting. For type "window", value must be a non-negative number and valueUnit is required. */
+                /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
                 lookbackOverride?: {
                   /** @enum {unknown} */
                   type: "date" | "window";

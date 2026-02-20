@@ -143,6 +143,17 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       );
     }
 
+    // If lookbackOverride is provided in the payload, it must have the right
+    // attribution model
+    if (
+      (req.body.attributionModel ?? "firstExposure") !== "lookbackOverride" &&
+      req.body.lookbackOverride !== undefined
+    ) {
+      throw new Error(
+        "lookbackOverride is only allowed when attributionModel is 'lookbackOverride'",
+      );
+    }
+
     // transform into exp interface; set sane defaults
     const newExperiment = postExperimentApiPayloadToInterface(
       {
