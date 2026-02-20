@@ -11,7 +11,7 @@ const CustomFieldInput: FC<{
   currentCustomFields: Record<string, string>;
   section: CustomFieldSection;
   setCustomFields: (customFields: Record<string, string>) => void;
-  project?: string;
+  project: string | undefined;
   className?: string;
 }> = ({
   customFields,
