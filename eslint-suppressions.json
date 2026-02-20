@@ -499,11 +499,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/GetStarted/DocumentationSidebar.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/GetStarted/FeaturedCards.tsx": {
     "no-restricted-imports": {
       "count": 2

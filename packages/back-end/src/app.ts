@@ -125,6 +125,7 @@ import { runStatsEngine } from "./services/stats";
 import { dashboardsRouter } from "./routers/dashboards/dashboards.router";
 import { customHooksRouter } from "./routers/custom-hooks/custom-hooks.router";
 import { importingRouter } from "./routers/importing/importing.router";
+import { blogRouter } from "./routers/blog/blog.router";
 
 const app = express();
 
@@ -522,6 +523,8 @@ app.post(
 );
 
 app.use("/tag", tagRouter);
+
+app.use("/blog", blogRouter);
 
 app.use("/saved-groups", savedGroupRouter);
 
