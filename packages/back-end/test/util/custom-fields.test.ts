@@ -2,7 +2,7 @@ import { CustomField } from "shared/types/custom-fields";
 import {
   shouldValidateCustomFieldsOnUpdate,
   validateCustomFieldsForSection,
-} from "../../src/util/custom-fields";
+} from "back-end/src/util/custom-fields";
 
 const buildCustomField = (
   overrides: Partial<CustomField> = {},
