@@ -29,6 +29,7 @@ import {
   getRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
+import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { parseJsonSchemaForEnterprise, validateEnvKeys } from "./postFeature";
 import { validateCustomFields } from "./validations";
 
@@ -84,8 +85,18 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     }
 
     // check if the custom fields are valid
-    if (customFields) {
-      await validateCustomFields(customFields, req.context, req.body.project);
+    const projectChanged = project !== undefined && project !== feature.project;
+    const customFieldsChanged = shouldValidateCustomFieldsOnUpdate({
+      existingCustomFieldValues: feature.customFields,
+      updatedCustomFieldValues: customFields,
+    });
+
+    if (projectChanged || customFieldsChanged) {
+      await validateCustomFields(
+        customFields ?? feature.customFields,
+        req.context,
+        effectiveProject,
+      );
     }
 
     // ensure environment keys are valid

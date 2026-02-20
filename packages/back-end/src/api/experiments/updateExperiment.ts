@@ -16,6 +16,7 @@ import {
   updateExperimentApiPayloadToInterface,
 } from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { validateVariationIds } from "back-end/src/controllers/experiments";
 import { validateCustomFields } from "./validations";
@@ -95,12 +96,18 @@ export const updateExperiment = createApiRequestHandler(
     }
   }
 
-  // check if the custom fields are valid
-  if (req.body.customFields) {
+  const projectChanged =
+    req.body.project !== undefined && req.body.project !== experiment.project;
+  const customFieldsChanged = shouldValidateCustomFieldsOnUpdate({
+    existingCustomFieldValues: experiment.customFields,
+    updatedCustomFieldValues: req.body.customFields,
+  });
+
+  if (projectChanged || customFieldsChanged) {
     await validateCustomFields(
-      req.body.customFields,
+      req.body.customFields ?? experiment.customFields,
       req.context,
-      experiment.project,
+      req.body.project ?? experiment.project,
     );
   }
 

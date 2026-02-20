@@ -136,14 +136,11 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     }
   }
 
-  // check if the custom fields are valid
-  if (req.body.customFields) {
-    await validateCustomFields(
-      req.body.customFields,
-      req.context,
-      req.body.project,
-    );
-  }
+  await validateCustomFields(
+    req.body.customFields,
+    req.context,
+    req.body.project,
+  );
 
   const tags = req.body.tags || [];
 

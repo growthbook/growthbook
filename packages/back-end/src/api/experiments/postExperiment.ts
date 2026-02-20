@@ -64,10 +64,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       );
     }
 
-    // check if the custom fields are valid
-    if (customFields) {
-      await validateCustomFields(customFields, req.context, project);
-    }
+    await validateCustomFields(customFields, req.context, project);
 
     const ownerId = await (async () => {
       if (!ownerEmail) return req.context.userId;

@@ -137,6 +137,10 @@ import {
   simpleCompletion,
 } from "back-end/src/enterprise/services/ai";
 import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
+import {
+  shouldValidateCustomFieldsOnUpdate,
+  validateCustomFieldsForSection,
+} from "back-end/src/util/custom-fields";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
 
@@ -1082,6 +1086,13 @@ export async function postExperiments(
     | undefined;
 
   try {
+    await validateCustomFieldsForSection({
+      customFieldValues: data.customFields,
+      customFieldsModel: context.models.customFields,
+      section: "experiment",
+      project: data.project,
+    });
+
     result = await validateExperimentData(context, data);
   } catch (e) {
     res.status(400).json({
@@ -1363,6 +1374,23 @@ export async function postExperiment(
 
   if (!context.permissions.canUpdateExperiment(experiment, req.body)) {
     context.permissions.throwPermissionError();
+  }
+
+  // FIXME: We skip validation because project is updated in a different place than where
+  // we define custom fields, and that would prevent the user from doing either update.
+  // Ideally we validate custom fields everytime, but we need to update our UI to support that.
+  if (
+    shouldValidateCustomFieldsOnUpdate({
+      existingCustomFieldValues: experiment.customFields,
+      updatedCustomFieldValues: data.customFields,
+    })
+  ) {
+    await validateCustomFieldsForSection({
+      customFieldValues: data.customFields,
+      customFieldsModel: context.models.customFields,
+      section: "experiment",
+      project: "project" in data ? data.project : experiment.project,
+    });
   }
 
   const { settings } = getScopedSettings({
