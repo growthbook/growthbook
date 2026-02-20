@@ -214,9 +214,6 @@ export default function CompareAuditEventsModal<T>({
   const {
     sectionLabels,
     setVisibleSections,
-    showOtherEvents,
-    setShowOtherEvents,
-    hasLabelOnlyEvents,
     isSectionVisible,
     toggleSection,
     loading,
@@ -456,14 +453,10 @@ export default function CompareAuditEventsModal<T>({
                   const activeFilterCount = sectionLabels.filter(
                     (l) => !isSectionVisible(l),
                   ).length;
-                  const isShowingAll =
-                    activeFilterCount === 0 &&
-                    (!hasLabelOnlyEvents || showOtherEvents);
-                  const isAtDefault =
-                    sectionLabels.every(
-                      (l) => isSectionVisible(l) === isDefaultVisible(l),
-                    ) &&
-                    (!hasLabelOnlyEvents || !showOtherEvents);
+                  const isShowingAll = activeFilterCount === 0;
+                  const isAtDefault = sectionLabels.every(
+                    (l) => isSectionVisible(l) === isDefaultVisible(l),
+                  );
                   return (
                     <DropdownMenu
                       modal={true}
@@ -494,7 +487,6 @@ export default function CompareAuditEventsModal<T>({
                                 {},
                               ),
                             );
-                            setShowOtherEvents(true);
                           }}
                         >
                           <Flex align="center" gap="1">
@@ -508,7 +500,7 @@ export default function CompareAuditEventsModal<T>({
                       <DropdownMenuItem
                         disabled={isAtDefault}
                         onClick={() => {
-                          setVisibleSections(
+                            setVisibleSections(
                             sectionLabels.reduce<Record<string, boolean>>(
                               (acc, l) => ({
                                 ...acc,
@@ -517,7 +509,6 @@ export default function CompareAuditEventsModal<T>({
                               {},
                             ),
                           );
-                          setShowOtherEvents(false);
                         }}
                       >
                         <Flex align="center" gap="1">
@@ -569,30 +560,6 @@ export default function CompareAuditEventsModal<T>({
                           </DropdownMenuItem>
                         );
                       })}
-                      {hasLabelOnlyEvents && (
-                        <>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() => setShowOtherEvents(!showOtherEvents)}
-                          >
-                            <Flex align="center" gap="1">
-                              <div
-                                className={`rt-CheckboxItem ${styles.filterCheckbox}`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setShowOtherEvents(!showOtherEvents);
-                                }}
-                              >
-                                <RadixCheckbox
-                                  checked={showOtherEvents}
-                                  color="violet"
-                                />
-                              </div>
-                              Show other events
-                            </Flex>
-                          </DropdownMenuItem>
-                        </>
-                      )}
                     </DropdownMenu>
                   );
                 })()}
@@ -631,9 +598,9 @@ export default function CompareAuditEventsModal<T>({
                         : it.date;
                   const date = getItemDate(item);
                   const prevDate = prev ? getItemDate(prev) : null;
-                  const bucketKey = getSeparatorBucketKey(date, groupBy);
+                  const bucketKey = getSeparatorBucketKey(date);
                   const prevBucketKey = prevDate
-                    ? getSeparatorBucketKey(prevDate, groupBy)
+                    ? getSeparatorBucketKey(prevDate)
                     : null;
                   if (prevBucketKey === null || bucketKey !== prevBucketKey) {
                     nodes.push(
@@ -688,24 +655,10 @@ export default function CompareAuditEventsModal<T>({
                         `${item.hiddenCount} ${item.hiddenCount === 1 ? "change" : "changes"} hidden`,
                       );
                     }
-                    if (showOtherEvents) {
-                      // Show individual marker labels.
-                      for (const m of item.markers) {
-                        lines.push(
-                          m.count > 1 ? `${m.label} ×${m.count}` : m.label,
-                        );
-                      }
-                    } else {
-                      // Collapse all markers into a single "N events hidden" line.
-                      const totalMarkers = item.markers.reduce(
-                        (sum, m) => sum + m.count,
-                        0,
+                    for (const m of item.markers) {
+                      lines.push(
+                        m.count > 1 ? `${m.label} ×${m.count}` : m.label,
                       );
-                      if (totalMarkers > 0) {
-                        lines.push(
-                          `${totalMarkers} ${totalMarkers === 1 ? "event" : "events"} hidden`,
-                        );
-                      }
                     }
                     nodes.push(
                       <Flex
@@ -713,6 +666,7 @@ export default function CompareAuditEventsModal<T>({
                         direction="column"
                         gap="1"
                         px="2"
+                        py="1"
                       >
                         {lines.map((line) => (
                           <Flex key={line} align="center">
@@ -917,7 +871,11 @@ export default function CompareAuditEventsModal<T>({
                       Change details
                     </Heading>
                   )}
-                  <Flex direction="column" gap="4">
+                  <Flex
+                    direction="column"
+                    gap="4"
+                    key={`${stepEntryA?.id ?? singleEntryFirst?.id}-${stepEntryB?.id ?? singleEntryLast?.id}`}
+                  >
                     {activeDiffs.map((d, i) => (
                       <Box key={i}>
                         <ExpandableDiff

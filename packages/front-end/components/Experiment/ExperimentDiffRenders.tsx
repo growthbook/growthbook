@@ -256,6 +256,7 @@ function MetricBadgeLabel({ id, sign }: { id: string; sign: "+" | "−" }) {
             showGroupIcon
             disableTooltip={false}
             metrics={groupMetrics}
+            officialBadgeLeftGap={false}
           />
         </Link>
       ) : (
@@ -762,7 +763,7 @@ function ActivationMetricName({ id }: { id: string | undefined | null }) {
   const exists = !!getExperimentMetricById(id);
   return exists ? (
     <Link href={getMetricLink(id)} target="_blank">
-      <MetricName id={id} disableTooltip={false} />
+      <MetricName id={id} disableTooltip={false} officialBadgeLeftGap={false} />
     </Link>
   ) : (
     <>{id}</>

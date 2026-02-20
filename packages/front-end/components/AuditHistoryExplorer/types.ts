@@ -125,6 +125,8 @@ export interface AuditDiffConfig<T> {
    * on dots/camelCase. Useful for forward-compatibility with future event types.
    */
   catchUnknownEventsAsLabels?: boolean;
+  /** Events to silently drop — never shown in the list, even when catchUnknownEventsAsLabels is true. */
+  ignoredEvents?: string[];
   /**
    * Events that carry no diffable experiment snapshot (e.g. experiment.refresh).
    * These are fetched alongside diffable events but shown as plain non-selectable

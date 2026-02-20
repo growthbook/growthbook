@@ -205,13 +205,6 @@ export function useAuditComparison<T>(
     ),
   );
 
-  const [showOtherEvents, setShowOtherEvents] = useLocalStorage<boolean>(
-    `${STORAGE_KEY_PREFIX}:${config.entityType}:showOtherEvents`,
-    false,
-  );
-
-  const hasLabelOnlyEvents = !!config.labelOnlyEvents?.length;
-
   const isSectionVisible = useCallback(
     (label: string) => visibleSections[label] !== false,
     [visibleSections],
@@ -481,9 +474,6 @@ export function useAuditComparison<T>(
     // Section visibility filters
     sectionLabels,
     setVisibleSections,
-    showOtherEvents,
-    setShowOtherEvents,
-    hasLabelOnlyEvents,
     isSectionVisible,
     toggleSection,
     // Loading / pagination

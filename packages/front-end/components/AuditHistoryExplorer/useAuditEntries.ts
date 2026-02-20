@@ -262,11 +262,13 @@ export function useAuditEntries<T>(
       ]);
       const entityPrefix = `${config.entityType}.`;
 
+      const ignored = new Set(config.ignoredEvents ?? []);
       const filtered = (res.events ?? []).filter(
         (e) =>
-          allIncluded.has(e.event) ||
-          (config.catchUnknownEventsAsLabels &&
-            e.event.startsWith(entityPrefix)),
+          !ignored.has(e.event) &&
+          (allIncluded.has(e.event) ||
+            (config.catchUnknownEventsAsLabels &&
+              e.event.startsWith(entityPrefix))),
       );
 
       const parsed: RawAuditEntry<T>[] = [];

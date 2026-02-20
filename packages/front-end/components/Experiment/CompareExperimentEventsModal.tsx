@@ -65,8 +65,6 @@ export const EXPERIMENT_EVENTS: Record<string, ExperimentEventDef> = {
     },
   },
   "experiment.delete": { label: "Deleted", alwaysVisible: true },
-  "experiment.refresh": { label: "Refreshed analysis" },
-  "experiment.analysis": { label: "Custom report analysis run" },
   "experiment.launchChecklist.updated": { label: "Launch checklist updated" },
   "experiment.screenshot.create": { label: "Screenshot added" },
   "experiment.screenshot.delete": { label: "Screenshot removed" },
@@ -89,6 +87,7 @@ const EXPERIMENT_DIFF_CONFIG: AuditDiffConfig<ExperimentInterfaceStringDates> =
       .filter(([, v]) => v.comparable && v.alwaysVisible)
       .map(([k]) => k),
     catchUnknownEventsAsLabels: true,
+    ignoredEvents: ["experiment.refresh", "experiment.analysis"],
     defaultGroupBy: "minute",
     entityLabel: "Experiment",
     defaultHiddenSections: ["other changes"],

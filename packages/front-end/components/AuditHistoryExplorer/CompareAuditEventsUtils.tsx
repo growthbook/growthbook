@@ -3,7 +3,6 @@ import {
   AuditDiffConfig,
   AuditEventMarker,
   CoarsenedAuditEntry,
-  GroupByOption,
 } from "./types";
 
 // ---- Types ----
@@ -24,13 +23,9 @@ export type LeftColItem<T> =
 
 // ---- Pure functions ----
 
-// Opaque key for date separator bucket detection; when it changes between adjacent items a separator is injected.
-// "minute" and "hour" both use hour-level separators.
-export function getSeparatorBucketKey(
-  date: Date,
-  groupBy: GroupByOption,
-): string {
-  return format(date, groupBy === "day" ? "yyyy-MM-dd" : "yyyy-MM-dd-HH");
+// Opaque key for date separator detection; a separator is injected whenever the day changes.
+export function getSeparatorBucketKey(date: Date): string {
+  return format(date, "yyyy-MM-dd");
 }
 
 // Display text for a date separator, e.g. "Jan 25" or "Jan 25, 2024".
