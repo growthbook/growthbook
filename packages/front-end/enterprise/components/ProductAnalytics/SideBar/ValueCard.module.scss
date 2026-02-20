@@ -1,0 +1,10 @@
+.titleGroup {
+  .editBtn {
+    opacity: 0;
+    transition: opacity 150ms ease;
+  }
+
+  &:hover .editBtn {
+    opacity: 1;
+  }
+}

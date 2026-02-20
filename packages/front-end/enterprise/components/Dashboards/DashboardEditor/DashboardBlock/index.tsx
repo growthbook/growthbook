@@ -59,6 +59,7 @@ import {
   BlockRenderError,
 } from "./BlockErrorStates";
 import MetricExplorerBlock from "./MetricExplorerBlock";
+import ProductAnalyticsExplorerBlock from "./ProductAnalyticsExplorerBlock";
 
 // Typescript helpers for passing objects to the block components based on id fields
 interface BlockIdFieldToObjectMap {
@@ -125,6 +126,9 @@ const BLOCK_COMPONENTS: {
   "experiment-traffic": ExperimentTrafficBlock,
   "sql-explorer": SqlExplorerBlock,
   "metric-explorer": MetricExplorerBlock,
+  "metric-exploration": ProductAnalyticsExplorerBlock,
+  "fact-table-exploration": ProductAnalyticsExplorerBlock,
+  "data-source-exploration": ProductAnalyticsExplorerBlock,
 };
 
 export default function DashboardBlock<T extends DashboardBlockInterface>({

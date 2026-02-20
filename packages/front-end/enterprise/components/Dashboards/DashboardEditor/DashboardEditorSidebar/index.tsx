@@ -31,6 +31,9 @@ import EditSingleBlock from "./EditSingleBlock";
 // Block types that are allowed in general dashboards (non-experiment specific)
 const GENERAL_DASHBOARD_BLOCK_TYPES: DashboardBlockType[] = [
   "markdown",
+  "metric-exploration",
+  "fact-table-exploration",
+  "data-source-exploration",
   "sql-explorer",
   "metric-explorer",
 ];
@@ -156,47 +159,55 @@ export default function DashboardEditorSidebar({
               </Text>
             ) : null}
 
-            {allowedBlockTypes.map((bType) => (
-              <a
-                href="#"
-                key={bType}
-                onClick={(e) => {
-                  e.preventDefault();
-                  addBlockType(bType);
-                }}
-                style={{
-                  display: "block",
-                  padding: "5px",
-                  margin: "0 -5px",
-                  width: "100%",
-                  borderRadius: "6px",
-                }}
-                className="hover-show no-underline hover-border-violet"
-              >
-                <Flex align="center">
-                  <Avatar
-                    radius="small"
-                    color="indigo"
-                    variant="soft"
-                    mr="2"
-                    size="sm"
-                  >
-                    {BLOCK_TYPE_INFO[bType].icon}
-                  </Avatar>
-                  <Text
-                    size="2"
-                    weight="regular"
-                    style={{ color: "var(--color-text-high" }}
-                  >
-                    {BLOCK_TYPE_INFO[bType].name}
-                  </Text>
-                  <div style={{ flex: 1 }} />
-                  <Text color="violet" className="ml-auto show-target instant">
-                    <PiPlusCircle /> Add
-                  </Text>
-                </Flex>
-              </a>
-            ))}
+            {allowedBlockTypes.map((bType) => {
+              if (BLOCK_TYPE_INFO[bType].deprecated) {
+                return null;
+              }
+              return (
+                <a
+                  href="#"
+                  key={bType}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    addBlockType(bType);
+                  }}
+                  style={{
+                    display: "block",
+                    padding: "5px",
+                    margin: "0 -5px",
+                    width: "100%",
+                    borderRadius: "6px",
+                  }}
+                  className="hover-show no-underline hover-border-violet"
+                >
+                  <Flex align="center">
+                    <Avatar
+                      radius="small"
+                      color="indigo"
+                      variant="soft"
+                      mr="2"
+                      size="sm"
+                    >
+                      {BLOCK_TYPE_INFO[bType].icon}
+                    </Avatar>
+                    <Text
+                      size="2"
+                      weight="regular"
+                      style={{ color: "var(--color-text-high" }}
+                    >
+                      {BLOCK_TYPE_INFO[bType].name}
+                    </Text>
+                    <div style={{ flex: 1 }} />
+                    <Text
+                      color="violet"
+                      className="ml-auto show-target instant"
+                    >
+                      <PiPlusCircle /> Add
+                    </Text>
+                  </Flex>
+                </a>
+              );
+            })}
           </Flex>
         );
       })}

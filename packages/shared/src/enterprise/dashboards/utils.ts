@@ -257,6 +257,27 @@ export const CREATE_BLOCK_TYPE: {
     metricAnalysisId: "",
     ...(initialValues || {}),
   }),
+  "metric-exploration": ({ initialValues }) => ({
+    type: "metric-exploration",
+    title: "",
+    description: "",
+    explorerAnalysisId: "",
+    ...(initialValues || {}),
+  }),
+  "fact-table-exploration": ({ initialValues }) => ({
+    type: "fact-table-exploration",
+    title: "",
+    description: "",
+    explorerAnalysisId: "",
+    ...(initialValues || {}),
+  }),
+  "data-source-exploration": ({ initialValues }) => ({
+    type: "data-source-exploration",
+    title: "",
+    description: "",
+    explorerAnalysisId: "",
+    ...(initialValues || {}),
+  }),
 };
 
 export function createDashboardBlocksFromTemplate(

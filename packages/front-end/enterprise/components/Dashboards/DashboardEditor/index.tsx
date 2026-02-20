@@ -60,7 +60,7 @@ import DashboardBlock from "./DashboardBlock";
 export const DASHBOARD_TOPBAR_HEIGHT = "40px";
 export const BLOCK_TYPE_INFO: Record<
   DashboardBlockType,
-  { name: string; icon: ReactElement }
+  { name: string; icon: ReactElement; deprecated?: boolean }
 > = {
   markdown: {
     name: "Markdown",
@@ -93,6 +93,19 @@ export const BLOCK_TYPE_INFO: Record<
   "metric-explorer": {
     name: "Metric",
     icon: <PiFileSqlDuotone />,
+    deprecated: true,
+  },
+  "metric-exploration": {
+    name: "Metric Exploration",
+    icon: <PiTableDuotone />,
+  },
+  "fact-table-exploration": {
+    name: "Fact Table Exploration",
+    icon: <PiTableDuotone />,
+  },
+  "data-source-exploration": {
+    name: "Data Source Exploration",
+    icon: <PiTableDuotone />,
   },
 };
 
@@ -102,7 +115,17 @@ export const BLOCK_SUBGROUPS: [string, DashboardBlockType[]][] = [
     ["experiment-metric", "experiment-dimension", "experiment-time-series"],
   ],
   ["Experiment Info", ["experiment-metadata", "experiment-traffic"]],
-  ["Other", ["markdown", "sql-explorer", "metric-explorer"]],
+  [
+    "Other",
+    [
+      "markdown",
+      "metric-exploration",
+      "fact-table-exploration",
+      "data-source-exploration",
+      "sql-explorer",
+      "metric-explorer",
+    ],
+  ],
 ];
 
 // Block types that are allowed in general dashboards (non-experiment specific)
@@ -110,6 +133,9 @@ export const GENERAL_DASHBOARD_BLOCK_TYPES: DashboardBlockType[] = [
   "markdown",
   "sql-explorer",
   "metric-explorer",
+  "metric-exploration",
+  "fact-table-exploration",
+  "data-source-exploration",
 ];
 
 // Helper function to check if a block type is allowed for the given dashboard type
@@ -176,17 +202,22 @@ function AddBlockDropdown({
                 </Text>
               </DropdownMenuLabel>
             )}
-            {allowedBlockTypes.map((bType) => (
-              <DropdownMenuItem
-                key={bType}
-                onClick={() => {
-                  setDropdownOpen(false);
-                  addBlockType(bType);
-                }}
-              >
-                {BLOCK_TYPE_INFO[bType].name}
-              </DropdownMenuItem>
-            ))}
+            {allowedBlockTypes.map((bType) => {
+              if (BLOCK_TYPE_INFO[bType].deprecated) {
+                return null;
+              }
+              return (
+                <DropdownMenuItem
+                  key={bType}
+                  onClick={() => {
+                    setDropdownOpen(false);
+                    addBlockType(bType);
+                  }}
+                >
+                  {BLOCK_TYPE_INFO[bType].name}
+                </DropdownMenuItem>
+              );
+            })}
             {i < BLOCK_SUBGROUPS.length - 1 && <DropdownMenuSeparator />}
           </Fragment>
         );
