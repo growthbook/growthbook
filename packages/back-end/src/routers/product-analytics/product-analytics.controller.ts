@@ -1,8 +1,10 @@
 import type { Response } from "express";
 import {
   ProductAnalyticsConfig,
+  ProductAnalyticsResult,
   productAnalyticsConfigValidator,
   ProductAnalyticsResultRow,
+  ExplorerAnalysisResponse,
 } from "shared/validators";
 import {
   FactMetricInterface,
@@ -30,6 +32,7 @@ export const postProductAnalyticsRun = async (
     rows: ProductAnalyticsResultRow[];
     rawRows: Record<string, unknown>[];
     statistics?: QueryStatistics;
+    analysisId: string;
   }>,
 ) => {
   const context = getContextFromReq(req);
@@ -130,6 +133,7 @@ export const postProductAnalyticsRun = async (
       status: 200,
       sql,
       ...results,
+      analysisId: "test123",
     });
   } catch (e) {
     const error = e instanceof Error ? e : new Error(String(e));
@@ -140,6 +144,70 @@ export const postProductAnalyticsRun = async (
       error: error.message,
       rows: [],
       rawRows: [],
+      analysisId: "test123",
     });
   }
+};
+
+export const getExplorerAnalysis = async (
+  req: AuthRequest<never, { explorerAnalysisId: string }, never>,
+  res: Response<ExplorerAnalysisResponse>,
+) => {
+  const { explorerAnalysisId } = req.params;
+
+  // Mock data for test endpoint; replace with persistence when ready
+  const config: ProductAnalyticsConfig = {
+    analysisId: explorerAnalysisId,
+    dataset: {
+      type: "metric",
+      values: [
+        {
+          type: "metric",
+          name: "Average Order Value - New",
+          rowFilters: [],
+          metricId: "fact__18ez1c10n6mh2a2ycw",
+          unit: "USD",
+          denominatorUnit: "USD",
+        },
+      ],
+    },
+    dimensions: [],
+    chartType: "line",
+    dateRange: {
+      predefined: "last30Days",
+      lookbackValue: 30,
+      lookbackUnit: "day",
+      startDate: null,
+      endDate: null,
+    },
+    lastRefreshedAt: new Date().toISOString(),
+  };
+
+  const results: ProductAnalyticsResult = {
+    analysisId: "test123",
+    rows: [
+      {
+        dimensions: ["2021-01-01"],
+        values: [{ metricId: "123", numerator: 100, denominator: 100 }],
+      },
+      {
+        dimensions: ["2021-01-02"],
+        values: [{ metricId: "123", numerator: 200, denominator: 100 }],
+      },
+      {
+        dimensions: ["2021-01-03"],
+        values: [{ metricId: "123", numerator: 300, denominator: 300 }],
+      },
+      {
+        dimensions: ["2021-01-04"],
+        values: [{ metricId: "123", numerator: 400, denominator: 200 }],
+      },
+      {
+        dimensions: ["2021-01-05"],
+        values: [{ metricId: "123", numerator: 500, denominator: 100 }],
+      },
+    ],
+  };
+
+  return res.status(200).json({ config, results });
 };

@@ -148,6 +148,7 @@ export const lookbackUnit = ["hour", "day", "week", "month"] as const;
 // The config defined in the UI
 export const productAnalyticsConfigValidator = z
   .object({
+    analysisId: z.string().optional(),
     dataset: datasetValidator,
     dimensions: z.array(dimensionValidator),
     chartType: z.enum(chartTypes),
@@ -158,6 +159,7 @@ export const productAnalyticsConfigValidator = z
       startDate: z.coerce.date().nullable(),
       endDate: z.coerce.date().nullable(),
     }),
+    lastRefreshedAt: z.string().nullable(),
   })
   .strict();
 
@@ -184,6 +186,7 @@ export const productAnalyticsResultRowValidator = z.object({
   ),
 });
 export const productAnalyticsResultValidator = z.object({
+  analysisId: z.string(),
   rows: z.array(productAnalyticsResultRowValidator),
   sql: z.string().optional(),
   error: z.string().nullable().optional(),
@@ -204,3 +207,8 @@ export type ProductAnalyticsResult = z.infer<
 export type ProductAnalyticsResultRow = z.infer<
   typeof productAnalyticsResultRowValidator
 >;
+
+export type ExplorerAnalysisResponse = {
+  config: ProductAnalyticsConfig;
+  results: ProductAnalyticsResult;
+};

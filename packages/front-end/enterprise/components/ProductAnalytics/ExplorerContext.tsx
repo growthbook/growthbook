@@ -27,7 +27,7 @@ import {
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useExploreData } from "./useExploreData";
 
-const INITIAL_EXPLORE_STATE: ProductAnalyticsConfig = {
+const DEFAULT_EXPLORE_STATE: ProductAnalyticsConfig = {
   dataset: {
     type: "metric", // default to metric
     values: [],
@@ -47,6 +47,7 @@ const INITIAL_EXPLORE_STATE: ProductAnalyticsConfig = {
     startDate: null,
     endDate: null,
   },
+  lastRefreshedAt: null,
 };
 
 type ExplorerCacheValue = {
@@ -92,10 +93,15 @@ const AUTO_SUBMIT = true;
 
 interface ExplorerProviderProps {
   children: ReactNode;
+  initialConfig?: ProductAnalyticsConfig;
 }
 
-export function ExplorerProvider({ children }: ExplorerProviderProps) {
+export function ExplorerProvider({
+  children,
+  initialConfig,
+}: ExplorerProviderProps) {
   const { loading, fetchData } = useExploreData();
+
   const {
     getFactTableById,
     getFactMetricById,
@@ -105,7 +111,7 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
   } = useDefinitions();
 
   const [activeExplorerType, setActiveExplorerType] =
-    useState<DatasetType | null>(null);
+    useState<DatasetType | null>(initialConfig?.dataset.type || null);
   const [explorerCache, setExplorerCache] = useState<ExplorerCache>({
     metric: null,
     fact_table: null,
@@ -113,6 +119,8 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
   });
 
   const isEmpty = activeExplorerType === null;
+
+  const INITIAL_EXPLORE_STATE = initialConfig || DEFAULT_EXPLORE_STATE;
 
   const draftExploreState: ProductAnalyticsConfig = isEmpty
     ? INITIAL_EXPLORE_STATE
@@ -146,7 +154,13 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
         };
       });
     },
-    [activeExplorerType, getFactTableById, getFactMetricById, isEmpty],
+    [
+      activeExplorerType,
+      getFactTableById,
+      getFactMetricById,
+      isEmpty,
+      INITIAL_EXPLORE_STATE,
+    ],
   );
 
   const setSubmittedExploreState = useCallback(
@@ -375,7 +389,7 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
         return defaultDraftState;
       }
     },
-    [explorerCache, createDefaultValue, datasources],
+    [explorerCache, createDefaultValue, datasources, INITIAL_EXPLORE_STATE],
   );
 
   const value = useMemo<ExplorerContextValue>(

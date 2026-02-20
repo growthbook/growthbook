@@ -13,6 +13,8 @@ import ExplorerDataTable from "./ExplorerDataTable";
 
 export default function ExplorerMainSection() {
   const {
+    exploreData,
+    exploreError,
     draftExploreState,
     submittedExploreState,
     loading,
@@ -49,7 +51,12 @@ export default function ExplorerMainSection() {
       {submittedExploreState?.dataset?.values?.length &&
       submittedExploreState?.dataset?.values?.length > 0 ? (
         <Flex direction="column" gap="3">
-          <ExplorerChart />
+          <ExplorerChart
+            exploreData={exploreData}
+            submittedExploreState={submittedExploreState}
+            loading={loading}
+            exploreError={exploreError}
+          />
           <ExplorerDataTable />
         </Flex>
       ) : (

@@ -1,14 +1,16 @@
 import { useMemo } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
-import type { ProductAnalyticsConfig } from "shared/validators";
+import type {
+  ProductAnalyticsConfig,
+  ProductAnalyticsResult,
+} from "shared/validators";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { useDashboardCharts } from "@/enterprise/components/Dashboards/DashboardChartsContext";
 import BigValueChart from "@/components/SqlExplorer/BigValueChart";
 import HelperText from "@/ui/HelperText";
 import Callout from "@/ui/Callout";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Text from "@/ui/Text";
 
 const CHART_ID = "explorer-chart";
@@ -43,9 +45,17 @@ function getSeriesTitle(
   return config?.dataset?.values?.[valueIndex]?.name ?? fallback;
 }
 
-export default function ExplorerChart() {
-  const { exploreData, submittedExploreState, loading, exploreError } =
-    useExplorerContext();
+export default function ExplorerChart({
+  exploreData,
+  submittedExploreState,
+  loading,
+  exploreError,
+}: {
+  exploreData: ProductAnalyticsResult | null;
+  submittedExploreState: ProductAnalyticsConfig;
+  loading: boolean;
+  exploreError: string | null;
+}) {
   const { theme } = useAppearanceUITheme();
   const textColor = theme === "dark" ? "#FFFFFF" : "#1F2D5C";
   const tooltipBackgroundColor = theme === "dark" ? "#1c2339" : "#FFFFFF";
