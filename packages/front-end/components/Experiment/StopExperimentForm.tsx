@@ -46,14 +46,15 @@ const StopExperimentForm: FC<{
   const hasLinkedChanges = experimentHasLinkedChanges(experiment);
 
   const gb = useGrowthBook<AppFeatures>();
-  const aiTemperature =
-    gb.getFeatureValue("ai-suggestions-temperature", 0.1) || 0.1;
   const aiSuggestionRef = useRef<string | undefined>(undefined);
 
   const aiSuggestFunction = gb.isOn(
     "ai-suggestions-for-experiment-analysis-input",
   )
     ? async (): Promise<string> => {
+        // Only evaluate the feature flag if suggestion is requested
+        const aiTemperature =
+          gb.getFeatureValue("ai-suggestions-temperature", 0.1) || 0.1;
         const response = await apiCall<{
           status: number;
           data: {

@@ -188,8 +188,6 @@ export default function SqlExplorerModal({
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiAgreementModal, setAiAgreementModal] = useState<boolean>(false);
   const gb = useGrowthBook<AppFeatures>();
-  const aiTemperature =
-    gb?.getFeatureValue("ai-suggestions-temperature", 0.1) || 0.1;
   const aiSuggestionRef = useRef<string | undefined>(undefined);
   const permissionsUtil = usePermissionsUtil();
   const [cursorData, setCursorData] = useState<null | CursorData>(null);
@@ -602,6 +600,8 @@ export default function SqlExplorerModal({
       }, 0);
     } else {
       if (aiEnabled) {
+        const aiTemperature =
+          gb?.getFeatureValue("ai-suggestions-temperature", 0.1) || 0.1;
         track("AI Usage", { source: "sql-explorer" });
         setAiError(null);
         setLoading(true);

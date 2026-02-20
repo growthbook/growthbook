@@ -199,7 +199,6 @@ export async function postAIExperimentAnalysis(
     retryAfter?: number;
     data?: {
       description: string;
-      temperature: number;
     };
   }>,
 ) {
@@ -389,7 +388,6 @@ export async function postAIExperimentAnalysis(
     status: 200,
     data: {
       description: aiResults,
-      temperature,
     },
   });
 }

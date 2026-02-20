@@ -80,8 +80,6 @@ const MetricPage: FC = () => {
   const settings = useOrgSettings();
   const { organization } = useUser();
   const gb = useGrowthBook<AppFeatures>();
-  const aiTemperature =
-    gb?.getFeatureValue("ai-suggestions-temperature", 0.1) || 0.1;
 
   const [editModalOpen, setEditModalOpen] = useState<boolean | number>(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState<boolean>(false);
@@ -560,6 +558,13 @@ const MetricPage: FC = () => {
                           mutateDefinitions({});
                         }}
                         aiSuggestFunction={async () => {
+                          // Only evaluate the feature flag if suggestion is requested
+                          const aiTemperature =
+                            gb?.getFeatureValue(
+                              "ai-suggestions-temperature",
+                              0.1,
+                            ) || 0.1;
+
                           const res = await apiCall<{
                             status: number;
                             data: {
