@@ -266,12 +266,9 @@ const Presentation = ({
     }
 
     const hasRevealStep =
-      (e?.experiment?.results === "won" ||
-        e?.experiment?.results === "lost" ||
-        e?.experiment?.results === "inconclusive") &&
-      (e?.experiment?.results === "lost"
-        ? e.experiment.variations.length === 2
-        : true);
+      e?.experiment?.results === "won" ||
+      e?.experiment?.results === "lost" ||
+      e?.experiment?.results === "inconclusive";
 
     slideConfigs.push({
       content: (
@@ -340,7 +337,7 @@ const Presentation = ({
           <div className="row variations justify-content-center">
             {e?.experiment?.variations.map((v: Variation, j: number) => (
               <div
-                className={`col m-0 p-0 col-${
+                className={`col m-0 p-0 px-2 col-${
                   12 / (e?.experiment?.variations?.length || 1)
                 } presentationcol text-center`}
                 key={`v-${j}`}
