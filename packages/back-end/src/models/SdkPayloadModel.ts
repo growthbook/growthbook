@@ -1,3 +1,7 @@
+/**
+ * @deprecated Legacy cache (org + environment level)
+ * Use SdkConnectionCacheModel instead (connection-specific, fully-processed).
+ */
 import mongoose from "mongoose";
 import {
   AutoExperimentWithProject,
@@ -9,6 +13,7 @@ import {
   SDKPayloadInterface,
   SDKStringifiedPayloadInterface,
 } from "back-end/types/sdk-payload";
+import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
 
 // Increment this if we change the payload contents in a backwards-incompatible way
 export const LATEST_SDK_PAYLOAD_SCHEMA_VERSION = 1;
@@ -49,14 +54,9 @@ function toInterface(doc: SDKPayloadDocument): SDKPayloadInterface | null {
   }
 }
 
-// TODO: add support for S3 and GCS
-export function getSDKPayloadCacheLocation(): "mongo" | "none" {
-  const loc = process.env.SDK_PAYLOAD_CACHE;
-  if (loc === "none") return "none";
-  // Default to mongo
-  return "mongo";
-}
-
+/**
+ * @deprecated Use sdkConnectionCache.getById() instead.
+ */
 export async function getSDKPayload({
   organization,
   environment,
@@ -78,6 +78,7 @@ export async function getSDKPayload({
   return doc ? toInterface(doc) : null;
 }
 
+/** @deprecated Use sdkConnectionCache.upsert() instead. */
 export async function updateSDKPayload({
   organization,
   environment,

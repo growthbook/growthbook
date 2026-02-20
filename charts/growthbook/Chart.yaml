@@ -1,6 +1,6 @@
 apiVersion: v2
 name: growthbook
-description: Open Source Feature Flagging and A/B Testing Platform
+description: Open Source Feature Flags, Experimentation, and Product Analytics
 icon: https://avatars.githubusercontent.com/u/65404594
 home: https://www.growthbook.io/
 sources:
@@ -8,15 +8,11 @@ sources:
 
 type: application
 
-# This is the chart version. This version number should be incremented each time you make changes
-# to the chart and its templates, including the app version.
-# Versions are expected to follow Semantic Versioning (https://semver.org/)
-version: "4.3.0"
+# This should generally match the appVersion
+# We can increment the patch version if changes to the chart itself are needed
+version: "4.3.1"
 
-# This is the version number of the application being deployed. This version number should be
-# incremented each time you make changes to the application. Versions are not expected to
-# follow Semantic Versioning. They should reflect the version the application is using.
-# It is recommended to use it with quotes.
+# This should match the version in the root package.json
 appVersion: "4.3.0"
 
 dependencies:
@@ -30,3 +26,12 @@ dependencies:
   - name: server
     version: "0.0.0"
     alias: backend
+
+# This should match the version in the root package.json
+annotations:
+  artifacthub.io/images: |
+    - name: growthbook
+      image: growthbook/growthbook:4.3.0
+      platforms:
+        - linux/amd64
+        - linux/arm64

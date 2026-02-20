@@ -4,7 +4,7 @@ import {
   validateScheduleRules,
 } from "shared/util";
 import { isEqual } from "lodash";
-import { UpdateFeatureResponse } from "shared/types/openapi";
+import type { UpdateFeatureResponse } from "shared/types/openapi";
 import { updateFeatureValidator, RevisionRules } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -17,6 +17,7 @@ import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel"
 import {
   addIdsToRules,
   getApiFeatureObj,
+  getNextScheduledUpdate,
   getSavedGroupMap,
   updateInterfaceEnvSettingsFromApiEnvSettings,
 } from "back-end/src/services/features";
@@ -184,6 +185,13 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         req.context.permissions.throwPermissionError();
       }
       addIdsToRules(updates.environmentSettings, feature.id);
+    }
+
+    if (updates.environmentSettings) {
+      updates.nextScheduledUpdate = getNextScheduledUpdate(
+        updates.environmentSettings,
+        orgEnvs,
+      );
     }
 
     // Create a revision for the changes and publish them immediately
