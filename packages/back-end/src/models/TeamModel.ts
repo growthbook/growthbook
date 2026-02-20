@@ -104,14 +104,7 @@ export class TeamModel extends BaseClass {
   }
   protected canRead(team: TeamInterface): boolean {
     // Teams aren't project-scoped and they're used to build a user's permissions, so the `readData` check doesn't work
-    // Instead, if the user has the canManageTeam permission, they can view all teams
-    if (this.context.permissions.canManageTeam()) return true;
-
-    // If the user is a member of the team, they can view it
-    const members = getMembersOfTeam(this.context.org, team.id);
-
-    // Otherwise, a user should only be able to view a team if they're a member
-    return members.includes(this.context.userId) || false;
+    return true;
   }
   protected canUpdate(): boolean {
     return this.context.permissions.canManageTeam();
