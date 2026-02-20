@@ -8,6 +8,8 @@ import {
   includeExperimentInPayload,
   isDefined,
   recursiveWalk,
+  getNamespaceRanges,
+  NamespaceValue,
 } from "shared/util";
 import { GroupMap } from "shared/types/saved-group";
 import { cloneDeep, isNil } from "lodash";
@@ -321,13 +323,7 @@ export function getHoldoutFeatureDefId(holdoutId: string) {
  */
 function applyNamespaceToRule(
   rule: FeatureDefinitionRule,
-  namespace: {
-    name: string;
-    enabled: boolean;
-    range?: [number, number];
-    ranges?: [number, number][];
-    hashAttribute?: string;
-  },
+  namespace: NamespaceValue,
   namespacesMap: Map<
     string,
     { hashAttribute?: string; seed?: string; format?: "legacy" | "multiRange" }
@@ -337,32 +333,22 @@ function applyNamespaceToRule(
 
   // MultiRange format: namespace definition has explicit format flag set to "multiRange"
   if (nsDefinition?.format === "multiRange") {
-    const ranges =
-      "ranges" in namespace && namespace.ranges
-        ? namespace.ranges
-        : "range" in namespace && namespace.range
-          ? [namespace.range]
-          : [[0, 1] as [number, number]];
-
+    // Multi-range namespaces always use the hashAttribute from the definition
+    rule.hashAttribute =
+      nsDefinition.hashAttribute || rule.hashAttribute || "id";
+    rule.hashVersion = 2;
     rule.filters = [
       {
-        attribute:
-          "hashAttribute" in namespace && namespace.hashAttribute
-            ? namespace.hashAttribute
-            : nsDefinition.hashAttribute!,
+        attribute: rule.hashAttribute,
         seed: nsDefinition.seed || namespace.name,
         hashVersion: 2,
-        ranges,
+        ranges: getNamespaceRanges(namespace),
       },
     ];
   } else {
     // Legacy format: use tuple for backward compatibility
-    const range =
-      "ranges" in namespace && namespace.ranges && namespace.ranges.length > 0
-        ? namespace.ranges[0]
-        : "range" in namespace && namespace.range
-          ? namespace.range
-          : ([0, 1] as [number, number]);
+    const ranges = getNamespaceRanges(namespace);
+    const range = ranges[0] || ([0, 0] as [number, number]);
 
     rule.namespace = [namespace.name, range[0], range[1]];
   }
