@@ -3,7 +3,7 @@ import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { BsStars } from "react-icons/bs";
 import { useState } from "react";
 import { PiArrowClockwise } from "react-icons/pi";
-import { AISuggestionType } from "shared/ai";
+import { AISuggestionType, computeAIUsageData } from "shared/ai";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
@@ -116,6 +116,14 @@ export default function EditHypothesisModal({
         open={showModal}
         close={close}
         submit={form.handleSubmit(async (data) => {
+          if (aiResponse) {
+            track("experiment-hypothesis-saved-after-ai-suggestion", {
+              aiUsageData: computeAIUsageData({
+                value: data.hypothesis,
+                aiSuggestionText: aiResponse,
+              }),
+            });
+          }
           await apiCall(`/experiment/${experimentId}`, {
             method: "POST",
             body: JSON.stringify({

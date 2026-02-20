@@ -467,6 +467,14 @@ export default function SqlExplorerModal({
             allVisualizationIds: visualizationIds,
           });
         }
+        if (aiSuggestionRef.current) {
+          track("sql-query-saved-after-ai-suggestion", {
+            aiUsageData: computeAIUsageData({
+              value: form.watch("sql"),
+              aiSuggestionText: aiSuggestionRef.current,
+            }),
+          });
+        }
         close();
       } catch (error) {
         setLoading(false);
@@ -527,7 +535,7 @@ export default function SqlExplorerModal({
         });
       }
       if (aiSuggestionRef.current) {
-        track("SQL Query Saved", {
+        track("sql-query-saved-after-ai-suggestion", {
           aiUsageData: computeAIUsageData({
             value: form.watch("sql"),
             aiSuggestionText: aiSuggestionRef.current,

@@ -63,13 +63,14 @@ export default function MarkdownInlineEdit({
             setLoading(true);
             try {
               await save(val);
-              track("Save Markdown Inline Edit", {
-                source: "markdown-inline-edit",
-                ...computeAIUsageData({
-                  value: val,
-                  aiSuggestionText: aiSuggestionRef.current,
-                }),
-              });
+              if (aiSuggestionRef.current) {
+                track("markdown-inline-edit-saved-after-ai-suggestion", {
+                  aiUsageData: computeAIUsageData({
+                    value: val,
+                    aiSuggestionText: aiSuggestionRef.current,
+                  }),
+                });
+              }
               setEdit(false);
             } catch (e) {
               setError(e.message);
