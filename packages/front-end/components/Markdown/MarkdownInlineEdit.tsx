@@ -51,7 +51,7 @@ export default function MarkdownInlineEdit({
 
   if (edit) {
     return (
-      <Box className="position-relative">
+      <Box position="relative">
         <form
           onSubmit={async (e) => {
             e.preventDefault();
