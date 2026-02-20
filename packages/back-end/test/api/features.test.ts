@@ -1028,6 +1028,7 @@ describe("features API", () => {
           safeRollout: {
             getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
           },
+          customFields: getEmptyCustomFieldsModel(),
         },
         permissions: {
           canPublishFeature: () => true,
