@@ -304,9 +304,14 @@ export default function AuditHistoryExplorerModal<T>({
         <Box
           px="3"
           pt="2"
-          style={{ borderBottom: "1px solid var(--gray-5)", flexShrink: 0 }}
+          style={{
+            borderBottom: "1px solid var(--gray-5)",
+            flexShrink: 0,
+            boxShadow:
+              "0 1px 2px rgba(0, 0, 0, 0.1), 0 4px 4px rgba(0, 0, 0, 0.025)",
+          }}
         >
-          <TabsList>
+          <TabsList style={{ boxShadow: "none" }}>
             <TabsTrigger value="explore">Explore Changes</TabsTrigger>
             <TabsTrigger value="raw">Audit Log</TabsTrigger>
           </TabsList>
