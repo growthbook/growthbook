@@ -5,37 +5,12 @@ slug: /bandits/config
 
 import MaxWidthImage from "@site/src/components/MaxWidthImage";
 
-Bandits are run similarly to Experiments in GrowthBook. There are three key differences:
+Bandits are run similarly to Experiments in GrowthBook. There are several key differences:
 
-1. We require you use **Sticky Bucketing** in your SDK to ensure consistent user assignment
-2. We require you to select a **Decision Metric** to optimize towards
-3. You have to decide the exploration window and update cadence for your Bandits
-
-## Prerequisite: Sticky Bucketing
-
-All GrowthBook Bandits (at least while in Beta) require you to enable [Sticky Bucketing](/app/sticky-bucketing). This ensures that users are consistently assigned to the same variation even if they return to the experiment later and the variation weights have changed. Variation weights change frequently in a Bandit, so Sticky Bucketing is important to ensure consistent user experiences.
-
-Furthermore, you should set up your Sticky Bucketing service to store variations in the same place that you store and track your user identities. For example, if you plan on running a bandit using cookie-based identifiers, we strongly recommend using a cookie-based Sticky Bucketing approach to ensure that both the hash attribute and the sticky bucketing identifiers are kept in sync.
-
-Follow the instructions in the [Sticky Bucketing](/app/sticky-bucketing) guide to set up Sticky Bucketing in your SDK and enable it in GrowthBook.
-
-## Prerequisite: Double check SDK cache settings
-
-Bandits optimize towards winning variations by making frequent changes to variation weights. Therefore it is important to ensure that your SDK implementation is able to receive updates in a timely fashion. Most of our SDKs automatically cache bandit definitions locally to reduce network latency.
-
-While each SDK's default cache settings, namely the `maxAge` or `TTL` fields, are generally compatible with most bandit configurations, you should double-check your own configuration. If variation weights do not update in the SDK significantly more quickly than your bandit's [update cadence](#update-cadence), then you may experience slower bandit performance and even [Sample Ratio Mismatch (SRM)](/using/experimenting#sample-ratio-mismatch-srm).
-
-:::tip Cache max-age recommendations
-
-As a rule of thumb, try to aim for a cache `maxAge` or `TTL` that is at least _5 times faster_ than your **update cadence**.
-
-For a bandit with a daily update cadence, use an SDK cache max-age of 4-5 hours. For a bandit with an hourly update cadence, use a max-age of around 10 minutes.
-
-:::
-
-- If you are using the [HTML Script Tag](/lib/script-tag), variation weights have a maximum staleness of 4 hours, which is sufficient for most scenarios.
-- Similarly, most of our SDKs have an internal cache with a default `maxAge` or `TTL` of 4 hours.
-- If you are applying any sort of network-level payload caching (such as a custom CDN or caching proxy), please ensure appropriate cache TTL and/or ejection policies are in place.
+1. We require you to select a **Decision Metric** to optimize towards
+2. You can disable sticky bucketing, if desired
+3. You have to specify a conversion window for your Decision Metric
+4. You have to decide the exploration window and update cadence for your Bandits
 
 ## Creating a Bandit
 
@@ -53,7 +28,19 @@ First, select the assignment Attribute used to randomize users into variations a
 
 Select the number of variations you want to set up. The Bandit works well in cases where you have 5 or more arms and you're looking to weed out poor performers quickly, but if you have too many arms for your amount of traffic, then it may take a long time for the Bandit to identify a winner.
 
-### 3. Selecting a Decision Metric
+### 3. Disable Sticky Bucketing (optional)
+
+[Sticky Bucketing](/app/sticky-bucketing) ensures that users are consistently assigned to the same variation even if they return to the experiment later and the variation weights have changed. Variation weights change frequently in a Bandit, so Sticky Bucketing is important to ensure consistent user experiences.
+
+If you have Sticky Bucketing enabled, we generally advise using it in your Bandits. Sticky bucketing helps keep user experiences fixed over time. For example, if your bandit arms represent different promotional values, it may be a bad user experience if a user returns to your website and sees a different promotional value. Sticky bucketing also permits you to learn from longer term outcomes, though bandits are generally not designed for this purpose.
+
+Furthermore, you should set up your Sticky Bucketing service to store variations in the same place that you store and track your user identities. For example, if you plan on running a bandit using cookie-based identifiers, we strongly recommend using a cookie-based Sticky Bucketing approach to ensure that both the hash attribute and the sticky bucketing identifiers are kept in sync.
+
+Follow the instructions in the [Sticky Bucketing](/app/sticky-bucketing) guide to set up Sticky Bucketing in your SDK and enable it in GrowthBook.
+
+However, there are use cases where sticky bucketing is suboptimal. Sticky bucketing keeps users locked into their first exposure, which can hurt the reward of the bandit from switching users into better performing variations. If exposures within a user can be considered independent, then the bandit may learn faster and have higher reward if sticky bucketing is disabled.
+
+### 4. Selecting a Decision Metric
 
 The Decision Metric is the metric that the Bandit will optimize towards. After each **reweighting** update, the Bandit will assign more traffic to the variations that are performing better with respect to the Decision Metric. It should be a metric that you care about improving and that you can measure quickly after the user is exposed to the experiment.
 
@@ -66,7 +53,13 @@ An ideal decision metric has the following properties:
   ![Configuring Bandit Decision Metric and Exploration Window](/images/bandits/bandit-config-2.png)
 </MaxWidthImage>
 
-### 4. Set the exploration window and update cadence
+### 5. Specify the conversion window length
+
+Ideally your users convert in a window much shorter than your bandit's update cadence. This will help the bandit learn quickly and allocate future traffic to the best performing variations.
+
+If sticky bucketing is not enabled and your metrics are at the user level, this is extra important. If a user has multiple sessions, long conversion windows can result in double counting metric outcomes. If the user has multiple sessions across different bandit periods, then long conversion windows can attribute metric outcomes to the wrong variation.
+
+### 6. Set the exploration window and update cadence
 
 The Bandit needs to know how long it should collect data for before beginning to update variation weights. This is called the **Exploration Window**. After the Exploration Window, the bandit will begin to update variation weights at a set **Update Cadence**.
 
@@ -89,7 +82,7 @@ Unless you have a compelling reason to update your Bandit more frequently, we re
 
 While longer update windows mean that the Bandit will send more traffic to lower performing variations, they also reduce the likelihood that a fluky day of traffic will cause undesirable weight updates.
 
-### 5. Configure your different Variations
+### 7. Configure your different Variations
 
 After you create your bandit, you'll be able to configure the different variations each arm of the Bandit will serve.
 
@@ -98,3 +91,21 @@ Use either Feature Flags, the Visual Editor, or URL Redirects to set up your dif
 <MaxWidthImage border>
   ![Linking Bandit Changes](/images/bandits/bandit-config-3.png)
 </MaxWidthImage>
+
+### 8. Prerequisite: Double check SDK cache settings
+
+Bandits optimize towards winning variations by making frequent changes to variation weights. Therefore it is important to ensure that your SDK implementation is able to receive updates in a timely fashion. Most of our SDKs automatically cache bandit definitions locally to reduce network latency.
+
+While each SDK's default cache settings, namely the `maxAge` or `TTL` fields, are generally compatible with most bandit configurations, you should double-check your own configuration. If variation weights do not update in the SDK significantly more quickly than your bandit's [update cadence](#update-cadence), then you may experience slower bandit performance and even [Sample Ratio Mismatch (SRM)](/using/experimenting#sample-ratio-mismatch-srm).
+
+:::tip Cache max-age recommendations
+
+As a rule of thumb, try to aim for a cache `maxAge` or `TTL` that is at least _5 times faster_ than your **update cadence**.
+
+For a bandit with a daily update cadence, use an SDK cache max-age of 4-5 hours. For a bandit with an hourly update cadence, use a max-age of around 10 minutes.
+
+:::
+
+- If you are using the [HTML Script Tag](/lib/script-tag), variation weights have a maximum staleness of 4 hours, which is sufficient for most scenarios.
+- Similarly, most of our SDKs have an internal cache with a default `maxAge` or `TTL` of 4 hours.
+- If you are applying any sort of network-level payload caching (such as a custom CDN or caching proxy), please ensure appropriate cache TTL and/or ejection policies are in place.
