@@ -1,3 +1,5 @@
+const path = require("path");
+
 const withBundleAnalyzer = require("@next/bundle-analyzer")({
   enabled: process.env.ANALYZE === "true",
 });
@@ -9,6 +11,7 @@ const cspHeader = `
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   turbopack: {
+    root: path.join(__dirname, "../.."),
     // Ace workers: load as raw text so we can create Blob URLs. Turbopack doesn't support
     // webpack's asset/resource the same way - raw-loader gives us the worker source,
     // which we convert to blob: URLs that Ace can load.
