@@ -17,6 +17,7 @@ import { date } from "shared/dates";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { Box, Flex } from "@radix-ui/themes";
 import { isBinomialMetric } from "shared/experiments";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import DiscussionThread from "@/components/DiscussionThread";
@@ -60,6 +61,7 @@ import MetricPriorRightRailSectionGroup from "@/components/Metrics/MetricPriorRi
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import MetricExperiments from "@/components/MetricExperiments/MetricExperiments";
 import { MetricModal } from "@/components/FactTables/NewMetricModal";
+import { AppFeatures } from "@/types/app-features";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -77,6 +79,9 @@ const MetricPage: FC = () => {
   } = useDefinitions();
   const settings = useOrgSettings();
   const { organization } = useUser();
+  const gb = useGrowthBook<AppFeatures>();
+  const aiTemperature =
+    gb?.getFeatureValue("ai-suggestions-temperature", 0.1) || 0.1;
 
   const [editModalOpen, setEditModalOpen] = useState<boolean | number>(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState<boolean>(false);
@@ -561,7 +566,7 @@ const MetricPage: FC = () => {
                               description: string;
                             };
                           }>(
-                            `/metrics/${metric.id}/gen-description`,
+                            `/metrics/${metric.id}/gen-description?temperature=${aiTemperature}`,
                             {
                               method: "GET",
                             },

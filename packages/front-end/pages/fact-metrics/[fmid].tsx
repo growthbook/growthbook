@@ -219,6 +219,8 @@ export default function FactMetricPage() {
     getDatasourceById,
   } = useDefinitions();
   const growthbook = useGrowthBook<AppFeatures>();
+  const aiTemperature =
+    growthbook?.getFeatureValue("ai-suggestions-temperature", 0.1) || 0.1;
 
   const isMetricSlicesFeatureEnabled =
     growthbook?.isOn("metric-slices") || false;
@@ -694,7 +696,7 @@ export default function FactMetricPage() {
                     description: string;
                   };
                 }>(
-                  `/metrics/${factMetric.id}/gen-description`,
+                  `/metrics/${factMetric.id}/gen-description?temperature=${aiTemperature}`,
                   {
                     method: "GET",
                   },
