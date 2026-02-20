@@ -452,7 +452,7 @@ const Presentation = ({
               <CompactResults
                 experimentId={experiment.id}
                 variations={experiment.variations.map((v, i) => ({
-                  id: v.key || String(i + 1),
+                  id: v.key || i + "",
                   name: v.name,
                   weight: phase?.variationWeights?.[i] || 0,
                 }))}
