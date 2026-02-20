@@ -334,6 +334,8 @@ export const experimentInterface = z
     banditScheduleUnit: z.enum(["hours", "days"]).optional(),
     banditBurnInValue: z.number().optional(),
     banditBurnInUnit: z.enum(["hours", "days"]).optional(),
+    banditConversionWindowValue: z.number().optional(),
+    banditConversionWindowUnit: z.enum(["hours", "days"]).optional(),
     customFields: z.record(z.string(), z.any()).optional(),
     templateId: z.string().optional(),
     shareLevel: z.enum(["public", "organization"]).optional(),

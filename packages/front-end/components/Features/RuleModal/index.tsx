@@ -516,6 +516,8 @@ export default function RuleModal({
             banditScheduleUnit: values.banditScheduleUnit ?? "days",
             banditBurnInValue: values.banditBurnInValue ?? 1,
             banditBurnInUnit: values.banditBurnInUnit ?? "days",
+            banditConversionWindowValue: values.banditConversionWindowValue,
+            banditConversionWindowUnit: values.banditConversionWindowUnit,
           });
         }
 

@@ -72,7 +72,11 @@ import {
   ApiExperimentResults,
   ApiMetric,
 } from "shared/types/openapi";
-import { MetricPriorSettings } from "shared/types/fact-table";
+import {
+  MetricPriorSettings,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  MetricWindowSettings,
+} from "shared/types/fact-table";
 import {
   ExperimentAnalysisParamsContextData,
   ExperimentSnapshotAnalysis,
@@ -393,6 +397,7 @@ export function getSnapshotSettings({
   incrementalRefreshModel,
   reweight,
   datasource,
+  useStickyBucketing,
 }: {
   experiment: ExperimentInterface;
   phaseIndex: number;
@@ -409,6 +414,7 @@ export function getSnapshotSettings({
   incrementalRefreshModel: IncrementalRefreshInterface | null;
   reweight?: boolean;
   datasource?: DataSourceInterface;
+  useStickyBucketing?: boolean;
 }): ExperimentSnapshotSettings {
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
@@ -602,6 +608,18 @@ export function getSnapshotSettings({
                     0,
                   ) ?? 0,
               })) ?? [],
+          useFirstExposure: useStickyBucketing,
+          windowSettings:
+            experiment.banditConversionWindowValue !== undefined &&
+            experiment.banditConversionWindowUnit !== undefined
+              ? {
+                  type: "conversion",
+                  delayValue: 0,
+                  delayUnit: "hours",
+                  windowValue: experiment.banditConversionWindowValue,
+                  windowUnit: experiment.banditConversionWindowUnit,
+                }
+              : undefined,
         }
       : undefined;
 
@@ -1057,6 +1075,9 @@ export async function createSnapshot({
     reweight,
     datasource,
     incrementalRefreshModel,
+    useStickyBucketing:
+      organization.settings?.useStickyBucketing &&
+      !experiment.disableStickyBucketing,
   });
 
   const data: ExperimentSnapshotInterface = {
@@ -1626,6 +1647,8 @@ export async function toExperimentApiInterface(
           banditScheduleUnit: experiment.banditScheduleUnit ?? "days",
           banditBurnInValue: experiment.banditBurnInValue ?? 1,
           banditBurnInUnit: experiment.banditBurnInUnit ?? "days",
+          banditConversionWindowValue: experiment.banditConversionWindowValue,
+          banditConversionWindowUnit: experiment.banditConversionWindowUnit,
         }
       : null),
     linkedFeatures: experiment.linkedFeatures || [],
@@ -2692,6 +2715,13 @@ export function postExperimentApiPayloadToInterface(
         settings,
       }),
     );
+    // Preserve conversion window fields from payload if provided
+    if (payload.banditConversionWindowValue !== undefined) {
+      obj.banditConversionWindowValue = payload.banditConversionWindowValue;
+    }
+    if (payload.banditConversionWindowUnit !== undefined) {
+      obj.banditConversionWindowUnit = payload.banditConversionWindowUnit;
+    }
   }
 
   return obj;
@@ -2748,6 +2778,10 @@ export function updateExperimentApiPayloadToInterface(
     customMetricSlices,
     customFields,
     autoRefresh,
+    banditScheduleValue,
+    banditScheduleUnit,
+    banditBurnInValue,
+    banditBurnInUnit,
   } = payload;
   let changes: ExperimentInterface = {
     ...(trackingKey ? { trackingKey } : {}),
@@ -2847,6 +2881,16 @@ export function updateExperimentApiPayloadToInterface(
     ...(customMetricSlices !== undefined ? { customMetricSlices } : {}),
     ...(customFields !== undefined ? { customFields } : {}),
     ...(autoRefresh !== undefined ? { autoSnapshots: !!autoRefresh } : {}),
+    ...(banditScheduleValue !== undefined ? { banditScheduleValue } : {}),
+    ...(banditScheduleUnit !== undefined ? { banditScheduleUnit } : {}),
+    ...(banditBurnInValue !== undefined ? { banditBurnInValue } : {}),
+    ...(banditBurnInUnit !== undefined ? { banditBurnInUnit } : {}),
+    ...(payload.banditConversionWindowValue !== undefined
+      ? { banditConversionWindowValue: payload.banditConversionWindowValue }
+      : {}),
+    ...(payload.banditConversionWindowUnit !== undefined
+      ? { banditConversionWindowUnit: payload.banditConversionWindowUnit }
+      : {}),
     dateUpdated: new Date(),
   } as ExperimentInterface;
 
