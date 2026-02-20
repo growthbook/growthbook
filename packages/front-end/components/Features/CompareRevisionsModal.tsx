@@ -2,8 +2,15 @@ import { FeatureInterface } from "shared/types/feature";
 import {
   FeatureRevisionInterface,
   MinimalFeatureRevisionInterface,
+  RevisionLog,
 } from "shared/types/feature-revision";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { Box, Flex } from "@radix-ui/themes";
 import {
@@ -20,6 +27,7 @@ import {
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
@@ -174,6 +182,161 @@ function RevisionCompareLabel({
             </Text>
           ))}
       </Flex>
+    </Flex>
+  );
+}
+
+function logBadgeColor(
+  action: string,
+): React.ComponentProps<typeof Badge>["color"] {
+  if (action === "Approved") return "green";
+  if (action === "Requested Changes") return "red";
+  if (action === "Review Requested") return "amber";
+  return "gray";
+}
+
+// Renders the comment for a single revision version. Returns null if there is
+// no comment on either the revision object or any "edit comment" log entry.
+function RevisionCommentItem({
+  featureId,
+  version,
+  revisionComment,
+}: {
+  featureId: string;
+  version: number;
+  revisionComment?: string | null;
+}) {
+  const { data } = useApi<{ log: RevisionLog[] }>(
+    `/feature/${featureId}/${version}/log`,
+  );
+
+  const logEntry = useMemo(() => {
+    if (!data?.log) return null;
+    const sorted = [...data.log].sort((a, b) =>
+      (b.timestamp as unknown as string).localeCompare(
+        a.timestamp as unknown as string,
+      ),
+    );
+    for (const entry of sorted) {
+      if (entry.action === "edit comment") {
+        try {
+          const c = JSON.parse(entry.value)?.comment;
+          if (c)
+            return {
+              comment: c as string,
+              user: entry.user,
+              timestamp: entry.timestamp,
+            };
+        } catch {
+          // ignore
+        }
+      }
+    }
+    return null;
+  }, [data]);
+
+  const comment = revisionComment || logEntry?.comment;
+  if (!comment) return null;
+
+  return (
+    <Box>
+      <Flex align="center" gap="2" mb="1" wrap="wrap">
+        <Text size="medium" weight="medium" color="text-mid">
+          Revision {version} comment
+        </Text>
+        {logEntry?.user && (
+          <Text size="small" color="text-low">
+            · <EventUser user={logEntry.user} display="name" /> ·{" "}
+            {datetime(logEntry.timestamp)}
+          </Text>
+        )}
+      </Flex>
+      <Box pl="2" style={{ borderLeft: "2px solid var(--gray-a4)" }} mb="2">
+        <Text as="p" color="text-mid" mb="0">
+          {comment}
+        </Text>
+      </Box>
+    </Box>
+  );
+}
+
+function RevisionCommentSection({
+  featureId,
+  versions,
+}: {
+  featureId: string;
+  versions: Array<{ version: number; revisionComment?: string | null }>;
+}) {
+  if (versions.length === 0) return null;
+  return (
+    <Flex direction="column" gap="3" mb="3" mt="4">
+      {versions.map(({ version, revisionComment }) => (
+        <RevisionCommentItem
+          key={version}
+          featureId={featureId}
+          version={version}
+          revisionComment={revisionComment}
+        />
+      ))}
+    </Flex>
+  );
+}
+
+function RevisionLogSection({
+  featureId,
+  version,
+}: {
+  featureId: string;
+  version: number;
+}) {
+  const { data } = useApi<{ log: RevisionLog[] }>(
+    `/feature/${featureId}/${version}/log`,
+  );
+
+  const entries = useMemo(() => {
+    if (!data?.log) return [];
+    return [...data.log]
+      .filter((e) => e.action !== "new revision")
+      .sort((a, b) =>
+        (b.timestamp as unknown as string).localeCompare(
+          a.timestamp as unknown as string,
+        ),
+      );
+  }, [data]);
+
+  if (entries.length === 0) return null;
+
+  return (
+    <Flex wrap="wrap" gap="2">
+      {entries.map((entry, i) => (
+        <Badge
+          key={`${version}-${i}`}
+          color={logBadgeColor(entry.action)}
+          variant="soft"
+          label={
+            entry.action.charAt(0).toUpperCase() +
+            entry.action.slice(1) +
+            (entry.subject ? ` ${entry.subject}` : "")
+          }
+        />
+      ))}
+    </Flex>
+  );
+}
+
+function RevisionLogSummary({
+  featureId,
+  versions,
+}: {
+  featureId: string;
+  versions: number[];
+}) {
+  if (versions.length === 0) return null;
+  return (
+    <Flex direction="column" gap="3" mb="3">
+      {versions.map((v) => (
+        <RevisionLogSection key={v} featureId={featureId} version={v} />
+      ))}
     </Flex>
   );
 }
@@ -1048,6 +1211,40 @@ export default function CompareRevisionsModal({
                 </Callout>
               ) : (
                 <>
+                  {(() => {
+                    const logVersions =
+                      diffViewMode === "steps" && currentStep
+                        ? [currentStep[1], currentStep[0]]
+                        : diffViewMode === "single"
+                          ? [...selectedSorted].reverse()
+                          : [];
+                    if (logVersions.length === 0) return null;
+                    const commentVersions = logVersions.map((v) => ({
+                      version: v,
+                      revisionComment: getFullRevision(v)?.comment,
+                    }));
+                    return (
+                      <>
+                        <RevisionCommentSection
+                          featureId={feature.id}
+                          versions={commentVersions}
+                        />
+                        <Heading
+                          as="h5"
+                          size="small"
+                          color="text-mid"
+                          mt="4"
+                          mb="2"
+                        >
+                          Changes summary
+                        </Heading>
+                        <RevisionLogSummary
+                          featureId={feature.id}
+                          versions={logVersions}
+                        />
+                      </>
+                    );
+                  })()}
                   {(diffViewMode === "single"
                     ? isOutOfOrderDraft(singleRevFirst) ||
                       isOutOfOrderDraft(singleRevLast)
