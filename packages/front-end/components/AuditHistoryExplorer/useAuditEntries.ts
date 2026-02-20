@@ -14,6 +14,7 @@ import {
   CoarsenedAuditEntry,
   GroupByOption,
 } from "@/components/AuditHistoryExplorer/types";
+import { formatEventLabel } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 
 export const PAGE_LIMIT = 50;
 
@@ -30,19 +31,6 @@ interface RawAuditEntry<T> {
  * Derives a human-readable label from an unknown event name.
  * e.g. "experiment.launchChecklist.updated" → "Launch checklist updated"
  */
-function formatUnknownEventLabel(event: string, entityPrefix: string): string {
-  const suffix = event.startsWith(entityPrefix)
-    ? event.slice(entityPrefix.length)
-    : event;
-  // Split on dots then expand camelCase segments into separate words.
-  const words = suffix
-    .split(".")
-    .join(" ")
-    .replace(/([A-Z])/g, " $1")
-    .toLowerCase()
-    .trim();
-  return words.charAt(0).toUpperCase() + words.slice(1);
-}
 
 function getAuthorKey(user: AuditInterface["user"]): string {
   if ("system" in user && (user as AuditUserSystem).system) return "system";
@@ -176,7 +164,7 @@ function parseDetails<T>(
       post?: T;
     };
     // Create events only have `post`
-    const isCreate = event.endsWith(".create");
+    const isCreate = event.endsWith(".create") || event.endsWith(".created");
     return {
       pre: isCreate ? null : (parsed.pre ?? null),
       post: parsed.post ?? null,
@@ -288,7 +276,7 @@ export function useAuditEntries<T>(
           (config.catchUnknownEventsAsLabels && !allIncluded.has(e.event)
             ? {
                 event: e.event,
-                getLabel: () => formatUnknownEventLabel(e.event, entityPrefix),
+                getLabel: () => formatEventLabel(e.event, config.entityType),
               }
             : undefined);
         if (labelOnlyEntry) {
@@ -324,7 +312,13 @@ export function useAuditEntries<T>(
         dateCreated: new Date(e.dateCreated) as unknown as Date,
       })) as unknown as AuditInterface[];
 
-      return { parsed, markers, allEvents, total: res.total, nextCursor: res.nextCursor };
+      return {
+        parsed,
+        markers,
+        allEvents,
+        total: res.total,
+        nextCursor: res.nextCursor,
+      };
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [apiCall, config.entityType, entityId],

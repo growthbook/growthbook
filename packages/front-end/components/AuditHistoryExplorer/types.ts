@@ -142,6 +142,11 @@ export interface AuditDiffConfig<T> {
   defaultHiddenSections?: string[];
   /** Section labels suppressed from left-column entry title suffixes (too noisy or redundant). */
   hiddenLabelSections?: string[];
+  /**
+   * When true, the filter/group-by dropdown is hidden entirely.
+   * Sections are still used for diff grouping and left-column labels.
+   */
+  hideFilters?: boolean;
 }
 
 export interface AuditDiffItem {

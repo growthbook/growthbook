@@ -216,6 +216,7 @@ export default function CompareAuditEvents<T>({
   auditEntries,
   eventLabels = {},
 }: CompareAuditEventsProps<T>) {
+  const { allAuditEvents } = auditEntries;
   const {
     sectionLabels,
     setVisibleSections,
@@ -428,7 +429,8 @@ export default function CompareAuditEvents<T>({
             <Text size="medium" weight="medium" color="text-mid">
               Select a range of changes
             </Text>
-            {sectionLabels.length > 0 &&
+            {!config.hideFilters &&
+              sectionLabels.length > 0 &&
               (() => {
                 const defaultHidden = new Set(
                   config.defaultHiddenSections ?? [],
@@ -667,28 +669,36 @@ export default function CompareAuditEvents<T>({
                 },
                 [],
               )}
-              {hasMore && (
-                <Flex gap="4" mt="1" justify="between">
-                  <Button
-                    variant="ghost"
-                    size="xs"
-                    onClick={loadMore}
-                    disabled={loading || loadingAll}
-                  >
-                    {loading && <LoadingSpinner />}
-                    {`Load ${PAGE_LIMIT} more`}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="xs"
-                    onClick={handleLoadAll}
-                    disabled={loading || loadingAll}
-                  >
-                    {loadingAll && <LoadingSpinner />}
-                    {`Load all (${total})`}
-                  </Button>
-                </Flex>
-              )}
+              {hasMore &&
+                (() => {
+                  const remaining = Math.max(0, total - allAuditEvents.length);
+                  if (remaining === 0) return null;
+                  const loadMoreCount = Math.min(PAGE_LIMIT, remaining);
+                  return (
+                    <Flex gap="4" mt="1" justify="between">
+                      <Button
+                        variant="ghost"
+                        size="xs"
+                        onClick={loadMore}
+                        disabled={loading || loadingAll}
+                      >
+                        {loading && <LoadingSpinner />}
+                        {`Load ${loadMoreCount} more`}
+                      </Button>
+                      {remaining > PAGE_LIMIT && (
+                        <Button
+                          variant="ghost"
+                          size="xs"
+                          onClick={handleLoadAll}
+                          disabled={loading || loadingAll}
+                        >
+                          {loadingAll && <LoadingSpinner />}
+                          {`Load all (${total})`}
+                        </Button>
+                      )}
+                    </Flex>
+                  );
+                })()}
             </Flex>
           )}
         </Box>

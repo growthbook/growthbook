@@ -23,6 +23,23 @@ export type LeftColItem<T> =
 
 // ---- Pure functions ----
 
+/**
+ * Derive a human-readable label from a raw event string using the entity type
+ * as a prefix to strip. E.g. "savedGroup.created" → "Created",
+ * "experiment.phase.delete" → "Phase delete".
+ */
+export function formatEventLabel(event: string, entityType: string): string {
+  const prefix = `${entityType}.`;
+  const suffix = event.startsWith(prefix) ? event.slice(prefix.length) : event;
+  const words = suffix
+    .split(".")
+    .join(" ")
+    .replace(/([A-Z])/g, " $1")
+    .toLowerCase()
+    .trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
 // Opaque key for date separator detection; a separator is injected whenever the day changes.
 export function getSeparatorBucketKey(date: Date): string {
   return format(date, "yyyy-MM-dd");
@@ -69,7 +86,9 @@ export function resolveEntryLabel<T>(
     const override = config.overrideEventLabel(entry);
     if (override !== null) return override;
   }
-  const base = eventLabels[entry.event] ?? entry.event;
+  const base =
+    eventLabels[entry.event] ??
+    formatEventLabel(entry.event, config.entityType);
   const isUpdateEvent =
     !config.updateEventNames || config.updateEventNames.includes(entry.event);
   if (isUpdateEvent) {
