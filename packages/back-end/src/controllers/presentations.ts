@@ -192,6 +192,11 @@ export async function updatePresentation(
     p.set("dateUpdated", new Date());
     p.set("theme", data["theme"]);
     p.set("customTheme", data["customTheme"]);
+    if (data["transition"] !== undefined)
+      p.set("transition", data["transition"]);
+    if (data["celebration"] !== undefined)
+      p.set("celebration", data["celebration"]);
+    if (data["logoUrl"] !== undefined) p.set("logoUrl", data["logoUrl"]);
 
     await p.save();
 

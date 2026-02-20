@@ -151,3 +151,12 @@ export function getAutoSliceUpdateFrequencyHours() {
 export function getUploadMethod(): "local" | "s3" | "google-cloud" {
   return env.uploadMethod;
 }
+
+/** True when file uploads are configured (local storage, or S3/GCS with domain set) */
+export function hasUploadSupport(): boolean {
+  const method = env.uploadMethod;
+  if (method === "local") return true;
+  if (method === "s3") return !!env.s3domain;
+  if (method === "google-cloud") return !!env.gcsDomain;
+  return false;
+}

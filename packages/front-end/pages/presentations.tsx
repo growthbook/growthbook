@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { PresentationInterface } from "shared/types/presentation";
-import { FaPlus } from "react-icons/fa";
 import { date } from "shared/dates";
-import { Box, Card, Flex, Heading } from "@radix-ui/themes";
+import { Box, Card, Flex } from "@radix-ui/themes";
+import Heading from "@/ui/Heading";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import ShareModal from "@/components/Share/ShareModal";
@@ -14,6 +14,8 @@ import CopyToClipboard from "@/components/CopyToClipboard";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
+import LinkButton from "@/ui/LinkButton";
+import EmptyState from "@/components/EmptyState";
 
 const PresentationPage = (): React.ReactElement => {
   const [openNewPresentationModal, setOpenNewPresentationModal] =
@@ -57,35 +59,34 @@ const PresentationPage = (): React.ReactElement => {
   }
   if (!p.presentations.length) {
     return (
-      <Box className="container p-4">
-        <h1>Presentations</h1>
-        <p>Auto-generate slide decks to present experiment results.</p>
-        <p>
-          Present these at all-hands meetings to get the entire company excited
-          about experimentation.
-        </p>
-        <p>
-          These are also a great way to generate new experiment ideas as people
-          suggest tweaks and follow-up variations.
-        </p>
-
-        {canCreatePresentation && (
-          <Button
-            mt="3"
-            onClick={() => {
-              setOpenNewPresentationModal(true);
-            }}
-          >
-            <FaPlus /> Add a presentation
-          </Button>
-        )}
+      <>
+        <EmptyState
+          title="Present Experiment Results"
+          description="Generate presentation to share with the team. Experiment review meetings are a great way to challenge assumptions and generate new ideas. Review meetings get everyone excited about experimentation."
+          leftButton={
+            <LinkButton
+              href="https://docs.growthbook.io/using/programs#sharing"
+              variant="outline"
+              external
+            >
+              View docs
+            </LinkButton>
+          }
+          rightButton={
+            canCreatePresentation && (
+              <Button onClick={() => setOpenNewPresentationModal(true)}>
+                Create a presentation
+              </Button>
+            )
+          }
+        />
         <ShareModal
           title="New Presentation"
           modalState={openNewPresentationModal}
           setModalState={setOpenNewPresentationModal}
           refreshList={mutate}
         />
-      </Box>
+      </>
     );
   }
 
@@ -241,7 +242,7 @@ const PresentationPage = (): React.ReactElement => {
       <Box className="container-fluid pagecontents pt-4 shares learnings">
         <Box mb="4" mt="3">
           <Flex justify="between" mb="3">
-            <Heading as="h1" size="6">
+            <Heading as="h1" size="large">
               Presentations
             </Heading>
             {canCreatePresentation && (

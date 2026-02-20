@@ -60,6 +60,10 @@ const ideasController = wrapController(ideasControllerRaw);
 
 import * as presentationControllerRaw from "./controllers/presentations";
 const presentationController = wrapController(presentationControllerRaw);
+import * as presentationThemesControllerRaw from "./controllers/presentationThemes";
+const presentationThemesController = wrapController(
+  presentationThemesControllerRaw,
+);
 
 import * as discussionsControllerRaw from "./controllers/discussions";
 const discussionsController = wrapController(discussionsControllerRaw);
@@ -926,6 +930,24 @@ app.get("/presentation/preview", presentationController.getPresentationPreview);
 app.get("/presentation/:id", presentationController.getPresentation);
 app.post("/presentation/:id", presentationController.updatePresentation);
 app.delete("/presentation/:id", presentationController.deletePresentation);
+
+// Presentation themes (saved themes for presentations)
+app.get(
+  "/presentation-themes",
+  presentationThemesController.getPresentationThemes,
+);
+app.post(
+  "/presentation-theme",
+  presentationThemesController.postPresentationTheme,
+);
+app.put(
+  "/presentation-theme/:id",
+  presentationThemesController.putPresentationTheme,
+);
+app.delete(
+  "/presentation-theme/:id",
+  presentationThemesController.deletePresentationTheme,
+);
 
 // Discussions
 app.get(

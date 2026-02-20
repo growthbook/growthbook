@@ -24,6 +24,9 @@ const Preview: FC<{
   textColor: string;
   headingFont?: string;
   bodyFont?: string;
+  logoUrl?: string;
+  celebration?: string;
+  transition?: string;
 }> = ({
   expIds,
   theme,
@@ -33,6 +36,9 @@ const Preview: FC<{
   textColor,
   headingFont,
   bodyFont,
+  logoUrl,
+  celebration = "none",
+  transition = "fade",
 }) => {
   const { data: pdata, error } = useApi<{
     status: number;
@@ -58,11 +64,15 @@ const Preview: FC<{
 
   return (
     <DynamicPresentation
+      key={`preview-${expIds}-${logoUrl ?? ""}-${celebration}-${transition}`}
       experiments={pdata.experiments}
       theme={theme}
       preview={true}
       title={title}
       desc={desc}
+      logoUrl={logoUrl}
+      celebration={celebration}
+      transition={transition}
       customTheme={{
         backgroundColor: "#" + backgroundColor,
         textColor: "#" + textColor,
