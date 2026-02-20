@@ -16,7 +16,7 @@ export const apiProjectValidator = z.object({ "id": z.string(), "name": z.string
 
 export const apiEnvironmentValidator = z.object({ "id": z.string(), "description": z.string(), "toggleOnList": z.boolean(), "defaultState": z.boolean(), "projects": z.array(z.string()), "parent": z.string().optional() }).strict()
 
-export const apiAttributeValidator = z.object({ "property": z.string(), "datatype": z.enum(["boolean","string","number","secureString","enum","string[]","number[]","secureString[]"]), "description": z.string().optional(), "hashAttribute": z.boolean().optional(), "archived": z.boolean().optional(), "enum": z.string().optional(), "format": z.enum(["","version","date","isoCountryCode"]).optional(), "projects": z.array(z.string()).optional() }).strict()
+export const apiAttributeValidator = z.object({ "property": z.string(), "datatype": z.enum(["boolean","string","number","secureString","enum","string[]","number[]","secureString[]"]), "description": z.string().optional(), "hashAttribute": z.boolean().optional(), "archived": z.boolean().optional(), "enum": z.string().optional(), "format": z.enum(["","version","date","isoCountryCode"]).optional(), "projects": z.array(z.string()).optional(), "tags": z.array(z.string()).optional() }).strict()
 
 export const apiSegmentValidator = z.object({ "id": z.string(), "owner": z.string(), "datasourceId": z.string(), "identifierType": z.string(), "name": z.string(), "description": z.string().optional(), "query": z.string().optional(), "dateCreated": z.string(), "dateUpdated": z.string(), "managedBy": z.enum(["","api","config"]).describe("Where this segment must be managed from. If not set (empty string), it can be managed from anywhere.").optional(), "type": z.enum(["SQL","FACT"]).optional(), "factTableId": z.string().optional(), "filters": z.array(z.string()).optional(), "projects": z.array(z.string()).optional() }).strict()
 
@@ -453,13 +453,13 @@ export const listAttributesValidator = {
 };
 
 export const postAttributeValidator = {
-  bodySchema: z.object({ "property": z.string().describe("The attribute property"), "datatype": z.enum(["boolean","string","number","secureString","enum","string[]","number[]","secureString[]"]).describe("The attribute datatype"), "description": z.string().describe("The description of the new attribute").optional(), "archived": z.boolean().describe("The attribute is archived").optional(), "hashAttribute": z.boolean().describe("Shall the attribute be hashed").optional(), "enum": z.string().optional(), "format": z.enum(["","version","date","isoCountryCode"]).describe("The attribute's format").optional(), "projects": z.array(z.string()).optional() }).strict(),
+  bodySchema: z.object({ "property": z.string().describe("The attribute property"), "datatype": z.enum(["boolean","string","number","secureString","enum","string[]","number[]","secureString[]"]).describe("The attribute datatype"), "description": z.string().describe("The description of the new attribute").optional(), "archived": z.boolean().describe("The attribute is archived").optional(), "hashAttribute": z.boolean().describe("Shall the attribute be hashed").optional(), "enum": z.string().optional(), "format": z.enum(["","version","date","isoCountryCode"]).describe("The attribute's format").optional(), "projects": z.array(z.string()).optional(), "tags": z.array(z.string()).optional() }).strict(),
   querySchema: z.never(),
   paramsSchema: z.never(),
 };
 
 export const putAttributeValidator = {
-  bodySchema: z.object({ "datatype": z.enum(["boolean","string","number","secureString","enum","string[]","number[]","secureString[]"]).describe("The attribute datatype").optional(), "description": z.string().describe("The description of the new attribute").optional(), "archived": z.boolean().describe("The attribute is archived").optional(), "hashAttribute": z.boolean().describe("Shall the attribute be hashed").optional(), "enum": z.string().optional(), "format": z.enum(["","version","date","isoCountryCode"]).describe("The attribute's format").optional(), "projects": z.array(z.string()).optional() }).strict(),
+  bodySchema: z.object({ "datatype": z.enum(["boolean","string","number","secureString","enum","string[]","number[]","secureString[]"]).describe("The attribute datatype").optional(), "description": z.string().describe("The description of the new attribute").optional(), "archived": z.boolean().describe("The attribute is archived").optional(), "hashAttribute": z.boolean().describe("Shall the attribute be hashed").optional(), "enum": z.string().optional(), "format": z.enum(["","version","date","isoCountryCode"]).describe("The attribute's format").optional(), "projects": z.array(z.string()).optional(), "tags": z.array(z.string()).optional() }).strict(),
   querySchema: z.never(),
   paramsSchema: z.object({ "property": z.string() }).strict(),
 };

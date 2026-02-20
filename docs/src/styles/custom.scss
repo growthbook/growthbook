@@ -16,6 +16,7 @@
 @use "./components/sdk-resources";
 @use "./components/sdk-supported-features";
 @use "./components/stepper";
+@use "./components/commercial-feature";
 // @use "./components/sidebar-icons";
 //@use './components/navbar';
 /* You can override the default Infima variables here. */
@@ -273,6 +274,28 @@
 [data-theme="light"] img[src$="#gh-dark-mode-only"],
 [data-theme="dark"] img[src$="#gh-light-mode-only"] {
   display: none;
+}
+
+// Custom widths — shared max-width and centering so navbar and main content align
+$content-max-width: 92rem;
+
+.navbar__inner,
+.main-wrapper {
+  margin-inline: auto;
+  max-width: $content-max-width;
+  width: 100%;
+}
+
+@media (min-width: $content-max-width) {
+  .navbar {
+    padding-inline: max(0px, (100vw - $content-max-width) / 2);
+  }
+
+  .navbar__inner {
+    padding-inline-start: calc(
+      var(--ifm-menu-link-padding-horizontal) + 0.5rem
+    );
+  }
 }
 
 [class^="docItemContainer"] {

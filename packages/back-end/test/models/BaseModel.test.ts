@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { Collection } from "mongodb";
-import { Context, MakeModelClass } from "back-end/src/models/BaseModel";
+import { Context, MakeModelClass } from "../../src/models/BaseModel";
 
 type WriteOptions = {
   option?: boolean;
@@ -649,13 +649,13 @@ describe("BaseModel", () => {
     expect(auditLogMock).toHaveBeenCalled();
     expect(model.beforeUpdateMock).toHaveBeenCalledWith(
       existing,
-      { name: "gni" },
+      { name: "gni", dateUpdated: expect.any(Date) },
       expectedSet,
       { option: true },
     );
     expect(model.afterUpdateMock).toHaveBeenCalledWith(
       existing,
-      { name: "gni" },
+      { name: "gni", dateUpdated: expect.any(Date) },
       expectedSet,
       { option: true },
     );

@@ -15,7 +15,8 @@
     "write-translations": "docusaurus write-translations",
     "write-heading-ids": "docusaurus write-heading-ids",
     "typecheck": "tsc",
-    "gen-sdk-resources": "cd .. && pnpm --filter shared gen-sdk-resources-for-docs"
+    "gen-sdk-resources": "cd .. && pnpm --filter shared gen-sdk-resources-for-docs",
+    "gen-commercial-features": "cd .. && pnpm --filter shared gen-commercial-features-for-docs"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",
