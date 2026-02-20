@@ -454,6 +454,12 @@ export async function addMembersToTeam({
   await updateOrganization(organization.id, { members: updatedMembers });
 }
 
+export function getMembersOfTeam(org: OrganizationInterface, teamId: string) {
+  return org.members
+    .filter((member) => member.teams?.includes(teamId))
+    .map((m) => m.id);
+}
+
 export async function convertMemberToManagedByIdp({
   organization,
   userId,

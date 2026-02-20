@@ -65,6 +65,7 @@ import { AgreementModel } from "back-end/src/models/AgreementModel";
 import { SqlResultChunkModel } from "back-end/src/models/SqlResultChunkModel";
 import { CustomHookModel } from "back-end/src/models/CustomHookModel";
 import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
+import { TeamModel } from "back-end/src/models/TeamModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
@@ -101,7 +102,8 @@ export type ModelName =
   | "sqlResultChunks"
   | "sdkConnectionCache"
   | "sdkWebhooks"
-  | "savedGroups";
+  | "savedGroups"
+  | "teams";
 
 export const modelClasses = {
   agreements: AgreementModel,
@@ -131,6 +133,7 @@ export const modelClasses = {
   sdkConnectionCache: SdkConnectionCacheModel,
   sdkWebhooks: SdkWebhookModel,
   savedGroups: SavedGroupModel,
+  teams: TeamModel,
 };
 export type ModelClass = (typeof modelClasses)[ModelName];
 type ModelInstances = {
@@ -169,6 +172,7 @@ export class ReqContextClass {
       sdkConnectionCache: new SdkConnectionCacheModel(this),
       sdkWebhooks: new SdkWebhookModel(this),
       savedGroups: new SavedGroupModel(this),
+      teams: new TeamModel(this),
     };
   }
 

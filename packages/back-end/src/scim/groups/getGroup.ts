@@ -1,7 +1,6 @@
 import { Response } from "express";
 import { TeamInterface } from "shared/types/team";
 import { ExpandedMember } from "shared/types/organization";
-import { findTeamById } from "back-end/src/models/TeamModel";
 import { expandOrgMembers } from "back-end/src/services/organizations";
 import { ScimError, ScimGetRequest, ScimGroup } from "back-end/types/scim";
 
@@ -32,7 +31,7 @@ export async function getGroup(
 
   const org = req.organization;
 
-  const group = await findTeamById(id, org.id);
+  const group = await req.context.models.teams.getById(id);
 
   if (!group) {
     return res.status(404).json({
