@@ -1194,6 +1194,15 @@ export async function postExperiments(
     organization: org,
   });
 
+  // Validate attributionModel + lookbackOverride consistency
+  if (obj.attributionModel === "lookbackOverride" && !obj.lookbackOverride) {
+    return res.status(400).json({
+      status: 400,
+      message:
+        "lookbackOverride is required when attributionModel is 'lookbackOverride'",
+    });
+  }
+
   try {
     validateVariationIds(obj.variations);
 
@@ -1538,6 +1547,7 @@ export async function postExperiment(
     "secondaryMetrics",
     "guardrailMetrics",
     "metricOverrides",
+    "lookbackOverride",
     "decisionFrameworkSettings",
     "variations",
     "status",
@@ -1588,6 +1598,7 @@ export async function postExperiment(
       key === "secondaryMetrics" ||
       key === "guardrailMetrics" ||
       key === "metricOverrides" ||
+      key === "lookbackOverride" ||
       key === "variations" ||
       key === "customFields" ||
       key === "customMetricSlices"
@@ -1601,6 +1612,32 @@ export async function postExperiment(
       (changes as any)[key] = data[key];
     }
   });
+
+  // Coerce lookbackOverride date value when type is "date"
+  if (changes.lookbackOverride?.type === "date") {
+    changes.lookbackOverride = {
+      type: "date",
+      value: getValidDate(changes.lookbackOverride.value),
+    };
+  }
+
+  // Validate attributionModel + lookbackOverride consistency
+  {
+    const effectiveAttrModel =
+      changes.attributionModel ?? experiment.attributionModel;
+    const effectiveLookback =
+      "lookbackOverride" in changes
+        ? changes.lookbackOverride
+        : experiment.lookbackOverride;
+    if (effectiveAttrModel === "lookbackOverride" && !effectiveLookback) {
+      res.status(400).json({
+        status: 400,
+        message:
+          "lookbackOverride is required when attributionModel is 'lookbackOverride'",
+      });
+      return;
+    }
+  }
 
   // If changing phase start/end dates (from "Configure Analysis" modal)
   if (

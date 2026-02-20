@@ -1,5 +1,9 @@
 import React, { useState, useCallback, useMemo, FC, ReactNode } from "react";
-import { ExperimentStatus, MetricOverride } from "shared/types/experiment";
+import {
+  ExperimentStatus,
+  LookbackOverride,
+  MetricOverride,
+} from "shared/types/experiment";
 import {
   ExperimentReportVariation,
   MetricSnapshotSettings,
@@ -56,6 +60,7 @@ export interface MetricDrilldownProviderProps {
   // Optional state
   isLatestPhase?: boolean;
   sequentialTestingEnabled?: boolean;
+  lookbackOverride?: LookbackOverride;
   differenceType?: DifferenceType;
   baselineRow?: number;
   variationFilter?: number[];
@@ -98,6 +103,7 @@ export const MetricDrilldownProvider: FC<MetricDrilldownProviderProps> = ({
   reportDate,
   isLatestPhase = true,
   sequentialTestingEnabled,
+  lookbackOverride,
   differenceType = "relative",
   baselineRow = 0,
   variationFilter,
@@ -192,6 +198,7 @@ export const MetricDrilldownProvider: FC<MetricDrilldownProviderProps> = ({
           initialSortDirection={sortDirection}
           initialSliceSearchTerm={openModalInfo.initialSliceSearchTerm}
           dimensionInfo={openModalInfo.dimensionInfo}
+          lookbackOverride={lookbackOverride}
           ssrPolyfills={ssrPolyfills}
           isReportContext={isReportContext}
         />
