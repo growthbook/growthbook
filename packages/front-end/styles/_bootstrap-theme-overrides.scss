@@ -421,4 +421,12 @@ pre {
 
 // endregion d2h differ
 
+.diff-wrapper-compact {
+  pre,
+  td {
+    font-size: 11px !important;
+    line-height: 1.5 !important;
+  }
+}
+
 // endregion Diff Viewer

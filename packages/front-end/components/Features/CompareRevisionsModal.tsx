@@ -98,7 +98,8 @@ function RevisionCompareLabel({
         {revA && (
           <Text as="div" size="small" color="text-low">
             {datetime(
-              (revA.status === "published" ? revA.datePublished : null) ?? revA.dateUpdated,
+              (revA.status === "published" ? revA.datePublished : null) ??
+                revA.dateUpdated,
             )}{" "}
             · <EventUser user={revA.createdBy} display="name" />
           </Text>
@@ -136,7 +137,8 @@ function RevisionCompareLabel({
         {revB && (
           <Text as="div" size="small" color="text-low">
             {datetime(
-              (revB.status === "published" ? revB.datePublished : null) ?? revB.dateUpdated,
+              (revB.status === "published" ? revB.datePublished : null) ??
+                revB.dateUpdated,
             )}{" "}
             · <EventUser user={revB.createdBy} display="name" />
           </Text>
@@ -1049,6 +1051,7 @@ export default function CompareRevisionsModal({
                             a={d.a}
                             b={d.b}
                             defaultOpen
+                            compact
                           />
                         ))}
                       </Flex>

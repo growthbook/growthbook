@@ -1218,10 +1218,9 @@ export default function CompareAuditEventsModal<T>({
                         direction="column"
                         gap="1"
                         px="2"
-                        py="1"
                       >
                         {lines.map((line) => (
-                          <Flex key={line} align="center" py="1">
+                          <Flex key={line} align="center">
                             <Text color="text-low" size="small">
                               {line}
                             </Text>
@@ -1440,6 +1439,7 @@ export default function CompareAuditEventsModal<T>({
                           defaultOpen={
                             !d.defaultCollapsed && isSectionVisible(d.label)
                           }
+                          compact
                         />
                       </Box>
                     ))}
@@ -1531,7 +1531,7 @@ function RawAuditDetails<T>({ entry }: { entry: CoarsenedAuditEntry<T> }) {
           <Text size="medium" weight="medium" color="text-mid" mb="1" as="div">
             Details
           </Text>
-          <div className="diff-wrapper">
+          <div className="diff-wrapper diff-wrapper-compact">
             <div className="list-group-item list-group-item-light">
               <ReactDiffViewer
                 oldValue={pre}
