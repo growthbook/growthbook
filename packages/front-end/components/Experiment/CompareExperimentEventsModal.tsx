@@ -1,6 +1,9 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import AuditHistoryExplorerModal from "@/components/AuditHistoryExplorer/AuditHistoryExplorerModal";
-import { AuditDiffConfig, CoarsenedAuditEntry } from "@/components/AuditHistoryExplorer/types";
+import {
+  AuditDiffConfig,
+  CoarsenedAuditEntry,
+} from "@/components/AuditHistoryExplorer/types";
 import {
   renderUserTargetingPhases,
   renderUserTargetingTopLevel,
