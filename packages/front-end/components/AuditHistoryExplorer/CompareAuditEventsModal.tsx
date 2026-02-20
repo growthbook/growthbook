@@ -39,14 +39,18 @@ import { useAuditComparison } from "./useAuditComparison";
 import styles from "./CompareAuditEventsModal.module.scss";
 
 const COMPACT_DIFF_STYLES = {
-  diffContainer: { fontSize: "11px", lineHeight: "1.1" },
-  line: { fontSize: "11px", padding: "1px 2px", lineHeight: "1.1" },
+  diffContainer: {
+    fontSize: "11px",
+    lineHeight: "1.6",
+    pre: { lineHeight: "1.6" },
+  },
+  line: { fontSize: "11px", padding: "1px 2px", lineHeight: "1.6" },
   contentText: {
     fontSize: "11px",
-    lineHeight: "1.1",
+    lineHeight: "1.6",
     wordBreak: "break-all" as const,
   },
-  gutter: { fontSize: "11px", padding: "1px 2px", lineHeight: "1.1" },
+  gutter: { fontSize: "11px", padding: "1px 2px", lineHeight: "1.6" },
 };
 
 function EntryUserName({
