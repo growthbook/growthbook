@@ -42,6 +42,17 @@ import { ExpandableDiff } from "./DraftModal";
 import RevisionStatusBadge from "./RevisionStatusBadge";
 import styles from "./CompareRevisionsModal.module.scss";
 
+const COMPACT_DIFF_STYLES = {
+  diffContainer: { fontSize: "11px", lineHeight: "1.1" },
+  line: { fontSize: "11px", padding: "1px 2px", lineHeight: "1.1" },
+  contentText: {
+    fontSize: "11px",
+    lineHeight: "1.1",
+    wordBreak: "break-all" as const,
+  },
+  gutter: { fontSize: "11px", padding: "1px 2px", lineHeight: "1.1" },
+};
+
 const STORAGE_KEY_PREFIX = "feature:compare-revisions";
 
 export interface Props {
@@ -501,8 +512,8 @@ export default function CompareRevisionsModal({
         // If 4+ visible items outside the current range, clear and pair with
         // the item immediately below (older) instead of expanding.
         if (
-          (idx < startIdx && visibleBetween(idx, startIdx) >= 4) ||
-          (idx > endIdx && visibleBetween(endIdx, idx) >= 4)
+          (idx < startIdx && visibleBetween(idx, startIdx) >= 8) ||
+          (idx > endIdx && visibleBetween(endIdx, idx) >= 8)
         ) {
           if (idx < versionsDesc.length - 1) {
             return [versionsDesc[idx + 1], versionsDesc[idx]].sort(
@@ -1051,7 +1062,7 @@ export default function CompareRevisionsModal({
                             a={d.a}
                             b={d.b}
                             defaultOpen
-                            compact
+                            styles={COMPACT_DIFF_STYLES}
                           />
                         ))}
                       </Flex>

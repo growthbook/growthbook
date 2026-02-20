@@ -43,23 +43,20 @@ export function ExpandableDiff({
   a,
   b,
   defaultOpen = false,
-  compact = false,
+  styles,
 }: {
   title: string;
   a: string;
   b: string;
   defaultOpen?: boolean;
-  /** Renders the diff with smaller font and tighter line-height. */
-  compact?: boolean;
+  styles?: object;
 }) {
   const [open, setOpen] = useState(defaultOpen);
 
   if (a === b) return null;
 
   return (
-    <div
-      className={compact ? "diff-wrapper diff-wrapper-compact" : "diff-wrapper"}
-    >
+    <div className="diff-wrapper">
       <div
         className="list-group-item list-group-item-action d-flex"
         onClick={(e) => {
@@ -79,11 +76,7 @@ export function ExpandableDiff({
             oldValue={a}
             newValue={b}
             compareMethod={DiffMethod.LINES}
-            styles={{
-              contentText: {
-                wordBreak: "break-all",
-              },
-            }}
+            styles={styles ?? { contentText: { wordBreak: "break-all" } }}
           />
         </div>
       )}

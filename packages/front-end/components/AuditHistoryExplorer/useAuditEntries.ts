@@ -13,7 +13,7 @@ import {
   AuditUserInfo,
   CoarsenedAuditEntry,
   GroupByOption,
-} from "@/components/Audit/types";
+} from "@/components/AuditHistoryExplorer/types";
 
 export const PAGE_LIMIT = 100;
 

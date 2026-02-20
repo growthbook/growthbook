@@ -1,6 +1,6 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import CompareAuditEventsModal from "@/components/Audit/CompareAuditEventsModal";
-import { AuditDiffConfig, CoarsenedAuditEntry } from "@/components/Audit/types";
+import CompareAuditEventsModal from "@/components/AuditHistoryExplorer/CompareAuditEventsModal";
+import { AuditDiffConfig, CoarsenedAuditEntry } from "@/components/AuditHistoryExplorer/types";
 import {
   renderUserTargetingPhases,
   renderUserTargetingTopLevel,
@@ -91,6 +91,8 @@ const EXPERIMENT_DIFF_CONFIG: AuditDiffConfig<ExperimentInterfaceStringDates> =
     catchUnknownEventsAsLabels: true,
     defaultGroupBy: "minute",
     entityLabel: "Experiment",
+    defaultHiddenSections: ["other changes"],
+    hiddenLabelSections: ["other changes", "Phase info"],
     normalizeSnapshot: (snapshot) => {
       // Deep-clone and parse any JSON string `condition` fields so the diff
       // viewer shows structured objects rather than escaped string blobs.

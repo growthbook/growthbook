@@ -136,6 +136,10 @@ export interface AuditDiffConfig<T> {
     /** When true the marker is always shown inline and never collapsed into a noise group. */
     alwaysVisible?: boolean;
   }[];
+  /** Section labels hidden by default in the filter dropdown. */
+  defaultHiddenSections?: string[];
+  /** Section labels suppressed from left-column entry title suffixes (too noisy or redundant). */
+  hiddenLabelSections?: string[];
 }
 
 export interface AuditDiffItem {
