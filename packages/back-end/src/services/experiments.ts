@@ -605,6 +605,8 @@ export function getSnapshotSettings({
                   ) ?? 0,
               })) ?? [],
           useFirstExposure: useStickyBucketing,
+          conversionWindowValue: experiment.banditConversionWindowValue,
+          conversionWindowUnit: experiment.banditConversionWindowUnit,
         }
       : undefined;
 
@@ -2701,20 +2703,11 @@ export function postExperimentApiPayloadToInterface(
       }),
     );
     // Preserve conversion window fields from payload if provided
-    if (
-      "banditConversionWindowValue" in payload &&
-      payload.banditConversionWindowValue !== undefined
-    ) {
-      obj.banditConversionWindowValue =
-        payload.banditConversionWindowValue as number;
+    if (payload.banditConversionWindowValue !== undefined) {
+      obj.banditConversionWindowValue = payload.banditConversionWindowValue;
     }
-    if (
-      "banditConversionWindowUnit" in payload &&
-      payload.banditConversionWindowUnit !== undefined
-    ) {
-      obj.banditConversionWindowUnit = payload.banditConversionWindowUnit as
-        | "hours"
-        | "days";
+    if (payload.banditConversionWindowUnit !== undefined) {
+      obj.banditConversionWindowUnit = payload.banditConversionWindowUnit;
     }
   }
 
@@ -2879,12 +2872,10 @@ export function updateExperimentApiPayloadToInterface(
     ...(banditScheduleUnit !== undefined ? { banditScheduleUnit } : {}),
     ...(banditBurnInValue !== undefined ? { banditBurnInValue } : {}),
     ...(banditBurnInUnit !== undefined ? { banditBurnInUnit } : {}),
-    ...("banditConversionWindowValue" in payload &&
-    payload.banditConversionWindowValue !== undefined
+    ...(payload.banditConversionWindowValue !== undefined
       ? { banditConversionWindowValue: payload.banditConversionWindowValue }
       : {}),
-    ...("banditConversionWindowUnit" in payload &&
-    payload.banditConversionWindowUnit !== undefined
+    ...(payload.banditConversionWindowUnit !== undefined
       ? { banditConversionWindowUnit: payload.banditConversionWindowUnit }
       : {}),
     dateUpdated: new Date(),
