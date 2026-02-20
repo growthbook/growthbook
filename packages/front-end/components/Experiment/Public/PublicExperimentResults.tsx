@@ -7,7 +7,11 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-import {ExperimentInterfaceStringDates} from "shared/types/experiment";
+import {
+  getActiveVariationsForPhase,
+  getActiveVariationWeightsForPhase,
+} from "shared/experiments";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -34,15 +38,15 @@ export default function PublicExperimentResults({
 }) {
   const phases = experiment.phases;
   const phase = phases.length - 1;
-  const phaseObj = phases[phase];
+  const phaseObj = phases[phase] ?? null;
 
-  const variations = experiment.variations.map((v, i) => {
-    return {
-      id: v.key || i + "",
-      name: v.name,
-      weight: phaseObj?.variationWeights?.[i] || 0,
-    };
-  });
+  const activeVariations = getActiveVariationsForPhase(experiment, phaseObj);
+  const activeWeights = getActiveVariationWeightsForPhase(experiment, phaseObj);
+  const variations = activeVariations.map((v, i) => ({
+    id: v.key || i + "",
+    name: v.name,
+    weight: activeWeights[i] || 0,
+  }));
   const analysis = snapshot
     ? getSnapshotAnalysis(snapshot) ?? undefined
     : undefined;

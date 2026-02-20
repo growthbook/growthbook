@@ -206,6 +206,7 @@ export type ExperimentTargetingData = Pick<
   | "coverage"
   | "namespace"
   | "seed"
+  | "variations"
   | "variationWeights"
   | "savedGroups"
   | "prerequisites"

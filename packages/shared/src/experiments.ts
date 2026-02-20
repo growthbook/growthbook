@@ -1481,6 +1481,74 @@ export function generateSliceStringFromLevels(
   return generateSliceString(slices);
 }
 
+/** Minimal experiment shape for phase-level variation helpers. */
+type ExperimentWithVariations = {
+  variations: ExperimentInterface["variations"];
+};
+
+/** Minimal phase shape for phase-level variation helpers. Accepts ExperimentPhase and ExperimentPhaseStringDates. */
+export type PhaseWithVariations = {
+  variationWeights?: number[];
+  variations?: ExperimentInterface["variations"];
+};
+
+/**
+ * Returns the full list of variations for a phase.
+ * Falls back to experiment.variations when phase.variations is undefined.
+ */
+export function getVariationsForPhase(
+  experiment: ExperimentWithVariations,
+  phase: PhaseWithVariations | null | undefined,
+): ExperimentInterface["variations"] {
+  return (phase?.variations ??
+    experiment.variations) as ExperimentInterface["variations"];
+}
+
+/**
+ * Returns variations that are not disabled for the given phase.
+ * Use for display, payload, snapshots.
+ */
+export function getActiveVariationsForPhase(
+  experiment: ExperimentWithVariations,
+  phase: PhaseWithVariations | null | undefined,
+): ExperimentInterface["variations"] {
+  const variations = getVariationsForPhase(experiment, phase);
+  return variations.filter(
+    (v) => !v.disabled,
+  ) as ExperimentInterface["variations"];
+}
+
+/**
+ * Returns weights for active (non-disabled) variations only.
+ * Use for display, payload, snapshots.
+ */
+export function getActiveVariationWeightsForPhase(
+  experiment: ExperimentWithVariations,
+  phase: PhaseWithVariations | null | undefined,
+): number[] {
+  const variations = getVariationsForPhase(experiment, phase);
+  const weights = getVariationWeightsForPhase(experiment, phase);
+  return variations
+    .map((v, i) => (!v.disabled ? weights[i] : null))
+    .filter((w): w is number => w !== null);
+}
+
+/**
+ * Returns full variationWeights for the phase.
+ * Falls back to equal weights when length mismatches (back compat).
+ */
+export function getVariationWeightsForPhase(
+  experiment: ExperimentWithVariations,
+  phase: PhaseWithVariations | null | undefined,
+): number[] {
+  const variations = getVariationsForPhase(experiment, phase);
+  const phaseWeights = phase?.variationWeights ?? [];
+  if (phaseWeights.length === variations.length) {
+    return phaseWeights;
+  }
+  return getEqualWeights(variations.length);
+}
+
 // Returns n "equal" decimals rounded to 3 places that add up to 1
 // The sum always adds to 1. In some cases the values are not equal.
 // For example, getEqualWeights(3) returns [0.3334, 0.3333, 0.3333]

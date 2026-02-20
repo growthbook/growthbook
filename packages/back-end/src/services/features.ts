@@ -24,6 +24,10 @@ import {
   recursiveWalk,
 } from "shared/util";
 import {
+  getActiveVariationsForPhase,
+  getActiveVariationWeightsForPhase,
+} from "shared/experiments";
+import {
   getConnectionSDKCapabilities,
   scrubExperiments,
   scrubFeatures,
@@ -258,10 +262,15 @@ export function generateAutoExperimentsPayload({
       const { experiment: e } = data;
       if (e.status === "stopped" && e.excludeFromPayload) return null;
 
-      const phase: ExperimentPhase | null = e.phases.slice(-1)?.[0] ?? null;
+      const phase: ExperimentPhase | null =
+        e.phases?.[e.phases.length - 1] ?? null;
+
+      const activeVariations = getActiveVariationsForPhase(e, phase);
+      const activeWeights = getActiveVariationWeightsForPhase(e, phase);
+
       const forcedVariation =
         e.status === "stopped" && e.releasedVariationId
-          ? e.variations.find((v) => v.id === e.releasedVariationId)
+          ? activeVariations.find((v) => v.id === e.releasedVariationId)
           : null;
 
       const condition = getParsedCondition(
@@ -296,7 +305,7 @@ export function generateAutoExperimentsPayload({
         ),
         status: e.status,
         project: e.project,
-        variations: e.variations.map((v) => {
+        variations: activeVariations.map((v) => {
           if (data.type === "redirect") {
             const match = data.urlRedirect.destinationURLs.find(
               (d) => d.variation === v.id,
@@ -331,8 +340,8 @@ export function generateAutoExperimentsPayload({
                 },
               ]
             : data.visualChangeset.urlPatterns,
-        weights: phase.variationWeights,
-        meta: e.variations.map((v) => ({ key: v.key, name: v.name })),
+        weights: activeWeights,
+        meta: activeVariations.map((v) => ({ key: v.key, name: v.name })),
         filters: phase?.namespace?.enabled
           ? [
               {
@@ -347,7 +356,7 @@ export function generateAutoExperimentsPayload({
         name: e.name,
         phase: `${e.phases.length - 1}`,
         force: forcedVariation
-          ? e.variations.indexOf(forcedVariation)
+          ? activeVariations.indexOf(forcedVariation)
           : undefined,
         condition,
         coverage: phase.coverage,

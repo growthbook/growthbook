@@ -7,7 +7,11 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-import { isPrecomputedDimension } from "shared/experiments";
+import {
+  getActiveVariationsForPhase,
+  getActiveVariationWeightsForPhase,
+  isPrecomputedDimension,
+} from "shared/experiments";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { MetricSnapshotSettings } from "shared/types/report";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -124,13 +128,13 @@ const Results: FC<{
     (Date.now() - getValidDate(phaseObj?.dateStarted ?? "").getTime()) /
     (1000 * 60);
 
-  const variations = experiment.variations.map((v, i) => {
-    return {
-      id: v.key || i + "",
-      name: v.name,
-      weight: phaseObj?.variationWeights?.[i] || 0,
-    };
-  });
+  const activeVariations = getActiveVariationsForPhase(experiment, phaseObj);
+  const activeWeights = getActiveVariationWeightsForPhase(experiment, phaseObj);
+  const variations = activeVariations.map((v, i) => ({
+    id: v.key || i + "",
+    name: v.name,
+    weight: activeWeights[i] || 0,
+  }));
 
   const settingsForSnapshotMetrics: MetricSnapshotSettings[] =
     snapshot?.settings?.metricSettings?.map((m) => ({

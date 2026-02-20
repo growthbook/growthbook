@@ -183,6 +183,7 @@ const experimentSchema = new mongoose.Schema({
       description: String,
       key: String,
       value: String,
+      disabled: Boolean,
       screenshots: [
         {
           _id: false,
@@ -231,6 +232,7 @@ const experimentSchema = new mongoose.Schema({
       namespace: {},
       seed: String,
       variationWeights: [Number],
+      variations: {}, // Unspecified because otherwise Mongoose will prefill with empty array if field is missing
       groups: [String],
       banditEvents: [
         {

@@ -66,28 +66,6 @@ export const banditEvent = z
 export type BanditResult = z.infer<typeof banditResult>;
 export type BanditEvent = z.infer<typeof banditEvent>;
 
-export const experimentPhase = z
-  .object({
-    dateStarted: z.date(),
-    dateEnded: z.date().optional(),
-    name: z.string().min(1),
-    reason: z.string(),
-    coverage: z.number(),
-    condition: z.string(),
-    savedGroups: z.array(savedGroupTargeting).optional(),
-    prerequisites: z.array(featurePrerequisite).optional(),
-    namespace: namespaceValue.optional(),
-    seed: z.string().optional(),
-    variationWeights: z.array(z.number()),
-    banditEvents: z.array(banditEvent).optional(),
-    lookbackStartDate: z.date().optional(),
-  })
-  .strict();
-export type ExperimentPhase = z.infer<typeof experimentPhase>;
-
-export const experimentStatus = ["draft", "running", "stopped"] as const;
-export type ExperimentStatus = (typeof experimentStatus)[number];
-
 export const screenshot = z
   .object({
     path: z.string(),
@@ -105,9 +83,34 @@ export const variation = z
     description: z.string().optional(),
     key: z.string(),
     screenshots: z.array(screenshot),
+    disabled: z.boolean().optional(),
   })
   .strict();
 export type Variation = z.infer<typeof variation>;
+
+export const experimentPhase = z
+  .object({
+    dateStarted: z.date(),
+    dateEnded: z.date().optional(),
+    name: z.string().min(1),
+    reason: z.string(),
+    coverage: z.number(),
+    condition: z.string(),
+    savedGroups: z.array(savedGroupTargeting).optional(),
+    prerequisites: z.array(featurePrerequisite).optional(),
+    namespace: namespaceValue.optional(),
+    seed: z.string().optional(),
+    variationWeights: z.array(z.number()),
+    /** Full list for this phase; fall back to experiment.variations if undefined. */
+    variations: z.array(variation).optional(),
+    banditEvents: z.array(banditEvent).optional(),
+    lookbackStartDate: z.date().optional(),
+  })
+  .strict();
+export type ExperimentPhase = z.infer<typeof experimentPhase>;
+
+export const experimentStatus = ["draft", "running", "stopped"] as const;
+export type ExperimentStatus = (typeof experimentStatus)[number];
 
 export const attributionModel = [
   "firstExposure",
