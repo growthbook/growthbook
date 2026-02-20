@@ -166,3 +166,30 @@ export const CUSTOMIZABLE_PROMPT_TYPES = Object.keys(AI_PROMPT_DEFAULTS).filter(
     AI_PROMPT_DEFAULTS[key as AIPromptType] !== "" ||
     key === "generate-sql-query",
 ) as AIPromptType[];
+
+export interface AIUsageData {
+  fieldMatchesAI?: boolean;
+  fieldLength?: number;
+  suggestionLength?: number;
+  fieldExists: boolean;
+  suggestionExists: boolean;
+}
+
+export function computeAIUsageData({
+  value,
+  aiSuggestionText,
+}: {
+  value: string;
+  aiSuggestionText?: string;
+}): AIUsageData {
+  return {
+    fieldMatchesAI:
+      aiSuggestionText && value
+        ? value.toLowerCase().includes(aiSuggestionText.toLowerCase())
+        : undefined,
+    fieldLength: value?.length,
+    suggestionLength: aiSuggestionText?.length,
+    fieldExists: !!value,
+    suggestionExists: !!aiSuggestionText,
+  };
+}

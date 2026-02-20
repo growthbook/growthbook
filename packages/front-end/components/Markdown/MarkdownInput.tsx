@@ -36,7 +36,6 @@ function getLinkLabelFromUrl(url: string): string {
     return "Link";
   }
 }
-
 const MarkdownInput: FC<{
   value: string;
   setValue: (value: string) => void;
@@ -53,6 +52,7 @@ const MarkdownInput: FC<{
   onCancel?: () => void;
   hidePreview?: boolean;
   showButtons?: boolean;
+  onAISuggestionReceived?: (result: string) => void;
 }> = ({
   value,
   setValue,
@@ -69,6 +69,7 @@ const MarkdownInput: FC<{
   onOptInModalOpen, // If this component is in Modal itself this can be used to close that modal when the OptInModal opens
   onOptInModalClose, // ... And this can be used to open that modal when the OptInModal closes
   showButtons = true,
+  onAISuggestionReceived,
 }) => {
   const { aiEnabled, aiAgreedTo } = useAISettings();
   const [activeControlledTab, setActiveControlledTab] = useState<
@@ -169,6 +170,9 @@ const MarkdownInput: FC<{
         setActiveControlledTab("write");
         const suggestedText = await aiSuggestFunction();
         if (suggestedText) {
+          if (onAISuggestionReceived) {
+            onAISuggestionReceived(suggestedText);
+          }
           if (!value || !value.trim()) {
             setValue(suggestedText);
           } else {

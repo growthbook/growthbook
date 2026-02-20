@@ -185,7 +185,12 @@ export async function getExperiments(
 experiment based on the id, and the suggested results, winner and releasedVariationId*/
 export async function postAIExperimentAnalysis(
   req: AuthRequest<
-    { results: string; winner: number; releasedVariationId: string },
+    {
+      results: string;
+      winner: number;
+      releasedVariationId: string;
+      temperature?: number;
+    },
     { id: string }
   >,
   res: Response<{
@@ -194,12 +199,19 @@ export async function postAIExperimentAnalysis(
     retryAfter?: number;
     data?: {
       description: string;
+      temperature: number;
     };
   }>,
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
-  const { results, winner, releasedVariationId } = req.body;
+  const {
+    results,
+    winner,
+    releasedVariationId,
+    temperature: reqTemperature,
+  } = req.body;
+  const temperature = reqTemperature ?? 0.1;
 
   const experiment = await getExperimentById(context, id);
   if (!experiment) {
@@ -300,13 +312,15 @@ export async function postAIExperimentAnalysis(
     "\n- Confidence intervals: A range of values that likely contains the true effect size." +
     "\n- Statistical power: The probability of detecting a true effect." +
     "\n- Sample Ratio Mismatch (SRM): Indicates whether traffic was evenly split among variations." +
-    "\n- Chance to Win: The probability that a variation is better than others." +
+    "\n- Chance to Win (bayesian only): The probability that a variation is better than others." +
+    "\n- P-Value (frequentist only): The probability that the null hypothesis is true." +
     // Metric types
     "\nMetrics can be of the following types:" +
-    "\n- Binomial Metrics: Represent yes/no outcomes (e.g., conversion rates). The value is the proportion of users who converted (e.g., 10% means 10 out of 100 users converted)." +
-    "\n- Count Metrics: Represent the total count of events per user (e.g., pages viewed per user). The value is the average count per user." +
-    "\n- Duration Metrics: Represent the total time spent per user (e.g., time on site). The value is the average duration per user, typically in seconds or minutes." +
-    "\n- Revenue Metrics: Represent the total revenue generated per user. The value is in the local currency, and not a percent.  (e.g. For instance 6.58 means the average revenue per user was $6.58 on average)." +
+    "\n- Binomial/Proportion Metrics: Represent yes/no outcomes (e.g., conversion rates). The value is the proportion of users who converted (e.g., 10% means 10 out of 100 users converted)." +
+    "\n- Count/Mean Metrics: Represent the total count of events per user (e.g., pages viewed per user). The value is the average count per user." +
+    "\n- Duration/Mean Metrics: Represent the total time spent per user (e.g., time on site). The value is the average duration per user, typically in seconds or minutes." +
+    "\n- Revenue/Mean Metrics: Represent the total revenue generated per user. The value is in the local currency, and not a percent.  (e.g. For instance 6.58 means the average revenue per user was $6.58 on average)." +
+    "\n- Ratio Metrics: Represent the ratio of two numeric values among experiment users." +
     // Statistical results
     "\n- Statistical results for metrics include: Conversion Rate (CR)" +
     "\n- Statistical results for metrics include: Value: Represents the total value of the metric across all users who saw the variation." +
@@ -367,7 +381,7 @@ export async function postAIExperimentAnalysis(
     prompt: prompt,
     type,
     isDefaultPrompt,
-    temperature: 0.1,
+    temperature,
     overrideModel,
   });
 
@@ -375,6 +389,7 @@ export async function postAIExperimentAnalysis(
     status: 200,
     data: {
       description: aiResults,
+      temperature,
     },
   });
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FaPlay, FaExclamationTriangle } from "react-icons/fa";
 import {
@@ -13,6 +13,7 @@ import {
   SavedQuery,
   QueryExecutionResult,
 } from "shared/validators";
+import { computeAIUsageData } from "shared/ai";
 import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
 import { getValidDate } from "shared/dates";
 import { isReadOnlySQL, SQL_ROW_LIMIT } from "shared/sql";
@@ -20,6 +21,7 @@ import { BsThreeDotsVertical, BsStars } from "react-icons/bs";
 import { InformationSchemaInterfaceWithPaths } from "shared/types/integrations";
 import { FiChevronRight } from "react-icons/fi";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -36,6 +38,8 @@ import {
   PanelGroup,
   PanelResizeHandle,
 } from "@/components/ResizablePanels";
+import { AppFeatures } from "@/types/app-features";
+import track from "@/services/track";
 import useOrgSettings, { useAISettings } from "@/hooks/useOrgSettings";
 import { VisualizationAddIcon } from "@/components/Icons";
 import { requiresXAxes, requiresXAxis } from "@/services/dataVizTypeGuards";
@@ -183,6 +187,10 @@ export default function SqlExplorerModal({
   const [aiInput, setAiInput] = useState("");
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiAgreementModal, setAiAgreementModal] = useState<boolean>(false);
+  const gb = useGrowthBook<AppFeatures>();
+  const aiTemperature =
+    gb?.getFeatureValue("ai-suggestions-temperature", 0.1) || 0.1;
+  const aiSuggestionRef = useRef<string | undefined>(undefined);
   const permissionsUtil = usePermissionsUtil();
   const [cursorData, setCursorData] = useState<null | CursorData>(null);
   const [formatError, setFormatError] = useState<string | null>(null);
@@ -520,6 +528,14 @@ export default function SqlExplorerModal({
           allVisualizationIds: allCurrentVizIds,
         });
       }
+      if (aiSuggestionRef.current) {
+        track("SQL Query Saved", {
+          aiUsageData: computeAIUsageData({
+            value: form.watch("sql"),
+            aiSuggestionText: aiSuggestionRef.current,
+          }),
+        });
+      }
       close();
     } catch (error) {
       setLoading(false);
@@ -557,6 +573,15 @@ export default function SqlExplorerModal({
       });
     }
     setIsRunningQuery(false);
+
+    if (aiSuggestionRef.current) {
+      track("SQL Query Run", {
+        aiUsageData: computeAIUsageData({
+          value: form.watch("sql"),
+          aiSuggestionText: aiSuggestionRef.current,
+        }),
+      });
+    }
   }, [form, runQuery]);
 
   const handleFormatClick = () => {
@@ -586,6 +611,7 @@ export default function SqlExplorerModal({
             body: JSON.stringify({
               input: aiInput,
               datasourceId: form.watch("datasourceId"),
+              temperature: aiTemperature,
             }),
           },
           (responseData) => {
@@ -609,6 +635,7 @@ export default function SqlExplorerModal({
         )
           .then((res: { data: { sql: string; errors: string[] } }) => {
             form.setValue("sql", res.data.sql);
+            aiSuggestionRef.current = res.data.sql;
             if (res.data.errors && res.data.errors.length > 0) {
               setAiError(res.data.errors.join(", "));
             }
