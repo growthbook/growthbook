@@ -480,7 +480,6 @@ export function useAuditComparison<T>(
   return {
     // Section visibility filters
     sectionLabels,
-    visibleSections,
     setVisibleSections,
     showOtherEvents,
     setShowOtherEvents,

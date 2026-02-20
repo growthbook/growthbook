@@ -137,7 +137,7 @@ function RawAuditDetails({ entry }: { entry: CoarsenedAuditEntry<unknown> }) {
             transform: open ? "rotate(90deg)" : "none",
           }}
         />
-        Full audit details
+        Full audit record
       </div>
       {open && (
         <Box mt="3">
@@ -873,14 +873,7 @@ export default function CompareAuditEventsModal<T>({
                       Could not load change
                       {displayFailed.length > 1 ? "s" : ""}.
                     </span>
-                    <Link
-                      onClick={() => {
-                        // Nothing to retry for audit entries — details are static
-                        // in the audit log. Surface as info instead.
-                      }}
-                    >
-                      The audit record may be missing snapshot data.
-                    </Link>
+                    <span>The audit record may be missing snapshot data.</span>
                   </Flex>
                 </Callout>
               ) : activeDiffs.length === 0 ? (
@@ -941,9 +934,12 @@ export default function CompareAuditEventsModal<T>({
                   </Flex>
                 </>
               )}
-              {isSingleEntry && singleEntryFirst && (
-                <RawAuditDetails entry={singleEntryFirst} />
-              )}
+              {singleEntryLast &&
+                (isSingleEntry ||
+                  diffViewMode === "steps" ||
+                  selectedSorted.length === 2) && (
+                  <RawAuditDetails entry={singleEntryLast} />
+                )}
             </Box>
           )}
         </Box>

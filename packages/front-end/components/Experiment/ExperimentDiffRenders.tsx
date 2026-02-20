@@ -873,12 +873,13 @@ export function renderAnalysisSettings(pre: Pre, post: Post): ReactNode | null {
   }
 
   // ── Bandit schedule / burn-in ──────────────────────────────────────────────
+  const fmtBandit = (val: number | undefined, unit: string | undefined) =>
+    val !== undefined ? `${val} ${unit ?? ""}`.trim() : <em>unset</em>;
+
   const banditBurnChanged =
     !isEqual(pre?.banditBurnInValue, post.banditBurnInValue) ||
     !isEqual(pre?.banditBurnInUnit, post.banditBurnInUnit);
   if (banditBurnChanged && post.banditBurnInValue !== undefined) {
-    const fmtBandit = (val: number | undefined, unit: string | undefined) =>
-      val !== undefined ? `${val} ${unit ?? ""}`.trim() : <em>unset</em>;
     rows.push(
       <ChangeField
         key="banditBurnIn"
@@ -894,8 +895,6 @@ export function renderAnalysisSettings(pre: Pre, post: Post): ReactNode | null {
     !isEqual(pre?.banditScheduleValue, post.banditScheduleValue) ||
     !isEqual(pre?.banditScheduleUnit, post.banditScheduleUnit);
   if (banditScheduleChanged && post.banditScheduleValue !== undefined) {
-    const fmtBandit = (val: number | undefined, unit: string | undefined) =>
-      val !== undefined ? `${val} ${unit ?? ""}`.trim() : <em>unset</em>;
     rows.push(
       <ChangeField
         key="banditSchedule"
