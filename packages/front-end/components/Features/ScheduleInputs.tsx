@@ -18,14 +18,21 @@ interface Props {
 }
 
 export default function ScheduleInputs(props: Props) {
-  const [rules, setRules] = useState(props.defaultValue);
+  const {
+    defaultValue,
+    onChange: onRulesChange,
+    scheduleToggleEnabled,
+    setScheduleToggleEnabled,
+    disabled,
+  } = props;
+  const [rules, setRules] = useState(defaultValue);
   const { hasCommercialFeature } = useUser();
 
   const canScheduleFeatureFlags = hasCommercialFeature("schedule-feature-flag");
 
   useEffect(() => {
-    props.onChange(rules);
-  }, [props, props.defaultValue, rules]);
+    onRulesChange(rules);
+  }, [onRulesChange, defaultValue, rules]);
 
   const [date0, setDate0] = useState<Date | undefined>(
     rules?.[0]?.timestamp ? getValidDate(rules[0].timestamp) : undefined,
@@ -60,9 +67,9 @@ export default function ScheduleInputs(props: Props) {
           </PremiumTooltip>
         }
         description="Schedule this rule to be automatically enabled or disabled in the future"
-        value={props.scheduleToggleEnabled}
+        value={scheduleToggleEnabled}
         setValue={(v) => {
-          props.setScheduleToggleEnabled(v === true);
+          setScheduleToggleEnabled(v === true);
 
           if (!rules.length) {
             setRules([
@@ -77,9 +84,9 @@ export default function ScheduleInputs(props: Props) {
             ]);
           }
         }}
-        disabled={!canScheduleFeatureFlags || props.disabled}
+        disabled={!canScheduleFeatureFlags || disabled}
       />
-      {rules.length > 0 && props.scheduleToggleEnabled && (
+      {rules.length > 0 && scheduleToggleEnabled && (
         <div className="box mb-3 bg-light pt-2 px-3">
           <div className="row align-items-center py-2">
             <div className="ml-2 mb-2" style={{ width: 100 }}>

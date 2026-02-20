@@ -1,4 +1,3 @@
-import { useRouter } from "next/router";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import React, { useMemo, useState } from "react";
@@ -16,16 +15,17 @@ import {
 import { MdRocketLaunch } from "react-icons/md";
 import { BiHide, BiShow } from "react-icons/bi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import Link from "next/link";
 import { BsClock } from "react-icons/bs";
 import {
+  PiArrowsLeftRightBold,
   PiCheckCircleFill,
   PiCircleDuotone,
   PiFileX,
   PiInfo,
+  PiPlusCircleBold,
 } from "react-icons/pi";
 import { FeatureUsageLookback } from "shared/types/integrations";
-import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { Box, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
 import { RxListBullet } from "react-icons/rx";
 import {
   SafeRolloutInterface,
@@ -33,7 +33,7 @@ import {
   MinimalFeatureRevisionInterface,
 } from "shared/validators";
 import Button from "@/ui/Button";
-import { GBAddCircle, GBEdit } from "@/components/Icons";
+import { GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAuth } from "@/services/auth";
 import ForceSummary from "@/components/Features/ForceSummary";
@@ -61,9 +61,9 @@ import EventUser from "@/components/Avatar/EventUser";
 import RevertModal from "@/components/Features/RevertModal";
 import EditRevisionCommentModal from "@/components/Features/EditRevisionCommentModal";
 import FixConflictsModal from "@/components/Features/FixConflictsModal";
+import CompareRevisionsModal from "@/components/Features/CompareRevisionsModal";
 import Revisionlog from "@/components/Features/RevisionLog";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
-import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
@@ -75,6 +75,7 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Badge from "@/ui/Badge";
 import Frame from "@/ui/Frame";
 import Switch from "@/ui/Switch";
+import Link from "@/ui/Link";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import JSONValidation from "@/components/Features/JSONValidation";
 import {
@@ -84,7 +85,7 @@ import {
 import PrerequisiteStatusRow, {
   PrerequisiteStatesCols,
 } from "./PrerequisiteStatusRow";
-import { PrerequisiteAlerts } from "./PrerequisiteTargetingField";
+import PrerequisiteAlerts from "./PrerequisiteAlerts";
 import PrerequisiteModal from "./PrerequisiteModal";
 import RequestReviewModal from "./RequestReviewModal";
 import { FeatureUsageContainer, useFeatureUsage } from "./FeatureUsageGraph";
@@ -121,9 +122,6 @@ export default function FeaturesOverview({
   version: number | null;
   setVersion: (v: number) => void;
 }) {
-  const router = useRouter();
-  const { fid } = router.query;
-
   const settings = useOrgSettings();
   const [edit, setEdit] = useState(false);
   const [draftModal, setDraftModal] = useState(false);
@@ -146,6 +144,8 @@ export default function FeaturesOverview({
   const [revertIndex, setRevertIndex] = useState(0);
 
   const [editCommentModel, setEditCommentModal] = useState(false);
+  const [compareRevisionsModalOpen, setCompareRevisionsModalOpen] =
+    useState(false);
 
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
@@ -173,9 +173,11 @@ export default function FeaturesOverview({
 
   const dependents = dependentFeatures.length + dependentExperiments.length;
 
-  const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
-    timeout: 800,
-  });
+  const { performCopy, copySuccess, copySupported, copyCooldown } =
+    useCopyToClipboard({
+      timeout: 800,
+      cooldown: 500,
+    });
 
   const mergeResult = useMemo(() => {
     if (!feature || !revision) return null;
@@ -859,10 +861,11 @@ export default function FeaturesOverview({
                 commercialFeature="prerequisites"
                 className="d-inline-flex align-items-center mt-3"
               >
-                <Button
-                  variant="ghost"
-                  disabled={!hasPrerequisitesCommercialFeature}
+                <Link
                   onClick={() => {
+                    if (!hasPrerequisitesCommercialFeature) {
+                      return;
+                    }
                     setPrerequisiteModal({
                       i: getPrerequisites(feature).length,
                     });
@@ -870,12 +873,18 @@ export default function FeaturesOverview({
                       source: "add-prerequisite",
                     });
                   }}
+                  style={{
+                    opacity: !hasPrerequisitesCommercialFeature ? 0.5 : 1,
+                    cursor: !hasPrerequisitesCommercialFeature
+                      ? "not-allowed"
+                      : "pointer",
+                  }}
                 >
-                  <span className="h4 pr-2 m-0 d-inline-block align-top">
-                    <GBAddCircle />
-                  </span>
-                  Add Prerequisite Feature
-                </Button>
+                  <Text weight="bold">
+                    <PiPlusCircleBold className="mr-1" />
+                    Add prerequisite targeting
+                  </Text>
+                </Link>
               </PremiumTooltip>
             )}
           </Box>
@@ -1027,6 +1036,7 @@ export default function FeaturesOverview({
                 <Flex
                   align="center"
                   justify="between"
+                  gap="2"
                   width={{ initial: "98%", sm: "70%", md: "60%", lg: "50%" }}
                 >
                   <Box width="100%">
@@ -1038,29 +1048,32 @@ export default function FeaturesOverview({
                       revisions={revisionList || []}
                     />
                   </Box>
-                  <Box mx="6">
-                    <a
-                      title="Copy a link to this revision"
-                      href={`/features/${fid}?v=${version}`}
-                      className="position-relative"
-                      onClick={(e) => {
+                  <Tooltip
+                    body={
+                      copySuccess
+                        ? "Copied to clipboard!"
+                        : "Copy a link to this revision"
+                    }
+                    tipPosition="top"
+                    state={copySuccess}
+                    ignoreMouseEvents={!!copySuccess}
+                    shouldDisplay={!copyCooldown}
+                  >
+                    <IconButton
+                      variant="ghost"
+                      size="3"
+                      onClick={() => {
                         if (!copySupported) return;
-
-                        e.preventDefault();
                         const url =
                           window.location.href.replace(/[?#].*/, "") +
                           `?v=${version}`;
                         performCopy(url);
                       }}
+                      style={{ margin: 0 }}
                     >
-                      <FaLink />
-                      {copySuccess ? (
-                        <SimpleTooltip position="right">
-                          Copied to clipboard!
-                        </SimpleTooltip>
-                      ) : null}
-                    </a>
-                  </Box>
+                      <FaLink size={14} />
+                    </IconButton>
+                  </Tooltip>
                 </Flex>
                 <Flex
                   align={{ initial: "center", xs: "center", sm: "start" }}
@@ -1068,8 +1081,18 @@ export default function FeaturesOverview({
                   flexShrink="0"
                   direction={{ initial: "row", xs: "column", sm: "row" }}
                   style={{ whiteSpace: "nowrap" }}
-                  gap="4"
+                  gap="2"
                 >
+                  {(revisionList?.length ?? 0) >= 2 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setCompareRevisionsModalOpen(true)}
+                      icon={<PiArrowsLeftRightBold size={14} />}
+                    >
+                      Compare revisions
+                    </Button>
+                  )}
                   {renderRevisionCTA()}
                 </Flex>
               </Flex>
@@ -1332,6 +1355,15 @@ export default function FeaturesOverview({
             close={() => setPrerequisiteModal(null)}
             i={prerequisiteModal.i}
             mutate={mutate}
+          />
+        )}
+        {compareRevisionsModalOpen && (
+          <CompareRevisionsModal
+            feature={feature}
+            revisionList={revisionList || []}
+            revisions={revisions}
+            currentVersion={version ?? feature.version}
+            onClose={() => setCompareRevisionsModalOpen(false)}
           />
         )}
       </Box>

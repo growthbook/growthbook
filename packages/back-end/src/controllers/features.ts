@@ -3,6 +3,10 @@ import { evaluateFeatures } from "@growthbook/proxy-eval";
 import { cloneDeep, isEqual, omit } from "lodash";
 import { v4 as uuidv4 } from "uuid";
 import {
+  SDKConnectionInterface,
+  SDKLanguage,
+} from "shared/types/sdk-connection";
+import {
   autoMerge,
   filterEnvironmentsByFeature,
   filterProjectsByEnvironmentWithNull,
@@ -36,7 +40,6 @@ import {
   FeatureUsageDataPoint,
 } from "shared/types/feature";
 import { FeatureUsageRecords } from "shared/types/realtime";
-import { Environment } from "shared/types/organization";
 import {
   EventUserForResponseLocals,
   EventUserLoggedIn,
@@ -86,10 +89,15 @@ import {
   arrayMove,
   evaluateAllFeatures,
   evaluateFeature,
+  FeatureDefinitionSDKPayload,
   generateRuleId,
   getFeatureDefinitions,
   getSavedGroupMap,
 } from "back-end/src/services/features";
+import {
+  getSDKPayloadCacheLocation,
+  formatLegacyCacheKey,
+} from "back-end/src/models/SdkConnectionCacheModel";
 import {
   auditDetailsCreate,
   auditDetailsDelete,
@@ -102,6 +110,7 @@ import {
   discardRevision,
   getMinimalRevisions,
   getRevision,
+  getRevisionsByVersions,
   getLatestRevisions,
   getRevisionsByStatus,
   hasDraft,
@@ -144,25 +153,32 @@ import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-ro
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { UnrecoverableApiError } from "back-end/src/util/errors";
 
+export type SDKPayloadParams = Pick<
+  SDKConnectionInterface,
+  | "key"
+  | "environment"
+  | "projects"
+  | "encryptPayload"
+  | "encryptionKey"
+  | "sdkVersion"
+  | "includeVisualExperiments"
+  | "includeDraftExperiments"
+  | "includeExperimentNames"
+  | "includeRedirectExperiments"
+  | "includeRuleIds"
+  | "hashSecureAttributes"
+  | "savedGroupReferencesEnabled"
+  | "remoteEvalEnabled"
+> &
+  Partial<Pick<SDKConnectionInterface, "organization">> & {
+    // Extend languages to allow "legacy" for old API keys
+    languages: SDKLanguage[] | ["legacy"];
+  };
+
 export async function getPayloadParamsFromApiKey(
   key: string,
   req: Request,
-): Promise<{
-  organization: string;
-  capabilities: SDKCapability[];
-  projects: string[];
-  environment: string;
-  encrypted: boolean;
-  encryptionKey?: string;
-  includeVisualExperiments?: boolean;
-  includeDraftExperiments?: boolean;
-  includeExperimentNames?: boolean;
-  includeRedirectExperiments?: boolean;
-  includeRuleIds?: boolean;
-  hashSecureAttributes?: boolean;
-  remoteEvalEnabled?: boolean;
-  savedGroupReferencesEnabled?: boolean;
-}> {
+): Promise<SDKPayloadParams> {
   // SDK Connection key
   if (key.match(/^sdk-/)) {
     const connection = await findSDKConnectionByKey(key);
@@ -180,11 +196,11 @@ export async function getPayloadParamsFromApiKey(
     }
 
     return {
+      key: connection.key,
       organization: connection.organization,
-      capabilities: getConnectionSDKCapabilities(connection),
       environment: connection.environment,
       projects: connection.projects,
-      encrypted: connection.encryptPayload,
+      encryptPayload: connection.encryptPayload,
       encryptionKey: connection.encryptionKey,
       includeVisualExperiments: connection.includeVisualExperiments,
       includeDraftExperiments: connection.includeDraftExperiments,
@@ -194,6 +210,8 @@ export async function getPayloadParamsFromApiKey(
       hashSecureAttributes: connection.hashSecureAttributes,
       remoteEvalEnabled: connection.remoteEvalEnabled,
       savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
+      languages: connection.languages,
+      sdkVersion: connection.sdkVersion,
     };
   }
   // Old, legacy API Key
@@ -224,70 +242,108 @@ export async function getPayloadParamsFromApiKey(
       projectFilter = project;
     }
 
+    // Synthesize a legacy cache key in lieu of an SDK connection key
+    const cacheKey = formatLegacyCacheKey({
+      apiKey: key,
+      environment,
+      project: projectFilter,
+    });
+
     return {
+      key: cacheKey,
       organization,
-      capabilities: ["bucketingV2"],
       environment: environment || "production",
       projects: projectFilter ? [projectFilter] : [],
-      encrypted: !!encryptSDK,
-      encryptionKey,
+      encryptPayload: !!encryptSDK,
+      encryptionKey: encryptionKey || "",
+      languages: ["legacy"], // "legacy" marker for computing basic capabilities (bucketingV2)
+      sdkVersion: "0.0.0",
     };
   }
 }
 
-export async function getFeatureDefinitionsFilteredByEnvironment({
+// Get feature definitions with cache-first strategy.
+// Falls back to JIT generation on cache miss/corruption, with write-back to populate cache.
+// Accepts: SDKPayloadParams - either a full SDKConnectionInterface object or a subset via API key lookup.
+export async function getFeatureDefinitionsWithCache({
   context,
-  projects,
-  environmentDoc,
-  capabilities,
-  encrypted,
-  encryptionKey,
-  includeVisualExperiments,
-  includeDraftExperiments,
-  includeExperimentNames,
-  includeRedirectExperiments,
-  includeRuleIds,
-  hashSecureAttributes,
-  savedGroupReferencesEnabled,
-  environment,
+  params,
 }: {
   context: ReqContext | ApiReqContext;
-  projects: string[];
-  environmentDoc: Environment | undefined;
-  capabilities: SDKCapability[];
-  encrypted: boolean;
-  encryptionKey: string | undefined;
-  includeVisualExperiments: boolean | undefined;
-  includeDraftExperiments: boolean | undefined;
-  includeExperimentNames: boolean | undefined;
-  includeRedirectExperiments: boolean | undefined;
-  includeRuleIds: boolean | undefined;
-  hashSecureAttributes: boolean | undefined;
-  savedGroupReferencesEnabled: boolean | undefined;
-  environment: string;
-}) {
-  const filteredProjects = filterProjectsByEnvironmentWithNull(
-    projects,
-    environmentDoc,
-    true,
-  );
+  params: SDKPayloadParams;
+}): Promise<FeatureDefinitionSDKPayload> {
+  let defs: FeatureDefinitionSDKPayload | undefined;
+  const storageLocation = getSDKPayloadCacheLocation();
 
-  const defs = await getFeatureDefinitions({
-    context,
-    capabilities,
-    environment,
-    projects: filteredProjects,
-    encryptionKey: encrypted ? encryptionKey : "",
-    includeVisualExperiments,
-    includeDraftExperiments,
-    includeExperimentNames,
-    includeRedirectExperiments,
-    includeRuleIds,
-    hashSecureAttributes,
-    savedGroupReferencesEnabled:
-      savedGroupReferencesEnabled &&
-      capabilities.includes("savedGroupReferences"),
-  });
+  // Try cache first
+  if (storageLocation !== "none") {
+    const cached = await context.models.sdkConnectionCache.getById(params.key);
+    if (cached) {
+      try {
+        defs = JSON.parse(cached.contents);
+      } catch (e) {
+        logger.warn(e, "Failed to parse cached SDK payload, regenerating");
+      }
+    }
+  }
+
+  // Generate if cache disabled, cache miss, or corrupt cache
+  if (!defs) {
+    // Derive capabilities from languages/sdkVersion (or hardcode for legacy API keys)
+    const capabilities =
+      params.languages[0] === "legacy"
+        ? ["bucketingV2" as SDKCapability] // hardcoded for legacy API keys
+        : getConnectionSDKCapabilities({
+            languages: params.languages as SDKLanguage[],
+            sdkVersion: params.sdkVersion,
+          });
+
+    const environmentDoc = context.org?.settings?.environments?.find(
+      (e) => e.id === params.environment,
+    );
+    const filteredProjects = filterProjectsByEnvironmentWithNull(
+      params.projects,
+      environmentDoc,
+      true,
+    );
+
+    defs = await getFeatureDefinitions({
+      context,
+      capabilities,
+      environment: params.environment,
+      projects: filteredProjects,
+      encryptionKey: params.encryptPayload ? params.encryptionKey : undefined,
+      includeVisualExperiments: params.includeVisualExperiments,
+      includeDraftExperiments: params.includeDraftExperiments,
+      includeExperimentNames: params.includeExperimentNames,
+      includeRedirectExperiments: params.includeRedirectExperiments,
+      includeRuleIds: params.includeRuleIds,
+      hashSecureAttributes: params.hashSecureAttributes,
+      savedGroupReferencesEnabled:
+        params.savedGroupReferencesEnabled !== undefined
+          ? params.savedGroupReferencesEnabled &&
+            capabilities.includes("savedGroupReferences")
+          : undefined,
+    });
+
+    // Write back to cache to populate it for future reads (fire and forget)
+    if (storageLocation !== "none") {
+      const rawStack = new Error().stack || "";
+      const stackTrace = rawStack.replace(/^Error.*?\n/, "");
+
+      context.models.sdkConnectionCache
+        .upsert(params.key, JSON.stringify(defs), {
+          dateUpdated: new Date(),
+          event: "cache-miss",
+          model: "sdk-connection",
+          stack: stackTrace,
+          connection: params as unknown as Record<string, unknown>,
+        })
+        .catch((e) => {
+          logger.warn(e, "Failed to write JIT generated payload to cache");
+        });
+    }
+  }
 
   return defs;
 }
@@ -300,49 +356,23 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       throw new UnrecoverableApiError("Missing API key in request");
     }
 
-    const {
-      organization,
-      capabilities,
-      environment,
-      encrypted,
-      projects,
-      encryptionKey,
-      includeVisualExperiments,
-      includeDraftExperiments,
-      includeExperimentNames,
-      includeRedirectExperiments,
-      includeRuleIds,
-      hashSecureAttributes,
-      remoteEvalEnabled,
-      savedGroupReferencesEnabled,
-    } = await getPayloadParamsFromApiKey(key, req);
+    const params = await getPayloadParamsFromApiKey(key, req);
 
-    const context = await getContextForAgendaJobByOrgId(organization);
+    if (!params.organization) {
+      throw new UnrecoverableApiError("Organization not found for API key");
+    }
 
-    if (remoteEvalEnabled) {
+    const context = await getContextForAgendaJobByOrgId(params.organization);
+
+    if (params.remoteEvalEnabled) {
       throw new UnrecoverableApiError(
         "Remote evaluation required for this connection",
       );
     }
 
-    const environmentDoc = context.org?.settings?.environments?.find(
-      (e) => e.id === environment,
-    );
-    const defs = await getFeatureDefinitionsFilteredByEnvironment({
+    const defs = await getFeatureDefinitionsWithCache({
       context,
-      projects,
-      environmentDoc,
-      capabilities,
-      encrypted,
-      encryptionKey,
-      includeVisualExperiments,
-      includeDraftExperiments,
-      includeExperimentNames,
-      includeRedirectExperiments,
-      includeRuleIds,
-      hashSecureAttributes,
-      savedGroupReferencesEnabled,
-      environment,
+      params,
     });
 
     // The default is Cache for 30 seconds, serve stale up to 1 hour (10 hours if origin is down)
@@ -355,9 +385,11 @@ export async function getFeaturesPublic(req: Request, res: Response) {
     if (FASTLY_SERVICE_ID) {
       // Purge by org, API Key, or payload contents
       const surrogateKeys = [
-        organization,
+        params.organization,
         key,
-        ...getSurrogateKeysFromEnvironments(organization, [environment]),
+        ...getSurrogateKeysFromEnvironments(params.organization, [
+          params.environment,
+        ]),
       ];
       res.set("Surrogate-Key", surrogateKeys.join(" "));
     }
@@ -393,38 +425,19 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
       throw new UnrecoverableApiError("Missing API key in request");
     }
 
-    const {
-      organization,
-      capabilities,
-      environment,
-      encrypted,
-      projects,
-      encryptionKey,
-      includeVisualExperiments,
-      includeDraftExperiments,
-      includeExperimentNames,
-      includeRedirectExperiments,
-      includeRuleIds,
-      hashSecureAttributes,
-      remoteEvalEnabled,
-    } = await getPayloadParamsFromApiKey(key, req);
+    const params = await getPayloadParamsFromApiKey(key, req);
 
-    const context = await getContextForAgendaJobByOrgId(organization);
+    if (!params.organization) {
+      throw new UnrecoverableApiError("Organization not found for API key");
+    }
 
-    if (!remoteEvalEnabled) {
+    const context = await getContextForAgendaJobByOrgId(params.organization);
+
+    if (!params.remoteEvalEnabled) {
       throw new UnrecoverableApiError(
         "Remote evaluation disabled for this connection",
       );
     }
-
-    const environmentDoc = context.org?.settings?.environments?.find(
-      (e) => e.id === environment,
-    );
-    const filteredProjects = filterProjectsByEnvironmentWithNull(
-      projects,
-      environmentDoc,
-      true,
-    );
 
     // Evaluate features using provided attributes
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -437,18 +450,9 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
     );
     const url = req.body?.url;
 
-    const defs = await getFeatureDefinitions({
+    const defs = await getFeatureDefinitionsWithCache({
       context,
-      capabilities,
-      environment,
-      projects: filteredProjects,
-      encryptionKey: encrypted ? encryptionKey : "",
-      includeVisualExperiments,
-      includeDraftExperiments,
-      includeExperimentNames,
-      includeRedirectExperiments,
-      includeRuleIds,
-      hashSecureAttributes,
+      params,
     });
 
     // This endpoint should never be cached
@@ -2710,6 +2714,43 @@ export async function getFeatures(
   });
 }
 
+export async function getFeatureRevisions(
+  req: AuthRequest<null, { id: string }, { versions?: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const { id } = req.params;
+
+  const feature = await getFeature(context, id);
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  const versionsParam = req.query.versions ?? "";
+  const versions = versionsParam
+    .split(",")
+    .map((v) => parseInt(v.trim(), 10))
+    .filter((v) => !isNaN(v) && v > 0);
+
+  if (!versions.length) {
+    return res.status(400).json({
+      status: 400,
+      message:
+        "versions query param is required (comma-separated list of version numbers)",
+    });
+  }
+
+  const revisions = await getRevisionsByVersions({
+    context,
+    organization: org.id,
+    featureId: id,
+    versions,
+  });
+
+  return res.status(200).json({ status: 200, revisions });
+}
+
 export async function getRevisionLog(
   req: AuthRequest<null, { id: string; version: string }>,
   res: Response<
@@ -3372,25 +3413,23 @@ export async function getPrerequisiteStates(
   });
 }
 
-// Batch evaluate prerequisite states and cyclic checks for multiple features
+// Batch evaluate prerequisite states with optional base feature (for cyclic checks)
 export async function postBatchPrerequisiteStates(
-  req: AuthRequest<
-    {
-      featureIds: string[];
-      environments: string[];
-      checkPrerequisite?: {
-        id: string;
-        condition: string;
-        prerequisiteIndex?: number;
-      };
-      checkRulePrerequisites?: {
-        environment: string;
-        ruleIndex: number;
-        prerequisites: FeaturePrerequisite[];
-      };
-    },
-    { id: string }
-  >,
+  req: AuthRequest<{
+    featureIds: string[];
+    environments: string[];
+    baseFeatureId?: string;
+    checkPrerequisite?: {
+      id: string;
+      condition: string;
+      prerequisiteIndex?: number;
+    };
+    checkRulePrerequisites?: {
+      environment: string;
+      ruleIndex: number;
+      prerequisites: FeaturePrerequisite[];
+    };
+  }>,
   res: Response<
     {
       status: 200;
@@ -3417,10 +3456,10 @@ export async function postBatchPrerequisiteStates(
   const {
     featureIds,
     environments,
+    baseFeatureId,
     checkPrerequisite,
     checkRulePrerequisites,
   } = req.body;
-  const { id: targetFeatureId } = req.params;
 
   // featureIds is required unless we're only doing cycle checks
   if (
@@ -3434,18 +3473,65 @@ export async function postBatchPrerequisiteStates(
     throw new Error("Must provide environments");
   }
 
-  const targetFeature = await getFeature(context, targetFeatureId);
-  if (!targetFeature) {
-    throw new Error("Could not find target feature");
+  // If baseFeatureId provided, fetch the feature and perform cyclic checks
+  let baseFeature: FeatureInterface | null = null;
+  let revision: FeatureRevisionInterface | null = null;
+
+  if (baseFeatureId) {
+    baseFeature = await getFeature(context, baseFeatureId);
+
+    if (!baseFeature) {
+      throw new Error("Could not find base feature");
+    }
+
+    revision = await getRevision({
+      context,
+      organization: context.org.id,
+      featureId: baseFeatureId,
+      version: baseFeature.version,
+    });
   }
 
-  const revision = await getRevision({
+  return await evaluateBatchPrerequisiteStates({
     context,
-    organization: context.org.id,
-    featureId: targetFeatureId,
-    version: targetFeature.version,
+    featureIds,
+    environments,
+    baseFeature,
+    revision,
+    checkPrerequisite,
+    checkRulePrerequisites,
+    res,
   });
+}
 
+// Shared logic for evaluating batch prerequisite states
+async function evaluateBatchPrerequisiteStates({
+  context,
+  featureIds,
+  environments,
+  baseFeature,
+  revision,
+  checkPrerequisite,
+  checkRulePrerequisites,
+  res,
+}: {
+  context: ReqContext;
+  featureIds: string[];
+  environments: string[];
+  baseFeature: FeatureInterface | null;
+  revision: FeatureRevisionInterface | null;
+  checkPrerequisite?: {
+    id: string;
+    condition: string;
+    prerequisiteIndex?: number;
+  };
+  checkRulePrerequisites?: {
+    environment: string;
+    ruleIndex: number;
+    prerequisites: FeaturePrerequisite[];
+  };
+  res: Response;
+}) {
   const optionFeatures = featureIds.length
     ? await getFeaturesByIds(context, featureIds)
     : [];
@@ -3476,77 +3562,85 @@ export async function postBatchPrerequisiteStates(
       );
     }
 
-    const testFeature = cloneDeep(targetFeature);
-    if (revision) {
-      for (const env of Object.keys(testFeature.environmentSettings || {})) {
-        testFeature.environmentSettings[env].rules =
-          revision?.rules?.[env] || [];
+    // Skip cyclic check if no baseFeature
+    let wouldBeCyclic = false;
+    if (baseFeature) {
+      const testFeature = cloneDeep(baseFeature);
+      if (revision) {
+        for (const env of Object.keys(testFeature.environmentSettings || {})) {
+          testFeature.environmentSettings[env].rules =
+            revision?.rules?.[env] || [];
+        }
       }
-    }
-    testFeature.prerequisites = [
-      ...(testFeature.prerequisites || []),
-      {
-        id: featureId,
-        condition: getDefaultPrerequisiteCondition(),
-      },
-    ];
+      testFeature.prerequisites = [
+        ...(testFeature.prerequisites || []),
+        {
+          id: featureId,
+          condition: getDefaultPrerequisiteCondition(),
+        },
+      ];
 
-    const cyclicCheckMap = new Map<string, FeatureInterface>();
-    cyclicCheckMap.set(targetFeature.id, targetFeature);
-    optionFeatures.forEach((f) => cyclicCheckMap.set(f.id, f));
+      const cyclicCheckMap = new Map<string, FeatureInterface>();
+      cyclicCheckMap.set(baseFeature.id, baseFeature);
+      optionFeatures.forEach((f) => cyclicCheckMap.set(f.id, f));
 
-    const checkCyclicAsync = async (f: FeatureInterface): Promise<boolean> => {
-      const visited = new Set<string>();
-      const visiting = new Set<string>();
-
-      const visit = async (
-        feature: FeatureInterface,
-        depth: number = 0,
+      const checkCyclicAsync = async (
+        f: FeatureInterface,
       ): Promise<boolean> => {
-        if (depth >= PREREQUISITE_MAX_DEPTH) return true;
-        if (visiting.has(feature.id)) return true;
-        if (visited.has(feature.id)) return false;
+        const visited = new Set<string>();
+        const visiting = new Set<string>();
 
-        visiting.add(feature.id);
+        const visit = async (
+          feature: FeatureInterface,
+          depth: number = 0,
+        ): Promise<boolean> => {
+          if (depth >= PREREQUISITE_MAX_DEPTH) return true;
+          if (visiting.has(feature.id)) return true;
+          if (visited.has(feature.id)) return false;
 
-        const prerequisiteIds: string[] = (feature.prerequisites || []).map(
-          (p) => p.id,
-        );
-        for (const eid in feature.environmentSettings || {}) {
-          if (!environments.includes(eid)) continue;
-          const env = feature.environmentSettings?.[eid];
-          if (!env?.rules) continue;
-          for (const rule of env.rules || []) {
-            if (rule?.prerequisites?.length) {
-              const rulePrerequisiteIds = rule.prerequisites.map((p) => p.id);
-              prerequisiteIds.push(...rulePrerequisiteIds);
+          visiting.add(feature.id);
+
+          const prerequisiteIds: string[] = (feature.prerequisites || []).map(
+            (p) => p.id,
+          );
+          for (const eid in feature.environmentSettings || {}) {
+            if (!environments.includes(eid)) continue;
+            const env = feature.environmentSettings?.[eid];
+            if (!env?.rules) continue;
+            for (const rule of env.rules || []) {
+              if (rule?.prerequisites?.length) {
+                const rulePrerequisiteIds = rule.prerequisites.map((p) => p.id);
+                prerequisiteIds.push(...rulePrerequisiteIds);
+              }
             }
           }
-        }
 
-        for (const prerequisiteId of prerequisiteIds) {
-          let prereqFeature = cyclicCheckMap.get(prerequisiteId);
-          if (!prereqFeature) {
-            const features = await getFeaturesByIds(context, [prerequisiteId]);
-            prereqFeature = features[0];
-            if (prereqFeature) {
-              cyclicCheckMap.set(prerequisiteId, prereqFeature);
+          for (const prerequisiteId of prerequisiteIds) {
+            let prereqFeature = cyclicCheckMap.get(prerequisiteId);
+            if (!prereqFeature) {
+              const features = await getFeaturesByIds(context, [
+                prerequisiteId,
+              ]);
+              prereqFeature = features[0];
+              if (prereqFeature) {
+                cyclicCheckMap.set(prerequisiteId, prereqFeature);
+              }
+            }
+            if (prereqFeature && (await visit(prereqFeature, depth + 1))) {
+              return true;
             }
           }
-          if (prereqFeature && (await visit(prereqFeature, depth + 1))) {
-            return true;
-          }
-        }
 
-        visiting.delete(feature.id);
-        visited.add(feature.id);
-        return false;
+          visiting.delete(feature.id);
+          visited.add(feature.id);
+          return false;
+        };
+
+        return visit(f, 0);
       };
 
-      return visit(f, 0);
-    };
-
-    const wouldBeCyclic = await checkCyclicAsync(testFeature);
+      wouldBeCyclic = await checkCyclicAsync(testFeature);
+    }
 
     results[featureId] = {
       states,
@@ -3558,8 +3652,13 @@ export async function postBatchPrerequisiteStates(
     testFeature: FeatureInterface,
     testRevision?: FeatureRevisionInterface | null,
   ): Promise<[boolean, string | null]> => {
+    // Skip cyclic check when no base feature is provided (e.g. experiments)
+    if (!baseFeature) {
+      return [false, null];
+    }
+
     const cyclicCheckMap = new Map<string, FeatureInterface>();
-    cyclicCheckMap.set(targetFeature.id, targetFeature);
+    cyclicCheckMap.set(baseFeature.id, baseFeature);
     optionFeatures.forEach((f) => cyclicCheckMap.set(f.id, f));
 
     const visited = new Set<string>();
@@ -3632,8 +3731,8 @@ export async function postBatchPrerequisiteStates(
   let checkPrerequisiteCyclic:
     | { wouldBeCyclic: boolean; cyclicFeatureId: string | null }
     | undefined;
-  if (checkPrerequisite) {
-    const testFeature = cloneDeep(targetFeature);
+  if (checkPrerequisite && baseFeature) {
+    const testFeature = cloneDeep(baseFeature);
     const testRevision = revision ? cloneDeep(revision) : null;
 
     if (testRevision) {
@@ -3672,8 +3771,8 @@ export async function postBatchPrerequisiteStates(
   let checkRulePrerequisitesCyclic:
     | { wouldBeCyclic: boolean; cyclicFeatureId: string | null }
     | undefined;
-  if (checkRulePrerequisites) {
-    const testFeature = cloneDeep(targetFeature);
+  if (checkRulePrerequisites && baseFeature) {
+    const testFeature = cloneDeep(baseFeature);
     const testRevision = revision ? cloneDeep(revision) : null;
 
     if (testRevision) {

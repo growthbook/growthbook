@@ -8,6 +8,7 @@ import {
   FeatureRule as FeatureDefinitionRule,
   getAutoExperimentChangeType,
   GrowthBook,
+  VariationMeta,
 } from "@growthbook/growthbook";
 import {
   evalDeterministicPrereqValue,
@@ -92,11 +93,8 @@ import {
   getParsedCondition,
 } from "back-end/src/util/features";
 import { ReqContext } from "back-end/types/request";
-import {
-  getSDKPayload,
-  getSDKPayloadCacheLocation,
-  updateSDKPayload,
-} from "back-end/src/models/SdkPayloadModel";
+import { updateSDKPayload } from "back-end/src/models/SdkPayloadModel";
+import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
 import { logger } from "back-end/src/util/logger";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
@@ -549,7 +547,7 @@ export function queueSDKPayloadRefresh(data: {
 }) {
   // Capture stack trace at the entry point to include the original caller
   const rawStack = new Error().stack || "";
-  const stackTrace = rawStack.replace(/^Error\n/, ""); // Remove "Error" since this is informational only
+  const stackTrace = rawStack.replace(/^Error.*?\n/, "");
   refreshSDKPayloadCache({ ...data, stackTrace }).catch((e) => {
     logger.error(e, "Error refreshing SDK Payload Cache");
   });
@@ -597,6 +595,13 @@ async function refreshSDKPayloadCache({
   if (!payloadKeys.length && !sdkConnectionsToUpdate?.length) {
     logger.debug("Skipping SDK Payload refresh - no environments affected");
     return;
+  }
+
+  // Clear any cache entries for legacy API keys since they can't be tracked individually
+  try {
+    await context.models.sdkConnectionCache.deleteAllLegacyCacheEntries();
+  } catch (e) {
+    logger.warn(e, "Failed to delete legacy cache entries");
   }
 
   const experimentMap = await getAllPayloadExperiments(context);
@@ -682,8 +687,8 @@ async function refreshSDKPayloadCache({
       (sg) => sg.id in savedGroupsInUse,
     );
 
-    // If we need to generate a new env-level payload cache
-    // TODO: remove this once we are fully transitioned to new per-connection cache
+    // TODO: Remove legacy cache write (SdkPayloadCache collection)
+    // We will remove this call after sunsetting SdkPayloadCache
     if (payloadKeyEnvironments.has(environment)) {
       promises.push(async () => {
         logger.debug(
@@ -806,11 +811,15 @@ async function refreshSDKPayloadCache({
               }
             : undefined;
 
-        await context.models.sdkConnectionCache.upsert(
-          connection.key,
-          JSON.stringify(contents),
-          auditContext,
-        );
+        // Only write to cache if SDK_PAYLOAD_CACHE is not set to "none"
+        const storageLocation = getSDKPayloadCacheLocation();
+        if (storageLocation !== "none") {
+          await context.models.sdkConnectionCache.upsert(
+            connection.key,
+            JSON.stringify(contents),
+            auditContext,
+          );
+        }
       } catch (e) {
         logger.error(e, "Error updating SDK connection cache");
       }
@@ -891,22 +900,26 @@ export async function getFeatureDefinitionsResponse({
   if (!includeExperimentNames) {
     // Remove names from visual editor experiments
     experiments = experiments?.map((exp) => {
-      return {
-        ...omit(exp, ["name", "meta"]),
-        meta: exp.meta ? exp.meta.map((m) => omit(m, ["name"])) : undefined,
-      };
+      const scrubbedExp: Omit<AutoExperimentWithProject, "name"> & {
+        meta?: VariationMeta[];
+      } = omit(exp, ["name", "meta"]);
+      if (exp.meta) {
+        scrubbedExp.meta = exp.meta.map((m) => omit(m, ["name"]));
+      }
+      return scrubbedExp;
     });
 
     // Remove names from every feature rule
     for (const k in features) {
       if (features[k]?.rules) {
         features[k].rules = features[k].rules?.map((rule) => {
-          return {
-            ...omit(rule, ["name", "meta"]),
-            meta: rule.meta
-              ? rule.meta.map((m) => omit(m, ["name"]))
-              : undefined,
-          };
+          const scrubbedRule: Omit<FeatureDefinitionRule, "name"> & {
+            meta?: VariationMeta[];
+          } = omit(rule, ["name", "meta"]);
+          if (rule.meta) {
+            scrubbedRule.meta = rule.meta.map((m) => omit(m, ["name"]));
+          }
+          return scrubbedRule;
         });
       }
     }
@@ -1086,60 +1099,7 @@ export async function getFeatureDefinitions({
   hashSecureAttributes,
   savedGroupReferencesEnabled,
 }: FeatureDefinitionArgs): Promise<FeatureDefinitionSDKPayload> {
-  // Return cached payload from Mongo if exists
-  try {
-    const cached = await getSDKPayload({
-      organization: context.org.id,
-      environment,
-    });
-    if (cached) {
-      if (projects === null) {
-        // null projects have nothing in the payload. They result from environment project scrubbing.
-        return {
-          features: {},
-          experiments: [],
-          dateUpdated: cached.dateUpdated,
-          savedGroups: {},
-        };
-      }
-      let attributes: SDKAttributeSchema | undefined = undefined;
-      let secureAttributeSalt: string | undefined = undefined;
-      const { features, experiments, savedGroupsInUse, holdouts } =
-        cached.contents;
-      const usedSavedGroups = await context.models.savedGroups.getByIds(
-        savedGroupsInUse || [],
-      );
-      if (hashSecureAttributes) {
-        // Note: We don't check for whether the org has the hash-secure-attributes premium feature here because
-        // if they ever get downgraded for any reason we would be exposing secure attributes in the payload
-        // which would expose private data publicly.
-        secureAttributeSalt = context.org.settings?.secureAttributeSalt;
-        attributes = context.org.settings?.attributeSchema;
-      }
-
-      return await getFeatureDefinitionsResponse({
-        features,
-        experiments: experiments || [],
-        holdouts: holdouts || {},
-        dateUpdated: cached.dateUpdated,
-        encryptionKey,
-        includeVisualExperiments,
-        includeDraftExperiments,
-        includeExperimentNames,
-        includeRedirectExperiments,
-        includeRuleIds,
-        attributes,
-        secureAttributeSalt,
-        projects: projects || [],
-        capabilities,
-        usedSavedGroups: usedSavedGroups || [],
-        savedGroupReferencesEnabled,
-        organization: context.org,
-      });
-    }
-  } catch (e) {
-    logger.error(e, "Failed to fetch SDK payload from cache");
-  }
+  // JIT generation (no cache lookup)
 
   // By default, we fetch ALL features/experiments/etc since we cache the result
   // and re-use it across multiple SDK connections with different settings.
@@ -1223,7 +1183,8 @@ export async function getFeatureDefinitions({
     (sg) => sg.id in savedGroupsInUse,
   );
 
-  // Cache in Mongo
+  // TODO: Remove legacy cache write (SdkPayloadCache collection)
+  // We will remove this call after sunsetting SdkPayloadCache
   await updateSDKPayload({
     organization: context.org.id,
     environment,

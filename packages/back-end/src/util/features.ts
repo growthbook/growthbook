@@ -715,7 +715,7 @@ export function applyEnvironmentInheritance<T>(
   const environmentParents = Object.fromEntries(
     environments.filter((env) => env.parent).map((env) => [env.id, env.parent]),
   );
-  const mutableClone = cloneDeep(environmentRecord);
+  const mutableClone = cloneDeep(environmentRecord || {});
   Object.keys(environmentParents).forEach((env) => {
     if (mutableClone[env]) return;
     // If no definition for the environment exists, recursively inherit from the parent environments

@@ -40,9 +40,11 @@ export async function listGroups(
     return teamtoScimGroup(group);
   });
 
+  const sortedGroups = SCIMGroups.sort((a, b) => a.id.localeCompare(b.id));
+
   const filteredGroups = filterQuery
-    ? SCIMGroups.filter(filter(parse(filterQuery)))
-    : SCIMGroups;
+    ? sortedGroups.filter(filter(parse(filterQuery)))
+    : sortedGroups;
 
   // a startIndex less than 0 should be interpreted as 0
   const correctedStartIndex =

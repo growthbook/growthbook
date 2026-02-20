@@ -1061,7 +1061,11 @@ export async function postExperiments(
   }
 
   let result:
-    | { metricIds: string[]; datasource: DataSourceInterface | null }
+    | {
+        metricIds: string[];
+        datasource: DataSourceInterface | null;
+        invalidMetricIds: string[];
+      }
     | undefined;
 
   try {
@@ -1074,10 +1078,30 @@ export async function postExperiments(
     return;
   }
 
-  const { metricIds, datasource } = result;
+  const { metricIds, datasource, invalidMetricIds } = result;
 
   const experimentType = data.type ?? "standard";
   const holdoutId = data.holdoutId;
+
+  // TODO: Added as a hotfix. Remove when issue #5316 is fixed.
+  // Filter out invalid metric ids from the data
+  if (invalidMetricIds.length) {
+    data.goalMetrics = data.goalMetrics?.filter(
+      (id) => !invalidMetricIds.includes(id),
+    );
+    data.secondaryMetrics = data.secondaryMetrics?.filter(
+      (id) => !invalidMetricIds.includes(id),
+    );
+    data.guardrailMetrics = data.guardrailMetrics?.filter(
+      (id) => !invalidMetricIds.includes(id),
+    );
+    if (
+      data.activationMetric &&
+      invalidMetricIds.includes(data.activationMetric)
+    ) {
+      data.activationMetric = "";
+    }
+  }
 
   const obj: Omit<ExperimentInterface, "id" | "uid"> = {
     organization: data.organization,
@@ -1361,6 +1385,8 @@ export async function postExperiment(
 
   const metricMap = await getMetricMap(context);
 
+  const invalidMetricIds: string[] = [];
+
   if (newMetricIds.length) {
     for (let i = 0; i < newMetricIds.length; i++) {
       const metric = metricMap.get(newMetricIds[i]);
@@ -1393,12 +1419,34 @@ export async function postExperiment(
           }
         } else {
           // new metric that's not recognized...
-          res.status(403).json({
-            status: 403,
-            message: "Unknown metric: " + newMetricIds[i],
-          });
-          return;
+          invalidMetricIds.push(newMetricIds[i]);
+          // TODO: Commented out as a hotfix. Remove when issue #5316 is fixed.
+          // res.status(403).json({
+          //   status: 403,
+          //   message: "Unknown metric: " + newMetricIds[i],
+          // });
+          // return;
         }
+      }
+    }
+
+    // TODO: Added as a hotfix. Remove when issue #5316 is fixed.
+    // Filter out invalid metric ids from the data
+    if (invalidMetricIds.length) {
+      data.goalMetrics = data.goalMetrics?.filter(
+        (id) => !invalidMetricIds.includes(id),
+      );
+      data.secondaryMetrics = data.secondaryMetrics?.filter(
+        (id) => !invalidMetricIds.includes(id),
+      );
+      data.guardrailMetrics = data.guardrailMetrics?.filter(
+        (id) => !invalidMetricIds.includes(id),
+      );
+      if (
+        data.activationMetric &&
+        invalidMetricIds.includes(data.activationMetric)
+      ) {
+        data.activationMetric = "";
       }
     }
   }
@@ -1868,7 +1916,6 @@ export async function postExperimentStatus(
       status: ExperimentStatus;
       reason: string;
       dateEnded: string;
-      holdoutRunningStatus?: "running" | "analysis-period";
     },
     { id: string }
   >,
@@ -1877,7 +1924,7 @@ export async function postExperimentStatus(
   const context = getContextFromReq(req);
   const { org } = context;
   const { id } = req.params;
-  const { status, reason, dateEnded, holdoutRunningStatus } = req.body;
+  const { status, reason, dateEnded } = req.body;
 
   const changes: Changeset = {};
 
@@ -1887,6 +1934,14 @@ export async function postExperimentStatus(
   }
   if (experiment.organization !== org.id) {
     throw new Error("You do not have access to this experiment");
+  }
+  if (experiment.type === "holdout") {
+    res.status(400).json({
+      status: 400,
+      message:
+        "Cannot edit the status of a holdout through this endpoint. Use the /holdout/:id/edit-status endpoint instead.",
+    });
+    return;
   }
 
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {
@@ -1924,12 +1979,6 @@ export async function postExperimentStatus(
     phases?.length > 0 &&
     !phases[lastIndex].dateEnded
   ) {
-    if (experiment.type === "holdout") {
-      phases[0] = {
-        ...phases[0],
-        dateEnded: dateEnded ? getValidDate(dateEnded + ":00Z") : new Date(),
-      };
-    }
     phases[lastIndex] = {
       ...phases[lastIndex],
       reason,
@@ -1957,24 +2006,10 @@ export async function postExperimentStatus(
     phases?.length > 0
   ) {
     const clonedPhase = { ...phases[lastIndex] };
-    const clonedFirstPhase = { ...phases[0] };
-    if (experiment.type === "holdout") {
-      // when setting moving back to running or draft remove the end date of both phases
-      delete clonedFirstPhase.dateEnded;
-      delete clonedPhase.dateEnded;
-      // reset the analysis phase if new status is set to "analysis-period"
-      if (phases.length > 1 && holdoutRunningStatus === "analysis-period") {
-        clonedPhase.lookbackStartDate = new Date();
-        phases[lastIndex] = clonedPhase;
-        // delete analysis phase if new status is set to "running"
-      } else {
-        phases.pop();
-      }
-      phases[0] = clonedFirstPhase;
-    } else {
-      delete clonedPhase.dateEnded;
-      phases[lastIndex] = clonedPhase;
-    }
+
+    delete clonedPhase.dateEnded;
+    phases[lastIndex] = clonedPhase;
+
     changes.phases = phases;
 
     // Bandit-specific changes
@@ -2074,6 +2109,15 @@ export async function postExperimentStop(
     return;
   }
 
+  if (experiment.type === "holdout") {
+    res.status(400).json({
+      status: 400,
+      message:
+        "Cannot stop a holdout through this endpoint. Use the /holdout/:id/edit-status endpoint instead.",
+    });
+    return;
+  }
+
   if (!context.permissions.canUpdateExperiment(experiment, req.body)) {
     context.permissions.throwPermissionError();
   }
@@ -2098,12 +2142,6 @@ export async function postExperimentStop(
   const phases = [...experiment.phases];
   // Already has phases
   if (phases.length) {
-    if (experiment.type === "holdout") {
-      phases[0] = {
-        ...phases[0],
-        dateEnded: dateEnded ? getValidDate(dateEnded + ":00Z") : new Date(),
-      };
-    }
     phases[phases.length - 1] = {
       ...phases[phases.length - 1],
       dateEnded: dateEnded ? getValidDate(dateEnded + ":00Z") : new Date(),
