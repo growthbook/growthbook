@@ -20,7 +20,7 @@ const QUEUE_AUTO_SLICE_UPDATES = "queueAutoSliceUpdates";
 const UPDATE_SINGLE_FACT_TABLE_AUTO_SLICES = "updateSingleFactTableAutoSlices";
 
 type UpdateSingleFactTableAutoSlicesJob = Job<{
-  organization: string;
+  organizationId: string;
   factTableId: string;
 }>;
 
@@ -49,7 +49,7 @@ export default async function (agenda: Agenda) {
 
   async function queueAutoSliceUpdate(factTable: FactTableInterface) {
     const job = agenda.create(UPDATE_SINGLE_FACT_TABLE_AUTO_SLICES, {
-      organization: factTable.organization,
+      organizationId: factTable.organization,
       factTableId: factTable.id,
     });
     job.unique({
@@ -64,11 +64,11 @@ export default async function (agenda: Agenda) {
 const updateSingleFactTableAutoSlices = async (
   job: UpdateSingleFactTableAutoSlicesJob,
 ) => {
-  const { organization, factTableId } = job.attrs.data;
+  const { organizationId, factTableId } = job.attrs.data;
 
-  if (!factTableId || !organization) return;
+  if (!factTableId || !organizationId) return;
 
-  const context = await getContextForAgendaJobByOrgId(organization);
+  const context = await getContextForAgendaJobByOrgId(organizationId);
 
   if (!context.hasPremiumFeature("metric-slices")) return;
 
@@ -95,13 +95,13 @@ const updateSingleFactTableAutoSlices = async (
         context,
       );
       logger.info(
-        `Updated auto-slices for fact table ${factTableId} in organization ${organization}`,
+        `Updated auto-slices for fact table ${factTableId} in organization ${organizationId}`,
       );
     }
   } catch (e) {
     logger.error(e, "Failed to update auto-slices", {
       factTableId,
-      organization,
+      organizationId,
     });
   }
 };

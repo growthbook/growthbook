@@ -28,7 +28,7 @@ const QUEUE_EXPERIMENT_UPDATES = "queueExperimentUpdates";
 
 const UPDATE_SINGLE_EXP = "updateSingleExperiment";
 type UpdateSingleExpJob = Job<{
-  organization: string;
+  organizationId: string;
   experimentId: string;
 }>;
 
@@ -78,17 +78,17 @@ export default async function (agenda: Agenda) {
   }
 
   async function queueExperimentUpdate(
-    organization: string,
+    organizationId: string,
     experimentId: string,
   ) {
     const job = agenda.create(UPDATE_SINGLE_EXP, {
-      organization,
+      organizationId,
       experimentId,
     }) as UpdateSingleExpJob;
 
     job.unique({
       experimentId,
-      organization,
+      organization: organizationId,
     });
     job.schedule(new Date());
     await job.save();
@@ -97,11 +97,11 @@ export default async function (agenda: Agenda) {
 
 const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
   const experimentId = job.attrs.data?.experimentId;
-  const orgId = job.attrs.data?.organization;
+  const organizationId = job.attrs.data?.organizationId;
 
-  if (!experimentId || !orgId) return;
+  if (!experimentId || !organizationId) return;
 
-  const context = await getContextForAgendaJobByOrgId(orgId);
+  const context = await getContextForAgendaJobByOrgId(organizationId);
 
   const { org: organization } = context;
 
