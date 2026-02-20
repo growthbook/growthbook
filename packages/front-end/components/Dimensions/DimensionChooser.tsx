@@ -321,9 +321,6 @@ export default function DimensionChooser({
           label="Unit Dimension"
           labelClassName={labelClassName}
           options={dimensionOptions}
-          formatGroupLabel={({ label }) => (
-            <div className="pt-2 pb-1 border-bottom">{label}</div>
-          )}
           initialOption="None"
           value={value}
           onChange={handleDimensionChange}

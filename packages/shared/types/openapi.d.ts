@@ -195,6 +195,17 @@ export interface paths {
     /** Deletes a metric */
     delete: operations["deleteMetric"];
   };
+  "/usage/metrics": {
+    /**
+     * Get metric usage across experiments 
+     * @description Returns usage information for one or more legacy or fact metrics, showing which experiments use each metric
+     * and some usage statistics. If a metric is part of a metric group, then usage of that metric group counts as
+     * usage of all metrics in the group. Warning: only includes experiments that you have access to! If you do not have admin
+     * access or read access to experiments across all projects, this endpoint may not return the latest usage data across
+     * all experiments.
+     */
+    get: operations["getMetricUsage"];
+  };
   "/visual-changesets/{id}": {
     /** Get a single visual changeset */
     get: operations["getVisualChangeset"];
@@ -403,6 +414,38 @@ export interface paths {
     /** Delete a single customField */
     delete: operations["deleteCustomField"];
   };
+  "/metric-groups/{id}": {
+    /** Get a single metricGroup */
+    get: operations["getMetricGroup"];
+    /** Update a single metricGroup */
+    put: operations["updateMetricGroup"];
+    /** Delete a single metricGroup */
+    delete: operations["deleteMetricGroup"];
+  };
+  "/metric-groups": {
+    /** Get all metricGroups */
+    get: operations["listMetricGroups"];
+    /** Create a single metricGroup */
+    post: operations["createMetricGroup"];
+  };
+  "/teams/{id}": {
+    /** Get a single team */
+    get: operations["getTeam"];
+    /** Update a single team */
+    put: operations["updateTeam"];
+    /** Delete a single team */
+    delete: operations["deleteTeam"];
+  };
+  "/teams": {
+    /** Get all teams */
+    get: operations["listTeams"];
+    /** Create a single team */
+    post: operations["createTeam"];
+  };
+  "/teams/{teamId}/members": {
+    post: operations["addTeamMembers"];
+    delete: operations["removeTeamMember"];
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -598,6 +641,49 @@ export interface components {
       section: "feature" | "experiment";
       active?: boolean;
     };
+    MetricGroup: {
+      id: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      owner: string;
+      name: string;
+      description: string;
+      tags: (string)[];
+      projects: (string)[];
+      metrics: (string)[];
+      datasource: string;
+      archived: boolean;
+    };
+    Team: {
+      id: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      name: string;
+      createdBy: string;
+      description: string;
+      role: string;
+      limitAccessByEnvironment: boolean;
+      environments: (string)[];
+      projectRoles?: ({
+          role: string;
+          limitAccessByEnvironment: boolean;
+          environments: (string)[];
+          teams?: (string)[];
+          project: string;
+        })[];
+      members: readonly (string)[];
+      managedByIdp: boolean;
+      managedBy?: {
+        /** @constant */
+        type: "vercel";
+        resourceId: string;
+      };
+      defaultProject?: string;
+    };
     PaginationFields: {
       limit: number;
       offset: number;
@@ -757,6 +843,7 @@ export interface components {
       /** @enum {string} */
       format?: "" | "version" | "date" | "isoCountryCode";
       projects?: (string)[];
+      tags?: (string)[];
     };
     Segment: {
       id: string;
@@ -3869,6 +3956,32 @@ export interface components {
       /** @description The status of the analysis (e.g., "running", "completed", "error") */
       status: string;
       settings?: any;
+    };
+    MetricUsage: {
+      /** @description The metric ID */
+      metricId: string;
+      /** @description Set when the metric does not exist or the caller has no permission to read it. */
+      error?: string;
+      /** @description List of experiments using this metric */
+      experiments?: ({
+          /** @description The experiment ID */
+          experimentId: string;
+          /**
+           * @description The current status of the experiment 
+           * @enum {string}
+           */
+          experimentStatus: "draft" | "running" | "stopped";
+          /**
+           * Format: date-time 
+           * @description The last time a snapshot was attempted for this experiment
+           */
+          lastSnapshotAttempt: string | null;
+        })[];
+      /**
+       * Format: date-time 
+       * @description The most recent snapshot attempt across all experiments using this metric
+       */
+      lastSnapshotAttempt?: string | null;
     };
     Member: {
       id: string;
@@ -11107,6 +11220,56 @@ export interface operations {
       };
     };
   };
+  getMetricUsage: {
+    /**
+     * Get metric usage across experiments 
+     * @description Returns usage information for one or more legacy or fact metrics, showing which experiments use each metric
+     * and some usage statistics. If a metric is part of a metric group, then usage of that metric group counts as
+     * usage of all metrics in the group. Warning: only includes experiments that you have access to! If you do not have admin
+     * access or read access to experiments across all projects, this endpoint may not return the latest usage data across
+     * all experiments.
+     */
+    parameters: {
+        /** @description List of comma-separated metric IDs (both fact and legacy) to get usage for, e.g. ids=met_123,fact_456 */
+      query: {
+        ids: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            metricUsage: ({
+                /** @description The metric ID */
+                metricId: string;
+                /** @description Set when the metric does not exist or the caller has no permission to read it. */
+                error?: string;
+                /** @description List of experiments using this metric */
+                experiments?: ({
+                    /** @description The experiment ID */
+                    experimentId: string;
+                    /**
+                     * @description The current status of the experiment 
+                     * @enum {string}
+                     */
+                    experimentStatus: "draft" | "running" | "stopped";
+                    /**
+                     * Format: date-time 
+                     * @description The last time a snapshot was attempted for this experiment
+                     */
+                    lastSnapshotAttempt: string | null;
+                  })[];
+                /**
+                 * Format: date-time 
+                 * @description The most recent snapshot attempt across all experiments using this metric
+                 */
+                lastSnapshotAttempt?: string | null;
+              })[];
+          };
+        };
+      };
+    };
+  };
   getVisualChangeset: {
     /** Get a single visual changeset */
     parameters: {
@@ -11713,6 +11876,7 @@ export interface operations {
                 /** @enum {string} */
                 format?: "" | "version" | "date" | "isoCountryCode";
                 projects?: (string)[];
+                tags?: (string)[];
               })[];
           };
         };
@@ -11744,6 +11908,7 @@ export interface operations {
            */
           format?: "" | "version" | "date" | "isoCountryCode";
           projects?: (string)[];
+          tags?: (string)[];
         };
       };
     };
@@ -11762,6 +11927,7 @@ export interface operations {
               /** @enum {string} */
               format?: "" | "version" | "date" | "isoCountryCode";
               projects?: (string)[];
+              tags?: (string)[];
             };
           };
         };
@@ -11797,6 +11963,7 @@ export interface operations {
            */
           format?: "" | "version" | "date" | "isoCountryCode";
           projects?: (string)[];
+          tags?: (string)[];
         };
       };
     };
@@ -11815,6 +11982,7 @@ export interface operations {
               /** @enum {string} */
               format?: "" | "version" | "date" | "isoCountryCode";
               projects?: (string)[];
+              tags?: (string)[];
             };
           };
         };
@@ -15917,6 +16085,450 @@ export interface operations {
       };
     };
   };
+  getMetricGroup: {
+    /** Get a single metricGroup */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            metricGroup: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              owner: string;
+              name: string;
+              description: string;
+              tags: (string)[];
+              projects: (string)[];
+              metrics: (string)[];
+              datasource: string;
+              archived: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  updateMetricGroup: {
+    /** Update a single metricGroup */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          name?: string;
+          description?: string;
+          tags?: (string)[];
+          projects?: (string)[];
+          metrics?: (string)[];
+          datasource?: string;
+          /** @description Will default to the current user */
+          owner?: string;
+          archived?: boolean;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            metricGroup: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              owner: string;
+              name: string;
+              description: string;
+              tags: (string)[];
+              projects: (string)[];
+              metrics: (string)[];
+              datasource: string;
+              archived: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteMetricGroup: {
+    /** Delete a single metricGroup */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
+          };
+        };
+      };
+    };
+  };
+  listMetricGroups: {
+    /** Get all metricGroups */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            metricGroups: ({
+                id: string;
+                /** Format: date-time */
+                dateCreated: string;
+                /** Format: date-time */
+                dateUpdated: string;
+                owner: string;
+                name: string;
+                description: string;
+                tags: (string)[];
+                projects: (string)[];
+                metrics: (string)[];
+                datasource: string;
+                archived: boolean;
+              })[];
+          };
+        };
+      };
+    };
+  };
+  createMetricGroup: {
+    /** Create a single metricGroup */
+    requestBody: {
+      content: {
+        "application/json": {
+          name: string;
+          description: string;
+          tags?: (string)[];
+          projects: (string)[];
+          metrics: (string)[];
+          datasource: string;
+          /** @description Will default to the current user */
+          owner?: string;
+          archived?: boolean;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            metricGroup: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              owner: string;
+              name: string;
+              description: string;
+              tags: (string)[];
+              projects: (string)[];
+              metrics: (string)[];
+              datasource: string;
+              archived: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  getTeam: {
+    /** Get a single team */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            team: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              createdBy: string;
+              description: string;
+              role: string;
+              limitAccessByEnvironment: boolean;
+              environments: (string)[];
+              projectRoles?: ({
+                  role: string;
+                  limitAccessByEnvironment: boolean;
+                  environments: (string)[];
+                  teams?: (string)[];
+                  project: string;
+                })[];
+              members: readonly (string)[];
+              managedByIdp: boolean;
+              managedBy?: {
+                /** @constant */
+                type: "vercel";
+                resourceId: string;
+              };
+              defaultProject?: string;
+            };
+          };
+        };
+      };
+    };
+  };
+  updateTeam: {
+    /** Update a single team */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          name?: string;
+          createdBy?: string;
+          description?: string;
+          /** @description The global role for members of this team */
+          role?: string;
+          limitAccessByEnvironment?: boolean;
+          /** @description An empty array means 'all environments' */
+          environments?: (string)[];
+          projectRoles?: ({
+              role: string;
+              limitAccessByEnvironment: boolean;
+              environments: (string)[];
+              teams?: (string)[];
+              project: string;
+            })[];
+          managedBy?: {
+            /** @constant */
+            type: "vercel";
+            resourceId: string;
+          };
+          defaultProject?: string;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            team: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              createdBy: string;
+              description: string;
+              role: string;
+              limitAccessByEnvironment: boolean;
+              environments: (string)[];
+              projectRoles?: ({
+                  role: string;
+                  limitAccessByEnvironment: boolean;
+                  environments: (string)[];
+                  teams?: (string)[];
+                  project: string;
+                })[];
+              members: readonly (string)[];
+              managedByIdp: boolean;
+              managedBy?: {
+                /** @constant */
+                type: "vercel";
+                resourceId: string;
+              };
+              defaultProject?: string;
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteTeam: {
+    /** Delete a single team */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
+          };
+        };
+      };
+    };
+  };
+  listTeams: {
+    /** Get all teams */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            teams: ({
+                id: string;
+                /** Format: date-time */
+                dateCreated: string;
+                /** Format: date-time */
+                dateUpdated: string;
+                name: string;
+                createdBy: string;
+                description: string;
+                role: string;
+                limitAccessByEnvironment: boolean;
+                environments: (string)[];
+                projectRoles?: ({
+                    role: string;
+                    limitAccessByEnvironment: boolean;
+                    environments: (string)[];
+                    teams?: (string)[];
+                    project: string;
+                  })[];
+                members: readonly (string)[];
+                managedByIdp: boolean;
+                managedBy?: {
+                  /** @constant */
+                  type: "vercel";
+                  resourceId: string;
+                };
+                defaultProject?: string;
+              })[];
+          };
+        };
+      };
+    };
+  };
+  createTeam: {
+    /** Create a single team */
+    requestBody: {
+      content: {
+        "application/json": {
+          name: string;
+          createdBy?: string;
+          description: string;
+          /** @description The global role for members of this team */
+          role: string;
+          limitAccessByEnvironment?: boolean;
+          /** @description An empty array means 'all environments' */
+          environments?: (string)[];
+          projectRoles?: ({
+              role: string;
+              limitAccessByEnvironment: boolean;
+              environments: (string)[];
+              teams?: (string)[];
+              project: string;
+            })[];
+          managedBy?: {
+            /** @constant */
+            type: "vercel";
+            resourceId: string;
+          };
+          defaultProject?: string;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            team: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              createdBy: string;
+              description: string;
+              role: string;
+              limitAccessByEnvironment: boolean;
+              environments: (string)[];
+              projectRoles?: ({
+                  role: string;
+                  limitAccessByEnvironment: boolean;
+                  environments: (string)[];
+                  teams?: (string)[];
+                  project: string;
+                })[];
+              members: readonly (string)[];
+              managedByIdp: boolean;
+              managedBy?: {
+                /** @constant */
+                type: "vercel";
+                resourceId: string;
+              };
+              defaultProject?: string;
+            };
+          };
+        };
+      };
+    };
+  };
+  addTeamMembers: {
+    parameters: {
+      path: {
+        teamId: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          members: (string)[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            status: number;
+          };
+        };
+      };
+    };
+  };
+  removeTeamMember: {
+    parameters: {
+      path: {
+        teamId: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          members: (string)[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            status: number;
+          };
+        };
+      };
+    };
+  };
 }
 import { z } from "zod";
 import * as openApiValidators from "shared/validators";
@@ -15958,6 +16570,7 @@ export type ApiFactTableColumn = z.infer<typeof openApiValidators.apiFactTableCo
 export type ApiFactTableFilter = z.infer<typeof openApiValidators.apiFactTableFilterValidator>;
 export type ApiFactMetric = z.infer<typeof openApiValidators.apiFactMetricValidator>;
 export type ApiMetricAnalysis = z.infer<typeof openApiValidators.apiMetricAnalysisValidator>;
+export type ApiMetricUsage = z.infer<typeof openApiValidators.apiMetricUsageValidator>;
 export type ApiMember = z.infer<typeof openApiValidators.apiMemberValidator>;
 export type ApiArchetype = z.infer<typeof openApiValidators.apiArchetypeValidator>;
 export type ApiQuery = z.infer<typeof openApiValidators.apiQueryValidator>;
@@ -16011,6 +16624,7 @@ export type PostMetricResponse = operations["postMetric"]["responses"]["200"]["c
 export type GetMetricResponse = operations["getMetric"]["responses"]["200"]["content"]["application/json"];
 export type PutMetricResponse = operations["putMetric"]["responses"]["200"]["content"]["application/json"];
 export type DeleteMetricResponse = operations["deleteMetric"]["responses"]["200"]["content"]["application/json"];
+export type GetMetricUsageResponse = operations["getMetricUsage"]["responses"]["200"]["content"]["application/json"];
 export type GetVisualChangesetResponse = operations["getVisualChangeset"]["responses"]["200"]["content"]["application/json"];
 export type PutVisualChangesetResponse = operations["putVisualChangeset"]["responses"]["200"]["content"]["application/json"];
 export type PostVisualChangeResponse = operations["postVisualChange"]["responses"]["200"]["content"]["application/json"];

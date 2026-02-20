@@ -17,7 +17,7 @@ import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   createSDKConnection,
-  deleteSDKConnectionById,
+  deleteSDKConnectionModel,
   editSDKConnection,
   findSDKConnectionById,
   findSDKConnectionsByOrganization,
@@ -159,8 +159,8 @@ export const deleteSDKConnection = async (
 ) => {
   const { id } = req.params;
   const context = getContextFromReq(req);
-  const connection = await findSDKConnectionById(context, id);
 
+  const connection = await findSDKConnectionById(context, id);
   if (!connection) {
     throw new Error("Could not find SDK Connection");
   }
@@ -169,7 +169,7 @@ export const deleteSDKConnection = async (
     context.permissions.throwPermissionError();
   }
 
-  await deleteSDKConnectionById(context.org.id, id);
+  await deleteSDKConnectionModel(context, connection);
 
   res.status(200).json({
     status: 200,
@@ -287,9 +287,7 @@ export async function postSDKConnectionWebhook(
     context.permissions.throwPermissionError();
   }
 
-  const webhookcount = await context.models.sdkWebhooks.countSdkWebhooksByOrg(
-    org.id,
-  );
+  const webhookcount = await context.models.sdkWebhooks.countSdkWebhooksByOrg();
   const canAddMultipleSdkWebhooks = orgHasPremiumFeature(
     org,
     "multiple-sdk-webhooks",

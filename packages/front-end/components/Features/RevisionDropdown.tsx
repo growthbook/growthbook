@@ -4,8 +4,8 @@ import { datetime } from "shared/dates";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import SelectField from "@/components/Forms/SelectField";
 import EventUser from "@/components/Avatar/EventUser";
-import Badge from "@/ui/Badge";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import RevisionStatusBadge from "@/components/Features/RevisionStatusBadge";
 
 export interface Props {
   feature: FeatureInterface;
@@ -70,15 +70,10 @@ export default function RevisionDropdown({
               )}
             </Box>
             <Box flexShrink="0">
-              {revision?.version === liveVersion ? (
-                <Badge label="Live" radius="full" color="teal" />
-              ) : revision?.status === "draft" ? (
-                <Badge label="Draft" radius="full" color="indigo" />
-              ) : revision?.status === "published" ? (
-                <Badge label="Locked" radius="full" color="gray" />
-              ) : revision?.status === "discarded" ? (
-                <Badge label="Discarded" radius="full" color="red" />
-              ) : null}
+              <RevisionStatusBadge
+                revision={revision}
+                liveVersion={liveVersion}
+              />
             </Box>
           </Flex>
         );

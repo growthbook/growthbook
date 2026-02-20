@@ -37,6 +37,43 @@ import {
 } from "back-end/src/services/experiments";
 import { createMetricAnalysis } from "back-end/src/services/metric-analysis";
 
+/**
+ * Determines if nextUpdate should be recalculated based on changes to auto-updates or schedule
+ */
+export function shouldRecalculateNextUpdate(
+  updates: {
+    enableAutoUpdates?: boolean;
+    updateSchedule?: DashboardInterface["updateSchedule"];
+  },
+  dashboard: DashboardInterface,
+): boolean {
+  // Auto-updates being disabled - clear nextUpdate
+  if (updates.enableAutoUpdates === false) {
+    return false;
+  }
+
+  // Auto-updates not enabled - no update needed
+  const enableAutoUpdates =
+    updates.enableAutoUpdates ?? dashboard.enableAutoUpdates;
+  if (!enableAutoUpdates) {
+    return false;
+  }
+
+  // Auto-updates being turned on for the first time
+  if (updates.enableAutoUpdates === true && !dashboard.enableAutoUpdates) {
+    return true;
+  }
+
+  // Schedule is being changed
+  if (
+    updates.updateSchedule &&
+    !isEqual(updates.updateSchedule, dashboard.updateSchedule)
+  ) {
+    return true;
+  }
+  return false;
+}
+
 // To be run after creating the main/standard snapshot. Re-uses some of the variables for efficiency
 export async function updateExperimentDashboards({
   context,

@@ -123,6 +123,9 @@ tags:
   - name: attributes
     x-displayName: Attributes
     description: Used when targeting feature flags and experiments.
+  - name: usage
+    x-displayName: Usage
+    description: Usage information for metrics in experiments.
 paths:
   /features:
     get:
@@ -234,6 +237,9 @@ paths:
       $ref: "./paths/putMetric.yaml"
     delete:
       $ref: "./paths/deleteMetric.yaml"
+  /usage/metrics:
+    get:
+      $ref: "./paths/getMetricUsage.yaml"
   /visual-changesets/{id}:
     get:
       $ref: "./paths/getVisualChangeset.yaml"

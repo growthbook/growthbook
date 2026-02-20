@@ -96,7 +96,6 @@ export default function PrerequisiteFeatureSelector({
 
   return (
     <SelectField
-      useMultilineLabels={true}
       placeholder="Select feature"
       options={groupedFeatureOptions}
       value={value}
@@ -313,19 +312,6 @@ export default function PrerequisiteFeatureSelector({
                 </Tooltip>
               )}
             </div>
-          </div>
-        );
-      }}
-      formatGroupLabel={({ label }) => {
-        return (
-          <div
-            className={clsx("pt-2 pb-1 text-muted", {
-              "border-top":
-                label === "In other projects" &&
-                featureOptionsInProject.length > 0,
-            })}
-          >
-            {label}
           </div>
         );
       }}

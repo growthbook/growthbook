@@ -3,7 +3,7 @@
 export default {
   js: {
     name: "JS SDK",
-    version: "1.6.4",
+    version: "1.6.5",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
     examples: [
@@ -74,7 +74,7 @@ export default {
   },
   react: {
     name: "React SDK",
-    version: "1.6.4",
+    version: "1.6.5",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
     examples: [
@@ -244,7 +244,7 @@ export default {
   },
   node: {
     name: "Node SDK",
-    version: "1.6.4",
+    version: "1.6.5",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
     examples: [
@@ -730,7 +730,7 @@ export default {
   },
   reactNative: {
     name: "React Native SDK",
-    version: "1.6.4",
+    version: "1.6.5",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
     examples: [
@@ -801,7 +801,7 @@ export default {
   },
   edgeCloudflare: {
     name: "Cloudflare Workers App & SDK",
-    version: "0.2.7",
+    version: "0.2.8",
     github:
       "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-cloudflare",
     examples: [
@@ -869,7 +869,7 @@ export default {
   },
   edgeFastly: {
     name: "Fastly Compute App & SDK",
-    version: "0.2.7",
+    version: "0.2.8",
     github:
       "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-fastly",
     examples: [
@@ -937,7 +937,7 @@ export default {
   },
   edgeLambda: {
     name: "Lambda@Edge App & SDK",
-    version: "0.0.27",
+    version: "0.0.28",
     github:
       "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-lambda",
     examples: [],
@@ -1000,7 +1000,7 @@ export default {
   },
   edgeUtils: {
     name: "Edge Utils",
-    version: "0.2.5",
+    version: "0.2.8",
     github:
       "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-utils",
     examples: [],

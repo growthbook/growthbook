@@ -9,6 +9,8 @@ import {
   ApiRequestValidator,
   createApiRequestHandler,
 } from "back-end/src/util/handler";
+import { MetricGroupModel } from "back-end/src/models/MetricGroupModel";
+import { TeamModel } from "back-end/src/models/TeamModel";
 import {
   CustomApiHandler,
   CrudAction,
@@ -17,7 +19,12 @@ import {
   HttpVerb,
 } from "./apiModelHandlers";
 
-export const API_MODELS: ModelClass[] = [DashboardModel, CustomFieldModel];
+export const API_MODELS: ModelClass[] = [
+  DashboardModel,
+  CustomFieldModel,
+  MetricGroupModel,
+  TeamModel,
+];
 
 export type ApiBaseSchema = typeof apiBaseSchema;
 type ApiCreateZodObject<T extends ApiBaseSchema> = z.ZodType<

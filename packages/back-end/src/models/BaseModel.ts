@@ -3,26 +3,20 @@
 import { v4 as uuidv4 } from "uuid";
 import uniqid from "uniqid";
 import mongoose, { FilterQuery } from "mongoose";
-import { Collection } from "mongodb";
+import { AnyBulkWriteOperation, Collection } from "mongodb";
 import omit from "lodash/omit";
 import { z } from "zod";
 import { isEqual, pick } from "lodash";
 import { evalCondition } from "@growthbook/growthbook";
 import { baseSchema } from "shared/validators";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
-import {
-  AuditInterfaceTemplate,
-  EntityType,
-  EventTypes,
-  EventType,
-} from "shared/types/audit";
+import { EntityType, EventType } from "shared/types/audit";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
 import {
-  auditDetailsCreate,
-  auditDetailsDelete,
-  auditDetailsUpdate,
+  createModelAuditLogger,
+  type AuditLogConfig,
 } from "back-end/src/services/audit";
 import {
   ForeignKeys,
@@ -31,6 +25,7 @@ import {
 } from "back-end/src/services/context";
 import { ApiRequest } from "back-end/src/util/handler";
 import { ApiBaseSchema, ApiModelConfig } from "back-end/src/api/ApiModel";
+import { dbSafeBulkWrite } from "back-end/src/util/mongo.util";
 
 export type Context = ApiReqContext | ReqContext;
 
@@ -74,13 +69,6 @@ const updateSchema = <T extends BaseSchema>(schema: T) =>
     .partial()
     .strict() as unknown as UpdateZodObject<T>;
 
-type AuditLogConfig<Entity extends EntityType> = {
-  entity: Entity;
-  createEvent: EventTypes<Entity>;
-  updateEvent: EventTypes<Entity>;
-  deleteEvent: EventTypes<Entity>;
-};
-
 // DeepPartial makes all properties (including nested) optional
 type DeepPartial<T> = T extends object
   ? {
@@ -91,6 +79,17 @@ type DeepPartial<T> = T extends object
           : DeepPartial<T[P]>;
     }
   : T;
+
+/**
+ * Type-safe index field paths: top-level keys only, or dotted paths whose first
+ * segment is a top-level key (e.g. "nextScheduledStatusUpdate.date").
+ * Avoids deep recursion that would occur with fully recursive path types.
+ */
+export type IndexableFieldPath<T> = T extends object
+  ? keyof T extends string
+    ? keyof T | `${keyof T}.${string}`
+    : keyof T
+  : never;
 
 export interface ModelConfig<
   T extends BaseSchema,
@@ -105,9 +104,7 @@ export interface ModelConfig<
   skipDateUpdatedFields?: (keyof z.infer<T>)[];
   readonlyFields?: (keyof z.infer<T>)[];
   additionalIndexes?: {
-    fields: Partial<{
-      [key in keyof z.infer<T>]: 1 | -1;
-    }>;
+    fields: Partial<Record<IndexableFieldPath<z.infer<T>>, 1 | -1>>;
     unique?: boolean;
   }[];
   // NB: Names of indexes to remove
@@ -148,6 +145,7 @@ export abstract class BaseModel<
 
   protected context: Context;
   protected config: ModelConfig<T, E, ApiT>;
+  private _auditLogger: ReturnType<typeof createModelAuditLogger> | null;
 
   public constructor(context: Context) {
     this.context = context;
@@ -155,6 +153,9 @@ export abstract class BaseModel<
     this.validator = this.config.schema;
     this.createValidator = this.getCreateValidator();
     this.updateValidator = this.getUpdateValidator();
+    this._auditLogger = this.config.auditLog
+      ? createModelAuditLogger(this.config.auditLog)
+      : null;
     this.updateIndexes();
   }
 
@@ -313,7 +314,7 @@ export abstract class BaseModel<
   public async handleApiList(
     _req: ApiRequest<unknown, z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>,
   ): Promise<z.infer<ApiT>[]> {
-    return (await this.getAll()).map(this.toApiInterface);
+    return (await this.getAll()).map(this.toApiInterface.bind(this));
   }
   public async handleApiDelete(
     req: ApiRequest<
@@ -512,6 +513,7 @@ export abstract class BaseModel<
       skip,
       bypassReadPermissionChecks,
       projection,
+      dangerousCrossOrganization,
     }: {
       sort?: Partial<{
         [key in keyof Omit<z.infer<T>, "organization">]: 1 | -1;
@@ -521,13 +523,10 @@ export abstract class BaseModel<
       bypassReadPermissionChecks?: boolean;
       // Note: projection does not work when using config.yml
       projection?: Partial<Record<keyof z.infer<T>, 0 | 1>>;
+      dangerousCrossOrganization?: boolean;
     } = {},
   ) {
-    const fullQuery = {
-      ...this.getBaseQuery(),
-      ...query,
-      organization: this.context.org.id,
-    };
+    const fullQuery = this.applyBaseQuery(query, dangerousCrossOrganization);
     let rawDocs;
 
     if (this.useConfigFile()) {
@@ -578,11 +577,7 @@ export abstract class BaseModel<
   }
 
   protected async _findOne(query: ScopedFilterQuery<T>) {
-    const fullQuery = {
-      ...this.getBaseQuery(),
-      ...query,
-      organization: this.context.org.id,
-    };
+    const fullQuery = this.applyBaseQuery(query);
     const doc = this.useConfigFile()
       ? this.getConfigDocuments().find((doc) => evalCondition(doc, fullQuery))
       : await this._dangerousGetCollection().findOne(fullQuery);
@@ -624,9 +619,12 @@ export abstract class BaseModel<
       throw new Error("Cannot set dateUpdated field");
     }
 
-    // Add default owner if empty
+    // Add default owner and createdBy if empty
     if ("owner" in props && !props.owner) {
       props.owner = this.context.userName || "";
+    }
+    if ("createdBy" in props && !props.createdBy) {
+      props.createdBy = this.context.userName || "";
     }
 
     const ids: Identifiers = {
@@ -662,24 +660,8 @@ export abstract class BaseModel<
 
     await this._dangerousGetCollection().insertOne(doc);
 
-    if (this.config.auditLog) {
-      try {
-        await this.context.auditLog({
-          entity: {
-            object: this.config.auditLog.entity,
-            id: doc.id,
-            name:
-              ("name" in doc && typeof doc.name === "string" && doc.name) || "",
-          },
-          event: this.config.auditLog.createEvent,
-          details: auditDetailsCreate(doc),
-        } as AuditInterfaceTemplate<E>);
-      } catch (e) {
-        this.context.logger.error(
-          e,
-          `Error creating audit log for ${this.config.auditLog.createEvent}`,
-        );
-      }
+    if (this._auditLogger) {
+      await this._auditLogger.logCreate(this.context, doc);
     }
 
     await this.afterCreate(doc, writeOptions);
@@ -761,7 +743,7 @@ export abstract class BaseModel<
       );
     }
 
-    await this.beforeUpdate(doc, updates, newDoc, options?.writeOptions);
+    await this.beforeUpdate(doc, allUpdates, newDoc, options?.writeOptions);
 
     await this.customValidation(newDoc, options?.writeOptions);
 
@@ -775,31 +757,16 @@ export abstract class BaseModel<
       },
     );
 
-    const auditEvent = options?.auditEvent || this.config.auditLog?.updateEvent;
-    if (this.config.auditLog) {
-      try {
-        await this.context.auditLog({
-          entity: {
-            object: this.config.auditLog.entity,
-            id: doc.id,
-            name:
-              ("name" in newDoc &&
-                typeof newDoc.name === "string" &&
-                newDoc.name) ||
-              "",
-          },
-          event: auditEvent,
-          details: auditDetailsUpdate(doc, newDoc),
-        } as AuditInterfaceTemplate<E>);
-      } catch (e) {
-        this.context.logger.error(
-          e,
-          `Error creating audit log for ${auditEvent}`,
-        );
-      }
+    if (this._auditLogger) {
+      await this._auditLogger.logUpdate(
+        this.context,
+        doc,
+        newDoc,
+        options?.auditEvent,
+      );
     }
 
-    await this.afterUpdate(doc, updates, newDoc, options?.writeOptions);
+    await this.afterUpdate(doc, allUpdates, newDoc, options?.writeOptions);
     await this.afterCreateOrUpdate(newDoc, options?.writeOptions);
 
     // Update tags if needed
@@ -808,6 +775,52 @@ export abstract class BaseModel<
     }
 
     return newDoc;
+  }
+
+  protected async _dangerousCountDocumentsCrossOrganization(
+    filter: ScopedFilterQuery<T>,
+  ) {
+    return this._dangerousGetCollection().countDocuments(filter);
+  }
+
+  protected async _countDocuments(filter: ScopedFilterQuery<T>) {
+    const query = this.applyBaseQuery(filter);
+    return this._dangerousGetCollection().countDocuments(query);
+  }
+
+  protected async _dangerousBulkWriteCrossOrganization(
+    operations: AnyBulkWriteOperation[],
+  ) {
+    return dbSafeBulkWrite(this._dangerousGetCollection(), operations);
+  }
+
+  protected async bulkWrite(operations: AnyBulkWriteOperation[]) {
+    return dbSafeBulkWrite(
+      this._dangerousGetCollection(),
+      operations.map((op) => {
+        if ("insertOne" in op) {
+          return {
+            insertOne: {
+              ...op.insertOne,
+              document: {
+                ...op.insertOne.document,
+                organization: this.context.org.id,
+              },
+            },
+          };
+        } else if ("updateOne" in op) {
+          return {
+            updateOne: {
+              ...op.updateOne,
+              filter: this.applyBaseQuery(op.updateOne.filter),
+            },
+          };
+        }
+        return this.context.throwInternalServerError(
+          "Unsupported bulkWrite operation type in BaseModel#bulkWrite",
+        );
+      }),
+    );
   }
 
   protected async _deleteOne(doc: z.infer<T>, writeOptions?: WriteOptions) {
@@ -826,24 +839,8 @@ export abstract class BaseModel<
       id: doc.id,
     });
 
-    if (this.config.auditLog) {
-      try {
-        await this.context.auditLog({
-          entity: {
-            object: this.config.auditLog.entity,
-            id: doc.id,
-            name:
-              ("name" in doc && typeof doc.name === "string" && doc.name) || "",
-          },
-          event: this.config.auditLog.deleteEvent,
-          details: auditDetailsDelete(doc),
-        } as AuditInterfaceTemplate<E>);
-      } catch (e) {
-        this.context.logger.error(
-          e,
-          `Error creating audit log for ${this.config.auditLog.deleteEvent}`,
-        );
-      }
+    if (this._auditLogger) {
+      await this._auditLogger.logDelete(this.context, doc);
     }
 
     await this.afterDelete(doc, writeOptions);
@@ -1043,6 +1040,20 @@ export abstract class BaseModel<
 
   private getBaseQuery(): ScopedFilterQuery<T> {
     return this.config.baseQuery ?? {};
+  }
+
+  private applyBaseQuery(
+    filter: object,
+    dangerousCrossOrganization: boolean = false,
+  ): FilterQuery<z.infer<T>> {
+    const fullQuery: FilterQuery<z.infer<T>> = {
+      ...this.getBaseQuery(),
+      ...filter,
+    };
+    if (!dangerousCrossOrganization) {
+      fullQuery.organization = this.context.org.id;
+    }
+    return fullQuery;
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

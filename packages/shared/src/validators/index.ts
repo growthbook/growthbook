@@ -35,4 +35,9 @@ export * from "./population-data";
 export * from "./url-redirects";
 export * from "./sdk-connection-cache";
 export * from "./metric-group";
+<<<<<<< HEAD
 export * from "./product-analytics";
+=======
+export * from "./organization";
+export * from "./team";
+>>>>>>> origin/main

@@ -1,4 +1,16 @@
-// Mock all model dependencies BEFORE importing the features service
+import { ReqContext } from "shared/types/organization";
+import { getFeatureDefinitionsWithCache } from "back-end/src/controllers/features";
+import { getAllFeatures } from "back-end/src/models/FeatureModel";
+import {
+  getAllPayloadExperiments,
+  getAllVisualExperiments,
+  getAllURLRedirectExperiments,
+} from "back-end/src/models/ExperimentModel";
+import {
+  getSDKPayload,
+  updateSDKPayload,
+} from "back-end/src/models/SdkPayloadModel";
+
 jest.mock("back-end/src/models/FeatureModel", () => ({
   getAllFeatures: jest.fn(),
 }));
@@ -15,29 +27,16 @@ jest.mock("back-end/src/models/SdkPayloadModel", () => ({
   getSDKPayloadCacheLocation: jest.fn().mockReturnValue("mongo"),
 }));
 
-// Now import the features service after mocking its dependencies
-import { ReqContext } from "shared/types/organization";
-import { getFeatureDefinitions } from "back-end/src/services/features";
+jest.mock("back-end/src/models/SdkConnectionCacheModel", () => ({
+  getSDKPayloadCacheLocation: jest.fn().mockReturnValue("none"), // Skip cache, use JIT
+  SdkConnectionCacheModel: jest.fn(),
+}));
 
-// Import mocked dependencies
-import { getAllFeatures } from "back-end/src/models/FeatureModel";
-import {
-  getAllPayloadExperiments,
-  getAllVisualExperiments,
-  getAllURLRedirectExperiments,
-} from "back-end/src/models/ExperimentModel";
-import {
-  getSDKPayload,
-  updateSDKPayload,
-} from "back-end/src/models/SdkPayloadModel";
-
-// Mock shared/util functions
 jest.mock("shared/util", () => ({
   ...jest.requireActual("shared/util"),
   getSavedGroupsValuesFromInterfaces: jest.fn().mockReturnValue({}),
 }));
 
-// Mock config to prevent MongoDB log messages
 jest.mock("back-end/src/init/config", () => ({
   usingFileConfig: false,
   getConfigMetrics: jest.fn().mockReturnValue([]),
@@ -53,7 +52,7 @@ jest.mock("back-end/src/services/python", () => ({
   },
 }));
 
-describe("getFeatureDefinitions - Holdout Tests", () => {
+describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
   const mockContext = {
     org: {
       id: "test-org-id",
@@ -160,11 +159,18 @@ describe("getFeatureDefinitions - Holdout Tests", () => {
       ]),
     );
 
-    const result = await getFeatureDefinitions({
+    const result = await getFeatureDefinitionsWithCache({
       context: mockContext,
-      capabilities: ["prerequisites"],
-      environment: "production",
-      projects: ["project-2"],
+      params: {
+        key: "test-cache-key",
+        organization: mockContext.org.id,
+        environment: "production",
+        projects: ["project-2"],
+        encryptPayload: false,
+        encryptionKey: "",
+        languages: ["javascript"],
+        sdkVersion: "1.0.0",
+      },
     });
 
     // Verify holdout is included
@@ -240,11 +246,18 @@ describe("getFeatureDefinitions - Holdout Tests", () => {
       ]),
     );
 
-    const result = await getFeatureDefinitions({
+    const result = await getFeatureDefinitionsWithCache({
       context: mockContext,
-      capabilities: ["prerequisites"],
-      environment: "production",
-      projects: ["project-1"], // Only requesting project-1
+      params: {
+        key: "test-cache-key-2",
+        organization: mockContext.org.id,
+        environment: "production",
+        projects: ["project-1"],
+        encryptPayload: false,
+        encryptionKey: "",
+        languages: ["javascript"],
+        sdkVersion: "1.0.0",
+      },
     });
 
     // Verify holdout is NOT included
@@ -317,11 +330,18 @@ describe("getFeatureDefinitions - Holdout Tests", () => {
       ]),
     );
 
-    const result = await getFeatureDefinitions({
+    const result = await getFeatureDefinitionsWithCache({
       context: mockContext,
-      capabilities: ["prerequisites"],
-      environment: "production",
-      projects: ["project-2"], // Only requesting project-2
+      params: {
+        key: "test-cache-key-3",
+        organization: mockContext.org.id,
+        environment: "production",
+        projects: ["project-2"],
+        encryptPayload: false,
+        encryptionKey: "",
+        languages: ["javascript"],
+        sdkVersion: "1.0.0",
+      },
     });
 
     // Verify holdout is included
@@ -366,11 +386,18 @@ describe("getFeatureDefinitions - Holdout Tests", () => {
       mockContext.models.holdout.getAllPayloadHoldouts as jest.Mock
     ).mockResolvedValue(new Map());
 
-    const result = await getFeatureDefinitions({
+    const result = await getFeatureDefinitionsWithCache({
       context: mockContext,
-      capabilities: ["prerequisites"],
-      environment: "production",
-      projects: ["project-1"], // Only requesting project-1
+      params: {
+        key: "test-cache-key-4",
+        organization: mockContext.org.id,
+        environment: "production",
+        projects: ["project-1"],
+        encryptPayload: false,
+        encryptionKey: "",
+        languages: ["javascript"],
+        sdkVersion: "1.0.0",
+      },
     });
 
     // Verify feature does not have holdout rule
@@ -437,11 +464,18 @@ describe("getFeatureDefinitions - Holdout Tests", () => {
       ]),
     );
 
-    const result = await getFeatureDefinitions({
+    const result = await getFeatureDefinitionsWithCache({
       context: mockContext,
-      capabilities: ["prerequisites"],
-      environment: "production",
-      projects: ["project-1"], // Only requesting project-1
+      params: {
+        key: "test-cache-key-6",
+        organization: mockContext.org.id,
+        environment: "production",
+        projects: ["project-1"],
+        encryptPayload: false,
+        encryptionKey: "",
+        languages: ["javascript"],
+        sdkVersion: "1.0.0",
+      },
     });
 
     // Verify holdout feature definition is not included
@@ -498,11 +532,18 @@ describe("getFeatureDefinitions - Holdout Tests", () => {
       mockContext.models.holdout.getAllPayloadHoldouts as jest.Mock
     ).mockResolvedValue(new Map());
 
-    const result = await getFeatureDefinitions({
+    const result = await getFeatureDefinitionsWithCache({
       context: mockContext,
-      capabilities: ["prerequisites"],
-      environment: "production",
-      projects: ["project-1"], // Only requesting project-1
+      params: {
+        key: "test-cache-key-5",
+        organization: mockContext.org.id,
+        environment: "production",
+        projects: ["project-1"],
+        encryptPayload: false,
+        encryptionKey: "",
+        languages: ["javascript"],
+        sdkVersion: "1.0.0",
+      },
     });
 
     expect(result.features).toStrictEqual({

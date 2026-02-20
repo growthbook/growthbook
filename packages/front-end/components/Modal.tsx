@@ -181,6 +181,9 @@ const Modal: FC<ModalProps> = ({
       style={{
         height: sizeY === "max" ? "95vh" : "",
         maxHeight: sizeY ? "" : size === "fill" ? "" : "95vh",
+        ...(sizeY
+          ? { display: "flex" as const, flexDirection: "column" as const }
+          : {}),
       }}
     >
       {loading && <LoadingOverlay />}
@@ -249,15 +252,23 @@ const Modal: FC<ModalProps> = ({
           !header && (!close || !showHeaderCloseButton) ? "mt-2" : ""
         }`}
         ref={bodyRef}
-        style={
-          overflowAuto
+        style={{
+          ...(overflowAuto
             ? {
                 overflowY: "auto",
                 scrollBehavior: "smooth",
                 marginBottom: stickyFooter ? "100px" : undefined,
               }
-            : {}
-        }
+            : {}),
+          ...(sizeY
+            ? {
+                flex: 1,
+                minHeight: 0,
+                display: "flex",
+                flexDirection: "column",
+              }
+            : {}),
+        }}
       >
         {isSuccess ? (
           <div className="alert alert-success">{successMessage}</div>
