@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
-import { useAuditEntries } from "./useAuditEntries";
+import { UseAuditEntriesResult } from "./useAuditEntries";
 import { getChangedSectionLabels, useAuditDiff } from "./useAuditDiff";
 import { AuditDiffConfig, AuditDiffItem, CoarsenedAuditEntry } from "./types";
 import {
@@ -184,7 +184,7 @@ function computeDisplayIds(
 
 export function useAuditComparison<T>(
   config: AuditDiffConfig<T>,
-  entityId: string,
+  auditEntries: UseAuditEntriesResult<T>,
   eventLabels: Record<string, string>,
 ) {
   // ---- Section visibility filters ----
@@ -239,7 +239,7 @@ export function useAuditComparison<T>(
     expandEntry,
     groupBy,
     setGroupBy,
-  } = useAuditEntries<T>(config, entityId);
+  } = auditEntries;
 
   const [expandedGroups, setExpandedGroups] = useState<
     Record<string, CoarsenedAuditEntry<T>[]>

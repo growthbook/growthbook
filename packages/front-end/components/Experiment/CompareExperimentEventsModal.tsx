@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import CompareAuditEventsModal from "@/components/AuditHistoryExplorer/CompareAuditEventsModal";
+import AuditHistoryExplorerModal from "@/components/AuditHistoryExplorer/AuditHistoryExplorerModal";
 import { AuditDiffConfig, CoarsenedAuditEntry } from "@/components/AuditHistoryExplorer/types";
 import {
   renderUserTargetingPhases,
@@ -225,8 +225,9 @@ export default function CompareExperimentEventsModal({
   onClose,
 }: CompareExperimentEventsModalProps) {
   return (
-    <CompareAuditEventsModal<ExperimentInterfaceStringDates>
+    <AuditHistoryExplorerModal<ExperimentInterfaceStringDates>
       entityId={experiment.id}
+      entityName="Experiment"
       config={EXPERIMENT_DIFF_CONFIG}
       eventLabels={Object.fromEntries(
         Object.entries(EXPERIMENT_EVENTS).map(([k, v]) => [k, v.label]),

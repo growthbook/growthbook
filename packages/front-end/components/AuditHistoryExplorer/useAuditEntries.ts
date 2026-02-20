@@ -15,7 +15,7 @@ import {
   GroupByOption,
 } from "@/components/AuditHistoryExplorer/types";
 
-export const PAGE_LIMIT = 100;
+export const PAGE_LIMIT = 50;
 
 interface RawAuditEntry<T> {
   id: string;
@@ -189,15 +189,19 @@ function parseDetails<T>(
 interface FetchPageResult<T> {
   parsed: RawAuditEntry<T>[];
   markers: AuditEventMarker[];
+  /** All events from the API page, before any config filtering. */
+  allEvents: AuditInterface[];
   total: number;
   nextCursor: string | null;
 }
 
-interface UseAuditEntriesResult<T> {
+export interface UseAuditEntriesResult<T> {
   /** Coarsened entries sorted newest-first, ready for the left column. */
   entries: CoarsenedAuditEntry<T>[];
   /** Non-diffable event markers sorted newest-first, to be interleaved in the left column. */
   markers: AuditEventMarker[];
+  /** All unfiltered AuditInterface events in API order, for the raw log tab. */
+  allAuditEvents: AuditInterface[];
   loading: boolean;
   loadingAll: boolean;
   error: string | null;
@@ -205,6 +209,8 @@ interface UseAuditEntriesResult<T> {
   total: number;
   loadMore: () => void;
   loadAll: () => Promise<void>;
+  refresh: () => Promise<void>;
+  refreshing: boolean;
   /**
    * Expand a single coarsened entry back into its constituent raw entries.
    * Returns the replacement rows in newest-first order.
@@ -226,11 +232,13 @@ export function useAuditEntries<T>(
   );
   const [rawEntries, setRawEntries] = useState<RawAuditEntry<T>[]>([]);
   const [rawMarkers, setRawMarkers] = useState<AuditEventMarker[]>([]);
+  const [allAuditEvents, setAllAuditEvents] = useState<AuditInterface[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadingAll, setLoadingAll] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const isMounted = useRef(true);
 
@@ -311,7 +319,12 @@ export function useAuditEntries<T>(
         }
       }
 
-      return { parsed, markers, total: res.total, nextCursor: res.nextCursor };
+      const allEvents: AuditInterface[] = (res.events ?? []).map((e) => ({
+        ...e,
+        dateCreated: new Date(e.dateCreated) as unknown as Date,
+      })) as unknown as AuditInterface[];
+
+      return { parsed, markers, allEvents, total: res.total, nextCursor: res.nextCursor };
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [apiCall, config.entityType, entityId],
@@ -324,6 +337,7 @@ export function useAuditEntries<T>(
     setError(null);
     setRawEntries([]);
     setRawMarkers([]);
+    setAllAuditEvents([]);
     setCursor(null);
     setHasMore(false);
     setTotal(0);
@@ -334,6 +348,7 @@ export function useAuditEntries<T>(
         if (cancelled || !isMounted.current) return;
         setRawEntries(result.parsed);
         setRawMarkers(result.markers);
+        setAllAuditEvents(result.allEvents);
         setTotal(result.total);
         setCursor(result.nextCursor);
         setHasMore(!!result.nextCursor);
@@ -352,7 +367,7 @@ export function useAuditEntries<T>(
   }, [entityId, config.entityType]);
 
   const loadMore = useCallback(() => {
-    if (!cursor || loading) return;
+    if (!cursor || loading || refreshing) return;
     setLoading(true);
     (async () => {
       try {
@@ -360,6 +375,7 @@ export function useAuditEntries<T>(
         if (!isMounted.current) return;
         setRawEntries((prev) => [...prev, ...result.parsed]);
         setRawMarkers((prev) => [...prev, ...result.markers]);
+        setAllAuditEvents((prev) => [...prev, ...result.allEvents]);
         setCursor(result.nextCursor);
         setHasMore(!!result.nextCursor);
       } catch {
@@ -368,25 +384,28 @@ export function useAuditEntries<T>(
         if (isMounted.current) setLoading(false);
       }
     })();
-  }, [cursor, loading, fetchPage]);
+  }, [cursor, loading, refreshing, fetchPage]);
 
   const loadAll = useCallback(async () => {
-    if (!hasMore || loadingAll) return;
+    if (!hasMore || loadingAll || refreshing) return;
     setLoadingAll(true);
     try {
       let nextCursor = cursor;
       const accumulated: RawAuditEntry<T>[] = [];
       const accumulatedMarkers: AuditEventMarker[] = [];
+      const accumulatedRaw: AuditInterface[] = [];
       while (nextCursor) {
         const result = await fetchPage(nextCursor);
         if (!isMounted.current) return;
         accumulated.push(...result.parsed);
         accumulatedMarkers.push(...result.markers);
+        accumulatedRaw.push(...result.allEvents);
         nextCursor = result.nextCursor;
       }
       if (!isMounted.current) return;
       setRawEntries((prev) => [...prev, ...accumulated]);
       setRawMarkers((prev) => [...prev, ...accumulatedMarkers]);
+      setAllAuditEvents((prev) => [...prev, ...accumulatedRaw]);
       setCursor(null);
       setHasMore(false);
     } catch {
@@ -394,7 +413,28 @@ export function useAuditEntries<T>(
     } finally {
       if (isMounted.current) setLoadingAll(false);
     }
-  }, [cursor, hasMore, loadingAll, fetchPage]);
+  }, [cursor, hasMore, loadingAll, refreshing, fetchPage]);
+
+  // Re-fetch page 1 in the background and replace state when done (no flush).
+  const refresh = useCallback(async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      const result = await fetchPage(null);
+      if (!isMounted.current) return;
+      setRawEntries(result.parsed);
+      setRawMarkers(result.markers);
+      setAllAuditEvents(result.allEvents);
+      setTotal(result.total);
+      setCursor(result.nextCursor);
+      setHasMore(!!result.nextCursor);
+      setError(null);
+    } catch {
+      if (isMounted.current) setError("Failed to refresh history.");
+    } finally {
+      if (isMounted.current) setRefreshing(false);
+    }
+  }, [refreshing, fetchPage]);
 
   const expandEntry = useCallback(
     (entry: CoarsenedAuditEntry<T>): CoarsenedAuditEntry<T>[] => {
@@ -412,13 +452,16 @@ export function useAuditEntries<T>(
   return {
     entries,
     markers,
+    allAuditEvents,
     loading,
     loadingAll,
+    refreshing,
     error,
     hasMore,
     total,
     loadMore,
     loadAll,
+    refresh,
     expandEntry,
     groupBy,
     setGroupBy,
