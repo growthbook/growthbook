@@ -556,6 +556,42 @@ describe("experiments API", () => {
       expect(res.body.message).toContain("already exists");
     });
 
+    it("allows duplicate trackingKey when allowDuplicateTrackingKey is true", async () => {
+      (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(experiment);
+      (createExperiment as jest.Mock).mockResolvedValue(experiment);
+
+      const createPayload = {
+        trackingKey: "exp_123",
+        name: "Duplicate Experiment",
+        hypothesis: "",
+        assignmentQueryId: "user_id",
+        allowDuplicateTrackingKey: true,
+        variations: [
+          {
+            key: "control",
+            name: "Control",
+            description: "",
+            screenshots: [],
+          },
+          {
+            key: "treatment",
+            name: "Treatment",
+            description: "",
+            screenshots: [],
+          },
+        ],
+      };
+
+      const res = await request(app)
+        .post("/api/v1/experiments")
+        .send(createPayload)
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty("experiment");
+      expect(getExperimentByTrackingKey).not.toHaveBeenCalled();
+    });
+
     it("validates datasource exists", async () => {
       (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(null);
       (getDataSourceById as jest.Mock).mockResolvedValue(null); // Mock datasource not found
@@ -653,6 +689,27 @@ describe("experiments API", () => {
       expect(res.status).toBe(400);
       expect(res.body).toHaveProperty("message");
       expect(res.body.message).toContain("Could not find");
+    });
+
+    it("allows duplicate trackingKey on update when allowDuplicateTrackingKey is true", async () => {
+      (getExperimentById as jest.Mock).mockResolvedValue(experiment);
+      (updateExperiment as jest.Mock).mockResolvedValue({
+        ...experiment,
+        trackingKey: "existing_key",
+      });
+
+      const updatePayload = {
+        trackingKey: "existing_key",
+        allowDuplicateTrackingKey: true,
+      };
+
+      const res = await request(app)
+        .post("/api/v1/experiments/exp_123")
+        .send(updatePayload)
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(getExperimentByTrackingKey).not.toHaveBeenCalled();
     });
 
     it("updates experiment variations with signed URLs", async () => {
