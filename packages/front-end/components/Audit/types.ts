@@ -79,6 +79,8 @@ export interface AuditEventMarker {
   date: Date;
   user: AuditUserInfo;
   label: string;
+  /** When true the marker is always rendered inline and never collapsed into a noise group. */
+  alwaysVisible?: boolean;
 }
 
 export interface AuditDiffConfig<T> {
@@ -111,6 +113,19 @@ export interface AuditDiffConfig<T> {
    */
   normalizeSnapshot?: (snapshot: T) => T;
   /**
+   * Diffable events that are always rendered in the left column regardless of
+   * active section filters (e.g. archive/unarchive events whose changed field
+   * isn't claimed by any section).
+   */
+  alwaysVisibleEvents?: string[];
+  /**
+   * When true, any event prefixed with `${entityType}.` that is not listed in
+   * includedEvents or labelOnlyEvents is automatically surfaced as a label-only
+   * marker (non-diffable). The label is derived from the event name by splitting
+   * on dots/camelCase. Useful for forward-compatibility with future event types.
+   */
+  catchUnknownEventsAsLabels?: boolean;
+  /**
    * Events that carry no diffable experiment snapshot (e.g. experiment.refresh).
    * These are fetched alongside diffable events but shown as plain non-selectable
    * text labels in the left column rather than comparison entries.
@@ -118,6 +133,8 @@ export interface AuditDiffConfig<T> {
   labelOnlyEvents?: {
     event: string;
     getLabel: (details: Record<string, unknown> | null) => string;
+    /** When true the marker is always shown inline and never collapsed into a noise group. */
+    alwaysVisible?: boolean;
   }[];
 }
 

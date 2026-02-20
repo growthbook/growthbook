@@ -1,6 +1,14 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import CompareAuditEventsModal from "@/components/Audit/CompareAuditEventsModal";
 import { AuditDiffConfig } from "@/components/Audit/types";
+import {
+  renderUserTargetingPhases,
+  renderUserTargetingTopLevel,
+  renderPhaseInfo,
+  renderVariations,
+  renderAnalysisSettings,
+  renderMetadata,
+} from "./ExperimentDiffRenders";
 
 /**
  * Audit events that represent meaningful model-level changes to an experiment.
@@ -12,6 +20,7 @@ export const INCLUDED_EXPERIMENT_EVENTS = [
   "experiment.status",
   "experiment.start",
   "experiment.stop",
+  "experiment.results",
   "experiment.archive",
   "experiment.unarchive",
   "experiment.phase",
@@ -24,6 +33,7 @@ export const EXPERIMENT_EVENT_LABELS: Record<string, string> = {
   "experiment.status": "Status changed",
   "experiment.start": "Started",
   "experiment.stop": "Stopped",
+  "experiment.results": "Results recorded",
   "experiment.archive": "Archived",
   "experiment.unarchive": "Unarchived",
   "experiment.phase": "Phase updated",
@@ -35,11 +45,31 @@ const EXPERIMENT_DIFF_CONFIG: AuditDiffConfig<ExperimentInterfaceStringDates> =
     entityType: "experiment",
     includedEvents: [...INCLUDED_EXPERIMENT_EVENTS],
     labelOnlyEvents: [
+      { event: "experiment.refresh", getLabel: () => "Refreshed analysis" },
       {
-        event: "experiment.refresh",
-        getLabel: () => "Refreshed analysis",
+        event: "experiment.analysis",
+        getLabel: () => "Custom report analysis run",
+      },
+      {
+        event: "experiment.delete",
+        getLabel: () => "Deleted",
+        alwaysVisible: true,
+      },
+      {
+        event: "experiment.launchChecklist.updated",
+        getLabel: () => "Launch checklist updated",
+      },
+      {
+        event: "experiment.screenshot.create",
+        getLabel: () => "Screenshot added",
+      },
+      {
+        event: "experiment.screenshot.delete",
+        getLabel: () => "Screenshot removed",
       },
     ],
+    alwaysVisibleEvents: ["experiment.archive", "experiment.unarchive"],
+    catchUnknownEventsAsLabels: true,
     defaultGroupBy: "minute",
     entityLabel: "Experiment",
     normalizeSnapshot: (snapshot) => {
@@ -101,6 +131,7 @@ const EXPERIMENT_DIFF_CONFIG: AuditDiffConfig<ExperimentInterfaceStringDates> =
         ],
         stripSubKeys: ["banditEvents"],
         stripSubKeysLabel: "Phases: other changes",
+        render: renderUserTargetingPhases,
       },
       {
         label: "User targeting",
@@ -110,6 +141,7 @@ const EXPERIMENT_DIFF_CONFIG: AuditDiffConfig<ExperimentInterfaceStringDates> =
           "minBucketVersion",
           "disableStickyBucketing",
         ],
+        render: renderUserTargetingTopLevel,
       },
       {
         label: "Phase info",
@@ -123,10 +155,12 @@ const EXPERIMENT_DIFF_CONFIG: AuditDiffConfig<ExperimentInterfaceStringDates> =
         ],
         stripSubKeys: ["banditEvents"],
         stripSubKeysLabel: "Phases: other changes",
+        render: renderPhaseInfo,
       },
       {
         label: "Variations",
         keys: ["variations"],
+        render: renderVariations,
       },
       {
         label: "Analysis settings",
@@ -158,6 +192,7 @@ const EXPERIMENT_DIFF_CONFIG: AuditDiffConfig<ExperimentInterfaceStringDates> =
           "banditScheduleUnit",
           "banditScheduleValue",
         ],
+        render: renderAnalysisSettings,
       },
       {
         label: "Metadata",
@@ -172,6 +207,7 @@ const EXPERIMENT_DIFF_CONFIG: AuditDiffConfig<ExperimentInterfaceStringDates> =
           "shareLevel",
           "templateId",
         ],
+        render: renderMetadata,
       },
     ],
   };

@@ -26,6 +26,24 @@ interface RawAuditEntry<T> {
   postSnapshot: T | null;
 }
 
+/**
+ * Derives a human-readable label from an unknown event name.
+ * e.g. "experiment.launchChecklist.updated" → "Launch checklist updated"
+ */
+function formatUnknownEventLabel(event: string, entityPrefix: string): string {
+  const suffix = event.startsWith(entityPrefix)
+    ? event.slice(entityPrefix.length)
+    : event;
+  // Split on dots then expand camelCase segments into separate words.
+  const words = suffix
+    .split(".")
+    .join(" ")
+    .replace(/([A-Z])/g, " $1")
+    .toLowerCase()
+    .trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
 function getAuthorKey(user: AuditInterface["user"]): string {
   if ("system" in user && (user as AuditUserSystem).system) return "system";
   if ("apiKey" in user) return `apikey:${(user as AuditUserApiKey).apiKey}`;
@@ -242,16 +260,27 @@ export function useAuditEntries<T>(
         ...config.includedEvents,
         ...labelOnlyMap.keys(),
       ]);
+      const entityPrefix = `${config.entityType}.`;
 
-      const filtered = (res.events ?? []).filter((e) =>
-        allIncluded.has(e.event),
+      const filtered = (res.events ?? []).filter(
+        (e) =>
+          allIncluded.has(e.event) ||
+          (config.catchUnknownEventsAsLabels &&
+            e.event.startsWith(entityPrefix)),
       );
 
       const parsed: RawAuditEntry<T>[] = [];
       const markers: AuditEventMarker[] = [];
 
       for (const e of filtered) {
-        const labelOnlyEntry = labelOnlyMap.get(e.event);
+        const labelOnlyEntry =
+          labelOnlyMap.get(e.event) ??
+          (config.catchUnknownEventsAsLabels && !allIncluded.has(e.event)
+            ? {
+                event: e.event,
+                getLabel: () => formatUnknownEventLabel(e.event, entityPrefix),
+              }
+            : undefined);
         if (labelOnlyEntry) {
           let details: Record<string, unknown> | null = null;
           try {
@@ -265,6 +294,7 @@ export function useAuditEntries<T>(
             date: new Date(e.dateCreated),
             user: toAuditUserInfo(e.user),
             label: labelOnlyEntry.getLabel(details),
+            alwaysVisible: labelOnlyEntry.alwaysVisible,
           });
         } else {
           const { pre, post } = parseDetails<T>(e.details, e.event);

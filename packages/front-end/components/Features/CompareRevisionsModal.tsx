@@ -95,6 +95,14 @@ function RevisionCompareLabel({
           </Flex>
           <RevisionStatusBadge revision={revA} liveVersion={liveVersion} />
         </Flex>
+        {revA && (
+          <Text as="div" size="small" color="text-low">
+            {datetime(
+              (revA.status === "published" ? revA.datePublished : null) ?? revA.dateUpdated,
+            )}{" "}
+            · <EventUser user={revA.createdBy} display="name" />
+          </Text>
+        )}
         {revA &&
           revA.baseVersion !== 0 &&
           (DRAFT_REVISION_STATUSES.includes(revA.status) &&
@@ -125,6 +133,14 @@ function RevisionCompareLabel({
           </Flex>
           <RevisionStatusBadge revision={revB} liveVersion={liveVersion} />
         </Flex>
+        {revB && (
+          <Text as="div" size="small" color="text-low">
+            {datetime(
+              (revB.status === "published" ? revB.datePublished : null) ?? revB.dateUpdated,
+            )}{" "}
+            · <EventUser user={revB.createdBy} display="name" />
+          </Text>
+        )}
         {revB &&
           revB.baseVersion !== 0 &&
           (DRAFT_REVISION_STATUSES.includes(revB.status) &&
@@ -449,6 +465,20 @@ export default function CompareRevisionsModal({
       }
 
       if (prevIndices.length > 0) {
+        // Count visible revisions (in filteredRevisionList) strictly between
+        // two indices in versionsDesc (exclusive of endpoints).
+        const visibleVersionSet = new Set(
+          filteredRevisionList.map((r) => r.version),
+        );
+        const visibleBetween = (a: number, b: number): number => {
+          const [lo, hi] = a < b ? [a, b] : [b, a];
+          let count = 0;
+          for (let i = lo + 1; i < hi; i++) {
+            if (visibleVersionSet.has(versionsDesc[i])) count++;
+          }
+          return count;
+        };
+
         // Clicking within the range: shorten by moving the nearer endpoint.
         // versionsDesc is newest-first, so startIdx (lower) = newer, endIdx (higher) = older.
         // Tiebreaker: move the newer (top) endpoint.
@@ -466,9 +496,12 @@ export default function CompareRevisionsModal({
           }
         }
 
-        // If 4+ positions outside the current range, clear and pair with the
-        // item immediately below (older) instead of expanding.
-        if (idx <= startIdx - 4 || idx >= endIdx + 4) {
+        // If 4+ visible items outside the current range, clear and pair with
+        // the item immediately below (older) instead of expanding.
+        if (
+          (idx < startIdx && visibleBetween(idx, startIdx) >= 4) ||
+          (idx > endIdx && visibleBetween(endIdx, idx) >= 4)
+        ) {
           if (idx < versionsDesc.length - 1) {
             return [versionsDesc[idx + 1], versionsDesc[idx]].sort(
               (a, b) => a - b,

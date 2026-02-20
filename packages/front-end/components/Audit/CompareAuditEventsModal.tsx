@@ -12,8 +12,10 @@ import {
   PiClockClockwise,
   PiWarningBold,
   PiCaretDownBold,
+  PiCaretRightFill,
   PiX,
 } from "react-icons/pi";
+import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import { datetime } from "shared/dates";
 import format from "date-fns/format";
 import {
@@ -23,7 +25,6 @@ import {
 } from "@/ui/DropdownMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
-import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Modal from "@/components/Modal";
@@ -46,6 +47,9 @@ import {
 import styles from "./CompareAuditEventsModal.module.scss";
 
 const STORAGE_KEY_PREFIX = "audit:compare-events";
+
+// Section labels suppressed from left-column entry titles (too noisy or redundant).
+const HIDDEN_LABEL_SECTIONS = new Set(["other changes", "Phase info"]);
 
 interface AuditEntryCompareLabelProps<T> {
   entryA: CoarsenedAuditEntry<T> | null;
@@ -81,7 +85,7 @@ function AuditEntryCompareLabel<T>({
         </Flex>
         {entryA && (
           <Text as="div" size="small" color="text-low">
-            {datetime(entryA.dateStart)}
+            {datetime(entryA.dateStart)} · <EntryUserName user={entryA.user} />
           </Text>
         )}
       </Flex>
@@ -99,7 +103,7 @@ function AuditEntryCompareLabel<T>({
         </Flex>
         {entryB && (
           <Text as="div" size="small" color="text-low">
-            {datetime(entryB.dateStart)}
+            {datetime(entryB.dateStart)} · <EntryUserName user={entryB.user} />
           </Text>
         )}
       </Flex>
@@ -150,6 +154,12 @@ export default function CompareAuditEventsModal<T>({
   >(`${STORAGE_KEY_PREFIX}:${config.entityType}:visibleSections`, {
     "other changes": false,
   });
+
+  // Non-diffable event markers (e.g. "Refreshed analysis") are hidden by default.
+  const [showOtherEvents, setShowOtherEvents] = useLocalStorage<boolean>(
+    `${STORAGE_KEY_PREFIX}:${config.entityType}:showOtherEvents`,
+    false,
+  );
 
   const sectionLabels = useMemo(
     () => [
@@ -375,16 +385,28 @@ export default function CompareAuditEventsModal<T>({
       const idx = flatIds.indexOf(id);
       if (idx === -1) return;
 
-      // Determine if this is a "far click" (4+ positions outside the current
-      // selection range) using a snapshot of the current selection.
+      // Count visible items strictly between two flat indices (exclusive).
+      const visibleBetween = (a: number, b: number): number => {
+        const [lo, hi] = a < b ? [a, b] : [b, a];
+        let count = 0;
+        for (let i = lo + 1; i < hi; i++) {
+          if (visibleIdSet.has(flatIds[i])) count++;
+        }
+        return count;
+      };
+
+      // Determine if this is a "far click" (4+ visible items between the clicked
+      // item and the nearest current selection endpoint).
       const currentIndices = selectedIds
         .map((sid) => flatIds.indexOf(sid))
         .filter((i) => i !== -1)
         .sort((a, b) => a - b);
       const isFarClick =
         currentIndices.length === 0 ||
-        idx <= currentIndices[0] - 4 ||
-        idx >= currentIndices[currentIndices.length - 1] + 4;
+        (idx < currentIndices[0] &&
+          visibleBetween(idx, currentIndices[0]) >= 4) ||
+        (idx > currentIndices[currentIndices.length - 1] &&
+          visibleBetween(currentIndices[currentIndices.length - 1], idx) >= 4);
 
       // Far click on the last loaded item when more pages exist: trigger a
       // fetch and resolve the pair once the next item appears.
@@ -436,7 +458,12 @@ export default function CompareAuditEventsModal<T>({
         }
 
         // Far click: jump to single-item view for the clicked entry.
-        if (low !== -1 && high !== -1 && (idx <= low - 4 || idx >= high + 4)) {
+        if (
+          low !== -1 &&
+          high !== -1 &&
+          ((idx < low && visibleBetween(idx, low) >= 4) ||
+            (idx > high && visibleBetween(high, idx) >= 4))
+        ) {
           return [flatIds[idx], flatIds[idx]];
         }
 
@@ -552,7 +579,8 @@ export default function CompareAuditEventsModal<T>({
   };
   type LeftColItem =
     | { type: "entry"; entry: CoarsenedAuditEntry<T> }
-    | NoiseItem;
+    | NoiseItem
+    | { type: "marker"; marker: AuditEventMarker };
 
   const leftColumnItems = useMemo((): LeftColItem[] => {
     // Merge-sort flatEntries and markers newest-first into one stream.
@@ -579,8 +607,8 @@ export default function CompareAuditEventsModal<T>({
     // so the user always sees what they've selected.
     const selectedEndpoints = new Set(selectedIds);
 
-    // Active noise group: accumulates hidden entries + markers within a weekly bucket.
-    // Flushed whenever a visible entry appears or the week changes.
+    // Active noise group: accumulates hidden entries + markers within a monthly bucket.
+    // Flushed whenever a visible entry appears or the month changes.
     type NoiseGroup = {
       weekBucket: string;
       date: Date;
@@ -605,12 +633,18 @@ export default function CompareAuditEventsModal<T>({
       noise = null;
     };
 
-    // Weekly bucket key for coarsening noise groups.
-    const weekBucket = (date: Date) => format(date, "RRRR-'W'II");
+    // Monthly bucket key for coarsening noise groups.
+    const monthBucket = (date: Date) => format(date, "yyyy-MM");
 
     for (const item of merged) {
       if (item.kind === "marker") {
-        const bucket = weekBucket(item.marker.date);
+        // Always-visible markers are never collapsed into a noise group.
+        if (item.marker.alwaysVisible) {
+          flushNoise();
+          items.push({ type: "marker", marker: item.marker });
+          continue;
+        }
+        const bucket = monthBucket(item.marker.date);
         if (noise && noise.weekBucket !== bucket) flushNoise();
         if (!noise) {
           noise = {
@@ -641,13 +675,14 @@ export default function CompareAuditEventsModal<T>({
         !sectionLabels.length ||
         !changed?.length ||
         changed.some(isSectionVisible) ||
-        selectedEndpoints.has(entry.id); // endpoints always visible
+        selectedEndpoints.has(entry.id) || // endpoints always visible
+        config.alwaysVisibleEvents?.includes(entry.event);
 
       if (isVisible) {
         flushNoise();
         items.push({ type: "entry", entry });
       } else {
-        const bucket = weekBucket(entry.dateStart);
+        const bucket = monthBucket(entry.dateStart);
         if (noise && noise.weekBucket !== bucket) flushNoise();
         if (!noise) {
           noise = {
@@ -670,6 +705,7 @@ export default function CompareAuditEventsModal<T>({
     sectionLabels,
     isSectionVisible,
     selectedIds,
+    config.alwaysVisibleEvents,
   ]);
 
   // Selection is filter-agnostic: filters only affect visual grouping in the
@@ -687,7 +723,9 @@ export default function CompareAuditEventsModal<T>({
         !config.updateEventNames ||
         config.updateEventNames.includes(entry.event);
       if (isUpdateEvent) {
-        const sections = entrySectionLabels.get(entry.id) ?? [];
+        const sections = (entrySectionLabels.get(entry.id) ?? []).filter(
+          (s) => !HIDDEN_LABEL_SECTIONS.has(s),
+        );
         return sections.length ? `${base}: ${sections.join(", ")}` : base;
       }
       return config.entityLabel ? `${base} ${config.entityLabel}` : base;
@@ -702,95 +740,100 @@ export default function CompareAuditEventsModal<T>({
       selectedIds[selectedIds.length - 1] === entry.id;
     const failed = isEntryFailed(entry.id);
     const label = getEventLabel(entry.event);
-    const rowId = `audit-entry-${entry.id}`;
 
     return (
       <Box
         key={entry.id}
-        asChild
         className={`${styles.row} ${isSelected ? styles.rowSelected : ""}`}
+        onClick={() => toggleSelection(entry.id)}
       >
-        <label htmlFor={rowId}>
-          {!isExclusivelySelected && (
-            <div className={styles.viewSingleWrapper}>
-              <Button
-                variant="outline"
-                size="xs"
-                className={styles.viewSingleButton}
-                onClick={async (e) => {
-                  e?.preventDefault();
-                  e?.stopPropagation();
-                  isDefaultPairRef.current = false;
-                  setSelectedIds([entry.id, entry.id]);
-                  setDiffPage(0);
-                }}
-              >
-                View
-              </Button>
-            </div>
-          )}
-          <span style={{ pointerEvents: "none" }}>
-            <Checkbox
-              id={rowId}
-              value={isSelected}
-              setValue={() => toggleSelection(entry.id)}
-            />
-          </span>
-          <Flex direction="column" gap="1" style={{ flex: 1, minWidth: 0 }}>
-            <Flex align="center" justify="between" gap="2" width="100%">
-              <Flex align="center" gap="1">
-                {isSelected && failed && (
-                  <Tooltip body="Could not load entry">
-                    <PiWarningBold
-                      style={{ color: "var(--red-9)", flexShrink: 0 }}
-                    />
-                  </Tooltip>
-                )}
-                <Text weight="semibold">
-                  {(() => {
-                    const isUpdateEvent =
-                      !config.updateEventNames ||
-                      config.updateEventNames.includes(entry.event);
-                    if (!isUpdateEvent) return label;
-                    const changed = entrySectionLabels.get(entry.id) ?? [];
-                    if (!changed.length) return label;
-                    return `${label}: ${changed.join(", ")}`;
-                  })()}
-                </Text>
-              </Flex>
-              {entry.count > 1 && (
-                <Badge
-                  label={String(entry.count)}
-                  color="violet"
-                  variant="soft"
-                  title={`${entry.count} changes merged`}
-                />
-              )}
-            </Flex>
-            <Text size="small" color="text-low">
-              {entry.count > 1
-                ? datetime(entry.dateEnd)
-                : datetime(entry.dateStart)}{" "}
-              · <EntryUserName user={entry.user} />
-            </Text>
-            {entry.count > 1 && (
-              <Box mt="1">
-                <Link
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    expandGroup(entry);
-                  }}
-                >
-                  <PiCaretDownBold
-                    style={{ display: "inline", marginRight: 4 }}
+        {!isExclusivelySelected && (
+          <div className={styles.viewSingleWrapper}>
+            <Button
+              variant="outline"
+              size="xs"
+              className={styles.viewSingleButton}
+              onClick={async (e) => {
+                e?.preventDefault();
+                e?.stopPropagation();
+                isDefaultPairRef.current = false;
+                setSelectedIds([entry.id, entry.id]);
+                setDiffPage(0);
+              }}
+            >
+              View
+            </Button>
+          </div>
+        )}
+        <div
+          className={styles.filterCheckbox}
+          style={{ marginTop: -6, marginLeft: -6 }}
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleSelection(entry.id);
+          }}
+        >
+          <RadixCheckbox
+            checked={isSelected}
+            style={{ pointerEvents: "none" }}
+          />
+        </div>
+        <Flex direction="column" gap="1" style={{ flex: 1, minWidth: 0 }}>
+          <Flex align="center" justify="between" gap="2" width="100%">
+            <Flex align="center" gap="1">
+              {isSelected && failed && (
+                <Tooltip body="Could not load entry">
+                  <PiWarningBold
+                    style={{ color: "var(--red-9)", flexShrink: 0 }}
                   />
-                  {`Expand ${entry.count} changes`}
-                </Link>
-              </Box>
+                </Tooltip>
+              )}
+              <Text weight="semibold">
+                {(() => {
+                  const isUpdateEvent =
+                    !config.updateEventNames ||
+                    config.updateEventNames.includes(entry.event);
+                  if (!isUpdateEvent) return label;
+                  const changed = (
+                    entrySectionLabels.get(entry.id) ?? []
+                  ).filter((s) => !HIDDEN_LABEL_SECTIONS.has(s));
+                  if (!changed.length) return label;
+                  return `${label}: ${changed.join(", ")}`;
+                })()}
+              </Text>
+            </Flex>
+            {entry.count > 1 && (
+              <Badge
+                label={String(entry.count)}
+                color="violet"
+                variant="soft"
+                title={`${entry.count} changes merged`}
+              />
             )}
           </Flex>
-        </label>
+          <Text size="small" color="text-low">
+            {entry.count > 1
+              ? datetime(entry.dateEnd)
+              : datetime(entry.dateStart)}{" "}
+            · <EntryUserName user={entry.user} />
+          </Text>
+          {entry.count > 1 && (
+            <Box mt="1">
+              <Link
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  expandGroup(entry);
+                }}
+              >
+                <PiCaretDownBold
+                  style={{ display: "inline", marginRight: 4 }}
+                />
+                {`Expand ${entry.count} changes`}
+              </Link>
+            </Box>
+          )}
+        </Flex>
       </Box>
     );
   };
@@ -799,6 +842,22 @@ export default function CompareAuditEventsModal<T>({
     () => (diffViewMode === "single" ? mergedDiffs : stepDiffs),
     [diffViewMode, mergedDiffs, stepDiffs],
   );
+
+  // Group customRenders by section label in order of first occurrence.
+  // Companion diffs are excluded (they never carry custom renders anyway).
+  const customRenderGroups = useMemo(() => {
+    const seen = new Set<string>();
+    const groups: { label: string; renders: React.ReactNode[] }[] = [];
+    for (const d of activeDiffs) {
+      if (!d.customRender || d.isCompanion) continue;
+      if (!seen.has(d.label)) {
+        seen.add(d.label);
+        groups.push({ label: d.label, renders: [] });
+      }
+      groups.find((g) => g.label === d.label)!.renders.push(d.customRender);
+    }
+    return groups;
+  }, [activeDiffs]);
 
   return (
     <Modal
@@ -908,10 +967,12 @@ export default function CompareAuditEventsModal<T>({
                   const activeFilterCount = sectionLabels.filter(
                     (l) => !isSectionVisible(l),
                   ).length;
-                  const isShowingAll = activeFilterCount === 0;
-                  const isAtDefault = sectionLabels.every(
-                    (l) => isSectionVisible(l) === isDefaultVisible(l),
-                  );
+                  const isShowingAll =
+                    activeFilterCount === 0 && showOtherEvents;
+                  const isAtDefault =
+                    sectionLabels.every(
+                      (l) => isSectionVisible(l) === isDefaultVisible(l),
+                    ) && !showOtherEvents;
                   return (
                     <DropdownMenu
                       modal={true}
@@ -935,14 +996,15 @@ export default function CompareAuditEventsModal<T>({
                     >
                       {!isShowingAll && (
                         <DropdownMenuItem
-                          onClick={() =>
+                          onClick={() => {
                             setVisibleSections(
                               sectionLabels.reduce<Record<string, boolean>>(
                                 (acc, l) => ({ ...acc, [l]: true }),
                                 {},
                               ),
-                            )
-                          }
+                            );
+                            setShowOtherEvents(true);
+                          }}
                         >
                           <Flex align="center" gap="1">
                             <span style={{ width: 24, display: "inline-flex" }}>
@@ -954,7 +1016,7 @@ export default function CompareAuditEventsModal<T>({
                       )}
                       <DropdownMenuItem
                         disabled={isAtDefault}
-                        onClick={() =>
+                        onClick={() => {
                           setVisibleSections(
                             sectionLabels.reduce<Record<string, boolean>>(
                               (acc, l) => ({
@@ -963,8 +1025,9 @@ export default function CompareAuditEventsModal<T>({
                               }),
                               {},
                             ),
-                          )
-                        }
+                          );
+                          setShowOtherEvents(false);
+                        }}
                       >
                         <Flex align="center" gap="1">
                           <span style={{ width: 24, display: "inline-flex" }}>
@@ -1015,6 +1078,26 @@ export default function CompareAuditEventsModal<T>({
                           </DropdownMenuItem>
                         );
                       })}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => setShowOtherEvents(!showOtherEvents)}
+                      >
+                        <Flex align="center" gap="1">
+                          <div
+                            className={`rt-CheckboxItem ${styles.filterCheckbox}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowOtherEvents(!showOtherEvents);
+                            }}
+                          >
+                            <RadixCheckbox
+                              checked={showOtherEvents}
+                              color="violet"
+                            />
+                          </div>
+                          Show other events
+                        </Flex>
+                      </DropdownMenuItem>
                     </DropdownMenu>
                   );
                 })()}
@@ -1046,7 +1129,11 @@ export default function CompareAuditEventsModal<T>({
                 {leftColumnItems.reduce<React.ReactNode[]>((nodes, item, i) => {
                   const prev = leftColumnItems[i - 1];
                   const getItemDate = (it: LeftColItem) =>
-                    it.type === "entry" ? it.entry.dateStart : it.date;
+                    it.type === "entry"
+                      ? it.entry.dateStart
+                      : it.type === "marker"
+                        ? it.marker.date
+                        : it.date;
                   const date = getItemDate(item);
                   const prevDate = prev ? getItemDate(prev) : null;
                   const bucketKey = getSeparatorBucketKey(date, groupBy);
@@ -1061,6 +1148,7 @@ export default function CompareAuditEventsModal<T>({
                         gap="2"
                         px="2"
                         py="1"
+                        style={{ width: 200 }}
                       >
                         <Box
                           style={{
@@ -1069,7 +1157,7 @@ export default function CompareAuditEventsModal<T>({
                             background: "var(--gray-6)",
                           }}
                         />
-                        <Text size="medium" weight="medium" color="text-low">
+                        <Text size="small" weight="medium" color="text-low">
                           {getSeparatorLabel(date, groupBy)}
                         </Text>
                         <Box
@@ -1084,18 +1172,45 @@ export default function CompareAuditEventsModal<T>({
                   }
                   if (item.type === "entry") {
                     nodes.push(renderEntryRow(item.entry));
+                  } else if (item.type === "marker") {
+                    nodes.push(
+                      <Flex
+                        key={`marker-${item.marker.id}`}
+                        align="center"
+                        px="2"
+                        py="1"
+                      >
+                        <Text color="text-low" size="small">
+                          {item.marker.label}
+                        </Text>
+                      </Flex>,
+                    );
                   } else {
-                    // Noise item: hidden count on one line, then each marker type
+                    // Noise item: hidden diffable changes + collapsed markers.
                     const lines: string[] = [];
                     if (item.hiddenCount > 0) {
                       lines.push(
                         `${item.hiddenCount} ${item.hiddenCount === 1 ? "change" : "changes"} hidden`,
                       );
                     }
-                    for (const m of item.markers) {
-                      lines.push(
-                        m.count > 1 ? `${m.label} ×${m.count}` : m.label,
+                    if (showOtherEvents) {
+                      // Show individual marker labels.
+                      for (const m of item.markers) {
+                        lines.push(
+                          m.count > 1 ? `${m.label} ×${m.count}` : m.label,
+                        );
+                      }
+                    } else {
+                      // Collapse all markers into a single "N events hidden" line.
+                      const totalMarkers = item.markers.reduce(
+                        (sum, m) => sum + m.count,
+                        0,
                       );
+                      if (totalMarkers > 0) {
+                        lines.push(
+                          `${totalMarkers} ${totalMarkers === 1 ? "event" : "events"} hidden`,
+                        );
+                      }
                     }
                     nodes.push(
                       <Flex
@@ -1210,7 +1325,8 @@ export default function CompareAuditEventsModal<T>({
                           </Text>
                         </Flex>
                         <Text as="div" size="small" color="text-low">
-                          {datetime(singleEntryFirst.dateStart)}
+                          {datetime(singleEntryFirst.dateStart)} ·{" "}
+                          <EntryUserName user={singleEntryFirst.user} />
                         </Text>
                       </Flex>
                     ) : (
@@ -1276,21 +1392,62 @@ export default function CompareAuditEventsModal<T>({
               ) : activeDiffs.length === 0 ? (
                 <Text color="text-low">No changes between these entries.</Text>
               ) : (
-                <Flex direction="column" gap="4">
-                  {activeDiffs.map((d) => (
-                    <Box key={d.label}>
-                      {d.customRender && <Box mb="2">{d.customRender}</Box>}
-                      <ExpandableDiff
-                        title={d.label}
-                        a={d.a}
-                        b={d.b}
-                        defaultOpen={
-                          !d.defaultCollapsed && isSectionVisible(d.label)
-                        }
-                      />
+                <>
+                  {/* Hoisted summaries: human-readable render per section */}
+                  {customRenderGroups.length > 0 && (
+                    <Box>
+                      <Heading as="h5" size="small" color="text-mid" mt="5">
+                        Summary of changes
+                      </Heading>
+                      <Flex direction="column" gap="0">
+                        {customRenderGroups.map(({ label, renders }) => (
+                          <Box
+                            key={label}
+                            p="3"
+                            my="3"
+                            className="rounded bg-light"
+                          >
+                            <Heading
+                              as="h6"
+                              size="small"
+                              color="text-mid"
+                              mb="2"
+                            >
+                              {label}
+                            </Heading>
+                            {renders.map((r, i) => (
+                              <Box key={i}>{r}</Box>
+                            ))}
+                          </Box>
+                        ))}
+                      </Flex>
                     </Box>
-                  ))}
-                </Flex>
+                  )}
+
+                  {/* Raw JSON diffs */}
+                  {customRenderGroups.length > 0 && (
+                    <Heading as="h5" size="small" color="text-mid" mb="3">
+                      Change details
+                    </Heading>
+                  )}
+                  <Flex direction="column" gap="4">
+                    {activeDiffs.map((d, i) => (
+                      <Box key={i}>
+                        <ExpandableDiff
+                          title={d.label}
+                          a={d.a}
+                          b={d.b}
+                          defaultOpen={
+                            !d.defaultCollapsed && isSectionVisible(d.label)
+                          }
+                        />
+                      </Box>
+                    ))}
+                  </Flex>
+                </>
+              )}
+              {isSingleEntry && singleEntryFirst && (
+                <RawAuditDetails entry={singleEntryFirst} />
               )}
             </Box>
           )}
@@ -1308,4 +1465,84 @@ function EntryUserName({
   if (user.type === "system") return <>System</>;
   if (user.type === "apikey") return <>API Key</>;
   return <>{user.name || user.email || "Unknown user"}</>;
+}
+
+function RawAuditDetails<T>({ entry }: { entry: CoarsenedAuditEntry<T> }) {
+  const [open, setOpen] = useState(false);
+  const pre = JSON.stringify(entry.preSnapshot ?? {}, null, 2);
+  const post = JSON.stringify(entry.postSnapshot, null, 2);
+
+  return (
+    <Box mt="5">
+      <div
+        className="link-purple font-weight-bold"
+        style={{ cursor: "pointer", userSelect: "none" }}
+        onClick={() => setOpen((o) => !o)}
+      >
+        <PiCaretRightFill
+          style={{
+            display: "inline",
+            marginRight: 4,
+            transition: "transform 0.15s ease",
+            transform: open ? "rotate(90deg)" : "none",
+          }}
+        />
+        Full audit details
+      </div>
+      {open && (
+        <Box mt="3">
+          <Flex direction="column" gap="1" mb="4">
+            {(
+              [
+                [
+                  "Event",
+                  <Badge
+                    key="e"
+                    label={entry.event}
+                    color="violet"
+                    variant="soft"
+                    radius="full"
+                  />,
+                ],
+                ["Date", datetime(entry.dateStart)],
+                [
+                  "Author",
+                  entry.user.type === "system"
+                    ? "System"
+                    : entry.user.type === "apikey"
+                      ? `API Key (${entry.user.apiKey ?? ""})`
+                      : entry.user.name || entry.user.email || "Unknown",
+                ],
+                ...(entry.count > 1
+                  ? [["Merged events", String(entry.count)]]
+                  : []),
+              ] as [string, React.ReactNode][]
+            ).map(([label, value]) => (
+              <Flex key={label} gap="2" align="baseline">
+                <span style={{ minWidth: 80, flexShrink: 0 }}>
+                  <Text size="medium" color="text-mid">
+                    {label}
+                  </Text>
+                </span>
+                <Text size="medium">{value}</Text>
+              </Flex>
+            ))}
+          </Flex>
+          <Text size="medium" weight="medium" color="text-mid" mb="1" as="div">
+            Details
+          </Text>
+          <div className="diff-wrapper">
+            <div className="list-group-item list-group-item-light">
+              <ReactDiffViewer
+                oldValue={pre}
+                newValue={post}
+                compareMethod={DiffMethod.LINES}
+                styles={{ contentText: { wordBreak: "break-all" } }}
+              />
+            </div>
+          </div>
+        </Box>
+      )}
+    </Box>
+  );
 }
