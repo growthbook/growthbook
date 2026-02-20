@@ -67,6 +67,7 @@ function AuditEntryCompareLabel({
   entryAFailed = false,
   entryBFailed = false,
   mb,
+  mt,
 }: {
   entryA: CoarsenedAuditEntry<unknown> | null;
   entryB: CoarsenedAuditEntry<unknown> | null;
@@ -75,9 +76,10 @@ function AuditEntryCompareLabel({
   entryAFailed?: boolean;
   entryBFailed?: boolean;
   mb?: "1" | "2" | "3" | "4";
+  mt?: "1" | "2" | "3" | "4";
 }) {
   return (
-    <Flex align="center" gap="4" wrap="nowrap" mb={mb}>
+    <Flex align="center" gap="4" wrap="nowrap" mb={mb} mt={mt}>
       <Flex direction="column">
         <Flex align="center" gap="1">
           {entryAFailed && (
@@ -500,7 +502,7 @@ export default function CompareAuditEventsModal<T>({
                       <DropdownMenuItem
                         disabled={isAtDefault}
                         onClick={() => {
-                            setVisibleSections(
+                          setVisibleSections(
                             sectionLabels.reduce<Record<string, boolean>>(
                               (acc, l) => ({
                                 ...acc,
@@ -721,103 +723,111 @@ export default function CompareAuditEventsModal<T>({
           ) : (
             <Box pb="4">
               {/* Header row */}
-              <Flex align="center" justify="between" mb="3" gap="4" wrap="wrap">
-                <Flex align="center" gap="4">
-                  {diffViewMode === "steps" && (
-                    <>
-                      <Heading as="h2" size="small" mb="0">
-                        Step {safeDiffPage + 1} of {steps.length}
-                      </Heading>
-                      <Flex gap="2">
-                        <Button
-                          variant="soft"
-                          size="sm"
-                          disabled={safeDiffPage <= 0}
-                          onClick={() => setDiffPage((p) => Math.max(0, p - 1))}
-                        >
-                          Previous
-                        </Button>
-                        <Button
-                          variant="soft"
-                          size="sm"
-                          disabled={safeDiffPage >= steps.length - 1}
-                          onClick={() =>
-                            setDiffPage((p) =>
-                              Math.min(steps.length - 1, p + 1),
-                            )
-                          }
-                        >
-                          Next
-                        </Button>
-                      </Flex>
-                    </>
-                  )}
-                  {diffViewMode === "single" &&
-                    singleEntryFirst &&
-                    singleEntryLast &&
-                    (isSingleEntry ? (
-                      <Flex direction="column">
-                        <Flex align="center" gap="1">
-                          {isEntryFailed(singleEntryFirst.id) && (
-                            <Tooltip body="Could not load entry">
-                              <PiWarningBold
-                                style={{
-                                  color: "var(--red-9)",
-                                  flexShrink: 0,
-                                }}
-                              />
-                            </Tooltip>
-                          )}
-                          <Text weight="semibold" size="medium">
-                            {getEntryLabel(singleEntryFirst)}
+              <Box
+                pb="3"
+                mb="3"
+                style={{ borderBottom: "1px solid var(--gray-5)" }}
+              >
+                <Flex align="center" justify="between" gap="4" wrap="wrap">
+                  <Flex align="center" gap="4">
+                    {diffViewMode === "steps" && (
+                      <>
+                        <Heading as="h2" size="small" mb="0">
+                          Step {safeDiffPage + 1} of {steps.length}
+                        </Heading>
+                        <Flex gap="2">
+                          <Button
+                            variant="soft"
+                            size="sm"
+                            disabled={safeDiffPage <= 0}
+                            onClick={() =>
+                              setDiffPage((p) => Math.max(0, p - 1))
+                            }
+                          >
+                            Previous
+                          </Button>
+                          <Button
+                            variant="soft"
+                            size="sm"
+                            disabled={safeDiffPage >= steps.length - 1}
+                            onClick={() =>
+                              setDiffPage((p) =>
+                                Math.min(steps.length - 1, p + 1),
+                              )
+                            }
+                          >
+                            Next
+                          </Button>
+                        </Flex>
+                      </>
+                    )}
+                    {diffViewMode === "single" &&
+                      singleEntryFirst &&
+                      singleEntryLast &&
+                      (isSingleEntry ? (
+                        <Flex direction="column">
+                          <Flex align="center" gap="1">
+                            {isEntryFailed(singleEntryFirst.id) && (
+                              <Tooltip body="Could not load entry">
+                                <PiWarningBold
+                                  style={{
+                                    color: "var(--red-9)",
+                                    flexShrink: 0,
+                                  }}
+                                />
+                              </Tooltip>
+                            )}
+                            <Text weight="semibold" size="medium">
+                              {getEntryLabel(singleEntryFirst)}
+                            </Text>
+                          </Flex>
+                          <Text as="div" size="small" color="text-low">
+                            {datetime(singleEntryFirst.dateStart)} ·{" "}
+                            <EntryUserName user={singleEntryFirst.user} />
                           </Text>
                         </Flex>
-                        <Text as="div" size="small" color="text-low">
-                          {datetime(singleEntryFirst.dateStart)} ·{" "}
-                          <EntryUserName user={singleEntryFirst.user} />
-                        </Text>
-                      </Flex>
-                    ) : (
-                      <AuditEntryCompareLabel
-                        entryA={singleEntryFirst}
-                        entryB={singleEntryLast}
-                        labelA={getEntryLabel(singleEntryFirst)}
-                        labelB={getEntryLabel(singleEntryLast)}
-                        entryAFailed={isEntryFailed(singleEntryFirst.id)}
-                        entryBFailed={isEntryFailed(singleEntryLast.id)}
-                      />
-                    ))}
-                </Flex>
-                {!isSingleEntry && (
-                  <Flex align="center" gap="2">
-                    <Text size="medium" weight="medium" color="text-mid">
-                      Show diff as
-                    </Text>
-                    <Select
-                      value={diffViewMode}
-                      setValue={(v) => setDiffViewModeRaw(v)}
-                      size="2"
-                      mb="0"
-                    >
-                      <SelectItem value="steps">Steps</SelectItem>
-                      <SelectItem value="single">Single diff</SelectItem>
-                    </Select>
+                      ) : (
+                        <AuditEntryCompareLabel
+                          entryA={singleEntryFirst}
+                          entryB={singleEntryLast}
+                          labelA={getEntryLabel(singleEntryFirst)}
+                          labelB={getEntryLabel(singleEntryLast)}
+                          entryAFailed={isEntryFailed(singleEntryFirst.id)}
+                          entryBFailed={isEntryFailed(singleEntryLast.id)}
+                        />
+                      ))}
                   </Flex>
-                )}
-              </Flex>
+                  {!isSingleEntry && (
+                    <Flex align="center" gap="2">
+                      <Text size="medium" weight="medium" color="text-mid">
+                        Show diff as
+                      </Text>
+                      <Select
+                        value={diffViewMode}
+                        setValue={(v) => setDiffViewModeRaw(v)}
+                        size="2"
+                        mb="0"
+                      >
+                        <SelectItem value="steps">Steps</SelectItem>
+                        <SelectItem value="single">Single diff</SelectItem>
+                      </Select>
+                    </Flex>
+                  )}
+                </Flex>
 
-              {/* Step label */}
-              {diffViewMode === "steps" && stepEntryA && stepEntryB && (
-                <AuditEntryCompareLabel
-                  entryA={stepEntryA}
-                  entryB={stepEntryB}
-                  labelA={getEntryLabel(stepEntryA)}
-                  labelB={getEntryLabel(stepEntryB)}
-                  entryAFailed={isEntryFailed(stepEntryA.id)}
-                  entryBFailed={isEntryFailed(stepEntryB.id)}
-                  mb="3"
-                />
-              )}
+                {/* Step label */}
+                {diffViewMode === "steps" && stepEntryA && stepEntryB && (
+                  <AuditEntryCompareLabel
+                    entryA={stepEntryA}
+                    entryB={stepEntryB}
+                    labelA={getEntryLabel(stepEntryA)}
+                    labelB={getEntryLabel(stepEntryB)}
+                    entryAFailed={isEntryFailed(stepEntryA.id)}
+                    entryBFailed={isEntryFailed(stepEntryB.id)}
+                    mt="3"
+                  />
+                )}
+              </Box>
 
               {/* Diff content */}
               {displayFailed.length > 0 ? (
@@ -837,7 +847,7 @@ export default function CompareAuditEventsModal<T>({
                   {/* Hoisted summaries: human-readable render per section */}
                   {customRenderGroups.length > 0 && (
                     <Box>
-                      <Heading as="h5" size="small" color="text-mid" mt="5">
+                      <Heading as="h5" size="small" color="text-mid" mt="4">
                         Summary of changes
                       </Heading>
                       <Flex direction="column" gap="0">
@@ -867,7 +877,13 @@ export default function CompareAuditEventsModal<T>({
 
                   {/* Raw JSON diffs */}
                   {customRenderGroups.length > 0 && (
-                    <Heading as="h5" size="small" color="text-mid" mb="3">
+                    <Heading
+                      as="h5"
+                      size="small"
+                      color="text-mid"
+                      mt="4"
+                      mb="3"
+                    >
                       Change details
                     </Heading>
                   )}

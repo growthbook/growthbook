@@ -78,6 +78,7 @@ function RevisionCompareLabel({
   revAFailed = false,
   revBFailed = false,
   mb,
+  mt,
 }: {
   versionA: number;
   versionB: number;
@@ -87,9 +88,10 @@ function RevisionCompareLabel({
   revAFailed?: boolean;
   revBFailed?: boolean;
   mb?: "1" | "2" | "3" | "4";
+  mt?: "1" | "2" | "3" | "4";
 }) {
   return (
-    <Flex align="center" gap="4" wrap="nowrap" mb={mb}>
+    <Flex align="center" gap="4" wrap="nowrap" mb={mb} mt={mt}>
       <Flex direction="column">
         <Flex align="center" justify="between" gap="2">
           <Flex align="center" gap="1">
@@ -943,67 +945,74 @@ export default function CompareRevisionsModal({
             </Text>
           ) : (
             <>
-              <Flex align="center" justify="between" mb="3" gap="4" wrap="wrap">
-                <Flex align="center" gap="4">
-                  {diffViewMode === "steps" && (
-                    <>
-                      <Heading as="h2" size="small" mb="0">
-                        Step {safeDiffPage + 1} of {steps.length}
-                      </Heading>
-                      <Flex gap="2">
-                        <Button
-                          variant="soft"
-                          size="sm"
-                          disabled={safeDiffPage <= 0}
-                          onClick={() => setDiffPage((p) => Math.max(0, p - 1))}
-                        >
-                          Previous
-                        </Button>
-                        <Button
-                          variant="soft"
-                          size="sm"
-                          disabled={safeDiffPage >= steps.length - 1}
-                          onClick={() =>
-                            setDiffPage((p) =>
-                              Math.min(steps.length - 1, p + 1),
-                            )
-                          }
-                        >
-                          Next
-                        </Button>
-                      </Flex>
-                    </>
-                  )}
-                  {diffViewMode === "single" && selectedSorted.length >= 2 && (
-                    <RevisionCompareLabel
-                      versionA={selectedSorted[0]}
-                      versionB={selectedSorted[selectedSorted.length - 1]}
-                      revA={singleRevFirst}
-                      revB={singleRevLast}
-                      liveVersion={liveVersion}
-                      revAFailed={isVersionFailed(selectedSorted[0])}
-                      revBFailed={isVersionFailed(
-                        selectedSorted[selectedSorted.length - 1],
+              <Box
+                pb="3"
+                mb="3"
+                style={{ borderBottom: "1px solid var(--gray-5)" }}
+              >
+                <Flex align="center" justify="between" gap="4" wrap="wrap">
+                  <Flex align="center" gap="4">
+                    {diffViewMode === "steps" && (
+                      <>
+                        <Heading as="h2" size="small" mb="0">
+                          Step {safeDiffPage + 1} of {steps.length}
+                        </Heading>
+                        <Flex gap="2">
+                          <Button
+                            variant="soft"
+                            size="sm"
+                            disabled={safeDiffPage <= 0}
+                            onClick={() =>
+                              setDiffPage((p) => Math.max(0, p - 1))
+                            }
+                          >
+                            Previous
+                          </Button>
+                          <Button
+                            variant="soft"
+                            size="sm"
+                            disabled={safeDiffPage >= steps.length - 1}
+                            onClick={() =>
+                              setDiffPage((p) =>
+                                Math.min(steps.length - 1, p + 1),
+                              )
+                            }
+                          >
+                            Next
+                          </Button>
+                        </Flex>
+                      </>
+                    )}
+                    {diffViewMode === "single" &&
+                      selectedSorted.length >= 2 && (
+                        <RevisionCompareLabel
+                          versionA={selectedSorted[0]}
+                          versionB={selectedSorted[selectedSorted.length - 1]}
+                          revA={singleRevFirst}
+                          revB={singleRevLast}
+                          liveVersion={liveVersion}
+                          revAFailed={isVersionFailed(selectedSorted[0])}
+                          revBFailed={isVersionFailed(
+                            selectedSorted[selectedSorted.length - 1],
+                          )}
+                        />
                       )}
-                    />
-                  )}
+                  </Flex>
+                  <Flex align="center" gap="2">
+                    <Text size="medium" weight="medium" color="text-mid">
+                      Show diff as
+                    </Text>
+                    <Select
+                      value={diffViewMode}
+                      setValue={(v) => setDiffViewModeRaw(v)}
+                      size="2"
+                      mb="0"
+                    >
+                      <SelectItem value="steps">Steps</SelectItem>
+                      <SelectItem value="single">Single diff</SelectItem>
+                    </Select>
+                  </Flex>
                 </Flex>
-                <Flex align="center" gap="2">
-                  <Text size="medium" weight="medium" color="text-mid">
-                    Show diff as
-                  </Text>
-                  <Select
-                    value={diffViewMode}
-                    setValue={(v) => setDiffViewModeRaw(v)}
-                    size="2"
-                    mb="0"
-                  >
-                    <SelectItem value="steps">Steps</SelectItem>
-                    <SelectItem value="single">Single diff</SelectItem>
-                  </Select>
-                </Flex>
-              </Flex>
-              <>
                 {diffViewMode === "steps" && currentStep && (
                   <RevisionCompareLabel
                     versionA={currentStep[0]}
@@ -1013,63 +1022,63 @@ export default function CompareRevisionsModal({
                     liveVersion={liveVersion}
                     revAFailed={isVersionFailed(currentStep[0])}
                     revBFailed={isVersionFailed(currentStep[1])}
-                    mb="3"
+                    mt="3"
                   />
                 )}
-                {displayLoading ? (
-                  <LoadingOverlay />
-                ) : displayFailed.length > 0 ? (
-                  <Callout status="error" contentsAs="div" mt="4">
-                    <Flex gap="4" align="start">
-                      <span>
-                        Could not load revision
-                        {displayFailed.length > 1 ? "s" : ""}{" "}
-                        {displayFailed.join(", ")}.
-                      </span>
-                      <Link onClick={() => fetchRevisions(displayFailed)}>
-                        Reload revision{displayFailed.length > 1 ? "s" : ""}
-                      </Link>
+              </Box>
+              {displayLoading ? (
+                <LoadingOverlay />
+              ) : displayFailed.length > 0 ? (
+                <Callout status="error" contentsAs="div" mt="4">
+                  <Flex gap="4" align="start">
+                    <span>
+                      Could not load revision
+                      {displayFailed.length > 1 ? "s" : ""}{" "}
+                      {displayFailed.join(", ")}.
+                    </span>
+                    <Link onClick={() => fetchRevisions(displayFailed)}>
+                      Reload revision{displayFailed.length > 1 ? "s" : ""}
+                    </Link>
+                  </Flex>
+                </Callout>
+              ) : (
+                <>
+                  {(diffViewMode === "single"
+                    ? isOutOfOrderDraft(singleRevFirst) ||
+                      isOutOfOrderDraft(singleRevLast)
+                    : isOutOfOrderDraft(stepRevA) ||
+                      isOutOfOrderDraft(stepRevB)) && (
+                    <Callout status="info" size="sm" mb="4">
+                      A draft in this comparison is based on an older version
+                      than what is currently live. When you publish, it will be
+                      merged with the live version, so the result may differ
+                      from the diff shown here.
+                    </Callout>
+                  )}
+                  {(diffViewMode === "single" ? mergedDiffs : stepDiffs)
+                    .length === 0 ? (
+                    <Text color="text-low">
+                      No changes between these revisions.
+                    </Text>
+                  ) : (
+                    <Flex direction="column" gap="4">
+                      {(diffViewMode === "single"
+                        ? mergedDiffs
+                        : stepDiffs
+                      ).map((d) => (
+                        <ExpandableDiff
+                          key={d.title}
+                          title={d.title}
+                          a={d.a}
+                          b={d.b}
+                          defaultOpen
+                          styles={COMPACT_DIFF_STYLES}
+                        />
+                      ))}
                     </Flex>
-                  </Callout>
-                ) : (
-                  <>
-                    {(diffViewMode === "single"
-                      ? isOutOfOrderDraft(singleRevFirst) ||
-                        isOutOfOrderDraft(singleRevLast)
-                      : isOutOfOrderDraft(stepRevA) ||
-                        isOutOfOrderDraft(stepRevB)) && (
-                      <Callout status="info" size="sm" mb="4">
-                        A draft in this comparison is based on an older version
-                        than what is currently live. When you publish, it will
-                        be merged with the live version, so the result may
-                        differ from the diff shown here.
-                      </Callout>
-                    )}
-                    {(diffViewMode === "single" ? mergedDiffs : stepDiffs)
-                      .length === 0 ? (
-                      <Text color="text-low">
-                        No changes between these revisions.
-                      </Text>
-                    ) : (
-                      <Flex direction="column" gap="4">
-                        {(diffViewMode === "single"
-                          ? mergedDiffs
-                          : stepDiffs
-                        ).map((d) => (
-                          <ExpandableDiff
-                            key={d.title}
-                            title={d.title}
-                            a={d.a}
-                            b={d.b}
-                            defaultOpen
-                            styles={COMPACT_DIFF_STYLES}
-                          />
-                        ))}
-                      </Flex>
-                    )}
-                  </>
-                )}
-              </>
+                  )}
+                </>
+              )}
             </>
           )}
         </Box>
