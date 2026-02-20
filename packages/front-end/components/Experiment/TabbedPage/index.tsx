@@ -23,7 +23,6 @@ import {
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import FeatureFromExperimentModal from "@/components/Features/FeatureModal/FeatureFromExperimentModal";
 import Modal from "@/components/Modal";
-import HistoryTable from "@/components/HistoryTable";
 import {
   getBrowserDevice,
   openVisualEditor,
@@ -129,7 +128,6 @@ export default function TabbedPage({
 
   const { apiCall } = useAuth();
 
-  const [auditModal, setAuditModal] = useState(false);
   const [compareModal, setCompareModal] = useState(false);
   const [statusModal, setStatusModal] = useState(false);
   const [watchersModal, setWatchersModal] = useState(false);
@@ -438,18 +436,6 @@ export default function TabbedPage({
 
   return (
     <>
-      {auditModal && (
-        <Modal
-          trackingEventModalType=""
-          open={true}
-          header="Audit Log"
-          close={() => setAuditModal(false)}
-          size="lg"
-          closeCta="Close"
-        >
-          <HistoryTable type="experiment" id={experiment.id} />
-        </Modal>
-      )}
       {compareModal && (
         <CompareExperimentEventsModal
           experiment={experiment}
@@ -525,7 +511,6 @@ export default function TabbedPage({
         tab={tab}
         setTab={setTabAndScroll}
         mutate={mutate}
-        setAuditModal={setAuditModal}
         setCompareModal={setCompareModal}
         setStatusModal={setStatusModal}
         setWatchersModal={setWatchersModal}

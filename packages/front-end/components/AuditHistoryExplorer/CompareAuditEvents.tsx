@@ -5,6 +5,7 @@ import {
   PiArrowsLeftRightBold,
   PiCaretDownBold,
   PiCaretRightFill,
+  PiCheckBold,
   PiClockClockwise,
   PiWarningBold,
   PiX,
@@ -15,6 +16,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import {
   DropdownMenu,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import Heading from "@/ui/Heading";
@@ -28,7 +30,7 @@ import Callout from "@/ui/Callout";
 import Badge from "@/ui/Badge";
 import { ExpandableDiff } from "@/components/Features/DraftModal";
 import { PAGE_LIMIT, UseAuditEntriesResult } from "./useAuditEntries";
-import { AuditDiffConfig, CoarsenedAuditEntry, GroupByOption } from "./types";
+import { AuditDiffConfig, CoarsenedAuditEntry } from "./types";
 import {
   LeftColItem,
   getSeparatorBucketKey,
@@ -424,7 +426,7 @@ export default function CompareAuditEvents<T>({
         <Box className={styles.section} pb="3">
           <Flex align="center" justify="between" mb="2">
             <Text size="medium" weight="medium" color="text-mid">
-              Select range of revisions
+              Select a range of changes
             </Text>
             {sectionLabels.length > 0 &&
               (() => {
@@ -542,24 +544,24 @@ export default function CompareAuditEvents<T>({
                         </DropdownMenuItem>
                       );
                     })}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel>Group items by</DropdownMenuLabel>
+                    {(["minute", "hour", "day"] as const).map((opt) => (
+                      <DropdownMenuItem
+                        key={opt}
+                        onClick={() => setGroupBy(opt)}
+                      >
+                        <Flex align="center" gap="1">
+                          <span style={{ width: 24, display: "inline-flex" }}>
+                            {groupBy === opt && <PiCheckBold size={14} />}
+                          </span>
+                          {opt.charAt(0).toUpperCase() + opt.slice(1)}
+                        </Flex>
+                      </DropdownMenuItem>
+                    ))}
                   </DropdownMenu>
                 );
               })()}
-          </Flex>
-          <Flex align="center" gap="2" mb="3">
-            <Text color="text-low" weight="medium">
-              Group by
-            </Text>
-            <Select
-              value={groupBy}
-              setValue={(v) => setGroupBy(v as GroupByOption)}
-              size="2"
-              mb="0"
-            >
-              <SelectItem value="minute">Minute</SelectItem>
-              <SelectItem value="hour">Hour</SelectItem>
-              <SelectItem value="day">Day</SelectItem>
-            </Select>
           </Flex>
 
           {loading && !flatEntries.length ? (

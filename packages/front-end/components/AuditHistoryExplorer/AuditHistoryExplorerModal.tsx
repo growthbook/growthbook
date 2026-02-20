@@ -288,7 +288,7 @@ export default function AuditHistoryExplorerModal<T>({
     <Modal
       trackingEventModalType="audit-history-explorer"
       open={true}
-      header={`${entityName} History`}
+      header={`${entityName} Audit History`}
       close={onClose}
       hideCta
       includeCloseCta
@@ -307,10 +307,8 @@ export default function AuditHistoryExplorerModal<T>({
           style={{ borderBottom: "1px solid var(--gray-5)", flexShrink: 0 }}
         >
           <TabsList>
-            <TabsTrigger value="explore">
-              Explore {entityName} History
-            </TabsTrigger>
-            <TabsTrigger value="raw">Raw Audit Log</TabsTrigger>
+            <TabsTrigger value="explore">Explore Changes</TabsTrigger>
+            <TabsTrigger value="raw">Audit Log</TabsTrigger>
           </TabsList>
         </Box>
         <TabsContent
