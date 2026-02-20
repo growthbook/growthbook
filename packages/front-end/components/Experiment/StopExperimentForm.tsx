@@ -402,6 +402,7 @@ const StopExperimentForm: FC<{
               aiSuggestFunction={aiSuggestFunction}
               aiButtonText="Generate Analysis"
               aiSuggestionHeader="Suggested Summary"
+              trackingSource="stop-experiment"
               onAISuggestionReceived={(result) => {
                 aiSuggestionRef.current = result;
               }}

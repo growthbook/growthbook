@@ -602,6 +602,7 @@ export default function SqlExplorerModal({
       }, 0);
     } else {
       if (aiEnabled) {
+        track("AI Usage", { source: "sql-explorer" });
         setAiError(null);
         setLoading(true);
         apiCall(

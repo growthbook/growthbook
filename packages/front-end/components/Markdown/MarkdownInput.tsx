@@ -22,6 +22,7 @@ import OptInModal from "@/components/License/OptInModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import track from "@/services/track";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Markdown from "./Markdown";
 
@@ -53,6 +54,7 @@ const MarkdownInput: FC<{
   hidePreview?: boolean;
   showButtons?: boolean;
   onAISuggestionReceived?: (result: string) => void;
+  trackingSource?: string;
 }> = ({
   value,
   setValue,
@@ -70,6 +72,7 @@ const MarkdownInput: FC<{
   onOptInModalClose, // ... And this can be used to open that modal when the OptInModal closes
   showButtons = true,
   onAISuggestionReceived,
+  trackingSource,
 }) => {
   const { aiEnabled, aiAgreedTo } = useAISettings();
   const [activeControlledTab, setActiveControlledTab] = useState<
@@ -163,6 +166,7 @@ const MarkdownInput: FC<{
 
   const doAISuggestion = async () => {
     if (aiSuggestFunction && aiEnabled) {
+      track("AI Usage", { source: trackingSource });
       setError("");
       try {
         setLoading(true);

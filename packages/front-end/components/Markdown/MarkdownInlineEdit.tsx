@@ -193,6 +193,9 @@ export default function MarkdownInlineEdit({
                               );
                               setEdit(true); // Error is only shown in edit mode
                             } else {
+                              track("AI Usage", {
+                                source: "markdown-inline-edit",
+                              });
                               setError(null);
                               setLoading(true);
                               try {
