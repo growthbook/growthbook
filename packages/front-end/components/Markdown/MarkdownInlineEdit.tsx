@@ -52,54 +52,55 @@ export default function MarkdownInlineEdit({
   if (edit) {
     return (
       <Box className="position-relative">
-      <form
-        onSubmit={async (e) => {
-          e.preventDefault();
-          if (loading) return;
-          setError(null);
-          setLoading(true);
-          try {
-            await save(val);
-            setEdit(false);
-          } catch (e) {
-            setError(e.message);
-          }
-          setLoading(false);
-        }}
-      >
-        {header && (
-          <Box className={containerClassName}>
-          <Flex align={"start"} justify="between">
-            <div className={headerClassName}>{header}</div>{" "}
-            {aiSuggestFunction && (
-              <Flex gap="2">
-                  <Button variant="ghost" onClick={() => {
-                    setEdit(false);
-                  }}>
-                    Cancel
-                  </Button>
-                  <Button type="submit">
-                    Save
-                  </Button>
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (loading) return;
+            setError(null);
+            setLoading(true);
+            try {
+              await save(val);
+              setEdit(false);
+            } catch (e) {
+              setError(e.message);
+            }
+            setLoading(false);
+          }}
+        >
+          {header && (
+            <Box className={containerClassName}>
+              <Flex align={"start"} justify="between">
+                <div className={headerClassName}>{header}</div>{" "}
+                {aiSuggestFunction && (
+                  <Flex gap="2">
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        setEdit(false);
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button type="submit">Save</Button>
+                  </Flex>
+                )}
               </Flex>
-            )}
-          </Flex>
-          </Box>
-        )}
-        {loading && <LoadingOverlay />}
-        <MarkdownInput
-          value={val}
-          setValue={setVal}
-          cta={"Save"}
-          error={error ?? undefined}
-          autofocus={true}
-          onCancel={() => setEdit(false)}
-          aiSuggestFunction={aiSuggestFunction}
-          aiButtonText={aiButtonText}
-          aiSuggestionHeader={aiSuggestionHeader}
-          showButtons={!aiSuggestFunction}
-        />
-      </form>
+            </Box>
+          )}
+          {loading && <LoadingOverlay />}
+          <MarkdownInput
+            value={val}
+            setValue={setVal}
+            cta={"Save"}
+            error={error ?? undefined}
+            autofocus={true}
+            onCancel={() => setEdit(false)}
+            aiSuggestFunction={aiSuggestFunction}
+            aiButtonText={aiButtonText}
+            aiSuggestionHeader={aiSuggestionHeader}
+            showButtons={!aiSuggestFunction}
+          />
+        </form>
       </Box>
     );
   }
