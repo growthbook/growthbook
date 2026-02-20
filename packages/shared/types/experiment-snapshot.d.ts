@@ -172,8 +172,7 @@ export interface SnapshotBanditSettings {
     totalUsers: number;
   }[];
   useFirstExposure?: boolean;
-  conversionWindowValue?: number;
-  conversionWindowUnit?: "hours" | "days";
+  windowSettings?: MetricWindowSettings;
 }
 
 // Settings that control which queries are run

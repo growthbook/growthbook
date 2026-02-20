@@ -72,7 +72,11 @@ import {
   ApiExperimentResults,
   ApiMetric,
 } from "shared/types/openapi";
-import { MetricPriorSettings } from "shared/types/fact-table";
+import {
+  MetricPriorSettings,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  MetricWindowSettings,
+} from "shared/types/fact-table";
 import {
   ExperimentAnalysisParamsContextData,
   ExperimentSnapshotAnalysis,
@@ -605,8 +609,17 @@ export function getSnapshotSettings({
                   ) ?? 0,
               })) ?? [],
           useFirstExposure: useStickyBucketing,
-          conversionWindowValue: experiment.banditConversionWindowValue,
-          conversionWindowUnit: experiment.banditConversionWindowUnit,
+          windowSettings:
+            experiment.banditConversionWindowValue !== undefined &&
+            experiment.banditConversionWindowUnit !== undefined
+              ? {
+                  type: "conversion",
+                  delayValue: 0,
+                  delayUnit: "hours",
+                  windowValue: experiment.banditConversionWindowValue,
+                  windowUnit: experiment.banditConversionWindowUnit,
+                }
+              : undefined,
         }
       : undefined;
 

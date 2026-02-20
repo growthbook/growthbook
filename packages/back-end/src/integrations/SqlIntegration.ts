@@ -1768,28 +1768,19 @@ export default abstract class SqlIntegration
     overrideConversionWindows: boolean,
     settings?: ExperimentSnapshotSettings,
   ): string {
-    // Use bandit conversion window if available, otherwise use metric's window settings
-    const banditSettings = settings?.banditSettings;
-    const hasBanditConversionWindow =
-      banditSettings?.conversionWindowValue !== undefined &&
-      banditSettings.conversionWindowUnit !== undefined;
-    let windowHours: number;
-    if (hasBanditConversionWindow && banditSettings) {
-      // Convert bandit conversion window to hours
-      // We know these are defined because hasBanditConversionWindow is true
-      windowHours =
-        banditSettings.conversionWindowValue! *
-        (banditSettings.conversionWindowUnit === "days" ? 24 : 1);
-    } else {
-      windowHours = getMetricWindowHours(metric.windowSettings);
-    }
-    const delayHours = getDelayWindowHours(metric.windowSettings);
+    // Use bandit window settings if available, otherwise use metric's window settings
+    const windowSettingsToUse =
+      settings?.banditSettings?.windowSettings ?? metric.windowSettings;
+    const windowHours = getMetricWindowHours(windowSettingsToUse);
+    const delayHours = getDelayWindowHours(windowSettingsToUse);
 
     // all metrics have to be after the base timestamp +- delay hours
     let metricWindow = `${metricCol} >= ${this.addHours(baseCol, delayHours)}`;
 
     // If there's a bandit conversion window, use it regardless of metric window type
     // Otherwise, use the metric's conversion window if it exists
+    const hasBanditConversionWindow =
+      settings?.banditSettings?.windowSettings !== undefined;
     if (
       hasBanditConversionWindow ||
       (metric.windowSettings.type === "conversion" &&
@@ -1808,13 +1799,14 @@ export default abstract class SqlIntegration
       AND ${metricCol} <= ${this.toTimestamp(endDate)}`;
     }
 
-    if (metric.windowSettings.type === "lookback") {
+    if (windowSettingsToUse.type === "lookback") {
       // ensure windowHours is positive
-      windowHours = windowHours < 0 ? windowHours * -1 : windowHours;
+      const positiveWindowHours =
+        windowHours < 0 ? windowHours * -1 : windowHours;
       // also ensure for lookback windows that metric happened in last
       // X hours of the experiment
       metricWindow = `${metricWindow}
-      AND ${this.addHours(metricCol, windowHours)} >= ${this.toTimestamp(
+      AND ${this.addHours(metricCol, positiveWindowHours)} >= ${this.toTimestamp(
         endDate,
       )}`;
     }
@@ -3895,8 +3887,7 @@ export default abstract class SqlIntegration
       : 0;
 
     const overrideConversionWindows =
-      settings.attributionModel === "experimentDuration" ||
-      settings.banditSettings?.conversionWindowValue !== undefined;
+      settings.attributionModel === "experimentDuration";
 
     // Get capping settings and final coalesce statement
     const isPercentileCapped = isPercentileCappedMetric(metric);
