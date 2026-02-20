@@ -106,7 +106,7 @@ export default function MarkdownInlineEdit({
   }
 
   return (
-    <Box className="position-relative">
+    <Box position="relative">
       {loading && (
         <LoadingOverlay
           text={aiSuggestFunction ? "Generating..." : "Loading..."}
