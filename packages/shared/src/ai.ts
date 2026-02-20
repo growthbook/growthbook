@@ -175,6 +175,8 @@ export interface AIUsageData {
   suggestionExists: boolean;
 }
 
+export type AISuggestionType = "suggest" | "try-again";
+
 export function computeAIUsageData({
   value,
   aiSuggestionText,

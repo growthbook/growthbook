@@ -602,7 +602,7 @@ export default function SqlExplorerModal({
       if (aiEnabled) {
         const aiTemperature =
           gb?.getFeatureValue("ai-suggestions-temperature", 0.1) || 0.1;
-        track("AI Usage", { source: "sql-explorer" });
+        track("ai-suggestion", { source: "sql-explorer", type: "suggest" });
         setAiError(null);
         setLoading(true);
         apiCall(

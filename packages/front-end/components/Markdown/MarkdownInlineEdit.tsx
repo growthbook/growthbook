@@ -19,7 +19,6 @@ type Props = {
   canEdit?: boolean;
   canCreate?: boolean;
   label?: string;
-  className?: string;
   containerClassName?: string;
   header?: string | JSX.Element;
   headerClassName?: string;
@@ -35,7 +34,6 @@ export default function MarkdownInlineEdit({
   canEdit = true,
   canCreate = true,
   label = "description",
-  className = "",
   containerClassName = "",
   header = "",
   headerClassName = "h3",
@@ -56,77 +54,72 @@ export default function MarkdownInlineEdit({
 
   if (edit) {
     return (
-      <form
-        className={"position-relative" + " " + className}
-        onSubmit={async (e) => {
-          e.preventDefault();
-          if (loading) return;
-          setError(null);
-          setLoading(true);
-          try {
-            await save(val);
-            if (aiSuggestFunction) {
-              const aiUsageData = computeAIUsageData({
-                value: val,
-                aiSuggestionText: aiSuggestionRef.current,
+      <Box position="relative">
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (loading) return;
+            setError(null);
+            setLoading(true);
+            try {
+              await save(val);
+              track("Save Markdown Inline Edit", {
+                source: "markdown-inline-edit",
+                ...computeAIUsageData({
+                  value: val,
+                  aiSuggestionText: aiSuggestionRef.current,
+                }),
               });
-              track("Inline Edit Save", {
-                label,
-                aiUsageData,
-              });
+              setEdit(false);
+            } catch (e) {
+              setError(e.message);
             }
-            setEdit(false);
-          } catch (e) {
-            setError(e.message);
-          }
-          setLoading(false);
-        }}
-      >
-        {header && (
-          <Flex align={"center"} justify="between">
-            <div className={headerClassName}>{header}</div>{" "}
-            {aiSuggestFunction && (
-              <Flex gap="2">
-                <div className="col-auto">
-                  <button
-                    className="btn btn-link mr-2 ml-3"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setEdit(false);
-                    }}
-                  >
-                    cancel
-                  </button>
-                  <button type="submit" className="btn btn-primary">
-                    Save
-                  </button>
-                </div>
-              </Flex>
-            )}
-          </Flex>
-        )}
-        {loading && <LoadingOverlay />}
-        <MarkdownInput
-          value={val}
-          setValue={setVal}
-          cta={"Save"}
-          error={error ?? undefined}
-          autofocus={true}
-          onCancel={() => setEdit(false)}
-          aiSuggestFunction={aiSuggestFunction}
-          aiButtonText={aiButtonText}
-          aiSuggestionHeader={aiSuggestionHeader}
-          showButtons={!aiSuggestFunction}
-          onAISuggestionReceived={(result) => {
-            aiSuggestionRef.current = result;
+            setLoading(false);
           }}
-        />
-      </form>
+        >
+          {header && (
+            <Box className={containerClassName}>
+              <Flex align={"start"} justify="between">
+                <div className={headerClassName}>{header}</div>{" "}
+                {aiSuggestFunction && (
+                  <Flex gap="2">
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        setEdit(false);
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button type="submit">Save</Button>
+                  </Flex>
+                )}
+              </Flex>
+            </Box>
+          )}
+          {loading && <LoadingOverlay />}
+          <MarkdownInput
+            value={val}
+            setValue={setVal}
+            cta={"Save"}
+            error={error ?? undefined}
+            autofocus={true}
+            onCancel={() => setEdit(false)}
+            aiSuggestFunction={aiSuggestFunction}
+            aiButtonText={aiButtonText}
+            aiSuggestionHeader={aiSuggestionHeader}
+            showButtons={!aiSuggestFunction}
+            onAISuggestionReceived={(result) => {
+              aiSuggestionRef.current = result;
+            }}
+          />
+        </form>
+      </Box>
     );
   }
 
   return (
-    <Box className={className} style={{ position: "relative" }}>
+    <Box position="relative">
       {loading && (
         <LoadingOverlay
           text={aiSuggestFunction ? "Generating..." : "Loading..."}
@@ -193,13 +186,14 @@ export default function MarkdownInlineEdit({
                               );
                               setEdit(true); // Error is only shown in edit mode
                             } else {
-                              track("AI Usage", {
-                                source: "markdown-inline-edit",
-                              });
                               setError(null);
                               setLoading(true);
                               try {
                                 const suggestion = await aiSuggestFunction();
+                                track("ai-suggestion", {
+                                  source: "markdown-inline-edit",
+                                  type: "suggest",
+                                });
                                 if (suggestion) {
                                   aiSuggestionRef.current = suggestion;
                                   setVal(suggestion);

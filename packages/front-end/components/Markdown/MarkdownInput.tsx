@@ -13,6 +13,7 @@ import emoji from "@jukben/emoji-search";
 import { useDropzone } from "react-dropzone";
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import { PiArrowClockwise } from "react-icons/pi";
+import { AISuggestionType } from "shared/ai";
 import { useAuth } from "@/services/auth";
 import { uploadFile } from "@/services/files";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -164,9 +165,9 @@ const MarkdownInput: FC<{
     HTMLDivElement
   >;
 
-  const doAISuggestion = async () => {
+  const doAISuggestion = async (type?: AISuggestionType) => {
     if (aiSuggestFunction && aiEnabled) {
-      track("AI Usage", { source: trackingSource });
+      track("ai-suggestion", { source: trackingSource, type });
       setError("");
       try {
         setLoading(true);
@@ -329,7 +330,7 @@ const MarkdownInput: FC<{
                   <Button
                     variant="soft"
                     disabled={loading}
-                    onClick={doAISuggestion}
+                    onClick={() => doAISuggestion("suggest")}
                   >
                     <BsStars /> {loading ? "Generating..." : aiButtonText}
                   </Button>
@@ -373,7 +374,10 @@ const MarkdownInput: FC<{
                     {aiSuggestionHeader}:
                   </Heading>
                   <Flex gap="2">
-                    <Button variant="ghost" onClick={doAISuggestion}>
+                    <Button
+                      variant="ghost"
+                      onClick={() => doAISuggestion("try-again")}
+                    >
                       <PiArrowClockwise /> Try Again
                     </Button>
                     {aiSuggestionText && value != aiSuggestionText && (
@@ -383,6 +387,9 @@ const MarkdownInput: FC<{
                           onClick={() => {
                             setRevertValue(value);
                             setValue(aiSuggestionText);
+                            track("use-ai-suggestion", {
+                              source: trackingSource,
+                            });
                           }}
                         >
                           Use Suggested
@@ -396,6 +403,9 @@ const MarkdownInput: FC<{
                           onClick={() => {
                             setValue(revertValue);
                             setRevertValue(null);
+                            track("revert-ai-suggestion", {
+                              source: trackingSource,
+                            });
                           }}
                         >
                           Revert
