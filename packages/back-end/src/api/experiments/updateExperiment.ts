@@ -18,7 +18,7 @@ import {
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { validateVariationIds } from "back-end/src/controllers/experiments";
-import { validateCustomFields } from "./validation";
+import { validateCustomFields } from "./validations";
 
 export const updateExperiment = createApiRequestHandler(
   updateExperimentValidator,
