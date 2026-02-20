@@ -1,6 +1,6 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import CompareAuditEventsModal from "@/components/Audit/CompareAuditEventsModal";
-import { AuditDiffConfig } from "@/components/Audit/types";
+import { AuditDiffConfig, CoarsenedAuditEntry } from "@/components/Audit/types";
 import {
   renderUserTargetingPhases,
   renderUserTargetingTopLevel,
@@ -10,65 +10,84 @@ import {
   renderMetadata,
 } from "./ExperimentDiffRenders";
 
-/**
- * Audit events that represent meaningful model-level changes to an experiment.
- * Non-model events are either in labelOnlyEvents (shown as info labels) or excluded entirely.
- */
-export const INCLUDED_EXPERIMENT_EVENTS = [
-  "experiment.create",
-  "experiment.update",
-  "experiment.status",
-  "experiment.start",
-  "experiment.stop",
-  "experiment.results",
-  "experiment.archive",
-  "experiment.unarchive",
-  "experiment.phase",
-  "experiment.phase.delete",
-] as const;
+type ExperimentEventDef = {
+  label: string;
+  /** Produces a diffable snapshot; shown as a selectable entry in the list. */
+  comparable?: boolean;
+  /** Always rendered in the timeline, never collapsed into a noise group. */
+  alwaysVisible?: boolean;
+  /** Dynamic label override — return a string or null to fall through to `label`. */
+  getLabel?: (
+    entry: CoarsenedAuditEntry<ExperimentInterfaceStringDates>,
+  ) => string | null;
+};
 
-export const EXPERIMENT_EVENT_LABELS: Record<string, string> = {
-  "experiment.create": "Created",
-  "experiment.update": "Updated",
-  "experiment.status": "Status changed",
-  "experiment.start": "Started",
-  "experiment.stop": "Stopped",
-  "experiment.results": "Results recorded",
-  "experiment.archive": "Archived",
-  "experiment.unarchive": "Unarchived",
-  "experiment.phase": "Phase updated",
-  "experiment.phase.delete": "Phase deleted",
+/** All known experiment audit events. */
+export const EXPERIMENT_EVENTS: Record<string, ExperimentEventDef> = {
+  "experiment.create": { label: "Created", comparable: true },
+  "experiment.update": { label: "Updated", comparable: true },
+  "experiment.status": {
+    label: "Status changed",
+    comparable: true,
+    getLabel: (e) => {
+      const s = e.postSnapshot?.status;
+      return s ? `Status changed (${s})` : null;
+    },
+  },
+  "experiment.start": { label: "Started", comparable: true },
+  "experiment.stop": { label: "Stopped", comparable: true },
+  "experiment.results": { label: "Results recorded", comparable: true },
+  "experiment.archive": {
+    label: "Archived",
+    comparable: true,
+    alwaysVisible: true,
+  },
+  "experiment.unarchive": {
+    label: "Unarchived",
+    comparable: true,
+    alwaysVisible: true,
+  },
+  "experiment.phase": { label: "Phase updated", comparable: true },
+  "experiment.phase.delete": {
+    label: "Phase deleted",
+    comparable: true,
+    getLabel: (e) => {
+      const pre = e.preSnapshot?.phases ?? [];
+      const post = e.postSnapshot?.phases ?? [];
+      let idx = pre.length - 1;
+      for (let i = 0; i < pre.length; i++) {
+        if (i >= post.length || pre[i].dateStarted !== post[i].dateStarted) {
+          idx = i;
+          break;
+        }
+      }
+      return `Phase deleted (${idx})`;
+    },
+  },
+  "experiment.delete": { label: "Deleted", alwaysVisible: true },
+  "experiment.refresh": { label: "Refreshed analysis" },
+  "experiment.analysis": { label: "Custom report analysis run" },
+  "experiment.launchChecklist.updated": { label: "Launch checklist updated" },
+  "experiment.screenshot.create": { label: "Screenshot added" },
+  "experiment.screenshot.delete": { label: "Screenshot removed" },
 };
 
 const EXPERIMENT_DIFF_CONFIG: AuditDiffConfig<ExperimentInterfaceStringDates> =
   {
     entityType: "experiment",
-    includedEvents: [...INCLUDED_EXPERIMENT_EVENTS],
-    labelOnlyEvents: [
-      { event: "experiment.refresh", getLabel: () => "Refreshed analysis" },
-      {
-        event: "experiment.analysis",
-        getLabel: () => "Custom report analysis run",
-      },
-      {
-        event: "experiment.delete",
-        getLabel: () => "Deleted",
-        alwaysVisible: true,
-      },
-      {
-        event: "experiment.launchChecklist.updated",
-        getLabel: () => "Launch checklist updated",
-      },
-      {
-        event: "experiment.screenshot.create",
-        getLabel: () => "Screenshot added",
-      },
-      {
-        event: "experiment.screenshot.delete",
-        getLabel: () => "Screenshot removed",
-      },
-    ],
-    alwaysVisibleEvents: ["experiment.archive", "experiment.unarchive"],
+    includedEvents: Object.entries(EXPERIMENT_EVENTS)
+      .filter(([, v]) => v.comparable)
+      .map(([k]) => k),
+    labelOnlyEvents: Object.entries(EXPERIMENT_EVENTS)
+      .filter(([, v]) => !v.comparable)
+      .map(([event, v]) => ({
+        event,
+        getLabel: () => v.label,
+        alwaysVisible: v.alwaysVisible,
+      })),
+    alwaysVisibleEvents: Object.entries(EXPERIMENT_EVENTS)
+      .filter(([, v]) => v.comparable && v.alwaysVisible)
+      .map(([k]) => k),
     catchUnknownEventsAsLabels: true,
     defaultGroupBy: "minute",
     entityLabel: "Experiment",
@@ -97,25 +116,8 @@ const EXPERIMENT_DIFF_CONFIG: AuditDiffConfig<ExperimentInterfaceStringDates> =
       return parseConditions(snapshot) as ExperimentInterfaceStringDates;
     },
     updateEventNames: ["experiment.update", "experiment.phase"],
-    overrideEventLabel: (entry) => {
-      if (entry.event === "experiment.status") {
-        const status = entry.postSnapshot?.status;
-        return status ? `Status changed (${status})` : null;
-      }
-      if (entry.event === "experiment.phase.delete") {
-        const pre = entry.preSnapshot?.phases ?? [];
-        const post = entry.postSnapshot?.phases ?? [];
-        let idx = pre.length - 1;
-        for (let i = 0; i < pre.length; i++) {
-          if (i >= post.length || pre[i].dateStarted !== post[i].dateStarted) {
-            idx = i;
-            break;
-          }
-        }
-        return `Phase deleted (${idx})`;
-      }
-      return null;
-    },
+    overrideEventLabel: (entry) =>
+      EXPERIMENT_EVENTS[entry.event]?.getLabel?.(entry) ?? null,
     sections: [
       {
         label: "User targeting",
@@ -225,7 +227,9 @@ export default function CompareExperimentEventsModal({
     <CompareAuditEventsModal<ExperimentInterfaceStringDates>
       entityId={experiment.id}
       config={EXPERIMENT_DIFF_CONFIG}
-      eventLabels={EXPERIMENT_EVENT_LABELS}
+      eventLabels={Object.fromEntries(
+        Object.entries(EXPERIMENT_EVENTS).map(([k, v]) => [k, v.label]),
+      )}
       onClose={onClose}
     />
   );
