@@ -34,6 +34,7 @@ export default function Home(): React.ReactElement {
       ) ||
       organization?.demographicData?.ownerUsageIntents?.length === 0 ||
       !organization?.demographicData?.ownerUsageIntents; // If no intents, assume interest in experimentation
+
     if (!hasFeatureOrExperiment) {
       const useNewOnboarding =
         intentToExperiment &&
