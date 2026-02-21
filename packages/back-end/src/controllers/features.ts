@@ -317,7 +317,7 @@ export async function getFeatureDefinitionsWithCache({
       includeDraftExperiments: params.includeDraftExperiments,
       includeExperimentNames: params.includeExperimentNames,
       includeRedirectExperiments: params.includeRedirectExperiments,
-      includeRuleIds: params.includeRuleIds,
+      includeRuleIds: params.includeRuleIds ?? false,
       hashSecureAttributes: params.hashSecureAttributes,
       savedGroupReferencesEnabled:
         params.savedGroupReferencesEnabled !== undefined

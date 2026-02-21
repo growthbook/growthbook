@@ -1,12 +1,4 @@
-import { pick, omit } from "lodash";
-import { getAutoExperimentChangeType } from "@growthbook/growthbook";
 import { OrganizationInterface } from "shared/types/organization";
-import {
-  AutoExperimentWithProject,
-  FeatureDefinition,
-  FeatureDefinitionWithProject,
-  FeatureDefinitionWithProjects,
-} from "shared/types/sdk";
 import {
   GroupMap,
   SavedGroupsValues,
@@ -20,8 +12,11 @@ import {
 } from "../util";
 import { SDKCapability } from "./types";
 
-const strictFeatureKeys = ["defaultValue", "rules"];
-const strictFeatureRuleKeys = [
+// Base feature keys
+export const STRICT_FEATURE_KEYS = ["defaultValue", "rules"] as const;
+
+// Base feature rule keys
+export const STRICT_FEATURE_RULE_KEYS = [
   "key",
   "variations",
   "weights",
@@ -30,8 +25,9 @@ const strictFeatureRuleKeys = [
   "namespace",
   "force",
   "hashAttribute",
-];
-const bucketingV2Keys = [
+] as const;
+
+export const BUCKETING_V2_RULE_KEYS = [
   "hashVersion",
   "range",
   "ranges",
@@ -40,169 +36,43 @@ const bucketingV2Keys = [
   "seed",
   "name",
   "phase",
-];
-const stickyBucketingKeys = [
+] as const;
+
+export const STICKY_BUCKETING_RULE_KEYS = [
   "fallbackAttribute",
   "disableStickyBucketing",
   "bucketVersion",
   "minBucketVersion",
-];
-const prerequisiteKeys = ["parentConditions"];
+] as const;
+
+export const PREREQUISITE_RULE_KEYS = ["parentConditions"] as const;
+
+export function getPayloadAllowedKeys(capabilities: SDKCapability[]): {
+  featureKeys: readonly string[];
+  featureRuleKeys: readonly string[];
+  removedExperimentKeys: string[];
+} {
+  const featureRuleKeys = [
+    ...STRICT_FEATURE_RULE_KEYS,
+    ...(capabilities.includes("bucketingV2") ? BUCKETING_V2_RULE_KEYS : []),
+    ...(capabilities.includes("stickyBucketing")
+      ? STICKY_BUCKETING_RULE_KEYS
+      : []),
+    ...(capabilities.includes("prerequisites") ? PREREQUISITE_RULE_KEYS : []),
+  ];
+  const removedExperimentKeys = capabilities.includes("prerequisites")
+    ? []
+    : [...PREREQUISITE_RULE_KEYS];
+  return {
+    featureKeys: [...STRICT_FEATURE_KEYS],
+    featureRuleKeys,
+    removedExperimentKeys,
+  };
+}
 
 const savedGroupOperatorReplacements = {
   $inGroup: "$in",
   $notInGroup: "$nin",
-};
-
-export const scrubFeatures = (
-  features: Record<string, FeatureDefinitionWithProject>,
-  capabilities: SDKCapability[],
-  savedGroups: SavedGroupInterface[],
-  savedGroupReferencesEnabled: boolean,
-  organization: OrganizationInterface,
-): Record<string, FeatureDefinitionWithProject> => {
-  const allowedFeatureKeys = [...strictFeatureKeys];
-  const allowedFeatureRuleKeys = [...strictFeatureRuleKeys];
-  if (capabilities.includes("bucketingV2")) {
-    allowedFeatureRuleKeys.push(...bucketingV2Keys);
-  }
-  if (capabilities.includes("stickyBucketing")) {
-    allowedFeatureRuleKeys.push(...stickyBucketingKeys);
-  }
-  if (capabilities.includes("prerequisites")) {
-    allowedFeatureRuleKeys.push(...prerequisiteKeys);
-  }
-  if (
-    !capabilities.includes("savedGroupReferences") ||
-    !savedGroupReferencesEnabled
-  ) {
-    const savedGroupsMap = Object.fromEntries(
-      savedGroups.map((group) => [group.id, group]),
-    );
-    Object.values(features).forEach((feature) => {
-      if (!feature.rules) {
-        return;
-      }
-      feature.rules.forEach((rule) => {
-        recursiveWalk(
-          rule.condition,
-          replaceSavedGroups(savedGroupsMap, organization),
-        );
-        recursiveWalk(
-          rule.parentConditions,
-          replaceSavedGroups(savedGroupsMap, organization),
-        );
-      });
-    });
-  }
-
-  // Remove features that have any gating parentConditions & any rules that have parentConditions
-  // Note: Reduction of features and rules is already performed in the back-end
-  //   see: reduceFeaturesWithPrerequisites()
-  if (!capabilities.includes("prerequisites")) {
-    for (const k in features) {
-      // delete feature
-      if (
-        features[k]?.rules?.some((rule) =>
-          rule?.parentConditions?.some((pc) => !!pc.gate),
-        )
-      ) {
-        delete features[k];
-        continue;
-      }
-      // delete rules
-      features[k].rules = features[k].rules?.filter(
-        (rule) => (rule.parentConditions?.length ?? 0) === 0,
-      );
-    }
-  }
-
-  if (capabilities.includes("looseUnmarshalling")) {
-    return features;
-  }
-
-  for (const k in features) {
-    features[k] = pick(
-      features[k],
-      allowedFeatureKeys,
-    ) as FeatureDefinitionWithProject;
-    if (features[k]?.rules) {
-      features[k].rules = features[k].rules?.map((rule) => {
-        rule = {
-          ...pick(rule, allowedFeatureRuleKeys),
-        };
-        return rule;
-      });
-    }
-  }
-
-  return features;
-};
-
-export const scrubExperiments = (
-  experiments: AutoExperimentWithProject[],
-  capabilities: SDKCapability[],
-  savedGroups: SavedGroupInterface[],
-  savedGroupReferencesEnabled: boolean,
-  organization: OrganizationInterface,
-): AutoExperimentWithProject[] => {
-  const removedExperimentKeys: string[] = [];
-  const supportsPrerequisites = capabilities.includes("prerequisites");
-  const supportsRedirects = capabilities.includes("redirects");
-
-  if (
-    !capabilities.includes("savedGroupReferences") ||
-    !savedGroupReferencesEnabled
-  ) {
-    const savedGroupsMap = Object.fromEntries(
-      savedGroups.map((group) => [group.id, group]),
-    );
-    experiments.forEach((experimentDefinition) => {
-      recursiveWalk(
-        experimentDefinition.condition,
-        replaceSavedGroups(savedGroupsMap, organization),
-      );
-      recursiveWalk(
-        experimentDefinition.parentConditions,
-        replaceSavedGroups(savedGroupsMap, organization),
-      );
-    });
-  }
-
-  if (supportsPrerequisites && supportsRedirects) return experiments;
-
-  if (!supportsPrerequisites) {
-    removedExperimentKeys.push(...prerequisiteKeys);
-  }
-
-  const newExperiments: AutoExperimentWithProject[] = [];
-
-  for (let experiment of experiments) {
-    // Filter out any url redirect auto experiments if not supported
-    if (
-      !supportsRedirects &&
-      getAutoExperimentChangeType(experiment) === "redirect"
-    ) {
-      continue;
-    }
-
-    // Filter out experiments that have any parentConditions
-    if (
-      !supportsPrerequisites &&
-      (experiment.parentConditions?.length ?? 0) > 0
-    ) {
-      continue;
-    }
-
-    // Scrub fields from the experiment
-    experiment = omit(
-      experiment,
-      removedExperimentKeys,
-    ) as AutoExperimentWithProject;
-
-    newExperiments.push(experiment);
-  }
-  return newExperiments;
 };
 
 export const scrubSavedGroups = (
@@ -452,83 +322,4 @@ export const replaceSavedGroups: (
       delete object[key];
     }
   };
-};
-
-export const scrubHoldouts = ({
-  holdouts,
-  projects,
-  features,
-}: {
-  holdouts: Record<string, FeatureDefinitionWithProjects>;
-  projects: string[];
-  features: Record<string, FeatureDefinition>;
-}): {
-  holdouts: Record<string, FeatureDefinition>;
-  features: Record<string, FeatureDefinition>;
-} => {
-  // Filter list of holdouts to the selected projects
-  if (projects && projects.length > 0) {
-    holdouts = Object.fromEntries(
-      Object.entries(holdouts).filter(([_, holdout]) => {
-        // If the holdout has no projects, it's a part of all projects and we want to include it
-        if (!holdout.projects || holdout.projects.length === 0) {
-          return true;
-        }
-        const holdoutProjects = holdout.projects;
-        return projects.some((p) => holdoutProjects.includes(p));
-      }),
-    );
-  }
-
-  const holdoutIds = new Set(Object.keys(holdouts));
-
-  // keep track of references to each holdoutId in the loop below
-  const holdoutReferences = new Set<string>();
-
-  // Filter out holdout pre-requisite rules that do not have associated holdout feature definitions
-  // Also scrub holdoutId from all rules that have it
-  for (const k in features) {
-    if (features[k]?.rules) {
-      features[k].rules = features[k].rules?.filter((rule) => {
-        // If the rule id does not have the prefix "holdout_", it's not a holdout rule. Do not filter it out
-        if (rule.id && !rule.id.startsWith("holdout_")) {
-          return true;
-        }
-
-        // If the rule id has the prefix "holdout_", it's a holdout rule. Filter it out if it does not have an associated holdout feature definition
-        if (rule.id && rule.id.startsWith("holdout_")) {
-          // A holdout rule must have a parent condition because it's a prerequisite rule
-          if (!rule.parentConditions || rule.parentConditions.length === 0) {
-            return false;
-          }
-
-          const holdoutId = rule.parentConditions[0].id;
-          if (!holdoutIds.has(holdoutId)) {
-            return false;
-          }
-          // Document that this holdoutId is referenced by a feature rule
-          holdoutReferences.add(holdoutId);
-        }
-
-        return true;
-      });
-    }
-  }
-
-  // Remove holdouts that are not referenced by any feature rules
-  holdouts = Object.fromEntries(
-    Object.entries(holdouts).filter(([key, _]) => {
-      return holdoutReferences.has(key);
-    }),
-  );
-
-  // Remove `projects` from holdouts
-  holdouts = Object.fromEntries(
-    Object.entries(holdouts).map(([key, holdout]) => [
-      key,
-      omit(holdout, ["projects"]),
-    ]),
-  );
-
-  return { holdouts, features };
 };

@@ -9,12 +9,18 @@ import {
   isDefined,
   recursiveWalk,
 } from "shared/util";
-import { GroupMap } from "shared/types/saved-group";
-import { cloneDeep, isNil } from "lodash";
+import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
+import { cloneDeep, isNil, pick } from "lodash";
 import md5 from "md5";
-import { FeatureDefinitionWithProject } from "shared/types/sdk";
+import { FeatureDefinition } from "shared/types/sdk";
 import { HoldoutInterface } from "shared/validators";
-import { expandNestedSavedGroups } from "shared/sdk-versioning";
+import {
+  expandNestedSavedGroups,
+  getPayloadAllowedKeys,
+  replaceSavedGroups,
+  SDKCapability,
+} from "shared/sdk-versioning";
+import { OrganizationInterface, Environment } from "shared/types/organization";
 import {
   FeatureInterface,
   FeatureRule,
@@ -23,7 +29,6 @@ import {
 } from "shared/types/feature";
 import { ExperimentInterface } from "shared/types/experiment";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { Environment } from "shared/types/organization";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { getCurrentEnabledState } from "./scheduleRules";
@@ -324,6 +329,12 @@ export function getFeatureDefinition({
   date,
   safeRolloutMap,
   holdoutsMap,
+  capabilities,
+  savedGroupReferencesEnabled,
+  organization,
+  savedGroupsMap,
+  includeRuleIds = false,
+  includeExperimentNames = false,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -334,9 +345,15 @@ export function getFeatureDefinition({
   safeRolloutMap: Map<string, SafeRolloutInterface>;
   holdoutsMap?: Map<
     string,
-    { holdout: HoldoutInterface; experiment: ExperimentInterface }
+    { holdout: HoldoutInterface; holdoutExperiment: ExperimentInterface }
   >;
-}): FeatureDefinitionWithProject | null {
+  capabilities?: SDKCapability[];
+  savedGroupReferencesEnabled?: boolean;
+  organization?: OrganizationInterface;
+  savedGroupsMap?: Record<string, SavedGroupInterface>;
+  includeRuleIds?: boolean;
+  includeExperimentNames?: boolean;
+}): FeatureDefinition | null {
   const settings = feature.environmentSettings?.[environment];
 
   // Don't include features which are disabled for this environment
@@ -405,8 +422,8 @@ export function getFeatureDefinition({
       })
       ?.map((r) => {
         const rule: FeatureDefinitionRule = {
-          id: r.id,
-        };
+          ...(includeRuleIds && r.id != null ? { id: r.id } : {}),
+        } as FeatureDefinitionRule;
 
         // Experiment reference rules inherit everything from the experiment
         if (r.type === "experiment-ref") {
@@ -505,12 +522,11 @@ export function getFeatureDefinition({
             });
             rule.weights = phase.variationWeights;
             rule.key = exp.trackingKey;
-            rule.meta = exp.variations.map((v) => ({
-              key: v.key,
-              name: v.name,
-            }));
+            rule.meta = includeExperimentNames
+              ? exp.variations.map((v) => ({ key: v.key, name: v.name }))
+              : exp.variations.map((v) => ({ key: v.key }));
             rule.phase = exp.phases.length - 1 + "";
-            rule.name = exp.name;
+            if (includeExperimentNames) rule.name = exp.name;
           }
           return rule;
         }
@@ -635,12 +651,15 @@ export function getFeatureDefinition({
             const varWeights = 0.5;
             rule.weights = [varWeights, varWeights];
             rule.key = r.trackingKey;
-            rule.meta = [
-              { key: "0", name: "Control" },
-              { key: "1", name: "Variation" },
-            ];
+            rule.meta = includeExperimentNames
+              ? [
+                  { key: "0", name: "Control" },
+                  { key: "1", name: "Variation" },
+                ]
+              : [{ key: "0" }, { key: "1" }];
             rule.phase = "0";
-            rule.name = `${feature.id} - Safe Rollout`;
+            if (includeExperimentNames)
+              rule.name = `${feature.id} - Safe Rollout`;
           }
         }
         return rule;
@@ -648,13 +667,57 @@ export function getFeatureDefinition({
       ?.filter(isRule) ?? []),
   ];
 
-  const def: FeatureDefinitionWithProject = {
+  let def: FeatureDefinition = {
     defaultValue: getJSONValue(feature.valueType, defaultValue),
-    project: feature.project,
     rules: defRules,
   };
   if (def.rules && !def.rules.length) {
     delete def.rules;
+  }
+
+  if (capabilities?.length) {
+    const hasPrerequisites = capabilities.includes("prerequisites");
+    if (!hasPrerequisites && def.rules) {
+      if (
+        def.rules.some((rule) =>
+          rule?.parentConditions?.some((pc) => !!pc.gate),
+        )
+      ) {
+        return null;
+      }
+      def.rules = def.rules.filter(
+        (rule) => (rule.parentConditions?.length ?? 0) === 0,
+      );
+      if (!def.rules.length) delete def.rules;
+    }
+
+    if (
+      savedGroupsMap &&
+      (savedGroupReferencesEnabled === false ||
+        !capabilities.includes("savedGroupReferences"))
+    ) {
+      def.rules?.forEach((rule) => {
+        recursiveWalk(
+          rule.condition,
+          replaceSavedGroups(savedGroupsMap, organization!),
+        );
+        recursiveWalk(
+          rule.parentConditions,
+          replaceSavedGroups(savedGroupsMap, organization!),
+        );
+      });
+    }
+
+    if (!capabilities.includes("looseUnmarshalling")) {
+      const { featureKeys, featureRuleKeys } =
+        getPayloadAllowedKeys(capabilities);
+      def = pick(def, featureKeys) as FeatureDefinition;
+      if (def.rules) {
+        def.rules = def.rules.map((rule) =>
+          pick(rule, featureRuleKeys),
+        ) as FeatureDefinition["rules"];
+      }
+    }
   }
 
   return def;
