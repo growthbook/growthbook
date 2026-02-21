@@ -158,8 +158,9 @@ export default function FeatureModal({
   const { hasCommercialFeature } = useUser();
   const { requireProjectForFeatures } = useOrgSettings();
 
-  const customFields = filterCustomFieldsForSectionAndProject(
-    useCustomFields(),
+  const allCustomFields = useCustomFields();
+  const initialCustomFields = filterCustomFieldsForSectionAndProject(
+    allCustomFields,
     "feature",
     project,
   );
@@ -172,7 +173,7 @@ export default function FeatureModal({
     featureToDuplicate,
     project,
     customFields: hasCommercialFeature("custom-metadata")
-      ? customFields
+      ? initialCustomFields
       : undefined,
   });
 
@@ -185,6 +186,11 @@ export default function FeatureModal({
     project ? [project] : [],
   );
   const selectedProject = form.watch("project");
+  const customFields = filterCustomFieldsForSectionAndProject(
+    allCustomFields,
+    "feature",
+    selectedProject,
+  );
   const { projectId: demoProjectId } = useDemoDataSourceProject();
 
   const [showTags, setShowTags] = useState(!!featureToDuplicate?.tags?.length);
@@ -381,6 +387,7 @@ export default function FeatureModal({
                 }}
                 currentCustomFields={form.watch("customFields") || {}}
                 section={"feature"}
+                project={selectedProject}
               />
             </div>
           )}
