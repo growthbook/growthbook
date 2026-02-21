@@ -34,7 +34,7 @@ describe("filterCustomFieldsForSectionAndProject", () => {
       "",
     );
 
-    expect(result).toEqual([globalField]);
+    expect(result).toEqual([{ ...globalField, projects: [] }]);
   });
 
   it("returns all-project fields plus matching project-scoped fields", () => {
@@ -54,7 +54,10 @@ describe("filterCustomFieldsForSectionAndProject", () => {
       "proj_a",
     );
 
-    expect(result).toEqual([globalField, projectAField]);
+    expect(result).toEqual([
+      { ...globalField, projects: [] },
+      { ...projectAField, projects: ["proj_a"] },
+    ]);
   });
 
   it("treats legacy blank project lists as all-project fields", () => {
@@ -73,6 +76,6 @@ describe("filterCustomFieldsForSectionAndProject", () => {
       "",
     );
 
-    expect(result).toEqual([legacyGlobalField]);
+    expect(result).toEqual([{ ...legacyGlobalField, projects: [] }]);
   });
 });
