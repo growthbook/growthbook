@@ -1,7 +1,6 @@
 import { Response } from "express";
 import { parse, filter } from "scim2-parse-filter";
 import { isRoleValid } from "shared/permissions";
-import { Member } from "shared/types/organization";
 import {
   BasicScimGroup,
   ScimError,
@@ -10,12 +9,9 @@ import {
   ScimGroupPatchRequest,
 } from "back-end/types/scim";
 import {
-  findTeamById,
-  updateTeamMetadata,
-} from "back-end/src/models/TeamModel";
-import {
   addMembersToTeam,
   expandOrgMembers,
+  getMembersOfTeam,
   removeMembersFromTeam,
 } from "back-end/src/services/organizations";
 
@@ -28,7 +24,7 @@ export async function patchGroup(
 
   const org = req.organization;
 
-  const team = await findTeamById(id, org.id);
+  const team = await req.context.models.teams.getById(id);
 
   if (!team) {
     return res.status(404).json({
@@ -83,12 +79,10 @@ export async function patchGroup(
       } else if (normalizedOp === "replace" && normalizedPath === "members") {
         // Replace all team members with requested members
         if (value) {
-          const prevMembers: Member[] = org.members.filter((member) =>
-            member.teams?.includes(id),
-          );
+          const prevMembers = getMembersOfTeam(org, id);
           await removeMembersFromTeam({
             organization: org,
-            userIds: prevMembers.map((m) => m.id),
+            userIds: prevMembers,
             teamId: id,
           });
 
@@ -110,7 +104,7 @@ export async function patchGroup(
             });
           }
         }
-        await updateTeamMetadata(team.id, org.id, {
+        await req.context.models.teams.update(team, {
           ...team,
           name: (value as BasicScimGroup).displayName,
           managedByIdp: true,

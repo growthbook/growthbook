@@ -4,6 +4,7 @@ import { z } from "zod";
 import { isEqual } from "lodash";
 import cloneDeep from "lodash/cloneDeep";
 import {
+  DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
   DEFAULT_METRIC_CAPPING,
   DEFAULT_METRIC_CAPPING_VALUE,
   DEFAULT_METRIC_WINDOW,
@@ -44,10 +45,11 @@ import {
   parseSliceMetricId,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
+  getEffectiveLookbackOverride,
 } from "shared/experiments";
 import { hoursBetween } from "shared/dates";
 import { v4 as uuidv4 } from "uuid";
-import { differenceInHours } from "date-fns";
+import { differenceInMinutes } from "date-fns";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { SegmentInterface } from "shared/types/segment";
 import {
@@ -64,6 +66,7 @@ import {
   updateExperimentValidator,
   SafeRolloutSnapshotAnalysis,
   IncrementalRefreshInterface,
+  LookbackOverrideValueUnit,
 } from "shared/validators";
 import { Dimension } from "shared/types/integrations";
 import {
@@ -72,7 +75,10 @@ import {
   ApiExperimentResults,
   ApiMetric,
 } from "shared/types/openapi";
-import { MetricPriorSettings } from "shared/types/fact-table";
+import {
+  ConversionWindowUnit,
+  MetricPriorSettings,
+} from "shared/types/fact-table";
 import {
   ExperimentAnalysisParamsContextData,
   ExperimentSnapshotAnalysis,
@@ -520,6 +526,39 @@ export function getSnapshotSettings({
     });
   }
 
+  const phaseEndDate = phase.dateEnded || currentDate;
+  const lookbackOverride = getEffectiveLookbackOverride(
+    experiment.attributionModel,
+    experiment.lookbackOverride,
+  );
+  const phaseLookbackWindow =
+    lookbackOverride?.type === "window"
+      ? {
+          value: lookbackOverride.value,
+          unit: (lookbackOverride.valueUnit ??
+            DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT) as ConversionWindowUnit,
+        }
+      : lookbackOverride?.type === "date"
+        ? {
+            value: Math.max(
+              0,
+              differenceInMinutes(phaseEndDate, lookbackOverride.value, {
+                roundingMethod: "ceil",
+              }),
+            ),
+            unit: "minutes" as const,
+          }
+        : experiment.type === "holdout" &&
+            phase.lookbackStartDate &&
+            phase.lookbackStartDate < currentDate
+          ? {
+              value: differenceInMinutes(currentDate, phase.lookbackStartDate, {
+                roundingMethod: "ceil",
+              }),
+              unit: "minutes" as const,
+            }
+          : undefined;
+
   const metricSettings = getAllExpandedMetricIdsFromExperiment({
     exp: {
       goalMetrics,
@@ -538,17 +577,7 @@ export function getSnapshotSettings({
         settingsForSnapshotMetrics,
         metricOverrides: experiment.metricOverrides,
         decisionFrameworkSettings: experiment.decisionFrameworkSettings,
-        phaseLookbackWindow:
-          experiment.type === "holdout" &&
-          phase.lookbackStartDate &&
-          phase.lookbackStartDate < currentDate
-            ? {
-                value: differenceInHours(currentDate, phase.lookbackStartDate, {
-                  roundingMethod: "ceil",
-                }),
-                unit: "hours",
-              }
-            : undefined,
+        phaseLookbackWindow,
       }),
     )
     .filter(isDefined);
@@ -608,6 +637,7 @@ export function getSnapshotSettings({
   return {
     activationMetric: experiment.activationMetric || null,
     attributionModel: experiment.attributionModel || "firstExposure",
+    lookbackOverride: lookbackOverride,
     skipPartialData: !!experiment.skipPartialData,
     segment: experiment.segment || "",
     queryFilter: experiment.queryFilter || "",
@@ -1582,6 +1612,18 @@ export async function toExperimentApiInterface(
       queryFilter: experiment.queryFilter || "",
       inProgressConversions: experiment.skipPartialData ? "exclude" : "include",
       attributionModel: experiment.attributionModel || "firstExposure",
+      lookbackOverride: experiment.lookbackOverride
+        ? experiment.lookbackOverride.type === "date"
+          ? {
+              type: "date" as const,
+              value: experiment.lookbackOverride?.value.toISOString(),
+            }
+          : {
+              type: "window" as const,
+              value: experiment.lookbackOverride?.value,
+              valueUnit: experiment.lookbackOverride?.valueUnit,
+            }
+        : undefined,
       statsEngine: scopedSettings.statsEngine.value || DEFAULT_STATS_ENGINE,
       goals: experiment.goalMetrics.map((m) =>
         getExperimentMetric(experiment, m),
@@ -2549,6 +2591,48 @@ export function toMetricApiInterface(
 export const toNamespaceRange = (
   raw: number[] | undefined,
 ): [number, number] => [raw?.[0] ?? 0, raw?.[1] ?? 1];
+
+/**
+ * Converts an API lookbackOverride payload to the internal representation.
+ * Validates that "date" values are strings (not raw numbers) and that
+ * "window" values are non-negative numbers with a valid unit.
+ */
+function toLookbackOverrideForSave(lookbackOverride: {
+  type: string;
+  value: string | number;
+  valueUnit?: LookbackOverrideValueUnit;
+}): NonNullable<ExperimentInterface["lookbackOverride"]> {
+  if (lookbackOverride.type === "date") {
+    if (typeof lookbackOverride.value === "number") {
+      throw new Error(
+        "lookbackOverride date value must be an ISO 8601 string, not a number",
+      );
+    }
+    const d = new Date(lookbackOverride.value);
+    if (isNaN(d.getTime())) {
+      throw new Error("lookbackOverride date value is not a valid date string");
+    }
+    return { type: "date", value: d };
+  } else if (lookbackOverride.type === "window") {
+    const num =
+      typeof lookbackOverride.value === "string"
+        ? parseFloat(lookbackOverride.value)
+        : lookbackOverride.value;
+    if (!Number.isFinite(num) || num < 0) {
+      throw new Error(
+        "lookbackOverride window value must be a non-negative number",
+      );
+    }
+    return {
+      type: "window",
+      value: num,
+      valueUnit:
+        lookbackOverride.valueUnit ?? DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
+    };
+  }
+  throw new Error("Invalid lookbackOverride.type");
+}
+
 /**
  * Converts the OpenAPI POST /experiment payload to a {@link ExperimentInterface}
  * @param payload
@@ -2653,7 +2737,13 @@ export function postExperimentApiPayloadToInterface(
     queryFilter: payload.queryFilter || "",
     skipPartialData: payload.inProgressConversions === "strict",
     attributionModel: payload.attributionModel || "firstExposure",
+    ...(payload.lookbackOverride
+      ? {
+          lookbackOverride: toLookbackOverrideForSave(payload.lookbackOverride),
+        }
+      : {}),
     ...(payload.statsEngine ? { statsEngine: payload.statsEngine } : {}),
+    // Note: attributionModel + lookbackOverride consistency is validated by the controller
     variations:
       payload.variations.map((v) => ({
         ...v,
@@ -2744,6 +2834,7 @@ export function updateExperimentApiPayloadToInterface(
     excludeFromPayload,
     inProgressConversions,
     attributionModel,
+    lookbackOverride,
     statsEngine,
     regressionAdjustmentEnabled,
     sequentialTestingEnabled,
@@ -2784,6 +2875,9 @@ export function updateExperimentApiPayloadToInterface(
       ? { skipPartialData: inProgressConversions === "strict" }
       : {}),
     ...(attributionModel !== undefined ? { attributionModel } : {}),
+    ...(lookbackOverride !== undefined
+      ? { lookbackOverride: toLookbackOverrideForSave(lookbackOverride) }
+      : {}),
     ...(statsEngine !== undefined ? { statsEngine } : {}),
     ...(regressionAdjustmentEnabled !== undefined
       ? { regressionAdjustmentEnabled }

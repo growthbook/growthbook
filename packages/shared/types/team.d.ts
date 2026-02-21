@@ -1,20 +1,6 @@
-import { ManagedBy } from "shared/validators";
-import { ProjectMemberRole } from "./organization";
+import { z } from "zod";
+import { apiTeamValidator, teamSchema } from "shared/validators";
 
-export interface TeamInterface {
-  id: string;
-  name: string;
-  organization: string;
-  dateCreated: Date;
-  dateUpdated: Date;
-  createdBy: string;
-  description: string;
-  role: string;
-  limitAccessByEnvironment: boolean;
-  environments: string[];
-  projectRoles?: ProjectMemberRole[];
-  members?: string[];
-  managedByIdp: boolean;
-  managedBy?: ManagedBy;
-  defaultProject?: string;
-}
+export type TeamInterface = z.infer<typeof teamSchema>;
+
+export type ApiTeamInterface = z.infer<typeof apiTeamValidator>;

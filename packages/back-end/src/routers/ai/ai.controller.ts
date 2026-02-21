@@ -62,7 +62,7 @@ export async function postAIPrompts(
 }
 
 export async function postReformat(
-  req: AuthRequest<{ type: AIPromptType; text: string }>,
+  req: AuthRequest<{ type: AIPromptType; text: string; temperature?: number }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
@@ -93,6 +93,7 @@ export async function postReformat(
     });
   }
 
+  const temperature = req.body.temperature ?? 0.1;
   const { prompt, isDefaultPrompt, overrideModel } =
     await context.models.aiPrompts.getAIPrompt(req.body.type);
   if (!prompt) {
@@ -107,7 +108,7 @@ export async function postReformat(
   const aiResults = await simpleCompletion({
     context,
     prompt: reformatPrompt,
-    temperature: 0.1,
+    temperature,
     type: req.body.type,
     isDefaultPrompt,
     overrideModel,
