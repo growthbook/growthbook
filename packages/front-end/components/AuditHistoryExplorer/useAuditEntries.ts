@@ -80,7 +80,30 @@ function coarsenEntries<T>(
   let currentEvent = "";
 
   for (const entry of sorted) {
-    if (!entry.postSnapshot) continue; // skip unparseable entries
+    if (!entry.postSnapshot) {
+      // Snapshot data missing/unparseable — surface as a standalone failed entry
+      // so the warning UI can be shown, rather than silently dropping it.
+      if (current) {
+        result.push(current);
+        current = null;
+        currentAuthorKey = "";
+        currentBucketKey = "";
+        currentEvent = "";
+      }
+      result.push({
+        id: entry.id,
+        rawIds: [entry.id],
+        event: entry.event,
+        dateStart: entry.dateCreated,
+        dateEnd: entry.dateCreated,
+        user: toAuditUserInfo(entry.user),
+        preSnapshot: entry.preSnapshot,
+        postSnapshot: null,
+        rawSnapshots: [{ pre: entry.preSnapshot, post: null }],
+        count: 1,
+      });
+      continue;
+    }
 
     const authorKey = getAuthorKey(entry.user);
     const bucketKey = getTimeBucketKey(entry.dateCreated, groupBy);

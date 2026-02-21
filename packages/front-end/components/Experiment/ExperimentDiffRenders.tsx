@@ -770,38 +770,53 @@ function ActivationMetricName({ id }: { id: string | undefined | null }) {
   );
 }
 
+/** Returns true when two metric ID arrays have any additions or removals. */
+function metricsChanged(
+  a: string[] | null | undefined,
+  b: string[] | null | undefined,
+): boolean {
+  const pre = a ?? [];
+  const post = b ?? [];
+  return (
+    post.some((id) => !pre.includes(id)) || pre.some((id) => !post.includes(id))
+  );
+}
+
 export function renderAnalysisSettings(pre: Pre, post: Post): ReactNode | null {
   const rows: ReactNode[] = [];
 
-  const goalRow = (
-    <MetricDiff
-      key="goal"
-      label="Goal metrics"
-      preArr={pre?.goalMetrics}
-      postArr={post.goalMetrics}
-    />
-  );
-  if (goalRow) rows.push(goalRow);
+  if (metricsChanged(pre?.goalMetrics, post.goalMetrics)) {
+    rows.push(
+      <MetricDiff
+        key="goal"
+        label="Goal metrics"
+        preArr={pre?.goalMetrics}
+        postArr={post.goalMetrics}
+      />,
+    );
+  }
 
-  const secRow = (
-    <MetricDiff
-      key="sec"
-      label="Secondary metrics"
-      preArr={pre?.secondaryMetrics}
-      postArr={post.secondaryMetrics}
-    />
-  );
-  if (secRow) rows.push(secRow);
+  if (metricsChanged(pre?.secondaryMetrics, post.secondaryMetrics)) {
+    rows.push(
+      <MetricDiff
+        key="sec"
+        label="Secondary metrics"
+        preArr={pre?.secondaryMetrics}
+        postArr={post.secondaryMetrics}
+      />,
+    );
+  }
 
-  const grRow = (
-    <MetricDiff
-      key="gr"
-      label="Guardrail metrics"
-      preArr={pre?.guardrailMetrics}
-      postArr={post.guardrailMetrics}
-    />
-  );
-  if (grRow) rows.push(grRow);
+  if (metricsChanged(pre?.guardrailMetrics, post.guardrailMetrics)) {
+    rows.push(
+      <MetricDiff
+        key="gr"
+        label="Guardrail metrics"
+        preArr={pre?.guardrailMetrics}
+        postArr={post.guardrailMetrics}
+      />,
+    );
+  }
 
   if (
     !isEqual(pre?.activationMetric, post.activationMetric) &&

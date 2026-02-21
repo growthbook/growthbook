@@ -24,8 +24,12 @@ export interface CoarsenedAuditEntry<T> {
   user: AuditUserInfo;
   /** `pre` of the first entry in the group. null for create events. */
   preSnapshot: T | null;
-  /** `post` of the last entry in the group. */
-  postSnapshot: T;
+  /**
+   * `post` of the last entry in the group. null when snapshot data could not
+   * be parsed — these entries are surfaced in the left column with a warning
+   * icon rather than being silently dropped.
+   */
+  postSnapshot: T | null;
   /** How many raw entries were merged together. */
   count: number;
   /**
@@ -33,7 +37,7 @@ export interface CoarsenedAuditEntry<T> {
    * changed sections across all sub-events for the left-column title (so
    * sections that cancel out net-wise still appear in the label).
    */
-  rawSnapshots: Array<{ pre: T | null; post: T }>;
+  rawSnapshots: Array<{ pre: T | null; post: T | null }>;
 }
 
 export interface AuditDiffSection<T> {

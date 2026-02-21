@@ -13,20 +13,7 @@ import Text from "@/ui/Text";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import { AuditDiffConfig } from "./types";
-
-const COMPACT_DIFF_STYLES = {
-  diffContainer: {
-    fontSize: "11px",
-    lineHeight: "1.6",
-    pre: { lineHeight: "1.6" },
-  },
-  line: { fontSize: "11px", padding: "1px 2px", lineHeight: "1.6" },
-  contentText: {
-    fontSize: "11px",
-    lineHeight: "1.6",
-    wordBreak: "break-all" as const,
-  },
-};
+import { COMPACT_DIFF_STYLES } from "./CompareAuditEventsUtils";
 import {
   PAGE_LIMIT,
   useAuditEntries,

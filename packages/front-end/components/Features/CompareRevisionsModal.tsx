@@ -46,25 +46,10 @@ import {
 } from "@/hooks/useFeatureRevisionDiff";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
+import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 import { ExpandableDiff } from "./DraftModal";
 import RevisionStatusBadge from "./RevisionStatusBadge";
 import styles from "./CompareRevisionsModal.module.scss";
-
-const COMPACT_DIFF_STYLES = {
-  diffContainer: {
-    fontSize: "11px",
-    lineHeight: "1.6",
-    // Override the hardcoded `pre { lineHeight: 25px }` nested rule in the library default.
-    pre: { lineHeight: "1.6" },
-  },
-  line: { fontSize: "11px", padding: "1px 2px", lineHeight: "1.6" },
-  contentText: {
-    fontSize: "11px",
-    lineHeight: "1.6",
-    wordBreak: "break-all" as const,
-  },
-  gutter: { fontSize: "11px", padding: "1px 2px", lineHeight: "1.6" },
-};
 
 const STORAGE_KEY_PREFIX = "feature:compare-revisions";
 

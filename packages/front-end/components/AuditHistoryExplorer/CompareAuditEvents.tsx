@@ -32,27 +32,13 @@ import { ExpandableDiff } from "@/components/Features/DraftModal";
 import { PAGE_LIMIT, UseAuditEntriesResult } from "./useAuditEntries";
 import { AuditDiffConfig, CoarsenedAuditEntry } from "./types";
 import {
+  COMPACT_DIFF_STYLES,
   LeftColItem,
   getSeparatorBucketKey,
   getSeparatorLabel,
 } from "./CompareAuditEventsUtils";
 import { useAuditComparison } from "./useAuditComparison";
 import styles from "./CompareAuditEvents.module.scss";
-
-const COMPACT_DIFF_STYLES = {
-  diffContainer: {
-    fontSize: "11px",
-    lineHeight: "1.6",
-    pre: { lineHeight: "1.6" },
-  },
-  line: { fontSize: "11px", padding: "1px 2px", lineHeight: "1.6" },
-  contentText: {
-    fontSize: "11px",
-    lineHeight: "1.6",
-    wordBreak: "break-all" as const,
-  },
-  gutter: { fontSize: "11px", padding: "1px 2px", lineHeight: "1.6" },
-};
 
 function EntryUserName({
   user,
