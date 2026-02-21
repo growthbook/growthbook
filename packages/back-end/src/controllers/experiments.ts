@@ -185,7 +185,12 @@ export async function getExperiments(
 experiment based on the id, and the suggested results, winner and releasedVariationId*/
 export async function postAIExperimentAnalysis(
   req: AuthRequest<
-    { results: string; winner: number; releasedVariationId: string },
+    {
+      results: string;
+      winner: number;
+      releasedVariationId: string;
+      temperature?: number;
+    },
     { id: string }
   >,
   res: Response<{
@@ -199,7 +204,13 @@ export async function postAIExperimentAnalysis(
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
-  const { results, winner, releasedVariationId } = req.body;
+  const {
+    results,
+    winner,
+    releasedVariationId,
+    temperature: reqTemperature,
+  } = req.body;
+  const temperature = reqTemperature ?? 0.1;
 
   const experiment = await getExperimentById(context, id);
   if (!experiment) {
@@ -300,13 +311,15 @@ export async function postAIExperimentAnalysis(
     "\n- Confidence intervals: A range of values that likely contains the true effect size." +
     "\n- Statistical power: The probability of detecting a true effect." +
     "\n- Sample Ratio Mismatch (SRM): Indicates whether traffic was evenly split among variations." +
-    "\n- Chance to Win: The probability that a variation is better than others." +
+    "\n- Chance to Win (bayesian only): The probability that a variation is better than others." +
+    "\n- P-Value (frequentist only): The probability that the null hypothesis is true." +
     // Metric types
     "\nMetrics can be of the following types:" +
-    "\n- Binomial Metrics: Represent yes/no outcomes (e.g., conversion rates). The value is the proportion of users who converted (e.g., 10% means 10 out of 100 users converted)." +
-    "\n- Count Metrics: Represent the total count of events per user (e.g., pages viewed per user). The value is the average count per user." +
-    "\n- Duration Metrics: Represent the total time spent per user (e.g., time on site). The value is the average duration per user, typically in seconds or minutes." +
-    "\n- Revenue Metrics: Represent the total revenue generated per user. The value is in the local currency, and not a percent.  (e.g. For instance 6.58 means the average revenue per user was $6.58 on average)." +
+    "\n- Binomial/Proportion Metrics: Represent yes/no outcomes (e.g., conversion rates). The value is the proportion of users who converted (e.g., 10% means 10 out of 100 users converted)." +
+    "\n- Count/Mean Metrics: Represent the total count of events per user (e.g., pages viewed per user). The value is the average count per user." +
+    "\n- Duration/Mean Metrics: Represent the total time spent per user (e.g., time on site). The value is the average duration per user, typically in seconds or minutes." +
+    "\n- Revenue/Mean Metrics: Represent the total revenue generated per user. The value is in the local currency, and not a percent.  (e.g. For instance 6.58 means the average revenue per user was $6.58 on average)." +
+    "\n- Ratio Metrics: Represent the ratio of two numeric values among experiment users." +
     // Statistical results
     "\n- Statistical results for metrics include: Conversion Rate (CR)" +
     "\n- Statistical results for metrics include: Value: Represents the total value of the metric across all users who saw the variation." +
@@ -367,7 +380,7 @@ export async function postAIExperimentAnalysis(
     prompt: prompt,
     type,
     isDefaultPrompt,
-    temperature: 0.1,
+    temperature,
     overrideModel,
   });
 
@@ -1181,6 +1194,15 @@ export async function postExperiments(
     organization: org,
   });
 
+  // Validate attributionModel + lookbackOverride consistency
+  if (obj.attributionModel === "lookbackOverride" && !obj.lookbackOverride) {
+    return res.status(400).json({
+      status: 400,
+      message:
+        "lookbackOverride is required when attributionModel is 'lookbackOverride'",
+    });
+  }
+
   try {
     validateVariationIds(obj.variations);
 
@@ -1525,6 +1547,7 @@ export async function postExperiment(
     "secondaryMetrics",
     "guardrailMetrics",
     "metricOverrides",
+    "lookbackOverride",
     "decisionFrameworkSettings",
     "variations",
     "status",
@@ -1575,6 +1598,7 @@ export async function postExperiment(
       key === "secondaryMetrics" ||
       key === "guardrailMetrics" ||
       key === "metricOverrides" ||
+      key === "lookbackOverride" ||
       key === "variations" ||
       key === "customFields" ||
       key === "customMetricSlices"
@@ -1588,6 +1612,32 @@ export async function postExperiment(
       (changes as any)[key] = data[key];
     }
   });
+
+  // Coerce lookbackOverride date value when type is "date"
+  if (changes.lookbackOverride?.type === "date") {
+    changes.lookbackOverride = {
+      type: "date",
+      value: getValidDate(changes.lookbackOverride.value),
+    };
+  }
+
+  // Validate attributionModel + lookbackOverride consistency
+  {
+    const effectiveAttrModel =
+      changes.attributionModel ?? experiment.attributionModel;
+    const effectiveLookback =
+      "lookbackOverride" in changes
+        ? changes.lookbackOverride
+        : experiment.lookbackOverride;
+    if (effectiveAttrModel === "lookbackOverride" && !effectiveLookback) {
+      res.status(400).json({
+        status: 400,
+        message:
+          "lookbackOverride is required when attributionModel is 'lookbackOverride'",
+      });
+      return;
+    }
+  }
 
   // If changing phase start/end dates (from "Configure Analysis" modal)
   if (
