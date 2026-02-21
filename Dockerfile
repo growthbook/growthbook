@@ -46,8 +46,9 @@ RUN \
 # Build the nodejs app
 FROM node:${NODE_MAJOR}-slim AS nodebuild
 WORKDIR /usr/local/src/app
-# Set node max memory for build
-ENV NODE_OPTIONS="--max-old-space-size=8192"
+# Set node max memory for build (can be overriden via --build-arg NODE_OPTIONS=...)
+ARG NODE_OPTIONS="--max-old-space-size=8192"
+ENV NODE_OPTIONS="${NODE_OPTIONS}"
 RUN apt-get update && \
   apt-get install -y --no-install-recommends build-essential python3 ca-certificates libkrb5-dev && \
   npm install -g pnpm@10.28.2 node-gyp && \
