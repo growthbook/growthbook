@@ -43,11 +43,13 @@ export function ExpandableDiff({
   a,
   b,
   defaultOpen = false,
+  styles,
 }: {
   title: string;
   a: string;
   b: string;
   defaultOpen?: boolean;
+  styles?: object;
 }) {
   const [open, setOpen] = useState(defaultOpen);
 
@@ -74,11 +76,7 @@ export function ExpandableDiff({
             oldValue={a}
             newValue={b}
             compareMethod={DiffMethod.LINES}
-            styles={{
-              contentText: {
-                wordBreak: "break-all",
-              },
-            }}
+            styles={styles ?? { contentText: { wordBreak: "break-all" } }}
           />
         </div>
       )}

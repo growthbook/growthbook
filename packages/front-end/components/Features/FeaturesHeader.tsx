@@ -18,8 +18,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SortedTags from "@/components/Tags/SortedTags";
 import WatchButton from "@/components/WatchButton";
-import Modal from "@/components/Modal";
-import HistoryTable from "@/components/HistoryTable";
+import CompareFeatureEventsModal from "@/components/Features/CompareFeatureEventsModal";
 import FeatureImplementationModal from "@/components/Features/FeatureImplementationModal";
 import FeatureModal from "@/components/Features/FeatureModal";
 import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
@@ -188,7 +187,7 @@ export default function FeaturesHeader({
                     setDropdownOpen(false);
                   }}
                 >
-                  View Audit Log
+                  Audit History
                 </DropdownMenuItem>
               </DropdownMenuGroup>
               {canEdit && (
@@ -360,16 +359,10 @@ export default function FeaturesHeader({
         </Box>
       </Box>
       {auditModal && (
-        <Modal
-          trackingEventModalType=""
-          open={true}
-          header="Audit Log"
-          close={() => setAuditModal(false)}
-          size="max"
-          closeCta="Close"
-        >
-          <HistoryTable type="feature" id={feature.id} />
-        </Modal>
+        <CompareFeatureEventsModal
+          feature={feature}
+          onClose={() => setAuditModal(false)}
+        />
       )}
       {duplicateModal && (
         <FeatureModal

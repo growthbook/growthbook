@@ -18,6 +18,7 @@ type SelectProps = {
   variant?: "classic" | "surface" | "soft" | "ghost";
   style?: React.CSSProperties;
   triggerClassName?: string;
+  align?: "start" | "center" | "end";
 } & MarginProps;
 
 export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
@@ -34,6 +35,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
     placeholder,
     variant = "surface",
     triggerClassName,
+    align = "start",
     ...containerProps
   }: SelectProps,
   ref,
@@ -60,7 +62,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
           disabled={disabled}
           variant={variant}
         />
-        <RadixSelect.Content variant="soft" position="popper">
+        <RadixSelect.Content variant="soft" position="popper" align={align}>
           {children}
         </RadixSelect.Content>
       </RadixSelect.Root>
