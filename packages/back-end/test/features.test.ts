@@ -1288,6 +1288,291 @@ describe("SDK Payloads", () => {
     });
   });
 
+  it("handles multi-range namespaces in experiment definitions", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.environmentSettings["production"].rules = [
+      {
+        id: "abc",
+        type: "experiment-ref",
+        enabled: true,
+        experimentId: "exp_multi",
+        description: "",
+        variations: [
+          { variationId: "v0", value: "false" },
+          { variationId: "v1", value: "true" },
+        ],
+      },
+    ];
+    const exp: any = {
+      id: "exp_multi",
+      name: "Multi Experiment",
+      trackingKey: "exp-multi-key",
+      organization: "123",
+      owner: "",
+      implementation: "code",
+      hashAttribute: "user_id",
+      hashVersion: 2,
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      tags: [],
+      variations: [
+        { id: "v0", key: "ctrl", name: "Control", screenshots: [] },
+        { id: "v1", key: "var", name: "Var", screenshots: [] },
+      ],
+      status: "running",
+      releasedVariationId: "",
+      autoSnapshots: false,
+      previewURL: "",
+      targetURLRegex: "",
+      archived: false,
+      phases: [
+        {
+          condition: "{}",
+          coverage: 1,
+          dateStarted: new Date(),
+          name: "Phase 1",
+          namespace: {
+            enabled: true,
+            name: "multi-ns",
+            ranges: [
+              [0, 0.2],
+              [0.5, 0.7],
+            ],
+            hashAttribute: "login_id",
+          },
+          reason: "",
+          variationWeights: [0.5, 0.5],
+          seed: "multi-seed",
+        },
+      ],
+      linkedFeatures: ["feature"],
+    };
+    const experimentMap = new Map([["exp_multi", exp]]);
+    const namespaces = new Map<
+      string,
+      { hashAttribute?: string; seed?: string; format?: "legacy" | "multiRange" }
+    >([
+      [
+        "multi-ns",
+        {
+          hashAttribute: "login_id",
+          seed: "custom-seed",
+          format: "multiRange",
+        },
+      ],
+    ]);
+
+    expect(
+      getFeatureDefinition({
+        feature,
+        environment: "production",
+        groupMap: new Map(),
+        experimentMap,
+        namespaces,
+      }),
+    ).toEqual({
+      defaultValue: true,
+      project: undefined,
+      rules: [
+        {
+          id: "abc",
+          key: "exp-multi-key",
+          coverage: 1,
+          hashAttribute: "login_id",
+          hashVersion: 2,
+          meta: [
+            { key: "ctrl", name: "Control" },
+            { key: "var", name: "Var" },
+          ],
+          name: "Multi Experiment",
+          filters: [
+            {
+              attribute: "login_id",
+              seed: "custom-seed",
+              hashVersion: 2,
+              ranges: [
+                [0, 0.2],
+                [0.5, 0.7],
+              ],
+            },
+          ],
+          phase: "0",
+          seed: "multi-seed",
+          variations: [false, true],
+          weights: [0.5, 0.5],
+        },
+      ],
+    });
+  });
+
+  it("maintains legacy namespace tuple for backward compatibility", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.environmentSettings["production"].rules = [
+      {
+        id: "abc",
+        type: "experiment-ref",
+        enabled: true,
+        experimentId: "exp_legacy",
+        description: "",
+        variations: [
+          { variationId: "v0", value: "false" },
+          { variationId: "v1", value: "true" },
+        ],
+      },
+    ];
+    const exp: any = {
+      id: "exp_legacy",
+      name: "Legacy Experiment",
+      trackingKey: "exp-legacy-key",
+      organization: "123",
+      owner: "",
+      implementation: "code",
+      hashAttribute: "user_id",
+      hashVersion: 2,
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      tags: [],
+      variations: [
+        { id: "v0", key: "ctrl", name: "Control", screenshots: [] },
+        { id: "v1", key: "var", name: "Var", screenshots: [] },
+      ],
+      status: "running",
+      releasedVariationId: "",
+      autoSnapshots: false,
+      previewURL: "",
+      targetURLRegex: "",
+      archived: false,
+      phases: [
+        {
+          condition: "{}",
+          coverage: 1,
+          dateStarted: new Date(),
+          name: "Phase 1",
+          namespace: {
+            enabled: true,
+            name: "legacy-ns",
+            range: [0, 0.5],
+          },
+          reason: "",
+          variationWeights: [0.5, 0.5],
+        },
+      ],
+      linkedFeatures: ["feature"],
+    };
+    const experimentMap = new Map([["exp_legacy", exp]]);
+    const namespaces = new Map<
+      string,
+      { hashAttribute?: string; seed?: string; format?: "legacy" | "multiRange" }
+    >([
+      [
+        "legacy-ns",
+        {
+          format: "legacy",
+        },
+      ],
+    ]);
+
+    expect(
+      getFeatureDefinition({
+        feature,
+        environment: "production",
+        groupMap: new Map(),
+        experimentMap,
+        namespaces,
+      }),
+    ).toEqual({
+      defaultValue: true,
+      project: undefined,
+      rules: [
+        {
+          id: "abc",
+          key: "exp-legacy-key",
+          coverage: 1,
+          hashAttribute: "user_id",
+          hashVersion: 2,
+          meta: [
+            { key: "ctrl", name: "Control" },
+            { key: "var", name: "Var" },
+          ],
+          name: "Legacy Experiment",
+          namespace: ["legacy-ns", 0, 0.5],
+          phase: "0",
+          variations: [false, true],
+          weights: [0.5, 0.5],
+        },
+      ],
+    });
+  });
+
+  it("prioritizes rule-level hashAttribute over namespace definition", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.environmentSettings["production"].rules = [
+      {
+        id: "abc",
+        type: "experiment-ref",
+        enabled: true,
+        experimentId: "exp_priority",
+        description: "",
+        variations: [
+          { variationId: "v0", value: "false" },
+          { variationId: "v1", value: "true" },
+        ],
+      },
+    ];
+    const exp: any = {
+      id: "exp_priority",
+      name: "Priority Experiment",
+      trackingKey: "exp-priority-key",
+      hashAttribute: "id",
+      hashVersion: 2,
+      variations: [
+        { id: "v0", key: "ctrl", name: "Control", screenshots: [] },
+        { id: "v1", key: "var", name: "Var", screenshots: [] },
+      ],
+      status: "running",
+      phases: [
+        {
+          coverage: 1,
+          name: "Phase 1",
+          namespace: {
+            enabled: true,
+            name: "multi-ns",
+            ranges: [[0, 0.5]],
+            hashAttribute: "rule_attr", // rule-level override
+            hashVersion: 2,
+          },
+          variationWeights: [0.5, 0.5],
+        },
+      ],
+      linkedFeatures: ["feature"],
+    };
+    const experimentMap = new Map([["exp_priority", exp]]);
+    const namespaces = new Map<
+      string,
+      { hashAttribute?: string; seed?: string; format?: "legacy" | "multiRange" }
+    >([
+      [
+        "multi-ns",
+        {
+          hashAttribute: "ns_attr", // namespace-level default
+          seed: "ns-seed",
+          format: "multiRange",
+        },
+      ],
+    ]);
+
+    const result = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap: new Map(),
+      experimentMap,
+      namespaces,
+    });
+
+    expect(result.rules[0].hashAttribute).toEqual("rule_attr");
+    expect(result.rules[0].filters?.[0].attribute).toEqual("rule_attr");
+  });
+
   it("Uses safe rollouts to build feature definitions", () => {
     const feature = cloneDeep(baseFeature);
     feature.environmentSettings["production"].rules = [
