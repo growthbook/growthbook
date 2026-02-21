@@ -9,6 +9,7 @@ import {
   isDefined,
   recursiveWalk,
   getNamespaceRanges,
+  getNamespaceHashAttribute,
   NamespaceValue,
 } from "shared/util";
 import { GroupMap } from "shared/types/saved-group";
@@ -333,13 +334,16 @@ function applyNamespaceToRule(
 
   // MultiRange format: namespace definition has explicit format flag set to "multiRange"
   if (nsDefinition?.format === "multiRange") {
-    // Multi-range namespaces always use the hashAttribute from the definition
-    rule.hashAttribute =
-      nsDefinition.hashAttribute || rule.hashAttribute || "id";
-    rule.hashVersion = 2;
+    const hashAttribute = getNamespaceHashAttribute(
+      namespace,
+      nsDefinition.hashAttribute || rule.hashAttribute || "id",
+    );
+    rule.hashAttribute = hashAttribute;
+    rule.hashVersion =
+      ("hashVersion" in namespace ? namespace.hashVersion : 2) || 2;
     rule.filters = [
       {
-        attribute: rule.hashAttribute,
+        attribute: hashAttribute,
         seed: nsDefinition.seed || namespace.name,
         hashVersion: 2,
         ranges: getNamespaceRanges(namespace),

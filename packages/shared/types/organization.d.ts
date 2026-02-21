@@ -158,18 +158,26 @@ export interface MetricDefaults {
   targetMDE?: number;
 }
 
-export interface Namespaces {
+export type NamespaceFormat = NonNullable<Namespaces["format"]>;
+
+export interface NamespaceBase {
   name: string;
   label: string;
   description: string;
   status: "active" | "inactive";
-  // Hash attribute for namespace allocation (uses v2 hashing algorithm)
-  hashAttribute: string;
-  // Seed for hashing (UUIDv4)
-  seed: string;
-  // Flag to differentiate between namespace formats: legacy (single range) or multiRange (multiple ranges with own hashAttribute)
-  format?: "legacy" | "multiRange";
 }
+
+export interface LegacyNamespace extends NamespaceBase {
+  format?: "legacy";
+}
+
+export interface MultiRangeNamespace extends NamespaceBase {
+  format: "multiRange";
+  hashAttribute: string;
+  seed: string;
+}
+
+export type Namespaces = LegacyNamespace | MultiRangeNamespace;
 
 export type SDKAttributeFormat = "" | "version" | "date" | "isoCountryCode";
 

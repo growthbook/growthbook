@@ -11,9 +11,10 @@ type MultiRangeNamespaceValue = {
   ranges: [number, number][];
   hashAttribute?: string;
   hashVersion?: number;
+  format: "multiRange";
 };
 
-type NamespaceValue = LegacyNamespaceValue | MultiRangeNamespaceValue;
+export type NamespaceValue = LegacyNamespaceValue | MultiRangeNamespaceValue;
 
 /**
  * Check if a namespace is using the legacy format (single range)
