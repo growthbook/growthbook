@@ -1584,7 +1584,6 @@ describe("SDK Payloads", () => {
       defaultValue: true,
       rules: [
         {
-          id: "1",
           condition: {
             id: {
               $inGroup: "groupId",
@@ -1600,7 +1599,6 @@ describe("SDK Payloads", () => {
         features: { featureName: cloneDeep(featureDef) },
         experiments: [],
         dateUpdated: new Date(),
-        projects: [],
         capabilities: [],
         usedSavedGroups: [cloneDeep(groupDef)],
         organization: organization,
@@ -1631,7 +1629,6 @@ describe("SDK Payloads", () => {
         features: { featureName: cloneDeep(featureDef) },
         experiments: [],
         dateUpdated: new Date(),
-        projects: [],
         capabilities: ["savedGroupReferences"],
         savedGroupReferencesEnabled: true,
         usedSavedGroups: [cloneDeep(groupDef)],

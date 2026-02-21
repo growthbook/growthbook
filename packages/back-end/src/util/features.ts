@@ -334,6 +334,7 @@ export function getFeatureDefinition({
   organization,
   savedGroupsMap,
   includeRuleIds = true,
+  includeExperimentNames = false,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -351,6 +352,7 @@ export function getFeatureDefinition({
   organization?: OrganizationInterface;
   savedGroupsMap?: Record<string, SavedGroupInterface>;
   includeRuleIds?: boolean;
+  includeExperimentNames?: boolean;
 }): FeatureDefinition | null {
   const settings = feature.environmentSettings?.[environment];
 
@@ -520,12 +522,11 @@ export function getFeatureDefinition({
             });
             rule.weights = phase.variationWeights;
             rule.key = exp.trackingKey;
-            rule.meta = exp.variations.map((v) => ({
-              key: v.key,
-              name: v.name,
-            }));
+            rule.meta = includeExperimentNames
+              ? exp.variations.map((v) => ({ key: v.key, name: v.name }))
+              : exp.variations.map((v) => ({ key: v.key }));
             rule.phase = exp.phases.length - 1 + "";
-            rule.name = exp.name;
+            if (includeExperimentNames) rule.name = exp.name;
           }
           return rule;
         }
@@ -650,12 +651,15 @@ export function getFeatureDefinition({
             const varWeights = 0.5;
             rule.weights = [varWeights, varWeights];
             rule.key = r.trackingKey;
-            rule.meta = [
-              { key: "0", name: "Control" },
-              { key: "1", name: "Variation" },
-            ];
+            rule.meta = includeExperimentNames
+              ? [
+                  { key: "0", name: "Control" },
+                  { key: "1", name: "Variation" },
+                ]
+              : [{ key: "0" }, { key: "1" }];
             rule.phase = "0";
-            rule.name = `${feature.id} - Safe Rollout`;
+            if (includeExperimentNames)
+              rule.name = `${feature.id} - Safe Rollout`;
           }
         }
         return rule;
