@@ -73,6 +73,10 @@ export const EXPERIMENT_EVENTS: Record<string, ExperimentEventDef> = {
   "experiment.screenshot.delete": { label: "Screenshot removed" },
 };
 
+const EXPERIMENT_EVENT_LABELS: Record<string, string> = Object.fromEntries(
+  Object.entries(EXPERIMENT_EVENTS).map(([k, v]) => [k, v.label]),
+);
+
 const EXPERIMENT_DIFF_CONFIG: AuditDiffConfig<ExperimentInterfaceStringDates> =
   {
     entityType: "experiment",
@@ -232,9 +236,7 @@ export default function CompareExperimentEventsModal({
       entityId={experiment.id}
       entityName="Experiment"
       config={EXPERIMENT_DIFF_CONFIG}
-      eventLabels={Object.fromEntries(
-        Object.entries(EXPERIMENT_EVENTS).map(([k, v]) => [k, v.label]),
-      )}
+      eventLabels={EXPERIMENT_EVENT_LABELS}
       onClose={onClose}
     />
   );

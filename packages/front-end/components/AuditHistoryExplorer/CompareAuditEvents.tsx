@@ -197,10 +197,12 @@ export interface CompareAuditEventsProps<T> {
   eventLabels?: Record<string, string>;
 }
 
+const EMPTY_EVENT_LABELS: Record<string, string> = {};
+
 export default function CompareAuditEvents<T>({
   config,
   auditEntries,
-  eventLabels = {},
+  eventLabels = EMPTY_EVENT_LABELS,
 }: CompareAuditEventsProps<T>) {
   const { allAuditEvents } = auditEntries;
   const {

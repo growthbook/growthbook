@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AuditInterface,
   AuditUserApiKey,
@@ -461,9 +461,13 @@ export function useAuditEntries<T>(
     [rawEntries],
   );
 
-  const entries = coarsenEntries(rawEntries, groupBy);
-  const markers = [...rawMarkers].sort(
-    (a, b) => b.date.getTime() - a.date.getTime(),
+  const entries = useMemo(
+    () => coarsenEntries(rawEntries, groupBy),
+    [rawEntries, groupBy],
+  );
+  const markers = useMemo(
+    () => [...rawMarkers].sort((a, b) => b.date.getTime() - a.date.getTime()),
+    [rawMarkers],
   );
 
   return {

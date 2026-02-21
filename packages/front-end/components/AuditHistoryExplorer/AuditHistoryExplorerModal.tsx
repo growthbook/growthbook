@@ -262,11 +262,13 @@ export interface AuditHistoryExplorerModalProps<T> {
   onClose: () => void;
 }
 
+const EMPTY_EVENT_LABELS: Record<string, string> = {};
+
 export default function AuditHistoryExplorerModal<T>({
   entityId,
   entityName,
   config,
-  eventLabels = {},
+  eventLabels = EMPTY_EVENT_LABELS,
   onClose,
 }: AuditHistoryExplorerModalProps<T>) {
   const auditEntries = useAuditEntries<T>(config, entityId);
