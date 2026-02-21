@@ -345,7 +345,7 @@ export function getFeatureDefinition({
   safeRolloutMap: Map<string, SafeRolloutInterface>;
   holdoutsMap?: Map<
     string,
-    { holdout: HoldoutInterface; experiment: ExperimentInterface }
+    { holdout: HoldoutInterface; holdoutExperiment: ExperimentInterface }
   >;
   capabilities?: SDKCapability[];
   savedGroupReferencesEnabled?: boolean;

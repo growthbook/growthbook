@@ -6,9 +6,6 @@ import {
   getAllVisualExperiments,
   getAllURLRedirectExperiments,
 } from "back-end/src/models/ExperimentModel";
-// Main used SdkPayloadModel (getSDKPayload, updateSDKPayload); cache is now per-connection
-// via SdkConnectionCacheModel, so we only mock that below and use cache "none" for JIT.
-
 jest.mock("back-end/src/models/FeatureModel", () => ({
   getAllFeatures: jest.fn(),
 }));
@@ -20,7 +17,7 @@ jest.mock("back-end/src/models/ExperimentModel", () => ({
 }));
 
 jest.mock("back-end/src/models/SdkConnectionCacheModel", () => ({
-  getSDKPayloadCacheLocation: jest.fn().mockReturnValue("none"), // Skip cache, use JIT
+  getSDKPayloadCacheLocation: jest.fn().mockReturnValue("none"),
   SdkConnectionCacheModel: jest.fn(),
 }));
 
@@ -132,7 +129,7 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
                 },
               },
             },
-            experiment: {
+            holdoutExperiment: {
               id: "exp_holdout",
               name: "Holdout Experiment",
               phases: [
@@ -219,7 +216,7 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
                 },
               },
             },
-            experiment: {
+            holdoutExperiment: {
               id: "exp_holdout",
               name: "Holdout Experiment",
               phases: [
@@ -303,7 +300,7 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
                 },
               },
             },
-            experiment: {
+            holdoutExperiment: {
               id: "exp_holdout",
               name: "Holdout Experiment",
               phases: [
@@ -437,7 +434,7 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
                 },
               },
             },
-            experiment: {
+            holdoutExperiment: {
               id: "exp_holdout",
               name: "Holdout Experiment",
               phases: [

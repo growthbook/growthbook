@@ -123,7 +123,7 @@ export function generateFeaturesPayload({
   safeRolloutMap: Map<string, SafeRolloutInterface>;
   holdoutsMap: Map<
     string,
-    { holdout: HoldoutInterface; experiment: ExperimentInterface }
+    { holdout: HoldoutInterface; holdoutExperiment: ExperimentInterface }
   >;
   capabilities?: SDKCapability[];
   savedGroupReferencesEnabled?: boolean;
@@ -168,18 +168,18 @@ export function generateHoldoutsPayload({
 }: {
   holdoutsMap: Map<
     string,
-    { holdout: HoldoutInterface; experiment: ExperimentInterface }
+    { holdout: HoldoutInterface; holdoutExperiment: ExperimentInterface }
   >;
   projects?: string[];
 }): Record<string, FeatureDefinition> {
   const holdoutDefs: Record<string, FeatureDefinition> = {};
   holdoutsMap.forEach((holdoutWithExperiment) => {
-    const exp = holdoutWithExperiment.experiment;
+    const exp = holdoutWithExperiment.holdoutExperiment;
     const holdout = holdoutWithExperiment.holdout;
     if (!exp) return;
     if (
       projects.length > 0 &&
-      holdout.projects?.length &&
+      holdout.projects.length > 0 &&
       !holdout.projects.some((p) => projects.includes(p))
     ) {
       return;
@@ -609,7 +609,10 @@ async function refreshSDKPayloadCache({
 
   const holdoutsMapByEnv: Record<
     string,
-    Map<string, { holdout: HoldoutInterface; experiment: ExperimentInterface }>
+    Map<
+      string,
+      { holdout: HoldoutInterface; holdoutExperiment: ExperimentInterface }
+    >
   > = {};
   for (const environment of allEnvironmentsToUpdate) {
     holdoutsMapByEnv[environment] =
@@ -765,7 +768,6 @@ export async function getFeatureDefinitionsResponse({
     experiments = experiments?.filter((e) => e.status !== "draft") || [];
   }
 
-  // Holdout filtering/merge done in build step; here we just merge
   features = { ...features, ...holdouts };
 
   // Inline saved groups: expand $inGroup to $in so values can be hashed (when not using savedGroupReferences)
@@ -875,8 +877,8 @@ export type FeatureDefinitionArgs = {
   savedGroupReferencesEnabled?: boolean;
 };
 
-// Raw data for per-connection payload build (refresh = org-wide; JIT = env+project-filtered).
-// holdoutsMap is per-environment; when building shared data for refresh, use Omit<..., 'holdoutsMap'> and add holdoutsMap per connection.
+// Pre-fetched data needed to build one connection's SDK payload.
+// On bulk (cache) refresh, features/experimentMap/groupMap/safeRolloutMap/savedGroups are shared; holdoutsMap is per-environment and set per connection.
 export type SDKPayloadRawData = {
   features: FeatureInterface[];
   experimentMap: Map<string, ExperimentInterface>;
@@ -884,12 +886,12 @@ export type SDKPayloadRawData = {
   safeRolloutMap: Map<string, SafeRolloutInterface>;
   savedGroups: SavedGroupInterface[];
   holdoutsMap: Map<
-    string,
-    { holdout: HoldoutInterface; experiment: ExperimentInterface }
+    string, // holdout id
+    { holdout: HoldoutInterface; holdoutExperiment: ExperimentInterface }
   >;
 };
 
-/** Options for a single connection when building its SDK payload (env, projects, flags). */
+// Payload-relevant subset of SDK connection (plus derived capabilities)
 export type ConnectionPayloadOptions = {
   capabilities: SDKCapability[];
   environment: string;
@@ -904,7 +906,7 @@ export type ConnectionPayloadOptions = {
   savedGroupReferencesEnabled?: boolean;
 };
 
-/** Full input for building an SDK payload for one connection. */
+// Full input for building one connection's SDK payload
 export type SDKPayloadBuildInput = {
   context: ReqContext | ApiReqContext;
   connection: ConnectionPayloadOptions;
