@@ -6,6 +6,7 @@ primary_region = 'sjc'
   [build.args]
     PYPI_MIRROR_URL = 'https://mirrors.aliyun.com/pypi/simple/'
     UPGRADE_PIP = 'false'
+    NODE_OPTIONS = '--max-old-space-size=8192'
 
 [deploy]
   strategy = 'immediate'
