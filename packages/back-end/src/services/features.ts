@@ -112,7 +112,7 @@ export function generateFeaturesPayload({
   savedGroupReferencesEnabled,
   organization,
   savedGroupsMap,
-  includeRuleIds = true,
+  includeRuleIds = false,
   includeExperimentNames = false,
 }: {
   features: FeatureInterface[];
@@ -758,6 +758,7 @@ export type FeatureDefinitionsResponseArgs = {
   includeExperiments?: boolean;
   attributes?: SDKAttributeSchema;
   secureAttributeSalt?: string;
+  projects?: string[];
   capabilities: SDKCapability[];
   usedSavedGroups: SavedGroupInterface[];
   savedGroupReferencesEnabled?: boolean;
@@ -1037,7 +1038,7 @@ export async function buildSDKPayloadForConnection(
     organization: context.org,
     savedGroupsMap,
     includeRuleIds,
-    includeExperimentNames,
+    includeExperimentNames: connection.includeExperimentNames ?? false,
   });
 
   const holdoutFeatureDefinitions = generateHoldoutsPayload({

@@ -333,7 +333,7 @@ export function getFeatureDefinition({
   savedGroupReferencesEnabled,
   organization,
   savedGroupsMap,
-  includeRuleIds = true,
+  includeRuleIds = false,
   includeExperimentNames = false,
 }: {
   feature: FeatureInterface;
@@ -422,8 +422,8 @@ export function getFeatureDefinition({
       })
       ?.map((r) => {
         const rule: FeatureDefinitionRule = {
-          id: r.id,
-        };
+          ...(includeRuleIds && r.id != null ? { id: r.id } : {}),
+        } as FeatureDefinitionRule;
 
         // Experiment reference rules inherit everything from the experiment
         if (r.type === "experiment-ref") {
@@ -718,12 +718,6 @@ export function getFeatureDefinition({
         ) as FeatureDefinition["rules"];
       }
     }
-  }
-
-  if (includeRuleIds === false && def.rules) {
-    def.rules.forEach((rule) => {
-      delete rule.id;
-    });
   }
 
   return def;
