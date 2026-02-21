@@ -3,6 +3,7 @@ import {
   ExperimentTargetingData,
 } from "shared/types/experiment";
 import clsx from "clsx";
+import { calculateNamespaceCoverage, getNamespaceRanges } from "shared/util";
 import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
@@ -51,36 +52,20 @@ export default function TargetingInfo({
   const phase = experiment.phases[phaseIndex ?? experiment.phases.length - 1];
   const hasNamespace = phase?.namespace && phase.namespace.enabled;
 
-  // Calculate total namespace allocation - support both old (single range) and new (multiple ranges) formats
-  const namespaceRange = hasNamespace
-    ? (() => {
-        const ns = phase.namespace!;
-        if ("ranges" in ns && ns.ranges && ns.ranges.length > 0) {
-          return ns.ranges.reduce(
-            (sum, [start, end]) => sum + (end - start),
-            0,
-          );
-        } else if ("range" in ns && ns.range) {
-          return ns.range[1] - ns.range[0];
-        }
-        return 1;
-      })()
-    : 1;
-
-  const namespaceRanges: [number, number] = hasNamespace
-    ? (() => {
-        const ns = phase.namespace!;
-        if ("ranges" in ns && ns.ranges && ns.ranges.length > 0) {
-          // For display purposes, show the min and max across all ranges
-          const allStarts = ns.ranges.map((r) => r[0]);
-          const allEnds = ns.ranges.map((r) => r[1]);
-          return [Math.max(...allEnds) || 0, Math.min(...allStarts) || 0];
-        } else if ("range" in ns && ns.range) {
-          return [ns.range[1] || 0, ns.range[0] || 0];
-        }
-        return [0, 1];
-      })()
-    : [0, 1];
+  // Calculate total namespace allocation
+  const namespaceRange =
+    hasNamespace && phase.namespace
+      ? calculateNamespaceCoverage(phase.namespace)
+      : 1;
+  const nsRangesArr =
+    hasNamespace && phase.namespace ? getNamespaceRanges(phase.namespace) : [];
+  const namespaceRanges: [number, number] =
+    nsRangesArr.length > 0
+      ? [
+          Math.min(...nsRangesArr.map((r) => r[0])),
+          Math.max(...nsRangesArr.map((r) => r[1])),
+        ]
+      : [0, 0];
 
   const namespaceName = hasNamespace
     ? namespaces?.find((n) => n.name === phase.namespace!.name)?.label ||
@@ -116,34 +101,21 @@ export default function TargetingInfo({
   );
 
   const changesHasNamespace = changes?.namespace && changes.namespace.enabled;
-  const changesNamespaceRange = changes?.namespace
-    ? (() => {
-        const ns = changes.namespace;
-        if ("ranges" in ns && ns.ranges && ns.ranges.length > 0) {
-          return ns.ranges.reduce(
-            (sum, [start, end]) => sum + (end - start),
-            0,
-          );
-        } else if ("range" in ns && ns.range) {
-          return ns.range[1] - ns.range[0];
-        }
-        return 1;
-      })()
-    : 1;
-
-  const changesNamespaceRanges: [number, number] = changes?.namespace
-    ? (() => {
-        const ns = changes.namespace;
-        if ("ranges" in ns && ns.ranges && ns.ranges.length > 0) {
-          const allStarts = ns.ranges.map((r) => r[0]);
-          const allEnds = ns.ranges.map((r) => r[1]);
-          return [Math.max(...allEnds) || 0, Math.min(...allStarts) || 0];
-        } else if ("range" in ns && ns.range) {
-          return [ns.range[1] || 0, ns.range[0] || 0];
-        }
-        return [0, 1];
-      })()
-    : [0, 1];
+  const changesNamespaceRange =
+    changes?.namespace && changes.namespace.enabled
+      ? calculateNamespaceCoverage(changes.namespace)
+      : 1;
+  const changesNsRangesArr =
+    changes?.namespace && changes.namespace.enabled
+      ? getNamespaceRanges(changes.namespace)
+      : [];
+  const changesNamespaceRanges: [number, number] =
+    changesNsRangesArr.length > 0
+      ? [
+          Math.min(...changesNsRangesArr.map((r) => r[0])),
+          Math.max(...changesNsRangesArr.map((r) => r[1])),
+        ]
+      : [0, 0];
 
   const changesNamespaceName = changesHasNamespace
     ? namespaces?.find((n) => n.name === changes.namespace!.name)?.label ||

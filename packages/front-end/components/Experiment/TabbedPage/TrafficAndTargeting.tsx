@@ -1,6 +1,7 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import React from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
+import { calculateNamespaceCoverage } from "shared/util";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import { formatTrafficSplit } from "@/services/utils";
@@ -30,23 +31,11 @@ export default function TrafficAndTargeting({
   const phase = experiment.phases?.[phaseIndex ?? experiment.phases.length - 1];
   const hasNamespace = phase?.namespace && phase.namespace.enabled;
 
-  // Calculate total namespace allocation - support both old (single range) and new (multiple ranges) formats
-  const namespaceRange = hasNamespace
-    ? (() => {
-        const ns = phase.namespace!;
-        if ("ranges" in ns && ns.ranges && ns.ranges.length > 0) {
-          // New format: sum all ranges
-          return ns.ranges.reduce(
-            (sum, [start, end]) => sum + (end - start),
-            0,
-          );
-        } else if ("range" in ns && ns.range) {
-          // Old format: single range
-          return ns.range[1] - ns.range[0];
-        }
-        return 1;
-      })()
-    : 1;
+  // Calculate total namespace allocation
+  const namespaceRange =
+    hasNamespace && phase.namespace
+      ? calculateNamespaceCoverage(phase.namespace)
+      : 1;
 
   const namespaceName = hasNamespace
     ? namespaces?.find((n) => n.name === phase.namespace!.name)?.label ||

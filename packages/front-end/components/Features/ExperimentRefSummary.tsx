@@ -2,7 +2,10 @@ import { ExperimentRefRule, FeatureInterface } from "shared/types/feature";
 import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import React from "react";
-import { includeExperimentInPayload } from "shared/util";
+import {
+  includeExperimentInPayload,
+  calculateNamespaceCoverage,
+} from "shared/util";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { getVariationColor } from "@/services/features";
@@ -98,21 +101,11 @@ export default function ExperimentRefSummary({
   }
 
   const hasNamespace = phase.namespace && phase.namespace.enabled;
-  // Calculate total namespace allocation - support both old (single range) and new (multiple ranges) formats
-  const namespaceRange = hasNamespace
-    ? (() => {
-        const ns = phase.namespace!;
-        if ("ranges" in ns && ns.ranges && ns.ranges.length > 0) {
-          return ns.ranges.reduce(
-            (sum, [start, end]) => sum + (end - start),
-            0,
-          );
-        } else if ("range" in ns && ns.range) {
-          return ns.range[1] - ns.range[0];
-        }
-        return 1;
-      })()
-    : 1;
+  // Calculate total namespace allocation
+  const namespaceRange =
+    hasNamespace && phase.namespace
+      ? calculateNamespaceCoverage(phase.namespace)
+      : 1;
   const effectiveCoverage = namespaceRange * (phase.coverage ?? 1);
 
   const hasCondition =

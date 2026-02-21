@@ -30,6 +30,7 @@ export * from "./saved-groups";
 export * from "./metric-time-series";
 export * from "./types";
 export * from "./errors";
+export * from "./namespaces";
 
 export const DEFAULT_ENVIRONMENT_IDS = ["production", "dev", "staging", "test"];
 
