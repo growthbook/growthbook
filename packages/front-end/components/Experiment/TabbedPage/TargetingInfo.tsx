@@ -3,6 +3,7 @@ import {
   ExperimentTargetingData,
 } from "shared/types/experiment";
 import clsx from "clsx";
+import { calculateNamespaceCoverage, getNamespaceRanges } from "shared/util";
 import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
@@ -50,12 +51,22 @@ export default function TargetingInfo({
 
   const phase = experiment.phases[phaseIndex ?? experiment.phases.length - 1];
   const hasNamespace = phase?.namespace && phase.namespace.enabled;
-  const namespaceRange = hasNamespace
-    ? phase.namespace!.range[1] - phase.namespace!.range[0]
-    : 1;
-  const namespaceRanges: [number, number] = hasNamespace
-    ? [phase.namespace!.range[1] || 0, phase.namespace!.range[0] || 0]
-    : [0, 1];
+
+  // Calculate total namespace allocation
+  const namespaceRange =
+    hasNamespace && phase.namespace
+      ? calculateNamespaceCoverage(phase.namespace)
+      : 1;
+  const nsRangesArr =
+    hasNamespace && phase.namespace ? getNamespaceRanges(phase.namespace) : [];
+  const namespaceRanges: [number, number] =
+    nsRangesArr.length > 0
+      ? [
+          Math.min(...nsRangesArr.map((r) => r[0])),
+          Math.max(...nsRangesArr.map((r) => r[1])),
+        ]
+      : [0, 0];
+
   const namespaceName = hasNamespace
     ? namespaces?.find((n) => n.name === phase.namespace!.name)?.label ||
       phase.namespace!.name
@@ -90,12 +101,22 @@ export default function TargetingInfo({
   );
 
   const changesHasNamespace = changes?.namespace && changes.namespace.enabled;
-  const changesNamespaceRange = changes?.namespace
-    ? changes.namespace.range[1] - changes.namespace.range[0]
-    : 1;
-  const changesNamespaceRanges: [number, number] = changes?.namespace
-    ? [changes.namespace.range[1] || 0, changes.namespace.range[0] || 0]
-    : [0, 1];
+  const changesNamespaceRange =
+    changes?.namespace && changes.namespace.enabled
+      ? calculateNamespaceCoverage(changes.namespace)
+      : 1;
+  const changesNsRangesArr =
+    changes?.namespace && changes.namespace.enabled
+      ? getNamespaceRanges(changes.namespace)
+      : [];
+  const changesNamespaceRanges: [number, number] =
+    changesNsRangesArr.length > 0
+      ? [
+          Math.min(...changesNsRangesArr.map((r) => r[0])),
+          Math.max(...changesNsRangesArr.map((r) => r[1])),
+        ]
+      : [0, 0];
+
   const changesNamespaceName = changesHasNamespace
     ? namespaces?.find((n) => n.name === changes.namespace!.name)?.label ||
       changes.namespace!.name
@@ -294,7 +315,7 @@ export default function TargetingInfo({
               <div className={clsx("mb-3", horizontalView && "mr-4")}>
                 <div className="mb-1">
                   <strong>Namespace targeting</strong>{" "}
-                  <Tooltip body="Use namespaces to run mutually exclusive experiments. Manage namespaces under SDK Configuration → Namespaces">
+                  <Tooltip body="Use namespaces to run mutually exclusive experiments. Manage namespaces under Experimentation → Namespaces">
                     <GBInfo />
                   </Tooltip>
                 </div>
