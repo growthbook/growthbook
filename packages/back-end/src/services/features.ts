@@ -72,6 +72,7 @@ import {
 import {
   Environment,
   OrganizationInterface,
+  Namespaces,
   SDKAttribute,
   SDKAttributeSchema,
 } from "shared/types/organization";
@@ -362,18 +363,13 @@ export function generateAutoExperimentsPayload({
 
           if ("ranges" in ns && ns.ranges) {
             ranges = ns.ranges;
-          } else if ("range" in ns) {
-            ranges = [ns.range];
           } else {
-            ranges = [[0, 1]];
+            ranges = [[0, 0]];
           }
 
           exp.filters = [
             {
-              attribute:
-                "hashAttribute" in ns && ns.hashAttribute
-                  ? ns.hashAttribute
-                  : nsDefinition.hashAttribute!,
+              attribute: nsDefinition.hashAttribute || "id",
               seed: nsDefinition.seed || ns.name,
               hashVersion: 2,
               ranges,
@@ -384,12 +380,10 @@ export function generateAutoExperimentsPayload({
           const ns = phase.namespace;
           let range: [number, number];
 
-          if ("ranges" in ns && ns.ranges && ns.ranges.length > 0) {
-            range = ns.ranges[0];
-          } else if ("range" in ns) {
+          if ("range" in ns && ns.range) {
             range = ns.range;
           } else {
-            range = [0, 1];
+            range = [0, 0];
           }
 
           exp.namespace = [ns.name, range[0], range[1]];
@@ -413,12 +407,7 @@ export function generateAutoExperimentsPayload({
  * Convert namespaces array to Map for efficient lookups
  */
 function namespacesToMap(
-  namespaces?: {
-    name: string;
-    hashAttribute?: string;
-    seed?: string;
-    format?: "legacy" | "multiRange";
-  }[],
+  namespaces?: Namespaces[],
 ): Map<
   string,
   { hashAttribute?: string; seed?: string; format?: "legacy" | "multiRange" }
@@ -427,7 +416,12 @@ function namespacesToMap(
   return new Map(
     namespaces.map((ns) => [
       ns.name,
-      { hashAttribute: ns.hashAttribute, seed: ns.seed, format: ns.format },
+      {
+        // For legacy, hashAttribute and seed might be missing but we try to preserve them if available
+        hashAttribute: (ns as any).hashAttribute || "id",
+        seed: (ns as any).seed || ns.name,
+        format: ns.format,
+      },
     ]),
   );
 }

@@ -1570,7 +1570,7 @@ export async function toExperimentApiInterface(
                 ? p.namespace.range
                 : "ranges" in p.namespace && p.namespace.ranges?.length
                   ? p.namespace.ranges[0]
-                  : [0, 1],
+                  : [0, 0],
           }
         : undefined,
     })),
