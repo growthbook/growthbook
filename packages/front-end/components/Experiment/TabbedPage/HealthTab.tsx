@@ -2,8 +2,10 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
+import { tabulateCovariateImbalance } from "shared/enterprise";
 import { Flex } from "@radix-ui/themes";
 import SRMCard from "@/components/HealthTab/SRMCard";
+import CovariateImbalanceCard from "@/components/HealthTab/CovariateImbalanceCard";
 import MultipleExposuresCard from "@/components/HealthTab/MultipleExposuresCard";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -46,6 +48,30 @@ export default function HealthTab({
     mutateSnapshot,
     setAnalysisSettings,
   } = useSnapshot();
+
+  const goalMetrics = experiment.goalMetrics ?? [];
+  const guardrailMetrics = experiment.guardrailMetrics ?? [];
+  const secondaryMetrics = experiment.secondaryMetrics ?? [];
+
+  const analysisForCovariateImbalance = snapshot?.analyses.find(
+    (a) => a.settings.useCovariateAsResponse === true,
+  );
+
+  const isEligibleForCovariateImbalanceAnalysis =
+    Boolean(analysisForCovariateImbalance) &&
+    (goalMetrics.length > 0 ||
+      guardrailMetrics.length > 0 ||
+      secondaryMetrics.length > 0);
+
+  const _covariateImbalanceResult =
+    isEligibleForCovariateImbalanceAnalysis && analysisForCovariateImbalance
+      ? tabulateCovariateImbalance(
+          analysisForCovariateImbalance,
+          goalMetrics,
+          guardrailMetrics,
+          secondaryMetrics,
+        )
+      : null;
   const { runHealthTrafficQuery, decisionFrameworkEnabled } = useOrgSettings();
   const { refreshOrganization } = useUser();
   const permissionsUtil = usePermissionsUtil();
@@ -260,7 +286,10 @@ export default function HealthTab({
 
   return (
     <div className="mt-2">
-      <IssueTags issues={healthIssues} />
+      <IssueTags
+        issues={healthIssues}
+        hasCovariateImbalance={_covariateImbalanceResult?.isImbalanced ?? false}
+      />
       <TrafficCard
         traffic={traffic}
         variations={variations}
@@ -287,7 +316,28 @@ export default function HealthTab({
           />
         )}
       </div>
-
+      <div id="covariateBalanceCheck" style={{ scrollMarginTop: "100px" }}>
+        {!isBandit ? (
+          <CovariateImbalanceCard
+            covariateImbalanceResult={_covariateImbalanceResult}
+            traffic={traffic}
+            variations={variations}
+            totalUsers={totalUsers}
+            onNotify={handleHealthNotification}
+            dataSource={datasource}
+            exposureQuery={exposureQuery}
+            healthTabConfigParams={healthTabConfigParams}
+            canConfigHealthTab={hasPermissionToConfigHealthTag}
+          />
+        ) : (
+          <BanditSRMCard
+            experiment={experiment}
+            snapshot={snapshot}
+            phase={phaseObj}
+            onNotify={handleHealthNotification}
+          />
+        )}
+      </div>
       <div className="row">
         <div
           className={!isBandit ? "col-8" : "col-12"}
