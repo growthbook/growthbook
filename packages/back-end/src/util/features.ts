@@ -9,12 +9,18 @@ import {
   isDefined,
   recursiveWalk,
 } from "shared/util";
-import { GroupMap } from "shared/types/saved-group";
-import { cloneDeep, isNil } from "lodash";
+import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
+import { cloneDeep, isNil, pick } from "lodash";
 import md5 from "md5";
-import { FeatureDefinitionWithProject } from "shared/types/sdk";
+import { FeatureDefinition } from "shared/types/sdk";
 import { HoldoutInterface } from "shared/validators";
-import { expandNestedSavedGroups } from "shared/sdk-versioning";
+import {
+  expandNestedSavedGroups,
+  getPayloadAllowedKeys,
+  replaceSavedGroups,
+  SDKCapability,
+} from "shared/sdk-versioning";
+import { OrganizationInterface, Environment } from "shared/types/organization";
 import {
   FeatureInterface,
   FeatureRule,
@@ -23,7 +29,6 @@ import {
 } from "shared/types/feature";
 import { ExperimentInterface } from "shared/types/experiment";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { Environment } from "shared/types/organization";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { getCurrentEnabledState } from "./scheduleRules";
@@ -324,6 +329,11 @@ export function getFeatureDefinition({
   date,
   safeRolloutMap,
   holdoutsMap,
+  capabilities,
+  savedGroupReferencesEnabled,
+  organization,
+  savedGroupsMap,
+  includeRuleIds = true,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -336,7 +346,12 @@ export function getFeatureDefinition({
     string,
     { holdout: HoldoutInterface; experiment: ExperimentInterface }
   >;
-}): FeatureDefinitionWithProject | null {
+  capabilities?: SDKCapability[];
+  savedGroupReferencesEnabled?: boolean;
+  organization?: OrganizationInterface;
+  savedGroupsMap?: Record<string, SavedGroupInterface>;
+  includeRuleIds?: boolean;
+}): FeatureDefinition | null {
   const settings = feature.environmentSettings?.[environment];
 
   // Don't include features which are disabled for this environment
@@ -648,13 +663,63 @@ export function getFeatureDefinition({
       ?.filter(isRule) ?? []),
   ];
 
-  const def: FeatureDefinitionWithProject = {
+  let def: FeatureDefinition = {
     defaultValue: getJSONValue(feature.valueType, defaultValue),
-    project: feature.project,
     rules: defRules,
   };
   if (def.rules && !def.rules.length) {
     delete def.rules;
+  }
+
+  if (capabilities?.length) {
+    const hasPrerequisites = capabilities.includes("prerequisites");
+    if (!hasPrerequisites && def.rules) {
+      if (
+        def.rules.some((rule) =>
+          rule?.parentConditions?.some((pc) => !!pc.gate),
+        )
+      ) {
+        return null;
+      }
+      def.rules = def.rules.filter(
+        (rule) => (rule.parentConditions?.length ?? 0) === 0,
+      );
+      if (!def.rules.length) delete def.rules;
+    }
+
+    if (
+      savedGroupsMap &&
+      (savedGroupReferencesEnabled === false ||
+        !capabilities.includes("savedGroupReferences"))
+    ) {
+      def.rules?.forEach((rule) => {
+        recursiveWalk(
+          rule.condition,
+          replaceSavedGroups(savedGroupsMap, organization!),
+        );
+        recursiveWalk(
+          rule.parentConditions,
+          replaceSavedGroups(savedGroupsMap, organization!),
+        );
+      });
+    }
+
+    if (!capabilities.includes("looseUnmarshalling")) {
+      const { featureKeys, featureRuleKeys } =
+        getPayloadAllowedKeys(capabilities);
+      def = pick(def, featureKeys) as FeatureDefinition;
+      if (def.rules) {
+        def.rules = def.rules.map((rule) =>
+          pick(rule, featureRuleKeys),
+        ) as FeatureDefinition["rules"];
+      }
+    }
+  }
+
+  if (includeRuleIds === false && def.rules) {
+    def.rules.forEach((rule) => {
+      delete rule.id;
+    });
   }
 
   return def;

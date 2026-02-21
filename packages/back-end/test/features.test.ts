@@ -1,6 +1,6 @@
 import cloneDeep from "lodash/cloneDeep";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
-import { FeatureDefinitionWithProject } from "shared/types/sdk";
+import { FeatureDefinition } from "shared/types/sdk";
 import { FeatureInterface, ScheduleRule } from "shared/types/feature";
 import {
   OrganizationInterface,
@@ -1319,7 +1319,6 @@ describe("SDK Payloads", () => {
       }),
     ).toEqual({
       defaultValue: true,
-      project: undefined,
       rules: [
         {
           id: "abc",
@@ -1581,7 +1580,7 @@ describe("SDK Payloads", () => {
       dateCreated: new Date(),
       dateUpdated: new Date(),
     };
-    const featureDef: FeatureDefinitionWithProject = {
+    const featureDef: FeatureDefinition = {
       defaultValue: true,
       rules: [
         {

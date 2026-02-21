@@ -6,10 +6,8 @@ import {
   getAllVisualExperiments,
   getAllURLRedirectExperiments,
 } from "back-end/src/models/ExperimentModel";
-import {
-  getSDKPayload,
-  updateSDKPayload,
-} from "back-end/src/models/SdkPayloadModel";
+// Main used SdkPayloadModel (getSDKPayload, updateSDKPayload); cache is now per-connection
+// via SdkConnectionCacheModel, so we only mock that below and use cache "none" for JIT.
 
 jest.mock("back-end/src/models/FeatureModel", () => ({
   getAllFeatures: jest.fn(),
@@ -19,12 +17,6 @@ jest.mock("back-end/src/models/ExperimentModel", () => ({
   getAllPayloadExperiments: jest.fn(),
   getAllVisualExperiments: jest.fn(),
   getAllURLRedirectExperiments: jest.fn(),
-}));
-
-jest.mock("back-end/src/models/SdkPayloadModel", () => ({
-  getSDKPayload: jest.fn(),
-  updateSDKPayload: jest.fn(),
-  getSDKPayloadCacheLocation: jest.fn().mockReturnValue("mongo"),
 }));
 
 jest.mock("back-end/src/models/SdkConnectionCacheModel", () => ({
@@ -88,8 +80,6 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
   beforeEach(() => {
     jest.clearAllMocks();
 
-    (getSDKPayload as jest.Mock).mockResolvedValue(null);
-    (updateSDKPayload as jest.Mock).mockResolvedValue(undefined);
     (getAllPayloadExperiments as jest.Mock).mockResolvedValue(new Map());
     (getAllVisualExperiments as jest.Mock).mockResolvedValue([]);
     (getAllURLRedirectExperiments as jest.Mock).mockResolvedValue([]);
