@@ -13,7 +13,7 @@ type NamespaceFormValue = {
   hashAttribute: string;
 };
 
-export default function NamespaceModal({
+function MultiRangeNamespaceModal({
   close,
   onSuccess,
   existing,
@@ -35,7 +35,9 @@ export default function NamespaceModal({
       description: existingNamespace?.description || "",
       status: existingNamespace?.status || "active",
       hashAttribute:
-        existingNamespace?.hashAttribute ||
+        (existingNamespace?.format === "multiRange"
+          ? existingNamespace.hashAttribute
+          : "") ||
         attributes.find((a) => a.hashAttribute)?.property ||
         "id",
     },
@@ -63,6 +65,7 @@ export default function NamespaceModal({
           description: value.description,
           status: value.status,
           hashAttribute: value.hashAttribute,
+          format: "multiRange",
         };
 
         if (existing) {
@@ -101,4 +104,87 @@ export default function NamespaceModal({
       />
     </Modal>
   );
+}
+
+function LegacyNamespaceModal({
+  close,
+  onSuccess,
+  existing,
+}: {
+  close: () => void;
+  onSuccess: () => Promise<void> | void;
+  existing: {
+    namespace: Namespaces;
+    experiments: number;
+  };
+}) {
+  const existingNamespace = existing.namespace;
+
+  const form = useForm<Omit<NamespaceFormValue, "hashAttribute">>({
+    defaultValues: {
+      label: existingNamespace.label || existingNamespace.name || "",
+      description: existingNamespace.description || "",
+      status: existingNamespace.status || "active",
+    },
+  });
+  const { apiCall } = useAuth();
+
+  return (
+    <Modal
+      trackingEventModalType=""
+      open={true}
+      close={close}
+      size="md"
+      cta="Update"
+      header="Edit Legacy Namespace"
+      submit={form.handleSubmit(async (value) => {
+        const body = {
+          ...value,
+          format: "legacy",
+        };
+
+        await apiCall(
+          `/organization/namespaces/${encodeURIComponent(
+            existingNamespace.name,
+          )}`,
+          {
+            method: "PUT",
+            body: JSON.stringify(body),
+          },
+        );
+        await onSuccess();
+      })}
+    >
+      <div className="alert alert-info">
+        This is a legacy namespace. To use the new multi-range features, create
+        a new namespace.
+      </div>
+      <Field label="Name" maxLength={60} required {...form.register("label")} />
+      <Field label="Description" textarea {...form.register("description")} />
+    </Modal>
+  );
+}
+
+export default function NamespaceModal(props: {
+  close: () => void;
+  onSuccess: () => Promise<void> | void;
+  existing: {
+    namespace: Namespaces;
+    experiments: number;
+  } | null;
+}) {
+  const existingNamespace = props.existing?.namespace;
+
+  if (existingNamespace && existingNamespace.format !== "multiRange") {
+    return (
+      <LegacyNamespaceModal
+        {...props}
+        existing={
+          props.existing as { namespace: Namespaces; experiments: number }
+        }
+      />
+    );
+  }
+
+  return <MultiRangeNamespaceModal {...props} />;
 }
