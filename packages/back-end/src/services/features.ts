@@ -162,6 +162,33 @@ export function generateFeaturesPayload({
   return defs;
 }
 
+function filterHoldoutsMapByProjects(
+  holdoutsMap: Map<
+    string,
+    { holdout: HoldoutInterface; holdoutExperiment: ExperimentInterface }
+  >,
+  projects: string[],
+): Map<
+  string,
+  { holdout: HoldoutInterface; holdoutExperiment: ExperimentInterface }
+> {
+  if (projects.length === 0) return holdoutsMap;
+  const filtered = new Map<
+    string,
+    { holdout: HoldoutInterface; holdoutExperiment: ExperimentInterface }
+  >();
+  holdoutsMap.forEach((value, id) => {
+    const { holdout } = value;
+    if (
+      holdout.projects.length === 0 ||
+      holdout.projects.some((p) => projects.includes(p))
+    ) {
+      filtered.set(id, value);
+    }
+  });
+  return filtered;
+}
+
 export function generateHoldoutsPayload({
   holdoutsMap,
   projects = [],
@@ -913,42 +940,21 @@ export type SDKPayloadBuildInput = {
   data: SDKPayloadRawData;
 };
 
-// Drop unreferenced holdouts; prune feature rules that reference missing holdouts
-function filterHoldoutsForConnection({
-  holdouts,
-  features,
-}: {
-  holdouts: Record<string, FeatureDefinition>;
-  features: Record<string, FeatureDefinition>;
-}): {
-  holdouts: Record<string, FeatureDefinition>;
-  features: Record<string, FeatureDefinition>;
-} {
-  const holdoutIds = new Set(Object.keys(holdouts));
-  const holdoutReferences = new Set<string>();
-
+// Keep only holdout defs that are referenced by at least one feature rule.
+function pruneUnreferencedHoldouts(
+  holdouts: Record<string, FeatureDefinition>,
+  features: Record<string, FeatureDefinition>,
+): Record<string, FeatureDefinition> {
+  const referenced = new Set<string>();
   for (const k in features) {
-    if (features[k]?.rules) {
-      features[k].rules = features[k].rules?.filter((rule) => {
-        // Holdout rules: rule.id "holdout_*" or parentConditions[0].id "$holdout:*" (when rule.id was stripped)
-        const pcId = rule.parentConditions?.[0]?.id;
-        const isHoldoutRule =
-          (rule.id?.startsWith("holdout_") && pcId) ||
-          pcId?.startsWith("$holdout:");
-        if (!isHoldoutRule) return true;
-        const holdoutId = pcId?.startsWith("$holdout:") ? pcId : null;
-        if (!holdoutId || !holdoutIds.has(holdoutId)) return false;
-        holdoutReferences.add(holdoutId);
-        return true;
-      });
+    for (const rule of features[k]?.rules ?? []) {
+      const pcId = rule.parentConditions?.[0]?.id;
+      if (pcId?.startsWith("$holdout:")) referenced.add(pcId);
     }
   }
-
-  holdouts = Object.fromEntries(
-    Object.entries(holdouts).filter(([key]) => holdoutReferences.has(key)),
+  return Object.fromEntries(
+    Object.entries(holdouts).filter(([key]) => referenced.has(key)),
   );
-
-  return { holdouts, features };
 }
 
 export async function buildSDKPayloadForConnection(
@@ -1013,6 +1019,11 @@ export async function buildSDKPayloadForConnection(
     data.savedGroups.map((sg) => [sg.id, sg]),
   );
 
+  const holdoutsMapForConnection = filterHoldoutsMapByProjects(
+    data.holdoutsMap,
+    projectList,
+  );
+
   const featureDefinitions = generateFeaturesPayload({
     features: filteredFeatures,
     environment,
@@ -1020,7 +1031,7 @@ export async function buildSDKPayloadForConnection(
     experimentMap: filteredExperimentMap,
     prereqStateCache,
     safeRolloutMap: data.safeRolloutMap,
-    holdoutsMap: data.holdoutsMap,
+    holdoutsMap: holdoutsMapForConnection,
     capabilities,
     savedGroupReferencesEnabled: savedGroupRefsEnabled,
     organization: context.org,
@@ -1030,7 +1041,7 @@ export async function buildSDKPayloadForConnection(
   });
 
   const holdoutFeatureDefinitions = generateHoldoutsPayload({
-    holdoutsMap: data.holdoutsMap,
+    holdoutsMap: holdoutsMapForConnection,
     projects: projectList,
   });
 
@@ -1062,14 +1073,13 @@ export async function buildSDKPayloadForConnection(
     (sg) => sg.id in savedGroupsInUse,
   );
 
-  const { holdouts: filteredHoldouts, features: featuresWithHoldoutRules } =
-    filterHoldoutsForConnection({
-      holdouts: holdoutFeatureDefinitions,
-      features: featureDefinitions,
-    });
+  const holdoutsInUse = pruneUnreferencedHoldouts(
+    holdoutFeatureDefinitions,
+    featureDefinitions,
+  );
   const featuresWithHoldouts = {
-    ...featuresWithHoldoutRules,
-    ...filteredHoldouts,
+    ...featureDefinitions,
+    ...holdoutsInUse,
   };
 
   let attributes: SDKAttributeSchema | undefined = undefined;
