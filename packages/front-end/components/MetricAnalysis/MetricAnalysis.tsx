@@ -6,6 +6,7 @@ import {
   FaQuestionCircle,
 } from "react-icons/fa";
 import clsx from "clsx";
+import { isEqual } from "lodash";
 import { isBinomialMetric } from "shared/experiments";
 import {
   CreateMetricAnalysisProps,
@@ -13,10 +14,10 @@ import {
   MetricAnalysisPopulationType,
   MetricAnalysisResult,
   MetricAnalysisSettings,
-} from "back-end/types/metric-analysis";
-import { FactMetricInterface } from "back-end/types/fact-table";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+} from "shared/types/metric-analysis";
+import { FactMetricInterface } from "shared/types/fact-table";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import RunQueriesButton, {
   getQueryStatus,
 } from "@/components/Queries/RunQueriesButton";
@@ -156,10 +157,11 @@ function settingsMatch(
 ) {
   // skip strict date checking
   const fieldsThatCanDiffer = ["startDate", "endDate"];
-  return Object.entries(settings).every(
-    ([key, value]) =>
-      desiredSettings[key] === value || fieldsThatCanDiffer.includes(key),
-  );
+  return Object.entries(settings).every(([key, value]) => {
+    return (
+      fieldsThatCanDiffer.includes(key) || isEqual(value, desiredSettings[key])
+    );
+  });
 }
 
 function isOutdated(
@@ -190,6 +192,8 @@ function getAnalysisSettingsForm(
     lookbackDays: settings?.lookbackDays ?? 30,
     populationType: settings?.populationType ?? "factTable",
     populationId: settings?.populationId ?? null,
+    additionalNumeratorFilters: settings?.additionalNumeratorFilters,
+    additionalDenominatorFilters: settings?.additionalDenominatorFilters,
   };
 }
 
@@ -201,6 +205,8 @@ export type MetricAnalysisFormFields = {
 
   populationType: MetricAnalysisPopulationType;
   populationId: string | null;
+  additionalNumeratorFilters?: string[];
+  additionalDenominatorFilters?: string[];
 };
 
 interface MetricAnalysisProps {
@@ -316,6 +322,11 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
         {factMetric.metricType === "quantile" ? (
           <Callout status="warning" mt="2" mb="2">
             Standalone metric analysis not available for quantile metrics.
+          </Callout>
+        ) : factMetric.metricType === "dailyParticipation" ? (
+          <Callout status="warning" mt="2" mb="2">
+            Standalone metric analysis not yet available for daily participation
+            metrics.
           </Callout>
         ) : (
           <>

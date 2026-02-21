@@ -4,16 +4,16 @@ on:
     branches: [main]
     paths:
       - "packages/**"
-      - "yarn.lock"
-      - ".eslintrc"
-      - ".eslintignore"
+      - "pnpm-lock.yaml"
+      - "eslint.config.mjs"
+      - "eslint-suppressions.json"
       - ".prettierignore"
   pull_request:
     paths:
       - "packages/**"
-      - "yarn.lock"
-      - ".eslintrc"
-      - ".eslintignore"
+      - "pnpm-lock.yaml"
+      - "eslint.config.mjs"
+      - "eslint-suppressions.json"
       - ".prettierignore"
 
 jobs:
@@ -24,11 +24,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          cache: "yarn"
+          node-version: "24"
+          cache: "pnpm"
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -40,14 +43,14 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ github.workspace }}/.eslintcache
-          key: ${{ runner.os }}-eslint-${{ hashFiles('**/yarn.lock') }}-${{ hashFiles('**/*.ts', '**/*.tsx') }}
+          key: ${{ runner.os }}-eslint-${{ hashFiles('eslint.config.mjs') }}-${{ hashFiles('**/pnpm-lock.yaml') }}-${{ hashFiles('**/*.ts', '**/*.tsx') }}
           restore-keys: |
             ${{ runner.os }}-eslint-
 
       - name: Install dependencies
         run: |
           # Main app
-          yarn install
+          pnpm install
 
           # Stats engine
           pip install pipx
@@ -59,37 +62,39 @@ jobs:
         run: |
           # Build required dependencies (sdks/shared package)
           # This is required for linting/type checks to work
-          yarn setup
+          pnpm run setup
+          # Generate Next.js types (next-env.d.ts, routes.d.ts) for front-end type-check
+          pnpm --filter front-end exec next typegen
         env:
           CI: true
 
       - name: Lint
         run: |
-          yarn lint:ci
-          yarn workspace stats lint:ci
+          pnpm lint:ci
+          pnpm --filter stats lint:ci
         env:
           CI: true
 
       - name: Check api types
         run: |
-          yarn generate-api-types
-          [[ -n $(git status --porcelain) ]] && echo "You need to run yarn generate-api-types" && git status --porcelain && exit 1 || true
+          pnpm generate-api-types
+          [[ -n $(git status --porcelain) ]] && echo "You need to run pnpm generate-api-types" && git status --porcelain && exit 1 || true
 
       - name: Check doc
         run: |
           cd docs
-          yarn
-          yarn gen
-          [[ -n $(git status --porcelain) ]] && echo "You need to run yarn gen-doc" && git status --porcelain && exit 1 || true
+          pnpm install
+          pnpm gen
+          [[ -n $(git status --porcelain) ]] && echo "You need to run pnpm gen-doc" && git status --porcelain && exit 1 || true
 
       - name: Type-check
         run: |
-          yarn type-check
+          pnpm type-check
         env:
           CI: true
 
       - name: Test
         run: |
-          yarn test
+          pnpm test
         env:
           CI: true

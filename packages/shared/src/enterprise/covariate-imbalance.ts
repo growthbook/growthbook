@@ -1,10 +1,10 @@
 import { z } from "zod";
+import { DEFAULT_P_VALUE_THRESHOLD_FOR_COVARIATE_IMBALANCE } from "shared/constants";
 import {
   ExperimentSnapshotAnalysis,
   SnapshotMetric,
-} from "back-end/types/experiment-snapshot";
-import { ExperimentReportResultDimension } from "back-end/types/report";
-import { DEFAULT_P_VALUE_THRESHOLD_FOR_COVARIATE_IMBALANCE } from "shared/constants";
+} from "shared/types/experiment-snapshot";
+import { ExperimentReportResultDimension } from "shared/types/report";
 
 export const MetricVariationCovariateImbalanceResultValidator = z.object({
   metricId: z.string(),
@@ -184,7 +184,7 @@ export function tabulateCovariateImbalance(
 ): CovariateImbalanceResult {
   const covariateImbalanceTable: CovariateImbalanceTableRow[] = [];
   const overallResult = analysis.results.find(
-    (dimension) => dimension.name === "",
+    (dimension: ExperimentReportResultDimension) => dimension.name === "",
   );
 
   if (!overallResult || overallResult.variations.length <= 1) {

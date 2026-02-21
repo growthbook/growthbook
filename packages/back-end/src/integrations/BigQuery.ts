@@ -4,11 +4,8 @@ import {
   bigQueryCreateTableOptions,
   bigQueryCreateTablePartitions,
 } from "shared/enterprise";
-import { FormatDialect } from "shared/src/types";
+import { FormatDialect } from "shared/types/sql";
 import { format } from "shared/sql";
-import { decryptDataSourceParams } from "back-end/src/services/datasource";
-import { BigQueryConnectionParams } from "back-end/types/integrations/bigquery";
-import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   ExternalIdCallback,
   InformationSchema,
@@ -18,13 +15,16 @@ import {
   QueryResponseColumnData,
   MaxTimestampMetricSourceQueryParams,
   MaxTimestampIncrementalUnitsQueryParams,
-} from "back-end/src/types/Integration";
+} from "shared/types/integrations";
+import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
+import { decryptDataSourceParams } from "back-end/src/services/datasource";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
 import { logger } from "back-end/src/util/logger";
 import {
   BigQueryDataType,
   getFactTableTypeFromBigQueryType,
-} from "../services/bigquery";
+} from "back-end/src/services/bigquery";
 import SqlIntegration from "./SqlIntegration";
 
 export default class BigQuery extends SqlIntegration {
@@ -177,6 +177,9 @@ export default class BigQuery extends SqlIntegration {
     return `CAST(${column} as DATETIME)`;
   }
   hasCountDistinctHLL(): boolean {
+    return true;
+  }
+  supportsLimitZeroColumnValidation(): boolean {
     return true;
   }
   hllAggregate(col: string): string {

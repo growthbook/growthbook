@@ -15,7 +15,7 @@ Below are some frequently asked questions about GrowthBook.
 
 GrowthBook SDKs use deterministic hashing to ensure the same user always gets assigned the same variation in an experiment.
 
-In a nutshell, GrowthBook hashes together the `hashAttribute` (the user attribute used to assign a variation, ex: user id) and the experiment `trackingKey` which produces a decimal between 0 and 1. Each variation is assigned a range of values (e.g. `0 to 0.5` and `0.5 to 1.0`) and the user is assigned to whichever one their hash falls into.
+In a nutshell, GrowthBook hashes together the `hashAttribute` (the user attribute used to assign a variation, ex: user id) and the experiment `seed` which produces a decimal between 0 and 1. Each variation is assigned a range of values (e.g. `0 to 0.5` and `0.5 to 1.0`) and the user is assigned to whichever one their hash falls into.
 
 This does mean, if you change the experiment configuration, some users may switch their assigned variation. For example, if someone has the hash `0.49` and you adjust the weights to a 40/60 experiment, the variation ranges become `0 to 0.4` and `0.4 to 1.0`. In this case, the user was previously in the control group, but will now be in the variation.
 
@@ -156,7 +156,7 @@ const growthbook = new GrowthBook({
 
 ### My features aren't refreshing as expected. What can I do?
 
-Our SDK's implement a stale-while-revalidate approach to cacheing with a configurable time-to-live (TTL) value.
+Our SDK's implement a stale-while-revalidate approach to caching with a configurable time-to-live (TTL) value.
 
 This means that if the feature payload is considered stale (i.e. more than the TTL amount of time has passed since it's been updated), **the next request will return the stale features** and refetch an update asynchronously so that on the next request, the features will be up to date. You can learn more about how our SDK's implement this in detail [here](/lib/build-your-own#fetching-and-caching-features).
 

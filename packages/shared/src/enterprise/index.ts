@@ -5,3 +5,7 @@ export * from "./power";
 export * from "./decision-criteria";
 export * from "./dashboards";
 export * from "./covariate-imbalance";
+export * from "./validators/decision-criteria";
+export * from "./validators/dashboard";
+export * from "./validators/dashboard-block";
+export * from "./validators/dashboard-template";

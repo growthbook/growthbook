@@ -6,23 +6,24 @@ import { date, datetime } from "shared/dates";
 import {
   ExperimentMetricInterface,
   getMetricResultStatus,
+  isSuspiciousUplift,
 } from "shared/experiments";
-import { DifferenceType, StatsEngine } from "back-end/types/stats";
+import { DifferenceType, StatsEngine } from "shared/types/stats";
 import {
   ExperimentWithSnapshot,
   SnapshotMetric,
-} from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment-snapshot";
 import {
   ExperimentDecisionFrameworkSettings,
   ExperimentPhaseStringDates,
   ExperimentResultsType,
   ExperimentStatus,
   Variation,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
-import { experimentDate } from "@/services/experiments";
+import { experimentDate, RowResults } from "@/services/experiments";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { formatNumber } from "@/services/metrics";
@@ -63,6 +64,9 @@ export interface MetricExperimentData {
     lift?: number;
     resultsStatus?: string;
     directionalStatus?: "winning" | "losing";
+    suspiciousChange: boolean;
+    suspiciousThreshold: number;
+    minPercentChange: number;
   }[];
   users?: number;
   shipped?: boolean;
@@ -158,6 +162,17 @@ const ExperimentWithMetricsTable: FC<Props> = ({
               statsEngine,
               differenceType,
             });
+          const suspiciousChange = isSuspiciousUplift(
+            baseline[metricIndex],
+            variationResults[variationIndex][metricIndex],
+            m,
+            metricDefaults,
+            differenceType,
+          );
+          const suspiciousThreshold =
+            m.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0;
+          const minPercentChange =
+            m.minPercentChange ?? metricDefaults.minPercentageChange ?? 0;
           expVariationData.metricResults.push({
             results: variationResults[variationIndex][metricIndex],
             significant,
@@ -166,6 +181,9 @@ const ExperimentWithMetricsTable: FC<Props> = ({
               undefined,
             resultsStatus,
             directionalStatus,
+            suspiciousChange,
+            suspiciousThreshold,
+            minPercentChange,
           });
           expVariationData.users = Math.max(
             expVariationData.users ?? 0,
@@ -303,6 +321,13 @@ const ExperimentWithMetricsTable: FC<Props> = ({
                     enoughData: true,
                     directionalStatus: mr.directionalStatus ?? "losing",
                     hasScaledImpact: true,
+                    significant: mr.significant,
+                    resultsStatus:
+                      (mr.resultsStatus as RowResults["resultsStatus"]) ?? "",
+                    suspiciousChange: mr.suspiciousChange,
+                    suspiciousThreshold: mr.suspiciousThreshold,
+                    minPercentChange: mr.minPercentChange,
+                    currentMetricTotal: mr.results?.value ?? 0,
                   }}
                   showPlusMinus={false}
                   statsEngine={e.statsEngine}

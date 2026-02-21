@@ -1,6 +1,6 @@
 import { FC } from "react";
 import clsx from "clsx";
-import { ExperimentStatus } from "back-end/types/experiment";
+import { ExperimentStatus } from "shared/types/experiment";
 import { FaArchive, FaPlay, FaStop } from "react-icons/fa";
 import { BsConeStriped } from "react-icons/bs";
 import styles from "./StatusIndicator.module.scss";

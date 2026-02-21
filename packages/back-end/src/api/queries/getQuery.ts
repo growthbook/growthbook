@@ -1,6 +1,6 @@
-import { GetQueryResponse } from "back-end/types/openapi";
+import { GetQueryResponse } from "shared/types/openapi";
+import { getQueryValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { getQueryValidator } from "back-end/src/validators/openapi";
 import {
   getQueryById,
   toQueryApiInterface,

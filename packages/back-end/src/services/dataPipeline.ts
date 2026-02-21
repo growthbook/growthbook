@@ -4,13 +4,13 @@ import {
   isRatioMetric,
   quantileMetricType,
 } from "shared/experiments";
-import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
+import { IncrementalRefreshInterface } from "shared/validators";
+import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import { OrganizationInterface } from "shared/types/organization";
+import { ExperimentInterface } from "shared/types/experiment";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
-import { IncrementalRefreshInterface } from "back-end/src/validators/incremental-refresh";
-import { OrganizationInterface } from "back-end/types/organization";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
-import { ExperimentInterface } from "back-end/types/experiment";
 import {
   getExperimentSettingsHashForIncrementalRefresh,
   getMetricSettingsHashForIncrementalRefresh,
@@ -26,7 +26,7 @@ export async function validateIncrementalPipeline({
   factTableMap,
   experiment,
   incrementalRefreshModel,
-  fullRefresh,
+  analysisType,
 }: {
   org: OrganizationInterface;
   integration: SourceIntegrationInterface;
@@ -35,7 +35,7 @@ export async function validateIncrementalPipeline({
   factTableMap: FactTableMap;
   experiment: ExperimentInterface;
   incrementalRefreshModel: IncrementalRefreshInterface | null;
-  fullRefresh: boolean;
+  analysisType: "main-update" | "main-fullRefresh" | "exploratory";
 }): Promise<void> {
   if (snapshotSettings.skipPartialData) {
     throw new Error(
@@ -118,7 +118,7 @@ export async function validateIncrementalPipeline({
 
   // If not forcing a full refresh and we have a previous run, ensure the
   // current configuration matches what the incremental pipeline was built with.
-  if (!fullRefresh && incrementalRefreshModel) {
+  if (analysisType === "main-update" && incrementalRefreshModel) {
     const currentSettingsHash =
       getExperimentSettingsHashForIncrementalRefresh(snapshotSettings);
     if (

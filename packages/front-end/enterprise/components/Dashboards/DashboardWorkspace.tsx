@@ -1,11 +1,13 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
 import {
+  DashboardInterface,
   DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
   DashboardBlockType,
-} from "back-end/src/enterprise/validators/dashboard-block";
+  CREATE_BLOCK_TYPE,
+  getBlockData,
+} from "shared/enterprise";
 import { Container, Flex, IconButton, Text } from "@radix-ui/themes";
 import {
   PiCaretDoubleLeft,
@@ -15,7 +17,6 @@ import {
 } from "react-icons/pi";
 import clsx from "clsx";
 import { cloneDeep, pick } from "lodash";
-import { CREATE_BLOCK_TYPE, getBlockData } from "shared/enterprise";
 import { isDefined } from "shared/util";
 
 import Button from "@/ui/Button";
@@ -42,7 +43,13 @@ interface Props {
   dashboardFirstSave?: boolean;
   mutate: () => void;
   submitDashboard: SubmitDashboard<UpdateDashboardArgs>;
-  close: () => void;
+  close: (savedDashboardId?: string) => void;
+  // for quick editing a block from the display view
+  initialEditBlockIndex?: number | null;
+  onConsumeInitialEditBlockIndex?: () => void;
+  updateTemporaryDashboard?: (update: {
+    blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
+  }) => void;
 }
 export default function DashboardWorkspace({
   isTabActive,
@@ -52,6 +59,9 @@ export default function DashboardWorkspace({
   mutate,
   submitDashboard,
   close,
+  initialEditBlockIndex,
+  onConsumeInitialEditBlockIndex,
+  updateTemporaryDashboard,
 }: Props) {
   // Determine if this is a general dashboard (no experiment linked)
   const isGeneralDashboard = !experiment || dashboard.experimentId === "";
@@ -85,14 +95,19 @@ export default function DashboardWorkspace({
       setSaving(true);
       setSaveError(undefined);
       try {
-        await submitDashboard(args);
+        const result = await submitDashboard({
+          ...args,
+          data: { ...dashboard, ...args.data },
+        });
+        return result;
       } catch (e) {
         setSaveError(e.message);
+        throw e;
       } finally {
         setSaving(false);
       }
     },
-    [submitDashboard],
+    [submitDashboard, dashboard],
   );
 
   const [blocks, setBlocks] = useState<
@@ -102,17 +117,33 @@ export default function DashboardWorkspace({
     return async (
       blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
     ) => {
-      setBlocks(blocks);
       setHasMadeChanges(true);
-      await submit({
-        method: "PUT",
-        dashboardId: dashboard.id,
-        data: {
+
+      // For new dashboards, update temporary state instead of making API call
+      if (dashboardFirstSave) {
+        setBlocks(blocks);
+        updateTemporaryDashboard?.({
           blocks,
-        },
-      });
+        });
+      } else {
+        setBlocks(blocks);
+        // For existing dashboards, make API call via submit
+        await submit({
+          method: "PUT",
+          dashboardId: dashboard.id,
+          data: {
+            blocks,
+          },
+        });
+      }
     };
-  }, [setBlocks, submit, dashboard.id]);
+  }, [
+    setBlocks,
+    submit,
+    dashboard.id,
+    dashboardFirstSave,
+    updateTemporaryDashboard,
+  ]);
 
   const [editSidebarExpanded, setEditSidebarExpanded] = useState(true);
   const [editSidebarDirty, setEditSidebarDirty] = useState(false);
@@ -133,6 +164,16 @@ export default function DashboardWorkspace({
   const [editingBlockIndex, setEditingBlockIndex] = useState<
     number | undefined
   >(undefined);
+
+  // One-shot edit (and scroll) when entering edit mode from a specific block.
+  useEffect(() => {
+    if (!isDefined(initialEditBlockIndex)) return;
+    // This sets editingBlockIndex + stagedEditBlock and relies on DashboardBlock's
+    // existing scroll behavior (it scrolls when `editingBlock` is true).
+    editBlock(initialEditBlockIndex);
+    onConsumeInitialEditBlockIndex?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialEditBlockIndex, onConsumeInitialEditBlockIndex]);
   const [addBlockIndex, setAddBlockIndex] = useState<number | undefined>(
     undefined,
   );
@@ -222,12 +263,12 @@ export default function DashboardWorkspace({
           initial={dashboard}
           close={() => setShowSaveModal(false)}
           submit={async (data) => {
-            await submitDashboard({
+            const result = await submit({
               method: "PUT",
               dashboardId: dashboard.id,
               data,
             });
-            close();
+            close(result.dashboardId);
           }}
           type={isGeneralDashboard ? "general" : "experiment"}
           dashboardFirstSave={dashboardFirstSave}
@@ -275,7 +316,7 @@ export default function DashboardWorkspace({
             )}
           </Flex>
           <Flex align="center" gap="4">
-            {dashboardCopy && hasMadeChanges && (
+            {dashboardCopy && hasMadeChanges && !dashboardFirstSave && (
               <Tooltip
                 body="Undo all changes made during this current edit session"
                 tipPosition="top"
@@ -305,8 +346,13 @@ export default function DashboardWorkspace({
               </Tooltip>
             )}
             <Flex align="center" gap="2">
-              {dashboard.id === "new" && blocks.length === 0 && (
-                <Link onClick={close} color="red" type="button" weight="bold">
+              {dashboardFirstSave && (
+                <Link
+                  onClick={() => close()}
+                  color="red"
+                  type="button"
+                  weight="bold"
+                >
                   Exit without saving
                 </Link>
               )}
@@ -343,6 +389,7 @@ export default function DashboardWorkspace({
               id={dashboard.id}
               ownerId={dashboard.userId}
               initialEditLevel={dashboard.editLevel}
+              updateSchedule={dashboard.updateSchedule || undefined}
               initialShareLevel={dashboard.shareLevel}
               dashboardOwnerId={dashboard.userId}
               projects={

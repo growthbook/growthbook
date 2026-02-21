@@ -1,12 +1,12 @@
-import { ExperimentSnapshotReportInterface } from "back-end/types/report";
+import { ExperimentSnapshotReportInterface } from "shared/types/report";
 import React, { RefObject, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   AttributionModel,
   ExperimentInterfaceStringDates,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import { getValidDate } from "shared/dates";
-import { DifferenceType } from "back-end/types/stats";
+import { DifferenceType } from "shared/types/stats";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import Button from "@/ui/Button";
 import DatePicker from "@/components/DatePicker";
@@ -119,8 +119,6 @@ export default function ConfigureReport({
     !form.watch("experimentAnalysisSettings.dateEnded"),
   );
   const [upgradeModal, setUpgradeModal] = useState(false);
-  const [hasMetricOverrideRiskError, setHasMetricOverrideRiskError] =
-    useState(false);
 
   const { data: experimentData } = useApi<{
     experiment: ExperimentInterfaceStringDates;
@@ -173,7 +171,6 @@ export default function ConfigureReport({
       header={`Edit Analysis`}
       useRadixButton={true}
       cta="Save and refresh"
-      ctaEnabled={!hasMetricOverrideRiskError}
       submit={submit}
       size="lg"
       bodyClassName="px-0 pt-0"
@@ -468,16 +465,6 @@ export default function ConfigureReport({
                     slices,
                   )
                 }
-                pinnedMetricSlices={
-                  form.watch("experimentAnalysisSettings.pinnedMetricSlices") ??
-                  []
-                }
-                setPinnedMetricSlices={(slices) =>
-                  form.setValue(
-                    "experimentAnalysisSettings.pinnedMetricSlices",
-                    slices,
-                  )
-                }
               />
             </div>
 
@@ -538,9 +525,6 @@ export default function ConfigureReport({
                       "experimentAnalysisSettings.metricOverrides",
                   }}
                   disabled={!hasOverrideMetricsFeature}
-                  setHasMetricOverrideRiskError={(v: boolean) =>
-                    setHasMetricOverrideRiskError(v)
-                  }
                 />
                 {!hasOverrideMetricsFeature && (
                   <UpgradeMessage
@@ -610,7 +594,10 @@ export default function ConfigureReport({
               label={
                 <>
                   Activation Metric{" "}
-                  <MetricsSelectorTooltip onlyBinomial={true} />
+                  <MetricsSelectorTooltip
+                    onlyBinomial={true}
+                    isSingular={true}
+                  />
                 </>
               }
               initialOption="None"

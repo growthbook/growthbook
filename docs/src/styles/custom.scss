@@ -16,7 +16,10 @@
 @use "./components/sdk-resources";
 @use "./components/sdk-supported-features";
 @use "./components/stepper";
+@use "./components/commercial-feature";
+// @use "./components/sidebar-icons";
 //@use './components/navbar';
+/* You can override the default Infima variables here. */
 
 // Radix color palette
 :root {
@@ -123,6 +126,20 @@
   --color-text-high: var(--indigo-12);
   --color-text-mid: hsl(226 50% 24% / 85%);
   --color-contrast: #fff;
+  --ifm-color-primary: var(--violet-11);
+  --ifm-color-primary-dark: var(--violet-10);
+  --ifm-color-primary-darker: var(--violet-11);
+  --ifm-color-primary-darkest: var(--violet-12);
+  --ifm-color-primary-light: var(--violet-7);
+  --ifm-color-primary-lighter: var(--violet-6);
+  --ifm-color-primary-lightest: var(--violet-5);
+  --ifm-navbar-link-color: var(--color-text-mid);
+  --ifm-code-font-size: 95%;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+  --ifm-alert-border-color: #8a26e7;
+  --color-border: var(--slate-a6);
+  --ifm-background-color: #fff;
+  --color-inverse: #000;
 }
 
 [data-theme="dark"] {
@@ -230,23 +247,7 @@
   --color-text-high: #fff;
   --color-text-mid: hsl(0 0% 100% / 0.85);
   --color-contrast: #fff;
-}
-
-/* You can override the default Infima variables here. */
-:root {
-  --ifm-color-primary: var(--violet-11);
-  --ifm-color-primary-dark: var(--violet-10);
-  --ifm-color-primary-darker: var(--violet-11);
-  --ifm-color-primary-darkest: var(--violet-12);
-  --ifm-color-primary-light: var(--violet-7);
-  --ifm-color-primary-lighter: var(--violet-6);
-  --ifm-color-primary-lightest: var(--violet-5);
-  --ifm-navbar-link-color: var(--color-text-mid);
-  --ifm-code-font-size: 95%;
-  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
-  --ifm-alert-border-color: #8a26e7;
-  --color-border: #0009321f;
-  --ifm-background-color: #fff;
+  --color-inverse: #fff;
 }
 
 /* For readability concerns, you should choose a lighter palette in dark mode. */
@@ -275,6 +276,32 @@
   display: none;
 }
 
+// Custom widths — shared max-width and centering so navbar and main content align
+$content-max-width: 92rem;
+
+.navbar__inner,
+.main-wrapper {
+  margin-inline: auto;
+  max-width: $content-max-width;
+  width: 100%;
+}
+
+@media (min-width: $content-max-width) {
+  .navbar {
+    padding-inline: max(0px, (100vw - $content-max-width) / 2);
+  }
+
+  .navbar__inner {
+    padding-inline-start: calc(
+      var(--ifm-menu-link-padding-horizontal) + 0.5rem
+    );
+  }
+}
+
 [class^="docItemContainer"] {
   max-width: 688px;
+}
+
+hr {
+  background-color: var(--color-border);
 }

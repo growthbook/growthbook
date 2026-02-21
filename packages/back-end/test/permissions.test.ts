@@ -1,14 +1,11 @@
-import { Permissions } from "shared/permissions";
-import {
-  getUserPermissions,
-  roleToPermissionMap,
-} from "back-end/src/util/organization.util";
-import { OrganizationInterface } from "back-end/types/organization";
-import { TeamInterface } from "back-end/types/team";
-import { FeatureInterface } from "back-end/types/feature";
-import { MetricInterface } from "back-end/types/metric";
+import { Permissions, roleToPermissionMap } from "shared/permissions";
+import { OrganizationInterface } from "shared/types/organization";
+import { TeamInterface } from "shared/types/team";
+import { FeatureInterface } from "shared/types/feature";
+import { MetricInterface } from "shared/types/metric";
+import { DataSourceInterface } from "shared/types/datasource";
 import { SUPERADMIN_DEFAULT_ROLE } from "back-end/src/util/secrets";
-import { DataSourceInterface } from "back-end/types/datasource";
+import { getUserPermissions } from "back-end/src/util/organization.util";
 
 describe("Build base user permissions", () => {
   const testOrg: OrganizationInterface = {

@@ -1,25 +1,29 @@
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
+import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import React, { forwardRef, ReactElement, useState } from "react";
 import Link from "next/link";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { filterEnvironmentsByFeature } from "shared/util";
-import { Box, Card, Flex, Heading, Text } from "@radix-ui/themes";
+import { Box, Card, Flex, Heading, IconButton } from "@radix-ui/themes";
 import { RiAlertLine, RiDraggable } from "react-icons/ri";
 import { RxCircleBackslash } from "react-icons/rx";
 import { PiArrowBendRightDown } from "react-icons/pi";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import { format as formatTimeZone } from "date-fns-tz";
-import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
-import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
+import { SafeRolloutInterface, HoldoutInterface } from "shared/validators";
 import { useAuth } from "@/services/auth";
+import Text from "@/ui/Text";
 import track from "@/services/track";
-import { getRules, isRuleInactive, useEnvironments } from "@/services/features";
+import {
+  getRules,
+  isRuleInactive,
+  useEnvironments,
+  useAttributeMap,
+  getAttributesWithVersionStringMismatches,
+} from "@/services/features";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Button from "@/components/Button";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import HelperText from "@/ui/HelperText";
 import Badge from "@/ui/Badge";
@@ -32,7 +36,13 @@ import SafeRolloutStatusModal from "@/components/Features/SafeRollout/SafeRollou
 import SafeRolloutStatusBadge from "@/components/SafeRollout/SafeRolloutStatusBadge";
 import DecisionCTA from "@/components/SafeRollout/DecisionCTA";
 import DecisionHelpText from "@/components/SafeRollout/DecisionHelpText";
-import ConditionDisplay from "./ConditionDisplay";
+import TruncatedConditionDisplay from "@/components/SavedGroups/TruncatedConditionDisplay";
+import {
+  DropdownMenu,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/ui/DropdownMenu";
 import ForceSummary from "./ForceSummary";
 import RolloutSummary from "./RolloutSummary";
 import ExperimentSummary from "./ExperimentSummary";
@@ -136,6 +146,15 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const environments = filterEnvironmentsByFeature(allEnvironments, feature);
     const [safeRolloutStatusModalOpen, setSafeRolloutStatusModalOpen] =
       useState(false);
+    const [dropdownOpen, setDropdownOpen] = useState(false);
+
+    const attributeMap = useAttributeMap(feature.project);
+    const attributesWithVersionStringOperatorMismatches =
+      getAttributesWithVersionStringMismatches(
+        rule.condition || "",
+        attributeMap,
+      );
+
     let title: string | ReactElement =
       rule.description || rule.type[0].toUpperCase() + rule.type.slice(1);
     if (rule.type !== "rollout") {
@@ -232,14 +251,25 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   color="gray"
                 />
               </Box>
-              <Box flexGrow="1" pr="2">
-                <Flex align="center" justify="between" mb="3" flexGrow="1">
+              <Box
+                flexGrow="1"
+                pr="2"
+                style={{ minWidth: 0, maxWidth: "100%" }}
+              >
+                <Flex
+                  align="center"
+                  justify="between"
+                  mb="3"
+                  flexGrow="1"
+                  style={{ minWidth: 0, maxWidth: "100%" }}
+                >
                   <Flex
                     flexGrow="1"
                     gap="3"
                     justify="between"
                     mr="3"
                     align="center"
+                    style={{ minWidth: 0, maxWidth: "100%" }}
                   >
                     <Heading
                       as="h4"
@@ -247,6 +277,16 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       weight="medium"
                       mb="0"
                       className="w-100"
+                      style={{
+                        minWidth: 0,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        // prevent overflow-hidden from cutting off CTA button edges
+                        marginTop: -10,
+                        marginBottom: -10,
+                        paddingTop: 10,
+                        paddingBottom: 10,
+                      }}
                     >
                       {linkedExperiment ? (
                         <Flex gap="3" align="center">
@@ -293,21 +333,59 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     {info.pill}
                   </Flex>
                   {canEdit && (
-                    <Flex>
-                      <MoreMenu useRadix={true} size={14}>
-                        <a
-                          href="#"
-                          className="dropdown-item"
-                          onClick={(e) => {
-                            e.preventDefault();
+                    <DropdownMenu
+                      trigger={
+                        <IconButton
+                          variant="ghost"
+                          color="gray"
+                          radius="full"
+                          size="2"
+                          highContrast
+                          mt="1"
+                        >
+                          <BsThreeDotsVertical size={18} />
+                        </IconButton>
+                      }
+                      open={dropdownOpen}
+                      onOpenChange={setDropdownOpen}
+                      menuPlacement="end"
+                      variant="soft"
+                    >
+                      <DropdownMenuGroup>
+                        <DropdownMenuItem
+                          onClick={() => {
                             setRuleModal({ environment, i, mode: "edit" });
+                            setDropdownOpen(false);
                           }}
                         >
                           Edit
-                        </a>
-                        <Button
-                          color=""
-                          className="dropdown-item"
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        {rule.type !== "experiment-ref" && (
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setRuleModal({
+                                environment,
+                                i,
+                                mode: "duplicate",
+                              });
+                              setDropdownOpen(false);
+                            }}
+                          >
+                            Duplicate rule
+                          </DropdownMenuItem>
+                        )}
+                        {environments.length > 1 && (
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setCopyRuleModal({ environment, rules: [rule] });
+                              setDropdownOpen(false);
+                            }}
+                          >
+                            Copy rule to environment(s)
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem
                           onClick={async () => {
                             track(
                               rule.enabled
@@ -335,66 +413,63 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                             );
                             await mutate();
                             res.version && setVersion(res.version);
+                            setDropdownOpen(false);
                           }}
                         >
                           {rule.enabled ? "Disable" : "Enable"}
-                        </Button>
-                        {environments.length > 1 && (
-                          <Button
-                            color=""
-                            className="dropdown-item"
-                            onClick={() => {
-                              setCopyRuleModal({ environment, rules: [rule] });
-                            }}
-                          >
-                            Copy rule to environment(s)
-                          </Button>
-                        )}
-                        {rule.type !== "experiment-ref" && (
-                          <Button
-                            color=""
-                            className="dropdown-item"
-                            onClick={() => {
-                              setRuleModal({
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          color="red"
+                          confirmation={{
+                            confirmationTitle: "Delete Rule",
+                            cta: "Delete",
+                            submit: async () => {
+                              track("Delete Feature Rule", {
+                                ruleIndex: i,
                                 environment,
-                                i,
-                                mode: "duplicate",
+                                type: rule.type,
                               });
-                            }}
-                          >
-                            Duplicate rule
-                          </Button>
-                        )}
-                        <DeleteButton
-                          className="dropdown-item"
-                          displayName="Rule"
-                          useIcon={false}
-                          text="Delete"
-                          onClick={async () => {
-                            track("Delete Feature Rule", {
-                              ruleIndex: i,
-                              environment,
-                              type: rule.type,
-                            });
-                            const res = await apiCall<{ version: number }>(
-                              `/feature/${feature.id}/${version}/rule`,
-                              {
-                                method: "DELETE",
-                                body: JSON.stringify({
-                                  environment,
-                                  i,
-                                }),
-                              },
-                            );
-                            await mutate();
-                            res.version && setVersion(res.version);
+                              const res = await apiCall<{ version: number }>(
+                                `/feature/${feature.id}/${version}/rule`,
+                                {
+                                  method: "DELETE",
+                                  body: JSON.stringify({
+                                    environment,
+                                    i,
+                                  }),
+                                },
+                              );
+                              await mutate();
+                              res.version && setVersion(res.version);
+                            },
                           }}
-                        />
-                      </MoreMenu>
-                    </Flex>
+                        >
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuGroup>
+                    </DropdownMenu>
                   )}
                 </Flex>
                 <Box>{info.callout}</Box>
+                {attributesWithVersionStringOperatorMismatches &&
+                  attributesWithVersionStringOperatorMismatches.length > 0 && (
+                    <Callout status="warning" mt="3">
+                      <Flex direction="column" gap="2">
+                        <Text>
+                          This rule uses string operators on version attributes,
+                          which can have unintended effects. Edit this rule and
+                          change{" "}
+                          <strong>
+                            {attributesWithVersionStringOperatorMismatches.join(
+                              ", ",
+                            )}
+                          </strong>{" "}
+                          to use version operators ($vgt, $vlt, etc.) instead.
+                        </Text>
+                      </Flex>
+                    </Callout>
+                  )}
                 <Box style={{ opacity: isInactive ? 0.6 : 1 }} mt="3">
                   {rule.type === "safe-rollout" && safeRollout ? (
                     <>
@@ -405,16 +480,15 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     </>
                   ) : null}
                   {hasCondition && rule.type !== "experiment-ref" && (
-                    <Flex direction="row" gap="2" mb="3">
-                      <Text weight="medium">IF</Text>
-                      <Box>
-                        <ConditionDisplay
-                          condition={rule.condition || ""}
-                          savedGroups={rule.savedGroups}
-                          prerequisites={rule.prerequisites}
-                        />
-                      </Box>
-                    </Flex>
+                    <Box mb="3">
+                      <TruncatedConditionDisplay
+                        condition={rule.condition || ""}
+                        savedGroups={rule.savedGroups}
+                        prerequisites={rule.prerequisites}
+                        maxLength={500}
+                        prefix={<Text weight="medium">IF</Text>}
+                      />
+                    </Box>
                   )}
                   {rule.type === "force" && (
                     <ForceSummary value={rule.value} feature={feature} />

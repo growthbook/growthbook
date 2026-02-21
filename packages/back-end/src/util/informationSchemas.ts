@@ -4,7 +4,7 @@ import {
   RawInformationSchema,
   Schema,
   Table,
-} from "back-end/src/types/Integration";
+} from "shared/types/integrations";
 
 export function formatInformationSchema(
   results: RawInformationSchema[],

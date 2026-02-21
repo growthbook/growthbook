@@ -1,9 +1,10 @@
-import { PostAttributeResponse } from "back-end/types/openapi";
+import { PostAttributeResponse } from "shared/types/openapi";
+import { postAttributeValidator } from "shared/validators";
+import { OrganizationInterface } from "shared/types/organization";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { postAttributeValidator } from "back-end/src/validators/openapi";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
-import { OrganizationInterface } from "back-end/types/organization";
 import { auditDetailsCreate } from "back-end/src/services/audit";
+import { addTags } from "back-end/src/models/TagModel";
 import { validatePayload } from "./validations";
 
 export const postAttribute = createApiRequestHandler(postAttributeValidator)(
@@ -27,6 +28,11 @@ export const postAttribute = createApiRequestHandler(postAttributeValidator)(
 
     if (!req.context.permissions.canCreateAttribute(attribute))
       req.context.permissions.throwPermissionError();
+
+    const tags = req.body.tags ?? [];
+    if (tags.length > 0) {
+      await addTags(org.id, tags);
+    }
 
     const updates: Partial<OrganizationInterface> = {
       settings: {

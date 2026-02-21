@@ -1,4 +1,5 @@
-import { ListDataSourcesResponse } from "back-end/types/openapi";
+import { ListDataSourcesResponse } from "shared/types/openapi";
+import { listDataSourcesValidator } from "shared/validators";
 import {
   getDataSourcesByOrganization,
   toDataSourceApiInterface,
@@ -8,7 +9,6 @@ import {
   applyPagination,
   createApiRequestHandler,
 } from "back-end/src/util/handler";
-import { listDataSourcesValidator } from "back-end/src/validators/openapi";
 
 export const listDataSources = createApiRequestHandler(
   listDataSourcesValidator,

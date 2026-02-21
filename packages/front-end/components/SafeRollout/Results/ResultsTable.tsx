@@ -17,17 +17,18 @@ import { extent } from "@visx/vendor/d3-array";
 import {
   ExperimentReportVariation,
   ExperimentReportVariationWithIndex,
-} from "back-end/types/report";
-import { ExperimentStatus } from "back-end/types/experiment";
-import { MetricTimeSeries } from "back-end/src/validators/metric-time-series";
+} from "shared/types/report";
+import { ExperimentStatus } from "shared/types/experiment";
+import { MetricTimeSeries } from "shared/validators";
 import {
   DifferenceType,
   PValueCorrection,
   StatsEngine,
-} from "back-end/types/stats";
+} from "shared/types/stats";
 import { getValidDate } from "shared/dates";
 import { filterInvalidMetricTimeSeries } from "shared/util";
 import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
+import { PiPencilSimpleFill } from "react-icons/pi";
 import AnalysisResultSummary from "@/ui/AnalysisResultSummary";
 import { useAnalysisResultSummary } from "@/ui/hooks/useAnalysisResultSummary";
 import {
@@ -36,20 +37,16 @@ import {
   getRowResults,
   RowResults,
 } from "@/services/experiments";
-import { GBEdit } from "@/components/Icons";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import { useCurrency } from "@/hooks/useCurrency";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import ResultsMetricFilter from "@/components/Experiment/ResultsMetricFilter";
-import { ResultsMetricFilters } from "@/components/Experiment/Results";
 import SafeRolloutTimeSeriesGraph from "@/components/Experiment/SafeRolloutTimeSeriesGraph";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useApi from "@/hooks/useApi";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
-import { useSafeRolloutSnapshot } from "../SnapshotProvider";
+import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
 import ChangeColumn from "./ChangeColumn";
 import StatusColumn from "./StatusColumn";
 
@@ -80,9 +77,6 @@ export type ResultsTableProps = {
   statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
   differenceType: DifferenceType;
-  metricFilter?: ResultsMetricFilters;
-  setMetricFilter?: (filter: ResultsMetricFilters) => void;
-  metricTags?: string[];
   isTabActive: boolean;
   noStickyHeader?: boolean;
   noTooltip?: boolean;
@@ -108,9 +102,6 @@ export default function ResultsTable({
   statsEngine,
   pValueCorrection,
   differenceType,
-  metricFilter,
-  setMetricFilter,
-  metricTags = [],
   isTabActive,
   noStickyHeader,
   noTooltip,
@@ -122,7 +113,7 @@ export default function ResultsTable({
     variationFilter = variationFilter.filter((v) => v !== baselineRow);
   }
 
-  const { getExperimentMetricById, getFactTableById } = useDefinitions();
+  const { getExperimentMetricById } = useDefinitions();
 
   const _useOrganizationMetricDefaults = useOrganizationMetricDefaults();
   const { metricDefaults, getMinSampleSizeForMetric } =
@@ -131,16 +122,13 @@ export default function ResultsTable({
 
   const _confidenceLevels = useConfidenceLevels();
   const _pValueThreshold = usePValueThreshold();
-  const _displayCurrency = useCurrency();
 
   const { ciUpper, ciLower } =
     ssrPolyfills?.useConfidenceLevels?.() || _confidenceLevels;
   const pValueThreshold =
     ssrPolyfills?.usePValueThreshold?.() || _pValueThreshold;
-  const displayCurrency = ssrPolyfills?.useCurrency?.() || _displayCurrency;
 
   const showTimeSeries = useFeatureIsOn("safe-rollout-timeseries");
-  const [showMetricFilter, setShowMetricFilter] = useState<boolean>(false);
 
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const [tableCellScale, setTableCellScale] = useState(1);
@@ -231,7 +219,6 @@ export default function ResultsTable({
           metric: row.metric,
           denominator,
           metricDefaults,
-          isGuardrail: row.resultGroup === "guardrail",
           minSampleSize: getMinSampleSizeForMetric(row.metric),
           statsEngine,
           differenceType,
@@ -242,8 +229,6 @@ export default function ResultsTable({
           phaseStartDate: getValidDate(startDate),
           isLatestPhase,
           experimentStatus: status,
-          displayCurrency,
-          getFactTableById: ssrPolyfills?.getFactTableById || getFactTableById,
         });
         rr[i].push(rowResults);
       });
@@ -265,10 +250,8 @@ export default function ResultsTable({
     startDate,
     isLatestPhase,
     status,
-    displayCurrency,
     queryStatusData,
     ssrPolyfills,
-    getFactTableById,
     getExperimentMetricById,
   ]);
 
@@ -349,17 +332,7 @@ export default function ResultsTable({
                   }}
                 >
                   <div className="row px-0">
-                    {setMetricFilter ? (
-                      <ResultsMetricFilter
-                        metricTags={metricTags}
-                        metricFilter={metricFilter}
-                        setMetricFilter={setMetricFilter}
-                        showMetricFilter={showMetricFilter}
-                        setShowMetricFilter={setShowMetricFilter}
-                      />
-                    ) : (
-                      <span className="pl-1" />
-                    )}
+                    <span className="pl-1" />
                     <div
                       className="col-auto px-1"
                       style={{
@@ -379,7 +352,7 @@ export default function ResultsTable({
                             editMetrics();
                           }}
                         >
-                          <GBEdit />
+                          <PiPencilSimpleFill />
                         </a>
                       </div>
                     ) : null}

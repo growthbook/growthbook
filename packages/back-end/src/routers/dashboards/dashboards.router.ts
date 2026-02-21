@@ -1,17 +1,15 @@
 import express from "express";
 import { z } from "zod";
-import { wrapController } from "back-end/src/routers/wrapController";
-import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import {
   createDashboardBlockInterface,
   dashboardBlockInterface,
   legacyDashboardBlockInterface,
-} from "back-end/src/enterprise/validators/dashboard-block";
-import {
   dashboardEditLevel,
   dashboardShareLevel,
   dashboardUpdateSchedule,
-} from "back-end/src/enterprise/validators/dashboard";
+} from "shared/enterprise";
+import { wrapController } from "back-end/src/routers/wrapController";
+import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawDashboardsController from "./dashboards.controller";
 
 const router = express.Router();
@@ -28,6 +26,7 @@ export const createDashboardBody = z
     updateSchedule: dashboardUpdateSchedule.optional(),
     blocks: z.array(createDashboardBlockInterface),
     projects: z.array(z.string()).optional(),
+    userId: z.string().optional(),
   })
   .strict();
 

@@ -1,10 +1,11 @@
 import { ago } from "shared/dates";
 import { useCallback, useEffect, useState } from "react";
-import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
 import {
+  DashboardInterface,
   DashboardBlockInterface,
   DashboardBlockInterfaceOrData,
-} from "back-end/src/enterprise/validators/dashboard-block";
+  getBlockData,
+} from "shared/enterprise";
 import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
 import { FaArrowRight } from "react-icons/fa";
 import { BsThreeDotsVertical } from "react-icons/bs";
@@ -62,6 +63,7 @@ export default function DashboardsPage() {
   const [showDuplicateModal, setShowDuplicateModal] = useState<
     DashboardInterface | undefined
   >(undefined);
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const [_blocks, setBlocks] = useState<
     DashboardBlockInterfaceOrData<DashboardBlockInterface>[]
   >([]);
@@ -139,8 +141,10 @@ export default function DashboardsPage() {
         mutateDashboards();
         setDashboardId(res.dashboard.id);
         setBlocks(res.dashboard.blocks);
+        return { dashboardId: res.dashboard.id };
       } else {
         console.error(res);
+        throw new Error("Failed to save dashboard");
       }
     },
     [apiCall, mutateDashboards],
@@ -173,7 +177,7 @@ export default function DashboardsPage() {
             shareLevel: showEditModal.shareLevel,
             enableAutoUpdates: showEditModal.enableAutoUpdates,
             projects: showEditModal.projects || [],
-            updateSchedule: showEditModal.updateSchedule,
+            updateSchedule: showEditModal.updateSchedule || undefined,
             userId: showEditModal.userId,
           }}
           close={() => setShowEditModal(undefined)}
@@ -197,8 +201,10 @@ export default function DashboardsPage() {
             editLevel: showDuplicateModal.editLevel,
             shareLevel: showDuplicateModal.shareLevel,
             enableAutoUpdates: showDuplicateModal.enableAutoUpdates,
+            updateSchedule: showDuplicateModal.updateSchedule || undefined,
             userId: userId || "",
             projects: showDuplicateModal.projects || [],
+            blocks: (showDuplicateModal.blocks ?? []).map(getBlockData),
           }}
           submit={async (data) => {
             await submitDashboard({ method: "POST", data });
@@ -244,7 +250,10 @@ export default function DashboardsPage() {
       )}
       <div className="p-3 container-fluid pagecontents">
         <Flex justify="between" align="center">
-          <h1>Product Analytics Dashboards</h1>
+          <Flex align="center">
+            <h1>Product Analytics Dashboards</h1>
+            <span className="badge badge-purple text-uppercase ml-2">Beta</span>
+          </Flex>
           {filteredDashboards.length ? (
             <LinkButton
               href="/product-analytics/dashboards/new"
@@ -258,14 +267,14 @@ export default function DashboardsPage() {
           <div className="mt-4">
             {!hasCommercialFeature("product-analytics-dashboards") ? (
               <PremiumEmptyState
-                title="Explore & Share Custom Analyses"
-                description="Create curated dashboards to visualize key metrics and track performance."
+                title="Explore Your Data"
+                description="Turn your data and metrics into actionable product insights, share with your team, and make smarter decisions about what to build next."
                 commercialFeature="product-analytics-dashboards"
               />
             ) : (
               <EmptyState
-                title="Explore & Share Custom Analyses"
-                description="Create curated dashboards to visualize key metrics and track performance."
+                title="Explore Your Data"
+                description="Turn your data and metrics into actionable product insights, share with your team, and make smarter decisions about what to build next."
                 leftButton={
                   <Button
                     onClick={() =>
@@ -429,19 +438,29 @@ export default function DashboardsPage() {
                                           <BsThreeDotsVertical />
                                         </IconButton>
                                       }
+                                      menuPlacement="end"
+                                      variant="soft"
+                                      open={openDropdownId === d.id}
+                                      onOpenChange={(o) => {
+                                        setOpenDropdownId(o ? d.id : null);
+                                      }}
                                     >
-                                      <DropdownMenuItem
-                                        disabled={!canEdit}
-                                        onClick={() => setShowEditModal(d)}
-                                      >
-                                        Edit Dashboard Settings
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem
-                                        disabled={!canDuplicate}
-                                        onClick={() => setShowDuplicateModal(d)}
-                                      >
-                                        Duplicate
-                                      </DropdownMenuItem>
+                                      {canEdit && (
+                                        <DropdownMenuItem
+                                          onClick={() => setShowEditModal(d)}
+                                        >
+                                          Edit Dashboard Settings
+                                        </DropdownMenuItem>
+                                      )}
+                                      {canDuplicate && (
+                                        <DropdownMenuItem
+                                          onClick={() =>
+                                            setShowDuplicateModal(d)
+                                          }
+                                        >
+                                          Duplicate
+                                        </DropdownMenuItem>
+                                      )}
                                       <DropdownMenuItem
                                         disabled={
                                           !canManageSharingAndEditLevels
@@ -454,19 +473,37 @@ export default function DashboardsPage() {
                                         Share...
                                       </DropdownMenuItem>
 
-                                      <DropdownMenuSeparator />
-                                      <DropdownMenuItem
-                                        disabled={!canDelete}
-                                        color="red"
-                                        onClick={async () => {
-                                          await apiCall(`/dashboards/${d.id}`, {
-                                            method: "DELETE",
-                                          });
-                                          mutateDashboards();
-                                        }}
-                                      >
-                                        Delete
-                                      </DropdownMenuItem>
+                                      {canDelete && (
+                                        <>
+                                          <DropdownMenuSeparator />
+                                          <DropdownMenuItem
+                                            color="red"
+                                            confirmation={{
+                                              confirmationTitle: (
+                                                <>
+                                                  Delete Dashboard{" "}
+                                                  <i>{d.title}</i>?
+                                                </>
+                                              ),
+                                              cta: "Delete",
+                                              submit: async () => {
+                                                await apiCall(
+                                                  `/dashboards/${d.id}`,
+                                                  {
+                                                    method: "DELETE",
+                                                  },
+                                                );
+                                                mutateDashboards();
+                                              },
+                                              closeDropdown: () => {
+                                                setOpenDropdownId(null);
+                                              },
+                                            }}
+                                          >
+                                            Delete
+                                          </DropdownMenuItem>
+                                        </>
+                                      )}
                                     </DropdownMenu>
                                   </Flex>
                                 ) : null}

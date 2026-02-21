@@ -1,12 +1,13 @@
-import { ProjectInterface } from "back-end/types/project";
-import { Environment } from "back-end/types/organization";
+import { ProjectInterface } from "shared/types/project";
+import { Environment } from "shared/types/organization";
 import {
   FeatureInterface,
   FeatureRule,
   FeatureValueType,
-} from "back-end/types/feature";
+} from "shared/types/feature";
 import { ConditionInterface } from "@growthbook/growthbook-react";
 import { uniqBy } from "lodash";
+import { ApiCallType } from "@/services/auth";
 
 // Various utilities to help migrate from another service to GrowthBook
 
@@ -602,14 +603,55 @@ export const transformLDFeatureFlagToGBFeature = (
  * Make a get request to LD with the provided API token
  * @param url
  * @param apiToken
+ * @param useBackendProxy
+ * @param apiCall
+ * @param merge
  */
 async function getFromLD<ResType>(
   url: string,
   apiToken: string,
+  useBackendProxy: boolean = false,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  apiCall?: ApiCallType<any>,
   merge?: (existing: ResType, next: ResType) => ResType,
 ): Promise<ResType> {
   // Pagination queue
   const fetchPage = async (url: string, result?: ResType) => {
+    if (useBackendProxy && apiCall) {
+      // Use backend proxy
+      const response = await apiCall("/importing/launchdarkly", {
+        method: "POST",
+        body: JSON.stringify({
+          url,
+          apiToken,
+        }),
+      });
+
+      // Handle error responses from the proxy
+      if (response.status && response.status >= 400) {
+        throw new Error(
+          response.message || `LaunchDarkly API error: ${response.status}`,
+        );
+      }
+
+      const data = response;
+
+      if (merge) {
+        // Merge this page into the existing result
+        result = result ? merge(result, data) : data;
+
+        // If there's a next page, recursively fetch it
+        if (data?._links?.next?.href) {
+          result = await fetchPage(data._links.next.href, result);
+        }
+      } else {
+        // Merging not supported, just return the data
+        result = data;
+      }
+
+      return result as ResType;
+    }
+
     const response = await fetch(`https://app.launchdarkly.com${url}`, {
       headers: {
         Authorization: apiToken,
@@ -641,19 +683,33 @@ async function getFromLD<ResType>(
 
 export const getLDProjects = async (
   apiToken: string,
+  useBackendProxy: boolean = false,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  apiCall?: ApiCallType<any>,
 ): Promise<LDListProjectsResponse> =>
-  getFromLD("/api/v2/projects?limit=300", apiToken, (existing, next) => {
-    existing.items = [...existing.items, ...next.items];
-    return existing;
-  });
+  getFromLD(
+    "/api/v2/projects?limit=300",
+    apiToken,
+    useBackendProxy,
+    apiCall,
+    (existing, next) => {
+      existing.items = [...existing.items, ...next.items];
+      return existing;
+    },
+  );
 
 export const getLDEnvironments = async (
   apiToken: string,
   project: string,
+  useBackendProxy: boolean = false,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  apiCall?: ApiCallType<any>,
 ): Promise<LDListEnvironmentsResponse> =>
   getFromLD(
     `/api/v2/projects/${project}/environments?limit=300`,
     apiToken,
+    useBackendProxy,
+    apiCall,
     (existing, next) => {
       existing.items = [...existing.items, ...next.items];
       return existing;
@@ -663,17 +719,34 @@ export const getLDEnvironments = async (
 export const getLDFeatureFlags = async (
   apiToken: string,
   project: string,
+  useBackendProxy: boolean = false,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  apiCall?: ApiCallType<any>,
 ): Promise<LDListFeatureFlagsResponse> =>
-  getFromLD(`/api/v2/flags/${project}`, apiToken, (existing, next) => {
-    existing.items = [...existing.items, ...next.items];
-    return existing;
-  });
+  getFromLD(
+    `/api/v2/flags/${project}`,
+    apiToken,
+    useBackendProxy,
+    apiCall,
+    (existing, next) => {
+      existing.items = [...existing.items, ...next.items];
+      return existing;
+    },
+  );
 
 export const getLDFeatureFlag = async (
   apiToken: string,
   project: string,
   key: string,
+  useBackendProxy: boolean = false,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  apiCall?: ApiCallType<any>,
 ): Promise<LDListFeatureFlagsResponse["items"][0]> =>
-  getFromLD(`/api/v2/flags/${project}/${key}`, apiToken);
+  getFromLD(
+    `/api/v2/flags/${project}/${key}`,
+    apiToken,
+    useBackendProxy,
+    apiCall,
+  );
 
 // endregion LD

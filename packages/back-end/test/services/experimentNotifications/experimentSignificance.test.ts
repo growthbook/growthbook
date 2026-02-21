@@ -1,6 +1,8 @@
 import { Promise as BluebirdPromise } from "bluebird";
 import { ensureAndReturn } from "shared/util";
 import { Permissions } from "shared/permissions";
+import { ReqContext } from "shared/types/organization";
+import { MetricInterface } from "shared/types/metric";
 import { setupApp } from "back-end/test/api/api.setup";
 import { insertMetric } from "back-end/src/models/MetricModel";
 import { ExperimentModel } from "back-end/src/models/ExperimentModel";
@@ -11,8 +13,6 @@ import {
 } from "back-end/src/services/organizations";
 import { getLatestSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { computeExperimentChanges } from "back-end/src/services/experimentNotifications";
-import { ReqContext } from "../../../types/organization";
-import { MetricInterface } from "../../../types/metric";
 import {
   metrics,
   snapshots,
@@ -118,7 +118,9 @@ describe("Experiment Significance notifications", () => {
         },
         projects: {},
       }),
-    } as ReqContext;
+      auditLog: jest.fn(),
+      logger: { error: jest.fn(), warn: jest.fn(), info: jest.fn() },
+    } as unknown as ReqContext;
 
     setReqContext(globalContext);
 

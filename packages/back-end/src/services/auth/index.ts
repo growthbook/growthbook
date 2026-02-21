@@ -1,6 +1,13 @@
 import { NextFunction, Request, Response } from "express";
 import { SSO_CONFIG } from "shared/enterprise";
 import { userHasPermission } from "shared/permissions";
+import { AuditInterface } from "shared/types/audit";
+import { Permission } from "shared/types/organization";
+import { UserInterface } from "shared/types/user";
+import {
+  EventUserForResponseLocals,
+  EventUserLoggedIn,
+} from "shared/types/events/event-types";
 import { logger } from "back-end/src/util/logger";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -13,9 +20,6 @@ import {
   getOrganizationById,
   validateLoginMethod,
 } from "back-end/src/services/organizations";
-import { Permission } from "back-end/types/organization";
-import { UserInterface } from "back-end/types/user";
-import { AuditInterface } from "back-end/types/audit";
 import {
   hasOrganization,
   updateMember,
@@ -27,17 +31,13 @@ import {
   SSOConnectionIdCookie,
 } from "back-end/src/util/cookie";
 import { getUserPermissions } from "back-end/src/util/organization.util";
-import {
-  EventUserForResponseLocals,
-  EventUserLoggedIn,
-} from "back-end/src/events/event-types";
 import { insertAudit } from "back-end/src/models/AuditModel";
-import { getTeamsForOrganization } from "back-end/src/models/TeamModel";
 import {
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
 import { licenseInit } from "back-end/src/enterprise";
+import { TeamModel } from "back-end/src/models/TeamModel";
 import { AuthConnection } from "./AuthConnection";
 import { OpenIdAuthConnection } from "./OpenIdAuthConnection";
 import { LocalAuthConnection } from "./LocalAuthConnection";
@@ -106,7 +106,6 @@ function getInitialDataFromJWT(user: IdToken): JWTInfo {
 }
 
 export async function processJWT(
-  // eslint-disable-next-line
   req: AuthRequest & { user: IdToken },
   res: Response<unknown, EventUserForResponseLocals>,
   next: NextFunction,
@@ -223,7 +222,9 @@ export async function processJWT(
           }
         }
 
-        req.teams = await getTeamsForOrganization(req.organization.id);
+        req.teams = await TeamModel.dangerousGetTeamsForOrganization(
+          req.organization.id,
+        );
 
         // Make sure this is a valid login method for the organization
         try {

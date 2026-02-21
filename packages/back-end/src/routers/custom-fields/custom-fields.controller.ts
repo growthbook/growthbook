@@ -1,12 +1,12 @@
 import type { Response } from "express";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   CustomFieldSection,
   CustomFieldsInterface,
   CustomFieldTypes,
   CreateCustomFieldProps,
-} from "back-end/types/custom-fields";
+} from "shared/types/custom-fields";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { getContextFromReq } from "back-end/src/services/organizations";
 
 // region POST /custom-fields
 
@@ -52,11 +52,11 @@ export const postCustomField = async (
   }
 
   if (!id) {
-    throw new Error("Must specify field key");
+    return context.throwBadRequestError("Must specify field key");
   }
 
   if (!id.match(/^[a-z0-9_-]+$/)) {
-    throw new Error(
+    return context.throwBadRequestError(
       "Custom field keys can only include lowercase letters, numbers, hyphens, and underscores.",
     );
   }
@@ -68,7 +68,9 @@ export const postCustomField = async (
       (field) => field.name === name && field.section === section,
     );
     if (existingCustomField) {
-      throw new Error("Custom field name already exists for this section");
+      return context.throwBadRequestError(
+        "Custom field name already exists for this section",
+      );
     }
   }
 
@@ -87,7 +89,7 @@ export const postCustomField = async (
   });
 
   if (!updated) {
-    throw new Error("Custom field not created");
+    context.throwInternalServerError("Custom field not created");
   }
 
   return res.status(200).json({
@@ -192,6 +194,8 @@ export const putCustomField = async (
   req: PutCustomFieldRequest,
   res: Response<PutCustomFieldResponse>,
 ) => {
+  const context = getContextFromReq(req);
+
   const {
     name,
     description,
@@ -207,12 +211,10 @@ export const putCustomField = async (
   const { id } = req.params;
 
   if (!id) {
-    throw new Error("Must specify custom field id");
+    return context.throwBadRequestError("Must specify custom field id");
   }
 
   req.checkPermissions("manageCustomFields");
-
-  const context = getContextFromReq(req);
 
   const newCustomFields = await context.models.customFields.updateCustomField(
     id,
@@ -231,7 +233,7 @@ export const putCustomField = async (
   );
 
   if (!newCustomFields) {
-    throw new Error("Custom field not updated");
+    context.throwInternalServerError("Custom field not updated");
   }
 
   return res.status(200).json({
@@ -267,7 +269,7 @@ export const deleteCustomField = async (
   const customFields = await context.models.customFields.deleteCustomField(id);
 
   if (!customFields) {
-    throw new Error("Custom field not found");
+    return context.throwNotFoundError("Custom field not found");
   }
 
   res.status(200).json({

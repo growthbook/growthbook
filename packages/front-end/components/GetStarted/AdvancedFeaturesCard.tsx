@@ -2,21 +2,27 @@ import { AspectRatio, Box, Text } from "@radix-ui/themes";
 import { CommercialFeature } from "shared/src/enterprise/license-consts";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { DocSection, DocLink } from "@/components/DocLink";
+import Link from "@/ui/Link";
 import styles from "./AdvancedFeaturesCard.module.scss";
 
-export default function AdvancedFeaturesCard({
-  docSection,
-  imgUrl,
-  title,
-  description,
-  commercialFeature,
-}: {
-  docSection: DocSection;
+type AdvancedFeaturesCardProps = (
+  | { docSection: DocSection; href?: never }
+  | { docSection?: never; href: string }
+) & {
   imgUrl: string;
   title: string;
   description?: string;
   commercialFeature?: CommercialFeature;
-}) {
+};
+
+export default function AdvancedFeaturesCard({
+  docSection,
+  href,
+  imgUrl,
+  title,
+  description,
+  commercialFeature,
+}: AdvancedFeaturesCardProps) {
   const card = (
     <div
       className={styles.card}
@@ -52,7 +58,11 @@ export default function AdvancedFeaturesCard({
   return (
     <Box width="100%" height="100%">
       <AspectRatio ratio={16 / 9}>
-        <DocLink docSection={docSection}>{card}</DocLink>
+        {docSection ? (
+          <DocLink docSection={docSection}>{card}</DocLink>
+        ) : (
+          <Link href={href}>{card}</Link>
+        )}
       </AspectRatio>
     </Box>
   );

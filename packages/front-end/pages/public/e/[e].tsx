@@ -1,15 +1,15 @@
 import {
   ExperimentReportSSRData,
-} from "back-end/types/report";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+} from "shared/types/report";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import Head from "next/head";
-import {ExperimentInterfaceStringDates, ExperimentPhaseStringDates, LinkedFeatureInfo} from "back-end/types/experiment";
+import {ExperimentInterfaceStringDates, ExperimentPhaseStringDates, LinkedFeatureInfo} from "shared/types/experiment";
 import { truncateString } from "shared/util";
 import {date, daysBetween} from "shared/dates";
 import React, {useEffect, useRef, useState} from "react";
 import clsx from "clsx";
-import {VisualChangesetInterface} from "back-end/types/visual-changeset";
-import {URLRedirectInterface} from "back-end/types/url-redirect";
+import {VisualChangesetInterface} from "shared/types/visual-changeset";
+import {URLRedirectInterface} from "shared/types/url-redirect";
 import PageHead from "@/components/Layout/PageHead";
 import { useUser } from "@/services/UserContext";
 import useSSRPolyfills from "@/hooks/useSSRPolyfills";

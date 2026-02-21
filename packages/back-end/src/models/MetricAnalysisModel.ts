@@ -1,13 +1,13 @@
 import {
   MetricAnalysisInterface,
   MetricAnalysisSettings,
-} from "back-end/types/metric-analysis";
-import { metricAnalysisInterfaceValidator } from "back-end/src/routers/metric-analysis/metric-analysis.validators";
+} from "shared/types/metric-analysis";
+import { metricAnalysisInterfaceValidator } from "shared/validators";
 import {
   getCollection,
   removeMongooseFields,
   ToInterface,
-} from "../util/mongo.util";
+} from "back-end/src/util/mongo.util";
 import { MakeModelClass } from "./BaseModel";
 
 const COLLECTION_NAME = "metricanalyses";
@@ -76,6 +76,10 @@ export class MetricAnalysisModel extends BaseClass {
         "settings.userIdType": settings.userIdType,
         "settings.populationType": settings.populationType,
         "settings.populationId": settings.populationId || undefined,
+        "settings.additionalNumeratorFilters":
+          settings.additionalNumeratorFilters,
+        "settings.additionalDenominatorFilters":
+          settings.additionalDenominatorFilters,
       },
       { sort: { dateCreated: -1 }, limit: 10 },
     );

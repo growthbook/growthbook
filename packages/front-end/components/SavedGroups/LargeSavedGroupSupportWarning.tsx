@@ -1,5 +1,5 @@
 import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
-import { SDKConnectionInterface } from "back-end/types/sdk-connection";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import React from "react";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useUser } from "@/services/UserContext";
@@ -49,7 +49,7 @@ export default function LargeSavedGroupPerformanceWarning({
 }: LargeSavedGroupSupportWarningProps) {
   if (!hasLargeSavedGroupFeature) {
     return (
-      <Callout status="info">
+      <Callout status="info" mb="4" size="sm">
         Performance improvements for Saved Groups are available with an
         Enterprise plan.
         {openUpgradeModal && (
@@ -61,10 +61,16 @@ export default function LargeSavedGroupPerformanceWarning({
       </Callout>
     );
   }
-  if (unsupportedConnections.length === 0) return <></>;
+  if (unsupportedConnections.length === 0) return null;
 
   return (
-    <Callout status="warning" mb="3">
+    <Callout
+      status="warning"
+      mb="4"
+      size="sm"
+      dismissible={true}
+      id="large-saved-group-support-warning"
+    >
       Enable &quot;Pass Saved Groups by reference&quot; to improve SDK
       performance. <Link href="/sdks">View SDKs</Link>
     </Callout>

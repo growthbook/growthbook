@@ -36,14 +36,13 @@ async function run() {
   // Step 3: Add additional named types for easier access
   // Export each schema as a named type
   output += `import { z } from "zod";\n`;
-  output += `import * as openApiValidators from "back-end/src/validators/openapi";\n`;
+  output += `import * as openApiValidators from "shared/validators";\n`;
   output += "\n// Schemas\n";
-  Object.keys(api.components.schemas).forEach((k) => {
+  Object.entries(api.components.schemas).forEach(([k, schema]) => {
+    if (schema.$skipValidatorGeneration) return;
     // Zod validator for response body
     validators.push(
-      `export const api${k}Validator = ${generateZodSchema(
-        api.components.schemas[k],
-      )}`,
+      `export const api${k}Validator = ${generateZodSchema(schema)}`,
     );
 
     output += `export type Api${k} = z.infer<typeof openApiValidators.api${k}Validator>;\n`;
@@ -53,7 +52,7 @@ async function run() {
   output += "\n// Operations\n";
   Object.values(dereferenced.paths).forEach((p) => {
     ["get", "post", "put", "delete", "patch"].forEach((method) => {
-      if (p[method]) {
+      if (p[method] && !p[method].$skipValidatorGeneration) {
         const id = p[method]["operationId"];
         const titleCase = id.substring(0, 1).toUpperCase() + id.substring(1);
 
@@ -69,8 +68,8 @@ async function run() {
         ]);
         validators.push(
           `export const ${id}Validator = {
-  bodySchema: ${generateZodSchema(requestSchema, false)},
-  querySchema: ${generateZodSchema(querySchema)},
+  bodySchema: ${generateZodSchema(requestSchema, false, false)},
+  querySchema: ${generateZodSchema(querySchema, true, true)},
   paramsSchema: ${generateZodSchema(pathSchema)},
 };`,
         );
@@ -80,11 +79,20 @@ async function run() {
 
   // Step 4: Persist specs and generated files to file system
   fs.writeFileSync(
-    path.join(__dirname, "..", "..", "types", "openapi.d.ts"),
+    path.join(__dirname, "..", "..", "..", "shared", "types", "openapi.d.ts"),
     output,
   );
   fs.writeFileSync(
-    path.join(__dirname, "..", "..", "src", "validators", "openapi.ts"),
+    path.join(
+      __dirname,
+      "..",
+      "..",
+      "..",
+      "shared",
+      "src",
+      "validators",
+      "openapi.ts",
+    ),
     generatedFileHeader +
       `import { z } from "zod";\n\n` +
       validators.join("\n\n"),
@@ -98,7 +106,17 @@ run()
     process.exit(1);
   });
 
-function generateZodSchema(jsonSchema, coerceStringsToNumbers = true) {
+// Query params are strings; accept "true"/"false"/"0"/"1" and coerce to boolean.
+const QUERY_BOOLEAN_COERCION =
+  'z.union([z.literal("true"), z.literal("false"), z.literal("0"), z.literal("1"), z.boolean()]).optional().default(false).transform((v) => v === true || v === "true" || v === "1")';
+const QUERY_BOOLEAN_COERCION_TRUE =
+  'z.union([z.literal("true"), z.literal("false"), z.literal("0"), z.literal("1"), z.boolean()]).optional().default(true).transform((v) => v === true || v === "true" || v === "1")';
+
+function generateZodSchema(
+  jsonSchema,
+  coerceStringsToNumbers = true,
+  coerceBooleansFromQuery = false,
+) {
   if (!jsonSchema) {
     return `z.never()`;
   }
@@ -113,9 +131,23 @@ function generateZodSchema(jsonSchema, coerceStringsToNumbers = true) {
     zod = zod.replace(/z\.number\(\)/g, "z.coerce.number()");
   }
 
+  if (coerceBooleansFromQuery) {
+    // Single pass: one regex matches .default(true), .default(false), or bare z.boolean().
+    // A second pass would match z.boolean() inside the replacement and create nested unions.
+    zod = zod.replace(
+      /z\.boolean\(\)(\.default\((true|false)\))?/g,
+      (_, _suffix, defaultVal) =>
+        defaultVal === "true" ? QUERY_BOOLEAN_COERCION_TRUE : QUERY_BOOLEAN_COERCION,
+    );
+  }
+
   // remove overly strick datetime zod validation
   // until we can write custom regex validator
   zod = zod.replace(/(?<=string\(\))\.datetime\(\{.*?\}\)/g, "");
+
+  // Convert zod v3 style z.record(valueType) to zod v4 style z.record(z.string(), valueType)
+  // This handles the breaking change in zod v4 where z.record() requires explicit key and value types
+  zod = zod.replace(/z\.record\(([^)]+)\)/g, "z.record(z.string(), $1)");
 
   return zod;
 }

@@ -1,12 +1,9 @@
 import { createPrivateKey } from "crypto";
 import { createConnection } from "snowflake-sdk";
-import { SnowflakeConnectionParams } from "back-end/types/integrations/snowflake";
-import {
-  ExternalIdCallback,
-  QueryResponse,
-} from "back-end/src/types/Integration";
+import { ExternalIdCallback, QueryResponse } from "shared/types/integrations";
+import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
+import { QueryMetadata } from "shared/types/query";
 import { TEST_QUERY_SQL } from "back-end/src/integrations/SqlIntegration";
-import { QueryMetadata } from "back-end/types/query";
 import { logger } from "back-end/src/util/logger";
 
 type ProxyOptions = {
@@ -129,7 +126,10 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
     });
   });
 
-  const res = await new Promise<T[]>((resolve, reject) => {
+  const res = await new Promise<{
+    rows: T[];
+    columns: { name: string }[];
+  }>((resolve, reject) => {
     connection.execute({
       sqlText: sql,
       complete: async (err, stmt, rows) => {
@@ -142,7 +142,14 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
         if (err) {
           reject(err);
         } else {
-          resolve(rows || []);
+          // Extract column metadata from the statement
+          const stmtColumns = stmt.getColumns();
+          const columns = stmtColumns
+            ? stmtColumns.map((col) => ({
+                name: col.getName().toLowerCase(),
+              }))
+            : [];
+          resolve({ rows: rows || [], columns });
         }
       },
     });
@@ -150,11 +157,11 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
 
   // Annoyingly, Snowflake turns all column names into all caps
   // Need to lowercase them here so they match other data sources
-  const lowercase = res.map((row) => {
+  const lowercase = res.rows.map((row) => {
     return Object.fromEntries(
       Object.entries(row).map(([k, v]) => [k.toLowerCase(), v]),
     ) as T;
   });
 
-  return { rows: lowercase };
+  return { rows: lowercase, columns: res.columns };
 }

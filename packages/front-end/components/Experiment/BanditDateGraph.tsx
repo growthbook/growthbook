@@ -14,10 +14,10 @@ import {
   useTooltipInPortal,
 } from "@visx/tooltip";
 import { date, datetime } from "shared/dates";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { ScaleLinear, ScaleTime } from "d3-scale";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { BanditEvent } from "back-end/src/validators/experiments";
+import { BanditEvent } from "shared/validators";
 import { BiCheckbox, BiCheckboxSquare } from "react-icons/bi";
 import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";

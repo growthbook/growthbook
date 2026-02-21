@@ -1,4 +1,4 @@
-import { SDKLanguage } from "back-end/types/sdk-connection";
+import { SDKLanguage } from "shared/types/sdk-connection";
 import { paddedVersionString } from "@growthbook/growthbook";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import React from "react";
@@ -1147,7 +1147,7 @@ GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${
         </p>
         <p>
           Note that our Edge App responds directly to a{" "}
-          <code>viewer-request</code> without forwarding to an origin;
+          <code>viewer_request</code> without forwarding to an origin;
           interaction with CloudFront is minimal (Step 2 in the AWS tutorial).
         </p>
 

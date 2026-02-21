@@ -1,8 +1,6 @@
 import { analyticsreporting_v4, google } from "googleapis";
 import cloneDeep from "lodash/cloneDeep";
-import { ReqContext } from "back-end/types/organization";
 import {
-  SourceIntegrationInterface,
   MetricValueParams,
   ExperimentMetricQueryResponse,
   MetricValueQueryResponse,
@@ -24,6 +22,7 @@ import {
   UpdateExperimentIncrementalUnitsQueryParams,
   DropOldIncrementalUnitsQueryParams,
   AlterNewIncrementalUnitsQueryParams,
+  FeatureEvalDiagnosticsQueryResponse,
   MaxTimestampIncrementalUnitsQueryParams,
   MaxTimestampMetricSourceQueryParams,
   CreateMetricSourceTableQueryParams,
@@ -34,10 +33,20 @@ import {
   MetricAnalysisParams,
   ExperimentFactMetricsQueryResponse,
   UserExperimentExposuresQueryResponse,
+  DropMetricSourceCovariateTableQueryParams,
   InsertMetricSourceCovariateDataQueryParams,
   CreateMetricSourceCovariateTableQueryParams,
-} from "back-end/src/types/Integration";
-import { GoogleAnalyticsParams } from "back-end/types/integrations/googleanalytics";
+} from "shared/types/integrations";
+import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
+import {
+  DataSourceInterface,
+  DataSourceProperties,
+} from "shared/types/datasource";
+import { MetricInterface } from "shared/types/metric";
+import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import { FactMetricInterface } from "shared/types/fact-table";
+import { ReqContext } from "back-end/types/request";
+import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import {
   GOOGLE_OAUTH_CLIENT_ID,
@@ -45,12 +54,6 @@ import {
   APP_ORIGIN,
 } from "back-end/src/util/secrets";
 import { sumSquaresFromStats } from "back-end/src/util/stats";
-import {
-  DataSourceInterface,
-  DataSourceProperties,
-} from "back-end/types/datasource";
-import { MetricInterface } from "back-end/types/metric";
-import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 
 export function getOauth2Client() {
@@ -100,7 +103,10 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   getCurrentTimestamp(): string {
     throw new Error("Method not implemented.");
   }
-  getMetricAnalysisQuery(_: MetricAnalysisParams): string {
+  getMetricAnalysisQuery(
+    _metric: FactMetricInterface,
+    _params: Omit<MetricAnalysisParams, "metric">,
+  ): string {
     throw new Error("Method not implemented.");
   }
   runMetricAnalysisQuery(
@@ -214,6 +220,11 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   ): Promise<IncrementalWithNoOutputQueryResponse> {
     throw new Error("Method not implemented.");
   }
+  getDropMetricSourceCovariateTableQuery(
+    _params: DropMetricSourceCovariateTableQueryParams,
+  ): string {
+    throw new Error("Method not implemented.");
+  }
   getCreateMetricSourceCovariateTableQuery(
     _params: CreateMetricSourceCovariateTableQueryParams,
   ): string {
@@ -240,6 +251,12 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
     throw new Error("Method not implemented.");
   }
   runUserExperimentExposuresQuery(): Promise<UserExperimentExposuresQueryResponse> {
+    throw new Error("Method not implemented.");
+  }
+  getFeatureEvalDiagnosticsQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  runFeatureEvalDiagnosticsQuery(): Promise<FeatureEvalDiagnosticsQueryResponse> {
     throw new Error("Method not implemented.");
   }
   getMetricValueQuery(params: MetricValueParams): string {
@@ -357,6 +374,7 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   getSourceProperties(): DataSourceProperties {
     return {
       queryLanguage: "json",
+      maxColumns: 200,
     };
   }
 
@@ -372,7 +390,6 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   getAuth() {
     const client = getOauth2Client();
     client.setCredentials({
-      // eslint-disable-next-line
       refresh_token: this.params.refreshToken,
     });
     return client;

@@ -1,15 +1,15 @@
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import { useState, useMemo } from "react";
 import { FaAngleDown, FaAngleRight, FaArrowLeft } from "react-icons/fa";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   autoMerge,
   filterEnvironmentsByFeature,
   getAffectedEnvsForExperiment,
   mergeResultHasChanges,
 } from "shared/util";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   getAffectedRevisionEnvs,
   useEnvironments,
@@ -20,6 +20,10 @@ import Modal from "@/components/Modal";
 import Button from "@/components/Button";
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import {
+  useFeatureRevisionDiff,
+  featureToFeatureRevisionDiffInput,
+} from "@/hooks/useFeatureRevisionDiff";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import { PreLaunchChecklistFeatureExpRule } from "@/components/Experiment/PreLaunchChecklist";
@@ -38,12 +42,14 @@ export function ExpandableDiff({
   title,
   a,
   b,
+  defaultOpen = false,
 }: {
   title: string;
   a: string;
   b: string;
+  defaultOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
 
   if (a === b) return null;
 
@@ -68,6 +74,11 @@ export function ExpandableDiff({
             oldValue={a}
             newValue={b}
             compareMethod={DiffMethod.LINES}
+            styles={{
+              contentText: {
+                wordBreak: "break-all",
+              },
+            }}
           />
         </div>
       )}
@@ -96,16 +107,11 @@ export default function DraftModal({
   );
   const liveRevision = revisions.find((r) => r.version === feature.version);
 
+  const envIds = environments.map((e) => e.id);
   const mergeResult = useMemo(() => {
     if (!revision || !baseRevision || !liveRevision) return null;
-    return autoMerge(
-      liveRevision,
-      baseRevision,
-      revision,
-      environments.map((e) => e.id),
-      {},
-    );
-  }, [revision, baseRevision, liveRevision]);
+    return autoMerge(liveRevision, baseRevision, revision, envIds, {});
+  }, [revision, baseRevision, liveRevision, envIds]);
 
   const [comment, setComment] = useState(revision?.comment || "");
 
@@ -120,91 +126,18 @@ export default function DraftModal({
   );
   const [experimentsStep, setExperimentsStep] = useState(false);
 
-  // Parse JSON strings that look like JSON
-  const parseIfJson = (str: string | undefined): string | unknown => {
-    if (!str || typeof str !== "string") return str || "";
-    if (str.trim().startsWith("{") && str.trim().endsWith("}")) {
-      try {
-        const parsed = JSON.parse(str);
-        return parsed;
-      } catch (e) {
-        return str;
-      }
-    }
-
-    return str;
-  };
-
-  // Process rules for diff with special formatting for a few fields
-  const processRulesForDiff = (rules: FeatureRule[]): FeatureRule[] => {
-    if (!Array.isArray(rules)) return rules;
-
-    return rules.map((rule) => {
-      const processedRule = { ...rule };
-
-      if ("value" in processedRule && typeof processedRule.value === "string") {
-        (processedRule as { value: unknown }).value = parseIfJson(
-          processedRule.value as string,
-        );
-      }
-
-      if (
-        "variations" in processedRule &&
-        Array.isArray(processedRule.variations)
-      ) {
-        type Variation = { value: string | unknown; [key: string]: unknown };
-        (processedRule as unknown as { variations: Variation[] }).variations = (
-          processedRule.variations as Variation[]
-        ).map((variation) => {
-          if (typeof variation.value === "string") {
-            return { ...variation, value: parseIfJson(variation.value) };
-          }
-          return variation;
-        });
-      }
-
-      return processedRule as FeatureRule;
-    });
-  };
-
-  const resultDiffs = useMemo(() => {
-    const diffs: { a: string; b: string; title: string }[] = [];
-
-    if (!mergeResult) return diffs;
-    if (!mergeResult.success) return diffs;
-
-    const result = mergeResult.result;
-
-    if (result.defaultValue !== undefined) {
-      const aValue = parseIfJson(feature.defaultValue);
-      const bValue = parseIfJson(result.defaultValue);
-      diffs.push({
-        title: "Default Value",
-        a:
-          typeof aValue === "string" ? aValue : JSON.stringify(aValue, null, 2),
-        b:
-          typeof bValue === "string" ? bValue : JSON.stringify(bValue, null, 2),
-      });
-    }
-    if (result.rules) {
-      environments.forEach((env) => {
-        const liveRules = feature.environmentSettings?.[env.id]?.rules || [];
-        const processedLiveRules = processRulesForDiff(liveRules);
-        const resultRules = result.rules?.[env.id];
-        const processedResultRules = processRulesForDiff(resultRules || []);
-
-        if (resultRules) {
-          diffs.push({
-            title: `Rules - ${env.id}`,
-            a: JSON.stringify(processedLiveRules, null, 2),
-            b: JSON.stringify(processedResultRules, null, 2),
-          });
+  const currentRevisionData = featureToFeatureRevisionDiffInput(feature);
+  const resultDiffs = useFeatureRevisionDiff({
+    current: currentRevisionData,
+    draft: mergeResult?.success
+      ? {
+          // Use current values as fallback when merge result doesn't have changes
+          defaultValue:
+            mergeResult.result.defaultValue ?? currentRevisionData.defaultValue,
+          rules: mergeResult.result.rules ?? currentRevisionData.rules,
         }
-      });
-    }
-
-    return diffs;
-  }, [mergeResult]);
+      : currentRevisionData,
+  });
 
   if (!revision || !mergeResult) return null;
 

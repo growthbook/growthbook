@@ -4,17 +4,20 @@ import {
   FeaturePrerequisite,
   FeatureRule,
   SavedGroupTargeting,
-} from "back-end/types/feature";
-import React from "react";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+} from "shared/types/feature";
+import React, { useMemo } from "react";
 import Collapsible from "react-collapsible";
-import { Flex, Tooltip, Text } from "@radix-ui/themes";
+import { Flex, Tooltip } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
 import { PiCaretRightFill } from "react-icons/pi";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import Field from "@/components/Forms/Field";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import SelectField from "@/components/Forms/SelectField";
+import SelectField, {
+  GroupedValue,
+  SingleValue,
+} from "@/components/Forms/SelectField";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
 import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
@@ -27,7 +30,7 @@ import {
 import useSDKConnections from "@/hooks/useSDKConnections";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
 import ConditionInput from "@/components/Features/ConditionInput";
-import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
+import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import ScheduleInputs from "@/components/Features/ScheduleInputs";
@@ -50,6 +53,8 @@ import {
   useCustomFields,
 } from "@/hooks/useCustomFields";
 import HelperText from "@/ui/HelperText";
+import { getExposureQuery } from "@/services/datasources";
+import Text from "@/ui/Text";
 
 export default function ExperimentRefNewFields({
   step,
@@ -58,8 +63,6 @@ export default function ExperimentRefNewFields({
   project,
   environments,
   defaultValues,
-  revisions,
-  version,
   prerequisiteValue,
   setPrerequisiteValue,
   setPrerequisiteTargetingSdkIssues,
@@ -93,8 +96,6 @@ export default function ExperimentRefNewFields({
   project?: string;
   environments: string[];
   defaultValues?: FeatureRule | NewExperimentRefRule;
-  revisions?: FeatureRevisionInterface[];
-  version?: number;
   prerequisiteValue: FeaturePrerequisite[];
   setPrerequisiteValue: (prerequisites: FeaturePrerequisite[]) => void;
   setPrerequisiteTargetingSdkIssues: (b: boolean) => void;
@@ -159,6 +160,82 @@ export default function ExperimentRefNewFields({
   const attributeSchema = useAttributeSchema(false, project);
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
+
+  const hashAttribute = form.watch("hashAttribute");
+
+  const hashAttributeToIdentifierTypeMap = useMemo(() => {
+    const attributeToIdentifierType = new Map<string, string[]>();
+    for (const userIdType of datasource?.settings?.userIdTypes ?? []) {
+      for (const attribute of userIdType.attributes ?? []) {
+        attributeToIdentifierType.set(attribute, [
+          ...(attributeToIdentifierType.get(attribute) ?? []),
+          userIdType.userIdType,
+        ]);
+      }
+    }
+    return attributeToIdentifierType;
+  }, [datasource?.settings?.userIdTypes]);
+
+  const groupedExposureQueries: (GroupedValue | SingleValue)[] = useMemo(() => {
+    const matchHashAttribute = exposureQueries?.filter((q) => {
+      return hashAttributeToIdentifierTypeMap
+        .get(hashAttribute)
+        ?.includes(q.userIdType);
+    });
+    const remainingExposureQueries = exposureQueries?.filter(
+      (q) => !matchHashAttribute?.includes(q),
+    );
+    if (hashAttributeToIdentifierTypeMap.size > 0) {
+      const matches =
+        matchHashAttribute && matchHashAttribute.length > 0
+          ? {
+              label: "Matches Hash Attribute",
+              options: matchHashAttribute.map((q) => {
+                return {
+                  label: q.name,
+                  value: q.id,
+                };
+              }),
+            }
+          : null;
+
+      const doesNotMatch =
+        remainingExposureQueries && remainingExposureQueries.length > 0
+          ? {
+              label: "Does Not Match Hash Attribute",
+              options: remainingExposureQueries.map((q) => {
+                return {
+                  label: q.name,
+                  value: q.id,
+                };
+              }),
+            }
+          : null;
+
+      return [matches, doesNotMatch].filter((x) => x !== null);
+    }
+    return (
+      remainingExposureQueries?.map((q) => {
+        return {
+          label: q.name,
+          value: q.id,
+        };
+      }) ?? []
+    );
+  }, [exposureQueries, hashAttributeToIdentifierTypeMap, hashAttribute]);
+
+  const getMatchingExposureQuery = (
+    attribute: string,
+    datasource: DataSourceInterfaceWithParams | null,
+  ) => {
+    const userIdType = datasource?.settings?.userIdTypes?.find((t) =>
+      t.attributes?.includes(attribute),
+    )?.userIdType;
+    if (userIdType) {
+      return getExposureQuery(datasource?.settings, "", userIdType)?.id ?? null;
+    }
+    return null;
+  };
 
   const { data: sdkConnectionsData } = useSDKConnections();
   const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
@@ -227,7 +304,7 @@ export default function ExperimentRefNewFields({
                   return (
                     <Flex as="div" align="baseline">
                       <Text>{value.label}</Text>
-                      <Text size="1" className="text-muted" ml="auto">
+                      <Text size="small" color="text-mid" ml="auto">
                         Created {date(t.dateCreated)}
                       </Text>
                     </Flex>
@@ -295,9 +372,14 @@ export default function ExperimentRefNewFields({
               options={attributeSchema
                 .filter((s) => !hasHashAttributes || s.hashAttribute)
                 .map((s) => ({ label: s.property, value: s.property }))}
-              value={form.watch("hashAttribute")}
+              value={hashAttribute}
               onChange={(v) => {
                 form.setValue("hashAttribute", v);
+                // Try and find a matching exposure query for the new hash attribute
+                const exposureQueryId = getMatchingExposureQuery(v, datasource);
+                if (exposureQueryId) {
+                  form.setValue("exposureQueryId", exposureQueryId);
+                }
               }}
               helpText={
                 "Will be hashed together with the Tracking Key to determine which variation to assign"
@@ -382,12 +464,10 @@ export default function ExperimentRefNewFields({
             project={project || ""}
           />
           <hr />
-          <PrerequisiteTargetingField
+          <PrerequisiteInput
             value={prerequisiteValue}
             setValue={setPrerequisiteValue}
             feature={feature}
-            revisions={revisions}
-            version={version}
             environments={environments ?? []}
             setPrerequisiteTargetingSdkIssues={
               setPrerequisiteTargetingSdkIssues
@@ -447,6 +527,15 @@ export default function ExperimentRefNewFields({
                 if (activationMetric && !isValidMetric(activationMetric)) {
                   form.setValue("activationMetric", "");
                 }
+
+                // Try and find a matching exposure query for the new datasource
+                const exposureQueryId = getMatchingExposureQuery(
+                  hashAttribute,
+                  getDatasourceById(newDatasource),
+                );
+                if (exposureQueryId) {
+                  form.setValue("exposureQueryId", exposureQueryId);
+                }
               }}
               options={datasources.map((d) => {
                 const isDefaultDataSource = d.id === settings.defaultDataSource;
@@ -472,12 +561,8 @@ export default function ExperimentRefNewFields({
                 value={form.watch("exposureQueryId") ?? ""}
                 onChange={(v) => form.setValue("exposureQueryId", v)}
                 required
-                options={exposureQueries?.map((q) => {
-                  return {
-                    label: q.name,
-                    value: q.id,
-                  };
-                })}
+                sort={false}
+                options={groupedExposureQueries}
                 formatOptionLabel={({ label, value }) => {
                   const userIdType = exposureQueries?.find(
                     (e) => e.id === value,
@@ -528,10 +613,6 @@ export default function ExperimentRefNewFields({
             setCustomMetricSlices={(slices) =>
               form.setValue("customMetricSlices", slices)
             }
-            pinnedMetricSlices={form.watch("pinnedMetricSlices") ?? []}
-            setPinnedMetricSlices={(slices) =>
-              form.setValue("pinnedMetricSlices", slices)
-            }
           />
 
           <hr className="mt-4" />
@@ -556,7 +637,10 @@ export default function ExperimentRefNewFields({
                   label={
                     <>
                       Activation Metric{" "}
-                      <MetricsSelectorTooltip onlyBinomial={true} />
+                      <MetricsSelectorTooltip
+                        onlyBinomial={true}
+                        isSingular={true}
+                      />
                     </>
                   }
                   initialOption="None"

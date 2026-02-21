@@ -2,7 +2,7 @@ import { FilterQuery } from "mongoose";
 import {
   SafeRolloutSnapshotInterface,
   safeRolloutSnapshotInterface,
-} from "back-end/src/validators/safe-rollout-snapshot";
+} from "shared/validators";
 import { updateSafeRolloutTimeSeries } from "back-end/src/services/safeRolloutTimeSeries";
 import {
   getSafeRolloutAnalysisSummary,
@@ -20,6 +20,17 @@ const BaseClass = MakeModelClass({
   collectionName: "saferolloutsnapshots",
   idPrefix: "srsnp_",
   globallyUniqueIds: true,
+  additionalIndexes: [
+    {
+      fields: {
+        organization: 1,
+        safeRolloutId: 1,
+        dimension: 1,
+        status: 1,
+        dateCreated: -1,
+      },
+    },
+  ],
 });
 
 export class SafeRolloutSnapshotModel extends BaseClass {

@@ -3,21 +3,31 @@ import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
-} from "back-end/types/experiment-snapshot";
-import { Flex } from "@radix-ui/themes";
+} from "shared/types/experiment-snapshot";
+import { Flex, Text } from "@radix-ui/themes";
 import { getSnapshotAnalysis } from "shared/src/util";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import { DimensionInterface } from "back-end/types/dimension";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { DimensionInterface } from "shared/types/dimension";
+import { IncrementalRefreshInterface } from "shared/validators";
+import { PiCaretDownFill } from "react-icons/pi";
 import { getExposureQuery } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField, { GroupedValue } from "@/components/Forms/SelectField";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
-import { analysisUpdate } from "@/components/Experiment/DifferenceTypeChooser";
+import { useIncrementalRefresh } from "@/hooks/useIncrementalRefresh";
+import { analysisUpdate } from "@/services/snapshots";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
-import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuGroup,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "@/ui/DropdownMenu";
+import Link from "@/ui/Link";
 
 export interface Props {
   value: string;
@@ -45,6 +55,7 @@ export interface Props {
 }
 
 export function getDimensionOptions({
+  incrementalRefresh,
   precomputedDimensions,
   datasource,
   dimensions,
@@ -52,6 +63,7 @@ export function getDimensionOptions({
   exposureQueryId,
   userIdType,
 }: {
+  incrementalRefresh: IncrementalRefreshInterface | null;
   precomputedDimensions?: string[];
   datasource: DataSourceInterfaceWithParams | null;
   dimensions: DimensionInterface[];
@@ -86,6 +98,14 @@ export function getDimensionOptions({
         if (precomputedDimensionOptions.some((p) => p.label === d)) {
           return;
         }
+        // skip experiment dimensions that are not in the incremental refresh model
+        if (
+          incrementalRefresh &&
+          !incrementalRefresh.unitsDimensions.includes(d)
+        ) {
+          return;
+        }
+
         filteredDimensions.push({
           label: d,
           value: "exp:" + d,
@@ -162,10 +182,12 @@ export default function DimensionChooser({
   const { apiCall } = useAuth();
 
   const [postLoading, setPostLoading] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const { dimensions, getDatasourceById, getDimensionById } = useDefinitions();
   const { dimensionless: standardSnapshot, experiment } = useSnapshot();
   const datasource = datasourceId ? getDatasourceById(datasourceId) : null;
 
+  const { incrementalRefresh } = useIncrementalRefresh(experiment?.id ?? "");
   // If activation metric is not selected, don't allow using that dimension
   useEffect(() => {
     if (value === "pre:activation" && !activationMetric) {
@@ -180,6 +202,7 @@ export default function DimensionChooser({
   ]);
 
   const dimensionOptions = getDimensionOptions({
+    incrementalRefresh,
     precomputedDimensions,
     exposureQueryId,
     userIdType,
@@ -188,39 +211,101 @@ export default function DimensionChooser({
     activationMetric,
   });
 
-  const isExperimentIncludedInIncrementalRefresh = experiment
-    ? getIsExperimentIncludedInIncrementalRefresh(
-        datasource ?? undefined,
-        experiment.id,
-      )
-    : false;
+  const getDimensionDisplayName = (dimValue: string): string => {
+    if (!dimValue) return "None";
+    return (
+      ssrPolyfills?.getDimensionById?.(dimValue)?.name ||
+      getDimensionById(dimValue)?.name ||
+      (dimValue === "pre:date" ? "Date Cohorts (First Exposure)" : "") ||
+      (dimValue === "pre:activation" ? "Activation status" : "") ||
+      dimValue?.split(":")?.[1] ||
+      "None"
+    );
+  };
 
-  useEffect(() => {
-    if (isExperimentIncludedInIncrementalRefresh && value) {
-      setValue?.("");
-    }
-  }, [isExperimentIncludedInIncrementalRefresh, value, setValue]);
+  const handleDimensionChange = useCallback(
+    async (v: string) => {
+      if (v === value) return;
+      setPostLoading(true);
+      try {
+        setValue?.(v);
+        if (precomputedDimensions?.includes(v)) {
+          const defaultAnalysis = standardSnapshot
+            ? getSnapshotAnalysis(standardSnapshot)
+            : null;
 
-  const incrementalRefreshBetaMessage =
-    "Dimensions are not supported for incremental refresh while in Beta.";
+          if (!defaultAnalysis || !standardSnapshot) {
+            // reset if fails
+            setValue?.(value);
+            return;
+          }
 
-  const effectiveOptions = isExperimentIncludedInIncrementalRefresh
-    ? [
-        {
-          label: incrementalRefreshBetaMessage,
-          value: "__beta_message__",
-        },
-      ]
-    : dimensionOptions;
+          const newSettings: ExperimentSnapshotAnalysisSettings = {
+            ...defaultAnalysis.settings,
+            differenceType: analysis?.settings?.differenceType ?? "relative",
+            baselineVariationIndex:
+              analysis?.settings?.baselineVariationIndex ?? 0,
+            dimensions: [v],
+          };
+
+          // check if the analysis exists in the current snapshot
+          const analysisExistsInMainSnapshot = snapshot
+            ? getSnapshotAnalysis(snapshot, newSettings) !== null
+            : false;
+          const status = await triggerAnalysisUpdate(
+            newSettings,
+            defaultAnalysis,
+            standardSnapshot,
+            apiCall,
+            setPostLoading,
+          );
+
+          if (status === "success") {
+            // On success, set the dimension in the dropdown to
+            // the requested value
+            setValue?.(v);
+            track("Experiment Analysis: switch precomputed-dimension", {
+              dimension: v,
+            });
+            // Reset the snapshot dimension to empty (precomputed dimensions
+            // use the dimensionless snapshot) and set the analysis settings
+            setSnapshotDimension?.("");
+            // NB: await to ensure new analysis is available before we attempt to get it
+            if (!analysisExistsInMainSnapshot) await mutate?.();
+            setAnalysisSettings?.(newSettings);
+          } else {
+            // if the analysis fails, reset dropdown to the current value
+            setValue?.(value);
+          }
+        } else {
+          // if the dimension is not precomputed, set the dropdown to the
+          // desired value and reset other selectors
+          setValue?.(v, true);
+          // and set the snapshot for the snapshot provider and get the
+          // default analysis from that snapshot
+          setSnapshotDimension?.(v);
+          setAnalysisSettings?.(null);
+        }
+      } finally {
+        setPostLoading(false);
+      }
+    },
+    [
+      value,
+      setValue,
+      precomputedDimensions,
+      standardSnapshot,
+      analysis,
+      triggerAnalysisUpdate,
+      apiCall,
+      setSnapshotDimension,
+      setAnalysisSettings,
+      mutate,
+    ],
+  );
 
   if (disabled) {
-    const dimensionName =
-      ssrPolyfills?.getDimensionById?.(value)?.name ||
-      getDimensionById(value)?.name ||
-      (value === "pre:date" ? "Date Cohorts (First Exposure)" : "") ||
-      (value === "pre:activation" ? "Activation status" : "") ||
-      value?.split(":")?.[1] ||
-      "None";
+    const dimensionName = getDimensionDisplayName(value);
     return (
       <div>
         <div className="uppercase-title text-muted">Dimension</div>
@@ -229,96 +314,112 @@ export default function DimensionChooser({
     );
   }
 
-  return (
-    <div>
-      {newUi && <div className="uppercase-title text-muted">Dimension</div>}
-      <Flex direction="row" gap="1" align="center">
+  if (!newUi) {
+    return (
+      <Flex direction="row" gap="2" align="center">
         <SelectField
-          label={newUi ? undefined : "Dimension"}
+          label="Unit Dimension"
           labelClassName={labelClassName}
-          containerClassName={newUi ? "select-dropdown-underline" : ""}
-          options={effectiveOptions}
-          formatGroupLabel={({ label }) => (
-            <div className="pt-2 pb-1 border-bottom">{label}</div>
-          )}
+          options={dimensionOptions}
           initialOption="None"
           value={value}
-          onChange={(v) => {
-            if (v === value) return;
-            setPostLoading(true);
-            setValue?.(v);
-            if (precomputedDimensions?.includes(v)) {
-              const defaultAnalysis = standardSnapshot
-                ? getSnapshotAnalysis(standardSnapshot)
-                : null;
-
-              if (!defaultAnalysis || !standardSnapshot) {
-                // reset if fails
-                setValue?.(value);
-                return;
-              }
-
-              const newSettings: ExperimentSnapshotAnalysisSettings = {
-                ...defaultAnalysis.settings,
-                // get other analysis settings from current analysis
-                differenceType:
-                  analysis?.settings?.differenceType ?? "relative",
-                baselineVariationIndex:
-                  analysis?.settings?.baselineVariationIndex ?? 0,
-                dimensions: [v],
-              };
-              // Returns success if analysis is updated or already exists
-              triggerAnalysisUpdate(
-                newSettings,
-                defaultAnalysis,
-                standardSnapshot,
-                apiCall,
-                setPostLoading,
-              )
-                .then((status) => {
-                  if (status === "success") {
-                    // On success, set the dimension in the dropdown to
-                    // the requested value
-                    setValue?.(v);
-
-                    // also reset the snapshot dimension to the default
-                    // and set the analysis settings to get the right analysis
-                    // so that the snapshot provider can get the right analysis
-                    setSnapshotDimension?.("");
-                    setAnalysisSettings?.(newSettings);
-                    track("Experiment Analysis: switch precomputed-dimension", {
-                      dimension: v,
-                    });
-                    mutate?.();
-                  }
-                })
-                .catch(() => {
-                  // if the analysis fails, reset dropdown to the current value
-                  // and do nothing
-                  setValue?.(value);
-                });
-            } else {
-              // if the dimension is not precomputed, set the dropdown to the
-              // desired value and reset other selectors
-              setValue?.(v, true);
-              // and set the snapshot for the snapshot provider and get the
-              // default analysis from that snapshot
-              setSnapshotDimension?.(v);
-              setAnalysisSettings?.(null);
-            }
-            setPostLoading(false);
-          }}
+          onChange={handleDimensionChange}
           sort={false}
           helpText={
             showHelp ? "Break down results for each metric by a dimension" : ""
           }
           disabled={disabled}
-          isOptionDisabled={(opt) =>
-            opt.label === incrementalRefreshBetaMessage
-          }
         />
         {postLoading && <LoadingSpinner className="ml-1" />}
       </Flex>
-    </div>
+    );
+  }
+
+  const currentDimensionName = getDimensionDisplayName(value);
+
+  const renderMenuItems = () => {
+    const items: React.ReactNode[] = [];
+    let hasItems = false;
+
+    dimensionOptions.forEach((group, groupIndex) => {
+      if (group.options && group.options.length > 0) {
+        if (hasItems) {
+          items.push(<DropdownMenuSeparator key={`separator-${groupIndex}`} />);
+        }
+        items.push(
+          <DropdownMenuLabel
+            key={`label-${groupIndex}`}
+            textSize="1"
+            textStyle={{ textTransform: "uppercase", fontWeight: 600 }}
+          >
+            {group.label}
+          </DropdownMenuLabel>,
+        );
+        group.options.forEach((option) => {
+          items.push(
+            <DropdownMenuItem
+              key={option.value}
+              onClick={async () => {
+                handleDimensionChange(option.value);
+                setDropdownOpen(false);
+              }}
+            >
+              {option.label}
+            </DropdownMenuItem>,
+          );
+        });
+        hasItems = true;
+      }
+    });
+
+    if (items.length > 0) {
+      items.unshift(
+        <DropdownMenuItem
+          key="none"
+          onClick={async () => {
+            handleDimensionChange("");
+            setDropdownOpen(false);
+          }}
+        >
+          None
+        </DropdownMenuItem>,
+        <DropdownMenuSeparator key="separator-none" />,
+      );
+    } else {
+      items.push(
+        <DropdownMenuItem
+          key="none"
+          onClick={async () => {
+            handleDimensionChange("");
+            setDropdownOpen(false);
+          }}
+        >
+          None
+        </DropdownMenuItem>,
+      );
+    }
+
+    return items;
+  };
+
+  return (
+    <Flex direction="row" gap="2" align="center">
+      <Text weight="medium">Unit Dimension:</Text>
+      <DropdownMenu
+        trigger={
+          <Link type="button" style={{ color: "var(--color-text-high)" }}>
+            <Text mr="1">{currentDimensionName}</Text>
+            <PiCaretDownFill style={{ fontSize: "12px" }} />
+          </Link>
+        }
+        open={dropdownOpen}
+        onOpenChange={setDropdownOpen}
+        menuPlacement="start"
+        variant="soft"
+      >
+        <DropdownMenuGroup>{renderMenuItems()}</DropdownMenuGroup>
+      </DropdownMenu>
+      {postLoading && <LoadingSpinner className="ml-1" />}
+    </Flex>
   );
 }

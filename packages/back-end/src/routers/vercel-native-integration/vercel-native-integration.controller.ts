@@ -3,6 +3,8 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { v4 as uuidv4 } from "uuid";
+import { ManagedBy } from "shared/validators";
+import { OrganizationInterface } from "shared/types/organization";
 import {
   findVercelInstallationByInstallationId,
   VercelNativeIntegrationModel,
@@ -19,9 +21,8 @@ import {
   findOrganizationById,
 } from "back-end/src/models/OrganizationModel";
 import { createUser, getUserByEmail } from "back-end/src/models/UserModel";
-import { ManagedBy } from "back-end/src/validators/managed-by";
 import { ReqContextClass } from "back-end/src/services/context";
-import { ReqContext, OrganizationInterface } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import {
   getVercelSSOToken,
   syncVercelSdkConnection,
@@ -64,28 +65,42 @@ const STARTER_BILLING_PLAN: BillingPlan = {
   ],
 };
 
-const PRO_BILLING_PLAN: BillingPlan = {
-  description: "Full featured experimentation and growth platform",
-  id: "pro-billing-plan",
-  name: "Pro Plan",
-  type: "subscription",
-  cost: "Starting at $20/month",
-  details: [
-    { label: "Feature Flags & Evaluations", value: "Unlimited" },
-    { label: "Experiments", value: "Unlimited" },
-    { label: "Seats", value: "$20/seat/month" },
-    {
-      label: "Advanced Flags",
-      value: "Safe Rollouts, pre-requisites, & more",
-    },
-    {
-      label: "Advanced Experimentation",
-      value: "Bandits, advanced metrics, & more",
-    },
-  ],
-};
+function getProBillingPlan(perSeatCost: number): BillingPlan {
+  const id =
+    perSeatCost === 20 ? "pro-billing-plan" : `pro-billing-plan-${perSeatCost}`;
+  return {
+    description: "Full featured experimentation and growth platform",
+    id,
+    name: "Pro Plan",
+    type: "subscription",
+    cost: `Starting at $${perSeatCost}/month`,
+    details: [
+      { label: "Feature Flags & Evaluations", value: "Unlimited" },
+      { label: "Experiments", value: "Unlimited" },
+      { label: "Seats", value: `$${perSeatCost}/seat/month` },
+      {
+        label: "Advanced Flags",
+        value: "Safe Rollouts, pre-requisites, & more",
+      },
+      {
+        label: "Advanced Experimentation",
+        value: "Bandits, advanced metrics, & more",
+      },
+    ],
+  };
+}
 
-const billingPlans = [STARTER_BILLING_PLAN, PRO_BILLING_PLAN] as const;
+const allBillingPlans = [
+  STARTER_BILLING_PLAN,
+  getProBillingPlan(20),
+  getProBillingPlan(40),
+] as const;
+
+// Some plan IDs are legacy and should not be shown in the UI
+const availableBillingPlans = [
+  STARTER_BILLING_PLAN,
+  getProBillingPlan(40),
+] as const;
 
 const VERCEL_JKWS_URL = "https://marketplace.vercel.com/.well-known/jwks";
 
@@ -122,7 +137,7 @@ const checkAuth = async <T extends string | "user">({
   type: T;
 }): Promise<CheckedAuth<T> | { status: "error"; message: string }> => {
   try {
-    const payload = await jwtVerify(token, await vercelJKWSKey);
+    const payload = await jwtVerify(token, vercelJKWSKey);
 
     if (type === "user")
       return {
@@ -251,11 +266,9 @@ const authContext = async (req: Request, res: Response) => {
 
   if (checkedAuth.status === "error") return failed(401, checkedAuth.message);
 
-  const {
-    authentication: {
-      payload: { installation_id: installationId },
-    },
-  } = checkedAuth;
+  const installationId = checkedAuth.authentication.payload.installation_id;
+
+  if (!installationId) return failed(401, "Missing installation context");
 
   if (
     req.params.installation_id &&
@@ -340,7 +353,7 @@ export async function getInstallation(req: Request, res: Response) {
   const { integration } = await authContext(req, res);
 
   // billingPlan is not initially set.
-  const billingPlan = billingPlans.find(
+  const billingPlan = allBillingPlans.find(
     ({ id }) => id === integration.billingPlanId,
   );
 
@@ -355,13 +368,13 @@ export async function updateInstallation(req: Request, res: Response) {
 
   const { billingPlanId } = req.body as UpdateInstallation;
 
-  const billingPlan = billingPlans.find(({ id }) => id === billingPlanId);
+  const billingPlan = allBillingPlans.find(({ id }) => id === billingPlanId);
 
   if (!billingPlan) return res.status(400).send("Invalid billing plan!");
 
   // Check if current billing plan is different from new plan
   if (integration.billingPlanId !== billingPlanId) {
-    if (billingPlanId === "pro-billing-plan") {
+    if (billingPlanId?.startsWith("pro-billing-plan")) {
       // The user is upgrading from the starter plan to the pro plan
       try {
         const result = await postNewVercelSubscriptionToLicenseServer(
@@ -405,7 +418,7 @@ export async function deleteInstallation(req: Request, res: Response) {
     res,
   );
 
-  if (integration.billingPlanId === "pro-billing-plan") {
+  if (integration.billingPlanId?.startsWith("pro-billing-plan")) {
     const license = await getLicenseByKey(org.licenseKey || "");
 
     if (!license) {
@@ -440,13 +453,13 @@ export async function provisionResource(req: Request, res: Response) {
     ...payload
   } = req.body as ProvisitionResource;
 
-  const billingPlan = billingPlans.find(({ id }) => id === billingPlanId);
+  const billingPlan = allBillingPlans.find(({ id }) => id === billingPlanId);
 
   if (!billingPlan) return res.status(400).send("Invalid billing plan!");
 
   if (!integration.billingPlanId) {
     // The installation doesn't have a billing plan yet, so we need to create a new one
-    if (billingPlanId === "pro-billing-plan") {
+    if (billingPlanId?.startsWith("pro-billing-plan")) {
       try {
         // Get fresh org with updated name
         const updatedOrg = await getOrganizationById(org.id);
@@ -485,7 +498,7 @@ export async function provisionResource(req: Request, res: Response) {
     managedBy,
   });
 
-  const sdkConnection = await createSDKConnection({
+  const sdkConnection = await createSDKConnection(context, {
     organization: org.id,
     name: payload.name,
     languages: ["nextjs"],
@@ -554,9 +567,28 @@ export async function updateResource(req: Request, res: Response) {
 }
 
 export async function getInstallationProducts(req: Request, res: Response) {
-  await authContext(req, res);
+  const { integration } = await authContext(req, res);
 
-  return res.json({ plans: billingPlans });
+  const plans = [...availableBillingPlans];
+
+  // Make sure the current plan (if set) is included in the list
+  if (integration) {
+    const existingBillingPlan = allBillingPlans.find(
+      ({ id }) => id === integration.billingPlanId,
+    );
+    if (existingBillingPlan) {
+      const alreadyIncluded = plans.find(
+        ({ id }) => id === existingBillingPlan.id,
+      );
+      if (!alreadyIncluded) {
+        plans.unshift(existingBillingPlan);
+      }
+    }
+  }
+
+  return res.json({
+    plans,
+  });
 }
 
 async function removeManagedBy(
@@ -585,28 +617,46 @@ export async function deleteResource(req: Request, res: Response) {
 }
 
 export async function getProducts(req: Request, res: Response) {
-  const { integration } = await authContext(req, res);
+  const token = getBearerToken(req);
+  if (!token) return res.status(401).send("Invalid credentials");
 
-  const slug = req.params.slug;
-
-  if (!slug) return res.status(400).send("Invalid request!");
-
-  const existingBillingPlan = billingPlans.find(
-    ({ id }) => id === integration.billingPlanId,
-  );
-
-  if (!existingBillingPlan) {
-    return res.json({ plans: billingPlans });
+  let installationId: string | undefined;
+  try {
+    const { payload } = await jwtVerify(token, vercelJKWSKey);
+    installationId =
+      typeof payload["installation_id"] === "string"
+        ? payload["installation_id"]
+        : undefined;
+  } catch {
+    return res.status(401).send("Invalid credentials");
   }
 
-  const additionalProjectBillingPlan: BillingPlan = {
-    ...existingBillingPlan,
-    name: "Add GrowthBook Project to your existing plan",
-    description: "",
-    cost: "",
-  };
+  const slug = req.params.slug;
+  if (!slug) return res.status(400).send("Invalid request!");
 
-  return res.json({ plans: [additionalProjectBillingPlan] });
+  if (!installationId) {
+    return res.json({ plans: availableBillingPlans });
+  }
+
+  try {
+    const integration =
+      await findVercelInstallationByInstallationId(installationId);
+    const existingBillingPlan = allBillingPlans.find(
+      ({ id }) => id === integration.billingPlanId,
+    );
+    if (!existingBillingPlan) {
+      return res.json({ plans: availableBillingPlans });
+    }
+    const additionalProjectBillingPlan: BillingPlan = {
+      ...existingBillingPlan,
+      name: "Add GrowthBook Project to your existing plan",
+      description: "",
+      cost: "",
+    };
+    return res.json({ plans: [additionalProjectBillingPlan] });
+  } catch {
+    return res.json({ plans: availableBillingPlans });
+  }
 }
 
 export async function postVercelIntegrationSSO(req: Request, res: Response) {

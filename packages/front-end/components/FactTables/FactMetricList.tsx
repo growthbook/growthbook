@@ -1,7 +1,7 @@
 import {
   FactMetricInterface,
   FactTableInterface,
-} from "back-end/types/fact-table";
+} from "shared/types/fact-table";
 import React, { useState } from "react";
 import Link from "next/link";
 import { date } from "shared/dates";
@@ -14,6 +14,7 @@ import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SortedTags from "@/components/Tags/SortedTags";
 import MetricName from "@/components/Metrics/MetricName";
+import FactMetricTypeDisplayName from "@/components/Metrics/FactMetricTypeDisplayName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
@@ -246,7 +247,9 @@ export default function FactMetricList({
                       <MetricName id={metric.id} />
                     </Link>
                   </td>
-                  <td>{metric.metricType}</td>
+                  <td>
+                    <FactMetricTypeDisplayName type={metric.metricType} />
+                  </td>
                   {shouldShowSliceAnalysisColumn && (
                     <td>
                       <div

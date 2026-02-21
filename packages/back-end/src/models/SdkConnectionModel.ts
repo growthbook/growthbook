@@ -2,11 +2,7 @@ import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { z } from "zod";
 import { isEqual, omit } from "lodash";
-import { ApiSdkConnection } from "back-end/types/openapi";
-import {
-  managedByValidator,
-  ManagedBy,
-} from "back-end/src/validators/managed-by";
+import { managedByValidator, ManagedBy } from "shared/validators";
 import {
   CreateSDKConnectionParams,
   EditSDKConnectionParams,
@@ -14,7 +10,8 @@ import {
   ProxyTestResult,
   SDKConnectionInterface,
   SDKLanguage,
-} from "back-end/types/sdk-connection";
+} from "shared/types/sdk-connection";
+import { ApiSdkConnection } from "shared/types/openapi";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import {
   IS_CLOUD,
@@ -23,11 +20,19 @@ import {
   PROXY_HOST_PUBLIC,
 } from "back-end/src/util/secrets";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
-import { triggerSingleSDKWebhookJobs } from "back-end/src/jobs/updateAllJobs";
 import { ApiReqContext } from "back-end/types/api";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { addCloudSDKMapping } from "back-end/src/services/clickhouse";
+import { queueSDKPayloadRefresh } from "back-end/src/services/features";
+import { createModelAuditLogger } from "back-end/src/services/audit";
 import { generateEncryptionKey, generateSigningKey } from "./ApiKeyModel";
+
+const audit = createModelAuditLogger({
+  entity: "sdk-connection",
+  createEvent: "sdk-connection.create",
+  updateEvent: "sdk-connection.update",
+  deleteEvent: "sdk-connection.delete",
+});
 
 const sdkConnectionSchema = new mongoose.Schema({
   id: {
@@ -208,13 +213,17 @@ function generateSDKConnectionKey() {
   return generateSigningKey("sdk-", 12);
 }
 
-export async function createSDKConnection(params: CreateSDKConnectionParams) {
+export async function createSDKConnection(
+  context: ReqContext | ApiReqContext,
+  params: CreateSDKConnectionParams,
+) {
   const { proxyEnabled, proxyHost, languages, ...otherParams } =
     createSDKConnectionValidator.parse(params);
 
   // TODO: if using a proxy, try to validate the connection
   const connection: SDKConnectionInterface = {
     ...otherParams,
+    organization: context.org.id,
     languages: languages as SDKLanguage[],
     id: uniqid("sdk_"),
     dateCreated: new Date(),
@@ -253,7 +262,20 @@ export async function createSDKConnection(params: CreateSDKConnectionParams) {
     await addCloudSDKMapping(connection);
   }
 
-  return toInterface(doc);
+  queueSDKPayloadRefresh({
+    context,
+    payloadKeys: [],
+    sdkConnections: [connection],
+    auditContext: {
+      event: "created",
+      model: "sdkconnection",
+      id: connection.id,
+    },
+  });
+
+  const created = toInterface(doc);
+  await audit.logCreate(context, created);
+  return created;
 }
 
 export const editSDKConnectionValidator = z
@@ -359,18 +381,26 @@ export async function editSDKConnection(
   );
 
   if (needsProxyUpdate) {
-    // Purge CDN if used
-    const isUsingProxy = !!(newProxy.enabled && newProxy.host);
-    await triggerSingleSDKWebhookJobs(
+    queueSDKPayloadRefresh({
       context,
-      connection,
-      otherChanges as Partial<SDKConnectionInterface>,
-      newProxy,
-      isUsingProxy,
-    );
+      payloadKeys: [],
+      sdkConnections: [
+        {
+          ...connection,
+          ...fullChanges,
+        },
+      ],
+      auditContext: {
+        event: "updated",
+        model: "sdkconnection",
+        id: connection.id,
+      },
+    });
   }
 
-  return { ...connection, ...fullChanges };
+  const updated = { ...connection, ...fullChanges };
+  await audit.logUpdate(context, connection, updated);
+  return updated;
 }
 
 export const updateSdkConnectionsRemoveManagedBy = async (
@@ -390,14 +420,16 @@ export const updateSdkConnectionsRemoveManagedBy = async (
   );
 };
 
-export async function deleteSDKConnectionById(
-  organization: string,
-  id: string,
+export async function deleteSDKConnectionModel(
+  context: ReqContext,
+  sdkConnection: SDKConnectionInterface,
 ) {
   await SDKConnectionModel.deleteOne({
-    organization,
-    id,
+    organization: context.org.id,
+    id: sdkConnection.id,
   });
+
+  await audit.logDelete(context, sdkConnection);
 }
 
 export async function markSDKConnectionUsed(key: string) {

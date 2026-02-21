@@ -37,6 +37,8 @@ import LayoutLite from "@/components/Layout/LayoutLite";
 import { growthbook } from "@/services/utils";
 import { UserContextProvider } from "@/services/UserContext";
 import { SidebarOpenProvider } from "@/components/Layout/SidebarOpenProvider";
+import { HoverTooltipProvider } from "@/hooks/useHoverTooltip";
+import { CommandPaletteLauncher } from "@/components/CommandPalette/CommandPalette";
 
 // Make useLayoutEffect isomorphic (for SSR)
 if (typeof window === "undefined") React.useLayoutEffect = React.useEffect;
@@ -167,7 +169,6 @@ function App({
         }
         .radix-themes {
           --default-font-family: ${inter.style.fontFamily};
-          --font-weight-medium: 600;
         }
       `}</style>
       <Head>
@@ -177,49 +178,52 @@ function App({
       {ready || noLoadingOverlay ? (
         <AppearanceUIThemeProvider>
           <RadixTheme>
-            <SidebarOpenProvider>
-              <GrowthBookProvider growthbook={growthbook}>
-                <div id="portal-root" />
-                {preAuth || progressiveAuth ? (
-                  renderPreAuth()
-                ) : (
-                  <PageHeadProvider>
-                    <AuthProvider>
-                      <ProtectedPage
-                        organizationRequired={organizationRequired}
-                      >
-                        {organizationRequired ? (
-                          <GetStartedProvider>
-                            <DefinitionsProvider>
-                              {liteLayout ? <LayoutLite /> : <Layout />}
-                              <main className={`main ${parts[0]}`}>
-                                <GuidedGetStartedBar />
-                                <OrganizationMessagesContainer />
-                                <DemoDataSourceGlobalBannerContainer />
-                                <DefinitionsGuard>
-                                  <Component
-                                    {...{ ...pageProps, envReady: ready }}
-                                  />
-                                </DefinitionsGuard>
+            <HoverTooltipProvider>
+              <SidebarOpenProvider>
+                <GrowthBookProvider growthbook={growthbook}>
+                  <div id="portal-root" />
+                  {preAuth || progressiveAuth ? (
+                    renderPreAuth()
+                  ) : (
+                    <PageHeadProvider>
+                      <AuthProvider>
+                        <ProtectedPage
+                          organizationRequired={organizationRequired}
+                        >
+                          {organizationRequired ? (
+                            <GetStartedProvider>
+                              <DefinitionsProvider>
+                                {liteLayout ? <LayoutLite /> : <Layout />}
+                                <CommandPaletteLauncher />
+                                <main className={`main ${parts[0]}`}>
+                                  <GuidedGetStartedBar />
+                                  <OrganizationMessagesContainer />
+                                  <DemoDataSourceGlobalBannerContainer />
+                                  <DefinitionsGuard>
+                                    <Component
+                                      {...{ ...pageProps, envReady: ready }}
+                                    />
+                                  </DefinitionsGuard>
+                                </main>
+                              </DefinitionsProvider>
+                            </GetStartedProvider>
+                          ) : (
+                            <div>
+                              <TopNavLite />
+                              <main className="container">
+                                <Component
+                                  {...{ ...pageProps, envReady: ready }}
+                                />
                               </main>
-                            </DefinitionsProvider>
-                          </GetStartedProvider>
-                        ) : (
-                          <div>
-                            <TopNavLite />
-                            <main className="container">
-                              <Component
-                                {...{ ...pageProps, envReady: ready }}
-                              />
-                            </main>
-                          </div>
-                        )}
-                      </ProtectedPage>
-                    </AuthProvider>
-                  </PageHeadProvider>
-                )}
-              </GrowthBookProvider>
-            </SidebarOpenProvider>
+                            </div>
+                          )}
+                        </ProtectedPage>
+                      </AuthProvider>
+                    </PageHeadProvider>
+                  )}
+                </GrowthBookProvider>
+              </SidebarOpenProvider>
+            </HoverTooltipProvider>
           </RadixTheme>
         </AppearanceUIThemeProvider>
       ) : error ? (

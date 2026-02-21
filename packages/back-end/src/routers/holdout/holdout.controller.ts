@@ -5,10 +5,18 @@ import { v4 as uuidv4 } from "uuid";
 import { generateVariationId } from "shared/util";
 import { omit } from "lodash";
 import {
+  HoldoutInterface,
+  HoldoutNextScheduledStatusUpdate,
+} from "shared/validators";
+import {
+  Changeset,
   ExperimentInterface,
   ExperimentInterfaceStringDates,
   ExperimentPhase,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
+import { FeatureInterface } from "shared/types/feature";
+import { EventUserForResponseLocals } from "shared/types/events/event-types";
+import { DataSourceInterface } from "shared/types/datasource";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getContextFromReq,
@@ -28,21 +36,20 @@ import {
   getFeaturesByIds,
   removeHoldoutFromFeature,
 } from "back-end/src/models/FeatureModel";
-import { FeatureInterface } from "back-end/types/feature";
 import { logger } from "back-end/src/util/logger";
 import {
   createExperimentSnapshot,
   SNAPSHOT_TIMEOUT,
   validateVariationIds,
 } from "back-end/src/controllers/experiments";
-import { validateExperimentData } from "back-end/src/services/experiments";
+import {
+  getChangesToStartExperiment,
+  validateExperimentData,
+} from "back-end/src/services/experiments";
 import { auditDetailsCreate } from "back-end/src/services/audit";
-import { EventUserForResponseLocals } from "back-end/src/events/event-types";
 import { PrivateApiErrorResponse } from "back-end/types/api";
-import { DataSourceInterface } from "back-end/types/datasource";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/holdouts";
-import { refreshSDKPayloadCache } from "back-end/src/services/features";
-import { HoldoutInterface } from "./holdout.validators";
+import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 
 /**
  * GET /holdout/:id
@@ -372,7 +379,88 @@ export const updateHoldout = async (
     });
   }
 
-  const updatedHoldout = await context.models.holdout.update(holdout, req.body);
+  // Convert string dates to Date objects for statusUpdateSchedule
+  // Only add keys that are present in the request so partial updates preserve existing values
+  const updates = { ...req.body };
+
+  if (updates.statusUpdateSchedule) {
+    const scheduleUpdates = updates.statusUpdateSchedule as {
+      startAt?: string | Date;
+      startAnalysisPeriodAt?: string | Date;
+      stopAt?: string | Date;
+    };
+    const existing = holdout.statusUpdateSchedule ?? {};
+    updates.statusUpdateSchedule = {
+      ...existing,
+      ...(scheduleUpdates.startAt !== undefined && {
+        startAt: scheduleUpdates.startAt
+          ? getValidDate(scheduleUpdates.startAt)
+          : undefined,
+      }),
+      ...(scheduleUpdates.startAnalysisPeriodAt !== undefined && {
+        startAnalysisPeriodAt: scheduleUpdates.startAnalysisPeriodAt
+          ? getValidDate(scheduleUpdates.startAnalysisPeriodAt)
+          : undefined,
+      }),
+      ...(scheduleUpdates.stopAt !== undefined && {
+        stopAt: scheduleUpdates.stopAt
+          ? getValidDate(scheduleUpdates.stopAt)
+          : undefined,
+      }),
+    };
+
+    // Compute next scheduled event: earliest date among startAt, startAnalysisPeriodAt, and stopAt that is in the future
+    const now = new Date();
+    const potentialUpdates: Array<{
+      date: Date;
+      type: HoldoutNextScheduledStatusUpdate["type"];
+    }> = [];
+
+    if (updates.statusUpdateSchedule.startAt && experiment.status === "draft") {
+      potentialUpdates.push({
+        date: updates.statusUpdateSchedule.startAt,
+        type: "start",
+      });
+    }
+    if (
+      updates.statusUpdateSchedule.startAnalysisPeriodAt &&
+      experiment.status === "running" &&
+      !holdout.analysisStartDate
+    ) {
+      potentialUpdates.push({
+        date: updates.statusUpdateSchedule.startAnalysisPeriodAt,
+        type: "startAnalysisPeriod",
+      });
+    }
+    if (
+      updates.statusUpdateSchedule.stopAt &&
+      experiment.status !== "stopped"
+    ) {
+      potentialUpdates.push({
+        date: updates.statusUpdateSchedule.stopAt,
+        type: "stop",
+      });
+    }
+
+    // Filter to only future dates and find the earliest one
+    const futureUpdates = potentialUpdates.filter(
+      (update) => update.date > now,
+    );
+
+    if (futureUpdates.length > 0) {
+      const nextUpdate = futureUpdates.reduce((earliest, current) =>
+        current.date < earliest.date ? current : earliest,
+      );
+      updates.nextScheduledStatusUpdate = {
+        type: nextUpdate.type,
+        date: nextUpdate.date,
+      };
+    } else {
+      updates.nextScheduledStatusUpdate = null;
+    }
+  }
+
+  const updatedHoldout = await context.models.holdout.update(holdout, updates);
   return res.status(200).json({ status: 200, holdout: updatedHoldout });
 };
 
@@ -412,6 +500,7 @@ export const editStatus = async (
   }
 
   let phases = [...experiment.phases] as ExperimentPhase[];
+  const changes: Changeset = {};
 
   if (req.body.status === "stopped" && experiment.status !== "stopped") {
     // put end date on both phases
@@ -430,13 +519,61 @@ export const editStatus = async (
         status: "stopped",
       },
     });
+    // Clear next scheduled status update
+    await context.models.holdout.update(holdout, {
+      nextScheduledStatusUpdate: null,
+    });
 
-    await refreshSDKPayloadCache(
+    queueSDKPayloadRefresh({
       context,
-      getAffectedSDKPayloadKeys(holdout, getEnvironmentIdsFromOrg(context.org)),
+      payloadKeys: getAffectedSDKPayloadKeys(
+        holdout,
+        getEnvironmentIdsFromOrg(context.org),
+      ),
+      auditContext: {
+        event: "status changed to stopped",
+        model: "holdout",
+        id: holdout.id,
+      },
+    });
+  }
+  // Starting a holdout from draft
+  else if (req.body.status === "running" && experiment.status === "draft") {
+    const additionalChanges: Changeset = await getChangesToStartExperiment(
+      context,
+      experiment,
     );
+    Object.assign(changes, additionalChanges);
+    await updateExperiment({
+      context,
+      experiment,
+      changes,
+    });
+    await context.models.holdout.update(holdout, {
+      analysisStartDate: undefined,
+      nextScheduledStatusUpdate: holdout.statusUpdateSchedule
+        ?.startAnalysisPeriodAt
+        ? {
+            type: "startAnalysisPeriod",
+            date: holdout.statusUpdateSchedule.startAnalysisPeriodAt,
+          }
+        : null,
+    });
+
+    queueSDKPayloadRefresh({
+      context,
+      payloadKeys: getAffectedSDKPayloadKeys(
+        holdout,
+        getEnvironmentIdsFromOrg(context.org),
+      ),
+      auditContext: {
+        event: "status changed to running",
+        model: "holdout",
+        id: holdout.id,
+      },
+    });
   } else if (req.body.status === "running") {
-    // check to see if already in analysis period
+    // check to see if already in analysis phase
     if (!phases[0]) {
       throw new Error("Holdout does not have a phase");
     }
@@ -450,10 +587,13 @@ export const editStatus = async (
         ...phases[0],
         lookbackStartDate: new Date(),
         dateEnded: undefined,
-        name: "Analysis Period",
+        name: "Analysis",
       };
       await context.models.holdout.update(holdout, {
         analysisStartDate: new Date(),
+        nextScheduledStatusUpdate: holdout.statusUpdateSchedule?.stopAt
+          ? { type: "stop", date: holdout.statusUpdateSchedule.stopAt }
+          : null,
       });
       // check to see if we already are in the running phase
     } else if (
@@ -477,10 +617,18 @@ export const editStatus = async (
       changes: { phases, status: "running" },
     });
 
-    await refreshSDKPayloadCache(
+    queueSDKPayloadRefresh({
       context,
-      getAffectedSDKPayloadKeys(holdout, getEnvironmentIdsFromOrg(context.org)),
-    );
+      payloadKeys: getAffectedSDKPayloadKeys(
+        holdout,
+        getEnvironmentIdsFromOrg(context.org),
+      ),
+      auditContext: {
+        event: "status changed to running",
+        model: "holdout",
+        id: holdout.id,
+      },
+    });
   } else if (req.body.status === "draft") {
     // set the status to draft for the experiment
     phases[0].dateEnded = undefined;
@@ -493,10 +641,18 @@ export const editStatus = async (
       analysisStartDate: undefined,
     });
 
-    await refreshSDKPayloadCache(
+    queueSDKPayloadRefresh({
       context,
-      getAffectedSDKPayloadKeys(holdout, getEnvironmentIdsFromOrg(context.org)),
-    );
+      payloadKeys: getAffectedSDKPayloadKeys(
+        holdout,
+        getEnvironmentIdsFromOrg(context.org),
+      ),
+      auditContext: {
+        event: "status changed to draft",
+        model: "holdout",
+        id: holdout.id,
+      },
+    });
   }
 
   return res.status(200).json({ status: 200 });
@@ -567,10 +723,18 @@ export const deleteHoldout = async (
 
   await context.models.holdout.delete(holdout);
 
-  await refreshSDKPayloadCache(
+  queueSDKPayloadRefresh({
     context,
-    getAffectedSDKPayloadKeys(holdout, getEnvironmentIdsFromOrg(context.org)),
-  );
+    payloadKeys: getAffectedSDKPayloadKeys(
+      holdout,
+      getEnvironmentIdsFromOrg(context.org),
+    ),
+    auditContext: {
+      event: "deleted",
+      model: "holdout",
+      id: holdout.id,
+    },
+  });
 
   return res.status(200).json({ status: 200 });
 };

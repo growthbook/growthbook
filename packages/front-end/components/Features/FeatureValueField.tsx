@@ -3,16 +3,16 @@ import {
   FeatureValueType,
   SchemaField,
   SimpleSchema,
-} from "back-end/types/feature";
+} from "shared/types/feature";
 import { ReactElement, ReactNode, useId, useState } from "react";
 import { getValidation } from "shared/util";
 import { FaMagic, FaRegTrashAlt } from "react-icons/fa";
 import stringify from "json-stringify-pretty-compact";
 import { BsBoxArrowUpRight } from "react-icons/bs";
-import dJSON from "dirty-json";
 import clsx from "clsx";
 import { Flex, IconButton } from "@radix-ui/themes";
-import { PiCheck, PiCopy } from "react-icons/pi";
+import { PiCheck, PiCopy, PiBracketsCurly } from "react-icons/pi";
+import { formatJSON, LARGE_FILE_SIZE } from "@/services/features";
 import Field from "@/components/Forms/Field";
 import { useUser } from "@/services/UserContext";
 import SelectField from "@/components/Forms/SelectField";
@@ -66,6 +66,11 @@ export default function FeatureValueField({
   const { performCopy, copySuccess } = useCopyToClipboard({
     timeout: 800,
   });
+
+  const defaultCodeEditorToggledOn = value.length <= LARGE_FILE_SIZE;
+  const [codeEditorToggledOn, setCodeEditorToggledOn] = useState(
+    defaultCodeEditorToggledOn,
+  );
 
   if (
     validationEnabled &&
@@ -134,43 +139,58 @@ export default function FeatureValueField({
   }
 
   if (valueType === "json") {
-    if (useCodeInput) {
-      let formatted;
-      try {
-        const parsed = dJSON.parse(value);
-        formatted = stringify(parsed);
-      } catch (e) {
-        // Ignore
-      }
+    const formatted = formatJSON(value);
 
-      const formatJSONButton = (
-        <a
-          href="#"
-          className={clsx("text-purple", {
-            "text-muted cursor-default no-underline":
-              !formatted || formatted === value,
-          })}
-          onClick={(e) => {
-            e.preventDefault();
-            if (formatted && formatted !== value) {
-              setValue(formatted);
-            }
-          }}
-          style={{ whiteSpace: "nowrap" }}
-        >
-          <FaMagic /> Format JSON
-        </a>
-      );
+    const codeEditorToggleButton = useCodeInput ? (
+      <a
+        href="#"
+        className="text-purple"
+        onClick={(e) => {
+          e.preventDefault();
+          setCodeEditorToggledOn(!codeEditorToggledOn);
+        }}
+        style={{ whiteSpace: "nowrap" }}
+      >
+        <PiBracketsCurly />{" "}
+        {codeEditorToggledOn ? "Use text editor" : "Use code editor"}
+      </a>
+    ) : null;
 
-      const combinedHelpText = helpText ? (
-        <Flex align="center" gap="3" style={{ width: "100%" }}>
-          <div style={{ flex: 1 }}>{helpText}</div>
+    const formatJSONButton = (
+      <a
+        href="#"
+        className={clsx("text-purple", {
+          "text-muted cursor-default no-underline":
+            !formatted || formatted === value,
+        })}
+        onClick={(e) => {
+          e.preventDefault();
+          if (formatted && formatted !== value) {
+            setValue(formatted);
+          }
+        }}
+        style={{ whiteSpace: "nowrap" }}
+      >
+        <FaMagic /> Format JSON
+      </a>
+    );
+
+    const combinedHelpText = helpText ? (
+      <Flex align="center" gap="3" style={{ width: "100%" }}>
+        <div style={{ flex: 1 }}>{helpText}</div>
+        <Flex gap="3">
+          {codeEditorToggleButton}
           {formatJSONButton}
         </Flex>
-      ) : (
-        <Flex justify="end">{formatJSONButton}</Flex>
-      );
+      </Flex>
+    ) : (
+      <Flex justify="end" gap="3">
+        {codeEditorToggleButton}
+        {formatJSONButton}
+      </Flex>
+    );
 
+    if (useCodeInput && codeEditorToggledOn) {
       return (
         <CodeTextArea
           label={label}
@@ -187,14 +207,18 @@ export default function FeatureValueField({
         />
       );
     }
+
     return (
       <JSONTextEditor
         label={label}
         value={value}
         setValue={setValue}
-        helpText={helpText}
+        helpText={combinedHelpText}
         placeholder={placeholder}
         disabled={disabled}
+        showCopyButton={true}
+        performCopy={performCopy}
+        copySuccess={copySuccess}
       />
     );
   }
@@ -473,6 +497,10 @@ function SimpleSchemaEditor({
   const [open, setOpen] = useState(false);
   const [tempValue, setTempValue] = useState(value);
 
+  const { performCopy, copySuccess } = useCopyToClipboard({
+    timeout: 800,
+  });
+
   const fallback = (
     <JSONTextEditor
       value={value}
@@ -480,6 +508,9 @@ function SimpleSchemaEditor({
       label={label}
       placeholder={placeholder}
       disabled={disabled}
+      showCopyButton={true}
+      performCopy={performCopy}
+      copySuccess={copySuccess}
     />
   );
 
@@ -621,83 +652,96 @@ function SimpleSchemaEditor({
 
 function JSONTextEditor({
   label,
+  labelClassName,
   editAsForm,
   value,
   setValue,
   helpText,
   placeholder,
   disabled = false,
+  showCopyButton = false,
+  performCopy,
+  copySuccess,
 }: {
   label?: string | ReactNode;
+  labelClassName?: string;
   editAsForm?: () => void;
   value: string;
   setValue: (value: string) => void;
   helpText?: ReactNode;
   placeholder?: string;
   disabled?: boolean;
+  showCopyButton?: boolean;
+  performCopy?: (text: string) => void;
+  copySuccess?: boolean;
 }) {
-  let formatted;
-  try {
-    const parsed = dJSON.parse(value);
-    formatted = stringify(parsed);
-  } catch (e) {
-    // Ignore
-  }
-
   return (
-    <Field
-      labelClassName={editAsForm ? "d-flex w-100" : ""}
-      placeholder={placeholder}
-      disabled={disabled}
-      label={
-        editAsForm ? (
-          <>
-            <div>{label}</div>
-            {editAsForm && (
-              <div className="ml-auto">
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    editAsForm();
-                  }}
-                >
-                  Edit as Form
-                </a>
-              </div>
-            )}
-          </>
-        ) : (
-          label
-        )
-      }
-      value={value}
-      onChange={(e) => {
-        setValue(e.target.value);
-      }}
-      textarea
-      minRows={1}
-      helpText={
-        <div className="d-flex align-items-top">
-          {helpText && <div>{helpText}</div>}
-          <a
-            href="#"
-            className={clsx("text-purple ml-auto", {
-              "text-muted cursor-default no-underline":
-                !formatted || formatted === value,
-            })}
-            onClick={(e) => {
-              e.preventDefault();
-              if (formatted && formatted !== value) {
-                setValue(formatted);
-              }
+    <div className="mb-2">
+      <div style={{ position: "relative" }}>
+        <Field
+          labelClassName={
+            editAsForm ? "d-flex w-100" : labelClassName ? labelClassName : ""
+          }
+          containerClassName="mb-0"
+          placeholder={placeholder}
+          disabled={disabled}
+          label={
+            editAsForm ? (
+              <>
+                <div>{label}</div>
+                {editAsForm && (
+                  <div className="ml-auto">
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        editAsForm();
+                      }}
+                    >
+                      Edit as Form
+                    </a>
+                  </div>
+                )}
+              </>
+            ) : (
+              label
+            )
+          }
+          value={value}
+          onChange={(e) => {
+            setValue(e.target.value);
+          }}
+          textarea
+          minRows={1}
+        />
+        {showCopyButton && performCopy && (
+          <div
+            style={{
+              position: "absolute",
+              bottom: 0,
+              right: 16,
+              zIndex: 1000,
             }}
           >
-            <FaMagic /> Format JSON
-          </a>
-        </div>
-      }
-    />
+            <Tooltip body={copySuccess ? "Copied" : "Copy to clipboard"}>
+              <IconButton
+                type="button"
+                radius="full"
+                variant="ghost"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (!copySuccess) performCopy(value);
+                }}
+              >
+                {copySuccess ? <PiCheck size={12} /> : <PiCopy size={12} />}
+              </IconButton>
+            </Tooltip>
+          </div>
+        )}
+      </div>
+      {helpText && <div className="small form-text text-muted">{helpText}</div>}
+    </div>
   );
 }
 
@@ -728,6 +772,10 @@ function SimpleSchemaObjectArrayEditor({
 
   const [rawJSONInput, setRawJSONInput] = useState(!simpleEditorAllowed);
 
+  const { performCopy, copySuccess } = useCopyToClipboard({
+    timeout: 800,
+  });
+
   const fallback = (
     <JSONTextEditor
       label={label}
@@ -742,6 +790,9 @@ function SimpleSchemaObjectArrayEditor({
       }
       placeholder={placeholder}
       disabled={disabled}
+      showCopyButton={true}
+      performCopy={performCopy}
+      copySuccess={copySuccess}
     />
   );
 

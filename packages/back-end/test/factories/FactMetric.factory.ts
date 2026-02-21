@@ -1,5 +1,5 @@
 import { Factory } from "fishery";
-import { FactMetricInterface } from "../../types/fact-table";
+import { FactMetricInterface } from "shared/types/fact-table";
 
 export const factMetricFactory = Factory.define<FactMetricInterface>(
   ({ sequence, params }) => ({
@@ -21,14 +21,14 @@ export const factMetricFactory = Factory.define<FactMetricInterface>(
       factTableId: params.numerator?.factTableId ?? `ft_${sequence}`,
       column: params.numerator?.column ?? "value",
       aggregation: params.numerator?.aggregation ?? "sum",
-      filters: params.numerator?.filters ?? [],
+      rowFilters: params.numerator?.rowFilters ?? [],
     },
     denominator: params.denominator
       ? {
           factTableId: params.denominator?.factTableId ?? `ft_${sequence}`,
           column: params.denominator?.column ?? "value",
           aggregation: params.denominator?.aggregation ?? "sum",
-          filters: params.denominator?.filters ?? [],
+          rowFilters: params.denominator?.rowFilters ?? [],
         }
       : null,
 

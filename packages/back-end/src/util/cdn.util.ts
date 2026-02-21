@@ -21,16 +21,26 @@ export async function purgeCDNCache(
   // Only purge when Fastly is used as the CDN (e.g. GrowthBook Cloud)
   if (!FASTLY_SERVICE_ID || !FASTLY_API_TOKEN) return;
 
-  try {
-    await fetch(`https://api.fastly.com/service/${FASTLY_SERVICE_ID}/purge`, {
-      method: "POST",
-      headers: {
-        "Fastly-Key": FASTLY_API_TOKEN,
-        "surrogate-key": surrogateKeys.join(" "),
-        Accept: "application/json",
-      },
-    });
-  } catch (e) {
-    logger.error(e, "Failed to purge cache for " + orgId);
+  if (!surrogateKeys.length) return;
+
+  const BATCH_SIZE = 256;
+  for (let i = 0; i < surrogateKeys.length; i += BATCH_SIZE) {
+    const batch = surrogateKeys.slice(i, i + BATCH_SIZE);
+    try {
+      await fetch(`https://api.fastly.com/service/${FASTLY_SERVICE_ID}/purge`, {
+        method: "POST",
+        headers: {
+          "Fastly-Key": FASTLY_API_TOKEN,
+          "surrogate-key": batch.join(" "),
+          Accept: "application/json",
+        },
+      });
+    } catch (e) {
+      const batchIndex = Math.floor(i / BATCH_SIZE) + 1;
+      logger.error(
+        e,
+        `Failed to purge cache for ${orgId} (batch ${batchIndex})`,
+      );
+    }
   }
 }

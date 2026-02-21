@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
+import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import Frame from "@/ui/Frame";
 
@@ -14,9 +15,12 @@ import DatePickerStories from "@/ui/DatePicker.stories";
 import DropdownMenuStories from "@/ui/DropdownMenu.stories";
 import ExperimentResultIndicatorStories from "@/ui/ExperimentResultIndicator.stories";
 import ExperimentStatusIndicatorStories from "@/ui/ExperimentStatusIndicator.stories";
+import TextStories from "@/ui/Text.stories";
+import HeadingStories from "@/ui/Heading.stories";
 import HelperTextStories from "@/ui/HelperText.stories";
 import LinkStories from "@/ui/Link.stories";
 import MetadataStories from "@/ui/Metadata.stories";
+import PopoverStories from "@/ui/Popover.stories";
 import PremiumCalloutStories from "@/ui/PremiumCallout.stories";
 import RadioCardsStories from "@/ui/RadioCards.stories";
 import RadioGroupStories from "@/ui/RadioGroup.stories";
@@ -25,6 +29,7 @@ import SliderStories from "@/ui/Slider.stories";
 import StepperStories from "@/ui/Stepper.stories";
 import SwitchStories from "@/ui/Switch.stories";
 import TabsStories from "@/ui/Tabs.stories";
+import ProgressBarStories from "@/ui/ProgressBar.stories";
 
 type StoryEntry = {
   name: string;
@@ -61,10 +66,14 @@ export default function DesignSystemPage() {
       name: "ExperimentStatusIndicator",
       Stories: ExperimentStatusIndicatorStories,
     },
+    { name: "Text", Stories: TextStories },
+    { name: "Heading", Stories: HeadingStories },
     { name: "HelperText", Stories: HelperTextStories },
     { name: "Link", Stories: LinkStories },
     { name: "Metadata", Stories: MetadataStories },
+    { name: "Popover", Stories: PopoverStories },
     { name: "PremiumCallout", Stories: PremiumCalloutStories },
+    { name: "ProgressBar", Stories: ProgressBarStories },
     { name: "RadioCards", Stories: RadioCardsStories },
     { name: "RadioGroup", Stories: RadioGroupStories },
     { name: "Select", Stories: SelectStories },
@@ -97,7 +106,7 @@ export default function DesignSystemPage() {
             minWidth: 220,
           }}
         >
-          <Text as="div" weight="bold" className="mb-2">
+          <Text as="div" weight="semibold" mb="2">
             Components
           </Text>
           <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>

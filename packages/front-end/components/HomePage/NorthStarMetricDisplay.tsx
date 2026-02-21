@@ -1,12 +1,12 @@
 import React from "react";
-import { MetricAnalysisInterface } from "back-end/types/metric-analysis";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { MetricAnalysisInterface } from "shared/types/metric-analysis";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   getMetricLink,
   isBinomialMetric,
   isFactMetric,
 } from "shared/experiments";
-import { MetricInterface } from "back-end/types/metric";
+import { MetricInterface } from "shared/types/metric";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -160,6 +160,8 @@ const NorthStarMetricDisplay = ({
                         lookbackDays: analysisDays,
                         populationType: "factTable",
                         populationId: null,
+                        additionalNumeratorFilters: undefined,
+                        additionalDenominatorFilters: undefined,
                       },
                       endOfToday,
                       source: "northstar",

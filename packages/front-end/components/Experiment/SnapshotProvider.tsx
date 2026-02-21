@@ -1,13 +1,14 @@
-import React, { useState, ReactNode, useContext } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import React, { useState, ReactNode, useContext, useCallback } from "react";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   SnapshotType,
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
-} from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
 import useApi from "@/hooks/useApi";
+import { useAuth } from "@/services/auth";
 
 const snapshotContext = React.createContext<{
   experiment?: ExperimentInterfaceStringDates;
@@ -16,7 +17,7 @@ const snapshotContext = React.createContext<{
   latestAnalysis?: ExperimentSnapshotAnalysis | undefined;
   latest?: ExperimentSnapshotInterface;
   dimensionless?: ExperimentSnapshotInterface;
-  mutateSnapshot: () => void;
+  mutateSnapshot: () => Promise<unknown>;
   phase: number;
   dimension: string;
   precomputedDimensions: string[];
@@ -45,9 +46,7 @@ const snapshotContext = React.createContext<{
   setSnapshotType: () => {
     // do nothing
   },
-  mutateSnapshot: () => {
-    // do nothing
-  },
+  mutateSnapshot: () => Promise.resolve(),
 });
 
 export function getPrecomputedDimensions(
@@ -138,4 +137,104 @@ export default function SnapshotProvider({
 
 export function useSnapshot() {
   return useContext(snapshotContext);
+}
+
+export interface LocalSnapshotProviderProps {
+  experiment: ExperimentInterfaceStringDates;
+  snapshot: ExperimentSnapshotInterface;
+  phase: number;
+  dimension: string;
+  initialAnalysisSettings?: ExperimentSnapshotAnalysisSettings | null;
+  children: ReactNode;
+}
+
+export function LocalSnapshotProvider({
+  experiment,
+  snapshot: initialSnapshot,
+  phase,
+  dimension,
+  initialAnalysisSettings: parentAnalysisSettings,
+  children,
+}: LocalSnapshotProviderProps) {
+  const { apiCall } = useAuth();
+
+  const [localSnapshot, setLocalSnapshot] =
+    useState<ExperimentSnapshotInterface>(initialSnapshot);
+  const [loading, setLoading] = useState(false);
+
+  // Initialize analysis settings from parent's settings if provided,
+  // otherwise fall back to the snapshot's default analysis
+  const defaultAnalysisSettings = initialSnapshot
+    ? (getSnapshotAnalysis(initialSnapshot)?.settings ?? null)
+    : null;
+
+  // Only use parentAnalysisSettings if it matches an existing analysis
+  // Otherwise fall back to default settings
+  const validParentSettings =
+    parentAnalysisSettings && initialSnapshot
+      ? getSnapshotAnalysis(initialSnapshot, parentAnalysisSettings)
+        ? parentAnalysisSettings
+        : null
+      : null;
+
+  const [analysisSettings, setAnalysisSettings] =
+    useState<ExperimentSnapshotAnalysisSettings | null>(
+      validParentSettings ?? defaultAnalysisSettings,
+    );
+
+  const mutateSnapshot = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await apiCall<{
+        snapshot: ExperimentSnapshotInterface;
+      }>(
+        `/experiment/${experiment.id}/snapshot/${phase}` +
+          (dimension ? "/" + dimension : ""),
+      );
+      if (response.snapshot) {
+        setLocalSnapshot(response.snapshot);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [apiCall, experiment.id, phase, dimension]);
+
+  // Compute analysis from local snapshot + local settings
+  const analysis = localSnapshot
+    ? (getSnapshotAnalysis(localSnapshot, analysisSettings) ?? undefined)
+    : undefined;
+
+  return (
+    <snapshotContext.Provider
+      value={{
+        experiment,
+        snapshot: localSnapshot,
+        dimensionless: localSnapshot,
+        latest: localSnapshot,
+        analysis,
+        latestAnalysis: analysis,
+        mutateSnapshot,
+        phase,
+        dimension,
+        analysisSettings,
+        setAnalysisSettings,
+        precomputedDimensions: getPrecomputedDimensions(
+          localSnapshot,
+          localSnapshot,
+        ),
+        setPhase: () => {
+          // phase is fixed
+        },
+        setDimension: () => {
+          // dimension is fixed
+        },
+        setSnapshotType: () => {
+          // do nothing
+        },
+        loading,
+      }}
+    >
+      {children}
+    </snapshotContext.Provider>
+  );
 }

@@ -1,8 +1,9 @@
+import { CreateProps, UpdateProps } from "shared/types/base-model";
 import {
   IncrementalRefreshInterface,
   incrementalRefreshValidator,
-} from "back-end/src/validators/incremental-refresh";
-import { CreateProps, UpdateProps, MakeModelClass } from "./BaseModel";
+} from "shared/validators";
+import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "incrementalrefresh";
 
@@ -37,6 +38,7 @@ export class IncrementalRefreshModel extends BaseClass {
       experimentId,
       unitsTableFullName: null,
       unitsMaxTimestamp: null,
+      unitsDimensions: [],
       metricSources: [],
       metricCovariateSources: [],
       experimentSettingsHash: null,

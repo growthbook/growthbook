@@ -111,14 +111,13 @@ const config = {
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     {
-      // announcementBar: {
-      //   id: "announcement-bar",
-      //   content:
-      //     '<a href="https://blog.growthbook.io/growthbook-version-4-1" target="_blank">🆕 GrowthBook v4.1 is now available</a>',
-      //   backgroundColor: "var(--violet-a3)",
-      //   textColor: "var(--violet-a11)",
-      //   isCloseable: true,
-      // },
+      announcementBar: {
+        id: "announcement-bar",
+        content: `<p style="margin: 0;">Webinar: Ronny Kohavi on Designing Experiments for Long-Term Growth. <a href="https://us06web.zoom.us/webinar/register/5017695505972/WN_1jSNg4gBS8i8XfyflDbe5w" target="_blank">Register Now →</a></p>`,
+        backgroundColor: "var(--violet-a3)",
+        textColor: "var(--violet-a11)",
+        isCloseable: true,
+      },
       navbar: {
         //hideOnScroll: true,
         //title: 'GrowthBook Docs',
@@ -131,7 +130,12 @@ const config = {
           {
             to: "/",
             label: "Docs",
-            activeBaseRegex: "/(?!api)",
+            position: "left",
+            activeBaseRegex: "^/(?!(lib|api)(/|$))",
+          },
+          {
+            to: "/lib",
+            label: "SDKs",
             position: "left",
           },
           {
@@ -146,7 +150,7 @@ const config = {
           },
           {
             href: "https://app.growthbook.io",
-            label: "Log in / sign up",
+            label: "Log in",
             position: "right",
           },
           {
@@ -247,7 +251,9 @@ const config = {
         //externalUrlRegex: "external\\.com|domain\\.com",
 
         // Optional: Algolia search parameters
-        searchParameters: {},
+        searchParameters: {
+          optionalFilters: [],
+        },
 
         // Optional: path for search page that enabled by default (`false` to disable it)
         searchPagePath: "search",

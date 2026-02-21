@@ -1,23 +1,23 @@
 import { z } from "zod";
-import { v4 as uuidv4 } from "uuid";
 import {
   blockHasFieldOfType,
-  isPersistedDashboardBlock,
+  dashboardBlockHasIds,
   snapshotSatisfiesBlock,
+  DashboardInterface,
+  DashboardBlockInterface,
 } from "shared/enterprise";
 import { isDefined, isString, stringToBoolean } from "shared/util";
 import { groupBy } from "lodash";
+import { SavedQuery } from "shared/validators";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import { MetricAnalysisInterface } from "shared/types/metric-analysis";
+import { ExperimentInterface } from "shared/types/experiment";
+import { expandAllSliceMetricsInMap } from "shared/experiments";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
 } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
-import {
-  createDashboardBlock,
-  migrate,
-} from "back-end/src/enterprise/models/DashboardBlockModel";
-import { DashboardBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
 import { createExperimentSnapshot } from "back-end/src/controllers/experiments";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
@@ -25,18 +25,18 @@ import {
   deleteSnapshotById,
   findSnapshotsByIds,
 } from "back-end/src/models/ExperimentSnapshotModel";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
-import { SavedQuery } from "back-end/src/validators/saved-queries";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
-import { MetricAnalysisInterface } from "back-end/types/metric-analysis";
 import {
   updateDashboardMetricAnalyses,
   updateDashboardSavedQueries,
   updateNonExperimentDashboard,
 } from "back-end/src/enterprise/services/dashboards";
-import { ExperimentInterface } from "back-end/types/experiment";
 import { getAdditionalQueryMetadataForExperiment } from "back-end/src/services/experiments";
+import {
+  generateDashboardBlockIds,
+  migrateBlock,
+} from "back-end/src/enterprise/models/DashboardModel";
 import { createDashboardBody, updateDashboardBody } from "./dashboards.router";
 interface SingleDashboardResponse {
   status: number;
@@ -54,11 +54,9 @@ export async function getAllDashboards(
 ) {
   const context = getContextFromReq(req);
 
-  const dashboards = await context.models.dashboards.getAll(
-    stringToBoolean(req.query.includeExperimentDashboards)
-      ? {}
-      : { experimentId: null },
-  );
+  const dashboards = stringToBoolean(req.query.includeExperimentDashboards)
+    ? await context.models.dashboards.getAll()
+    : await context.models.dashboards.getAllNonExperimentDashboards();
   return res.status(200).json({ status: 200, dashboards });
 }
 
@@ -104,54 +102,17 @@ export async function createDashboard(
     title,
     blocks,
     projects,
+    userId,
   } = req.body;
 
-  if (experimentId) {
-    // Quick permission check before we write to the dashboard block collection
-    if (!context.hasPremiumFeature("dashboards")) {
-      throw new Error("Your plan does not support creating dashboards.");
-    }
-    const experiment = await getExperimentById(context, experimentId);
-    if (!experiment) throw new Error("Cannot find experiment");
-    if (!context.permissions.canCreateReport(experiment)) {
-      context.permissions.throwPermissionError();
-    }
-    if (updateSchedule) {
-      throw new Error(
-        "Cannot specify an update schedule for experiment dashboards",
-      );
-    }
-  } else {
-    if (shareLevel === "private") {
-      if (!context.hasPremiumFeature("product-analytics-dashboards")) {
-        throw new Error(
-          "Your plan does not support creating private dashboards.",
-        );
-      }
-    } else {
-      if (!context.hasPremiumFeature("share-product-analytics-dashboards")) {
-        throw new Error(
-          "Your plan does not support creating shared dashboards.",
-        );
-      }
-
-      if (!context.permissions.canCreateGeneralDashboards(req.body)) {
-        context.permissions.throwPermissionError();
-      }
-    }
-    if (enableAutoUpdates && !updateSchedule) {
-      throw new Error("Must define an update schedule to enable auto updates");
-    }
-  }
-  const createdBlocks = await Promise.all(
-    blocks.map((blockData) => createDashboardBlock(context.org.id, blockData)),
+  const createdBlocks = blocks.map((blockData) =>
+    generateDashboardBlockIds(context.org.id, blockData),
   );
 
   const dashboard = await context.models.dashboards.create({
-    uid: uuidv4().replace(/-/g, ""), // TODO: Move to BaseModel
     isDefault: false,
     isDeleted: false,
-    userId: context.userId,
+    userId: userId || context.userId,
     editLevel,
     shareLevel,
     enableAutoUpdates,
@@ -187,33 +148,11 @@ export async function updateDashboard(
   }
 
   if (updates.blocks) {
-    // Quick permission check before we write to the block collection
-    if (experiment) {
-      if (!context.hasPremiumFeature("dashboards")) {
-        throw new Error("Your plan does not support updating dashboards.");
-      }
-      if (!context.permissions.canUpdateReport(experiment)) {
-        context.permissions.throwPermissionError();
-      }
-    } else {
-      if (
-        dashboard.editLevel === "private" ||
-        updates.editLevel === "private"
-      ) {
-        if (!context.hasPremiumFeature("product-analytics-dashboards")) {
-          throw new Error(
-            "Your plan does not support updating private dashboards.",
-          );
-        }
-      }
-    }
-    const migratedBlocks = updates.blocks.map((block) => migrate(block));
-    const createdBlocks = await Promise.all(
-      migratedBlocks.map((blockData) =>
-        isPersistedDashboardBlock(blockData)
-          ? blockData
-          : createDashboardBlock(context.org.id, blockData),
-      ),
+    const migratedBlocks = updates.blocks.map(migrateBlock);
+    const createdBlocks = migratedBlocks.map((blockData) =>
+      dashboardBlockHasIds(blockData)
+        ? blockData
+        : generateDashboardBlockIds(context.org.id, blockData),
     );
     updates.blocks = createdBlocks;
   }
@@ -272,20 +211,33 @@ export async function refreshDashboardData(
     let mainSnapshotUsed = false;
     // Copy the blocks of the dashboard to overwrite their snapshot IDs
     const newBlocks = dashboard.blocks.map((block) => {
-      if (!blockHasFieldOfType(block, "snapshotId", isString)) return block;
+      if (!blockHasFieldOfType(block, "snapshotId", isString))
+        return { ...block };
       if (!snapshotSatisfiesBlock(mainSnapshot, block)) return { ...block };
       mainSnapshotUsed = true;
       return { ...block, snapshotId: mainSnapshot.id };
     });
     if (mainSnapshotUsed) {
+      const metricMap = await getMetricMap(context);
+      const factTableMap = await getFactTableMap(context);
+      const metricGroups = await context.models.metricGroups.getAll();
+
+      // Expand slice metrics in the metric map (same as in getSnapshotSettings)
+      expandAllSliceMetricsInMap({
+        metricMap,
+        factTableMap,
+        experiment,
+        metricGroups,
+      });
+
       await queryRunner.startAnalysis({
         snapshotType: "standard",
         snapshotSettings: mainSnapshot.settings,
         variationNames: experiment.variations.map((v) => v.name),
-        metricMap: await getMetricMap(context),
+        metricMap,
         queryParentId: mainSnapshot.id,
         experimentId: experiment.id,
-        factTableMap: await getFactTableMap(context),
+        factTableMap,
         experimentQueryMetadata:
           getAdditionalQueryMetadataForExperiment(experiment),
         fullRefresh: false,

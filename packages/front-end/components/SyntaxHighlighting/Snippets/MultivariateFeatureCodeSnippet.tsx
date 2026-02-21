@@ -1,5 +1,5 @@
-import { FeatureValueType } from "back-end/types/feature";
-import { SDKLanguage } from "back-end/types/sdk-connection";
+import { FeatureValueType } from "shared/types/feature";
+import { SDKLanguage } from "shared/types/sdk-connection";
 import Code from "@/components/SyntaxHighlighting/Code";
 
 function rubySymbol(name: string): string {

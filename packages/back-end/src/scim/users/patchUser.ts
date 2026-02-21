@@ -1,8 +1,8 @@
 import { cloneDeep } from "lodash";
 import { Response } from "express";
+import { Member, OrganizationInterface } from "shared/types/organization";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { ScimError, ScimPatchRequest, ScimUser } from "back-end/types/scim";
-import { Member, OrganizationInterface } from "back-end/types/organization";
 import { expandOrgMembers } from "back-end/src/services/organizations";
 import { expandedMembertoScimUser } from "./getUser";
 

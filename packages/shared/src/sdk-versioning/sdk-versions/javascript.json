@@ -1,6 +1,17 @@
 {
   "versions": [
     {
+      "version": "1.6.5"
+    },
+    {
+      "version": "1.6.4",
+      "capabilities": ["caseInsensitiveMembership"]
+    },
+    {
+      "version": "1.6.3",
+      "capabilities": ["caseInsensitiveRegex"]
+    },
+    {
       "version": "1.6.2"
     },
     {

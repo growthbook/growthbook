@@ -6,7 +6,7 @@ import {
   DashboardEditLevel,
   DashboardShareLevel,
   DashboardUpdateSchedule,
-} from "back-end/src/enterprise/validators/dashboard";
+} from "shared/enterprise";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import Checkbox from "@/ui/Checkbox";
@@ -22,9 +22,15 @@ import {
   CreateDashboardArgs,
 } from "./DashboardsTab";
 
-const defaultUpdateSchedule = {
-  type: "stale",
-  hours: 6,
+const defaultUpdateSchedules = {
+  stale: {
+    type: "stale",
+    hours: 6,
+  },
+  cron: {
+    type: "cron",
+    cron: "0 0 */2 * *",
+  },
 } as const;
 
 const defaultFormInit = {
@@ -51,6 +57,7 @@ export default function DashboardModal({
   type?: "general" | "experiment";
 }) {
   const [cronString, setCronString] = useState("");
+  const [cronError, setCronError] = useState(false);
   const defaultRefreshInterval = getExperimentRefreshFrequency();
   const {
     settings: { updateSchedule },
@@ -126,17 +133,81 @@ export default function DashboardModal({
     }
     setCronString(
       `${cronstrue.toString(cron, {
-        throwExceptionOnParseError: false,
+        throwExceptionOnParseError: true,
         verbose: true,
       })} (UTC time)`,
     );
   }
 
+  const currentUpdateSchedule = form.watch("updateSchedule");
+  useEffect(() => {
+    setCronError(false);
+    if (currentUpdateSchedule?.type !== "cron") return;
+    try {
+      updateCronString(currentUpdateSchedule.cron);
+    } catch {
+      setCronError(true);
+    }
+  }, [currentUpdateSchedule]);
+
   const hasGeneralDashboardSharing = hasCommercialFeature(
     "share-product-analytics-dashboards",
   );
-  const generalDashboardEditPrivateOnly =
-    !hasGeneralDashboardSharing || form.watch("shareLevel") === "private";
+
+  const renderViewAccessSelector = ({
+    disabled,
+    helpText,
+  }: {
+    disabled?: boolean;
+    helpText?: string;
+  }) => (
+    <SelectField
+      label="View access"
+      disabled={disabled}
+      helpText={helpText}
+      options={[
+        { label: "Organization members", value: "published" },
+        {
+          label: form.watch("userId") === userId ? "Only me" : "Owner only",
+          value: "private",
+        },
+        // { label: "Anyone with the link", value: "public" }, //TODO: Need to build this logic
+      ]}
+      value={form.watch("shareLevel")}
+      onChange={(value) => {
+        form.setValue("shareLevel", value as DashboardShareLevel);
+        if (value === "private") form.setValue("editLevel", "private");
+      }}
+    />
+  );
+
+  const renderEditAccessSelector = ({
+    disabled,
+    helpText,
+  }: {
+    disabled?: boolean;
+    helpText?: string;
+  }) => (
+    <SelectField
+      label="Edit access"
+      disabled={disabled || form.watch("shareLevel") === "private"}
+      helpText={helpText}
+      options={[
+        {
+          label: "Any organization members with editing permission",
+          value: "published",
+        },
+        {
+          label: form.watch("userId") === userId ? "Only me" : "Owner only",
+          value: "private",
+        },
+      ]}
+      value={form.watch("editLevel")}
+      onChange={(value) =>
+        form.setValue("editLevel", value as DashboardEditLevel)
+      }
+    />
+  );
 
   return (
     <Modal
@@ -154,7 +225,7 @@ export default function DashboardModal({
       }
       cta={dashboardFirstSave ? "Save" : initial ? "Done" : "Create"}
       submit={() => submit(form.getValues())}
-      ctaEnabled={!!form.watch("title")}
+      ctaEnabled={!!form.watch("title") && !cronError}
       close={close}
       closeCta="Cancel"
     >
@@ -189,7 +260,7 @@ export default function DashboardModal({
                 form.setValue("enableAutoUpdates", checked);
                 form.setValue(
                   "updateSchedule",
-                  checked ? defaultUpdateSchedule : undefined,
+                  checked ? defaultUpdateSchedules["stale"] : undefined,
                 );
               }}
             />
@@ -210,10 +281,12 @@ export default function DashboardModal({
                             step={1}
                             min={1}
                             max={168}
-                            disabled={
-                              form.watch("updateSchedule.type") !== "stale"
+                            disabled={currentUpdateSchedule?.type !== "stale"}
+                            value={
+                              currentUpdateSchedule?.type === "stale"
+                                ? currentUpdateSchedule.hours
+                                : defaultUpdateSchedules.stale.hours
                             }
-                            value={form.watch("updateSchedule.hours")}
                             onChange={(e) => {
                               let hours = 6;
                               try {
@@ -236,19 +309,26 @@ export default function DashboardModal({
                               once an hour.
                             </Text>
                             <Field
-                              disabled={
-                                form.watch("updateSchedule.type") !== "cron"
+                              disabled={currentUpdateSchedule?.type !== "cron"}
+                              value={
+                                currentUpdateSchedule?.type === "cron"
+                                  ? currentUpdateSchedule.cron
+                                  : defaultUpdateSchedules.cron.cron
                               }
-                              {...form.register("updateSchedule.cron")}
-                              placeholder="0 0 */2 * * *"
-                              onFocus={(e) => {
-                                updateCronString(e.target.value);
-                              }}
-                              onBlur={(e) => {
-                                updateCronString(e.target.value);
+                              onChange={(e) => {
+                                form.setValue("updateSchedule", {
+                                  type: "cron",
+                                  cron: e.target.value,
+                                });
                               }}
                               helpText={
-                                <span className="ml-2">{cronString}</span>
+                                cronError ? (
+                                  "Invalid cron string"
+                                ) : cronString ? (
+                                  <span className="ml-2">{cronString}</span>
+                                ) : (
+                                  "Example: 0 0 */2 * * *"
+                                )
                               }
                             />
                           </>
@@ -257,11 +337,11 @@ export default function DashboardModal({
                     ]}
                     gap="2"
                     descriptionSize="2"
-                    value={form.watch("updateSchedule.type")}
+                    value={currentUpdateSchedule?.type ?? "stale"}
                     setValue={(v) => {
                       form.setValue(
-                        "updateSchedule.type",
-                        v as DashboardUpdateSchedule["type"],
+                        "updateSchedule",
+                        defaultUpdateSchedules[v],
                       );
                     }}
                   />
@@ -286,108 +366,34 @@ export default function DashboardModal({
             )}
           </>
         )}
-        {mode === "create" ? (
-          // Creating a dashboard: show view access for general dashboards only, edit access for all
+        {mode === "create" || mode === "duplicate" || dashboardFirstSave ? (
           <>
-            {isGeneralDashboard && (
-              <>
-                <SelectField
-                  label="View access"
-                  disabled={!hasGeneralDashboardSharing}
-                  helpText={
-                    !hasGeneralDashboardSharing
-                      ? "Your organization's plan does not support sharing dashboards"
-                      : undefined
-                  }
-                  options={[
-                    { label: "Organization members", value: "published" },
-                    { label: "Only me", value: "private" },
-                    // { label: "Anyone with the link", value: "public" }, //TODO: Need to build this logic
-                  ]}
-                  value={form.watch("shareLevel")}
-                  onChange={(value) =>
-                    form.setValue("shareLevel", value as DashboardShareLevel)
-                  }
-                />
-              </>
-            )}
-            <SelectField
-              label="Edit access"
-              disabled={isGeneralDashboard && generalDashboardEditPrivateOnly}
-              helpText={
+            {renderViewAccessSelector({
+              disabled: isGeneralDashboard && !hasGeneralDashboardSharing,
+              helpText:
                 isGeneralDashboard && !hasGeneralDashboardSharing
                   ? "Your organization's plan does not support sharing dashboards"
-                  : undefined
-              }
-              options={[
-                {
-                  label: "Any organization members with editing permission",
-                  value: "published",
-                },
-                { label: "Only me", value: "private" },
-              ]}
-              value={form.watch("editLevel")}
-              onChange={(value) =>
-                form.setValue("editLevel", value as DashboardEditLevel)
-              }
-            />
+                  : undefined,
+            })}
+            {renderEditAccessSelector({
+              disabled: isGeneralDashboard && !hasGeneralDashboardSharing,
+              helpText:
+                isGeneralDashboard && !hasGeneralDashboardSharing
+                  ? "Your organization's plan does not support sharing dashboards"
+                  : undefined,
+            })}
           </>
         ) : mode === "edit" ? (
-          // Editing a dashboard: hide view and edit access for general dashboards, show edit access for experiment dashboards
+          // Editing a dashboard: hide sharing for general dashboards or if the user doesn't have permissions
           <>
-            {!isGeneralDashboard && (
-              <SelectField
-                label="Edit access"
-                disabled={!canManageSharingAndEditLevels}
-                options={[
-                  {
-                    label: "Any organization members with editing permission",
-                    value: "published",
-                  },
-                  { label: "Only me", value: "private" },
-                ]}
-                value={form.watch("editLevel")}
-                onChange={(value) =>
-                  form.setValue("editLevel", value as DashboardEditLevel)
-                }
-              />
+            {!isGeneralDashboard && canManageSharingAndEditLevels && (
+              <>
+                {renderViewAccessSelector({})}
+                {renderEditAccessSelector({})}
+              </>
             )}
           </>
-        ) : (
-          // Duplicating a dashboard: show view access for general dashboards only, edit access for all
-          <>
-            {isGeneralDashboard && (
-              <SelectField
-                label="View access"
-                disabled={!hasGeneralDashboardSharing}
-                options={[
-                  { label: "Organization members", value: "published" },
-                  { label: "Only me", value: "private" },
-                  // { label: "Anyone with the link", value: "public" }, //TODO: Need to build this logic
-                ]}
-                value={form.watch("shareLevel")}
-                onChange={(value) =>
-                  form.setValue("shareLevel", value as DashboardShareLevel)
-                }
-              />
-            )}
-            <SelectField
-              label="Edit access"
-              disabled={isGeneralDashboard && generalDashboardEditPrivateOnly}
-              options={[
-                {
-                  label: "Any organization members with editing permission",
-                  value: "published",
-                },
-                { label: "Only me", value: "private" },
-              ]}
-              value={form.watch("editLevel")}
-              onChange={(value) =>
-                form.setValue("editLevel", value as DashboardEditLevel)
-              }
-            />
-          </>
-        )}
+        ) : null}
       </Flex>
     </Modal>
   );

@@ -2,77 +2,135 @@
   "name": "growthbook-app",
   "repository": "https://github.com/growthbook/growthbook-app.git",
   "private": true,
-  "version": "4.1.0",
+  "version": "4.3.0",
   "scripts": {
     "lint": "eslint './**/*.{ts,tsx,js,jsx}' --fix --max-warnings 0 --cache --cache-strategy content",
     "lint:ci": "eslint './**/*.{ts,tsx,js,jsx}' --max-warnings 0 --cache --cache-strategy content",
     "pretty": "prettier --write ./**/*.{json,css,scss,md,mdx,js,jsx,ts,tsx}",
-    "type-check": "wsrun -m type-check",
-    "clean": "wsrun -m clean && rimraf node_modules && yarn cache clean",
-    "doc-gen": "cd docs && yarn && yarn gen",
-    "unused-export-check": "wsrun -m unused-export-check",
-    "test": "wsrun -m test",
-    "dev:apps": "wsrun -p 'back-end' -p 'front-end' -p 'shared' -c dev",
-    "dev": ". $(cd packages/stats && poetry env info --path)/bin/activate && yarn dev:apps",
-    "dev:back-end": ". $(cd packages/stats && poetry env info --path)/bin/activate && wsrun -p 'back-end' -c dev",
-    "build:deps": "wsrun -p '@growthbook/growthbook' -p '@growthbook/growthbook-react' -p 'shared' -t -c build",
-    "build:app": "wsrun -p 'back-end' -p 'front-end' -c build",
-    "build": "yarn build:deps && yarn build:app",
-    "start": "wsrun -p 'back-end' -p 'front-end' --no-prefix -c start",
-    "start:with-tracing": "wsrun -p 'back-end' -p 'front-end' --no-prefix -c start:with-tracing",
-    "start:with-datadog": "wsrun -p 'back-end' -p 'front-end' --no-prefix -c start:with-datadog",
+    "type-check": "pnpm -r --workspace-concurrency=1 run type-check",
+    "clean": "pnpm -r run clean && rimraf node_modules",
+    "doc-gen": "cd docs && pnpm install && pnpm gen",
+    "unused-export-check": "pnpm -r --workspace-concurrency=1 run unused-export-check",
+    "test": "pnpm -r --workspace-concurrency=1 run test",
+    "dev:apps": "pnpm --filter back-end --filter front-end --filter shared -r --parallel run dev",
+    "dev": ". $(cd packages/stats && poetry env info --path)/bin/activate && pnpm dev:apps",
+    "dev:back-end": ". $(cd packages/stats && poetry env info --path)/bin/activate && pnpm --filter back-end run dev",
+    "build:deps": "pnpm --filter @growthbook/growthbook --filter @growthbook/growthbook-react --filter shared run build",
+    "build:app": "pnpm --filter back-end --filter front-end run build",
+    "build": "pnpm build:deps && pnpm build:app",
+    "start": "pm2-runtime start ecosystem.config.js",
+    "start:with-tracing": "TRACING_PROVIDER=opentelemetry pm2-runtime start ecosystem.config.js",
+    "start:with-datadog": "TRACING_PROVIDER=datadog pm2-runtime start ecosystem.config.js",
     "update-stats-deps": ". $(cd packages/stats && poetry env info --path)/bin/activate && (cd packages/stats && poetry install)",
-    "setup": "yarn build:deps && wsrun -p 'stats' -c setup",
-    "prepare": "husky install",
+    "setup": "pnpm build:deps & pnpm --filter stats run setup & (cd docs && pnpm install) & wait",
+    "prepare": "command -v husky >/dev/null 2>&1 && husky install || true",
     "plop": "plop",
-    "migrate-encryption-key": "yarn workspace back-end migrate-encryption-key",
-    "generate-api-types": "yarn workspace back-end generate-api-types",
-    "ci": "yarn lint:ci && yarn run type-check && yarn run test",
-    "postinstall": "patch-package && if command -v poetry >/dev/null 2>&1; then yarn update-stats-deps; fi",
-    "generate-sdk-report": "yarn workspace shared generate-sdk-report",
-    "bump-sdk-version": "yarn workspace @growthbook/growthbook bump-version"
+    "migrate-encryption-key": "pnpm --filter back-end migrate-encryption-key",
+    "generate-api-types": "pnpm --filter back-end generate-api-types",
+    "ci": "pnpm lint:ci && pnpm run type-check && pnpm run test",
+    "postinstall": "if command -v poetry >/dev/null 2>&1; then pnpm update-stats-deps; fi",
+    "generate-sdk-report": "pnpm --filter shared generate-sdk-report",
+    "bump-sdk-version": "pnpm --filter @growthbook/growthbook bump-version"
   },
-  "workspaces": [
-    "packages/*"
-  ],
   "dependencies": {
-    "dd-trace": "^5.46.0",
-    "patch-package": "^8.0.0",
-    "wsrun": "^5.2.4"
+    "@datadog/native-metrics": "^3.1.1",
+    "@datadog/pprof": "^5.13.2",
+    "dd-trace": "^5.83.0",
+    "pm2": "^6.0.14"
   },
   "devDependencies": {
-    "@next/eslint-plugin-next": "^12.2.3",
-    "@types/eslint": "^8.4.5",
-    "@typescript-eslint/eslint-plugin": "^6.19.1",
-    "@typescript-eslint/parser": "^6.19.1",
-    "eslint": "^8.20.0",
-    "eslint-config-next": "^14.1.0",
-    "eslint-config-prettier": "^6.11.0",
-    "eslint-import-resolver-typescript": "^3.5.1",
-    "eslint-plugin-import": "^2.26.0",
+    "@eslint/compat": "^1.3.1",
+    "@eslint/eslintrc": "^3.3.1",
+    "@eslint/js": "^9.39.2",
+    "@next/eslint-plugin-next": "^16.1.6",
+    "@typescript-eslint/eslint-plugin": "^8.33.1",
+    "@typescript-eslint/parser": "^8.33.1",
+    "eslint": "^9.39.2",
+    "eslint-config-next": "^16.1.6",
+    "eslint-config-prettier": "^10.1.0",
+    "eslint-import-resolver-typescript": "^4.4.0",
+    "eslint-plugin-import": "^2.31.0",
     "eslint-plugin-no-async-foreach": "^0.1.1",
     "eslint-plugin-prettier": "^5.5.4",
-    "eslint-plugin-react": "^7.30.1",
+    "eslint-plugin-react": "^7.37.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "globals": "^16.0.0",
     "growthbook": "^0.2.1",
     "husky": "^7.0.0",
     "lint-staged": "^10.2.7",
     "plop": "^3.1.1",
     "prettier": "^3.6.2",
-    "typescript": "5.6.3"
+    "rimraf": "^3.0.2",
+    "typescript": "5.7.3"
   },
   "lint-staged": {
     "./**/*.{json,css,scss,md,mdx}": [
       "prettier --write"
     ],
     "./**/*.{ts,tsx}": [
-      "yarn eslint  --fix --max-warnings 0 --cache --cache-strategy content"
+      "pnpm eslint --fix --max-warnings 0 --cache --cache-strategy content --prune-suppressions"
     ],
     "./packages/stats/{gbstats,tests}/**/*.py": [
-      "yarn workspace stats lint"
+      "pnpm --filter stats lint"
     ]
   },
-  "resolutions": {
-    "@growthbook/growthbook": "1.6.2"
+  "pnpm": {
+    "overrides": {
+      "@babel/runtime@7": "^7.28.6",
+      "@growthbook/growthbook": "1.6.5",
+      "@grpc/grpc-js@1.8": "1.8.22",
+      "@octokit/plugin-paginate-rest@9": "^9.2.2",
+      "@octokit/request@8": "^8.4.1",
+      "@octokit/request-error@5": "^5.1.1",
+      "baseline-browser-mapping": "^2.9.19",
+      "brace-expansion@1": "^1.1.12",
+      "diff@4": "^4.0.4",
+      "execa": "^5.0.0",
+      "form-data@2": "^2.5.5",
+      "form-data@3": "^3.0.4",
+      "form-data@4": "^4.0.5",
+      "fast-xml-parser@4": "^4.5.3",
+      "fast-xml-parser@5": "^5.3.4",
+      "jws@4": "^4.0.1",
+      "mdast-util-to-hast@13": "^13.2.1",
+      "nan@2": "2.25.0",
+      "node-forge@1": "^1.3.2",
+      "prismjs@1": "^1.30.0",
+      "qs@6": "^6.14.1",
+      "trim": "^0.0.3",
+      "vite": "^6.0.0"
+    },
+    "peerDependencyRules": {
+      "ignoreMissing": [
+        "react-native"
+      ]
+    },
+    "patchedDependencies": {
+      "@types/presto-client@1.0.2": "patches/@types__presto-client@1.0.2.patch",
+      "presto-client@1.1.0": "patches/presto-client@1.1.0.patch",
+      "agenda@5.0.0": "patches/agenda@5.0.0.patch",
+      "@ephys/zod-to-ts@2.3.2": "patches/@ephys__zod-to-ts@2.3.2.patch"
+    },
+    "onlyBuiltDependencies": [
+      "@datadog/native-appsec",
+      "@datadog/native-iast-taint-tracking",
+      "@datadog/native-metrics",
+      "@datadog/pprof",
+      "@parcel/watcher",
+      "@sentry/cli",
+      "@swc/core",
+      "aws-sdk",
+      "dd-trace",
+      "esbuild",
+      "isolated-vm",
+      "kerberos",
+      "lz4",
+      "mongodb-memory-server",
+      "protobufjs",
+      "sharp",
+      "unrs-resolver",
+      "yarn"
+    ]
   },
   "prettier": {
     "overrides": [
@@ -86,6 +144,7 @@
   },
   "license": "Mixed",
   "engines": {
-    "node": ">=18"
-  }
+    "node": ">=24"
+  },
+  "packageManager": "pnpm@10.28.2"
 }

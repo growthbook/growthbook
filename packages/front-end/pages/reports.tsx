@@ -1,8 +1,8 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
-import { ReportInterface } from "back-end/types/report";
-import { ExperimentInterface } from "back-end/types/experiment";
+import { ReportInterface } from "shared/types/report";
+import { ExperimentInterface } from "shared/types/experiment";
 import { datetime, ago } from "shared/dates";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAddComputedFields, useSearch } from "@/services/search";

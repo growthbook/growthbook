@@ -1,5 +1,16 @@
 import normal from "@stdlib/stats/base/dists/normal";
-import { MetricInterface } from "back-end/types/metric";
+import cloneDeep from "lodash/cloneDeep";
+import uniqid from "uniqid";
+import {
+  DEFAULT_GUARDRAIL_ALPHA,
+  DEFAULT_PROPER_PRIOR_STDDEV,
+  DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+  PRECOMPUTED_DIMENSION_PREFIX,
+  NULL_DIMENSION_VALUE,
+  NULL_DIMENSION_DISPLAY,
+} from "shared/constants";
+import { MetricInterface } from "shared/types/metric";
 import {
   ColumnRef,
   FactMetricInterface,
@@ -8,45 +19,56 @@ import {
   FactTableMap,
   MetricQuantileSettings,
   MetricWindowSettings,
-} from "back-end/types/fact-table";
-import { TemplateVariables } from "back-end/types/sql";
+  RowFilter,
+} from "shared/types/fact-table";
 import {
   MetricDefaults,
   OrganizationSettings,
-} from "back-end/types/organization";
+} from "shared/types/organization";
 import {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
   MetricOverride,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import {
   ExperimentReportResultDimension,
   MetricSnapshotSettings,
-} from "back-end/types/report";
-import { DEFAULT_GUARDRAIL_ALPHA } from "shared/constants";
-import cloneDeep from "lodash/cloneDeep";
+} from "shared/types/report";
 import {
   DataSourceInterfaceWithParams,
   DataSourceSettings,
-  ExperimentDimensionMetadata,
-} from "back-end/types/datasource";
-import { SnapshotMetric } from "back-end/types/experiment-snapshot";
+} from "shared/types/datasource";
+import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import {
   DifferenceType,
   IndexedPValue,
   PValueCorrection,
   StatsEngine,
-} from "back-end/types/stats";
-import { MetricGroupInterface } from "back-end/types/metric-groups";
-import uniqid from "uniqid";
+} from "shared/types/stats";
+import { MetricGroupInterface } from "shared/types/metric-groups";
+import { TemplateVariables } from "../types/sql";
 import { stringToBoolean } from "./util";
-import {
-  DEFAULT_PROPER_PRIOR_STDDEV,
-  DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
-  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-} from "./constants";
 
 export type ExperimentMetricInterface = MetricInterface | FactMetricInterface;
+
+export type ExperimentSortBy =
+  | "significance"
+  | "change"
+  | "metrics"
+  | "metricTags"
+  | null;
+export type SetExperimentSortBy = (value: ExperimentSortBy) => void;
+
+export function formatDimensionValueForDisplay(
+  value: string | undefined,
+): string {
+  if (!value) return "";
+  if (value === NULL_DIMENSION_VALUE) {
+    return NULL_DIMENSION_DISPLAY;
+  }
+
+  return value;
+}
 
 export function isFactMetricId(id: string): boolean {
   return !!id.match(/^fact__/);
@@ -133,9 +155,6 @@ export function getColumnRefWhereClause({
   showSourceComment?: boolean;
   sliceInfo?: SliceMetricInfo;
 }): string[] {
-  const inlineFilters = columnRef.inlineFilters || {};
-  const filterIds = columnRef.filters || [];
-
   const where = new Set<string>();
 
   // First add slice filters if this is a slice metric
@@ -189,56 +208,156 @@ export function getColumnRefWhereClause({
     });
   }
 
-  // Then add inline filters
-  Object.entries(inlineFilters).forEach(([column, values]) => {
-    const columnExpr = getColumnExpression(column, factTable, jsonExtract);
-
-    const columnType = factTable.columns?.find(
-      (c) => c.column === column,
-    )?.datatype;
-
-    // Special handling for boolean columns
-    if (columnType === "boolean") {
-      // This should never happen, but if it does, skip
-      if (values.length !== 1) return;
-      const v = values[0];
-      // An empty value means do not filter
-      if (!v) return;
-      where.add(`(${evalBoolean(columnExpr, stringToBoolean(v))})`);
-      return;
-    }
-
-    // TODO: Special handling for number columns
-
-    // Treat everything else as string
-    const escapedValues = new Set(
-      values
-        .filter((v) => v.length > 0)
-        .map((v) => "'" + escapeStringLiteral(v) + "'"),
-    );
-    if (!escapedValues.size) {
-      return;
-    } else if (escapedValues.size === 1) {
-      // parentheses are overkill here but they help de-dupe with
-      // any identical user additional filters
-      where.add(`(${columnExpr} = ${[...escapedValues][0]})`);
-    } else {
-      where.add(
-        `(${columnExpr} IN (\n  ${[...escapedValues].join(",\n  ")}\n))`,
-      );
-    }
-  });
-
-  // Finally add additional filters
-  filterIds.forEach((filterId) => {
-    const filter = factTable.filters.find((f) => f.id === filterId);
-    if (filter) {
-      const comment = showSourceComment ? `-- Filter: ${filter.name}\n` : "";
-      where.add(comment + `(${filter.value})`);
+  columnRef.rowFilters?.forEach((filter) => {
+    const filterSQL = getRowFilterSQL({
+      rowFilter: filter,
+      factTable,
+      jsonExtract,
+      escapeStringLiteral,
+      evalBoolean,
+      showSourceComment,
+    });
+    if (filterSQL) {
+      where.add(filterSQL);
     }
   });
 
   return [...where];
+}
+
+export function getRowFilterSQL({
+  rowFilter,
+  factTable,
+  jsonExtract,
+  escapeStringLiteral,
+  evalBoolean,
+  showSourceComment = false,
+}: {
+  rowFilter: RowFilter;
+  factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">;
+  jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string;
+  escapeStringLiteral: (s: string) => string;
+  evalBoolean: (col: string, value: boolean) => string;
+  showSourceComment?: boolean;
+}): string | null {
+  // Some operators do not require a column
+  if (rowFilter.operator === "saved_filter") {
+    const filter = factTable.filters.find(
+      (f) => f.id === rowFilter.values?.[0],
+    );
+    if (filter) {
+      const comment = showSourceComment ? `-- Filter: ${filter.name}\n` : "";
+      return comment + `(${filter.value})`;
+    }
+    return null;
+  }
+  if (rowFilter.operator === "sql_expr") {
+    if (!rowFilter.values?.[0]) {
+      return null;
+    }
+    return `(${rowFilter.values?.[0] || ""})`;
+  }
+
+  if (!rowFilter.column) {
+    return null;
+  }
+  const columnExpr = getColumnExpression(
+    rowFilter.column,
+    factTable,
+    jsonExtract,
+  );
+  const columnType = getSelectedColumnDatatype({
+    factTable,
+    column: rowFilter.column,
+  });
+
+  // If a boolean column is using equals operator, convert to is_true/is_false
+  let operator = rowFilter.operator;
+  if (
+    operator === "=" &&
+    rowFilter.values?.[0] === "true" &&
+    columnType === "boolean"
+  ) {
+    operator = "is_true";
+  }
+  if (
+    operator === "=" &&
+    rowFilter.values?.[0] === "false" &&
+    columnType === "boolean"
+  ) {
+    operator = "is_false";
+  }
+
+  // Some operators do not require values
+  if (operator === "is_null") {
+    return `(${columnExpr} IS NULL)`;
+  }
+  if (operator === "not_null") {
+    return `(${columnExpr} IS NOT NULL)`;
+  }
+  if (operator === "is_true") {
+    return `(${evalBoolean(columnExpr, true)})`;
+  }
+  if (operator === "is_false") {
+    return `(${evalBoolean(columnExpr, false)})`;
+  }
+
+  if (!rowFilter.values?.length) {
+    return null;
+  }
+  const escapedValues = [
+    ...new Set(
+      rowFilter.values.map((v) => {
+        // Number, don't wrap in quotes
+        if (columnType === "number" && v.match(/^-?(\d+|\d*\.\d+)$/)) {
+          return v;
+        }
+
+        return "'" + escapeStringLiteral(v) + "'";
+      }),
+    ),
+  ];
+
+  const firstEscapedValue = escapedValues[0];
+
+  // Convert single-value in/not_in to =/!=
+  if (escapedValues.length === 1) {
+    if (operator === "in") {
+      operator = "=";
+    } else if (operator === "not_in") {
+      operator = "!=";
+    }
+  }
+
+  const likeEscapedValue = escapeStringLiteral(rowFilter.values[0]).replace(
+    /([%_])/g,
+    "\\$1",
+  );
+
+  // Handle remaining operators
+  switch (operator) {
+    case "=":
+    case "!=":
+    case "<":
+    case "<=":
+    case ">":
+    case ">=":
+      return `(${columnExpr} ${operator} ${firstEscapedValue})`;
+    case "in":
+      return `(${columnExpr} IN (\n  ${escapedValues.join(",\n  ")}\n))`;
+    case "not_in":
+      return `(${columnExpr} NOT IN (\n  ${escapedValues.join(",\n  ")}\n))`;
+    case "starts_with":
+      return `(${columnExpr} LIKE '${likeEscapedValue}%')`;
+    case "ends_with":
+      return `(${columnExpr} LIKE '%${likeEscapedValue}')`;
+    case "contains":
+      return `(${columnExpr} LIKE '%${likeEscapedValue}%')`;
+    case "not_contains":
+      return `(${columnExpr} NOT LIKE '%${likeEscapedValue}%')`;
+
+    // IMPORTANT: no default to ensure missing cases are caught by the compiler
+  }
 }
 
 export function getAggregateFilters({
@@ -360,7 +479,35 @@ export function isRegressionAdjusted(
   );
 }
 
-export function getConversionWindowHours(
+export function isPercentileCappedMetric(metric: ExperimentMetricInterface) {
+  return (
+    metric.cappingSettings.type === "percentile" &&
+    !!metric.cappingSettings.value &&
+    metric.cappingSettings.value < 1 &&
+    isCappableMetricType(metric)
+  );
+}
+
+function isAbsoluteCappedMetric(metric: ExperimentMetricInterface) {
+  return (
+    metric.cappingSettings.type === "absolute" &&
+    !!metric.cappingSettings.value &&
+    isCappableMetricType(metric)
+  );
+}
+
+export function isSliceMetric(metric: ExperimentMetricInterface) {
+  return parseSliceMetricId(metric.id).isSliceMetric;
+}
+
+export function eligibleForUncappedMetric(metric: ExperimentMetricInterface) {
+  return (
+    (isPercentileCappedMetric(metric) || isAbsoluteCappedMetric(metric)) &&
+    !isSliceMetric(metric)
+  );
+}
+
+export function getMetricWindowHours(
   windowSettings: MetricWindowSettings,
 ): number {
   const value = windowSettings.windowValue;
@@ -436,23 +583,14 @@ export interface SliceMetricInfo {
   sliceLevels: SliceLevelsData[];
 }
 
-export function parseSliceMetricId(
-  metricId: string,
+/**
+ * Parses a slice query string (e.g., "dim:browser=Chrome&dim:country=AU")
+ * and returns the slice levels with datatypes.
+ */
+export function parseSliceQueryString(
+  queryString: string,
   factTableMap?: Record<string, FactTableInterface>,
-): SliceMetricInfo {
-  const questionMarkIndex = metricId.indexOf("?");
-  if (questionMarkIndex === -1) {
-    return {
-      isSliceMetric: false,
-      baseMetricId: metricId,
-      sliceLevels: [],
-    };
-  }
-
-  const baseMetricId = metricId.substring(0, questionMarkIndex);
-  const queryString = metricId.substring(questionMarkIndex + 1);
-
-  // Parse query parameters using URLSearchParams
+): SliceLevelsData[] {
   const sliceLevels: SliceLevelsData[] = [];
   const params = new URLSearchParams(queryString);
 
@@ -482,6 +620,44 @@ export function parseSliceMetricId(
     }
   }
 
+  return sliceLevels;
+}
+
+export function isSliceTagSelectAll(tagId: string): {
+  isSelectAll: boolean;
+  column?: string;
+} {
+  // Handle "select all" format: dim:column (no equals sign)
+  if (!tagId.includes("=")) {
+    const columnMatch = tagId.match(/^dim:(.+)$/);
+    if (columnMatch) {
+      return {
+        isSelectAll: true,
+        column: decodeURIComponent(columnMatch[1]),
+      };
+    }
+  }
+  return { isSelectAll: false };
+}
+
+export function parseSliceMetricId(
+  metricId: string,
+  factTableMap?: Record<string, FactTableInterface>,
+): SliceMetricInfo {
+  const questionMarkIndex = metricId.indexOf("?");
+  if (questionMarkIndex === -1) {
+    return {
+      isSliceMetric: false,
+      baseMetricId: metricId,
+      sliceLevels: [],
+    };
+  }
+
+  const baseMetricId = metricId.substring(0, questionMarkIndex);
+  const queryString = metricId.substring(questionMarkIndex + 1);
+
+  const sliceLevels = parseSliceQueryString(queryString, factTableMap);
+
   if (sliceLevels.length === 0) {
     return {
       isSliceMetric: false,
@@ -495,27 +671,6 @@ export function parseSliceMetricId(
     baseMetricId,
     sliceLevels: sliceLevels,
   };
-}
-
-/**
- * Generates a pinned slice key for a metric with slice levels
- */
-export function generatePinnedSliceKey(
-  metricId: string,
-  sliceLevels: SliceLevelsData[],
-  location: "goal" | "secondary" | "guardrail",
-): string {
-  // Convert SliceLevelsData to SliceLevel format, handling boolean "null" values
-  const sliceLevelsForString = sliceLevels.map((dl) => {
-    // For boolean "null" slices, use empty array to generate ?dim:col= format
-    const isBooleanNull = dl.levels[0] === "null" && dl.datatype === "boolean";
-
-    const levels = isBooleanNull ? [] : dl.levels;
-    return { column: dl.column, datatype: dl.datatype, levels };
-  });
-
-  const sliceKeyParts = generateSliceStringFromLevels(sliceLevelsForString);
-  return `${metricId}?${sliceKeyParts}&location=${location}`;
 }
 
 export function getMetricLink(id: string): string {
@@ -1075,8 +1230,8 @@ export function getAllMetricIdsFromExperiment(
     guardrailMetrics?: string[];
     activationMetric?: string | null;
   },
-  includeActivationMetric: boolean = true,
-  metricGroups: MetricGroupInterface[] = [],
+  includeActivationMetric: boolean,
+  metricGroups: MetricGroupInterface[],
 ) {
   return Array.from(
     new Set(
@@ -1095,7 +1250,7 @@ export function getAllMetricIdsFromExperiment(
   );
 }
 
-// Extracts all metric ids from an experiment, excluding ephemeral metrics (slices)
+// Extracts all metric ids from an experiment, including ephemeral metrics (slices)
 // NOTE: The expandedMetricMap should be expanded with slice metrics via expandAllSliceMetricsInMap() before calling this function
 export function getAllExpandedMetricIdsFromExperiment({
   exp,
@@ -1122,7 +1277,7 @@ export function getAllExpandedMetricIdsFromExperiment({
 
   // Add all slice metrics that are already in the expandedMetricMap
   // This includes both standard and custom dimension metrics
-  expandedMetricMap.forEach((metric, metricId) => {
+  expandedMetricMap.forEach((_, metricId) => {
     // Check if this is a dimension metric (contains dim: parameter)
     if (/[?&]dim:/.test(metricId)) {
       expandedMetricIds.add(metricId);
@@ -1148,6 +1303,7 @@ export interface SliceDataForMetric {
 }
 
 // Creates auto slice data for a fact metric based on the metric's metricAutoSlices
+// Used for FE: row generation, slice filtering/expansion
 export function createAutoSliceDataForMetric({
   parentMetric,
   factTable,
@@ -1236,15 +1392,7 @@ export function createCustomSliceDataForMetric({
 }: {
   metricId: string;
   metricName: string;
-  customMetricSlices:
-    | Array<{
-        slices: Array<{
-          column: string;
-          levels: string[];
-        }>;
-      }>
-    | null
-    | undefined;
+  customMetricSlices?: { slices: { column: string; levels: string[] }[] }[];
   factTable?: FactTableInterface | null;
 }): SliceDataForMetric[] {
   // Sanity checks
@@ -1304,6 +1452,11 @@ export function createCustomSliceDataForMetric({
   });
 
   return customSliceData;
+}
+
+export function generateSelectAllSliceString(column: string): string {
+  // Generate "select all" tag format: dim:column (no equals sign)
+  return `dim:${encodeURIComponent(column)}`;
 }
 
 export function generateSliceString(slices: Record<string, string>): string {
@@ -1610,43 +1763,6 @@ export function getAdjustedCI(
   }
 }
 
-export function getPredefinedDimensionSlicesByExperiment(
-  dimensionMetadata: ExperimentDimensionMetadata[],
-  nVariations: number,
-): ExperimentDimensionMetadata[] {
-  // Ensure we return no more than 1k rows in full joint distribution
-  // for post-stratification
-  let dimensions = dimensionMetadata;
-
-  // remove dimensions that have no slices
-  dimensions = dimensions.filter((d) => d.specifiedSlices.length > 0);
-
-  let totalLevels = countDimensionLevels(dimensions, nVariations);
-  const maxLevels = 1000;
-  while (totalLevels > maxLevels) {
-    dimensions = dimensions.slice(0, -1);
-    if (dimensions.length === 0) {
-      break;
-    }
-    totalLevels = countDimensionLevels(dimensions, nVariations);
-  }
-
-  return dimensions;
-}
-
-export function countDimensionLevels(
-  dimensionMetadata: { specifiedSlices: string[] }[],
-  nVariations: number,
-): number {
-  const nLevels: number[] = [];
-  dimensionMetadata.forEach((dim) => {
-    // add 1 for __other__ slice
-    nLevels.push(dim.specifiedSlices.length + 1);
-  });
-
-  return nLevels.reduce((acc, n) => acc * n, 1) * nVariations;
-}
-
 export function dedupeSliceMetrics(
   metrics: SliceDataForMetric[],
 ): SliceDataForMetric[] {
@@ -1790,4 +1906,8 @@ export function expandAllSliceMetricsInMap({
       });
     }
   }
+}
+
+export function isPrecomputedDimension(dimension: string | undefined): boolean {
+  return dimension?.startsWith(PRECOMPUTED_DIMENSION_PREFIX) ?? false;
 }

@@ -1,5 +1,5 @@
 import { useRouter } from "next/router";
-import { IdeaInterface } from "back-end/types/idea";
+import { IdeaInterface } from "shared/types/idea";
 import { useState, ReactElement, useEffect } from "react";
 import {
   FaAngleLeft,
@@ -8,11 +8,11 @@ import {
   FaExternalLinkAlt,
 } from "react-icons/fa";
 import Link from "next/link";
-import { ImpactEstimateInterface } from "back-end/types/impact-estimate";
+import { ImpactEstimateInterface } from "shared/types/impact-estimate";
 import {
   ExperimentInterfaceStringDates,
   ExperimentDataForStatusStringDates,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import { useForm } from "react-hook-form";
 import { date } from "shared/dates";
 import useApi from "@/hooks/useApi";

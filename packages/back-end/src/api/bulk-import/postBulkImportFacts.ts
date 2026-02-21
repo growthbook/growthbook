@@ -1,9 +1,10 @@
-import { DataSourceInterface } from "back-end/types/datasource";
+import { PostBulkImportFactsResponse } from "shared/types/openapi";
+import { postBulkImportFactsValidator } from "shared/validators";
+import { DataSourceInterface } from "shared/types/datasource";
 import {
   CreateFactTableProps,
   FactMetricInterface,
-} from "back-end/types/fact-table";
-import { PostBulkImportFactsResponse } from "back-end/types/openapi";
+} from "shared/types/fact-table";
 import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTableColumns";
 import { getDataSourcesByOrganization } from "back-end/src/models/DataSourceModel";
 import {
@@ -14,7 +15,6 @@ import {
   getFactTableMap,
 } from "back-end/src/models/FactTableModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { postBulkImportFactsValidator } from "back-end/src/validators/openapi";
 import { getCreateMetricPropsFromBody } from "back-end/src/api/fact-metrics/postFactMetric";
 import { getUpdateFactMetricPropsFromBody } from "back-end/src/api/fact-metrics/updateFactMetric";
 import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable";

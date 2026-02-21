@@ -1,16 +1,15 @@
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import {
   ExperimentSnapshotReportInterface,
   MetricSnapshotSettings,
-} from "back-end/types/report";
+} from "shared/types/report";
 import { getSnapshotAnalysis } from "shared/util";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { getValidDate } from "shared/dates";
-import React, { RefObject, useEffect, useState } from "react";
-import { generatePinnedSliceKey, SliceLevelsData } from "shared/experiments";
+import React, { RefObject } from "react";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -20,7 +19,7 @@ import BreakDownResults from "@/components/Experiment/BreakDownResults";
 import CompactResults from "@/components/Experiment/CompactResults";
 import ReportAnalysisSettingsBar from "@/components/Report/ReportAnalysisSettingsBar";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { useAuth } from "@/services/auth";
+import { MetricDrilldownProvider } from "@/components/MetricDrilldown/MetricDrilldownContext";
 
 export default function ReportResults({
   report,
@@ -45,62 +44,6 @@ export default function ReportResults({
   runQueriesButtonRef?: RefObject<HTMLButtonElement>;
   showDetails?: boolean;
 }) {
-  const { apiCall } = useAuth();
-
-  const [optimisticPinnedLevels, setOptimisticPinnedLevels] = useState<
-    string[]
-  >(report.experimentAnalysisSettings.pinnedMetricSlices || []);
-  useEffect(
-    () =>
-      setOptimisticPinnedLevels(
-        report.experimentAnalysisSettings.pinnedMetricSlices || [],
-      ),
-    [report.experimentAnalysisSettings.pinnedMetricSlices],
-  );
-
-  const togglePinnedMetricSlice = async (
-    metricId: string,
-    sliceLevels: SliceLevelsData[],
-    location?: "goal" | "secondary" | "guardrail",
-  ) => {
-    if (!canEdit || !mutateReport) return;
-
-    const key = generatePinnedSliceKey(
-      metricId,
-      sliceLevels,
-      location || "goal",
-    );
-    const newPinned = optimisticPinnedLevels.includes(key)
-      ? optimisticPinnedLevels.filter((id) => id !== key)
-      : [...optimisticPinnedLevels, key];
-    setOptimisticPinnedLevels(newPinned);
-
-    try {
-      const response = await apiCall<{
-        updatedReport: ExperimentSnapshotReportInterface;
-      }>(`/report/${report.id}`, {
-        method: "PUT",
-        body: JSON.stringify({
-          experimentAnalysisSettings: {
-            ...report.experimentAnalysisSettings,
-            pinnedMetricSlices: newPinned,
-          },
-        }),
-      });
-      if (
-        response?.updatedReport?.experimentAnalysisSettings?.pinnedMetricSlices
-      ) {
-        setOptimisticPinnedLevels(
-          response.updatedReport.experimentAnalysisSettings.pinnedMetricSlices,
-        );
-      }
-      mutateReport();
-    } catch (error) {
-      setOptimisticPinnedLevels(
-        report.experimentAnalysisSettings.pinnedMetricSlices || [],
-      );
-    }
-  };
   const phases = report.experimentMetadata.phases;
   const phase = phases.length - 1;
   const phaseObj = phases[phase];
@@ -216,7 +159,38 @@ export default function ReportResults({
             <LoadingSpinner />
           </div>
         ) : (
-          <>
+          <MetricDrilldownProvider
+            experimentId={report.experimentId ?? ""}
+            phase={phase}
+            analysis={analysis ?? null}
+            variations={variations}
+            goalMetrics={report.experimentAnalysisSettings.goalMetrics}
+            secondaryMetrics={
+              report.experimentAnalysisSettings.secondaryMetrics
+            }
+            guardrailMetrics={
+              report.experimentAnalysisSettings.guardrailMetrics
+            }
+            metricOverrides={
+              report.experimentAnalysisSettings.metricOverrides ?? []
+            }
+            settingsForSnapshotMetrics={settingsForSnapshotMetrics}
+            customMetricSlices={
+              report.experimentAnalysisSettings.customMetricSlices
+            }
+            statsEngine={
+              analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE
+            }
+            pValueCorrection={pValueCorrection}
+            startDate={getValidDate(phaseObj.dateStarted).toISOString()}
+            endDate={getValidDate(phaseObj.dateEnded).toISOString()}
+            reportDate={snapshot.dateCreated}
+            isLatestPhase={phase === phases.length - 1}
+            sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
+            differenceType={analysis?.settings.differenceType}
+            ssrPolyfills={ssrPolyfills}
+            isReportContext
+          >
             {showDateResults ? (
               <DateResults
                 goalMetrics={report.experimentAnalysisSettings.goalMetrics}
@@ -232,10 +206,7 @@ export default function ReportResults({
                 statsEngine={
                   analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE
                 }
-                differenceType={
-                  report?.experimentAnalysisSettings?.differenceType ||
-                  "relative"
-                }
+                differenceType={analysis.settings.differenceType}
                 ssrPolyfills={ssrPolyfills}
               />
             ) : showBreakDownResults ? (
@@ -271,14 +242,10 @@ export default function ReportResults({
                 pValueCorrection={pValueCorrection}
                 settingsForSnapshotMetrics={settingsForSnapshotMetrics}
                 sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
-                differenceType={
-                  report?.experimentAnalysisSettings?.differenceType ||
-                  "relative"
-                }
+                differenceType={analysis.settings.differenceType}
                 // metricFilter={metricFilter}
                 // setMetricFilter={setMetricFilter}
                 ssrPolyfills={ssrPolyfills}
-                hideDetails={!showDetails}
               />
             ) : showCompactResults ? (
               <CompactResults
@@ -308,21 +275,12 @@ export default function ReportResults({
                 pValueCorrection={pValueCorrection} // todo: bake this into snapshot or report
                 settingsForSnapshotMetrics={settingsForSnapshotMetrics}
                 sequentialTestingEnabled={analysis.settings?.sequentialTesting}
-                differenceType={
-                  report?.experimentAnalysisSettings?.differenceType ||
-                  "relative"
-                }
+                differenceType={analysis.settings.differenceType}
                 isTabActive={true}
                 experimentType={report.experimentMetadata.type}
                 ssrPolyfills={ssrPolyfills}
-                hideDetails={!showDetails}
-                disableTimeSeriesButton={true}
                 customMetricSlices={
                   report.experimentAnalysisSettings.customMetricSlices
-                }
-                pinnedMetricSlices={optimisticPinnedLevels}
-                togglePinnedMetricSlice={
-                  canEdit ? togglePinnedMetricSlice : undefined
                 }
               />
             ) : (
@@ -332,7 +290,7 @@ export default function ReportResults({
                 </Callout>
               </div>
             )}
-          </>
+          </MetricDrilldownProvider>
         )}
       </div>
     </>

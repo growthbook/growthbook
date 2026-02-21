@@ -1,14 +1,15 @@
-import { ExperimentSnapshotReportInterface } from "back-end/types/report";
+import { ExperimentSnapshotReportInterface } from "shared/types/report";
 import React, { useEffect, useRef, useState } from "react";
 import { PiLink, PiCheck } from "react-icons/pi";
 import { Flex, Text } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { getSnapshotAnalysis } from "shared/util";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { useForm } from "react-hook-form";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/ui/Button";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { useAuth } from "@/services/auth";
@@ -49,6 +50,7 @@ export default function ReportMetaInfo({
   canDelete,
   showEditControls,
   showPrivateLink,
+  isPublic,
 }: {
   report: ExperimentSnapshotReportInterface;
   snapshot?: ExperimentSnapshotInterface;
@@ -61,6 +63,7 @@ export default function ReportMetaInfo({
   canDelete?: boolean;
   showEditControls?: boolean;
   showPrivateLink?: boolean;
+  isPublic?: boolean;
 }) {
   const HOST = globalThis?.window?.location?.origin;
   const shareableLink = report.uid
@@ -259,6 +262,8 @@ export default function ReportMetaInfo({
   const isBandit = experiment?.type === "multi-armed-bandit";
   const isHoldout = experiment?.type === "holdout";
 
+  const { metricGroups } = useDefinitions();
+
   return (
     <>
       <div className="mb-3">
@@ -382,7 +387,11 @@ export default function ReportMetaInfo({
                   variations={variations}
                   metrics={
                     snapshot?.settings
-                      ? getAllMetricIdsFromExperiment(snapshot.settings, false)
+                      ? getAllMetricIdsFromExperiment(
+                          snapshot.settings,
+                          false,
+                          metricGroups,
+                        )
                       : undefined
                   }
                   trackingKey={report.title}
@@ -397,7 +406,9 @@ export default function ReportMetaInfo({
       </div>
 
       <div className="mb-4">
-        <Markdown>{report.description}</Markdown>
+        <Markdown isPublic={isPublic} shareUid={report.uid} shareType="report">
+          {report.description}
+        </Markdown>
       </div>
 
       {generalModalOpen && (

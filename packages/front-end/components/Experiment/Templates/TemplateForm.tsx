@@ -1,6 +1,6 @@
 import { useRouter } from "next/router";
 import React, { FC, useEffect, useState } from "react";
-import { ExperimentTemplateInterface } from "back-end/types/experiment";
+import { ExperimentTemplateInterface } from "shared/types/experiment";
 import { FormProvider, useForm } from "react-hook-form";
 import { validateAndFixCondition } from "shared/util";
 import { isEmpty, kebabCase } from "lodash";
@@ -115,7 +115,6 @@ const TemplateForm: FC<Props> = ({
         condition: initialValue.targeting?.condition || "",
       },
       customMetricSlices: initialValue?.customMetricSlices || [],
-      pinnedMetricSlices: initialValue?.pinnedMetricSlices || [],
     },
   });
 
@@ -191,7 +190,7 @@ const TemplateForm: FC<Props> = ({
     if (onCreate) {
       onCreate(res.template.id);
     } else if (isEmpty(initialValue) || isNewTemplate) {
-      router.push(`/experiments#templates`);
+      router.push(`/experiments/templates`);
     }
   });
 

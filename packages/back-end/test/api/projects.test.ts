@@ -2,7 +2,7 @@ import request from "supertest";
 import { setupApp } from "./api.setup";
 
 describe("environements API", () => {
-  const { app, auditMock, setReqContext } = setupApp();
+  const { app, setReqContext } = setupApp();
 
   afterEach(async () => {
     jest.clearAllMocks();
@@ -89,6 +89,9 @@ describe("environements API", () => {
         projects: {
           deleteById: deleteByIdMock,
         },
+        savedGroups: {
+          removeProject: jest.fn(),
+        },
       },
     });
 
@@ -101,11 +104,6 @@ describe("environements API", () => {
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ deletedId: "prj__1" });
     expect(deleteByIdMock).toHaveBeenCalledWith("prj__1");
-    expect(auditMock).toHaveBeenCalledWith({
-      details: '{"pre":{"id":"prj__1","name":"le proj 1"},"context":{}}',
-      entity: { id: "prj__1", object: "project" },
-      event: "project.delete",
-    });
   });
 
   it("throws and error when deleting non-existing projects", async () => {
@@ -182,12 +180,6 @@ describe("environements API", () => {
       id: "prj__3",
       description: "new description",
     });
-    expect(auditMock).toHaveBeenCalledWith({
-      details:
-        '{"pre":{"id":"prj__3","description":"le proj 3"},"post":{"id":"prj__3","description":"new description"},"context":{}}',
-      entity: { id: "prj__3", object: "project" },
-      event: "project.update",
-    });
   });
 
   it("refuses to update projects when they do not exist", async () => {
@@ -222,7 +214,8 @@ describe("environements API", () => {
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({
-      message: "Request body: [description] Expected string, received boolean",
+      message:
+        "Request body: [description] Invalid input: expected string, received boolean",
     });
   });
 
@@ -272,11 +265,6 @@ describe("environements API", () => {
       id: "prj__3",
       name: "le proj trois",
     });
-    expect(auditMock).toHaveBeenCalledWith({
-      details: '{"post":{"name":"le proj trois","id":"prj__3"},"context":{}}',
-      entity: { id: "prj__3", object: "project" },
-      event: "project.create",
-    });
   });
 
   it("validates create payload", async () => {
@@ -289,7 +277,8 @@ describe("environements API", () => {
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({
-      message: "Request body: [name] Expected string, received boolean",
+      message:
+        "Request body: [name] Invalid input: expected string, received boolean",
     });
   });
 });

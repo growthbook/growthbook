@@ -2,7 +2,13 @@ import Link from "next/link";
 import { useState } from "react";
 import clsx from "clsx";
 import { useRouter } from "next/router";
-import { BsFlag, BsClipboardCheck, BsCodeSlash, BsHouse } from "react-icons/bs";
+import {
+  BsFlag,
+  BsClipboardCheck,
+  BsCodeSlash,
+  BsHouse,
+  BsSearch,
+} from "react-icons/bs";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Flex } from "@radix-ui/themes";
 import { getGrowthBookBuild } from "@/services/env";
@@ -89,6 +95,13 @@ const navlinks: SidebarLinkProps[] = [
     ],
   },
   {
+    name: "Product Analytics",
+    href: "/product-analytics/dashboards",
+    path: /^(product-analytics\/dashboards)/,
+    Icon: GBProductAnalytics,
+    filter: ({ gb }) => !!gb?.isOn("general-dashboards"),
+  },
+  {
     name: "Metrics and Data",
     href: "/metrics",
     path: /^(metric\/|metrics|segment|dimension|datasources|fact-|metric-group|sql-explorer)/,
@@ -128,13 +141,6 @@ const navlinks: SidebarLinkProps[] = [
         filter: ({ gb }) => !!gb?.isOn("sql-explorer"),
       },
     ],
-  },
-  {
-    name: "Product Analytics",
-    href: "/product-analytics/dashboards",
-    path: /^(product-analytics\/dashboards)/,
-    Icon: GBProductAnalytics,
-    filter: ({ gb }) => !!gb?.isOn("general-dashboards"),
   },
   {
     name: "Insights",
@@ -342,6 +348,13 @@ const navlinks: SidebarLinkProps[] = [
           permissionsUtils.canViewUsage() &&
           isCloud &&
           !!gb?.isOn("cdn-usage-data"),
+      },
+      {
+        name: "Custom Hooks",
+        href: "/settings/custom-hooks",
+        path: /^settings\/custom-hooks/,
+        filter: ({ permissionsUtils, isCloud }) =>
+          !isCloud && permissionsUtils.canCreateCustomHook({ projects: [] }),
       },
       {
         name: "Billing",
@@ -571,6 +584,23 @@ const Layout = (): React.ReactElement => {
                       />
                     </svg>
                   </a>
+                </li>
+                <li>
+                  <button
+                    className={styles.searchTrigger}
+                    onClick={() => {
+                      document.dispatchEvent(new Event("open-command-palette"));
+                    }}
+                  >
+                    <BsSearch size={13} />
+                    <span className={styles.searchTriggerLabel}>Search</span>
+                    <span className={styles.searchTriggerKbd}>
+                      {typeof navigator !== "undefined" &&
+                      /Mac|iPhone|iPad/.test(navigator.userAgent)
+                        ? "\u2318 K"
+                        : "Ctrl+K"}
+                    </span>
+                  </button>
                 </li>
                 <ProjectSelector />
                 {navlinks.map((v, i) => (
