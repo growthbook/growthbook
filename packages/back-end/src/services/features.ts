@@ -619,12 +619,19 @@ async function refreshSDKPayloadCache({
   const groupMap = await getSavedGroupMap(context, savedGroups);
   const allFeatures = await getAllFeatures(context);
 
+  const [allVisualExperiments, allURLRedirectExperiments] = await Promise.all([
+    getAllVisualExperiments(context, experimentMap),
+    getAllURLRedirectExperiments(context, experimentMap),
+  ]);
+
   const rawData: Omit<SDKPayloadRawData, "holdoutsMap"> = {
     features: allFeatures,
     experimentMap,
     groupMap,
     safeRolloutMap,
     savedGroups,
+    visualExperiments: allVisualExperiments,
+    urlRedirectExperiments: allURLRedirectExperiments,
   };
 
   const payloadKeyEnvironments = new Set(payloadKeys.map((k) => k.environment));
@@ -906,8 +913,7 @@ export type FeatureDefinitionArgs = {
   savedGroupReferencesEnabled?: boolean;
 };
 
-// Pre-fetched data needed to build one connection's SDK payload.
-// On bulk (cache) refresh, features/experimentMap/groupMap/safeRolloutMap/savedGroups are shared; holdoutsMap is per-environment and set per connection.
+// Pre-fetched data to build one connection's payload. Bulk refresh shares this and adds holdoutsMap per env; may include visualExperiments/urlRedirectExperiments to avoid repeated DB queries.
 export type SDKPayloadRawData = {
   features: FeatureInterface[];
   experimentMap: Map<string, ExperimentInterface>;
@@ -918,6 +924,8 @@ export type SDKPayloadRawData = {
     string, // holdout id
     { holdout: HoldoutInterface; holdoutExperiment: ExperimentInterface }
   >;
+  visualExperiments?: VisualExperiment[];
+  urlRedirectExperiments?: URLRedirectExperiment[];
 };
 
 // Payload-relevant subset of SDK connection (plus derived capabilities)
@@ -1003,14 +1011,18 @@ export async function buildSDKPayloadForConnection(
   // Fresh cache per connection (one env per connection); keyed by prereq id only
   const prereqStateCache: Record<string, PrerequisiteStateResult> = {};
 
-  const allVisualExperiments = await getAllVisualExperiments(
-    context,
-    filteredExperimentMap,
-  );
-  const allURLRedirectExperiments = await getAllURLRedirectExperiments(
-    context,
-    filteredExperimentMap,
-  );
+  const allVisualExperiments =
+    data.visualExperiments != null
+      ? data.visualExperiments.filter((e) =>
+          filteredExperimentMap.has(e.experiment.id),
+        )
+      : await getAllVisualExperiments(context, filteredExperimentMap);
+  const allURLRedirectExperiments =
+    data.urlRedirectExperiments != null
+      ? data.urlRedirectExperiments.filter((e) =>
+          filteredExperimentMap.has(e.experiment.id),
+        )
+      : await getAllURLRedirectExperiments(context, filteredExperimentMap);
 
   const savedGroupRefsEnabled =
     savedGroupReferencesEnabled !== undefined
