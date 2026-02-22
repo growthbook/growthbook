@@ -189,6 +189,7 @@ function filterHoldoutsMapByProjects(
   return filtered;
 }
 
+// Holdout defs are merged without capability pick or includeRuleIds. Fine in practice: SDKs with holdout support have bucketingV2.
 export function generateHoldoutsPayload({
   holdoutsMap,
   projects = [],
