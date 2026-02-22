@@ -1097,7 +1097,8 @@ export async function buildSDKPayloadForConnection(
     dateUpdated: new Date(),
     encryptionKey,
     includeDraftExperiments,
-    includeExperiments: includeVisualExperiments || includeRedirectExperiments,
+    includeExperiments:
+      !!includeVisualExperiments || !!includeRedirectExperiments,
     attributes,
     secureAttributeSalt,
     capabilities,

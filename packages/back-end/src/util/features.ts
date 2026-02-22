@@ -380,7 +380,9 @@ export function getFeatureDefinition({
     ]?.enabled
       ? [
           {
-            id: `holdout_${md5(feature.id + feature.holdout.id)}`,
+            ...(includeRuleIds
+              ? { id: `holdout_${md5(feature.id + feature.holdout.id)}` }
+              : {}),
             parentConditions: [
               {
                 id: getHoldoutFeatureDefId(feature.holdout.id),
