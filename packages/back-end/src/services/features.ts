@@ -125,7 +125,7 @@ export function generateFeaturesPayload({
     string,
     { holdout: HoldoutInterface; holdoutExperiment: ExperimentInterface }
   >;
-  capabilities?: SDKCapability[];
+  capabilities?: SDKCapability[]; // undefined = all capabilities
   savedGroupReferencesEnabled?: boolean;
   organization?: OrganizationInterface;
   savedGroupsMap?: Record<string, SavedGroupInterface>;
@@ -264,7 +264,7 @@ export function generateAutoExperimentsPayload({
   features: FeatureInterface[];
   environment: string;
   prereqStateCache?: Record<string, PrerequisiteStateResult>;
-  capabilities?: SDKCapability[];
+  capabilities?: SDKCapability[]; // undefined = all capabilities
   savedGroupReferencesEnabled?: boolean;
   organization?: OrganizationInterface;
   savedGroupsMap?: Record<string, SavedGroupInterface>;
@@ -326,7 +326,7 @@ export function generateAutoExperimentsPayload({
 
       if (!phase) return null;
 
-      if (capabilities?.length) {
+      if (capabilities !== undefined) {
         if (!capabilities.includes("redirects") && data.type === "redirect")
           return null;
         if (!capabilities.includes("prerequisites") && prerequisites.length > 0)
@@ -414,7 +414,7 @@ export function generateAutoExperimentsPayload({
         exp.persistQueryString = true;
       }
 
-      if (capabilities?.length && savedGroupsMap && organization) {
+      if (capabilities !== undefined && savedGroupsMap && organization) {
         if (
           !capabilities.includes("savedGroupReferences") ||
           savedGroupReferencesEnabled === false

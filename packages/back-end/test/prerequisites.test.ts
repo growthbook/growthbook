@@ -55,6 +55,7 @@ describe("Prerequisite reduction in SDK Payload", () => {
       environment: "production",
       groupMap: new Map(),
       experimentMap: new Map(),
+      capabilities: [],
     });
     expect(payload).toHaveProperty("parent1");
     expect(payload).toHaveProperty("child1");
@@ -77,6 +78,7 @@ describe("Prerequisite reduction in SDK Payload", () => {
       environment: "production",
       groupMap: new Map(),
       experimentMap: new Map(),
+      capabilities: [],
     });
     expect(payload).toHaveProperty("parent1");
     expect(payload).not.toHaveProperty("child1");
@@ -102,6 +104,7 @@ describe("Prerequisite reduction in SDK Payload", () => {
       environment: "production",
       groupMap: new Map(),
       experimentMap: new Map(),
+      capabilities: [],
     });
     // both parent and child should be scrubbed
     expect(payload).not.toHaveProperty("parent1");
@@ -137,6 +140,7 @@ describe("Prerequisite reduction in SDK Payload", () => {
       environment: "production",
       groupMap: new Map(),
       experimentMap: new Map(),
+      capabilities: ["prerequisites"],
     });
     expect(payload).toHaveProperty("parent1");
     expect(payload).toHaveProperty("child1");
@@ -180,6 +184,7 @@ describe("Prerequisite reduction in SDK Payload", () => {
       environment: "production",
       groupMap: new Map(),
       experimentMap: new Map(),
+      capabilities: [],
     });
     expect(payload).not.toHaveProperty("parent2");
     expect(payload).not.toHaveProperty("parent1");
@@ -222,6 +227,7 @@ describe("Prerequisite reduction in SDK Payload", () => {
       environment: "production",
       groupMap: new Map(),
       experimentMap: new Map(),
+      capabilities: [],
     });
     expect(payload).not.toHaveProperty("parent2");
     expect(payload).toHaveProperty("parent1");
@@ -358,6 +364,7 @@ describe("Prerequisite reduction in SDK Payload", () => {
       environment: "production",
       groupMap: new Map(),
       experimentMap: new Map(),
+      capabilities: [],
     });
     expect(payload.child1.rules).toStrictEqual([
       {
@@ -544,6 +551,7 @@ describe("Prerequisite reduction in SDK Payload", () => {
       environment: "production",
       groupMap: new Map(),
       experimentMap: new Map(),
+      capabilities: ["prerequisites"],
     });
 
     expect(payload.child1.rules).toStrictEqual([

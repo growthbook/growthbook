@@ -347,7 +347,7 @@ export function getFeatureDefinition({
     string,
     { holdout: HoldoutInterface; holdoutExperiment: ExperimentInterface }
   >;
-  capabilities?: SDKCapability[];
+  capabilities?: SDKCapability[]; // undefined = all capabilities
   savedGroupReferencesEnabled?: boolean;
   organization?: OrganizationInterface;
   savedGroupsMap?: Record<string, SavedGroupInterface>;
@@ -369,10 +369,40 @@ export function getFeatureDefinition({
     ? (revision.rules?.[environment] ?? settings.rules)
     : settings.rules;
 
+  // undefined = all capabilities; compute build-time constraints when capabilities is set
+  const hasPrerequisites =
+    capabilities === undefined || capabilities.includes("prerequisites");
+  const shouldExpandSavedGroups =
+    capabilities !== undefined &&
+    !!savedGroupsMap &&
+    (savedGroupReferencesEnabled === false ||
+      !capabilities.includes("savedGroupReferences"));
+  const allowedKeys =
+    capabilities !== undefined && !capabilities.includes("looseUnmarshalling")
+      ? getPayloadAllowedKeys(capabilities)
+      : null;
+
+  // Exclude whole feature when connection lacks prerequisites and any rule has a gate
+  if (
+    capabilities !== undefined &&
+    !hasPrerequisites &&
+    rules?.some((r) => {
+      if (r.type === "experiment-ref") {
+        const exp = experimentMap.get(r.experimentId);
+        const phase = exp?.phases?.slice(-1)?.[0];
+        return !!phase?.prerequisites?.length;
+      }
+      return !!(r as { prerequisites?: unknown[] }).prerequisites?.length;
+    })
+  ) {
+    return null;
+  }
+
   // If the feature has a holdout and it's enabled for the environment, add holdout as a
   // pseudo force rule with a prerequisite condition. The environment being enabled is
   // already checked in the getAllPayloadHoldouts function.
   const holdoutRule: FeatureDefinitionRule[] =
+    hasPrerequisites &&
     feature.holdout &&
     holdoutsMap &&
     holdoutsMap.get(feature.holdout.id)?.holdout.environmentSettings?.[
@@ -394,22 +424,24 @@ export function getFeatureDefinition({
         ]
       : [];
 
-  // convert prerequisites to force rules:
-  const prerequisiteRules = (feature.prerequisites ?? [])
-    ?.map((p) => {
-      const condition = getParsedCondition(groupMap, p.condition);
-      if (!condition) return null;
-      return {
-        parentConditions: [
-          {
-            id: p.id,
-            condition,
-            gate: true,
-          },
-        ],
-      };
-    })
-    .filter(isDefined);
+  // convert prerequisites to force rules (only when connection has prerequisites capability)
+  const prerequisiteRules = hasPrerequisites
+    ? (feature.prerequisites ?? [])
+        ?.map((p) => {
+          const condition = getParsedCondition(groupMap, p.condition);
+          if (!condition) return null;
+          return {
+            parentConditions: [
+              {
+                id: p.id,
+                condition,
+                gate: true,
+              },
+            ],
+          };
+        })
+        .filter(isDefined)
+    : [];
 
   const isRule = (
     rule: FeatureDefinitionRule | null,
@@ -440,6 +472,7 @@ export function getFeatureDefinition({
           // Get current experiment phase and use it to set rule properties
           const phase = exp.phases[exp.phases.length - 1];
           if (!phase) return null;
+          if (!hasPrerequisites && phase?.prerequisites?.length) return null;
 
           const condition = getParsedCondition(
             groupMap,
@@ -530,7 +563,21 @@ export function getFeatureDefinition({
             rule.phase = exp.phases.length - 1 + "";
             if (includeExperimentNames) rule.name = exp.name;
           }
-          return rule;
+          if (shouldExpandSavedGroups && savedGroupsMap && organization) {
+            if (rule.condition)
+              recursiveWalk(
+                rule.condition,
+                replaceSavedGroups(savedGroupsMap, organization!),
+              );
+            if (rule.parentConditions)
+              recursiveWalk(
+                rule.parentConditions,
+                replaceSavedGroups(savedGroupsMap, organization!),
+              );
+          }
+          return allowedKeys
+            ? (pick(rule, allowedKeys.featureRuleKeys) as FeatureDefinitionRule)
+            : rule;
         }
 
         const condition = getParsedCondition(
@@ -552,6 +599,7 @@ export function getFeatureDefinition({
             };
           })
           .filter(isDefined);
+        if (!hasPrerequisites && prerequisites?.length) return null;
         if (prerequisites?.length) {
           rule.parentConditions = prerequisites;
         }
@@ -664,7 +712,21 @@ export function getFeatureDefinition({
               rule.name = `${feature.id} - Safe Rollout`;
           }
         }
-        return rule;
+        if (shouldExpandSavedGroups && savedGroupsMap && organization) {
+          if (rule.condition)
+            recursiveWalk(
+              rule.condition,
+              replaceSavedGroups(savedGroupsMap, organization!),
+            );
+          if (rule.parentConditions)
+            recursiveWalk(
+              rule.parentConditions,
+              replaceSavedGroups(savedGroupsMap, organization!),
+            );
+        }
+        return allowedKeys
+          ? (pick(rule, allowedKeys.featureRuleKeys) as FeatureDefinitionRule)
+          : rule;
       })
       ?.filter(isRule) ?? []),
   ];
@@ -677,49 +739,8 @@ export function getFeatureDefinition({
     delete def.rules;
   }
 
-  if (capabilities?.length) {
-    const hasPrerequisites = capabilities.includes("prerequisites");
-    if (!hasPrerequisites && def.rules) {
-      if (
-        def.rules.some((rule) =>
-          rule?.parentConditions?.some((pc) => !!pc.gate),
-        )
-      ) {
-        return null;
-      }
-      def.rules = def.rules.filter(
-        (rule) => (rule.parentConditions?.length ?? 0) === 0,
-      );
-      if (!def.rules.length) delete def.rules;
-    }
-
-    if (
-      savedGroupsMap &&
-      (savedGroupReferencesEnabled === false ||
-        !capabilities.includes("savedGroupReferences"))
-    ) {
-      def.rules?.forEach((rule) => {
-        recursiveWalk(
-          rule.condition,
-          replaceSavedGroups(savedGroupsMap, organization!),
-        );
-        recursiveWalk(
-          rule.parentConditions,
-          replaceSavedGroups(savedGroupsMap, organization!),
-        );
-      });
-    }
-
-    if (!capabilities.includes("looseUnmarshalling")) {
-      const { featureKeys, featureRuleKeys } =
-        getPayloadAllowedKeys(capabilities);
-      def = pick(def, featureKeys) as FeatureDefinition;
-      if (def.rules) {
-        def.rules = def.rules.map((rule) =>
-          pick(rule, featureRuleKeys),
-        ) as FeatureDefinition["rules"];
-      }
-    }
+  if (allowedKeys) {
+    def = pick(def, allowedKeys.featureKeys) as FeatureDefinition;
   }
 
   return def;

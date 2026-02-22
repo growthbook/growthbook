@@ -1183,6 +1183,7 @@ describe("SDK Payloads", () => {
         groupMap: groupMap,
         experimentMap: experimentMap,
         safeRolloutMap: safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
         includeExperimentNames: true,
         includeRuleIds: true,
       }),
@@ -1227,6 +1228,7 @@ describe("SDK Payloads", () => {
         groupMap: groupMap,
         experimentMap: experimentMap,
         safeRolloutMap: safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
       }),
     ).toEqual({
       defaultValue: true,
@@ -1242,6 +1244,7 @@ describe("SDK Payloads", () => {
         groupMap: groupMap,
         experimentMap: experimentMap,
         safeRolloutMap: safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
       }),
     ).toEqual({
       defaultValue: true,
@@ -1256,6 +1259,7 @@ describe("SDK Payloads", () => {
         groupMap: groupMap,
         experimentMap: experimentMap,
         safeRolloutMap: safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
       }),
     ).toEqual({
       defaultValue: true,
@@ -1283,6 +1287,7 @@ describe("SDK Payloads", () => {
         groupMap: groupMap,
         experimentMap: experimentMap,
         safeRolloutMap: safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
       }),
     ).toEqual({
       defaultValue: true,
@@ -1317,6 +1322,7 @@ describe("SDK Payloads", () => {
         groupMap: groupMap,
         experimentMap: experimentMap,
         safeRolloutMap: safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
         includeExperimentNames: true,
         includeRuleIds: true,
       }),
@@ -1373,6 +1379,7 @@ describe("SDK Payloads", () => {
         groupMap: groupMap,
         experimentMap: experimentMap,
         safeRolloutMap: safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
       }),
     ).toEqual({
       defaultValue: true,
@@ -1408,6 +1415,7 @@ describe("SDK Payloads", () => {
         groupMap: groupMap,
         experimentMap: experimentMap,
         safeRolloutMap: safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
       }),
     ).toEqual({
       defaultValue: true,
@@ -1429,6 +1437,7 @@ describe("SDK Payloads", () => {
         groupMap: groupMap,
         experimentMap: experimentMap,
         safeRolloutMap: safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
       }),
     ).toEqual({
       defaultValue: true,
@@ -1443,6 +1452,7 @@ describe("SDK Payloads", () => {
         groupMap: groupMap,
         experimentMap: experimentMap,
         safeRolloutMap: safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
       }),
     ).toEqual(null);
 
@@ -1453,6 +1463,7 @@ describe("SDK Payloads", () => {
         groupMap: groupMap,
         experimentMap: experimentMap,
         safeRolloutMap: safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
       }),
     ).toEqual(null);
 
@@ -1528,6 +1539,7 @@ describe("SDK Payloads", () => {
         groupMap: groupMap,
         experimentMap: experimentMap,
         safeRolloutMap: safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
       }),
     ).toEqual({
       defaultValue: true,
@@ -1596,7 +1608,7 @@ describe("SDK Payloads", () => {
         experiments: [],
         dateUpdated: new Date(),
         projects: [],
-        capabilities: [],
+        capabilities: ["looseUnmarshalling"],
         usedSavedGroups: [cloneDeep(groupDef)],
         organization: organization,
         attributes: [secureStringAttr],
