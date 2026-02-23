@@ -1,9 +1,25 @@
-import { CustomField } from "back-end/types/custom-fields";
+import { CustomField } from "shared/types/custom-fields";
+
+const isEmptyValue = (value: string, type: CustomField["type"]): boolean => {
+  if (!value || value.trim() === "") {
+    return true;
+  }
+
+  if (type === "multiselect" && value.trim() === "[]") {
+    return true;
+  }
+
+  return false;
+};
 
 export const validateCustomFieldValue = (
   customField: CustomField,
   value: string,
 ) => {
+  if (customField.required && isEmptyValue(value, customField.type)) {
+    throw new Error(`Custom field "${customField.name}" is required.`);
+  }
+
   if (customField.type === "boolean") {
     if (value !== "true" && value !== "false") {
       throw new Error(
@@ -42,11 +58,13 @@ export const validateCustomFieldValues = (
   customFields: CustomField[],
   customFieldValues: Record<string, string>,
 ) => {
-  for (const [key, value] of Object.entries(customFieldValues)) {
-    const customField = customFields.find((v) => v.id === key);
-    if (!customField) {
+  for (const customField of customFields) {
+    if (!(customField.id in customFieldValues)) {
+      if (customField.required) {
+        throw new Error(`Custom field "${customField.name}" is required.`);
+      }
       continue;
     }
-    validateCustomFieldValue(customField, value);
+    validateCustomFieldValue(customField, customFieldValues[customField.id]);
   }
 };

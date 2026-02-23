@@ -1,6 +1,6 @@
-import { ListEnvironmentsResponse } from "back-end/types/openapi";
+import { ListEnvironmentsResponse } from "shared/types/openapi";
+import { listEnvironmentsValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { listEnvironmentsValidator } from "back-end/src/validators/openapi";
 
 export const listEnvironments = createApiRequestHandler(
   listEnvironmentsValidator,

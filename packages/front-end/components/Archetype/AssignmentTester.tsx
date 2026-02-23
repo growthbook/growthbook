@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { FeatureInterface, FeatureTestResult } from "back-end/types/feature";
+import { FeatureInterface, FeatureTestResult } from "shared/types/feature";
 import { FaChevronRight } from "react-icons/fa";
-import { ArchetypeInterface } from "back-end/types/archetype";
+import { ArchetypeInterface } from "shared/types/archetype";
 import { FiAlertTriangle } from "react-icons/fi";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
-import { MinimalFeatureRevisionInterface } from "back-end/types/feature-revision";
+import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { useAuth } from "@/services/auth";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -286,7 +286,7 @@ export default function AssignmentTester({
           Simulate Feature Rules
         </Heading>
         <Text mb="0">
-          test how your rules will apply to users.{" "}
+          Test how your rules will apply to users.{" "}
           <Tooltip body="Enter attributes and see how Growthbook would evaluate this feature for the different environments. Will use draft rules."></Tooltip>
         </Text>
       </Box>

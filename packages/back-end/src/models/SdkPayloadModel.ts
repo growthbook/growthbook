@@ -1,14 +1,19 @@
+/**
+ * @deprecated Legacy cache (org + environment level)
+ * Use SdkConnectionCacheModel instead (connection-specific, fully-processed).
+ */
 import mongoose from "mongoose";
 import {
   AutoExperimentWithProject,
   FeatureDefinitionWithProject,
   FeatureDefinitionWithProjects,
-} from "back-end/types/api";
+} from "shared/types/sdk";
 import {
   SDKPayloadContents,
   SDKPayloadInterface,
   SDKStringifiedPayloadInterface,
 } from "back-end/types/sdk-payload";
+import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
 
 // Increment this if we change the payload contents in a backwards-incompatible way
 export const LATEST_SDK_PAYLOAD_SCHEMA_VERSION = 1;
@@ -49,6 +54,9 @@ function toInterface(doc: SDKPayloadDocument): SDKPayloadInterface | null {
   }
 }
 
+/**
+ * @deprecated Use sdkConnectionCache.getById() instead.
+ */
 export async function getSDKPayload({
   organization,
   environment,
@@ -56,6 +64,11 @@ export async function getSDKPayload({
   organization: string;
   environment: string;
 }): Promise<SDKPayloadInterface | null> {
+  const storageLocation = getSDKPayloadCacheLocation();
+  if (storageLocation === "none") {
+    return null;
+  }
+
   const doc = await SDKPayloadModel.findOne({
     organization,
     environment,
@@ -65,6 +78,7 @@ export async function getSDKPayload({
   return doc ? toInterface(doc) : null;
 }
 
+/** @deprecated Use sdkConnectionCache.upsert() instead. */
 export async function updateSDKPayload({
   organization,
   environment,
@@ -80,6 +94,11 @@ export async function updateSDKPayload({
   savedGroupsInUse: string[];
   holdoutFeatureDefinitions: Record<string, FeatureDefinitionWithProjects>;
 }) {
+  const storageLocation = getSDKPayloadCacheLocation();
+  if (storageLocation === "none") {
+    return;
+  }
+
   const contents: SDKPayloadContents = {
     features: featureDefinitions,
     experiments: experimentsDefinitions,

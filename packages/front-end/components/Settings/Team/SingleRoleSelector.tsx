@@ -1,8 +1,12 @@
 import { ReactNode, useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
-import { MemberRoleInfo } from "back-end/types/organization";
+import { MemberRoleInfo } from "shared/types/organization";
 import uniqid from "uniqid";
-import { RESERVED_ROLE_IDS, roleSupportsEnvLimit } from "shared/permissions";
+import {
+  RESERVED_ROLE_IDS,
+  roleSupportsEnvLimit,
+  getRoleDisplayName,
+} from "shared/permissions";
 import { useUser } from "@/services/UserContext";
 import { useEnvironments } from "@/services/features";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -18,12 +22,14 @@ export default function SingleRoleSelector({
   setValue,
   label,
   includeAdminRole = false,
+  includeProjectAdminRole = false,
   disabled = false,
 }: {
   value: MemberRoleInfo;
   setValue: (value: MemberRoleInfo) => void;
   label: ReactNode;
   includeAdminRole?: boolean;
+  includeProjectAdminRole?: boolean;
   disabled?: boolean;
 }) {
   const { roles, hasCommercialFeature, organization } = useUser();
@@ -32,15 +38,21 @@ export default function SingleRoleSelector({
   const deactivatedRoles = organization.deactivatedRoles || [];
 
   const isNoAccessRoleEnabled = hasCommercialFeature("no-access-role");
+  const isProjectAdminRoleEnabled = hasCommercialFeature("project-admin-role");
 
   let roleOptions = [...roles];
 
   if (!isNoAccessRoleEnabled) {
-    roleOptions = roles.filter((r) => r.id !== "noaccess");
+    roleOptions = roleOptions.filter((r) => r.id !== "noaccess");
   }
 
   if (!includeAdminRole) {
     roleOptions = roleOptions.filter((r) => r.id !== "admin");
+  }
+
+  // If the org doesn't have the project-admin-role feature, remove the project admin role
+  if (!includeProjectAdminRole || !isProjectAdminRoleEnabled) {
+    roleOptions = roleOptions.filter((r) => r.id !== "gbDefault_projectAdmin");
   }
 
   // if the org has custom-roles feature and has deactivated roles, remove those from the roleOptions
@@ -53,23 +65,28 @@ export default function SingleRoleSelector({
 
   roleOptions.forEach((r) => {
     if (RESERVED_ROLE_IDS.includes(r.id)) {
-      standardOptions.push({ label: r.id, value: r.id });
+      standardOptions.push({
+        label: getRoleDisplayName(r.id, organization),
+        value: r.id,
+      });
     } else {
       if (hasCustomRolesFeature) {
-        customOptions.push({ label: r.id, value: r.id });
+        customOptions.push({
+          label: getRoleDisplayName(r.id, organization),
+          value: r.id,
+        });
       }
     }
   });
 
-  const groupedOptions: GroupedValue[] = [];
-
-  if (standardOptions.length) {
-    groupedOptions.push({ label: "Standard", options: standardOptions });
-  }
-
-  if (customOptions.length) {
-    groupedOptions.push({ label: "Custom", options: customOptions });
-  }
+  // Only group if we have both standard and custom options
+  const options: SingleValue[] | GroupedValue[] =
+    standardOptions.length && customOptions.length
+      ? [
+          { label: "Standard", options: standardOptions },
+          { label: "Custom", options: customOptions },
+        ]
+      : [...standardOptions, ...customOptions];
 
   const activeEnvs = useEnvironments();
 
@@ -102,17 +119,6 @@ export default function SingleRoleSelector({
 
   const id = useMemo(() => uniqid(), []);
 
-  const formatGroupLabel = (data) => {
-    // if we don't have both Standard & Custom options, don't return anything
-    if (groupedOptions.length < 2) {
-      return;
-    }
-
-    return (
-      <div className={data.label === "Custom" ? "border-top my-1" : ""}></div>
-    );
-  };
-
   return (
     <div>
       <SelectField
@@ -124,15 +130,16 @@ export default function SingleRoleSelector({
             role,
           });
         }}
-        options={groupedOptions}
+        options={options}
         sort={false}
-        formatGroupLabel={formatGroupLabel}
         formatOptionLabel={(value) => {
-          const r = roles.find((r) => r.id === value.label);
+          const r = roles.find((r) => r.id === value.value);
           if (!r) return <span>{value.label}</span>;
           return (
             <div className="d-flex">
-              <span className="pr-2">{r.id}</span>
+              <span className="pr-2">
+                {getRoleDisplayName(r.id, organization)}
+              </span>
               <span className="ml-auto text-muted">{r.description}</span>
             </div>
           );

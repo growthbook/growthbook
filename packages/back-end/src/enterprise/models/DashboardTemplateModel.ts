@@ -1,10 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import mongoose from "mongoose";
+import { UpdateProps } from "shared/types/base-model";
 import {
   dashboardTemplateInterface,
   DashboardTemplateInterface,
-} from "back-end/src/enterprise/validators/dashboard-template";
-import { MakeModelClass, UpdateProps } from "back-end/src/models/BaseModel";
+} from "shared/enterprise";
+import { MakeModelClass } from "back-end/src/models/BaseModel";
 import {
   ToInterface,
   removeMongooseFields,

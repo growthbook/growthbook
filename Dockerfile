@@ -1,50 +1,82 @@
 ARG PYTHON_MAJOR=3.11
-ARG NODE_MAJOR=20
+ARG NODE_MAJOR=24
+ARG PYPI_MIRROR_URL=""
+ARG UPGRADE_PIP="true"
 
 # Build the python gbstats package
 FROM python:${PYTHON_MAJOR}-slim AS pybuild
+ARG PYPI_MIRROR_URL
+ARG UPGRADE_PIP
 WORKDIR /usr/local/src/app
 COPY ./packages/stats .
+
+# Setup python virtual environment
+ENV VIRTUAL_ENV=/opt/venv
+RUN python -m venv $VIRTUAL_ENV
+ENV PATH="$VIRTUAL_ENV/bin:${PATH}"
+
+# TODO: The preview environment is having network connectivity issues Feb 4, 2026.
+# Revert https://github.com/growthbook/growthbook/pull/5231 once the preview build works without it
+# as there is probably no need to have this conditional logic long term.
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN \
-  pip3 install poetry==1.8.5  \
-  && poetry install --no-root --without dev --no-interaction --no-ansi \
-  && poetry build \
-  && poetry export -f requirements.txt --output requirements.txt
+  if [ "$UPGRADE_PIP" = "true" ]; then pip install --upgrade pip; fi \
+  && if [ -n "$PYPI_MIRROR_URL" ]; then \
+    export PIP_INDEX_URL="$PYPI_MIRROR_URL" \
+    && export PIP_TRUSTED_HOST=$(echo "$PYPI_MIRROR_URL" | sed -e 's|^[^/]*//||' -e 's|/.*$||') \
+    && pip install --no-cache-dir poetry==1.8.5 \
+    && poetry source add --priority=primary mirror "$PYPI_MIRROR_URL" \
+    && poetry lock --no-update \
+    && poetry install --no-root --without dev --no-interaction --no-ansi \
+    && poetry build \
+    && poetry export -f requirements.txt --output requirements.txt \
+    && pip install --no-cache-dir -r requirements.txt \
+    && pip install --no-cache-dir dist/*.whl ddtrace==4.3.2 \
+    && pip uninstall -y poetry poetry-core poetry-plugin-export keyring jaraco.classes setuptools wheel; \
+  else \
+    pip install --no-cache-dir poetry==1.8.5 \
+    && poetry install --no-root --without dev --no-interaction --no-ansi \
+    && poetry build \
+    && poetry export -f requirements.txt --output requirements.txt \
+    && pip install --no-cache-dir -r requirements.txt \
+    && pip install --no-cache-dir dist/*.whl ddtrace==4.3.2 \
+    && pip uninstall -y poetry poetry-core poetry-plugin-export keyring jaraco.classes setuptools wheel;\
+  fi
 
 # Build the nodejs app
-FROM python:${PYTHON_MAJOR}-slim AS nodebuild
-ARG NODE_MAJOR
+FROM node:${NODE_MAJOR}-slim AS nodebuild
 WORKDIR /usr/local/src/app
-# Set node max memory
+# Set node max memory for build
 ENV NODE_OPTIONS="--max-old-space-size=8192"
 RUN apt-get update && \
-  apt-get install -y wget gnupg2 build-essential ca-certificates && \
-  mkdir -p /etc/apt/keyrings && \
-  wget -qO- https://deb.nodesource.com/gpgkey/nodesource.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
-  echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x buster main" > /etc/apt/sources.list.d/nodesource.list && \
-  wget -qO- https://dl.yarnpkg.com/debian/pubkey.gpg | gpg --dearmor -o /etc/apt/keyrings/yarn.gpg && \
-  echo "deb [signed-by=/etc/apt/keyrings/yarn.gpg] https://dl.yarnpkg.com/debian/ stable main" > /etc/apt/sources.list.d/yarn.list && \
-  apt-get update && \
-  apt-get install -yqq nodejs=$(apt-cache show nodejs|grep Version|grep nodesource|cut -c 10-) yarn && \
+  apt-get install -y --no-install-recommends build-essential python3 ca-certificates libkrb5-dev && \
+  npm install -g pnpm@10.28.2 node-gyp && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
+# Fetch packages into pnpm store
+# NB: patches must be present for pnpm fetch to work
+COPY patches ./patches
+COPY pnpm-lock.yaml ./pnpm-lock.yaml
+RUN pnpm fetch
 # Copy over minimum files to install dependencies
+COPY .npmrc ./.npmrc
 COPY package.json ./package.json
-COPY yarn.lock ./yarn.lock
+COPY pnpm-workspace.yaml ./pnpm-workspace.yaml
 COPY packages/front-end/package.json ./packages/front-end/package.json
 COPY packages/back-end/package.json ./packages/back-end/package.json
 COPY packages/sdk-js/package.json ./packages/sdk-js/package.json
 COPY packages/sdk-react/package.json ./packages/sdk-react/package.json
 COPY packages/shared/package.json ./packages/shared/package.json
-COPY patches ./patches
-# Yarn install with dev dependencies (will be cached as long as dependencies don't change)
-RUN yarn install --frozen-lockfile
-# Apply patches this is not ideal since this should run at the end of yarn install but since node 20 it is not
-RUN yarn postinstall
+# Install dependencies using cached store
+RUN pnpm install --frozen-lockfile --offline
+# Apply patches
+RUN pnpm postinstall
+
 # Build the app and do a clean install with only production dependencies
 COPY packages ./packages
 RUN \
-  yarn build \
+  pnpm build \
+  && test -f packages/back-end/dist/server.js || (echo "ERROR: packages/back-end/dist/server.js is missing after build!" && exit 1) \
   && rm -rf node_modules \
   && rm -rf packages/back-end/node_modules \
   && rm -rf packages/front-end/node_modules \
@@ -52,45 +84,72 @@ RUN \
   && rm -rf packages/shared/node_modules \
   && rm -rf packages/sdk-js/node_modules \
   && rm -rf packages/sdk-react/node_modules \
-  && yarn install --frozen-lockfile --production=true --ignore-optional
-RUN yarn postinstall
-
+  && pnpm install --frozen-lockfile --prod --no-optional \
+  && pnpm store prune \
+  && find node_modules -type f -name "*.md" -delete \
+  && find node_modules -type f -name "*.ts" ! -name "*.d.ts" -delete \
+  && find node_modules -type f -name "*.map" -delete \
+  && find node_modules -type f -name "CHANGELOG*" -delete \
+  && find node_modules -type f -name "LICENSE*" -delete \
+  && find node_modules -type f -name "README*" -delete \
+  && find node_modules -type d -name benchmarks -prune -exec rm -rf {} + \
+  && rm -f packages/stats/poetry.lock
+RUN pnpm postinstall
 
 # Package the full app together
-FROM python:${PYTHON_MAJOR}-slim
-ARG NODE_MAJOR
+FROM node:${NODE_MAJOR}-slim
+ARG PYTHON_MAJOR
 WORKDIR /usr/local/src/app
 RUN apt-get update && \
-  apt-get install -y wget gnupg2 build-essential ca-certificates && \
-  mkdir -p /etc/apt/keyrings && \
-  wget -qO- https://deb.nodesource.com/gpgkey/nodesource.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
-  echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x buster main" > /etc/apt/sources.list.d/nodesource.list && \
-  wget -qO- https://dl.yarnpkg.com/debian/pubkey.gpg | gpg --dearmor -o /etc/apt/keyrings/yarn.gpg && \
-  echo "deb [signed-by=/etc/apt/keyrings/yarn.gpg] https://dl.yarnpkg.com/debian/ stable main" > /etc/apt/sources.list.d/yarn.list && \
-  apt-get update && \
-  apt-get install -yqq nodejs=$(apt-cache show nodejs|grep Version|grep nodesource|cut -c 10-) yarn && \
+  apt-get install -y --no-install-recommends python${PYTHON_MAJOR} ca-certificates libkrb5-3 && \
+  npm install -g pnpm@10.28.2 && \
+  rm -rf /usr/local/lib/node_modules/npm && \
   apt-get clean && \
-  rm -rf /var/lib/apt/lists/*
-COPY --from=pybuild /usr/local/src/app/requirements.txt /usr/local/src/requirements.txt
-RUN pip3 install -r /usr/local/src/requirements.txt && rm -rf /root/.cache/pip
+  rm -rf /var/lib/apt/lists/* && \
+  ln -sf /usr/bin/python${PYTHON_MAJOR} /usr/local/bin/python3 && \
+  ln -sf /usr/bin/python${PYTHON_MAJOR} /usr/local/bin/python
+
+# Copy Python virtualenv from build stage
+ENV VIRTUAL_ENV=/opt/venv
+COPY --from=pybuild $VIRTUAL_ENV $VIRTUAL_ENV
+
+# Copy static config files
+COPY ecosystem.config.js ./ecosystem.config.js
+COPY bin/yarn ./bin/yarn
+RUN chmod +x ./bin/yarn
+
+# Set PATH for python venv + yarn shim
+ENV PATH="$VIRTUAL_ENV/bin:/usr/local/src/app/bin:${PATH}"
+
+# Copy app code from node build stage
 COPY --from=nodebuild /usr/local/src/app/packages ./packages
 COPY --from=nodebuild /usr/local/src/app/node_modules ./node_modules
 COPY --from=nodebuild /usr/local/src/app/package.json ./package.json
 
-# wildcard used to act as 'copy if exists'
-COPY buildinfo* ./buildinfo
+# Remove TypeScript files from front-end so Next.js doesn't try to install TypeScript
+RUN rm -f packages/front-end/tsconfig.json && \
+    find packages/front-end -maxdepth 1 -name "*.ts" -delete && \
+    find packages/front-end -maxdepth 1 -name "*.tsx" -delete
 
-COPY --from=pybuild /usr/local/src/app/dist /usr/local/src/gbstats
-RUN pip3 install /usr/local/src/gbstats/*.whl ddtrace
+# Verify runtime entrypoints are installed and executable
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+RUN errors=0; \
+    command -v python3 >/dev/null 2>&1 || { echo "ERROR: python3 is not installed or not in PATH!"; errors=$((errors+1)); }; \
+    command -v ddtrace-run >/dev/null 2>&1 || { echo "ERROR: ddtrace-run is not installed or not in PATH!"; errors=$((errors+1)); }; \
+    # pm2-runtime is not globally installed — it lives in node_modules/.bin
+    # so we check the file directly instead of using command -v
+    test -x node_modules/.bin/pm2-runtime || { echo "ERROR: pm2-runtime is not installed!"; errors=$((errors+1)); }; \
+    if [ "$errors" -gt 0 ]; then echo "FATAL: $errors runtime entrypoint(s) missing — see errors above" && exit 1; fi
+
+# Build metadata
+COPY buildinfo* ./buildinfo
 ARG DD_GIT_COMMIT_SHA=""
 ARG DD_GIT_REPOSITORY_URL=https://github.com/growthbook/growthbook.git
 ARG DD_VERSION=""
-ENV DD_GIT_COMMIT_SHA=$DD_GIT_COMMIT_SHA
-ENV DD_GIT_REPOSITORY_URL=$DD_GIT_REPOSITORY_URL
-ENV DD_VERSION=$DD_VERSION
-# The front-end app (NextJS)
+ENV DD_GIT_COMMIT_SHA=$DD_GIT_COMMIT_SHA \
+    DD_GIT_REPOSITORY_URL=$DD_GIT_REPOSITORY_URL \
+    DD_VERSION=$DD_VERSION
+
 EXPOSE 3000
-# The back-end api (Express)
 EXPOSE 3100
-# Start both front-end and back-end at once
-CMD ["yarn","start"]
+CMD ["node_modules/.bin/pm2-runtime", "start", "ecosystem.config.js"]

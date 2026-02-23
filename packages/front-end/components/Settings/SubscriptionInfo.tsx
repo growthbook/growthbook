@@ -8,7 +8,7 @@ import { useUser } from "@/services/UserContext";
 import { planNameFromAccountPlan } from "@/services/utils";
 import { StripeProvider } from "@/enterprise/components/Billing/StripeProvider";
 import Callout from "@/ui/Callout";
-import Modal from "../Modal";
+import Modal from "@/components/Modal";
 import UpgradeModal from "./UpgradeModal";
 import UpdateOrbSubscriptionModal from "./UpdateOrbSubscriptionModal";
 

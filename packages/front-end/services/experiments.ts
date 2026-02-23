@@ -1,25 +1,26 @@
-import { SnapshotMetric } from "back-end/types/experiment-snapshot";
-import { DifferenceType, StatsEngine } from "back-end/types/stats";
+import { SnapshotMetric } from "shared/types/experiment-snapshot";
+import { DifferenceType, StatsEngine } from "shared/types/stats";
 import {
   ExperimentReportVariationWithIndex,
   MetricSnapshotSettings,
-} from "back-end/types/report";
-import {
-  MetricDefaults,
-  SDKAttributeSchema,
-} from "back-end/types/organization";
+} from "shared/types/report";
+import { MetricDefaults, SDKAttributeSchema } from "shared/types/organization";
 import {
   ComputedExperimentInterface,
   ExperimentInterfaceStringDates,
   ExperimentStatus,
   ExperimentTemplateInterface,
   MetricOverride,
-} from "back-end/types/experiment";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+} from "shared/types/experiment";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
 import { getValidDate } from "shared/dates";
 import { isNil, omit } from "lodash";
-import { FactTableInterface } from "back-end/types/fact-table";
+import {
+  FactTableInterface,
+  FactMetricInterface,
+  FactTableColumnType,
+} from "shared/types/fact-table";
 import {
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
@@ -27,18 +28,21 @@ import {
   getMetricResultStatus,
   getMetricSampleSize,
   hasEnoughData,
-  isBinomialMetric,
+  isFactMetric,
+  isMetricGroupId,
   isRatioMetric,
   isSuspiciousUplift,
   quantileMetricType,
+  expandMetricGroups,
+  createAutoSliceDataForMetric,
+  generateSliceString,
+  generateSelectAllSliceString,
+  parseSliceQueryString,
+  SliceDataForMetric,
 } from "shared/experiments";
-import {
-  DEFAULT_LOSE_RISK_THRESHOLD,
-  DEFAULT_WIN_RISK_THRESHOLD,
-} from "shared/constants";
+import { MetricGroupInterface } from "shared/types/metric-groups";
 import { ReactElement } from "react";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import { getExperimentMetricFormatter } from "@/services/metrics";
 import { getDefaultVariations } from "@/components/Experiment/NewExperimentForm";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -179,98 +183,9 @@ export type ExperimentTableRow = {
     levels: string[];
   }>;
   allSliceLevels?: string[];
-  isHiddenByFilter?: boolean; // True if this row should be hidden due to slice level filtering
-  isPinned?: boolean; // True if this slice level row is pinned
+  isHiddenByFilter?: boolean;
+  labelOnly?: boolean;
 };
-
-export function getRisk(
-  stats: SnapshotMetric,
-  baseline: SnapshotMetric,
-  metric: ExperimentMetricInterface,
-  metricDefaults: MetricDefaults,
-  differenceType: DifferenceType,
-  // separate CR because sometimes "baseline" above is the variation
-  baselineCR: number,
-): { risk: number; relativeRisk: number; showRisk: boolean } {
-  const statsRisk = stats.risk?.[1] ?? 0;
-  let risk: number;
-  let relativeRisk: number;
-  if (stats.riskType === "relative") {
-    risk = statsRisk * baselineCR;
-    relativeRisk = statsRisk;
-  } else {
-    // otherwise it is absolute, including legacy snapshots
-    // that were missing `riskType` field
-    risk = statsRisk;
-    relativeRisk = baselineCR ? statsRisk / baselineCR : 0;
-  }
-  const showRisk =
-    baseline.cr > 0 &&
-    hasEnoughData(baseline, stats, metric, metricDefaults) &&
-    !isSuspiciousUplift(
-      baseline,
-      stats,
-      metric,
-      metricDefaults,
-      differenceType,
-    );
-  return { risk, relativeRisk, showRisk };
-}
-
-export function getRiskByVariation(
-  riskVariation: number,
-  row: ExperimentTableRow,
-  metricDefaults: MetricDefaults,
-  differenceType: DifferenceType,
-) {
-  const baseline = row.variations[0];
-
-  if (riskVariation > 0) {
-    const stats = row.variations[riskVariation];
-    return getRisk(
-      stats,
-      baseline,
-      row.metric,
-      metricDefaults,
-      differenceType,
-      baseline.cr,
-    );
-  } else {
-    let risk = -1;
-    let relativeRisk = 0;
-    let showRisk = false;
-    // get largest risk for all variations as the control "risk"
-    row.variations.forEach((stats, i) => {
-      if (!i) return;
-
-      // baseline and stats are inverted here, because we want to get the risk for the control
-      // so we also use the `stats` cr for the relative risk, which in this case is actually
-      // the baseline
-      const {
-        risk: vRisk,
-        relativeRisk: vRelativeRisk,
-        showRisk: vShowRisk,
-      } = getRisk(
-        baseline,
-        stats,
-        row.metric,
-        metricDefaults,
-        differenceType,
-        baseline.cr,
-      );
-      if (vRisk > risk) {
-        risk = vRisk;
-        relativeRisk = vRelativeRisk;
-        showRisk = vShowRisk;
-      }
-    });
-    return {
-      risk,
-      relativeRisk,
-      showRisk,
-    };
-  }
-}
 
 export function useDomain(
   variations: ExperimentReportVariationWithIndex[], // must be ordered, baseline first
@@ -282,7 +197,7 @@ export function useDomain(
   let lowerBound = 0;
   let upperBound = 0;
   rows.forEach((row) => {
-    // Skip metric slice rows that are hidden (not expanded or pinned)
+    // Skip metric slice rows that are hidden (not expanded)
     if (row.isHiddenByFilter) {
       return;
     }
@@ -565,17 +480,8 @@ export type RowResults = {
   suspiciousThreshold: number;
   suspiciousChangeReason: string;
   belowMinChange: boolean;
-  risk: number;
-  relativeRisk: number;
-  riskMeta: RiskMeta;
-  guardrailWarning: string;
-};
-export type RiskMeta = {
-  riskStatus: "ok" | "warning" | "danger";
-  showRisk: boolean;
-  riskFormatted: string;
-  relativeRiskFormatted: string;
-  riskReason: string;
+  minPercentChange: number;
+  currentMetricTotal: number;
 };
 export type EnoughDataMetaZeroValues = {
   reason: "baselineZero" | "variationZero";
@@ -599,7 +505,6 @@ export function getRowResults({
   metric,
   denominator,
   metricDefaults,
-  isGuardrail,
   minSampleSize,
   statsEngine,
   differenceType,
@@ -610,8 +515,6 @@ export function getRowResults({
   phaseStartDate,
   isLatestPhase,
   experimentStatus,
-  displayCurrency,
-  getFactTableById,
 }: {
   stats: SnapshotMetric;
   baseline: SnapshotMetric;
@@ -620,7 +523,6 @@ export function getRowResults({
   metric: ExperimentMetricInterface;
   denominator?: ExperimentMetricInterface;
   metricDefaults: MetricDefaults;
-  isGuardrail: boolean;
   minSampleSize: number;
   ciUpper: number;
   ciLower: number;
@@ -628,9 +530,7 @@ export function getRowResults({
   snapshotDate: Date;
   phaseStartDate: Date;
   isLatestPhase: boolean;
-  experimentStatus: ExperimentStatus;
-  displayCurrency: string;
-  getFactTableById: (id: string) => null | FactTableInterface;
+  experimentStatus?: ExperimentStatus;
 }): RowResults {
   const compactNumberFormatter = Intl.NumberFormat("en-US", {
     notation: "compact",
@@ -730,57 +630,13 @@ export function getRowResults({
   );
   const suspiciousThreshold =
     metric.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0;
+  const minPercentChange =
+    metric.minPercentChange ?? metricDefaults.minPercentageChange ?? 0;
   const suspiciousChangeReason = suspiciousChange
     ? `A suspicious result occurs when the percent change exceeds your maximum percent change (${percentFormatter.format(
         suspiciousThreshold,
       )}).`
     : "";
-
-  const { risk, relativeRisk, showRisk } = getRisk(
-    stats,
-    baseline,
-    metric,
-    metricDefaults,
-    differenceType,
-    baseline.cr,
-  );
-  const winRiskThreshold = metric.winRisk ?? DEFAULT_WIN_RISK_THRESHOLD;
-  const loseRiskThreshold = metric.loseRisk ?? DEFAULT_LOSE_RISK_THRESHOLD;
-  let riskStatus: "ok" | "warning" | "danger" = "ok";
-  let riskReason = "";
-  if (relativeRisk > winRiskThreshold && relativeRisk < loseRiskThreshold) {
-    riskStatus = "warning";
-    riskReason = `The relative risk (${percentFormatter.format(
-      relativeRisk,
-    )}) exceeds the warning threshold (${percentFormatter.format(
-      winRiskThreshold,
-    )}) for this metric.`;
-  } else if (relativeRisk >= loseRiskThreshold) {
-    riskStatus = "danger";
-    riskReason = `The relative risk (${percentFormatter.format(
-      relativeRisk,
-    )}) exceeds the danger threshold (${percentFormatter.format(
-      loseRiskThreshold,
-    )}) for this metric.`;
-  }
-  let riskFormatted = "";
-
-  const isBinomial = isBinomialMetric(metric);
-
-  // TODO: support formatted risk for fact metrics
-  if (!isBinomial) {
-    riskFormatted = `${getExperimentMetricFormatter(metric, getFactTableById)(
-      risk,
-      { currency: displayCurrency },
-    )} / user`;
-  }
-  const riskMeta: RiskMeta = {
-    riskStatus,
-    showRisk,
-    riskFormatted: riskFormatted,
-    relativeRiskFormatted: percentFormatter.format(relativeRisk),
-    riskReason,
-  };
 
   const {
     belowMinChange,
@@ -842,15 +698,8 @@ export function getRowResults({
     }
   }
 
-  let guardrailWarning = "";
-  if (
-    isGuardrail &&
-    directionalStatus === "losing" &&
-    resultsStatus !== "lost"
-  ) {
-    guardrailWarning =
-      "Uplift for this guardrail metric may be in the undesired direction.";
-  }
+  // Max numerator value across baseline and variation
+  const currentMetricTotal = Math.max(baseline.value ?? 0, stats.value ?? 0);
 
   return {
     directionalStatus,
@@ -867,16 +716,14 @@ export function getRowResults({
     suspiciousThreshold,
     suspiciousChangeReason,
     belowMinChange,
-    risk,
-    relativeRisk,
-    riskMeta,
-    guardrailWarning,
+    minPercentChange,
+    currentMetricTotal,
   };
 }
 
 export function getEffectLabel(differenceType: DifferenceType): string {
   if (differenceType === "absolute") {
-    return "Absolute Change";
+    return "Change";
   }
   if (differenceType === "scaled") {
     return "Scaled Impact";
@@ -1008,4 +855,323 @@ export function getIsExperimentIncludedInIncrementalRefresh(
   }
 
   return includedExperimentIds.includes(experimentId);
+}
+
+// Extracts available metrics and groups (for result filtering) from experiment metrics
+export function getAvailableMetricsFilters({
+  goalMetrics,
+  secondaryMetrics,
+  guardrailMetrics,
+  metricGroups,
+  getExperimentMetricById,
+}: {
+  goalMetrics: string[];
+  secondaryMetrics: string[];
+  guardrailMetrics: string[];
+  metricGroups: MetricGroupInterface[];
+  getExperimentMetricById: (id: string) => ExperimentMetricInterface | null;
+}): {
+  groups: { id: string; name: string }[];
+  metrics: { id: string; name: string }[];
+} {
+  // Get all unique metric IDs (expanded from groups)
+  const expandedGoals = expandMetricGroups(goalMetrics, metricGroups);
+  const expandedSecondaries = expandMetricGroups(
+    secondaryMetrics,
+    metricGroups,
+  );
+  const expandedGuardrails = expandMetricGroups(guardrailMetrics, metricGroups);
+  const allExpandedMetricIds = new Set([
+    ...expandedGoals,
+    ...expandedSecondaries,
+    ...expandedGuardrails,
+  ]);
+
+  // Get groups
+  const groupIdsMap = new Map<string, boolean>();
+  [...goalMetrics, ...secondaryMetrics, ...guardrailMetrics].forEach((id) => {
+    if (isMetricGroupId(id)) {
+      groupIdsMap.set(id, true);
+    }
+  });
+  const groupIds = Array.from(groupIdsMap.keys());
+  const groups: { id: string; name: string }[] = groupIds
+    .map((id) => {
+      const group = metricGroups.find((g) => g.id === id);
+      return group ? { id: group.id, name: group.name } : null;
+    })
+    .filter((g): g is { id: string; name: string } => g !== null);
+
+  // Get individual metrics (allExpandedMetricIds only contains individual metric IDs, not groups)
+  const metrics: { id: string; name: string }[] = Array.from(
+    allExpandedMetricIds,
+  )
+    .map((id) => {
+      const metric = getExperimentMetricById(id);
+      return metric ? { id: metric.id, name: metric.name } : null;
+    })
+    .filter((m): m is { id: string; name: string } => m !== null);
+
+  return { groups, metrics };
+}
+
+// Extracts available metric tags (for result filtering) from expanded experiment metrics
+export function getAvailableMetricTags({
+  goalMetrics,
+  secondaryMetrics,
+  guardrailMetrics,
+  metricGroups,
+  getExperimentMetricById,
+}: {
+  goalMetrics: string[];
+  secondaryMetrics: string[];
+  guardrailMetrics: string[];
+  metricGroups: MetricGroupInterface[];
+  getExperimentMetricById: (id: string) => ExperimentMetricInterface | null;
+}): string[] {
+  const expandedGoals = expandMetricGroups(goalMetrics, metricGroups);
+  const expandedSecondaries = expandMetricGroups(
+    secondaryMetrics,
+    metricGroups,
+  );
+  const expandedGuardrails = expandMetricGroups(guardrailMetrics, metricGroups);
+
+  const allMetricTagsSet: Set<string> = new Set();
+  [...expandedGoals, ...expandedSecondaries, ...expandedGuardrails].forEach(
+    (metricId) => {
+      const metric = getExperimentMetricById(metricId);
+      metric?.tags?.forEach((tag) => {
+        allMetricTagsSet.add(tag);
+      });
+    },
+  );
+  return Array.from(allMetricTagsSet);
+}
+
+export interface AvailableSliceTag {
+  id: string;
+  datatypes: Record<string, FactTableColumnType>;
+  isSelectAll?: boolean;
+}
+
+// Extracts all available slice tags (for result filtering) from experiment metrics.
+// Includes both auto slices and custom slices, plus "select all" options for each column.
+export function getAvailableSliceTags({
+  goalMetrics,
+  secondaryMetrics,
+  guardrailMetrics,
+  customMetricSlices,
+  metricGroups,
+  factTables,
+  getExperimentMetricById,
+  getFactTableById,
+}: {
+  goalMetrics: string[];
+  secondaryMetrics: string[];
+  guardrailMetrics: string[];
+  customMetricSlices?: Array<{
+    slices: Array<{
+      column: string;
+      levels: string[];
+    }>;
+  }> | null;
+  metricGroups: MetricGroupInterface[];
+  factTables: FactTableInterface[];
+  getExperimentMetricById: (id: string) => ExperimentMetricInterface | null;
+  getFactTableById: (id: string) => FactTableInterface | null;
+}): AvailableSliceTag[] {
+  const sliceTagsMap = new Map<
+    string,
+    { datatypes: Record<string, FactTableColumnType>; isSelectAll?: boolean }
+  >();
+
+  // Build factTableMap for parseSliceQueryString
+  const factTableMap: Record<string, FactTableInterface> = {};
+  factTables.forEach((table) => {
+    factTableMap[table.id] = table;
+  });
+
+  // Expand all metrics
+  const expandedGoals = expandMetricGroups(goalMetrics, metricGroups);
+  const expandedSecondaries = expandMetricGroups(
+    secondaryMetrics,
+    metricGroups,
+  );
+  const expandedGuardrails = expandMetricGroups(guardrailMetrics, metricGroups);
+
+  // Track all columns that appear in slices for "select all" generation
+  const columnSet = new Set<string>();
+  const columnDatatypeMap = new Map<string, FactTableColumnType>();
+
+  // Extract from customMetricSlices
+  // For custom slices, only generate the exact combinations defined (no permutations)
+  if (customMetricSlices && customMetricSlices.length > 0) {
+    customMetricSlices.forEach((group) => {
+      // Build the exact slice combination for this group
+      const slices: Record<string, string> = {};
+
+      group.slices.forEach((slice) => {
+        // Use the first level for each column (custom slices define one combination)
+        const level = slice.levels[0] || "";
+        slices[slice.column] = level;
+      });
+
+      // Generate a single tag for this exact combination
+      const tag = generateSliceString(slices);
+      // Parse the tag to get datatypes using parseSliceQueryString
+      const sliceLevels = parseSliceQueryString(tag, factTableMap);
+      const datatypes: Record<string, FactTableColumnType> = {};
+      sliceLevels.forEach((sl) => {
+        datatypes[sl.column] = sl.datatype;
+        // Track column for "select all" generation
+        columnSet.add(sl.column);
+        if (sl.datatype) {
+          columnDatatypeMap.set(sl.column, sl.datatype);
+        }
+      });
+      sliceTagsMap.set(tag, { datatypes });
+    });
+  }
+
+  // Extract from auto slice data for all fact metrics
+  const allMetricIds = [
+    ...expandedGoals,
+    ...expandedSecondaries,
+    ...expandedGuardrails,
+  ];
+
+  allMetricIds.forEach((metricId) => {
+    const metric = getExperimentMetricById(metricId);
+
+    if (metric && isFactMetric(metric)) {
+      const factMetric = metric as FactMetricInterface;
+      const factTableId = factMetric.numerator?.factTableId;
+
+      if (factTableId) {
+        const factTable = getFactTableById(factTableId);
+
+        if (factTable) {
+          const autoSliceData = createAutoSliceDataForMetric({
+            parentMetric: metric,
+            factTable,
+            includeOther: true,
+          });
+
+          // Extract tags from slice data
+          autoSliceData.forEach((slice: SliceDataForMetric) => {
+            // Generate single dimension tags
+            slice.sliceLevels.forEach((sliceLevel) => {
+              const value = sliceLevel.levels[0] || "";
+              const tag = generateSliceString({ [sliceLevel.column]: value });
+              const datatypes = sliceLevel.datatype
+                ? { [sliceLevel.column]: sliceLevel.datatype }
+                : {};
+              sliceTagsMap.set(tag, { datatypes });
+              // Track column for "select all" generation
+              columnSet.add(sliceLevel.column);
+              if (sliceLevel.datatype) {
+                columnDatatypeMap.set(sliceLevel.column, sliceLevel.datatype);
+              }
+            });
+
+            // Generate combined tag for multi-dimensional slices
+            if (slice.sliceLevels.length > 1) {
+              const slices: Record<string, string> = {};
+              slice.sliceLevels.forEach((sl) => {
+                slices[sl.column] = sl.levels[0] || "";
+              });
+              const comboTag = generateSliceString(slices);
+              // Parse the tag to get datatypes using parseSliceQueryString
+              const sliceLevels = parseSliceQueryString(comboTag, factTableMap);
+              const datatypes: Record<string, FactTableColumnType> = {};
+              sliceLevels.forEach((sl) => {
+                datatypes[sl.column] = sl.datatype;
+                // Track column for "select all" generation
+                columnSet.add(sl.column);
+                if (sl.datatype) {
+                  columnDatatypeMap.set(sl.column, sl.datatype);
+                }
+              });
+              sliceTagsMap.set(comboTag, { datatypes });
+            }
+          });
+        }
+      }
+    }
+  });
+
+  // Generate "select all" tags for each column (format: dim:column, no equals sign)
+  columnSet.forEach((column) => {
+    const datatype = columnDatatypeMap.get(column) || "string";
+    const selectAllTag = generateSelectAllSliceString(column);
+    sliceTagsMap.set(selectAllTag, {
+      datatypes: { [column]: datatype },
+      isSelectAll: true,
+    });
+  });
+
+  const sliceTags = Array.from(sliceTagsMap.entries()).map(
+    ([id, { datatypes, isSelectAll }]) => ({ id, datatypes, isSelectAll }),
+  );
+
+  // Sort slices: group by column(s), put "select all" first, then regular values, then empty values
+  return sliceTags.sort((a, b) => {
+    // Extract column name from tag
+    const getColumnFromTag = (tag: string): string => {
+      if (!tag.startsWith("dim:")) return "";
+      const withoutDim = tag.substring(4);
+      const equalsIndex = withoutDim.indexOf("=");
+      return decodeURIComponent(
+        withoutDim.slice(0, equalsIndex >= 0 ? equalsIndex : undefined),
+      );
+    };
+
+    const aColumn = getColumnFromTag(a.id);
+    const bColumn = getColumnFromTag(b.id);
+    const columnCompare = aColumn.localeCompare(bColumn);
+    if (columnCompare !== 0) return columnCompare;
+
+    // Same column: "select all" comes first
+    if (a.isSelectAll && !b.isSelectAll) return -1;
+    if (!a.isSelectAll && b.isSelectAll) return 1;
+
+    // Both are regular slices, parse normally
+    const aLevels = a.isSelectAll
+      ? []
+      : parseSliceQueryString(a.id, factTableMap);
+    const bLevels = b.isSelectAll
+      ? []
+      : parseSliceQueryString(b.id, factTableMap);
+
+    // For same first column, check if it's a multi-column slice
+    if (aLevels.length !== bLevels.length) {
+      // Single column slices come before multi-column
+      return aLevels.length - bLevels.length;
+    }
+
+    // Compare each column level
+    for (let i = 0; i < Math.min(aLevels.length, bLevels.length); i++) {
+      const aValue = aLevels[i]?.levels[0] || "";
+      const bValue = bLevels[i]?.levels[0] || "";
+      const aDatatype = aLevels[i]?.datatype;
+      const bDatatype = bLevels[i]?.datatype;
+
+      // Empty values go to the end
+      if (aValue === "" && bValue !== "") return 1;
+      if (aValue !== "" && bValue === "") return -1;
+
+      // Both non-empty or both empty: compare normally
+      if (aValue !== bValue) {
+        // Special handling for boolean: true comes before false
+        if (aDatatype === "boolean" && bDatatype === "boolean") {
+          if (aValue === "true" && bValue === "false") return -1;
+          if (aValue === "false" && bValue === "true") return 1;
+        }
+        return aValue.localeCompare(bValue);
+      }
+    }
+
+    // Fallback to ID comparison
+    return a.id.localeCompare(b.id);
+  });
 }

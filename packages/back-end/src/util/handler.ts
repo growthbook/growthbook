@@ -1,17 +1,17 @@
 import { Request, RequestHandler } from "express";
-import z, { Schema, ZodNever } from "zod";
+import { z, ZodType, ZodNever, output } from "zod";
+import { ApiPaginationFields } from "shared/types/openapi";
+import { UserInterface } from "shared/types/user";
+import { OrganizationInterface } from "shared/types/organization";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiErrorResponse, ApiRequestLocals } from "back-end/types/api";
-import { ApiPaginationFields } from "back-end/types/openapi";
-import { UserInterface } from "back-end/types/user";
-import { OrganizationInterface } from "back-end/types/organization";
 import { IS_MULTI_ORG } from "./secrets";
 
-type ApiRequest<
+export type ApiRequest<
   ResponseType = never,
-  ParamsSchema extends Schema = Schema<never>,
-  BodySchema extends Schema = Schema<never>,
-  QuerySchema extends Schema = Schema<never>,
+  ParamsSchema extends ZodType = ZodType<never>,
+  BodySchema extends ZodType = ZodType<never>,
+  QuerySchema extends ZodType = ZodType<never>,
 > = ApiRequestLocals &
   Request<
     z.infer<ParamsSchema>,
@@ -20,13 +20,19 @@ type ApiRequest<
     z.infer<QuerySchema>
   >;
 
-function validate<T>(
-  schema: Schema<T>,
+export type ApiRequestValidator<ParamsSchema, BodySchema, QuerySchema> = {
+  bodySchema?: BodySchema;
+  querySchema?: QuerySchema;
+  paramsSchema?: ParamsSchema;
+};
+
+function validate<T extends ZodType>(
+  schema: T,
   value: unknown,
 ):
   | {
       success: true;
-      data: T;
+      data: output<T>;
     }
   | {
       success: false;
@@ -49,18 +55,14 @@ function validate<T>(
 }
 
 export function createApiRequestHandler<
-  ParamsSchema extends Schema = Schema<never>,
-  BodySchema extends Schema = Schema<never>,
-  QuerySchema extends Schema = Schema<never>,
+  ParamsSchema extends ZodType = ZodType<never>,
+  BodySchema extends ZodType = ZodType<never>,
+  QuerySchema extends ZodType = ZodType<never>,
 >({
   paramsSchema,
   bodySchema,
   querySchema,
-}: {
-  bodySchema?: BodySchema;
-  querySchema?: QuerySchema;
-  paramsSchema?: ParamsSchema;
-} = {}) {
+}: ApiRequestValidator<ParamsSchema, BodySchema, QuerySchema> = {}) {
   return <ResponseType>(
     handler: (
       req: ApiRequest<ResponseType, ParamsSchema, BodySchema, QuerySchema>,
@@ -79,7 +81,7 @@ export function createApiRequestHandler<
           if (!validated.success) {
             allErrors.push(`Request params: ` + validated.errors.join(", "));
           } else {
-            req.params = validated.data;
+            req.params = validated.data as z.output<ParamsSchema>;
           }
         }
         if (querySchema && !(querySchema instanceof ZodNever)) {
@@ -126,6 +128,8 @@ export function createApiRequestHandler<
     return wrappedHandler;
   };
 }
+
+export const statusCodeReturn = z.strictObject({ status: z.number() });
 
 export async function validateIsSuperUserRequest(req: {
   user?: UserInterface;
@@ -179,24 +183,54 @@ export function getPaginationReturnFields<T>(
   };
 }
 
+const PAGINATION_LIMIT_DEFAULT = 10;
+const PAGINATION_OFFSET_DEFAULT = 0;
+const PAGINATION_LIMIT_MIN = 1;
+const PAGINATION_LIMIT_MAX = 100;
+
+export type PaginationQuery = {
+  limit?: number | undefined;
+  offset?: number | undefined;
+};
+
+export type PaginationParams = {
+  limit: number;
+  offset: number;
+};
+
+/**
+ * Validates limit and offset params from a query. Use before DB-level pagination
+ */
+export function validatePagination(
+  query: PaginationQuery,
+  defaults: { limit?: number; offset?: number } = {},
+): PaginationParams {
+  const limit = query.limit ?? defaults.limit ?? PAGINATION_LIMIT_DEFAULT;
+  const offset = query.offset ?? defaults.offset ?? PAGINATION_OFFSET_DEFAULT;
+  if (
+    Number.isNaN(limit) ||
+    limit < PAGINATION_LIMIT_MIN ||
+    limit > PAGINATION_LIMIT_MAX
+  ) {
+    throw new Error("Pagination limit must be between 1 and 100");
+  }
+  if (Number.isNaN(offset) || offset < 0) {
+    throw new Error("Invalid pagination offset");
+  }
+  return { limit, offset };
+}
+
 /**
  * Given an unpaginated list of items and a query object, return the paginated list of items and the pagination fields
  */
 export function applyPagination<T>(
   items: T[],
-  query: { limit?: number | undefined; offset?: number | undefined },
+  query: PaginationQuery,
 ): {
   filtered: T[];
   returnFields: ApiPaginationFields;
 } {
-  const limit = query.limit || 10;
-  const offset = query.offset || 0;
-  if (isNaN(limit) || limit < 1 || limit > 100) {
-    throw new Error("Pagination limit must be between 1 and 100");
-  }
-  if (isNaN(offset) || offset < 0) {
-    throw new Error("Invalid pagination offset");
-  }
+  const { limit, offset } = validatePagination(query);
 
   const filtered = items.slice(offset, limit + offset);
   const nextOffset = offset + limit;

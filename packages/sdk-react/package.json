@@ -1,6 +1,6 @@
 {
   "name": "@growthbook/growthbook-react",
-  "version": "1.6.2",
+  "version": "1.6.5",
   "license": "MIT",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
@@ -27,7 +27,7 @@
     "build:bundles": "rollup -c",
     "build:clean": "rimraf -rf dist",
     "build:types": "tsc --emitDeclarationOnly",
-    "build": "yarn build:clean && npm-run-all --parallel build:types build:bundles",
+    "build": "pnpm build:clean && npm-run-all --parallel build:types build:bundles",
     "test": "jest",
     "clean": "rimraf node_modules",
     "type-check": "tsc --pretty --noEmit",
@@ -38,7 +38,7 @@
     "react": "^16.8.0-0 || ^17.0.0-0 || ^18.0.0-0 || ^19.0.0-0"
   },
   "dependencies": {
-    "@growthbook/growthbook": "^1.6.2"
+    "@growthbook/growthbook": "^1.6.5"
   },
   "devDependencies": {
     "@babel/cli": "^7.28.3",
@@ -49,8 +49,9 @@
     "@rollup/plugin-commonjs": "^26.0.1",
     "@rollup/plugin-node-resolve": "^16.0.3",
     "@rollup/plugin-replace": "^6.0.3",
-    "@testing-library/react": "^16.2.0",
+    "@testing-library/react": "^16.3.0",
     "@types/jest": "^27.0.1",
+    "@types/node": "^22.8.6",
     "@types/react": "^18.0.15",
     "@types/react-dom": "^18.0.6",
     "gzip-size-cli": "^5.0.0",

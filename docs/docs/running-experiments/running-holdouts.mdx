@@ -4,9 +4,9 @@ description: Run holdout experiments to measure the long-term impact of features
 slug: /app/holdouts
 ---
 
-:::info Holdouts are available only to Enterprise customers.
+import CommercialFeature from '@site/src/components/CommercialFeature';
 
-:::
+<CommercialFeature feature="holdouts" />
 
 Holdout experiments (or simply "holdouts") measure the long-term impact of features by maintaining a control group that doesn't receive new functionality. While most users experience your latest features and improvements, a small percentage remains on the original version, providing a baseline to measure cumulative effects over time.
 
@@ -69,15 +69,15 @@ During the active period (often a quarter), you'll:
 
 After your planned duration, transition to the analysis period:
 
-1. **Stop adding new experiments**: The holdout enters analysis mode where no new experiments or features can be added
+1. **Stop adding new experiments**: The holdout enters analysis mode where no new experiments or features can be added but users are still held out from previously added experiments and features.
 2. **Extended measurement**: Continue measuring for 2-4 weeks to capture delayed effects and reduce statistical noise
 3. **Dynamic lookback window**: GrowthBook automatically applies a lookback window based on when the analysis window began, ensuring clean measurement
 
 During analysis, the system:
 
-Continues to split traffic into your holdout and general population groups
-Applies the appropriate lookback window to exclude results from before the analysis period
-Uses the minimum of the metric's lookback window (if it exists) and the analysis lookback window for each metric
+- Continues to split traffic on features and experiments into your holdout and general population groups if the holdout was already applied.
+- Applies the appropriate lookback window to exclude results from before the analysis period
+- Uses the minimum of the metric's lookback window (if it exists) and the analysis lookback window for each metric
 
 ### Understanding Holdout Results
 

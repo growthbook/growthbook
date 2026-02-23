@@ -3,15 +3,15 @@ import { useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
   MetricOverride,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import cloneDeep from "lodash/cloneDeep";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
 } from "shared/constants";
-import { OrganizationSettings } from "back-end/types/organization";
+import { OrganizationSettings } from "shared/types/organization";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { CustomMetricSlice } from "back-end/src/validators/experiments";
+import { CustomMetricSlice } from "shared/validators";
 import Collapsible from "react-collapsible";
 import { PiCaretRightFill } from "react-icons/pi";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -38,7 +38,6 @@ export interface EditMetricsFormInterface {
   activationMetric: string;
   metricOverrides: MetricOverride[];
   customMetricSlices?: CustomMetricSlice[];
-  pinnedMetricSlices?: string[];
 }
 
 export function getDefaultMetricOverridesFormValue(
@@ -140,8 +139,6 @@ const EditMetricsForm: FC<{
   source?: string;
 }> = ({ experiment, cancel, mutate, source }) => {
   const [upgradeModal, setUpgradeModal] = useState(false);
-  const [hasMetricOverrideRiskError, setHasMetricOverrideRiskError] =
-    useState(false);
   const settings = useOrgSettings();
   const { hasCommercialFeature } = useUser();
   const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
@@ -172,7 +169,6 @@ const EditMetricsForm: FC<{
       activationMetric: experiment.activationMetric || "",
       metricOverrides: defaultMetricOverrides,
       customMetricSlices: experiment.customMetricSlices || [],
-      pinnedMetricSlices: experiment.pinnedMetricSlices || [],
     },
   });
   const { apiCall } = useAuth();
@@ -198,7 +194,6 @@ const EditMetricsForm: FC<{
       size="lg"
       open={true}
       close={cancel}
-      ctaEnabled={!hasMetricOverrideRiskError}
       submit={form.handleSubmit(async (value) => {
         const payload = cloneDeep<EditMetricsFormInterface>(value);
         fixMetricOverridesBeforeSaving(value.metricOverrides || []);
@@ -258,7 +253,7 @@ const EditMetricsForm: FC<{
               <span className="font-italic">
                 Users must convert on this metric before being included.{" "}
               </span>
-              <MetricsSelectorTooltip onlyBinomial={true} />
+              <MetricsSelectorTooltip onlyBinomial={true} isSingular={true} />
             </div>
             <MetricSelector
               initialOption="None"
@@ -282,15 +277,6 @@ const EditMetricsForm: FC<{
             setCustomMetricSlices={(slices) =>
               form.setValue(
                 "customMetricSlices" as keyof EditMetricsFormInterface,
-                slices,
-              )
-            }
-            pinnedMetricSlices={
-              (form.watch("pinnedMetricSlices") as string[]) || []
-            }
-            setPinnedMetricSlices={(slices) =>
-              form.setValue(
-                "pinnedMetricSlices" as keyof EditMetricsFormInterface,
                 slices,
               )
             }
@@ -328,9 +314,6 @@ const EditMetricsForm: FC<{
                   disabled={
                     !hasOverrideMetricsFeature ||
                     isExperimentIncludedInIncrementalRefresh
-                  }
-                  setHasMetricOverrideRiskError={(v: boolean) =>
-                    setHasMetricOverrideRiskError(v)
                   }
                 />
                 {!hasOverrideMetricsFeature && (

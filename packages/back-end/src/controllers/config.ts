@@ -1,13 +1,13 @@
 import fs from "fs";
 import path from "path";
 import { Request, Response } from "express";
-import { lookupOrganizationByApiKey } from "back-end/src/models/ApiKeyModel";
-import { APP_ORIGIN } from "back-end/src/util/secrets";
 import {
   ExperimentInterface,
   LegacyExperimentPhase,
   LegacyVariation,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
+import { lookupOrganizationByApiKey } from "back-end/src/models/ApiKeyModel";
+import { APP_ORIGIN } from "back-end/src/util/secrets";
 import { ErrorResponse, ExperimentOverridesResponse } from "back-end/types/api";
 import {
   getContextForAgendaJobByOrgId,

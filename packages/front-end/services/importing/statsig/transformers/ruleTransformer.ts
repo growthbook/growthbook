@@ -1,4 +1,6 @@
 import { ConditionInterface } from "@growthbook/growthbook-react";
+import { FeatureInterface } from "shared/types/feature";
+import { getDefaultPrerequisiteCondition } from "shared/util";
 import { StatsigCondition } from "@/services/importing/statsig/types";
 import { mapStatsigAttributeToGB } from "./attributeMapper";
 
@@ -13,8 +15,8 @@ export type TransformedCondition = {
     condition: string;
   }>; // Array of prerequisite feature conditions
   scheduleRules?: [
-    start: { timestamp: string; enabled: boolean },
-    end: { timestamp: string; enabled: boolean },
+    start: { timestamp: string | null; enabled: boolean },
+    end: { timestamp: string | null; enabled: boolean },
   ];
 };
 
@@ -25,6 +27,7 @@ export function transformStatsigConditionsToGB(
   conditions: StatsigCondition[],
   skipAttributeMapping: boolean = false,
   savedGroupIdMap?: Map<string, string>,
+  featuresMap?: Map<string, FeatureInterface>,
 ): TransformedCondition {
   const targetingConditions: StatsigCondition[] = [];
   const savedGroups: Array<{ ids: string[]; match: "all" | "any" | "none" }> =
@@ -56,22 +59,28 @@ export function transformStatsigConditionsToGB(
 
     if (operator === null || operator === undefined) {
       switch (type) {
-        case "passes_gate":
-          // These become prerequisites with exists (live) condition
+        case "passes_gate": {
+          // These become prerequisites - use default condition based on feature value type
+          const prerequisiteFeatureId = String(targetValue);
+          const prerequisiteFeature = featuresMap?.get(prerequisiteFeatureId);
+          const condition =
+            getDefaultPrerequisiteCondition(prerequisiteFeature);
           prerequisites.push({
-            id: String(targetValue),
-            condition: JSON.stringify({ value: { $exists: true } }),
+            id: prerequisiteFeatureId,
+            condition,
           });
           return;
-        case "fails_gate":
-          // These become prerequisites with not exists (not live)condition
+        }
+        case "fails_gate": {
+          // These become prerequisites with not exists (not live) condition
+          // For fails_gate, we always use $exists: false regardless of value type
           prerequisites.push({
             id: String(targetValue),
             condition: JSON.stringify({ value: { $exists: false } }),
           });
           return;
+        }
         case "passes_segment": {
-          // These become saved groups with inclusion
           const segmentName = String(targetValue);
           const savedGroupId = savedGroupIdMap?.get(segmentName);
           if (savedGroupId) {
@@ -80,13 +89,15 @@ export function transformStatsigConditionsToGB(
             console.warn(
               `Saved group ID not found for segment: ${segmentName}`,
             );
-            // Fallback to using the name if ID not found
-            savedGroups.push({ ids: [segmentName], match: "all" });
+            // For first-pass imports where the referenced group has not been
+            // created yet, use a placeholder ID. A second import pass can then
+            // re-run with a fully-populated savedGroupIdMap and replace this
+            // with the real ID.
+            savedGroups.push({ ids: ["__unknown_group__"], match: "all" });
           }
           return;
         }
         case "fails_segment": {
-          // These become saved groups with exclusion
           const segmentName = String(targetValue);
           const savedGroupId = savedGroupIdMap?.get(segmentName);
           if (savedGroupId) {
@@ -95,8 +106,11 @@ export function transformStatsigConditionsToGB(
             console.warn(
               `Saved group ID not found for segment: ${segmentName}`,
             );
-            // Fallback to using the name if ID not found
-            savedGroups.push({ ids: [segmentName], match: "none" });
+            // For first-pass imports where the referenced group has not been
+            // created yet, use a placeholder ID. A second import pass can then
+            // re-run with a fully-populated savedGroupIdMap and replace this
+            // with the real ID.
+            savedGroups.push({ ids: ["__unknown_group__"], match: "none" });
           }
           return;
         }
@@ -117,17 +131,18 @@ export function transformStatsigConditionsToGB(
       ? transformTargetingConditions(targetingConditions, skipAttributeMapping)
       : "{}";
 
-  // Create schedule rules tuple if we have both start and end times
+  // Create schedule rules tuple if we have at least one time
+  // ScheduleRules requires exactly 2 elements, so we use null for missing times
   const scheduleRules:
     | [
-        start: { timestamp: string; enabled: boolean },
-        end: { timestamp: string; enabled: boolean },
+        start: { timestamp: string | null; enabled: boolean },
+        end: { timestamp: string | null; enabled: boolean },
       ]
     | undefined =
-    startTime && endTime
+    startTime || endTime
       ? [
-          { timestamp: startTime, enabled: true },
-          { timestamp: endTime, enabled: false },
+          { timestamp: startTime || null, enabled: true },
+          { timestamp: endTime || null, enabled: false },
         ]
       : undefined;
 
@@ -148,15 +163,15 @@ function transformTargetingConditions(
 ): string {
   // Map Statsig operators to GrowthBook operators
   const operatorMap: Record<string, string> = {
-    any: "$in",
-    none: "$nin",
+    any: "$ini",
+    none: "$nini",
     str_contains_any: "$regex",
     str_contains_none: "$regex",
     str_matches: "$regex",
     any_case_sensitive: "$in",
-    any_case_insensitive: "$in",
+    any_case_insensitive: "$ini",
     none_case_sensitive: "$nin",
-    none_case_insensitive: "$nin",
+    none_case_insensitive: "$nini",
     lt: "$lt",
     gt: "$gt",
     lte: "$lte",
@@ -175,13 +190,21 @@ function transformTargetingConditions(
   const conditionObj: ConditionInterface = {};
 
   conditions.forEach((condition) => {
-    const { type, operator, targetValue, field } = condition;
+    const { type, operator, targetValue, field, customID } = condition;
     const gbOperator = operatorMap[operator] || "$eq";
 
-    // For custom_field type, use the field value as the attribute name
-    // Otherwise, use the type as the attribute name
-    const attributeName =
-      type === "custom_field" ? field || "custom_field" : type;
+    // Determine the attribute name:
+    // - For custom_field type, use the field value
+    // - For unit_id type with customID, use the customID (custom unit ID)
+    // - Otherwise, use the type as the attribute name
+    let attributeName: string;
+    if (type === "custom_field") {
+      attributeName = field || "custom_field";
+    } else if (type === "unit_id" && customID) {
+      attributeName = customID;
+    } else {
+      attributeName = type;
+    }
     const gbAttributeName = mapStatsigAttributeToGB(
       attributeName,
       skipAttributeMapping,
@@ -212,32 +235,23 @@ function transformTargetingConditions(
       conditionObj[gbAttributeName] = { $exists: false };
     } else if (operator === "is_not_null") {
       conditionObj[gbAttributeName] = { $exists: true };
-    } else if (gbOperator === "$in" || gbOperator === "$nin") {
+    } else if (
+      gbOperator === "$in" ||
+      gbOperator === "$nin" ||
+      gbOperator === "$ini" ||
+      gbOperator === "$nini"
+    ) {
       const values = Array.isArray(targetValue) ? targetValue : [targetValue];
-
-      // Check if we already have a conflicting operator on this attribute
       const existingCondition = conditionObj[gbAttributeName];
-      if (existingCondition && typeof existingCondition === "object") {
-        if (gbOperator === "$nin" && "$in" in existingCondition) {
-          // We have both $in and $nin - need to use $and
-          conditionObj[gbAttributeName] = {
-            $and: [
-              { [gbAttributeName]: { $in: existingCondition.$in } },
-              { [gbAttributeName]: { $nin: values } },
-            ],
-          };
-        } else if (gbOperator === "$in" && "$nin" in existingCondition) {
-          // Reverse case: existing $nin, new $nin
-          conditionObj[gbAttributeName] = {
-            $and: [
-              { [gbAttributeName]: { $nin: existingCondition.$nin } },
-              { [gbAttributeName]: { $in: values } },
-            ],
-          };
-        } else {
-          // No conflict, merge normally
-          conditionObj[gbAttributeName][gbOperator] = values;
-        }
+      const existingObj =
+        existingCondition && typeof existingCondition === "object"
+          ? (existingCondition as Record<string, unknown>)
+          : null;
+
+      // GrowthBook allows multiple operators on the same attribute (e.g. os: { $in: [...], $nini: [...] })
+      if (existingObj && !("$and" in existingObj)) {
+        (conditionObj[gbAttributeName] as Record<string, unknown>)[gbOperator] =
+          values;
       } else {
         conditionObj[gbAttributeName] = { [gbOperator]: values };
       }
@@ -255,6 +269,10 @@ function transformTargetingConditions(
         targetValue;
     }
   });
+
+  if (Object.keys(conditionObj).length === 0) {
+    return "{}";
+  }
 
   return JSON.stringify(conditionObj);
 }

@@ -46,6 +46,8 @@ ExperimentMetric:
   $ref: "./ExperimentMetric.yaml"
 ExperimentAnalysisSettings:
   $ref: "./ExperimentAnalysisSettings.yaml"
+LookbackOverride:
+  $ref: "./LookbackOverride.yaml"
 ExperimentResults:
   $ref: "./ExperimentResults.yaml"
 ExperimentWithEnhancedStatus:
@@ -70,6 +72,8 @@ FactMetric:
   $ref: "./FactMetric.yaml"
 MetricAnalysis:
   $ref: "./MetricAnalysis.yaml"
+MetricUsage:
+  $ref: "./MetricUsage.yaml"
 Member:
   $ref: "./Member.yaml"
 Archetype:
@@ -80,5 +84,3 @@ Settings:
   $ref: "./Settings.yaml"
 CodeRef:
   $ref: "./CodeRef.yaml"
-CustomField:
-  $ref: "./CustomField.yaml"

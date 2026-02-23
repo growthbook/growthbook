@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import React, { CSSProperties } from "react";
-import { ExperimentValue, FeatureValueType } from "back-end/types/feature";
+import { ExperimentValue, FeatureValueType } from "shared/types/feature";
 import {
   getVariationColor,
   getVariationDefaultName,
@@ -144,8 +144,10 @@ export default function ExperimentSplitVisual({
                 {showPercentages && (
                   <div className={`${styles.percentMarker}`}>
                     <span>
-                      {parseFloat(((1 - coverageVal) * 100).toPrecision(5)) +
-                        "%"}
+                      <span className="nowrap">
+                        {parseFloat(((1 - coverageVal) * 100).toPrecision(5)) +
+                          "%"}
+                      </span>
                       {showValues && (
                         <>
                           {" "}

@@ -3,59 +3,56 @@ import { addDays } from "date-fns";
 import {
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
-  isFactMetric,
-  isLegacyMetric,
-  isRatioMetric,
   quantileMetricType,
 } from "shared/experiments";
 import { FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS } from "shared/constants";
 import { daysBetween } from "shared/dates";
-import chunk from "lodash/chunk";
-import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { ApiReqContext } from "back-end/types/api";
-import {
-  ExperimentSnapshotAnalysis,
-  ExperimentSnapshotHealth,
-  ExperimentSnapshotInterface,
-  ExperimentSnapshotSettings,
-  SnapshotType,
-} from "back-end/types/experiment-snapshot";
-import { MetricInterface } from "back-end/types/metric";
-import {
-  ExperimentQueryMetadata,
-  Queries,
-  QueryPointer,
-  QueryStatus,
-} from "back-end/types/query";
-import { SegmentInterface } from "back-end/types/segment";
-import {
-  findSnapshotById,
-  updateSnapshot,
-} from "back-end/src/models/ExperimentSnapshotModel";
-import { parseDimension } from "back-end/src/services/experiments";
-import {
-  analyzeExperimentResults,
-  analyzeExperimentTraffic,
-} from "back-end/src/services/stats";
+import { SegmentInterface } from "shared/types/segment";
 import {
   Dimension,
   ExperimentAggregateUnitsQueryResponseRows,
-  ExperimentDimension,
+  ExperimentDimensionWithSpecifiedSlices,
   ExperimentFactMetricsQueryParams,
   ExperimentMetricQueryParams,
   ExperimentMetricStats,
   ExperimentQueryResponses,
   ExperimentResults,
   ExperimentUnitsQueryParams,
-  SourceIntegrationInterface,
-} from "back-end/src/types/Integration";
+} from "shared/types/integrations";
+import { ExperimentReportResults } from "shared/types/report";
+import {
+  ExperimentSnapshotAnalysis,
+  ExperimentSnapshotHealth,
+  ExperimentSnapshotInterface,
+  ExperimentSnapshotSettings,
+  SnapshotType,
+} from "shared/types/experiment-snapshot";
+import { MetricInterface } from "shared/types/metric";
+import {
+  ExperimentQueryMetadata,
+  Queries,
+  QueryPointer,
+  QueryStatus,
+} from "shared/types/query";
+import { BanditResult } from "shared/types/experiment";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { ApiReqContext } from "back-end/types/api";
+import {
+  findSnapshotById,
+  updateSnapshot,
+} from "back-end/src/models/ExperimentSnapshotModel";
+import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
+import { getFactMetricGroups } from "back-end/src/services/experimentQueries/experimentQueries";
+import { parseDimension } from "back-end/src/services/experiments";
+import {
+  analyzeExperimentResults,
+  analyzeExperimentTraffic,
+} from "back-end/src/services/stats";
+import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { expandDenominatorMetrics } from "back-end/src/util/sql";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
-import { OrganizationInterface } from "back-end/types/organization";
-import { FactMetricInterface } from "back-end/types/fact-table";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { updateReport } from "back-end/src/models/ReportModel";
-import { BanditResult } from "back-end/types/experiment";
 import {
   QueryRunner,
   QueryMap,
@@ -63,7 +60,6 @@ import {
   RowsType,
   StartQueryParams,
 } from "./QueryRunner";
-
 export type SnapshotResult = {
   unknownVariations: string[];
   multipleExposures: number;
@@ -85,112 +81,6 @@ export type ExperimentResultsQueryParams = {
 export const TRAFFIC_QUERY_NAME = "traffic";
 
 export const UNITS_TABLE_PREFIX = "growthbook_tmp_units";
-
-export const MAX_METRICS_PER_QUERY = 20;
-
-export function getFactMetricGroup(metric: FactMetricInterface) {
-  // Ratio metrics must have the same numerator and denominator fact table to be grouped
-  if (isRatioMetric(metric)) {
-    if (metric.numerator.factTableId !== metric.denominator?.factTableId) {
-      // TODO: smarter logic to make fewer groupings work
-      const tableIds = [
-        metric.numerator.factTableId,
-        metric.denominator?.factTableId,
-      ].sort((a, b) => a?.localeCompare(b ?? "") ?? 0);
-      return tableIds.length >= 2
-        ? `${tableIds[0]} ${tableIds[1]} (cross-table ratio metrics)`
-        : metric.id;
-    }
-  }
-
-  // Quantile metrics get their own group to prevent slowing down the main query
-  // and because they do not support re-aggregation across pre-computed dimensions
-  if (quantileMetricType(metric)) {
-    return metric.numerator.factTableId
-      ? `${metric.numerator.factTableId}_qtile`
-      : "";
-  }
-  return metric.numerator.factTableId || "";
-}
-
-export interface GroupedMetrics {
-  // Fact metrics grouped together or alone
-  factMetricGroups: FactMetricInterface[][];
-  // Legacy metrics always as singletons
-  legacyMetricSingles: MetricInterface[];
-}
-
-export function getFactMetricGroups(
-  metrics: ExperimentMetricInterface[],
-  settings: ExperimentSnapshotSettings,
-  integration: SourceIntegrationInterface,
-  organization: OrganizationInterface,
-): GroupedMetrics {
-  const legacyMetrics: MetricInterface[] = metrics.filter((m) =>
-    isLegacyMetric(m),
-  );
-  const factMetrics: FactMetricInterface[] = metrics.filter(isFactMetric);
-
-  const defaultReturn: GroupedMetrics = {
-    // by default, put all fact metrics in their own group
-    factMetricGroups: factMetrics.map((m) => [m]),
-    legacyMetricSingles: legacyMetrics,
-  };
-
-  // Combining metrics in a single query is an Enterprise-only feature
-  if (!orgHasPremiumFeature(organization, "multi-metric-queries")) {
-    return defaultReturn;
-  }
-
-  // Metrics might have different conversion windows which makes the query complicated
-  // TODO(sql): join together metrics with the same date windows for some added efficiency
-  if (settings.skipPartialData) {
-    return defaultReturn;
-  }
-
-  // Org-level setting (in case the multi-metric query introduces bugs)
-  // TODO(sql): deprecate this setting and hide it for orgs that have not set it
-  if (organization.settings?.disableMultiMetricQueries) {
-    return defaultReturn;
-  }
-
-  // Group fact metrics into efficient groups (primarily if they share a fact table)
-  const groups: Record<string, FactMetricInterface[]> = {};
-  factMetrics.forEach((m) => {
-    // Skip grouping metrics with percentile caps or quantile metrics if there's not an efficient implementation
-    if (
-      (m.cappingSettings.type === "percentile" || quantileMetricType(m)) &&
-      !integration.getSourceProperties().hasEfficientPercentiles
-    ) {
-      return;
-    }
-
-    const group = getFactMetricGroup(m);
-    if (group) {
-      groups[group] = groups[group] || [];
-      groups[group].push(m);
-    }
-  });
-
-  const groupArrays: FactMetricInterface[][] = [];
-  Object.values(groups).forEach((group) => {
-    // Split groups into chunks of MAX_METRICS_PER_QUERY
-    const chunks = chunk(group, MAX_METRICS_PER_QUERY);
-    groupArrays.push(...chunks);
-  });
-
-  // Add unused fact metrics as singles to the group array
-  factMetrics.forEach((m) => {
-    if (!groupArrays.some((group) => group.includes(m))) {
-      groupArrays.push([m]);
-    }
-  });
-
-  return {
-    factMetricGroups: groupArrays,
-    legacyMetricSingles: legacyMetrics,
-  };
-}
 
 export const startExperimentResultQueries = async (
   context: ApiReqContext,
@@ -233,7 +123,7 @@ export const startExperimentResultQueries = async (
     (q) => q.id === snapshotSettings.exposureQueryId,
   );
 
-  const dimensionObjs: Dimension[] = (
+  const snapshotDimensions: Dimension[] = (
     await Promise.all(
       snapshotSettings.dimensions.map(
         async (d) => await parseDimension(d.id, d.slices, org.id),
@@ -265,20 +155,22 @@ export const startExperimentResultQueries = async (
   // Settings for health query
   const runTrafficQuery =
     snapshotType === "standard" && org.settings?.runHealthTrafficQuery;
-  let dimensionsForTraffic: ExperimentDimension[] = [];
-  if (runTrafficQuery && exposureQuery?.dimensionMetadata) {
-    dimensionsForTraffic = exposureQuery.dimensionMetadata
-      .filter((dm) => exposureQuery.dimensions.includes(dm.dimension))
-      .map((dm) => ({
-        type: "experiment",
-        id: dm.dimension,
-        specifiedSlices: dm.specifiedSlices,
-      }));
-  }
+
+  const { eligibleDimensionsWithSlices: dimensionsForTraffic } = exposureQuery
+    ? getExposureQueryEligibleDimensions({
+        exposureQuery,
+        incrementalRefreshModel: null,
+        nVariations: snapshotSettings.variations.length,
+      })
+    : {
+        eligibleDimensionsWithSlices: [],
+      };
 
   const unitQueryParams: ExperimentUnitsQueryParams = {
     activationMetric: activationMetric,
-    dimensions: dimensionObjs.length ? dimensionObjs : dimensionsForTraffic,
+    dimensions: snapshotDimensions.length
+      ? snapshotDimensions
+      : dimensionsForTraffic,
     segment: segmentObj,
     settings: snapshotSettings,
     unitsTableFullName: unitsTableFullName,
@@ -299,7 +191,6 @@ export const startExperimentResultQueries = async (
       dependencies: [],
       run: (query, setExternalId) =>
         integration.runExperimentUnitsQuery(query, setExternalId),
-      process: (rows) => rows,
       queryType: "experimentUnits",
     });
     queries.push(unitQuery);
@@ -332,7 +223,7 @@ export const startExperimentResultQueries = async (
     const queryParams: ExperimentMetricQueryParams = {
       activationMetric,
       denominatorMetrics,
-      dimensions: runOverallQuantileAnalysis ? [] : dimensionObjs,
+      dimensions: runOverallQuantileAnalysis ? [] : snapshotDimensions,
       metric: m,
       segment: segmentObj,
       settings: snapshotSettings,
@@ -347,7 +238,6 @@ export const startExperimentResultQueries = async (
         dependencies: unitQuery ? [unitQuery.query] : [],
         run: (query, setExternalId) =>
           integration.runExperimentMetricQuery(query, setExternalId),
-        process: (rows) => rows,
         queryType: "experimentMetric",
       }),
     );
@@ -361,7 +251,7 @@ export const startExperimentResultQueries = async (
 
     const queryParams: ExperimentFactMetricsQueryParams = {
       activationMetric,
-      dimensions: runOverallQuantileAnalysis ? [] : dimensionObjs,
+      dimensions: runOverallQuantileAnalysis ? [] : snapshotDimensions,
       metrics: m,
       segment: segmentObj,
       settings: snapshotSettings,
@@ -387,25 +277,40 @@ export const startExperimentResultQueries = async (
             query,
             setExternalId,
           ),
-        process: (rows) => rows,
         queryType: "experimentMultiMetric",
       }),
     );
   }
 
+  // test if precomputed dimensions fails
   let trafficQuery: QueryPointer | null = null;
   if (runTrafficQuery) {
+    // the basic traffic query should only use experiment dimensions with specified slices
+    // and if there are snapshot dimensions, it should be a subset of those that
+    // have specified slices
+    const snapshotDimensionsForTraffic: ExperimentDimensionWithSpecifiedSlices[] =
+      [];
+    snapshotDimensions.forEach((d) => {
+      if (d.type === "experiment" && d.specifiedSlices !== undefined) {
+        snapshotDimensionsForTraffic.push({
+          ...d,
+          specifiedSlices: d.specifiedSlices,
+        });
+      }
+    });
+
     trafficQuery = await startQuery({
       name: TRAFFIC_QUERY_NAME,
       query: integration.getExperimentAggregateUnitsQuery({
         ...unitQueryParams,
-        dimensions: dimensionObjs.length ? dimensionObjs : dimensionsForTraffic,
+        dimensions: snapshotDimensionsForTraffic.length
+          ? snapshotDimensionsForTraffic
+          : dimensionsForTraffic,
         useUnitsTable: !!unitQuery,
       }),
       dependencies: unitQuery ? [unitQuery.query] : [],
       run: (query, setExternalId) =>
         integration.runExperimentAggregateUnitsQuery(query, setExternalId),
-      process: (rows) => rows,
       queryType: "experimentTraffic",
     });
     queries.push(trafficQuery);
@@ -425,7 +330,6 @@ export const startExperimentResultQueries = async (
       runAtEnd: true,
       run: (query, setExternalId) =>
         integration.runDropTableQuery(query, setExternalId),
-      process: (rows) => rows,
       queryType: "experimentDropUnitsTable",
     });
     queries.push(dropUnitsTableQuery);
@@ -487,7 +391,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       banditResult,
     };
 
-    analysesResults.forEach((results, i) => {
+    analysesResults.forEach((results: ExperimentReportResults, i: number) => {
       const analysis = this.model.analyses[i];
       if (!analysis) return;
 

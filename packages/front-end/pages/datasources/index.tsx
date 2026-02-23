@@ -1,6 +1,6 @@
 import { FC, useState } from "react";
 import { FaExternalLinkAlt } from "react-icons/fa";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { isProjectListValidForProject } from "shared/util";
 import { useRouter } from "next/router";
 import { PiCursor, PiCursorClick } from "react-icons/pi";
@@ -23,13 +23,10 @@ import DataSourceDiagram from "@/components/InitialSetup/DataSourceDiagram";
 import DataSourceTypeSelector from "@/components/Settings/DataSourceTypeSelector";
 import Badge from "@/ui/Badge";
 import { useUser } from "@/services/UserContext";
-import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import ManagedWarehouseModal from "@/components/InitialSetup/ManagedWarehouseModal";
 
 function ManagedWarehouseDriver() {
-  const { hasCommercialFeature } = useUser();
   const [open, setOpen] = useState(false);
-  const hasAccess = hasCommercialFeature("managed-warehouse");
 
   const cursors: {
     top: number;
@@ -104,11 +101,8 @@ function ManagedWarehouseDriver() {
           })}
         </div>
         <div className="text-center">
-          {hasAccess ? (
-            <Badge label="New!" color="violet" variant="soft" />
-          ) : (
-            <PaidFeatureBadge commercialFeature="managed-warehouse" />
-          )}
+          <Badge label="New!" color="violet" variant="soft" />
+
           <h3 className="mb-3 mt-2">
             Use GrowthBook Cloud&apos;s fully-managed warehouse to get started
             quickly
@@ -149,19 +143,17 @@ const DataSourcesPage: FC = () => {
     useState<null | Partial<DataSourceInterfaceWithParams>>(null);
 
   const permissionsUtil = usePermissionsUtil();
-  const { hasCommercialFeature, license } = useUser();
+  const { effectiveAccountPlan, license } = useUser();
 
   // Cloud, no data sources yet, has permissions, and is either free OR on a usage-based paid plan, or is on a trial
   const showManagedWarehouse =
     isCloud() &&
     filteredDatasources.length === 0 &&
     permissionsUtil.canViewCreateDataSourceModal(project) &&
-    (!hasCommercialFeature("managed-warehouse") ||
+    (effectiveAccountPlan === "starter" ||
       license?.isTrial ||
       !!license?.orbSubscription) &&
     gb.isOn("inbuilt-data-warehouse");
-
-  const useNewSampleData = gb.isOn("new-sample-data");
 
   return (
     <div className="container-fluid pagecontents">
@@ -186,14 +178,9 @@ const DataSourcesPage: FC = () => {
           <Button
             onClick={async () => {
               try {
-                await apiCall(
-                  useNewSampleData
-                    ? "/demo-datasource-project/new"
-                    : "/demo-datasource-project",
-                  {
-                    method: "POST",
-                  },
-                );
+                await apiCall("/demo-datasource-project", {
+                  method: "POST",
+                });
                 track("Create Sample Project", {
                   source: "sample-project-page",
                 });

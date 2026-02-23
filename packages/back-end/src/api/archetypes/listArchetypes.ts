@@ -1,6 +1,6 @@
-import { ListArchetypesResponse } from "back-end/types/openapi";
+import { ListArchetypesResponse } from "shared/types/openapi";
+import { listArchetypesValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { listArchetypesValidator } from "back-end/src/validators/openapi";
 import {
   getAllArchetypes,
   toArchetypeApiInterface,

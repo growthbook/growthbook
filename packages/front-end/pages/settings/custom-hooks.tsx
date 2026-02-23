@@ -1,14 +1,11 @@
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
-import {
-  CustomHookInterface,
-  CustomHookType,
-} from "back-end/src/routers/custom-hooks/custom-hooks.validators";
-import { CreateProps } from "back-end/types/models";
+import { CustomHookInterface, CustomHookType } from "shared/validators";
+import { CreateProps } from "shared/types/base-model";
 import { Flex, Kbd, Separator, Text } from "@radix-ui/themes";
 import stringify from "json-stringify-pretty-compact";
-import { FeatureInterface } from "back-end/types/feature";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { FeatureInterface } from "shared/types/feature";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
@@ -123,6 +120,7 @@ function CustomHooksModal({
       code: current?.code || "",
       projects: current?.projects || [],
       enabled: current?.enabled ?? true,
+      incrementalChangesOnly: current?.incrementalChangesOnly || false,
     },
   });
 
@@ -263,6 +261,13 @@ function CustomHooksModal({
             setValue={(value) => form.setValue("code", value)}
             placeholder={hookTypeData?.example || ""}
             onCtrlEnter={runTest}
+          />
+
+          <Checkbox
+            label="Incremental Changes Only"
+            value={form.watch("incrementalChangesOnly") || false}
+            setValue={(value) => form.setValue("incrementalChangesOnly", value)}
+            description="Ignore this hook if the same error was already present before attempting to save."
           />
         </div>
         <div style={{ width: "50%" }}>

@@ -1,20 +1,18 @@
-import { FC, useEffect, useMemo, useState } from "react";
+import { FC, useEffect, useState } from "react";
 import Link from "next/link";
 import { IconType } from "react-icons/lib";
 import { useRouter } from "next/router";
 import clsx from "clsx";
 import { FiChevronRight } from "react-icons/fi";
 import { GrowthBook, useGrowthBook } from "@growthbook/growthbook-react";
-import { GlobalPermission } from "back-end/types/organization";
+import { GlobalPermission } from "shared/types/organization";
 import { Permissions } from "shared/permissions";
-import { SegmentInterface } from "back-end/types/segment";
-import { SavedQuery } from "back-end/src/validators/saved-queries";
+import { SegmentInterface } from "shared/types/segment";
 import { AppFeatures } from "@/types/app-features";
 import { isCloud, isMultiOrg } from "@/services/env";
 import { PermissionFunctions, useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import useApi from "@/hooks/useApi";
 import styles from "./SidebarLink.module.scss";
 
 export type SidebarLinkProps = {
@@ -37,7 +35,6 @@ export type SidebarLinkProps = {
     isMultiOrg: boolean;
     gb?: GrowthBook<AppFeatures>;
     project?: string;
-    savedQueries: SavedQuery[];
   }) => boolean;
   subLinks?: SidebarLinkProps[];
   beta?: boolean;
@@ -46,14 +43,6 @@ export type SidebarLinkProps = {
 const SidebarLink: FC<SidebarLinkProps> = (props) => {
   const { permissions, superAdmin } = useUser();
   const { project, segments } = useDefinitions();
-  const { data: savedQueryData } = useApi<{
-    status: number;
-    savedQueries: SavedQuery[];
-  }>("/saved-queries");
-  const savedQueries = useMemo(
-    () => savedQueryData?.savedQueries ?? [],
-    [savedQueryData],
-  );
 
   const router = useRouter();
 
@@ -82,7 +71,6 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
     gb: growthbook,
     project,
     segments,
-    savedQueries,
   };
 
   if (props.filter && !props.filter(filterProps)) {

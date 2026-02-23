@@ -98,7 +98,7 @@ const HoldoutsPage = (): React.ReactElement => {
       startCase(item.experiment.status) +
       (item.experiment.status === "running" &&
       item.experiment.phases.length === 2
-        ? ": Analysis Period"
+        ? ": Analysis Phase"
         : "");
 
     const ownerName = getUserDisplay(item.experiment.owner, false) || "";

@@ -1,18 +1,21 @@
 import { useRouter } from "next/router";
 import React, { useEffect, useState, useMemo, useCallback } from "react";
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
-import { FeatureCodeRefsInterface } from "back-end/types/code-refs";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { FeatureInterface, FeatureRule } from "shared/types/feature";
+import { FeatureCodeRefsInterface } from "shared/types/code-refs";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   filterEnvironmentsByFeature,
   getDependentExperiments,
   getDependentFeatures,
   mergeRevision,
 } from "shared/util";
-import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
-import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
-import { MinimalFeatureRevisionInterface } from "back-end/src/validators/features";
+import {
+  SafeRolloutInterface,
+  HoldoutInterface,
+  MinimalFeatureRevisionInterface,
+} from "shared/validators";
+import { FeatureEvalDiagnosticsQueryResponseRows } from "shared/types/integrations";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
 import FeaturesHeader from "@/components/Features/FeaturesHeader";
@@ -27,8 +30,9 @@ import { useAuth } from "@/services/auth";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
 import EditFeatureInfoModal from "@/components/Features/EditFeatureInfoModal";
 import { useExperiments } from "@/hooks/useExperiments";
+import FeatureDiagnostics from "@/components/Features/FeatureDiagnostics";
 
-const featureTabs = ["overview", "stats", "test"] as const;
+const featureTabs = ["overview", "stats", "test", "diagnostics"] as const;
 export type FeatureTab = (typeof featureTabs)[number];
 
 export default function FeaturePage() {
@@ -43,11 +47,11 @@ export default function FeaturePage() {
   const [lastDisplayedVersion, setLastDisplayedVersion] = useState<
     number | null
   >(null);
+  const [diagnosticsResults, setDiagnosticsResults] = useState<Array<
+    FeatureEvalDiagnosticsQueryResponseRows[number] & { id: string }
+  > | null>(null);
 
   const { apiCall } = useAuth();
-
-  const { features } = useFeaturesList(false);
-  const allEnvironments = useEnvironments();
 
   const [data, setData] = useState<{
     feature: FeatureInterface | null;
@@ -75,6 +79,13 @@ export default function FeaturePage() {
   const holdout = data?.holdout;
   const [error, setError] = useState<string | null>(null);
   const { experiments: allExperiments } = useExperiments();
+
+  // Scope stale detection to the current feature's project
+  const { features } = useFeaturesList({
+    project: baseFeature?.project,
+    skipFetch: !baseFeature,
+  });
+  const allEnvironments = useEnvironments();
 
   const fetchData = useCallback(
     async (queryString = "") => {
@@ -172,7 +183,7 @@ export default function FeaturePage() {
     setTab(tab);
     const newUrl = window.location.href.replace(/#.*/, "") + "#" + tab;
     if (newUrl === window.location.href) return;
-    window.history.pushState("", "", newUrl);
+    router.push(newUrl, undefined, { shallow: true });
     window.scrollTo({
       top: 0,
       behavior: "smooth",
@@ -276,6 +287,7 @@ export default function FeaturePage() {
       : baseFeature;
   }, [baseFeature, revision, environments]);
 
+  // note: project-scoped dependents by default
   const dependentFeatures = useMemo(() => {
     if (!feature || !features) return [];
     return getDependentFeatures(feature, features, envs);
@@ -312,7 +324,6 @@ export default function FeaturePage() {
         tab={tab}
         setTab={setTabAndScroll}
         setEditFeatureInfoModal={setEditFeatureInfoModal}
-        dependents={dependents}
         holdout={holdout}
         dependentExperiments={dependentExperiments}
       />
@@ -333,9 +344,6 @@ export default function FeaturePage() {
           setEditProjectModal={setEditProjectModal}
           version={version}
           setVersion={setVersion}
-          dependents={dependents}
-          dependentFeatures={dependentFeatures}
-          dependentExperiments={dependentExperiments}
         />
       )}
 
@@ -352,6 +360,14 @@ export default function FeaturePage() {
 
       {tab === "stats" && (
         <FeaturesStats orgSettings={orgSettings} codeRefs={data.codeRefs} />
+      )}
+
+      {tab === "diagnostics" && (
+        <FeatureDiagnostics
+          feature={feature}
+          results={diagnosticsResults}
+          setResults={setDiagnosticsResults}
+        />
       )}
 
       {editTagsModal && (

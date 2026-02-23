@@ -1,13 +1,10 @@
 import { Worker } from "worker_threads";
 import path from "path";
 import Handlebars from "handlebars";
-import { FormatDialect, FormatError } from "shared/src/types";
+import { FormatDialect, SQLVars } from "shared/types/sql";
 import { MAX_SQL_LENGTH_TO_FORMAT } from "shared/sql";
-import { SQLVars } from "back-end/types/sql";
-import {
-  FactTableColumnType,
-  JSONColumnFields,
-} from "back-end/types/fact-table";
+import { FactTableColumnType, JSONColumnFields } from "shared/types/fact-table";
+import { FormatError } from "shared/types/error";
 import { helpers } from "./handlebarsHelpers";
 
 // Register all the helpers from handlebarsHelpers

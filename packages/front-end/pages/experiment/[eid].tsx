@@ -2,11 +2,11 @@ import { useRouter } from "next/router";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
-} from "back-end/types/experiment";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
-import { URLRedirectInterface } from "back-end/types/url-redirect";
+} from "shared/types/experiment";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import { URLRedirectInterface } from "shared/types/url-redirect";
 import React, { ReactElement, useEffect, useState } from "react";
-import { IdeaInterface } from "back-end/types/idea";
+import { IdeaInterface } from "shared/types/idea";
 import { includeExperimentInPayload } from "shared/util";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";

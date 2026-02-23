@@ -1,9 +1,9 @@
-import { FilterConfiguration } from "back-end/src/validators/saved-queries";
+import { FilterConfiguration } from "shared/validators";
 import { Box, Flex, Text, TextField } from "@radix-ui/themes";
 import { PiTrash } from "react-icons/pi";
 import { Select, SelectItem } from "@/ui/Select";
 import Button from "@/ui/Button";
-import MultiSelectField from "../Forms/MultiSelectField";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { ColumnFilterOption } from "./DataVizFilterPanel";
 
 type Props = {

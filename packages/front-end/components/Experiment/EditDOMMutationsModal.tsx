@@ -1,5 +1,5 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { DOMMutation, VisualChange } from "back-end/types/visual-changeset";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { DOMMutation, VisualChange } from "shared/types/visual-changeset";
 import React, { FC, useCallback, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import Modal from "@/components/Modal";

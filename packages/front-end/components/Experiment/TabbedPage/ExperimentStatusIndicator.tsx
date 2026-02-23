@@ -1,5 +1,5 @@
 import { Flex, Tooltip } from "@radix-ui/themes";
-import { ExperimentDataForStatusStringDates } from "back-end/types/experiment";
+import { ExperimentDataForStatusStringDates } from "shared/types/experiment";
 import { StatusIndicatorData } from "shared/enterprise";
 import Badge from "@/ui/Badge";
 import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
@@ -97,7 +97,7 @@ export function RawExperimentStatusIndicator({
       color={color}
       variant={"solid"}
       radius="full"
-      label={`${label}${isInAnalysisPeriod ? ": Analysis Period" : ""}`}
+      label={`${label}${isInAnalysisPeriod ? ": Analysis Phase" : ""}`}
       style={{
         cursor: tooltip !== undefined ? "default" : undefined,
       }}

@@ -1,14 +1,14 @@
-import { FormatDialect } from "shared/src/types";
-import { formatAsync } from "back-end/src/util/sql";
-import { formatInformationSchema } from "back-end/src/util/informationSchemas";
-import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
-import { decryptDataSourceParams } from "back-end/src/services/datasource";
-import { runPostgresQuery } from "back-end/src/services/postgres";
+import { FormatDialect } from "shared/types/sql";
 import {
   InformationSchema,
   QueryResponse,
   RawInformationSchema,
-} from "back-end/src/types/Integration";
+} from "shared/types/integrations";
+import { PostgresConnectionParams } from "shared/types/integrations/postgres";
+import { formatAsync } from "back-end/src/util/sql";
+import { formatInformationSchema } from "back-end/src/util/informationSchemas";
+import { decryptDataSourceParams } from "back-end/src/services/datasource";
+import { runPostgresQuery } from "back-end/src/services/postgres";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Vertica extends SqlIntegration {

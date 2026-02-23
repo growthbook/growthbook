@@ -6,9 +6,9 @@ import { CloudWatch } from "aws-sdk";
 import { createPool } from "generic-pool";
 import { stringToBoolean } from "shared/util";
 import JSON5 from "json5";
-import { MultipleExperimentMetricAnalysis } from "back-end/types/stats";
+import { MultipleExperimentMetricAnalysis } from "shared/types/stats";
+import type { ExperimentDataForStatsEngine } from "shared/types/stats";
 import { logger } from "back-end/src/util/logger";
-import { ExperimentDataForStatsEngine } from "back-end/src/services/stats";
 import { ENVIRONMENT, IS_CLOUD } from "back-end/src/util/secrets";
 import { metrics } from "back-end/src/util/metrics";
 
@@ -73,6 +73,7 @@ class PythonStatsServer<Input, Output> {
     {
       resolve: (value: PythonServerResponse<Output>) => void;
       reject: (reason?: Error) => void;
+      timer: NodeJS.Timeout;
     }
   >;
 
@@ -172,10 +173,11 @@ class PythonStatsServer<Input, Output> {
     if (this.isRunning()) {
       this.python.kill();
     }
-    this.promises.forEach((promise) =>
-      promise.reject(new Error("Stats server killed")),
-    );
-    this.promises = new Map();
+    this.promises.forEach((promise) => {
+      clearTimeout(promise.timer);
+      promise.reject(new Error("Stats server killed"));
+    });
+    this.promises.clear();
   }
 
   isRunning() {
@@ -199,6 +201,7 @@ class PythonStatsServer<Input, Output> {
       }, STATS_ENGINE_TIMEOUT_MS);
 
       this.promises.set(id, {
+        timer,
         resolve: ({ results, time }) => {
           logger.debug(
             `Python stats server (pid: ${this.pid}) Python time: ${time}`,

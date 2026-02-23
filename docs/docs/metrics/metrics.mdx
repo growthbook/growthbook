@@ -5,6 +5,7 @@ slug: /app/metrics
 ---
 
 import MaxWidthImage from "@site/src/components/MaxWidthImage";
+import CommercialFeature from '@site/src/components/CommercialFeature';
 
 # Metrics and Fact Tables
 
@@ -51,8 +52,6 @@ When you create a Fact Table, we query the first few rows and inspect the return
 
 This process isn't perfect. For example, if the first few rows happen to have `null` as the value of a column, we can't tell if it's supposed to be a number, string, etc.. When this happens, we will show you a warning and you can manually specify the type.
 
-Any column can be used to create filters, but only numeric columns can be used as a metric value.
-
 #### Number Formats
 
 For numeric columns, you can also specify a number format, which controls how the metric is displayed on the front-end. Possible values are `currency`, `time:seconds`, `memory:bytes`, and `memory:kilobytes`.
@@ -63,13 +62,50 @@ The default display currency is USD, but you can change it under **Settings** �
 
 ## Metric Types
 
-There are 4 types of metrics you can create within GrowthBook - Proportion, Mean, Quantile, and Ratio.
+There are 6 types of metrics you can create within GrowthBook - Proportion, Retention, Daily Participation, Mean, Ratio, and Quantile.
 
 ### Proportion Metrics
 
 Proportion Metrics measure the percent of users in an experiment who exist in a Fact Table (and match any filters you specify).
 
 For example, if you have an Orders Fact Table, you can create a Proportion Metric to see what percent of users purchased something. For this metric, we don't care how many times they purchased, just that they have at least 1 matching row.
+
+### Retention Metrics
+
+Retention Metrics are used to measure the retention of users over time with respect to their first experiment exposure. For example, you might want to measure the retention of users who came back to your site at least 7 days after their first experiment exposure.
+
+You can use the filters to determine if a user qualifies as retained (using a row filter to only look for certain events or using a user filter to only look for users who completed an action a certain number of times).
+
+You then set the retention window, which is the amount of time after the first experiment exposure that a user must do the qualifying actions. You can also use a conversion window to only look for a certain time period after the start of the retention window. For example, if you want to measure the retention of users who came back to your site in the second full week after the experiment exposure, you would set the retention window to 7 days and the conversion window to 7 days.
+
+### Daily Participation Metrics
+
+Daily Participation Metrics measure the average percentage of days after experiment exposure that a user is active (i.e., meets the metric criteria). This is analogous to Daily Active Users (DAU) in an experiment context, where you want to measure engagement frequency over time.
+
+For each user, GrowthBook:
+
+1. Counts the number of distinct days they match the metric criteria (have rows in the Fact Table that meet your filters)
+2. Calculates the number of eligible days since their first experiment exposure (based on the metric window settings)
+3. Computes the user's participation rate as: `(matching days) / (eligible days)`
+4. Averages these participation rates across all users in the variation
+
+The result is displayed as a percentage (0-100%), representing the average daily participation rate for users in that variation.
+
+**Example:**
+
+If your control variation has two users:
+
+- **User 1**: Meets the active criteria on 2 days and has been in the experiment for 5 days → participation rate = 2/5 = 0.4 (40%)
+- **User 2**: Meets the active criteria on 3 out of 3 days → participation rate = 3/3 = 1.0 (100%)
+
+The variation average would be: (0.4 + 1.0) / 2 = 0.7, or **70%**. This means the average daily participation rate is 70% for users in this variation.
+
+If you had a conversion or lookback window, the number of eligible days would be limited to the number of days in that window and the participation rate would be calculated based only on that window.
+
+**Use Cases:**
+
+- Measuring user engagement frequency (e.g., "What percentage of days do users log in?")
+- Tracking feature adoption over time (e.g., "What percentage of days do users use the new feature?")
 
 ### Mean Metrics
 
@@ -78,11 +114,12 @@ Mean Metrics are useful when there are more than 2 possible states a user can be
 For the metric value, there are 4 types of aggregations you can do:
 
 - `COUNT(*)` - a count of all rows per user in your Fact Table
+- `COUNT(DISTINCT DATE(timestamp))` - the distinct number of days user completed the qualifying actions in your fact table (e.g. for a count of active days per user, akin to daily active users [DAU] metrics)
 - `SUM(column)` - the sum per user of any numeric column in your Fact Table
 - `MAX(column)` - the max of a numeric column per user in your Fact Table
 - `COUNT(DISTINCT column)` - the distinct count of a string column per user in your Fact Table.
 
-Note: for `COUNT DISTINCT`, we use the [HyperLogLog](https://en.wikipedia.org/wiki/HyperLogLog) estimation method to approximate the distinct count while scaling to account for data with many rows and easily allow re-aggregation. However, `COUNT DISTINCT` is still more computationally costly than other aggregation types, so use it only when necessary. This aggregation is not available for SQL Server, MySQL, Postgres, or Vertica.
+Note: for `COUNT(DISTINCT column)` where you pass an arbitrary column, we use the [HyperLogLog](https://en.wikipedia.org/wiki/HyperLogLog) estimation method to approximate the distinct count while scaling to account for data with many rows and easily allow re-aggregation. However, `COUNT DISTINCT` is still more computationally costly than other aggregation types, so use it only when necessary. This aggregation is not available for SQL Server, MySQL, Postgres, or Vertica.
 
 For example, an **Orders per User** metric would use `COUNT(*)` since you want to count the total number of rows. A **Revenue per User** metric would use `SUM` and select the column where the order total is stored.
 
@@ -126,13 +163,37 @@ When picking `Quantile` you have several default options or can select `Custom`.
 
 The real power of Fact Tables comes with filtering. This allows you to easily create metric variants.
 
-There are 3 kinds of filtering available
+There are 2 kinds of filtering available
 
-- Inline Filters
 - Row Filters
 - User Filters
 
-### Inline Filters
+### Row Filters
+
+Row Filters determine which rows of the Fact Table are included in the metric calculation. You can define multiple Row Filters and they will be ANDed together.
+
+Row Filters support a wide variety of operators:
+
+- `=`
+- `!=`
+- `>`
+- `<`
+- `>=`
+- `<=`
+- `in`
+- `not_in`
+- `is_null`
+- `not_null`
+- `is_true`
+- `is_false`
+- `contains`
+- `not_contains`
+- `starts_with`
+- `ends_with`
+- `sql_expr` (raw SQL for advanced use cases)
+- `saved_filter` (a saved SQL expression that can be reused across metrics)
+
+#### Auto Prompting for Row Filters
 
 It's common to have an important "type" column that you use to build out metrics. For example, if your Fact Table is a raw event stream, there will be a column like `event_type` to differentiate between a page view, button click, purchase, etc.. You will almost always want to filter metrics using this column.
 
@@ -146,23 +207,9 @@ When you check this box, GrowthBook will run a quick query looking for the top 1
 
 Another example use of this checkbox is for a `Page Path` column in a `Page Views` Fact Table. This will streamline creation of metrics such as "Visited /checkout", "Visited /pricing", and more.
 
-If you select multiple values for an inline filter, they will be ORed together.
-
-### Row Filters
-
-Row Filters are reusable SQL snippets defined within a Fact Table. Once defined, they can be applied to any metric type.
-
-Here's an example Row Filter SQL:
-
-```sql
-device_type = 'mobile'
-```
-
-If a metric uses this Filter, GrowthBook will add it to the WHERE clause automatically. If there are multiple Filters, they will be ANDed together.
-
 ### User Filters
 
-User Filters are different from both Inline and Row Filters in that they are applied AFTER aggregating by user.
+User Filters are applied AFTER aggregating by user. Instead of filtering individual rows, you are filtering the total value per user.
 
 You can either filter on the `Count of Rows` or the `SUM` of a numeric column. This can be easier to understand with examples:
 
@@ -262,30 +309,29 @@ You can read more about Bayesian priors on [our statistical details page](/stati
 
 ## Metric Slices
 
-:::info Metric slices are available for Enterprise customers only.
-:::
+<CommercialFeature feature="metric-slices" />
 
 Many metrics are easily decomposed, and you may want to learn about the different elements.
 For example, you may want to see revenue across different product types (e.g. "apparel", "equipment").
 
-Rather than creating and maintaining a separate revenue metric for each product type, metric slices permit you to automatically create distinct revenue metrics for each product type. These drilldown metrics are also sometimes referred to as "metric dimensions" in the experimentation community.
+Rather than creating and maintaining a separate revenue metric for each product type, metric slices permit you to automatically create distinct revenue metrics for each product type.
 
 Metric slices are enabled for Fact Metrics. We offer two key ways to slice your metrics: Auto Slices and Custom Slices.
 
 ### Auto Slices
 
-These metric slices are defined in your [Fact Table](#fact-tables) and can be selectively enabled per each Fact Metric. When using auto slices in your Fact Metric, each slice analysis (a dimension + value pair) will materialize across **all** experiments which use the metric. This allows for a standardized deep-dive analyses across your experiments.
+These metric slices are defined in your [Fact Table](#fact-tables) and can be selectively enabled per each Fact Metric. When an auto slice is added to a Fact Metric, it is automatically added to all experiments that use the metric. This allows for a standardized deep-dive analyses across your experiments.
 
 To set up Auto Slices:
 
-1. Navigate to your Fact Table that has the right columns. Ensure the Fact Table SQL is returning the relevant column. If it isn't you can click "Edit SQL" on the Fact Table page, add your column (e.g. `product_type`) to the SELECT statement, and then press "Confirm Changes". Only **string** and **boolean** columns can be used.
+1. Navigate to your Fact Table that has the metrics and the columns by which you want to slice. Ensure the Fact Table SQL is returning the relevant column. If it isn't you can click "Edit SQL" on the Fact Table page, add your column (e.g. `product_type`) to the SELECT statement, and then press "Confirm Changes". Only **string** and **boolean** columns can be used.
 
 <MaxWidthImage maxWidth={700}>
   <img src="/images/metrics/metric-dim-config.png" alt="Configuring a column for metric slicing" />
 </MaxWidthImage>
 
 2. With your column (`product_type`) in the Fact Table SQL, you now edit the column property in the "Columns" table. Click the edit icon next to your column and then check the "Enable Auto Slices" checkbox in the window that pops up.
-   - For **string** columns, add the slices you want to split your metric by. We run a query to populate the top values for you, and you can update the values found in the data by clicking the "Refresh" button. Slice values here could be "apparel", "equipment", and more. An "other" slice will also be shown if any metric value is attributed to values outside of your selected slices.
+   - For **string** columns, add the slices you want to split your metric by. We run a query to populate the top values for you, and you can update the values found in the data by clicking the "Refresh" button. Slice values here could be "apparel", "equipment", and more. An "other" slice will also be shown if any metric value is attributed to values outside of your selected slices. You can have these levels automatically refresh over time by enabling [auto-update slice levels](#auto-update-slice-levels).
    - For **boolean** columns, no other slice configuration is necessary—both "true" and "false" slices will be generated. A "null" slice will also be shown for nullable columns if any metric value is attributed to "null".
 
 <MaxWidthImage maxWidth={350}>
@@ -293,11 +339,32 @@ To set up Auto Slices:
 </MaxWidthImage>
 
 3. Scroll down to the list of Fact Metrics, or navigate to a Fact Metric from this Fact Table.
-4. Click "Edit" and select your slices.
-5. If there are slices you want run for every experiment (e.g., "I want revenue breakdowns by product type for every experiment"), please continue reading, otherwise, skip to the next step. Go to your metric page. Add the slices that will be analyzed for every experiment including this metric.
+4. Click "Edit" and select your slices you want to apply to that metric for all experiments.
 
-<MaxWidthImage maxWidth={700}>
-  <img src="/images/metrics/auto-slices.png" alt="Adding auto slices" />
+#### Auto-update slice levels
+
+You can enable automatic updates of auto slice levels based on top column values. This keeps your slice levels current with your data without manual intervention.
+
+**Fact Table level setting:**
+
+In the **Fact Table** modal, check the **Auto-update slice levels** checkbox. When enabled, a scheduled job periodically refreshes auto slice levels from **top values** using a 14-day lookback period. The job runs:
+
+- Every 7 days by default (configurable via `AUTO_SLICE_UPDATE_FREQUENCY_HOURS` environment variable for self-hosted users)
+- Automatically when the fact table changes
+- Manually when you click **Update** in the column modal
+
+<MaxWidthImage maxWidth={350} border>
+  ![Fact Table modal with auto-update slice levels checkbox](/images/metrics/auto-slice-updates-fact-table.png)
+</MaxWidthImage>
+
+#### Locking slice levels
+
+When auto-updates are enabled, you can **lock** specific slice levels in the column modal to ensure they are never removed by the auto-update job. This is useful for important segments or product types that you always want to track, even if they're not currently in the top values.
+
+In the column modal, each slice level has a **Lock** checkbox. Locked levels are always preserved when the top-values job runs, while unlocked levels may be replaced if they're no longer in the top values.
+
+<MaxWidthImage maxWidth={350} border>
+  ![Column modal showing slice levels with Lock checkboxes](/images/metrics/auto-slice-levels-locking.png)
 </MaxWidthImage>
 
 ### Custom Slices
@@ -312,19 +379,15 @@ Custom slices can be created using any non-user-identifier string or boolean col
   <img src="/images/metrics/custom-slices.png" alt="Adding custom slices" />
 </MaxWidthImage>
 
-### Viewing and pinning metric slices
+### Viewing metric slices
 
 Using our revenue metric as an example, when you run an experiment you will now have the option to split revenue by product type (auto slice) and/or by "apparel and EU" (custom slice).
 
-If you click the arrow icon next to "revenue" on the experiment results table, you will see these slices expand under the base metric row (revenue), each slice materialized as its own sub-row.
-
-You may "pin" these metric slice rows so that they always render on the results table, even when the metric is collapsed or you return to the page.
+If you click the arrow icon next to "revenue" on the experiment results table, you will see these slices expand under the base metric row (revenue), each slice materialized as its own sub-row. You also can use the Filter button at the top of the results to filter all metrics by slices, or click in to a row for the [Metric Drilldown](/app/experiment-results#metric-drilldown) to view slices with search, sorting, and time-series analysis capabilities.
 
 <MaxWidthImage maxWidth={800}>
   <img src="/images/metrics/metric-dim-results.png" alt="Metric slice results" />
 </MaxWidthImage>
-
-<br />
 
 :::note Dimensions versus Slices
 
@@ -344,13 +407,15 @@ All users (units) contribute to a metric slice. This provides the most accurate 
 
 After creating a metric, you can perform some basic analysis on it. Depending on the metric type, we show you the average value over time, a histogram breakdown, and more. You can customize the date range and population that's included.
 
-We have a lot more we want to do here in the future, so let us know what other kinds of analyses you are most excited about!
+For more advanced analysis, use our [Product Analytics](/app/product-analytics) feature.
 
 ## Metric Groups
 
+<CommercialFeature feature="metric-groups" />
+
 There are often groups of metrics you want to add together to an experiment. For example, 5 key revenue metrics that you add to anything touching the checkout flow.
 
-GrowthBook Enterprise customers can define Metric Groups to accomplish this. Add multiple metrics, drag & drop to order them, and add them in bulk to experiments as Goals, Guardrails, or Secondary Metrics.
+Define Metric Groups to accomplish this. Add multiple metrics, drag & drop to order them, and add them in bulk to experiments as Goals, Guardrails, or Secondary Metrics.
 
 ## Database Cost Optimization
 

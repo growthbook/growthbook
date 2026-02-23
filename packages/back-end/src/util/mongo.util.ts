@@ -1,6 +1,12 @@
-import type { Document } from "mongodb";
+import type {
+  AnyBulkWriteOperation,
+  BulkWriteOptions,
+  Document,
+  Collection,
+} from "mongodb";
 import type { Document as MongooseDocument } from "mongoose";
 import mongoose from "mongoose";
+import { promiseAllChunks } from "./promise";
 
 /**
  * Assists in migrating any field options that MongoDB has changed between major versions 3 and 4.
@@ -156,4 +162,65 @@ export function removeMongooseFields<T>(
 
 export function getCollection<T extends Document>(name: string) {
   return mongoose.connection.db.collection<T>(name);
+}
+
+/**
+ * Attempts to perform a bulkWrite operation if supported by the database driver.
+ * If not, falls back to chunked individual operations.
+ * Supports updateOne and insertOne operations. Extend as needed for other op types.
+ */
+export async function dbSafeBulkWrite(
+  collection: Collection<Document>,
+  ops: AnyBulkWriteOperation<Document>[],
+  options?: BulkWriteOptions,
+  chunkSize: number = 3,
+): Promise<unknown> {
+  if (typeof collection.bulkWrite === "function") {
+    try {
+      if (options) {
+        return await collection.bulkWrite(ops, options);
+      } else {
+        return await collection.bulkWrite(ops);
+      }
+    } catch (e) {
+      if (
+        e instanceof Error &&
+        e.message &&
+        (e.message.includes("not implemented") ||
+          e.message.includes("not supported") ||
+          e.message.includes("not authorized"))
+      ) {
+        // Fallback to chunked operations
+      } else {
+        throw e;
+      }
+    }
+  }
+  // Fallback: chunked updates using promiseAllChunks
+  return promiseAllChunks(
+    ops.map((op) => async () => {
+      if ("updateOne" in op) {
+        if (options) {
+          return collection.updateOne(
+            op.updateOne.filter,
+            op.updateOne.update,
+            options,
+          );
+        } else {
+          return collection.updateOne(op.updateOne.filter, op.updateOne.update);
+        }
+      } else if ("insertOne" in op) {
+        if (options) {
+          return collection.insertOne(op.insertOne.document, options);
+        } else {
+          return collection.insertOne(op.insertOne.document);
+        }
+      } else {
+        throw new Error(
+          "Unsupported bulkWrite operation type in dbSafeBulkWrite",
+        );
+      }
+    }),
+    chunkSize,
+  );
 }

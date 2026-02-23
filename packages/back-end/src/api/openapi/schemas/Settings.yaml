@@ -121,6 +121,7 @@ properties:
     enum:
       - "firstExposure"
       - "experimentDuration"
+      - "lookbackOverride"
   targetMDE:
     type: number
   delayHours:

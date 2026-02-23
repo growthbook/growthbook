@@ -1,6 +1,6 @@
-import { PutArchetypeResponse } from "back-end/types/openapi";
+import { PutArchetypeResponse } from "shared/types/openapi";
+import { putArchetypeValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { putArchetypeValidator } from "back-end/src/validators/openapi";
 import {
   getArchetypeById,
   toArchetypeApiInterface,

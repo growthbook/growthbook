@@ -5,14 +5,11 @@ slug: /app/experiment-dashboards
 ---
 
 import MaxWidthImage from "@site/src/components/MaxWidthImage";
+import CommercialFeature from '@site/src/components/CommercialFeature';
 
 # Experiment Dashboards
 
-:::note
-
-Experiment Dashboards are available only to Enterprise customers.
-
-:::
+<CommercialFeature feature="dashboards" />
 
 Use experiment dashboards to create tailored views of your experiment. Highlight key insights, add context, and share a clear story with your team.
 
@@ -27,7 +24,8 @@ To create a new dashboard, go to the experiment you want to create a dashboard f
 Give the dashboard a name and select a few options:
 
 - **Auto-update dashboard data** - If enabled, the dashboard will automatically refresh its data whenever the experiment results are updated. If disabled, the dashboard will only refresh when you manually click the update button.
-- **Allow organization members to edit** - If enabled, anyone in your organization can edit this dashboard. If disabled, only you can edit it.
+- **View access** - Control whether your organization members can view your new dashboard.
+- **Edit access** - Share the ability to edit dashboard contents with your organization. Even when editing is shared, only the owner and organization admins can change access permissions.
 
 After creating the dashboard, you will be able to add blocks to it.
 
@@ -54,7 +52,8 @@ Setting a dashboard as the default view for an experiment will require experimen
 
 1. Navigate to the experiment's **Dashboards** tab
 2. Select the dashboard you want to use
-3. Click the **More** menu (⋯) and select **Set as Default View**
+3. Click the **More** menu (⋯) and select **Edit Dashboard Settings** - **View access** must be set to **Organization members**
+4. Click the **More** menu (⋯) and select **Set as Default View**
 
 **To revert to the standard view:**
 Follow the same steps but select **Remove as Default View** from the More menu.

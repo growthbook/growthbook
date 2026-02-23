@@ -3,12 +3,12 @@ import {
   PastExperimentParams,
   PastExperimentResponseRows,
   PastExperimentResult,
-} from "back-end/src/types/Integration";
+} from "shared/types/integrations";
 import {
   PastExperiment,
   PastExperimentsInterface,
-} from "back-end/types/past-experiments";
-import { Queries, QueryStatus } from "back-end/types/query";
+} from "shared/types/past-experiments";
+import { Queries, QueryStatus } from "shared/types/query";
 import {
   getPastExperimentsById,
   updatePastExperiments,

@@ -8,28 +8,26 @@ import {
   getBlockSnapshotAnalysis,
   getBlockSnapshotSettings,
   snapshotSatisfiesBlock,
+  DashboardInterface,
+  MetricExplorerBlockInterface,
+  SqlExplorerBlockInterface,
 } from "shared/enterprise";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
-} from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment-snapshot";
 
+import { ExperimentInterface } from "shared/types/experiment";
+import { MetricSnapshotSettings } from "shared/types/report";
+import { StatsEngine } from "shared/types/stats";
+import { MetricAnalysisSettings } from "shared/types/metric-analysis";
 import { findSnapshotsByIds } from "back-end/src/models/ExperimentSnapshotModel";
 
-import { ExperimentInterface } from "back-end/types/experiment";
-import { ReqContext } from "back-end/types/organization";
-
-import { MetricSnapshotSettings } from "back-end/types/report";
+import { ReqContext } from "back-end/types/request";
 
 import { FactTableMap } from "back-end/src/models/FactTableModel";
-import { StatsEngine } from "back-end/types/stats";
 import { ApiReqContext } from "back-end/types/api";
 import { getDataSourcesByIds } from "back-end/src/models/DataSourceModel";
-import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
-import {
-  MetricExplorerBlockInterface,
-  SqlExplorerBlockInterface,
-} from "back-end/src/enterprise/validators/dashboard-block";
 import { executeAndSaveQuery } from "back-end/src/routers/saved-queries/saved-queries.controller";
 import {
   getDefaultExperimentAnalysisSettings,
@@ -39,6 +37,43 @@ import {
 } from "back-end/src/services/experiments";
 import { createMetricAnalysis } from "back-end/src/services/metric-analysis";
 
+/**
+ * Determines if nextUpdate should be recalculated based on changes to auto-updates or schedule
+ */
+export function shouldRecalculateNextUpdate(
+  updates: {
+    enableAutoUpdates?: boolean;
+    updateSchedule?: DashboardInterface["updateSchedule"];
+  },
+  dashboard: DashboardInterface,
+): boolean {
+  // Auto-updates being disabled - clear nextUpdate
+  if (updates.enableAutoUpdates === false) {
+    return false;
+  }
+
+  // Auto-updates not enabled - no update needed
+  const enableAutoUpdates =
+    updates.enableAutoUpdates ?? dashboard.enableAutoUpdates;
+  if (!enableAutoUpdates) {
+    return false;
+  }
+
+  // Auto-updates being turned on for the first time
+  if (updates.enableAutoUpdates === true && !dashboard.enableAutoUpdates) {
+    return true;
+  }
+
+  // Schedule is being changed
+  if (
+    updates.updateSchedule &&
+    !isEqual(updates.updateSchedule, dashboard.updateSchedule)
+  ) {
+    return true;
+  }
+  return false;
+}
+
 // To be run after creating the main/standard snapshot. Re-uses some of the variables for efficiency
 export async function updateExperimentDashboards({
   context,
@@ -46,6 +81,7 @@ export async function updateExperimentDashboards({
   mainSnapshot,
   statsEngine,
   regressionAdjustmentEnabled,
+  postStratificationEnabled,
   settingsForSnapshotMetrics,
   metricMap,
   factTableMap,
@@ -55,6 +91,7 @@ export async function updateExperimentDashboards({
   mainSnapshot: ExperimentSnapshotInterface;
   statsEngine: StatsEngine;
   regressionAdjustmentEnabled: boolean;
+  postStratificationEnabled: boolean;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
@@ -130,13 +167,14 @@ export async function updateExperimentDashboards({
         isEqual,
       );
 
-    const analysisSettings = getDefaultExperimentAnalysisSettings(
+    const analysisSettings = getDefaultExperimentAnalysisSettings({
       statsEngine,
       experiment,
-      context.org,
+      organization: context.org,
       regressionAdjustmentEnabled,
-      snapshotSettings.dimensionId,
-    );
+      postStratificationEnabled,
+      dimension: snapshotSettings.dimensionId,
+    });
 
     const queryRunner = await createSnapshot({
       experiment,
@@ -195,43 +233,69 @@ export async function updateDashboardMetricAnalyses(
   context: ReqContext | ApiReqContext,
   blocks: DashboardInterface["blocks"],
 ): Promise<boolean> {
-  const metricAnalyses = await context.models.metricAnalysis.getByIds([
-    ...new Set(
-      blocks
-        .filter(
-          (block) =>
-            blockHasFieldOfType(block, "metricAnalysisId", isString) &&
-            block.metricAnalysisId.length > 0,
-        )
-        .map((block: MetricExplorerBlockInterface) => block.metricAnalysisId),
-    ),
-  ]);
+  // Filter to only blocks with metric analysis IDs
+  const blocksWithMetricAnalysis = blocks.filter(
+    (block): block is MetricExplorerBlockInterface =>
+      blockHasFieldOfType(block, "metricAnalysisId", isString) &&
+      block.metricAnalysisId.length > 0,
+  );
 
-  let blockModified = false;
-  for (const metricAnalysis of metricAnalyses) {
-    const metric = await context.models.factMetrics.getById(
-      metricAnalysis.metric,
-    );
-    if (metric) {
+  // Process each block individually to use its specific analysisSettings
+  const results = await Promise.all(
+    blocksWithMetricAnalysis.map(async (block) => {
+      const metricAnalysis = await context.models.metricAnalysis.getById(
+        block.metricAnalysisId,
+      );
+
+      if (!metricAnalysis) {
+        return false;
+      }
+
+      const metric = await context.models.factMetrics.getById(
+        metricAnalysis.metric,
+      );
+
+      if (!metric) {
+        return false;
+      }
+
+      // Use the block's analysisSettings instead of the metricAnalysis.settings
+      // This ensures filters and other block-specific settings are preserved
+      const blockSettings = block.analysisSettings;
+      // Reset the stored dates based on the configured lookback days
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(endDate.getDate() - blockSettings.lookbackDays);
+
+      const settings: MetricAnalysisSettings = {
+        userIdType: blockSettings.userIdType,
+        lookbackDays: blockSettings.lookbackDays,
+        startDate,
+        endDate,
+        populationType: blockSettings.populationType,
+        populationId: blockSettings.populationId ?? null,
+        additionalNumeratorFilters: blockSettings.additionalNumeratorFilters,
+        additionalDenominatorFilters:
+          blockSettings.additionalDenominatorFilters,
+      };
+
       const queryRunner = await createMetricAnalysis(
         context,
         metric,
-        metricAnalysis.settings,
-        metricAnalysis.source ?? "metric",
+        settings,
+        "metric",
         false,
       );
-      blocks.forEach((block) => {
-        if (
-          blockHasFieldOfType(block, "metricAnalysisId", isString) &&
-          block.metricAnalysisId === metricAnalysis.id
-        ) {
-          blockModified = true;
-          block.metricAnalysisId = queryRunner.model.id;
-        }
-      });
-    }
-  }
-  return blockModified;
+
+      // Mutate the block in place (same object reference as in original blocks array)
+      block.metricAnalysisId = queryRunner.model.id;
+      block.analysisSettings.startDate = startDate;
+      block.analysisSettings.endDate = endDate;
+      return true;
+    }),
+  );
+
+  return results.some((updated) => updated);
 }
 
 export async function updateDashboardSavedQueries(

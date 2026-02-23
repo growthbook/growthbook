@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
 import { useTooltip, useTooltipInPortal } from "@visx/tooltip";
-import { ExperimentReportVariationWithIndex } from "back-end/types/report";
+import { ExperimentReportVariationWithIndex } from "shared/types/report";
 import {
   StatsEngine,
   PValueCorrection,
   DifferenceType,
-} from "back-end/types/stats";
+} from "shared/types/stats";
 import { ExperimentTableRow, RowResults } from "@/services/experiments";
 import { RowError } from "@/components/Experiment/ResultsTable";
 import {
@@ -40,12 +40,10 @@ export function useResultsTableTooltip({
   const { showTooltip, hideTooltip, tooltipOpen, tooltipData } =
     useTooltip<TooltipData>();
 
-  const { containerRef, containerBounds, TooltipInPortal } = useTooltipInPortal(
-    {
-      scroll: true,
-      detectBounds: false,
-    },
-  );
+  const { containerRef } = useTooltipInPortal({
+    scroll: true,
+    detectBounds: false,
+  });
 
   const [hoveredMetricRow, setHoveredMetricRow] = useState<number | null>(null);
   const [hoveredVariationRow, setHoveredVariationRow] = useState<number | null>(
@@ -138,8 +136,8 @@ export function useResultsTableTooltip({
     }
 
     if (hoveredX === null && hoveredY === null) {
-      setHoveredX(targetLeft - containerBounds.left);
-      setHoveredY(targetTop - containerBounds.top);
+      setHoveredX(targetLeft);
+      setHoveredY(targetTop);
     }
 
     // Show tooltip logic
@@ -215,6 +213,5 @@ export function useResultsTableTooltip({
     hoveredMetricRow,
     hoveredVariationRow,
     resetTimeout,
-    TooltipInPortal,
   };
 }

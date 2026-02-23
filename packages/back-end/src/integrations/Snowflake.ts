@@ -1,14 +1,14 @@
 import { snowflakeCreateTableOptions } from "shared/enterprise";
-import { FormatDialect } from "shared/src/types";
-import { SnowflakeConnectionParams } from "back-end/types/integrations/snowflake";
-import { decryptDataSourceParams } from "back-end/src/services/datasource";
-import { runSnowflakeQuery } from "back-end/src/services/snowflake";
+import { FormatDialect } from "shared/types/sql";
 import {
   QueryResponse,
   DataType,
   ExternalIdCallback,
-} from "back-end/src/types/Integration";
-import { QueryMetadata } from "back-end/types/query";
+} from "shared/types/integrations";
+import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
+import { QueryMetadata } from "shared/types/query";
+import { decryptDataSourceParams } from "back-end/src/services/datasource";
+import { runSnowflakeQuery } from "back-end/src/services/snowflake";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Snowflake extends SqlIntegration {
@@ -57,6 +57,9 @@ export default class Snowflake extends SqlIntegration {
   hasCountDistinctHLL(): boolean {
     return true;
   }
+  supportsLimitZeroColumnValidation(): boolean {
+    return true;
+  }
   hllAggregate(col: string): string {
     return `HLL_ACCUMULATE(${col})`;
   }
@@ -68,6 +71,10 @@ export default class Snowflake extends SqlIntegration {
   }
   extractJSONField(jsonCol: string, path: string, isNumeric: boolean): string {
     return `PARSE_JSON(${jsonCol}):${path}::${isNumeric ? "float" : "string"}`;
+  }
+  evalBoolean(col: string, value: boolean): string {
+    // Snowflake does not support `IS TRUE` / `IS FALSE`
+    return `${col} = ${value ? "true" : "false"}`;
   }
   getInformationSchemaWhereClause(): string {
     return "table_schema NOT IN ('INFORMATION_SCHEMA')";

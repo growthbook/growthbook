@@ -3,12 +3,13 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
   ExperimentTargetingData,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import React, { useEffect, useState } from "react";
 import { validateAndFixCondition } from "shared/util";
 import { getEqualWeights } from "shared/experiments";
+import { Flex, Box, Text } from "@radix-ui/themes";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
@@ -20,7 +21,7 @@ import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
+import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 import FeatureVariationsInput from "@/components//Features/FeatureVariationsInput";
 import ConditionInput from "@/components//Features/ConditionInput";
 import NamespaceSelector from "@/components//Features/NamespaceSelector";
@@ -33,6 +34,7 @@ import Field from "@/components/Forms/Field";
 import track from "@/services/track";
 import RadioGroup, { RadioOptions } from "@/ui/RadioGroup";
 import Checkbox from "@/ui/Checkbox";
+import Callout from "@/ui/Callout";
 import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
 } from "./HashVersionSelector";
@@ -245,35 +247,41 @@ export default function EditTargetingModal({
       }}
       secondaryCTA={
         step === lastStepNumber ? (
-          <div className="col ml-1 pl-0" style={{ minWidth: 520 }}>
-            <div className="d-flex m-0 px-2 py-1 alert alert-warning align-items-center">
-              <div>
-                <strong>Warning:</strong> Changes made will apply to linked
-                Feature Flags, Visual Changes, and URL Redirects immediately
-                upon publishing
-              </div>
-              <label
-                htmlFor="confirm-changes"
-                className="btn btn-sm btn-warning d-flex my-1 ml-1 px-1 d-flex align-items-center justify-content-md-center"
-                style={{ height: 35 }}
-              >
-                <strong className="mr-2 user-select-none text-dark">
-                  Confirm
-                </strong>
-                <input
-                  id="confirm-changes"
-                  type="checkbox"
-                  checked={changesConfirmed}
-                  onChange={(e) => setChangesConfirmed(e.target.checked)}
-                />
-              </label>
-            </div>
-          </div>
+          <Box style={{ minWidth: 520 }}>
+            <Callout status="warning" contentsAs="div">
+              <Flex align="center" justify="between" gap="3">
+                <Text>
+                  <Text weight="bold">Warning:</Text> Changes made will apply to
+                  linked Feature Flags, Visual Changes, and URL Redirects
+                  immediately upon publishing
+                </Text>
+                <Box>
+                  <label
+                    htmlFor="confirm-changes"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <Text weight="bold">Confirm</Text>
+                    <input
+                      id="confirm-changes"
+                      type="checkbox"
+                      checked={changesConfirmed}
+                      onChange={(e) => setChangesConfirmed(e.target.checked)}
+                    />
+                  </label>
+                </Box>
+              </Flex>
+            </Callout>
+          </Box>
         ) : undefined
       }
     >
       <Page display="Type of Changes">
-        <div className="px-3 py-2">
+        <div className="py-2">
           <ChangeTypeSelector
             experiment={experiment}
             changeType={changeType}
@@ -298,7 +306,7 @@ export default function EditTargetingModal({
 
       {changeType !== "phase" && (
         <Page display="Make Changes">
-          <div className="px-2">
+          <div>
             <TargetingForm
               experiment={experiment}
               form={form}
@@ -314,7 +322,7 @@ export default function EditTargetingModal({
       )}
 
       <Page display="Review & Deploy">
-        <div className="px-3 mt-2">
+        <div className="mt-2">
           <ReleaseChangesForm
             experiment={experiment}
             form={form}
@@ -436,7 +444,7 @@ function TargetingForm({
   const isBandit = experiment.type === "multi-armed-bandit";
 
   return (
-    <div className="px-2 pt-2">
+    <div className="pt-2">
       {safeToEdit && (
         <>
           <Field
@@ -498,13 +506,11 @@ function TargetingForm({
 
       {(!hasLinkedChanges || safeToEdit) && <hr className="my-4" />}
       {!hasLinkedChanges && (
-        <>
-          <div className="alert alert-info">
-            Changes made below are only metadata changes and will have no impact
-            on actual experiment delivery unless you link a GrowthBook-managed
-            Linked Feature or Visual Change to this experiment.
-          </div>
-        </>
+        <Callout status="info" mb="4">
+          Changes made below are only metadata changes and will have no impact
+          on actual experiment delivery unless you link a GrowthBook-managed
+          Linked Feature or Visual Change to this experiment.
+        </Callout>
       )}
 
       {["targeting", "advanced"].includes(changeType) && (
@@ -522,7 +528,7 @@ function TargetingForm({
             project={experiment.project || ""}
           />
           <hr />
-          <PrerequisiteTargetingField
+          <PrerequisiteInput
             value={form.watch("prerequisites") || []}
             setValue={(prerequisites) =>
               form.setValue("prerequisites", prerequisites)

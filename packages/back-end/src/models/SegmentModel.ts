@@ -1,6 +1,6 @@
-import { SegmentInterface } from "back-end/types/segment";
+import { SegmentInterface } from "shared/types/segment";
+import { segmentValidator } from "shared/validators";
 import { getConfigSegments, usingFileConfig } from "back-end/src/init/config";
-import { segmentValidator } from "back-end/src/routers/segment/segment.validators";
 import { STORE_SEGMENTS_IN_MONGO } from "back-end/src/util/secrets";
 import { MakeModelClass } from "./BaseModel";
 
@@ -16,6 +16,9 @@ const BaseClass = MakeModelClass({
   },
   globallyUniqueIds: false,
   readonlyFields: ["datasource"],
+  defaultValues: {
+    owner: "",
+  },
 });
 
 type LegacySegmentInterface = Omit<SegmentInterface, "type"> & {

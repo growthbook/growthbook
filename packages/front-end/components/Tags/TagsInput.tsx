@@ -1,6 +1,6 @@
 import { FC } from "react";
 import { StylesConfig } from "react-select";
-import { TagInterface } from "back-end/types/tag";
+import { TagInterface } from "shared/types/tag";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -26,6 +26,7 @@ const TagsInput: FC<{
   tagOptions?: TagInterface[];
   prompt?: string;
   creatable?: boolean;
+  customClassName?: string;
 }> = ({
   onChange,
   value,
@@ -34,6 +35,7 @@ const TagsInput: FC<{
   tagOptions,
   prompt = "Tags...",
   creatable = true,
+  customClassName,
 }) => {
   const { tags, getTagById } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
@@ -138,6 +140,7 @@ const TagsInput: FC<{
       customStyles={tagStyles}
       placeholder={prompt}
       creatable={creatable}
+      customClassName={customClassName}
     />
   );
 };

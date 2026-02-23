@@ -1,10 +1,10 @@
 import { useRouter } from "next/router";
-import { ReportInterface } from "back-end/types/report";
+import { ReportInterface } from "shared/types/report";
 import React, { useRef, useState } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { IdeaInterface } from "back-end/types/idea";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { IdeaInterface } from "shared/types/idea";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";

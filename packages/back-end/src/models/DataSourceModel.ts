@@ -6,8 +6,9 @@ import {
   DataSourceParams,
   DataSourceSettings,
   DataSourceType,
-} from "back-end/types/datasource";
-import { GoogleAnalyticsParams } from "back-end/types/integrations/googleanalytics";
+} from "shared/types/datasource";
+import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
+import { ApiDataSource } from "shared/types/openapi";
 import { getOauth2Client } from "back-end/src/integrations/GoogleAnalytics";
 import {
   encryptParams,
@@ -20,14 +21,22 @@ import {
   getConfigDatasources,
 } from "back-end/src/init/config";
 import { upgradeDatasourceObject } from "back-end/src/util/migrations";
-import { ApiDataSource } from "back-end/types/openapi";
 import { queueCreateInformationSchema } from "back-end/src/jobs/createInformationSchema";
 import { IS_CLOUD } from "back-end/src/util/secrets";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { logger } from "back-end/src/util/logger";
 import { deleteClickhouseUser } from "back-end/src/services/clickhouse";
+import { createModelAuditLogger } from "back-end/src/services/audit";
 import { deleteFactTable, getFactTable } from "./FactTableModel";
+
+const audit = createModelAuditLogger({
+  entity: "datasource",
+  createEvent: "datasource.create",
+  updateEvent: "datasource.update",
+  deleteEvent: "datasource.delete",
+  omitDetails: true,
+});
 
 const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
   id: String,
@@ -209,6 +218,8 @@ export async function deleteDatasource(
     id: datasource.id,
     organization: context.org.id,
   });
+
+  await audit.logDelete(context, datasource);
 }
 
 /**
@@ -294,7 +305,9 @@ export async function createDataSource(
     await queueCreateInformationSchema(datasource.id, context.org.id);
   }
 
-  return toInterface(model);
+  const datasourceInterface = toInterface(model);
+  await audit.logCreate(context, datasourceInterface);
+  return datasourceInterface;
 }
 
 // Add any missing exposure query ids and validate any new, changed, or previously errored queries
@@ -379,6 +392,8 @@ export async function updateDataSource(
       $set: updates,
     },
   );
+
+  await audit.logUpdate(context, datasource, { ...datasource, ...updates });
 }
 
 function isLocked(datasource: DataSourceInterface): boolean {

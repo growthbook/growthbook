@@ -1,8 +1,8 @@
 import express from "express";
 import { z } from "zod";
+import { createPopulationDataPropsValidator } from "shared/validators";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
-import { createPopulationDataPropsValidator } from "./population-data.validators";
 import * as rawPopulationDataController from "./population-data.controller";
 
 const router = express.Router();

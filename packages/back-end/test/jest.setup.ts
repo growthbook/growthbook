@@ -1,11 +1,13 @@
+// Polyfill web streams for Node.js test environment
+import { TransformStream } from "node:stream/web";
 import { shutdownFormatWorkerPool } from "../src/util/sql";
 
-jest.mock("openai", () => ({
-  Configuration: jest.fn(),
-  OpenAIApi: jest.fn(() => ({
-    createCompletion: jest.fn(),
-    createEmbedding: jest.fn(),
-  })),
+global.TransformStream = TransformStream as typeof globalThis.TransformStream;
+
+// Mock snowflake-sdk to prevent open handles from CustomGC
+jest.mock("snowflake-sdk", () => ({
+  createConnection: jest.fn(),
+  configure: jest.fn(),
 }));
 
 // Store reference to shutdown for cleanup

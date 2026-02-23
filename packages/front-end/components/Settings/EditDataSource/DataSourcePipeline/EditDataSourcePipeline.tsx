@@ -5,7 +5,7 @@ import cloneDeep from "lodash/cloneDeep";
 import {
   DataSourceInterfaceWithParams,
   DataSourcePipelineMode,
-} from "back-end/types/datasource";
+} from "shared/types/datasource";
 import {
   UNITS_TABLE_RETENTION_HOURS_DEFAULT,
   type PipelineValidationResults,

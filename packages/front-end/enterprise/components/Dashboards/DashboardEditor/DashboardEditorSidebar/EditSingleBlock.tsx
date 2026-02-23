@@ -3,29 +3,48 @@ import {
   DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
   DashboardBlockType,
-} from "back-end/src/enterprise/validators/dashboard-block";
-import React, { useContext, useEffect, useMemo, useState } from "react";
-import {
   blockHasFieldOfType,
   isDifferenceType,
-  isMetricSelector,
-  metricSelectors,
   BLOCK_CONFIG_ITEM_TYPES,
-  pinSources,
 } from "shared/enterprise";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { isDefined, isNumber, isString, isStringArray } from "shared/util";
-import { SavedQuery } from "back-end/src/validators/saved-queries";
-import { PiPencilSimpleFill, PiPushPinFill } from "react-icons/pi";
-import { expandMetricGroups } from "shared/experiments";
+import React, { useContext, useEffect, useMemo, useState, useRef } from "react";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { isNumber, isString, isStringArray } from "shared/util";
+import { SavedQuery } from "shared/validators";
+import {
+  PiCopySimple,
+  PiPencilSimpleFill,
+  PiTrashSimpleFill,
+  PiPlus,
+  PiTable,
+  PiCaretRightFill,
+} from "react-icons/pi";
+import { UNSUPPORTED_METRIC_EXPLORER_TYPES } from "shared/constants";
+import { FormatOptionLabelMeta } from "react-select";
+import Collapsible from "react-collapsible";
+import {
+  getAvailableMetricsFilters,
+  getAvailableSliceTags,
+  getAvailableMetricTags,
+} from "@/services/experiments";
+import {
+  getMetricOptions,
+  getSliceOptions,
+  formatSliceOptionLabel,
+  formatMetricOptionLabel,
+} from "@/components/Experiment/ResultsFilter/ResultsFilter";
 import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
+import Link from "@/ui/Link";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
+import TagsInput from "@/components/Tags/TagsInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import SelectField from "@/components/Forms/SelectField";
+import SelectField, { SingleValue } from "@/components/Forms/SelectField";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import useApi from "@/hooks/useApi";
-import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
+import SqlExplorerModal, {
+  SqlExplorerModalInitial,
+} from "@/components/SchemaBrowser/SqlExplorerModal";
 import { RESULTS_TABLE_COLUMNS } from "@/components/Experiment/ResultsTable";
 import { getDimensionOptions } from "@/components/Dimensions/DimensionChooser";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
@@ -35,53 +54,34 @@ import { getPrecomputedDimensions } from "@/components/Experiment/SnapshotProvid
 import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
 import { useIncrementalRefresh } from "@/hooks/useIncrementalRefresh";
-import { BLOCK_TYPE_INFO } from "..";
+import Modal from "@/components/Modal";
+import { useAuth } from "@/services/auth";
 import {
   useDashboardSnapshot,
   DashboardSnapshotContext,
-} from "../../DashboardSnapshotProvider";
+} from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
+import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor";
 import MetricExplorerSettings from "./MetricExplorerSettings";
-import {
-  ExperimentMetricBlockContext,
-  ExperimentTimeSeriesBlockContext,
-} from "./types";
-import { useBlockContext } from "./useBlockContext";
 
 type RequiredField = {
   field: string;
   validation: (val: unknown) => boolean;
 };
-const METRIC_SELECTOR = {
-  field: "metricSelector",
-  validation: isMetricSelector,
-};
 const REQUIRED_FIELDS: {
   [k in DashboardBlockType]?: Array<RequiredField>;
 } = {
-  "experiment-metric": [METRIC_SELECTOR],
   "experiment-dimension": [
     {
       field: "dimensionId",
       validation: (dimId) => typeof dimId === "string" && dimId.length > 0,
     },
-    METRIC_SELECTOR,
   ],
-  "experiment-time-series": [METRIC_SELECTOR],
   "sql-explorer": [
     {
       field: "savedQueryId",
       validation: (sqId) => typeof sqId === "string" && sqId.length > 0,
     },
   ],
-};
-
-const metricSelectorLabels: {
-  [k in (typeof metricSelectors)[number]]: string;
-} = {
-  "experiment-goal": "All Goal Metrics",
-  "experiment-secondary": "All Secondary Metrics",
-  "experiment-guardrail": "All Guardrail Metrics",
-  custom: "Custom Selection",
 };
 
 interface Props {
@@ -103,6 +103,44 @@ function isBlockConfigItemSelected(
   return !!blockConfig?.includes(itemId);
 }
 
+function shouldShowEditorField(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface> | undefined,
+  fieldName: string,
+): boolean {
+  const SKIPPED_EDITOR_FIELDS_BY_BLOCK_TYPE = {
+    sortBy: ["experiment-metric", "experiment-dimension"],
+    sortDirection: ["experiment-metric", "experiment-dimension"],
+    differenceType: ["experiment-metric", "experiment-dimension"],
+    baselineRow: ["experiment-metric", "experiment-dimension"],
+    variationIds: ["experiment-metric", "experiment-dimension"],
+  };
+  const SPECIAL_FIELDS_BY_BLOCK_TYPE: Record<string, DashboardBlockType[]> = {
+    _toggleSortByMetricIds: [
+      "experiment-metric",
+      "experiment-dimension",
+      "experiment-time-series",
+    ],
+    _toggleSortByMetricTags: [
+      "experiment-metric",
+      "experiment-dimension",
+      "experiment-time-series",
+    ],
+  };
+
+  if (!block) return true;
+  if (SPECIAL_FIELDS_BY_BLOCK_TYPE[fieldName]) {
+    return SPECIAL_FIELDS_BY_BLOCK_TYPE[fieldName].includes(block.type);
+  }
+  if (
+    !(SKIPPED_EDITOR_FIELDS_BY_BLOCK_TYPE?.[fieldName] || []).includes(
+      block.type,
+    )
+  ) {
+    return true;
+  }
+  return false;
+}
+
 function toggleBlockConfigItem(
   block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
   setBlock: React.Dispatch<
@@ -117,13 +155,15 @@ function toggleBlockConfigItem(
   // Type guard to ensure we have a sql-explorer block with blockConfig
   if (!("blockConfig" in block)) return;
 
-  const currentBlockConfig = block.blockConfig || [];
+  const currentBlockConfig = block.blockConfig;
+  // Remove dataVizConfigIndex from legacy blocks so the new config format takes effect
+  const { dataVizConfigIndex: _, ...blockToSet } = block;
 
   if (value) {
     // Add item to blockConfig
     const newBlockConfig = [...currentBlockConfig, itemId];
     setBlock({
-      ...block,
+      ...blockToSet,
       blockConfig: newBlockConfig,
     });
   } else {
@@ -132,7 +172,7 @@ function toggleBlockConfigItem(
       (id: string) => id !== itemId,
     );
     setBlock({
-      ...block,
+      ...blockToSet,
       blockConfig: filteredBlockConfig,
     });
   }
@@ -151,12 +191,17 @@ export default function EditSingleBlock({
     dimensions,
     metricGroups,
     getExperimentMetricById,
+    getMetricGroupById,
     getDatasourceById,
+    getFactTableById,
+    getTagById,
     factMetrics,
+    factTables,
   } = useDefinitions();
+  const { apiCall } = useAuth();
   const {
     data: savedQueriesData,
-    mutate: mutateQuery,
+    mutate: mutateQueries,
     isLoading,
   } = useApi<{
     status: number;
@@ -166,14 +211,46 @@ export default function EditSingleBlock({
     "existing",
   );
 
-  const metricGroupMap = useMemo(
-    () => new Map(metricGroups.map((group) => [group.id, group])),
-    [metricGroups],
+  const [columnsCollapsibleOpen, setColumnsCollapsibleOpen] = useState(
+    block && blockHasFieldOfType(block, "columnsFilter", isStringArray)
+      ? block.columnsFilter.length < RESULTS_TABLE_COLUMNS.length &&
+          block.columnsFilter.length > 0
+      : false,
   );
 
-  const [showSqlExplorerModal, setShowSqlExplorerModal] = useState(false);
-  const [selectedMetricIdForPinning, setSelectedMetricIdForPinning] =
-    useState<string>("");
+  const [sqlExplorerModalProps, setSqlExplorerModalProps] = useState<
+    { initial?: SqlExplorerModalInitial; savedQueryId?: string } | undefined
+  >(undefined);
+  const [
+    showDeleteSavedQueryConfirmation,
+    setShowDeleteSavedQueryConfirmation,
+  ] = useState(false);
+  const [showMetricTags, setShowMetricTags] = useState(
+    blockHasFieldOfType(block, "metricTagFilter", isStringArray) &&
+      (block.metricTagFilter?.length || 0) > 0,
+  );
+  const prevMetricTagFilterRef = useRef(
+    blockHasFieldOfType(block, "metricTagFilter", isStringArray)
+      ? block.metricTagFilter?.length || 0
+      : 0,
+  );
+
+  // Convert back to link when tags are cleared
+  useEffect(() => {
+    if (!blockHasFieldOfType(block, "metricTagFilter", isStringArray)) {
+      return;
+    }
+
+    const prevLength = prevMetricTagFilterRef.current;
+    const currentLength = block.metricTagFilter?.length || 0;
+
+    // If going from non-empty to empty, hide the field
+    if (prevLength > 0 && currentLength === 0) {
+      setShowMetricTags(false);
+    }
+
+    prevMetricTagFilterRef.current = currentLength;
+  }, [block]);
 
   const { analysis } = useDashboardSnapshot(block, setBlock);
   const { defaultSnapshot, dimensionless, updateAllSnapshots } = useContext(
@@ -182,269 +259,281 @@ export default function EditSingleBlock({
 
   const { incrementalRefresh } = useIncrementalRefresh(experiment?.id ?? "");
 
-  // Get block context from workspace level
-  const blockId = blockHasFieldOfType(block, "id", isString) ? block.id : null;
-  const blockContext = useBlockContext(blockId);
-
   // TODO: does this need to handle metric groups
-  const factMetricOptions = useMemo(
-    () =>
-      factMetrics
+  const factMetricOptions = useMemo(() => {
+    return factMetrics
+      .filter((factMetric) => {
+        // Always include the existing fact metric. This will prevent issues if the fact metric or the dashboard's projects have changed since the block was created.
+        if (
+          blockHasFieldOfType(block, "factMetricId", isString) &&
+          factMetric.id === block.factMetricId
+        ) {
+          return true;
+        }
+
+        if (UNSUPPORTED_METRIC_EXPLORER_TYPES.includes(factMetric.metricType)) {
+          return false;
+        }
+
         // Filter fact metrics to only include those that are in 'All Projects' or have all of the projects in the projects list
-        .filter((factMetric) => {
-          if (!projects.length || !factMetric.projects.length) {
-            return true;
-          }
+        if (!projects.length || !factMetric.projects.length) {
+          return true;
+        }
 
-          // Always include the existing fact metric. This will prevent issues if the fact metric or the dashboard's projects have changed since the block was created.
-          if (
-            blockHasFieldOfType(block, "factMetricId", isString) &&
-            factMetric.id === block.factMetricId
-          ) {
-            return true;
-          }
+        return projects.every((project) =>
+          factMetric.projects.includes(project),
+        );
+      })
+      .map((m) => ({ label: m.name, value: m.id }));
+  }, [block, factMetrics, projects]);
 
-          return projects.every((project) =>
-            factMetric.projects.includes(project),
-          );
-        })
-        .map((m) => ({ label: m.name, value: m.id })),
-    [block, factMetrics, projects],
-  );
-
-  const metricOptions = useMemo(() => {
-    // For general dashboards without experiment, return empty options
+  // Extract available metrics and groups for filtering
+  // Check if any selector IDs are in metricIds to determine which metrics to show
+  const availableMetricsFilters = useMemo(() => {
     if (!experiment) {
-      return [];
+      return { groups: [], metrics: [] };
     }
 
-    const getMetrics = (metricOrGroupIds: string[]) => {
-      const metricIds = expandMetricGroups(metricOrGroupIds, metricGroups);
-      return metricIds.map(getExperimentMetricById).filter(isDefined);
-    };
+    const blockMetricIds =
+      block && "metricIds" in block ? (block.metricIds ?? []) : [];
+    const hasGoalSelector = blockMetricIds.includes("experiment-goal");
+    const hasSecondarySelector = blockMetricIds.includes(
+      "experiment-secondary",
+    );
+    const hasGuardrailSelector = blockMetricIds.includes(
+      "experiment-guardrail",
+    );
 
-    return [
-      {
-        label: "Metric Groups",
-        options: [
-          ...experiment.goalMetrics.filter((mId) => metricGroupMap.has(mId)),
-          ...experiment.secondaryMetrics.filter((mId) =>
-            metricGroupMap.has(mId),
-          ),
-          ...experiment.guardrailMetrics.filter((mId) =>
-            metricGroupMap.has(mId),
-          ),
-        ]
-          .map((groupId) => {
-            const group = metricGroupMap.get(groupId);
-            return group
-              ? {
-                  label: group.name,
-                  value: group.id,
-                  tooltip: group.description,
-                }
-              : undefined;
-          })
-          .filter(isDefined),
-      },
-      {
-        label: "Goal Metrics",
-        options: getMetrics(experiment.goalMetrics).map((metric) => {
-          return {
-            label: metric.name,
-            value: metric.id,
-            tooltip: metric.description,
-          };
-        }),
-      },
-      {
-        label: "Secondary Metrics",
-        options: getMetrics(experiment.secondaryMetrics).map((metric) => {
-          return {
-            label: metric.name,
-            value: metric.id,
-            tooltip: metric.description,
-          };
-        }),
-      },
-      {
-        label: "Guardrail Metrics",
-        options: getMetrics(experiment.guardrailMetrics).map((metric) => {
-          return {
-            label: metric.name,
-            value: metric.id,
-            tooltip: metric.description,
-          };
-        }),
-      },
-    ];
-  }, [experiment, getExperimentMetricById, metricGroups, metricGroupMap]);
+    // If no selectors are present, show all metrics
+    const showAll =
+      !hasGoalSelector && !hasSecondarySelector && !hasGuardrailSelector;
 
-  // Filtered metric options based on the block's metricSelector
-  const filteredMetricOptions = useMemo(() => {
-    if (!blockHasFieldOfType(block, "metricSelector", isMetricSelector)) {
-      return metricOptions;
+    const { goalMetrics, secondaryMetrics, guardrailMetrics } = showAll
+      ? {
+          goalMetrics: experiment.goalMetrics,
+          secondaryMetrics: experiment.secondaryMetrics,
+          guardrailMetrics: experiment.guardrailMetrics,
+        }
+      : {
+          goalMetrics: hasGoalSelector ? experiment.goalMetrics : [],
+          secondaryMetrics: hasSecondarySelector
+            ? experiment.secondaryMetrics
+            : [],
+          guardrailMetrics: hasGuardrailSelector
+            ? experiment.guardrailMetrics
+            : [],
+        };
+
+    return getAvailableMetricsFilters({
+      goalMetrics,
+      secondaryMetrics,
+      guardrailMetrics,
+      metricGroups,
+      getExperimentMetricById,
+    });
+  }, [experiment, metricGroups, getExperimentMetricById, block]);
+
+  // Generate metric options
+  const metricOptions = useMemo(() => {
+    const blockMetricIds =
+      block && "metricIds" in block ? (block.metricIds ?? []) : [];
+    return getMetricOptions({
+      availableMetricsFilters,
+      selectedMetricIds: blockMetricIds,
+    });
+  }, [availableMetricsFilters, block]);
+
+  // Check if metric filters exist
+  const hasMetricFilters = useMemo(() => {
+    if (!block || !("metricIds" in block)) return false;
+    const blockMetricIds = block.metricIds;
+    return blockMetricIds.length > 0;
+  }, [block]);
+
+  // Check if metric tag filters exist
+  const hasMetricTagFilters = useMemo(() => {
+    if (!block || !("metricTagFilter" in block)) return false;
+    const blockMetricTagFilter = block.metricTagFilter;
+    return (blockMetricTagFilter?.length || 0) > 0;
+  }, [block]);
+
+  // Generate available sort options
+  const sortByOptions = useMemo(() => {
+    const options = [{ value: "", label: "Default" }];
+    if (hasMetricFilters) {
+      options.push({ value: "metrics", label: "Metric order" });
     }
-
-    const selector = block.metricSelector;
-
-    // For custom selector, show all metrics that are in the block's metricIds
-    if (selector === "custom") {
-      const customMetricIds = expandMetricGroups(
-        block.metricIds ?? [],
-        metricGroups,
-      );
-      return metricOptions
-        .map((group) => ({
-          ...group,
-          options: group.options.filter((option) =>
-            customMetricIds.includes(option.value),
-          ),
-        }))
-        .filter((group) => group.options.length > 0);
+    if (hasMetricTagFilters) {
+      options.push({ value: "metricTags", label: "Metric tags" });
     }
-
-    // For specific selectors, filter to only show metrics from that category
-    if (selector === "experiment-goal") {
-      return metricOptions.filter((group) => group.label === "Goal Metrics");
-    }
-    if (selector === "experiment-secondary") {
-      return metricOptions.filter(
-        (group) => group.label === "Secondary Metrics",
+    if (block?.type !== "experiment-time-series") {
+      options.push(
+        { value: "significance", label: "Significance" },
+        { value: "change", label: "Change" },
       );
     }
-    if (selector === "experiment-guardrail") {
-      return metricOptions.filter(
-        (group) => group.label === "Guardrail Metrics",
-      );
-    }
+    return options;
+  }, [hasMetricFilters, hasMetricTagFilters, block?.type]);
 
-    return metricOptions;
-  }, [metricOptions, block, metricGroups]);
-
-  // Reset selectedMetricIdForPinning if it's no longer allowed by the current metricSelector
+  // Reset sortBy to null if it's "metrics" but no metric filters exist
   useEffect(() => {
-    if (!selectedMetricIdForPinning) return;
-    if (!blockHasFieldOfType(block, "metricSelector", isMetricSelector)) return;
-
-    const selector = block.metricSelector;
-    let isAllowed = false;
-
-    // Check if the selected metric is allowed by the current selector
-    if (experiment) {
-      if (selector === "custom") {
-        isAllowed = expandMetricGroups(
-          block.metricIds ?? [],
-          metricGroups,
-        ).includes(selectedMetricIdForPinning);
-      } else if (selector === "experiment-goal") {
-        isAllowed = expandMetricGroups(
-          experiment.goalMetrics,
-          metricGroups,
-        ).includes(selectedMetricIdForPinning);
-      } else if (selector === "experiment-secondary") {
-        isAllowed = expandMetricGroups(
-          experiment.secondaryMetrics,
-          metricGroups,
-        ).includes(selectedMetricIdForPinning);
-      } else if (selector === "experiment-guardrail") {
-        isAllowed = expandMetricGroups(
-          experiment.guardrailMetrics,
-          metricGroups,
-        ).includes(selectedMetricIdForPinning);
-      }
-    }
-
-    if (!isAllowed) {
-      setSelectedMetricIdForPinning("");
-    }
-  }, [block, selectedMetricIdForPinning, experiment, metricGroups]);
-
-  const getSliceOptions = (metricId: string) => {
-    if (!metricId) return [];
-
-    // If we have context with sliceData, use it
     if (
-      blockContext &&
-      "sliceData" in blockContext &&
-      Array.isArray(blockContext.sliceData)
+      block &&
+      blockHasFieldOfType(
+        block,
+        "sortBy",
+        (val) => val === null || typeof val === "string",
+      ) &&
+      block.sortBy === "metrics" &&
+      !hasMetricFilters
     ) {
-      // Filter slice data for the selected metric
-      const metricSliceData = (
-        blockContext as
-          | ExperimentMetricBlockContext
-          | ExperimentTimeSeriesBlockContext
-      ).sliceData.filter((slice) => {
-        // Extract metric ID from the pinned key (format: metricId?slice_querystring&location=location)
-        const sliceMetricId = slice.value.split("?")[0];
-        return sliceMetricId === metricId;
+      setBlock({
+        ...block,
+        sortBy: null,
+        sortDirection: null,
       });
-      return metricSliceData;
     }
+  }, [block, hasMetricFilters, setBlock]);
 
-    return [];
-  };
-
-  const isSlicePinned = (pinKey: string) => {
-    if (!block) return false;
-
-    // If we have context with isSlicePinned function, use it
+  // Reset sortBy to null if it's "metricTags" but no metric tag filters exist
+  useEffect(() => {
     if (
-      blockContext &&
-      "isSlicePinned" in blockContext &&
-      typeof blockContext.isSlicePinned === "function"
+      block &&
+      blockHasFieldOfType(
+        block,
+        "sortBy",
+        (val) => val === null || typeof val === "string",
+      ) &&
+      block.sortBy === "metricTags" &&
+      !hasMetricTagFilters
     ) {
-      return blockContext.isSlicePinned(pinKey) || false;
+      setBlock({
+        ...block,
+        sortBy: null,
+        sortDirection: null,
+      });
     }
+  }, [block, hasMetricTagFilters, setBlock]);
 
-    return false;
-  };
+  // Generate available slice tags for blocks that support slice filtering
+  const availableSliceTags = useMemo(() => {
+    if (!experiment) return [];
 
-  const toggleSlicePin = (pinKey: string, checked: boolean) => {
-    if (
-      !block ||
-      !blockHasFieldOfType(block, "pinnedMetricSlices", isStringArray)
-    )
-      return;
+    const blockMetricIds =
+      block && "metricIds" in block ? (block.metricIds ?? []) : [];
+    const hasGoalSelector = blockMetricIds.includes("experiment-goal");
+    const hasSecondarySelector = blockMetricIds.includes(
+      "experiment-secondary",
+    );
+    const hasGuardrailSelector = blockMetricIds.includes(
+      "experiment-guardrail",
+    );
 
-    const newPinnedSlices = checked
-      ? [...block.pinnedMetricSlices, pinKey]
-      : block.pinnedMetricSlices.filter((id) => id !== pinKey);
+    // If no selectors are present, show all metrics
+    const showAll =
+      !hasGoalSelector && !hasSecondarySelector && !hasGuardrailSelector;
 
-    setBlock({
-      ...block,
-      pinnedMetricSlices: newPinnedSlices,
-    } as typeof block);
-  };
+    const { goalMetrics, secondaryMetrics, guardrailMetrics } = showAll
+      ? {
+          goalMetrics: experiment.goalMetrics,
+          secondaryMetrics: experiment.secondaryMetrics,
+          guardrailMetrics: experiment.guardrailMetrics,
+        }
+      : {
+          goalMetrics: hasGoalSelector ? experiment.goalMetrics : [],
+          secondaryMetrics: hasSecondarySelector
+            ? experiment.secondaryMetrics
+            : [],
+          guardrailMetrics: hasGuardrailSelector
+            ? experiment.guardrailMetrics
+            : [],
+        };
 
-  const getSelectAllState = () => {
-    if (
-      !block ||
-      !blockHasFieldOfType(block, "pinnedMetricSlices", isStringArray)
-    )
-      return false;
+    return getAvailableSliceTags({
+      goalMetrics,
+      secondaryMetrics,
+      guardrailMetrics,
+      customMetricSlices: experiment.customMetricSlices,
+      metricGroups,
+      factTables,
+      getExperimentMetricById,
+      getFactTableById,
+    });
+  }, [
+    experiment,
+    metricGroups,
+    factTables,
+    getExperimentMetricById,
+    getFactTableById,
+    block,
+  ]);
 
-    const sliceOptions = getSliceOptions(selectedMetricIdForPinning);
-    const pinnedCount = sliceOptions.filter((slice) =>
-      block.pinnedMetricSlices.includes(slice.value),
-    ).length;
+  // Generate available metric tags for blocks that support metric tag filtering
+  const availableMetricTags = useMemo(() => {
+    if (!experiment) return [];
 
-    if (pinnedCount === 0) return false;
-    if (pinnedCount === sliceOptions.length) return true;
-    return "indeterminate";
-  };
+    const blockMetricIds =
+      block && "metricIds" in block ? (block.metricIds ?? []) : [];
+    const hasGoalSelector = blockMetricIds.includes("experiment-goal");
+    const hasSecondarySelector = blockMetricIds.includes(
+      "experiment-secondary",
+    );
+    const hasGuardrailSelector = blockMetricIds.includes(
+      "experiment-guardrail",
+    );
 
-  const handleSelectAll = (checked: boolean) => {
-    if (!block) return;
+    // If no selectors are present, show all metrics
+    const showAll =
+      !hasGoalSelector && !hasSecondarySelector && !hasGuardrailSelector;
 
-    const sliceOptions = getSliceOptions(selectedMetricIdForPinning);
-    const pinKeys = sliceOptions.map((slice) => slice.value);
+    const { goalMetrics, secondaryMetrics, guardrailMetrics } = showAll
+      ? {
+          goalMetrics: experiment.goalMetrics,
+          secondaryMetrics: experiment.secondaryMetrics,
+          guardrailMetrics: experiment.guardrailMetrics,
+        }
+      : {
+          goalMetrics: hasGoalSelector ? experiment.goalMetrics : [],
+          secondaryMetrics: hasSecondarySelector
+            ? experiment.secondaryMetrics
+            : [],
+          guardrailMetrics: hasGuardrailSelector
+            ? experiment.guardrailMetrics
+            : [],
+        };
 
-    setBlock({
-      ...block,
-      pinnedMetricSlices: checked ? pinKeys : [],
-    } as typeof block);
-  };
+    return getAvailableMetricTags({
+      goalMetrics,
+      secondaryMetrics,
+      guardrailMetrics,
+      metricGroups,
+      getExperimentMetricById,
+    });
+  }, [experiment, metricGroups, getExperimentMetricById, block]);
+
+  // Generate metric tag options
+  const metricTagOptions = useMemo(() => {
+    const blockMetricTagFilter =
+      block && "metricTagFilter" in block ? block.metricTagFilter || [] : [];
+    const allTagIds = Array.from(
+      new Set([...availableMetricTags, ...blockMetricTagFilter]),
+    );
+
+    return allTagIds.map((tag) => ({
+      value: tag,
+      label: tag,
+    }));
+  }, [availableMetricTags, block]);
+
+  // Generate slice options
+  const sliceOptions = useMemo(() => {
+    const blockSliceTagsFilter =
+      block && "sliceTagsFilter" in block ? block.sliceTagsFilter : [];
+    return getSliceOptions({
+      availableSliceTags,
+      sliceTagsFilter: blockSliceTagsFilter,
+    });
+  }, [availableSliceTags, block]);
 
   const dimensionOptions = useMemo(() => {
     // For general dashboards without experiment, return empty options
@@ -508,7 +597,7 @@ export default function EditSingleBlock({
       !savedQueryId
     ) {
       setSqlExplorerType("create");
-      setShowSqlExplorerModal(true);
+      setSqlExplorerModalProps({});
     }
   }, [block?.type, savedQueryId, savedQueryOptions.length, sqlExplorerType]);
 
@@ -562,15 +651,37 @@ export default function EditSingleBlock({
 
   return (
     <>
-      {showSqlExplorerModal && (
+      {savedQuery && showDeleteSavedQueryConfirmation && (
+        <Modal
+          trackingEventModalType=""
+          header={"Delete Saved Query?"}
+          close={() => setShowDeleteSavedQueryConfirmation(false)}
+          open={true}
+          cta="Delete"
+          submitColor="danger"
+          submit={async () => {
+            await apiCall(`/saved-queries/${savedQuery.id}`, {
+              method: "DELETE",
+            });
+            if (blockHasFieldOfType(block, "savedQueryId", isString)) {
+              setBlock({ ...block, savedQueryId: "" });
+            }
+            mutateQueries();
+          }}
+          increasedElevation={true}
+        >
+          Are you sure? This action cannot be undone.
+        </Modal>
+      )}
+      {sqlExplorerModalProps && (
         <SqlExplorerModal
           close={() => {
-            setShowSqlExplorerModal(false);
+            setSqlExplorerModalProps(undefined);
           }}
-          mutate={mutateQuery}
-          initial={savedQuery}
+          mutate={mutateQueries}
+          initial={sqlExplorerModalProps.initial}
           projects={projects}
-          id={savedQuery?.id}
+          id={sqlExplorerModalProps.savedQueryId}
           dashboardId={dashboardId}
           onSave={async ({
             savedQueryId,
@@ -610,67 +721,70 @@ export default function EditSingleBlock({
               blockConfig: newBlockConfig,
             });
             setSqlExplorerType("existing");
-            await mutateQuery();
+            await mutateQueries();
             await updateAllSnapshots();
           }}
         />
       )}
       {block && (
-        <Flex direction="column" py="5" px="4" gap="2" width="100%">
-          <span>
-            <Text weight="medium" size="4">
-              <Avatar
-                radius="small"
-                color="indigo"
-                variant="soft"
-                mr="2"
-                size="sm"
-              >
-                {BLOCK_TYPE_INFO[block.type].icon}
-              </Avatar>
-              {BLOCK_TYPE_INFO[block.type].name}
-            </Text>
-          </span>
-          <Flex gap="4" direction="column" flexGrow="1">
+        <Flex direction="column" py="5" px="4" gap="5" width="100%">
+          <Text weight="medium" size="4">
+            <Avatar
+              radius="small"
+              color="indigo"
+              variant="soft"
+              mr="2"
+              size="sm"
+            >
+              {BLOCK_TYPE_INFO[block.type].icon}
+            </Avatar>
+            {BLOCK_TYPE_INFO[block.type].name}
+          </Text>
+
+          <Flex gap="5" direction="column" flexGrow="1">
             {block.type === "experiment-metadata" && (
-              <>
-                <Text weight="medium">Experiment Info</Text>
+              <Box>
+                <Box mb="3">
+                  <Text weight="bold">Experiment Info</Text>
+                </Box>
+                <Checkbox
+                  size="sm"
+                  value={
+                    [
+                      block.showDescription,
+                      block.showHypothesis,
+                      block.showVariationImages,
+                    ].some((val) => val === true)
+                      ? [
+                          block.showDescription,
+                          block.showHypothesis,
+                          block.showVariationImages,
+                        ].some((val) => val === false)
+                        ? "indeterminate"
+                        : true
+                      : false
+                  }
+                  setValue={(value) => {
+                    setBlock({
+                      ...block,
+                      showDescription: value,
+                      showHypothesis: value,
+                      showVariationImages: value,
+                      variationIds: value ? [] : undefined,
+                    });
+                  }}
+                  label="Select All"
+                  mb="2"
+                />
                 <Grid columns="2">
-                  <Checkbox
-                    size="sm"
-                    value={
-                      [
-                        block.showDescription,
-                        block.showHypothesis,
-                        block.showVariationImages,
-                      ].some((val) => val === true)
-                        ? [
-                            block.showDescription,
-                            block.showHypothesis,
-                            block.showVariationImages,
-                          ].some((val) => val === false)
-                          ? "indeterminate"
-                          : true
-                        : false
-                    }
-                    setValue={(value) => {
-                      setBlock({
-                        ...block,
-                        showDescription: value,
-                        showHypothesis: value,
-                        showVariationImages: value,
-                        variationIds: value ? [] : undefined,
-                      });
-                    }}
-                    label="Select All"
-                  />
                   <Checkbox
                     size="sm"
                     value={block.showDescription}
                     setValue={(value) => {
                       setBlock({ ...block, showDescription: value });
                     }}
-                    label={<Text weight="regular">Description</Text>}
+                    label="Description"
+                    weight="regular"
                   />
                   <Checkbox
                     size="sm"
@@ -678,7 +792,8 @@ export default function EditSingleBlock({
                     setValue={(value) => {
                       setBlock({ ...block, showHypothesis: value });
                     }}
-                    label={<Text weight="regular">Hypothesis</Text>}
+                    label="Hypothesis"
+                    weight="regular"
                   />
                   <Checkbox
                     size="sm"
@@ -690,14 +805,17 @@ export default function EditSingleBlock({
                         variationIds: value ? [] : undefined,
                       });
                     }}
-                    label={<Text weight="regular">Variation Info</Text>}
+                    label="Variation Info"
+                    weight="regular"
                   />
                 </Grid>
-              </>
+              </Box>
             )}
             {block.type === "experiment-traffic" && (
-              <>
-                <Text weight="medium">Traffic Visualizations</Text>
+              <Box>
+                <Box mb="3">
+                  <Text weight="bold">Traffic Visualizations</Text>
+                </Box>
                 <Grid columns="2">
                   <Checkbox
                     size="sm"
@@ -705,7 +823,8 @@ export default function EditSingleBlock({
                     setValue={(value) => {
                       setBlock({ ...block, showTable: value });
                     }}
-                    label={<Text weight="regular">Show Table</Text>}
+                    label="Show Table"
+                    weight="regular"
                   />
                   <Checkbox
                     size="sm"
@@ -713,28 +832,44 @@ export default function EditSingleBlock({
                     setValue={(value) => {
                       setBlock({ ...block, showTimeseries: value });
                     }}
-                    label={<Text weight="regular">Show Timeseries</Text>}
+                    label="Show Timeseries"
+                    weight="regular"
                   />
                 </Grid>
-              </>
+              </Box>
             )}
             {blockHasFieldOfType(block, "factMetricId", isString) && (
               <SelectField
-                label={
-                  <Text as="label" size="3" weight="medium">
-                    Metric
-                  </Text>
-                }
-                labelClassName="mb-0"
+                label="Metric"
+                labelClassName="font-weight-bold"
                 value={block.factMetricId}
                 containerClassName="mb-0"
                 onChange={(value) => {
+                  const isMetricExplorer = block.type === "metric-explorer";
                   setBlock({
                     ...block,
                     title:
                       factMetricOptions.find((option) => option.value === value)
                         ?.label || "Metric",
                     factMetricId: value,
+                    ...(isMetricExplorer && {
+                      metricAnalysisId: "",
+                      analysisSettings: (() => {
+                        const {
+                          additionalNumeratorFilters:
+                            _additionalNumeratorFilters,
+                          additionalDenominatorFilters:
+                            _additionalDenominatorFilters,
+                          ...restSettings
+                        } = block.analysisSettings;
+                        return {
+                          ...restSettings,
+                          populationId: "",
+                          populationType: "factTable",
+                          userIdType: "",
+                        };
+                      })(),
+                    }),
                   });
                 }}
                 options={factMetricOptions}
@@ -747,69 +882,357 @@ export default function EditSingleBlock({
                 )}
               />
             )}
-            {blockHasFieldOfType(block, "metricSelector", isMetricSelector) && (
-              <>
-                <SelectField
-                  required
-                  markRequired
-                  label="Metrics"
-                  labelClassName="font-weight-bold"
-                  value={block.metricSelector}
-                  containerClassName="mb-0"
-                  onChange={(value) =>
-                    setBlock({
-                      ...block,
-                      metricSelector: value as (typeof metricSelectors)[number],
-                    })
-                  }
-                  options={metricSelectors.map((selector) => ({
-                    value: selector,
-                    label: metricSelectorLabels[selector],
-                  }))}
-                  sort={false}
-                  autoFocus
-                />
-                {block.metricSelector.includes("custom") && (
-                  <MultiSelectField
-                    required
-                    markRequired
-                    label="Custom Metric Selection"
-                    labelClassName="font-weight-bold"
-                    value={block.metricIds ?? []}
-                    containerClassName="mb-0"
-                    onChange={(value) =>
-                      setBlock({ ...block, metricIds: value })
-                    }
-                    options={metricOptions}
-                    sort={false}
-                    formatOptionLabel={({ value }, { context }) => {
-                      const metricGroup = metricGroupMap.get(value);
-                      const metricsWithJoinableStatus = metricGroup
-                        ? metricGroup.metrics
-                            .map((m) => {
-                              const metric = getExperimentMetricById(m);
-                              return metric
-                                ? {
-                                    metric,
-                                    joinable: true,
-                                  }
-                                : undefined;
-                            })
-                            .filter(isDefined)
-                        : undefined;
-                      return (
-                        <MetricName
-                          id={value}
-                          showDescription={context !== "value"}
-                          isGroup={!!metricGroup}
-                          metrics={metricsWithJoinableStatus}
+            {(block.type === "experiment-metric" ||
+              block.type === "experiment-dimension" ||
+              block.type === "experiment-time-series") &&
+              "metricIds" in block && (
+                <>
+                  <Box>
+                    <MultiSelectField
+                      label="Metrics"
+                      labelClassName="font-weight-bold"
+                      placeholder="All Metrics"
+                      containerClassName="mb-0"
+                      customStyles={{
+                        placeholder: (base) => ({
+                          ...base,
+                          color: "var(--text-color-main)",
+                        }),
+                      }}
+                      value={block.metricIds}
+                      onChange={(value) => {
+                        // Ensure selector IDs are always ordered first: experiment-goal, experiment-secondary, experiment-guardrail
+                        const selectorOrder = [
+                          "experiment-goal",
+                          "experiment-secondary",
+                          "experiment-guardrail",
+                        ];
+                        const selectorIds: string[] = [];
+                        const otherIds: string[] = [];
+
+                        // Separate selector IDs from other IDs, preserving original order of other items
+                        value.forEach((id) => {
+                          if (selectorOrder.includes(id)) {
+                            selectorIds.push(id);
+                          } else {
+                            otherIds.push(id);
+                          }
+                        });
+
+                        // Sort only selector IDs by the specified order
+                        selectorIds.sort((a, b) => {
+                          const indexA = selectorOrder.indexOf(a);
+                          const indexB = selectorOrder.indexOf(b);
+                          return indexA - indexB;
+                        });
+
+                        // Combine: selector IDs first (in order), then everything else (preserving original order)
+                        const orderedMetricIds = [...selectorIds, ...otherIds];
+                        setBlock({
+                          ...block,
+                          metricIds: orderedMetricIds,
+                        });
+                      }}
+                      options={[
+                        ...((experiment?.goalMetrics?.length ?? 0) > 0 ||
+                        block.metricIds.includes("experiment-goal")
+                          ? [
+                              {
+                                label: "Goal Metrics",
+                                value: "experiment-goal",
+                              },
+                            ]
+                          : []),
+                        ...((experiment?.secondaryMetrics?.length ?? 0) > 0 ||
+                        block.metricIds.includes("experiment-secondary")
+                          ? [
+                              {
+                                label: "Secondary Metrics",
+                                value: "experiment-secondary",
+                              },
+                            ]
+                          : []),
+                        ...((experiment?.guardrailMetrics?.length ?? 0) > 0 ||
+                        block.metricIds.includes("experiment-guardrail")
+                          ? [
+                              {
+                                label: "Guardrail Metrics",
+                                value: "experiment-guardrail",
+                              },
+                            ]
+                          : []),
+                        ...(metricOptions.groups.length > 0
+                          ? [
+                              {
+                                label: "Metric Groups",
+                                options: metricOptions.groups.map((group) => ({
+                                  label: group.name,
+                                  value: group.id,
+                                  isOrphaned: group.isOrphaned,
+                                })),
+                              },
+                            ]
+                          : []),
+                        ...(metricOptions.metrics.length > 0
+                          ? [
+                              {
+                                label: "Metrics",
+                                options: metricOptions.metrics.map(
+                                  (metric) => ({
+                                    label: metric.name,
+                                    value: metric.id,
+                                    isOrphaned: metric.isOrphaned,
+                                  }),
+                                ),
+                              },
+                            ]
+                          : []),
+                      ]}
+                      sort={false}
+                      formatOptionLabel={(
+                        option: SingleValue & { isOrphaned?: boolean },
+                        meta: FormatOptionLabelMeta<SingleValue>,
+                      ) => {
+                        // Handle experiment groups
+                        const selectorIds = [
+                          "experiment-goal",
+                          "experiment-secondary",
+                          "experiment-guardrail",
+                        ];
+                        if (selectorIds.includes(option.value)) {
+                          const selectorLabels: Record<string, string> = {
+                            "experiment-goal": "Goal Metrics",
+                            "experiment-secondary": "Secondary Metrics",
+                            "experiment-guardrail": "Guardrail Metrics",
+                          };
+                          const isInDropdown = meta?.context === "menu";
+                          return (
+                            <Flex align="center">
+                              {!isInDropdown && (
+                                <PiTable
+                                  className="mr-1"
+                                  style={{
+                                    fontSize: "1.2em",
+                                    lineHeight: "1em",
+                                    marginTop: "-2px",
+                                  }}
+                                />
+                              )}
+                              <span>
+                                {selectorLabels[option.value] || option.label}
+                              </span>
+                            </Flex>
+                          );
+                        }
+                        // Regular metric options
+                        return formatMetricOptionLabel(
+                          option,
+                          getExperimentMetricById,
+                          getMetricGroupById,
+                          meta?.context !== "menu", // Show icon when NOT in dropdown mode
+                        );
+                      }}
+                    />
+                    {shouldShowEditorField(block, "_toggleSortByMetricIds") &&
+                      blockHasFieldOfType(block, "metricIds", isStringArray) &&
+                      (block.metricIds?.length || 0) > 0 && (
+                        <Checkbox
+                          value={
+                            blockHasFieldOfType(
+                              block,
+                              "sortBy",
+                              (val) => val === null || typeof val === "string",
+                            ) && block.sortBy === "metrics"
+                          }
+                          setValue={(checked) => {
+                            setBlock({
+                              ...block,
+                              sortBy: checked
+                                ? ("metrics" as (typeof block)["sortBy"])
+                                : null,
+                              sortDirection: null,
+                            });
+                          }}
+                          label="Sort results by order of metrics"
+                          weight="regular"
+                          containerClassName="mt-3 mb-0"
                         />
-                      );
-                    }}
-                  />
-                )}
-              </>
-            )}
+                      )}
+                  </Box>
+                  {blockHasFieldOfType(
+                    block,
+                    "metricTagFilter",
+                    isStringArray,
+                  ) &&
+                    (metricTagOptions.length > 0 ||
+                      (block.metricTagFilter?.length || 0) > 0) && (
+                      <>
+                        {(block.metricTagFilter?.length || 0) > 0 ||
+                        showMetricTags ? (
+                          <Box>
+                            <Text weight="bold" mb="2" as="label">
+                              Tags
+                            </Text>
+                            <TagsInput
+                              value={block.metricTagFilter || []}
+                              onChange={(value) =>
+                                setBlock({ ...block, metricTagFilter: value })
+                              }
+                              prompt="Type to search..."
+                              closeMenuOnSelect={false}
+                              autoFocus={false}
+                              creatable={false}
+                              customClassName="multiselect-unfixed"
+                              tagOptions={metricTagOptions.map((tag) => ({
+                                id: tag.value,
+                                description: "",
+                                color:
+                                  getTagById(tag.value)?.color || "#029dd1",
+                              }))}
+                            />
+                            {shouldShowEditorField(
+                              block,
+                              "_toggleSortByMetricTags",
+                            ) &&
+                              (block.metricTagFilter?.length || 0) > 0 && (
+                                <Checkbox
+                                  value={
+                                    blockHasFieldOfType(
+                                      block,
+                                      "sortBy",
+                                      (val) =>
+                                        val === null || typeof val === "string",
+                                    ) && block.sortBy === "metricTags"
+                                  }
+                                  setValue={(checked) => {
+                                    setBlock({
+                                      ...block,
+                                      sortBy: checked
+                                        ? ("metricTags" as (typeof block)["sortBy"])
+                                        : null,
+                                      sortDirection: null,
+                                    });
+                                  }}
+                                  label="Sort results by order of metric tags"
+                                  weight="regular"
+                                  containerClassName="mt-3 mb-0"
+                                />
+                              )}
+                          </Box>
+                        ) : (
+                          <Link
+                            onClick={() => setShowMetricTags(true)}
+                            className="d-inline-block mb-2"
+                          >
+                            <PiPlus />
+                            <Text weight="medium" className="ml-1">
+                              Tags
+                            </Text>
+                          </Link>
+                        )}
+                      </>
+                    )}
+                  {blockHasFieldOfType(
+                    block,
+                    "sliceTagsFilter",
+                    isStringArray,
+                  ) &&
+                    sliceOptions.length > 0 && (
+                      <MultiSelectField
+                        label="Slices"
+                        labelClassName="font-weight-bold"
+                        placeholder="Type to search..."
+                        containerClassName="mb-0"
+                        value={block.sliceTagsFilter}
+                        onChange={(value) =>
+                          setBlock({ ...block, sliceTagsFilter: value })
+                        }
+                        options={sliceOptions.map(({ value, isOrphaned }) => ({
+                          label: value,
+                          value,
+                          isOrphaned,
+                        }))}
+                        sort={false}
+                        formatOptionLabel={(
+                          option: SingleValue & { isOrphaned?: boolean },
+                          meta: FormatOptionLabelMeta<SingleValue>,
+                        ) => {
+                          const fullOption = sliceOptions.find(
+                            (o) => o.value === option.value,
+                          );
+                          if (!fullOption) {
+                            return option.label;
+                          }
+                          return formatSliceOptionLabel(
+                            fullOption,
+                            meta,
+                            block.sliceTagsFilter,
+                          );
+                        }}
+                      />
+                    )}
+                  {blockHasFieldOfType(
+                    block,
+                    "sortBy",
+                    (val) => val === null || typeof val === "string",
+                  ) &&
+                    shouldShowEditorField(block, "sortBy") &&
+                    sortByOptions.length > 1 && (
+                      <SelectField
+                        label="Sort by"
+                        labelClassName="font-weight-bold"
+                        containerClassName="mb-0"
+                        value={block.sortBy || ""}
+                        onChange={(value) =>
+                          setBlock({
+                            ...block,
+                            sortBy: (value || null) as (typeof block)["sortBy"],
+                            // Clear sortDirection when switching away from significance/change
+                            sortDirection:
+                              value === "significance" || value === "change"
+                                ? block.sortDirection
+                                : null,
+                          })
+                        }
+                        options={sortByOptions}
+                        sort={false}
+                      />
+                    )}
+                  {blockHasFieldOfType(
+                    block,
+                    "sortDirection",
+                    (val) => val === null || val === "asc" || val === "desc",
+                  ) &&
+                    shouldShowEditorField(block, "sortDirection") &&
+                    blockHasFieldOfType(
+                      block,
+                      "sortBy",
+                      (val) => val === null || typeof val === "string",
+                    ) &&
+                    (block.sortBy === "significance" ||
+                      block.sortBy === "change") && (
+                      <SelectField
+                        label="Sort direction"
+                        labelClassName="font-weight-bold"
+                        containerClassName="mb-0"
+                        value={block.sortDirection || ""}
+                        onChange={(value) =>
+                          setBlock({
+                            ...block,
+                            sortDirection: (value ||
+                              null) as (typeof block)["sortDirection"],
+                          })
+                        }
+                        options={[
+                          { value: "", label: "Default" },
+                          { value: "asc", label: "Ascending" },
+                          { value: "desc", label: "Descending" },
+                        ]}
+                        sort={false}
+                      />
+                    )}
+                </>
+              )}
             {blockHasFieldOfType(block, "dimensionId", isString) && (
               <SelectField
                 required
@@ -824,8 +1247,8 @@ export default function EditSingleBlock({
                 sort={false}
               />
             )}
-            {blockHasFieldOfType(block, "differenceType", isDifferenceType) && (
-              <>
+            {blockHasFieldOfType(block, "differenceType", isDifferenceType) &&
+              shouldShowEditorField(block, "differenceType") && (
                 <SelectField
                   label="Difference Type"
                   labelClassName="font-weight-bold"
@@ -846,72 +1269,35 @@ export default function EditSingleBlock({
                   ]}
                   sort={false}
                 />
-                <Separator style={{ width: "100%" }} />
-              </>
-            )}
-            {blockHasFieldOfType(block, "baselineRow", isNumber) && (
-              <SelectField
-                sort={false}
-                label="Baseline"
-                containerClassName="mb-0"
-                value={block.baselineRow.toString()}
-                onChange={(value) =>
-                  setBlock({ ...block, baselineRow: parseInt(value) })
-                }
-                options={
-                  experiment
-                    ? experiment.variations.map((variation, i) => ({
-                        label: variation.name,
-                        value: i.toString(),
-                      }))
-                    : []
-                }
-                formatOptionLabel={({ value, label }) => (
-                  <div
-                    className={`variation variation${value} with-variation-label d-flex align-items-center`}
-                  >
-                    <span
-                      className="label"
-                      style={{ width: 20, height: 20, flex: "none" }}
-                    >
-                      {value}
-                    </span>
-                    <span
-                      className="d-inline-block"
-                      style={{
-                        width: 150,
-                        lineHeight: "14px",
-                      }}
-                    >
-                      {label}
-                    </span>
-                  </div>
-                )}
-              />
-            )}
-            {blockHasFieldOfType(block, "variationIds", isStringArray) && (
-              <MultiSelectField
-                sort={false}
-                label="Variations"
-                placeholder="Showing all variations"
-                value={block.variationIds}
-                containerClassName="mb-0"
-                onChange={(value) => setVariations(block, value)}
-                disabled={variationOptions.length < 2}
-                options={variationOptions}
-                formatOptionLabel={({ value, label }) => {
-                  const varIndex = experiment
-                    ? experiment.variations.findIndex(({ id }) => id === value)
-                    : -1;
-                  return (
+              )}
+            {blockHasFieldOfType(block, "baselineRow", isNumber) &&
+              shouldShowEditorField(block, "baselineRow") && (
+                <SelectField
+                  sort={false}
+                  label="Baseline"
+                  labelClassName="font-weight-bold"
+                  containerClassName="mb-0"
+                  value={block.baselineRow.toString()}
+                  onChange={(value) =>
+                    setBlock({ ...block, baselineRow: parseInt(value) })
+                  }
+                  options={
+                    experiment
+                      ? experiment.variations.map((variation, i) => ({
+                          label: variation.name,
+                          value: i.toString(),
+                        }))
+                      : []
+                  }
+                  formatOptionLabel={({ value, label }) => (
                     <div
-                      className={`variation variation${varIndex} with-variation-label d-flex align-items-center`}
+                      className={`variation variation${value} with-variation-label d-flex align-items-center`}
                     >
                       <span
                         className="label"
                         style={{ width: 20, height: 20, flex: "none" }}
                       >
-                        {varIndex}
+                        {value}
                       </span>
                       <span
                         className="d-inline-block"
@@ -923,175 +1309,55 @@ export default function EditSingleBlock({
                         {label}
                       </span>
                     </div>
-                  );
-                }}
-              />
-            )}
-            {blockHasFieldOfType(block, "pinSource", isString) ? (
-              <SelectField
-                label="Pin slice rows"
-                containerClassName="mb-2"
-                value={block.pinSource || "experiment"}
-                onChange={(value) =>
-                  setBlock({
-                    ...block,
-                    pinSource: value as (typeof pinSources)[number],
-                    // Reset pinnedMetricSlices when switching to experiment or none
-                    pinnedMetricSlices:
-                      value === "custom" ? block.pinnedMetricSlices || [] : [],
-                  } as DashboardBlockInterface & { pinSource: string })
-                }
-                options={pinSources.map((source) => ({
-                  value: source,
-                  label:
-                    source === "experiment"
-                      ? "Use Experiment"
-                      : source === "custom"
-                        ? "Custom"
-                        : "None",
-                }))}
-                sort={false}
-              />
-            ) : null}
-            {blockHasFieldOfType(block, "pinSource", isString) &&
-              block.pinSource === "custom" && (
-                <div className="border rounded mb-2">
-                  <div className="px-3 pt-2 pb-1 border-bottom">
-                    <PiPushPinFill className="mr-1" style={{ marginTop: -2 }} />
-                    <Text weight="medium">Custom Pin Selection</Text>
-
-                    <SelectField
-                      label="Select Metric"
-                      containerClassName="mt-3"
-                      value={selectedMetricIdForPinning || ""}
-                      onChange={(value) => setSelectedMetricIdForPinning(value)}
-                      options={filteredMetricOptions}
-                      sort={false}
-                      formatOptionLabel={({ label, value }) => (
-                        <Flex align="center" justify="between" gap="3">
-                          <Box
-                            flexGrow="1"
-                            overflow="hidden"
-                            style={{ textOverflow: "ellipsis" }}
-                          >
-                            <Text>{label}</Text>
-                          </Box>
-                          <Box flexShrink="0">
-                            <Text size="1" color="gray">
-                              {
-                                getSliceOptions(value)
-                                  .map((slice) => isSlicePinned(slice.value))
-                                  .filter(Boolean).length
-                              }{" "}
-                              of {getSliceOptions(value).length} pinned
-                            </Text>
-                          </Box>
-                        </Flex>
-                      )}
-                    />
-                  </div>
-                  {selectedMetricIdForPinning ? (
-                    <div
-                      className="p-3"
-                      style={{ maxHeight: 200, overflowY: "auto" }}
-                    >
-                      {getSliceOptions(selectedMetricIdForPinning).length >
-                      0 ? (
-                        <>
-                          <Checkbox
-                            label="Select All"
-                            value={getSelectAllState()}
-                            setValue={handleSelectAll}
-                            size="sm"
-                            mb="4"
-                          />
-                          <Flex direction="column" gap="0.5">
-                            {getSliceOptions(selectedMetricIdForPinning).map(
-                              (slice) => {
-                                // Generate label from column + level pairs
-                                const labelParts = slice.sliceLevels.map(
-                                  (sl) => {
-                                    if (sl.datatype === "boolean") {
-                                      const value =
-                                        sl.levels.length === 0
-                                          ? "null"
-                                          : sl.levels[0] === "true"
-                                            ? "true"
-                                            : "false";
-                                      return (
-                                        <span key={sl.column}>
-                                          {sl.column}:{" "}
-                                          <span
-                                            style={{
-                                              fontVariant: "small-caps",
-                                              fontWeight: 600,
-                                              fontSize: "16px",
-                                            }}
-                                          >
-                                            {value}
-                                          </span>
-                                        </span>
-                                      );
-                                    } else {
-                                      const value =
-                                        sl.levels.length === 0
-                                          ? "other"
-                                          : sl.levels[0];
-                                      return `${sl.column}: ${value}`;
-                                    }
-                                  },
-                                );
-
-                                const label =
-                                  labelParts.length === 1
-                                    ? labelParts[0]
-                                    : labelParts.reduce((acc, curr, index) => {
-                                        if (index === 0) return acc;
-                                        return (
-                                          <span key={index}>
-                                            {acc} + {curr}
-                                          </span>
-                                        );
-                                      });
-
-                                return (
-                                  <Checkbox
-                                    key={slice.value}
-                                    label={label}
-                                    value={isSlicePinned(slice.value)}
-                                    setValue={(checked) =>
-                                      toggleSlicePin(slice.value, checked)
-                                    }
-                                    size="sm"
-                                    weight="regular"
-                                  />
-                                );
-                              },
-                            )}
-                          </Flex>
-                        </>
-                      ) : (
-                        <Text
-                          weight="regular"
-                          color="gray"
-                          as="p"
-                          mx="4"
-                          my="2"
-                        >
-                          No slices available for this metric
-                        </Text>
-                      )}
-                    </div>
-                  ) : (
-                    <Text weight="regular" color="gray" as="p" mx="4" my="2">
-                      No metric selected
-                    </Text>
                   )}
-                </div>
+                />
+              )}
+            {blockHasFieldOfType(block, "variationIds", isStringArray) &&
+              shouldShowEditorField(block, "variationIds") && (
+                <MultiSelectField
+                  sort={false}
+                  label="Variations"
+                  labelClassName="font-weight-bold"
+                  placeholder="Showing all variations"
+                  value={block.variationIds}
+                  containerClassName="mb-0"
+                  onChange={(value) => setVariations(block, value)}
+                  disabled={variationOptions.length < 2}
+                  options={variationOptions}
+                  formatOptionLabel={({ value, label }) => {
+                    const varIndex = experiment
+                      ? experiment.variations.findIndex(
+                          ({ id }) => id === value,
+                        )
+                      : -1;
+                    return (
+                      <div
+                        className={`variation variation${varIndex} with-variation-label d-flex align-items-center`}
+                      >
+                        <span
+                          className="label"
+                          style={{ width: 20, height: 20, flex: "none" }}
+                        >
+                          {varIndex}
+                        </span>
+                        <span
+                          className="d-inline-block"
+                          style={{
+                            width: 150,
+                            lineHeight: "14px",
+                          }}
+                        >
+                          {label}
+                        </span>
+                      </div>
+                    );
+                  }}
+                />
               )}
             {blockHasFieldOfType(block, "dimensionValues", isStringArray) && (
               <MultiSelectField
                 label="Dimension Values"
+                labelClassName="font-weight-bold"
                 placeholder="Showing all values"
                 value={block.dimensionValues}
                 containerClassName="mb-0"
@@ -1102,26 +1368,39 @@ export default function EditSingleBlock({
               />
             )}
             {blockHasFieldOfType(block, "columnsFilter", isStringArray) && (
-              <>
-                <Text weight="medium">Columns</Text>
+              <Collapsible
+                trigger={
+                  <Link className="font-weight-bold">
+                    <Text>
+                      <PiCaretRightFill className="chevron mr-1" />
+                      Show / Hide columns
+                    </Text>
+                  </Link>
+                }
+                open={columnsCollapsibleOpen}
+                onOpening={() => setColumnsCollapsibleOpen(true)}
+                onClosing={() => setColumnsCollapsibleOpen(false)}
+                transitionTime={100}
+              >
+                <Checkbox
+                  size="sm"
+                  value={
+                    block.columnsFilter.length === 0 ||
+                    block.columnsFilter.length === RESULTS_TABLE_COLUMNS.length
+                      ? true
+                      : "indeterminate"
+                  }
+                  setValue={() => {
+                    setBlock({
+                      ...block,
+                      columnsFilter: [],
+                    });
+                  }}
+                  label="Select All"
+                  mt="2"
+                  mb="2"
+                />
                 <Grid columns="2">
-                  <Checkbox
-                    size="sm"
-                    value={
-                      block.columnsFilter.length === 0 ||
-                      block.columnsFilter.length ===
-                        RESULTS_TABLE_COLUMNS.length
-                        ? true
-                        : "indeterminate"
-                    }
-                    setValue={() => {
-                      setBlock({
-                        ...block,
-                        columnsFilter: [],
-                      });
-                    }}
-                    label="Select All"
-                  />
                   {RESULTS_TABLE_COLUMNS.map((colName) => (
                     <Checkbox
                       key={colName}
@@ -1130,7 +1409,8 @@ export default function EditSingleBlock({
                         block.columnsFilter.length === 0 ||
                         block.columnsFilter.includes(colName)
                       }
-                      label={<Text weight="regular">{colName}</Text>}
+                      label={colName}
+                      weight="regular"
                       setValue={(value) =>
                         setBlock({
                           ...block,
@@ -1148,7 +1428,7 @@ export default function EditSingleBlock({
                     />
                   ))}
                 </Grid>
-              </>
+              </Collapsible>
             )}
             {block.type === "markdown" && (
               <div style={{ flexGrow: 1 }}>
@@ -1191,31 +1471,62 @@ export default function EditSingleBlock({
                 {sqlExplorerType === "create" ? (
                   <Button
                     variant="soft"
-                    onClick={() => setShowSqlExplorerModal(true)}
+                    onClick={() => setSqlExplorerModalProps({})}
                   >
                     <span className="w-100">
-                      <PiPencilSimpleFill /> Edit query
+                      <PiPencilSimpleFill /> Create query
                     </span>
                   </Button>
                 ) : (
                   <>
                     <SelectField
                       required
-                      labelClassName="flex-grow-1"
+                      labelClassName="font-weight-bold flex-grow-1"
                       containerClassName="mb-0"
                       value={savedQuery?.id || ""}
+                      forceUndefinedValueToNull
                       placeholder="Choose a saved query"
                       label={
                         <Flex justify="between" align="center">
                           <Text weight="bold">Saved Query</Text>
-                          <IconButton
-                            disabled={!block.savedQueryId}
-                            variant="soft"
-                            size="1"
-                            onClick={() => setShowSqlExplorerModal(true)}
-                          >
-                            <PiPencilSimpleFill />
-                          </IconButton>
+                          <Flex align="center" gap="1">
+                            <IconButton
+                              disabled={!savedQuery}
+                              variant="soft"
+                              size="1"
+                              onClick={() =>
+                                setShowDeleteSavedQueryConfirmation(true)
+                              }
+                            >
+                              <PiTrashSimpleFill />
+                            </IconButton>
+                            <IconButton
+                              disabled={!savedQuery}
+                              variant="soft"
+                              size="1"
+                              onClick={() =>
+                                setSqlExplorerModalProps({
+                                  initial: savedQuery,
+                                })
+                              }
+                            >
+                              <PiCopySimple />
+                            </IconButton>
+
+                            <IconButton
+                              disabled={!savedQuery}
+                              variant="soft"
+                              size="1"
+                              onClick={() =>
+                                setSqlExplorerModalProps({
+                                  initial: savedQuery,
+                                  savedQueryId: savedQuery?.id,
+                                })
+                              }
+                            >
+                              <PiPencilSimpleFill />
+                            </IconButton>
+                          </Flex>
                         </Flex>
                       }
                       options={savedQueryOptions}
@@ -1308,7 +1619,7 @@ export default function EditSingleBlock({
               <MetricExplorerSettings block={block} setBlock={setBlock} />
             )}
           </Flex>
-          <Flex gap="3" align="center" justify="center">
+          <Flex mt="5" gap="3" align="center" justify="center">
             <Button
               style={{ flexBasis: "45%", flexGrow: 1 }}
               variant="outline"

@@ -4,7 +4,7 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentResultStatusData,
   VariationWithIndex,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import { useState } from "react";
 import { BsLightningFill } from "react-icons/bs";
 import Collapsible from "react-collapsible";

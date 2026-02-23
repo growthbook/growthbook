@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FaPlay, FaExclamationTriangle } from "react-icons/fa";
 import {
@@ -12,14 +12,16 @@ import {
   DataVizConfig,
   SavedQuery,
   QueryExecutionResult,
-} from "back-end/src/validators/saved-queries";
+} from "shared/validators";
+import { computeAIUsageData } from "shared/ai";
 import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
 import { getValidDate } from "shared/dates";
 import { isReadOnlySQL, SQL_ROW_LIMIT } from "shared/sql";
 import { BsThreeDotsVertical, BsStars } from "react-icons/bs";
-import { InformationSchemaInterfaceWithPaths } from "back-end/src/types/Integration";
+import { InformationSchemaInterfaceWithPaths } from "shared/types/integrations";
 import { FiChevronRight } from "react-icons/fi";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -36,6 +38,8 @@ import {
   PanelGroup,
   PanelResizeHandle,
 } from "@/components/ResizablePanels";
+import { AppFeatures } from "@/types/app-features";
+import track from "@/services/track";
 import useOrgSettings, { useAISettings } from "@/hooks/useOrgSettings";
 import { VisualizationAddIcon } from "@/components/Icons";
 import { requiresXAxes, requiresXAxis } from "@/services/dataVizTypeGuards";
@@ -49,25 +53,27 @@ import Field from "@/components/Forms/Field";
 import OptInModal from "@/components/License/OptInModal";
 import Badge from "@/ui/Badge";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
-import { SqlExplorerDataVisualization } from "../DataViz/SqlExplorerDataVisualization";
-import Modal from "../Modal";
-import SelectField from "../Forms/SelectField";
-import Tooltip from "../Tooltip/Tooltip";
-import { filterOptions } from "../DataViz/DataVizFilter";
+import { SqlExplorerDataVisualization } from "@/components/DataViz/SqlExplorerDataVisualization";
+import Modal from "@/components/Modal";
+import SelectField from "@/components/Forms/SelectField";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import { filterOptions } from "@/components/DataViz/DataVizFilter";
 import SchemaBrowser from "./SchemaBrowser";
 import styles from "./EditSqlModal.module.scss";
+
+export interface SqlExplorerModalInitial {
+  sql?: string;
+  name?: string;
+  datasourceId?: string;
+  results?: QueryExecutionResult;
+  dateLastRan?: Date | string;
+  dataVizConfig?: DataVizConfig[];
+}
 
 export interface Props {
   dashboardId?: string;
   close: () => void;
-  initial?: {
-    sql?: string;
-    name?: string;
-    datasourceId?: string;
-    results?: QueryExecutionResult;
-    dateLastRan?: Date | string;
-    dataVizConfig?: DataVizConfig[];
-  };
+  initial?: SqlExplorerModalInitial;
   id?: string;
   mutate: () => void;
   disableSave?: boolean; // Controls if user can save query AND also controls if they can create/save visualizations
@@ -181,6 +187,8 @@ export default function SqlExplorerModal({
   const [aiInput, setAiInput] = useState("");
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiAgreementModal, setAiAgreementModal] = useState<boolean>(false);
+  const gb = useGrowthBook<AppFeatures>();
+  const aiSuggestionRef = useRef<string | undefined>(undefined);
   const permissionsUtil = usePermissionsUtil();
   const [cursorData, setCursorData] = useState<null | CursorData>(null);
   const [formatError, setFormatError] = useState<string | null>(null);
@@ -253,21 +261,23 @@ export default function SqlExplorerModal({
       throw new Error("You must enter a name for your query");
     }
 
-    // Validate that the name only contains letters, numbers, hyphens, and underscores
-    if (!currentName.match(/^[a-zA-Z0-9_.:|\s-]+$/)) {
-      setLoading(false);
-      setIsEditingName(true);
-      throw new Error(
-        "Query name can only contain letters, numbers, hyphens, underscores, and spaces",
-      );
-    }
-
     // If we have an empty object for dataVizConfig, set it to an empty array
     const dataVizConfig = form.watch("dataVizConfig") || [];
 
     // Normalize dataVizConfig to ensure pivot tables have xAxis as arrays
     // and other charts have xAxis as single objects (for API compatibility)
     const normalizedDataVizConfig = dataVizConfig.map((config) => {
+      // If the chart type doesn't support displaySettings, remove the displaySettings property
+      // Only line and scatter charts support displaySettings
+      const chartType = config.chartType;
+      if (
+        chartType &&
+        !["line", "scatter"].includes(chartType) &&
+        "displaySettings" in config
+      ) {
+        const { displaySettings: _displaySettings, ...rest } = config;
+        return rest as DataVizConfig;
+      }
       if (!requiresXAxis(config) || !config.xAxis) {
         return config as DataVizConfig;
       }
@@ -457,6 +467,14 @@ export default function SqlExplorerModal({
             allVisualizationIds: visualizationIds,
           });
         }
+        if (aiSuggestionRef.current) {
+          track("sql-query-saved-after-ai-suggestion", {
+            aiUsageData: computeAIUsageData({
+              value: form.watch("sql"),
+              aiSuggestionText: aiSuggestionRef.current,
+            }),
+          });
+        }
         close();
       } catch (error) {
         setLoading(false);
@@ -516,6 +534,14 @@ export default function SqlExplorerModal({
           allVisualizationIds: allCurrentVizIds,
         });
       }
+      if (aiSuggestionRef.current) {
+        track("sql-query-saved-after-ai-suggestion", {
+          aiUsageData: computeAIUsageData({
+            value: form.watch("sql"),
+            aiSuggestionText: aiSuggestionRef.current,
+          }),
+        });
+      }
       close();
     } catch (error) {
       setLoading(false);
@@ -553,6 +579,15 @@ export default function SqlExplorerModal({
       });
     }
     setIsRunningQuery(false);
+
+    if (aiSuggestionRef.current) {
+      track("SQL Query Run", {
+        aiUsageData: computeAIUsageData({
+          value: form.watch("sql"),
+          aiSuggestionText: aiSuggestionRef.current,
+        }),
+      });
+    }
   }, [form, runQuery]);
 
   const handleFormatClick = () => {
@@ -573,6 +608,9 @@ export default function SqlExplorerModal({
       }, 0);
     } else {
       if (aiEnabled) {
+        const aiTemperature =
+          gb?.getFeatureValue("ai-suggestions-temperature", 0.1) || 0.1;
+        track("ai-suggestion", { source: "sql-explorer", type: "suggest" });
         setAiError(null);
         setLoading(true);
         apiCall(
@@ -582,6 +620,7 @@ export default function SqlExplorerModal({
             body: JSON.stringify({
               input: aiInput,
               datasourceId: form.watch("datasourceId"),
+              temperature: aiTemperature,
             }),
           },
           (responseData) => {
@@ -592,6 +631,11 @@ export default function SqlExplorerModal({
               setAiError(
                 `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`,
               );
+            } else if (responseData.message) {
+              setAiError(
+                "Error getting AI suggestion: " + responseData.message,
+              );
+              throw new Error(responseData.message);
             } else {
               setAiError("Error getting AI suggestion");
             }
@@ -600,6 +644,7 @@ export default function SqlExplorerModal({
         )
           .then((res: { data: { sql: string; errors: string[] } }) => {
             form.setValue("sql", res.data.sql);
+            aiSuggestionRef.current = res.data.sql;
             if (res.data.errors && res.data.errors.length > 0) {
               setAiError(res.data.errors.join(", "));
             }
@@ -719,6 +764,7 @@ export default function SqlExplorerModal({
       <Modal
         bodyClassName="p-0"
         borderlessHeader={true}
+        backgroundlessHeader={true}
         close={close}
         loading={loading}
         closeCta="Close"
@@ -735,7 +781,6 @@ export default function SqlExplorerModal({
                 : undefined
         }
         header={header || `${id ? "Update" : "Create"} SQL Query`}
-        headerClassName={styles["modal-header-backgroundless"]}
         open={showModal}
         showHeaderCloseButton={true}
         size="max"

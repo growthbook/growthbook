@@ -316,7 +316,7 @@ describe("attributes API", () => {
     expect(response.status).toBe(400);
     expect(response.body).toEqual({
       message:
-        "Request body: [hashAttribute] Expected boolean, received string",
+        "Request body: [hashAttribute] Invalid input: expected boolean, received string",
     });
     expect(updateOrganization).not.toHaveBeenCalledWith();
     expect(auditMock).not.toHaveBeenCalledWith();
@@ -521,7 +521,8 @@ describe("attributes API", () => {
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({
-      message: "Request body: [property] Required",
+      message:
+        "Request body: [property] Invalid input: expected string, received undefined",
     });
     expect(updateOrganization).not.toHaveBeenCalledWith();
     expect(auditMock).not.toHaveBeenCalledWith();
