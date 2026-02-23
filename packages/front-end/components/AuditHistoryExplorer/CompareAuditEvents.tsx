@@ -217,6 +217,7 @@ export default function CompareAuditEvents<T>({
     total,
     loadMore,
     handleLoadAll,
+    handleLoadAllThen,
     groupBy,
     setGroupBy,
     flatEntries,
@@ -245,6 +246,53 @@ export default function CompareAuditEvents<T>({
     singleEntryLast,
     isSingleEntry,
   } = useAuditComparison(config, auditEntries, eventLabels);
+
+  // Tracks which time-range quick action is currently loading (key = range label).
+  const [pendingRange, setPendingRange] = useState<string | null>(null);
+
+  /**
+   * Returns [newestId, oldestId] for all entries whose dateEnd falls at or
+   * after `cutoffMs`, or null if fewer than one entry qualifies.
+   */
+  function getWindowSelection(
+    entries: CoarsenedAuditEntry<T>[],
+    cutoffMs: number,
+  ): [string, string] | null {
+    const inWindow = entries.filter((e) => e.dateEnd.getTime() >= cutoffMs);
+    if (!inWindow.length) return null;
+    return [inWindow[0].id, inWindow[inWindow.length - 1].id];
+  }
+
+  /** Returns true when the current selection matches the time-range window. */
+  function isWindowActive(cutoffMs: number): boolean {
+    if (hasMore) return false;
+    const sel = getWindowSelection(flatEntries, cutoffMs);
+    if (!sel) return false;
+    return (
+      selectedSorted[0] === sel[0] &&
+      selectedSorted[selectedSorted.length - 1] === sel[1]
+    );
+  }
+
+  async function handleTimeRangeAction(label: string, cutoffMs: number) {
+    // If the oldest loaded entry predates the cutoff we already have everything
+    // we need; otherwise load all pages first.
+    const oldestLoaded =
+      flatEntries.length > 0
+        ? flatEntries[flatEntries.length - 1].dateEnd.getTime()
+        : Infinity;
+    if (hasMore && oldestLoaded > cutoffMs) {
+      setPendingRange(label);
+      await handleLoadAllThen((entries) => {
+        const sel = getWindowSelection(entries, cutoffMs);
+        return sel ? [sel[0], sel[1]] : null;
+      });
+      setPendingRange(null);
+    } else {
+      const sel = getWindowSelection(flatEntries, cutoffMs);
+      if (sel) applyQuickAction([sel[0], sel[1]]);
+    }
+  }
 
   const renderEntryRow = (entry: CoarsenedAuditEntry<T>) => {
     const isSelected = selectedSortedSet.has(entry.id);
@@ -350,38 +398,65 @@ export default function CompareAuditEvents<T>({
               Quick actions
             </Text>
             <Flex direction="column" className={styles.quickActionsList}>
-              {flatEntries.length >= 2 && (
-                <Box
-                  className={`${styles.row} ${
-                    selectedSorted.length === 2 &&
-                    selectedSorted[0] === flatEntries[0].id &&
-                    selectedSorted[1] === flatEntries[1].id
-                      ? styles.rowSelected
-                      : ""
-                  }`}
-                  onClick={() =>
-                    applyQuickAction([flatEntries[0].id, flatEntries[1].id])
-                  }
-                >
-                  <Box className={styles.rowSpacer} />
-                  <Flex direction="column" gap="1" style={{ minWidth: 0 }}>
-                    <Text weight="semibold">Most recent change</Text>
-                    <Text size="small" color="text-low" as="div">
-                      <span
-                        style={{
-                          display: "block",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                          width: "100%",
-                        }}
-                      >
-                        {getEntryLabel(flatEntries[0])}
-                      </span>
-                    </Text>
-                  </Flex>
-                </Box>
-              )}
+              {/* Most recent change */}
+              <Box
+                className={`${styles.row} ${
+                  selectedSorted.length === 2 &&
+                  selectedSorted[0] === flatEntries[0].id &&
+                  selectedSorted[1] === flatEntries[1].id
+                    ? styles.rowSelected
+                    : ""
+                }`}
+                onClick={() =>
+                  applyQuickAction([flatEntries[0].id, flatEntries[1].id])
+                }
+              >
+                <Box className={styles.rowSpacer} />
+                <Flex direction="column" gap="1" style={{ minWidth: 0 }}>
+                  <Text weight="semibold">Most recent change</Text>
+                  <Text size="small" color="text-low" as="div">
+                    <span
+                      style={{
+                        display: "block",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        width: "100%",
+                      }}
+                    >
+                      {getEntryLabel(flatEntries[0])}
+                    </span>
+                  </Text>
+                </Flex>
+              </Box>
+
+              {/* Time-range quick actions */}
+              {(
+                [
+                  { label: "Past day", ms: 24 * 60 * 60 * 1000 },
+                  { label: "Past week", ms: 7 * 24 * 60 * 60 * 1000 },
+                  { label: "Past month", ms: 30 * 24 * 60 * 60 * 1000 },
+                ] as const
+              ).map(({ label, ms }) => {
+                const cutoff = Date.now() - ms;
+                const isActive = isWindowActive(cutoff);
+                const isPending = pendingRange === label;
+                return (
+                  <Box
+                    key={label}
+                    className={`${styles.row} ${isActive ? styles.rowSelected : ""}`}
+                    onClick={() => handleTimeRangeAction(label, cutoff)}
+                  >
+                    <Box className={styles.rowSpacer} />
+                    <Flex align="center" gap="2">
+                      <Text weight="semibold">{label}</Text>
+                      {isPending && <LoadingSpinner />}
+                    </Flex>
+                  </Box>
+                );
+              })}
+
+              {/* All changes */}
               <Box
                 className={`${styles.row} ${
                   selectedSorted.length === flatIds.length && !hasMore
@@ -400,7 +475,7 @@ export default function CompareAuditEvents<T>({
                 <Flex direction="column" gap="1">
                   <Flex align="center" gap="2">
                     <Text weight="semibold">All changes</Text>
-                    {loadingAll && <LoadingSpinner />}
+                    {loadingAll && !pendingRange && <LoadingSpinner />}
                   </Flex>
                   <Text size="small" color="text-low">
                     {total} total

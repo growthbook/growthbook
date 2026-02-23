@@ -420,22 +420,46 @@ export function useAuditComparison<T>(
     setDiffPage(0);
   }, []);
 
-  // When loadAll completes, flatIds from the closure is stale. Use a ref so a
-  // useEffect can apply the selection once the fresh flatIds is available.
-  const pendingSelectAllRef = useRef(false);
+  // Generalized post-load callback: called once loadAll settles with fresh entries.
+  // The callback receives the fresh flatEntries and returns the IDs to select
+  // (or null to skip selection).
+  const pendingPostLoadRef = useRef<
+    ((freshEntries: CoarsenedAuditEntry<T>[]) => string[] | null) | null
+  >(null);
+
+  /**
+   * Triggers loadAll and then, once it completes, runs `action` with the
+   * freshly-loaded entries to compute which IDs to select.
+   */
+  const handleLoadAllThen = useCallback(
+    async (
+      action: (freshEntries: CoarsenedAuditEntry<T>[]) => string[] | null,
+    ) => {
+      pendingPostLoadRef.current = action;
+      isDefaultPairRef.current = false;
+      await loadAll();
+    },
+    [loadAll],
+  );
+
   const handleLoadAll = useCallback(async () => {
-    pendingSelectAllRef.current = true;
-    isDefaultPairRef.current = false;
-    await loadAll();
-  }, [loadAll]);
+    await handleLoadAllThen((entries) =>
+      entries.length >= 2
+        ? [entries[0].id, entries[entries.length - 1].id]
+        : null,
+    );
+  }, [handleLoadAllThen]);
+
   useEffect(() => {
-    if (!pendingSelectAllRef.current) return;
+    if (!pendingPostLoadRef.current) return;
     if (hasMore || loadingAll) return;
-    pendingSelectAllRef.current = false;
-    if (flatIds.length >= 2) {
-      setSelectedIds([flatIds[0], flatIds[flatIds.length - 1]]);
+    const action = pendingPostLoadRef.current;
+    pendingPostLoadRef.current = null;
+    const newIds = action(flatEntries);
+    if (newIds && newIds.length >= 1) {
+      setSelectedIds(newIds);
     }
-  }, [hasMore, loadingAll, flatIds]);
+  }, [hasMore, loadingAll, flatEntries]);
 
   const leftColumnItems = useMemo(
     () =>
@@ -484,6 +508,7 @@ export function useAuditComparison<T>(
     total,
     loadMore,
     handleLoadAll,
+    handleLoadAllThen,
     // Grouping
     groupBy,
     setGroupBy,
