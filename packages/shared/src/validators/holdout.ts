@@ -21,11 +21,6 @@ export type HoldoutNextScheduledStatusUpdate = z.infer<
   typeof nextScheduledStatusUpdateValidator
 >;
 
-// const isoDatetimeToDate = z.codec(z.iso.datetime(), z.date(), {
-//   decode: (isoString) => new Date(isoString),
-//   encode: (date) => date.toISOString(),
-// });
-
 export const holdoutValidator = z
   .object({
     id: z.string(),
