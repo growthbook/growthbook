@@ -1,7 +1,7 @@
 import React from "react";
 import { Flex, Box } from "@radix-ui/themes";
 import { BsFillBarChartLineFill } from "react-icons/bs";
-import { PiCode, PiTable } from "react-icons/pi";
+import { PiDatabase, PiTable } from "react-icons/pi";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
@@ -84,7 +84,7 @@ export default function EmptyState() {
             }}
           >
             <Flex direction="column" align="center" gap="1">
-              <PiCode size={24} />
+              <PiDatabase size={24} />
               <Text weight="medium">Data Source</Text>
               <Text size="small" color="text-low" align="center">
                 Explore a table in your Data Source

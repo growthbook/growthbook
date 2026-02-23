@@ -15,6 +15,9 @@ import {
   PiListDashesDuotone,
   PiArticleMediumDuotone,
   PiPencilSimpleFill,
+  PiDatabase,
+  PiTable,
+  PiChartBar,
 } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import {
@@ -87,7 +90,7 @@ export const BLOCK_TYPE_INFO: Record<
     icon: <PiChartLineDuotone />,
   },
   "sql-explorer": {
-    name: "SQL Query",
+    name: "Custom SQL Query",
     icon: <PiFileSqlDuotone />,
   },
   "metric-explorer": {
@@ -96,16 +99,16 @@ export const BLOCK_TYPE_INFO: Record<
     deprecated: true,
   },
   "metric-exploration": {
-    name: "Metric Exploration",
-    icon: <PiTableDuotone />,
+    name: "Metric",
+    icon: <PiChartBar />,
   },
   "fact-table-exploration": {
-    name: "Fact Table Exploration",
-    icon: <PiTableDuotone />,
+    name: "Fact Table",
+    icon: <PiTable />,
   },
   "data-source-exploration": {
-    name: "Data Source Exploration",
-    icon: <PiTableDuotone />,
+    name: "Data Source",
+    icon: <PiDatabase />,
   },
 };
 
@@ -116,26 +119,20 @@ export const BLOCK_SUBGROUPS: [string, DashboardBlockType[]][] = [
   ],
   ["Experiment Info", ["experiment-metadata", "experiment-traffic"]],
   [
-    "Other",
-    [
-      "markdown",
-      "metric-exploration",
-      "fact-table-exploration",
-      "data-source-exploration",
-      "sql-explorer",
-      "metric-explorer",
-    ],
+    "Product Analytics",
+    ["metric-exploration", "fact-table-exploration", "data-source-exploration"],
   ],
+  ["Other", ["sql-explorer", "markdown", "metric-explorer"]],
 ];
 
 // Block types that are allowed in general dashboards (non-experiment specific)
 export const GENERAL_DASHBOARD_BLOCK_TYPES: DashboardBlockType[] = [
-  "markdown",
   "sql-explorer",
   "metric-explorer",
   "metric-exploration",
   "fact-table-exploration",
   "data-source-exploration",
+  "markdown",
 ];
 
 // Helper function to check if a block type is allowed for the given dashboard type
@@ -195,13 +192,11 @@ function AddBlockDropdown({
 
         return (
           <Fragment key={`${subgroup}-${i}`}>
-            {!isGeneralDashboard && (
-              <DropdownMenuLabel className="font-weight-bold">
-                <Text style={{ color: "var(--color-text-high)" }}>
-                  {subgroup}
-                </Text>
-              </DropdownMenuLabel>
-            )}
+            <DropdownMenuLabel className="font-weight-bold">
+              <Text style={{ color: "var(--color-text-high)" }}>
+                {subgroup}
+              </Text>
+            </DropdownMenuLabel>
             {allowedBlockTypes.map((bType) => {
               if (BLOCK_TYPE_INFO[bType].deprecated) {
                 return null;

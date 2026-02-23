@@ -16,6 +16,7 @@ import {
 } from "shared/src/validators/product-analytics";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
+  DEFAULT_EXPLORE_STATE,
   cleanConfigForSubmission,
   compareConfig,
   createEmptyDataset,
@@ -67,32 +68,8 @@ export interface ExplorerContextValue {
   updateTimestampColumn: (column: string) => void;
   changeChartType: (chartType: ProductAnalyticsConfig["chartType"]) => void;
 }
-
-const DEFAULT_EXPLORE_STATE: ProductAnalyticsConfig = {
-  dataset: {
-    type: "metric", // default to metric
-    values: [],
-  },
-  dimensions: [
-    {
-      dimensionType: "date",
-      column: "date",
-      dateGranularity: "auto",
-    },
-  ],
-  chartType: "line",
-  dateRange: {
-    predefined: "last30Days",
-    lookbackValue: 30,
-    lookbackUnit: "day",
-    startDate: null,
-    endDate: null,
-  },
-  lastRefreshedAt: null,
-};
 const ExplorerContext = createContext<ExplorerContextValue | null>(null);
 const DEFAULT_AUTO_SUBMIT = true;
-
 interface ExplorerProviderProps {
   children: ReactNode;
   initialConfig?: ProductAnalyticsConfig;

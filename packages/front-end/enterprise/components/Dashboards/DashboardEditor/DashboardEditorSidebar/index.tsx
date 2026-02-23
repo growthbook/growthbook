@@ -145,19 +145,16 @@ export default function DashboardEditorSidebar({
             key={`${subgroup}-${i}`}
             width="100%"
           >
-            {/* We hide the `Other` subgroup title for general dashboards since those are the only available options */}
-            {experiment ? (
-              <Text
-                weight="medium"
-                size="1"
-                style={{
-                  color: "var(--color-text-high)",
-                  textTransform: "uppercase",
-                }}
-              >
-                {subgroup}
-              </Text>
-            ) : null}
+            <Text
+              weight="medium"
+              size="1"
+              style={{
+                color: "var(--color-text-high)",
+                textTransform: "uppercase",
+              }}
+            >
+              {subgroup}
+            </Text>
 
             {allowedBlockTypes.map((bType) => {
               if (BLOCK_TYPE_INFO[bType].deprecated) {
