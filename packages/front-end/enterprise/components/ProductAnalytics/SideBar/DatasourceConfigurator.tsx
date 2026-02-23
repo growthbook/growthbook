@@ -175,7 +175,6 @@ export default function DatasourceConfigurator({
   const showRefreshButton =
     datasourceId &&
     informationSchema &&
-    !informationSchema.error &&
     informationSchema.status === "COMPLETE";
 
   return (
@@ -235,7 +234,16 @@ export default function DatasourceConfigurator({
           forceUndefinedValueToNull
         />
       </>
-      {datasourceId && !informationSchema && !fetching ? (
+      {informationSchema?.error ? (
+        <Callout status="error" mt="2">
+          <Flex direction="column" gap="2">
+            <Text weight="medium">
+              We&apos;re unable to identify tables for this Data Source.
+            </Text>
+            <Text>Reason: {informationSchema?.error?.message}</Text>
+          </Flex>
+        </Callout>
+      ) : datasourceId && !informationSchema && !fetching ? (
         <BuildTablesCard
           refreshOrCreateInfoSchema={refreshOrCreateInfoSchema}
           canRunQueries={canRunQueries}
