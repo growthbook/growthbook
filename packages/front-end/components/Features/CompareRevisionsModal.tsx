@@ -1197,14 +1197,29 @@ export default function CompareRevisionsModal({
               ) : (
                 <>
                   {(() => {
-                    const logVersions =
+                    // Versions whose log badges describe what is currently diffed.
+                    // Steps mode: only the newer revision (B) represents the A→B delta.
+                    // Single mode: all selected revisions, newest first.
+                    const badgeVersions =
+                      diffViewMode === "steps" && currentStep
+                        ? [currentStep[1]]
+                        : diffViewMode === "single"
+                          ? [...selectedSorted].reverse()
+                          : [];
+                    // Versions whose comments are surfaced. Include both fenceposts
+                    // so the reader sees comments attached to either endpoint.
+                    const commentVersions =
                       diffViewMode === "steps" && currentStep
                         ? [currentStep[1], currentStep[0]]
                         : diffViewMode === "single"
                           ? [...selectedSorted].reverse()
                           : [];
-                    if (logVersions.length === 0) return null;
-                    const commentVersions = logVersions.map((v) => ({
+                    if (
+                      badgeVersions.length === 0 &&
+                      commentVersions.length === 0
+                    )
+                      return null;
+                    const commentItems = commentVersions.map((v) => ({
                       version: v,
                       revisionComment: getFullRevision(v)?.comment,
                     }));
@@ -1212,21 +1227,25 @@ export default function CompareRevisionsModal({
                       <>
                         <RevisionCommentSection
                           featureId={feature.id}
-                          versions={commentVersions}
+                          versions={commentItems}
                         />
-                        <Heading
-                          as="h5"
-                          size="small"
-                          color="text-mid"
-                          mt="4"
-                          mb="2"
-                        >
-                          Changes summary
-                        </Heading>
-                        <RevisionLogSummary
-                          featureId={feature.id}
-                          versions={logVersions}
-                        />
+                        {badgeVersions.length > 0 && (
+                          <>
+                            <Heading
+                              as="h5"
+                              size="small"
+                              color="text-mid"
+                              mt="4"
+                              mb="2"
+                            >
+                              Changes summary
+                            </Heading>
+                            <RevisionLogSummary
+                              featureId={feature.id}
+                              versions={badgeVersions}
+                            />
+                          </>
+                        )}
                       </>
                     );
                   })()}
