@@ -27,28 +27,6 @@ import {
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useExploreData } from "./useExploreData";
 
-const DEFAULT_EXPLORE_STATE: ProductAnalyticsConfig = {
-  dataset: {
-    type: "metric", // default to metric
-    values: [],
-  },
-  dimensions: [
-    {
-      dimensionType: "date",
-      column: "date",
-      dateGranularity: "auto",
-    },
-  ],
-  chartType: "line",
-  dateRange: {
-    predefined: "last30Days",
-    lookbackValue: 30,
-    lookbackUnit: "day",
-    startDate: null,
-    endDate: null,
-  },
-  lastRefreshedAt: null,
-};
 
 type ExplorerCacheValue = {
   draftState: ProductAnalyticsConfig | null;
@@ -76,6 +54,10 @@ export interface ExplorerContextValue {
   lastRefreshedAt: Date | null;
   commonColumns: Pick<ColumnInterface, "column" | "name">[];
   isEmpty: boolean;
+  autoSubmitEnabled: boolean;
+  setAutoSubmitEnabled: (enabled: boolean) => void;
+  isStale: boolean;
+  isSubmittable: boolean;
 
   // ─── Modifiers ─────────────────────────────────────────────────────────
   setDraftExploreState: (action: SetDraftStateAction) => void;
@@ -88,8 +70,30 @@ export interface ExplorerContextValue {
   changeChartType: (chartType: ProductAnalyticsConfig["chartType"]) => void;
 }
 
+const DEFAULT_EXPLORE_STATE: ProductAnalyticsConfig = {
+  dataset: {
+    type: "metric", // default to metric
+    values: [],
+  },
+  dimensions: [
+    {
+      dimensionType: "date",
+      column: "date",
+      dateGranularity: "auto",
+    },
+  ],
+  chartType: "line",
+  dateRange: {
+    predefined: "last30Days",
+    lookbackValue: 30,
+    lookbackUnit: "day",
+    startDate: null,
+    endDate: null,
+  },
+  lastRefreshedAt: null,
+};
 const ExplorerContext = createContext<ExplorerContextValue | null>(null);
-const AUTO_SUBMIT = true;
+const DEFAULT_AUTO_SUBMIT = true;
 
 interface ExplorerProviderProps {
   children: ReactNode;
@@ -117,6 +121,8 @@ export function ExplorerProvider({
     fact_table: null,
     data_source: null,
   });
+  const [autoSubmitEnabled, setAutoSubmitEnabled] =
+    useState(DEFAULT_AUTO_SUBMIT);
 
   const isEmpty = activeExplorerType === null;
 
@@ -209,6 +215,8 @@ export function ExplorerProvider({
     );
   }, [submittedExploreState, cleanedDraftExploreState]);
 
+  const isStale = needsUpdate && needsFetch && !autoSubmitEnabled;
+
   const isSubmittable = useMemo(() => {
     return isSubmittableConfig(cleanedDraftExploreState);
   }, [cleanedDraftExploreState]);
@@ -240,9 +248,10 @@ export function ExplorerProvider({
   }, [doSubmit]);
 
   useEffect(() => {
-    if (needsFetch && AUTO_SUBMIT && isSubmittable) {
+    if (!isSubmittable) return;
+    if (needsFetch && autoSubmitEnabled) {
       doSubmit();
-    } else if (needsUpdate && isSubmittable) {
+    } else if (needsUpdate && !needsFetch) {
       setSubmittedExploreState(cleanedDraftExploreState);
     }
   }, [
@@ -252,6 +261,7 @@ export function ExplorerProvider({
     cleanedDraftExploreState,
     setSubmittedExploreState,
     isSubmittable,
+    autoSubmitEnabled,
   ]);
 
   const createDefaultValue = useCallback(
@@ -413,6 +423,10 @@ export function ExplorerProvider({
       updateTimestampColumn,
       changeChartType,
       isEmpty,
+      autoSubmitEnabled,
+      setAutoSubmitEnabled,
+      isStale,
+      isSubmittable,
     }),
     [
       draftExploreState,
@@ -431,6 +445,10 @@ export function ExplorerProvider({
       updateTimestampColumn,
       changeChartType,
       isEmpty,
+      autoSubmitEnabled,
+      setAutoSubmitEnabled,
+      isStale,
+      isSubmittable,
     ],
   );
 

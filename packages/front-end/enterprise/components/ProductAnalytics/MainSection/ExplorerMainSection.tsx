@@ -2,6 +2,8 @@ import { Flex } from "@radix-ui/themes";
 import { PiArrowsClockwise } from "react-icons/pi";
 import { BsGraphUpArrow } from "react-icons/bs";
 import Button from "@/ui/Button";
+import Checkbox from "@/ui/Checkbox";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Text from "@/ui/Text";
 import GraphTypeSelector from "./Toolbar/GraphTypeSelector";
@@ -20,6 +22,10 @@ export default function ExplorerMainSection() {
     loading,
     lastRefreshedAt,
     handleSubmit,
+    autoSubmitEnabled,
+    setAutoSubmitEnabled,
+    isStale,
+    isSubmittable,
   } = useExplorerContext();
 
   return (
@@ -29,17 +35,44 @@ export default function ExplorerMainSection() {
           <GraphTypeSelector />
         </Flex>
         <Flex align="center" gap="3">
-          <Button
+          <Checkbox
+            label="Auto submit"
+            value={autoSubmitEnabled}
+            setValue={setAutoSubmitEnabled}
             size="sm"
-            variant="outline"
-            disabled={loading || !draftExploreState?.dataset?.values?.length}
-            onClick={handleSubmit}
+          />
+          <Tooltip
+            body="Configuration has changed. Click to refresh the chart."
+            shouldDisplay={isStale}
           >
-            <Flex align="center" gap="1">
-              <PiArrowsClockwise />
-              Update
-            </Flex>
-          </Button>
+            <Button
+              size="sm"
+              variant={autoSubmitEnabled ? "outline" : "solid"}
+              disabled={
+                loading ||
+                !draftExploreState?.dataset?.values?.length ||
+                !isSubmittable
+              }
+              onClick={handleSubmit}
+            >
+              <Flex align="center" gap="2">
+                <PiArrowsClockwise />
+                Update
+                {isStale && (
+                  <span
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: "50%",
+                      backgroundColor: "var(--amber-9)",
+                      flexShrink: 0,
+                    }}
+                    aria-hidden
+                  />
+                )}
+              </Flex>
+            </Button>
+          </Tooltip>
           <DateRangePicker />
           {["line", "area"].includes(draftExploreState.chartType) && (
             <GranularitySelector />
