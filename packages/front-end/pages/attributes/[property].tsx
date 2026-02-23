@@ -43,7 +43,7 @@ export default function AttributeDetailPage() {
     [attributeSchema, property],
   );
 
-  const { getProjectById, savedGroups } = useDefinitions();
+  const { savedGroups } = useDefinitions();
   const { features } = useFeaturesList({ useCurrentProject: false });
   const { experiments } = useExperiments();
   const { apiCall } = useAuth();
@@ -186,6 +186,7 @@ export default function AttributeDetailPage() {
           close={() => setShowReferencesModal(false)}
           size="max"
           closeCta="Close"
+          trackingEventModalType="show-attribute-references"
         >
           <SavedGroupReferencesList
             features={referencingFeatures}
@@ -210,6 +211,7 @@ export default function AttributeDetailPage() {
           close={() => setShowDeleteModal(false)}
           cta="Delete"
           submitColor="danger"
+          trackingEventModalType=""
           submit={async () => {
             await apiCall<{ status: number }>("/attribute/", {
               method: "DELETE",
@@ -296,7 +298,7 @@ export default function AttributeDetailPage() {
                 Format: <strong>{attribute.format}</strong>
               </Text>
             )}
-            {getProjectById && (attribute.projects?.length ?? 0) > 0 && (
+            {(attribute.projects?.length ?? 0) > 0 && (
               <Flex align="center" gap="2">
                 <Text>Projects:</Text>
                 <ProjectBadges
@@ -331,7 +333,7 @@ export default function AttributeDetailPage() {
                 {totalReferences !== 1 && "s"}
               </Link>
             ) : (
-              <Tooltip content="No features, experiments, or saved groups currently reference this attribute.">
+              <Tooltip body="No features, experiments, or saved groups currently reference this attribute.">
                 <span
                   style={{ color: "var(--gray-10)", cursor: "not-allowed" }}
                 >
