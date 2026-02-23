@@ -2069,7 +2069,8 @@ export default abstract class SqlIntegration
     // BQ datetime cast for SELECT statements (do not use for where)
     const timestampDateTimeColumn = this.castUserDateCol(timestampColumn);
     const overrideConversionWindows =
-      settings.attributionModel === "experimentDuration";
+      settings.attributionModel === "experimentDuration" ||
+      settings.attributionModel === "lookbackOverride";
 
     return `
     ${params.includeIdJoins ? idJoinSQL : ""}
@@ -2748,7 +2749,8 @@ export default abstract class SqlIntegration
       : 0;
 
     const overrideConversionWindows =
-      settings.attributionModel === "experimentDuration";
+      settings.attributionModel === "experimentDuration" ||
+      settings.attributionModel === "lookbackOverride";
 
     // Get capping settings and final coalesce statement
     const isPercentileCapped = isPercentileCappedMetric(metric);
@@ -3864,7 +3866,8 @@ export default abstract class SqlIntegration
       : 0;
 
     const overrideConversionWindows =
-      settings.attributionModel === "experimentDuration";
+      settings.attributionModel === "experimentDuration" ||
+      settings.attributionModel === "lookbackOverride";
 
     // Get capping settings and final coalesce statement
     const isPercentileCapped = isPercentileCappedMetric(metric);

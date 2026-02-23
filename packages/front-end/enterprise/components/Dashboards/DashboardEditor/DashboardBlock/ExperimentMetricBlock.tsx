@@ -8,6 +8,7 @@ import { isString } from "shared/util";
 import { groupBy } from "lodash";
 import { MetricSnapshotSettings } from "shared/types/report";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
+import { getEffectiveLookbackOverride } from "shared/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { MetricDrilldownProvider } from "@/components/MetricDrilldown/MetricDrilldownContext";
@@ -168,6 +169,10 @@ export default function ExperimentMetricBlock({
       isLatestPhase={true}
       sequentialTestingEnabled={sequentialTestingEnabled}
       differenceType={differenceType}
+      lookbackOverride={getEffectiveLookbackOverride(
+        snapshot.settings.attributionModel,
+        snapshot.settings.lookbackOverride,
+      )}
       baselineRow={baselineRow}
       variationFilter={variationFilter}
     >

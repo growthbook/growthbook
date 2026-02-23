@@ -3,6 +3,8 @@ import { MdSwapCalls } from "react-icons/md";
 import { quantileMetricType, isFactMetric } from "shared/experiments";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { StatsEngine } from "shared/types/stats";
+import { LookbackOverride } from "shared/validators";
+import { date } from "shared/dates";
 import Metadata from "@/ui/Metadata";
 import FactMetricTypeDisplayName from "@/components/Metrics/FactMetricTypeDisplayName";
 import { getPercentileLabel } from "@/services/metrics";
@@ -14,9 +16,11 @@ import { ExperimentTableRow } from "@/services/experiments";
 
 export function MetricDrilldownMetadata({
   statsEngine,
+  lookbackOverride,
   row,
 }: {
   statsEngine: StatsEngine;
+  lookbackOverride?: LookbackOverride;
   row: ExperimentTableRow;
 }) {
   const { metric, metricOverrideFields, metricSnapshotSettings } = row;
@@ -82,10 +86,21 @@ export function MetricDrilldownMetadata({
         <Metadata label="Capping" value="Disabled" />
       )}
 
-      {(!isNullUndefinedOrEmpty(metric.windowSettings.type) ||
-        metricOverrideFields.includes("windowType")) &&
-      (metric.windowSettings.windowValue !== 0 ||
-        metricOverrideFields.includes("windowHours")) ? (
+      {/* Brute force show override from latest experiment settings, but we could instead show computed window from 
+      metricForSnapshot, but would require potentially reconstructing more settings*/}
+      {lookbackOverride ? (
+        <Metadata
+          label="Lookback Window Override"
+          value={
+            lookbackOverride.type === "date"
+              ? `${date(lookbackOverride.value)} - now/end`
+              : `${lookbackOverride.value} ${lookbackOverride.valueUnit}`
+          }
+        />
+      ) : (!isNullUndefinedOrEmpty(metric.windowSettings.type) ||
+          metricOverrideFields.includes("windowType")) &&
+        (metric.windowSettings.windowValue !== 0 ||
+          metricOverrideFields.includes("windowHours")) ? (
         <Metadata
           label={`${capitalizeFirstLetter(
             metric.windowSettings.type || "no",
