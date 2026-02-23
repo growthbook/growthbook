@@ -1,8 +1,10 @@
 ARG PYTHON_MAJOR=3.11
 ARG NODE_MAJOR=24
+ARG UPGRADE_PIP="true"
 
 # Build the python gbstats package
 FROM python:${PYTHON_MAJOR}-slim AS pybuild
+ARG UPGRADE_PIP
 WORKDIR /usr/local/src/app
 COPY ./packages/stats .
 
@@ -12,7 +14,7 @@ RUN python -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:${PATH}"
 
 RUN \
-  pip install --upgrade pip \
+  if [ "$UPGRADE_PIP" = "true" ]; then pip install --upgrade pip; fi \
   && pip install --no-cache-dir poetry==1.8.5 \
   && poetry install --no-root --without dev --no-interaction --no-ansi \
   && poetry build \
