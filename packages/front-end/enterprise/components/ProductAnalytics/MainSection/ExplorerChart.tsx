@@ -68,7 +68,7 @@ export default function ExplorerChart({
     if (
       !exploreData?.rows?.length ||
       !submittedExploreState ||
-      submittedExploreState.chartType === "table"
+      ["table", "timeseries-table"].includes(submittedExploreState.chartType)
     )
       return null;
     const rows = exploreData.rows;
@@ -314,7 +314,9 @@ export default function ExplorerChart({
             label={submittedExploreState?.dataset?.values?.[0]?.name}
           />
         </Flex>
-      ) : submittedExploreState?.chartType === "table" ? null : chartConfig ? (
+      ) : ["table", "timeseries-table"].includes(
+          submittedExploreState?.chartType,
+        ) ? null : chartConfig ? (
         <EChartsReact
           key={JSON.stringify(chartConfig)}
           option={{

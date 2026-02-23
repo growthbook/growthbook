@@ -31,6 +31,7 @@ const chartTypes: {
     items: [
       { value: "line", label: "Line", icon: PiChartLine },
       { value: "area", label: "Area", icon: AreaChartIcon },
+      { value: "timeseries-table", label: "Table", icon: PiTable },
     ],
   },
   {

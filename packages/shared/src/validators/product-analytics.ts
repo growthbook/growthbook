@@ -128,6 +128,7 @@ export const dimensionValidator = z.discriminatedUnion("dimensionType", [
 export const chartTypes = [
   "line",
   "area",
+  "timeseries-table",
   "table",
   "bar",
   "horizontalBar",

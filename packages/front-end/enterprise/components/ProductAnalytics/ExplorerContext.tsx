@@ -352,7 +352,10 @@ export function ExplorerProvider({
       setDraftExploreState((prev) => {
         let dimensions = prev.dimensions;
         // Time-series charts (line, area) need date dimensions
-        const isTimeSeriesChart = chartType === "line" || chartType === "area";
+        const isTimeSeriesChart =
+          chartType === "line" ||
+          chartType === "area" ||
+          chartType === "timeseries-table";
 
         if (!isTimeSeriesChart) {
           dimensions = dimensions.filter((d) => d.dimensionType !== "date");

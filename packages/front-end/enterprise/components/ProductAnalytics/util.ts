@@ -349,7 +349,11 @@ export function cleanConfigForSubmission(
   };
 }
 
-const TIMESERIES_CHART_TYPES: Set<string> = new Set(["line", "area"]);
+const TIMESERIES_CHART_TYPES: Set<string> = new Set([
+  "line",
+  "area",
+  "timeseries-table",
+]);
 const CUMULATIVE_CHART_TYPES: Set<string> = new Set([
   "bar",
   "horizontalBar",
