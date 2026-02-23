@@ -11,7 +11,11 @@ import {
   PValueCorrection,
   StatsEngine,
 } from "shared/types/stats";
-import { ExperimentStatus, MetricOverride } from "shared/types/experiment";
+import {
+  ExperimentStatus,
+  LookbackOverride,
+  MetricOverride,
+} from "shared/types/experiment";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
@@ -82,6 +86,7 @@ interface MetricDrilldownModalProps {
   endDate: string;
   reportDate: Date;
   isLatestPhase: boolean;
+  lookbackOverride?: LookbackOverride;
   sequentialTestingEnabled?: boolean;
 
   // Initial sorting state (inherited from CompactResults)
@@ -136,6 +141,7 @@ interface MetricDrilldownContentProps {
   reportDate: Date;
   isLatestPhase: boolean;
   sequentialTestingEnabled?: boolean;
+  lookbackOverride?: LookbackOverride;
   localSortBy: ExperimentSortBy;
   localSortDirection: "asc" | "desc" | null;
   initialSliceSearchTerm?: string;
@@ -172,6 +178,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
   reportDate,
   isLatestPhase,
   sequentialTestingEnabled,
+  lookbackOverride,
   localSortBy,
   localSortDirection,
   initialSliceSearchTerm,
@@ -307,6 +314,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
           localDifferenceType={localDifferenceType}
           setLocalDifferenceType={setLocalDifferenceType}
           sequentialTestingEnabled={sequentialTestingEnabled}
+          lookbackOverride={lookbackOverride}
           timeSeriesMessage={
             isReportContext
               ? "Time series data is not available for custom reports."
@@ -405,6 +413,7 @@ const MetricDrilldownModal = ({
   reportDate,
   isLatestPhase,
   sequentialTestingEnabled,
+  lookbackOverride,
   // Initial sorting state
   initialSortBy,
   initialSortDirection,
@@ -474,6 +483,7 @@ const MetricDrilldownModal = ({
     reportDate,
     isLatestPhase,
     sequentialTestingEnabled,
+    lookbackOverride,
     localSortBy,
     localSortDirection,
     initialSliceSearchTerm,
