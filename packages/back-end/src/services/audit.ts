@@ -1,11 +1,5 @@
-import {
-  AuditInterfaceTemplate,
-  EntityType,
-  EventType,
-  EventTypes,
-} from "shared/types/audit";
+import { EntityType, EventType, EventTypes } from "shared/types/audit";
 import { entityTypes } from "shared/constants";
-import { findAuditByEntityList } from "back-end/src/models/AuditModel";
 import { getWatchedByUser } from "back-end/src/models/WatchModel";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
@@ -15,10 +9,10 @@ export function isValidAuditEntityType(type: string): type is EntityType {
 }
 
 export async function getRecentWatchedAudits(
+  context: ReqContext,
   userId: string,
-  organization: string,
 ) {
-  const userWatches = await getWatchedByUser(organization, userId);
+  const userWatches = await getWatchedByUser(context.org.id, userId);
 
   if (!userWatches) {
     return [];
@@ -55,15 +49,13 @@ export async function getRecentWatchedAudits(
     },
   };
 
-  const experiments = await findAuditByEntityList(
-    organization,
+  const experiments = await context.models.audits.findAuditByEntityList(
     "experiment",
     userWatches.experiments,
     experimentsFilter,
   );
 
-  const features = await findAuditByEntityList(
-    organization,
+  const features = await context.models.audits.findAuditByEntityList(
     "feature",
     userWatches.features,
     featuresFilter,
@@ -133,7 +125,7 @@ export function createModelAuditLogger<E extends EntityType>(
           },
           event: config.createEvent,
           details: config.omitDetails ? "" : auditDetailsCreate(doc),
-        } as AuditInterfaceTemplate<E>);
+        });
       } catch (e) {
         context.logger.error(
           e,
@@ -162,7 +154,7 @@ export function createModelAuditLogger<E extends EntityType>(
           },
           event,
           details: config.omitDetails ? "" : auditDetailsUpdate(doc, newDoc),
-        } as AuditInterfaceTemplate<E>);
+        });
       } catch (e) {
         context.logger.error(e, `Error creating audit log for ${event}`);
       }
@@ -182,7 +174,7 @@ export function createModelAuditLogger<E extends EntityType>(
           },
           event: config.deleteEvent,
           details: config.omitDetails ? "" : auditDetailsDelete(doc),
-        } as AuditInterfaceTemplate<E>);
+        });
       } catch (e) {
         context.logger.error(
           e,
@@ -206,7 +198,7 @@ export function createModelAuditLogger<E extends EntityType>(
           },
           event: config.autocreateEvent,
           details: config.omitDetails ? "" : auditDetailsCreate(doc),
-        } as AuditInterfaceTemplate<E>);
+        });
       } catch (e) {
         context.logger.error(
           e,

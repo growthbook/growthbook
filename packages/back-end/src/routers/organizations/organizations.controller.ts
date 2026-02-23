@@ -119,16 +119,6 @@ import {
   getExperimentsForActivityFeed,
   hasNonDemoExperiment,
 } from "back-end/src/models/ExperimentModel";
-import {
-  findAllAuditsByEntityType,
-  findAllAuditsByEntityTypeParent,
-  findAuditByEntity,
-  findAuditByEntityParent,
-  countAuditByEntity,
-  countAuditByEntityParent,
-  countAllAuditsByEntityType,
-  countAllAuditsByEntityTypeParent,
-} from "back-end/src/models/AuditModel";
 import { getAllFactTablesForOrganization } from "back-end/src/models/FactTableModel";
 import { fireSdkWebhook } from "back-end/src/jobs/sdkWebhooks";
 import {
@@ -225,9 +215,9 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
 
 export async function getActivityFeed(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
-  const { org, userId } = context;
+  const { userId } = context;
   try {
-    const docs = await getRecentWatchedAudits(userId, org.id);
+    const docs = await getRecentWatchedAudits(context, userId);
 
     if (!docs.length) {
       return res.status(200).json({
@@ -261,7 +251,8 @@ export async function getAllHistory(
   req: AuthRequest<null, { type: string }, { cursor?: string; limit?: string }>,
   res: Response,
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { type } = req.params;
   const limit = Math.min(parseInt(req.query.limit || "50"), 100); // Max 100 per page
   const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
@@ -275,8 +266,8 @@ export async function getAllHistory(
 
   // Get total count for display
   const [entityCount, parentCount] = await Promise.all([
-    countAllAuditsByEntityType(org.id, type),
-    countAllAuditsByEntityTypeParent(org.id, type),
+    context.models.audits.countAllAuditsByEntityType(type),
+    context.models.audits.countAllAuditsByEntityTypeParent(type),
   ]);
   const total = entityCount + parentCount;
 
@@ -284,8 +275,7 @@ export async function getAllHistory(
   const fetchLimit = limit;
 
   const events = await Promise.all([
-    findAllAuditsByEntityType(
-      org.id,
+    context.models.audits.findAllAuditsByEntityType(
       type,
       {
         limit: fetchLimit,
@@ -293,8 +283,7 @@ export async function getAllHistory(
       },
       cursorFilter,
     ),
-    findAllAuditsByEntityTypeParent(
-      org.id,
+    context.models.audits.findAllAuditsByEntityTypeParent(
       type,
       {
         limit: fetchLimit,
@@ -344,7 +333,8 @@ export async function getHistory(
   >,
   res: Response,
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { type, id } = req.params;
   const limit = Math.min(parseInt(req.query.limit || "50"), 100); // Max 100 per page
   const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
@@ -358,8 +348,8 @@ export async function getHistory(
 
   // Get total count for display
   const [entityCount, parentCount] = await Promise.all([
-    countAuditByEntity(org.id, type, id),
-    countAuditByEntityParent(org.id, type, id),
+    context.models.audits.countAuditByEntity(type, id),
+    context.models.audits.countAuditByEntityParent(type, id),
   ]);
   const total = entityCount + parentCount;
 
@@ -368,8 +358,7 @@ export async function getHistory(
   const fetchLimit = limit;
 
   const events = await Promise.all([
-    findAuditByEntity(
-      org.id,
+    context.models.audits.findAuditByEntity(
       type,
       id,
       {
@@ -378,8 +367,7 @@ export async function getHistory(
       },
       cursorFilter,
     ),
-    findAuditByEntityParent(
-      org.id,
+    context.models.audits.findAuditByEntityParent(
       type,
       id,
       {
