@@ -26,8 +26,6 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
   >;
 }) {
   const { exploreData } = useExplorerContext();
-  console.log("exploreData", exploreData);
-  console.log("block", block);
 
   // When we get a submittedExploreState, persist the analysisId to the block
   useEffect(() => {
@@ -43,5 +41,5 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
     }
   }, [block, block.explorerAnalysisId, setBlock, exploreData]);
 
-  return <ExplorerSideBar enableSaveToDashboard={false} />;
+  return <ExplorerSideBar renderingInDashboardSidebar />;
 }

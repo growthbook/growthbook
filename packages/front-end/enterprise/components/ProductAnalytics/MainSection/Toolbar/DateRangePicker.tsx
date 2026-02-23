@@ -9,14 +9,20 @@ import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/Exp
 const PREDEFINED_LABELS: Record<(typeof dateRangePredefined)[number], string> =
   {
     today: "Today",
-    last7Days: "7d",
-    last30Days: "30d",
-    last90Days: "90d",
+    last7Days: "Past 7 Days",
+    last30Days: "Past 30 Days",
+    last90Days: "Past 90 Days",
     customLookback: "Custom Lookback",
     customDateRange: "Custom Date Range",
   };
 
-export default function DateRangePicker() {
+interface DateRangePickerProps {
+  shouldWrap?: boolean;
+}
+
+export default function DateRangePicker({
+  shouldWrap = false,
+}: DateRangePickerProps = {}) {
   const { draftExploreState, setDraftExploreState } = useExplorerContext();
   const { dateRange } = draftExploreState;
 
@@ -53,7 +59,13 @@ export default function DateRangePicker() {
   };
 
   return (
-    <Flex align="center" gap="2">
+    <Flex
+      align="center"
+      gap="2"
+      wrap={shouldWrap ? "wrap" : undefined}
+      width={shouldWrap ? "100%" : undefined}
+      style={shouldWrap ? { minWidth: 0 } : undefined}
+    >
       <Select
         size="2"
         value={dateRange.predefined}
@@ -146,6 +158,8 @@ export default function DateRangePicker() {
       {dateRange.predefined === "customDateRange" && (
         <DatePicker
           containerClassName="mb-0"
+          compact
+          wrapRangeInputs={shouldWrap}
           date={dateRange.startDate || undefined}
           date2={dateRange.endDate || undefined}
           setDate={(d) => {

@@ -18,11 +18,11 @@ import GroupBySection from "./GroupBySection";
 import DatasourceConfigurator from "./DatasourceConfigurator";
 
 interface Props {
-  enableSaveToDashboard?: boolean;
+  renderingInDashboardSidebar?: boolean;
 }
 
 export default function ExplorerSideBar({
-  enableSaveToDashboard = true,
+  renderingInDashboardSidebar = false,
 }: Props) {
   const { draftExploreState, setDraftExploreState, changeDatasetType } =
     useExplorerContext();
@@ -49,7 +49,7 @@ export default function ExplorerSideBar({
         <Text weight="medium" mt="2">
           Configuration
         </Text>
-        {enableSaveToDashboard ? (
+        {!renderingInDashboardSidebar ? (
           <Button size="sm">Save to Dashboard</Button>
         ) : (
           <Flex direction="row">
@@ -78,7 +78,7 @@ export default function ExplorerSideBar({
           backgroundColor: "var(--color-panel-translucent)",
         }}
       >
-        {enableSaveToDashboard ? (
+        {!renderingInDashboardSidebar ? (
           <>
             <Text weight="medium">Explorer Type</Text>
             <SelectField
@@ -93,20 +93,25 @@ export default function ExplorerSideBar({
             />
           </>
         ) : (
-          <>
-            <Text weight="medium">Chart Type</Text>
-            <GraphTypeSelector />
-            <Flex direction="row" gap="2" justify="between" align="center">
-              <Flex direction="column" gap="2">
-                <Text weight="medium">Date Range</Text>
-                <DateRangePicker />
-              </Flex>
-              <Flex direction="column" gap="2">
-                <Text weight="medium">Date Granularity</Text>
-                <GranularitySelector />
-              </Flex>
+          <Flex direction="column" gap="2" flexBasis="wrap">
+            <Flex direction="column" gap="2">
+              <Text weight="medium">Chart Type</Text>
+              <GraphTypeSelector />
             </Flex>
-          </>
+            <Flex
+              direction="column"
+              gap="2"
+              width="fit-content"
+              flexBasis="wrap"
+            >
+              <Text weight="medium">Date Range</Text>
+              <DateRangePicker shouldWrap={renderingInDashboardSidebar} />
+            </Flex>
+            <Flex direction="column" gap="2">
+              <Text weight="medium">Date Granularity</Text>
+              <GranularitySelector />
+            </Flex>
+          </Flex>
         )}
 
         {activeType === "fact_table" && factTableDataset && (
