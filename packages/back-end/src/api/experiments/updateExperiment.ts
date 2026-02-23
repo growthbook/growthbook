@@ -179,6 +179,29 @@ export const updateExperiment = createApiRequestHandler(
     throw new Error("Can only convert experiment types while in draft mode.");
   }
 
+  // Validate attributionModel + lookbackOverride consistency
+  const effectiveAttrModel =
+    req.body.attributionModel ?? experiment.attributionModel;
+  const effectiveLookback =
+    req.body.lookbackOverride !== undefined
+      ? req.body.lookbackOverride
+      : experiment.lookbackOverride;
+  if (effectiveAttrModel === "lookbackOverride" && !effectiveLookback) {
+    throw new Error(
+      "lookbackOverride is required when attributionModel is 'lookbackOverride'",
+    );
+  }
+  // If lookbackOverride is provided in the payload, it must have the right
+  // attribution model
+  if (
+    effectiveAttrModel !== "lookbackOverride" &&
+    req.body.lookbackOverride !== undefined
+  ) {
+    throw new Error(
+      "lookbackOverride is only allowed when attributionModel is 'lookbackOverride'",
+    );
+  }
+
   const updatedExperiment = await updateExperimentToDb({
     context: req.context,
     experiment: experiment,
