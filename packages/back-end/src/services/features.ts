@@ -112,8 +112,8 @@ export function generateFeaturesPayload({
   savedGroupReferencesEnabled,
   organization,
   savedGroupsMap,
-  includeRuleIds = false,
-  includeExperimentNames = false,
+  includeRuleIds,
+  includeExperimentNames,
 }: {
   features: FeatureInterface[];
   experimentMap: Map<string, ExperimentInterface>;
@@ -162,7 +162,7 @@ export function generateFeaturesPayload({
   return defs;
 }
 
-function filterHoldoutsMapByProjects(
+function buildHoldoutsMapForProjects(
   holdoutsMap: Map<
     string,
     { holdout: HoldoutInterface; holdoutExperiment: ExperimentInterface }
@@ -172,21 +172,19 @@ function filterHoldoutsMapByProjects(
   string,
   { holdout: HoldoutInterface; holdoutExperiment: ExperimentInterface }
 > {
-  if (projects.length === 0) return holdoutsMap;
-  const filtered = new Map<
+  const result = new Map<
     string,
     { holdout: HoldoutInterface; holdoutExperiment: ExperimentInterface }
   >();
   holdoutsMap.forEach((value, id) => {
     const { holdout } = value;
-    if (
+    const allowed =
+      projects.length === 0 ||
       holdout.projects.length === 0 ||
-      holdout.projects.some((p) => projects.includes(p))
-    ) {
-      filtered.set(id, value);
-    }
+      holdout.projects.some((p) => projects.includes(p));
+    if (allowed) result.set(id, value);
   });
-  return filtered;
+  return result;
 }
 
 // Holdout defs are merged without capability pick or includeRuleIds. Fine in practice: SDKs with holdout support have bucketingV2.
@@ -600,7 +598,7 @@ async function refreshSDKPayloadCache({
   }
 
   // If no environments are affected, we don't need to update anything
-  if (!payloadKeys.length && !sdkConnectionsToUpdate?.length) {
+  if (!payloadKeys.length && !sdkConnectionsToUpdate.length) {
     logger.debug("Skipping SDK Payload refresh - no environments affected");
     return;
   }
@@ -638,7 +636,7 @@ async function refreshSDKPayloadCache({
   const allEnvironmentsToUpdate = Array.from(
     new Set([
       ...payloadKeyEnvironments,
-      ...(sdkConnectionsToUpdate || []).map((c) => c.environment),
+      ...sdkConnectionsToUpdate.map((c) => c.environment),
     ]),
   );
 
@@ -656,14 +654,14 @@ async function refreshSDKPayloadCache({
 
   const sdkConnections = payloadKeys.length
     ? await findSDKConnectionsByOrganization(context)
-    : sdkConnectionsToUpdate || [];
+    : sdkConnectionsToUpdate;
 
   const connectionsUpdated: SDKConnectionInterface[] = [];
   const promises: (() => Promise<void>)[] = [];
 
   sdkConnections.forEach((connection) => {
     if (
-      !sdkConnectionsToUpdate?.some((c) => c.key === connection.key) &&
+      !sdkConnectionsToUpdate.some((c) => c.key === connection.key) &&
       !payloadKeys.some((k) =>
         isSDKConnectionAffectedByPayloadKey(
           connection,
@@ -700,14 +698,13 @@ async function refreshSDKPayloadCache({
             capabilities,
             environment: env,
             projects: filteredProjects,
-            encryptionKey: connection.encryptPayload
-              ? connection.encryptionKey
-              : undefined,
+            encryptPayload: connection.encryptPayload,
+            encryptionKey: connection.encryptionKey,
             includeVisualExperiments: connection.includeVisualExperiments,
             includeDraftExperiments: connection.includeDraftExperiments,
             includeExperimentNames: connection.includeExperimentNames,
             includeRedirectExperiments: connection.includeRedirectExperiments,
-            includeRuleIds: connection.includeRuleIds ?? false,
+            includeRuleIds: connection.includeRuleIds,
             hashSecureAttributes: connection.hashSecureAttributes,
             savedGroupReferencesEnabled:
               connection.savedGroupReferencesEnabled &&
@@ -758,12 +755,11 @@ async function refreshSDKPayloadCache({
 
 export type FeatureDefinitionsResponseArgs = {
   features: Record<string, FeatureDefinition>;
-  experiments: AutoExperiment[];
-  holdouts: Record<string, FeatureDefinition>;
+  experiments?: AutoExperiment[];
   dateUpdated: Date | null;
+  encryptPayload?: boolean;
   encryptionKey?: string;
   includeDraftExperiments?: boolean;
-  includeExperiments?: boolean;
   attributes?: SDKAttributeSchema;
   secureAttributeSalt?: string;
   projects?: string[];
@@ -775,16 +771,15 @@ export type FeatureDefinitionsResponseArgs = {
 export async function getFeatureDefinitionsResponse({
   features,
   experiments,
-  holdouts,
   dateUpdated,
+  encryptPayload,
   encryptionKey,
   includeDraftExperiments,
-  includeExperiments = true,
   attributes,
   secureAttributeSalt,
   capabilities,
   usedSavedGroups,
-  savedGroupReferencesEnabled = false,
+  savedGroupReferencesEnabled,
   organization,
 }: FeatureDefinitionsResponseArgs): Promise<{
   features: Record<string, FeatureDefinition>;
@@ -796,15 +791,15 @@ export async function getFeatureDefinitionsResponse({
   encryptedSavedGroups?: string;
 }> {
   features = cloneDeep(features);
-  experiments = cloneDeep(experiments);
-  holdouts = cloneDeep(holdouts);
+  let processedExperiments: AutoExperiment[] =
+    experiments !== undefined ? cloneDeep(experiments) : [];
   usedSavedGroups = cloneDeep(usedSavedGroups);
 
-  if (!includeDraftExperiments) {
-    experiments = experiments?.filter((e) => e.status !== "draft") || [];
+  if (experiments !== undefined && !includeDraftExperiments) {
+    processedExperiments = processedExperiments.filter(
+      (e) => e.status !== "draft",
+    );
   }
-
-  features = { ...features, ...holdouts };
 
   // Inline saved groups: expand $inGroup to $in so values can be hashed (when not using savedGroupReferences)
   const expandSavedGroupsInline =
@@ -842,9 +837,9 @@ export async function getFeatureDefinitionsResponse({
   if (attributes && hasSecureAttributes && secureAttributeSalt !== undefined) {
     features = applyFeatureHashing(features, attributes, secureAttributeSalt);
 
-    if (experiments) {
-      experiments = applyExperimentHashing(
-        experiments,
+    if (experiments !== undefined) {
+      processedExperiments = applyExperimentHashing(
+        processedExperiments,
         attributes,
         secureAttributeSalt,
       );
@@ -867,10 +862,10 @@ export async function getFeatureDefinitionsResponse({
       ? savedGroupsValues
       : undefined;
 
-  if (!encryptionKey) {
+  if (!encryptPayload || !encryptionKey) {
     return {
       features,
-      ...(includeExperiments && { experiments }),
+      ...(experiments !== undefined && { experiments: processedExperiments }),
       dateUpdated,
       savedGroups: scrubbedSavedGroups,
     };
@@ -880,9 +875,10 @@ export async function getFeatureDefinitionsResponse({
     JSON.stringify(features),
     encryptionKey,
   );
-  const encryptedExperiments = includeExperiments
-    ? await encrypt(JSON.stringify(experiments || []), encryptionKey)
-    : undefined;
+  const encryptedExperiments =
+    experiments !== undefined
+      ? await encrypt(JSON.stringify(processedExperiments), encryptionKey)
+      : undefined;
 
   const encryptedSavedGroups = scrubbedSavedGroups
     ? await encrypt(JSON.stringify(scrubbedSavedGroups), encryptionKey)
@@ -890,10 +886,10 @@ export async function getFeatureDefinitionsResponse({
 
   return {
     features: {},
-    ...(includeExperiments && { experiments: [] }),
+    ...(experiments !== undefined && { experiments: [] }),
     dateUpdated,
     encryptedFeatures,
-    ...(includeExperiments && { encryptedExperiments }),
+    ...(encryptedExperiments !== undefined && { encryptedExperiments }),
     encryptedSavedGroups: encryptedSavedGroups,
   };
 }
@@ -903,6 +899,7 @@ export type FeatureDefinitionArgs = {
   capabilities: SDKCapability[];
   environment?: string;
   projects?: string[] | null;
+  encryptPayload?: boolean;
   encryptionKey?: string;
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
@@ -928,11 +925,12 @@ export type SDKPayloadRawData = {
   urlRedirectExperiments?: URLRedirectExperiment[];
 };
 
-// Payload-relevant subset of SDK connection (plus derived capabilities)
+// Payload-relevant subset of SDK connection (plus derived capabilities). Pass through encryptPayload + encryptionKey; effective key is derived inside buildSDKPayloadForConnection.
 export type ConnectionPayloadOptions = {
   capabilities: SDKCapability[];
   environment: string;
   projects: string[] | null;
+  encryptPayload?: boolean;
   encryptionKey?: string;
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
@@ -975,6 +973,7 @@ export async function buildSDKPayloadForConnection(
     capabilities,
     environment = "production",
     projects,
+    encryptPayload,
     encryptionKey,
     includeVisualExperiments,
     includeDraftExperiments,
@@ -1024,16 +1023,11 @@ export async function buildSDKPayloadForConnection(
         )
       : await getAllURLRedirectExperiments(context, filteredExperimentMap);
 
-  const savedGroupRefsEnabled =
-    savedGroupReferencesEnabled !== undefined
-      ? savedGroupReferencesEnabled &&
-        capabilities.includes("savedGroupReferences")
-      : false;
   const savedGroupsMap = Object.fromEntries(
     data.savedGroups.map((sg) => [sg.id, sg]),
   );
 
-  const holdoutsMapForConnection = filterHoldoutsMapByProjects(
+  const holdoutsMapForConnection = buildHoldoutsMapForProjects(
     data.holdoutsMap,
     projectList,
   );
@@ -1047,11 +1041,13 @@ export async function buildSDKPayloadForConnection(
     safeRolloutMap: data.safeRolloutMap,
     holdoutsMap: holdoutsMapForConnection,
     capabilities,
-    savedGroupReferencesEnabled: savedGroupRefsEnabled,
+    savedGroupReferencesEnabled:
+      !!savedGroupReferencesEnabled &&
+      capabilities.includes("savedGroupReferences"),
     organization: context.org,
     savedGroupsMap,
     includeRuleIds,
-    includeExperimentNames: connection.includeExperimentNames ?? false,
+    includeExperimentNames: connection.includeExperimentNames,
   });
 
   const holdoutFeatureDefinitions = generateHoldoutsPayload({
@@ -1059,20 +1055,19 @@ export async function buildSDKPayloadForConnection(
     projects: projectList,
   });
 
-  const visualForConn = includeVisualExperiments ? allVisualExperiments : [];
-  const redirectForConn = includeRedirectExperiments
-    ? allURLRedirectExperiments
-    : [];
-
   const experimentsDefinitions = generateAutoExperimentsPayload({
-    visualExperiments: visualForConn,
-    urlRedirectExperiments: redirectForConn,
+    visualExperiments: includeVisualExperiments ? allVisualExperiments : [],
+    urlRedirectExperiments: includeRedirectExperiments
+      ? allURLRedirectExperiments
+      : [],
     groupMap: data.groupMap,
     features: filteredFeatures,
     environment,
     prereqStateCache,
     capabilities,
-    savedGroupReferencesEnabled: savedGroupRefsEnabled,
+    savedGroupReferencesEnabled:
+      !!savedGroupReferencesEnabled &&
+      capabilities.includes("savedGroupReferences"),
     organization: context.org,
     savedGroupsMap,
     includeExperimentNames,
@@ -1105,22 +1100,21 @@ export async function buildSDKPayloadForConnection(
 
   return getFeatureDefinitionsResponse({
     features: featuresWithHoldouts,
-    experiments: experimentsDefinitions,
-    holdouts: {},
+    experiments:
+      includeVisualExperiments || includeRedirectExperiments
+        ? experimentsDefinitions
+        : undefined,
     dateUpdated: new Date(),
+    encryptPayload,
     encryptionKey,
     includeDraftExperiments,
-    includeExperiments:
-      !!includeVisualExperiments || !!includeRedirectExperiments,
     attributes,
     secureAttributeSalt,
     capabilities,
     usedSavedGroups,
     savedGroupReferencesEnabled:
-      savedGroupReferencesEnabled !== undefined
-        ? savedGroupReferencesEnabled &&
-          capabilities.includes("savedGroupReferences")
-        : false,
+      !!savedGroupReferencesEnabled &&
+      capabilities.includes("savedGroupReferences"),
     organization: context.org,
   });
 }
@@ -1157,13 +1151,14 @@ export async function getFeatureDefinitions(
     connection: {
       capabilities: args.capabilities,
       environment,
-      projects: args.projects ?? null,
+      projects: projects ?? null,
+      encryptPayload: args.encryptPayload,
       encryptionKey: args.encryptionKey,
       includeVisualExperiments: args.includeVisualExperiments,
       includeDraftExperiments: args.includeDraftExperiments,
       includeExperimentNames: args.includeExperimentNames,
       includeRedirectExperiments: args.includeRedirectExperiments,
-      includeRuleIds: args.includeRuleIds ?? false,
+      includeRuleIds: args.includeRuleIds,
       hashSecureAttributes: args.hashSecureAttributes,
       savedGroupReferencesEnabled: args.savedGroupReferencesEnabled,
     },

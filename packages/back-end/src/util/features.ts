@@ -333,8 +333,8 @@ export function getFeatureDefinition({
   savedGroupReferencesEnabled,
   organization,
   savedGroupsMap,
-  includeRuleIds = false,
-  includeExperimentNames = false,
+  includeRuleIds,
+  includeExperimentNames,
 }: {
   feature: FeatureInterface;
   environment: string;

@@ -312,12 +312,13 @@ export async function getFeatureDefinitionsWithCache({
       capabilities,
       environment: params.environment,
       projects: filteredProjects,
-      encryptionKey: params.encryptPayload ? params.encryptionKey : undefined,
+      encryptPayload: params.encryptPayload,
+      encryptionKey: params.encryptionKey,
       includeVisualExperiments: params.includeVisualExperiments,
       includeDraftExperiments: params.includeDraftExperiments,
       includeExperimentNames: params.includeExperimentNames,
       includeRedirectExperiments: params.includeRedirectExperiments,
-      includeRuleIds: params.includeRuleIds ?? false,
+      includeRuleIds: params.includeRuleIds,
       hashSecureAttributes: params.hashSecureAttributes,
       savedGroupReferencesEnabled:
         params.savedGroupReferencesEnabled !== undefined
