@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "es2020",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "baseUrl": "..",
+    "paths": {
+      "back-end/*": ["./*"]
+    },
+    "noEmit": true,
+    "noCheck": true,
+    "types": ["node", "jest"]
+  },
+  "include": [
+    "./**/*.ts",
+    "../src/**/*",
+    "../types/**/*.d.ts",
+    "../typings/**/*.d.ts"
+  ]
+}
