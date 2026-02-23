@@ -15,7 +15,7 @@ import { Tooltip, Text } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
 import { PiArrowSquareOutFill, PiCaretRightFill } from "react-icons/pi";
 import { FeatureEnvironment } from "shared/types/feature";
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import { HoldoutInterface } from "shared/validators";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -55,7 +55,7 @@ weekAgo.setDate(weekAgo.getDate() - 7);
 
 export type NewHoldoutFormProps = {
   initialStep?: number;
-  initialHoldout?: Partial<HoldoutInterfaceStringDates>;
+  initialHoldout?: Partial<HoldoutInterface>;
   initialExperiment?: Partial<ExperimentInterfaceStringDates>;
   includeDescription?: boolean;
   duplicate?: boolean;
@@ -197,7 +197,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
         ExperimentInterfaceStringDates,
         "id" | "linkedFeatures" | "linkedExperiments"
       > &
-        HoldoutInterfaceStringDates
+        HoldoutInterface
     >
   >({
     defaultValues: {
@@ -290,7 +290,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
 
     const res = await apiCall<{
       experiment: ExperimentInterfaceStringDates;
-      holdout: HoldoutInterfaceStringDates;
+      holdout: HoldoutInterface;
     }>("/holdout", {
       method: "POST",
       body,

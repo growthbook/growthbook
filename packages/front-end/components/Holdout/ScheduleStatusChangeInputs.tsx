@@ -1,9 +1,8 @@
 import React from "react";
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import { HoldoutInterface } from "shared/validators";
 import { Box, Flex } from "@radix-ui/themes";
 import { UseFormReturn } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { datetime } from "shared/dates";
 import { format } from "date-fns";
 import { format as formatTimeZone } from "date-fns-tz";
 import DatePicker from "@/components/DatePicker";
@@ -12,10 +11,8 @@ import Tooltip from "@/ui/Tooltip";
 import Text from "@/ui/Text";
 
 interface Props {
-  form: UseFormReturn<
-    Pick<HoldoutInterfaceStringDates, "statusUpdateSchedule">
-  >;
-  holdout: HoldoutInterfaceStringDates;
+  form: UseFormReturn<Pick<HoldoutInterface, "statusUpdateSchedule">>;
+  holdout: HoldoutInterface;
   experiment: ExperimentInterfaceStringDates;
 }
 
@@ -57,10 +54,7 @@ export default function ScheduleStatusChangeInputs({
             <DatePicker
               date={startDate}
               setDate={(d) => {
-                form.setValue(
-                  "statusUpdateSchedule.startAt",
-                  d ? datetime(d) : undefined,
-                );
+                form.setValue("statusUpdateSchedule.startAt", d);
               }}
               scheduleEndDate={startAnalysisPeriodDate}
               clearButton={true}
@@ -98,10 +92,7 @@ export default function ScheduleStatusChangeInputs({
             <DatePicker
               date={startAnalysisPeriodDate}
               setDate={(d) => {
-                form.setValue(
-                  "statusUpdateSchedule.startAnalysisPeriodAt",
-                  d ? datetime(d) : undefined,
-                );
+                form.setValue("statusUpdateSchedule.startAnalysisPeriodAt", d);
               }}
               scheduleStartDate={startDate}
               clearButton={true}
@@ -135,10 +126,7 @@ export default function ScheduleStatusChangeInputs({
             <DatePicker
               date={stopDate}
               setDate={(d) => {
-                form.setValue(
-                  "statusUpdateSchedule.stopAt",
-                  d ? datetime(d) : undefined,
-                );
+                form.setValue("statusUpdateSchedule.stopAt", d);
               }}
               scheduleStartDate={startAnalysisPeriodDate}
               clearButton={true}

@@ -11,7 +11,7 @@ import { useRouter } from "next/router";
 import { DifferenceType } from "shared/types/stats";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import { FaChartBar } from "react-icons/fa";
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import { HoldoutInterface } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Text } from "@radix-ui/themes";
@@ -68,7 +68,7 @@ export type ExperimentTab =
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
-  holdout?: HoldoutInterfaceStringDates;
+  holdout?: HoldoutInterface;
   linkedFeatures: LinkedFeatureInfo[];
   holdoutFeatures?: FeatureInterface[];
   holdoutExperiments?: ExperimentInterfaceStringDates[];

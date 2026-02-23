@@ -4,7 +4,7 @@ import {
 } from "shared/types/experiment";
 import { useForm } from "react-hook-form";
 import { datetime } from "shared/dates";
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import { HoldoutInterface } from "shared/validators";
 import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import SelectField from "@/components/Forms/SelectField";
@@ -19,7 +19,7 @@ export interface Props {
   mutate: () => void;
   close: () => void;
   source?: string;
-  holdout?: HoldoutInterfaceStringDates;
+  holdout?: HoldoutInterface;
 }
 
 export default function EditStatusModal({
