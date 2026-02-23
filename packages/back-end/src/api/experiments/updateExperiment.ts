@@ -16,9 +16,10 @@ import {
   updateExperimentApiPayloadToInterface,
 } from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { validateVariationIds } from "back-end/src/controllers/experiments";
-import { validateCustomFields } from "./validation";
+import { validateCustomFields } from "./validations";
 
 export const updateExperiment = createApiRequestHandler(
   updateExperimentValidator,
@@ -95,12 +96,18 @@ export const updateExperiment = createApiRequestHandler(
     }
   }
 
-  // check if the custom fields are valid
-  if (req.body.customFields) {
+  const projectChanged =
+    req.body.project !== undefined && req.body.project !== experiment.project;
+  const customFieldsChanged = shouldValidateCustomFieldsOnUpdate({
+    existingCustomFieldValues: experiment.customFields,
+    updatedCustomFieldValues: req.body.customFields,
+  });
+
+  if (projectChanged || customFieldsChanged) {
     await validateCustomFields(
-      req.body.customFields,
+      req.body.customFields ?? experiment.customFields,
       req.context,
-      experiment.project,
+      req.body.project ?? experiment.project,
     );
   }
 
@@ -170,6 +177,29 @@ export const updateExperiment = createApiRequestHandler(
     req.body.status !== "draft"
   ) {
     throw new Error("Can only convert experiment types while in draft mode.");
+  }
+
+  // Validate attributionModel + lookbackOverride consistency
+  const effectiveAttrModel =
+    req.body.attributionModel ?? experiment.attributionModel;
+  const effectiveLookback =
+    req.body.lookbackOverride !== undefined
+      ? req.body.lookbackOverride
+      : experiment.lookbackOverride;
+  if (effectiveAttrModel === "lookbackOverride" && !effectiveLookback) {
+    throw new Error(
+      "lookbackOverride is required when attributionModel is 'lookbackOverride'",
+    );
+  }
+  // If lookbackOverride is provided in the payload, it must have the right
+  // attribution model
+  if (
+    effectiveAttrModel !== "lookbackOverride" &&
+    req.body.lookbackOverride !== undefined
+  ) {
+    throw new Error(
+      "lookbackOverride is only allowed when attributionModel is 'lookbackOverride'",
+    );
   }
 
   const updatedExperiment = await updateExperimentToDb({

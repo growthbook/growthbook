@@ -17,10 +17,7 @@ import {
   getUsersByIds,
 } from "back-end/src/models/UserModel";
 import { logger } from "back-end/src/util/logger";
-import {
-  getAllTeamRoleInfoInDb,
-  getTeamsForOrganization,
-} from "back-end/src/models/TeamModel";
+import { TeamModel } from "back-end/src/models/TeamModel";
 
 export async function getLicenseMetaData() {
   let installationId = "unknown";
@@ -148,12 +145,12 @@ export async function getUserCodesForOrg(
     organizations = [org];
     const memberIds = org.members.map((member) => member.id);
     users = await getUsersByIds(memberIds);
-    teams = await getTeamsForOrganization(org.id);
+    teams = await TeamModel.dangerousGetTeamsForOrganization(org.id);
   } else {
     // Self-Host, might be multi-org so we have to look across all orgs
     organizations = await getAllOrgMemberInfoInDb();
     users = await getUserIdsAndEmailsForAllUsersInDb();
-    teams = await getAllTeamRoleInfoInDb();
+    teams = await TeamModel.getAllTeamRoleInfoInDb();
   }
 
   const userIdsToEmailHash = users.reduce(

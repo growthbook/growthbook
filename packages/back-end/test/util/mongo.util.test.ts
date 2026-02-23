@@ -1,4 +1,9 @@
-import { getConnectionStringWithDeprecatedKeysMigratedForV3to4 } from "back-end/src/util/mongo.util";
+import mongoose from "mongoose";
+import { setupApp } from "back-end/test/api/api.setup";
+import {
+  getConnectionStringWithDeprecatedKeysMigratedForV3to4,
+  dbSafeBulkWrite,
+} from "back-end/src/util/mongo.util";
 
 describe("mongo utils", () => {
   describe("getConnectionStringWithDeprecatedKeysMigratedForV3to4", () => {
@@ -118,6 +123,108 @@ describe("mongo utils", () => {
           "appname",
         ]);
         expect(unsupported).toEqual(["autoReconnect"]);
+      });
+    });
+  });
+
+  describe("dbSafeBulkWrite", () => {
+    setupApp();
+    const collectionName = "bulkWriteTests";
+    const _model = mongoose.model(
+      collectionName,
+      new mongoose.Schema({ id: String, number: Number }),
+    );
+    const collection = mongoose.connection.collection(collectionName);
+    const collectionWithoutBulkWrite = Object.assign(
+      Object.create(Object.getPrototypeOf(collection)),
+      collection,
+    );
+    collectionWithoutBulkWrite.bulkWrite = undefined;
+    describe.each([true, false])("db has bulkWrite: %s", (useBulkWrite) => {
+      const coll = useBulkWrite ? collection : collectionWithoutBulkWrite;
+      it("handles bulk insertOne operations", async () => {
+        await dbSafeBulkWrite(
+          coll,
+          Array.from({ length: 1000 }, (_, i) => ({
+            insertOne: { document: { id: i.toString(), number: i } },
+          })),
+        );
+        const numDocuments = await collection.countDocuments();
+        expect(numDocuments).toEqual(1000);
+        const sortedAsc = await collection
+          .find({})
+          .sort({ number: 1 })
+          .toArray();
+        expect(sortedAsc[3].number).toEqual(3);
+        const sortedDesc = await collection
+          .find({})
+          .sort({ number: -1 })
+          .toArray();
+        expect(sortedDesc[3].number).toEqual(996);
+      });
+
+      it("handles bulk updateOne operations", async () => {
+        await dbSafeBulkWrite(
+          coll,
+          Array.from({ length: 1000 }, (_, i) => ({
+            insertOne: { document: { id: i.toString(), number: 1 } },
+          })),
+        );
+        const grouped = await collection
+          .aggregate([
+            {
+              $group: {
+                _id: { number: "$number" },
+                count: { $count: {} },
+              },
+            },
+          ])
+          .toArray();
+        expect(grouped).toStrictEqual([{ _id: { number: 1 }, count: 1000 }]);
+        await dbSafeBulkWrite(
+          coll,
+          Array.from({ length: 10 }, (_, i) => ({
+            updateOne: {
+              filter: { id: (i * 100).toString() },
+              update: { $set: { number: 10 } },
+            },
+          })),
+        );
+        const newGrouped = await collection
+          .aggregate([
+            {
+              $group: {
+                _id: { number: "$number" },
+                count: { $count: {} },
+              },
+            },
+            {
+              $sort: {
+                _id: 1,
+              },
+            },
+          ])
+          .toArray();
+        expect(newGrouped).toStrictEqual([
+          { _id: { number: 1 }, count: 990 },
+          { _id: { number: 10 }, count: 10 },
+        ]);
+        const updated = await collection
+          .find({ number: 10 })
+          .sort({ id: 1 })
+          .toArray();
+        expect(updated.map(({ id }) => id)).toStrictEqual([
+          "0",
+          "100",
+          "200",
+          "300",
+          "400",
+          "500",
+          "600",
+          "700",
+          "800",
+          "900",
+        ]);
       });
     });
   });

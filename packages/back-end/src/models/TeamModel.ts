@@ -1,152 +1,177 @@
-import mongoose from "mongoose";
-import uniqid from "uniqid";
-import { ManagedBy } from "shared/validators";
-import { TeamInterface } from "shared/types/team";
 import {
-  ToInterface,
+  apiAddTeamMembersValidator,
+  apiCreateTeamBody,
+  apiRemoveTeamMemberValidator,
+  apiTeamValidator,
+  apiUpdateTeamBody,
+  teamSchema,
+} from "shared/validators";
+import { ApiTeamInterface, TeamInterface } from "shared/types/team";
+import { areProjectRolesValid, isRoleValid } from "shared/permissions";
+import { IS_CLOUD } from "back-end/src/util/secrets";
+import {
   getCollection,
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
-import { IS_CLOUD } from "back-end/src/util/secrets";
+import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
+import {
+  addMembersToTeam,
+  getMembersOfTeam,
+  removeMembersFromTeam,
+} from "back-end/src/services/organizations";
+import { statusCodeReturn } from "back-end/src/util/handler";
+import { MakeModelClass } from "./BaseModel";
 
-const teamSchema = new mongoose.Schema({
-  id: {
-    type: String,
-    unique: true,
+const COLLECTION = "teams";
+const BaseClass = MakeModelClass({
+  schema: teamSchema,
+  collectionName: COLLECTION,
+  idPrefix: "team_",
+  globallyUniqueIds: false,
+  readonlyFields: [],
+  additionalIndexes: [],
+  defaultValues: {
+    createdBy: "",
+    limitAccessByEnvironment: false,
+    environments: [],
+    managedByIdp: false,
   },
-  name: String,
-  organization: {
-    type: String,
-    index: true,
-  },
-  dateCreated: Date,
-  dateUpdated: Date,
-  createdBy: String,
-  description: String,
-  role: String,
-  limitAccessByEnvironment: Boolean,
-  environments: [String],
-  projectRoles: [
-    {
-      _id: false,
-      project: String,
-      role: String,
-      limitAccessByEnvironment: Boolean,
-      environments: [String],
+  apiConfig: {
+    modelKey: "teams",
+    modelSingular: "team",
+    modelPlural: "teams",
+    apiInterface: apiTeamValidator,
+    schemas: {
+      createBody: apiCreateTeamBody,
+      updateBody: apiUpdateTeamBody,
     },
-  ],
-  managedByIdp: Boolean,
-  managedBy: {},
-  defaultProject: String,
+    pathBase: "/teams",
+    includeDefaultCrud: true,
+    customHandlers: [
+      defineCustomApiHandler({
+        pathFragment: "/:teamId/members",
+        verb: "post",
+        operationId: "addTeamMembers",
+        validator: apiAddTeamMembersValidator,
+        zodReturnObject: statusCodeReturn,
+        reqHandler: async (req) => {
+          if (!req.context.permissions.canManageTeam())
+            req.context.permissions.throwPermissionError();
+          const team = await req.context.models.teams.getById(
+            req.params.teamId,
+          );
+          if (!team) return req.context.throwNotFoundError();
+          await addMembersToTeam({
+            organization: req.context.org,
+            userIds: req.body.members,
+            teamId: team.id,
+          });
+          return {
+            status: 200,
+          };
+        },
+      }),
+      defineCustomApiHandler({
+        pathFragment: "/:teamId/members",
+        verb: "delete",
+        operationId: "removeTeamMember",
+        validator: apiRemoveTeamMemberValidator,
+        zodReturnObject: statusCodeReturn,
+        reqHandler: async (req) => {
+          if (!req.context.permissions.canManageTeam())
+            req.context.permissions.throwPermissionError();
+          const team = await req.context.models.teams.getById(
+            req.params.teamId,
+          );
+          if (!team) return req.context.throwNotFoundError();
+          await removeMembersFromTeam({
+            organization: req.context.org,
+            userIds: req.body.members,
+            teamId: team.id,
+          });
+          return {
+            status: 200,
+          };
+        },
+      }),
+    ],
+  },
 });
 
-const TeamModel = mongoose.model<TeamInterface>("Team", teamSchema);
-const COLLECTION = "teams";
-
-const toInterface: ToInterface<TeamInterface> = (doc) =>
-  removeMongooseFields(doc);
-
-type CreateTeamProps = Omit<
-  TeamInterface,
-  "dateCreated" | "dateUpdated" | "id"
->;
-
-type UpdateTeamProps = Partial<TeamInterface>;
-
-export async function createTeam(
-  data: CreateTeamProps,
-): Promise<TeamInterface> {
-  const teamDoc = await TeamModel.create({
-    ...data,
-    id: uniqid("team_"),
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-  });
-  return toInterface(teamDoc);
-}
-
-export async function findTeamById(
-  id: string,
-  orgId: string,
-): Promise<TeamInterface | null> {
-  const teamDoc = await TeamModel.findOne({ id, organization: orgId });
-  return teamDoc ? toInterface(teamDoc) : null;
-}
-
-export async function findTeamByName(
-  name: string,
-  orgId: string,
-): Promise<TeamInterface | null> {
-  const teamDoc = await TeamModel.findOne({
-    name: { $regex: name, $options: "i" },
-    organization: orgId,
-  });
-  return teamDoc ? toInterface(teamDoc) : null;
-}
-
-export async function getTeamsForOrganization(orgId: string) {
-  const docs = await getCollection(COLLECTION)
-    .find({
-      organization: orgId,
-    })
-    .toArray();
-
-  return docs.map((d) => toInterface(d));
-}
-
-export async function updateTeamMetadata(
-  id: string,
-  orgId: string,
-  update: UpdateTeamProps,
-): Promise<UpdateTeamProps> {
-  const changes = {
-    ...update,
-    dateUpdated: new Date(),
-  };
-
-  await TeamModel.updateOne(
-    {
-      id,
-      organization: orgId,
-    },
-    {
-      $set: changes,
-    },
-  );
-
-  return changes;
-}
-
-export const updateTeamRemoveManagedBy = async (
-  orgId: string,
-  managedBy: Partial<ManagedBy>,
-) => {
-  await TeamModel.updateMany(
-    {
-      organization: orgId,
-      managedBy,
-    },
-    {
-      $unset: {
-        managedBy: 1,
-      },
-    },
-  );
-};
-
-export async function deleteTeam(id: string, orgId: string): Promise<void> {
-  await TeamModel.deleteOne({
-    id,
-    organization: orgId,
-  });
-}
-
-export async function getAllTeamRoleInfoInDb() {
-  if (IS_CLOUD) {
-    throw new Error("getAllTeamRoleInfoInDb() is not supported on cloud");
+export class TeamModel extends BaseClass {
+  protected canCreate(): boolean {
+    return this.context.permissions.canManageTeam();
+  }
+  protected canRead(): boolean {
+    // Teams aren't project-scoped and they're used to build a user's permissions, so the `readData` check doesn't work
+    return true;
+  }
+  protected canUpdate(): boolean {
+    return this.context.permissions.canManageTeam();
+  }
+  protected canDelete(): boolean {
+    return this.context.permissions.canManageTeam();
   }
 
-  const docs = await getCollection(COLLECTION).find().toArray();
+  protected async customValidation(doc: TeamInterface) {
+    if (
+      !isRoleValid(doc.role, this.context.org) ||
+      !areProjectRolesValid(doc.projectRoles, this.context.org)
+    ) {
+      return this.context.throwBadRequestError("Invalid role");
+    }
+  }
 
-  return docs.map((d) => toInterface(d));
+  protected async beforeDelete(team: TeamInterface) {
+    const org = this.context.org;
+    const members = getMembersOfTeam(org, team.id);
+
+    if (members.length !== 0) {
+      return this.context.throwBadRequestError(
+        "Cannot delete a team that has members. Please delete members before retrying.",
+      );
+    }
+
+    if (team?.managedByIdp) {
+      return this.context.throwBadRequestError(
+        "Cannot delete a team that is being managed by an idP. Please delete the team through your idP.",
+      );
+    }
+  }
+
+  public async findByName(name: string) {
+    return this._findOne({
+      name: { $regex: name, $options: "i" },
+    });
+  }
+
+  public static async dangerousGetTeamsForOrganization(
+    orgId: string,
+  ): Promise<TeamInterface[]> {
+    const docs = await getCollection<TeamInterface>(COLLECTION)
+      .find({ organization: orgId })
+      .toArray();
+    return docs.map(removeMongooseFields);
+  }
+
+  public static async getAllTeamRoleInfoInDb(): Promise<TeamInterface[]> {
+    if (IS_CLOUD) {
+      throw new Error("getAllTeamRoleInfoInDb() is not supported on cloud");
+    }
+
+    const docs = await getCollection<TeamInterface>(COLLECTION)
+      .find({})
+      .toArray();
+    return docs.map(removeMongooseFields);
+  }
+
+  protected toApiInterface(doc: TeamInterface): ApiTeamInterface {
+    const members = getMembersOfTeam(this.context.org, doc.id);
+    return {
+      ...doc,
+      members,
+      dateCreated: doc.dateCreated.toISOString(),
+      dateUpdated: doc.dateUpdated.toISOString(),
+    };
+  }
 }

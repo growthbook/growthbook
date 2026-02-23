@@ -6,6 +6,7 @@ slug: /features/basics
 ---
 
 import MaxWidthImage from "@site/src/components/MaxWidthImage";
+import CommercialFeature from '@site/src/components/CommercialFeature';
 
 # Basics of Feature Flags
 
@@ -107,7 +108,9 @@ when you want to send multiple values down to the SDK or code.
 
 JSON feature flags also support JSON validation, which allows you to validate the JSON object against a JSON schema. This
 feature is useful for validating the structure of the JSON object before sending it to your application to eliminate
-chances of typos. Currently, JSON validation is part of our enterprise plan.
+chances of typos.
+
+<CommercialFeature feature="json-validation" />
 
 ## Publishing Changes
 

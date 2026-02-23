@@ -123,6 +123,9 @@ tags:
   - name: attributes
     x-displayName: Attributes
     description: Used when targeting feature flags and experiments.
+  - name: usage
+    x-displayName: Usage
+    description: Usage information for metrics in experiments.
 paths:
   /features:
     get:
