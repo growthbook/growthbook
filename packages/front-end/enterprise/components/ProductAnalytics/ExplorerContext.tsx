@@ -26,8 +26,6 @@ import {
   validateDimensions,
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useExploreData } from "./useExploreData";
-
-
 type ExplorerCacheValue = {
   draftState: ProductAnalyticsConfig | null;
   submittedState: ProductAnalyticsConfig | null;
@@ -106,13 +104,7 @@ export function ExplorerProvider({
 }: ExplorerProviderProps) {
   const { loading, fetchData } = useExploreData();
 
-  const {
-    getFactTableById,
-    getFactMetricById,
-    factMetrics,
-    factTables,
-    datasources,
-  } = useDefinitions();
+  const { getFactTableById, getFactMetricById, datasources } = useDefinitions();
 
   const [activeExplorerType, setActiveExplorerType] =
     useState<DatasetType | null>(initialConfig?.dataset.type || null);
@@ -266,14 +258,9 @@ export function ExplorerProvider({
 
   const createDefaultValue = useCallback(
     (datasetType: DatasetType): ProductAnalyticsValue => {
-      const factMetric = datasetType === "metric" ? factMetrics[0] : null;
-      const factTable =
-        datasetType === "metric" && factMetric?.numerator.factTableId
-          ? getFactTableById(factMetric.numerator.factTableId)
-          : factTables[0];
-      return createEmptyValue(datasetType, factTable);
+      return createEmptyValue(datasetType);
     },
-    [factMetrics, factTables, getFactTableById],
+    [],
   );
 
   const addValueToDataset = useCallback(

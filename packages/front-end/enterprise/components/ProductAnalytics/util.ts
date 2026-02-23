@@ -45,10 +45,7 @@ export function getValueTypeLabel(
   );
 }
 
-export function createEmptyValue(
-  type: DatasetType,
-  factTable: FactTableInterface | null,
-): ProductAnalyticsValue {
+export function createEmptyValue(type: DatasetType): ProductAnalyticsValue {
   const base = {
     name: "",
     rowFilters: [],
@@ -60,7 +57,7 @@ export function createEmptyValue(
         name: generateUniqueValueName("Metric", []),
         type: "metric",
         metricId: "",
-        unit: factTable?.userIdTypes[0] ?? null,
+        unit: null,
         denominatorUnit: null,
       } as MetricValue;
     case "fact_table":
@@ -70,7 +67,7 @@ export function createEmptyValue(
         type: "fact_table",
         valueType: "count",
         valueColumn: null,
-        unit: factTable?.userIdTypes[0] ?? null,
+        unit: null,
       } as FactTableValue;
     case "data_source":
       return {
