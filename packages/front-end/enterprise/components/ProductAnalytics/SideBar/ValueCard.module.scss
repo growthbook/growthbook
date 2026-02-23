@@ -8,3 +8,13 @@
     opacity: 1;
   }
 }
+
+.metricSelect {
+  :global(.gb-select__menu) {
+    width: 100% !important;
+  }
+  :global(.gb-select__option) {
+    white-space: normal !important;
+    word-break: break-word;
+  }
+}
