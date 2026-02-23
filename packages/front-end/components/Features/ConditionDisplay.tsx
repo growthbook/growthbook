@@ -607,17 +607,15 @@ export default function ConditionDisplay({
   condition,
   savedGroups: savedGroupTargeting,
   prerequisites,
-  project,
   prefix,
 }: {
   condition?: string;
   savedGroups?: SavedGroupTargeting[];
   prerequisites?: FeaturePrerequisite[];
-  project?: string;
   prefix?: ReactNode;
 }) {
   const { savedGroups } = useDefinitions();
-  const attributes = useAttributeMap(project);
+  const attributes = useAttributeMap();
 
   const parts: ReactNode[] = [];
   let partId = 0;

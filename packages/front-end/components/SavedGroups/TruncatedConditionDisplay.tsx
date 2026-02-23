@@ -9,7 +9,6 @@ interface TruncatedConditionDisplayProps {
   savedGroups?: SavedGroupTargeting[];
   prerequisites?: FeaturePrerequisite[];
   maxLength?: number;
-  project?: string;
   prefix?: ReactNode;
 }
 
@@ -18,7 +17,6 @@ export default function TruncatedConditionDisplay({
   savedGroups,
   prerequisites,
   maxLength = 200,
-  project,
   prefix,
 }: TruncatedConditionDisplayProps) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -41,7 +39,6 @@ export default function TruncatedConditionDisplay({
           condition={condition}
           savedGroups={savedGroups}
           prerequisites={prerequisites}
-          project={project}
           prefix={prefix}
         />
         {isExpanded && (
