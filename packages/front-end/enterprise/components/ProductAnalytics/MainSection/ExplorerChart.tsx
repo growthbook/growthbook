@@ -265,7 +265,8 @@ export default function ExplorerChart({
     return exploreData.rows.every((r) => r.values.length === 0);
   }, [exploreData]);
 
-  if (exploreData?.sql && exploreData?.error) return null;
+  // Don't early-return when loading: we need to show the spinner during refetch after error
+  if (!loading && exploreData?.sql && exploreData?.error) return null;
 
   return (
     <Box
