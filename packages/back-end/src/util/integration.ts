@@ -1,7 +1,7 @@
 import { ExperimentMetricInterface } from "shared/experiments";
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
-import { logger } from "./logger";
 import { QueryMetadata } from "shared/types/query";
+import { logger } from "./logger";
 
 // mutates metric object itself!
 export function applyMetricOverrides(
@@ -36,12 +36,15 @@ export function applyMetricOverrides(
 }
 
 // get the query tag string for the integration
-export function getQueryTagString(queryMetadata: QueryMetadata, maxLength: number): string {
+export function getQueryTagString(
+  queryMetadata: QueryMetadata,
+  maxLength: number,
+): string {
   const metadata = {
     application: "growthbook",
     ...queryMetadata,
   };
-  
+
   let json = JSON.stringify(metadata);
 
   if (json.length > maxLength) {

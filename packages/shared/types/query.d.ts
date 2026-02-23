@@ -55,7 +55,6 @@ export type QueryType =
   | "experimentIncrementalRefreshStatistics"
   | "experimentIncrementalRefreshHealth";
 
-
 export type ExperimentQueryMetadata = {
   experimentProject?: string;
   experimentOwner?: string;
@@ -64,15 +63,17 @@ export type ExperimentQueryMetadata = {
 
 export type QueryDocMetadata = {
   queryType?: QueryType;
-}
-
-export type AdditionalQueryMetadata = ExperimentQueryMetadata & QueryDocMetadata;
-
-export type QueryMetadata = AdditionalQueryMetadata & QueryDocMetadata & {
-  userName?: string;
-  userId?: string;
 };
-  
+
+export type AdditionalQueryMetadata = ExperimentQueryMetadata &
+  QueryDocMetadata;
+
+export type QueryMetadata = AdditionalQueryMetadata &
+  QueryDocMetadata & {
+    userName?: string;
+    userId?: string;
+  };
+
 export interface QueryInterface {
   id: string;
   displayTitle?: string;
