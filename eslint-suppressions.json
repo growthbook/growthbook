@@ -209,14 +209,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/TabbedPage/CovariateImbalanceTable.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/TabbedPage/ExperimentDecisionExplanation.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -530,14 +522,6 @@
   "packages/front-end/components/GetStarted/index.tsx": {
     "no-restricted-imports": {
       "count": 1
-    }
-  },
-  "packages/front-end/components/HealthTab/CovariateImbalanceCard.tsx": {
-    "import/no-unresolved": {
-      "count": 3
-    },
-    "no-restricted-imports": {
-      "count": 4
     }
   },
   "packages/front-end/components/HealthTab/PowerCard.tsx": {
@@ -1030,6 +1014,4 @@
       "count": 2
     }
   }
-}    "import/order": {
-      "count": 1
-    },
+}
