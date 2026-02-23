@@ -18,6 +18,7 @@ import {
   operatorLabelMap,
   numberRegex,
 } from "@/components/FactTables/RowFilterInput";
+import Switch from "@/ui/Switch";
 
 export type DataSourceRowFilterInputVariant = "default" | "compact";
 
@@ -289,6 +290,7 @@ export function DataSourceRowFilterInput({
                 borderRadius: "var(--radius-3)",
                 padding: "var(--space-2)",
                 backgroundColor: "var(--color-panel-translucent)",
+                opacity: filter.disabled ? 0.5 : 1,
               }}
             >
               <Flex justify="between" align="center" width="100%" gap="2">
@@ -301,6 +303,12 @@ export function DataSourceRowFilterInput({
                   {getFilterSummary()}
                 </Text>
                 <Flex align="center" gap="1" style={{ flexShrink: 0 }}>
+                  <Switch
+                    value={!filter.disabled}
+                    onChange={(v) => {
+                      updateRowFilter({ disabled: !v });
+                    }}
+                  />
                   <Button
                     size="xs"
                     variant="ghost"

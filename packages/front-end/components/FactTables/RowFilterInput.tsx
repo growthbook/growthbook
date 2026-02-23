@@ -12,6 +12,7 @@ import SelectField, {
 } from "@/components/Forms/SelectField";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import Button from "@/ui/Button";
+import Switch from "@/ui/Switch";
 
 export type RowFilterInputVariant = "default" | "compact";
 
@@ -513,7 +514,7 @@ export function RowFilterInput({
                 borderRadius: "var(--radius-3)",
                 padding: "var(--space-2)",
                 backgroundColor: "var(--color-panel-translucent)",
-                // marginBottom: "var(--space-2)",
+                opacity: filter.disabled ? 0.5 : 1,
               }}
             >
               <Flex justify="between" align="center" width="100%" gap="2">
@@ -526,6 +527,12 @@ export function RowFilterInput({
                   {getFilterSummary()}
                 </Text>
                 <Flex align="center" gap="1" style={{ flexShrink: 0 }}>
+                  <Switch
+                    value={!filter.disabled}
+                    onChange={(v) => {
+                      updateRowFilter({ disabled: !v });
+                    }}
+                  />
                   <Button
                     size="xs"
                     variant="ghost"
