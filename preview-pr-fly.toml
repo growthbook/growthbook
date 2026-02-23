@@ -5,7 +5,6 @@ primary_region = 'sjc'
   dockerfile = 'preview/Dockerfile.generated'
 
   [build.args]
-    UPGRADE_PIP = 'false'
     NODE_OPTIONS = '--max-old-space-size=14336'
 
 [deploy]
