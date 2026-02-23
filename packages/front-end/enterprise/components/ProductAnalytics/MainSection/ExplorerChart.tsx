@@ -184,7 +184,8 @@ export default function ExplorerChart({
           symbolSize: 4,
         };
         if (chartType === "line") return lineConfig;
-        if (chartType === "area") return { ...lineConfig, areaStyle: {} };
+        if (chartType === "area")
+          return { ...lineConfig, areaStyle: {}, stack: "stack" };
       }
     });
 
