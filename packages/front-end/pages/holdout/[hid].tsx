@@ -24,6 +24,7 @@ import NewHoldoutForm from "@/components/Holdout/NewHoldoutForm";
 import StopHoldoutModal from "@/components/Holdout/StopHoldoutModal";
 import EditScheduleModal from "@/components/Holdout/EditScheduleModal";
 import useValidatedApi from "@/hooks/useValidatedApi";
+import ErrorDisplay from "@/ui/ErrorDisplay";
 
 const HOLDOUT_API_RESPONSE_SCHEMA = z.object({
   holdout: holdoutValidator,
@@ -68,7 +69,14 @@ const HoldoutPage = (): ReactElement => {
   const { apiCall } = useAuth();
 
   if (error) {
-    return <div>There was a problem loading the holdout</div>;
+    return (
+      <ErrorDisplay
+        error={`There was a problem loading the holdout: \n\n ${error.message}`}
+        maxLines={10}
+        mx="3"
+        my="4"
+      />
+    );
   }
   if (!data) {
     return <LoadingOverlay />;

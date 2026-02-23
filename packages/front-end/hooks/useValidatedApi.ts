@@ -31,5 +31,9 @@ export default function useValidatedApi<Response = unknown>(
       parsedData.error.message,
     );
   }
-  return { data: parsedData.data as Response, ...rest };
+  return {
+    data: parsedData.data as Response,
+    ...rest,
+    error: parsedData.error ? new Error(parsedData.error.message) : null,
+  };
 }

@@ -30,8 +30,8 @@ export const holdoutValidator = z
   .object({
     id: z.string(),
     organization: z.string(),
-    dateCreated: z.coerce.date(),
-    dateUpdated: z.coerce.date(),
+    dateCreated: z.date(),
+    dateUpdated: z.date(),
     projects: z.array(z.string()),
     name: z.string(),
     experimentId: z.string(),
