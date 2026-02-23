@@ -38,18 +38,9 @@ export default function AttributeDetailPage() {
   const router = useRouter();
   const property = router.query.property as string | undefined;
   const attributeSchema = useAttributeSchema(true);
-  const decodedProperty = useMemo(() => {
-    if (!property) return "";
-    try {
-      return decodeURIComponent(property);
-    } catch {
-      return property; // Fallback if URL has invalid encoding
-    }
-  }, [property]);
-
   const attribute = useMemo(
-    () => attributeSchema.find((a) => a.property === decodedProperty),
-    [attributeSchema, decodedProperty],
+    () => attributeSchema.find((a) => a.property === property),
+    [attributeSchema, property],
   );
 
   const { getProjectById, savedGroups } = useDefinitions();
@@ -170,13 +161,13 @@ export default function AttributeDetailPage() {
         <PageHead
           breadcrumb={[
             { display: "Attributes", href: "/attributes" },
-            { display: decodedProperty },
+            { display: property },
           ]}
         />
         <div className="p-3 container-fluid pagecontents">
           <Callout status="error">
-            Attribute &quot;{decodedProperty}&quot; not found. It may have been
-            deleted or you may not have access.{" "}
+            Attribute &quot;{property}&quot; not found. It may have been deleted
+            or you may not have access.{" "}
             <Link href="/attributes">Back to Attributes</Link>
           </Callout>
         </div>
