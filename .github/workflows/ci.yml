@@ -63,6 +63,8 @@ jobs:
           # Build required dependencies (sdks/shared package)
           # This is required for linting/type checks to work
           pnpm run setup
+          # Generate Next.js types (next-env.d.ts, routes.d.ts) for front-end type-check
+          pnpm --filter front-end exec next typegen
         env:
           CI: true
 
@@ -83,7 +85,7 @@ jobs:
           cd docs
           pnpm install
           pnpm gen
-          [[ -n $(git status --porcelain) ]] && echo "You need to run pnpm gen-doc" && git status --porcelain && exit 1 || true
+          [[ -n $(git status --porcelain) ]] && echo "You need to run pnpm doc-gen" && git status --porcelain && exit 1 || true
 
       - name: Type-check
         run: |

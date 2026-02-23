@@ -4,6 +4,9 @@ primary_region = 'sjc'
 [build]
   dockerfile = 'preview/Dockerfile.generated'
 
+  [build.args]
+    NODE_OPTIONS = '--max-old-space-size=14336'
+
 [deploy]
   strategy = 'immediate'
 

@@ -314,7 +314,7 @@ export abstract class BaseModel<
   public async handleApiList(
     _req: ApiRequest<unknown, z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>,
   ): Promise<z.infer<ApiT>[]> {
-    return (await this.getAll()).map(this.toApiInterface);
+    return (await this.getAll()).map(this.toApiInterface.bind(this));
   }
   public async handleApiDelete(
     req: ApiRequest<
@@ -619,9 +619,12 @@ export abstract class BaseModel<
       throw new Error("Cannot set dateUpdated field");
     }
 
-    // Add default owner if empty
+    // Add default owner and createdBy if empty
     if ("owner" in props && !props.owner) {
       props.owner = this.context.userName || "";
+    }
+    if ("createdBy" in props && !props.createdBy) {
+      props.createdBy = this.context.userName || "";
     }
 
     const ids: Identifiers = {

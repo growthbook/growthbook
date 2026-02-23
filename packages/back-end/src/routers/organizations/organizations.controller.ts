@@ -41,6 +41,7 @@ import {
   findVerifiedOrgsForNewUser,
   getContextFromReq,
   getInviteUrl,
+  getMembersOfTeam,
   getNumberOfUniqueMembersAndInvites,
   importConfig,
   inviteUser,
@@ -128,7 +129,6 @@ import {
   countAllAuditsByEntityType,
   countAllAuditsByEntityTypeParent,
 } from "back-end/src/models/AuditModel";
-import { getTeamsForOrganization } from "back-end/src/models/TeamModel";
 import { getAllFactTablesForOrganization } from "back-end/src/models/FactTableModel";
 import { fireSdkWebhook } from "back-end/src/jobs/sdkWebhooks";
 import {
@@ -910,12 +910,10 @@ export async function getOrganization(
 
   const expandedMembers = await expandOrgMembers(members, userId);
 
-  const teams = await getTeamsForOrganization(org.id);
+  const teams = await context.models.teams.getAll();
 
   const teamsWithMembers: TeamInterface[] = teams.map((team) => {
-    const memberIds = org.members
-      .filter((member) => member.teams?.includes(team.id))
-      .map((m) => m.id);
+    const memberIds = getMembersOfTeam(org, team.id);
     return {
       ...team,
       members: memberIds,

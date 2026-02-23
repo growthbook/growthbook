@@ -9,7 +9,6 @@ import Collapsible from "react-collapsible";
 import { FaAngleRight } from "react-icons/fa";
 import { Box, Flex, ScrollArea } from "@radix-ui/themes";
 import { HoldoutInterfaceStringDates } from "shared/validators";
-import { upperFirst } from "lodash";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { PreLaunchChecklist } from "@/components/Experiment/PreLaunchChecklist";
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
@@ -25,7 +24,9 @@ import Link from "@/ui/Link";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import OptInModal from "@/components/License/OptInModal";
 import { useUser } from "@/services/UserContext";
-import EditDescriptionModal from "@/components/Experiment/EditDescriptionModal";
+import EditDescriptionModal, {
+  getExperimentDescriptionPlaceholder,
+} from "@/components/Experiment/EditDescriptionModal";
 import HoldoutTimeline from "@/components/Experiment/holdout/HoldoutTimeline";
 import EditHypothesisModal from "@/components/Experiment/EditHypothesisModal";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -259,9 +260,9 @@ export default function SetupTabOverview({
               </ScrollArea>
             ) : (
               <Box as="div" className="font-italic text-muted" py="2">
-                Add a description to keep your team informed about the purpose
-                and parameters of your{" "}
-                {upperFirst(experiment.type || "experiment")}.
+                {getExperimentDescriptionPlaceholder(
+                  experiment.type || "standard",
+                )}
               </Box>
             )}
             {!customFields.length && experiment.description && !isHoldout ? (

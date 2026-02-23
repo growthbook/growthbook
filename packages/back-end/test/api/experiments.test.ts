@@ -54,6 +54,9 @@ describe("experiments API", () => {
         metricGroups: {
           getAll: jest.fn().mockResolvedValue([]),
         },
+        customFields: {
+          getCustomFieldsBySectionAndProject: jest.fn().mockResolvedValue([]),
+        },
         decisionCriteria: {
           getById: jest.fn().mockResolvedValue(null),
         },
@@ -522,6 +525,62 @@ describe("experiments API", () => {
       expect(createExperiment).toHaveBeenCalled();
     });
 
+    it("rejects create when required custom fields are missing", async () => {
+      updateReqContext({
+        models: {
+          customFields: {
+            getCustomFieldsBySectionAndProject: jest.fn().mockResolvedValue([
+              {
+                id: "cfd_team",
+                name: "Owning Team",
+                type: "enum",
+                required: true,
+                values: "growth,platform",
+                section: "experiment",
+                dateCreated: new Date("2026-01-01"),
+                dateUpdated: new Date("2026-01-01"),
+              },
+            ]),
+          },
+        },
+      });
+
+      (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(null);
+
+      const createPayload = {
+        trackingKey: "exp_new",
+        name: "New Experiment",
+        hypothesis: "This will increase conversions",
+        datasourceId: "ds_123",
+        assignmentQueryId: "user_id",
+        variations: [
+          {
+            key: "control",
+            name: "Control",
+            description: "Original version",
+            screenshots: [{ path: "img1.png" }, { path: "img2.png" }],
+          },
+          {
+            key: "treatment",
+            name: "Treatment",
+            description: "New version",
+            screenshots: [],
+          },
+        ],
+      };
+
+      const res = await request(app)
+        .post("/api/v1/experiments")
+        .send(createPayload)
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toContain(
+        'Custom field "Owning Team" is required.',
+      );
+      expect(createExperiment).not.toHaveBeenCalled();
+    });
+
     it("returns 400 when trackingKey already exists", async () => {
       (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(experiment);
 
@@ -636,6 +695,305 @@ describe("experiments API", () => {
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty("experiment");
       expect(res.body.experiment.name).toBe("Updated Experiment Name");
+    });
+
+    it("allows update when required custom fields are missing and payload omits customFields", async () => {
+      const getCustomFieldsBySectionAndProject = jest.fn().mockResolvedValue([
+        {
+          id: "cfd_team",
+          name: "Owning Team",
+          type: "enum",
+          required: true,
+          values: "growth,platform",
+          section: "experiment",
+          dateCreated: new Date("2026-01-01"),
+          dateUpdated: new Date("2026-01-01"),
+        },
+      ]);
+      updateReqContext({
+        models: {
+          customFields: {
+            getCustomFieldsBySectionAndProject,
+          },
+        },
+      });
+
+      (getExperimentById as jest.Mock).mockResolvedValue({
+        ...experiment,
+        customFields: {},
+      });
+      (updateExperiment as jest.Mock).mockImplementation(
+        ({ experiment, changes }) => ({
+          ...experiment,
+          ...changes,
+        }),
+      );
+
+      const res = await request(app)
+        .post("/api/v1/experiments/exp_123")
+        .send({
+          name: "Updated Experiment Name",
+        })
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(updateExperiment).toHaveBeenCalled();
+      expect(getCustomFieldsBySectionAndProject).not.toHaveBeenCalled();
+    });
+
+    it("allows update when customFields payload is unchanged", async () => {
+      const getCustomFieldsBySectionAndProject = jest.fn().mockResolvedValue([
+        {
+          id: "cfd_team",
+          name: "Owning Team",
+          type: "enum",
+          required: true,
+          values: "growth,platform",
+          section: "experiment",
+          dateCreated: new Date("2026-01-01"),
+          dateUpdated: new Date("2026-01-01"),
+        },
+      ]);
+      updateReqContext({
+        models: {
+          customFields: {
+            getCustomFieldsBySectionAndProject,
+          },
+        },
+      });
+
+      (getExperimentById as jest.Mock).mockResolvedValue({
+        ...experiment,
+        customFields: {},
+      });
+      (updateExperiment as jest.Mock).mockImplementation(
+        ({ experiment, changes }) => ({
+          ...experiment,
+          ...changes,
+        }),
+      );
+
+      const res = await request(app)
+        .post("/api/v1/experiments/exp_123")
+        .send({
+          name: "Updated Experiment Name",
+          customFields: {},
+        })
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(updateExperiment).toHaveBeenCalled();
+      expect(getCustomFieldsBySectionAndProject).not.toHaveBeenCalled();
+    });
+
+    it("rejects update when customFields are cleared from a non-empty object", async () => {
+      const getCustomFieldsBySectionAndProject = jest.fn().mockResolvedValue([
+        {
+          id: "cfd_team",
+          name: "Owning Team",
+          type: "enum",
+          required: true,
+          values: "growth,platform",
+          section: "experiment",
+          dateCreated: new Date("2026-01-01"),
+          dateUpdated: new Date("2026-01-01"),
+        },
+      ]);
+      updateReqContext({
+        models: {
+          customFields: {
+            getCustomFieldsBySectionAndProject,
+          },
+        },
+      });
+
+      (getExperimentById as jest.Mock).mockResolvedValue({
+        ...experiment,
+        customFields: {
+          cfd_team: "growth",
+        },
+      });
+      (updateExperiment as jest.Mock).mockImplementation(
+        ({ experiment, changes }) => ({
+          ...experiment,
+          ...changes,
+        }),
+      );
+
+      const res = await request(app)
+        .post("/api/v1/experiments/exp_123")
+        .send({
+          name: "Updated Experiment Name",
+          customFields: {},
+        })
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toContain(
+        'Custom field "Owning Team" is required.',
+      );
+      expect(updateExperiment).not.toHaveBeenCalled();
+      expect(getCustomFieldsBySectionAndProject).toHaveBeenCalled();
+    });
+
+    it("allows update when project payload is unchanged", async () => {
+      const getCustomFieldsBySectionAndProject = jest.fn().mockResolvedValue([
+        {
+          id: "cfd_team",
+          name: "Owning Team",
+          type: "enum",
+          required: true,
+          values: "growth,platform",
+          section: "experiment",
+          dateCreated: new Date("2026-01-01"),
+          dateUpdated: new Date("2026-01-01"),
+        },
+      ]);
+      updateReqContext({
+        models: {
+          customFields: {
+            getCustomFieldsBySectionAndProject,
+          },
+        },
+      });
+
+      (getExperimentById as jest.Mock).mockResolvedValue({
+        ...experiment,
+        customFields: {},
+      });
+      (updateExperiment as jest.Mock).mockImplementation(
+        ({ experiment, changes }) => ({
+          ...experiment,
+          ...changes,
+        }),
+      );
+
+      const res = await request(app)
+        .post("/api/v1/experiments/exp_123")
+        .send({
+          name: "Updated Experiment Name",
+          project: "proj_1",
+        })
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(updateExperiment).toHaveBeenCalled();
+      expect(getCustomFieldsBySectionAndProject).not.toHaveBeenCalled();
+    });
+
+    it("revalidates and rejects when changing project to one with required custom fields", async () => {
+      const getCustomFieldsBySectionAndProject = jest
+        .fn()
+        .mockImplementation(({ project }) => {
+          if (project === "proj_2") {
+            return Promise.resolve([
+              {
+                id: "cfd_team",
+                name: "Owning Team",
+                type: "enum",
+                required: true,
+                values: "growth,platform",
+                section: "experiment",
+                dateCreated: new Date("2026-01-01"),
+                dateUpdated: new Date("2026-01-01"),
+              },
+            ]);
+          }
+          return Promise.resolve([]);
+        });
+      updateReqContext({
+        models: {
+          customFields: {
+            getCustomFieldsBySectionAndProject,
+          },
+        },
+      });
+
+      (getExperimentById as jest.Mock).mockResolvedValue({
+        ...experiment,
+        project: "proj_1",
+        customFields: {},
+      });
+      (updateExperiment as jest.Mock).mockImplementation(
+        ({ experiment, changes }) => ({
+          ...experiment,
+          ...changes,
+        }),
+      );
+
+      const res = await request(app)
+        .post("/api/v1/experiments/exp_123")
+        .send({
+          name: "Updated Experiment Name",
+          project: "proj_2",
+        })
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toContain(
+        'Custom field "Owning Team" is required.',
+      );
+      expect(updateExperiment).not.toHaveBeenCalled();
+      expect(getCustomFieldsBySectionAndProject).toHaveBeenCalled();
+    });
+
+    it("revalidates and rejects when changing project and customFields payload is changed", async () => {
+      const getCustomFieldsBySectionAndProject = jest
+        .fn()
+        .mockImplementation(({ project }) => {
+          if (project === "proj_2") {
+            return Promise.resolve([
+              {
+                id: "cfd_team",
+                name: "Owning Team",
+                type: "enum",
+                required: true,
+                values: "growth,platform",
+                section: "experiment",
+                dateCreated: new Date("2026-01-01"),
+                dateUpdated: new Date("2026-01-01"),
+              },
+            ]);
+          }
+          return Promise.resolve([]);
+        });
+      updateReqContext({
+        models: {
+          customFields: {
+            getCustomFieldsBySectionAndProject,
+          },
+        },
+      });
+
+      (getExperimentById as jest.Mock).mockResolvedValue({
+        ...experiment,
+        project: "proj_1",
+        customFields: {
+          cfd_team: "growth",
+        },
+      });
+      (updateExperiment as jest.Mock).mockImplementation(
+        ({ experiment, changes }) => ({
+          ...experiment,
+          ...changes,
+        }),
+      );
+
+      const res = await request(app)
+        .post("/api/v1/experiments/exp_123")
+        .send({
+          name: "Updated Experiment Name",
+          project: "proj_2",
+          customFields: {},
+        })
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toContain(
+        'Custom field "Owning Team" is required.',
+      );
+      expect(updateExperiment).not.toHaveBeenCalled();
+      expect(getCustomFieldsBySectionAndProject).toHaveBeenCalled();
     });
 
     it("returns 400 when experiment not found", async () => {

@@ -15,18 +15,20 @@ ENV PATH="$VIRTUAL_ENV/bin:${PATH}"
 
 RUN \
   if [ "$UPGRADE_PIP" = "true" ]; then pip install --upgrade pip; fi \
-  && pip install --no-cache-dir poetry==1.8.5 \
-  && poetry install --no-root --without dev --no-interaction --no-ansi \
-  && poetry build \
-  && poetry export -f requirements.txt --output requirements.txt \
-  && pip install --no-cache-dir -r requirements.txt \
-  && pip install --no-cache-dir dist/*.whl ddtrace==4.3.2
+    pip install --no-cache-dir poetry==1.8.5 \
+    && poetry install --no-root --without dev --no-interaction --no-ansi \
+    && poetry build \
+    && poetry export -f requirements.txt --output requirements.txt \
+    && pip install --no-cache-dir -r requirements.txt \
+    && pip install --no-cache-dir dist/*.whl ddtrace==4.3.2 \
+    && pip uninstall -y poetry poetry-core poetry-plugin-export keyring jaraco.classes setuptools wheel;\
 
 # Build the nodejs app
 FROM node:${NODE_MAJOR}-slim AS nodebuild
 WORKDIR /usr/local/src/app
-# Set node max memory for build
-ENV NODE_OPTIONS="--max-old-space-size=8192"
+# Set node max memory for build (can be overriden via --build-arg NODE_OPTIONS=...)
+ARG NODE_OPTIONS="--max-old-space-size=8192"
+ENV NODE_OPTIONS="${NODE_OPTIONS}"
 RUN apt-get update && \
   apt-get install -y --no-install-recommends build-essential python3 ca-certificates libkrb5-dev && \
   npm install -g pnpm@10.28.2 node-gyp && \
@@ -82,6 +84,7 @@ WORKDIR /usr/local/src/app
 RUN apt-get update && \
   apt-get install -y --no-install-recommends python${PYTHON_MAJOR} ca-certificates libkrb5-3 && \
   npm install -g pnpm@10.28.2 && \
+  rm -rf /usr/local/lib/node_modules/npm && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/* && \
   ln -sf /usr/bin/python${PYTHON_MAJOR} /usr/local/bin/python3 && \
