@@ -1,6 +1,7 @@
 import {
   apiAddTeamMembersValidator,
   apiCreateTeamBody,
+  apiRemoveMembersAndDeleteValidator,
   apiRemoveTeamMemberValidator,
   apiTeamValidator,
   apiUpdateTeamBody,
@@ -54,6 +55,7 @@ const BaseClass = MakeModelClass({
         operationId: "addTeamMembers",
         validator: apiAddTeamMembersValidator,
         zodReturnObject: statusCodeReturn,
+        summary: "Add members to team",
         reqHandler: async (req) => {
           if (!req.context.permissions.canManageTeam())
             req.context.permissions.throwPermissionError();
@@ -77,6 +79,7 @@ const BaseClass = MakeModelClass({
         operationId: "removeTeamMember",
         validator: apiRemoveTeamMemberValidator,
         zodReturnObject: statusCodeReturn,
+        summary: "Remove members from team",
         reqHandler: async (req) => {
           if (!req.context.permissions.canManageTeam())
             req.context.permissions.throwPermissionError();
@@ -89,6 +92,31 @@ const BaseClass = MakeModelClass({
             userIds: req.body.members,
             teamId: team.id,
           });
+          return {
+            status: 200,
+          };
+        },
+      }),
+      defineCustomApiHandler({
+        pathFragment: "/:teamId/removeMembersAndDelete",
+        verb: "delete",
+        operationId: "removeTeamMembersAndDelete",
+        validator: apiRemoveMembersAndDeleteValidator,
+        zodReturnObject: statusCodeReturn,
+        summary: "Remove all team members and delete team",
+        reqHandler: async (req) => {
+          if (!req.context.permissions.canManageTeam())
+            req.context.permissions.throwPermissionError();
+          const team = await req.context.models.teams.getById(
+            req.params.teamId,
+          );
+          if (!team) return req.context.throwNotFoundError();
+          await removeMembersFromTeam({
+            organization: req.context.org,
+            userIds: getMembersOfTeam(req.context.org, team.id),
+            teamId: team.id,
+          });
+          await req.context.models.teams.delete(team);
           return {
             status: 200,
           };

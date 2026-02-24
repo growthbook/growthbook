@@ -12075,7 +12075,7 @@ paths:
             type: string
       tags:
         - Teams
-      summary: ''
+      summary: Add members to team
       operationId: addTeamMembers
       x-codeSamples:
         - lang: cURL
@@ -12118,7 +12118,7 @@ paths:
             type: string
       tags:
         - Teams
-      summary: ''
+      summary: Remove members from team
       operationId: removeTeamMember
       x-codeSamples:
         - lang: cURL
@@ -12138,6 +12138,35 @@ paths:
               required:
                 - members
               additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $schema: 'https://json-schema.org/draft/2020-12/schema'
+                type: object
+                properties:
+                  status:
+                    type: number
+                required:
+                  - status
+                additionalProperties: false
+  '/teams/{teamId}/removeMembersAndDelete':
+    delete:
+      $skipValidatorGeneration: true
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: string
+      tags:
+        - Teams
+      summary: Remove all team members and delete team
+      operationId: removeTeamMembersAndDelete
+      x-codeSamples:
+        - lang: cURL
+          source: 'curl -X DELETE https://api.growthbook.io/api/v1/teams/{teamId}/removeMembersAndDelete -u secret_abc123DEF456'
       responses:
         '200':
           content:

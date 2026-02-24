@@ -59,3 +59,9 @@ export const apiRemoveTeamMemberValidator = {
   querySchema: z.never(),
   paramsSchema: z.strictObject({ teamId: z.string() }),
 };
+
+export const apiRemoveMembersAndDeleteValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.strictObject({ teamId: z.string() }),
+};

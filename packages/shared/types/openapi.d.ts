@@ -443,8 +443,14 @@ export interface paths {
     post: operations["createTeam"];
   };
   "/teams/{teamId}/members": {
+    /** Add members to team */
     post: operations["addTeamMembers"];
+    /** Remove members from team */
     delete: operations["removeTeamMember"];
+  };
+  "/teams/{teamId}/removeMembersAndDelete": {
+    /** Remove all team members and delete team */
+    delete: operations["removeTeamMembersAndDelete"];
   };
 }
 
@@ -16679,6 +16685,7 @@ export interface operations {
     };
   };
   addTeamMembers: {
+    /** Add members to team */
     parameters: {
       path: {
         teamId: string;
@@ -16702,6 +16709,7 @@ export interface operations {
     };
   };
   removeTeamMember: {
+    /** Remove members from team */
     parameters: {
       path: {
         teamId: string;
@@ -16712,6 +16720,23 @@ export interface operations {
         "application/json": {
           members: (string)[];
         };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            status: number;
+          };
+        };
+      };
+    };
+  };
+  removeTeamMembersAndDelete: {
+    /** Remove all team members and delete team */
+    parameters: {
+      path: {
+        teamId: string;
       };
     };
     responses: {
