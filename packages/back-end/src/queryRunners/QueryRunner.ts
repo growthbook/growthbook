@@ -598,9 +598,7 @@ export abstract class QueryRunner<
       });
     };
 
-    if (doc.queryType) {
-      this.integration.queryDocMetadata = { queryType: doc.queryType };
-    }
+    this.integration.queryDocMetadata = { queryType: doc.queryType };
 
     run(doc.query, setExternalId)
       .then(async ({ rows, statistics }) => {

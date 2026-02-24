@@ -61,12 +61,11 @@ export type ExperimentQueryMetadata = {
   experimentTags?: string[];
 };
 
+export type AdditionalQueryMetadata = ExperimentQueryMetadata;
+
 export type QueryDocMetadata = {
   queryType?: QueryType;
 };
-
-export type AdditionalQueryMetadata = ExperimentQueryMetadata &
-  QueryDocMetadata;
 
 export type QueryMetadata = AdditionalQueryMetadata &
   QueryDocMetadata & {
