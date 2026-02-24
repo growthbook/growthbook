@@ -36,7 +36,11 @@ function getPolyglotDialect(
 }
 
 export function initFormatMetrics(): void {
-  void import("@polyglot-sql/sdk")
+  // Use Function to preserve native import(); tsc/swc convert import() to require() which fails for ESM-only @polyglot-sql/sdk
+  const dynamicImport = new Function("spec", "return import(spec)") as (
+    spec: string,
+  ) => Promise<typeof import("@polyglot-sql/sdk")>;
+  void dynamicImport("@polyglot-sql/sdk")
     .then((mod) => {
       setPolyglotFormatter((sql, dialect) => {
         try {
