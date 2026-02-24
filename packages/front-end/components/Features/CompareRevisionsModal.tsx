@@ -43,7 +43,12 @@ import EventUser from "@/components/Avatar/EventUser";
 import {
   useFeatureRevisionDiff,
   FeatureRevisionDiffInput,
+  FeatureRevisionDiff,
 } from "@/hooks/useFeatureRevisionDiff";
+import {
+  DiffBadge,
+  featureRuleChangeBadges,
+} from "@/components/Features/FeatureDiffRenders";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
@@ -180,6 +185,41 @@ function logBadgeColor(
   return "gray";
 }
 
+/**
+ * Derives summary badges directly from the computed diffs when the revision
+ * log yields no entries (e.g. rules added via postFeatureExperimentRefRule
+ * only write a "new revision" entry, not an "add rule" entry).
+ *
+ * Delegates to featureRuleChangeBadges (from FeatureDiffRenders) so that rule
+ * change detection logic is not duplicated here.
+ */
+function badgesFromDiffs(diffs: FeatureRevisionDiff[]): DiffBadge[] {
+  const badges: DiffBadge[] = [];
+  for (const diff of diffs) {
+    if (diff.title === "Default Value") {
+      badges.push({
+        label: "Edit default value",
+        action: "edit default value",
+      });
+      continue;
+    }
+    if (diff.title.startsWith("Rules - ")) {
+      const env = diff.title.slice("Rules - ".length);
+      try {
+        // diff.a / diff.b are JSON strings of the processed rule arrays
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const preRules = (JSON.parse(diff.a) || []) as any[];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const postRules = (JSON.parse(diff.b) || []) as any[];
+        badges.push(...featureRuleChangeBadges(preRules, postRules, env));
+      } catch {
+        badges.push({ label: `Edit rules in ${env}`, action: "edit rule" });
+      }
+    }
+  }
+  return badges;
+}
+
 // Renders the comment for a single revision version. Returns null if there is
 // no comment on either the revision object or any "edit comment" log entry.
 function RevisionCommentItem({
@@ -270,57 +310,98 @@ function RevisionCommentSection({
 function RevisionLogSection({
   featureId,
   version,
+  fallbackBadges,
 }: {
   featureId: string;
   version: number;
+  fallbackBadges?: DiffBadge[];
 }) {
   const { data } = useApi<{ log: RevisionLog[] }>(
     `/feature/${featureId}/${version}/log`,
   );
 
-  const entries = useMemo(() => {
-    if (!data?.log) return [];
-    return [...data.log]
-      .filter((e) => e.action !== "new revision")
-      .sort((a, b) =>
-        (b.timestamp as unknown as string).localeCompare(
-          a.timestamp as unknown as string,
-        ),
-      );
+  const dedupedEntries = useMemo(() => {
+    if (!data?.log) return null; // null = still loading
+    const filtered = data.log.filter((e) => e.action !== "new revision");
+    // Deduplicate by label — track the first representative entry per label
+    // so the badge colour reflects the action, plus a count for repeats.
+    const seen = new Map<string, { action: string; count: number }>();
+    for (const e of filtered) {
+      const label =
+        e.action.charAt(0).toUpperCase() +
+        e.action.slice(1) +
+        (e.subject ? ` ${e.subject}` : "");
+      const existing = seen.get(label);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        seen.set(label, { action: e.action, count: 1 });
+      }
+    }
+    return Array.from(seen.entries()).map(([label, { action, count }]) => ({
+      label,
+      action,
+      count,
+    }));
   }, [data]);
 
-  if (entries.length === 0) return null;
+  // Still loading
+  if (dedupedEntries === null) return null;
 
-  return (
-    <Flex wrap="wrap" gap="2">
-      {entries.map((entry, i) => (
-        <Badge
-          key={`${version}-${i}`}
-          color={logBadgeColor(entry.action)}
-          variant="soft"
-          label={
-            entry.action.charAt(0).toUpperCase() +
-            entry.action.slice(1) +
-            (entry.subject ? ` ${entry.subject}` : "")
-          }
-        />
-      ))}
-    </Flex>
-  );
+  // Log has entries — show them
+  if (dedupedEntries.length > 0) {
+    return (
+      <Flex wrap="wrap" gap="2">
+        {dedupedEntries.map(({ label, action, count }) => (
+          <Badge
+            key={label}
+            color={logBadgeColor(action)}
+            variant="soft"
+            label={count > 1 ? `${label} ×${count}` : label}
+          />
+        ))}
+      </Flex>
+    );
+  }
+
+  // Log empty — fall back to diff-derived badges if provided
+  if (fallbackBadges?.length) {
+    return (
+      <Flex wrap="wrap" gap="2">
+        {fallbackBadges.map(({ label, action }) => (
+          <Badge
+            key={label}
+            color={logBadgeColor(action)}
+            variant="soft"
+            label={label}
+          />
+        ))}
+      </Flex>
+    );
+  }
+
+  return null;
 }
 
 function RevisionLogSummary({
   featureId,
   versions,
+  fallbackBadges,
 }: {
   featureId: string;
   versions: number[];
+  fallbackBadges?: DiffBadge[];
 }) {
   if (versions.length === 0) return null;
   return (
     <Flex direction="column" gap="3" mb="3">
       {versions.map((v) => (
-        <RevisionLogSection key={v} featureId={featureId} version={v} />
+        <RevisionLogSection
+          key={v}
+          featureId={featureId}
+          version={v}
+          fallbackBadges={fallbackBadges}
+        />
       ))}
     </Flex>
   );
@@ -1206,83 +1287,141 @@ export default function CompareRevisionsModal({
                         : diffViewMode === "single"
                           ? [...selectedSorted].reverse()
                           : [];
-                    // Versions whose comments are surfaced. Include both fenceposts
-                    // so the reader sees comments attached to either endpoint.
+                    // Versions whose comments are surfaced. Include both fenceposts.
                     const commentVersions =
                       diffViewMode === "steps" && currentStep
                         ? [currentStep[1], currentStep[0]]
                         : diffViewMode === "single"
                           ? [...selectedSorted].reverse()
                           : [];
-                    if (
-                      badgeVersions.length === 0 &&
-                      commentVersions.length === 0
-                    )
-                      return null;
                     const commentItems = commentVersions.map((v) => ({
                       version: v,
                       revisionComment: getFullRevision(v)?.comment,
                     }));
+
+                    const diffs =
+                      diffViewMode === "single" ? mergedDiffs : stepDiffs;
+                    const withRender = diffs.filter((d) => d.customRender);
+
+                    // Diff-derived badges used as fallback when the revision log
+                    // has no actionable entries (e.g. rules added via the
+                    // "connect experiment" flow only write a "new revision" entry).
+                    const diffFallbackBadges = badgesFromDiffs(diffs);
+
+                    const formatSectionTitle = (title: string) => {
+                      if (title === "Default Value") return "Default value";
+                      if (title.startsWith("Rules - ")) {
+                        const env = title.slice("Rules - ".length);
+                        return `${env.charAt(0).toUpperCase() + env.slice(1)} rules`;
+                      }
+                      return title;
+                    };
+
+                    const hasSummary =
+                      badgeVersions.length > 0 || withRender.length > 0;
+
                     return (
                       <>
                         <RevisionCommentSection
                           featureId={feature.id}
                           versions={commentItems}
                         />
-                        {badgeVersions.length > 0 && (
-                          <>
+
+                        {hasSummary && (
+                          <Box>
                             <Heading
                               as="h5"
                               size="small"
                               color="text-mid"
                               mt="4"
-                              mb="2"
                             >
-                              Changes summary
+                              Summary of changes
                             </Heading>
-                            <RevisionLogSummary
-                              featureId={feature.id}
-                              versions={badgeVersions}
-                            />
+
+                            {/* Log action badges (with diff-derived fallback) */}
+                            {badgeVersions.length > 0 && (
+                              <Box mt="2" mb="2">
+                                <RevisionLogSummary
+                                  featureId={feature.id}
+                                  versions={badgeVersions}
+                                  fallbackBadges={diffFallbackBadges}
+                                />
+                              </Box>
+                            )}
+
+                            {/* Human-readable section renders */}
+                            {withRender.length > 0 && (
+                              <Flex direction="column" gap="0">
+                                {withRender.map((d) => (
+                                  <Box
+                                    key={d.title}
+                                    p="3"
+                                    my="3"
+                                    className="rounded bg-light"
+                                  >
+                                    <Heading
+                                      as="h6"
+                                      size="small"
+                                      color="text-mid"
+                                      mb="2"
+                                    >
+                                      {formatSectionTitle(d.title)}
+                                    </Heading>
+                                    {d.customRender}
+                                  </Box>
+                                ))}
+                              </Flex>
+                            )}
+                          </Box>
+                        )}
+
+                        {(diffViewMode === "single"
+                          ? isOutOfOrderDraft(singleRevFirst) ||
+                            isOutOfOrderDraft(singleRevLast)
+                          : isOutOfOrderDraft(stepRevA) ||
+                            isOutOfOrderDraft(stepRevB)) && (
+                          <Callout status="info" size="sm" mb="4">
+                            A draft in this comparison is based on an older
+                            version than what is currently live. When you
+                            publish, it will be merged with the live version, so
+                            the result may differ from the diff shown here.
+                          </Callout>
+                        )}
+
+                        {diffs.length === 0 ? (
+                          <Text color="text-low">
+                            No changes between these revisions.
+                          </Text>
+                        ) : (
+                          <>
+                            {hasSummary && (
+                              <Heading
+                                as="h5"
+                                size="small"
+                                color="text-mid"
+                                mt="4"
+                                mb="3"
+                              >
+                                Change details
+                              </Heading>
+                            )}
+                            <Flex direction="column" gap="4">
+                              {diffs.map((d) => (
+                                <ExpandableDiff
+                                  key={d.title}
+                                  title={d.title}
+                                  a={d.a}
+                                  b={d.b}
+                                  defaultOpen
+                                  styles={COMPACT_DIFF_STYLES}
+                                />
+                              ))}
+                            </Flex>
                           </>
                         )}
                       </>
                     );
                   })()}
-                  {(diffViewMode === "single"
-                    ? isOutOfOrderDraft(singleRevFirst) ||
-                      isOutOfOrderDraft(singleRevLast)
-                    : isOutOfOrderDraft(stepRevA) ||
-                      isOutOfOrderDraft(stepRevB)) && (
-                    <Callout status="info" size="sm" mb="4">
-                      A draft in this comparison is based on an older version
-                      than what is currently live. When you publish, it will be
-                      merged with the live version, so the result may differ
-                      from the diff shown here.
-                    </Callout>
-                  )}
-                  {(diffViewMode === "single" ? mergedDiffs : stepDiffs)
-                    .length === 0 ? (
-                    <Text color="text-low">
-                      No changes between these revisions.
-                    </Text>
-                  ) : (
-                    <Flex direction="column" gap="4">
-                      {(diffViewMode === "single"
-                        ? mergedDiffs
-                        : stepDiffs
-                      ).map((d) => (
-                        <ExpandableDiff
-                          key={d.title}
-                          title={d.title}
-                          a={d.a}
-                          b={d.b}
-                          defaultOpen
-                          styles={COMPACT_DIFF_STYLES}
-                        />
-                      ))}
-                    </Flex>
-                  )}
                 </>
               )}
             </>

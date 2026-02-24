@@ -67,8 +67,12 @@ function buildDiffItem<T>(
   const b = stringify(post);
 
   const customRender = section?.render ? section.render(pre, post) : undefined;
+  const customBadges = section?.getBadges
+    ? section.getBadges(pre, post)
+    : undefined;
+  const suppressCardLabel = section?.suppressCardLabel;
 
-  return { label, a, b, customRender };
+  return { label, a, b, customRender, customBadges, suppressCardLabel };
 }
 
 export const OVERFLOW_SECTION_LABEL = "other changes";

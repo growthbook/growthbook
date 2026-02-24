@@ -11,6 +11,11 @@ import {
   renderVariations,
   renderAnalysisSettings,
   renderMetadata,
+  getExperimentTargetingBadges,
+  getExperimentPhaseInfoBadges,
+  getExperimentVariationsBadges,
+  getExperimentAnalysisBadges,
+  getExperimentMetadataBadges,
 } from "./ExperimentDiffRenders";
 
 type ExperimentEventDef = {
@@ -142,6 +147,7 @@ const EXPERIMENT_DIFF_CONFIG: AuditDiffConfig<ExperimentInterfaceStringDates> =
         stripSubKeys: ["banditEvents"],
         stripSubKeysLabel: "Phases: other changes",
         render: renderUserTargetingPhases,
+        getBadges: getExperimentTargetingBadges,
       },
       {
         label: "User targeting",
@@ -152,6 +158,7 @@ const EXPERIMENT_DIFF_CONFIG: AuditDiffConfig<ExperimentInterfaceStringDates> =
           "disableStickyBucketing",
         ],
         render: renderUserTargetingTopLevel,
+        getBadges: getExperimentTargetingBadges,
       },
       {
         label: "Phase info",
@@ -166,11 +173,13 @@ const EXPERIMENT_DIFF_CONFIG: AuditDiffConfig<ExperimentInterfaceStringDates> =
         stripSubKeys: ["banditEvents"],
         stripSubKeysLabel: "Phases: other changes",
         render: renderPhaseInfo,
+        getBadges: getExperimentPhaseInfoBadges,
       },
       {
         label: "Variations",
         keys: ["variations"],
         render: renderVariations,
+        getBadges: getExperimentVariationsBadges,
       },
       {
         label: "Analysis settings",
@@ -203,6 +212,7 @@ const EXPERIMENT_DIFF_CONFIG: AuditDiffConfig<ExperimentInterfaceStringDates> =
           "banditScheduleValue",
         ],
         render: renderAnalysisSettings,
+        getBadges: getExperimentAnalysisBadges,
       },
       {
         label: "Metadata",
@@ -218,6 +228,7 @@ const EXPERIMENT_DIFF_CONFIG: AuditDiffConfig<ExperimentInterfaceStringDates> =
           "templateId",
         ],
         render: renderMetadata,
+        getBadges: getExperimentMetadataBadges,
       },
     ],
   };

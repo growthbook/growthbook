@@ -1,6 +1,6 @@
 import { FeatureInterface } from "shared/types/feature";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { FaAngleDown, FaAngleRight, FaArrowLeft } from "react-icons/fa";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
@@ -44,12 +44,14 @@ export function ExpandableDiff({
   b,
   defaultOpen = false,
   styles,
+  customRender,
 }: {
   title: string;
   a: string;
   b: string;
   defaultOpen?: boolean;
   styles?: object;
+  customRender?: React.ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
 
@@ -57,6 +59,11 @@ export function ExpandableDiff({
 
   return (
     <div className="diff-wrapper">
+      {customRender && (
+        <div className="list-group-item list-group-item-light pb-3">
+          {customRender}
+        </div>
+      )}
       <div
         className="list-group-item list-group-item-action d-flex"
         onClick={(e) => {

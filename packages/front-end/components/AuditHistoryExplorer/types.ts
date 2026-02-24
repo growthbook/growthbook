@@ -68,9 +68,25 @@ export interface AuditDiffSection<T> {
   /**
    * Optional custom renderer. When provided, its output is displayed *above*
    * the raw JSON ExpandableDiff — the diff is always shown regardless.
-   * Leave undefined for now; implement per-section renders later.
    */
   render?: (pre: Partial<T> | null, post: Partial<T>) => ReactNode;
+  /**
+   * Optional badge generator. When provided, badges are surfaced at the top
+   * of the "Summary of changes" panel — above the section renders — giving a
+   * quick at-a-glance summary of what changed. Uses the same pre/post partials
+   * as `render`, so the two can share analysis logic.
+   */
+  getBadges?: (
+    pre: Partial<T> | null,
+    post: Partial<T>,
+  ) => { label: string; action: string }[];
+  /**
+   * When true the generic card label (`<h6>{section.label}</h6>`) is omitted
+   * from the right-column render card. Use this when the section's `render`
+   * function produces its own titled headings (e.g. "Production rules") so
+   * the outer label does not double-stack with the inner heading.
+   */
+  suppressCardLabel?: boolean;
 }
 
 /**
@@ -158,6 +174,10 @@ export interface AuditDiffItem {
   a: string;
   b: string;
   customRender?: ReactNode;
+  /** Badge descriptors produced by AuditDiffSection.getBadges. */
+  customBadges?: { label: string; action: string }[];
+  /** Mirrors AuditDiffSection.suppressCardLabel — skip the outer card heading. */
+  suppressCardLabel?: boolean;
   /** When true the ExpandableDiff starts collapsed regardless of section visibility. */
   defaultCollapsed?: boolean;
   /**

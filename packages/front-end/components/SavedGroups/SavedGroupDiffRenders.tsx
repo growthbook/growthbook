@@ -1,59 +1,20 @@
-/**
- * Human-readable summary renders for SavedGroup AuditDiffSections.
- * Wired as the `render` prop on each section in the saved-group
- * AuditHistoryExplorerModal config.
- */
-
 import React, { ReactNode } from "react";
 import isEqual from "lodash/isEqual";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import Text from "@/ui/Text";
+import {
+  ChangeField,
+  toConditionString,
+  ProjectName,
+  DiffBadge,
+} from "@/components/Experiment/ExperimentDiffRenders";
 
 type Pre = Partial<SavedGroupInterface> | null;
 type Post = Partial<SavedGroupInterface>;
 
-/** Max items to render inline before switching to a count-only summary. */
+// Max items to render inline before switching to a count-only summary.
 const INLINE_LIMIT = 200;
-
-// ─── Shared primitives (mirrors ExperimentDiffRenders) ───────────────────────
-
-function ChangeField({
-  label,
-  changed,
-  oldNode,
-  newNode,
-}: {
-  label: string;
-  changed: boolean;
-  oldNode: ReactNode;
-  newNode: ReactNode;
-}) {
-  if (!changed) return null;
-  return (
-    <div className="mb-2">
-      <div className="mb-1">
-        <Text size="medium" weight="medium" color="text-mid">
-          {label}
-        </Text>
-      </div>
-      <div className="d-flex align-items-start">
-        <div className="text-danger d-flex align-items-start">
-          <div className="text-center mr-2" style={{ width: 16 }}>
-            Δ
-          </div>
-          <div>{oldNode}</div>
-        </div>
-        <div className="font-weight-bold text-success d-flex align-items-start ml-4">
-          <div className="text-center mx-2" style={{ width: 16 }}>
-            →
-          </div>
-          <div>{newNode}</div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function ValuesBox({
   values,
@@ -98,21 +59,8 @@ function ValuesBox({
   );
 }
 
-/**
- * After normalizeSnapshot, `condition` may already be a parsed object.
- * ConditionDisplay expects a JSON string, so re-stringify if needed.
- */
-function toConditionString(cond: unknown): string | undefined {
-  if (!cond) return undefined;
-  if (typeof cond === "string") return cond;
-  return JSON.stringify(cond);
-}
-
 // ─── Section renders ─────────────────────────────────────────────────────────
 
-/**
- * "Targeting" – the condition field for condition-type saved groups.
- */
 export function renderSavedGroupTargeting(
   pre: Pre,
   post: Post,
@@ -140,18 +88,11 @@ export function renderSavedGroupTargeting(
   );
 }
 
-/**
- * "Values" – values array and attributeKey for list-type saved groups.
- *
- * If both pre and post have ≤ INLINE_LIMIT items, show them as scrollable
- * before/after text boxes. Otherwise show a count summary only — we can't
- * cheaply diff 10k-item arrays in-memory, and the truncation in
- * normalizeSnapshot means only the first 100 items are diffed in the raw view.
- */
+// Shows values array and attributeKey for list-type saved groups.
+// Falls back to a count summary when either side exceeds INLINE_LIMIT.
 export function renderSavedGroupValues(pre: Pre, post: Post): ReactNode | null {
   const rows: ReactNode[] = [];
 
-  // ── attributeKey ──────────────────────────────────────────────────────────
   if (!isEqual(pre?.attributeKey, post.attributeKey) && post.attributeKey) {
     rows.push(
       <ChangeField
@@ -164,7 +105,6 @@ export function renderSavedGroupValues(pre: Pre, post: Post): ReactNode | null {
     );
   }
 
-  // ── values array ──────────────────────────────────────────────────────────
   const preVals = (pre?.values ?? []) as string[];
   const postVals = (post.values ?? []) as string[];
   // Treat undefined and [] as equivalent — no meaningful change.
@@ -209,4 +149,171 @@ export function renderSavedGroupValues(pre: Pre, post: Post): ReactNode | null {
   }
 
   return rows.length ? <div className="mt-1">{rows}</div> : null;
+}
+
+// "Settings" — name, owner, description changes.
+export function renderSavedGroupSettings(
+  pre: Pre,
+  post: Post,
+): ReactNode | null {
+  const rows: ReactNode[] = [];
+
+  if (
+    !isEqual(pre?.groupName, post.groupName) &&
+    post.groupName !== undefined
+  ) {
+    rows.push(
+      <ChangeField
+        key="groupName"
+        label="Name"
+        changed
+        oldNode={pre?.groupName ?? <em>None</em>}
+        newNode={post.groupName}
+      />,
+    );
+  }
+
+  if (!isEqual(pre?.owner, post.owner) && post.owner !== undefined) {
+    rows.push(
+      <ChangeField
+        key="owner"
+        label="Owner"
+        changed
+        oldNode={pre?.owner ?? <em>None</em>}
+        newNode={post.owner}
+      />,
+    );
+  }
+
+  if (
+    !isEqual(pre?.description, post.description) &&
+    post.description !== undefined
+  ) {
+    rows.push(
+      <ChangeField
+        key="description"
+        label="Description"
+        changed
+        oldNode={pre?.description ?? <em>None</em>}
+        newNode={post.description}
+      />,
+    );
+  }
+
+  return rows.length ? <div className="mt-1">{rows}</div> : null;
+}
+
+// "Projects" — projects array with resolved names.
+export function renderSavedGroupProjects(
+  pre: Pre,
+  post: Post,
+): ReactNode | null {
+  if (isEqual(pre?.projects, post.projects)) return null;
+  const preProjects = pre?.projects ?? [];
+  const postProjects = post.projects ?? [];
+  if (!preProjects.length && !postProjects.length) return null;
+
+  return (
+    <div className="mt-1">
+      <ChangeField
+        label="Projects"
+        changed
+        oldNode={
+          preProjects.length ? (
+            <>
+              {preProjects.map((id, i) => (
+                <span key={id}>
+                  {i > 0 ? ", " : ""}
+                  <ProjectName id={id} />
+                </span>
+              ))}
+            </>
+          ) : (
+            <em>None</em>
+          )
+        }
+        newNode={
+          postProjects.length ? (
+            <>
+              {postProjects.map((id, i) => (
+                <span key={id}>
+                  {i > 0 ? ", " : ""}
+                  <ProjectName id={id} />
+                </span>
+              ))}
+            </>
+          ) : (
+            <em>None</em>
+          )
+        }
+      />
+    </div>
+  );
+}
+
+// ─── Badge getters ────────────────────────────────────────────────────────────
+
+export function getSavedGroupSettingsBadges(pre: Pre, post: Post): DiffBadge[] {
+  const badges: DiffBadge[] = [];
+  if (!isEqual(pre?.groupName, post.groupName) && post.groupName !== undefined)
+    badges.push({ label: "Edit name", action: "edit name" });
+  if (!isEqual(pre?.owner, post.owner) && post.owner !== undefined)
+    badges.push({ label: "Edit owner", action: "edit owner" });
+  if (
+    !isEqual(pre?.description, post.description) &&
+    post.description !== undefined
+  )
+    badges.push({ label: "Edit description", action: "edit description" });
+  return badges;
+}
+
+export function getSavedGroupTargetingBadges(): DiffBadge[] {
+  return [{ label: "Edit targeting", action: "edit targeting" }];
+}
+
+export function getSavedGroupValuesBadges(pre: Pre, post: Post): DiffBadge[] {
+  const badges: DiffBadge[] = [];
+  if (
+    !isEqual(pre?.attributeKey, post.attributeKey) &&
+    post.attributeKey !== undefined
+  )
+    badges.push({ label: "Edit attribute", action: "edit attribute" });
+  const preVals = (pre?.values ?? []) as string[];
+  const postVals = (post.values ?? []) as string[];
+  if (!isEqual(preVals, postVals)) {
+    const diff = postVals.length - preVals.length;
+    if (diff > 0)
+      badges.push({
+        label: `+${diff} value${diff !== 1 ? "s" : ""}`,
+        action: "add values",
+      });
+    else if (diff < 0)
+      badges.push({
+        label: `−${Math.abs(diff)} value${Math.abs(diff) !== 1 ? "s" : ""}`,
+        action: "remove values",
+      });
+    else badges.push({ label: "Edit values", action: "edit values" });
+  }
+  return badges;
+}
+
+export function getSavedGroupProjectsBadges(pre: Pre, post: Post): DiffBadge[] {
+  const preProjects = pre?.projects ?? [];
+  const postProjects = post.projects ?? [];
+  const added = postProjects.filter((id) => !preProjects.includes(id));
+  const removed = preProjects.filter((id) => !postProjects.includes(id));
+  const badges: DiffBadge[] = [];
+  if (added.length)
+    badges.push({
+      label: `+${added.length} project${added.length !== 1 ? "s" : ""}`,
+      action: "add project",
+    });
+  if (removed.length)
+    badges.push({
+      label: `−${removed.length} project${removed.length !== 1 ? "s" : ""}`,
+      action: "remove project",
+    });
+  return badges.length
+    ? badges
+    : [{ label: "Edit projects", action: "edit projects" }];
 }

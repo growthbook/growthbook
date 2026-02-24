@@ -147,16 +147,26 @@ function computeGroupExpansionSelection(
   );
 }
 
-function groupCustomRenders(
-  activeDiffs: AuditDiffItem[],
-): { label: string; renders: ReactNode[] }[] {
+function groupCustomRenders(activeDiffs: AuditDiffItem[]): {
+  label: string;
+  renders: ReactNode[];
+  suppressCardLabel: boolean;
+}[] {
   const seen = new Set<string>();
-  const groups: { label: string; renders: ReactNode[] }[] = [];
+  const groups: {
+    label: string;
+    renders: ReactNode[];
+    suppressCardLabel: boolean;
+  }[] = [];
   for (const d of activeDiffs) {
     if (!d.customRender || d.isCompanion) continue;
     if (!seen.has(d.label)) {
       seen.add(d.label);
-      groups.push({ label: d.label, renders: [] });
+      groups.push({
+        label: d.label,
+        renders: [],
+        suppressCardLabel: d.suppressCardLabel ?? false,
+      });
     }
     groups.find((g) => g.label === d.label)!.renders.push(d.customRender);
   }
@@ -166,15 +176,18 @@ function groupCustomRenders(
 function computeDisplayIds(
   isSingleEntry: boolean,
   singleEntryFirst: { id: string } | null,
-  steps: [string, string][],
+  steps: [string | null, string][],
   diffViewMode: string,
-  currentStep: [string, string] | null,
+  currentStep: [string | null, string] | null,
   selectedSorted: string[],
 ): string[] {
   if (isSingleEntry && singleEntryFirst) return [singleEntryFirst.id];
   if (steps.length === 0) return [];
   if (diffViewMode === "steps" && currentStep)
-    return [currentStep[0], currentStep[1]];
+    // Filter out null (synthetic create step has no "pre" entry id)
+    return [currentStep[0], currentStep[1]].filter(
+      (id): id is string => id !== null,
+    );
   const oldest = selectedSorted[selectedSorted.length - 1];
   const newest = selectedSorted[0];
   return oldest && newest ? [oldest, newest] : [];
@@ -282,7 +295,24 @@ export function useAuditComparison<T>(
     [selectedSorted],
   );
 
-  const steps = useMemo(() => buildSteps(selectedSorted), [selectedSorted]);
+  const entryById = useMemo(
+    () => new Map(flatEntries.map((e) => [e.id, e])),
+    [flatEntries],
+  );
+
+  const stepsBase = useMemo(() => buildSteps(selectedSorted), [selectedSorted]);
+
+  // When the oldest entry in the selection is a create event (preSnapshot===null),
+  // append a synthetic step so the user can navigate to "null → create.postSnapshot"
+  // and see all the fields established at creation time.
+  const steps = useMemo((): [string | null, string][] => {
+    const oldestId = selectedSorted[selectedSorted.length - 1];
+    const oldest = oldestId ? entryById.get(oldestId) : null;
+    if (oldest?.preSnapshot === null) {
+      return [...stepsBase, [null, oldestId]];
+    }
+    return stepsBase;
+  }, [stepsBase, selectedSorted, entryById]);
 
   const [diffPage, setDiffPage] = useState(0);
   const safeDiffPage = Math.min(
@@ -295,11 +325,6 @@ export function useAuditComparison<T>(
       steps.length === 0 ? 0 : Math.min(p, steps.length - 1),
     );
   }, [steps.length]);
-
-  const entryById = useMemo(
-    () => new Map(flatEntries.map((e) => [e.id, e])),
-    [flatEntries],
-  );
 
   const entrySectionLabels = useMemo(
     () => buildEntrySectionLabels(flatEntries, config),
@@ -363,7 +388,8 @@ export function useAuditComparison<T>(
   );
 
   const currentStep = steps[safeDiffPage] ?? null;
-  const stepEntryA = currentStep
+  // currentStep[0] is null for the synthetic create step
+  const stepEntryA = currentStep?.[0]
     ? (entryById.get(currentStep[0]) ?? null)
     : null;
   const stepEntryB = currentStep
@@ -385,17 +411,22 @@ export function useAuditComparison<T>(
   // For diffing: pre of step A is its postSnapshot, post of step B is its postSnapshot.
   // For a create entry (pre=null), show as "created with these values".
   const stepDiffs = useAuditDiff<T>({
-    pre: stepEntryA?.postSnapshot ?? null,
+    // For synthetic create steps currentStep[0] is null, so pre is null
+    // (showing the create event as "everything new").
+    pre: currentStep?.[0] ? (stepEntryA?.postSnapshot ?? null) : null,
     post: stepEntryB?.postSnapshot ?? null,
     config,
   });
 
   // When a single entry is selected, diff its own preSnapshot→postSnapshot.
-  // For multi-entry ranges, use oldest.postSnapshot→newest.postSnapshot (merged net diff).
+  // For multi-entry ranges: if the oldest entry is a create event (preSnapshot===null),
+  // treat the range as "from nothing" so all creation-time fields appear as new.
+  // Otherwise use oldest.postSnapshot as the baseline.
   const mergedDiffs = useAuditDiff<T>({
-    pre: isSingleEntry
-      ? (singleEntryFirst?.preSnapshot ?? null)
-      : (singleEntryFirst?.postSnapshot ?? null),
+    pre:
+      isSingleEntry || singleEntryFirst?.preSnapshot === null
+        ? (singleEntryFirst?.preSnapshot ?? null)
+        : (singleEntryFirst?.postSnapshot ?? null),
     post: singleEntryLast?.postSnapshot ?? null,
     config,
   });
@@ -494,6 +525,14 @@ export function useAuditComparison<T>(
     [activeDiffs],
   );
 
+  const activeBadges = useMemo(
+    () =>
+      activeDiffs.flatMap((d) =>
+        !d.isCompanion && d.customBadges?.length ? d.customBadges : [],
+      ),
+    [activeDiffs],
+  );
+
   return {
     // Section visibility filters
     sectionLabels,
@@ -536,6 +575,7 @@ export function useAuditComparison<T>(
     setDiffViewModeRaw,
     activeDiffs,
     customRenderGroups,
+    activeBadges,
     displayFailed,
     // Diff context
     stepEntryA,

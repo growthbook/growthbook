@@ -37,7 +37,15 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
 import AuditHistoryExplorerModal from "@/components/AuditHistoryExplorer/AuditHistoryExplorerModal";
 import { OVERFLOW_SECTION_LABEL } from "@/components/AuditHistoryExplorer/useAuditDiff";
-import { renderSavedGroupTargeting } from "@/components/SavedGroups/SavedGroupDiffRenders";
+import {
+  renderSavedGroupTargeting,
+  renderSavedGroupProjects,
+  renderSavedGroupSettings,
+  getSavedGroupSettingsBadges,
+  getSavedGroupTargetingBadges,
+  getSavedGroupValuesBadges,
+  getSavedGroupProjectsBadges,
+} from "@/components/SavedGroups/SavedGroupDiffRenders";
 import { DocLink } from "@/components/DocLink";
 import Callout from "@/ui/Callout";
 import { useExperiments } from "@/hooks/useExperiments";
@@ -259,13 +267,27 @@ export default function EditSavedGroupPage() {
             ],
             sections: [
               {
+                label: "Settings",
+                keys: ["groupName", "owner", "description"],
+                render: renderSavedGroupSettings,
+                getBadges: getSavedGroupSettingsBadges,
+              },
+              {
                 label: "Targeting",
                 keys: ["condition"],
                 render: renderSavedGroupTargeting,
+                getBadges: getSavedGroupTargetingBadges,
               },
               {
                 label: "Values",
                 keys: ["values", "attributeKey"],
+                getBadges: getSavedGroupValuesBadges,
+              },
+              {
+                label: "Projects",
+                keys: ["projects"],
+                render: renderSavedGroupProjects,
+                getBadges: getSavedGroupProjectsBadges,
               },
             ],
             updateEventNames: ["savedGroup.updated"],

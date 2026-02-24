@@ -2,34 +2,14 @@ import { FeatureInterface } from "shared/types/feature";
 import AuditHistoryExplorerModal from "@/components/AuditHistoryExplorer/AuditHistoryExplorerModal";
 import { AuditDiffConfig } from "@/components/AuditHistoryExplorer/types";
 import { OVERFLOW_SECTION_LABEL } from "@/components/AuditHistoryExplorer/useAuditDiff";
-
-/** Keys whose string values are embedded JSON and should be parsed for diffing. */
-const JSON_STRING_KEYS = new Set(["condition", "defaultValue", "value"]);
-
-/**
- * Recursively walk an object and parse any string fields whose key is in
- * JSON_STRING_KEYS into structured objects so the diff viewer renders them
- * as structured diffs rather than escaped string blobs.
- */
-function parseJsonStringFields(obj: unknown): unknown {
-  if (Array.isArray(obj)) return obj.map(parseJsonStringFields);
-  if (obj !== null && typeof obj === "object") {
-    const result: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
-      if (JSON_STRING_KEYS.has(k) && typeof v === "string") {
-        try {
-          result[k] = JSON.parse(v);
-        } catch {
-          result[k] = v;
-        }
-      } else {
-        result[k] = parseJsonStringFields(v);
-      }
-    }
-    return result;
-  }
-  return obj;
-}
+import {
+  normalizeFeatureSnapshot,
+  renderFeatureDefaultValueSection,
+  renderFeatureRulesSection,
+  getFeatureRulesBadges,
+  renderFeatureMetadataSection,
+  getFeatureMetadataBadges,
+} from "./FeatureDiffRenders";
 
 const FEATURE_DIFF_CONFIG: AuditDiffConfig<FeatureInterface> = {
   entityType: "feature",
@@ -51,19 +31,53 @@ const FEATURE_DIFF_CONFIG: AuditDiffConfig<FeatureInterface> = {
   ],
   catchUnknownEventsAsLabels: true,
   ignoredEvents: [],
+  entityLabel: "Feature",
   updateEventNames: ["feature.update", "feature.publish", "feature.toggle"],
   overrideEventLabel: (entry) => {
+    // Version publish
     const preVersion = entry.preSnapshot?.version;
     const postVersion = entry.postSnapshot?.version;
     if (postVersion !== undefined && postVersion !== preVersion) {
       return `Published version ${postVersion}`;
     }
+    // Toggle — find which env changed and produce "Enabled/Disabled in {env}"
+    if (entry.event === "feature.toggle") {
+      const preEnvs = entry.preSnapshot?.environmentSettings ?? {};
+      const postEnvs = entry.postSnapshot?.environmentSettings ?? {};
+      const changed = Object.keys(postEnvs).find(
+        (env) => preEnvs[env]?.enabled !== postEnvs[env]?.enabled,
+      );
+      if (changed) {
+        const nowEnabled = postEnvs[changed]?.enabled;
+        return `${nowEnabled ? "Enabled" : "Disabled"} in ${changed}`;
+      }
+    }
     return null;
   },
   defaultGroupBy: "minute",
   hiddenLabelSections: [OVERFLOW_SECTION_LABEL],
-  normalizeSnapshot: (snapshot) =>
-    parseJsonStringFields(snapshot) as FeatureInterface,
+  defaultHiddenSections: [OVERFLOW_SECTION_LABEL],
+  normalizeSnapshot: normalizeFeatureSnapshot,
+  sections: [
+    {
+      label: "Default value",
+      keys: ["defaultValue"],
+      render: renderFeatureDefaultValueSection,
+    },
+    {
+      label: "Rules",
+      keys: ["environmentSettings"],
+      suppressCardLabel: true,
+      render: renderFeatureRulesSection,
+      getBadges: getFeatureRulesBadges,
+    },
+    {
+      label: "Settings",
+      keys: ["archived", "description", "owner", "project", "tags"],
+      render: renderFeatureMetadataSection,
+      getBadges: getFeatureMetadataBadges,
+    },
+  ],
 };
 
 export interface CompareFeatureEventsModalProps {

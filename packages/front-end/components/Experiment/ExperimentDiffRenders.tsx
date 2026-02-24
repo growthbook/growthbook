@@ -1,15 +1,3 @@
-/**
- * Human-readable summary renders for each ExperimentDiffSection.
- * Each function is wired as the `render` prop on an AuditDiffSection and is
- * displayed *above* the raw JSON ExpandableDiff for that section.
- *
- * Receives the already-picked Partial snapshots for the section (only the keys
- * claimed by that section are present), so field access is safe.
- *
- * Visual language mirrors TargetingInfo.tsx: changed fields show
- *   Δ old-value (red)  →  new-value (green)
- */
-
 import React, { ReactNode } from "react";
 import isEqual from "lodash/isEqual";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -34,11 +22,9 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 2,
 });
 
-/**
- * After normalizeSnapshot runs, `condition` fields may already be parsed
- * objects. ConditionDisplay expects a JSON string, so re-stringify if needed.
- */
-function toConditionString(cond: unknown): string | undefined {
+// After normalizeSnapshot, `condition` may already be a parsed object.
+// ConditionDisplay expects a JSON string, so re-stringify if needed.
+export function toConditionString(cond: unknown): string | undefined {
   if (!cond) return undefined;
   if (typeof cond === "string") return cond;
   return JSON.stringify(cond);
@@ -52,19 +38,17 @@ function normalizePrereqs(prereqs: unknown): FeaturePrerequisite[] | undefined {
   }));
 }
 
-/** Convert camelCase key to a human-readable label ("hashAttribute" → "Hash attribute"). */
-function camelToLabel(key: string): string {
+// Converts camelCase key to a human-readable label ("hashAttribute" → "Hash attribute").
+export function camelToLabel(key: string): string {
   return key
     .replace(/([A-Z])/g, " $1")
     .replace(/^./, (s) => s.toUpperCase())
     .trim();
 }
 
-/**
- * Generic before→after row for fields that don't have a dedicated renderer.
- * Scalars and booleans are shown as plain text; objects/arrays as compact JSON.
- */
-function GenericFieldChange({
+// Before/after row for fields without a dedicated renderer.
+// Scalars shown as plain text; objects/arrays as compact JSON.
+export function GenericFieldChange({
   fieldKey,
   preVal,
   postVal,
@@ -94,12 +78,8 @@ function GenericFieldChange({
   );
 }
 
-/**
- * Appends GenericFieldChange rows for any keys in `post` that changed but are
- * not listed in `handled`. Call at the end of each render function for
- * forward-compatible coverage of new fields.
- */
-function renderFallback(
+// Appends GenericFieldChange rows for unclaimed keys — forward-compat fallback.
+export function renderFallback(
   pre: Record<string, unknown> | null | undefined,
   post: Record<string, unknown>,
   handled: Set<string>,
@@ -116,11 +96,8 @@ function renderFallback(
     ));
 }
 
-/**
- * A labeled field row that shows "Δ old (red) → new (green)" only when
- * something changed. Pass `changed={false}` to suppress the row entirely.
- */
-function ChangeField({
+// Labeled Δ old → new row; renders nothing when changed=false.
+export function ChangeField({
   label,
   changed,
   oldNode,
@@ -157,12 +134,8 @@ function ChangeField({
   );
 }
 
-/**
- * Stacked before → after display for multi-line text fields (hypothesis,
- * description). Each value sits in a scrollable read-only box so long content
- * doesn't swamp the layout.
- */
-function TextChangedField({
+// Stacked before/after display for multi-line text. Each value in a scrollable box.
+export function TextChangedField({
   label,
   pre,
   post,
@@ -222,19 +195,13 @@ function TextChangedField({
   );
 }
 
-/**
- * Renders a metric ID as a signed badge label using MetricName (which includes
- * links, group icons, official badges, etc.). Falls back to the raw ID for
- * metrics not yet loaded — MetricName returns null for missing non-group
- * metrics, so we check existence first.
- */
+// Metric ID as a signed badge. Uses MetricName for resolved display; falls back to raw ID.
 function MetricBadgeLabel({ id, sign }: { id: string; sign: "+" | "−" }) {
   const { getExperimentMetricById, getMetricGroupById } = useDefinitions();
   const isGroup = id.startsWith("mg_");
   const group = isGroup ? getMetricGroupById(id) : null;
   const exists = isGroup ? !!group : !!getExperimentMetricById(id);
 
-  // Build the metrics prop required for metric group tooltips.
   const groupMetrics = group
     ? group.metrics.map((mid) => ({
         metric: getExperimentMetricById(mid) ?? null,
@@ -266,9 +233,7 @@ function MetricBadgeLabel({ id, sign }: { id: string; sign: "+" | "−" }) {
   );
 }
 
-/**
- * Shows added/removed metric IDs as signed badges with resolved names.
- */
+// Added/removed metric IDs as signed badges with resolved names.
 function MetricDiff({
   label,
   preArr,
@@ -329,10 +294,7 @@ type PhaseTargeting = {
   seed?: string;
 };
 
-/**
- * "User targeting" – phases sub-keys: condition, savedGroups, prerequisites,
- * coverage, variationWeights, namespace, seed.
- */
+// "User targeting" — phases: condition, savedGroups, prerequisites, coverage, weights, namespace.
 export function renderUserTargetingPhases(
   pre: Pre,
   post: Post,
@@ -490,10 +452,7 @@ export function renderUserTargetingPhases(
   return sections.length ? <div className="mt-1">{sections}</div> : null;
 }
 
-/**
- * "User targeting" – top-level fields: disableStickyBucketing,
- * excludeFromPayload, bucketVersion, minBucketVersion.
- */
+// "User targeting" — top-level: disableStickyBucketing, excludeFromPayload, bucketVersion.
 export function renderUserTargetingTopLevel(
   pre: Pre,
   post: Post,
@@ -597,9 +556,7 @@ export function renderUserTargetingTopLevel(
   return rows.length ? <div className="mt-1">{rows}</div> : null;
 }
 
-/**
- * "Phase info" – phases sub-keys: dateStarted, dateEnded, name, reason.
- */
+// "Phase info" — phases: dateStarted, dateEnded, name, reason.
 export function renderPhaseInfo(pre: Pre, post: Post): ReactNode | null {
   type PhaseInfo = {
     dateStarted?: string;
@@ -707,10 +664,7 @@ export function renderPhaseInfo(pre: Pre, post: Post): ReactNode | null {
   return sections.length ? <div className="mt-1">{sections}</div> : null;
 }
 
-/**
- * "Variations" – shows the variation list with names and keys.
- * Highlights added, removed, and renamed entries.
- */
+// "Variations" — list with names and keys; highlights added, removed, renamed.
 export function renderVariations(pre: Pre, post: Post): ReactNode | null {
   type Variation = { name: string; key: string };
   const preVars = (pre?.variations ?? []) as Variation[];
@@ -754,9 +708,12 @@ export function renderVariations(pre: Pre, post: Post): ReactNode | null {
   return rows.length ? <div className="mt-1">{rows}</div> : null;
 }
 
-/**
- * "Analysis settings" – metric list changes, stats engine, hash attribute, etc.
- */
+// Resolves a project ID to its display name. Falls back to the raw ID.
+export function ProjectName({ id }: { id: string }): React.ReactElement {
+  const { getProjectById } = useDefinitions();
+  return <>{getProjectById(id)?.name ?? id}</>;
+}
+
 function ActivationMetricName({ id }: { id: string | undefined | null }) {
   const { getExperimentMetricById } = useDefinitions();
   if (!id) return <em>unset</em>;
@@ -770,7 +727,7 @@ function ActivationMetricName({ id }: { id: string | undefined | null }) {
   );
 }
 
-/** Returns true when two metric ID arrays have any additions or removals. */
+// Returns true when two metric ID arrays have any additions or removals.
 function metricsChanged(
   a: string[] | null | undefined,
   b: string[] | null | undefined,
@@ -1103,6 +1060,22 @@ export function renderMetadata(pre: Pre, post: Post): ReactNode | null {
     );
   }
 
+  if (!isEqual(pre?.project, post.project) && post.project !== undefined) {
+    rows.push(
+      <ChangeField
+        key="project"
+        label="Project"
+        changed
+        oldNode={
+          pre?.project ? <ProjectName id={pre.project} /> : <em>None</em>
+        }
+        newNode={
+          post.project ? <ProjectName id={post.project} /> : <em>None</em>
+        }
+      />,
+    );
+  }
+
   const handled = new Set([
     "name",
     "owner",
@@ -1123,4 +1096,109 @@ export function renderMetadata(pre: Pre, post: Post): ReactNode | null {
   );
 
   return rows.length ? <div className="mt-1">{rows}</div> : null;
+}
+
+// ─── Badge getters ────────────────────────────────────────────────────────────
+
+export type DiffBadge = { label: string; action: string };
+
+export function getExperimentTargetingBadges(): DiffBadge[] {
+  return [{ label: "Edit targeting", action: "edit targeting" }];
+}
+
+export function getExperimentPhaseInfoBadges(
+  pre: Pre,
+  post: Post,
+): DiffBadge[] {
+  const prePhases = (pre?.phases ?? []) as { dateEnded?: string | null }[];
+  const postPhases = (post.phases ?? []) as { dateEnded?: string | null }[];
+  if (postPhases.length > prePhases.length)
+    return [{ label: "New phase", action: "new phase" }];
+  if (postPhases.length < prePhases.length)
+    return [{ label: "Phase deleted", action: "delete phase" }];
+  const wasEnded = postPhases.some(
+    (p, i) => p.dateEnded && !prePhases[i]?.dateEnded,
+  );
+  if (wasEnded) return [{ label: "Phase ended", action: "end phase" }];
+  return [{ label: "Edit phase", action: "edit phase" }];
+}
+
+export function getExperimentVariationsBadges(
+  pre: Pre,
+  post: Post,
+): DiffBadge[] {
+  if (post.variations === undefined) return [];
+  const preCount = pre?.variations?.length ?? 0;
+  const postCount = (post.variations as unknown[]).length;
+  const diff = postCount - preCount;
+  if (diff > 0)
+    return [
+      {
+        label: `+${diff} variation${diff !== 1 ? "s" : ""}`,
+        action: "add variation",
+      },
+    ];
+  if (diff < 0)
+    return [
+      {
+        label: `−${Math.abs(diff)} variation${Math.abs(diff) !== 1 ? "s" : ""}`,
+        action: "remove variation",
+      },
+    ];
+  return [{ label: "Edit variation", action: "edit variation" }];
+}
+
+export function getExperimentAnalysisBadges(pre: Pre, post: Post): DiffBadge[] {
+  const badges: DiffBadge[] = [];
+
+  if (
+    !isEqual(pre?.goalMetrics, post.goalMetrics) &&
+    post.goalMetrics !== undefined
+  ) {
+    const preGoals = (pre?.goalMetrics ?? []) as string[];
+    const postGoals = post.goalMetrics as string[];
+    const diff = postGoals.length - preGoals.length;
+    if (diff > 0)
+      badges.push({
+        label: `+${diff} goal metric${diff !== 1 ? "s" : ""}`,
+        action: "add goal metric",
+      });
+    else if (diff < 0)
+      badges.push({
+        label: `−${Math.abs(diff)} goal metric${Math.abs(diff) !== 1 ? "s" : ""}`,
+        action: "remove goal metric",
+      });
+    else
+      badges.push({ label: "Edit goal metrics", action: "edit goal metrics" });
+  }
+
+  const otherMetricsChanged =
+    (!isEqual(pre?.secondaryMetrics, post.secondaryMetrics) &&
+      post.secondaryMetrics !== undefined) ||
+    (!isEqual(pre?.guardrailMetrics, post.guardrailMetrics) &&
+      post.guardrailMetrics !== undefined) ||
+    (!isEqual(pre?.activationMetric, post.activationMetric) &&
+      post.activationMetric !== undefined);
+  if (otherMetricsChanged)
+    badges.push({ label: "Edit metrics", action: "edit metrics" });
+
+  return badges;
+}
+
+export function getExperimentMetadataBadges(pre: Pre, post: Post): DiffBadge[] {
+  const badges: DiffBadge[] = [];
+  if (!isEqual(pre?.name, post.name) && post.name !== undefined)
+    badges.push({ label: "Edit name", action: "edit name" });
+  if (!isEqual(pre?.tags, post.tags) && post.tags !== undefined)
+    badges.push({ label: "Edit tags", action: "edit tags" });
+  if (!isEqual(pre?.project, post.project) && post.project !== undefined)
+    badges.push({ label: "Edit project", action: "edit project" });
+  if (!isEqual(pre?.owner, post.owner) && post.owner !== undefined)
+    badges.push({ label: "Edit owner", action: "edit owner" });
+  if (
+    !isEqual(pre?.description, post.description) &&
+    post.description !== undefined
+  )
+    badges.push({ label: "Edit description", action: "edit description" });
+  return badges;
 }

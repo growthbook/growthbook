@@ -239,6 +239,7 @@ export default function CompareAuditEvents<T>({
     setDiffViewModeRaw,
     activeDiffs,
     customRenderGroups,
+    activeBadges,
     displayFailed,
     stepEntryA,
     stepEntryB,
@@ -900,34 +901,60 @@ export default function CompareAuditEvents<T>({
               <Text color="text-low">No changes between these entries.</Text>
             ) : (
               <>
-                {/* Hoisted summaries: human-readable render per section */}
-                {customRenderGroups.length > 0 && (
+                {/* Hoisted summaries: badges + human-readable renders per section */}
+                {(activeBadges.length > 0 || customRenderGroups.length > 0) && (
                   <Box>
                     <Heading as="h5" size="small" color="text-mid" mt="4">
                       Summary of changes
                     </Heading>
+
+                    {/* Badge strip — same layout as revision comparison modal */}
+                    {activeBadges.length > 0 && (
+                      <Flex wrap="wrap" gap="2" mt="2" mb="2">
+                        {activeBadges.map(({ label, action }) => (
+                          <Badge
+                            key={label}
+                            color="gray"
+                            variant="soft"
+                            label={label}
+                            // action is passed through for future colour mapping
+                            data-action={action}
+                          />
+                        ))}
+                      </Flex>
+                    )}
+
                     <Flex direction="column" gap="0">
-                      {customRenderGroups.map(({ label, renders }) => (
-                        <Box
-                          key={label}
-                          p="3"
-                          my="3"
-                          className="rounded bg-light"
-                        >
-                          <Heading as="h6" size="small" color="text-mid" mb="2">
-                            {label}
-                          </Heading>
-                          {renders.map((r, i) => (
-                            <Box key={i}>{r}</Box>
-                          ))}
-                        </Box>
-                      ))}
+                      {customRenderGroups.map(
+                        ({ label, renders, suppressCardLabel }) => (
+                          <Box
+                            key={label}
+                            p="3"
+                            my="3"
+                            className="rounded bg-light"
+                          >
+                            {!suppressCardLabel && (
+                              <Heading
+                                as="h6"
+                                size="small"
+                                color="text-mid"
+                                mb="2"
+                              >
+                                {label}
+                              </Heading>
+                            )}
+                            {renders.map((r, i) => (
+                              <Box key={i}>{r}</Box>
+                            ))}
+                          </Box>
+                        ),
+                      )}
                     </Flex>
                   </Box>
                 )}
 
                 {/* Raw JSON diffs */}
-                {customRenderGroups.length > 0 && (
+                {(activeBadges.length > 0 || customRenderGroups.length > 0) && (
                   <Heading as="h5" size="small" color="text-mid" mt="4" mb="3">
                     Change details
                   </Heading>
