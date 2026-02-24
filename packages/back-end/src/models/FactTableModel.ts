@@ -326,25 +326,37 @@ export async function updateFactTable(
   await audit.logUpdate(context, factTable, { ...factTable, ...changes });
 }
 
+const ALLOWED_COLUMN_UPDATE_FIELDS = [
+  "columns",
+  "columnsError",
+  "columnRefreshPending",
+  "userIdTypes",
+] as const;
+
 // This is called from a background cronjob to re-sync all of the columns
 // It doesn't need to check for 'managedBy' and doesn't need to set 'dateUpdated'
 export async function updateFactTableColumns(
   factTable: FactTableInterface,
   changes: Partial<
-    Pick<
-      FactTableInterface,
-      "columns" | "columnsError" | "columnRefreshPending" | "userIdTypes"
-    >
+    Pick<FactTableInterface, (typeof ALLOWED_COLUMN_UPDATE_FIELDS)[number]>
   >,
   context?: ReqContext | ApiReqContext,
 ) {
+  const safeChanges = Object.fromEntries(
+    Object.entries(changes).filter(([key]) =>
+      ALLOWED_COLUMN_UPDATE_FIELDS.includes(
+        key as (typeof ALLOWED_COLUMN_UPDATE_FIELDS)[number],
+      ),
+    ),
+  );
+
   await FactTableModel.updateOne(
     {
       id: factTable.id,
       organization: factTable.organization,
     },
     {
-      $set: changes,
+      $set: safeChanges,
     },
   );
 
