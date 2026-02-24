@@ -49,7 +49,10 @@ import { logBadgeColor } from "@/components/Features/FeatureDiffRenders";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
-import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
+import {
+  COMPACT_DIFF_STYLES,
+  dedupeDiffBadges,
+} from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 import { ExpandableDiff } from "./DraftModal";
 import RevisionStatusBadge from "./RevisionStatusBadge";
 import styles from "./CompareRevisionsModal.module.scss";
@@ -175,7 +178,7 @@ function RevisionCompareLabel({
 }
 
 function badgesFromDiffs(diffs: FeatureRevisionDiff[]): DiffBadge[] {
-  return diffs.flatMap((d) => d.badges ?? []);
+  return dedupeDiffBadges(diffs.flatMap((d) => d.badges ?? []));
 }
 
 // Renders the comment for a single revision version. Returns null if there is

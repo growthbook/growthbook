@@ -3,6 +3,7 @@ import {
   AuditDiffConfig,
   AuditEventMarker,
   CoarsenedAuditEntry,
+  type DiffBadge,
 } from "./types";
 
 // ---- Shared diff-viewer styles ----
@@ -38,6 +39,21 @@ export type LeftColItem<T> =
   | { type: "marker"; marker: AuditEventMarker };
 
 // ---- Pure functions ----
+
+/**
+ * Deduplicate diff badges by (label, action) so the same badge from multiple
+ * sections (e.g. "Edit targeting" from two targeting sections) is only shown
+ * once, avoiding duplicate React keys and redundant UI.
+ */
+export function dedupeDiffBadges(badges: DiffBadge[]): DiffBadge[] {
+  const seen = new Set<string>();
+  return badges.filter((b) => {
+    const key = `${b.label}\n${b.action}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
 
 /**
  * Derive a human-readable label from a raw event string using the entity type

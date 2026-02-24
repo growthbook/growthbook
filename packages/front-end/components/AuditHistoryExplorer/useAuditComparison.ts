@@ -13,6 +13,7 @@ import { AuditDiffConfig, AuditDiffItem, CoarsenedAuditEntry } from "./types";
 import {
   buildLeftColumnItems,
   buildSteps,
+  dedupeDiffBadges,
   expandSelectionRange,
   resolveEntryLabel,
 } from "./CompareAuditEventsUtils";
@@ -527,8 +528,10 @@ export function useAuditComparison<T>(
 
   const activeBadges = useMemo(
     () =>
-      activeDiffs.flatMap((d) =>
-        !d.isCompanion && d.customBadges?.length ? d.customBadges : [],
+      dedupeDiffBadges(
+        activeDiffs.flatMap((d) =>
+          !d.isCompanion && d.customBadges?.length ? d.customBadges : [],
+        ),
       ),
     [activeDiffs],
   );
