@@ -67,6 +67,7 @@ export interface ExplorerContextValue {
   changeDatasetType: (type: DatasetType) => void;
   updateTimestampColumn: (column: string) => void;
   changeChartType: (chartType: ProductAnalyticsConfig["chartType"]) => void;
+  clearAllDatasets: (newDatasourceId?: string) => void;
 }
 const ExplorerContext = createContext<ExplorerContextValue | null>(null);
 const DEFAULT_AUTO_SUBMIT = true;
@@ -104,10 +105,14 @@ export function ExplorerProvider({
 
   const isEmpty = activeExplorerType === null;
 
-  const INITIAL_EXPLORE_STATE = initialConfig || {
-    ...DEFAULT_EXPLORE_STATE,
-    datasource: datasources[0]?.id || "",
-  };
+  const INITIAL_EXPLORE_STATE = useMemo(
+    () =>
+      initialConfig || {
+        ...DEFAULT_EXPLORE_STATE,
+        datasource: datasources[0]?.id || "",
+      },
+    [initialConfig, datasources],
+  );
 
   const draftExploreState: ProductAnalyticsConfig = isEmpty
     ? INITIAL_EXPLORE_STATE
@@ -397,6 +402,33 @@ export function ExplorerProvider({
     [explorerCache, createDefaultValue, datasources, INITIAL_EXPLORE_STATE],
   );
 
+  const clearAllDatasets = useCallback(
+    (newDatasourceId?: string) => {
+      const datasourceId = newDatasourceId ?? datasources[0]?.id ?? "";
+      const newExplorerCache: ExplorerCache = {
+        metric: null,
+        fact_table: null,
+        data_source: null,
+      };
+      for (const type of Object.keys(explorerCache) as DatasetType[]) {
+        const defaultDataset = createEmptyDataset(type);
+        const defaultDraftState = {
+          ...INITIAL_EXPLORE_STATE,
+          datasource: datasourceId,
+          dataset: { ...defaultDataset, values: [createDefaultValue(type)] },
+        } as ProductAnalyticsConfig;
+        newExplorerCache[type] = {
+          draftState: defaultDraftState,
+          submittedState: null,
+          exploration: null,
+          error: null,
+        };
+      }
+      setExplorerCache(newExplorerCache);
+    },
+    [explorerCache, createDefaultValue, datasources, INITIAL_EXPLORE_STATE],
+  );
+
   const value = useMemo<ExplorerContextValue>(
     () => ({
       draftExploreState,
@@ -418,6 +450,7 @@ export function ExplorerProvider({
       setAutoSubmitEnabled,
       isStale,
       isSubmittable,
+      clearAllDatasets,
     }),
     [
       draftExploreState,
@@ -439,6 +472,7 @@ export function ExplorerProvider({
       setAutoSubmitEnabled,
       isStale,
       isSubmittable,
+      clearAllDatasets,
     ],
   );
 

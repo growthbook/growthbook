@@ -213,6 +213,7 @@ export default function ExplorerSideBar({
                   value: ft.id,
                 }))}
               placeholder="Select fact table..."
+              forceUndefinedValueToNull
             />
           </>
         )}

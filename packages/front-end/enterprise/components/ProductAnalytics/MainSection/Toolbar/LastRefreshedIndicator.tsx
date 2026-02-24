@@ -58,7 +58,7 @@ export default function LastRefreshedIndicator({
   if (!lastRefreshedAt) return null;
 
   return (
-    <Flex align="center" gap="1" style={{ minWidth: "85px" }}>
+    <Flex align="center" gap="1" style={{ minWidth: "40px" }}>
       <PiClockClockwise style={{ color: "var(--gray-11)", flexShrink: 0 }} />
       <Text size="small" color="text-low">
         {formatShortAgo(lastRefreshedAt)}
