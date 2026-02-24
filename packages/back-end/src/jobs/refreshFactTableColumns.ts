@@ -18,6 +18,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { determineColumnTypes } from "back-end/src/util/sql";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { getManagedWarehouseUserIdTypes } from "back-end/src/services/clickhouse";
 import { logger } from "back-end/src/util/logger";
 
 const JOB_NAME = "refreshFactTableColumns";
@@ -42,7 +43,7 @@ const refreshFactTableColumns = async (job: RefreshFactTableColumnsJob) => {
   const updates: Partial<
     Pick<
       FactTableInterface,
-      "columns" | "columnsError" | "columnRefreshPending"
+      "columns" | "columnsError" | "columnRefreshPending" | "userIdTypes"
     >
   > = {};
 
@@ -54,6 +55,18 @@ const refreshFactTableColumns = async (job: RefreshFactTableColumnsJob) => {
     );
     updates.columns = columns;
     updates.columnsError = null;
+
+    if (
+      datasource.type === "growthbook_clickhouse" &&
+      factTable.id === "ch_events"
+    ) {
+      const managedUserIdTypes = getManagedWarehouseUserIdTypes(
+        datasource,
+        factTable.id,
+        columns,
+      );
+      updates.userIdTypes = managedUserIdTypes;
+    }
   } catch (e) {
     updates.columnsError = e.message;
   }

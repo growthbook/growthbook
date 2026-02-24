@@ -30,8 +30,6 @@ import {
   deleteFactFilter as deleteFactFilterInDb,
   createFactFilter,
   updateFactFilter,
-  cleanupMetricAutoSlices,
-  detectRemovedColumns,
 } from "back-end/src/models/FactTableModel";
 import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
@@ -42,6 +40,7 @@ import {
   populateAutoSlices,
   queueFactTableColumnsRefresh,
 } from "back-end/src/jobs/refreshFactTableColumns";
+import { getManagedWarehouseUserIdTypes } from "back-end/src/services/clickhouse";
 import { logger } from "back-end/src/util/logger";
 import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable";
 
@@ -284,7 +283,6 @@ export const putFactTable = async (
 
   // Update the columns
   if (forceColumnRefresh || needsColumnRefresh(data)) {
-    const originalColumns = cloneDeep(factTable.columns || []);
     const { columns, needsBackgroundRefresh } = await refreshColumns(
       context,
       datasource,
@@ -300,15 +298,16 @@ export const putFactTable = async (
     data.columnsError = null;
     data.columnRefreshPending = needsBackgroundRefresh;
 
-    // Check for removed columns and trigger cleanup
-    const removedColumns = detectRemovedColumns(originalColumns, data.columns);
-
-    if (removedColumns.length > 0) {
-      await cleanupMetricAutoSlices({
-        context,
-        factTableId: factTable.id,
-        removedColumns,
-      });
+    if (
+      datasource.type === "growthbook_clickhouse" &&
+      factTable.id === "ch_events"
+    ) {
+      const managedUserIdTypes = getManagedWarehouseUserIdTypes(
+        datasource,
+        factTable.id,
+        columns,
+      );
+      data.userIdTypes = managedUserIdTypes;
     }
   }
 

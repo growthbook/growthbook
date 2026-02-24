@@ -92,6 +92,26 @@ function toInterface(doc: FactTableDocument): FactTableInterface {
   return omit(ret, ["__v", "_id"]);
 }
 
+export function isAllowedApiManagedFactTableUpdate(
+  factTable: Pick<FactTableInterface, "id" | "datasource">,
+  changes: UpdateFactTableProps,
+): boolean {
+  const isManagedWarehouseChEvents =
+    factTable.id === "ch_events" &&
+    factTable.datasource === "managed_warehouse";
+
+  const allowedFields = isManagedWarehouseChEvents
+    ? new Set([
+        "columns",
+        "userIdTypes",
+        "columnsError",
+        "columnRefreshPending",
+      ])
+    : new Set(["columns", "userIdTypes"]);
+
+  return Object.keys(changes).every((k) => allowedFields.has(k));
+}
+
 function createPropsToInterface(
   context: ReqContext | ApiReqContext,
   rawProps: CreateFactTableProps,
@@ -259,8 +279,9 @@ export async function updateFactTable(
   changes: UpdateFactTableProps,
 ) {
   // Allow changing columns even for API-managed fact tables
+  // and the side-effect of updating userIdTypes.
   if (
-    Object.keys(changes).some((k) => k !== "columns") &&
+    !isAllowedApiManagedFactTableUpdate(factTable, changes) &&
     factTable.managedBy === "api" &&
     context.auditUser?.type !== "api_key"
   ) {

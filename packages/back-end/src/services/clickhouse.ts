@@ -9,7 +9,7 @@ import {
   MaterializedColumn,
 } from "shared/types/datasource";
 import { DailyUsage } from "shared/types/organization";
-import { FactTableColumnType } from "shared/types/fact-table";
+import { ColumnInterface, FactTableColumnType } from "shared/types/fact-table";
 import {
   CLICKHOUSE_HOST,
   CLICKHOUSE_ADMIN_USER,
@@ -786,7 +786,8 @@ export async function updateMaterializedColumns({
       });
 
       columnsToAdd.forEach((col) => {
-        if (!newColumns.find((c) => c.column === col.columnName)) {
+        const existingCol = newColumns.find((c) => c.column === col.columnName);
+        if (!existingCol) {
           newColumns.push({
             column: col.columnName,
             name: col.columnName,
@@ -797,14 +798,26 @@ export async function updateMaterializedColumns({
             description: "",
             numberFormat: "",
           });
+        } else {
+          // If the column already exists but was previously removed, restore it.
+          existingCol.deleted = false;
+          existingCol.name = col.columnName;
+          existingCol.datatype = col.datatype;
+          existingCol.dateUpdated = new Date();
         }
       });
       columnsToRename.forEach(({ from, to }) => {
         const col = newColumns.find((c) => c.column === from);
         if (col) {
+          const existingDestinationCol = newColumns.find(
+            (c) => c.column === to,
+          );
           // Destination already exists
-          if (newColumns.find((c) => c.column === to)) {
-            // Just mark the old column as deleted
+          if (existingDestinationCol) {
+            // Restore destination if it had been previously removed.
+            existingDestinationCol.deleted = false;
+            existingDestinationCol.dateUpdated = new Date();
+            // Mark the old column as deleted.
             col.deleted = true;
             col.dateUpdated = new Date();
           } else {
@@ -823,9 +836,37 @@ export async function updateMaterializedColumns({
         }
       });
 
-      await updateFactTable(context, ft, { columns: newColumns });
+      const newIdentifierTypes = finalColumns
+        .filter((col) => col.type === "identifier")
+        .map((col) => col.columnName);
+
+      await updateFactTable(context, ft, {
+        columns: newColumns,
+        userIdTypes: newIdentifierTypes,
+      });
     }
   } finally {
     await unlockDataSource(context, datasource);
   }
+}
+
+export function getManagedWarehouseUserIdTypes(
+  datasource: GrowthbookClickhouseDataSource,
+  factTableId: string,
+  columns: ColumnInterface[],
+): string[] {
+  if (factTableId !== "ch_events") {
+    throw new Error(
+      "This function can only be called for managed warehouse datasource and table.",
+    );
+  }
+
+  const activeColumns = new Set(
+    columns.filter((c) => !c.deleted).map((c) => c.column),
+  );
+
+  return (datasource.settings.materializedColumns || [])
+    .filter((c) => c.type === "identifier")
+    .map((c) => c.columnName)
+    .filter((id) => activeColumns.has(id));
 }
