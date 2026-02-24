@@ -1,6 +1,19 @@
 import { DataSourceType } from "shared/types/datasource";
-import { format } from "shared/sql";
+import { format, setPolyglotLoader, startPolyglotLoad } from "shared/sql";
 import { FormatDialect } from "shared/types/sql";
+
+let polyglotInitDone = false;
+function initPolyglot(): void {
+  if (polyglotInitDone) return;
+  polyglotInitDone = true;
+  setPolyglotLoader(() => import("@polyglot-sql/sdk"));
+}
+
+/** Preload polyglot when a Format-capable modal opens so first Format can use it */
+export function preloadPolyglot(): void {
+  initPolyglot();
+  startPolyglotLoad();
+}
 
 export function canFormatSql(datasourceType: DataSourceType): boolean {
   return !!getSqlDialect(datasourceType);
@@ -64,6 +77,9 @@ export function formatSql(
       error: "Formatting not supported for this datasource type",
     };
   }
+
+  // Lazy-init polyglot loader (Webpack creates async chunk)
+  initPolyglot();
 
   // Format the SQL - using shared format function
   const { sql: sqlWithoutTemplates, placeholders } =

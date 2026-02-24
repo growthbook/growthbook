@@ -28,16 +28,87 @@ const MAX_SQL_LENGTH_FOR_POLYGLOT = parseInt(
   process.env.MAX_SQL_LENGTH_FOR_POLYGLOT || "500000",
 );
 
-// Optional formatter injected by back-end. Not in shared to avoid bundling ESM-only
-// @polyglot-sql/sdk in the front-end. Front-end uses sql-formatter only.
-let polyglotFormatter:
-  | ((sql: string, dialect: string) => string | null)
-  | null = null;
+/** Minimal type for @polyglot-sql/sdk - shared does not depend on it; hosts provide the loader */
+export type PolyglotModule = {
+  format: (
+    sql: string,
+    dialect: unknown,
+  ) => { success: boolean; sql?: string[] };
+  Dialect: Record<string, unknown>;
+};
 
-export function setPolyglotFormatter(
-  formatter: (sql: string, dialect: string) => string | null,
-): void {
-  polyglotFormatter = formatter;
+let polyglotLoader: (() => Promise<PolyglotModule>) | null = null;
+let polyglotModuleCache: PolyglotModule | null = null;
+let polyglotLoadPromise: Promise<PolyglotModule | null> | null = null;
+
+/**
+ * Set a loader for @polyglot-sql/sdk. Back-end uses new Function() to preserve native import in CJS;
+ * front-end uses import() so Webpack creates an async chunk. Called by each host's init.
+ */
+export function setPolyglotLoader(loader: () => Promise<PolyglotModule>): void {
+  polyglotLoader = loader;
+}
+
+function getPolyglotDialect(mod: PolyglotModule, dialect: string): unknown {
+  const { Dialect } = mod;
+  switch (dialect) {
+    case "mysql":
+      return Dialect.MySQL;
+    case "bigquery":
+      return Dialect.BigQuery;
+    case "snowflake":
+      return Dialect.Snowflake;
+    case "redshift":
+      return Dialect.Redshift;
+    case "presto":
+      return Dialect.Presto;
+    case "trino":
+      return Dialect.Trino;
+    case "clickhouse":
+      return Dialect.ClickHouse;
+    case "databricks":
+      return Dialect.Databricks;
+    case "athena":
+      return Dialect.Athena;
+    case "tsql":
+      return Dialect.TSQL;
+    case "sqlite":
+      return Dialect.SQLite;
+    case "sql":
+      return Dialect.PostgreSQL;
+    default:
+      return Dialect.PostgreSQL;
+  }
+}
+
+function ensurePolyglotLoadStarted(): void {
+  if (!polyglotLoader || polyglotLoadPromise) return;
+  polyglotLoadPromise = polyglotLoader()
+    .then((mod) => {
+      polyglotModuleCache = mod;
+      return mod;
+    })
+    .catch(() => null);
+}
+
+/** Start loading polyglot immediately (call when modal opens so first Format can use it) */
+export function startPolyglotLoad(): void {
+  ensurePolyglotLoadStarted();
+}
+
+function formatWithPolyglot(
+  mod: PolyglotModule,
+  sql: string,
+  dialect: string,
+): string | null {
+  try {
+    const pgDialect = getPolyglotDialect(mod, dialect);
+    const result = mod.format(sql, pgDialect);
+    if (result?.success && result?.sql?.length) return result.sql[0];
+  } catch {
+    /* fall through */
+  }
+  return null;
 }
 
 export function format(
@@ -49,30 +120,23 @@ export function format(
 
   const report = formatMetricsReporter;
 
-  // 1. Try polyglot first if injected (back-end only; high length limit; fast)
+  // 1. Try polyglot first if loaded (back-end and front-end; high length limit; fast)
   if (
     MAX_SQL_LENGTH_FOR_POLYGLOT &&
     sql.length <= MAX_SQL_LENGTH_FOR_POLYGLOT
   ) {
-    const formatter = polyglotFormatter;
-    if (formatter) {
+    ensurePolyglotLoadStarted();
+    const mod = polyglotModuleCache;
+    if (mod) {
       const polyglotStart = performance.now();
-      try {
-        const result = formatter(sql, dialect as string);
-        const timeMs = performance.now() - polyglotStart;
-        if (result != null) {
-          report?.({ engine: "polyglot", success: true, timeMs });
-          return result;
-        }
-        report?.({ engine: "polyglot", success: false, timeMs });
-      } catch {
-        report?.({
-          engine: "polyglot",
-          success: false,
-          timeMs: performance.now() - polyglotStart,
-        });
-        // WASM memory or parse error; fall through to sql-formatter
+      const result = formatWithPolyglot(mod, sql, dialect as string);
+      const timeMs = performance.now() - polyglotStart;
+      if (result != null) {
+        report?.({ engine: "polyglot", success: true, timeMs });
+        return result;
       }
+      report?.({ engine: "polyglot", success: false, timeMs });
+      // Parse error; fall through to sql-formatter
     }
   }
 
