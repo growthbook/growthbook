@@ -1140,6 +1140,9 @@ importers:
       '@growthbook/growthbook':
         specifier: 1.6.5
         version: 1.6.5
+      '@polyglot-sql/sdk':
+        specifier: ^0.1.6
+        version: 0.1.6
       '@stdlib/stats':
         specifier: ^0.1.1
         version: 0.1.1
@@ -4572,6 +4575,10 @@ packages:
 
   '@polka/url@1.0.0-next.29':
     resolution: {integrity: sha512-wwQAWhWSuHaag8c4q/KN/vCoeOJYshAIvMQwD4GpSb3OiZklFfvAgmj0VCBBImRpuF/aFgIRzllXlVX93Jevww==}
+
+  '@polyglot-sql/sdk@0.1.6':
+    resolution: {integrity: sha512-ECv2I+gnibEEkQg+46hvUx/xnC6BNbAJ0Ysl2vq4TvG2kozGgFptz9kS+cfc36DyPs3fPsZjvUCWdWIyANWPDA==}
+    engines: {node: '>=22', pnpm: '>=10'}
 
   '@popperjs/core@2.11.5':
     resolution: {integrity: sha512-9X2obfABZuDVLCgPK9aX0a/x4jaOEweTTWE2+9sr0Qqqevj2Uv5XorvusThmc9XGYpS9yI+fhh8RTafBtGposw==}
@@ -19190,6 +19197,8 @@ snapshots:
       - supports-color
 
   '@polka/url@1.0.0-next.29': {}
+
+  '@polyglot-sql/sdk@0.1.6': {}
 
   '@popperjs/core@2.11.5': {}
 

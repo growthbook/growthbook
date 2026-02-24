@@ -9,18 +9,86 @@ export const MAX_SQL_LENGTH_TO_FORMAT = parseInt(
   process.env.MAX_SQL_LENGTH_TO_FORMAT || "15000",
 );
 
+/** Polyglot has higher limit (fast); rely on try/catch for WASM memory on very long SQL */
+const MAX_SQL_LENGTH_FOR_POLYGLOT = parseInt(
+  process.env.MAX_SQL_LENGTH_FOR_POLYGLOT || "500000",
+);
+
+// Lazy-load polyglot (ESM) so we can use it from CJS. Loaded asynchronously on first import.
+let polyglotModule: Awaited<typeof import("@polyglot-sql/sdk")> | null = null;
+void import("@polyglot-sql/sdk")
+  .then((mod) => {
+    polyglotModule = mod;
+  })
+  .catch(() => {
+    /* Polyglot unavailable; will fall back to sql-formatter */
+  });
+
+function getPolyglotDialect(
+  mod: Awaited<typeof import("@polyglot-sql/sdk")>,
+  dialect: string,
+): import("@polyglot-sql/sdk").Dialect {
+  switch (dialect) {
+    case "mysql":
+      return mod.Dialect.MySQL;
+    case "bigquery":
+      return mod.Dialect.BigQuery;
+    case "snowflake":
+      return mod.Dialect.Snowflake;
+    case "redshift":
+      return mod.Dialect.Redshift;
+    case "presto":
+      return mod.Dialect.Presto;
+    case "trino":
+      return mod.Dialect.Trino;
+    case "clickhouse":
+      return mod.Dialect.ClickHouse;
+    case "databricks":
+      return mod.Dialect.Databricks;
+    case "athena":
+      return mod.Dialect.Athena;
+    case "tsql":
+      return mod.Dialect.TSQL;
+    case "sqlite":
+      return mod.Dialect.SQLite;
+    case "sql":
+      return mod.Dialect.PostgreSQL; // generic
+    case "postgresql":
+    default:
+      return mod.Dialect.PostgreSQL;
+  }
+}
+
 export function format(
   sql: string,
   dialect?: FormatDialect,
   onError?: (error: FormatError) => void,
 ): string {
-  // sqlFormat is slow, consuming a lot of CPU and blocking other operations.
-  // To avoid performance issues, skip formatting for very large queries.
+  if (!dialect) return sql;
+
+  // 1. Try polyglot first (high length limit; fast; may throw on WASM memory for very long SQL)
+  if (
+    MAX_SQL_LENGTH_FOR_POLYGLOT &&
+    sql.length <= MAX_SQL_LENGTH_FOR_POLYGLOT
+  ) {
+    const mod = polyglotModule;
+    if (mod) {
+      try {
+        const pgDialect = getPolyglotDialect(mod, dialect as string);
+        const result = mod.format(sql, pgDialect);
+        if (result?.success && result?.sql?.length) {
+          return result.sql[0];
+        }
+      } catch {
+        // WASM memory or parse error; fall through to sql-formatter
+      }
+    }
+  }
+
+  // 2. Fall back to sql-formatter (slower; skip for very large queries)
   if (MAX_SQL_LENGTH_TO_FORMAT && sql.length > MAX_SQL_LENGTH_TO_FORMAT) {
     return sql;
   }
-  if (!dialect) return sql;
-
   try {
     return sqlFormat(sql, {
       language: dialect,

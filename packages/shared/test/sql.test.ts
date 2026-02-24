@@ -2,9 +2,59 @@ import {
   decodeSQLResults,
   encodeSQLResults,
   ensureLimit,
+  format,
   isMultiStatementSQL,
   isReadOnlySQL,
 } from "../src/sql";
+
+describe("format", () => {
+  it("returns original SQL when no dialect provided", () => {
+    const sql = "SELECT id, name FROM users WHERE active = true";
+    expect(format(sql)).toBe(sql);
+    expect(format(sql, undefined)).toBe(sql);
+  });
+
+  it("returns original SQL when dialect is empty string", () => {
+    const sql = "SELECT * FROM users";
+    expect(format(sql, "")).toBe(sql);
+  });
+
+  it("formats valid SQL when dialect is provided", () => {
+    const sql = "SELECT id,name FROM users WHERE active=true";
+    const result = format(sql, "postgresql");
+    // Either polyglot or sql-formatter will add newlines/indentation
+    expect(result).not.toBe(sql);
+    expect(result).toContain("SELECT");
+    expect(result).toContain("users");
+  });
+
+  it("falls back to original when SQL has unsupported syntax", () => {
+    // ClickHouse ternary - polyglot may not parse, sql-formatter may fail
+    const sql = "SELECT x > 0 ? 1 : 0 FROM t";
+    const result = format(sql, "postgresql");
+    expect(result).toBe(sql);
+  });
+
+  it("falls back to original when SQL is invalid", () => {
+    const sql = "SELECT (a* as c";
+    const result = format(sql, "mysql");
+    expect(result).toBe(sql);
+  });
+
+  it("calls onError when formatting fails and no fallback succeeds", () => {
+    const sql = "SELECT (a* as c";
+    const onError = jest.fn();
+    const result = format(sql, "mysql", onError);
+    expect(result).toBe(sql);
+    // sql-formatter throws on invalid SQL; onError is called
+    expect(onError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        originalSql: sql,
+        error: expect.any(Error),
+      }),
+    );
+  });
+});
 
 describe("ensureLimit", () => {
   describe("already has LIMIT and OFFSET clauses", () => {
