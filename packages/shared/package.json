@@ -33,7 +33,7 @@
     "lodash": "^4.17.23",
     "openid-client": "5.4.3",
     "shared": "workspace:*",
-    "sql-formatter": "^11.0.2",
+    "sql-formatter": "^15.7.2",
     "stripe": "17.7.0",
     "uniqid": "^5.4.0",
     "zod": "^4.1.12"

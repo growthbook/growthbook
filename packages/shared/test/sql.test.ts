@@ -29,10 +29,13 @@ describe("format", () => {
   });
 
   it("falls back to original when SQL has unsupported syntax", () => {
-    // ClickHouse ternary - polyglot may not parse, sql-formatter may fail
+    // ClickHouse ternary - polyglot may not parse; sql-formatter v15 formats it
     const sql = "SELECT x > 0 ? 1 : 0 FROM t";
     const result = format(sql, "postgresql");
-    expect(result).toBe(sql);
+    expect(result).toContain("x > 0");
+    expect(result).toContain("?");
+    expect(result).toContain("FROM");
+    expect(result).toContain("t");
   });
 
   it("falls back to original when SQL is invalid", () => {
