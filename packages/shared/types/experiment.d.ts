@@ -122,7 +122,8 @@ export type LegacyBanditEvent = BanditEvent & {
   banditResult: LegacyBanditResult;
 };
 
-export interface LegacyExperimentPhase extends Omit<ExperimentPhase, "variations"> {
+export interface LegacyExperimentPhase
+  extends Omit<ExperimentPhase, "variations"> {
   /** @deprecated */
   phase?: ExperimentPhaseType;
   /** @deprecated */

@@ -10,6 +10,7 @@ import {
   NULL_DIMENSION_VALUE,
   NULL_DIMENSION_DISPLAY,
 } from "shared/constants";
+import { Variation } from "shared/validators";
 import { MetricInterface } from "shared/types/metric";
 import {
   ColumnRef,
@@ -32,7 +33,6 @@ import {
   LookbackOverride,
   MetricOverride,
 } from "shared/types/experiment";
-import { Variation } from "shared/validators";
 import {
   ExperimentReportResultDimension,
   MetricSnapshotSettings,
@@ -1501,11 +1501,10 @@ export type PhaseWithVariations = {
  */
 export function getVariationsForPhase(
   experiment: ExperimentWithPhases,
-  phase: PhaseWithVariations | null | undefined,
+  phase: PhaseWithVariations | null,
 ): Variation[] {
   if (phase) return phase.variations;
   const lastPhase = experiment.phases[experiment.phases.length - 1];
-  // TODO Consider returning undefined?
   return lastPhase?.variations ?? [];
 }
 
@@ -1515,7 +1514,7 @@ export function getVariationsForPhase(
  */
 export function getActiveVariationsForPhase(
   experiment: ExperimentWithPhases,
-  phase: PhaseWithVariations | null | undefined,
+  phase: PhaseWithVariations | null,
 ): Variation[] {
   return getVariationsForPhase(experiment, phase).filter(
     (v) => v.status === "active",
@@ -1528,7 +1527,7 @@ export function getActiveVariationsForPhase(
  */
 export function getActiveVariationWeightsForPhase(
   experiment: ExperimentWithPhases,
-  phase: PhaseWithVariations | null | undefined,
+  phase: PhaseWithVariations | null,
 ): number[] {
   const variations = getVariationsForPhase(experiment, phase);
   const weights = getVariationWeightsForPhase(experiment, phase);
@@ -1543,7 +1542,7 @@ export function getActiveVariationWeightsForPhase(
  */
 export function getVariationWeightsForPhase(
   experiment: ExperimentWithPhases,
-  phase: PhaseWithVariations | null | undefined,
+  phase: PhaseWithVariations | null,
 ): number[] {
   const variations = getVariationsForPhase(experiment, phase);
   const phaseWeights = phase?.variationWeights ?? [];

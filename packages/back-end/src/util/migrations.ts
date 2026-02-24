@@ -605,7 +605,7 @@ export function upgradeExperimentDoc(
       if (!phase.variations) {
         phase.variations = experiment.variations.map((v) => ({
           ...v,
-          variationStatus: "active",
+          status: "active",
         }));
       }
     });

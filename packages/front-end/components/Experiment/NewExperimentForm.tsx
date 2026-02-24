@@ -1366,7 +1366,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                         ...data,
                         // use value as key if provided to maintain backwards compatibility
                         key: data.value || `${i}` || "",
-                              status: "active" as const,
+                        status: "active" as const,
                       };
                     }),
                   );

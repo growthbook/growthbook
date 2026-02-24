@@ -136,6 +136,7 @@ const EditVariationsForm: FC<{
                 screenshots: [],
                 ...newData,
                 key: value,
+                // TODO(variations): add proper status depending on how variations were edited
                 status: "active",
               };
             }),

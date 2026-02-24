@@ -3,10 +3,7 @@ import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
 import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
-import {
-  generateTrackingKey,
-  getVariationsForPhase,
-} from "shared/experiments";
+import { generateTrackingKey, getVariationsForPhase } from "shared/experiments";
 import { v4 as uuidv4 } from "uuid";
 import { VisualChange } from "shared/types/visual-changeset";
 import { ExperimentInterfaceExcludingHoldouts } from "shared/validators";
@@ -221,7 +218,7 @@ const experimentSchema = new mongoose.Schema({
           description: String,
           key: String,
           value: String,
-          variationStatus: String,
+          status: String,
           screenshots: [
             {
               _id: false,

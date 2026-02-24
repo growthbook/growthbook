@@ -849,7 +849,9 @@ export function resetExperimentBanditSettings({
     changes.banditStageDateStarted = new Date();
 
     // Set equal weights
-    const weights = getEqualWeights(getVariationsForPhase(experiment, null).length);
+    const weights = getEqualWeights(
+      getVariationsForPhase(experiment, null).length,
+    );
     changes.phases[phase].variationWeights = weights;
 
     // Log first weight change event
@@ -1235,7 +1237,9 @@ export async function createSnapshot({
     const analysisProps = {
       snapshotType: type,
       snapshotSettings: data.settings,
-      variationNames: getVariationsForPhase(experiment, null).map((v) => v.name),
+      variationNames: getVariationsForPhase(experiment, null).map(
+        (v) => v.name,
+      ),
       metricMap,
       queryParentId: snapshot.id,
       factTableMap,
@@ -1381,7 +1385,9 @@ async function getSnapshotAnalyses(
         snapshot.settings,
       );
       const id = `${i}_${experiment.id}_${snapshot.id}`;
-      const variationNames = getVariationsForPhase(experiment, null).map((v) => v.name);
+      const variationNames = getVariationsForPhase(experiment, null).map(
+        (v) => v.name,
+      );
       const { queryResults, metricSettings, unknownVariations } = mdat;
 
       analysisParamsMap.set(id, {
@@ -1659,7 +1665,9 @@ export async function toExperimentApiInterface(
       ? {
           resultSummary: {
             status: experiment.results,
-            winner: getVariationsForPhase(experiment, null)[experiment.winner ?? 0]?.id || "",
+            winner:
+              getVariationsForPhase(experiment, null)[experiment.winner ?? 0]
+                ?.id || "",
             conclusions: experiment.analysis || "",
             releasedVariationId: experiment.releasedVariationId || "",
             excludeFromPayload: !!experiment.excludeFromPayload,
@@ -1714,7 +1722,9 @@ export function toSnapshotApiInterface(
   const activationMetric =
     snapshot.settings.activationMetric || experiment.activationMetric;
 
-  const variationIds = getVariationsForPhase(experiment, phase).map((v) => v.id);
+  const variationIds = getVariationsForPhase(experiment, phase).map(
+    (v) => v.id,
+  );
 
   // Get the default analysis
   const analysis = getSnapshotAnalysis(snapshot);
@@ -2689,8 +2699,7 @@ export function postExperimentApiPayloadToInterface(
         enabled: p.namespace?.enabled != null ? p.namespace.enabled : false,
       },
       variationWeights:
-        p.variationWeights ||
-        variations.map(() => 1 / variations.length),
+        p.variationWeights || variations.map(() => 1 / variations.length),
       variations,
     };
   }) || [
@@ -2699,9 +2708,7 @@ export function postExperimentApiPayloadToInterface(
       dateStarted: new Date(),
       name: "Main",
       reason: "",
-      variationWeights: variations.map(
-        () => 1 / variations.length,
-      ),
+      variationWeights: variations.map(() => 1 / variations.length),
       condition: "",
       savedGroups: [],
       namespace: {
@@ -2942,9 +2949,9 @@ export function updateExperimentApiPayloadToInterface(
               },
               variationWeights:
                 p.variationWeights ||
-                (payload.variations || getVariationsForPhase(experiment, null))?.map(
-                  (_v, _i, arr) => 1 / arr.length,
-                ),
+                (
+                  payload.variations || getVariationsForPhase(experiment, null)
+                )?.map((_v, _i, arr) => 1 / arr.length),
             };
           }),
         }

@@ -252,8 +252,7 @@ export async function postAIExperimentAnalysis(
     })) || undefined;
 
   const latestVariations = getVariationsForPhase(experiment, null);
-  const winnerVariationName =
-    latestVariations[winner]?.name || "none chosen";
+  const winnerVariationName = latestVariations[winner]?.name || "none chosen";
   const releasedVariationName =
     latestVariations.find((v) => v.id === releasedVariationId)?.name || "";
 
@@ -3468,9 +3467,7 @@ export async function deleteScreenshot(
     changes,
   });
 
-  const updatedVariations = updated
-    ? getVariationsForPhase(updated, null)
-    : [];
+  const updatedVariations = updated ? getVariationsForPhase(updated, null) : [];
   await req.audit({
     event: "experiment.screenshot.delete",
     entity: {

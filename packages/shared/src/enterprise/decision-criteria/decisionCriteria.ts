@@ -1,4 +1,5 @@
 import { addDays, differenceInHours, differenceInMinutes } from "date-fns";
+import { getVariationsForPhase } from "shared/experiments";
 import {
   DecisionCriteriaAction,
   DecisionCriteriaData,
@@ -13,7 +14,6 @@ import {
   ExperimentResultStatusData,
   ExperimentUnhealthyData,
 } from "shared/types/experiment";
-import { getVariationsForPhase } from "shared/experiments";
 import {
   SafeRolloutInterface,
   SafeRolloutSnapshotInterface,
