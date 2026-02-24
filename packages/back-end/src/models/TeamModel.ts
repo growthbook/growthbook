@@ -132,7 +132,7 @@ export class TeamModel extends BaseClass {
       );
     }
 
-    if (team?.managedByIdp) {
+    if (team?.managedByIdp && !this.context.isApiRequest) {
       return this.context.throwBadRequestError(
         "Cannot delete a team that is being managed by an idP. Please delete the team through your idP.",
       );
