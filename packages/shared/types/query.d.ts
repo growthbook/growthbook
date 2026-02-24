@@ -92,6 +92,7 @@ export interface QueryInterface {
   statistics?: QueryStatistics;
   externalId?: string;
   hasChunkedResults?: boolean;
+  sqlFormatted?: boolean;
 }
 export type PopulationDataQuerySettings = Pick<
   PopulationDataInterface,

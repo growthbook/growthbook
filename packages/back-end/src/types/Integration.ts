@@ -1,5 +1,19 @@
 import { ExperimentMetricInterface } from "shared/experiments";
 import { FormatDialect, TemplateVariables } from "shared/types/sql";
+
+/** Query string or object with format status. Used by integrations that format SQL. */
+export type PossiblyFormattedSql =
+  | string
+  | { sql: string; isFormatted?: boolean };
+
+export function resolveSqlQuery(q: PossiblyFormattedSql): {
+  sql: string;
+  isFormatted: boolean;
+} {
+  return typeof q === "string"
+    ? { sql: q, isFormatted: false }
+    : { sql: q.sql, isFormatted: q.isFormatted ?? false };
+}
 import {
   AlterNewIncrementalUnitsQueryParams,
   AutoMetricTrackedEvent,
@@ -113,7 +127,7 @@ export interface SourceIntegrationInterface {
   getMetricAnalysisQuery(
     metric: FactMetricInterface,
     params: Omit<MetricAnalysisParams, "metric">,
-  ): string;
+  ): PossiblyFormattedSql;
   runMetricAnalysisQuery(
     query: string,
     setExternalId: ExternalIdCallback,
@@ -123,55 +137,61 @@ export interface SourceIntegrationInterface {
     query: string,
     setExternalId: ExternalIdCallback,
   ): Promise<DropTableQueryResponse>;
-  getMetricValueQuery(params: MetricValueParams): string;
-  getPopulationMetricQuery?(params: PopulationMetricQueryParams): string;
+  getMetricValueQuery(params: MetricValueParams): PossiblyFormattedSql;
+  getPopulationMetricQuery?(
+    params: PopulationMetricQueryParams,
+  ): PossiblyFormattedSql;
   getPopulationFactMetricsQuery?(
     params: PopulationFactMetricsQueryParams,
-  ): string;
+  ): PossiblyFormattedSql;
   getExperimentFactMetricsQuery?(
     params: ExperimentFactMetricsQueryParams,
-  ): string;
-  getExperimentMetricQuery(params: ExperimentMetricQueryParams): string;
+  ): PossiblyFormattedSql;
+  getExperimentMetricQuery(
+    params: ExperimentMetricQueryParams,
+  ): PossiblyFormattedSql;
   getExperimentAggregateUnitsQuery(
     params: ExperimentAggregateUnitsQueryParams,
-  ): string;
-  getExperimentUnitsTableQuery(params: ExperimentUnitsQueryParams): string;
+  ): PossiblyFormattedSql;
+  getExperimentUnitsTableQuery(
+    params: ExperimentUnitsQueryParams,
+  ): PossiblyFormattedSql;
   getCreateExperimentIncrementalUnitsQuery(
     params: CreateExperimentIncrementalUnitsQueryParams,
-  ): string;
+  ): PossiblyFormattedSql;
   getUpdateExperimentIncrementalUnitsQuery(
     params: UpdateExperimentIncrementalUnitsQueryParams,
-  ): string;
+  ): PossiblyFormattedSql;
   getDropOldIncrementalUnitsQuery(
     params: DropOldIncrementalUnitsQueryParams,
-  ): string;
+  ): PossiblyFormattedSql;
   getAlterNewIncrementalUnitsQuery(
     params: AlterNewIncrementalUnitsQueryParams,
-  ): string;
+  ): PossiblyFormattedSql;
   getMaxTimestampIncrementalUnitsQuery(
     params: MaxTimestampIncrementalUnitsQueryParams,
-  ): string;
+  ): PossiblyFormattedSql;
   getMaxTimestampMetricSourceQuery(
     params: MaxTimestampMetricSourceQueryParams,
-  ): string;
+  ): PossiblyFormattedSql;
   getCreateMetricSourceTableQuery(
     params: CreateMetricSourceTableQueryParams,
-  ): string;
+  ): PossiblyFormattedSql;
   getInsertMetricSourceDataQuery(
     params: InsertMetricSourceDataQueryParams,
-  ): string;
+  ): PossiblyFormattedSql;
   getDropMetricSourceCovariateTableQuery(
     params: DropMetricSourceCovariateTableQueryParams,
-  ): string;
+  ): PossiblyFormattedSql;
   getCreateMetricSourceCovariateTableQuery(
     params: CreateMetricSourceCovariateTableQueryParams,
-  ): string;
+  ): PossiblyFormattedSql;
   getInsertMetricSourceCovariateDataQuery(
     params: InsertMetricSourceCovariateDataQueryParams,
-  ): string;
+  ): PossiblyFormattedSql;
   getIncrementalRefreshStatisticsQuery(
     params: IncrementalRefreshStatisticsQueryParams,
-  ): string;
+  ): PossiblyFormattedSql;
   runIncrementalWithNoOutputQuery(
     query: string,
     setExternalId: ExternalIdCallback,
@@ -187,7 +207,7 @@ export interface SourceIntegrationInterface {
   // Pipeline validation helpers
   getPipelineValidationInsertQuery?(params: { tableFullName: string }): string;
   getCurrentTimestamp(): string;
-  getPastExperimentQuery(params: PastExperimentParams): string;
+  getPastExperimentQuery(params: PastExperimentParams): PossiblyFormattedSql;
   getUserExperimentExposuresQuery(
     params: UserExperimentExposuresQueryParams,
   ): string;
@@ -200,7 +220,9 @@ export interface SourceIntegrationInterface {
   runFeatureEvalDiagnosticsQuery(
     query: string,
   ): Promise<FeatureEvalDiagnosticsQueryResponse>;
-  getDimensionSlicesQuery(params: DimensionSlicesQueryParams): string;
+  getDimensionSlicesQuery(
+    params: DimensionSlicesQueryParams,
+  ): PossiblyFormattedSql;
   runDimensionSlicesQuery(
     query: string,
     setExternalId: ExternalIdCallback,

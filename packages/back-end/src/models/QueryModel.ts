@@ -48,6 +48,7 @@ const querySchema = new mongoose.Schema({
   dependencies: [String],
   runAtEnd: Boolean,
   cachedQueryUsed: String,
+  sqlFormatted: Boolean,
 });
 
 querySchema.index({ organization: 1, datasource: 1, status: 1, createdAt: -1 });
@@ -226,6 +227,7 @@ export async function createNewQuery({
   running = false,
   queryType = "",
   runAtEnd = false,
+  sqlFormatted = false,
 }: {
   organization: string;
   datasource: string;
@@ -236,6 +238,7 @@ export async function createNewQuery({
   running: boolean;
   queryType: QueryType;
   runAtEnd?: boolean;
+  sqlFormatted?: boolean;
 }): Promise<QueryInterface> {
   const data: QueryInterface = {
     createdAt: new Date(),
@@ -251,6 +254,7 @@ export async function createNewQuery({
     dependencies: dependencies,
     runAtEnd: runAtEnd,
     queryType,
+    sqlFormatted,
   };
   const doc = await QueryModel.create(data);
   return toInterface(doc);
@@ -285,6 +289,7 @@ export async function createNewQueryFromCached({
     runAtEnd: runAtEnd,
     cachedQueryUsed: existing.cachedQueryUsed || existing.id,
     hasChunkedResults: existing.hasChunkedResults,
+    sqlFormatted: existing.sqlFormatted ?? false,
   };
   const doc = await QueryModel.create(data);
   return toInterface(doc);
