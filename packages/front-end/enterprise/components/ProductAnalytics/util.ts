@@ -446,6 +446,10 @@ function toFetchKey(config: ProductAnalyticsConfig): unknown {
 export function isSubmittableConfig(
   cleanedConfig: ProductAnalyticsConfig,
 ): boolean {
+  if (!cleanedConfig?.dataset || !Array.isArray(cleanedConfig.dataset.values)) {
+    return false;
+  }
+
   if (cleanedConfig.dataset.values.length === 0) return false;
   if (
     cleanedConfig.dataset.type == "fact_table" &&

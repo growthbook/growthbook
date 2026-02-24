@@ -260,7 +260,7 @@ export type MetricExplorerBlockInterface = z.infer<
 
 const productAnalyticsExplorerBaseInterface = baseBlockInterface.extend({
   explorerAnalysisId: z.string(),
-  config: productAnalyticsConfigValidator.optional(),
+  config: productAnalyticsConfigValidator,
 });
 
 const metricExplorationBlockInterface =

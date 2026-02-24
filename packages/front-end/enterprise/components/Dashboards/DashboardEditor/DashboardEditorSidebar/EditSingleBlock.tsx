@@ -10,7 +10,7 @@ import {
 import React, { useContext, useEffect, useMemo, useState, useRef } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { isNumber, isString, isStringArray } from "shared/util";
-import { SavedQuery } from "shared/validators";
+import { ProductAnalyticsConfig, SavedQuery } from "shared/validators";
 import {
   PiCopySimple,
   PiPencilSimpleFill,
@@ -61,6 +61,7 @@ import {
   DashboardSnapshotContext,
 } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
 import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor";
+import { isSubmittableConfig } from "@/enterprise/components/ProductAnalytics/util";
 import MetricExplorerSettings from "./MetricExplorerSettings";
 import ProductAnalyticsExplorerSettings from "./ProductAnalyticsExplorerSettings";
 
@@ -81,6 +82,42 @@ const REQUIRED_FIELDS: {
     {
       field: "savedQueryId",
       validation: (sqId) => typeof sqId === "string" && sqId.length > 0,
+    },
+  ],
+  "metric-exploration": [
+    {
+      field: "config",
+      validation: (config) =>
+        isSubmittableConfig(config as ProductAnalyticsConfig),
+    },
+    {
+      field: "explorerAnalysisId",
+      validation: (explorerAnalysisId) =>
+        typeof explorerAnalysisId === "string" && explorerAnalysisId.length > 0,
+    },
+  ],
+  "fact-table-exploration": [
+    {
+      field: "config",
+      validation: (config) =>
+        isSubmittableConfig(config as ProductAnalyticsConfig),
+    },
+    {
+      field: "explorerAnalysisId",
+      validation: (explorerAnalysisId) =>
+        typeof explorerAnalysisId === "string" && explorerAnalysisId.length > 0,
+    },
+  ],
+  "data-source-exploration": [
+    {
+      field: "config",
+      validation: (config) =>
+        isSubmittableConfig(config as ProductAnalyticsConfig),
+    },
+    {
+      field: "explorerAnalysisId",
+      validation: (explorerAnalysisId) =>
+        typeof explorerAnalysisId === "string" && explorerAnalysisId.length > 0,
     },
   ],
 };

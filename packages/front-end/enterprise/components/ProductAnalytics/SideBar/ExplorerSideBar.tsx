@@ -11,6 +11,7 @@ import GraphTypeSelector from "@/enterprise/components/ProductAnalytics/MainSect
 import DateRangePicker from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DateRangePicker";
 import GranularitySelector from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/GranularitySelector";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Callout from "@/ui/Callout";
 import MetricTabContent from "./MetricTabContent";
 import FactTableTabContent from "./FactTableTabContent";
 import DatasourceTabContent from "./DatasourceTabContent";
@@ -33,6 +34,7 @@ export default function ExplorerSideBar({
     handleSubmit,
     isSubmittable,
     isStale,
+    error,
   } = useExplorerContext();
   const { factTables, datasources } = useDefinitions();
 
@@ -53,6 +55,9 @@ export default function ExplorerSideBar({
 
   return (
     <Flex direction="column" gap="4">
+      {error && renderingInDashboardSidebar ? (
+        <Callout status="error">{error}</Callout>
+      ) : null}
       <Flex justify="between" align="center" height="32px" py="2">
         <Text weight="medium" mt="2">
           Configuration
