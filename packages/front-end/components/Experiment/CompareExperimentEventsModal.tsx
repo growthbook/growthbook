@@ -82,6 +82,120 @@ const EXPERIMENT_EVENT_LABELS: Record<string, string> = Object.fromEntries(
   Object.entries(EXPERIMENT_EVENTS).map(([k, v]) => [k, v.label]),
 );
 
+type ExperimentSectionId =
+  | "targeting-phases"
+  | "targeting-top-level"
+  | "phase-info"
+  | "variations"
+  | "analysis"
+  | "metadata";
+
+type SectionAssignment = ExperimentSectionId | ExperimentSectionId[] | false;
+
+const EXPERIMENT_SECTION_KEYS: Record<
+  keyof ExperimentInterfaceStringDates,
+  SectionAssignment
+> = {
+  // — User targeting (phase-level) + Phase info (shared parent key) —
+  phases: ["targeting-phases", "phase-info"],
+
+  // — User targeting (top-level) —
+  excludeFromPayload: "targeting-top-level",
+  bucketVersion: "targeting-top-level",
+  minBucketVersion: "targeting-top-level",
+  disableStickyBucketing: "targeting-top-level",
+
+  // — Variations —
+  variations: "variations",
+
+  // — Analysis settings —
+  goalMetrics: "analysis",
+  secondaryMetrics: "analysis",
+  guardrailMetrics: "analysis",
+  activationMetric: "analysis",
+  metricOverrides: "analysis",
+  decisionFrameworkSettings: "analysis",
+  hashAttribute: "analysis",
+  fallbackAttribute: "analysis",
+  hashVersion: "analysis",
+  segment: "analysis",
+  queryFilter: "analysis",
+  skipPartialData: "analysis",
+  exposureQueryId: "analysis",
+  datasource: "analysis",
+  trackingKey: "analysis",
+  statsEngine: "analysis",
+  regressionAdjustmentEnabled: "analysis",
+  postStratificationEnabled: "analysis",
+  sequentialTestingEnabled: "analysis",
+  sequentialTestingTuningParameter: "analysis",
+  attributionModel: "analysis",
+  customMetricSlices: "analysis",
+  banditBurnInUnit: "analysis",
+  banditBurnInValue: "analysis",
+  banditScheduleUnit: "analysis",
+  banditScheduleValue: "analysis",
+  lookbackOverride: "analysis",
+
+  // — Metadata —
+  name: "metadata",
+  description: "metadata",
+  hypothesis: "metadata",
+  tags: "metadata",
+  project: "metadata",
+  status: "metadata",
+  winner: "metadata",
+  owner: "metadata",
+  type: "metadata",
+  shareLevel: "metadata",
+  templateId: "metadata",
+  customFields: "metadata",
+  archived: "metadata",
+
+  // — Intentionally excluded from diff sections —
+  id: false,
+  uid: false,
+  organization: false,
+  implementation: false,
+  userIdType: false,
+  pastNotifications: false,
+  dateCreated: false,
+  dateUpdated: false,
+  autoAssign: false,
+  previewURL: false,
+  targetURLRegex: false,
+  results: false,
+  analysis: false,
+  releasedVariationId: false,
+  lastSnapshotAttempt: false,
+  nextSnapshotAttempt: false,
+  autoSnapshots: false,
+  ideaSource: false,
+  hasVisualChangesets: false,
+  hasURLRedirects: false,
+  linkedFeatures: false,
+  manualLaunchChecklist: false,
+  banditStage: false,
+  banditStageDateStarted: false,
+  analysisSummary: false,
+  dismissedWarnings: false,
+  holdoutId: false,
+  defaultDashboardId: false,
+};
+
+function sectionKeys(
+  id: ExperimentSectionId,
+): (keyof ExperimentInterfaceStringDates)[] {
+  return (
+    Object.keys(
+      EXPERIMENT_SECTION_KEYS,
+    ) as (keyof ExperimentInterfaceStringDates)[]
+  ).filter((k) => {
+    const v = EXPERIMENT_SECTION_KEYS[k];
+    return v === id || (Array.isArray(v) && v.includes(id));
+  });
+}
+
 const EXPERIMENT_DIFF_CONFIG: AuditDiffConfig<ExperimentInterfaceStringDates> =
   {
     entityType: "experiment",
@@ -134,7 +248,7 @@ const EXPERIMENT_DIFF_CONFIG: AuditDiffConfig<ExperimentInterfaceStringDates> =
     sections: [
       {
         label: "User targeting",
-        keys: ["phases"],
+        keys: sectionKeys("targeting-phases"),
         pickSubKeys: [
           "coverage",
           "condition",
@@ -151,18 +265,13 @@ const EXPERIMENT_DIFF_CONFIG: AuditDiffConfig<ExperimentInterfaceStringDates> =
       },
       {
         label: "User targeting",
-        keys: [
-          "excludeFromPayload",
-          "bucketVersion",
-          "minBucketVersion",
-          "disableStickyBucketing",
-        ],
+        keys: sectionKeys("targeting-top-level"),
         render: renderUserTargetingTopLevel,
         getBadges: getExperimentTargetingBadges,
       },
       {
         label: "Phase info",
-        keys: ["phases"],
+        keys: sectionKeys("phase-info"),
         pickSubKeys: [
           "dateStarted",
           "dateEnded",
@@ -177,56 +286,19 @@ const EXPERIMENT_DIFF_CONFIG: AuditDiffConfig<ExperimentInterfaceStringDates> =
       },
       {
         label: "Variations",
-        keys: ["variations"],
+        keys: sectionKeys("variations"),
         render: renderVariations,
         getBadges: getExperimentVariationsBadges,
       },
       {
         label: "Analysis settings",
-        keys: [
-          "goalMetrics",
-          "secondaryMetrics",
-          "guardrailMetrics",
-          "activationMetric",
-          "metricOverrides",
-          "decisionFrameworkSettings",
-          "hashAttribute",
-          "fallbackAttribute",
-          "hashVersion",
-          "segment",
-          "queryFilter",
-          "skipPartialData",
-          "exposureQueryId",
-          "datasource",
-          "trackingKey",
-          "statsEngine",
-          "regressionAdjustmentEnabled",
-          "postStratificationEnabled",
-          "sequentialTestingEnabled",
-          "sequentialTestingTuningParameter",
-          "attributionModel",
-          "customMetricSlices",
-          "banditBurnInUnit",
-          "banditBurnInValue",
-          "banditScheduleUnit",
-          "banditScheduleValue",
-        ],
+        keys: sectionKeys("analysis"),
         render: renderAnalysisSettings,
         getBadges: getExperimentAnalysisBadges,
       },
       {
         label: "Metadata",
-        keys: [
-          "name",
-          "description",
-          "hypothesis",
-          "tags",
-          "project",
-          "owner",
-          "type",
-          "shareLevel",
-          "templateId",
-        ],
+        keys: sectionKeys("metadata"),
         render: renderMetadata,
         getBadges: getExperimentMetadataBadges,
       },
