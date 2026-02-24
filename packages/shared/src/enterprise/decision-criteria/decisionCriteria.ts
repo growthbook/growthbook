@@ -13,6 +13,7 @@ import {
   ExperimentResultStatusData,
   ExperimentUnhealthyData,
 } from "shared/types/experiment";
+import { getVariationsForPhase } from "shared/experiments";
 import {
   SafeRolloutInterface,
   SafeRolloutSnapshotInterface,
@@ -464,7 +465,7 @@ export function getExperimentResultStatus({
       srm: healthSummary.srm,
       srmThreshold: healthSettings.srmThreshold,
       totalUsersCount: healthSummary.totalUsers,
-      numOfVariations: experimentData.variations.length,
+      numOfVariations: getVariationsForPhase(experimentData, null).length,
       minUsersPerVariation:
         experimentData.type === "multi-armed-bandit"
           ? DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION

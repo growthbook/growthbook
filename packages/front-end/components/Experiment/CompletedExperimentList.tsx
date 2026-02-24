@@ -4,7 +4,7 @@ import { BsFlag } from "react-icons/bs";
 import { PiArrowSquareOutBold, PiShuffle } from "react-icons/pi";
 import { TbCloudOff } from "react-icons/tb";
 import React, { useState } from "react";
-import { isFactMetricId } from "shared/experiments";
+import { isFactMetricId, getVariationsForPhase } from "shared/experiments";
 import { date } from "shared/dates";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
@@ -71,22 +71,23 @@ const CompletedExperimentList = ({
         ) : (
           experiments.slice(start, end).map((e, experimentIndex) => {
             const result = e.results;
+            const expVariations = getVariationsForPhase(e, null);
 
             const winningVariationIndex =
               result === "lost" ? 0 : result === "won" ? (e.winner ?? 1) : null;
 
             const winningVariation =
               winningVariationIndex !== null
-                ? e.variations[winningVariationIndex]
+                ? expVariations[winningVariationIndex]
                 : null;
 
             const releasedVariationId = e.releasedVariationId || "";
-            const releasedVariationIndex = e.variations.findIndex(
+            const releasedVariationIndex = expVariations.findIndex(
               (v) => v.id === releasedVariationId,
             );
             const releasedVariation =
               releasedVariationIndex >= 0
-                ? e.variations[releasedVariationIndex]
+                ? expVariations[releasedVariationIndex]
                 : null;
 
             const variantImageToShow = winningVariation
@@ -212,7 +213,7 @@ const CompletedExperimentList = ({
                   >
                     <VariationBox
                       i={variantImageToShow || 0}
-                      v={e.variations[variantImageToShow || 0]}
+                      v={expVariations[variantImageToShow || 0]}
                       experiment={e}
                       showDescription={false}
                       showIds={false}

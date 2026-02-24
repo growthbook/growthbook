@@ -352,6 +352,31 @@ export const postDemoDatasourceProject = async (
     // Create experiment
     const experimentStartDate = new Date();
     experimentStartDate.setDate(experimentStartDate.getDate() - 30);
+    const demoVariations = [
+      {
+        id: "v0",
+        key: "0",
+        name: "Control",
+        screenshots: [
+          {
+            path: "/images/demo-datasource/add-to-cart-control.png",
+          },
+        ],
+        status: "active" as const,
+      },
+      {
+        id: "v1",
+        key: "1",
+        name: "Treatment",
+        screenshots: [
+          {
+            path: "/images/demo-datasource/add-to-cart-treatment.png",
+          },
+        ],
+        status: "active" as const,
+      },
+    ];
+
     const experimentToCreate: Pick<
       ExperimentInterface,
       | "name"
@@ -366,7 +391,6 @@ export const postDemoDatasourceProject = async (
       | "status"
       | "tags"
       | "trackingKey"
-      | "variations"
       | "phases"
       | "regressionAdjustmentEnabled"
     > = {
@@ -386,28 +410,6 @@ Treatment shows a larger 'Add to Cart' CTA, but with the same functionality.`,
       status: "running",
       tags: DEMO_TAGS,
       regressionAdjustmentEnabled: true,
-      variations: [
-        {
-          id: "v0",
-          key: "0",
-          name: "Control",
-          screenshots: [
-            {
-              path: "/images/demo-datasource/add-to-cart-control.png",
-            },
-          ],
-        },
-        {
-          id: "v1",
-          key: "1",
-          name: "Treatment",
-          screenshots: [
-            {
-              path: "/images/demo-datasource/add-to-cart-treatment.png",
-            },
-          ],
-        },
-      ],
       phases: [
         {
           dateStarted: experimentStartDate,
@@ -417,6 +419,7 @@ Treatment shows a larger 'Add to Cart' CTA, but with the same functionality.`,
           condition: "",
           namespace: { enabled: false, name: "", range: [0, 1] },
           variationWeights: [0.5, 0.5],
+          variations: demoVariations,
         },
       ],
     };

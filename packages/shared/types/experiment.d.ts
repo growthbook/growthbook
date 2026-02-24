@@ -122,12 +122,13 @@ export type LegacyBanditEvent = BanditEvent & {
   banditResult: LegacyBanditResult;
 };
 
-export interface LegacyExperimentPhase extends ExperimentPhase {
+export interface LegacyExperimentPhase extends Omit<ExperimentPhase, "variations"> {
   /** @deprecated */
   phase?: ExperimentPhaseType;
   /** @deprecated */
   groups?: string[];
   banditEvents?: LegacyBanditEvent[];
+  variations?: Variation[];
 }
 
 export type ExperimentPhaseStringDates = Omit<
@@ -147,7 +148,6 @@ export interface LegacyExperimentInterface
   extends Omit<
     ExperimentInterface,
     | "phases"
-    | "variations"
     | "attributionModel"
     | "releasedVariationId"
     | "metricOverrides"
@@ -162,7 +162,7 @@ export interface LegacyExperimentInterface
   observations?: string;
   metricOverrides?: LegacyMetricOverride[];
   attributionModel: ExperimentInterface["attributionModel"] | "allExposures";
-  variations: LegacyVariation[];
+  variations: LegacyVariation[] | Variation[];
   phases: LegacyExperimentPhase[];
   releasedVariationId?: string;
   metrics?: string[];
@@ -254,7 +254,6 @@ export type ExperimentHealthSettings = {
 export type ExperimentDataForStatusStringDates = Pick<
   ExperimentInterfaceStringDates,
   | "type"
-  | "variations"
   | "status"
   | "archived"
   | "results"
@@ -271,7 +270,6 @@ export type ExperimentDataForStatusStringDates = Pick<
 export type ExperimentDataForStatus = Pick<
   ExperimentInterface,
   | "type"
-  | "variations"
   | "status"
   | "archived"
   | "results"

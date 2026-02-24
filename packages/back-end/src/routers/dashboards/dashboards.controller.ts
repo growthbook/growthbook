@@ -12,7 +12,10 @@ import { SavedQuery } from "shared/validators";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { MetricAnalysisInterface } from "shared/types/metric-analysis";
 import { ExperimentInterface } from "shared/types/experiment";
-import { expandAllSliceMetricsInMap } from "shared/experiments";
+import {
+  expandAllSliceMetricsInMap,
+  getVariationsForPhase,
+} from "shared/experiments";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -233,7 +236,9 @@ export async function refreshDashboardData(
       await queryRunner.startAnalysis({
         snapshotType: "standard",
         snapshotSettings: mainSnapshot.settings,
-        variationNames: experiment.variations.map((v) => v.name),
+        variationNames: getVariationsForPhase(experiment, null).map(
+          (v) => v.name,
+        ),
         metricMap,
         queryParentId: mainSnapshot.id,
         experimentId: experiment.id,

@@ -9,6 +9,7 @@ import {
 } from "shared/enterprise";
 import React, { useContext, useEffect, useMemo, useState, useRef } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { getVariationsForPhase } from "shared/experiments";
 import { isNumber, isString, isStringArray } from "shared/util";
 import { SavedQuery } from "shared/validators";
 import {
@@ -623,14 +624,17 @@ export default function EditSingleBlock({
     : 0;
   // Only compute baseline/variation options when the block type depends on an experiment
   const hasExperimentContext = !!experiment && requireBaselineVariation;
+  const experimentVariations = hasExperimentContext
+    ? getVariationsForPhase(experiment, null)
+    : [];
   const baselineVariation = hasExperimentContext
-    ? experiment.variations.find((_, i) => i === baselineIndex) ||
-      experiment.variations[0]
+    ? experimentVariations.find((_, i) => i === baselineIndex) ||
+      experimentVariations[0]
     : null;
   const variationOptions = hasExperimentContext
     ? (requireBaselineVariation
-        ? experiment.variations.filter((_, i) => i !== baselineIndex)
-        : experiment.variations
+        ? experimentVariations.filter((_, i) => i !== baselineIndex)
+        : experimentVariations
       ).map((variation) => ({ label: variation.name, value: variation.id }))
     : [];
   const setVariations = (
@@ -1283,10 +1287,12 @@ export default function EditSingleBlock({
                   }
                   options={
                     experiment
-                      ? experiment.variations.map((variation, i) => ({
-                          label: variation.name,
-                          value: i.toString(),
-                        }))
+                      ? getVariationsForPhase(experiment, null).map(
+                          (variation, i) => ({
+                            label: variation.name,
+                            value: i.toString(),
+                          }),
+                        )
                       : []
                   }
                   formatOptionLabel={({ value, label }) => (
@@ -1326,7 +1332,7 @@ export default function EditSingleBlock({
                   options={variationOptions}
                   formatOptionLabel={({ value, label }) => {
                     const varIndex = experiment
-                      ? experiment.variations.findIndex(
+                      ? getVariationsForPhase(experiment, null).findIndex(
                           ({ id }) => id === value,
                         )
                       : -1;

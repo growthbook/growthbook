@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Box } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { getVariationsForPhase } from "shared/experiments";
 import {
   PresentationInterface,
   PresentationSlide,
@@ -586,7 +587,7 @@ const ShareModal = ({
                               if (!phase) return null;
 
                               let hasScreenShots = true;
-                              e.variations.forEach((v) => {
+                              getVariationsForPhase(e, null).forEach((v) => {
                                 if (v.screenshots.length < 1) {
                                   hasScreenShots = false;
                                 }

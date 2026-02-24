@@ -9,6 +9,7 @@ import {
   VisualChangesetURLPattern,
 } from "shared/types/visual-changeset";
 import { ExperimentInterface, Variation } from "shared/types/experiment";
+import { getVariationsForPhase } from "shared/experiments";
 import { ApiVisualChangeset } from "shared/types/openapi";
 import { ReqContext } from "back-end/types/request";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
@@ -272,7 +273,8 @@ export const createVisualChangeset = async ({
       urlPatterns,
       editorUrl,
       visualChanges:
-        visualChanges || experiment.variations.map(genNewVisualChange),
+        visualChanges ||
+          getVariationsForPhase(experiment, null).map(genNewVisualChange),
     }),
   );
 
@@ -465,7 +467,7 @@ export const syncVisualChangesWithVariations = async ({
   context: ReqContext | ApiReqContext;
   visualChangeset: VisualChangesetInterface;
 }) => {
-  const { variations } = experiment;
+  const variations = getVariationsForPhase(experiment, null);
   const { visualChanges } = visualChangeset;
   const visualChangesByVariationId = keyBy(visualChanges, "variation");
   const newVisualChanges = variations.map((variation) => {

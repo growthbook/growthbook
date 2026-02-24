@@ -3,7 +3,10 @@ import {
   getSnapshotAnalysis,
   ensureAndReturn,
 } from "shared/util";
-import { getMetricResultStatus } from "shared/experiments";
+import {
+  getMetricResultStatus,
+  getVariationsForPhase,
+} from "shared/experiments";
 import {
   PRESET_DECISION_CRITERIA,
   PRESET_DECISION_CRITERIAS,
@@ -358,7 +361,10 @@ export const computeExperimentChanges = async ({
 
       if (winning === null) continue;
 
-      const { id: variationId, name: variationName } = experiment.variations[i];
+      const { id: variationId, name: variationName } = getVariationsForPhase(
+        experiment,
+        null,
+      )[i];
 
       experimentChanges.push({
         experimentId: experiment.id,

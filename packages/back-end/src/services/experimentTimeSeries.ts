@@ -3,6 +3,7 @@ import {
   getAllExpandedMetricIdsFromExperiment,
   isFactMetricId,
   expandAllSliceMetricsInMap,
+  getVariationsForPhase,
 } from "shared/experiments";
 import cloneDeep from "lodash/cloneDeep";
 import {
@@ -102,11 +103,12 @@ export async function updateExperimentTimeSeries({
     factMetrics = await context.models.factMetrics.getByIds(factMetricsIds);
   }
 
+  const experimentVariations = getVariationsForPhase(experiment, null);
   const timeSeriesVariationsPerMetricId = allMetricIds.reduce(
     (acc, metricId) => {
       acc[metricId] = variations.map((_, variationIndex) => ({
-        id: experiment.variations[variationIndex].id,
-        name: experiment.variations[variationIndex].name,
+        id: experimentVariations[variationIndex].id,
+        name: experimentVariations[variationIndex].name,
         stats:
           // NB: Using relative as a base to save space because it matches relative & absolute
           relativeAnalysis?.results[0]?.variations[variationIndex]?.metrics[

@@ -233,7 +233,7 @@ export default function ExperimentRefSummary({
           >
             <Table>
               <TableBody>
-                {experiment.variations.map((variation, j) => {
+                {phase.variations.map((variation, j) => {
                   const value =
                     variations.find((v) => v.variationId === variation.id)
                       ?.value ?? "null";
@@ -295,7 +295,7 @@ export default function ExperimentRefSummary({
           <Box mt="3">
             {!isBandit && (
               <ExperimentSplitVisual
-                values={experiment.variations.map((variation, j) => {
+                values={phase.variations.map((variation, j) => {
                   return {
                     name: variation.name,
                     value:

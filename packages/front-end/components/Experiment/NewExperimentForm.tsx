@@ -5,6 +5,10 @@ import {
   ExperimentStatus,
   Variation,
 } from "shared/types/experiment";
+
+type NewExperimentFormData = Partial<ExperimentInterfaceStringDates> & {
+  variations?: Variation[];
+};
 import { useRouter } from "next/router";
 import { date, datetime, getValidDate } from "shared/dates";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
@@ -90,7 +94,7 @@ weekAgo.setDate(weekAgo.getDate() - 7);
 
 export type NewExperimentFormProps = {
   initialStep?: number;
-  initialValue?: Partial<ExperimentInterfaceStringDates>;
+  initialValue?: NewExperimentFormData;
   initialNumVariations?: number;
   isImport?: boolean;
   fromFeature?: boolean;
@@ -117,6 +121,7 @@ export function getDefaultVariations(num: number) {
       key: i + "",
       screenshots: [],
       id: generateVariationId(),
+      status: "active" as const,
     });
   }
   return variations;
@@ -257,7 +262,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const lastPhase = (initialValue?.phases?.length ?? 1) - 1;
   const initialHashAttribute = initialValue?.hashAttribute || hashAttribute;
 
-  const form = useForm<Partial<ExperimentInterfaceStringDates>>({
+  const form = useForm<NewExperimentFormData>({
     defaultValues: {
       project: initialValue?.project || project || "",
       trackingKey: initialValue?.trackingKey || "",
@@ -1142,6 +1147,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                               screenshots: [],
                               ...data,
                               key: data.value || `${i}` || "",
+                              status: "active" as const,
                             };
                           }),
                         );
@@ -1223,6 +1229,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                               screenshots: [],
                               ...data,
                               key: data.value || `${i}` || "",
+                              status: "active" as const,
                             };
                           }),
                         );
@@ -1359,6 +1366,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                         ...data,
                         // use value as key if provided to maintain backwards compatibility
                         key: data.value || `${i}` || "",
+                              status: "active" as const,
                       };
                     }),
                   );

@@ -11,6 +11,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
+import { getVariationsForPhase } from "shared/experiments";
 import { useExperiments } from "@/hooks/useExperiments";
 import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -243,11 +244,14 @@ const ExposureDebuggerPage = () => {
                           const exp = row.id
                             ? experimentsMap.get(row.id)
                             : null;
-                          const variationIndex = exp?.variations.findIndex(
+                          const expVariations = exp
+                            ? getVariationsForPhase(exp, null)
+                            : [];
+                          const variationIndex = expVariations.findIndex(
                             (v) => v.key === row.variation_id,
                           );
-                          const variation = variationIndex
-                            ? exp?.variations[variationIndex]
+                          const variation = variationIndex >= 0
+                            ? expVariations[variationIndex]
                             : null;
                           return (
                             <tr key={index}>

@@ -14,10 +14,7 @@ import {
   useTooltipInPortal,
 } from "@visx/tooltip";
 import { date, datetime } from "shared/dates";
-import {
-  ExperimentInterfaceStringDates,
-  ExperimentPhaseStringDates,
-} from "shared/types/experiment";
+import { ExperimentPhaseStringDates } from "shared/types/experiment";
 import { BiRadioCircle, BiRadioCircleMarked } from "react-icons/bi";
 import { formatNumber } from "@/services/metrics";
 import { getVariationColor } from "@/services/features";
@@ -33,7 +30,6 @@ export interface BanditSRMGraphDataPoint {
   srm?: number;
 }
 export interface BanditSRMGraphProps {
-  experiment: ExperimentInterfaceStringDates;
   phase: ExperimentPhaseStringDates;
   mode: "users" | "weights";
 }
@@ -161,14 +157,10 @@ const getTooltipData = (
   return { x, d };
 };
 
-const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
-  experiment,
-  phase,
-  mode,
-}) => {
+const BanditSRMGraph: FC<BanditSRMGraphProps> = ({ phase, mode }) => {
   const formatter = formatNumber;
 
-  const variationNames = experiment.variations.map((v) => v.name);
+  const variationNames = phase.variations.map((v) => v.name);
   const { containerRef, containerBounds } = useTooltipInPortal({
     scroll: true,
     detectBounds: true,

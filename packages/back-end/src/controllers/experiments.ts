@@ -14,6 +14,8 @@ import {
   expandMetricGroups,
   getAllMetricIdsFromExperiment,
   getAllMetricSettingsForSnapshot,
+  getEqualWeights,
+  getVariationsForPhase,
 } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
@@ -249,10 +251,11 @@ export async function postAIExperimentAnalysis(
       type: "standard",
     })) || undefined;
 
+  const latestVariations = getVariationsForPhase(experiment, null);
   const winnerVariationName =
-    experiment.variations[winner]?.name || "none chosen";
+    latestVariations[winner]?.name || "none chosen";
   const releasedVariationName =
-    experiment.variations.find((v) => v.id === releasedVariationId)?.name || "";
+    latestVariations.find((v) => v.id === releasedVariationId)?.name || "";
 
   const allMetricGroups = await context.models.metricGroups.getAll();
   const experimentMetricIds = expandMetricGroups(
@@ -1165,7 +1168,6 @@ export async function postExperiments(
     queryFilter: data.queryFilter || "",
     skipPartialData: !!data.skipPartialData,
     attributionModel: data.attributionModel || "firstExposure",
-    variations: data.variations || [],
     implementation: data.implementation || "code",
     status: data.status || "draft",
     results: data.results || undefined,
@@ -1215,7 +1217,9 @@ export async function postExperiments(
   }
 
   try {
-    validateVariationIds(obj.variations);
+    obj.phases.forEach((phase) => {
+      validateVariationIds(phase.variations);
+    });
 
     // Make sure id is unique
     if (obj.trackingKey && !req.query.allowDuplicateTrackingKey) {
@@ -1501,8 +1505,12 @@ export async function postExperiment(
     }
   }
 
-  if (data.variations) {
-    validateVariationIds(data.variations);
+  if (data.phases) {
+    data.phases.forEach((phase) => {
+      if (phase.variations) {
+        validateVariationIds(phase.variations);
+      }
+    });
   }
 
   if (
@@ -1577,7 +1585,6 @@ export async function postExperiment(
     "metricOverrides",
     "lookbackOverride",
     "decisionFrameworkSettings",
-    "variations",
     "status",
     "results",
     "analysis",
@@ -1627,7 +1634,6 @@ export async function postExperiment(
       key === "guardrailMetrics" ||
       key === "metricOverrides" ||
       key === "lookbackOverride" ||
-      key === "variations" ||
       key === "customFields" ||
       key === "customMetricSlices"
     ) {
@@ -1738,7 +1744,6 @@ export async function postExperiment(
   const needsRunExperimentsPermission = (
     [
       "phases",
-      "variations",
       "project",
       "name",
       "trackingKey",
@@ -1785,8 +1790,8 @@ export async function postExperiment(
     changes,
   });
 
-  // if variations have changed, update the experiment's visualchangesets if they exist
-  if (changes.variations && updated) {
+  // if phases (which contain variations) have changed, update the experiment's visualchangesets if they exist
+  if (changes.phases && updated) {
     const visualChangesets = await findVisualChangesetsByExperiment(
       experiment.id,
       org.id,
@@ -2108,6 +2113,7 @@ export async function postExperimentStatus(
         namespace: clonedPhase.namespace,
         reason: "",
         variationWeights: clonedPhase.variationWeights,
+        variations: clonedPhase.variations,
         seed: uuidv4(),
       });
 
@@ -2553,11 +2559,39 @@ export async function postExperimentTargeting(
       };
     }
   } else {
-    // If we had a previous phase, mark it as ended
+    // If we had a previous phase, snapshot its variations and mark it as ended
     if (phases.length) {
-      phases[phases.length - 1].dateEnded = new Date();
+      const lastPhaseIndex = phases.length - 1;
+      const lastPhase = phases[lastPhaseIndex];
+      if (!lastPhase.variations) {
+        lastPhase.variations = [
+          ...getVariationsForPhase(experiment, lastPhase),
+        ];
+      }
+      lastPhase.dateEnded = new Date();
     }
 
+    // Build new phase with full list, disabled on removed (weight 0)
+    const effectiveVariations = getVariationsForPhase(
+      experiment,
+      phases.length ? (phases[phases.length - 1] ?? null) : null,
+    );
+    const weights =
+      variationWeights?.length === effectiveVariations.length
+        ? variationWeights
+        : getEqualWeights(effectiveVariations.length);
+    const hasActive = weights.some((w) => w > 0);
+    if (!hasActive) {
+      res.status(400).json({
+        status: 400,
+        message: "At least one variation must have weight > 0",
+      });
+      return;
+    }
+    const newPhaseVariations = effectiveVariations.map((v, i) => ({
+      ...v,
+      disabled: weights[i] === 0,
+    }));
     phases.push({
       condition,
       savedGroups,
@@ -2567,7 +2601,8 @@ export async function postExperimentTargeting(
       name: "Main",
       namespace,
       reason: "",
-      variationWeights,
+      variationWeights: weights,
+      variations: newPhaseVariations,
       seed: phases.length && reseed ? uuidv4() : seed,
     });
   }
@@ -2681,13 +2716,18 @@ export async function postExperimentPhase(
   const date = dateStarted ? getValidDate(dateStarted + ":00Z") : new Date();
 
   const phases = [...experiment.phases];
-  // Already has phases
+  // Already has phases - snapshot last phase's variations and end it
   if (phases.length) {
+    const lastPhaseIndex = phases.length - 1;
+    const lastPhase = phases[lastPhaseIndex];
+    if (!lastPhase.variations) {
+      lastPhase.variations = [...getVariationsForPhase(experiment, lastPhase)];
+    }
     if (experiment.type === "holdout") {
       phases[0].dateEnded = date;
     }
-    phases[phases.length - 1] = {
-      ...phases[phases.length - 1],
+    phases[lastPhaseIndex] = {
+      ...lastPhase,
       dateEnded: date,
       reason,
     };
@@ -2700,11 +2740,26 @@ export async function postExperimentPhase(
     isStarting = true;
   }
 
+  const effectiveVariations = getVariationsForPhase(
+    experiment,
+    phases.length ? (phases[phases.length - 1] ?? null) : null,
+  );
+  const weights =
+    data.variationWeights?.length === effectiveVariations.length
+      ? data.variationWeights
+      : getEqualWeights(effectiveVariations.length);
+  const newPhaseVariations = effectiveVariations.map((v) => ({
+    ...v,
+    disabled: false,
+  }));
+
   phases.push({
     ...data,
     dateStarted: date,
     dateEnded: undefined,
     reason: "",
+    variationWeights: weights,
+    variations: newPhaseVariations,
   });
 
   // TODO: validation
@@ -3390,7 +3445,8 @@ export async function deleteScreenshot(
     context.permissions.throwPermissionError();
   }
 
-  if (!experiment.variations[variation]) {
+  const latestVariations = getVariationsForPhase(experiment, null);
+  if (!latestVariations[variation]) {
     res.status(404).json({
       status: 404,
       message: "Unknown variation " + variation,
@@ -3398,18 +3454,23 @@ export async function deleteScreenshot(
     return;
   }
 
-  changes.variations = cloneDeep(experiment.variations);
+  const phases = cloneDeep(experiment.phases);
+  const latestPhaseIndex = phases.length - 1;
 
   // TODO: delete from s3 as well?
-  changes.variations[variation].screenshots = changes.variations[
-    variation
-  ].screenshots.filter((s) => s.path !== url);
+  phases[latestPhaseIndex].variations[variation].screenshots = phases[
+    latestPhaseIndex
+  ].variations[variation].screenshots.filter((s) => s.path !== url);
+  changes.phases = phases;
   const updated = await updateExperiment({
     context,
     experiment,
     changes,
   });
 
+  const updatedVariations = updated
+    ? getVariationsForPhase(updated, null)
+    : [];
   await req.audit({
     event: "experiment.screenshot.delete",
     entity: {
@@ -3417,8 +3478,8 @@ export async function deleteScreenshot(
       id: experiment.id,
     },
     details: auditDetailsUpdate(
-      experiment.variations[variation].screenshots,
-      updated?.variations[variation].screenshots,
+      latestVariations[variation].screenshots,
+      updatedVariations[variation]?.screenshots,
       { variation },
     ),
   });
@@ -3464,7 +3525,8 @@ export async function addScreenshot(
     context.permissions.throwPermissionError();
   }
 
-  if (!experiment.variations[variation]) {
+  const latestVariations = getVariationsForPhase(experiment, null);
+  if (!latestVariations[variation]) {
     res.status(404).json({
       status: 404,
       message: "Unknown variation " + variation,
@@ -3472,15 +3534,17 @@ export async function addScreenshot(
     return;
   }
 
-  experiment.variations[variation].screenshots =
-    experiment.variations[variation].screenshots || [];
+  const phases = cloneDeep(experiment.phases);
+  const latestPhaseIndex = phases.length - 1;
 
-  changes.variations = cloneDeep(experiment.variations);
+  phases[latestPhaseIndex].variations[variation].screenshots =
+    phases[latestPhaseIndex].variations[variation].screenshots || [];
 
-  changes.variations[variation].screenshots.push({
+  phases[latestPhaseIndex].variations[variation].screenshots.push({
     path: url,
     description: description,
   });
+  changes.phases = phases;
 
   await updateExperiment({
     context,

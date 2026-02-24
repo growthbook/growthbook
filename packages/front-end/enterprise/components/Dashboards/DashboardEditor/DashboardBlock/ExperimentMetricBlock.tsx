@@ -8,7 +8,7 @@ import { isString } from "shared/util";
 import { groupBy } from "lodash";
 import { MetricSnapshotSettings } from "shared/types/report";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
-import { getEffectiveLookbackOverride } from "shared/experiments";
+import { getVariationsForPhase } from "shared/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { MetricDrilldownProvider } from "@/components/MetricDrilldown/MetricDrilldownContext";
@@ -79,7 +79,8 @@ export default function ExperimentMetricBlock({
         !!m.computedSettings?.regressionAdjustmentAvailable,
     })) || [];
 
-  const variations = experiment.variations.map((v, i) => ({
+  const phaseVariations = getVariationsForPhase(experiment, null);
+  const variations = phaseVariations.map((v, i) => ({
     id: v.key || i + "",
     name: v.name,
     weight:
@@ -169,10 +170,6 @@ export default function ExperimentMetricBlock({
       isLatestPhase={true}
       sequentialTestingEnabled={sequentialTestingEnabled}
       differenceType={differenceType}
-      lookbackOverride={getEffectiveLookbackOverride(
-        snapshot.settings.attributionModel,
-        snapshot.settings.lookbackOverride,
-      )}
       baselineRow={baselineRow}
       variationFilter={variationFilter}
     >

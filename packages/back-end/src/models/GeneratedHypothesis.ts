@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { GeneratedHypothesisInterface } from "shared/types/generated-hypothesis";
 import { ExperimentInterface } from "shared/types/experiment";
+import { getVariationsForPhase } from "shared/experiments";
 import { ReqContext } from "back-end/types/request";
 import { createExperiment } from "./ExperimentModel";
 import { upsertWatch } from "./WatchModel";
@@ -72,6 +73,25 @@ export const findOrCreateGeneratedHypothesis = async (
     sdk_payload,
   } = rows[0];
 
+  const variations = [
+    {
+      name: "Control",
+      description: control,
+      key: "0",
+      screenshots: [],
+      id: uniqid("var_"),
+      status: "active" as const,
+    },
+    {
+      name: `Variation 1`,
+      description: variant,
+      key: "1",
+      screenshots: [],
+      id: uniqid("var_"),
+      status: "active" as const,
+    },
+  ];
+
   const experimentToCreate: Pick<
     ExperimentInterface,
     | "name"
@@ -81,7 +101,6 @@ export const findOrCreateGeneratedHypothesis = async (
     | "hashAttribute"
     | "status"
     | "trackingKey"
-    | "variations"
     | "phases"
   > = {
     name: slug,
@@ -91,22 +110,6 @@ export const findOrCreateGeneratedHypothesis = async (
     hashAttribute: "id",
     status: "draft",
     trackingKey: slug,
-    variations: [
-      {
-        name: "Control",
-        description: control,
-        key: "0",
-        screenshots: [],
-        id: uniqid("var_"),
-      },
-      {
-        name: `Variation 1`,
-        description: variant,
-        key: "1",
-        screenshots: [],
-        id: uniqid("var_"),
-      },
-    ],
     phases: [
       {
         coverage: 1,
@@ -116,6 +119,7 @@ export const findOrCreateGeneratedHypothesis = async (
         variationWeights: [0.5, 0.5],
         condition: "",
         namespace: { enabled: false, name: "", range: [0, 1] },
+        variations,
       },
     ],
   };
@@ -134,6 +138,7 @@ export const findOrCreateGeneratedHypothesis = async (
 
   // create feature flag or visual change
   const payload = sdk_payload?.experiments?.[0];
+  const createdVariations = getVariationsForPhase(createdExperiment, null);
   if (
     payload?.urlPatterns &&
     payload?.targetUrl &&
@@ -152,7 +157,7 @@ export const findOrCreateGeneratedHypothesis = async (
           css: "",
           js: "",
           domMutations: payload?.variations[0].domMutations,
-          variation: createdExperiment.variations[0].id,
+          variation: createdVariations[0].id,
         },
         {
           description: "",
@@ -160,7 +165,7 @@ export const findOrCreateGeneratedHypothesis = async (
           css: "",
           js: "",
           domMutations: payload?.variations[1].domMutations,
-          variation: createdExperiment.variations[1].id,
+          variation: createdVariations[1].id,
         },
       ],
     });
@@ -191,11 +196,11 @@ export const findOrCreateGeneratedHypothesis = async (
               description: "",
               variations: [
                 {
-                  variationId: createdExperiment.variations[0].id,
+                  variationId: createdVariations[0].id,
                   value: "false",
                 },
                 {
-                  variationId: createdExperiment.variations[1].id,
+                  variationId: createdVariations[1].id,
                   value: "true",
                 },
               ],

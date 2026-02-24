@@ -66,6 +66,31 @@ export const banditEvent = z
 export type BanditResult = z.infer<typeof banditResult>;
 export type BanditEvent = z.infer<typeof banditEvent>;
 
+export const screenshot = z
+  .object({
+    path: z.string(),
+    width: z.number().optional(),
+    height: z.number().optional(),
+    description: z.string().optional(),
+  })
+  .strict();
+export type Screenshot = z.infer<typeof screenshot>;
+
+export const variationStatus = ["active", "disabled"] as const;
+export type VariationStatus = (typeof variationStatus)[number];
+
+export const variation = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    description: z.string().optional(),
+    key: z.string(),
+    screenshots: z.array(screenshot),
+    status: z.enum(variationStatus),
+  })
+  .strict();
+export type Variation = z.infer<typeof variation>;
+
 export const experimentPhase = z
   .object({
     dateStarted: z.date(),
@@ -79,6 +104,7 @@ export const experimentPhase = z
     namespace: namespaceValue.optional(),
     seed: z.string().optional(),
     variationWeights: z.array(z.number()),
+    variations: z.array(variation),
     banditEvents: z.array(banditEvent).optional(),
     lookbackStartDate: z.date().optional(),
   })
@@ -87,27 +113,6 @@ export type ExperimentPhase = z.infer<typeof experimentPhase>;
 
 export const experimentStatus = ["draft", "running", "stopped"] as const;
 export type ExperimentStatus = (typeof experimentStatus)[number];
-
-export const screenshot = z
-  .object({
-    path: z.string(),
-    width: z.number().optional(),
-    height: z.number().optional(),
-    description: z.string().optional(),
-  })
-  .strict();
-export type Screenshot = z.infer<typeof screenshot>;
-
-export const variation = z
-  .object({
-    id: z.string(),
-    name: z.string(),
-    description: z.string().optional(),
-    key: z.string(),
-    screenshots: z.array(screenshot),
-  })
-  .strict();
-export type Variation = z.infer<typeof variation>;
 
 export const attributionModel = [
   "firstExposure",
@@ -326,7 +331,6 @@ export const experimentInterface = z
     autoAssign: z.boolean(),
     previewURL: z.string(),
     targetURLRegex: z.string(),
-    variations: z.array(variation),
     archived: z.boolean(),
     status: z.enum(experimentStatus),
     phases: z.array(experimentPhase),

@@ -1,5 +1,6 @@
 import React, { Fragment, ReactElement } from "react";
 import { ExperimentMetadataBlockInterface } from "shared/enterprise";
+import { getVariationsForPhase } from "shared/experiments";
 import { ScrollArea, Separator, Text } from "@radix-ui/themes";
 import { Box } from "spectacle";
 import Markdown from "@/components/Markdown/Markdown";
@@ -12,7 +13,7 @@ export default function ExperimentMetadataBlock({
 }: BlockProps<ExperimentMetadataBlockInterface>) {
   const variationsList =
     (variationIds ?? []).length === 0
-      ? experiment.variations.map(({ id }) => id)
+      ? getVariationsForPhase(experiment, null).map(({ id }) => id)
       : variationIds;
 
   const blockParts: ReactElement[] = [];

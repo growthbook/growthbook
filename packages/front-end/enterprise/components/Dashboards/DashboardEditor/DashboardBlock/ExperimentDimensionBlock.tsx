@@ -6,13 +6,13 @@ import {
 } from "shared/enterprise";
 import { MetricSnapshotSettings } from "shared/types/report";
 import {
-  getEffectiveLookbackOverride,
-  isPrecomputedDimension,
-} from "shared/experiments";
-import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
+import {
+  isPrecomputedDimension,
+  getVariationsForPhase,
+} from "shared/experiments";
 import { isString } from "shared/util";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import BreakDownResults from "@/components/Experiment/BreakDownResults";
@@ -52,7 +52,8 @@ export default function ExperimentDimensionBlock({
   const pValueCorrection =
     ssrPolyfills?.useOrgSettings()?.pValueCorrection || hookPValueCorrection;
 
-  const variations = experiment.variations.map((v, i) => ({
+  const phaseVariations = getVariationsForPhase(experiment, null);
+  const variations = phaseVariations.map((v, i) => ({
     id: v.key || i + "",
     name: v.name,
     weight:
@@ -123,10 +124,6 @@ export default function ExperimentDimensionBlock({
       isLatestPhase={true}
       sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
       differenceType={differenceType}
-      lookbackOverride={getEffectiveLookbackOverride(
-        snapshot.settings.attributionModel,
-        snapshot.settings.lookbackOverride,
-      )}
       baselineRow={baselineRow}
       variationFilter={variationFilter}
     >

@@ -3,6 +3,7 @@ import {
   ExperimentInterfaceStringDates,
   Variation,
 } from "shared/types/experiment";
+import { getVariationsForPhase } from "shared/experiments";
 import {
   VisualChange,
   VisualChangesetInterface,
@@ -272,7 +273,7 @@ export const VisualChangesetTable: FC<Props> = ({
   mutate,
   canEditVisualChangesets,
 }: Props) => {
-  const { variations } = experiment;
+  const variations = getVariationsForPhase(experiment, null);
   const { apiCall } = useAuth();
   const [showChangeset, setShowChangeset] = useState<string[]>([]);
 

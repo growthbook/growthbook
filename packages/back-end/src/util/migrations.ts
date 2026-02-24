@@ -600,6 +600,17 @@ export function upgradeExperimentDoc(
     });
   }
 
+  if (experiment.variations) {
+    experiment.phases.forEach((phase) => {
+      if (!phase.variations) {
+        phase.variations = experiment.variations.map((v) => ({
+          ...v,
+          variationStatus: "active",
+        }));
+      }
+    });
+  }
+
   // Upgrade the attribution model
   if (experiment.attributionModel === "allExposures") {
     experiment.attributionModel = "experimentDuration";
@@ -665,7 +676,7 @@ export function upgradeExperimentDoc(
     experiment.uid = uuidv4().replace(/-/g, "");
   }
 
-  return experiment as ExperimentInterface;
+  return experiment as unknown as ExperimentInterface;
 }
 
 export function migrateExperimentReport(

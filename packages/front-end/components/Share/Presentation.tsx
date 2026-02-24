@@ -15,6 +15,7 @@ import {
   ExperimentInterfaceStringDates,
   Variation,
 } from "shared/types/experiment";
+import { getVariationsForPhase } from "shared/experiments";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import clsx from "clsx";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
@@ -97,15 +98,16 @@ const Presentation = ({
   ).forEach((eid) => {
     // get the results in the right shape:
     const e = em.get(eid);
+    const expVariations = e?.experiment
+      ? getVariationsForPhase(e.experiment, null)
+      : [];
     // get the info on which variation to mark as winner/loser
     const variationExtra: JSX.Element[] = [];
     let sideExtra = <></>;
     const variationsPlural =
-      (e?.experiment?.variations?.length || 0) !== 1
-        ? "variations"
-        : "variation";
+      (expVariations.length || 0) !== 1 ? "variations" : "variation";
 
-    e?.experiment?.variations?.forEach((v, i) => {
+    expVariations.forEach((v, i) => {
       variationExtra[i] = <Fragment key={`f-${i}`}></Fragment>;
     });
     let resultsText = "";
@@ -128,12 +130,12 @@ const Presentation = ({
             </Appear>
           );
           resultsText =
-            (e?.experiment?.variations[winningVar]?.name ?? "") +
+            (expVariations[winningVar]?.name ?? "") +
             " beat the control and won";
         } else if (e.experiment.results === "lost") {
           resultsText = `The ${variationsPlural} did not improve over the control`;
 
-          if (e.experiment.variations.length === 2) {
+          if (expVariations.length === 2) {
             variationExtra[1] = (
               <Appear>
                 <Text className="result variation-result result-lost text-center p-2 m-0">
@@ -194,11 +196,11 @@ const Presentation = ({
           </Text>
 
           <div className="row variations">
-            {e?.experiment?.variations.map((v: Variation, j: number) => (
+            {expVariations.map((v: Variation, j: number) => (
               <Text
                 fontSize={20}
                 className={`col m-0 p-0 col-${
-                  12 / e.experiment.variations.length
+                  12 / expVariations.length
                 } presentationcol text-center`}
                 key={`v-${j}`}
               >
@@ -289,7 +291,7 @@ const Presentation = ({
           >
             <CompactResults
               experimentId={experiment.id}
-              variations={experiment.variations.map((v, i) => {
+              variations={getVariationsForPhase(experiment, phase).map((v, i) => {
                 return {
                   id: v.key || i + "",
                   name: v.name,

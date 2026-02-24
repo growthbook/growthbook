@@ -20,6 +20,7 @@ import {
   parseSliceMetricId,
   SliceLevelsData,
   getEffectiveLookbackOverride,
+  getVariationsForPhase,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
 import uniqid from "uniqid";
@@ -87,7 +88,7 @@ export function getReportVariations(
   experiment: ExperimentInterface,
   phase: ExperimentPhase,
 ): ExperimentReportVariation[] {
-  return experiment.variations.map((v, i) => {
+  return getVariationsForPhase(experiment, phase).map((v, i) => {
     return {
       id: v.key || i + "",
       name: v.name,

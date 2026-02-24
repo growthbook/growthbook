@@ -5,7 +5,7 @@ import {
 } from "shared/types/experiment";
 import { useForm } from "react-hook-form";
 import { validateAndFixCondition } from "shared/util";
-import { getEqualWeights } from "shared/experiments";
+import { getEqualWeights, getVariationsForPhase } from "shared/experiments";
 import { datetime } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import { useWatching } from "@/services/WatchProvider";
@@ -33,13 +33,19 @@ const NewPhaseForm: FC<{
   const prevPhase: Partial<ExperimentPhaseStringDates> =
     experiment.phases[experiment.phases.length - 1] || {};
 
+  const prevPhaseVariations = getVariationsForPhase(
+    experiment,
+    prevPhase as ExperimentPhaseStringDates | null,
+  );
+
   const form = useForm<ExperimentPhaseStringDates>({
     defaultValues: {
       name: prevPhase.name || "Main",
       coverage: prevPhase.coverage || 1,
+      variations: prevPhaseVariations,
       variationWeights:
         prevPhase.variationWeights ||
-        getEqualWeights(experiment.variations.length),
+        getEqualWeights(prevPhaseVariations.length),
       reason: "",
       dateStarted: new Date().toISOString().substr(0, 16),
       condition: prevPhase.condition || "",
@@ -160,7 +166,7 @@ const NewPhaseForm: FC<{
         }
         valueAsId={true}
         variations={
-          experiment.variations.map((v, i) => {
+          prevPhaseVariations.map((v, i) => {
             return {
               value: v.key || i + "",
               name: v.name,
