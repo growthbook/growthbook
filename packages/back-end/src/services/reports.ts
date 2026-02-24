@@ -221,6 +221,14 @@ export function getSnapshotSettingsFromReportArgs(
           settingsForSnapshotMetrics: args.settingsForSnapshotMetrics,
           metricOverrides: args.metricOverrides,
           decisionFrameworkSettings: args.decisionFrameworkSettings,
+          ...(experiment?.type === "multi-armed-bandit"
+            ? {
+                banditConversionWindowValue:
+                  experiment.banditConversionWindowValue,
+                banditConversionWindowUnit:
+                  experiment.banditConversionWindowUnit,
+              }
+            : {}),
         }),
       )
       .filter(isDefined),
@@ -699,6 +707,13 @@ export function getReportSnapshotSettings({
         metricOverrides: report.experimentAnalysisSettings.metricOverrides,
         decisionFrameworkSettings:
           report.experimentAnalysisSettings.decisionFrameworkSettings,
+        ...(experiment?.type === "multi-armed-bandit"
+          ? {
+              banditConversionWindowValue:
+                experiment.banditConversionWindowValue,
+              banditConversionWindowUnit: experiment.banditConversionWindowUnit,
+            }
+          : {}),
       }),
     )
     .filter(isDefined);

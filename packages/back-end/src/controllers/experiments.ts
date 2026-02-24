@@ -2912,8 +2912,12 @@ export async function createExperimentSnapshot({
       experimentMetricOverrides: experiment.metricOverrides,
       datasourceType: datasource?.type,
       hasRegressionAdjustmentFeature: true,
-      banditConversionWindowValue: experiment.banditConversionWindowValue,
-      banditConversionWindowUnit: experiment.banditConversionWindowUnit,
+      ...(experiment.type === "multi-armed-bandit"
+        ? {
+            banditConversionWindowValue: experiment.banditConversionWindowValue,
+            banditConversionWindowUnit: experiment.banditConversionWindowUnit,
+          }
+        : {}),
     });
 
   const analysisSettings = getDefaultExperimentAnalysisSettings({
