@@ -29,6 +29,7 @@ export const DEFAULT_EXPLORE_STATE: ProductAnalyticsConfig = {
     type: "metric", // default to metric
     values: [],
   },
+  datasource: "",
   dimensions: [
     {
       dimensionType: "date",
@@ -44,7 +45,6 @@ export const DEFAULT_EXPLORE_STATE: ProductAnalyticsConfig = {
     startDate: null,
     endDate: null,
   },
-  lastRefreshedAt: null,
 };
 
 export function getInitialConfigByBlockType(
@@ -58,6 +58,7 @@ export function getInitialConfigByBlockType(
     case "metric-exploration":
       return {
         ...DEFAULT_EXPLORE_STATE,
+        datasource: datasourceId,
       };
     case "fact-table-exploration":
       return {
@@ -67,14 +68,16 @@ export function getInitialConfigByBlockType(
           values: [],
           factTableId: null,
         },
+        datasource: datasourceId,
       };
     case "data-source-exploration":
       return {
         ...DEFAULT_EXPLORE_STATE,
         dataset: {
-          ...createEmptyDataset("data_source", datasourceId),
+          ...createEmptyDataset("data_source"),
           values: [],
         },
+        datasource: datasourceId,
       };
     default:
       throw new Error(`Invalid block type: ${blockType}`);
@@ -162,10 +165,7 @@ export function generateUniqueValueName(
   return `${baseName} ${i}`;
 }
 
-export function createEmptyDataset(
-  type: DatasetType,
-  datasource?: string,
-): ProductAnalyticsDataset {
+export function createEmptyDataset(type: DatasetType): ProductAnalyticsDataset {
   if (type === "metric") {
     return { type, values: [] };
   } else if (type === "fact_table") {
@@ -174,7 +174,6 @@ export function createEmptyDataset(
     return {
       type,
       values: [],
-      datasource: datasource ?? "",
       table: "",
       path: "",
       timestampColumn: "",
@@ -456,9 +455,7 @@ export function isSubmittableConfig(
 
   if (
     cleanedConfig.dataset.type === "data_source" &&
-    (!cleanedConfig.dataset.datasource ||
-      !cleanedConfig.dataset.table ||
-      !cleanedConfig.dataset.timestampColumn)
+    (!cleanedConfig.dataset.table || !cleanedConfig.dataset.timestampColumn)
   )
     return false;
 

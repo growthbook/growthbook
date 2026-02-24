@@ -48,9 +48,6 @@ export default function EmptyState() {
             <Flex direction="column" align="center" gap="1">
               <BsFillBarChartLineFill size={24} />
               <Text weight="medium">Metrics</Text>
-              <Text size="small" color="text-low" align="center">
-                Pre-built metrics
-              </Text>
             </Flex>
           </Button>
           <Button
@@ -66,9 +63,6 @@ export default function EmptyState() {
             <Flex direction="column" align="center" gap="1">
               <PiTable size={24} />
               <Text weight="medium">Fact Table</Text>
-              <Text size="small" color="text-low" align="center">
-                Build custom queries
-              </Text>
             </Flex>
           </Button>
           <Button
@@ -86,9 +80,6 @@ export default function EmptyState() {
             <Flex direction="column" align="center" gap="1">
               <PiDatabase size={24} />
               <Text weight="medium">Data Source</Text>
-              <Text size="small" color="text-low" align="center">
-                Explore a table in your Data Source
-              </Text>
             </Flex>
           </Button>
         </Flex>

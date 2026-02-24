@@ -12,20 +12,20 @@ import GranularitySelector from "./Toolbar/GranularitySelector";
 import LastRefreshedIndicator from "./Toolbar/LastRefreshedIndicator";
 import ExplorerChart from "./ExplorerChart";
 import ExplorerDataTable from "./ExplorerDataTable";
+import { getValidDate } from "shared/dates";
 
 export default function ExplorerMainSection() {
   const {
-    exploreData,
-    exploreError,
+    exploration,
     draftExploreState,
     submittedExploreState,
     loading,
-    lastRefreshedAt,
     handleSubmit,
     autoSubmitEnabled,
     setAutoSubmitEnabled,
     isStale,
     isSubmittable,
+    error,
   } = useExplorerContext();
 
   return (
@@ -77,7 +77,9 @@ export default function ExplorerMainSection() {
           {["line", "area"].includes(draftExploreState.chartType) && (
             <GranularitySelector />
           )}
-          <LastRefreshedIndicator lastRefreshedAt={lastRefreshedAt} />
+          <LastRefreshedIndicator
+            lastRefreshedAt={getValidDate(exploration?.runStarted)}
+          />
         </Flex>
       </Flex>
 
@@ -85,10 +87,10 @@ export default function ExplorerMainSection() {
       submittedExploreState?.dataset?.values?.length > 0 ? (
         <Flex direction="column" gap="3">
           <ExplorerChart
-            exploreData={exploreData}
+            exploration={exploration}
+            error={error}
             submittedExploreState={submittedExploreState}
             loading={loading}
-            exploreError={exploreError}
           />
           <ExplorerDataTable />
         </Flex>

@@ -3,6 +3,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
 import type {
   ProductAnalyticsConfig,
+  ProductAnalyticsExploration,
   ProductAnalyticsResult,
 } from "shared/validators";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
@@ -46,15 +47,15 @@ function getSeriesTitle(
 }
 
 export default function ExplorerChart({
-  exploreData,
+  exploration,
+  error,
   submittedExploreState,
   loading,
-  exploreError,
 }: {
-  exploreData: ProductAnalyticsResult | null;
+  exploration: ProductAnalyticsExploration | null;
+  error: Error | null;
   submittedExploreState: ProductAnalyticsConfig;
   loading: boolean;
-  exploreError: string | null;
 }) {
   const { theme } = useAppearanceUITheme();
   const textColor = theme === "dark" ? "#FFFFFF" : "#1F2D5C";
@@ -66,12 +67,12 @@ export default function ExplorerChart({
   // Transform ProductAnalyticsResult + exploreState to ECharts format
   const chartConfig = useMemo(() => {
     if (
-      !exploreData?.rows?.length ||
+      !exploration?.result?.rows?.length ||
       !submittedExploreState ||
       ["table", "timeseries-table"].includes(submittedExploreState.chartType)
     )
       return null;
-    const rows = exploreData.rows;
+    const rows = exploration.result.rows;
     const chartType = submittedExploreState.chartType;
     const isHorizontalBar = chartType === "horizontalBar";
 
@@ -253,7 +254,7 @@ export default function ExplorerChart({
       series: seriesConfigs,
     };
   }, [
-    exploreData?.rows,
+    exploration?.result?.rows,
     submittedExploreState,
     textColor,
     gridLineColor,
@@ -261,12 +262,12 @@ export default function ExplorerChart({
   ]);
 
   const hasEmptyData = useMemo(() => {
-    if (!exploreData?.rows?.length) return true;
-    return exploreData.rows.every((r) => r.values.length === 0);
-  }, [exploreData]);
+    if (!exploration?.result?.rows?.length) return true;
+    return exploration.result.rows.every((r) => r.values.length === 0);
+  }, [exploration?.result?.rows]);
 
   // Don't early-return when loading: we need to show the spinner during refetch after error
-  if (!loading && exploreData?.sql && exploreData?.error) return null;
+  if (!loading && exploration?.result?.sql && error) return null;
 
   return (
     <Box
@@ -280,11 +281,11 @@ export default function ExplorerChart({
         <Flex justify="center" align="center" height="500px">
           <LoadingSpinner style={{ width: "12px", height: "12px" }} />
         </Flex>
-      ) : exploreError ? (
+      ) : error ? (
         <Box p="4">
-          <Callout status="error">{exploreError}</Callout>
+          <Callout status="error">{error}</Callout>
         </Box>
-      ) : !exploreData ? (
+      ) : !exploration ? (
         <Flex
           p="4"
           style={{ textAlign: "center" }}

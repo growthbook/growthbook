@@ -1,17 +1,14 @@
 import type { Response } from "express";
 import {
   ProductAnalyticsConfig,
-  ProductAnalyticsResult,
   productAnalyticsConfigValidator,
-  ProductAnalyticsResultRow,
-  ExplorerAnalysisResponse,
+  ProductAnalyticsExploration,
 } from "shared/validators";
+import { calculateProductAnalyticsDateRange } from "shared/enterprise";
 import {
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
-import { DataSourceInterface } from "shared/types/datasource";
-import { QueryStatistics } from "shared/types/query";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
@@ -22,28 +19,48 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
+import { ProductAnalyticsExplorationQueryRunner } from "back-end/src/queryRunners/ProductAnalyticsExplorationQueryRunner";
+import { stringToBoolean } from "shared/util";
 
 export const postProductAnalyticsRun = async (
-  req: AuthRequest<{ config: ProductAnalyticsConfig }>,
+  req: AuthRequest<
+    { config: ProductAnalyticsConfig },
+    unknown,
+    { skipCache?: string }
+  >,
   res: Response<{
     status: 200;
-    sql: string;
-    error?: string;
-    rows: ProductAnalyticsResultRow[];
-    rawRows: Record<string, unknown>[];
-    statistics?: QueryStatistics;
-    analysisId: string;
+    exploration: ProductAnalyticsExploration;
   }>,
 ) => {
   const context = getContextFromReq(req);
 
+  const skipCache = stringToBoolean(req.query.skipCache);
+
   const config = productAnalyticsConfigValidator.parse(req.body.config);
+
+  // Read from cache first
+  if (!skipCache) {
+    const existing =
+      await context.models.analyticsExplorations.findLatestByConfig(config);
+    if (existing) {
+      return res.status(200).json({
+        status: 200,
+        exploration: existing,
+      });
+    }
+  }
+
+  // If no existing exploration, create a new one
   const metricMap: Map<string, FactMetricInterface> = new Map();
   const factTableMap: Map<string, FactTableInterface> = new Map();
-  let datasource: DataSourceInterface | null = null;
+  let datasource = await getDataSourceById(context, config.datasource);
+  if (!datasource) {
+    throw new NotFoundError("Datasource not found");
+  }
 
+  // Parse and validate dataset settings
   const dataset = config.dataset;
-
   if (!dataset) {
     throw new BadRequestError("Dataset is required");
   }
@@ -58,7 +75,11 @@ export const postProductAnalyticsRun = async (
     }
     factTableMap.set(factTable.id, factTable);
 
-    datasource = await getDataSourceById(context, factTable.datasource);
+    if (factTable.datasource !== datasource.id) {
+      throw new BadRequestError(
+        "Fact table must belong to the same datasource as the exploration",
+      );
+    }
   } else if (dataset.type === "metric") {
     // Populate fact metric map
     const metricIds = dataset.values.map((value) => value.metricId);
@@ -91,123 +112,99 @@ export const postProductAnalyticsRun = async (
         "All metrics must belong to the same datasource",
       );
     }
-    const datasourceId = Array.from(datasourceIds)[0];
-    if (!datasourceId) {
-      throw new BadRequestError("No datasource found");
+    if (!datasourceIds.has(datasource.id)) {
+      throw new BadRequestError(
+        "Metrics must belong to the same datasource as the exploration",
+      );
     }
-    datasource = await getDataSourceById(context, datasourceId);
   } else if (dataset.type === "data_source") {
-    datasource = await getDataSourceById(context, dataset.datasource);
+    // Nothing to fetch or verify
   } else {
     throw new BadRequestError("Invalid dataset type");
   }
 
-  if (!datasource) {
-    throw new NotFoundError("Datasource not found");
-  }
-  if (!context.permissions.canRunTestQueries(datasource)) {
-    context.permissions.throwPermissionError();
+  const configHashes =
+    context.models.analyticsExplorations.getConfigHashes(config);
+  if (!configHashes) {
+    throw new BadRequestError("Invalid config");
   }
 
-  const integration = getSourceIntegrationObject(context, datasource, true);
+  const dateRange = calculateProductAnalyticsDateRange(config.dateRange);
+
+  // Create model
+  const exploration = await context.models.analyticsExplorations.create({
+    config,
+    datasource: datasource.id,
+    configHash: configHashes.generalSettingsHash,
+    valueHashes: configHashes.valueHashes,
+    dateStart: dateRange.startDate,
+    dateEnd: dateRange.endDate,
+    queries: [],
+    result: { rows: [], statistics: {}, sql: "", error: null },
+    runStarted: null,
+    status: "running",
+    error: null,
+  });
+
+  // Start queries
+  const integration = getSourceIntegrationObject(
+    context,
+    datasource,
+    !skipCache,
+  );
   if (!(integration instanceof SqlIntegration)) {
     throw new BadRequestError("Datasource is not a SQL datasource");
   }
 
-  const { sql, orderedMetricIds } = integration.getProductAnalyticsQuery(
-    config,
-    {
-      metricMap,
-      factTableMap,
-    },
-  );
-
   try {
-    const results = await integration.runProductAnalyticsQuery(
-      config,
-      sql,
-      orderedMetricIds,
+    const queryRunner = new ProductAnalyticsExplorationQueryRunner(
+      context,
+      exploration,
+      integration,
+      true,
     );
+    await queryRunner.startAnalysis({
+      factTableMap,
+      factMetricMap: metricMap,
+    });
+    // TODO: add a timeout - if results are taking longer than 5 seconds, return the in progress exploration
+    // Frontend will handle this by showing a loading state and polling for updates
+    await queryRunner.waitForResults();
 
     return res.status(200).json({
       status: 200,
-      sql,
-      ...results,
-      analysisId: "test123",
+      exploration: queryRunner.model,
     });
   } catch (e) {
+    console.error("Error running product analytics query", e);
     const error = e instanceof Error ? e : new Error(String(e));
-    // Still return 200 so the application can handle the error gracefully
-    return res.status(200).json({
-      status: 200,
-      sql,
+    await context.models.analyticsExplorations.update(exploration, {
+      status: "error",
       error: error.message,
-      rows: [],
-      rawRows: [],
-      analysisId: "test123",
     });
+    throw new BadRequestError(
+      "Error running product analytics query: " + error.message,
+    );
   }
 };
 
-export const getExplorerAnalysis = async (
-  req: AuthRequest<never, { explorerAnalysisId: string }, never>,
-  res: Response<ExplorerAnalysisResponse>,
+export const getExplorationById = async (
+  req: AuthRequest<never, { id: string }, never>,
+  res: Response<{
+    status: 200;
+    exploration: ProductAnalyticsExploration;
+  }>,
 ) => {
-  const { explorerAnalysisId } = req.params;
+  const context = getContextFromReq(req);
+  const { id } = req.params;
 
-  // Mock data for test endpoint; replace with persistence when ready
-  const config: ProductAnalyticsConfig = {
-    analysisId: explorerAnalysisId,
-    dataset: {
-      type: "metric",
-      values: [
-        {
-          type: "metric",
-          name: "Average Order Value - New",
-          rowFilters: [],
-          metricId: "fact__18ez1c10n6mh2a2ycw",
-          unit: "USD",
-          denominatorUnit: "USD",
-        },
-      ],
-    },
-    dimensions: [],
-    chartType: "line",
-    dateRange: {
-      predefined: "last30Days",
-      lookbackValue: 30,
-      lookbackUnit: "day",
-      startDate: null,
-      endDate: null,
-    },
-    lastRefreshedAt: new Date().toISOString(),
-  };
+  const exploration = await context.models.analyticsExplorations.getById(id);
+  if (!exploration) {
+    throw new NotFoundError("Exploration not found");
+  }
 
-  const results: ProductAnalyticsResult = {
-    analysisId: "test123",
-    rows: [
-      {
-        dimensions: ["2021-01-01"],
-        values: [{ metricId: "123", numerator: 100, denominator: 100 }],
-      },
-      {
-        dimensions: ["2021-01-02"],
-        values: [{ metricId: "123", numerator: 200, denominator: 100 }],
-      },
-      {
-        dimensions: ["2021-01-03"],
-        values: [{ metricId: "123", numerator: 300, denominator: 300 }],
-      },
-      {
-        dimensions: ["2021-01-04"],
-        values: [{ metricId: "123", numerator: 400, denominator: 200 }],
-      },
-      {
-        dimensions: ["2021-01-05"],
-        values: [{ metricId: "123", numerator: 500, denominator: 100 }],
-      },
-    ],
-  };
-
-  return res.status(200).json({ config, results });
+  return res.status(200).json({
+    status: 200,
+    exploration,
+  });
 };

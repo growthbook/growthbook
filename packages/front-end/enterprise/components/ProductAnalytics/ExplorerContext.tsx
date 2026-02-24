@@ -27,12 +27,13 @@ import {
   validateDimensions,
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useExploreData } from "./useExploreData";
+import { ProductAnalyticsExploration } from "shared/validators";
+
 type ExplorerCacheValue = {
   draftState: ProductAnalyticsConfig | null;
   submittedState: ProductAnalyticsConfig | null;
-  exploreData: ProductAnalyticsResult | null;
-  exploreError: Error | null;
-  lastRefreshedAt: Date | null;
+  exploration: ProductAnalyticsExploration | null;
+  error: string | null;
 };
 
 type ExplorerCache = {
@@ -47,10 +48,9 @@ export interface ExplorerContextValue {
   // ─── State ─────────────────────────────────────────────────────────────
   draftExploreState: ProductAnalyticsConfig;
   submittedExploreState: ProductAnalyticsConfig | null;
-  exploreData: ProductAnalyticsResult | null;
-  exploreError: string | null;
+  exploration: ProductAnalyticsExploration | null;
   loading: boolean;
-  lastRefreshedAt: Date | null;
+  error: string | null;
   commonColumns: Pick<ColumnInterface, "column" | "name">[];
   isEmpty: boolean;
   autoSubmitEnabled: boolean;
@@ -95,7 +95,10 @@ export function ExplorerProvider({
 
   const isEmpty = activeExplorerType === null;
 
-  const INITIAL_EXPLORE_STATE = initialConfig || DEFAULT_EXPLORE_STATE;
+  const INITIAL_EXPLORE_STATE = initialConfig || {
+    ...DEFAULT_EXPLORE_STATE,
+    datasource: datasources[0]?.id || "",
+  };
 
   const draftExploreState: ProductAnalyticsConfig = isEmpty
     ? INITIAL_EXPLORE_STATE
@@ -154,13 +157,10 @@ export function ExplorerProvider({
 
   const data = isEmpty
     ? null
-    : (explorerCache[activeExplorerType]?.exploreData ?? null);
+    : (explorerCache[activeExplorerType]?.exploration ?? null);
   const error = isEmpty
     ? null
-    : (explorerCache[activeExplorerType]?.exploreError ?? null);
-  const lastRefreshedAt = isEmpty
-    ? null
-    : (explorerCache[activeExplorerType]?.lastRefreshedAt ?? null);
+    : (explorerCache[activeExplorerType]?.error ?? null);
   const submittedExploreState = isEmpty
     ? null
     : (explorerCache[activeExplorerType]?.submittedState ?? null);
@@ -198,9 +198,8 @@ export function ExplorerProvider({
       ...prev,
       [activeExplorerType]: {
         ...prev[activeExplorerType],
-        exploreData: data,
-        exploreError: error,
-        lastRefreshedAt: new Date(),
+        exploration: data,
+        error: error || data?.error || null,
       },
     }));
   }, [
@@ -351,9 +350,10 @@ export function ExplorerProvider({
 
       // if explorer cache is null for this type, we should create a default draft state
       if (!explorerCache[type]) {
-        const defaultDataset = createEmptyDataset(type, datasources[0]?.id);
+        const defaultDataset = createEmptyDataset(type);
         const defaultDraftState = {
           ...INITIAL_EXPLORE_STATE,
+          datasource: datasources[0]?.id || "",
           dataset: { ...defaultDataset, values: [createDefaultValue(type)] },
         } as ProductAnalyticsConfig;
         setExplorerCache((prev) => ({
@@ -373,10 +373,9 @@ export function ExplorerProvider({
     () => ({
       draftExploreState,
       submittedExploreState,
-      exploreData: data,
-      exploreError: error?.message || null,
+      exploration: data,
       loading,
-      lastRefreshedAt,
+      error,
       commonColumns,
       setDraftExploreState,
       handleSubmit,
@@ -398,7 +397,6 @@ export function ExplorerProvider({
       data,
       loading,
       error,
-      lastRefreshedAt,
       commonColumns,
       setDraftExploreState,
       handleSubmit,

@@ -8020,6 +8020,8 @@ ORDER BY column_name, count DESC
   ): {
     sql: string;
     orderedMetricIds: string[];
+    startDate: Date;
+    endDate: Date;
   } {
     const sqlHelpers: SqlHelpers = {
       dateTrunc: this.dateTrunc.bind(this),
@@ -8047,24 +8049,15 @@ ORDER BY column_name, count DESC
         endDate: dateRange.endDate,
       }),
       orderedMetricIds,
+      startDate: dateRange.startDate,
+      endDate: dateRange.endDate,
     };
   }
 
   async runProductAnalyticsQuery(
-    config: ProductAnalyticsConfig,
     query: string,
-    orderedMetricIds: string[],
+    setExternalId: ExternalIdCallback,
   ) {
-    const { rows, statistics } = await this.runQuery(query);
-    const resp = transformProductAnalyticsRowsToResult(
-      config,
-      rows,
-      orderedMetricIds,
-    );
-    return {
-      rawRows: rows,
-      rows: resp.rows,
-      statistics: statistics,
-    };
+    return this.runQuery(query, setExternalId);
   }
 }

@@ -39,7 +39,7 @@ export default function DatasourceConfigurator({
 }) {
   const { datasources } = useDefinitions();
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const { setDraftExploreState } = useExplorerContext();
+  const { setDraftExploreState, draftExploreState } = useExplorerContext();
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
 
@@ -51,7 +51,7 @@ export default function DatasourceConfigurator({
   const [retryCount, setRetryCount] = useState(1);
 
   const databaseDataset = dataset?.type === "data_source" ? dataset : null;
-  const datasourceId = databaseDataset?.datasource;
+  const datasourceId = draftExploreState?.datasource;
   const tableId = databaseDataset?.table;
 
   const datasourceObj = datasources.find((d) => d.id === datasourceId);
@@ -217,9 +217,9 @@ export default function DatasourceConfigurator({
           onChange={(datasource) =>
             setDraftExploreState((prev) => ({
               ...prev,
+              datasource,
               dataset: {
                 ...dataset,
-                datasource,
                 table: "",
                 path: "",
                 timestampColumn: "",

@@ -53,10 +53,7 @@ export default function ValueCard({
     }
   }
 
-  let dataSourceId = "";
-  if (draftExploreState.dataset?.type === "data_source") {
-    dataSourceId = draftExploreState.dataset.datasource;
-  }
+  const dataSourceId = draftExploreState.datasource;
 
   const displayName = (name ?? "").trim();
 

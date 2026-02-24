@@ -66,7 +66,8 @@ export type QueryType =
   | "experimentIncrementalRefreshCreateMetricsCovariateTable"
   | "experimentIncrementalRefreshInsertMetricsCovariateData"
   | "experimentIncrementalRefreshStatistics"
-  | "experimentIncrementalRefreshHealth";
+  | "experimentIncrementalRefreshHealth"
+  | "productAnalyticsExploration";
 
 export interface QueryInterface {
   id: string;

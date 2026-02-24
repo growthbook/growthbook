@@ -10,7 +10,6 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import GraphTypeSelector from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/GraphTypeSelector";
 import DateRangePicker from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DateRangePicker";
 import GranularitySelector from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/GranularitySelector";
-import LastRefreshedIndicator from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/LastRefreshedIndicator";
 import MetricTabContent from "./MetricTabContent";
 import FactTableTabContent from "./FactTableTabContent";
 import DatasourceTabContent from "./DatasourceTabContent";
@@ -53,13 +52,6 @@ export default function ExplorerSideBar({
           <Button size="sm">Save to Dashboard</Button>
         ) : (
           <Flex direction="row">
-            <LastRefreshedIndicator
-              lastRefreshedAt={
-                draftExploreState?.lastRefreshedAt
-                  ? new Date(draftExploreState.lastRefreshedAt)
-                  : null
-              }
-            />
             <Button size="sm" variant="outline">
               <PiArrowsClockwise style={{ marginRight: "8px" }} />
               Update

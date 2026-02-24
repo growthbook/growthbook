@@ -83,7 +83,7 @@ function getSlotValue(
 }
 
 export default function ExplorerDataTable() {
-  const { exploreData, submittedExploreState, loading, exploreError } =
+  const { exploration, submittedExploreState, loading, error } =
     useExplorerContext();
 
   const dimensionColumnHeaders = useMemo(() => {
@@ -109,14 +109,14 @@ export default function ExplorerDataTable() {
   }, [submittedExploreState?.dataset?.values]);
 
   const hasDenominatorAt = useMemo(() => {
-    const rawRows = exploreData?.rows || [];
+    const rawRows = exploration?.result?.rows || [];
     const numValues = valueColumnHeaders.length;
     const out: boolean[] = [];
     for (let i = 0; i < numValues; i++) {
       out[i] = rawRows.some((row) => row.values[i]?.denominator != null);
     }
     return out;
-  }, [exploreData?.rows, valueColumnHeaders.length]);
+  }, [exploration?.result?.rows, valueColumnHeaders.length]);
 
   const hasAnyDenominator = hasDenominatorAt.some(Boolean);
 
@@ -192,7 +192,7 @@ export default function ExplorerDataTable() {
   }, [hasAnyDenominator, columnSchema, valueColumnHeaders]);
 
   const rowData = useMemo(() => {
-    const rawRows = exploreData?.rows || [];
+    const rawRows = exploration?.result?.rows || [];
     const isTimeseries =
       submittedExploreState?.dimensions?.[0]?.dimensionType === "date";
 
@@ -219,21 +219,21 @@ export default function ExplorerDataTable() {
       ) as Record<string, unknown>;
     });
   }, [
-    exploreData?.rows,
+    exploration?.result?.rows,
     dimensionColumnHeaders,
     columnSchema,
     submittedExploreState,
   ]);
 
   if (loading) return null;
-  if (!exploreData?.rows?.length && !exploreData?.sql) return null;
+  if (!exploration?.result?.rows?.length && !error) return null;
 
   return (
     <DisplayTestQueryResults
       results={rowData}
       duration={0}
-      sql={exploreData?.sql || ""}
-      error={exploreError || ""}
+      sql={exploration?.result?.sql || ""}
+      error={error || ""}
       allowDownload={true}
       showSampleHeader={false}
       showDuration={false}

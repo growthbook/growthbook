@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { queryPointerValidator } from "./queries";
 import { rowFilterValidator } from "./fact-table";
 
 const baseValueValidator = z.object({
@@ -55,7 +56,6 @@ export type DatabaseValue = z.infer<typeof databaseValueValidator>;
 const databaseDatasetValidator = z
   .object({
     type: z.literal("data_source"),
-    datasource: z.string(),
     table: z.string(),
     path: z.string(),
     timestampColumn: z.string(),
@@ -149,7 +149,7 @@ export const lookbackUnit = ["hour", "day", "week", "month"] as const;
 // The config defined in the UI
 export const productAnalyticsConfigValidator = z
   .object({
-    analysisId: z.string().optional(),
+    datasource: z.string(),
     dataset: datasetValidator,
     dimensions: z.array(dimensionValidator),
     chartType: z.enum(chartTypes),
@@ -160,7 +160,6 @@ export const productAnalyticsConfigValidator = z
       startDate: z.coerce.date().nullable(),
       endDate: z.coerce.date().nullable(),
     }),
-    lastRefreshedAt: z.string().nullable(),
   })
   .strict();
 
@@ -187,10 +186,28 @@ export const productAnalyticsResultRowValidator = z.object({
   ),
 });
 export const productAnalyticsResultValidator = z.object({
-  analysisId: z.string(),
   rows: z.array(productAnalyticsResultRowValidator),
+  statistics: z.record(z.string(), z.unknown()).optional(),
   sql: z.string().optional(),
   error: z.string().nullable().optional(),
+});
+
+export const productAnalyticsExplorationValidator = z.object({
+  id: z.string(),
+  organization: z.string(),
+  dateCreated: z.date(),
+  dateUpdated: z.date(),
+  datasource: z.string(),
+  configHash: z.string(),
+  valueHashes: z.array(z.string()),
+  config: productAnalyticsConfigValidator,
+  result: productAnalyticsResultValidator,
+  dateStart: z.date(),
+  dateEnd: z.date(),
+  runStarted: z.date().nullable(),
+  status: z.enum(["running", "success", "error"]),
+  error: z.string().nullable().optional(),
+  queries: z.array(queryPointerValidator),
 });
 
 export type ProductAnalyticsConfig = z.infer<
@@ -208,8 +225,6 @@ export type ProductAnalyticsResult = z.infer<
 export type ProductAnalyticsResultRow = z.infer<
   typeof productAnalyticsResultRowValidator
 >;
-
-export type ExplorerAnalysisResponse = {
-  config: ProductAnalyticsConfig;
-  results: ProductAnalyticsResult;
-};
+export type ProductAnalyticsExploration = z.infer<
+  typeof productAnalyticsExplorationValidator
+>;
