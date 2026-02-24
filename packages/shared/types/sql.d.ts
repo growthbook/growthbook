@@ -1,4 +1,4 @@
-import { FormatOptions } from "sql-formatter";
+import type { SqlLanguage } from "sql-formatter";
 
 export type TemplateVariables = {
   eventName?: string;
@@ -18,5 +18,5 @@ export type SQLVars = {
   templateVariables?: TemplateVariables;
 };
 
-// SQL formatter dialect type that automatically stays in sync with sql-formatter
-export type FormatDialect = FormatOptions["language"] | "";
+// SQL formatter dialect type (synced with sql-formatter SqlLanguage)
+export type FormatDialect = SqlLanguage | "";

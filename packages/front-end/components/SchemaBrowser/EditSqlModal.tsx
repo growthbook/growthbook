@@ -25,7 +25,11 @@ import {
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { formatSql, canFormatSql } from "@/services/sqlFormatter";
+import {
+  formatSql,
+  canFormatSql,
+  preloadPolyglot,
+} from "@/services/sqlFormatter";
 import {
   Panel,
   PanelGroup,
@@ -177,12 +181,17 @@ export default function EditSqlModal({
   }, [form, runTestQuery]);
 
   const datasource = getDatasourceById(datasourceId);
+  const canFormat = datasource ? canFormatSql(datasource.type) : false;
+
+  useEffect(() => {
+    if (canFormat) preloadPolyglot();
+  }, [canFormat]);
+
   const canRunQueries = datasource
     ? permissionsUtil.canRunTestQueries(datasource)
     : null;
   const supportsSchemaBrowser =
     datasource?.properties?.supportsInformationSchema;
-  const canFormat = datasource ? canFormatSql(datasource.type) : false;
 
   const hasEventName = usesEventName(form.watch("sql"));
   const hasValueCol = usesValueColumn(form.watch("sql"));

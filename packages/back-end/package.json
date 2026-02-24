@@ -57,6 +57,7 @@
     "@opentelemetry/sdk-node": "~0.57.0",
     "@opentelemetry/semantic-conventions": "~1.30.0",
     "@opentelemetry/winston-transport": "~0.21.0",
+    "@polyglot-sql/sdk": "^0.1.6",
     "@sentry/cli-linux-x64": "^2.58.4",
     "@sentry/node": "^10.36.0",
     "@stdlib/random": "^0.1.1",

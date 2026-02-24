@@ -1,6 +1,19 @@
 import { DataSourceType } from "shared/types/datasource";
-import { format } from "shared/sql";
+import { format, setPolyglotLoader, startPolyglotLoad } from "shared/sql";
 import { FormatDialect } from "shared/types/sql";
+
+let polyglotInitDone = false;
+function initPolyglot(): void {
+  if (polyglotInitDone) return;
+  polyglotInitDone = true;
+  setPolyglotLoader(() => import("@polyglot-sql/sdk"));
+}
+
+/** Preload polyglot when a Format-capable modal opens so first Format can use it */
+export function preloadPolyglot(): void {
+  initPolyglot();
+  startPolyglotLoad();
+}
 
 export function canFormatSql(datasourceType: DataSourceType): boolean {
   return !!getSqlDialect(datasourceType);
@@ -14,8 +27,8 @@ function getSqlDialect(datasourceType: DataSourceType): FormatDialect | "" {
     bigquery: "bigquery",
     postgres: "postgresql",
     mssql: "tsql",
-    clickhouse: "",
-    growthbook_clickhouse: "",
+    clickhouse: "clickhouse",
+    growthbook_clickhouse: "clickhouse",
     athena: "trino",
     presto: "trino",
     databricks: "sql",
@@ -64,6 +77,9 @@ export function formatSql(
       error: "Formatting not supported for this datasource type",
     };
   }
+
+  // This is for backup in case we fail to call it somewhere else, but ideally it is done when the modal opens so that we are sure it is loaded before the first format call
+  preloadPolyglot();
 
   // Format the SQL - using shared format function
   const { sql: sqlWithoutTemplates, placeholders } =
