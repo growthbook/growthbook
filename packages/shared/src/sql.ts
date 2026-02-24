@@ -23,7 +23,6 @@ export const MAX_SQL_LENGTH_TO_FORMAT = parseInt(
   process.env.MAX_SQL_LENGTH_TO_FORMAT || "15000",
 );
 
-/** Polyglot has higher limit (fast); rely on try/catch for WASM memory on very long SQL */
 const MAX_SQL_LENGTH_FOR_POLYGLOT = parseInt(
   process.env.MAX_SQL_LENGTH_FOR_POLYGLOT || "500000",
 );
@@ -81,7 +80,8 @@ function getPolyglotDialect(mod: PolyglotModule, dialect: string): unknown {
   }
 }
 
-function ensurePolyglotLoadStarted(): void {
+/** Start loading polyglot immediately (call when modal opens so first Format can use it) */
+export function startPolyglotLoad(): void {
   if (!polyglotLoader || polyglotLoadPromise) return;
   polyglotLoadPromise = polyglotLoader()
     .then((mod) => {
@@ -89,26 +89,6 @@ function ensurePolyglotLoadStarted(): void {
       return mod;
     })
     .catch(() => null);
-}
-
-/** Start loading polyglot immediately (call when modal opens so first Format can use it) */
-export function startPolyglotLoad(): void {
-  ensurePolyglotLoadStarted();
-}
-
-function formatWithPolyglot(
-  mod: PolyglotModule,
-  sql: string,
-  dialect: string,
-): string | null {
-  try {
-    const pgDialect = getPolyglotDialect(mod, dialect);
-    const result = mod.format(sql, pgDialect);
-    if (result?.success && result?.sql?.length) return result.sql[0];
-  } catch {
-    /* fall through */
-  }
-  return null;
 }
 
 export function format(
@@ -125,11 +105,20 @@ export function format(
     MAX_SQL_LENGTH_FOR_POLYGLOT &&
     sql.length <= MAX_SQL_LENGTH_FOR_POLYGLOT
   ) {
-    ensurePolyglotLoadStarted();
+    // Polyglot should have been loaded by now, but just in case we do it again so on following calls it is ready
+    startPolyglotLoad();
     const mod = polyglotModuleCache;
     if (mod) {
       const polyglotStart = performance.now();
-      const result = formatWithPolyglot(mod, sql, dialect as string);
+      let result: string | null = null;
+      try {
+        const pgDialect = getPolyglotDialect(mod, dialect as string);
+        const fmtResult = mod.format(sql, pgDialect);
+        if (fmtResult?.success && fmtResult?.sql?.length)
+          result = fmtResult.sql[0];
+      } catch {
+        /* fall through */
+      }
       const timeMs = performance.now() - polyglotStart;
       if (result != null) {
         report?.({ engine: "polyglot", success: true, timeMs });
