@@ -1,4 +1,7 @@
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  ExperimentPhaseStringDates,
+} from "shared/types/experiment";
 import AuditHistoryExplorerModal from "@/components/AuditHistoryExplorer/AuditHistoryExplorerModal";
 import {
   AuditDiffConfig,
@@ -90,13 +93,68 @@ type ExperimentSectionId =
   | "analysis"
   | "metadata";
 
+// false = intentionally unclaimed: key is omitted from all named sections and
+// lands in the "other changes" overflow section (raw JSON diff only, no rendered
+// summary or badges). This is the desired behavior for noise/internal fields.
 type SectionAssignment = ExperimentSectionId | ExperimentSectionId[] | false;
+
+// Exhaustiveness-checked map of every ExperimentPhaseStringDates field to its
+// section. Adding a new field to ExperimentPhaseStringDates will produce a TS
+// error here until it is explicitly assigned — same pattern as
+// EXPERIMENT_SECTION_KEYS for top-level fields.
+//
+// "phases" is intentionally claimed by two sections:
+//   - "targeting-phases" uses pickSubKeys (allowlist) so only its exact fields
+//     appear. A plain phases entry without pickSubKeys would produce an
+//     unintelligible raw diff of the entire phases array, so never add one.
+//   - "phase-info" uses stripSubKeys (denylist): it strips targeting fields and
+//     companion fields, then passes everything else through. This means any new
+//     phase field not yet assigned here will automatically appear in the Phase
+//     info raw JSON diff rather than being silently dropped.
+type PhaseKeyAssignment = "targeting-phases" | "phase-info" | false;
+const PHASE_SUB_KEYS: Record<
+  keyof ExperimentPhaseStringDates,
+  PhaseKeyAssignment
+> = {
+  // "User targeting" section (allowlist via pickSubKeys)
+  coverage: "targeting-phases",
+  condition: "targeting-phases",
+  savedGroups: "targeting-phases",
+  prerequisites: "targeting-phases",
+  namespace: "targeting-phases",
+  seed: "targeting-phases",
+  variationWeights: "targeting-phases",
+  // "Phase info" section (denylist via stripSubKeys — see comment above)
+  dateStarted: "phase-info",
+  dateEnded: "phase-info",
+  name: "phase-info",
+  reason: "phase-info",
+  lookbackStartDate: "phase-info",
+  // false = excluded from rendered sections; shown only in the companion raw diff
+  banditEvents: false,
+};
+function phaseKeys(section: "targeting-phases" | "phase-info"): string[] {
+  return Object.entries(PHASE_SUB_KEYS)
+    .filter(([, v]) => v === section)
+    .map(([k]) => k);
+}
+// Keys stripped from the companion diff (banditEvents etc.)
+const phaseStripSubKeys = Object.entries(PHASE_SUB_KEYS)
+  .filter(([, v]) => v === false)
+  .map(([k]) => k);
+// "Phase info" strips targeting fields and companion fields so that everything
+// else (including any future unassigned fields) falls through to its raw diff.
+const phaseInfoStripSubKeys = [
+  ...phaseKeys("targeting-phases"),
+  ...phaseStripSubKeys,
+];
 
 const EXPERIMENT_SECTION_KEYS: Record<
   keyof ExperimentInterfaceStringDates,
   SectionAssignment
 > = {
-  // — User targeting (phase-level) + Phase info (shared parent key) —
+  // phases is split across two sections; see PHASE_SUB_KEYS above for the
+  // field-level breakdown and the rationale for why pickSubKeys is required.
   phases: ["targeting-phases", "phase-info"],
 
   // — User targeting (top-level) —
@@ -249,16 +307,8 @@ const EXPERIMENT_DIFF_CONFIG: AuditDiffConfig<ExperimentInterfaceStringDates> =
       {
         label: "User targeting",
         keys: sectionKeys("targeting-phases"),
-        pickSubKeys: [
-          "coverage",
-          "condition",
-          "savedGroups",
-          "prerequisites",
-          "namespace",
-          "seed",
-          "variationWeights",
-        ],
-        stripSubKeys: ["banditEvents"],
+        pickSubKeys: phaseKeys("targeting-phases"),
+        stripSubKeys: phaseStripSubKeys,
         stripSubKeysLabel: "Phases: other changes",
         render: renderUserTargetingPhases,
         getBadges: getExperimentTargetingBadges,
@@ -272,15 +322,7 @@ const EXPERIMENT_DIFF_CONFIG: AuditDiffConfig<ExperimentInterfaceStringDates> =
       {
         label: "Phase info",
         keys: sectionKeys("phase-info"),
-        pickSubKeys: [
-          "dateStarted",
-          "dateEnded",
-          "name",
-          "reason",
-          "lookbackStartDate",
-        ],
-        stripSubKeys: ["banditEvents"],
-        stripSubKeysLabel: "Phases: other changes",
+        stripSubKeys: phaseInfoStripSubKeys,
         render: renderPhaseInfo,
         getBadges: getExperimentPhaseInfoBadges,
       },

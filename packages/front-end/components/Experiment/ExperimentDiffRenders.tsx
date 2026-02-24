@@ -1,4 +1,4 @@
-import React, { ReactNode } from "react";
+import { ReactNode } from "react";
 import isEqual from "lodash/isEqual";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
@@ -11,6 +11,26 @@ import MetricName from "@/components/Metrics/MetricName";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
+import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
+import {
+  toConditionString,
+  camelToLabel,
+  ChangeField,
+  TextChangedField,
+  GenericFieldChange,
+  renderFallback,
+  ProjectName,
+} from "@/components/AuditHistoryExplorer/DiffRenderUtils";
+export type { DiffBadge };
+export {
+  toConditionString,
+  camelToLabel,
+  ChangeField,
+  TextChangedField,
+  GenericFieldChange,
+  renderFallback,
+  ProjectName,
+};
 
 type Pre = Partial<ExperimentInterfaceStringDates> | null;
 type Post = Partial<ExperimentInterfaceStringDates>;
@@ -22,177 +42,12 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 2,
 });
 
-// After normalizeSnapshot, `condition` may already be a parsed object.
-// ConditionDisplay expects a JSON string, so re-stringify if needed.
-export function toConditionString(cond: unknown): string | undefined {
-  if (!cond) return undefined;
-  if (typeof cond === "string") return cond;
-  return JSON.stringify(cond);
-}
-
 function normalizePrereqs(prereqs: unknown): FeaturePrerequisite[] | undefined {
   if (!Array.isArray(prereqs) || !prereqs.length) return undefined;
   return prereqs.map((p) => ({
     id: p.id as string,
     condition: toConditionString(p.condition) ?? "{}",
   }));
-}
-
-// Converts camelCase key to a human-readable label ("hashAttribute" → "Hash attribute").
-export function camelToLabel(key: string): string {
-  return key
-    .replace(/([A-Z])/g, " $1")
-    .replace(/^./, (s) => s.toUpperCase())
-    .trim();
-}
-
-// Before/after row for fields without a dedicated renderer.
-// Scalars shown as plain text; objects/arrays as compact JSON.
-export function GenericFieldChange({
-  fieldKey,
-  preVal,
-  postVal,
-}: {
-  fieldKey: string;
-  preVal: unknown;
-  postVal: unknown;
-}) {
-  if (isEqual(preVal, postVal)) return null;
-  const fmt = (v: unknown): ReactNode => {
-    if (v === null || v === undefined) return <em>unset</em>;
-    if (typeof v === "boolean") return v ? "true" : "false";
-    if (typeof v === "string" || typeof v === "number") return String(v);
-    return (
-      <code style={{ fontSize: "var(--font-size-1)", wordBreak: "break-all" }}>
-        {JSON.stringify(v)}
-      </code>
-    );
-  };
-  return (
-    <ChangeField
-      label={camelToLabel(fieldKey)}
-      changed
-      oldNode={fmt(preVal)}
-      newNode={fmt(postVal)}
-    />
-  );
-}
-
-// Appends GenericFieldChange rows for unclaimed keys — forward-compat fallback.
-export function renderFallback(
-  pre: Record<string, unknown> | null | undefined,
-  post: Record<string, unknown>,
-  handled: Set<string>,
-): ReactNode[] {
-  return Object.keys(post)
-    .filter((k) => !handled.has(k) && !isEqual(pre?.[k], post[k]))
-    .map((k) => (
-      <GenericFieldChange
-        key={k}
-        fieldKey={k}
-        preVal={pre?.[k]}
-        postVal={post[k]}
-      />
-    ));
-}
-
-// Labeled Δ old → new row; renders nothing when changed=false.
-export function ChangeField({
-  label,
-  changed,
-  oldNode,
-  newNode,
-}: {
-  label: string;
-  changed: boolean;
-  oldNode: ReactNode;
-  newNode: ReactNode;
-}) {
-  if (!changed) return null;
-  return (
-    <div className="mb-2">
-      <div className="mb-1">
-        <Text size="medium" weight="medium" color="text-mid">
-          {label}
-        </Text>
-      </div>
-      <div className="d-flex align-items-start">
-        <div className="text-danger d-flex align-items-start">
-          <div className="text-center mr-2" style={{ width: 16 }}>
-            Δ
-          </div>
-          <div>{oldNode}</div>
-        </div>
-        <div className="font-weight-bold text-success d-flex align-items-start ml-4">
-          <div className="text-center mx-2" style={{ width: 16 }}>
-            →
-          </div>
-          <div>{newNode}</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Stacked before/after display for multi-line text. Each value in a scrollable box.
-export function TextChangedField({
-  label,
-  pre,
-  post,
-}: {
-  label: string;
-  pre: string | null | undefined;
-  post: string | null | undefined;
-}) {
-  if (isEqual(pre, post)) return null;
-
-  const TextBox = ({
-    value,
-    marker,
-    colorClass,
-  }: {
-    value: string | null | undefined;
-    marker: string;
-    colorClass: string;
-  }) => (
-    <div className={`d-flex align-items-start mb-1 ${colorClass}`}>
-      <div
-        className="text-center font-weight-bold mr-2 mt-1"
-        style={{ width: 16, flexShrink: 0, lineHeight: "1.6" }}
-      >
-        {marker}
-      </div>
-      <div
-        style={{
-          flex: 1,
-          border: "1px solid var(--gray-5)",
-          borderRadius: "var(--radius-2)",
-          padding: "6px 10px",
-          background: "var(--gray-2)",
-          maxHeight: 90,
-          overflowY: "auto",
-          whiteSpace: "pre-wrap",
-          wordBreak: "break-word",
-          fontSize: "var(--font-size-1)",
-          lineHeight: 1.5,
-        }}
-      >
-        {value || <em className="text-muted">None</em>}
-      </div>
-    </div>
-  );
-
-  return (
-    <div className="mb-2">
-      <div className="mb-1">
-        <Text size="medium" weight="medium" color="text-mid">
-          {label}
-        </Text>
-      </div>
-      <TextBox value={pre} marker="Δ" colorClass="text-danger" />
-      <TextBox value={post} marker="→" colorClass="text-success" />
-    </div>
-  );
 }
 
 // Metric ID as a signed badge. Uses MetricName for resolved display; falls back to raw ID.
@@ -463,7 +318,7 @@ export function renderUserTargetingTopLevel(
     !isEqual(pre?.disableStickyBucketing, post.disableStickyBucketing) &&
     post.disableStickyBucketing !== undefined
   ) {
-    const fmt = (v: boolean | undefined): React.ReactNode =>
+    const fmt = (v: boolean | undefined): ReactNode =>
       v === undefined ? <em>unset</em> : v ? "disabled" : "enabled";
     rows.push(
       <ChangeField
@@ -476,75 +331,7 @@ export function renderUserTargetingTopLevel(
     );
   }
 
-  if (
-    !isEqual(pre?.excludeFromPayload, post.excludeFromPayload) &&
-    post.excludeFromPayload !== undefined
-  ) {
-    rows.push(
-      <ChangeField
-        key="excl"
-        label="Exclude from SDK payload"
-        changed
-        oldNode={
-          pre?.excludeFromPayload !== undefined ? (
-            String(pre.excludeFromPayload)
-          ) : (
-            <em>unset</em>
-          )
-        }
-        newNode={String(post.excludeFromPayload)}
-      />,
-    );
-  }
-
-  if (
-    !isEqual(pre?.bucketVersion, post.bucketVersion) &&
-    post.bucketVersion !== undefined
-  ) {
-    rows.push(
-      <ChangeField
-        key="bv"
-        label="Bucket version"
-        changed
-        oldNode={
-          pre?.bucketVersion !== undefined ? (
-            String(pre.bucketVersion)
-          ) : (
-            <em>unset</em>
-          )
-        }
-        newNode={String(post.bucketVersion)}
-      />,
-    );
-  }
-
-  if (
-    !isEqual(pre?.minBucketVersion, post.minBucketVersion) &&
-    post.minBucketVersion !== undefined
-  ) {
-    rows.push(
-      <ChangeField
-        key="mbv"
-        label="Min bucket version"
-        changed
-        oldNode={
-          pre?.minBucketVersion !== undefined ? (
-            String(pre.minBucketVersion)
-          ) : (
-            <em>unset</em>
-          )
-        }
-        newNode={String(post.minBucketVersion)}
-      />,
-    );
-  }
-
-  const handled = new Set([
-    "excludeFromPayload",
-    "bucketVersion",
-    "minBucketVersion",
-    "disableStickyBucketing",
-  ]);
+  const handled = new Set(["disableStickyBucketing"]);
   rows.push(
     ...renderFallback(
       pre as Record<string, unknown>,
@@ -708,12 +495,6 @@ export function renderVariations(pre: Pre, post: Post): ReactNode | null {
   return rows.length ? <div className="mt-1">{rows}</div> : null;
 }
 
-// Resolves a project ID to its display name. Falls back to the raw ID.
-export function ProjectName({ id }: { id: string }): React.ReactElement {
-  const { getProjectById } = useDefinitions();
-  return <>{getProjectById(id)?.name ?? id}</>;
-}
-
 function ActivationMetricName({ id }: { id: string | undefined | null }) {
   const { getExperimentMetricById } = useDefinitions();
   if (!id) return <em>unset</em>;
@@ -790,61 +571,6 @@ export function renderAnalysisSettings(pre: Pre, post: Post): ReactNode | null {
     );
   }
 
-  // ── Simple scalar fields ───────────────────────────────────────────────────
-  const scalarFields: [keyof ExperimentInterfaceStringDates, string][] = [
-    ["hashAttribute", "Hash attribute"],
-    ["fallbackAttribute", "Fallback attribute"],
-    ["hashVersion", "Hash version"],
-    ["statsEngine", "Stats engine"],
-    ["attributionModel", "Attribution model"],
-    ["datasource", "Data source"],
-    ["exposureQueryId", "Exposure query ID"],
-    ["trackingKey", "Tracking key"],
-    ["segment", "Segment"],
-    ["sequentialTestingTuningParameter", "Sequential testing tuning parameter"],
-  ];
-
-  for (const [field, label] of scalarFields) {
-    if (!isEqual(pre?.[field], post[field]) && post[field] !== undefined) {
-      rows.push(
-        <ChangeField
-          key={field}
-          label={label}
-          changed
-          oldNode={
-            pre?.[field] !== undefined ? String(pre[field]) : <em>unset</em>
-          }
-          newNode={String(post[field])}
-        />,
-      );
-    }
-  }
-
-  // ── Boolean toggles ────────────────────────────────────────────────────────
-  const boolFields: [keyof ExperimentInterfaceStringDates, string][] = [
-    ["skipPartialData", "Skip partial data"],
-    ["regressionAdjustmentEnabled", "Regression adjustment"],
-    ["postStratificationEnabled", "Post-stratification"],
-    ["sequentialTestingEnabled", "Sequential testing"],
-  ];
-
-  const fmtBool = (v: unknown): ReactNode =>
-    v === null || v === undefined ? <em>unset</em> : v ? "enabled" : "disabled";
-
-  for (const [field, label] of boolFields) {
-    if (!isEqual(pre?.[field], post[field]) && post[field] !== undefined) {
-      rows.push(
-        <ChangeField
-          key={field}
-          label={label}
-          changed
-          oldNode={fmtBool(pre?.[field])}
-          newNode={fmtBool(post[field])}
-        />,
-      );
-    }
-  }
-
   // ── Bandit schedule / burn-in ──────────────────────────────────────────────
   const fmtBandit = (val: number | undefined, unit: string | undefined) =>
     val !== undefined ? `${val} ${unit ?? ""}`.trim() : <em>unset</em>;
@@ -903,21 +629,7 @@ export function renderAnalysisSettings(pre: Pre, post: Post): ReactNode | null {
     "metricOverrides",
     "decisionFrameworkSettings",
     "customMetricSlices",
-    "hashAttribute",
-    "fallbackAttribute",
-    "hashVersion",
-    "statsEngine",
-    "attributionModel",
-    "datasource",
-    "exposureQueryId",
-    "trackingKey",
-    "segment",
     "queryFilter",
-    "skipPartialData",
-    "regressionAdjustmentEnabled",
-    "postStratificationEnabled",
-    "sequentialTestingEnabled",
-    "sequentialTestingTuningParameter",
     "banditBurnInValue",
     "banditBurnInUnit",
     "banditScheduleValue",
@@ -939,30 +651,6 @@ export function renderAnalysisSettings(pre: Pre, post: Post): ReactNode | null {
  */
 export function renderMetadata(pre: Pre, post: Post): ReactNode | null {
   const rows: ReactNode[] = [];
-
-  if (!isEqual(pre?.name, post.name) && post.name !== undefined) {
-    rows.push(
-      <ChangeField
-        key="name"
-        label="Name"
-        changed
-        oldNode={pre?.name ?? <em>None</em>}
-        newNode={post.name}
-      />,
-    );
-  }
-
-  if (!isEqual(pre?.owner, post.owner) && post.owner !== undefined) {
-    rows.push(
-      <ChangeField
-        key="owner"
-        label="Owner"
-        changed
-        oldNode={pre?.owner ?? <em>None</em>}
-        newNode={post.owner}
-      />,
-    );
-  }
 
   if (!isEqual(pre?.tags, post.tags) && post.tags !== undefined) {
     const preTags = pre?.tags ?? [];
@@ -988,18 +676,6 @@ export function renderMetadata(pre: Pre, post: Post): ReactNode | null {
         </div>,
       );
     }
-  }
-
-  if (!isEqual(pre?.type, post.type) && post.type !== undefined) {
-    rows.push(
-      <ChangeField
-        key="type"
-        label="Type"
-        changed
-        oldNode={pre?.type ?? <em>unset</em>}
-        newNode={post.type}
-      />,
-    );
   }
 
   if (
@@ -1030,36 +706,6 @@ export function renderMetadata(pre: Pre, post: Post): ReactNode | null {
     );
   }
 
-  if (
-    !isEqual(pre?.shareLevel, post.shareLevel) &&
-    post.shareLevel !== undefined
-  ) {
-    rows.push(
-      <ChangeField
-        key="shareLevel"
-        label="Share level"
-        changed
-        oldNode={pre?.shareLevel ?? <em>unset</em>}
-        newNode={post.shareLevel}
-      />,
-    );
-  }
-
-  if (
-    !isEqual(pre?.templateId, post.templateId) &&
-    post.templateId !== undefined
-  ) {
-    rows.push(
-      <ChangeField
-        key="templateId"
-        label="Template ID"
-        changed
-        oldNode={pre?.templateId ?? <em>unset</em>}
-        newNode={post.templateId}
-      />,
-    );
-  }
-
   if (!isEqual(pre?.project, post.project) && post.project !== undefined) {
     rows.push(
       <ChangeField
@@ -1076,17 +722,7 @@ export function renderMetadata(pre: Pre, post: Post): ReactNode | null {
     );
   }
 
-  const handled = new Set([
-    "name",
-    "owner",
-    "tags",
-    "type",
-    "hypothesis",
-    "description",
-    "shareLevel",
-    "templateId",
-    "project",
-  ]);
+  const handled = new Set(["tags", "hypothesis", "description", "project"]);
   rows.push(
     ...renderFallback(
       pre as Record<string, unknown>,
@@ -1099,8 +735,6 @@ export function renderMetadata(pre: Pre, post: Post): ReactNode | null {
 }
 
 // ─── Badge getters ────────────────────────────────────────────────────────────
-
-export type DiffBadge = { label: string; action: string };
 
 export function getExperimentTargetingBadges(): DiffBadge[] {
   return [{ label: "Edit targeting", action: "edit targeting" }];

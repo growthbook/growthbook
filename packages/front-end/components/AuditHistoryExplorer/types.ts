@@ -1,6 +1,8 @@
 import { ReactNode } from "react";
 import { EntityType } from "shared/types/audit";
 
+export type DiffBadge = { label: string; action: string };
+
 export type GroupByOption = "minute" | "hour" | "day";
 
 export interface AuditUserInfo {
@@ -76,10 +78,7 @@ export interface AuditDiffSection<T> {
    * quick at-a-glance summary of what changed. Uses the same pre/post partials
    * as `render`, so the two can share analysis logic.
    */
-  getBadges?: (
-    pre: Partial<T> | null,
-    post: Partial<T>,
-  ) => { label: string; action: string }[];
+  getBadges?: (pre: Partial<T> | null, post: Partial<T>) => DiffBadge[];
   /**
    * When true the generic card label (`<h6>{section.label}</h6>`) is omitted
    * from the right-column render card. Use this when the section's `render`
@@ -175,7 +174,7 @@ export interface AuditDiffItem {
   b: string;
   customRender?: ReactNode;
   /** Badge descriptors produced by AuditDiffSection.getBadges. */
-  customBadges?: { label: string; action: string }[];
+  customBadges?: DiffBadge[];
   /** Mirrors AuditDiffSection.suppressCardLabel — skip the outer card heading. */
   suppressCardLabel?: boolean;
   /** When true the ExpandableDiff starts collapsed regardless of section visibility. */

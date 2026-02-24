@@ -1,4 +1,4 @@
-import React, { ReactNode } from "react";
+import { ReactNode } from "react";
 import isEqual from "lodash/isEqual";
 import { PiArrowSquareOut } from "react-icons/pi";
 import {
@@ -21,9 +21,10 @@ import {
   TextChangedField,
   toConditionString,
   GenericFieldChange,
+  renderFallback,
   ProjectName,
-  DiffBadge,
-} from "@/components/Experiment/ExperimentDiffRenders";
+} from "@/components/AuditHistoryExplorer/DiffRenderUtils";
+import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
 
 // Resolves an experiment ID to its display name and renders it as a link.
 // Falls back to the raw ID if not found in the local SWR cache.
@@ -31,7 +32,7 @@ function ExperimentLink({
   experimentId,
 }: {
   experimentId: string | undefined;
-}): React.ReactElement {
+}) {
   const { experimentsMap } = useExperiments();
   if (!experimentId) return <em>unset</em>;
   const experiment = experimentsMap.get(experimentId);
@@ -55,7 +56,7 @@ function ValueChangedField({
   label?: string;
   pre: string | null | undefined;
   post: string | null | undefined;
-}): React.ReactElement | null {
+}) {
   if (isEqual(pre, post)) return null;
   const isSimple = (v: string | null | undefined): boolean =>
     v == null || (!v.includes("\n") && v.length <= 80);
@@ -129,13 +130,7 @@ function formatValue(val: string | unknown): string {
 }
 
 // "Rule #3 — Force (value: xyz)" compact descriptor used as a sub-heading.
-function RuleHeading({
-  rule,
-  index,
-}: {
-  rule: FeatureRule;
-  index: number;
-}): React.ReactElement {
+function RuleHeading({ rule, index }: { rule: FeatureRule; index: number }) {
   let detail: ReactNode = "";
   if (rule.type === "force") {
     // rule.value may be a parsed object after normalizeSnapshot, not a raw string
@@ -171,10 +166,11 @@ function RuleFieldDiffs({
 }: {
   pre: FeatureRule;
   post: FeatureRule;
-}): React.ReactElement | null {
+}) {
   if (isEqual(pre, post)) return null;
 
   const rows: ReactNode[] = [];
+  // id/type/scheduleRules are structural — intentionally suppressed from the render.
   const handled = new Set<string>([
     "id",
     "type",
@@ -182,13 +178,9 @@ function RuleFieldDiffs({
     "savedGroups",
     "prerequisites",
     "enabled",
-    "description",
     "scheduleRules",
     "value",
     "coverage",
-    "hashAttribute",
-    "seed",
-    "trackingKey",
     "experimentId",
     "variations",
     "controlValue",
@@ -203,18 +195,6 @@ function RuleFieldDiffs({
         changed
         oldNode={pre.enabled === false ? "disabled" : "enabled"}
         newNode={post.enabled === false ? "disabled" : "enabled"}
-      />,
-    );
-  }
-
-  if (!isEqual(pre.description, post.description) && post.description) {
-    rows.push(
-      <ChangeField
-        key="desc"
-        label="Description"
-        changed
-        oldNode={pre.description || <em>None</em>}
-        newNode={post.description}
       />,
     );
   }
@@ -387,61 +367,6 @@ function RuleFieldDiffs({
   }
 
   if (
-    "hashAttribute" in post &&
-    !isEqual(
-      (pre as { hashAttribute?: string }).hashAttribute,
-      (post as { hashAttribute: string }).hashAttribute,
-    )
-  ) {
-    rows.push(
-      <ChangeField
-        key="hash"
-        label="Hash attribute"
-        changed
-        oldNode={
-          (pre as { hashAttribute?: string }).hashAttribute ?? <em>unset</em>
-        }
-        newNode={(post as { hashAttribute: string }).hashAttribute}
-      />,
-    );
-  }
-
-  if (
-    "seed" in post &&
-    !isEqual((pre as { seed?: string }).seed, (post as { seed: string }).seed)
-  ) {
-    rows.push(
-      <ChangeField
-        key="seed"
-        label="Seed"
-        changed
-        oldNode={(pre as { seed?: string }).seed ?? <em>unset</em>}
-        newNode={(post as { seed: string }).seed}
-      />,
-    );
-  }
-
-  if (
-    "trackingKey" in post &&
-    !isEqual(
-      (pre as { trackingKey?: string }).trackingKey,
-      (post as { trackingKey: string }).trackingKey,
-    )
-  ) {
-    rows.push(
-      <ChangeField
-        key="trackingKey"
-        label="Tracking key"
-        changed
-        oldNode={
-          (pre as { trackingKey?: string }).trackingKey ?? <em>unset</em>
-        }
-        newNode={(post as { trackingKey: string }).trackingKey}
-      />,
-    );
-  }
-
-  if (
     "experimentId" in post &&
     !isEqual(
       (pre as { experimentId?: string }).experimentId,
@@ -512,7 +437,7 @@ function RuleFieldDiffs({
   return <div className="mt-1 ml-3">{rows}</div>;
 }
 
-function NewRuleDetails({ rule }: { rule: FeatureRule }): React.ReactElement {
+function NewRuleDetails({ rule }: { rule: FeatureRule }) {
   const rows: ReactNode[] = [];
 
   const cond = toConditionString((rule as { condition?: unknown }).condition);
@@ -580,26 +505,6 @@ function NewRuleDetails({ rule }: { rule: FeatureRule }): React.ReactElement {
         oldNode={<em>None</em>}
         newNode={percentFormatter.format(rule.coverage)}
       />,
-      <ChangeField
-        key="hash"
-        label="Hash attribute"
-        changed
-        oldNode={<em>None</em>}
-        newNode={rule.hashAttribute}
-      />,
-    );
-    if (rule.seed) {
-      rows.push(
-        <ChangeField
-          key="seed"
-          label="Seed"
-          changed
-          oldNode={<em>None</em>}
-          newNode={rule.seed}
-        />,
-      );
-    }
-    rows.push(
       <ValueChangedField
         key="value"
         label="Value"
@@ -659,6 +564,30 @@ function NewRuleDetails({ rule }: { rule: FeatureRule }): React.ReactElement {
       />,
     );
   }
+
+  // id/type/scheduleRules are structural; the other keys are explicitly rendered above.
+  const handled = new Set([
+    "id",
+    "type",
+    "scheduleRules",
+    "condition",
+    "savedGroups",
+    "prerequisites",
+    "enabled",
+    "value",
+    "coverage",
+    "controlValue",
+    "variationValue",
+    "experimentId",
+    "variations",
+  ]);
+  rows.push(
+    ...renderFallback(
+      null,
+      rule as unknown as Record<string, unknown>,
+      handled,
+    ),
+  );
 
   if (!rows.length) return <></>;
   return <div className="ml-3">{rows}</div>;

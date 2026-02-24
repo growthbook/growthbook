@@ -1,4 +1,4 @@
-import React, { ReactNode } from "react";
+import { ReactNode } from "react";
 import isEqual from "lodash/isEqual";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
@@ -6,9 +6,10 @@ import Text from "@/ui/Text";
 import {
   ChangeField,
   toConditionString,
+  renderFallback,
   ProjectName,
-  DiffBadge,
-} from "@/components/Experiment/ExperimentDiffRenders";
+} from "@/components/AuditHistoryExplorer/DiffRenderUtils";
+import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
 
 type Pre = Partial<SavedGroupInterface> | null;
 type Post = Partial<SavedGroupInterface>;
@@ -72,20 +73,29 @@ export function renderSavedGroupTargeting(
   const postEmpty = !postStr || postStr === "{}";
   if (!condChanged || (preEmpty && postEmpty)) return null;
 
-  return (
-    <div className="mt-1">
-      <ChangeField
-        label="Condition"
-        changed
-        oldNode={
-          !preEmpty ? <ConditionDisplay condition={preStr!} /> : <em>None</em>
-        }
-        newNode={
-          !postEmpty ? <ConditionDisplay condition={postStr!} /> : <em>None</em>
-        }
-      />
-    </div>
+  const rows: ReactNode[] = [
+    <ChangeField
+      key="condition"
+      label="Condition"
+      changed
+      oldNode={
+        !preEmpty ? <ConditionDisplay condition={preStr!} /> : <em>None</em>
+      }
+      newNode={
+        !postEmpty ? <ConditionDisplay condition={postStr!} /> : <em>None</em>
+      }
+    />,
+  ];
+
+  rows.push(
+    ...renderFallback(
+      pre as Record<string, unknown>,
+      post as Record<string, unknown>,
+      new Set(["condition"]),
+    ),
   );
+
+  return <div className="mt-1">{rows}</div>;
 }
 
 // Shows values array and attributeKey for list-type saved groups.
@@ -148,10 +158,19 @@ export function renderSavedGroupValues(pre: Pre, post: Post): ReactNode | null {
     }
   }
 
+  rows.push(
+    ...renderFallback(
+      pre as Record<string, unknown>,
+      post as Record<string, unknown>,
+      new Set(["attributeKey", "values"]),
+    ),
+  );
+
   return rows.length ? <div className="mt-1">{rows}</div> : null;
 }
 
-// "Settings" — name, owner, description changes.
+// "Settings" — name and any other metadata.
+// groupName is explicit because camelToLabel gives "Group Name", not "Name".
 export function renderSavedGroupSettings(
   pre: Pre,
   post: Post,
@@ -173,32 +192,13 @@ export function renderSavedGroupSettings(
     );
   }
 
-  if (!isEqual(pre?.owner, post.owner) && post.owner !== undefined) {
-    rows.push(
-      <ChangeField
-        key="owner"
-        label="Owner"
-        changed
-        oldNode={pre?.owner ?? <em>None</em>}
-        newNode={post.owner}
-      />,
-    );
-  }
-
-  if (
-    !isEqual(pre?.description, post.description) &&
-    post.description !== undefined
-  ) {
-    rows.push(
-      <ChangeField
-        key="description"
-        label="Description"
-        changed
-        oldNode={pre?.description ?? <em>None</em>}
-        newNode={post.description}
-      />,
-    );
-  }
+  rows.push(
+    ...renderFallback(
+      pre as Record<string, unknown>,
+      post as Record<string, unknown>,
+      new Set(["groupName"]),
+    ),
+  );
 
   return rows.length ? <div className="mt-1">{rows}</div> : null;
 }
@@ -213,42 +213,51 @@ export function renderSavedGroupProjects(
   const postProjects = post.projects ?? [];
   if (!preProjects.length && !postProjects.length) return null;
 
-  return (
-    <div className="mt-1">
-      <ChangeField
-        label="Projects"
-        changed
-        oldNode={
-          preProjects.length ? (
-            <>
-              {preProjects.map((id, i) => (
-                <span key={id}>
-                  {i > 0 ? ", " : ""}
-                  <ProjectName id={id} />
-                </span>
-              ))}
-            </>
-          ) : (
-            <em>None</em>
-          )
-        }
-        newNode={
-          postProjects.length ? (
-            <>
-              {postProjects.map((id, i) => (
-                <span key={id}>
-                  {i > 0 ? ", " : ""}
-                  <ProjectName id={id} />
-                </span>
-              ))}
-            </>
-          ) : (
-            <em>None</em>
-          )
-        }
-      />
-    </div>
+  const rows: ReactNode[] = [
+    <ChangeField
+      key="projects"
+      label="Projects"
+      changed
+      oldNode={
+        preProjects.length ? (
+          <>
+            {preProjects.map((id, i) => (
+              <span key={id}>
+                {i > 0 ? ", " : ""}
+                <ProjectName id={id} />
+              </span>
+            ))}
+          </>
+        ) : (
+          <em>None</em>
+        )
+      }
+      newNode={
+        postProjects.length ? (
+          <>
+            {postProjects.map((id, i) => (
+              <span key={id}>
+                {i > 0 ? ", " : ""}
+                <ProjectName id={id} />
+              </span>
+            ))}
+          </>
+        ) : (
+          <em>None</em>
+        )
+      }
+    />,
+  ];
+
+  rows.push(
+    ...renderFallback(
+      pre as Record<string, unknown>,
+      post as Record<string, unknown>,
+      new Set(["projects"]),
+    ),
   );
+
+  return <div className="mt-1">{rows}</div>;
 }
 
 // ─── Badge getters ────────────────────────────────────────────────────────────

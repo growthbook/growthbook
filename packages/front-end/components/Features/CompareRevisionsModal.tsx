@@ -45,10 +45,8 @@ import {
   FeatureRevisionDiffInput,
   FeatureRevisionDiff,
 } from "@/hooks/useFeatureRevisionDiff";
-import {
-  DiffBadge,
-  featureRuleChangeBadges,
-} from "@/components/Features/FeatureDiffRenders";
+import { featureRuleChangeBadges } from "@/components/Features/FeatureDiffRenders";
+import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
