@@ -274,7 +274,7 @@ export const createVisualChangeset = async ({
       editorUrl,
       visualChanges:
         visualChanges ||
-          getVariationsForPhase(experiment, null).map(genNewVisualChange),
+        getVariationsForPhase(experiment, null).map(genNewVisualChange),
     }),
   );
 

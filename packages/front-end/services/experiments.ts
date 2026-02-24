@@ -425,7 +425,9 @@ export function useExperimentSearch({
         if (item.linkedFeatures?.length) has.push("features", "feature");
         if (item.hypothesis?.trim()?.length) has.push("hypothesis");
         if (item.description?.trim()?.length) has.push("description");
-        if (getVariationsForPhase(item, null).some((v) => !!v.screenshots?.length)) {
+        if (
+          getVariationsForPhase(item, null).some((v) => !!v.screenshots?.length)
+        ) {
           has.push("screenshots");
         }
         if (

@@ -291,13 +291,15 @@ const Presentation = ({
           >
             <CompactResults
               experimentId={experiment.id}
-              variations={getVariationsForPhase(experiment, phase).map((v, i) => {
-                return {
-                  id: v.key || i + "",
-                  name: v.name,
-                  weight: phase?.variationWeights?.[i] || 0,
-                };
-              })}
+              variations={getVariationsForPhase(experiment, phase).map(
+                (v, i) => {
+                  return {
+                    id: v.key || i + "",
+                    name: v.name,
+                    weight: phase?.variationWeights?.[i] || 0,
+                  };
+                },
+              )}
               multipleExposures={snapshot.multipleExposures || 0}
               results={snapshot?.analyses[0]?.results?.[0]}
               reportDate={snapshot.dateCreated}

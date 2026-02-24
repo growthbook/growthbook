@@ -12,6 +12,7 @@ import {
   CreateFactTableProps,
 } from "shared/types/fact-table";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { getVariationsForPhase } from "shared/experiments";
 import { ApiCallType } from "@/services/auth";
 import { transformStatsigMetricSourceToFactTable } from "@/services/importing/statsig/transformers/metricSourceTransformer";
 import { transformStatsigMetricToMetric } from "@/services/importing/statsig/transformers/metricTransformer";
@@ -35,7 +36,6 @@ import {
 import { transformStatsigSegmentToSavedGroup } from "./transformers/savedGroupTransformer";
 import { transformStatsigFeatureGateToGB } from "./transformers/featureTransformer";
 import { transformStatsigExperimentToGB } from "./transformers/experimentTransformer";
-import { getVariationsForPhase } from "shared/experiments";
 import { transformStatsigExperimentToFeature } from "./transformers/experimentRefFeatureTransformer";
 import {
   DUMMY_STATSIG_METRIC_SOURCES,
@@ -1947,7 +1947,10 @@ export async function runImport(options: RunImportOptions) {
             availableEnvironments,
             {
               id: experimentRes.experiment.id,
-              variations: getVariationsForPhase(experimentRes.experiment, null).map((v) => ({
+              variations: getVariationsForPhase(
+                experimentRes.experiment,
+                null,
+              ).map((v) => ({
                 id: v.id,
                 key: v.key,
               })),

@@ -1566,9 +1566,27 @@ describe("Experiment Migration", () => {
           range: [0, 1],
         },
         variations: [
-          { id: "0", key: "0", name: "Control", screenshots: [], variationStatus: "active" },
-          { id: "1", key: "1", name: "Variation 1", screenshots: [], variationStatus: "active" },
-          { id: "foo", key: "bar", name: "Baz", screenshots: [], variationStatus: "active" },
+          {
+            id: "0",
+            key: "0",
+            name: "Control",
+            screenshots: [],
+            variationStatus: "active",
+          },
+          {
+            id: "1",
+            key: "1",
+            name: "Variation 1",
+            screenshots: [],
+            variationStatus: "active",
+          },
+          {
+            id: "foo",
+            key: "bar",
+            name: "Baz",
+            screenshots: [],
+            variationStatus: "active",
+          },
         ],
       },
       {
@@ -1583,9 +1601,27 @@ describe("Experiment Migration", () => {
           range: [0, 1],
         },
         variations: [
-          { id: "0", key: "0", name: "Control", screenshots: [], variationStatus: "active" },
-          { id: "1", key: "1", name: "Variation 1", screenshots: [], variationStatus: "active" },
-          { id: "foo", key: "bar", name: "Baz", screenshots: [], variationStatus: "active" },
+          {
+            id: "0",
+            key: "0",
+            name: "Control",
+            screenshots: [],
+            variationStatus: "active",
+          },
+          {
+            id: "1",
+            key: "1",
+            name: "Variation 1",
+            screenshots: [],
+            variationStatus: "active",
+          },
+          {
+            id: "foo",
+            key: "bar",
+            name: "Baz",
+            screenshots: [],
+            variationStatus: "active",
+          },
         ],
       },
     ],
@@ -1739,10 +1775,7 @@ describe("Experiment Migration", () => {
     it("copies experiment variations into phases that lack them", () => {
       const result = upgradeExperimentDoc({
         ...exp,
-        phases: [
-          { phase: "main" },
-          { phase: "main", name: "Phase 2" },
-        ],
+        phases: [{ phase: "main" }, { phase: "main", name: "Phase 2" }],
       });
       const expectedPhaseVariations = upgraded.variations.map((v: any) => ({
         ...v,
@@ -1771,9 +1804,7 @@ describe("Experiment Migration", () => {
       ];
       const result = upgradeExperimentDoc({
         ...exp,
-        phases: [
-          { phase: "main", variations: existingPhaseVariations },
-        ],
+        phases: [{ phase: "main", variations: existingPhaseVariations }],
       });
       expect(result.phases[0].variations).toEqual(existingPhaseVariations);
     });

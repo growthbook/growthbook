@@ -27,8 +27,8 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
           : "") || "";
 
     const releasedVariation =
-      variations.find((v) => v.id === experiment.releasedVariationId)
-        ?.name || "";
+      variations.find((v) => v.id === experiment.releasedVariationId)?.name ||
+      "";
 
     return (
       <div

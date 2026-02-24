@@ -173,7 +173,9 @@ export default function ExperimentList({
                     <div style={{ flex: 1 }} />
                     <div>
                       {" "}
-                      {currentPhase?.name} ({getVariationsForPhase(test, currentPhase).length} variations)
+                      {currentPhase?.name} (
+                      {getVariationsForPhase(test, currentPhase).length}{" "}
+                      variations)
                     </div>
                   </div>
                 </Link>

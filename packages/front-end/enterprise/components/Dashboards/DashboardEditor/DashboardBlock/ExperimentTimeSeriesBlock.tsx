@@ -152,9 +152,7 @@ export default function ExperimentTimeSeriesBlock({
               const showVariations = expVariations.map(
                 (v) => variationIds.length === 0 || variationIds.includes(v.id),
               );
-              const variationNames = expVariations.map(
-                ({ name }) => name,
-              );
+              const variationNames = expVariations.map(({ name }) => name);
 
               // Check if this metric has slices and if it's expanded
               const expandedKey = `${metric.id}:${resultGroup}`;

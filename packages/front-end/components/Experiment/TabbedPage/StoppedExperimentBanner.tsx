@@ -49,8 +49,7 @@ export default function StoppedExperimentBanner({
         : "") || "";
 
   const releasedVariation =
-    variations.find((v) => v.id === experiment.releasedVariationId)
-      ?.name || "";
+    variations.find((v) => v.id === experiment.releasedVariationId)?.name || "";
 
   return (
     <div className="appbox">

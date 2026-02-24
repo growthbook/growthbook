@@ -5,6 +5,7 @@ import {
   SignedUploadUrlResponse,
   UploadResponse,
 } from "shared/types/upload";
+import { getVariationsForPhase } from "shared/experiments";
 import {
   uploadFile,
   getSignedImageUrl,
@@ -17,7 +18,6 @@ import {
   getOrganizationById,
 } from "back-end/src/services/organizations";
 import { UPLOAD_METHOD } from "back-end/src/util/secrets";
-import { getVariationsForPhase } from "shared/experiments";
 import { getExperimentByUid } from "back-end/src/models/ExperimentModel";
 import {
   getReportByUid,
