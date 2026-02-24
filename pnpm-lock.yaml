@@ -1234,6 +1234,10 @@ importers:
       typescript:
         specifier: 5.7.3
         version: 5.7.3
+    optionalDependencies:
+      '@polyglot-sql/sdk':
+        specifier: ^0.1.6
+        version: 0.1.6
 
   packages/stats: {}
 

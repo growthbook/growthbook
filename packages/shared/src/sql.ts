@@ -1,7 +1,14 @@
+import type { Dialect, format as polyglotFormat } from "@polyglot-sql/sdk";
 import { format as sqlFormat } from "sql-formatter";
 import { SqlResultChunkInterface } from "../types/query";
 import { FormatDialect } from "../types/sql";
 import { FormatError } from "../types/error";
+
+/** Module shape from @polyglot-sql/sdk - used by loader. Types come from the package. */
+export type PolyglotModule = {
+  format: typeof polyglotFormat;
+  Dialect: typeof Dialect;
+};
 
 export type FormatMetricsEvent =
   | { engine: "polyglot"; success: true; timeMs: number }
@@ -27,15 +34,6 @@ const MAX_SQL_LENGTH_FOR_POLYGLOT = parseInt(
   process.env.MAX_SQL_LENGTH_FOR_POLYGLOT || "500000",
 );
 
-/** Minimal type for @polyglot-sql/sdk - shared does not depend on it; hosts provide the loader */
-export type PolyglotModule = {
-  format: (
-    sql: string,
-    dialect: unknown,
-  ) => { success: boolean; sql?: string[] };
-  Dialect: Record<string, unknown>;
-};
-
 let polyglotLoader: (() => Promise<PolyglotModule>) | null = null;
 let polyglotModuleCache: PolyglotModule | null = null;
 let polyglotLoadPromise: Promise<PolyglotModule | null> | null = null;
@@ -48,7 +46,7 @@ export function setPolyglotLoader(loader: () => Promise<PolyglotModule>): void {
   polyglotLoader = loader;
 }
 
-function getPolyglotDialect(mod: PolyglotModule, dialect: string): unknown {
+function getPolyglotDialect(mod: PolyglotModule, dialect: string): Dialect {
   const { Dialect } = mod;
   switch (dialect) {
     case "mysql":

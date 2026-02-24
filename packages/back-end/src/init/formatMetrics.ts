@@ -1,15 +1,9 @@
-import {
-  setFormatMetricsReporter,
-  setPolyglotLoader,
-  type PolyglotModule,
-} from "shared/sql";
+import { setFormatMetricsReporter, setPolyglotLoader } from "shared/sql";
 import { metrics } from "back-end/src/util/metrics";
 
 export function initFormatMetrics(): void {
   // Use Function to preserve native import(); tsc/swc convert import() to require() which fails for ESM-only @polyglot-sql/sdk
-  const dynamicImport = new Function("spec", "return import(spec)") as (
-    spec: string,
-  ) => Promise<PolyglotModule>;
+  const dynamicImport = new Function("spec", "return import(spec)");
   setPolyglotLoader(() => dynamicImport("@polyglot-sql/sdk"));
   const polyglotSuccess = metrics.getCounter("format.polyglot.success");
   const polyglotFailure = metrics.getCounter("format.polyglot.failure");
