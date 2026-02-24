@@ -6,7 +6,9 @@ import {
   renderFeatureDefaultValue,
   renderFeatureRules,
   normalizeFeatureRules,
+  featureRuleChangeBadges,
 } from "@/components/Features/FeatureDiffRenders";
+import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
 
 // Helper
 export const featureToFeatureRevisionDiffInput = (
@@ -50,6 +52,7 @@ export type FeatureRevisionDiff = {
   a: string;
   b: string;
   customRender?: ReactNode;
+  badges?: DiffBadge[];
 };
 
 export function useFeatureRevisionDiff({
@@ -76,6 +79,7 @@ export function useFeatureRevisionDiff({
           current.defaultValue,
           draft.defaultValue,
         ),
+        badges: [{ label: "Edit default value", action: "edit default value" }],
       });
     }
 
@@ -96,6 +100,7 @@ export function useFeatureRevisionDiff({
           // Pass original (un-normalized) rules to the human-readable render;
           // formatValue and toConditionString both handle raw JSON strings.
           customRender: renderFeatureRules(currentRules, draftRules),
+          badges: featureRuleChangeBadges(currentRules, draftRules, envId),
         });
       }
     });

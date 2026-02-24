@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import isEqual from "lodash/isEqual";
 import { PiArrowSquareOut } from "react-icons/pi";
 import {
@@ -18,12 +19,12 @@ import Badge from "@/ui/Badge";
 import { useExperiments } from "@/hooks/useExperiments";
 import {
   ChangeField,
-  TextChangedField,
   toConditionString,
   GenericFieldChange,
   renderFallback,
   ProjectName,
 } from "@/components/AuditHistoryExplorer/DiffRenderUtils";
+import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
 
 // Resolves an experiment ID to its display name and renders it as a link.
@@ -45,7 +46,7 @@ function ExperimentLink({
 }
 
 // Uses ChangeField for single-line values (booleans, numbers, short strings)
-// and TextChangedField for multi-line structured JSON or long text.
+// and an inline ReactDiffViewer for multi-line / JSON values.
 // When label is omitted the label row is suppressed (e.g. when the section
 // card header already provides the heading).
 function ValueChangedField({
@@ -88,7 +89,20 @@ function ValueChangedField({
       </div>
     );
   }
-  return <TextChangedField label={label ?? ""} pre={pre} post={post} />;
+  // Multi-line content (e.g. pretty-printed JSON) — use inline diff viewer.
+  return (
+    <div className="mb-2">
+      {label && <div className="font-weight-bold mb-1">{label}</div>}
+      <div style={{ maxHeight: 250, overflowY: "auto" }}>
+        <ReactDiffViewer
+          oldValue={pre ?? ""}
+          newValue={post ?? ""}
+          compareMethod={DiffMethod.LINES}
+          styles={COMPACT_DIFF_STYLES}
+        />
+      </div>
+    </div>
+  );
 }
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -638,6 +652,15 @@ export function analyzeRuleChanges(
     !isEqual(preRules, postRules);
 
   return { added, removed, modified, reordered };
+}
+
+export function logBadgeColor(
+  action: string,
+): "green" | "red" | "amber" | "gray" {
+  if (action === "Approved") return "green";
+  if (action === "Requested Changes") return "red";
+  if (action === "Review Requested") return "amber";
+  return "gray";
 }
 
 export function featureRuleChangeBadges(

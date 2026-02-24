@@ -45,7 +45,7 @@ import {
   FeatureRevisionDiffInput,
   FeatureRevisionDiff,
 } from "@/hooks/useFeatureRevisionDiff";
-import { featureRuleChangeBadges } from "@/components/Features/FeatureDiffRenders";
+import { logBadgeColor } from "@/components/Features/FeatureDiffRenders";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
@@ -174,48 +174,8 @@ function RevisionCompareLabel({
   );
 }
 
-function logBadgeColor(
-  action: string,
-): React.ComponentProps<typeof Badge>["color"] {
-  if (action === "Approved") return "green";
-  if (action === "Requested Changes") return "red";
-  if (action === "Review Requested") return "amber";
-  return "gray";
-}
-
-/**
- * Derives summary badges directly from the computed diffs when the revision
- * log yields no entries (e.g. rules added via postFeatureExperimentRefRule
- * only write a "new revision" entry, not an "add rule" entry).
- *
- * Delegates to featureRuleChangeBadges (from FeatureDiffRenders) so that rule
- * change detection logic is not duplicated here.
- */
 function badgesFromDiffs(diffs: FeatureRevisionDiff[]): DiffBadge[] {
-  const badges: DiffBadge[] = [];
-  for (const diff of diffs) {
-    if (diff.title === "Default Value") {
-      badges.push({
-        label: "Edit default value",
-        action: "edit default value",
-      });
-      continue;
-    }
-    if (diff.title.startsWith("Rules - ")) {
-      const env = diff.title.slice("Rules - ".length);
-      try {
-        // diff.a / diff.b are JSON strings of the processed rule arrays
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const preRules = (JSON.parse(diff.a) || []) as any[];
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const postRules = (JSON.parse(diff.b) || []) as any[];
-        badges.push(...featureRuleChangeBadges(preRules, postRules, env));
-      } catch {
-        badges.push({ label: `Edit rules in ${env}`, action: "edit rule" });
-      }
-    }
-  }
-  return badges;
+  return diffs.flatMap((d) => d.badges ?? []);
 }
 
 // Renders the comment for a single revision version. Returns null if there is

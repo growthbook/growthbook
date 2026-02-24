@@ -11,6 +11,7 @@ import { useForm } from "react-hook-form";
 import { EventUserLoggedIn } from "shared/types/events/event-types";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FaArrowLeft } from "react-icons/fa";
+import { Flex } from "@radix-ui/themes";
 import { getCurrentUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import {
@@ -27,10 +28,13 @@ import {
   useFeatureRevisionDiff,
   featureToFeatureRevisionDiffInput,
 } from "@/hooks/useFeatureRevisionDiff";
+import Badge from "@/ui/Badge";
+import { logBadgeColor } from "@/components/Features/FeatureDiffRenders";
 import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
 import { PreLaunchChecklistFeatureExpRule } from "@/components/Experiment/PreLaunchChecklist";
 import Checkbox from "@/ui/Checkbox";
+import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 export interface Props {
   feature: FeatureInterface;
   version: number;
@@ -302,10 +306,52 @@ export default function RequestReviewModal({
                     ))}
                   </div>
                 ) : null}
+                {resultDiffs.length > 0 && (
+                  <>
+                    <h4 className="mb-3">Summary of changes</h4>
+                    {resultDiffs.flatMap((d) => d.badges ?? []).length > 0 && (
+                      <Flex wrap="wrap" gap="2" className="mb-3">
+                        {resultDiffs
+                          .flatMap((d) => d.badges ?? [])
+                          .map(({ label, action }) => (
+                            <Badge
+                              key={label}
+                              color={logBadgeColor(action)}
+                              variant="soft"
+                              label={label}
+                            />
+                          ))}
+                      </Flex>
+                    )}
+                    {resultDiffs.some((d) => d.customRender) && (
+                      <div className="list-group mb-4">
+                        {resultDiffs
+                          .filter((d) => d.customRender)
+                          .map((d) => (
+                            <div
+                              key={d.title}
+                              className="list-group-item list-group-item-light pb-3"
+                            >
+                              <strong className="d-block mb-2">
+                                {d.title}
+                              </strong>
+                              {d.customRender}
+                            </div>
+                          ))}
+                      </div>
+                    )}
+                  </>
+                )}
+                <h4 className="mb-3">Change details</h4>
                 <div className="list-group mb-4">
-                  <h4 className="mb-3">Diffs by Enviroment</h4>
                   {resultDiffs.map((diff) => (
-                    <ExpandableDiff {...diff} key={diff.title} />
+                    <ExpandableDiff
+                      key={diff.title}
+                      title={diff.title}
+                      a={diff.a}
+                      b={diff.b}
+                      styles={COMPACT_DIFF_STYLES}
+                    />
                   ))}
                 </div>
                 <h4 className="mb-3"> Change Request Log</h4>
