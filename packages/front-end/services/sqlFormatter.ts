@@ -78,8 +78,8 @@ export function formatSql(
     };
   }
 
-  // Lazy-init polyglot loader (Webpack creates async chunk)
-  initPolyglot();
+  // This is for backup in case we fail to call it somewhere else, but ideally it is done when the modal opens so that we are sure it is loaded before the first format call
+  preloadPolyglot();
 
   // Format the SQL - using shared format function
   const { sql: sqlWithoutTemplates, placeholders } =
