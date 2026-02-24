@@ -30,6 +30,7 @@ export default function MetricTabContent() {
     const managedMetrics: SingleValue[] = [];
     const unManagedMetrics: SingleValue[] = [];
     factMetrics.forEach((m) => {
+      if (m.datasource !== draftExploreState.datasource) return;
       if (m.managedBy) {
         managedMetrics.push({ label: m.name, value: m.id });
       } else {
@@ -45,8 +46,12 @@ export default function MetricTabContent() {
     if (unManagedMetrics.length > 0) {
       groupedOptions.push({ label: "", options: unManagedMetrics });
     }
-    return groupedOptions;
-  }, [factMetrics]);
+    return groupedOptions.length > 1
+      ? groupedOptions
+      : groupedOptions.length === 1
+        ? groupedOptions[0].options
+        : [];
+  }, [factMetrics, draftExploreState.datasource]);
 
   return (
     <Flex direction="column" gap="4">

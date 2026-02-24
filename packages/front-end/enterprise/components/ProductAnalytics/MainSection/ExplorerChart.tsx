@@ -4,7 +4,6 @@ import EChartsReact from "echarts-for-react";
 import type {
   ProductAnalyticsConfig,
   ProductAnalyticsExploration,
-  ProductAnalyticsResult,
 } from "shared/validators";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { useDashboardCharts } from "@/enterprise/components/Dashboards/DashboardChartsContext";
@@ -53,7 +52,7 @@ export default function ExplorerChart({
   loading,
 }: {
   exploration: ProductAnalyticsExploration | null;
-  error: Error | null;
+  error: string | null;
   submittedExploreState: ProductAnalyticsConfig;
   loading: boolean;
 }) {

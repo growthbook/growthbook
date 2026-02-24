@@ -179,61 +179,6 @@ export default function DatasourceConfigurator({
 
   return (
     <Flex direction="column" gap="2">
-      <>
-        <Flex justify="between" align="center" mt="2">
-          <Text weight="medium">Data Source</Text>
-          {showRefreshButton && (
-            <Tooltip
-              body={
-                <div>
-                  <div>
-                    {`Last Updated: ${new Date(
-                      informationSchema.dateUpdated,
-                    ).toLocaleString()}`}
-                  </div>
-                  {!canRunQueries ? (
-                    <div className="alert alert-warning mt-2">
-                      You do not have permission to refresh this information
-                      schema.
-                    </div>
-                  ) : null}
-                </div>
-              }
-              tipPosition="top"
-            >
-              <button
-                type="button"
-                className="btn btn-link p-0 text-secondary"
-                disabled={fetching || !canRunQueries}
-                onClick={() => refreshOrCreateInfoSchema("PUT")}
-              >
-                {fetching ? <LoadingSpinner /> : <FaRedo />}
-              </button>
-            </Tooltip>
-          )}
-        </Flex>
-        <SelectField
-          value={datasourceId || ""}
-          onChange={(datasource) =>
-            setDraftExploreState((prev) => ({
-              ...prev,
-              datasource,
-              dataset: {
-                ...dataset,
-                table: "",
-                path: "",
-                timestampColumn: "",
-              },
-            }))
-          }
-          options={datasources.map((d) => ({
-            label: d.name,
-            value: d.id,
-          }))}
-          placeholder="Select data source..."
-          forceUndefinedValueToNull
-        />
-      </>
       {informationSchema?.error ? (
         <Callout status="error" mt="2">
           <Flex direction="column" gap="2">
@@ -241,6 +186,19 @@ export default function DatasourceConfigurator({
               We&apos;re unable to identify tables for this Data Source.
             </Text>
             <Text>Reason: {informationSchema?.error?.message}</Text>
+            <Tooltip
+              body="You do not have permission to retry generating an information schema for this datasource."
+              shouldDisplay={!canRunQueries}
+            >
+              <button
+                type="button"
+                disabled={!canRunQueries}
+                className="btn btn-link"
+                onClick={() => refreshOrCreateInfoSchema("PUT")}
+              >
+                Retry
+              </button>
+            </Tooltip>
           </Flex>
         </Callout>
       ) : datasourceId && !informationSchema && !fetching ? (
@@ -271,11 +229,43 @@ export default function DatasourceConfigurator({
             </Tooltip>
           </Flex>
         </Callout>
-      ) : tableOptions.length > 0 ? (
+      ) : (
         <>
-          <Text weight="medium" mt="2">
-            Table
-          </Text>
+          <Flex justify="between" align="center" mt="2">
+            <Text weight="medium" mt="2">
+              Table
+            </Text>
+
+            {showRefreshButton && (
+              <Tooltip
+                body={
+                  <div>
+                    <div>
+                      {`Last Updated: ${new Date(
+                        informationSchema.dateUpdated,
+                      ).toLocaleString()}`}
+                    </div>
+                    {!canRunQueries ? (
+                      <div className="alert alert-warning mt-2">
+                        You do not have permission to refresh this information
+                        schema.
+                      </div>
+                    ) : null}
+                  </div>
+                }
+                tipPosition="top"
+              >
+                <button
+                  type="button"
+                  className="btn btn-link p-0 text-secondary"
+                  disabled={fetching || !canRunQueries}
+                  onClick={() => refreshOrCreateInfoSchema("PUT")}
+                >
+                  {fetching ? <LoadingSpinner /> : <FaRedo />}
+                </button>
+              </Tooltip>
+            )}
+          </Flex>
           <SelectField
             value={databaseDataset?.table || ""}
             onChange={(value) => {
@@ -350,12 +340,7 @@ export default function DatasourceConfigurator({
             </Flex>
           )}
         </>
-      ) : datasourceId && informationSchema ? (
-        <Callout status="error" mt="2">
-          No tables found for this data source. Please select a different data
-          source.
-        </Callout>
-      ) : null}
+      )}
     </Flex>
   );
 }

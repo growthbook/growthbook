@@ -119,10 +119,12 @@ export default function ExplorerSideBar({
                   dataset: { ...factTableDataset, factTableId },
                 }));
               }}
-              options={factTables.map((ft) => ({
-                label: ft.name,
-                value: ft.id,
-              }))}
+              options={factTables
+                .filter((f) => f.datasource === draftExploreState.datasource)
+                .map((ft) => ({
+                  label: ft.name,
+                  value: ft.id,
+                }))}
               placeholder="Select fact table..."
             />
           </>
