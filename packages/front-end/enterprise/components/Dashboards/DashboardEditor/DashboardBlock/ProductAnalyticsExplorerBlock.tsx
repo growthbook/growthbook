@@ -4,31 +4,12 @@ import {
   FactTableExplorationBlockInterface,
   DataSourceExplorationBlockInterface,
 } from "shared/enterprise";
-import {
-  ExplorerAnalysisResponse,
-  ProductAnalyticsConfig,
-} from "shared/validators";
+import { ProductAnalyticsExploration } from "shared/validators";
 import useApi from "@/hooks/useApi";
 import Text from "@/ui/Text";
 import ExplorerChart from "@/enterprise/components/ProductAnalytics/MainSection/ExplorerChart";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import { BlockProps } from ".";
-
-const PLACEHOLDER_CONFIG: ProductAnalyticsConfig = {
-  analysisId: undefined,
-  dataset: { type: "metric", values: [] },
-  dimensions: [
-    { dimensionType: "date", column: "date", dateGranularity: "auto" },
-  ],
-  chartType: "line",
-  dateRange: {
-    predefined: "last30Days",
-    lookbackValue: 30,
-    lookbackUnit: "day",
-    startDate: null,
-    endDate: null,
-  },
-  lastRefreshedAt: null,
-};
 
 export default function ProductAnalyticsExplorerBlock({
   block,
@@ -37,58 +18,40 @@ export default function ProductAnalyticsExplorerBlock({
   | FactTableExplorationBlockInterface
   | DataSourceExplorationBlockInterface
 >) {
-  const { data, error, isLoading } = useApi<ExplorerAnalysisResponse>(
-    `/product-analytics/explorer-analysis/${block.explorerAnalysisId}`,
-    { shouldRun: () => !!block.explorerAnalysisId },
-  );
+  const { data, error, isLoading } = useApi<{
+    status: number;
+    exploration: ProductAnalyticsExploration;
+  }>(`/product-analytics/exploration/${block.explorerAnalysisId}`, {
+    shouldRun: () => !!block.explorerAnalysisId,
+  });
 
-  if (!block.explorerAnalysisId) {
+  if (isLoading) {
+    return <LoadingSpinner />;
+  }
+
+  if (!block.config) {
     return (
       <Box p="4" style={{ textAlign: "center" }}>
         <Text>Configure this block to display explorer data.</Text>
       </Box>
     );
   }
-
-  if (isLoading) {
+  if (!data?.exploration) {
     return (
-      <ExplorerChart
-        exploreData={null}
-        submittedExploreState={PLACEHOLDER_CONFIG}
-        loading={true}
-        exploreError={null}
-      />
-    );
-  }
-
-  if (error) {
-    return (
-      <ExplorerChart
-        exploreData={null}
-        submittedExploreState={data?.config ?? PLACEHOLDER_CONFIG}
-        loading={false}
-        exploreError={error.message}
-      />
-    );
-  }
-
-  if (!data) {
-    return (
-      <ExplorerChart
-        exploreData={null}
-        submittedExploreState={PLACEHOLDER_CONFIG}
-        loading={false}
-        exploreError={null}
-      />
+      <Box p="4" style={{ textAlign: "center" }}>
+        <Text>
+          Please click the `Update` button to generate the necessary data.
+        </Text>
+      </Box>
     );
   }
 
   return (
     <ExplorerChart
-      exploreData={data.results}
-      submittedExploreState={data.config}
-      loading={false}
-      exploreError={null}
+      exploration={data?.exploration}
+      error={data?.exploration.error || error?.message || null}
+      loading={isLoading}
+      submittedExploreState={data?.exploration.config}
     />
   );
 }

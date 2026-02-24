@@ -4,16 +4,17 @@ import React, {
   useState,
   useMemo,
   useCallback,
-  ReactNode,
   useEffect,
+  useRef,
+  ReactNode,
 } from "react";
 import { ColumnInterface } from "shared/types/fact-table";
 import {
   ProductAnalyticsConfig,
-  ProductAnalyticsResult,
   ProductAnalyticsValue,
   DatasetType,
 } from "shared/src/validators/product-analytics";
+import { ProductAnalyticsExploration } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   DEFAULT_EXPLORE_STATE,
@@ -27,7 +28,6 @@ import {
   validateDimensions,
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useExploreData } from "./useExploreData";
-import { ProductAnalyticsExploration } from "shared/validators";
 
 type ExplorerCacheValue = {
   draftState: ProductAnalyticsConfig | null;
@@ -73,12 +73,21 @@ const DEFAULT_AUTO_SUBMIT = true;
 interface ExplorerProviderProps {
   children: ReactNode;
   initialConfig?: ProductAnalyticsConfig;
+  /** Called when a run completes with the new exploration. Used by dashboard block editor to sync block. */
+  onRunComplete?: (exploration: ProductAnalyticsExploration) => void;
+  /** Called when draft has diverged from last run (needs fetch). Used by dashboard block editor to clear id. */
+  onDraftDiverged?: (draftConfig: ProductAnalyticsConfig) => void;
 }
 
 export function ExplorerProvider({
   children,
   initialConfig,
+  onRunComplete,
+  onDraftDiverged,
 }: ExplorerProviderProps) {
+  const onDraftDivergedRef = useRef(onDraftDiverged);
+  onDraftDivergedRef.current = onDraftDiverged;
+
   const { loading, fetchData } = useExploreData();
 
   const { getFactTableById, getFactMetricById, datasources } = useDefinitions();
@@ -202,6 +211,7 @@ export function ExplorerProvider({
         error: error || data?.error || null,
       },
     }));
+    if (data) onRunComplete?.(data);
   }, [
     setSubmittedExploreState,
     fetchData,
@@ -209,6 +219,7 @@ export function ExplorerProvider({
     isEmpty,
     isSubmittable,
     cleanedDraftExploreState,
+    onRunComplete,
   ]);
 
   const handleSubmit = useCallback(async () => {
@@ -231,6 +242,23 @@ export function ExplorerProvider({
     isSubmittable,
     autoSubmitEnabled,
   ]);
+
+  // When draft has diverged from baseline (initial or last run), notify so block editor can clear exploration id.
+  // Use ref for callback to avoid infinite loop when parent re-creates it after setBlock.
+  // Use baseline = submitted ?? initial so opening existing block and editing triggers onDraftDiverged.
+  const baselineConfig = submittedExploreState ?? initialConfig ?? null;
+  const { needsFetch: draftDiverged } = useMemo(
+    () =>
+      baselineConfig != null
+        ? compareConfig(baselineConfig, cleanedDraftExploreState)
+        : { needsFetch: false, needsUpdate: false },
+    [baselineConfig, cleanedDraftExploreState],
+  );
+  useEffect(() => {
+    if (draftDiverged && baselineConfig != null) {
+      onDraftDivergedRef.current?.(cleanedDraftExploreState);
+    }
+  }, [draftDiverged, baselineConfig, cleanedDraftExploreState]);
 
   const createDefaultValue = useCallback(
     (datasetType: DatasetType): ProductAnalyticsValue => {

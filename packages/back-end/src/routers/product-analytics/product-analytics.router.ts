@@ -1,9 +1,9 @@
 import express from "express";
 import { z } from "zod";
+import { productAnalyticsConfigValidator } from "shared/validators";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawProductAnalyticsController from "./product-analytics.controller";
-import { productAnalyticsConfigValidator } from "shared/validators";
 
 const router = express.Router();
 

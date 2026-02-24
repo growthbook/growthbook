@@ -4,7 +4,7 @@ import {
   FactTableExplorationBlockInterface,
   DataSourceExplorationBlockInterface,
 } from "shared/enterprise";
-import { ExplorerAnalysisResponse } from "shared/validators";
+import { ProductAnalyticsExploration } from "shared/validators";
 import useApi from "@/hooks/useApi";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Callout from "@/ui/Callout";
@@ -32,10 +32,12 @@ export default function ProductAnalyticsExplorerSettings({
   block,
   setBlock,
 }: Props) {
-  const { data, error, isLoading } = useApi<ExplorerAnalysisResponse>(
-    `/product-analytics/explorer-analysis/${block.explorerAnalysisId}`,
-    { shouldRun: () => !!block.explorerAnalysisId },
-  );
+  const { data, error, isLoading } = useApi<{
+    status: number;
+    exploration: ProductAnalyticsExploration;
+  }>(`/product-analytics/exploration/${block.explorerAnalysisId}`, {
+    shouldRun: () => !!block.explorerAnalysisId,
+  });
   const { datasources } = useDefinitions();
 
   const defaultDatasourceId = datasources[0]?.id;
@@ -63,15 +65,26 @@ export default function ProductAnalyticsExplorerSettings({
   return (
     <ExplorerProvider
       initialConfig={
-        data?.config ||
+        block.config ||
+        data?.exploration.config ||
         getInitialConfigByBlockType(block.type, defaultDatasourceId)
       }
-      key={block.explorerAnalysisId ?? "new"}
+      onRunComplete={(exploration) =>
+        setBlock({
+          ...block,
+          explorerAnalysisId: exploration.id,
+          config: exploration.config,
+        })
+      }
+      onDraftDiverged={(draftConfig) =>
+        setBlock({
+          ...block,
+          config: draftConfig,
+          explorerAnalysisId: "",
+        })
+      }
     >
-      <ProductAnalyticsExplorerSideBarWrapper
-        block={block}
-        setBlock={setBlock}
-      />
+      <ProductAnalyticsExplorerSideBarWrapper />
     </ExplorerProvider>
   );
 }

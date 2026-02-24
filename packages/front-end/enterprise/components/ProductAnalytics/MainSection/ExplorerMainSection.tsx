@@ -1,6 +1,7 @@
 import { Flex } from "@radix-ui/themes";
 import { PiArrowsClockwise } from "react-icons/pi";
 import { BsGraphUpArrow } from "react-icons/bs";
+import { getValidDate } from "shared/dates";
 import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -12,7 +13,6 @@ import GranularitySelector from "./Toolbar/GranularitySelector";
 import LastRefreshedIndicator from "./Toolbar/LastRefreshedIndicator";
 import ExplorerChart from "./ExplorerChart";
 import ExplorerDataTable from "./ExplorerDataTable";
-import { getValidDate } from "shared/dates";
 
 export default function ExplorerMainSection() {
   const {

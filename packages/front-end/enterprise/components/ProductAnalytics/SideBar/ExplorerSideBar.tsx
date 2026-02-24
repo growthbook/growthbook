@@ -10,6 +10,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import GraphTypeSelector from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/GraphTypeSelector";
 import DateRangePicker from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DateRangePicker";
 import GranularitySelector from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/GranularitySelector";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricTabContent from "./MetricTabContent";
 import FactTableTabContent from "./FactTableTabContent";
 import DatasourceTabContent from "./DatasourceTabContent";
@@ -23,8 +24,16 @@ interface Props {
 export default function ExplorerSideBar({
   renderingInDashboardSidebar = false,
 }: Props) {
-  const { draftExploreState, setDraftExploreState, changeDatasetType } =
-    useExplorerContext();
+  const {
+    draftExploreState,
+    setDraftExploreState,
+    changeDatasetType,
+    autoSubmitEnabled,
+    loading,
+    handleSubmit,
+    isSubmittable,
+    isStale,
+  } = useExplorerContext();
   const { factTables } = useDefinitions();
 
   const dataset = draftExploreState.dataset;
@@ -42,6 +51,8 @@ export default function ExplorerSideBar({
     [changeDatasetType],
   );
 
+  console.log("isStale", isStale);
+
   return (
     <Flex direction="column" gap="4">
       <Flex justify="between" align="center" height="32px" py="2">
@@ -52,10 +63,38 @@ export default function ExplorerSideBar({
           <Button size="sm">Save to Dashboard</Button>
         ) : (
           <Flex direction="row">
-            <Button size="sm" variant="outline">
-              <PiArrowsClockwise style={{ marginRight: "8px" }} />
-              Update
-            </Button>
+            <Tooltip
+              body="Configuration has changed. Click to refresh the chart."
+              shouldDisplay={isStale}
+            >
+              <Button
+                size="sm"
+                variant={autoSubmitEnabled ? "outline" : "solid"}
+                disabled={
+                  loading ||
+                  !draftExploreState?.dataset?.values?.length ||
+                  !isSubmittable
+                }
+                onClick={handleSubmit}
+              >
+                <Flex align="center" gap="2">
+                  <PiArrowsClockwise />
+                  Update
+                  {isStale && (
+                    <span
+                      style={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: "50%",
+                        backgroundColor: "var(--amber-9)",
+                        flexShrink: 0,
+                      }}
+                      aria-hidden
+                    />
+                  )}
+                </Flex>
+              </Button>
+            </Tooltip>
           </Flex>
         )}
       </Flex>

@@ -9,6 +9,7 @@ import {
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
+import { stringToBoolean } from "shared/util";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
@@ -20,7 +21,6 @@ import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { ProductAnalyticsExplorationQueryRunner } from "back-end/src/queryRunners/ProductAnalyticsExplorationQueryRunner";
-import { stringToBoolean } from "shared/util";
 
 export const postProductAnalyticsRun = async (
   req: AuthRequest<
@@ -54,7 +54,7 @@ export const postProductAnalyticsRun = async (
   // If no existing exploration, create a new one
   const metricMap: Map<string, FactMetricInterface> = new Map();
   const factTableMap: Map<string, FactTableInterface> = new Map();
-  let datasource = await getDataSourceById(context, config.datasource);
+  const datasource = await getDataSourceById(context, config.datasource);
   if (!datasource) {
     throw new NotFoundError("Datasource not found");
   }
@@ -176,6 +176,7 @@ export const postProductAnalyticsRun = async (
       exploration: queryRunner.model,
     });
   } catch (e) {
+    // eslint-disable-next-line no-console
     console.error("Error running product analytics query", e);
     const error = e instanceof Error ? e : new Error(String(e));
     await context.models.analyticsExplorations.update(exploration, {

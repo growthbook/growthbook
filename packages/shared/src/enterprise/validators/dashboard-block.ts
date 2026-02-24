@@ -4,6 +4,7 @@ import {
   metricAnalysisSettingsStringDatesValidator,
   metricAnalysisSettingsValidator,
 } from "../../validators/metric-analysis";
+import { productAnalyticsConfigValidator } from "../../validators/product-analytics";
 import { differenceTypes, pinSources } from "../dashboards/utils";
 
 const baseBlockInterface = z
@@ -259,6 +260,7 @@ export type MetricExplorerBlockInterface = z.infer<
 
 const productAnalyticsExplorerBaseInterface = baseBlockInterface.extend({
   explorerAnalysisId: z.string(),
+  config: productAnalyticsConfigValidator.optional(),
 });
 
 const metricExplorationBlockInterface =
