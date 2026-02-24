@@ -137,7 +137,7 @@ const EditVariationsForm: FC<{
                 ...newData,
                 key: value,
                 // TODO(variations): add proper status depending on how variations were edited
-                status: "active",
+                status: "active" as const,
               };
             }),
           );
