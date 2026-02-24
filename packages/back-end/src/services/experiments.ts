@@ -72,11 +72,7 @@ import {
   ApiExperimentResults,
   ApiMetric,
 } from "shared/types/openapi";
-import {
-  MetricPriorSettings,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  MetricWindowSettings,
-} from "shared/types/fact-table";
+import { MetricPriorSettings } from "shared/types/fact-table";
 import {
   ExperimentAnalysisParamsContextData,
   ExperimentSnapshotAnalysis,
@@ -555,6 +551,8 @@ export function getSnapshotSettings({
                 unit: "hours",
               }
             : undefined,
+        banditConversionWindowValue: experiment.banditConversionWindowValue,
+        banditConversionWindowUnit: experiment.banditConversionWindowUnit,
       }),
     )
     .filter(isDefined);
@@ -2716,10 +2714,14 @@ export function postExperimentApiPayloadToInterface(
       }),
     );
     // Preserve conversion window fields from payload if provided
+    // If value is provided, unit must also be provided
     if (payload.banditConversionWindowValue !== undefined) {
+      if (payload.banditConversionWindowUnit === undefined) {
+        throw new Error(
+          "banditConversionWindowUnit is required when banditConversionWindowValue is provided",
+        );
+      }
       obj.banditConversionWindowValue = payload.banditConversionWindowValue;
-    }
-    if (payload.banditConversionWindowUnit !== undefined) {
       obj.banditConversionWindowUnit = payload.banditConversionWindowUnit;
     }
   }

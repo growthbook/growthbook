@@ -2901,6 +2901,7 @@ export async function createExperimentSnapshot({
   const denominatorMetrics = denominatorMetricIds
     .map((m) => metricMap.get(m) || null)
     .filter(isDefined) as MetricInterface[];
+
   const { settingsForSnapshotMetrics, regressionAdjustmentEnabled } =
     getAllMetricSettingsForSnapshot({
       allExperimentMetrics,
@@ -2911,6 +2912,8 @@ export async function createExperimentSnapshot({
       experimentMetricOverrides: experiment.metricOverrides,
       datasourceType: datasource?.type,
       hasRegressionAdjustmentFeature: true,
+      banditConversionWindowValue: experiment.banditConversionWindowValue,
+      banditConversionWindowUnit: experiment.banditConversionWindowUnit,
     });
 
   const analysisSettings = getDefaultExperimentAnalysisSettings({

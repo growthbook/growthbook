@@ -271,7 +271,18 @@ function generateWindowSettings(
   metric: ExperimentMetricInterface,
   overrides?: MetricOverride,
   phaseLookbackWindow?: { value: number; unit: ConversionWindowUnit },
+  banditConversionWindowValue?: number,
+  banditConversionWindowUnit?: "hours" | "days",
 ): MetricWindowSettings {
+  if (banditConversionWindowValue && banditConversionWindowUnit) {
+    return {
+      type: "conversion",
+      delayValue: 0,
+      delayUnit: "hours",
+      windowValue: banditConversionWindowValue,
+      windowUnit: banditConversionWindowUnit,
+    };
+  }
   if (phaseLookbackWindow) {
     // Convert metric window value to hours if it's a lookback window. Ignore if it's a conversion window.
     const metricWindowValueInHours =
@@ -337,6 +348,8 @@ export function getMetricForSnapshot({
   metricOverrides,
   decisionFrameworkSettings,
   phaseLookbackWindow,
+  banditConversionWindowValue,
+  banditConversionWindowUnit,
 }: {
   id: string | null | undefined;
   metricMap: Map<string, ExperimentMetricInterface>;
@@ -344,6 +357,8 @@ export function getMetricForSnapshot({
   metricOverrides?: MetricOverride[];
   decisionFrameworkSettings: ExperimentDecisionFrameworkSettings;
   phaseLookbackWindow?: { value: number; unit: ConversionWindowUnit };
+  banditConversionWindowValue?: number;
+  banditConversionWindowUnit?: "hours" | "days";
 }): MetricForSnapshot | null {
   if (!id) return null;
   const metric = metricMap.get(id);
@@ -382,6 +397,8 @@ export function getMetricForSnapshot({
         metric,
         overrides,
         phaseLookbackWindow,
+        banditConversionWindowValue,
+        banditConversionWindowUnit,
       ),
       properPrior: metricSnapshotSettings?.properPrior ?? false,
       properPriorMean: metricSnapshotSettings?.properPriorMean ?? 0,

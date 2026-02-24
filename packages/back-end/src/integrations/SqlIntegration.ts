@@ -1766,25 +1766,16 @@ export default abstract class SqlIntegration
     metric: ExperimentMetricInterface,
     endDate: Date,
     overrideConversionWindows: boolean,
-    settings?: ExperimentSnapshotSettings,
   ): string {
-    // Use bandit window settings if available, otherwise use metric's window settings
-    const windowSettingsToUse =
-      settings?.banditSettings?.windowSettings ?? metric.windowSettings;
-    const windowHours = getMetricWindowHours(windowSettingsToUse);
-    const delayHours = getDelayWindowHours(windowSettingsToUse);
+    let windowHours = getMetricWindowHours(metric.windowSettings);
+    const delayHours = getDelayWindowHours(metric.windowSettings);
 
     // all metrics have to be after the base timestamp +- delay hours
     let metricWindow = `${metricCol} >= ${this.addHours(baseCol, delayHours)}`;
 
-    // If there's a bandit conversion window, use it regardless of metric window type
-    // Otherwise, use the metric's conversion window if it exists
-    const hasBanditConversionWindow =
-      settings?.banditSettings?.windowSettings !== undefined;
     if (
-      hasBanditConversionWindow ||
-      (metric.windowSettings.type === "conversion" &&
-        !overrideConversionWindows)
+      metric.windowSettings.type === "conversion" &&
+      !overrideConversionWindows
     ) {
       // if conversion window, then count metrics before window ends
       // which can extend beyond experiment end date
@@ -1799,14 +1790,13 @@ export default abstract class SqlIntegration
       AND ${metricCol} <= ${this.toTimestamp(endDate)}`;
     }
 
-    if (windowSettingsToUse.type === "lookback") {
+    if (metric.windowSettings.type === "lookback") {
       // ensure windowHours is positive
-      const positiveWindowHours =
-        windowHours < 0 ? windowHours * -1 : windowHours;
+      windowHours = windowHours < 0 ? windowHours * -1 : windowHours;
       // also ensure for lookback windows that metric happened in last
       // X hours of the experiment
       metricWindow = `${metricWindow}
-      AND ${this.addHours(metricCol, positiveWindowHours)} >= ${this.toTimestamp(
+      AND ${this.addHours(metricCol, windowHours)} >= ${this.toTimestamp(
         endDate,
       )}`;
     }
@@ -3417,7 +3407,6 @@ export default abstract class SqlIntegration
                             : undefined,
                           metricTimestampColExpr: "m.timestamp",
                           exposureTimestampColExpr: "d.timestamp",
-                          settings,
                         })} as ${data.alias}_value`
                       : ""
                   }
@@ -3431,7 +3420,6 @@ export default abstract class SqlIntegration
                           endDate: settings.endDate,
                           metricTimestampColExpr: "m.timestamp",
                           exposureTimestampColExpr: "d.timestamp",
-                          settings,
                         })} as ${data.alias}_denominator`
                       : ""
                   }
@@ -4142,7 +4130,6 @@ export default abstract class SqlIntegration
             endDate: settings.endDate,
             metricTimestampColExpr: "m.timestamp",
             exposureTimestampColExpr: "d.timestamp",
-            settings,
           })} as value
         FROM
           ${funnelMetric ? "__denominatorUsers" : "__distinctUsers"} d
@@ -4220,7 +4207,6 @@ export default abstract class SqlIntegration
                   denominator,
                   settings.endDate,
                   overrideConversionWindows,
-                  settings,
                 )}
               GROUP BY
                 d.variation
@@ -6243,7 +6229,6 @@ ORDER BY column_name, count DESC
     metricQuantileSettings,
     metricTimestampColExpr,
     exposureTimestampColExpr,
-    settings,
   }: {
     col: string;
     metric: ExperimentMetricInterface;
@@ -6252,7 +6237,6 @@ ORDER BY column_name, count DESC
     metricQuantileSettings?: MetricQuantileSettings;
     metricTimestampColExpr: string;
     exposureTimestampColExpr: string;
-    settings?: ExperimentSnapshotSettings;
   }): string {
     return `${this.ifElse(
       `${this.getConversionWindowClause(
@@ -6261,7 +6245,6 @@ ORDER BY column_name, count DESC
         metric,
         endDate,
         overrideConversionWindows,
-        settings,
       )}
         ${metricQuantileSettings?.ignoreZeros && metricQuantileSettings?.type === "event" ? `AND ${col} != 0` : ""}
       `,
@@ -7692,7 +7675,6 @@ ORDER BY column_name, count DESC
                       : undefined,
                     metricTimestampColExpr: this.castToTimestamp("m.timestamp"),
                     exposureTimestampColExpr: "d.first_exposure_timestamp",
-                    settings: params.settings,
                   })} AS ${data.alias}_value
                 ${
                   data.ratioMetric
@@ -7705,7 +7687,6 @@ ORDER BY column_name, count DESC
                         metricTimestampColExpr:
                           this.castToTimestamp("m.timestamp"),
                         exposureTimestampColExpr: "d.first_exposure_timestamp",
-                        settings: params.settings,
                       })} AS ${data.alias}_denominator`
                     : ""
                 }
