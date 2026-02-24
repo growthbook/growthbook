@@ -2,11 +2,9 @@ import fs from "fs";
 import path from "path";
 import { Request, Response } from "express";
 import {
-  ExperimentInterface,
   LegacyExperimentPhase,
   LegacyVariation,
 } from "shared/types/experiment";
-import { getVariationsForPhase } from "shared/experiments";
 import { lookupOrganizationByApiKey } from "back-end/src/models/ApiKeyModel";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
 import { ErrorResponse, ExperimentOverridesResponse } from "back-end/types/api";
@@ -15,22 +13,6 @@ import {
   getExperimentOverrides,
 } from "back-end/src/services/organizations";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
-
-export function canAutoAssignExperiment(
-  experiment: ExperimentInterface,
-): boolean {
-  if (!experiment.targetURLRegex) return false;
-
-  const variations = getVariationsForPhase(
-    experiment,
-    null,
-  ) as LegacyVariation[];
-  return (
-    variations.filter(
-      (v) => (v.dom && v.dom.length > 0) || (v.css && v.css.length > 0),
-    ).length > 0
-  );
-}
 
 export async function getExperimentConfig(
   req: Request<{ key: string }>,
@@ -148,6 +130,7 @@ export async function getExperimentsScript(
         draft: exp.status === "draft",
         anon: exp.userIdType === "anonymous",
         variationCode: (phase?.variations ?? []).map((v) => {
+          // TODO: test... should work since JIT migration just copies forward the variations
           const lv = v as LegacyVariation;
           const commands: string[] = [];
           if (lv.css) {
