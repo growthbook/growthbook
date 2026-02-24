@@ -857,7 +857,7 @@ export function getManagedWarehouseUserIdTypes(
 ): string[] {
   if (factTableId !== "ch_events") {
     throw new Error(
-      "This function can only be called for managed warehouse datasource and table.",
+      "This function can only be called for managed warehouse datasource and fact table.",
     );
   }
 
