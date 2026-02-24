@@ -330,7 +330,12 @@ export async function updateFactTable(
 // It doesn't need to check for 'managedBy' and doesn't need to set 'dateUpdated'
 export async function updateFactTableColumns(
   factTable: FactTableInterface,
-  changes: Partial<Pick<FactTableInterface, "columns" | "columnsError">>,
+  changes: Partial<
+    Pick<
+      FactTableInterface,
+      "columns" | "columnsError" | "columnRefreshPending" | "userIdTypes"
+    >
+  >,
   context?: ReqContext | ApiReqContext,
 ) {
   await FactTableModel.updateOne(
