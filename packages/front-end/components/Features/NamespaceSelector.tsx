@@ -109,7 +109,11 @@ export default function NamespaceSelector({
               form.setValue(`${formPrefix}namespace.name`, v);
 
               // Set hashAttribute from namespace
-              if (selected?.hashAttribute) {
+              if (
+                selected &&
+                "hashAttribute" in selected &&
+                selected.hashAttribute
+              ) {
                 form.setValue(
                   `${formPrefix}namespace.hashAttribute`,
                   selected.hashAttribute,
@@ -138,12 +142,14 @@ export default function NamespaceSelector({
           />
           {namespace && selectedNamespace && (
             <div className="mt-3">
-              {selectedNamespace.hashAttribute && (
-                <div className="alert alert-info mb-3">
-                  <strong>Hash Attribute:</strong>{" "}
-                  {`${selectedNamespace.hashAttribute}`}
-                </div>
-              )}
+              {selectedNamespace &&
+                "hashAttribute" in selectedNamespace &&
+                selectedNamespace.hashAttribute && (
+                  <div className="alert alert-info mb-3">
+                    <strong>Hash Attribute:</strong>{" "}
+                    {`${selectedNamespace.hashAttribute}`}
+                  </div>
+                )}
 
               <NamespaceUsageGraph
                 namespace={namespace}
