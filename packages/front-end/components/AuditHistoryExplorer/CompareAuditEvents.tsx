@@ -252,8 +252,11 @@ export default function CompareAuditEvents<T>({
   const [pendingRange, setPendingRange] = useState<string | null>(null);
 
   /**
-   * Returns [newestId, oldestId] for all entries whose dateEnd falls at or
-   * after `cutoffMs`, or null if fewer than one entry qualifies.
+   * Returns [newestId, oldestId] for the time window: all entries whose dateEnd
+   * is at or after `cutoffMs`, plus the immediately older entry so the diff
+   * shows the full "before → after" (e.g. [Feb 2, Jan 21] for the change that
+   * happened within the past month). Returns null if fewer than one entry
+   * qualifies.
    */
   function getWindowSelection(
     entries: CoarsenedAuditEntry<T>[],
@@ -261,7 +264,17 @@ export default function CompareAuditEvents<T>({
   ): [string, string] | null {
     const inWindow = entries.filter((e) => e.dateEnd.getTime() >= cutoffMs);
     if (!inWindow.length) return null;
-    return [inWindow[0].id, inWindow[inWindow.length - 1].id];
+    const newestId = inWindow[0].id;
+    const oldestInWindow = inWindow[inWindow.length - 1];
+    const oldestInWindowIdx = entries.findIndex(
+      (e) => e.id === oldestInWindow.id,
+    );
+    const includeOlderEndpoint =
+      oldestInWindowIdx >= 0 && oldestInWindowIdx + 1 < entries.length;
+    const oldestId = includeOlderEndpoint
+      ? entries[oldestInWindowIdx + 1].id
+      : oldestInWindow.id;
+    return [newestId, oldestId];
   }
 
   // Returns true when the current selection matches the time-range window.
