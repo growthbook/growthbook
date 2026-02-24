@@ -2,6 +2,7 @@ import isEqual from "lodash/isEqual";
 import {
   ConditionInterface,
   FeatureRule as FeatureDefinitionRule,
+  Filter,
   ParentConditionInterface,
 } from "@growthbook/growthbook";
 import {
@@ -322,7 +323,7 @@ export function getHoldoutFeatureDefId(holdoutId: string) {
  * Helper function to apply namespace to a rule
  * Handles both multiRange format (with hashAttribute and multiple ranges) and legacy format
  */
-function applyNamespaceToRule(
+export function applyNamespaceToRule(
   rule: FeatureDefinitionRule,
   namespace: NamespaceValue,
   namespacesMap: Map<
@@ -333,21 +334,26 @@ function applyNamespaceToRule(
   const nsDefinition = namespacesMap.get(namespace.name);
 
   // MultiRange format: namespace definition has explicit format flag set to "multiRange"
-  if (nsDefinition?.format === "multiRange") {
+  if (nsDefinition?.format === "multiRange" || "ranges" in namespace) {
     const hashAttribute = getNamespaceHashAttribute(
       namespace,
-      nsDefinition.hashAttribute || rule.hashAttribute || "id",
+      nsDefinition?.hashAttribute || rule.hashAttribute || "id",
     );
     rule.hashAttribute = hashAttribute;
     rule.hashVersion =
       ("hashVersion" in namespace ? namespace.hashVersion : 2) || 2;
+
+    const seed = nsDefinition?.seed || namespace.name;
+
     rule.filters = [
+      ...(rule.filters || []),
       {
         attribute: hashAttribute,
-        seed: nsDefinition.seed || namespace.name,
+        seed: seed,
+        name: namespace.name,
         hashVersion: 2,
         ranges: getNamespaceRanges(namespace),
-      },
+      } as Filter & { name: string },
     ];
   } else {
     // Legacy format: use tuple for backward compatibility

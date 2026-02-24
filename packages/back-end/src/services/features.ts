@@ -89,6 +89,7 @@ import {
   getAllVisualExperiments,
 } from "back-end/src/models/ExperimentModel";
 import {
+  applyNamespaceToRule,
   getFeatureDefinition,
   getHoldoutFeatureDefId,
   getParsedCondition,
@@ -352,42 +353,9 @@ export function generateAutoExperimentsPayload({
         coverage: phase.coverage,
       };
 
-      // Handle namespace - check if it's a multiRange format namespace with explicit format flag
+      // Handle namespace
       if (phase?.namespace?.enabled && phase.namespace.name) {
-        const nsDefinition = namespaces.get(phase.namespace.name);
-
-        // MultiRange format: namespace has explicit format flag set to "multiRange"
-        if (nsDefinition?.format === "multiRange") {
-          const ns = phase.namespace;
-          let ranges: [number, number][];
-
-          if ("ranges" in ns && ns.ranges) {
-            ranges = ns.ranges;
-          } else {
-            ranges = [[0, 0]];
-          }
-
-          exp.filters = [
-            {
-              attribute: nsDefinition.hashAttribute || "id",
-              seed: nsDefinition.seed || ns.name,
-              hashVersion: 2,
-              ranges,
-            },
-          ];
-        } else {
-          // Legacy format: use tuple format for backward compatibility
-          const ns = phase.namespace;
-          let range: [number, number];
-
-          if ("range" in ns && ns.range) {
-            range = ns.range;
-          } else {
-            range = [0, 0];
-          }
-
-          exp.namespace = [ns.name, range[0], range[1]];
-        }
+        applyNamespaceToRule(exp, phase.namespace, namespaces);
       }
 
       if (prerequisites.length) {
@@ -418,8 +386,9 @@ function namespacesToMap(
       ns.name,
       {
         // For legacy, hashAttribute and seed might be missing but we try to preserve them if available
-        hashAttribute: (ns as any).hashAttribute || "id",
-        seed: (ns as any).seed || ns.name,
+        hashAttribute:
+          ("hashAttribute" in ns ? ns.hashAttribute : undefined) || "id",
+        seed: ("seed" in ns ? ns.seed : undefined) || ns.name,
         format: ns.format,
       },
     ]),
