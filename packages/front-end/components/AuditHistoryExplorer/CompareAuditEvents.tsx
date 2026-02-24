@@ -264,9 +264,15 @@ export default function CompareAuditEvents<T>({
     return [inWindow[0].id, inWindow[inWindow.length - 1].id];
   }
 
-  /** Returns true when the current selection matches the time-range window. */
+  // Returns true when the current selection matches the time-range window.
+  // The window can only be matched when we have enough loaded data to resolve it
+  // (all pages loaded, OR the oldest loaded entry already predates the cutoff).
   function isWindowActive(cutoffMs: number): boolean {
-    if (hasMore) return false;
+    const oldestLoaded =
+      flatEntries.length > 0
+        ? flatEntries[flatEntries.length - 1].dateEnd.getTime()
+        : Infinity;
+    if (hasMore && oldestLoaded > cutoffMs) return false;
     const sel = getWindowSelection(flatEntries, cutoffMs);
     if (!sel) return false;
     return (
@@ -442,11 +448,24 @@ export default function CompareAuditEvents<T>({
                 const cutoff = Date.now() - ms;
                 const isActive = isWindowActive(cutoff);
                 const isPending = pendingRange === label;
+                // Disabled when the window is resolvable but contains no entries.
+                const oldestLoaded =
+                  flatEntries.length > 0
+                    ? flatEntries[flatEntries.length - 1].dateEnd.getTime()
+                    : Infinity;
+                const windowResolved = !hasMore || oldestLoaded <= cutoff;
+                const isEmpty =
+                  windowResolved &&
+                  getWindowSelection(flatEntries, cutoff) === null;
                 return (
                   <Box
                     key={label}
-                    className={`${styles.row} ${isActive ? styles.rowSelected : ""}`}
-                    onClick={() => handleTimeRangeAction(label, cutoff)}
+                    className={`${styles.row} ${isActive ? styles.rowSelected : ""} ${isEmpty ? styles.rowDisabled : ""}`}
+                    onClick={
+                      isEmpty
+                        ? undefined
+                        : () => handleTimeRangeAction(label, cutoff)
+                    }
                   >
                     <Box className={styles.rowSpacer} />
                     <Flex align="center" gap="2">
