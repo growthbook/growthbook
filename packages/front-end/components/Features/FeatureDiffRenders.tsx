@@ -144,7 +144,7 @@ function RuleHeading({
     const v = valStr.slice(0, 40);
     detail = `value: ${v}${valStr.length > 40 ? "…" : ""}`;
   } else if (rule.type === "rollout") {
-    detail = `${percentFormatter.format(rule.coverage)} of ${rule.hashAttribute}`;
+    detail = `${percentFormatter.format(rule.coverage)} of ${rule.hashAttribute}${rule.seed ? `, seed: ${rule.seed}` : ""}`;
   } else if (rule.type === "experiment") {
     detail = `key: ${rule.trackingKey}`;
   } else if (rule.type === "experiment-ref") {
@@ -407,6 +407,21 @@ function RuleFieldDiffs({
   }
 
   if (
+    "seed" in post &&
+    !isEqual((pre as { seed?: string }).seed, (post as { seed: string }).seed)
+  ) {
+    rows.push(
+      <ChangeField
+        key="seed"
+        label="Seed"
+        changed
+        oldNode={(pre as { seed?: string }).seed ?? <em>unset</em>}
+        newNode={(post as { seed: string }).seed}
+      />,
+    );
+  }
+
+  if (
     "trackingKey" in post &&
     !isEqual(
       (pre as { trackingKey?: string }).trackingKey,
@@ -573,6 +588,17 @@ function NewRuleDetails({ rule }: { rule: FeatureRule }): React.ReactElement {
         newNode={rule.hashAttribute}
       />,
     );
+    if (rule.seed) {
+      rows.push(
+        <ChangeField
+          key="seed"
+          label="Seed"
+          changed
+          oldNode={<em>None</em>}
+          newNode={rule.seed}
+        />,
+      );
+    }
     rows.push(
       <ValueChangedField
         key="value"
