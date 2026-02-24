@@ -34,7 +34,7 @@ export default function ExplorerSideBar({
     isSubmittable,
     isStale,
   } = useExplorerContext();
-  const { factTables } = useDefinitions();
+  const { factTables, datasources } = useDefinitions();
 
   const dataset = draftExploreState.dataset;
   const activeType: DatasetType = dataset?.type ?? "metric";
@@ -50,8 +50,6 @@ export default function ExplorerSideBar({
     },
     [changeDatasetType],
   );
-
-  console.log("isStale", isStale);
 
   return (
     <Flex direction="column" gap="4">
@@ -125,6 +123,51 @@ export default function ExplorerSideBar({
           </>
         ) : (
           <Flex direction="column" gap="2" flexBasis="wrap">
+            <Flex direction="column" gap="2">
+              <Text weight="medium">Data Source</Text>
+              <SelectField
+                value={draftExploreState?.datasource || ""}
+                onChange={(datasource) => {
+                  setDraftExploreState((prev) => {
+                    const newDataset = { ...prev.dataset };
+                    if (newDataset.type === "metric") {
+                      // Don't need anything besides wiping the values
+                      newDataset.values = [
+                        {
+                          metricId: "",
+                          name: "Metric",
+                          rowFilters: [],
+                          type: "metric",
+                          unit: "",
+                          denominatorUnit: "",
+                        },
+                      ];
+                    } else if (newDataset.type === "fact_table") {
+                      newDataset.factTableId = "";
+                      newDataset.values = [];
+                    } else {
+                      newDataset.table = "";
+                      newDataset.timestampColumn = "";
+                      newDataset.path = "";
+                      newDataset.columnTypes = {};
+                      newDataset.values = [];
+                    }
+
+                    return {
+                      ...prev,
+                      datasource,
+                      dataset: newDataset,
+                    };
+                  });
+                }}
+                options={datasources.map((d) => ({
+                  label: d.name,
+                  value: d.id,
+                }))}
+                placeholder="Select data source..."
+                forceUndefinedValueToNull
+              />
+            </Flex>
             <Flex direction="column" gap="2">
               <Text weight="medium">Chart Type</Text>
               <GraphTypeSelector />

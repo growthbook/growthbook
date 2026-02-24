@@ -190,14 +190,14 @@ export default function DatasourceConfigurator({
               body="You do not have permission to retry generating an information schema for this datasource."
               shouldDisplay={!canRunQueries}
             >
-              <button
-                type="button"
+              <Button
                 disabled={!canRunQueries}
-                className="btn btn-link"
+                variant="soft"
+                color="red"
                 onClick={() => refreshOrCreateInfoSchema("PUT")}
               >
                 Retry
-              </button>
+              </Button>
             </Tooltip>
           </Flex>
         </Callout>
