@@ -1303,7 +1303,7 @@ describe("SDK Payloads", () => {
         ],
       },
     ];
-    const exp: any = {
+    const exp: Partial<ExperimentInterface> = {
       id: "exp_multi",
       name: "Multi Experiment",
       trackingKey: "exp-multi-key",
@@ -1350,7 +1350,11 @@ describe("SDK Payloads", () => {
     const experimentMap = new Map([["exp_multi", exp]]);
     const namespaces = new Map<
       string,
-      { hashAttribute?: string; seed?: string; format?: "legacy" | "multiRange" }
+      {
+        hashAttribute?: string;
+        seed?: string;
+        format?: "legacy" | "multiRange";
+      }
     >([
       [
         "multi-ns",
@@ -1420,7 +1424,7 @@ describe("SDK Payloads", () => {
         ],
       },
     ];
-    const exp: any = {
+    const exp: ExperimentInterface = {
       id: "exp_legacy",
       name: "Legacy Experiment",
       trackingKey: "exp-legacy-key",
@@ -1462,7 +1466,11 @@ describe("SDK Payloads", () => {
     const experimentMap = new Map([["exp_legacy", exp]]);
     const namespaces = new Map<
       string,
-      { hashAttribute?: string; seed?: string; format?: "legacy" | "multiRange" }
+      {
+        hashAttribute?: string;
+        seed?: string;
+        format?: "legacy" | "multiRange";
+      }
     >([
       [
         "legacy-ns",
@@ -1519,7 +1527,7 @@ describe("SDK Payloads", () => {
         ],
       },
     ];
-    const exp: any = {
+    const exp: Partial<ExperimentInterface> = {
       id: "exp_priority",
       name: "Priority Experiment",
       trackingKey: "exp-priority-key",
@@ -1549,7 +1557,11 @@ describe("SDK Payloads", () => {
     const experimentMap = new Map([["exp_priority", exp]]);
     const namespaces = new Map<
       string,
-      { hashAttribute?: string; seed?: string; format?: "legacy" | "multiRange" }
+      {
+        hashAttribute?: string;
+        seed?: string;
+        format?: "legacy" | "multiRange";
+      }
     >([
       [
         "multi-ns",

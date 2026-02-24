@@ -25,7 +25,7 @@ import {
   FeatureRule,
   LegacyFeatureInterface,
 } from "shared/types/feature";
-import { OrganizationInterface } from "shared/types/organization";
+import { Namespaces, OrganizationInterface } from "shared/types/organization";
 import {
   ExperimentInterface,
   LegacyExperimentInterface,
@@ -509,12 +509,17 @@ export function upgradeOrganizationDoc(
 
   // Make sure namespaces have labels, seeds, and format flags - if missing, use defaults
   if (org?.settings?.namespaces?.length) {
-    org.settings.namespaces = org.settings.namespaces.map((ns) => ({
-      ...ns,
-      label: ns.label || ns.name,
-      seed: ns.seed || uuidv4(), // Add seed if missing
-      format: ns.format || (ns.hashAttribute ? "multiRange" : "legacy"), // Set format based on hashAttribute presence
-    }));
+    org.settings.namespaces = org.settings.namespaces.map((ns) => {
+      const hashAttribute =
+        "hashAttribute" in ns ? ns.hashAttribute : undefined;
+      const seed = "seed" in ns ? ns.seed : undefined;
+      return {
+        ...ns,
+        label: ns.label || ns.name,
+        seed: seed || uuidv4(), // Add seed if missing
+        format: ns.format || (hashAttribute ? "multiRange" : "legacy"), // Set format based on hashAttribute presence
+      } as Namespaces;
+    });
   }
 
   // Migrate postStratificationDisabled to postStratificationEnabled
