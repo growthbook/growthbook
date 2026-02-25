@@ -262,12 +262,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const lastPhase = (initialValue?.phases?.length ?? 1) - 1;
   const initialHashAttribute = initialValue?.hashAttribute || hashAttribute;
 
-  const form = useForm<
-    Partial<ExperimentInterfaceStringDates> & {
-      banditConversionWindowValue?: number;
-      banditConversionWindowUnit?: "hours" | "days";
-    }
-  >({
+  const form = useForm<Partial<ExperimentInterfaceStringDates>>({
     defaultValues: {
       project: initialValue?.project || project || "",
       trackingKey: initialValue?.trackingKey || "",
@@ -353,8 +348,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       banditBurnInUnit: scopedSettings.banditScheduleUnit.value,
       banditConversionWindowValue: initialValue?.banditConversionWindowValue,
       banditConversionWindowUnit:
-        initialValue?.banditConversionWindowUnit ??
-        ("hours" as "hours" | "days"),
+        initialValue?.banditConversionWindowUnit ?? "hours",
       templateId: initialValue?.templateId || "",
       holdoutId: initialValue?.holdoutId || undefined,
       customMetricSlices: initialValue?.customMetricSlices || [],
@@ -1507,12 +1501,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      Sticky bucketing enabled
+                      Disable Sticky bucketing
                     </Link>
                   }
-                  value={!form.watch("disableStickyBucketing")}
+                  value={!!form.watch("disableStickyBucketing")}
                   setValue={(v) => {
-                    form.setValue("disableStickyBucketing", !v);
+                    form.setValue("disableStickyBucketing", v);
                   }}
                 />
               )}
