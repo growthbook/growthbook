@@ -120,7 +120,7 @@ export function generateFeaturesPayload({
   prereqStateCache = {},
   safeRolloutMap,
   holdoutsMap,
-  namespaces = new Map(),
+  namespaces,
 }: {
   features: FeatureInterface[];
   experimentMap: Map<string, ExperimentInterface>;
@@ -225,7 +225,7 @@ export function generateAutoExperimentsPayload({
   features,
   environment,
   prereqStateCache = {},
-  namespaces = new Map(),
+  namespaces,
 }: {
   visualExperiments: VisualExperiment[];
   urlRedirectExperiments: URLRedirectExperiment[];
@@ -1248,7 +1248,6 @@ export function evaluateFeature({
         revision,
         date,
         safeRolloutMap,
-        holdoutsMap: new Map(),
         namespaces: namespaces || new Map(),
       });
 
@@ -1581,8 +1580,7 @@ export function getApiFeatureObj({
       experimentMap,
       environment: env,
       safeRolloutMap,
-      holdoutsMap: new Map(),
-      namespaces: new Map(),
+      namespaces: namespacesToMap(organization.settings?.namespaces),
     });
 
     featureEnvironments[env] = {
@@ -1628,8 +1626,7 @@ export function getApiFeatureObj({
         experimentMap,
         environment: env,
         safeRolloutMap,
-        holdoutsMap: new Map(),
-        namespaces: new Map(),
+        namespaces: namespacesToMap(organization.settings?.namespaces),
       });
 
       environmentRules[env] = rules as ApiFeatureRule[];
