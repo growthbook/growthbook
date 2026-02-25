@@ -9,8 +9,6 @@ import useApi from "@/hooks/useApi";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Callout from "@/ui/Callout";
 import { ExplorerProvider } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
-import { getInitialConfigByBlockType } from "@/enterprise/components/ProductAnalytics/util";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import ProductAnalyticsExplorerSideBarWrapper from "./ProductAnalyticsExplorerSideBarWrapper";
 
 interface Props {
@@ -38,9 +36,6 @@ export default function ProductAnalyticsExplorerSettings({
   }>(`/product-analytics/exploration/${block.explorerAnalysisId}`, {
     shouldRun: () => !!block.explorerAnalysisId,
   });
-  const { datasources } = useDefinitions();
-
-  const defaultDatasourceId = datasources[0]?.id;
 
   if (block.explorerAnalysisId && isLoading) {
     return <LoadingSpinner />;
@@ -54,21 +49,9 @@ export default function ProductAnalyticsExplorerSettings({
     );
   }
 
-  if (!defaultDatasourceId) {
-    return (
-      <Callout status="error">
-        No datasource found. Please create a datasource first.
-      </Callout>
-    );
-  }
-
   return (
     <ExplorerProvider
-      initialConfig={
-        block.config ||
-        data?.exploration.config ||
-        getInitialConfigByBlockType(block.type, defaultDatasourceId)
-      }
+      initialConfig={block.config || data?.exploration.config}
       onRunComplete={(exploration) =>
         setBlock({
           ...block,

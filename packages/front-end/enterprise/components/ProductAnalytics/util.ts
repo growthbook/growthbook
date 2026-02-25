@@ -24,66 +24,6 @@ export const VALUE_TYPE_OPTIONS: {
   { value: "sum", label: "Sum" },
 ];
 
-export const DEFAULT_EXPLORE_STATE: ProductAnalyticsConfig = {
-  dataset: {
-    type: "metric", // default to metric
-    values: [],
-  },
-  datasource: "",
-  dimensions: [
-    {
-      dimensionType: "date",
-      column: "date",
-      dateGranularity: "auto",
-    },
-  ],
-  chartType: "line",
-  dateRange: {
-    predefined: "last30Days",
-    lookbackValue: 30,
-    lookbackUnit: "day",
-    startDate: null,
-    endDate: null,
-  },
-};
-
-export function getInitialConfigByBlockType(
-  blockType:
-    | "metric-exploration"
-    | "fact-table-exploration"
-    | "data-source-exploration",
-  datasourceId: string,
-): ProductAnalyticsConfig {
-  switch (blockType) {
-    case "metric-exploration":
-      return {
-        ...DEFAULT_EXPLORE_STATE,
-        datasource: datasourceId,
-      };
-    case "fact-table-exploration":
-      return {
-        ...DEFAULT_EXPLORE_STATE,
-        dataset: {
-          type: "fact_table",
-          values: [],
-          factTableId: null,
-        },
-        datasource: datasourceId,
-      };
-    case "data-source-exploration":
-      return {
-        ...DEFAULT_EXPLORE_STATE,
-        dataset: {
-          ...createEmptyDataset("data_source"),
-          values: [],
-        },
-        datasource: datasourceId,
-      };
-    default:
-      throw new Error(`Invalid block type: ${blockType}`);
-  }
-}
-
 const COMMON_TIMESTAMP_COLUMNS = new Set([
   "timestamp",
   "created_at",

@@ -23,6 +23,7 @@ import {
   expandMetricGroups,
 } from "../../experiments";
 import { DataVizConfig } from "../../../validators";
+import { getInitialConfigByBlockType } from "../product-analytics/utils";
 
 export const differenceTypes = ["absolute", "relative", "scaled"] as const;
 
@@ -262,6 +263,12 @@ export const CREATE_BLOCK_TYPE: {
     title: "",
     description: "",
     explorerAnalysisId: "",
+    config:
+      initialValues?.config ??
+      getInitialConfigByBlockType(
+        "metric-exploration",
+        initialValues?.config?.datasource ?? "",
+      ),
     ...(initialValues || {}),
   }),
   "fact-table-exploration": ({ initialValues }) => ({
@@ -269,6 +276,12 @@ export const CREATE_BLOCK_TYPE: {
     title: "",
     description: "",
     explorerAnalysisId: "",
+    config:
+      initialValues?.config ??
+      getInitialConfigByBlockType(
+        "fact-table-exploration",
+        initialValues?.config?.datasource ?? "",
+      ),
     ...(initialValues || {}),
   }),
   "data-source-exploration": ({ initialValues }) => ({
@@ -276,6 +289,12 @@ export const CREATE_BLOCK_TYPE: {
     title: "",
     description: "",
     explorerAnalysisId: "",
+    config:
+      initialValues?.config ??
+      getInitialConfigByBlockType(
+        "data-source-exploration",
+        initialValues?.config?.datasource ?? "",
+      ),
     ...(initialValues || {}),
   }),
 };

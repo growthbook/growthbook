@@ -15,9 +15,9 @@ import {
   DatasetType,
 } from "shared/src/validators/product-analytics";
 import { ProductAnalyticsExploration } from "shared/validators";
+import { DEFAULT_EXPLORE_STATE } from "shared/enterprise";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
-  DEFAULT_EXPLORE_STATE,
   cleanConfigForSubmission,
   compareConfig,
   createEmptyDataset,

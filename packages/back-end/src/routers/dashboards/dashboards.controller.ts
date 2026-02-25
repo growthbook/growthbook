@@ -8,7 +8,7 @@ import {
 } from "shared/enterprise";
 import { isDefined, isString, stringToBoolean } from "shared/util";
 import { groupBy } from "lodash";
-import { SavedQuery } from "shared/validators";
+import { ProductAnalyticsExploration, SavedQuery } from "shared/validators";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { MetricAnalysisInterface } from "shared/types/metric-analysis";
 import { ExperimentInterface } from "shared/types/experiment";
@@ -29,6 +29,7 @@ import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import {
   updateDashboardMetricAnalyses,
+  updateDashboardExplorations,
   updateDashboardSavedQueries,
   updateNonExperimentDashboard,
 } from "back-end/src/enterprise/services/dashboards";
@@ -289,6 +290,7 @@ export async function refreshDashboardData(
 
     await updateDashboardMetricAnalyses(context, newBlocks);
     await updateDashboardSavedQueries(context, newBlocks);
+    await updateDashboardExplorations(context, newBlocks);
 
     // Bypassing permissions here to allow anyone to refresh the results of a dashboard
     await context.models.dashboards.dangerousUpdateBypassPermission(dashboard, {
@@ -307,6 +309,7 @@ export async function getDashboardSnapshots(
     snapshots: ExperimentSnapshotInterface[];
     savedQueries: SavedQuery[];
     metricAnalyses: MetricAnalysisInterface[];
+    explorations: ProductAnalyticsExploration[];
   }>,
 ) {
   const context = getContextFromReq(req);
@@ -360,7 +363,42 @@ export async function getDashboardSnapshots(
         .map((block) => block.metricAnalysisId),
     ),
   ]);
-  return res
-    .status(200)
-    .json({ status: 200, snapshots, savedQueries, metricAnalyses });
+
+  const explorerAnalysisIds = [
+    ...new Set(
+      dashboard.blocks
+        .filter(
+          (
+            block,
+          ): block is DashboardBlockInterface & {
+            explorerAnalysisId: string;
+          } =>
+            (block.type === "metric-exploration" ||
+              block.type === "fact-table-exploration" ||
+              block.type === "data-source-exploration") &&
+            "explorerAnalysisId" in block &&
+            typeof (block as { explorerAnalysisId?: string })
+              .explorerAnalysisId === "string" &&
+            (block as { explorerAnalysisId: string }).explorerAnalysisId
+              .length > 0,
+        )
+        .map((block) => block.explorerAnalysisId),
+    ),
+  ];
+  const explorations: ProductAnalyticsExploration[] =
+    explorerAnalysisIds.length > 0
+      ? (
+          await context.models.analyticsExplorations.getByIds(
+            explorerAnalysisIds,
+          )
+        ).filter((e): e is ProductAnalyticsExploration => e != null)
+      : [];
+
+  return res.status(200).json({
+    status: 200,
+    snapshots,
+    savedQueries,
+    metricAnalyses,
+    explorations,
+  });
 }

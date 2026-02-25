@@ -7,6 +7,7 @@ import {
   DashboardBlockType,
   CREATE_BLOCK_TYPE,
   getBlockData,
+  getInitialConfigByBlockType,
 } from "shared/enterprise";
 import { Container, Flex, IconButton, Text } from "@radix-ui/themes";
 import {
@@ -83,7 +84,7 @@ export default function DashboardWorkspace({
       setBlocks([]);
     }
   }, [dashboard]);
-  const { metricGroups } = useDefinitions();
+  const { metricGroups, datasources } = useDefinitions();
 
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
 
@@ -208,9 +209,19 @@ export default function DashboardWorkspace({
     }
 
     // Create the block with appropriate parameters
+    const defaultDatasourceId = datasources[0]?.id ?? "";
+    const isExplorationBlock =
+      bType === "metric-exploration" ||
+      bType === "fact-table-exploration" ||
+      bType === "data-source-exploration";
     const blockData = CREATE_BLOCK_TYPE[bType]({
       experiment: experiment!,
       metricGroups,
+      initialValues: isExplorationBlock
+        ? {
+            config: getInitialConfigByBlockType(bType, defaultDatasourceId),
+          }
+        : undefined,
     });
 
     setStagedAddBlock(blockData);

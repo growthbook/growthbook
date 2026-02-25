@@ -307,6 +307,9 @@ export const dashboardBlockInterface = z.discriminatedUnion("type", [
 ]);
 export const apiDashboardBlockInterface = z.discriminatedUnion("type", [
   apiMetricExplorerBlockInterface,
+  metricExplorationBlockInterface,
+  factTableExplorationBlockInterface,
+  dataSourceExplorationBlockInterface,
   ...standardAndApiCommonBlocks,
 ]);
 export const legacyDashboardBlockInterface = z.discriminatedUnion("type", [

@@ -10,7 +10,7 @@ import {
   snapshotSatisfiesBlock,
   DashboardInterface,
   MetricExplorerBlockInterface,
-  SqlExplorerBlockInterface,
+  DashboardBlockInterface,
 } from "shared/enterprise";
 import {
   ExperimentSnapshotAnalysisSettings,
@@ -36,6 +36,8 @@ import {
   determineNextDate,
 } from "back-end/src/services/experiments";
 import { createMetricAnalysis } from "back-end/src/services/metric-analysis";
+import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
+import { logger } from "back-end/src/util/logger";
 
 /**
  * Determines if nextUpdate should be recalculated based on changes to auto-updates or schedule
@@ -199,11 +201,15 @@ export async function updateExperimentDashboards({
     const editableBlocks = dashboard.blocks.map((block) =>
       block.type === "metric-explorer" ? { ...block } : block,
     );
-    const blockUpdated = await updateDashboardMetricAnalyses(
+    const metricAnalysesUpdated = await updateDashboardMetricAnalyses(
       context,
       editableBlocks,
     );
-    if (blockUpdated) {
+    const explorationsUpdated = await updateDashboardExplorations(
+      context,
+      editableBlocks,
+    );
+    if (metricAnalysesUpdated || explorationsUpdated) {
       await context.models.dashboards.dangerousUpdateBypassPermission(
         dashboard,
         { blocks: editableBlocks },
@@ -220,6 +226,7 @@ export async function updateNonExperimentDashboard(
   const newBlocks = dashboard.blocks.map((block) => ({ ...block }));
   await updateDashboardMetricAnalyses(context, newBlocks);
   await updateDashboardSavedQueries(context, newBlocks);
+  await updateDashboardExplorations(context, newBlocks);
   await context.models.dashboards.dangerousUpdateBypassPermission(dashboard, {
     blocks: newBlocks,
     nextUpdate:
@@ -298,6 +305,59 @@ export async function updateDashboardMetricAnalyses(
   return results.some((updated) => updated);
 }
 
+const PRODUCT_ANALYTICS_EXPLORATION_BLOCK_TYPES = [
+  "metric-exploration",
+  "fact-table-exploration",
+  "data-source-exploration",
+] as const;
+
+function isProductAnalyticsExplorationBlock(
+  block: DashboardInterface["blocks"][number],
+): block is DashboardInterface["blocks"][number] & {
+  explorerAnalysisId: string;
+  config: import("shared/validators").ProductAnalyticsConfig;
+} {
+  return (
+    PRODUCT_ANALYTICS_EXPLORATION_BLOCK_TYPES.includes(
+      block.type as (typeof PRODUCT_ANALYTICS_EXPLORATION_BLOCK_TYPES)[number],
+    ) &&
+    "explorerAnalysisId" in block &&
+    typeof (block as { explorerAnalysisId?: string }).explorerAnalysisId ===
+      "string" &&
+    (block as { explorerAnalysisId: string }).explorerAnalysisId.length > 0 &&
+    "config" in block &&
+    (block as { config?: unknown }).config != null
+  );
+}
+
+// Returns a boolean indicating whether the blocks have been modified and will need to be saved to db
+export async function updateDashboardExplorations(
+  context: ReqContext | ApiReqContext,
+  blocks: DashboardInterface["blocks"],
+): Promise<boolean> {
+  const explorationBlocks = blocks.filter(isProductAnalyticsExplorationBlock);
+  if (explorationBlocks.length === 0) return false;
+
+  let anyUpdated = false;
+  for (const block of explorationBlocks) {
+    try {
+      const exploration = await runProductAnalyticsExploration(
+        context,
+        block.config,
+        { skipCache: true },
+      );
+      block.explorerAnalysisId = exploration.id;
+      anyUpdated = true;
+    } catch (e) {
+      logger.warn(
+        { err: e, blockId: block.id, blockType: block.type },
+        "Failed to refresh product analytics exploration block",
+      );
+    }
+  }
+  return anyUpdated;
+}
+
 export async function updateDashboardSavedQueries(
   context: ReqContext | ApiReqContext,
   blocks: DashboardInterface["blocks"],
@@ -305,10 +365,20 @@ export async function updateDashboardSavedQueries(
   const savedQueries = await context.models.savedQueries.getByIds([
     ...new Set(
       blocks
-        .filter((block) => block.type === "sql-explorer" && block.savedQueryId)
-        .map((block: SqlExplorerBlockInterface) => block.savedQueryId!),
+        .filter(
+          (
+            block,
+          ): block is Extract<
+            DashboardBlockInterface,
+            { savedQueryId: string }
+          > =>
+            blockHasFieldOfType(block, "savedQueryId", isString) &&
+            block.savedQueryId.length > 0,
+        )
+        .map((block) => block.savedQueryId),
     ),
   ]);
+
   const datasourceIds: string[] = [
     ...new Set<string>(savedQueries.map(({ datasourceId }) => datasourceId)),
   ];
