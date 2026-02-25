@@ -1,63 +1,93 @@
-import { UpdateFactTableProps } from "shared/types/fact-table";
-import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
-import { isAllowedApiManagedFactTableUpdate } from "../../src/models/FactTableModel";
+import {
+  FactTableInterface,
+  UpdateFactTableProps,
+} from "shared/types/fact-table";
+import { ReqContext } from "back-end/types/request";
+import { updateFactTable } from "../../src/models/FactTableModel";
 
-type FactTableIdentity = {
-  id: string;
-  datasource: string;
-};
+describe("updateFactTable", () => {
+  const factTable: FactTableInterface = {
+    organization: "org_123",
+    id: "ftb_123",
+    managedBy: "api",
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    name: "Fact Table",
+    description: "",
+    owner: "owner",
+    projects: [],
+    tags: [],
+    datasource: "ds_123",
+    userIdTypes: [],
+    sql: "SELECT 1",
+    eventName: "",
+    columns: [],
+    filters: [],
+  };
 
-describe("isAllowedApiManagedFactTableUpdate", () => {
-  it("allows default API-managed update fields for non-managed-warehouse tables", () => {
-    const factTable: FactTableIdentity = {
-      id: "ftb_123",
-      datasource: "ds_123",
-    };
+  const getContext = () => {
+    const canUpdateFactTable = jest.fn().mockReturnValue(false);
+    const throwPermissionError = jest.fn(() => {
+      throw new Error("permission denied");
+    });
+
+    const context = {
+      permissions: {
+        canUpdateFactTable,
+        throwPermissionError,
+      },
+    } as unknown as ReqContext;
+
+    return { context, canUpdateFactTable };
+  };
+
+  it("allows columns-only changes for API-managed tables", async () => {
     const changes: UpdateFactTableProps = {
       columns: [],
-      userIdTypes: ["user_id"],
     };
+    const { context, canUpdateFactTable } = getContext();
 
-    expect(isAllowedApiManagedFactTableUpdate(factTable, changes)).toBeTruthy();
+    await expect(updateFactTable(context, factTable, changes)).rejects.toThrow(
+      "permission denied",
+    );
+    expect(canUpdateFactTable).toHaveBeenCalledWith(factTable, changes);
   });
 
-  it("rejects columnsError for non-managed-warehouse tables", () => {
-    const factTable: FactTableIdentity = {
-      id: "ftb_123",
-      datasource: "ds_123",
-    };
+  it("rejects columnsError (system side-effect, not user-specified)", async () => {
     const changes: UpdateFactTableProps = {
       columns: [],
       columnsError: null,
     };
+    const { context, canUpdateFactTable } = getContext();
 
-    expect(isAllowedApiManagedFactTableUpdate(factTable, changes)).toBeFalsy();
+    await expect(updateFactTable(context, factTable, changes)).rejects.toThrow(
+      "Cannot update fact table managed by API if the request isn't from the API.",
+    );
+    expect(canUpdateFactTable).not.toHaveBeenCalled();
   });
 
-  it(`allows managed warehouse ${MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID} refresh fields`, () => {
-    const factTable: FactTableIdentity = {
-      id: MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
-      datasource: "managed_warehouse",
-    };
+  it("rejects userIdTypes (system side-effect, not user-specified)", async () => {
     const changes: UpdateFactTableProps = {
       columns: [],
       userIdTypes: ["user_id"],
-      columnsError: null,
-      columnRefreshPending: false,
     };
+    const { context, canUpdateFactTable } = getContext();
 
-    expect(isAllowedApiManagedFactTableUpdate(factTable, changes)).toBeTruthy();
+    await expect(updateFactTable(context, factTable, changes)).rejects.toThrow(
+      "Cannot update fact table managed by API if the request isn't from the API.",
+    );
+    expect(canUpdateFactTable).not.toHaveBeenCalled();
   });
 
-  it(`still rejects unrelated fields for managed warehouse ${MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID}`, () => {
-    const factTable: FactTableIdentity = {
-      id: MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
-      datasource: "managed_warehouse",
-    };
+  it("rejects unrelated fields like name", async () => {
     const changes: UpdateFactTableProps = {
       name: "Updated Name",
     };
+    const { context, canUpdateFactTable } = getContext();
 
-    expect(isAllowedApiManagedFactTableUpdate(factTable, changes)).toBeFalsy();
+    await expect(updateFactTable(context, factTable, changes)).rejects.toThrow(
+      "Cannot update fact table managed by API if the request isn't from the API.",
+    );
+    expect(canUpdateFactTable).not.toHaveBeenCalled();
   });
 });

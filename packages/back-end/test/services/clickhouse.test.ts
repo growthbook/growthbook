@@ -11,7 +11,7 @@ import {
 } from "back-end/src/services/clickhouse";
 import {
   getFactTablesForDatasource,
-  updateFactTable,
+  updateFactTableColumns,
 } from "back-end/src/models/FactTableModel";
 import {
   lockDataSource,
@@ -41,7 +41,7 @@ jest.mock("back-end/src/util/secrets", () => ({
 
 jest.mock("back-end/src/models/FactTableModel", () => ({
   getFactTablesForDatasource: jest.fn(),
-  updateFactTable: jest.fn(),
+  updateFactTableColumns: jest.fn(),
 }));
 
 jest.mock("back-end/src/models/DataSourceModel", () => ({
@@ -50,7 +50,7 @@ jest.mock("back-end/src/models/DataSourceModel", () => ({
 }));
 
 const mockGetFactTablesForDatasource = jest.mocked(getFactTablesForDatasource);
-const mockUpdateFactTable = jest.mocked(updateFactTable);
+const mockUpdateFactTableColumns = jest.mocked(updateFactTableColumns);
 const mockLockDataSource = jest.mocked(lockDataSource);
 const mockUnlockDataSource = jest.mocked(unlockDataSource);
 
@@ -238,7 +238,7 @@ describe("updateMaterializedColumns", () => {
     mockCommand.mockResolvedValue(undefined);
     mockLockDataSource.mockResolvedValue(undefined as never);
     mockUnlockDataSource.mockResolvedValue(undefined as never);
-    mockUpdateFactTable.mockResolvedValue(undefined as never);
+    mockUpdateFactTableColumns.mockResolvedValue(undefined as never);
   });
 
   it("restores an existing deleted column when adding a materialized column with the same name", async () => {
@@ -268,8 +268,8 @@ describe("updateMaterializedColumns", () => {
       originalColumns: [],
     });
 
-    expect(mockUpdateFactTable).toHaveBeenCalledTimes(1);
-    const changes = mockUpdateFactTable.mock.calls[0][2] as {
+    expect(mockUpdateFactTableColumns).toHaveBeenCalledTimes(1);
+    const changes = mockUpdateFactTableColumns.mock.calls[0][1] as {
       columns: ColumnInterface[];
       userIdTypes: string[];
     };
@@ -307,8 +307,8 @@ describe("updateMaterializedColumns", () => {
       originalColumns: [],
     });
 
-    expect(mockUpdateFactTable).toHaveBeenCalledTimes(1);
-    const changes = mockUpdateFactTable.mock.calls[0][2] as {
+    expect(mockUpdateFactTableColumns).toHaveBeenCalledTimes(1);
+    const changes = mockUpdateFactTableColumns.mock.calls[0][1] as {
       columns: ColumnInterface[];
       userIdTypes: string[];
     };
