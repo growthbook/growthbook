@@ -1,0 +1,134 @@
+.searchContainer {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 8px 12px 8px 36px;
+  border: 1px solid var(--gray-a6, #d0d5dd);
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 20px;
+  background: var(--color-background, #fff);
+  color: var(--gray-12, #111);
+  outline: none;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+
+  &::placeholder {
+    color: var(--gray-a8, #999);
+  }
+
+  &:focus {
+    border-color: var(--accent-9, #6e56cf);
+    box-shadow: 0 0 0 2px var(--accent-a4, rgba(110, 86, 207, 0.15));
+  }
+}
+
+.searchIcon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--gray-a8, #999);
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+}
+
+.clearButton {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--gray-a8, #999);
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  border-radius: 4px;
+
+  &:hover {
+    color: var(--gray-12, #111);
+    background: var(--gray-a3, #f0f0f0);
+  }
+}
+
+.dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--color-background, #fff);
+  border: 1px solid var(--gray-a6, #d0d5dd);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  max-height: 360px;
+  overflow-y: auto;
+  z-index: 100;
+  padding: 4px;
+}
+
+.dropdownItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.1s;
+
+  &:hover,
+  &.active {
+    background: var(--accent-a3, rgba(110, 86, 207, 0.08));
+  }
+}
+
+.itemLabel {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--gray-12, #111);
+  flex: 1;
+}
+
+.itemTab {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--accent-11, #6e56cf);
+  background: var(--accent-a3, rgba(110, 86, 207, 0.08));
+  padding: 2px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.noResults {
+  padding: 12px;
+  text-align: center;
+  color: var(--gray-a8, #999);
+  font-size: 13px;
+}
+
+.hint {
+  padding: 6px 12px 2px;
+  font-size: 11px;
+  color: var(--gray-a8, #999);
+}
+
+@keyframes settingsHighlight {
+  0% {
+    box-shadow: 0 0 0 3px var(--accent-a6, rgba(110, 86, 207, 0.3));
+  }
+  100% {
+    box-shadow: 0 0 0 0px transparent;
+  }
+}
+
+:global(.settings-highlight) {
+  animation: settingsHighlight 1.5s ease-out;
+  border-radius: 8px;
+}

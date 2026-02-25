@@ -1,5 +1,5 @@
 import cronstrue from "cronstrue";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { FormProvider, useForm, useFormContext } from "react-hook-form";
 import isEqual from "lodash/isEqual";
 import {
@@ -48,6 +48,8 @@ import { AppFeatures } from "@/types/app-features";
 import { StickyTabsList, Tabs, TabsContent, TabsTrigger } from "@/ui/Tabs";
 import Frame from "@/ui/Frame";
 import SavedGroupSettings from "@/components/GeneralSettings/SavedGroupSettings";
+import SettingsSearchBar from "@/components/GeneralSettings/SettingsSearchBar";
+import { SETTINGS_SEARCH_ITEMS } from "@/components/GeneralSettings/settingsSearchItems";
 
 export const ConnectSettingsForm = ({ children }) => {
   const methods = useFormContext();
@@ -324,6 +326,31 @@ const GeneralSettingsPage = (): React.ReactElement => {
     );
   }, [codeRefsBranchesToFilterStr]);
 
+  const handleSearchNavigate = useCallback(
+    (tab: string | null, sectionId: string) => {
+      if (tab) {
+        // eslint-disable-next-line no-restricted-syntax
+        window.history.replaceState(
+          window.history.state,
+          "",
+          `${window.location.pathname}${window.location.search}#${tab}`,
+        );
+        window.dispatchEvent(new HashChangeEvent("hashchange"));
+      }
+
+      requestAnimationFrame(() => {
+        const el = document.getElementById(sectionId);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
+          el.classList.remove("settings-highlight");
+          void el.offsetWidth;
+          el.classList.add("settings-highlight");
+        }
+      });
+    },
+    [],
+  );
+
   // I Don't think this works as intended - the hasChanges(value, originalValue) always seems to return true.
   const ctaEnabled =
     hasChanges(value, originalValue) || promptForm.formState.isDirty;
@@ -403,10 +430,16 @@ const GeneralSettingsPage = (): React.ReactElement => {
   return (
     <FormProvider {...form}>
       <Box className="container-fluid pagecontents" mb="4">
-        <Heading as="h1" size="5" mb="3">
-          General Settings
-        </Heading>
-        <Box mb="5">
+        <Flex justify="between" align="end" mb="3" wrap="wrap" gap="3">
+          <Heading as="h1" size="5" mb="0">
+            General Settings
+          </Heading>
+          <SettingsSearchBar
+            items={SETTINGS_SEARCH_ITEMS}
+            onNavigate={handleSearchNavigate}
+          />
+        </Flex>
+        <Box mb="5" id="org-license-settings">
           <OrganizationAndLicenseSettings
             org={organization}
             refreshOrg={refreshOrganization}
@@ -433,67 +466,85 @@ const GeneralSettingsPage = (): React.ReactElement => {
           </StickyTabsList>
           <Box mt="4">
             <TabsContent value="experiment">
-              <ExperimentSettings
-                cronString={cronString}
-                updateCronString={updateCronString}
-              />
+              <div id="experiment-settings">
+                <ExperimentSettings
+                  cronString={cronString}
+                  updateCronString={updateCronString}
+                />
+              </div>
               {growthbook.isOn("bandits") && (
-                <Frame mb="4">
-                  <BanditSettings page="org-settings" />
-                </Frame>
+                <div id="bandit-settings">
+                  <Frame mb="4">
+                    <BanditSettings page="org-settings" />
+                  </Frame>
+                </div>
               )}
             </TabsContent>
 
             <TabsContent value="feature">
-              <FeatureSettings />
+              <div id="feature-settings">
+                <FeatureSettings />
+              </div>
             </TabsContent>
 
             <TabsContent value="metrics">
               <>
-                <MetricsSettings />
-                <DatasourceSettings />
-                <NorthStarMetricSettings />
+                <div id="metric-settings">
+                  <MetricsSettings />
+                </div>
+                <div id="datasource-settings">
+                  <DatasourceSettings />
+                </div>
+                <div id="northstar-settings">
+                  <NorthStarMetricSettings />
+                </div>
               </>
             </TabsContent>
 
             <TabsContent value="import">
-              <ImportSettings
-                hasFileConfig={hasFileConfig()}
-                isCloud={isCloud()}
-                settings={settings}
-                refreshOrg={refreshOrganization}
-              />
+              <div id="import-export">
+                <ImportSettings
+                  hasFileConfig={hasFileConfig()}
+                  isCloud={isCloud()}
+                  settings={settings}
+                  refreshOrg={refreshOrganization}
+                />
+              </div>
             </TabsContent>
 
             <TabsContent value="custom">
-              <Frame>
-                <Flex>
-                  <Box width="300px">
-                    <PremiumTooltip commercialFeature="custom-markdown">
-                      Custom Markdown
-                    </PremiumTooltip>
-                  </Box>
-                  <Box>
-                    {hasCommercialFeature("custom-markdown") ? (
-                      <Link href="/settings/custom-markdown">
-                        View Custom Markdown Settings
-                      </Link>
-                    ) : (
-                      <span className="text-muted">
-                        View Custom Markdown Settings
-                      </span>
-                    )}
-                  </Box>
-                </Flex>
-              </Frame>
+              <div id="custom-markdown">
+                <Frame>
+                  <Flex>
+                    <Box width="300px">
+                      <PremiumTooltip commercialFeature="custom-markdown">
+                        Custom Markdown
+                      </PremiumTooltip>
+                    </Box>
+                    <Box>
+                      {hasCommercialFeature("custom-markdown") ? (
+                        <Link href="/settings/custom-markdown">
+                          View Custom Markdown Settings
+                        </Link>
+                      ) : (
+                        <span className="text-muted">
+                          View Custom Markdown Settings
+                        </span>
+                      )}
+                    </Box>
+                  </Flex>
+                </Frame>
+              </div>
             </TabsContent>
             <TabsContent value="ai">
-              <AISettings promptForm={promptForm} />
+              <div id="ai-settings">
+                <AISettings promptForm={promptForm} />
+              </div>
             </TabsContent>
             <TabsContent value="sdk">
-              <>
+              <div id="sdk-configuration">
                 <SavedGroupSettings />
-              </>
+              </div>
             </TabsContent>
           </Box>
         </Tabs>
