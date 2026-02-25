@@ -59,11 +59,10 @@ export default function ExplorerSideBar({
         <Callout status="error">{error}</Callout>
       ) : null}
       <Flex justify="between" align="center" height="32px" py="2">
-        <Text weight="medium" mt="2">
-          Configuration
-        </Text>
         {!renderingInDashboardSidebar ? (
-          <Button size="sm">Save to Dashboard</Button>
+          <Button size="sm" ml="auto">
+            Save to Dashboard
+          </Button>
         ) : (
           <Flex direction="row">
             <Tooltip

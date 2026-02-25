@@ -37,13 +37,13 @@ const chartTypes: {
   {
     groupLabel: "Cumulative",
     items: [
-      { value: "table", label: "Table", icon: PiTable },
       { value: "bar", label: "Bar", icon: PiChartBar },
       {
         value: "horizontalBar",
         label: "Horizontal Bar",
         icon: PiChartBarHorizontal,
       },
+      { value: "table", label: "Table", icon: PiTable },
       { value: "bigNumber", label: "Big Number", icon: PiHash },
     ],
   },

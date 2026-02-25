@@ -304,7 +304,7 @@ export function calculateProductAnalyticsDateRange(
 }
 
 // Get date granularity
-function getDateGranularity(
+export function getDateGranularity(
   granularity: "auto" | "hour" | "day" | "week" | "month" | "year",
   dateRange: DateRange,
 ): "hour" | "day" | "week" | "month" | "year" {

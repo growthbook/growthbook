@@ -127,7 +127,7 @@ export default function GroupBySection() {
       }}
     >
       <Flex justify="between" align="center">
-        <Text weight="medium">Group by (Dimensions)</Text>
+        <Text weight="medium">Group By</Text>
         <Button
           size="xs"
           variant="ghost"

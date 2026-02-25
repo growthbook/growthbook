@@ -3,9 +3,9 @@ import {
   ProductAnalyticsExploration,
   productAnalyticsExplorationValidator,
 } from "shared/validators";
-import { MakeModelClass } from "./BaseModel";
 import md5 from "md5";
 import { calculateProductAnalyticsDateRange } from "shared/enterprise";
+import { MakeModelClass } from "./BaseModel";
 
 const COLLECTION_NAME = "analyticsexploration";
 const BaseClass = MakeModelClass({
@@ -77,7 +77,7 @@ export class AnalyticsExplorationModel extends BaseClass {
         datasource: config.datasource,
         status: "success",
         configHash: configHashes.generalSettingsHash,
-        valueHashes: { $all: configHashes.valueHashes },
+        valueHashes: { $eq: configHashes.valueHashes },
       },
       { sort: { dateCreated: -1 }, limit: 5 },
     );
@@ -127,7 +127,7 @@ export class AnalyticsExplorationModel extends BaseClass {
 
     // 3. Return if it's a good enough match
     // This is a balance between accurate results and cache hit rates (i.e. query costs)
-    if (bestMatch.score >= 0.85) {
+    if (bestMatch.score >= 0.9) {
       return bestMatch.analysis;
     }
 

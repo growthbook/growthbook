@@ -34,12 +34,14 @@ export default function Toolbar() {
 
         {/* Right Side */}
         <Flex align="center" gap="3">
-          <Checkbox
-            label="Auto submit"
-            value={autoSubmitEnabled}
-            setValue={setAutoSubmitEnabled}
-            size="sm"
-          />
+          <Tooltip body="Automatically update the chart as you make changes.">
+            <Checkbox
+              label="Auto"
+              value={autoSubmitEnabled}
+              setValue={setAutoSubmitEnabled}
+              size="sm"
+            />
+          </Tooltip>
           <Tooltip
             body="Configuration has changed. Click to refresh the chart."
             shouldDisplay={isStale}
@@ -88,9 +90,9 @@ export default function Toolbar() {
         {/* Right Side */}
         <Flex align="center" gap="3">
           <DateRangePicker />
-          {["line", "area"].includes(draftExploreState.chartType) && (
-            <GranularitySelector />
-          )}
+          {["line", "area", "timeseries-table"].includes(
+            draftExploreState.chartType,
+          ) && <GranularitySelector />}
         </Flex>
       </Flex>
     </Flex>

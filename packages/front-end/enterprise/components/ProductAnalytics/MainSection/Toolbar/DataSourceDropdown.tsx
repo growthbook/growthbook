@@ -1,11 +1,11 @@
 import React, { useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { PiDatabase, PiCheck } from "react-icons/pi";
-import Button from "@/ui/Button";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Text from "@/ui/Text";
+import Link from "@/ui/Link";
 
 export default function DataSourceDropdown() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -24,12 +24,12 @@ export default function DataSourceDropdown() {
       open={dropdownOpen}
       onOpenChange={setDropdownOpen}
       trigger={
-        <Button variant="ghost">
+        <Link>
           <Flex align="center" gap="2">
             <PiDatabase />
             <Text weight="medium">{triggerLabel}</Text>
           </Flex>
-        </Button>
+        </Link>
       }
     >
       {datasources.map((ds) =>
