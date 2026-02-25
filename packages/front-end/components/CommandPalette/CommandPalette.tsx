@@ -1,6 +1,5 @@
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
-import MiniSearch from "minisearch";
 import {
   BsSearch,
   BsToggleOn,
@@ -14,6 +13,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useFeaturesNames } from "@/hooks/useFeaturesNames";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useDashboards } from "@/hooks/useDashboards";
+import { buildCommandPaletteIndex, combinedSearch } from "./searchUtils";
 import styles from "./CommandPalette.module.scss";
 
 type CommandPaletteItemType =
@@ -221,30 +221,13 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
   ]);
 
   // MiniSearch index
-  const miniSearch = useMemo(() => {
-    const ms = new MiniSearch<CommandPaletteItem>({
-      fields: ["name", "description", "tags"],
-      storeFields: ["name"],
-      searchOptions: {
-        boost: { name: 3, description: 1 },
-        fuzzy: 0.2,
-        prefix: true,
-      },
-    });
-    try {
-      ms.addAll(items);
-    } catch (e) {
-      console.error("CommandPalette: error building search index", e);
-    }
-    return ms;
-  }, [items]);
+  const miniSearch = useMemo(() => buildCommandPaletteIndex(items), [items]);
 
   // Search results grouped by section
   const groupedResults = useMemo(() => {
     if (!query.trim()) return null;
 
-    const raw = miniSearch.search(query.trim());
-    const itemMap = new Map(items.map((i) => [i.id, i]));
+    const ordered = combinedSearch(miniSearch, items, query.trim());
     const groups: Record<CommandPaletteItemType, CommandPaletteItem[]> = {
       feature: [],
       experiment: [],
@@ -253,9 +236,7 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
       dashboard: [],
     };
 
-    for (const r of raw) {
-      const item = itemMap.get(r.id);
-      if (!item) continue;
+    for (const item of ordered) {
       if (groups[item.type].length < MAX_PER_SECTION) {
         groups[item.type].push(item);
       }
