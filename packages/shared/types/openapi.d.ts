@@ -433,8 +433,6 @@ export interface paths {
     get: operations["getTeam"];
     /** Update a single team */
     put: operations["updateTeam"];
-    /** Delete a single team */
-    delete: operations["deleteTeam"];
   };
   "/teams": {
     /** Get all teams */
@@ -443,8 +441,14 @@ export interface paths {
     post: operations["createTeam"];
   };
   "/teams/{teamId}/members": {
+    /** Add members to team */
     post: operations["addTeamMembers"];
+    /** Remove members from team */
     delete: operations["removeTeamMember"];
+  };
+  "/teams/{teamId}/": {
+    /** Delete a single team */
+    delete: operations["deleteTeam"];
   };
 }
 
@@ -16556,23 +16560,6 @@ export interface operations {
       };
     };
   };
-  deleteTeam: {
-    /** Delete a single team */
-    parameters: {
-      path: {
-        id: string;
-      };
-    };
-    responses: {
-      200: {
-        content: {
-          "application/json": {
-            deletedId: string;
-          };
-        };
-      };
-    };
-  };
   listTeams: {
     /** Get all teams */
     responses: {
@@ -16679,6 +16666,7 @@ export interface operations {
     };
   };
   addTeamMembers: {
+    /** Add members to team */
     parameters: {
       path: {
         teamId: string;
@@ -16702,6 +16690,7 @@ export interface operations {
     };
   };
   removeTeamMember: {
+    /** Remove members from team */
     parameters: {
       path: {
         teamId: string;
@@ -16719,6 +16708,26 @@ export interface operations {
         content: {
           "application/json": {
             status: number;
+          };
+        };
+      };
+    };
+  };
+  deleteTeam: {
+    /** Delete a single team */
+    parameters: {
+      query: {
+        deleteMembers?: string;
+      };
+      path: {
+        teamId: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
           };
         };
       };
