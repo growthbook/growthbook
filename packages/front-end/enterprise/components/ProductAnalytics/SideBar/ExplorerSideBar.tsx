@@ -1,18 +1,21 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useState } from "react";
 import { Flex, Box } from "@radix-ui/themes";
 import { DatasetType } from "shared/validators";
 import { PiArrowsClockwise } from "react-icons/pi";
+import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import Text from "@/ui/Text";
 import SelectField from "@/components/Forms/SelectField";
 import Button from "@/ui/Button";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useUser } from "@/services/UserContext";
 import GraphTypeSelector from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/GraphTypeSelector";
 import DateRangePicker from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DateRangePicker";
 import GranularitySelector from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/GranularitySelector";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
 import DataSourceDropdown from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DataSourceDropdown";
+import SaveToDashboardModal from "@/enterprise/components/ProductAnalytics/SaveToDashboardModal";
 import MetricTabContent from "./MetricTabContent";
 import FactTableTabContent from "./FactTableTabContent";
 import DatasourceTabContent from "./DatasourceTabContent";
@@ -26,6 +29,8 @@ interface Props {
 export default function ExplorerSideBar({
   renderingInDashboardSidebar = false,
 }: Props) {
+  const [showSaveToDashboardModal, setShowSaveToDashboardModal] =
+    useState(false);
   const {
     draftExploreState,
     setDraftExploreState,
@@ -37,7 +42,24 @@ export default function ExplorerSideBar({
     isStale,
     error,
   } = useExplorerContext();
-  const { factTables } = useDefinitions();
+  const { factTables, project } = useDefinitions();
+  const { hasCommercialFeature, permissionsUtil } = useUser();
+  const canCreateDashboards = permissionsUtil.canCreateGeneralDashboards({
+    projects: [project],
+  });
+  const canEditDashboards = permissionsUtil.canUpdateGeneralDashboards({
+    projects: [project],
+  });
+  const hasDashboardsFeature = hasCommercialFeature(
+    "product-analytics-dashboards",
+  );
+  const saveToDashboardDisabledReason = !hasDashboardsFeature
+    ? "Upgrade to a paid plan to save explorations to dashboards."
+    : !canEditDashboards && !canCreateDashboards
+      ? "You do not have permission to create or edit dashboards."
+      : !isSubmittable
+        ? "Configure a valid exploration before saving."
+        : undefined;
 
   const dataset = draftExploreState.dataset;
   const activeType: DatasetType = dataset?.type ?? "metric";
@@ -60,14 +82,35 @@ export default function ExplorerSideBar({
       gap="4"
       p={renderingInDashboardSidebar ? "0" : "2"}
     >
+      {showSaveToDashboardModal && (
+        <SaveToDashboardModal
+          close={() => setShowSaveToDashboardModal(false)}
+        />
+      )}
       {error && renderingInDashboardSidebar ? (
         <Callout status="error">{error}</Callout>
       ) : null}
-      <Flex justify="between" align="center" height="32px" py="2">
+      <Flex justify="end" height="32px" py="2">
         {!renderingInDashboardSidebar ? (
-          <Button size="sm" ml="auto">
-            Save to Dashboard
-          </Button>
+          <Tooltip
+            body={saveToDashboardDisabledReason || ""}
+            shouldDisplay={!!saveToDashboardDisabledReason}
+          >
+            <Button
+              size="sm"
+              ml="auto"
+              disabled={!!saveToDashboardDisabledReason}
+              onClick={() => setShowSaveToDashboardModal(true)}
+            >
+              <Flex align="center" justify="center" gap="2">
+                <PaidFeatureBadge
+                  commercialFeature="product-analytics-dashboards"
+                  useTip={false}
+                />
+                Save to Dashboard
+              </Flex>
+            </Button>
+          </Tooltip>
         ) : (
           <Flex direction="row" align="center" justify="between" width="100%">
             <DataSourceDropdown />
