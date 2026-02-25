@@ -26,7 +26,7 @@ import {
   isSubmittableConfig,
   validateDimensions,
 } from "@/enterprise/components/ProductAnalytics/util";
-import { useExploreData } from "./useExploreData";
+import { useExploreData, CacheOption } from "./useExploreData";
 
 type ExplorerCacheValue = {
   draftState: ProductAnalyticsConfig | null;
@@ -52,15 +52,13 @@ export interface ExplorerContextValue {
   error: string | null;
   commonColumns: Pick<ColumnInterface, "column" | "name">[];
   isEmpty: boolean;
-  autoSubmitEnabled: boolean;
-  setAutoSubmitEnabled: (enabled: boolean) => void;
   isStale: boolean;
   needsUpdate: boolean;
   isSubmittable: boolean;
 
   // ─── Modifiers ─────────────────────────────────────────────────────────
   setDraftExploreState: (action: SetDraftStateAction) => void;
-  handleSubmit: () => Promise<void>;
+  handleSubmit: (options?: { force?: boolean }) => Promise<void>;
   addValueToDataset: (datasetType: DatasetType) => void;
   updateValueInDataset: (index: number, value: ProductAnalyticsValue) => void;
   deleteValueFromDataset: (index: number) => void;
@@ -70,7 +68,7 @@ export interface ExplorerContextValue {
   clearAllDatasets: (newDatasourceId?: string) => void;
 }
 const ExplorerContext = createContext<ExplorerContextValue | null>(null);
-const DEFAULT_AUTO_SUBMIT = true;
+
 interface ExplorerProviderProps {
   children: ReactNode;
   initialConfig?: ProductAnalyticsConfig;
@@ -106,8 +104,7 @@ export function ExplorerProvider({
         : {}),
     };
   });
-  const [autoSubmitEnabled, setAutoSubmitEnabled] =
-    useState(DEFAULT_AUTO_SUBMIT);
+  const [isStale, setIsStale] = useState(false);
 
   const isEmpty = activeExplorerType === null;
 
@@ -161,14 +158,12 @@ export function ExplorerProvider({
     ],
   );
 
-  /** Set autoSubmitEnabled based on datasource type */
-  useEffect(() => {
-    if (!draftExploreState.datasource) return;
+  const isManagedWarehouse = useMemo(() => {
+    if (!draftExploreState.datasource) return false;
     const datasource = datasources.find(
       (d) => d.id === draftExploreState.datasource,
     );
-    if (!datasource) return;
-    setAutoSubmitEnabled(datasource.type === "growthbook_clickhouse");
+    return datasource?.type === "growthbook_clickhouse";
   }, [datasources, draftExploreState.datasource]);
 
   const setSubmittedExploreState = useCallback(
@@ -216,40 +211,79 @@ export function ExplorerProvider({
     return isSubmittableConfig(cleanedDraftExploreState);
   }, [cleanedDraftExploreState]);
 
-  const isStale =
-    needsUpdate && needsFetch && !autoSubmitEnabled && isSubmittable;
+  const doSubmit = useCallback(
+    async (options?: { cache?: CacheOption }) => {
+      if (isEmpty || !isSubmittable) return;
+      const cache: CacheOption =
+        options?.cache ?? (isManagedWarehouse ? "preferred" : "required");
 
-  const doSubmit = useCallback(async () => {
-    if (isEmpty || !isSubmittable) return;
-    setSubmittedExploreState(cleanedDraftExploreState);
-    const { data, error } = await fetchData(cleanedDraftExploreState);
-    setExplorerCache((prev) => ({
-      ...prev,
-      [activeExplorerType]: {
-        ...prev[activeExplorerType],
-        exploration: data,
-        error: error || data?.error || null,
-      },
-    }));
-    if (data) onRunComplete?.(data);
-  }, [
-    setSubmittedExploreState,
-    fetchData,
-    activeExplorerType,
-    isEmpty,
-    isSubmittable,
-    cleanedDraftExploreState,
-    onRunComplete,
-  ]);
+      // Pre-emptively set the submitted state since we are expecting a result
+      if (cache === "never" || cache === "preferred") {
+        setSubmittedExploreState(cleanedDraftExploreState);
+      }
 
-  const handleSubmit = useCallback(async () => {
-    await doSubmit();
-  }, [doSubmit]);
+      // Do the fetch
+      const { data: fetchResult, error: fetchError } = await fetchData(
+        cleanedDraftExploreState,
+        { cache },
+      );
+
+      // Cache miss when cache=required
+      if (cache === "required" && fetchResult === null && !fetchError) {
+        setIsStale(true);
+        return;
+      }
+
+      // Clear staleness when there is an error
+      if (fetchError) {
+        setIsStale(false);
+      }
+
+      // Set staleness to false when there is a result
+      if (fetchResult) {
+        if (cache === "required") {
+          setSubmittedExploreState(cleanedDraftExploreState);
+        }
+        setIsStale(false);
+      }
+
+      setExplorerCache((prev) => ({
+        ...prev,
+        [activeExplorerType]: {
+          ...prev[activeExplorerType],
+          exploration: fetchResult,
+          error: fetchError || fetchResult?.error || null,
+        },
+      }));
+      if (fetchResult) onRunComplete?.(fetchResult);
+    },
+    [
+      setSubmittedExploreState,
+      fetchData,
+      activeExplorerType,
+      isEmpty,
+      isSubmittable,
+      cleanedDraftExploreState,
+      onRunComplete,
+      isManagedWarehouse,
+    ],
+  );
+
+  const handleSubmit = useCallback(
+    async (submitOptions?: { force?: boolean }) => {
+      if (submitOptions?.force) {
+        await doSubmit({ cache: "never" });
+      } else {
+        await doSubmit();
+      }
+    },
+    [doSubmit],
+  );
 
   /** Handle auto-submit based on needsFetch and needsUpdate */
   useEffect(() => {
     if (!isSubmittable) return;
-    if (needsFetch && autoSubmitEnabled) {
+    if (needsFetch) {
       doSubmit();
     } else if (needsUpdate && !needsFetch) {
       setSubmittedExploreState(cleanedDraftExploreState);
@@ -261,8 +295,14 @@ export function ExplorerProvider({
     cleanedDraftExploreState,
     setSubmittedExploreState,
     isSubmittable,
-    autoSubmitEnabled,
   ]);
+
+  /** Clear staleness when draft matches submitted (known state) */
+  useEffect(() => {
+    if (isStale && !needsFetch && !needsUpdate) {
+      setIsStale(false);
+    }
+  }, [isStale, needsFetch, needsUpdate]);
 
   const createDefaultValue = useCallback(
     (datasetType: DatasetType): ProductAnalyticsValue => {
@@ -422,6 +462,7 @@ export function ExplorerProvider({
   const clearAllDatasets = useCallback(
     (newDatasourceId?: string) => {
       const datasourceId = newDatasourceId ?? datasources[0]?.id ?? "";
+      setIsStale(false);
       const newExplorerCache: ExplorerCache = {
         metric: null,
         fact_table: null,
@@ -463,8 +504,6 @@ export function ExplorerProvider({
       updateTimestampColumn,
       changeChartType,
       isEmpty,
-      autoSubmitEnabled,
-      setAutoSubmitEnabled,
       isStale,
       needsUpdate,
       isSubmittable,
@@ -486,8 +525,6 @@ export function ExplorerProvider({
       updateTimestampColumn,
       changeChartType,
       isEmpty,
-      autoSubmitEnabled,
-      setAutoSubmitEnabled,
       isStale,
       needsUpdate,
       isSubmittable,

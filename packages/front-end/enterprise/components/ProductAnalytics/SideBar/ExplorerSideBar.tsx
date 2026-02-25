@@ -35,7 +35,6 @@ export default function ExplorerSideBar({
     draftExploreState,
     setDraftExploreState,
     changeDatasetType,
-    autoSubmitEnabled,
     loading,
     handleSubmit,
     isSubmittable,
@@ -120,13 +119,13 @@ export default function ExplorerSideBar({
             >
               <Button
                 size="sm"
-                variant={autoSubmitEnabled ? "outline" : "solid"}
+                variant="solid"
                 disabled={
                   loading ||
                   !draftExploreState?.dataset?.values?.length ||
                   !isSubmittable
                 }
-                onClick={handleSubmit}
+                onClick={() => handleSubmit({ force: true })}
               >
                 <Flex align="center" gap="2">
                   <PiArrowsClockwise />

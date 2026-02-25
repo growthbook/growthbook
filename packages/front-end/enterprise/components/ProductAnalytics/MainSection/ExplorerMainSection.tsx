@@ -19,7 +19,6 @@ export default function ExplorerMainSection() {
     isStale,
     draftExploreState,
     handleSubmit,
-    autoSubmitEnabled,
     isSubmittable,
   } = useExplorerContext();
 
@@ -127,22 +126,23 @@ export default function ExplorerMainSection() {
             style={{
               position: "absolute",
               inset: 0,
-              backgroundColor: "rgba(0, 0, 0, 0.5)",
+              backgroundColor: "rgba(0, 0, 0, 0.3)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
+              borderRadius: "var(--radius-4)",
               zIndex: 100,
             }}
           >
             <Button
               size="sm"
-              variant={autoSubmitEnabled ? "outline" : "solid"}
+              variant="solid"
               disabled={
                 loading ||
                 !draftExploreState?.dataset?.values?.length ||
                 !isSubmittable
               }
-              onClick={handleSubmit}
+              onClick={() => handleSubmit({ force: true })}
             >
               <Flex align="center" gap="2">
                 <PiArrowsClockwise />

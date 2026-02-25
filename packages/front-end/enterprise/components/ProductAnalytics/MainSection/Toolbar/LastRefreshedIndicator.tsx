@@ -83,7 +83,7 @@ export default function LastRefreshedIndicator({
         <DropdownMenuItem
           onClick={async () => {
             setDropdownOpen(false);
-            await handleSubmit?.();
+            await handleSubmit?.({ force: true });
           }}
           disabled={isUpdateDisabled}
         >
