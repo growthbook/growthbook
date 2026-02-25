@@ -1,7 +1,10 @@
 import Agenda, { Job } from "agenda";
 import chunk from "lodash/chunk";
 import { canInlineFilterColumn } from "shared/experiments";
-import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/constants";
+import {
+  DEFAULT_MAX_METRIC_SLICE_LEVELS,
+  MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
+} from "shared/constants";
 import {
   ColumnInterface,
   FactTableColumnType,
@@ -58,7 +61,7 @@ const refreshFactTableColumns = async (job: RefreshFactTableColumnsJob) => {
 
     if (
       datasource.type === "growthbook_clickhouse" &&
-      factTable.id === "ch_events"
+      factTable.id === MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID
     ) {
       const managedUserIdTypes = getManagedWarehouseUserIdTypes(
         datasource,

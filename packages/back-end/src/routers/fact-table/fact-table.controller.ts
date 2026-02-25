@@ -1,4 +1,5 @@
 import type { Response } from "express";
+import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import { canInlineFilterColumn } from "shared/experiments";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { cloneDeep } from "lodash";
@@ -300,7 +301,7 @@ export const putFactTable = async (
 
     if (
       datasource.type === "growthbook_clickhouse" &&
-      factTable.id === "ch_events"
+      factTable.id === MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID
     ) {
       const managedUserIdTypes = getManagedWarehouseUserIdTypes(
         datasource,

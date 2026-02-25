@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
+import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import {
   CreateFactFilterProps,
   CreateFactTableProps,
@@ -92,22 +93,17 @@ function toInterface(doc: FactTableDocument): FactTableInterface {
   return omit(ret, ["__v", "_id"]);
 }
 
-export function isAllowedApiManagedFactTableUpdate(
+export function isUpdateToApiManagedFactTableAllowed(
   factTable: Pick<FactTableInterface, "id" | "datasource">,
   changes: UpdateFactTableProps,
 ): boolean {
   const isManagedWarehouseChEvents =
-    factTable.id === "ch_events" &&
+    factTable.id === MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID &&
     factTable.datasource === "managed_warehouse";
 
   const allowedFields = isManagedWarehouseChEvents
-    ? new Set([
-        "columns",
-        "userIdTypes",
-        "columnsError",
-        "columnRefreshPending",
-      ])
-    : new Set(["columns", "userIdTypes"]);
+    ? new Set(["columns", "userIdTypes"])
+    : new Set(["columns"]);
 
   return Object.keys(changes).every((k) => allowedFields.has(k));
 }
@@ -278,12 +274,11 @@ export async function updateFactTable(
   factTable: FactTableInterface,
   changes: UpdateFactTableProps,
 ) {
-  // Allow changing columns even for API-managed fact tables
-  // and the side-effect of updating userIdTypes.
+  // Allow some updates even if the table is managed by API
   if (
-    !isAllowedApiManagedFactTableUpdate(factTable, changes) &&
     factTable.managedBy === "api" &&
-    context.auditUser?.type !== "api_key"
+    context.auditUser?.type !== "api_key" &&
+    !isUpdateToApiManagedFactTableAllowed(factTable, changes)
   ) {
     throw new Error(
       "Cannot update fact table managed by API if the request isn't from the API.",

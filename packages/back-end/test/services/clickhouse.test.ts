@@ -3,6 +3,7 @@ import {
   GrowthbookClickhouseDataSource,
   MaterializedColumn,
 } from "shared/types/datasource";
+import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import type { ReqContext } from "back-end/types/request";
 import {
   getManagedWarehouseUserIdTypes,
@@ -88,7 +89,7 @@ function makeFactTableColumn(
 
 function makeFactTable(columns: ColumnInterface[]): FactTableInterface {
   return {
-    id: "ch_events",
+    id: MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
     datasource: "managed_warehouse",
     columns,
   } as unknown as FactTableInterface;
@@ -108,20 +109,32 @@ describe("getManagedWarehouseUserIdTypes", () => {
     });
   });
 
-  describe("returns string[] for growthbook_clickhouse + ch_events", () => {
+  describe(`returns string[] for growthbook_clickhouse + ${MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID}`, () => {
     it("returns empty array when materializedColumns are missing", () => {
       const ds = {
         type: "growthbook_clickhouse",
         settings: {},
       } as unknown as GrowthbookClickhouseDataSource;
       const cols = [makeColumn("user_id")];
-      expect(getManagedWarehouseUserIdTypes(ds, "ch_events", cols)).toEqual([]);
+      expect(
+        getManagedWarehouseUserIdTypes(
+          ds,
+          MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
+          cols,
+        ),
+      ).toEqual([]);
     });
 
     it("returns empty array when datasource has no materializedColumns", () => {
       const ds = makeClickhouseDatasource([]);
       const cols = [makeColumn("user_id"), makeColumn("event_name")];
-      expect(getManagedWarehouseUserIdTypes(ds, "ch_events", cols)).toEqual([]);
+      expect(
+        getManagedWarehouseUserIdTypes(
+          ds,
+          MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
+          cols,
+        ),
+      ).toEqual([]);
     });
 
     it("returns empty array when no materialized columns are identifiers", () => {
@@ -130,7 +143,13 @@ describe("getManagedWarehouseUserIdTypes", () => {
         { columnName: "country", type: "string" },
       ]);
       const cols = [makeColumn("revenue"), makeColumn("country")];
-      expect(getManagedWarehouseUserIdTypes(ds, "ch_events", cols)).toEqual([]);
+      expect(
+        getManagedWarehouseUserIdTypes(
+          ds,
+          MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
+          cols,
+        ),
+      ).toEqual([]);
     });
 
     it("returns identifier column names that exist as active columns", () => {
@@ -144,10 +163,13 @@ describe("getManagedWarehouseUserIdTypes", () => {
         makeColumn("device_id"),
         makeColumn("revenue"),
       ];
-      expect(getManagedWarehouseUserIdTypes(ds, "ch_events", cols)).toEqual([
-        "user_id",
-        "device_id",
-      ]);
+      expect(
+        getManagedWarehouseUserIdTypes(
+          ds,
+          MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
+          cols,
+        ),
+      ).toEqual(["user_id", "device_id"]);
     });
 
     it("excludes identifier columns that are deleted in the fact table", () => {
@@ -159,9 +181,13 @@ describe("getManagedWarehouseUserIdTypes", () => {
         makeColumn("user_id"),
         makeColumn("device_id", true), // deleted
       ];
-      expect(getManagedWarehouseUserIdTypes(ds, "ch_events", cols)).toEqual([
-        "user_id",
-      ]);
+      expect(
+        getManagedWarehouseUserIdTypes(
+          ds,
+          MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
+          cols,
+        ),
+      ).toEqual(["user_id"]);
     });
 
     it("returns empty array when all identifier columns are deleted", () => {
@@ -169,7 +195,13 @@ describe("getManagedWarehouseUserIdTypes", () => {
         { columnName: "user_id", type: "identifier" },
       ]);
       const cols = [makeColumn("user_id", true)]; // deleted
-      expect(getManagedWarehouseUserIdTypes(ds, "ch_events", cols)).toEqual([]);
+      expect(
+        getManagedWarehouseUserIdTypes(
+          ds,
+          MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
+          cols,
+        ),
+      ).toEqual([]);
     });
 
     it("excludes identifier columns not present in the fact table columns at all", () => {
@@ -178,9 +210,13 @@ describe("getManagedWarehouseUserIdTypes", () => {
         { columnName: "anonymous_id", type: "identifier" }, // not in fact table yet
       ]);
       const cols = [makeColumn("user_id")];
-      expect(getManagedWarehouseUserIdTypes(ds, "ch_events", cols)).toEqual([
-        "user_id",
-      ]);
+      expect(
+        getManagedWarehouseUserIdTypes(
+          ds,
+          MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
+          cols,
+        ),
+      ).toEqual(["user_id"]);
     });
   });
 });

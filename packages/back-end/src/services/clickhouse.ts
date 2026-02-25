@@ -2,6 +2,7 @@ import * as crypto from "crypto";
 import { createClient as createClickhouseClient } from "@clickhouse/client";
 import generator from "generate-password";
 import { AIPromptType } from "shared/ai";
+import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import {
   GrowthbookClickhouseDataSource,
@@ -776,7 +777,9 @@ export async function updateMaterializedColumns({
 
     // Update the main events fact table with the new columns
     const factTables = await getFactTablesForDatasource(context, datasource.id);
-    const ft = factTables.find((ft) => ft.id === "ch_events");
+    const ft = factTables.find(
+      (ft) => ft.id === MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
+    );
     if (ft) {
       const newColumns = [...ft.columns];
       newColumns.forEach((col) => {
@@ -855,7 +858,7 @@ export function getManagedWarehouseUserIdTypes(
   factTableId: string,
   columns: ColumnInterface[],
 ): string[] {
-  if (factTableId !== "ch_events") {
+  if (factTableId !== MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID) {
     throw new Error(
       "This function can only be called for managed warehouse datasource and fact table.",
     );

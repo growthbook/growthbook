@@ -1,4 +1,5 @@
 import { UpdateFactTableProps } from "shared/types/fact-table";
+import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import { isAllowedApiManagedFactTableUpdate } from "../../src/models/FactTableModel";
 
 type FactTableIdentity = {
@@ -33,9 +34,9 @@ describe("isAllowedApiManagedFactTableUpdate", () => {
     expect(isAllowedApiManagedFactTableUpdate(factTable, changes)).toBeFalsy();
   });
 
-  it("allows managed warehouse ch_events refresh fields", () => {
+  it(`allows managed warehouse ${MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID} refresh fields`, () => {
     const factTable: FactTableIdentity = {
-      id: "ch_events",
+      id: MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
       datasource: "managed_warehouse",
     };
     const changes: UpdateFactTableProps = {
@@ -48,9 +49,9 @@ describe("isAllowedApiManagedFactTableUpdate", () => {
     expect(isAllowedApiManagedFactTableUpdate(factTable, changes)).toBeTruthy();
   });
 
-  it("still rejects unrelated fields for managed warehouse ch_events", () => {
+  it(`still rejects unrelated fields for managed warehouse ${MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID}`, () => {
     const factTable: FactTableIdentity = {
-      id: "ch_events",
+      id: MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
       datasource: "managed_warehouse",
     };
     const changes: UpdateFactTableProps = {
