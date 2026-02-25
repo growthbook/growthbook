@@ -3,7 +3,10 @@ import {
   DataSourceInterface,
   GrowthbookClickhouseDataSource,
 } from "shared/types/datasource";
-import { deriveUserIdTypesFromColumns } from "back-end/src/util/factTable";
+import {
+  deriveUserIdTypesFromColumns,
+  getDatasourceIdentifierTypeNames,
+} from "back-end/src/util/factTable";
 
 function makeColumn(column: string, deleted = false): ColumnInterface {
   return {
@@ -173,5 +176,46 @@ describe("deriveUserIdTypesFromColumns", () => {
       const cols = [makeColumn("revenue"), makeColumn("country")];
       expect(deriveUserIdTypesFromColumns(ds, cols)).toEqual([]);
     });
+  });
+});
+
+describe("getDatasourceIdentifierTypeNames", () => {
+  it("returns identifier names from materializedColumns for growthbook_clickhouse", () => {
+    const ds = makeClickhouseDatasource([
+      { columnName: "user_id", type: "identifier" },
+      { columnName: "device_id", type: "identifier" },
+      { columnName: "revenue", type: "number" },
+    ]);
+    expect(getDatasourceIdentifierTypeNames(ds)).toEqual([
+      "user_id",
+      "device_id",
+    ]);
+  });
+
+  it("returns empty array when materializedColumns is missing for growthbook_clickhouse", () => {
+    const ds = {
+      type: "growthbook_clickhouse",
+      settings: {},
+    } as unknown as GrowthbookClickhouseDataSource;
+    expect(getDatasourceIdentifierTypeNames(ds)).toEqual([]);
+  });
+
+  it("returns userIdType names for standard datasources", () => {
+    const ds = makeStandardDatasource([
+      { userIdType: "user_id" },
+      { userIdType: "anonymous_id" },
+    ]);
+    expect(getDatasourceIdentifierTypeNames(ds)).toEqual([
+      "user_id",
+      "anonymous_id",
+    ]);
+  });
+
+  it("returns empty array when datasource has no userIdTypes", () => {
+    const ds = {
+      type: "redshift",
+      settings: {},
+    } as unknown as DataSourceInterface;
+    expect(getDatasourceIdentifierTypeNames(ds)).toEqual([]);
   });
 });

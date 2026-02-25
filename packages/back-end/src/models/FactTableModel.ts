@@ -319,7 +319,7 @@ export async function updateFactTableColumns(
   changes: Partial<
     Pick<FactTableInterface, (typeof ALLOWED_COLUMN_UPDATE_FIELDS)[number]>
   >,
-  context?: ReqContext | ApiReqContext,
+  context: ReqContext | ApiReqContext,
 ) {
   const safeChanges = Object.fromEntries(
     Object.entries(changes).filter(([key]) =>
@@ -340,7 +340,7 @@ export async function updateFactTableColumns(
   );
 
   // Clean up auto slices from metrics if columns were refreshed and some were deleted
-  if (context && changes.columns) {
+  if (changes.columns) {
     const removedColumns = detectRemovedColumns(
       factTable.columns || [],
       changes.columns,

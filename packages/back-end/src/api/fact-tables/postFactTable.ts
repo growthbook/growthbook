@@ -3,6 +3,7 @@ import { postFactTableValidator } from "shared/validators";
 import { CreateFactTableProps } from "shared/types/fact-table";
 import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTableColumns";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { getDatasourceIdentifierTypeNames } from "back-end/src/util/factTable";
 import {
   createFactTable,
   toFactTableApiInterface,
@@ -43,12 +44,11 @@ export const postFactTable = createApiRequestHandler(postFactTableValidator)(
 
     // Validate userIdTypes
     if (req.body.userIdTypes) {
+      const validIdentifierTypes = new Set(
+        getDatasourceIdentifierTypeNames(datasource),
+      );
       for (const userIdType of req.body.userIdTypes) {
-        if (
-          !datasource.settings?.userIdTypes?.some(
-            (t) => t.userIdType === userIdType,
-          )
-        ) {
+        if (!validIdentifierTypes.has(userIdType)) {
           throw new Error(`Invalid userIdType: ${userIdType}`);
         }
       }
