@@ -804,8 +804,6 @@ export async function updateMaterializedColumns({
         } else {
           // If the column already exists but was previously removed, restore it.
           existingCol.deleted = false;
-          existingCol.name = col.columnName;
-          existingCol.datatype = col.datatype;
           existingCol.dateUpdated = new Date();
         }
       });
