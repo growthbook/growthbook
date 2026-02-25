@@ -305,6 +305,7 @@ export default function BanditRefNewFields({
               />
             ) : null}
           </div>
+
           <ExperimentMetricsSelector
             datasource={datasource?.id}
             exposureQueryId={exposureQueryId}
@@ -318,10 +319,11 @@ export default function BanditRefNewFields({
               form.setValue("goalMetrics", goalMetrics)
             }
           />
-          r
+
           <div className="mt-2 mb-3">
             <BanditSettings page="experiment-settings" />
           </div>
+
           <ExperimentMetricsSelector
             datasource={datasource?.id}
             exposureQueryId={exposureQueryId}
@@ -338,6 +340,7 @@ export default function BanditRefNewFields({
             collapseSecondary={true}
             collapseGuardrail={true}
           />
+
           <CustomMetricSlicesSelector
             goalMetrics={form.watch("goalMetrics") ?? []}
             secondaryMetrics={form.watch("secondaryMetrics") ?? []}
@@ -347,7 +350,9 @@ export default function BanditRefNewFields({
               form.setValue("customMetricSlices", slices)
             }
           />
+
           <hr className="mt-4" />
+
           <Collapsible
             trigger={
               <div className="link-purple font-weight-bold mt-4 mb-2">
