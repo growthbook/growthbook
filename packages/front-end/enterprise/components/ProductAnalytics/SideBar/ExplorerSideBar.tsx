@@ -12,6 +12,7 @@ import DateRangePicker from "@/enterprise/components/ProductAnalytics/MainSectio
 import GranularitySelector from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/GranularitySelector";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
+import DataSourceDropdown from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DataSourceDropdown";
 import MetricTabContent from "./MetricTabContent";
 import FactTableTabContent from "./FactTableTabContent";
 import DatasourceTabContent from "./DatasourceTabContent";
@@ -36,7 +37,7 @@ export default function ExplorerSideBar({
     isStale,
     error,
   } = useExplorerContext();
-  const { factTables, datasources } = useDefinitions();
+  const { factTables } = useDefinitions();
 
   const dataset = draftExploreState.dataset;
   const activeType: DatasetType = dataset?.type ?? "metric";
@@ -64,7 +65,8 @@ export default function ExplorerSideBar({
             Save to Dashboard
           </Button>
         ) : (
-          <Flex direction="row">
+          <Flex direction="row" align="center" justify="between" width="100%">
+            <DataSourceDropdown />
             <Tooltip
               body="Configuration has changed. Click to refresh the chart."
               shouldDisplay={isStale}
@@ -127,51 +129,6 @@ export default function ExplorerSideBar({
           </>
         ) : (
           <Flex direction="column" gap="2" flexBasis="wrap">
-            <Flex direction="column" gap="2">
-              <Text weight="medium">Data Source</Text>
-              <SelectField
-                value={draftExploreState?.datasource || ""}
-                onChange={(datasource) => {
-                  setDraftExploreState((prev) => {
-                    const newDataset = { ...prev.dataset };
-                    if (newDataset.type === "metric") {
-                      // Don't need anything besides wiping the values
-                      newDataset.values = [
-                        {
-                          metricId: "",
-                          name: "Metric",
-                          rowFilters: [],
-                          type: "metric",
-                          unit: "",
-                          denominatorUnit: "",
-                        },
-                      ];
-                    } else if (newDataset.type === "fact_table") {
-                      newDataset.factTableId = "";
-                      newDataset.values = [];
-                    } else {
-                      newDataset.table = "";
-                      newDataset.timestampColumn = "";
-                      newDataset.path = "";
-                      newDataset.columnTypes = {};
-                      newDataset.values = [];
-                    }
-
-                    return {
-                      ...prev,
-                      datasource,
-                      dataset: newDataset,
-                    };
-                  });
-                }}
-                options={datasources.map((d) => ({
-                  label: d.name,
-                  value: d.id,
-                }))}
-                placeholder="Select data source..."
-                forceUndefinedValueToNull
-              />
-            </Flex>
             <Flex direction="column" gap="2">
               <Text weight="medium">Chart Type</Text>
               <GraphTypeSelector />

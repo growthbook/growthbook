@@ -62,8 +62,8 @@ export default function DatasourceTabContent() {
     );
 
   return (
-    <Flex direction="column">
-      <Flex direction="column" gap="4">
+    <Flex direction="column" gap="4">
+      <Flex direction="column">
         {columnOptions.length > 0 && !values.length && (
           <Flex
             justify="center"
