@@ -380,7 +380,7 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
   const navigationItems = useMemo<CommandPaletteItem[]>(
     () =>
       NAVIGATION_ITEMS.map((nav) => ({
-        id: `navigate::${nav.url}`,
+        id: `navigate::${nav.name}::${nav.url}`,
         type: "navigate" as const,
         name: nav.name,
         description: nav.description || "",
