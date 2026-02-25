@@ -13,7 +13,6 @@ import GranularitySelector from "@/enterprise/components/ProductAnalytics/MainSe
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
 import DataSourceDropdown from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DataSourceDropdown";
-import Checkbox from "@/ui/Checkbox";
 import MetricTabContent from "./MetricTabContent";
 import FactTableTabContent from "./FactTableTabContent";
 import DatasourceTabContent from "./DatasourceTabContent";
@@ -32,7 +31,6 @@ export default function ExplorerSideBar({
     setDraftExploreState,
     changeDatasetType,
     autoSubmitEnabled,
-    setAutoSubmitEnabled,
     loading,
     handleSubmit,
     isSubmittable,
@@ -73,48 +71,38 @@ export default function ExplorerSideBar({
         ) : (
           <Flex direction="row" align="center" justify="between" width="100%">
             <DataSourceDropdown />
-            <Flex align="center" gap="2">
-              <Tooltip body="Automatically update the chart as you make changes.">
-                <Checkbox
-                  label="Auto"
-                  value={autoSubmitEnabled}
-                  setValue={setAutoSubmitEnabled}
-                  size="sm"
-                />
-              </Tooltip>
-              <Tooltip
-                body="Configuration has changed. Click to refresh the chart."
-                shouldDisplay={isStale}
+            <Tooltip
+              body="Configuration has changed. Click to refresh the chart."
+              shouldDisplay={isStale}
+            >
+              <Button
+                size="sm"
+                variant={autoSubmitEnabled ? "outline" : "solid"}
+                disabled={
+                  loading ||
+                  !draftExploreState?.dataset?.values?.length ||
+                  !isSubmittable
+                }
+                onClick={handleSubmit}
               >
-                <Button
-                  size="sm"
-                  variant={autoSubmitEnabled ? "outline" : "solid"}
-                  disabled={
-                    loading ||
-                    !draftExploreState?.dataset?.values?.length ||
-                    !isSubmittable
-                  }
-                  onClick={handleSubmit}
-                >
-                  <Flex align="center" gap="2">
-                    <PiArrowsClockwise />
-                    Update
-                    {isStale && (
-                      <span
-                        style={{
-                          width: 6,
-                          height: 6,
-                          borderRadius: "50%",
-                          backgroundColor: "var(--amber-9)",
-                          flexShrink: 0,
-                        }}
-                        aria-hidden
-                      />
-                    )}
-                  </Flex>
-                </Button>
-              </Tooltip>
-            </Flex>
+                <Flex align="center" gap="2">
+                  <PiArrowsClockwise />
+                  Update
+                  {isStale && (
+                    <span
+                      style={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: "50%",
+                        backgroundColor: "var(--amber-9)",
+                        flexShrink: 0,
+                      }}
+                      aria-hidden
+                    />
+                  )}
+                </Flex>
+              </Button>
+            </Tooltip>
           </Flex>
         )}
       </Flex>
