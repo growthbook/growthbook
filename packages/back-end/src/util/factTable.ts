@@ -2,21 +2,6 @@ import { ColumnInterface } from "shared/types/fact-table";
 import { DataSourceInterface } from "shared/types/datasource";
 
 /**
- * Returns the names of all identifier types declared on the datasource.
- *
- * All datasource types (including growthbook_clickhouse, which syncs
- * materializedColumns with type === "identifier" into userIdTypes on every
- * settings save) store their identifier types in datasource.settings.userIdTypes.
- *
- * Use this when validating a user-supplied userIdTypes list.
- */
-export function getDatasourceIdentifierTypeNames(
-  datasource: DataSourceInterface,
-): string[] {
-  return (datasource.settings?.userIdTypes || []).map((u) => u.userIdType);
-}
-
-/**
  * Derives the userIdTypes for a fact table by intersecting the datasource's
  * declared identifier types with the fact table's active (non-deleted) columns.
  *

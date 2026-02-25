@@ -4,7 +4,6 @@ import { updateFactTableValidator } from "shared/validators";
 import { UpdateFactTableProps } from "shared/types/fact-table";
 import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTableColumns";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { getDatasourceIdentifierTypeNames } from "back-end/src/util/factTable";
 import {
   updateFactTable as updateFactTableInDb,
   updateColumn,
@@ -48,7 +47,7 @@ export const updateFactTable = createApiRequestHandler(
       throw new Error("Could not find datasource for this fact table");
     }
     const validIdentifierTypes = new Set(
-      getDatasourceIdentifierTypeNames(datasource),
+      (datasource.settings?.userIdTypes || []).map((u) => u.userIdType),
     );
     for (const userIdType of req.body.userIdTypes) {
       if (!validIdentifierTypes.has(userIdType)) {
