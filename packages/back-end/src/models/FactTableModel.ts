@@ -258,7 +258,7 @@ export async function updateFactTable(
   factTable: FactTableInterface,
   changes: UpdateFactTableProps,
 ) {
-  // for tables managedBy API, only allow UI updates to columns
+  // Allow changing columns even for API-managed fact tables
   if (
     factTable.managedBy === "api" &&
     context.auditUser?.type !== "api_key" &&

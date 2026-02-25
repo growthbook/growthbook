@@ -43,11 +43,12 @@ export const postFactTable = createApiRequestHandler(postFactTableValidator)(
 
     // Validate userIdTypes
     if (req.body.userIdTypes) {
-      const validIdentifierTypes = new Set(
-        (datasource.settings?.userIdTypes || []).map((u) => u.userIdType),
-      );
       for (const userIdType of req.body.userIdTypes) {
-        if (!validIdentifierTypes.has(userIdType)) {
+        if (
+          !datasource.settings?.userIdTypes?.some(
+            (t) => t.userIdType === userIdType,
+          )
+        ) {
           throw new Error(`Invalid userIdType: ${userIdType}`);
         }
       }

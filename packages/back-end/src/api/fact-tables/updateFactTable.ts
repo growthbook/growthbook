@@ -46,11 +46,12 @@ export const updateFactTable = createApiRequestHandler(
     if (!datasource) {
       throw new Error("Could not find datasource for this fact table");
     }
-    const validIdentifierTypes = new Set(
-      (datasource.settings?.userIdTypes || []).map((u) => u.userIdType),
-    );
     for (const userIdType of req.body.userIdTypes) {
-      if (!validIdentifierTypes.has(userIdType)) {
+      if (
+        !datasource.settings?.userIdTypes?.some(
+          (t) => t.userIdType === userIdType,
+        )
+      ) {
         throw new Error(`Invalid userIdType: ${userIdType}`);
       }
     }
