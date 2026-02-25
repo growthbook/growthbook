@@ -5,14 +5,17 @@ import {
   DataSourceExplorationBlockInterface,
 } from "shared/enterprise";
 import { ProductAnalyticsExploration } from "shared/validators";
+import { getValidDate } from "shared/dates";
 import useApi from "@/hooks/useApi";
 import Text from "@/ui/Text";
 import ExplorerChart from "@/enterprise/components/ProductAnalytics/MainSection/ExplorerChart";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import LastRefreshedIndicator from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/LastRefreshedIndicator";
 import { BlockProps } from ".";
 
 export default function ProductAnalyticsExplorerBlock({
   block,
+  isEditing,
 }: BlockProps<
   | MetricExplorationBlockInterface
   | FactTableExplorationBlockInterface
@@ -47,7 +50,14 @@ export default function ProductAnalyticsExplorerBlock({
   }
 
   return (
-    <Flex direction="column" style={{ height: 500 }}>
+    <Flex direction="column" style={{ height: 500 }} gap="2">
+      {isEditing && (
+        <Flex width="100%" justify="end">
+          <LastRefreshedIndicator
+            lastRefreshedAt={getValidDate(data?.exploration.runStarted)}
+          />
+        </Flex>
+      )}
       <ExplorerChart
         exploration={data?.exploration}
         error={data?.exploration.error || error?.message || null}
