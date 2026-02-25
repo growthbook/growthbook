@@ -1,4 +1,4 @@
-import { Box } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import {
   MetricExplorationBlockInterface,
   FactTableExplorationBlockInterface,
@@ -47,11 +47,13 @@ export default function ProductAnalyticsExplorerBlock({
   }
 
   return (
-    <ExplorerChart
-      exploration={data?.exploration}
-      error={data?.exploration.error || error?.message || null}
-      loading={isLoading}
-      submittedExploreState={data?.exploration.config}
-    />
+    <Flex direction="column" style={{ height: 500 }}>
+      <ExplorerChart
+        exploration={data?.exploration}
+        error={data?.exploration.error || error?.message || null}
+        loading={isLoading}
+        submittedExploreState={data?.exploration.config}
+      />
+    </Flex>
   );
 }
