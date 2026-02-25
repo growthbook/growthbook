@@ -80,8 +80,7 @@ export function useFeaturePageData(
     shouldRun: () => !!fid,
   });
 
-  // Only fetch from /revisions when the requested version is outside the set
-  // returned by the standard GET /feature/:id (so we don't duplicate work).
+  // Only fetch a specific version if it isn't already in the base response or cache.
   const requestedVersionInBaseSet =
     baseData?.revisions?.some((r) => r.version === selectedVersion) ?? false;
   const requestedVersionInCache =
@@ -147,9 +146,7 @@ export function useFeaturePageData(
     });
   }, [selectedVersionRevisionsData, fid]);
 
-  // Composite: initial set from GET /feature/:id plus any revisions appended from
-  // GET /feature/:id/revisions?versions=. Extend revisionList with minimal entries
-  // for those ad-hoc revisions so the dropdown shows the current version.
+  // Merge base data with any on-demand cached revisions.
   const data = useMemo<FeaturePageResponse | undefined>(() => {
     if (!baseData) return undefined;
 
