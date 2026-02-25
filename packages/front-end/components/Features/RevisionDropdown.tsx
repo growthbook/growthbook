@@ -67,20 +67,23 @@ export default function RevisionDropdown({
   setVersion,
 }: Props) {
   const liveVersion = feature.version;
-  const pageSize = 25;
+  const initialPageSize = 10;
 
   const [open, setOpen] = useState(false);
   const [extraShown, setExtraShown] = useState(0);
 
   useEffect(() => {
-    if (!open) return;
-    // wait for Radix portal to render before querying the DOM
-    const frame = requestAnimationFrame(() => {
-      document
-        .querySelector(".rt-DropdownMenuContent .selected-item")
-        ?.scrollIntoView({ block: "nearest" });
-    });
-    return () => cancelAnimationFrame(frame);
+    if (open) {
+      // wait for Radix portal to render before querying the DOM
+      const frame = requestAnimationFrame(() => {
+        document
+          .querySelector(".rt-DropdownMenuContent .selected-item")
+          ?.scrollIntoView({ block: "nearest" });
+      });
+      return () => cancelAnimationFrame(frame);
+    } else {
+      setExtraShown(0);
+    }
   }, [open]);
   const [showDiscarded, setShowDiscarded] = useLocalStorage(
     `revisionDropdown__showDiscarded__${feature.id}`,
@@ -99,7 +102,7 @@ export default function RevisionDropdown({
   // Always extend the window far enough to include the selected revision
   const selectedIndex = nonDiscarded.findIndex((r) => r.version === version);
   const baseWindow = Math.max(
-    pageSize,
+    initialPageSize,
     selectedIndex >= 0 ? selectedIndex + 1 : 0,
   );
   const windowSize = baseWindow + extraShown;
@@ -137,10 +140,7 @@ export default function RevisionDropdown({
     <DropdownMenu
       variant="soft"
       open={open}
-      onOpenChange={(o) => {
-        if (!o) setExtraShown(0);
-        setOpen(o);
-      }}
+      onOpenChange={setOpen}
       trigger={
         <Flex
           align="center"
@@ -196,10 +196,10 @@ export default function RevisionDropdown({
       {remaining > 0 && (
         <RadixDropdownMenu.Label>
           <Link
-            size="1"
-            onClick={() => setExtraShown((prev) => prev + pageSize)}
+            size="2"
+            onClick={() => setExtraShown((prev) => prev + remaining)}
           >
-            Show {Math.min(pageSize, remaining)} more
+            Show all ({remaining} more)
           </Link>
         </RadixDropdownMenu.Label>
       )}
