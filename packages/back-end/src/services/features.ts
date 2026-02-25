@@ -1248,7 +1248,7 @@ export function evaluateFeature({
         revision,
         date,
         safeRolloutMap,
-        namespaces: namespaces || new Map(),
+        namespaces: namespaces,
       });
 
       if (definition) {

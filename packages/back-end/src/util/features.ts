@@ -373,7 +373,7 @@ export function getFeatureDefinition({
   date,
   safeRolloutMap,
   holdoutsMap,
-  namespaces = new Map(),
+  namespaces,
 }: {
   feature: FeatureInterface;
   environment: string;
