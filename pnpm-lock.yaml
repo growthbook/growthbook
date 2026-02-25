@@ -220,8 +220,8 @@ importers:
         specifier: ~0.21.0
         version: 0.21.0
       '@polyglot-sql/sdk':
-        specifier: ^0.1.7
-        version: 0.1.7
+        specifier: ^0.1.9
+        version: 0.1.9
       '@sentry/cli-linux-x64':
         specifier: ^2.58.4
         version: 2.58.4
@@ -565,6 +565,9 @@ importers:
       rimraf:
         specifier: ^3.0.2
         version: 3.0.2
+      sql-formatter:
+        specifier: ^15.7.2
+        version: 15.7.2
       supertest:
         specifier: ^7.0.0
         version: 7.0.0
@@ -630,8 +633,8 @@ importers:
         specifier: ^16.1.6
         version: 16.1.6
       '@polyglot-sql/sdk':
-        specifier: ^0.1.7
-        version: 0.1.7
+        specifier: ^0.1.9
+        version: 0.1.9
       '@popperjs/core':
         specifier: ^2.11.5
         version: 2.11.5
@@ -1236,8 +1239,8 @@ importers:
         version: 5.7.3
     optionalDependencies:
       '@polyglot-sql/sdk':
-        specifier: ^0.1.7
-        version: 0.1.7
+        specifier: ^0.1.9
+        version: 0.1.9
 
   packages/stats: {}
 
@@ -4583,8 +4586,8 @@ packages:
   '@polka/url@1.0.0-next.29':
     resolution: {integrity: sha512-wwQAWhWSuHaag8c4q/KN/vCoeOJYshAIvMQwD4GpSb3OiZklFfvAgmj0VCBBImRpuF/aFgIRzllXlVX93Jevww==}
 
-  '@polyglot-sql/sdk@0.1.7':
-    resolution: {integrity: sha512-FdZL+9AwUwR8NczakyYCkMHCpOxOT/+QdLC3iQeSwvZKN+3xXNmSERVD0f+F1OM78bDKKPYHkrGafoBtxzZ/1Q==}
+  '@polyglot-sql/sdk@0.1.9':
+    resolution: {integrity: sha512-G6+3cRlD2bKrh79jgTAGp/NXNqGQsD3G/65brKD1VJlIsMdPLqGmJstJ8NWuaoDE6aiQGjgb60OGRsNpnAmFNQ==}
     engines: {node: '>=22', pnpm: '>=10'}
 
   '@popperjs/core@2.11.5':
@@ -19205,7 +19208,7 @@ snapshots:
 
   '@polka/url@1.0.0-next.29': {}
 
-  '@polyglot-sql/sdk@0.1.7': {}
+  '@polyglot-sql/sdk@0.1.9': {}
 
   '@popperjs/core@2.11.5': {}
 
