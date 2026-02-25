@@ -27,6 +27,7 @@ import {
   getFactTable,
   updateColumn,
   updateFactTable,
+  updateFactTableColumns,
   deleteFactTable as deleteFactTableInDb,
   deleteFactFilter as deleteFactFilterInDb,
   createFactFilter,
@@ -282,7 +283,13 @@ export const putFactTable = async (
   }
   const forceColumnRefresh = !!req.query?.forceColumnRefresh;
 
-  // Update the columns
+  let columnRefreshResults: Partial<
+    Pick<
+      FactTableInterface,
+      "columns" | "columnsError" | "columnRefreshPending" | "userIdTypes"
+    >
+  > | null = null;
+
   if (forceColumnRefresh || needsColumnRefresh(data)) {
     const { columns, needsBackgroundRefresh } = await refreshColumns(
       context,
@@ -295,9 +302,11 @@ export const putFactTable = async (
       throw new Error("SQL did not return any columns");
     }
 
-    data.columns = columns;
-    data.columnsError = null;
-    data.columnRefreshPending = needsBackgroundRefresh;
+    columnRefreshResults = {
+      columns,
+      columnsError: null,
+      columnRefreshPending: needsBackgroundRefresh,
+    };
 
     if (
       datasource.type === "growthbook_clickhouse" &&
@@ -308,13 +317,17 @@ export const putFactTable = async (
         factTable.id,
         columns,
       );
-      data.userIdTypes = managedUserIdTypes;
+      columnRefreshResults.userIdTypes = managedUserIdTypes;
     }
   }
 
   await updateFactTable(context, factTable, data);
 
-  if (data.columnRefreshPending) {
+  if (columnRefreshResults) {
+    await updateFactTableColumns(factTable, columnRefreshResults, context);
+  }
+
+  if (columnRefreshResults?.columnRefreshPending) {
     await queueFactTableColumnsRefresh({
       ...factTable,
       ...data,

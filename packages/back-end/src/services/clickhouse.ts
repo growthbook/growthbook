@@ -26,7 +26,7 @@ import type { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
 import {
   getFactTablesForDatasource,
-  updateFactTable,
+  updateFactTableColumns,
 } from "back-end/src/models/FactTableModel";
 import {
   lockDataSource,
@@ -843,10 +843,11 @@ export async function updateMaterializedColumns({
         .filter((col) => col.type === "identifier")
         .map((col) => col.columnName);
 
-      await updateFactTable(context, ft, {
-        columns: newColumns,
-        userIdTypes: newIdentifierTypes,
-      });
+      await updateFactTableColumns(
+        ft,
+        { columns: newColumns, userIdTypes: newIdentifierTypes },
+        context,
+      );
     }
   } finally {
     await unlockDataSource(context, datasource);
