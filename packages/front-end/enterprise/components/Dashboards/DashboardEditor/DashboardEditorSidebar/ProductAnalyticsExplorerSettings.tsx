@@ -1,14 +1,10 @@
-import { useEffect, useRef, useState } from "react";
 import {
   DashboardBlockInterfaceOrData,
   MetricExplorationBlockInterface,
   FactTableExplorationBlockInterface,
   DataSourceExplorationBlockInterface,
 } from "shared/enterprise";
-import {
-  ProductAnalyticsConfig,
-  ProductAnalyticsExploration,
-} from "shared/validators";
+import { ProductAnalyticsExploration } from "shared/validators";
 import useApi from "@/hooks/useApi";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Callout from "@/ui/Callout";
@@ -41,21 +37,6 @@ export default function ProductAnalyticsExplorerSettings({
     shouldRun: () => !!block.explorerAnalysisId,
   });
 
-  const initialBaselineRef = useRef(block.config ?? data?.exploration?.config);
-  const [lastCommittedConfig, setLastCommittedConfig] = useState<
-    ProductAnalyticsConfig | undefined
-  >(() => initialBaselineRef.current);
-
-  useEffect(() => {
-    setLastCommittedConfig(initialBaselineRef.current ?? undefined);
-  }, []);
-
-  useEffect(() => {
-    if (data?.exploration?.config) {
-      setLastCommittedConfig(data.exploration.config);
-    }
-  }, [data?.exploration?.config]);
-
   if (block.explorerAnalysisId && isLoading) {
     return <LoadingSpinner />;
   }
@@ -70,15 +51,13 @@ export default function ProductAnalyticsExplorerSettings({
 
   return (
     <ExplorerProvider
-      initialConfig={block.config || data?.exploration.config}
-      baselineConfigForStale={lastCommittedConfig ?? null}
+      initialConfig={data?.exploration?.config || block.config}
       onRunComplete={(exploration) => {
         setBlock({
           ...block,
           explorerAnalysisId: exploration.id,
           config: exploration.config,
         });
-        setLastCommittedConfig(exploration.config);
       }}
     >
       <ProductAnalyticsExplorerSideBarWrapper

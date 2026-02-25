@@ -74,15 +74,12 @@ const DEFAULT_AUTO_SUBMIT = false;
 interface ExplorerProviderProps {
   children: ReactNode;
   initialConfig?: ProductAnalyticsConfig;
-  baselineConfigForStale?: ProductAnalyticsConfig | null;
-  /** Called when a run completes with the new exploration. Used by dashboard block editor to sync block. */
   onRunComplete?: (exploration: ProductAnalyticsExploration) => void;
 }
 
 export function ExplorerProvider({
   children,
   initialConfig,
-  baselineConfigForStale,
   onRunComplete,
 }: ExplorerProviderProps) {
   const { loading, fetchData } = useExploreData();
@@ -91,10 +88,23 @@ export function ExplorerProvider({
 
   const [activeExplorerType, setActiveExplorerType] =
     useState<DatasetType | null>(initialConfig?.dataset.type || null);
-  const [explorerCache, setExplorerCache] = useState<ExplorerCache>({
-    metric: null,
-    fact_table: null,
-    data_source: null,
+  const [explorerCache, setExplorerCache] = useState<ExplorerCache>(() => {
+    const initialType = initialConfig?.dataset.type;
+    return {
+      metric: null,
+      fact_table: null,
+      data_source: null,
+      ...(initialType && initialConfig
+        ? {
+            [initialType]: {
+              draftState: null,
+              submittedState: initialConfig,
+              exploration: null,
+              error: null,
+            },
+          }
+        : {}),
+    };
   });
   const [autoSubmitEnabled, setAutoSubmitEnabled] =
     useState(DEFAULT_AUTO_SUBMIT);
@@ -187,8 +197,7 @@ export function ExplorerProvider({
     return cleanConfigForSubmission(draftExploreState);
   }, [draftExploreState]);
 
-  const baselineConfig =
-    submittedExploreState ?? baselineConfigForStale ?? initialConfig ?? null;
+  const baselineConfig = submittedExploreState ?? null;
   const { needsFetch, needsUpdate } = useMemo(() => {
     return compareConfig(baselineConfig, cleanedDraftExploreState);
   }, [baselineConfig, cleanedDraftExploreState]);
