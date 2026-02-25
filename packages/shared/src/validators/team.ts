@@ -48,6 +48,20 @@ export const apiCreateTeamBody = z.strictObject({
 
 export const apiUpdateTeamBody = apiCreateTeamBody.partial();
 
+export const apiDeleteTeamValidator = {
+  bodySchema: z.never(),
+  querySchema: z.strictObject({
+    deleteMembers: z
+      .string()
+      .optional()
+      .describe("When 'true', enables deleting a team that contains members"),
+  }),
+  paramsSchema: z.strictObject({ teamId: z.string() }),
+};
+
+export const apiDeleteTeamReturn = z.strictObject({ deletedId: z.string() });
+export type ApiDeleteTeamReturn = z.infer<typeof apiDeleteTeamReturn>;
+
 export const apiAddTeamMembersValidator = {
   bodySchema: z.strictObject({ members: z.array(z.string()) }),
   querySchema: z.never(),
@@ -56,12 +70,6 @@ export const apiAddTeamMembersValidator = {
 
 export const apiRemoveTeamMemberValidator = {
   bodySchema: z.strictObject({ members: z.array(z.string()) }),
-  querySchema: z.never(),
-  paramsSchema: z.strictObject({ teamId: z.string() }),
-};
-
-export const apiRemoveMembersAndDeleteValidator = {
-  bodySchema: z.never(),
   querySchema: z.never(),
   paramsSchema: z.strictObject({ teamId: z.string() }),
 };

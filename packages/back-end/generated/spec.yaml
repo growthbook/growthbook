@@ -11575,32 +11575,6 @@ paths:
                       - members
                       - managedByIdp
                     additionalProperties: false
-    delete:
-      $skipValidatorGeneration: true
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      tags:
-        - Teams
-      summary: Delete a single team
-      operationId: deleteTeam
-      x-codeSamples:
-        - lang: cURL
-          source: 'curl -X DELETE https://api.growthbook.io/api/v1/teams/{id} -u secret_abc123DEF456'
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                  - deletedId
-                properties:
-                  deletedId:
-                    type: string
     put:
       $skipValidatorGeneration: true
       parameters:
@@ -12151,7 +12125,7 @@ paths:
                 required:
                   - status
                 additionalProperties: false
-  '/teams/{teamId}/removeMembersAndDelete':
+  '/teams/{teamId}/':
     delete:
       $skipValidatorGeneration: true
       parameters:
@@ -12160,13 +12134,19 @@ paths:
           required: true
           schema:
             type: string
+        - name: deleteMembers
+          in: query
+          required: false
+          schema:
+            description: 'When ''true'', enables deleting a team that contains members'
+            type: string
       tags:
         - Teams
-      summary: Remove all team members and delete team
-      operationId: removeTeamMembersAndDelete
+      summary: Delete a single team
+      operationId: deleteTeam
       x-codeSamples:
         - lang: cURL
-          source: 'curl -X DELETE https://api.growthbook.io/api/v1/teams/{teamId}/removeMembersAndDelete -u secret_abc123DEF456'
+          source: 'curl -X DELETE https://api.growthbook.io/api/v1/teams/{teamId}/ -u secret_abc123DEF456'
       responses:
         '200':
           content:
@@ -12175,10 +12155,10 @@ paths:
                 $schema: 'https://json-schema.org/draft/2020-12/schema'
                 type: object
                 properties:
-                  status:
-                    type: number
+                  deletedId:
+                    type: string
                 required:
-                  - status
+                  - deletedId
                 additionalProperties: false
 components:
   parameters:

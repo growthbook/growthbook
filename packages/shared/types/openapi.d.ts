@@ -433,8 +433,6 @@ export interface paths {
     get: operations["getTeam"];
     /** Update a single team */
     put: operations["updateTeam"];
-    /** Delete a single team */
-    delete: operations["deleteTeam"];
   };
   "/teams": {
     /** Get all teams */
@@ -448,9 +446,9 @@ export interface paths {
     /** Remove members from team */
     delete: operations["removeTeamMember"];
   };
-  "/teams/{teamId}/removeMembersAndDelete": {
-    /** Remove all team members and delete team */
-    delete: operations["removeTeamMembersAndDelete"];
+  "/teams/{teamId}/": {
+    /** Delete a single team */
+    delete: operations["deleteTeam"];
   };
 }
 
@@ -16562,23 +16560,6 @@ export interface operations {
       };
     };
   };
-  deleteTeam: {
-    /** Delete a single team */
-    parameters: {
-      path: {
-        id: string;
-      };
-    };
-    responses: {
-      200: {
-        content: {
-          "application/json": {
-            deletedId: string;
-          };
-        };
-      };
-    };
-  };
   listTeams: {
     /** Get all teams */
     responses: {
@@ -16732,9 +16713,12 @@ export interface operations {
       };
     };
   };
-  removeTeamMembersAndDelete: {
-    /** Remove all team members and delete team */
+  deleteTeam: {
+    /** Delete a single team */
     parameters: {
+      query: {
+        deleteMembers?: string;
+      };
       path: {
         teamId: string;
       };
@@ -16743,7 +16727,7 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            status: number;
+            deletedId: string;
           };
         };
       };

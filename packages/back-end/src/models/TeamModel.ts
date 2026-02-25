@@ -1,14 +1,17 @@
 import {
   apiAddTeamMembersValidator,
   apiCreateTeamBody,
-  apiRemoveMembersAndDeleteValidator,
+  apiDeleteTeamValidator,
+  apiDeleteTeamReturn,
   apiRemoveTeamMemberValidator,
   apiTeamValidator,
   apiUpdateTeamBody,
   teamSchema,
+  ApiDeleteTeamReturn,
 } from "shared/validators";
 import { ApiTeamInterface, TeamInterface } from "shared/types/team";
 import { areProjectRolesValid, isRoleValid } from "shared/permissions";
+import { stringToBoolean } from "shared/util";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   getCollection,
@@ -47,7 +50,7 @@ const BaseClass = MakeModelClass({
       updateBody: apiUpdateTeamBody,
     },
     pathBase: "/teams",
-    includeDefaultCrud: true,
+    crudActions: ["get", "create", "list", "update"],
     customHandlers: [
       defineCustomApiHandler({
         pathFragment: "/:teamId/members",
@@ -98,27 +101,29 @@ const BaseClass = MakeModelClass({
         },
       }),
       defineCustomApiHandler({
-        pathFragment: "/:teamId/removeMembersAndDelete",
+        pathFragment: "/:teamId/",
         verb: "delete",
-        operationId: "removeTeamMembersAndDelete",
-        validator: apiRemoveMembersAndDeleteValidator,
-        zodReturnObject: statusCodeReturn,
-        summary: "Remove all team members and delete team",
-        reqHandler: async (req) => {
+        operationId: "deleteTeam",
+        validator: apiDeleteTeamValidator,
+        zodReturnObject: apiDeleteTeamReturn,
+        summary: "Delete a single team",
+        reqHandler: async (req): Promise<ApiDeleteTeamReturn> => {
           if (!req.context.permissions.canManageTeam())
             req.context.permissions.throwPermissionError();
           const team = await req.context.models.teams.getById(
             req.params.teamId,
           );
           if (!team) return req.context.throwNotFoundError();
-          await removeMembersFromTeam({
-            organization: req.context.org,
-            userIds: getMembersOfTeam(req.context.org, team.id),
-            teamId: team.id,
-          });
+          if (stringToBoolean(req.query.deleteMembers)) {
+            await removeMembersFromTeam({
+              organization: req.context.org,
+              userIds: getMembersOfTeam(req.context.org, team.id),
+              teamId: team.id,
+            });
+          }
           await req.context.models.teams.delete(team);
           return {
-            status: 200,
+            deletedId: team.id,
           };
         },
       }),
