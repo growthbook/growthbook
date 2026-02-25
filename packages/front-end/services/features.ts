@@ -467,6 +467,10 @@ export function findGaps(
   return gaps;
 }
 
+/**
+ * @deprecated Use `useFeatureMetaInfo` from `@/hooks/useFeatureMetaInfo` instead.
+ * Kept for ImportFromStatsig / ImportFromLaunchDarkly (explicit carve-outs).
+ */
 export function useFeaturesList({
   project, // provided project takes precedence over useCurrentProject: true
   useCurrentProject = true, // use the project selected in the project selector

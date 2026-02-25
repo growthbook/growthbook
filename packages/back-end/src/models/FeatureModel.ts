@@ -150,6 +150,9 @@ const featureSchema = new mongoose.Schema({
   linkedExperiments: [String],
   jsonSchema: {},
   neverStale: Boolean,
+  isStale: Boolean,
+  staleReason: String,
+  staleLastCalculated: Date,
   customFields: {},
   holdout: {
     id: String,
@@ -1239,34 +1242,62 @@ export async function hasNonDemoFeature(context: ReqContext | ApiReqContext) {
 
 export async function getFeatureMetaInfoById(
   context: ReqContext | ApiReqContext,
-  includeDefaultValue = false,
+  opts: {
+    includeDefaultValue?: boolean;
+    project?: string;
+  } = {},
 ): Promise<FeatureMetaInfo[]> {
+  const { includeDefaultValue = false, project } = opts;
+
+  const query: Record<string, unknown> = { organization: context.org.id };
+  if (project) {
+    query.project = project;
+  }
+
   const projection: Record<string, number> = {
     id: 1,
     project: 1,
     archived: 1,
+    description: 1,
     dateCreated: 1,
+    dateUpdated: 1,
     tags: 1,
     owner: 1,
     valueType: 1,
+    version: 1,
+    linkedExperiments: 1,
+    isStale: 1,
+    staleReason: 1,
+    staleLastCalculated: 1,
+    neverStale: 1,
+    "jsonSchema.enabled": 1,
+    revision: 1,
   };
   if (includeDefaultValue) {
     projection.defaultValue = 1;
   }
 
-  const features = await FeatureModel.find(
-    { organization: context.org.id },
-    projection,
-  );
+  const features = await FeatureModel.find(query, projection);
 
   return features.map((f) => ({
     id: f.id,
     project: f.project,
     archived: f.archived,
+    description: f.description,
     dateCreated: f.dateCreated,
+    dateUpdated: f.dateUpdated,
     tags: f.tags,
     owner: f.owner,
     valueType: f.valueType,
+    version: f.version,
+    linkedExperiments: f.linkedExperiments,
+    isStale: f.isStale,
+    staleReason: f.staleReason as FeatureMetaInfo["staleReason"],
+    staleLastCalculated: f.staleLastCalculated,
+    neverStale: f.neverStale,
+    hasJsonSchema: !!(f.jsonSchema as { enabled?: boolean } | undefined)
+      ?.enabled,
+    revision: f.revision as FeatureMetaInfo["revision"],
     ...(includeDefaultValue && { defaultValue: f.defaultValue ?? "" }),
   }));
 }
@@ -1283,10 +1314,20 @@ export async function getFeatureMetaInfoByIds(
       id: 1,
       project: 1,
       archived: 1,
+      description: 1,
       dateCreated: 1,
+      dateUpdated: 1,
       tags: 1,
       owner: 1,
       valueType: 1,
+      version: 1,
+      linkedExperiments: 1,
+      isStale: 1,
+      staleReason: 1,
+      staleLastCalculated: 1,
+      neverStale: 1,
+      "jsonSchema.enabled": 1,
+      revision: 1,
     },
   );
 
@@ -1294,9 +1335,54 @@ export async function getFeatureMetaInfoByIds(
     id: f.id,
     project: f.project,
     archived: f.archived,
+    description: f.description,
     dateCreated: f.dateCreated,
+    dateUpdated: f.dateUpdated,
     tags: f.tags,
     owner: f.owner,
     valueType: f.valueType,
+    version: f.version,
+    linkedExperiments: f.linkedExperiments,
+    isStale: f.isStale,
+    staleReason: f.staleReason as FeatureMetaInfo["staleReason"],
+    staleLastCalculated: f.staleLastCalculated,
+    neverStale: f.neverStale,
+    hasJsonSchema: !!(f.jsonSchema as { enabled?: boolean } | undefined)
+      ?.enabled,
+    revision: f.revision as FeatureMetaInfo["revision"],
+  }));
+}
+
+export async function getFeatureEnvStatus(
+  context: ReqContext | ApiReqContext,
+  ids?: string[],
+): Promise<
+  { id: string; environmentSettings: FeatureInterface["environmentSettings"] }[]
+> {
+  const q: FilterQuery<FeatureDocument> = { organization: context.org.id };
+  if (ids && ids.length > 0) {
+    q.id = { $in: ids };
+  }
+
+  // Push project-level read restrictions into the query to avoid fetching
+  // documents that will be filtered out anyway.
+  const allowedProjects =
+    context.permissions.getProjectsWithPermission("readData");
+  if (allowedProjects !== null) {
+    if (allowedProjects.length === 0) return [];
+    q.project = { $in: allowedProjects };
+  }
+
+  const docs = await FeatureModel.find(q, {
+    id: 1,
+    environmentSettings: 1,
+  }).lean();
+
+  return docs.map((f) => ({
+    id: f.id as string,
+    environmentSettings: applyEnvironmentInheritance(
+      context.org.settings?.environments || [],
+      (f.environmentSettings as FeatureInterface["environmentSettings"]) || {},
+    ),
   }));
 }

@@ -272,6 +272,12 @@ export const featureInterface = z
     /** @deprecated */
     legacyDraftMigrated: z.boolean().optional(),
     neverStale: z.boolean().optional(),
+    isStale: z.boolean().optional(),
+    staleReason: z
+      .enum(["error", "no-rules", "rules-one-sided"])
+      .nullable()
+      .optional(),
+    staleLastCalculated: z.date().nullable().optional(),
     prerequisites: z.array(featurePrerequisite).optional(),
     holdout: z
       .object({
@@ -291,7 +297,11 @@ export const computedFeatureInterface = featureInterface
     projectIsDeReferenced: z.boolean(),
     savedGroups: z.array(z.string()),
     stale: z.boolean(),
-    staleReason: z.string(),
+    // TODO: remove field? staleReason is now persisted on featureInterface; this computed override is unused
+    staleReason: z
+      .enum(["error", "no-rules", "rules-one-sided"])
+      .nullable()
+      .optional(),
     ownerName: z.string(),
   })
   .strict();

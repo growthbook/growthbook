@@ -10,7 +10,7 @@ import { PiFolderDuotone, PiFlask, PiUsersThree } from "react-icons/pi";
 import { getMetricLink } from "shared/experiments";
 import Portal from "@/components/Modal/Portal";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useFeaturesNames } from "@/hooks/useFeaturesNames";
+import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useDashboards } from "@/hooks/useDashboards";
 import { buildCommandPaletteIndex, combinedSearch } from "./searchUtils";
@@ -116,7 +116,7 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
   const resultsRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
-  const { features } = useFeaturesNames();
+  const { features } = useFeatureMetaInfo();
   const { experiments } = useExperiments();
   const { metrics, factMetrics, metricGroups, savedGroups } = useDefinitions();
   const { dashboards } = useDashboards(false);

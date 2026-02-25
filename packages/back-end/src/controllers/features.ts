@@ -74,6 +74,7 @@ import {
   getFeaturesByIds,
   getFeatureMetaInfoById,
   getFeatureMetaInfoByIds,
+  getFeatureEnvStatus,
   hasArchivedFeatures,
   migrateDraft,
   publishRevision,
@@ -4048,23 +4049,51 @@ function evalDeterministicPrereqValueBackend(
 }
 
 // Return lightweight feature metadata for UI components
-export async function getFeatureNames(
-  req: AuthRequest<null, null, { defaultValue?: string }>,
+export async function getFeatureMetaInfo(
+  req: AuthRequest<null, null, { defaultValue?: string; project?: string }>,
+  res: Response<
+    { status: 200; features: FeatureMetaInfo[] },
+    EventUserForResponseLocals
+  >,
+) {
+  const context = getContextFromReq(req);
+  const { defaultValue, project } = req.query;
+
+  const features = await getFeatureMetaInfoById(context, {
+    includeDefaultValue: defaultValue === "1",
+    project: project || undefined,
+  });
+
+  res.status(200).json({ status: 200, features });
+}
+
+export async function getFeaturesStatus(
+  req: AuthRequest<null, Record<string, never>, { ids?: string }>,
   res: Response<
     {
       status: 200;
-      features: FeatureMetaInfo[];
+      features: Record<string, Record<string, boolean>>;
     },
     EventUserForResponseLocals
   >,
 ) {
   const context = getContextFromReq(req);
-  const includeDefaultValue = req.query.defaultValue === "1";
+  const featureIds = req.query.ids
+    ? req.query.ids.split(",").filter(Boolean)
+    : undefined;
 
-  const features = await getFeatureMetaInfoById(context, includeDefaultValue);
+  const raw = await getFeatureEnvStatus(context, featureIds);
 
-  res.status(200).json({
-    status: 200,
-    features,
-  });
+  const features: Record<string, Record<string, boolean>> = {};
+  for (const f of raw) {
+    const envMap: Record<string, boolean> = {};
+    for (const [envId, settings] of Object.entries(
+      f.environmentSettings || {},
+    )) {
+      envMap[envId] = settings.enabled ?? false;
+    }
+    features[f.id] = envMap;
+  }
+
+  res.status(200).json({ status: 200, features });
 }

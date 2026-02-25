@@ -18,7 +18,7 @@ import {
   Text,
 } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
-import { useFeaturesNames } from "@/hooks/useFeaturesNames";
+import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useArrayIncrementer } from "@/hooks/useIncrementer";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -75,7 +75,7 @@ export default function PrerequisiteInput({
   environments,
   setPrerequisiteTargetingSdkIssues,
 }: Props) {
-  const { features: featureNames } = useFeaturesNames({
+  const { features: featureNames } = useFeatureMetaInfo({
     includeDefaultValue: true,
   });
   const { projects } = useDefinitions();
