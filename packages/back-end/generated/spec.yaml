@@ -11575,32 +11575,6 @@ paths:
                       - members
                       - managedByIdp
                     additionalProperties: false
-    delete:
-      $skipValidatorGeneration: true
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      tags:
-        - Teams
-      summary: Delete a single team
-      operationId: deleteTeam
-      x-codeSamples:
-        - lang: cURL
-          source: 'curl -X DELETE https://api.growthbook.io/api/v1/teams/{id} -u secret_abc123DEF456'
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                  - deletedId
-                properties:
-                  deletedId:
-                    type: string
     put:
       $skipValidatorGeneration: true
       parameters:
@@ -12075,7 +12049,7 @@ paths:
             type: string
       tags:
         - Teams
-      summary: ''
+      summary: Add members to team
       operationId: addTeamMembers
       x-codeSamples:
         - lang: cURL
@@ -12118,7 +12092,7 @@ paths:
             type: string
       tags:
         - Teams
-      summary: ''
+      summary: Remove members from team
       operationId: removeTeamMember
       x-codeSamples:
         - lang: cURL
@@ -12150,6 +12124,41 @@ paths:
                     type: number
                 required:
                   - status
+                additionalProperties: false
+  '/teams/{teamId}/':
+    delete:
+      $skipValidatorGeneration: true
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: deleteMembers
+          in: query
+          required: false
+          schema:
+            description: 'When ''true'', enables deleting a team that contains members'
+            type: string
+      tags:
+        - Teams
+      summary: Delete a single team
+      operationId: deleteTeam
+      x-codeSamples:
+        - lang: cURL
+          source: 'curl -X DELETE https://api.growthbook.io/api/v1/teams/{teamId}/ -u secret_abc123DEF456'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $schema: 'https://json-schema.org/draft/2020-12/schema'
+                type: object
+                properties:
+                  deletedId:
+                    type: string
+                required:
+                  - deletedId
                 additionalProperties: false
 components:
   parameters:

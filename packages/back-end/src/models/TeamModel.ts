@@ -1,13 +1,17 @@
 import {
   apiAddTeamMembersValidator,
   apiCreateTeamBody,
+  apiDeleteTeamValidator,
+  apiDeleteTeamReturn,
   apiRemoveTeamMemberValidator,
   apiTeamValidator,
   apiUpdateTeamBody,
   teamSchema,
+  ApiDeleteTeamReturn,
 } from "shared/validators";
 import { ApiTeamInterface, TeamInterface } from "shared/types/team";
 import { areProjectRolesValid, isRoleValid } from "shared/permissions";
+import { stringToBoolean } from "shared/util";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   getCollection,
@@ -46,7 +50,7 @@ const BaseClass = MakeModelClass({
       updateBody: apiUpdateTeamBody,
     },
     pathBase: "/teams",
-    includeDefaultCrud: true,
+    crudActions: ["get", "create", "list", "update"],
     customHandlers: [
       defineCustomApiHandler({
         pathFragment: "/:teamId/members",
@@ -54,6 +58,7 @@ const BaseClass = MakeModelClass({
         operationId: "addTeamMembers",
         validator: apiAddTeamMembersValidator,
         zodReturnObject: statusCodeReturn,
+        summary: "Add members to team",
         reqHandler: async (req) => {
           if (!req.context.permissions.canManageTeam())
             req.context.permissions.throwPermissionError();
@@ -77,6 +82,7 @@ const BaseClass = MakeModelClass({
         operationId: "removeTeamMember",
         validator: apiRemoveTeamMemberValidator,
         zodReturnObject: statusCodeReturn,
+        summary: "Remove members from team",
         reqHandler: async (req) => {
           if (!req.context.permissions.canManageTeam())
             req.context.permissions.throwPermissionError();
@@ -91,6 +97,33 @@ const BaseClass = MakeModelClass({
           });
           return {
             status: 200,
+          };
+        },
+      }),
+      defineCustomApiHandler({
+        pathFragment: "/:teamId/",
+        verb: "delete",
+        operationId: "deleteTeam",
+        validator: apiDeleteTeamValidator,
+        zodReturnObject: apiDeleteTeamReturn,
+        summary: "Delete a single team",
+        reqHandler: async (req): Promise<ApiDeleteTeamReturn> => {
+          if (!req.context.permissions.canManageTeam())
+            req.context.permissions.throwPermissionError();
+          const team = await req.context.models.teams.getById(
+            req.params.teamId,
+          );
+          if (!team) return req.context.throwNotFoundError();
+          if (stringToBoolean(req.query.deleteMembers)) {
+            await removeMembersFromTeam({
+              organization: req.context.org,
+              userIds: getMembersOfTeam(req.context.org, team.id),
+              teamId: team.id,
+            });
+          }
+          await req.context.models.teams.delete(team);
+          return {
+            deletedId: team.id,
           };
         },
       }),
