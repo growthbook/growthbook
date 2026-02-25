@@ -175,23 +175,20 @@ export default function ExplorerSideBar({
             />
           </>
         ) : (
-          <Flex direction="column" gap="2" flexBasis="wrap">
+          <Flex direction="column" gap="4" flexBasis="wrap">
             <Flex direction="column" gap="2">
               <Text weight="medium">Chart Type</Text>
               <GraphTypeSelector />
             </Flex>
-            <Flex
-              direction="column"
-              gap="2"
-              width="fit-content"
-              flexBasis="wrap"
-            >
-              <Text weight="medium">Date Range</Text>
-              <DateRangePicker shouldWrap={renderingInDashboardSidebar} />
-            </Flex>
-            <Flex direction="column" gap="2">
-              <Text weight="medium">Date Granularity</Text>
-              <GranularitySelector />
+            <Flex gap="2" wrap="wrap">
+              <Flex direction="column" gap="2" style={{ minWidth: 0 }}>
+                <Text weight="medium">Date Range</Text>
+                <DateRangePicker shouldWrap />
+              </Flex>
+              <Flex direction="column" gap="2">
+                <Text weight="medium">Date Granularity</Text>
+                <GranularitySelector />
+              </Flex>
             </Flex>
           </Flex>
         )}
