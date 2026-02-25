@@ -20,46 +20,30 @@ export async function getRecentWatchedAudits(
   const startTime = new Date();
   startTime.setDate(startTime.getDate() - 7);
 
-  const experimentsFilter = {
-    event: {
-      $in: [
-        "experiment.start",
-        "experiment.stop",
-        "experiment.phase",
-        "experiment.results",
-      ],
-    },
-    dateCreated: {
-      $gte: startTime,
-    },
-  };
+  const experiments = await context.models.audits.findAuditByEntityList({
+    type: "experiment",
+    ids: userWatches.experiments,
+    minDateCreated: startTime,
+    eventList: [
+      "experiment.start",
+      "experiment.stop",
+      "experiment.phase",
+      "experiment.results",
+    ],
+  });
 
-  const featuresFilter = {
-    event: {
-      $in: [
-        "feature.publish",
-        "feature.update",
-        "feature.toggle",
-        "feature.create",
-        "feature.delete",
-      ],
-    },
-    dateCreated: {
-      $gte: startTime,
-    },
-  };
-
-  const experiments = await context.models.audits.findAuditByEntityList(
-    "experiment",
-    userWatches.experiments,
-    experimentsFilter,
-  );
-
-  const features = await context.models.audits.findAuditByEntityList(
-    "feature",
-    userWatches.features,
-    featuresFilter,
-  );
+  const features = await context.models.audits.findAuditByEntityList({
+    type: "feature",
+    ids: userWatches.features,
+    minDateCreated: startTime,
+    eventList: [
+      "feature.publish",
+      "feature.update",
+      "feature.toggle",
+      "feature.create",
+      "feature.delete",
+    ],
+  });
 
   const all = experiments
     .concat(features)

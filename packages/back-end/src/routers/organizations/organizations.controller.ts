@@ -255,7 +255,9 @@ export async function getAllHistory(
   const { org } = context;
   const { type } = req.params;
   const limit = Math.min(parseInt(req.query.limit || "50"), 100); // Max 100 per page
-  const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
+  const maxDateCreated = req.query.cursor
+    ? new Date(req.query.cursor)
+    : undefined;
 
   if (!isValidAuditEntityType(type)) {
     return res.status(400).json({
@@ -271,26 +273,19 @@ export async function getAllHistory(
   ]);
   const total = entityCount + parentCount;
 
-  const cursorFilter = cursor ? { dateCreated: { $lt: cursor } } : undefined;
   const fetchLimit = limit;
 
   const events = await Promise.all([
-    context.models.audits.findAllAuditsByEntityType(
+    context.models.audits.findAllAuditsByEntityType({
       type,
-      {
-        limit: fetchLimit,
-        sort: { dateCreated: -1 },
-      },
-      cursorFilter,
-    ),
-    context.models.audits.findAllAuditsByEntityTypeParent(
+      limit: fetchLimit,
+      maxDateCreated,
+    }),
+    context.models.audits.findAllAuditsByEntityTypeParent({
       type,
-      {
-        limit: fetchLimit,
-        sort: { dateCreated: -1 },
-      },
-      cursorFilter,
-    ),
+      limit: fetchLimit,
+      maxDateCreated,
+    }),
   ]);
 
   // Merge and sort by dateCreated descending
@@ -337,7 +332,9 @@ export async function getHistory(
   const { org } = context;
   const { type, id } = req.params;
   const limit = Math.min(parseInt(req.query.limit || "50"), 100); // Max 100 per page
-  const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
+  const maxDateCreated = req.query.cursor
+    ? new Date(req.query.cursor)
+    : undefined;
 
   if (!isValidAuditEntityType(type)) {
     return res.status(400).json({
@@ -353,29 +350,21 @@ export async function getHistory(
   ]);
   const total = entityCount + parentCount;
 
-  const cursorFilter = cursor ? { dateCreated: { $lt: cursor } } : undefined;
-
   const fetchLimit = limit;
 
   const events = await Promise.all([
-    context.models.audits.findAuditByEntity(
+    context.models.audits.findAuditByEntity({
       type,
       id,
-      {
-        limit: fetchLimit,
-        sort: { dateCreated: -1 },
-      },
-      cursorFilter,
-    ),
-    context.models.audits.findAuditByEntityParent(
+      limit: fetchLimit,
+      maxDateCreated,
+    }),
+    context.models.audits.findAuditByEntityParent({
       type,
       id,
-      {
-        limit: fetchLimit,
-        sort: { dateCreated: -1 },
-      },
-      cursorFilter,
-    ),
+      limit: fetchLimit,
+      maxDateCreated,
+    }),
   ]);
 
   // Merge and sort by dateCreated descending
