@@ -161,6 +161,16 @@ export function ExplorerProvider({
     ],
   );
 
+  /** Set autoSubmitEnabled based on datasource type */
+  useEffect(() => {
+    if (!draftExploreState.datasource) return;
+    const datasource = datasources.find(
+      (d) => d.id === draftExploreState.datasource,
+    );
+    if (!datasource) return;
+    setAutoSubmitEnabled(datasource.type === "growthbook_clickhouse");
+  }, [datasources, draftExploreState.datasource]);
+
   const setSubmittedExploreState = useCallback(
     (state: ProductAnalyticsConfig) => {
       if (isEmpty) return;
@@ -236,6 +246,7 @@ export function ExplorerProvider({
     await doSubmit();
   }, [doSubmit]);
 
+  /** Handle auto-submit based on needsFetch and needsUpdate */
   useEffect(() => {
     if (!isSubmittable) return;
     if (needsFetch && autoSubmitEnabled) {
