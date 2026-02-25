@@ -93,6 +93,7 @@ import {
   generateRuleId,
   getFeatureDefinitions,
   getSavedGroupMap,
+  namespacesToMap,
 } from "back-end/src/services/features";
 import {
   getSDKPayloadCacheLocation,
@@ -2602,6 +2603,7 @@ export async function postFeatureEvaluate(
     skipRulesWithPrerequisites,
     date,
     safeRolloutMap,
+    namespaces: namespacesToMap(org.settings?.namespaces),
   });
 
   res.status(200).json({
