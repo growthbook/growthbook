@@ -57,7 +57,11 @@ export default function ExplorerSideBar({
   );
 
   return (
-    <Flex direction="column" gap="4" p="2">
+    <Flex
+      direction="column"
+      gap="4"
+      p={renderingInDashboardSidebar ? "0" : "2"}
+    >
       {error && renderingInDashboardSidebar ? (
         <Callout status="error">{error}</Callout>
       ) : null}

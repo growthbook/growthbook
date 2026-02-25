@@ -99,15 +99,15 @@ export const BLOCK_TYPE_INFO: Record<
     deprecated: true,
   },
   "metric-exploration": {
-    name: "Metric",
+    name: "Metric Explorer",
     icon: <PiChartBar />,
   },
   "fact-table-exploration": {
-    name: "Fact Table",
+    name: "Fact Table Explorer",
     icon: <PiTable />,
   },
   "data-source-exploration": {
-    name: "Data Source",
+    name: "Data Source Explorer",
     icon: <PiDatabase />,
   },
 };
