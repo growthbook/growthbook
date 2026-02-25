@@ -10,7 +10,7 @@ import useApi from "@/hooks/useApi";
 import Text from "@/ui/Text";
 import ExplorerChart from "@/enterprise/components/ProductAnalytics/MainSection/ExplorerChart";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import LastRefreshedIndicator from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/LastRefreshedIndicator";
+import LastRefreshedAt from "./LastRefreshedAt";
 import { BlockProps } from ".";
 
 export default function ProductAnalyticsExplorerBlock({
@@ -53,7 +53,7 @@ export default function ProductAnalyticsExplorerBlock({
     <Flex direction="column" style={{ height: 500 }} gap="2">
       {isEditing && (
         <Flex width="100%" justify="end">
-          <LastRefreshedIndicator
+          <LastRefreshedAt
             lastRefreshedAt={getValidDate(data?.exploration.runStarted)}
           />
         </Flex>
