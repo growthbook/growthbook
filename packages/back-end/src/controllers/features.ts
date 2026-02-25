@@ -4086,6 +4086,37 @@ export async function getFeatureDraftStates(
   res.status(200).json({ status: 200, features });
 }
 
+// TODO: consider adding POST /feature/:id/stale for force-recompute (with write-back),
+// for cases where a related feature/saved-group/attribute changed but the feature itself wasn't updated,
+// or for users wanting a force-recompute.
+export async function getFeatureStale(
+  req: AuthRequest<null, { id: string }>,
+  res: Response<
+    {
+      status: 200;
+      isStale: boolean;
+      staleReason: "error" | "no-rules" | "rules-one-sided" | null;
+      neverStale: boolean;
+      staleLastCalculated: Date | null;
+    },
+    EventUserForResponseLocals
+  >,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const feature = await getFeature(context, id);
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+  res.status(200).json({
+    status: 200,
+    isStale: feature.isStale ?? false,
+    staleReason: feature.staleReason ?? null,
+    neverStale: feature.neverStale ?? false,
+    staleLastCalculated: feature.staleLastCalculated ?? null,
+  });
+}
+
 export async function getFeaturesStatus(
   req: AuthRequest<null, Record<string, never>, { ids?: string }>,
   res: Response<

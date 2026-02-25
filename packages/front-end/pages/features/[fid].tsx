@@ -59,7 +59,7 @@ export default function FeaturePage() {
   const safeRollouts = data?.safeRollouts;
   const holdout = data?.holdout;
 
-  // Scope stale detection to the current feature's project
+  // Used for dependent features computation (see dependents-endpoint task for future backend migration)
   const { features } = useFeaturesList({
     project: baseFeature?.project,
     skipFetch: !baseFeature,
@@ -126,14 +126,11 @@ export default function FeaturePage() {
       />
       <FeaturesHeader
         feature={feature}
-        features={features}
-        experiments={experiments}
         mutate={refreshData}
         tab={tab}
         setTab={setTabAndScroll}
         setEditFeatureInfoModal={setEditFeatureInfoModal}
         holdout={holdout}
-        dependentExperiments={dependentExperiments}
       />
 
       {tab === "overview" && (

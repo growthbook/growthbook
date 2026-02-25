@@ -1,9 +1,8 @@
 import { useRouter } from "next/router";
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { Box, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
 import { FeatureInterface } from "shared/types/feature";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { filterEnvironmentsByFeature, isFeatureStale } from "shared/util";
+import { filterEnvironmentsByFeature } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { BsThreeDotsVertical } from "react-icons/bs";
@@ -42,24 +41,18 @@ import AddToHoldoutModal from "./AddToHoldoutModal";
 
 export default function FeaturesHeader({
   feature,
-  features,
-  experiments,
   mutate,
   tab,
   setTab,
   setEditFeatureInfoModal,
   holdout,
-  dependentExperiments,
 }: {
   feature: FeatureInterface;
-  features: FeatureInterface[];
-  experiments: ExperimentInterfaceStringDates[] | undefined;
   mutate: () => void;
   tab: FeatureTab;
   setTab: (tab: FeatureTab) => void;
   setEditFeatureInfoModal: (open: boolean) => void;
   holdout: HoldoutInterface | undefined;
-  dependentExperiments: ExperimentInterfaceStringDates[];
 }) {
   const router = useRouter();
   const projectId = feature?.project;
@@ -89,16 +82,9 @@ export default function FeaturesHeader({
   const holdoutsEnabled =
     useFeatureIsOn("holdouts_feature") && hasHoldoutsFeature;
 
-  const { stale, reason } = useMemo(() => {
-    if (!feature) return { stale: false };
-    return isFeatureStale({
-      feature,
-      features,
-      experiments,
-      dependentExperiments,
-      environments: envs,
-    });
-  }, [feature, features, experiments, dependentExperiments, envs]);
+  // isStale is computed org-wide by the cron job and stored on the feature document.
+  const stale = feature.isStale ?? false;
+  const reason = feature.staleReason ?? undefined;
 
   const project = getProjectById(projectId || "");
   const projectName = project?.name || null;
