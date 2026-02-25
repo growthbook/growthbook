@@ -202,11 +202,12 @@ export function ExplorerProvider({
     return compareConfig(baselineConfig, cleanedDraftExploreState);
   }, [baselineConfig, cleanedDraftExploreState]);
 
-  const isStale = needsUpdate && needsFetch && !autoSubmitEnabled;
-
   const isSubmittable = useMemo(() => {
     return isSubmittableConfig(cleanedDraftExploreState);
   }, [cleanedDraftExploreState]);
+
+  const isStale =
+    needsUpdate && needsFetch && !autoSubmitEnabled && isSubmittable;
 
   const doSubmit = useCallback(async () => {
     if (isEmpty || !isSubmittable) return;

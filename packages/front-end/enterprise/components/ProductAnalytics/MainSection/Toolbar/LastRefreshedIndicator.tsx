@@ -1,7 +1,13 @@
 import { useEffect, useState } from "react";
 import { Flex } from "@radix-ui/themes";
-import { PiClockClockwise } from "react-icons/pi";
+import { PiArrowsClockwise, PiClockClockwise } from "react-icons/pi";
 import Text from "@/ui/Text";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuGroup,
+} from "@/ui/DropdownMenu";
+import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 
 function formatShortAgo(date: Date): string {
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
@@ -27,6 +33,9 @@ export default function LastRefreshedIndicator({
   lastRefreshedAt,
 }: LastRefreshedIndicatorProps) {
   const [, setTick] = useState(0);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const { handleSubmit, loading, draftExploreState, isSubmittable } =
+    useExplorerContext() ?? {};
 
   useEffect(() => {
     if (!lastRefreshedAt) return;
@@ -57,12 +66,45 @@ export default function LastRefreshedIndicator({
 
   if (!lastRefreshedAt) return null;
 
-  return (
-    <Flex align="center" gap="1" style={{ minWidth: "40px" }}>
+  const isUpdateDisabled =
+    loading || !draftExploreState?.dataset?.values?.length || !isSubmittable;
+
+  const trigger = (
+    <Flex
+      align="center"
+      gap="1"
+      style={{
+        minWidth: "40px",
+        cursor: "pointer",
+      }}
+    >
       <PiClockClockwise style={{ color: "var(--gray-11)", flexShrink: 0 }} />
       <Text size="small" color="text-low">
         {formatShortAgo(lastRefreshedAt)}
       </Text>
     </Flex>
+  );
+
+  return (
+    <DropdownMenu
+      trigger={trigger}
+      open={dropdownOpen}
+      onOpenChange={setDropdownOpen}
+    >
+      <DropdownMenuGroup>
+        <DropdownMenuItem
+          onClick={async () => {
+            setDropdownOpen(false);
+            await handleSubmit?.();
+          }}
+          disabled={isUpdateDisabled}
+        >
+          <Flex align="center" gap="2">
+            <PiArrowsClockwise />
+            Update
+          </Flex>
+        </DropdownMenuItem>
+      </DropdownMenuGroup>
+    </DropdownMenu>
   );
 }

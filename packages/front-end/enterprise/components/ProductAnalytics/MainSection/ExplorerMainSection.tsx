@@ -1,17 +1,27 @@
 import { Box, Flex } from "@radix-ui/themes";
 import { BsGraphUpArrow } from "react-icons/bs";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import { PiDotsSix } from "react-icons/pi";
+import { PiArrowsClockwise, PiDotsSix } from "react-icons/pi";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Text from "@/ui/Text";
+import Button from "@/ui/Button";
 import { shouldChartSectionShow } from "@/enterprise/components/ProductAnalytics/util";
 import ExplorerChart from "./ExplorerChart";
 import ExplorerDataTable from "./ExplorerDataTable";
 import Toolbar from "./Toolbar";
 
 export default function ExplorerMainSection() {
-  const { exploration, submittedExploreState, loading, error } =
-    useExplorerContext();
+  const {
+    exploration,
+    submittedExploreState,
+    loading,
+    error,
+    isStale,
+    draftExploreState,
+    handleSubmit,
+    autoSubmitEnabled,
+    isSubmittable,
+  } = useExplorerContext();
 
   const showChartSection = shouldChartSectionShow({
     loading,
@@ -31,14 +41,14 @@ export default function ExplorerMainSection() {
     >
       <Toolbar />
 
-      {submittedExploreState?.dataset?.values?.length &&
-      submittedExploreState?.dataset?.values?.length > 0 ? (
-        <Flex
-          direction="column"
-          gap="3"
-          style={{ flex: "1", minHeight: 0 }}
-          id="main-section-visuals"
-        >
+      <Flex
+        direction="column"
+        gap="3"
+        style={{ flex: "1", minHeight: 0, position: "relative" }}
+        id="main-section-visuals"
+      >
+        {submittedExploreState?.dataset?.values?.length &&
+        submittedExploreState?.dataset?.values?.length > 0 ? (
           <PanelGroup direction="vertical" id="visualization-group">
             {showChartSection && (
               <>
@@ -91,26 +101,57 @@ export default function ExplorerMainSection() {
               <ExplorerDataTable />
             </Panel>
           </PanelGroup>
-        </Flex>
-      ) : (
-        <Flex
-          align="center"
-          justify="center"
-          direction="column"
-          gap="3"
-          style={{
-            minHeight: "400px",
-            color: "var(--color-text-mid)",
-            border: "2px dashed var(--gray-a3)",
-            borderRadius: "var(--radius-4)",
-          }}
-        >
-          <BsGraphUpArrow size={48} className="text-muted" />
-          <Text size="large" weight="medium">
-            Configure your explorer to visualize data
-          </Text>
-        </Flex>
-      )}
+        ) : (
+          <Flex
+            align="center"
+            justify="center"
+            direction="column"
+            gap="3"
+            style={{
+              flex: 1,
+              minHeight: "400px",
+              color: "var(--color-text-mid)",
+              border: "2px dashed var(--gray-a3)",
+              borderRadius: "var(--radius-4)",
+            }}
+          >
+            <BsGraphUpArrow size={48} className="text-muted" />
+            <Text size="large" weight="medium">
+              Configure your explorer to visualize data
+            </Text>
+          </Flex>
+        )}
+
+        {isStale && (
+          <Box
+            style={{
+              position: "absolute",
+              inset: 0,
+              backgroundColor: "rgba(0, 0, 0, 0.5)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 100,
+            }}
+          >
+            <Button
+              size="sm"
+              variant={autoSubmitEnabled ? "outline" : "solid"}
+              disabled={
+                loading ||
+                !draftExploreState?.dataset?.values?.length ||
+                !isSubmittable
+              }
+              onClick={handleSubmit}
+            >
+              <Flex align="center" gap="2">
+                <PiArrowsClockwise />
+                Update
+              </Flex>
+            </Button>
+          </Box>
+        )}
+      </Flex>
     </Flex>
   );
 }

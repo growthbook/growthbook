@@ -1,7 +1,5 @@
 import { Flex } from "@radix-ui/themes";
-import { PiArrowsClockwise } from "react-icons/pi";
 import { getValidDate } from "shared/dates";
-import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
@@ -15,12 +13,8 @@ export default function Toolbar() {
   const {
     exploration,
     draftExploreState,
-    loading,
-    handleSubmit,
     autoSubmitEnabled,
     setAutoSubmitEnabled,
-    isStale,
-    isSubmittable,
   } = useExplorerContext();
 
   return (
@@ -42,40 +36,12 @@ export default function Toolbar() {
               size="sm"
             />
           </Tooltip>
-          <Tooltip
-            body="Configuration has changed. Click to refresh the chart."
-            shouldDisplay={isStale}
-          >
-            <Button
-              size="sm"
-              variant={autoSubmitEnabled ? "outline" : "solid"}
-              disabled={
-                loading ||
-                !draftExploreState?.dataset?.values?.length ||
-                !isSubmittable
-              }
-              onClick={handleSubmit}
-            >
-              <Flex align="center" gap="2">
-                <PiArrowsClockwise />
-                Update
-                {isStale && (
-                  <span
-                    style={{
-                      width: 6,
-                      height: 6,
-                      borderRadius: "50%",
-                      backgroundColor: "var(--amber-9)",
-                      flexShrink: 0,
-                    }}
-                    aria-hidden
-                  />
-                )}
-              </Flex>
-            </Button>
-          </Tooltip>
           <LastRefreshedIndicator
-            lastRefreshedAt={getValidDate(exploration?.runStarted)}
+            lastRefreshedAt={
+              exploration?.runStarted
+                ? getValidDate(exploration.runStarted)
+                : null
+            }
           />
         </Flex>
       </Flex>
