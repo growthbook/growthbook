@@ -35,7 +35,7 @@ function RevisionRow({
   const date = r.status === "published" ? r.datePublished : r.dateUpdated;
   return (
     <Flex align="center" justify="between" gap="3" style={{ width: "100%" }}>
-      <Heading as="h3" size="small" mb="0">
+      <Heading as="h4" size="x-small" mb="0">
         Revision {r.version}
       </Heading>
       <Box flexGrow="1" />
