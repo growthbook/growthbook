@@ -1394,6 +1394,7 @@ describe("SDK Payloads", () => {
               attribute: "login_id",
               seed: "custom-seed",
               hashVersion: 2,
+              name: "multi-ns",
               ranges: [
                 [0, 0.2],
                 [0.5, 0.7],
