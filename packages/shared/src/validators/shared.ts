@@ -1,5 +1,20 @@
 import { z } from "zod";
 
+/**
+ * Zod 4's z.number() rejects Infinity/-Infinity. This helper accepts all
+ * finite numbers plus ±Infinity, which is needed for stats-engine fields
+ * (e.g. one-sided confidence intervals).
+ */
+export const numberAllowingInfinity = z
+  .number()
+  .or(z.literal(Infinity))
+  .or(z.literal(-Infinity));
+
+export const ciTupleValidator = z.tuple([
+  numberAllowingInfinity,
+  numberAllowingInfinity,
+]);
+
 export const namespaceValue = z
   .object({
     enabled: z.boolean(),

@@ -7,6 +7,7 @@ import {
   windowSettingsValidator,
 } from "./fact-table";
 import { statsEnginesValidator } from "./projects";
+import { ciTupleValidator } from "./shared";
 
 const metricStatsObject = z.object({
   users: z.number(),
@@ -34,18 +35,8 @@ export const safeRolloutSnapshotMetricObject = z.object({
   cr: z.number(),
   users: z.number(),
   denominator: z.number().optional(),
-  ci: z
-    .tuple([
-      z.number().or(z.literal(-Infinity)),
-      z.number().or(z.literal(Infinity)),
-    ])
-    .optional(),
-  ciAdjusted: z
-    .tuple([
-      z.number().or(z.literal(-Infinity)),
-      z.number().or(z.literal(Infinity)),
-    ])
-    .optional(),
+  ci: ciTupleValidator.optional(),
+  ciAdjusted: ciTupleValidator.optional(),
   expected: z.number().optional(),
   risk: z.tuple([z.number(), z.number()]).optional(),
   riskType: z.enum(["relative", "absolute"]).optional(),

@@ -32,6 +32,21 @@ const BaseClass = MakeModelClass({
 });
 
 export class MetricTimeSeriesModel extends BaseClass {
+  protected migrate(legacyDoc: unknown): MetricTimeSeries {
+    const doc = legacyDoc as MetricTimeSeries;
+    for (const dp of doc.dataPoints ?? []) {
+      for (const v of dp.variations ?? []) {
+        for (const key of ["relative", "absolute", "scaled"] as const) {
+          const val = v[key];
+          if (val?.ci) {
+            val.ci = [val.ci[0] ?? -Infinity, val.ci[1] ?? Infinity];
+          }
+        }
+      }
+    }
+    return doc;
+  }
+
   // Allow everyone to create as these will be managed automatically and not exposed directly to users
   protected canCreate(): boolean {
     return true;

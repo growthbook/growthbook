@@ -1,16 +1,12 @@
 import { z } from "zod";
+import { ciTupleValidator } from "./shared";
 
 const metricTimeSeriesValue = z
   .object({
     value: z.number(),
     denominator: z.number().optional(),
     expected: z.number().optional(),
-    ci: z
-      .tuple([
-        z.number().or(z.literal(-Infinity)),
-        z.number().or(z.literal(Infinity)),
-      ])
-      .optional(),
+    ci: ciTupleValidator.optional(),
     pValue: z.number().optional(),
     pValueAdjusted: z.number().optional(),
     chanceToWin: z.number().optional(),

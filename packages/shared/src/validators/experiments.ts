@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { statsEngines } from "shared/constants";
 import {
+  ciTupleValidator,
   namespaceValue,
   featurePrerequisite,
   savedGroupTargeting,
@@ -28,12 +29,7 @@ export type ExperimentResultsType = (typeof experimentResultsType)[number];
 export const singleVariationResult = z.object({
   users: z.number().optional(),
   cr: z.number().optional(),
-  ci: z
-    .tuple([
-      z.number().or(z.literal(-Infinity)),
-      z.number().or(z.literal(Infinity)),
-    ])
-    .optional(),
+  ci: ciTupleValidator.optional(),
 });
 
 export const banditResult = z.object({

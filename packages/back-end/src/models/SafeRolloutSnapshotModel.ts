@@ -33,7 +33,33 @@ const BaseClass = MakeModelClass({
   ],
 });
 
+function migrateNullCIValues(
+  ci: [number | null, number | null] | undefined,
+): [number, number] | undefined {
+  if (!ci) return undefined;
+  return [ci[0] ?? -Infinity, ci[1] ?? Infinity];
+}
+
 export class SafeRolloutSnapshotModel extends BaseClass {
+  protected migrate(legacyDoc: unknown): SafeRolloutSnapshotInterface {
+    const doc = legacyDoc as SafeRolloutSnapshotInterface;
+    for (const analysis of doc.analyses ?? []) {
+      for (const dim of analysis.results ?? []) {
+        for (const variation of dim.variations ?? []) {
+          for (const metric of Object.values(variation.metrics ?? {})) {
+            metric.ci = migrateNullCIValues(
+              metric.ci as [number | null, number | null] | undefined,
+            );
+            metric.ciAdjusted = migrateNullCIValues(
+              metric.ciAdjusted as [number | null, number | null] | undefined,
+            );
+          }
+        }
+      }
+    }
+    return doc;
+  }
+
   // TODO: fix permissions
   protected canCreate() {
     return true;

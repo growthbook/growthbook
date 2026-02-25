@@ -29,4 +29,50 @@ describe("safe-rollout-snapshot validators", () => {
     const result = safeRolloutSnapshotMetricObject.safeParse(metricWithNumbers);
     expect(result.success).toBe(true);
   });
+
+  it("accepts one-sided CIs (Infinity in either position)", () => {
+    const leftOpen = {
+      ...baseMetric,
+      ci: [-Infinity, 0.5],
+    };
+    expect(safeRolloutSnapshotMetricObject.safeParse(leftOpen).success).toBe(
+      true,
+    );
+
+    const rightOpen = {
+      ...baseMetric,
+      ci: [-0.5, Infinity],
+    };
+    expect(safeRolloutSnapshotMetricObject.safeParse(rightOpen).success).toBe(
+      true,
+    );
+  });
+
+  it("accepts Infinity in either CI position regardless of sign", () => {
+    const positiveFirst = {
+      ...baseMetric,
+      ci: [Infinity, -Infinity],
+    };
+    expect(
+      safeRolloutSnapshotMetricObject.safeParse(positiveFirst).success,
+    ).toBe(true);
+
+    const negativeSecond = {
+      ...baseMetric,
+      ci: [0.5, -Infinity],
+    };
+    expect(
+      safeRolloutSnapshotMetricObject.safeParse(negativeSecond).success,
+    ).toBe(true);
+  });
+
+  it("rejects null in ci tuple elements", () => {
+    const nullCI = {
+      ...baseMetric,
+      ci: [null, null],
+    };
+    expect(safeRolloutSnapshotMetricObject.safeParse(nullCI).success).toBe(
+      false,
+    );
+  });
 });
