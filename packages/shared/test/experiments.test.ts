@@ -20,7 +20,7 @@ import {
   getVariationsForPhase,
   getActiveVariationsForPhase,
   getActiveVariationWeightsForPhase,
-  getVariationWeightsForPhase,
+  getActiveVariationsWithWeightsForPhase,
 } from "../src/experiments";
 
 describe("Experiments", () => {
@@ -1568,29 +1568,23 @@ describe("chanceToWinFlatPrior", () => {
 
 describe("phase-level variations helpers", () => {
   const baseVariations = [
-    { id: "v1", key: "control", name: "Control", screenshots: [] },
-    { id: "v2", key: "treatment", name: "Treatment", screenshots: [] },
-    { id: "v3", key: "treatment2", name: "Treatment 2", screenshots: [] },
+    { id: "v1", key: "control", name: "Control", screenshots: [], status: "active" as const },
+    { id: "v2", key: "treatment", name: "Treatment", screenshots: [], status: "active" as const },
+    { id: "v3", key: "treatment2", name: "Treatment 2", screenshots: [], status: "active" as const },
   ];
 
-  it("getVariationsForPhase returns experiment.variations when phase is null", () => {
-    const experiment = { variations: baseVariations };
+  it("getVariationsForPhase falls back to last phase when phase is null", () => {
+    const experiment = { phases: [{ variations: baseVariations, variationWeights: [0.334, 0.333, 0.333] }] };
     expect(getVariationsForPhase(experiment, null)).toEqual(baseVariations);
-  });
-
-  it("getVariationsForPhase returns experiment.variations when phase.variations is undefined", () => {
-    const experiment = { variations: baseVariations };
-    const phase = { variationWeights: [0.334, 0.333, 0.333] };
-    expect(getVariationsForPhase(experiment, phase)).toEqual(baseVariations);
   });
 
   it("getVariationsForPhase returns phase.variations when set", () => {
     const phaseVariations = [
-      { ...baseVariations[0], disabled: false },
-      { ...baseVariations[1], disabled: false },
-      { ...baseVariations[2], disabled: true },
+      { ...baseVariations[0], status: "active" as const },
+      { ...baseVariations[1], status: "active" as const },
+      { ...baseVariations[2], status: "disabled" as const },
     ];
-    const experiment = { variations: baseVariations };
+    const experiment = { phases: [{ variations: phaseVariations, variationWeights: [0.5, 0.5, 0] }] };
     const phase = {
       variationWeights: [0.5, 0.5, 0],
       variations: phaseVariations,
@@ -1600,11 +1594,11 @@ describe("phase-level variations helpers", () => {
 
   it("getActiveVariationsForPhase filters out disabled variations", () => {
     const phaseVariations = [
-      { ...baseVariations[0], disabled: false },
-      { ...baseVariations[1], disabled: true },
-      { ...baseVariations[2], disabled: false },
+      { ...baseVariations[0], status: "active" as const },
+      { ...baseVariations[1], status: "disabled" as const },
+      { ...baseVariations[2], status: "active" as const },
     ];
-    const experiment = { variations: baseVariations };
+    const experiment = { phases: [{ variations: phaseVariations, variationWeights: [0.5, 0, 0.5] }] };
     const phase = {
       variationWeights: [0.5, 0, 0.5],
       variations: phaseVariations,
@@ -1617,11 +1611,11 @@ describe("phase-level variations helpers", () => {
 
   it("getActiveVariationWeightsForPhase returns weights for active variations only", () => {
     const phaseVariations = [
-      { ...baseVariations[0], disabled: false },
-      { ...baseVariations[1], disabled: true },
-      { ...baseVariations[2], disabled: false },
+      { ...baseVariations[0], status: "active" as const },
+      { ...baseVariations[1], status: "disabled" as const },
+      { ...baseVariations[2], status: "active" as const },
     ];
-    const experiment = { variations: baseVariations };
+    const experiment = { phases: [{ variations: phaseVariations, variationWeights: [0.5, 0, 0.5] }] };
     const phase = {
       variationWeights: [0.5, 0, 0.5],
       variations: phaseVariations,
@@ -1630,19 +1624,22 @@ describe("phase-level variations helpers", () => {
     expect(weights).toEqual([0.5, 0.5]);
   });
 
-  it("getVariationWeightsForPhase returns phase weights when length matches", () => {
-    const experiment = { variations: baseVariations };
-    const phase = { variationWeights: [0.334, 0.333, 0.333] };
-    expect(getVariationWeightsForPhase(experiment, phase)).toEqual([
-      0.334, 0.333, 0.333,
-    ]);
-  });
-
-  it("getVariationWeightsForPhase returns equal weights when length mismatches (back compat)", () => {
-    const experiment = { variations: baseVariations };
-    const phase = { variationWeights: [0.5, 0.5] }; // only 2 weights for 3 variations
-    const weights = getVariationWeightsForPhase(experiment, phase);
-    expect(weights).toHaveLength(3);
-    expect(weights.reduce((a, b) => a + b, 0)).toBeCloseTo(1);
+  it("getActiveVariationsWithWeightsForPhase returns active variations with weights", () => {
+    const phaseVariations = [
+      { ...baseVariations[0], status: "active" as const },
+      { ...baseVariations[1], status: "disabled" as const },
+      { ...baseVariations[2], status: "active" as const },
+    ];
+    const experiment = { phases: [{ variations: phaseVariations, variationWeights: [0.5, 0, 0.5] }] };
+    const phase = {
+      variationWeights: [0.5, 0, 0.5],
+      variations: phaseVariations,
+    };
+    const result = getActiveVariationsWithWeightsForPhase(experiment, phase);
+    expect(result).toHaveLength(2);
+    expect(result[0].id).toBe("v1");
+    expect(result[0].weight).toBe(0.5);
+    expect(result[1].id).toBe("v3");
+    expect(result[1].weight).toBe(0.5);
   });
 });

@@ -1484,15 +1484,14 @@ export function generateSliceStringFromLevels(
   return generateSliceString(slices);
 }
 
-/** Minimal experiment shape for phase-level variation helpers. */
-type ExperimentWithPhases = {
-  phases: { variations: Variation[] }[];
-};
+export type VariationWithWeight = Variation & { weight: number };
 
-/** Minimal phase shape for phase-level variation helpers. Accepts ExperimentPhase and ExperimentPhaseStringDates. */
-export type PhaseWithVariations = {
+type PhaseWithVariationInfo = {
+  variations?: Variation[];
   variationWeights?: number[];
-  variations: Variation[];
+};
+type ExperimentWithPhases = {
+  phases: PhaseWithVariationInfo[];
 };
 
 /**
@@ -1501,11 +1500,20 @@ export type PhaseWithVariations = {
  */
 export function getVariationsForPhase(
   experiment: ExperimentWithPhases,
-  phase: PhaseWithVariations | null,
+  phase: PhaseWithVariationInfo | null,
 ): Variation[] {
-  if (phase) return phase.variations;
+  if (phase) return phase.variations ?? [];
   const lastPhase = experiment.phases[experiment.phases.length - 1];
   return lastPhase?.variations ?? [];
+}
+
+export function getVariationWeightsForPhase(
+  experiment: ExperimentWithPhases,
+  phase: Pick<PhaseWithVariationInfo, "variationWeights"> | null,
+): number[] {
+  if (phase) return phase.variationWeights ?? [];
+  const lastPhase = experiment.phases[experiment.phases.length - 1];
+  return lastPhase?.variationWeights ?? [];
 }
 
 /**
@@ -1514,9 +1522,37 @@ export function getVariationsForPhase(
  */
 export function getActiveVariationsForPhase(
   experiment: ExperimentWithPhases,
-  phase: PhaseWithVariations | null,
+  phase: PhaseWithVariationInfo | null,
 ): Variation[] {
   return getVariationsForPhase(experiment, phase).filter(
+    (v) => v.status === "active",
+  );
+}
+
+/**
+ * Returns variations with weights
+ */
+export function getVariationWithWeightsForPhase(
+  experiment: ExperimentWithPhases,
+  phase: PhaseWithVariationInfo | null,
+): VariationWithWeight[] {
+  const variations = getVariationsForPhase(experiment, phase);
+  const weights = getVariationWeightsForPhase(experiment, phase);
+  return variations.map((v, i) => ({
+    ...v,
+    weight: weights[i] ?? 0,
+  }));
+}
+
+/**
+ * Returns active (non-disabled) variations with their weights.
+ * Combines getActiveVariationsForPhase + getActiveVariationWeightsForPhase.
+ */
+export function getActiveVariationsWithWeightsForPhase(
+  experiment: ExperimentWithPhases,
+  phase: PhaseWithVariationInfo | null,
+): VariationWithWeight[] {
+  return getVariationWithWeightsForPhase(experiment, phase).filter(
     (v) => v.status === "active",
   );
 }
@@ -1527,29 +1563,11 @@ export function getActiveVariationsForPhase(
  */
 export function getActiveVariationWeightsForPhase(
   experiment: ExperimentWithPhases,
-  phase: PhaseWithVariations | null,
+  phase: PhaseWithVariationInfo | null,
 ): number[] {
-  const variations = getVariationsForPhase(experiment, phase);
-  const weights = getVariationWeightsForPhase(experiment, phase);
-  return variations
-    .map((v, i) => (v.status === "active" ? weights[i] : null))
-    .filter((w): w is number => w !== null);
-}
-
-/**
- * Returns full variationWeights for the phase.
- * Falls back to equal weights when length mismatches (back compat).
- */
-export function getVariationWeightsForPhase(
-  experiment: ExperimentWithPhases,
-  phase: PhaseWithVariations | null,
-): number[] {
-  const variations = getVariationsForPhase(experiment, phase);
-  const phaseWeights = phase?.variationWeights ?? [];
-  if (phaseWeights.length === variations.length) {
-    return phaseWeights;
-  }
-  return getEqualWeights(variations.length);
+  return getActiveVariationsWithWeightsForPhase(experiment, phase).map(
+    (v) => v.weight,
+  );
 }
 
 // Returns n "equal" decimals rounded to 3 places that add up to 1

@@ -8,8 +8,7 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import {
-  getActiveVariationsForPhase,
-  getActiveVariationWeightsForPhase,
+  getActiveVariationsWithWeightsForPhase,
   getEffectiveLookbackOverride,
   getVariationsForPhase,
   isPrecomputedDimension,
@@ -127,12 +126,10 @@ const Results: FC<{
     (Date.now() - getValidDate(phaseObj?.dateStarted ?? "").getTime()) /
     (1000 * 60);
 
-  const activeVariations = getActiveVariationsForPhase(experiment, phaseObj);
-  const activeWeights = getActiveVariationWeightsForPhase(experiment, phaseObj);
-  const variations = activeVariations.map((v, i) => ({
+  const variations = getActiveVariationsWithWeightsForPhase(experiment, phaseObj).map((v, i) => ({
     id: v.key || i + "",
     name: v.name,
-    weight: activeWeights[i] || 0,
+    weight: v.weight,
   }));
 
   const settingsForSnapshotMetrics: MetricSnapshotSettings[] =

@@ -9,10 +9,7 @@ import {
   isDefined,
   recursiveWalk,
 } from "shared/util";
-import {
-  getActiveVariationsForPhase,
-  getActiveVariationWeightsForPhase,
-} from "shared/experiments";
+import { getActiveVariationsWithWeightsForPhase } from "shared/experiments";
 import { GroupMap } from "shared/types/saved-group";
 import { cloneDeep, isNil } from "lodash";
 import md5 from "md5";
@@ -500,8 +497,10 @@ export function getFeatureDefinition({
           }
           // Running experiment
           else {
-            const activeVariations = getActiveVariationsForPhase(exp, phase);
-            const activeWeights = getActiveVariationWeightsForPhase(exp, phase);
+            const activeVariations = getActiveVariationsWithWeightsForPhase(
+              exp,
+              phase,
+            );
             rule.variations = activeVariations.map((v) => {
               const variation = r.variations.find(
                 (ruleVariation) => v.id === ruleVariation.variationId,
@@ -510,7 +509,7 @@ export function getFeatureDefinition({
                 ? getJSONValue(feature.valueType, variation.value)
                 : null;
             });
-            rule.weights = activeWeights;
+            rule.weights = activeVariations.map((v) => v.weight);
             rule.key = exp.trackingKey;
             rule.meta = activeVariations.map((v) => ({
               key: v.key,

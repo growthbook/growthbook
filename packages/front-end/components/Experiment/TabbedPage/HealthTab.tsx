@@ -1,8 +1,5 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import {
-  getActiveVariationsForPhase,
-  getActiveVariationWeightsForPhase,
-} from "shared/experiments";
+import { getActiveVariationsWithWeightsForPhase } from "shared/experiments";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
@@ -254,12 +251,10 @@ export default function HealthTab({
 
   const phaseObj = experiment.phases?.[phase] ?? null;
 
-  const activeVariations = getActiveVariationsForPhase(experiment, phaseObj);
-  const activeWeights = getActiveVariationWeightsForPhase(experiment, phaseObj);
-  const variations = activeVariations.map((v, i) => ({
+  const variations = getActiveVariationsWithWeightsForPhase(experiment, phaseObj).map((v, i) => ({
     id: v.key || i + "",
     name: v.name,
-    weight: activeWeights[i] || 0,
+    weight: v.weight,
   }));
 
   return (

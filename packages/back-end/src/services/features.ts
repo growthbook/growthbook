@@ -23,10 +23,7 @@ import {
   NodeHandler,
   recursiveWalk,
 } from "shared/util";
-import {
-  getActiveVariationsForPhase,
-  getActiveVariationWeightsForPhase,
-} from "shared/experiments";
+import { getActiveVariationsWithWeightsForPhase } from "shared/experiments";
 import {
   getConnectionSDKCapabilities,
   scrubExperiments,
@@ -265,8 +262,7 @@ export function generateAutoExperimentsPayload({
       const phase: ExperimentPhase | null =
         e.phases?.[e.phases.length - 1] ?? null;
 
-      const activeVariations = getActiveVariationsForPhase(e, phase);
-      const activeWeights = getActiveVariationWeightsForPhase(e, phase);
+      const activeVariations = getActiveVariationsWithWeightsForPhase(e, phase);
 
       const forcedVariation =
         e.status === "stopped" && e.releasedVariationId
@@ -340,7 +336,7 @@ export function generateAutoExperimentsPayload({
                 },
               ]
             : data.visualChangeset.urlPatterns,
-        weights: activeWeights,
+        weights: activeVariations.map((v) => v.weight),
         meta: activeVariations.map((v) => ({ key: v.key, name: v.name })),
         filters: phase?.namespace?.enabled
           ? [

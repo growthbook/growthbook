@@ -35,8 +35,7 @@ import {
   getAllMetricIdsFromExperiment,
   getAllExpandedMetricIdsFromExperiment,
   expandAllSliceMetricsInMap,
-  getActiveVariationsForPhase,
-  getActiveVariationWeightsForPhase,
+  getActiveVariationsWithWeightsForPhase,
   getEqualWeights,
   getVariationsForPhase,
   getMetricResultStatus,
@@ -450,8 +449,7 @@ export function getSnapshotSettings({
     !!exposureQuery.dimensionMetadata &&
     !orgDisabledPrecomputedDimensions;
 
-  const activeVariations = getActiveVariationsForPhase(experiment, phase);
-  const activeWeights = getActiveVariationWeightsForPhase(experiment, phase);
+  const activeVariations = getActiveVariationsWithWeightsForPhase(experiment, phase);
 
   let dimensions: DimensionForSnapshot[] = dimension ? [{ id: dimension }] : [];
   if (precomputeDimensions) {
@@ -669,7 +667,7 @@ export function getSnapshotSettings({
     metricSettings,
     variations: activeVariations.map((v, i) => ({
       id: v.key || i + "",
-      weight: activeWeights[i] || 0,
+      weight: v.weight,
     })),
     coverage: phase.coverage ?? 1,
     banditSettings,
