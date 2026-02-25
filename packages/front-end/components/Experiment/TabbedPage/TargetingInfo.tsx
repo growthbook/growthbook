@@ -3,7 +3,11 @@ import {
   ExperimentTargetingData,
 } from "shared/types/experiment";
 import clsx from "clsx";
-import { calculateNamespaceCoverage, getNamespaceRanges } from "shared/util";
+import {
+  calculateNamespaceCoverage,
+  getNamespaceRanges,
+  NamespaceValue,
+} from "shared/util";
 import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
@@ -33,6 +37,28 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 2,
 });
 
+function getNamespaceDisplayData(
+  namespace?: NamespaceValue,
+  namespacesList?: { name: string; label?: string }[],
+): { range: number; minMax: [number, number]; name: string } {
+  if (!namespace || !namespace.enabled) {
+    return { range: 1, minMax: [0, 0], name: "" };
+  }
+  const range = calculateNamespaceCoverage(namespace);
+  const rangesArr = getNamespaceRanges(namespace);
+  const minMax: [number, number] =
+    rangesArr.length > 0
+      ? [
+          Math.min(...rangesArr.map((r) => r[0])),
+          Math.max(...rangesArr.map((r) => r[1])),
+        ]
+      : [0, 0];
+  const name =
+    namespacesList?.find((n) => n.name === namespace.name)?.label ||
+    namespace.name;
+  return { range, minMax, name };
+}
+
 export default function TargetingInfo({
   phaseIndex = null,
   experiment,
@@ -53,24 +79,11 @@ export default function TargetingInfo({
   const hasNamespace = phase?.namespace && phase.namespace.enabled;
 
   // Calculate total namespace allocation
-  const namespaceRange =
-    hasNamespace && phase.namespace
-      ? calculateNamespaceCoverage(phase.namespace)
-      : 1;
-  const nsRangesArr =
-    hasNamespace && phase.namespace ? getNamespaceRanges(phase.namespace) : [];
-  const namespaceRanges: [number, number] =
-    nsRangesArr.length > 0
-      ? [
-          Math.min(...nsRangesArr.map((r) => r[0])),
-          Math.max(...nsRangesArr.map((r) => r[1])),
-        ]
-      : [0, 0];
-
-  const namespaceName = hasNamespace
-    ? namespaces?.find((n) => n.name === phase.namespace!.name)?.label ||
-      phase.namespace!.name
-    : "";
+  const {
+    range: namespaceRange,
+    minMax: namespaceRanges,
+    name: namespaceName,
+  } = getNamespaceDisplayData(phase.namespace, namespaces);
 
   const hasSavedGroupsChanges =
     showChanges &&
@@ -101,26 +114,11 @@ export default function TargetingInfo({
   );
 
   const changesHasNamespace = changes?.namespace && changes.namespace.enabled;
-  const changesNamespaceRange =
-    changes?.namespace && changes.namespace.enabled
-      ? calculateNamespaceCoverage(changes.namespace)
-      : 1;
-  const changesNsRangesArr =
-    changes?.namespace && changes.namespace.enabled
-      ? getNamespaceRanges(changes.namespace)
-      : [];
-  const changesNamespaceRanges: [number, number] =
-    changesNsRangesArr.length > 0
-      ? [
-          Math.min(...changesNsRangesArr.map((r) => r[0])),
-          Math.max(...changesNsRangesArr.map((r) => r[1])),
-        ]
-      : [0, 0];
-
-  const changesNamespaceName = changesHasNamespace
-    ? namespaces?.find((n) => n.name === changes.namespace!.name)?.label ||
-      changes.namespace!.name
-    : "";
+  const {
+    range: changesNamespaceRange,
+    minMax: changesNamespaceRanges,
+    name: changesNamespaceName,
+  } = getNamespaceDisplayData(changes?.namespace, namespaces);
 
   return (
     <div>

@@ -14,6 +14,7 @@ import {
   BsExclamationCircle,
   BsLightbulb,
 } from "react-icons/bs";
+import { calculateNamespaceCoverage, NamespaceValue } from "shared/util";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import {
   ChangeType,
@@ -596,24 +597,12 @@ function getRecommendedRolloutData({
     lastPhase.namespace?.enabled &&
     data.namespace.name === lastPhase.namespace.name
   ) {
-    // Get total range coverage
-    const getTotalCoverage = (ns: {
-      ranges?: [number, number][];
-      range?: [number, number];
-    }) => {
-      if ("ranges" in ns && ns.ranges && ns.ranges.length > 0) {
-        return ns.ranges.reduce(
-          (sum: number, [start, end]: [number, number]) => sum + (end - start),
-          0,
-        );
-      } else if ("range" in ns && ns.range) {
-        return ns.range[1] - ns.range[0];
-      }
-      return 1;
-    };
-
-    const currentCoverage = getTotalCoverage(data.namespace);
-    const lastCoverage = getTotalCoverage(lastPhase.namespace);
+    const currentCoverage = data.namespace
+      ? calculateNamespaceCoverage(data.namespace as NamespaceValue)
+      : 1;
+    const lastCoverage = lastPhase.namespace
+      ? calculateNamespaceCoverage(lastPhase.namespace as NamespaceValue)
+      : 1;
 
     if (currentCoverage < lastCoverage) {
       decreaseNamespaceRange = true;
