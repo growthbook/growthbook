@@ -6,34 +6,22 @@ import {
   BsToggleOn,
   BsGraphUp,
   BsBarChartLine,
-  BsFlag,
-  BsHouse,
-  BsCodeSlash,
-  BsClipboardCheck,
-  BsGear,
 } from "react-icons/bs";
-import {
-  PiFolderDuotone,
-  PiFlask,
-  PiUsersThree,
-  PiCompass,
-} from "react-icons/pi";
+import { PiFolderDuotone, PiFlask, PiUsersThree } from "react-icons/pi";
 import { getMetricLink } from "shared/experiments";
 import Portal from "@/components/Modal/Portal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useFeaturesNames } from "@/hooks/useFeaturesNames";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useDashboards } from "@/hooks/useDashboards";
-import { GBDatabase, GBExperiment, GBSettings } from "@/components/Icons";
 import styles from "./CommandPalette.module.scss";
 
 type CommandPaletteItemType =
-  | "navigate"
   | "feature"
   | "experiment"
   | "metric"
-  | "savedGroup"
-  | "dashboard";
+  | "dashboard"
+  | "savedGroup";
 
 interface CommandPaletteItem {
   id: string;
@@ -46,7 +34,6 @@ interface CommandPaletteItem {
 }
 
 const SECTION_ORDER: CommandPaletteItemType[] = [
-  "navigate",
   "feature",
   "experiment",
   "metric",
@@ -55,7 +42,6 @@ const SECTION_ORDER: CommandPaletteItemType[] = [
 ];
 
 const SECTION_LABELS: Record<CommandPaletteItemType, string> = {
-  navigate: "Pages",
   feature: "Features",
   experiment: "Experiments",
   metric: "Metrics",
@@ -67,7 +53,6 @@ const SECTION_ICONS: Record<
   CommandPaletteItemType,
   FC<{ className?: string }>
 > = {
-  navigate: PiCompass,
   feature: BsToggleOn,
   experiment: PiFlask,
   metric: BsGraphUp,
@@ -76,246 +61,6 @@ const SECTION_ICONS: Record<
 };
 
 const MAX_PER_SECTION = 5;
-
-interface NavigationEntry {
-  name: string;
-  url: string;
-  icon: FC<{ className?: string }>;
-  tags: string;
-  description?: string;
-}
-
-const NAVIGATION_ITEMS: NavigationEntry[] = [
-  // Top-level pages
-  { name: "Home", url: "/", icon: BsHouse, tags: "home dashboard overview" },
-  {
-    name: "Features",
-    url: "/features",
-    icon: BsFlag,
-    tags: "feature flags toggles",
-  },
-
-  // Experimentation
-  {
-    name: "Experiments",
-    url: "/experiments",
-    icon: GBExperiment,
-    tags: "experiment ab test",
-  },
-  {
-    name: "Bandits",
-    url: "/bandits",
-    icon: GBExperiment,
-    tags: "bandit multi-armed",
-  },
-  { name: "Holdouts", url: "/holdouts", icon: GBExperiment, tags: "holdout" },
-  {
-    name: "Templates",
-    url: "/experiments/templates",
-    icon: GBExperiment,
-    tags: "experiment template",
-  },
-  {
-    name: "Power Calculator",
-    url: "/power-calculator",
-    icon: GBExperiment,
-    tags: "power calculator sample size",
-  },
-  {
-    name: "Namespaces",
-    url: "/namespaces",
-    icon: GBExperiment,
-    tags: "namespace mutual exclusion",
-  },
-
-  // Metrics and Data
-  {
-    name: "Metrics",
-    url: "/metrics",
-    icon: GBDatabase,
-    tags: "metric kpi goal guardrail",
-  },
-  {
-    name: "Fact Tables",
-    url: "/fact-tables",
-    icon: GBDatabase,
-    tags: "fact table sql",
-  },
-  {
-    name: "Segments",
-    url: "/segments",
-    icon: GBDatabase,
-    tags: "segment user group",
-  },
-  {
-    name: "Dimensions",
-    url: "/dimensions",
-    icon: GBDatabase,
-    tags: "dimension breakdown",
-  },
-  {
-    name: "Data Sources",
-    url: "/datasources",
-    icon: GBDatabase,
-    tags: "data source warehouse bigquery snowflake",
-  },
-
-  // SDK Configuration
-  {
-    name: "SDK Connections",
-    url: "/sdks",
-    icon: BsCodeSlash,
-    tags: "sdk connection api",
-  },
-  {
-    name: "Attributes",
-    url: "/attributes",
-    icon: BsCodeSlash,
-    tags: "attribute targeting user",
-  },
-  {
-    name: "Environments",
-    url: "/environments",
-    icon: BsCodeSlash,
-    tags: "environment production dev staging",
-  },
-  {
-    name: "Saved Groups",
-    url: "/saved-groups",
-    icon: BsCodeSlash,
-    tags: "saved group targeting list",
-  },
-  {
-    name: "Archetypes",
-    url: "/archetypes",
-    icon: BsCodeSlash,
-    tags: "archetype persona simulate",
-  },
-
-  // Management / Insights
-  {
-    name: "Dashboard",
-    url: "/dashboard",
-    icon: BsClipboardCheck,
-    tags: "dashboard management overview",
-  },
-  {
-    name: "Presentations",
-    url: "/presentations",
-    icon: BsClipboardCheck,
-    tags: "presentation slide report",
-  },
-  {
-    name: "Ideas",
-    url: "/ideas",
-    icon: BsClipboardCheck,
-    tags: "idea backlog hypothesis",
-  },
-
-  // Settings - top level
-  {
-    name: "General Settings",
-    url: "/settings",
-    icon: GBSettings,
-    tags: "settings general organization config",
-    description: "Organization-wide settings",
-  },
-  {
-    name: "Members",
-    url: "/settings/team",
-    icon: GBSettings,
-    tags: "members team invite user people",
-    description: "Manage team members",
-  },
-  {
-    name: "Tags",
-    url: "/settings/tags",
-    icon: GBSettings,
-    tags: "tags label category",
-  },
-  {
-    name: "Projects",
-    url: "/projects",
-    icon: GBSettings,
-    tags: "project workspace",
-  },
-  {
-    name: "Custom Fields",
-    url: "/settings/customfields",
-    icon: GBSettings,
-    tags: "custom field metadata",
-  },
-  {
-    name: "API Keys",
-    url: "/settings/keys",
-    icon: GBSettings,
-    tags: "api key secret token",
-  },
-  {
-    name: "Webhooks",
-    url: "/settings/webhooks",
-    icon: GBSettings,
-    tags: "webhook notification event",
-  },
-  {
-    name: "Logs",
-    url: "/events",
-    icon: GBSettings,
-    tags: "log event audit trail activity",
-  },
-  {
-    name: "Billing",
-    url: "/settings/billing",
-    icon: GBSettings,
-    tags: "billing plan subscription payment",
-  },
-
-  // Settings - deep links to tabs
-  {
-    name: "Experiment Settings",
-    url: "/settings#experiment",
-    icon: BsGear,
-    tags: "settings experiment config",
-    description: "Settings → Experiment Settings",
-  },
-  {
-    name: "Feature Settings",
-    url: "/settings#feature",
-    icon: BsGear,
-    tags: "settings feature flag config approval",
-    description: "Settings → Feature Settings",
-  },
-  {
-    name: "Approval Flow",
-    url: "/settings#feature",
-    icon: BsGear,
-    tags: "approval flow review require",
-    description: "Settings → Feature Settings → Approval Flow",
-  },
-  {
-    name: "Metrics & Data Settings",
-    url: "/settings#metrics",
-    icon: BsGear,
-    tags: "settings metrics data north star",
-    description: "Settings → Metrics & Data",
-  },
-
-  // Settings/Team - deep links
-  {
-    name: "Teams",
-    url: "/settings/team#teams",
-    icon: BsGear,
-    tags: "teams group permission",
-    description: "Members → Teams",
-  },
-  {
-    name: "Roles",
-    url: "/settings/team#roles",
-    icon: BsGear,
-    tags: "roles permission custom rbac",
-    description: "Members → Roles",
-  },
-];
 
 /**
  * Lightweight wrapper that handles global Cmd/Ctrl+K and custom event listeners.
@@ -376,24 +121,9 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
   const { metrics, factMetrics, metricGroups, savedGroups } = useDefinitions();
   const { dashboards } = useDashboards(false);
 
-  // Build navigation items
-  const navigationItems = useMemo<CommandPaletteItem[]>(
-    () =>
-      NAVIGATION_ITEMS.map((nav) => ({
-        id: `navigate::${nav.name}::${nav.url}`,
-        type: "navigate" as const,
-        name: nav.name,
-        description: nav.description || "",
-        url: nav.url,
-        tags: nav.tags,
-        icon: nav.icon,
-      })),
-    [],
-  );
-
   // Build unified item list
   const items = useMemo<CommandPaletteItem[]>(() => {
-    const result: CommandPaletteItem[] = [...navigationItems];
+    const result: CommandPaletteItem[] = [];
 
     for (const f of features) {
       if (f.archived) continue;
@@ -481,7 +211,6 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
 
     return result;
   }, [
-    navigationItems,
     features,
     experiments,
     metrics,
@@ -512,27 +241,17 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
 
   // Search results grouped by section
   const groupedResults = useMemo(() => {
-    const emptyGroups = (): Record<
-      CommandPaletteItemType,
-      CommandPaletteItem[]
-    > => ({
-      navigate: [],
+    if (!query.trim()) return null;
+
+    const raw = miniSearch.search(query.trim());
+    const itemMap = new Map(items.map((i) => [i.id, i]));
+    const groups: Record<CommandPaletteItemType, CommandPaletteItem[]> = {
       feature: [],
       experiment: [],
       metric: [],
       savedGroup: [],
       dashboard: [],
-    });
-
-    if (!query.trim()) {
-      const groups = emptyGroups();
-      groups.navigate = navigationItems;
-      return groups;
-    }
-
-    const raw = miniSearch.search(query.trim());
-    const itemMap = new Map(items.map((i) => [i.id, i]));
-    const groups = emptyGroups();
+    };
 
     for (const r of raw) {
       const item = itemMap.get(r.id);
@@ -543,10 +262,11 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
     }
 
     return groups;
-  }, [query, miniSearch, items, navigationItems]);
+  }, [query, miniSearch, items]);
 
   // Flat list for keyboard navigation
   const flatResults = useMemo(() => {
+    if (!groupedResults) return [];
     const flat: CommandPaletteItem[] = [];
     for (const type of SECTION_ORDER) {
       flat.push(...groupedResults[type]);
@@ -577,16 +297,6 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
   const navigateTo = useCallback(
     (url: string) => {
       closeAndReset();
-      const hashIndex = url.indexOf("#");
-      if (hashIndex !== -1) {
-        const path = url.substring(0, hashIndex);
-        const hash = url.substring(hashIndex + 1);
-        const currentPath = router.asPath.split("#")[0].split("?")[0];
-        if (currentPath === path) {
-          window.location.hash = hash;
-          return;
-        }
-      }
       router.push(url);
     },
     [router, closeAndReset],
@@ -652,7 +362,7 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
               className={styles.input}
               type="text"
               autoFocus
-              placeholder="Search or jump to..."
+              placeholder="Search features, experiments, metrics..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               aria-label="Search"
@@ -660,46 +370,50 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
           </div>
 
           <div className={styles.results} ref={resultsRef}>
+            {!query.trim() && (
+              <div className={styles.empty}>Start typing to search...</div>
+            )}
             {query.trim() && flatResults.length === 0 && (
               <div className={styles.empty}>No results found</div>
             )}
-            {SECTION_ORDER.map((type) => {
-              const sectionItems = groupedResults[type];
-              if (sectionItems.length === 0) return null;
-              const SectionIcon = SECTION_ICONS[type];
-              return (
-                <div key={type}>
-                  <div className={styles.sectionHeader}>
-                    {SECTION_LABELS[type]}
-                  </div>
-                  {sectionItems.map((item) => {
-                    const idx = flatIndex++;
-                    const Icon = item.icon || SectionIcon;
-                    return (
-                      <div
-                        key={item.id}
-                        data-index={idx}
-                        className={`${styles.item} ${
-                          idx === selectedIndex ? styles.selected : ""
-                        }`}
-                        onClick={() => navigateTo(item.url)}
-                        onMouseEnter={() => setSelectedIndex(idx)}
-                      >
-                        <Icon className={styles.itemIcon} />
-                        <div className={styles.itemContent}>
-                          <div className={styles.itemName}>{item.name}</div>
-                          {item.description && (
-                            <div className={styles.itemDescription}>
-                              {item.description}
-                            </div>
-                          )}
+            {groupedResults &&
+              SECTION_ORDER.map((type) => {
+                const sectionItems = groupedResults[type];
+                if (sectionItems.length === 0) return null;
+                const SectionIcon = SECTION_ICONS[type];
+                return (
+                  <div key={type}>
+                    <div className={styles.sectionHeader}>
+                      {SECTION_LABELS[type]}
+                    </div>
+                    {sectionItems.map((item) => {
+                      const idx = flatIndex++;
+                      const Icon = item.icon || SectionIcon;
+                      return (
+                        <div
+                          key={item.id}
+                          data-index={idx}
+                          className={`${styles.item} ${
+                            idx === selectedIndex ? styles.selected : ""
+                          }`}
+                          onClick={() => navigateTo(item.url)}
+                          onMouseEnter={() => setSelectedIndex(idx)}
+                        >
+                          <Icon className={styles.itemIcon} />
+                          <div className={styles.itemContent}>
+                            <div className={styles.itemName}>{item.name}</div>
+                            {item.description && (
+                              <div className={styles.itemDescription}>
+                                {item.description}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })}
+                      );
+                    })}
+                  </div>
+                );
+              })}
           </div>
 
           <div className={styles.footer}>
