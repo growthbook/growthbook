@@ -109,6 +109,7 @@ import {
   createInitialRevision,
   createRevision,
   discardRevision,
+  getActiveDraftStates,
   getMinimalRevisions,
   getRevision,
   getRevisionsByVersions,
@@ -4064,6 +4065,24 @@ export async function getFeatureMetaInfo(
     project: project || undefined,
   });
 
+  res.status(200).json({ status: 200, features });
+}
+
+export async function getFeatureDraftStates(
+  req: AuthRequest<null, Record<string, never>, { ids?: string }>,
+  res: Response<
+    {
+      status: 200;
+      features: Record<string, { status: string; version: number }>;
+    },
+    EventUserForResponseLocals
+  >,
+) {
+  const context = getContextFromReq(req);
+  const featureIds = req.query.ids
+    ? req.query.ids.split(",").filter(Boolean)
+    : undefined;
+  const features = await getActiveDraftStates(context.org.id, featureIds);
   res.status(200).json({ status: 200, features });
 }
 

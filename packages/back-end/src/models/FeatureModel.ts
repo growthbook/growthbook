@@ -1376,13 +1376,13 @@ export async function getFeatureEnvStatus(
   const docs = await FeatureModel.find(q, {
     id: 1,
     environmentSettings: 1,
-  }).lean();
+  });
 
   return docs.map((f) => ({
-    id: f.id as string,
+    id: f.id,
     environmentSettings: applyEnvironmentInheritance(
       context.org.settings?.environments || [],
-      (f.environmentSettings as FeatureInterface["environmentSettings"]) || {},
+      f.environmentSettings || {},
     ),
   }));
 }

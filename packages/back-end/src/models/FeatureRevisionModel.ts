@@ -8,7 +8,11 @@ import {
 } from "shared/types/feature-revision";
 import { EventUser, EventUserLoggedIn } from "shared/types/events/event-types";
 import { OrganizationInterface } from "shared/types/organization";
-import { MinimalFeatureRevisionInterface } from "shared/validators";
+import {
+  MinimalFeatureRevisionInterface,
+  ActiveDraftStatus,
+  ACTIVE_DRAFT_STATUSES,
+} from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { applyEnvironmentInheritance } from "back-end/src/util/features";
@@ -695,6 +699,49 @@ export async function getFeatureRevisionsByFeatureIds(
   }
 
   return revisionsByFeatureId;
+}
+
+// Higher number = higher priority. When a feature has multiple active
+// revisions, surface the most actionable one.
+const DRAFT_STATUS_PRIORITY: Record<ActiveDraftStatus, number> = {
+  "changes-requested": 4,
+  "pending-review": 3,
+  approved: 2,
+  draft: 1,
+};
+
+export async function getActiveDraftStates(
+  orgId: string,
+  featureIds?: string[],
+): Promise<Record<string, { status: ActiveDraftStatus; version: number }>> {
+  const q: Record<string, unknown> = {
+    organization: orgId,
+    status: { $in: ACTIVE_DRAFT_STATUSES },
+  };
+  if (featureIds && featureIds.length > 0) {
+    q.featureId = { $in: featureIds };
+  }
+  const docs = await FeatureRevisionModel.find(q, {
+    featureId: 1,
+    status: 1,
+    version: 1,
+    _id: 0,
+  });
+
+  const result: Record<string, { status: ActiveDraftStatus; version: number }> =
+    {};
+  for (const doc of docs) {
+    const fid = doc.featureId;
+    const status = doc.status as ActiveDraftStatus;
+    const existing = result[fid];
+    if (
+      !existing ||
+      DRAFT_STATUS_PRIORITY[status] > DRAFT_STATUS_PRIORITY[existing.status]
+    ) {
+      result[fid] = { status, version: doc.version };
+    }
+  }
+  return result;
 }
 
 export async function deleteAllRevisionsForFeature(
