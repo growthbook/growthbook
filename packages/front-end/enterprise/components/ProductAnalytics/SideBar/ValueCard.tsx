@@ -95,6 +95,22 @@ export default function ValueCard({
   ) {
     supportsUnitSelection =
       draftExploreState.dataset.values[index].valueType === "unit_count";
+  } else if (draftExploreState.dataset.type === "metric") {
+    const factMetric = getFactMetricById(
+      draftExploreState.dataset.values[index].metricId ?? "",
+    );
+    if (factMetric?.metricType === "proportion") {
+      supportsUnitSelection = true;
+    } else if (factMetric?.metricType === "retention") {
+      supportsUnitSelection = true;
+    } else if (factMetric?.metricType === "dailyParticipation") {
+      supportsUnitSelection = true;
+    } else if (factMetric?.metricType === "ratio") {
+      if (factMetric.numerator.column === "$$distinctUsers") {
+        supportsUnitSelection = true;
+      }
+      // TODO: handle separate denominator unit selector
+    }
   }
 
   let canAddFilter = false;
@@ -237,7 +253,8 @@ export default function ValueCard({
               trigger={
                 <Button size="xs" variant="ghost">
                   <Flex align="center" gap="2">
-                    {draftExploreState.dataset.values[index].unit ?? ""}
+                    {draftExploreState.dataset.values[index].unit ??
+                      "Select Unit..."}
                   </Flex>
                 </Button>
               }
