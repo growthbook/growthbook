@@ -329,9 +329,9 @@ export const putFactTable = async (
 
   if (columnRefreshResults?.columnRefreshPending) {
     await queueFactTableColumnsRefresh({
-      ...factTable,
-      ...data,
-    } as FactTableInterface);
+      id: factTable.id,
+      organization: factTable.organization,
+    });
   }
 
   await addTagsDiff(context.org.id, factTable.tags, data.tags || []);

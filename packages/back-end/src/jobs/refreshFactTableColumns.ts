@@ -344,7 +344,7 @@ export default function (ag: Agenda) {
 }
 
 export async function queueFactTableColumnsRefresh(
-  factTable: FactTableInterface,
+  factTable: Pick<FactTableInterface, "id" | "organization">,
 ) {
   const job = agenda.create(JOB_NAME, {
     organization: factTable.organization,
