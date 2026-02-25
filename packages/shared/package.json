@@ -39,7 +39,7 @@
     "zod": "^4.1.12"
   },
   "optionalDependencies": {
-    "@polyglot-sql/sdk": "^0.1.6"
+    "@polyglot-sql/sdk": "^0.1.7"
   },
   "devDependencies": {
     "@ephys/zod-to-ts": "^2.3.2",
