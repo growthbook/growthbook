@@ -5,6 +5,7 @@ import type {
   ProductAnalyticsConfig,
   ProductAnalyticsExploration,
 } from "shared/validators";
+import { shouldChartSectionShow } from "@/enterprise/components/ProductAnalytics/util";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { useDashboardCharts } from "@/enterprise/components/Dashboards/DashboardChartsContext";
 import BigValueChart from "@/components/SqlExplorer/BigValueChart";
@@ -243,7 +244,7 @@ export default function ExplorerChart({
       },
       legend: {
         show: seriesConfigs.length > 1,
-        top: 16,
+        top: 8,
         padding: [8, 0, 8, 0],
         textStyle: { color: textColor },
         type: "scroll",
@@ -265,19 +266,29 @@ export default function ExplorerChart({
     return exploration.result.rows.every((r) => r.values.length === 0);
   }, [exploration?.result?.rows]);
 
-  // Don't early-return when loading: we need to show the spinner during refetch after error
-  if (!loading && exploration?.result?.sql && error) return null;
+  if (
+    !shouldChartSectionShow({
+      loading,
+      exploration,
+      error,
+      submittedExploreState,
+    })
+  )
+    return null;
 
   return (
-    <Box
+    <Flex
+      direction="column"
       position="relative"
       style={{
         border: "1px solid var(--gray-a3)",
         borderRadius: "var(--radius-4)",
+        flex: 1,
+        minHeight: 0,
       }}
     >
       {loading ? (
-        <Flex justify="center" align="center" height="500px">
+        <Flex justify="center" align="center" style={{ flex: 1, minHeight: 0 }}>
           <LoadingSpinner style={{ width: "12px", height: "12px" }} />
         </Flex>
       ) : error ? (
@@ -287,10 +298,9 @@ export default function ExplorerChart({
       ) : !exploration ? (
         <Flex
           p="4"
-          style={{ textAlign: "center" }}
+          style={{ textAlign: "center", flex: 1, minHeight: 0 }}
           align="center"
           justify="center"
-          minHeight="500px"
         >
           <Text color="text-mid" weight="medium">
             No data available. Select a metric to see results.
@@ -299,8 +309,7 @@ export default function ExplorerChart({
       ) : hasEmptyData ? (
         <Flex
           p="4"
-          style={{ textAlign: "center" }}
-          minHeight="500px"
+          style={{ textAlign: "center", flex: 1, minHeight: 0 }}
           align="center"
           justify="center"
         >
@@ -309,43 +318,48 @@ export default function ExplorerChart({
           </Text>
         </Flex>
       ) : chartConfig?.type === "bigNumber" ? (
-        <Flex p="4" minHeight="500px" align="center" justify="center">
+        <Flex
+          p="4"
+          style={{ flex: 1, minHeight: 0 }}
+          align="center"
+          justify="center"
+        >
           <BigValueChart
             value={chartConfig.value}
             formatter={formatNumber}
             label={submittedExploreState?.dataset?.values?.[0]?.name}
           />
         </Flex>
-      ) : ["table", "timeseries-table"].includes(
-          submittedExploreState?.chartType,
-        ) ? null : chartConfig ? (
-        <EChartsReact
-          key={JSON.stringify(chartConfig)}
-          option={{
-            ...chartConfig,
-            padding: [0, 0, 0, 0],
-            grid: {
-              left:
-                submittedExploreState?.chartType === "horizontalBar"
-                  ? "10%"
-                  : "8%",
-              right: "5%",
-              top: chartConfig.legend?.show ? "13%" : "10%",
-              bottom: "10%",
-            },
-          }}
-          style={{ width: "100%", minHeight: "500px" }}
-          onChartReady={(chart) => {
-            if (chartsContext && chart) {
-              chartsContext.registerChart(CHART_ID, chart);
-            }
-          }}
-        />
+      ) : chartConfig ? (
+        <Box style={{ flex: 1, minHeight: 0, position: "relative" }}>
+          <EChartsReact
+            key={JSON.stringify(chartConfig)}
+            option={{
+              ...chartConfig,
+              padding: [0, 0, 0, 0],
+              grid: {
+                left:
+                  submittedExploreState?.chartType === "horizontalBar"
+                    ? "10%"
+                    : "8%",
+                right: "5%",
+                top: chartConfig.legend?.show ? 52 : "8%",
+                bottom: "10%",
+              },
+            }}
+            style={{ width: "100%", height: "100%" }}
+            onChartReady={(chart) => {
+              if (chartsContext && chart) {
+                chartsContext.registerChart(CHART_ID, chart);
+              }
+            }}
+          />
+        </Box>
       ) : (
         <Box p="4" style={{ textAlign: "center" }}>
           <HelperText status="error">Unknown chart type</HelperText>
         </Box>
       )}
-    </Box>
+    </Flex>
   );
 }

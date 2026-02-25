@@ -1,7 +1,10 @@
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { BsGraphUpArrow } from "react-icons/bs";
+import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
+import { PiDotsSix } from "react-icons/pi";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Text from "@/ui/Text";
+import { shouldChartSectionShow } from "@/enterprise/components/ProductAnalytics/util";
 import ExplorerChart from "./ExplorerChart";
 import ExplorerDataTable from "./ExplorerDataTable";
 import Toolbar from "./Toolbar";
@@ -10,20 +13,84 @@ export default function ExplorerMainSection() {
   const { exploration, submittedExploreState, loading, error } =
     useExplorerContext();
 
+  const showChartSection = shouldChartSectionShow({
+    loading,
+    exploration,
+    error,
+    submittedExploreState,
+  });
+
   return (
-    <Flex direction="column" px="2" py="3" gap="4">
+    <Flex
+      direction="column"
+      px="2"
+      py="3"
+      gap="4"
+      id="main-section-wrapper"
+      style={{ flex: "1", minHeight: 0 }}
+    >
       <Toolbar />
 
       {submittedExploreState?.dataset?.values?.length &&
       submittedExploreState?.dataset?.values?.length > 0 ? (
-        <Flex direction="column" gap="3">
-          <ExplorerChart
-            exploration={exploration}
-            error={error}
-            submittedExploreState={submittedExploreState}
-            loading={loading}
-          />
-          <ExplorerDataTable />
+        <Flex
+          direction="column"
+          gap="3"
+          style={{ flex: "1", minHeight: 0 }}
+          id="main-section-visuals"
+        >
+          <PanelGroup direction="vertical" id="visualization-group">
+            {showChartSection && (
+              <>
+                <Panel
+                  id="chart"
+                  order={1}
+                  defaultSize={60}
+                  minSize={20}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    minHeight: 0,
+                  }}
+                >
+                  <ExplorerChart
+                    exploration={exploration}
+                    error={error}
+                    submittedExploreState={submittedExploreState}
+                    loading={loading}
+                  />
+                </Panel>
+                <PanelResizeHandle
+                  style={{
+                    height: "20px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Box
+                    flexGrow="1"
+                    mx="3"
+                    style={{ backgroundColor: "var(--gray-a3)", height: "1px" }}
+                  ></Box>
+                  <PiDotsSix size={16} />
+                  <Box
+                    flexGrow="1"
+                    mx="3"
+                    style={{ backgroundColor: "var(--gray-a3)", height: "1px" }}
+                  ></Box>
+                </PanelResizeHandle>
+              </>
+            )}
+            <Panel
+              id="table"
+              order={2}
+              defaultSize={showChartSection ? 40 : 100}
+              minSize={20}
+            >
+              <ExplorerDataTable />
+            </Panel>
+          </PanelGroup>
         </Flex>
       ) : (
         <Flex

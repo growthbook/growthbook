@@ -154,8 +154,14 @@ export default function ValueCard({
             />
           ) : (
             <>
-              <Box style={{ flex: 1 }}>
-                <Text weight="medium" truncate>
+              <Box style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
+                <Text
+                  weight="medium"
+                  truncate
+                  as="div"
+                  whiteSpace="nowrap"
+                  title={displayName}
+                >
                   {displayName}
                 </Text>
               </Box>

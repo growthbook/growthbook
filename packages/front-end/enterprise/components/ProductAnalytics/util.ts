@@ -12,6 +12,7 @@ import type {
   DatasetType,
   ProductAnalyticsDataset,
   ProductAnalyticsConfig,
+  ProductAnalyticsExploration,
 } from "shared/validators";
 import { isEqual } from "lodash";
 
@@ -432,4 +433,28 @@ export function compareConfig(
     toFetchKey(newConfig),
   );
   return { needsFetch, needsUpdate: true };
+}
+
+export function shouldChartSectionShow(params: {
+  loading: boolean;
+  exploration: ProductAnalyticsExploration | null;
+  error: string | null;
+  submittedExploreState: ProductAnalyticsConfig | null;
+}): boolean {
+  const { loading, exploration, error, submittedExploreState } = params;
+
+  // Chart returns null when there's an error and we have SQL (error shown elsewhere)
+  if (!loading && exploration?.result?.sql && error) return false;
+
+  // Chart renders empty box for table-only types; table view handles display
+  if (
+    submittedExploreState &&
+    ["table", "timeseries-table"].includes(
+      submittedExploreState.chartType ?? "",
+    )
+  ) {
+    return false;
+  }
+
+  return true;
 }

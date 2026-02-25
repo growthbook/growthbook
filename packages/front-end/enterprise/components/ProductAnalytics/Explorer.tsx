@@ -1,5 +1,7 @@
 import React from "react";
 import { Flex, Box } from "@radix-ui/themes";
+import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
+import { PiDotsSix } from "react-icons/pi";
 import ShadowedScrollArea from "@/components/ShadowedScrollArea/ShadowedScrollArea";
 import ExplorerSideBar from "./SideBar/ExplorerSideBar";
 import { ExplorerProvider, useExplorerContext } from "./ExplorerContext";
@@ -14,32 +16,50 @@ function MetricExplorerContent() {
   }
 
   return (
-    <Flex direction="column" gap="3">
-      <Flex width="100%">
+    <Flex direction="column" gap="3" height="calc(100vh - 72px)">
+      <PanelGroup direction="horizontal">
         {/* Main Section */}
-        <Box
-          style={{
-            flex: "1 1 auto",
-            minWidth: 0,
-          }}
+        <Panel
+          id="main-section"
+          order={1}
+          defaultSize={75}
+          minSize={65}
+          style={{ display: "flex", flexDirection: "column" }}
         >
           <ExplorerMainSection />
-        </Box>
+        </Panel>
 
-        {/* Sidebar */}
-        <Box
+        {/* Resize Handle */}
+        <PanelResizeHandle
           style={{
-            flex: "0 0 320px",
-            minWidth: "280px",
-            maxWidth: "380px",
-            padding: "var(--space-3)",
+            width: "10px",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
           }}
         >
+          <Box
+            flexGrow="1"
+            mb="3"
+            mt="9"
+            style={{ backgroundColor: "var(--gray-a3)", width: "1px" }}
+          ></Box>
+          <PiDotsSix size={16} style={{ transform: "rotate(90deg)" }} />
+          <Box
+            flexGrow="1"
+            my="3"
+            style={{ backgroundColor: "var(--gray-a3)", width: "1px" }}
+          ></Box>
+        </PanelResizeHandle>
+
+        {/* Sidebar */}
+        <Panel id="sidebar" order={2} defaultSize={25} minSize={20}>
           <ShadowedScrollArea height="calc(100vh - 160px)">
             <ExplorerSideBar />
           </ShadowedScrollArea>
-        </Box>
-      </Flex>
+        </Panel>
+      </PanelGroup>
     </Flex>
   );
 }
