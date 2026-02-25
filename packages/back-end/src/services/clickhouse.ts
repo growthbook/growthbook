@@ -10,7 +10,7 @@ import {
   MaterializedColumn,
 } from "shared/types/datasource";
 import { DailyUsage } from "shared/types/organization";
-import { ColumnInterface, FactTableColumnType } from "shared/types/fact-table";
+import { FactTableColumnType } from "shared/types/fact-table";
 import {
   CLICKHOUSE_HOST,
   CLICKHOUSE_ADMIN_USER,
@@ -850,25 +850,4 @@ export async function updateMaterializedColumns({
   } finally {
     await unlockDataSource(context, datasource);
   }
-}
-
-export function getManagedWarehouseUserIdTypes(
-  datasource: GrowthbookClickhouseDataSource,
-  factTableId: string,
-  columns: ColumnInterface[],
-): string[] {
-  if (factTableId !== MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID) {
-    throw new Error(
-      "This function can only be called for managed warehouse datasource and fact table.",
-    );
-  }
-
-  const activeColumns = new Set(
-    columns.filter((c) => !c.deleted).map((c) => c.column),
-  );
-
-  return (datasource.settings.materializedColumns || [])
-    .filter((c) => c.type === "identifier")
-    .map((c) => c.columnName)
-    .filter((id) => activeColumns.has(id));
 }

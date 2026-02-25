@@ -1,5 +1,4 @@
 import type { Response } from "express";
-import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import { canInlineFilterColumn } from "shared/experiments";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { cloneDeep } from "lodash";
@@ -42,7 +41,7 @@ import {
   populateAutoSlices,
   queueFactTableColumnsRefresh,
 } from "back-end/src/jobs/refreshFactTableColumns";
-import { getManagedWarehouseUserIdTypes } from "back-end/src/services/clickhouse";
+import { deriveUserIdTypesFromColumns } from "back-end/src/util/factTable";
 import { logger } from "back-end/src/util/logger";
 import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable";
 
@@ -308,17 +307,10 @@ export const putFactTable = async (
       columnRefreshPending: needsBackgroundRefresh,
     };
 
-    if (
-      datasource.type === "growthbook_clickhouse" &&
-      factTable.id === MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID
-    ) {
-      const managedUserIdTypes = getManagedWarehouseUserIdTypes(
-        datasource,
-        factTable.id,
-        columns,
-      );
-      columnRefreshResults.userIdTypes = managedUserIdTypes;
-    }
+    columnRefreshResults.userIdTypes = deriveUserIdTypesFromColumns(
+      datasource,
+      columns,
+    );
   }
 
   await updateFactTable(context, factTable, data);

@@ -5,10 +5,7 @@ import {
 } from "shared/types/datasource";
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import type { ReqContext } from "back-end/types/request";
-import {
-  getManagedWarehouseUserIdTypes,
-  updateMaterializedColumns,
-} from "back-end/src/services/clickhouse";
+import { updateMaterializedColumns } from "back-end/src/services/clickhouse";
 import {
   getFactTablesForDatasource,
   updateFactTableColumns,
@@ -54,22 +51,6 @@ const mockUpdateFactTableColumns = jest.mocked(updateFactTableColumns);
 const mockLockDataSource = jest.mocked(lockDataSource);
 const mockUnlockDataSource = jest.mocked(unlockDataSource);
 
-function makeClickhouseDatasource(
-  materializedColumns: { columnName: string; type: string }[],
-): GrowthbookClickhouseDataSource {
-  return {
-    type: "growthbook_clickhouse",
-    settings: { materializedColumns },
-  } as unknown as GrowthbookClickhouseDataSource;
-}
-
-function makeColumn(column: string, deleted = false): ColumnInterface {
-  return {
-    column,
-    deleted,
-  } as unknown as ColumnInterface;
-}
-
 function makeFactTableColumn(
   column: string,
   overrides: Partial<ColumnInterface> = {},
@@ -94,132 +75,6 @@ function makeFactTable(columns: ColumnInterface[]): FactTableInterface {
     columns,
   } as unknown as FactTableInterface;
 }
-
-describe("getManagedWarehouseUserIdTypes", () => {
-  describe("throws when called with unsupported inputs", () => {
-    it("throws for growthbook_clickhouse with wrong factTableId", () => {
-      const ds = makeClickhouseDatasource([
-        { columnName: "user_id", type: "identifier" },
-      ]);
-      expect(() =>
-        getManagedWarehouseUserIdTypes(ds, "ch_exposures", []),
-      ).toThrow(
-        "This function can only be called for managed warehouse datasource and fact table.",
-      );
-    });
-  });
-
-  describe(`returns string[] for growthbook_clickhouse + ${MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID}`, () => {
-    it("returns empty array when materializedColumns are missing", () => {
-      const ds = {
-        type: "growthbook_clickhouse",
-        settings: {},
-      } as unknown as GrowthbookClickhouseDataSource;
-      const cols = [makeColumn("user_id")];
-      expect(
-        getManagedWarehouseUserIdTypes(
-          ds,
-          MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
-          cols,
-        ),
-      ).toEqual([]);
-    });
-
-    it("returns empty array when datasource has no materializedColumns", () => {
-      const ds = makeClickhouseDatasource([]);
-      const cols = [makeColumn("user_id"), makeColumn("event_name")];
-      expect(
-        getManagedWarehouseUserIdTypes(
-          ds,
-          MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
-          cols,
-        ),
-      ).toEqual([]);
-    });
-
-    it("returns empty array when no materialized columns are identifiers", () => {
-      const ds = makeClickhouseDatasource([
-        { columnName: "revenue", type: "number" },
-        { columnName: "country", type: "string" },
-      ]);
-      const cols = [makeColumn("revenue"), makeColumn("country")];
-      expect(
-        getManagedWarehouseUserIdTypes(
-          ds,
-          MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
-          cols,
-        ),
-      ).toEqual([]);
-    });
-
-    it("returns identifier column names that exist as active columns", () => {
-      const ds = makeClickhouseDatasource([
-        { columnName: "user_id", type: "identifier" },
-        { columnName: "device_id", type: "identifier" },
-        { columnName: "revenue", type: "number" },
-      ]);
-      const cols = [
-        makeColumn("user_id"),
-        makeColumn("device_id"),
-        makeColumn("revenue"),
-      ];
-      expect(
-        getManagedWarehouseUserIdTypes(
-          ds,
-          MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
-          cols,
-        ),
-      ).toEqual(["user_id", "device_id"]);
-    });
-
-    it("excludes identifier columns that are deleted in the fact table", () => {
-      const ds = makeClickhouseDatasource([
-        { columnName: "user_id", type: "identifier" },
-        { columnName: "device_id", type: "identifier" },
-      ]);
-      const cols = [
-        makeColumn("user_id"),
-        makeColumn("device_id", true), // deleted
-      ];
-      expect(
-        getManagedWarehouseUserIdTypes(
-          ds,
-          MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
-          cols,
-        ),
-      ).toEqual(["user_id"]);
-    });
-
-    it("returns empty array when all identifier columns are deleted", () => {
-      const ds = makeClickhouseDatasource([
-        { columnName: "user_id", type: "identifier" },
-      ]);
-      const cols = [makeColumn("user_id", true)]; // deleted
-      expect(
-        getManagedWarehouseUserIdTypes(
-          ds,
-          MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
-          cols,
-        ),
-      ).toEqual([]);
-    });
-
-    it("excludes identifier columns not present in the fact table columns at all", () => {
-      const ds = makeClickhouseDatasource([
-        { columnName: "user_id", type: "identifier" },
-        { columnName: "anonymous_id", type: "identifier" }, // not in fact table yet
-      ]);
-      const cols = [makeColumn("user_id")];
-      expect(
-        getManagedWarehouseUserIdTypes(
-          ds,
-          MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
-          cols,
-        ),
-      ).toEqual(["user_id"]);
-    });
-  });
-});
 
 describe("updateMaterializedColumns", () => {
   const context = {

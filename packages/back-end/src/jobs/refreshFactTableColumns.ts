@@ -1,10 +1,7 @@
 import Agenda, { Job } from "agenda";
 import chunk from "lodash/chunk";
 import { canInlineFilterColumn } from "shared/experiments";
-import {
-  DEFAULT_MAX_METRIC_SLICE_LEVELS,
-  MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
-} from "shared/constants";
+import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/constants";
 import {
   ColumnInterface,
   FactTableColumnType,
@@ -21,7 +18,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { determineColumnTypes } from "back-end/src/util/sql";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
-import { getManagedWarehouseUserIdTypes } from "back-end/src/services/clickhouse";
+import { deriveUserIdTypesFromColumns } from "back-end/src/util/factTable";
 import { logger } from "back-end/src/util/logger";
 
 const JOB_NAME = "refreshFactTableColumns";
@@ -59,17 +56,7 @@ const refreshFactTableColumns = async (job: RefreshFactTableColumnsJob) => {
     updates.columns = columns;
     updates.columnsError = null;
 
-    if (
-      datasource.type === "growthbook_clickhouse" &&
-      factTable.id === MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID
-    ) {
-      const managedUserIdTypes = getManagedWarehouseUserIdTypes(
-        datasource,
-        factTable.id,
-        columns,
-      );
-      updates.userIdTypes = managedUserIdTypes;
-    }
+    updates.userIdTypes = deriveUserIdTypesFromColumns(datasource, columns);
   } catch (e) {
     updates.columnsError = e.message;
   }
