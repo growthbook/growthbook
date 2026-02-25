@@ -112,6 +112,7 @@ export default function MetricTabContent() {
       <Button
         size="sm"
         variant="outline"
+        disabled={draftExploreState.chartType === "bigNumber"}
         onClick={() => addValueToDataset("metric")}
       >
         <Flex align="center" gap="2">

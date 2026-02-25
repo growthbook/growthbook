@@ -136,7 +136,8 @@ export default function GroupBySection() {
           disabled={
             getMaxDimensions(draftExploreState.dataset) <=
               draftExploreState.dimensions.length ||
-            availableColumns.length === 0
+            availableColumns.length === 0 ||
+            draftExploreState.chartType === "bigNumber"
           }
           onClick={handleAddDimension}
         >

@@ -139,6 +139,7 @@ export default function DatasourceTabContent() {
           <Button
             size="sm"
             variant="outline"
+            disabled={draftExploreState.chartType === "bigNumber"}
             onClick={() => addValueToDataset("data_source")}
           >
             <Flex align="center" gap="2">

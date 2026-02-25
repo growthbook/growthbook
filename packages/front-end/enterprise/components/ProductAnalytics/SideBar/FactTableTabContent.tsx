@@ -134,6 +134,7 @@ export default function FactTableTabContent() {
       <Button
         size="sm"
         variant="outline"
+        disabled={draftExploreState.chartType === "bigNumber"}
         onClick={() => addValueToDataset("fact_table")}
       >
         <Flex align="center" gap="2">

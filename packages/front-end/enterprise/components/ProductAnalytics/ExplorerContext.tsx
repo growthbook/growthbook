@@ -345,21 +345,39 @@ export function ExplorerProvider({
     (chartType: ProductAnalyticsConfig["chartType"]) => {
       setDraftExploreState((prev) => {
         let dimensions = prev.dimensions;
-        // Time-series charts (line, area) need date dimensions
-        const isTimeSeriesChart =
-          chartType === "line" ||
-          chartType === "area" ||
-          chartType === "timeseries-table";
+        let dataset = prev.dataset;
 
-        if (!isTimeSeriesChart) {
-          dimensions = dimensions.filter((d) => d.dimensionType !== "date");
-        } else if (!dimensions.some((d) => d.dimensionType === "date")) {
-          dimensions = [
-            { dimensionType: "date", column: "date", dateGranularity: "day" },
-            ...dimensions,
-          ];
+        // Big Number: normalize to single value and no dimensions so config matches what we display
+        if (chartType === "bigNumber") {
+          dimensions = [];
+          const values = prev.dataset?.values ?? [];
+          if (values.length > 1) {
+            dataset = {
+              ...prev.dataset,
+              values: values.slice(0, 1),
+            } as ProductAnalyticsConfig["dataset"];
+          }
+        } else {
+          // Time-series charts (line, area) need date dimensions
+          const isTimeSeriesChart =
+            chartType === "line" ||
+            chartType === "area" ||
+            chartType === "timeseries-table";
+
+          if (!isTimeSeriesChart) {
+            dimensions = dimensions.filter((d) => d.dimensionType !== "date");
+          } else if (!dimensions.some((d) => d.dimensionType === "date")) {
+            dimensions = [
+              {
+                dimensionType: "date",
+                column: "date",
+                dateGranularity: "day",
+              },
+              ...dimensions,
+            ];
+          }
         }
-        return { ...prev, chartType, dimensions };
+        return { ...prev, chartType, dimensions, dataset };
       });
     },
     [setDraftExploreState],
