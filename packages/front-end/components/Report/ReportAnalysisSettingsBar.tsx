@@ -57,8 +57,6 @@ export default function ReportAnalysisSettingsBar({
     }
   }, [_snapshot, snapshot]);
 
-  console.log("snapshot", snapshot);
-
   const analysis = snapshot
     ? (getSnapshotAnalysis(snapshot) ?? undefined)
     : undefined;
