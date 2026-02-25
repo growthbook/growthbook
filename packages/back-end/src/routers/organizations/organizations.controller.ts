@@ -1121,29 +1121,19 @@ export async function postNamespaces(
   // the display name.
   const name = uniqid("ns-");
 
-  let newNamespace: Namespaces;
-  if (format === "multiRange") {
-    if (!hashAttribute) {
-      throw new Error("Hash attribute is required for multi-range namespaces");
-    }
-    newNamespace = {
-      name,
-      label,
-      description,
-      status,
-      hashAttribute,
-      seed: uuidv4(),
-      format: "multiRange",
-    };
-  } else {
-    newNamespace = {
-      name,
-      label,
-      description,
-      status,
-      format: "legacy",
-    };
+  if (!hashAttribute) {
+    throw new Error("Hash attribute is required for namespaces");
   }
+
+  const newNamespace: Namespaces = {
+    name,
+    label,
+    description,
+    status,
+    hashAttribute,
+    seed: uuidv4(),
+    format: format || "multiRange",
+  };
 
   await updateOrganization(org.id, {
     settings: {
@@ -1162,7 +1152,7 @@ export async function postNamespaces(
       { settings: { namespaces } },
       {
         settings: {
-          namespaces: [...namespaces, { name, description, status }],
+          namespaces: [...namespaces, newNamespace],
         },
       },
     ),
@@ -1186,7 +1176,7 @@ export async function putNamespaces(
   >,
   res: Response,
 ) {
-  const { label, description, status, hashAttribute, format } = req.body;
+  const { label, description, status, hashAttribute } = req.body;
   const { name } = req.params;
 
   const context = getContextFromReq(req);
@@ -1206,9 +1196,9 @@ export async function putNamespaces(
 
   const updatedNamespaces = namespaces.map((n) => {
     if (n.name === name) {
-      const newFormat = format || n.format || "multiRange";
-      if (newFormat === "multiRange") {
-        if (!hashAttribute && n.format !== "multiRange") {
+      if (n.format === "multiRange") {
+        const newHashAttribute = hashAttribute || n.hashAttribute;
+        if (!newHashAttribute) {
           throw new Error(
             "Hash attribute is required for multi-range namespaces",
           );
@@ -1218,9 +1208,8 @@ export async function putNamespaces(
           label,
           description,
           status,
-          hashAttribute:
-            hashAttribute || (n.format === "multiRange" ? n.hashAttribute : ""),
-          seed: (n.format === "multiRange" ? n.seed : "") || uuidv4(),
+          hashAttribute: newHashAttribute,
+          seed: n.seed || uuidv4(),
           format: "multiRange",
         } as Namespaces;
       } else {
