@@ -70,7 +70,7 @@ export interface ExplorerContextValue {
   clearAllDatasets: (newDatasourceId?: string) => void;
 }
 const ExplorerContext = createContext<ExplorerContextValue | null>(null);
-const DEFAULT_AUTO_SUBMIT = false;
+const DEFAULT_AUTO_SUBMIT = true;
 interface ExplorerProviderProps {
   children: ReactNode;
   initialConfig?: ProductAnalyticsConfig;
