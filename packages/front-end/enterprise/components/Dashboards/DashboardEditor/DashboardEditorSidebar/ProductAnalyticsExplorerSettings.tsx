@@ -1,10 +1,14 @@
+import { useEffect, useRef, useState } from "react";
 import {
   DashboardBlockInterfaceOrData,
   MetricExplorationBlockInterface,
   FactTableExplorationBlockInterface,
   DataSourceExplorationBlockInterface,
 } from "shared/enterprise";
-import { ProductAnalyticsExploration } from "shared/validators";
+import {
+  ProductAnalyticsConfig,
+  ProductAnalyticsExploration,
+} from "shared/validators";
 import useApi from "@/hooks/useApi";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Callout from "@/ui/Callout";
@@ -37,6 +41,21 @@ export default function ProductAnalyticsExplorerSettings({
     shouldRun: () => !!block.explorerAnalysisId,
   });
 
+  const initialBaselineRef = useRef(block.config ?? data?.exploration?.config);
+  const [lastCommittedConfig, setLastCommittedConfig] = useState<
+    ProductAnalyticsConfig | undefined
+  >(() => initialBaselineRef.current);
+
+  useEffect(() => {
+    setLastCommittedConfig(initialBaselineRef.current ?? undefined);
+  }, []);
+
+  useEffect(() => {
+    if (data?.exploration?.config) {
+      setLastCommittedConfig(data.exploration.config);
+    }
+  }, [data?.exploration?.config]);
+
   if (block.explorerAnalysisId && isLoading) {
     return <LoadingSpinner />;
   }
@@ -52,22 +71,20 @@ export default function ProductAnalyticsExplorerSettings({
   return (
     <ExplorerProvider
       initialConfig={block.config || data?.exploration.config}
-      onRunComplete={(exploration) =>
+      baselineConfigForStale={lastCommittedConfig ?? null}
+      onRunComplete={(exploration) => {
         setBlock({
           ...block,
           explorerAnalysisId: exploration.id,
           config: exploration.config,
-        })
-      }
-      onDraftDiverged={(draftConfig) =>
-        setBlock({
-          ...block,
-          config: draftConfig,
-          explorerAnalysisId: "",
-        })
-      }
+        });
+        setLastCommittedConfig(exploration.config);
+      }}
     >
-      <ProductAnalyticsExplorerSideBarWrapper />
+      <ProductAnalyticsExplorerSideBarWrapper
+        block={block}
+        setBlock={setBlock}
+      />
     </ExplorerProvider>
   );
 }
