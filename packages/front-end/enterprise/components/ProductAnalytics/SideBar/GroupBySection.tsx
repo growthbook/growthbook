@@ -62,7 +62,7 @@ export default function GroupBySection() {
         ...prev.dimensions,
         {
           dimensionType: "dynamic",
-          column: availableColumns[0].column,
+          column: null,
           maxValues: 5,
         },
       ],
@@ -71,12 +71,14 @@ export default function GroupBySection() {
 
   const handleUpdateDimension = (
     index: number,
-    dimension: { column: string; maxValues: number },
+    dimension: { column: string | null; maxValues: number },
   ) => {
     setDraftExploreState((prev) => ({
       ...prev,
       dimensions: prev.dimensions.map((d, i) =>
-        i === index ? { ...d, ...dimension } : d,
+        i === index && d.dimensionType === "dynamic"
+          ? { ...d, ...dimension }
+          : d,
       ),
     }));
   };
@@ -162,7 +164,7 @@ export default function GroupBySection() {
             <Flex direction="row" gap="2" align="center">
               <SelectField
                 containerStyle={{ flex: 1, minWidth: 0 }}
-                value={dim.column}
+                value={dim.column || ""}
                 onChange={(val) =>
                   handleUpdateDimension(i, {
                     column: val,
@@ -172,6 +174,7 @@ export default function GroupBySection() {
                 options={getColumnOptionsForDimension(i)}
                 placeholder="Select dimension..."
                 sort={false}
+                forceUndefinedValueToNull
               />
               <Button
                 size="xs"

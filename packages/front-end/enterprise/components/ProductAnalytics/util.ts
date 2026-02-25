@@ -256,7 +256,7 @@ export function validateDimensions(
 
   let validDimensions = config.dimensions.filter((d) => {
     if (d.dimensionType !== "dynamic") return true;
-    return columns.some((c) => c.column === d.column);
+    return columns.some((c) => c.column === d.column || d.column === null);
   });
   if (validDimensions.length > maxDims) {
     validDimensions = validDimensions.slice(0, maxDims);
@@ -338,9 +338,14 @@ export function cleanConfigForSubmission(
   config: ProductAnalyticsConfig,
 ): ProductAnalyticsConfig {
   const cleanedDataset = removeIncompleteInputs(config.dataset);
+  // remove any dimensions with a null column
+  const cleanedDimensions = config.dimensions.filter(
+    (d) => "column" in d && d.column !== null,
+  );
   return {
     ...config,
     dataset: cleanedDataset,
+    dimensions: cleanedDimensions,
   };
 }
 

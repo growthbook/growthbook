@@ -98,7 +98,7 @@ export const dateDimensionValidator = z.object({
 
 export const dynamicDimensionValidator = z.object({
   dimensionType: z.literal("dynamic"),
-  column: z.string(),
+  column: z.string().nullable(),
   maxValues: z.number(),
 });
 
