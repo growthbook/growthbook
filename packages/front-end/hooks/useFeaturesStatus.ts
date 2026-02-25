@@ -2,68 +2,73 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/services/auth";
 
 type EnvStatusMap = Record<string, boolean>;
-type StatusCache = Record<string, EnvStatusMap>;
+export type EnvironmentStatusMap = Record<string, EnvStatusMap>;
 
 // Matches usePrerequisiteStates refresh cadence.
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 
 export interface UseFeaturesStatusReturn {
-  // Skips already-cached IDs; no-op if fetchAll has already run.
+  // Skips already-loaded IDs; no-op if fetchAll has already run.
   fetchSome: (featureIds: string[]) => Promise<void>;
-  // Fetches all org features, overwriting the cache.
+  // Fetches all org features, overwriting the current data.
   fetchAll: () => Promise<void>;
-  // Reads enabled state from the cache.
+  // Reads enabled state from environmentStatus.
   getStatus: (featureId: string, envId: string) => boolean | undefined;
-  // Optimistic toggle: updates cache immediately, reconciles from server on failure.
+  // Optimistic toggle: updates environmentStatus immediately, reconciles on failure.
   toggle: (featureId: string, envId: string, state: boolean) => Promise<void>;
   loading: boolean;
-  cache: StatusCache;
+  environmentStatus: EnvironmentStatusMap;
 }
 
 export function useFeaturesStatus(): UseFeaturesStatusReturn {
   const { apiCall } = useAuth();
-  const [cache, setCache] = useState<StatusCache>({});
-  const cachedIds = useRef(new Set<string>());
+  const [environmentStatus, setEnvironmentStatus] =
+    useState<EnvironmentStatusMap>({});
+  const loadedIds = useRef(new Set<string>());
   const hasFetchedAll = useRef(false);
   const [loading, setLoading] = useState(false);
+  // Prevents concurrent duplicate fetches (e.g. React Strict Mode double-invocation).
+  const inflightKey = useRef<string | null>(null);
 
-  const mergeIntoCache = useCallback((incoming: StatusCache) => {
-    Object.keys(incoming).forEach((id) => cachedIds.current.add(id));
-    setCache((prev) => ({ ...prev, ...incoming }));
-  }, []);
-
-  // Internal: always hits the API regardless of cache state.
+  // Internal: always hits the API regardless of loaded state.
   // ids = undefined → fetch all; ids = [] → no-op.
   const doFetch = useCallback(
     async (ids?: string[]) => {
       if (ids !== undefined && !ids.length) return;
+      const key = ids === undefined ? "__all__" : [...ids].sort().join(",");
+      if (inflightKey.current === key) return;
+      inflightKey.current = key;
       const url =
         ids !== undefined
-          ? `/features/status?ids=${encodeURIComponent(ids.join(","))}`
+          ? `/features/status?ids=${ids.join(",")}`
           : "/features/status";
       setLoading(true);
       try {
-        const res = await apiCall<{ features: StatusCache }>(url);
+        const res = await apiCall<{ features: EnvironmentStatusMap }>(url);
         const incoming = res.features ?? {};
         if (ids === undefined) {
           hasFetchedAll.current = true;
-          Object.keys(incoming).forEach((id) => cachedIds.current.add(id));
-          setCache(incoming);
+          Object.keys(incoming).forEach((id) => loadedIds.current.add(id));
+          setEnvironmentStatus(incoming);
         } else {
-          mergeIntoCache(incoming);
+          // Mark ALL requested IDs as loaded, not just ones returned by the server.
+          // IDs absent from the response are permission-filtered or don't exist.
+          ids.forEach((id) => loadedIds.current.add(id));
+          setEnvironmentStatus((prev) => ({ ...prev, ...incoming }));
         }
       } finally {
         setLoading(false);
+        inflightKey.current = null;
       }
     },
-    [apiCall, mergeIntoCache],
+    [apiCall],
   );
 
   const fetchSome = useCallback(
     async (featureIds: string[]) => {
       if (hasFetchedAll.current) return;
-      const uncached = featureIds.filter((id) => !cachedIds.current.has(id));
-      await doFetch(uncached);
+      const unloaded = featureIds.filter((id) => !loadedIds.current.has(id));
+      await doFetch(unloaded);
     },
     [doFetch],
   );
@@ -71,15 +76,14 @@ export function useFeaturesStatus(): UseFeaturesStatusReturn {
   const fetchAll = useCallback(() => doFetch(), [doFetch]);
 
   // Periodically refresh whatever has already been loaded.
-  // Uses recursive setTimeout so a slow request doesn't stack with the next tick.
   useEffect(() => {
     let id: ReturnType<typeof setTimeout>;
     const schedule = () => {
       id = setTimeout(async () => {
-        if (cachedIds.current.size) {
+        if (loadedIds.current.size) {
           await (hasFetchedAll.current
             ? doFetch()
-            : doFetch([...cachedIds.current]));
+            : doFetch([...loadedIds.current]));
         }
         schedule();
       }, REFRESH_INTERVAL_MS);
@@ -90,13 +94,13 @@ export function useFeaturesStatus(): UseFeaturesStatusReturn {
 
   const getStatus = useCallback(
     (featureId: string, envId: string): boolean | undefined =>
-      cache[featureId]?.[envId],
-    [cache],
+      environmentStatus[featureId]?.[envId],
+    [environmentStatus],
   );
 
   const toggle = useCallback(
     async (featureId: string, envId: string, state: boolean) => {
-      setCache((prev) => ({
+      setEnvironmentStatus((prev) => ({
         ...prev,
         [featureId]: { ...(prev[featureId] ?? {}), [envId]: state },
       }));
@@ -114,5 +118,5 @@ export function useFeaturesStatus(): UseFeaturesStatusReturn {
     [apiCall, doFetch],
   );
 
-  return { fetchSome, fetchAll, getStatus, toggle, loading, cache };
+  return { fetchSome, fetchAll, getStatus, toggle, loading, environmentStatus };
 }

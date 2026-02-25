@@ -1,4 +1,3 @@
-import { FeatureInterface } from "shared/types/feature";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 
@@ -8,7 +7,7 @@ export default function StaleDetectionModal({
   mutate,
 }: {
   close: () => void;
-  feature: FeatureInterface;
+  feature: { id: string; neverStale?: boolean };
   mutate: () => void;
 }) {
   const { apiCall } = useAuth();

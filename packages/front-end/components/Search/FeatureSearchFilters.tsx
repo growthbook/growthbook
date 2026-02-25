@@ -1,6 +1,5 @@
 import React, { FC, useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
-import { FeatureInterface } from "shared/types/feature";
 import { useEnvironments } from "@/services/features";
 import Tag from "@/components/Tags/Tag";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
@@ -15,7 +14,7 @@ import {
 
 const FeatureSearchFilters: FC<
   BaseSearchFiltersProps & {
-    features: FeatureInterface[];
+    features: { tags?: string[]; owner?: string; valueType: string }[];
     hasArchived: boolean;
   }
 > = ({
@@ -165,31 +164,6 @@ const FeatureSearchFilters: FC<
         updateQuery={updateQuery}
       />
       <FilterDropdown
-        filter="has"
-        heading="rules"
-        syntaxFilters={syntaxFilters}
-        open={dropdownFilterOpen}
-        setOpen={setDropdownFilterOpen}
-        items={[
-          {
-            searchValue: "experiment",
-            id: "hasExperiment",
-            name: "has an experiment",
-          },
-          {
-            searchValue: "rollout",
-            id: "hasRollout",
-            name: "has a rollout rule",
-          },
-          {
-            searchValue: "force",
-            id: "hasForce",
-            name: "has a force rule",
-          },
-        ]}
-        updateQuery={updateQuery}
-      />
-      <FilterDropdown
         filter="on"
         heading="environment"
         syntaxFilters={syntaxFilters}
@@ -237,21 +211,6 @@ const FeatureSearchFilters: FC<
           <FilterItem
             item="Has rule(s) in draft"
             exists={doesFilterExist("has", "draft", "")}
-          />
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => {
-            updateQuery({
-              field: "has",
-              values: ["prereqs"],
-              operator: "",
-              negated: false,
-            });
-          }}
-        >
-          <FilterItem
-            item="Has prerequisites"
-            exists={doesFilterExist("has", "prereqs", "")}
           />
         </DropdownMenuItem>
         <DropdownMenuItem

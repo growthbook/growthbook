@@ -1295,8 +1295,6 @@ export async function getFeatureMetaInfoById(
     staleReason: f.staleReason as FeatureMetaInfo["staleReason"],
     staleLastCalculated: f.staleLastCalculated,
     neverStale: f.neverStale,
-    hasJsonSchema: !!(f.jsonSchema as { enabled?: boolean } | undefined)
-      ?.enabled,
     revision: f.revision as FeatureMetaInfo["revision"],
     ...(includeDefaultValue && { defaultValue: f.defaultValue ?? "" }),
   }));
@@ -1347,8 +1345,6 @@ export async function getFeatureMetaInfoByIds(
     staleReason: f.staleReason as FeatureMetaInfo["staleReason"],
     staleLastCalculated: f.staleLastCalculated,
     neverStale: f.neverStale,
-    hasJsonSchema: !!(f.jsonSchema as { enabled?: boolean } | undefined)
-      ?.enabled,
     revision: f.revision as FeatureMetaInfo["revision"],
   }));
 }

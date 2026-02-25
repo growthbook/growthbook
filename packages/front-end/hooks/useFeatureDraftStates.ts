@@ -25,20 +25,20 @@ export function useFeatureDraftStates(): UseFeatureDraftStatesReturn {
   const cachedIds = useRef(new Set<string>());
   const hasFetchedAll = useRef(false);
   const [loading, setLoading] = useState(false);
-
-  const mergeIntoCache = useCallback((incoming: DraftStateCache) => {
-    Object.keys(incoming).forEach((id) => cachedIds.current.add(id));
-    setDraftStates((prev) => ({ ...prev, ...incoming }));
-  }, []);
+  // Prevents concurrent duplicate fetches (e.g. React Strict Mode double-invocation).
+  const inflightKey = useRef<string | null>(null);
 
   // Internal: always hits the API regardless of cache state.
   // ids = undefined → fetch all; ids = [] → no-op.
   const doFetch = useCallback(
     async (ids?: string[]) => {
       if (ids !== undefined && !ids.length) return;
+      const key = ids === undefined ? "__all__" : [...ids].sort().join(",");
+      if (inflightKey.current === key) return;
+      inflightKey.current = key;
       const url =
         ids !== undefined
-          ? `/features/draft-states?ids=${encodeURIComponent(ids.join(","))}`
+          ? `/features/draft-states?ids=${ids.join(",")}`
           : "/features/draft-states";
       setLoading(true);
       try {
@@ -49,13 +49,17 @@ export function useFeatureDraftStates(): UseFeatureDraftStatesReturn {
           Object.keys(incoming).forEach((id) => cachedIds.current.add(id));
           setDraftStates(incoming);
         } else {
-          mergeIntoCache(incoming);
+          // Mark ALL requested IDs as cached, not just ones that returned data.
+          // Features absent from the response simply have no active draft.
+          ids.forEach((id) => cachedIds.current.add(id));
+          setDraftStates((prev) => ({ ...prev, ...incoming }));
         }
       } finally {
         setLoading(false);
+        inflightKey.current = null;
       }
     },
-    [apiCall, mergeIntoCache],
+    [apiCall],
   );
 
   const fetchSome = useCallback(

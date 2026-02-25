@@ -25,17 +25,14 @@ import { FeatureUsageRecords } from "shared/types/realtime";
 import cloneDeep from "lodash/cloneDeep";
 import {
   featureHasEnvironment,
-  featuresReferencingSavedGroups,
   generateVariationId,
   getMatchingRules,
-  StaleFeatureReason,
   validateAndFixCondition,
   validateFeatureValue,
 } from "shared/util";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import isEqual from "lodash/isEqual";
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
-import { SavedGroupInterface } from "shared/types/saved-group";
 import { SafeRolloutRule } from "shared/validators";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
@@ -153,7 +150,8 @@ export function useFeatureSearch({
   filterResults,
   environments,
   localStorageKey = "features",
-  staleFeatures,
+  environmentStatus,
+  draftStates,
 }: {
   allFeatures: FeatureInterface[];
   defaultSortField?:
@@ -166,32 +164,11 @@ export function useFeatureSearch({
   filterResults?: (items: FeatureInterface[]) => FeatureInterface[];
   environments: Environment[];
   localStorageKey?: string;
-  staleFeatures?: Record<
-    string,
-    { stale: boolean; reason?: StaleFeatureReason }
-  >;
+  environmentStatus?: Record<string, Record<string, boolean>>;
+  draftStates?: Record<string, unknown>;
 }) {
   const { getUserDisplay } = useUser();
-  const { getProjectById, getSavedGroupById, savedGroups } = useDefinitions();
-  const savedGroupReferencesByFeature = useMemo(() => {
-    const savedGroupReferencesByGroup = featuresReferencingSavedGroups({
-      savedGroups,
-      features: allFeatures,
-      environments,
-    });
-    // Invert the map from groupId->featureList to featureId->groupList
-    const savedGroupReferencesByFeature: Record<string, SavedGroupInterface[]> =
-      {};
-    Object.keys(savedGroupReferencesByGroup).forEach((groupId) => {
-      const savedGroup = getSavedGroupById(groupId);
-      if (!savedGroup) return;
-      savedGroupReferencesByGroup[groupId].forEach((referencingFeature) => {
-        savedGroupReferencesByFeature[referencingFeature.id] ||= [];
-        savedGroupReferencesByFeature[referencingFeature.id].push(savedGroup);
-      });
-    });
-    return savedGroupReferencesByFeature;
-  }, [savedGroups, allFeatures, environments]);
+  const { getProjectById } = useDefinitions();
 
   const features = useAddComputedFields(
     allFeatures,
@@ -204,13 +181,10 @@ export function useFeatureSearch({
         projectId,
         projectName,
         projectIsDeReferenced,
-        savedGroups: (savedGroupReferencesByFeature[f.id] || []).map(
-          (grp) => grp.groupName,
-        ),
         ownerName: getUserDisplay(f.owner, false) || "",
       };
     },
-    [getProjectById, savedGroupReferencesByFeature],
+    [getProjectById],
   );
   return useSearch({
     items: features,
@@ -223,44 +197,23 @@ export function useFeatureSearch({
       is: (item) => {
         const is: string[] = [item.valueType];
         if (item.archived) is.push("archived");
-        if (item.hasDrafts) is.push("draft");
+        if (draftStates?.[item.id]) is.push("draft");
         if (item.valueType === "json") is.push("json");
         if (item.valueType === "string") is.push("string");
         if (item.valueType === "number") is.push("number");
         if (item.valueType === "boolean") is.push("boolean");
-        if (staleFeatures?.[item.id]?.stale) is.push("stale");
+        // isStale is stored on the feature document (computed cross-project by cron).
+        if (item.isStale) is.push("stale");
         return is;
       },
       has: (item) => {
         const has: string[] = [];
         if (item.project) has.push("project");
-        if (item.hasDrafts) has.push("draft", "drafts");
-        if (item.prerequisites?.length) has.push("prerequisites", "prereqs");
+        if (draftStates?.[item.id]) has.push("draft", "drafts");
 
-        if (item.valueType === "json" && item.jsonSchema?.enabled) {
-          has.push("validation", "schema", "jsonSchema");
-        }
-
-        const rules = getMatchingRules(
-          item,
-          () => true,
-          environments.map((e) => e.id),
-        );
-
-        if (rules.length) has.push("rule", "rules");
-        if (
-          rules.some((r) =>
-            ["experiment", "experiment-ref"].includes(r.rule.type),
-          )
-        ) {
-          has.push("experiment", "experiments");
-        }
-        if (rules.some((r) => r.rule.type === "rollout")) {
-          has.push("rollout", "percent");
-        }
-        if (rules.some((r) => r.rule.type === "force")) {
-          has.push("force", "targeting");
-        }
+        // TODO: restore has:experiment/rollout/force/rule/prerequisites/savedgroup filters
+        // once rules are denormalized to a top-level rules[] field with an `environments`
+        // property (collapsing per-environment rules into a single scannable array).
 
         return has;
       },
@@ -272,43 +225,24 @@ export function useFeatureSearch({
       created: (item) => new Date(item.dateCreated),
       updated: (item) => new Date(item.dateUpdated),
       experiment: (item) => item.linkedExperiments || [],
-      savedgroup: (item: ComputedFeatureInterface) => item.savedGroups || [],
       version: (item) => item.version,
       revision: (item) => item.version,
       owner: (item) => item.owner,
       tag: (item) => item.tags,
       type: (item) => item.valueType,
-      rules: (item) => {
-        const rules = getMatchingRules(
-          item,
-          () => true,
-          environments.map((e) => e.id),
-        );
-        return rules.length;
-      },
       on: (item) => {
-        const on: string[] = [];
-        environments.forEach((e) => {
-          if (
-            featureHasEnvironment(item, e) &&
-            item.environmentSettings?.[e.id]?.enabled
-          ) {
-            on.push(e.id);
-          }
-        });
-        return on;
+        if (!environmentStatus) return [];
+        return environments
+          .filter((e) => featureHasEnvironment(item, e))
+          .filter((e) => environmentStatus[item.id]?.[e.id] ?? false)
+          .map((e) => e.id);
       },
       off: (item) => {
-        const off: string[] = [];
-        environments.forEach((e) => {
-          if (
-            featureHasEnvironment(item, e) &&
-            !item.environmentSettings?.[e.id]?.enabled
-          ) {
-            off.push(e.id);
-          }
-        });
-        return off;
+        if (!environmentStatus) return [];
+        return environments
+          .filter((e) => featureHasEnvironment(item, e))
+          .filter((e) => !(environmentStatus[item.id]?.[e.id] ?? false))
+          .map((e) => e.id);
       },
     },
   });

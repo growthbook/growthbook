@@ -107,7 +107,6 @@ export type FeatureMetaInfo = Pick<
   | "neverStale"
 > & {
   defaultValue?: string;
-  hasJsonSchema?: boolean;
   revision?: {
     version: number;
     comment: string;
