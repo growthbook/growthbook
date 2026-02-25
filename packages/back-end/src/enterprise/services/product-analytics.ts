@@ -23,16 +23,20 @@ import { ReqContext } from "back-end/types/request";
 export async function runProductAnalyticsExploration(
   context: ReqContext | ApiReqContext,
   config: ProductAnalyticsConfig,
-  options: { skipCache: boolean },
-): Promise<ProductAnalyticsExploration> {
+  options: { cache?: "preferred" | "required" | "never" },
+): Promise<ProductAnalyticsExploration | null> {
   config = productAnalyticsConfigValidator.parse(config);
 
-  if (!options.skipCache) {
+  if (options.cache !== "never") {
     const existing =
       await context.models.analyticsExplorations.findLatestByConfig(config);
     if (existing) {
       return existing;
     }
+  }
+
+  if (options.cache === "required") {
+    return null;
   }
 
   // If no existing exploration, create a new one

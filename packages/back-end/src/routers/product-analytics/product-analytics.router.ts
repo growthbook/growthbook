@@ -21,7 +21,9 @@ router.post(
   "/run",
   validateRequestMiddleware({
     body: z.object({ config: productAnalyticsConfigValidator }).strict(),
-    query: z.object({ skipCache: z.string().optional() }).strict(),
+    query: z
+      .object({ cache: z.enum(["preferred", "required", "never"]) })
+      .optional(),
   }),
   productAnalyticsController.postProductAnalyticsRun,
 );
