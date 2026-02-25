@@ -58,7 +58,14 @@ export default function ReportAnalysisSettingsBar({
   }, [_snapshot, snapshot]);
 
   const analysis = snapshot
-    ? (getSnapshotAnalysis(snapshot) ?? undefined)
+    ? (getSnapshotAnalysis(
+        snapshot,
+        snapshot.analyses.find(
+          (a) =>
+            a.settings.differenceType ===
+            report.experimentAnalysisSettings.differenceType,
+        )?.settings,
+      ) ?? undefined)
     : undefined;
 
   const { getDatasourceById } = useDefinitions();
