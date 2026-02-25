@@ -374,7 +374,7 @@ export function generateAutoExperimentsPayload({
 /**
  * Convert namespaces array to Map for efficient lookups
  */
-function namespacesToMap(
+export function namespacesToMap(
   namespaces?: Namespaces[],
 ): Map<
   string,
@@ -1199,6 +1199,7 @@ export function evaluateFeature({
   skipRulesWithPrerequisites = true,
   date = new Date(),
   safeRolloutMap,
+  namespaces,
 }: {
   feature: FeatureInterface;
   attributes: ArchetypeAttributeValues;
@@ -1210,6 +1211,10 @@ export function evaluateFeature({
   skipRulesWithPrerequisites?: boolean;
   date?: Date;
   safeRolloutMap: Map<string, SafeRolloutInterface>;
+  namespaces?: Map<
+    string,
+    { hashAttribute?: string; seed?: string; format?: "legacy" | "multiRange" }
+  >;
 }) {
   const results: FeatureTestResult[] = [];
   const savedGroups = getSavedGroupsValuesFromGroupMap(groupMap);
@@ -1244,7 +1249,7 @@ export function evaluateFeature({
         date,
         safeRolloutMap,
         holdoutsMap: new Map(),
-        namespaces: new Map(),
+        namespaces: namespaces || new Map(),
       });
 
       if (definition) {
