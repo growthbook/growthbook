@@ -91,7 +91,7 @@ export function getPipelineValidationDropTableQuery({
 }): string {
   return integration.getDropUnitsTableQuery({
     fullTablePath: tableFullName,
-  });
+  }).sql;
 }
 
 export function bigQueryCreateTablePartitions(columns: string[]) {

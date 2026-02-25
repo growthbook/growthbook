@@ -35,6 +35,10 @@ import {
   QueryStatus,
 } from "shared/types/query";
 import { BanditResult } from "shared/types/experiment";
+import {
+  toPossiblyFormattedSql,
+  SourceIntegrationInterface,
+} from "back-end/src/types/Integration";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -48,7 +52,6 @@ import {
   analyzeExperimentResults,
   analyzeExperimentTraffic,
 } from "back-end/src/services/stats";
-import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { expandDenominatorMetrics } from "back-end/src/util/sql";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
@@ -550,7 +553,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       await this.startQuery({
         queryType: "experimentResults",
         name: "results",
-        query: query,
+        query: toPossiblyFormattedSql(query),
         dependencies: [],
         run: async () => {
           const rows = (await this.integration.getExperimentResults(

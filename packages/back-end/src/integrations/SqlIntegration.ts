@@ -36,6 +36,7 @@ import { PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES } from "shared/enterprise";
 import {
   ensureLimit,
   format,
+  formatWithStatus,
   isMultiStatementSQL,
   SQL_ROW_LIMIT,
 } from "shared/sql";
@@ -144,10 +145,13 @@ import {
 } from "shared/types/fact-table";
 import type { PopulationDataQuerySettings } from "shared/types/query";
 import { AdditionalQueryMetadata, QueryMetadata } from "shared/types/query";
+import {
+  PossiblyFormattedSql,
+  SourceIntegrationInterface,
+} from "back-end/src/types/Integration";
 import { MissingDatasourceParamsError } from "back-end/src/util/errors";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { ReqContext } from "back-end/types/request";
-import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import {
   getBaseIdTypeAndJoins,
   compileSqlTemplate,
@@ -456,7 +460,7 @@ export default abstract class SqlIntegration
     return match;
   }
 
-  getPastExperimentQuery(params: PastExperimentParams): string {
+  getPastExperimentQuery(params: PastExperimentParams): PossiblyFormattedSql {
     // TODO: for past experiments, UNION all exposure queries together
     const experimentQueries = (
       this.datasource.settings.queries?.exposure || []
@@ -464,7 +468,7 @@ export default abstract class SqlIntegration
 
     const end = new Date();
 
-    return format(
+    return formatWithStatus(
       `-- Past Experiments
     WITH
       ${experimentQueries
@@ -590,7 +594,7 @@ export default abstract class SqlIntegration
     };
   }
 
-  getMetricValueQuery(params: MetricValueParams): string {
+  getMetricValueQuery(params: MetricValueParams): PossiblyFormattedSql {
     const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE({
       objects: [
         params.metric.userIdTypes || [],
@@ -613,7 +617,7 @@ export default abstract class SqlIntegration
     });
 
     // TODO query is broken if segment has template variables
-    return format(
+    return formatWithStatus(
       `-- ${params.name} - ${params.metric.name} Metric
       WITH
         ${idJoinSQL}
@@ -910,7 +914,7 @@ export default abstract class SqlIntegration
   getMetricAnalysisQuery(
     metric: FactMetricInterface,
     params: Omit<MetricAnalysisParams, "metric">,
-  ): string {
+  ): PossiblyFormattedSql {
     const { settings } = params;
 
     // Get any required identity join queries; only use same id type for now,
@@ -991,7 +995,7 @@ export default abstract class SqlIntegration
 
     // TODO check if query broken if segment has template variables
     // TODO return cap numbers
-    return format(
+    return formatWithStatus(
       `-- ${metric.name} Metric Analysis
       WITH
         ${idJoinSQL}
@@ -1589,7 +1593,7 @@ export default abstract class SqlIntegration
     return { results: results.rows, columns: results.columns, duration };
   }
 
-  getDropUnitsTableQuery(params: DropTableQueryParams): string {
+  getDropUnitsTableQuery(params: DropTableQueryParams): PossiblyFormattedSql {
     // valdidate units table query follows expected name to help
     // prevent dropping other tables
     if (!params.fullTablePath.includes(UNITS_TABLE_PREFIX)) {
@@ -1597,7 +1601,10 @@ export default abstract class SqlIntegration
         "Unable to drop table that is not temporary units table.",
       );
     }
-    return `DROP TABLE IF EXISTS ${params.fullTablePath}`;
+    return {
+      sql: `DROP TABLE IF EXISTS ${params.fullTablePath}`,
+      isFormatted: true,
+    };
   }
 
   async runDropTableQuery(
@@ -1944,17 +1951,19 @@ export default abstract class SqlIntegration
     );
   }
 
-  getExperimentUnitsTableQuery(params: ExperimentUnitsQueryParams): string {
+  getExperimentUnitsTableQuery(
+    params: ExperimentUnitsQueryParams,
+  ): PossiblyFormattedSql {
     if (!params.unitsTableFullName) {
       throw new Error("Units table full name is required");
     }
 
     const cteSql = this.getExperimentUnitsQuery(params);
-
-    return this.getExperimentUnitsTableQueryFromCte(
+    const sql = this.getExperimentUnitsTableQueryFromCte(
       params.unitsTableFullName,
       cteSql,
     );
+    return formatWithStatus(sql, this.getFormatDialect());
   }
 
   processActivationMetric(
@@ -1980,7 +1989,9 @@ export default abstract class SqlIntegration
     );
   }
 
-  getPopulationMetricQuery(params: PopulationMetricQueryParams): string {
+  getPopulationMetricQuery(
+    params: PopulationMetricQueryParams,
+  ): PossiblyFormattedSql {
     const { factTableMap, segment, populationSettings } = params;
     // dimension date?
     const populationSQL = this.getPowerPopulationCTEs({
@@ -1999,7 +2010,7 @@ export default abstract class SqlIntegration
 
   getPopulationFactMetricsQuery(
     params: PopulationFactMetricsQueryParams,
-  ): string {
+  ): PossiblyFormattedSql {
     const { factTableMap, segment, populationSettings } = params;
 
     const populationSQL = this.getPowerPopulationCTEs({
@@ -2246,7 +2257,7 @@ export default abstract class SqlIntegration
 
   getExperimentAggregateUnitsQuery(
     params: ExperimentAggregateUnitsQueryParams,
-  ): string {
+  ): PossiblyFormattedSql {
     const { activationMetric, segment, settings, factTableMap, useUnitsTable } =
       params;
 
@@ -2286,7 +2297,7 @@ export default abstract class SqlIntegration
       experimentId: settings.experimentId,
     });
 
-    return format(
+    return formatWithStatus(
       `-- Traffic Query for Health Tab
     WITH
       ${idJoinSQL}
@@ -2453,14 +2464,16 @@ export default abstract class SqlIntegration
       , ${dimensionColumn}`;
   }
 
-  getDimensionSlicesQuery(params: DimensionSlicesQueryParams): string {
+  getDimensionSlicesQuery(
+    params: DimensionSlicesQueryParams,
+  ): PossiblyFormattedSql {
     const exposureQuery = this.getExposureQuery(params.exposureQueryId || "");
 
     const { baseIdType } = getBaseIdTypeAndJoins([[exposureQuery.userIdType]]);
 
     const startDate = subDays(new Date(), params.lookbackDays);
     const timestampColumn = "e.timestamp";
-    return format(
+    return formatWithStatus(
       `-- Dimension Traffic Query
     WITH
       __rawExperiment AS (
@@ -3106,7 +3119,7 @@ export default abstract class SqlIntegration
 
   getExperimentFactMetricsQuery(
     params: ExperimentFactMetricsQueryParams,
-  ): string {
+  ): PossiblyFormattedSql {
     const { settings, segment } = params;
     const metricsWithIndices = cloneDeep(params.metrics).map((m, i) => ({
       metric: m,
@@ -3290,7 +3303,7 @@ export default abstract class SqlIntegration
       }
     });
 
-    return format(
+    return formatWithStatus(
       `-- ${queryName}
     WITH
       ${idJoinSQL}
@@ -3795,7 +3808,9 @@ export default abstract class SqlIntegration
     }
   }
 
-  getExperimentMetricQuery(params: ExperimentMetricQueryParams): string {
+  getExperimentMetricQuery(
+    params: ExperimentMetricQueryParams,
+  ): PossiblyFormattedSql {
     const {
       metric: metricDoc,
       denominatorMetrics: denominatorMetricsDocs,
@@ -4014,7 +4029,7 @@ export default abstract class SqlIntegration
       );
     }
 
-    return format(
+    return formatWithStatus(
       `-- ${metric.name} (${metric.type})
     WITH
       ${idJoinSQL}
@@ -6915,11 +6930,11 @@ ORDER BY column_name, count DESC
 
   getCreateExperimentIncrementalUnitsQuery(
     params: CreateExperimentIncrementalUnitsQueryParams,
-  ): string {
+  ): PossiblyFormattedSql {
     const { exposureQuery, activationMetric, experimentDimensions } =
       this.parseExperimentParams(params);
 
-    return format(
+    return formatWithStatus(
       `
     CREATE TABLE ${params.unitsTableFullName}
     (
@@ -6944,7 +6959,7 @@ ORDER BY column_name, count DESC
 
   getUpdateExperimentIncrementalUnitsQuery(
     params: UpdateExperimentIncrementalUnitsQueryParams,
-  ): string {
+  ): PossiblyFormattedSql {
     const { settings, segment, factTableMap } = params;
     const { exposureQuery, activationMetric, experimentDimensions } =
       this.parseExperimentParams(params);
@@ -6976,7 +6991,7 @@ ORDER BY column_name, count DESC
     const endDate = this.getExperimentEndDate(settings, 0);
 
     // Segment and SQL filter only check against new exposures
-    return format(
+    return formatWithStatus(
       `
       CREATE TABLE ${params.unitsTempTableFullName} 
       ${this.createTablePartitions(["max_timestamp"])}
@@ -7089,13 +7104,13 @@ ORDER BY column_name, count DESC
 
   getDropOldIncrementalUnitsQuery(
     params: DropOldIncrementalUnitsQueryParams,
-  ): string {
+  ): PossiblyFormattedSql {
     if (!params.unitsTableFullName.includes(INCREMENTAL_UNITS_TABLE_PREFIX)) {
       throw new Error(
         "Unable to drop table that is not an incremental refresh units table.",
       );
     }
-    return format(
+    return formatWithStatus(
       `
       DROP TABLE IF EXISTS ${params.unitsTableFullName}
       `,
@@ -7105,8 +7120,8 @@ ORDER BY column_name, count DESC
 
   getAlterNewIncrementalUnitsQuery(
     params: AlterNewIncrementalUnitsQueryParams,
-  ): string {
-    return format(
+  ): PossiblyFormattedSql {
+    return formatWithStatus(
       `
       ALTER TABLE ${params.unitsTempTableFullName} RENAME TO ${params.unitsTableName}
       `,
@@ -7116,8 +7131,8 @@ ORDER BY column_name, count DESC
 
   getMaxTimestampIncrementalUnitsQuery(
     params: MaxTimestampIncrementalUnitsQueryParams,
-  ): string {
-    return format(
+  ): PossiblyFormattedSql {
+    return formatWithStatus(
       `
       SELECT MAX(max_timestamp) AS max_timestamp FROM ${params.unitsTableFullName}
       `,
@@ -7179,8 +7194,8 @@ ORDER BY column_name, count DESC
 
   getMaxTimestampMetricSourceQuery(
     params: MaxTimestampMetricSourceQueryParams,
-  ): string {
-    return format(
+  ): PossiblyFormattedSql {
+    return formatWithStatus(
       `
       SELECT MAX(max_timestamp) AS max_timestamp FROM ${params.metricSourceTableFullName}
       `,
@@ -7190,7 +7205,7 @@ ORDER BY column_name, count DESC
 
   getDropMetricSourceCovariateTableQuery(
     params: DropMetricSourceCovariateTableQueryParams,
-  ): string {
+  ): PossiblyFormattedSql {
     if (
       !params.metricSourceCovariateTableFullName.includes(`_covariate`) ||
       !params.metricSourceCovariateTableFullName.includes(
@@ -7201,7 +7216,7 @@ ORDER BY column_name, count DESC
         "Unable to drop table that is not an incremental refresh covariate table.",
       );
     }
-    return format(
+    return formatWithStatus(
       `
       DROP TABLE IF EXISTS ${params.metricSourceCovariateTableFullName}
       `,
@@ -7211,7 +7226,7 @@ ORDER BY column_name, count DESC
 
   getCreateMetricSourceCovariateTableQuery(
     params: CreateMetricSourceCovariateTableQueryParams,
-  ): string {
+  ): PossiblyFormattedSql {
     const exposureQuery = this.getExposureQuery(
       params.settings.exposureQueryId || "",
       undefined,
@@ -7228,7 +7243,7 @@ ORDER BY column_name, count DESC
         sortedMetrics,
       );
 
-    return format(
+    return formatWithStatus(
       `
     CREATE TABLE ${params.metricSourceCovariateTableFullName}
     (
@@ -7241,7 +7256,7 @@ ORDER BY column_name, count DESC
 
   getInsertMetricSourceCovariateDataQuery(
     params: InsertMetricSourceCovariateDataQueryParams,
-  ): string {
+  ): PossiblyFormattedSql {
     const exposureQuery = this.getExposureQuery(
       params.settings.exposureQueryId || "",
       undefined,
@@ -7300,7 +7315,7 @@ ORDER BY column_name, count DESC
       sortedMetrics,
     );
 
-    return format(
+    return formatWithStatus(
       `
     INSERT INTO ${params.metricSourceCovariateTableFullName}
     (${columnNames.join(", \n")})
@@ -7399,7 +7414,7 @@ ORDER BY column_name, count DESC
 
   getCreateMetricSourceTableQuery(
     params: CreateMetricSourceTableQueryParams,
-  ): string {
+  ): PossiblyFormattedSql {
     const exposureQuery = this.getExposureQuery(
       params.settings.exposureQueryId || "",
       undefined,
@@ -7429,7 +7444,7 @@ ORDER BY column_name, count DESC
     // TODO(incremental-refresh)
     // Compute data types and columns elsewhere and store in metadata to govern this query
     // and for validating queries match going forward
-    return format(
+    return formatWithStatus(
       `
     CREATE TABLE ${params.metricSourceTableFullName}
     (
@@ -7559,7 +7574,7 @@ ORDER BY column_name, count DESC
 
   getInsertMetricSourceDataQuery(
     params: InsertMetricSourceDataQueryParams,
-  ): string {
+  ): PossiblyFormattedSql {
     const exposureQuery = this.getExposureQuery(
       params.settings.exposureQueryId || "",
       undefined,
@@ -7611,7 +7626,7 @@ ORDER BY column_name, count DESC
       sortedMetrics,
     );
 
-    return format(
+    return formatWithStatus(
       `
     INSERT INTO ${params.metricSourceTableFullName}
     (${columnNames.join(", \n")})
@@ -7736,7 +7751,7 @@ ORDER BY column_name, count DESC
   // fact tables to be added
   getIncrementalRefreshStatisticsQuery(
     params: IncrementalRefreshStatisticsQueryParams,
-  ): string {
+  ): PossiblyFormattedSql {
     const exposureQuery = this.getExposureQuery(
       params.settings.exposureQueryId || "",
       undefined,
@@ -7821,7 +7836,7 @@ ORDER BY column_name, count DESC
     // TODO(incremental-refresh): Handle activation metric in dimensions
     // like in getExperimentFactMetricsQuery
     // TODO(incremental-refresh): Validate with existing columns
-    return format(
+    return formatWithStatus(
       `
       WITH 
       ${idJoinSQL}

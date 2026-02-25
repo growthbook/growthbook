@@ -100,8 +100,9 @@ export async function getImpactEstimate(
     factTableMap,
   });
 
+  const querySql = query.sql;
   const queryResponse = await integration.runMetricValueQuery(
-    query,
+    querySql,
     // We're not storing a query in Mongo for this, so we don't support cancelling here
     async () => {
       // Ignore calls to setExternalId
@@ -121,7 +122,7 @@ export async function getImpactEstimate(
     metric,
     segment: segment || undefined,
     conversionsPerDay: conversionsPerDay,
-    query: query,
+    query: querySql,
     queryLanguage: integration.getSourceProperties().queryLanguage,
   });
 }

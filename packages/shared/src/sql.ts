@@ -89,16 +89,18 @@ export function startPolyglotLoad(): void {
     .catch(() => null);
 }
 
-export function format(
+export type FormatWithStatusResult = { sql: string; isFormatted: boolean };
+
+/** Returns formatted SQL and whether polyglot or sql-formatter succeeded. */
+export function formatWithStatus(
   sql: string,
   dialect?: FormatDialect,
   onError?: (error: FormatError) => void,
-): string {
-  if (!dialect) return sql;
-
+): FormatWithStatusResult {
+  if (!dialect) return { sql, isFormatted: false };
   const report = formatMetricsReporter;
 
-  // 1. Try polyglot first if loaded (back-end and front-end; high length limit; fast)
+  // 1. Try polyglot first if loaded as it is faster and can handle longer SQL
   if (
     MAX_SQL_LENGTH_FOR_POLYGLOT &&
     sql.length <= MAX_SQL_LENGTH_FOR_POLYGLOT
@@ -120,16 +122,16 @@ export function format(
       const timeMs = performance.now() - polyglotStart;
       if (result != null) {
         report?.({ engine: "polyglot", success: true, timeMs });
-        return result;
+        return { sql: result, isFormatted: true };
       }
       report?.({ engine: "polyglot", success: false, timeMs });
       // Parse error; fall through to sql-formatter
     }
   }
 
-  // 2. Fall back to sql-formatter (slower; skip for very large queries)
+  // 2. Fall back to sql-formatter but skip for very large queries
   if (MAX_SQL_LENGTH_TO_FORMAT && sql.length > MAX_SQL_LENGTH_TO_FORMAT) {
-    return sql;
+    return { sql, isFormatted: false };
   }
   const sqlFormatStart = performance.now();
   try {
@@ -141,7 +143,7 @@ export function format(
       success: true,
       timeMs: performance.now() - sqlFormatStart,
     });
-    return formatted;
+    return { sql: formatted, isFormatted: true };
   } catch (e) {
     const error = e instanceof Error ? e : new Error(String(e));
     report?.({
@@ -152,8 +154,16 @@ export function format(
     if (onError) {
       onError({ error, originalSql: sql });
     }
-    return sql;
+    return { sql, isFormatted: false };
   }
+}
+
+export function format(
+  sql: string,
+  dialect?: FormatDialect,
+  onError?: (error: FormatError) => void,
+): string {
+  return formatWithStatus(sql, dialect, onError).sql;
 }
 
 export function ensureLimit(sql: string, limit: number): string {

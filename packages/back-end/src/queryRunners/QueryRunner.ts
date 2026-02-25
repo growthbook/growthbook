@@ -15,7 +15,10 @@ import {
   getRecentQuery,
   updateQuery,
 } from "back-end/src/models/QueryModel";
-import { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import {
+  PossiblyFormattedSql,
+  SourceIntegrationInterface,
+} from "back-end/src/types/Integration";
 import { logger } from "back-end/src/util/logger";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { ReqContext } from "back-end/types/request";
@@ -50,7 +53,7 @@ export type ProcessedRowsType = Record<string, any>;
 export type StartQueryParams<Rows, ProcessedRows> = {
   name: string;
   displayTitle?: string;
-  query: string;
+  query: PossiblyFormattedSql;
   dependencies: string[];
   run: (
     query: string,
@@ -637,7 +640,7 @@ export abstract class QueryRunner<
     const {
       name,
       displayTitle,
-      query,
+      query: queryParam,
       dependencies,
       runAtEnd,
       run,
@@ -646,6 +649,8 @@ export abstract class QueryRunner<
       onSuccess,
       queryType,
     } = params;
+    const querySql = queryParam.sql;
+    const isFormatted = queryParam.isFormatted ?? false;
     // Re-use recent identical query if it exists
     if (this.useCache) {
       logger.debug("Trying to reuse existing query for " + name);
@@ -660,7 +665,7 @@ export abstract class QueryRunner<
         const existing = await getRecentQuery(
           this.integration.context.org.id,
           this.integration.datasource.id,
-          query,
+          querySql,
           cacheTTLMins,
         );
         if (existing) {
@@ -670,7 +675,7 @@ export abstract class QueryRunner<
               "Reusing previous query " +
                 existing.id +
                 " for query " +
-                query +
+                querySql +
                 ". Currently running, checking every 3 seconds for changes",
             );
             const check = () => {
@@ -699,13 +704,13 @@ export abstract class QueryRunner<
           // Query already finished
           else {
             logger.debug(
-              "Reusing previous query for " + query + ". Already finished",
+              "Reusing previous query for " + querySql + ". Already finished",
             );
             this.onQueryFinish();
           }
           logger.debug(
             "Creating query with cached values for " +
-              query +
+              querySql +
               " from " +
               existing.id,
           );
@@ -732,7 +737,7 @@ export abstract class QueryRunner<
     const readyToRun =
       dependenciesComplete && !runAtEnd && !concurrencyLimitReached;
     const doc = await createNewQuery({
-      query,
+      query: querySql,
       queryType,
       displayTitle,
       datasource: this.integration.datasource.id,
@@ -741,6 +746,7 @@ export abstract class QueryRunner<
       dependencies: dependencies,
       running: readyToRun,
       runAtEnd: runAtEnd,
+      sqlFormatted: isFormatted,
     });
 
     logger.debug("Created new query " + doc.id + " for " + name);
