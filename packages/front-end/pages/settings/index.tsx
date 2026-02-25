@@ -329,27 +329,21 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const ctaEnabled =
     hasChanges(value, originalValue) || promptForm.formState.isDirty;
 
-  const handleSearchNavigate = useCallback(
-    (tab: string, sectionId: string) => {
-      const currentHash = window.location.hash.slice(1);
-      if (currentHash !== tab) {
-        window.location.hash = tab;
-      }
+  const handleSearchNavigate = useCallback((tab: string, sectionId: string) => {
+    const currentHash = window.location.hash.slice(1);
+    if (currentHash !== tab) {
+      window.location.hash = tab;
+    }
 
-      setTimeout(() => {
-        const element = document.getElementById(sectionId);
-        if (element) {
-          element.scrollIntoView({ behavior: "smooth", block: "start" });
-          element.classList.add("settings-highlight");
-          setTimeout(
-            () => element.classList.remove("settings-highlight"),
-            1500,
-          );
-        }
-      }, 150);
-    },
-    [],
-  );
+    setTimeout(() => {
+      const element = document.getElementById(sectionId);
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth", block: "start" });
+        element.classList.add("settings-highlight");
+        setTimeout(() => element.classList.remove("settings-highlight"), 1500);
+      }
+    }, 150);
+  }, []);
 
   const savePrompts = promptForm.handleSubmit(async (promptValues) => {
     const formattedPrompts = CUSTOMIZABLE_PROMPT_TYPES.map((type) => ({
