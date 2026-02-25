@@ -20,7 +20,14 @@ function makeClickhouseDatasource(
 ): GrowthbookClickhouseDataSource {
   return {
     type: "growthbook_clickhouse",
-    settings: { materializedColumns },
+    settings: {
+      materializedColumns,
+      // growthbook_clickhouse syncs userIdTypes from materializedColumns
+      // (type === "identifier") on every settings save via getManagedWarehouseSettings
+      userIdTypes: materializedColumns
+        .filter((c) => c.type === "identifier")
+        .map((c) => ({ userIdType: c.columnName, description: "" })),
+    },
   } as unknown as GrowthbookClickhouseDataSource;
 }
 
@@ -35,7 +42,7 @@ function makeStandardDatasource(
 
 describe("deriveUserIdTypesFromColumns", () => {
   describe("growthbook_clickhouse datasource", () => {
-    it("returns identifier materializedColumns that appear in active fact table columns", () => {
+    it("returns identifier userIdTypes that appear in active fact table columns", () => {
       const ds = makeClickhouseDatasource([
         { columnName: "user_id", type: "identifier" },
         { columnName: "device_id", type: "identifier" },
@@ -73,13 +80,13 @@ describe("deriveUserIdTypesFromColumns", () => {
       expect(deriveUserIdTypesFromColumns(ds, cols)).toEqual(["user_id"]);
     });
 
-    it("returns empty array when materializedColumns is empty", () => {
+    it("returns empty array when userIdTypes is empty", () => {
       const ds = makeClickhouseDatasource([]);
       const cols = [makeColumn("user_id"), makeColumn("event_name")];
       expect(deriveUserIdTypesFromColumns(ds, cols)).toEqual([]);
     });
 
-    it("returns empty array when materializedColumns is missing", () => {
+    it("returns empty array when userIdTypes is missing", () => {
       const ds = {
         type: "growthbook_clickhouse",
         settings: {},
@@ -88,7 +95,7 @@ describe("deriveUserIdTypesFromColumns", () => {
       expect(deriveUserIdTypesFromColumns(ds, cols)).toEqual([]);
     });
 
-    it("returns empty array when no materializedColumns are identifiers", () => {
+    it("returns empty array when no identifiers match any column", () => {
       const ds = makeClickhouseDatasource([
         { columnName: "revenue", type: "number" },
         { columnName: "country", type: "string" },
@@ -180,7 +187,7 @@ describe("deriveUserIdTypesFromColumns", () => {
 });
 
 describe("getDatasourceIdentifierTypeNames", () => {
-  it("returns identifier names from materializedColumns for growthbook_clickhouse", () => {
+  it("returns identifier names from userIdTypes for growthbook_clickhouse", () => {
     const ds = makeClickhouseDatasource([
       { columnName: "user_id", type: "identifier" },
       { columnName: "device_id", type: "identifier" },
@@ -192,7 +199,7 @@ describe("getDatasourceIdentifierTypeNames", () => {
     ]);
   });
 
-  it("returns empty array when materializedColumns is missing for growthbook_clickhouse", () => {
+  it("returns empty array when userIdTypes is missing for growthbook_clickhouse", () => {
     const ds = {
       type: "growthbook_clickhouse",
       settings: {},
