@@ -95,6 +95,7 @@ export default function FeaturesOverview({
   revision,
   revisionList,
   loading,
+  revisionLoading,
   revisions,
   experiments,
   mutate,
@@ -110,6 +111,7 @@ export default function FeaturesOverview({
   revision: FeatureRevisionInterface | null;
   revisionList: MinimalFeatureRevisionInterface[];
   loading: boolean;
+  revisionLoading: boolean;
   revisions: FeatureRevisionInterface[];
   experiments: ExperimentInterfaceStringDates[] | undefined;
   safeRollouts: SafeRolloutInterface[] | undefined;
@@ -1017,7 +1019,7 @@ export default function FeaturesOverview({
                 gap="4"
                 align={{ initial: "center" }}
                 direction={{ initial: "column", xs: "row" }}
-                justify="between"
+                wrap="wrap"
               >
                 <Flex
                   align="center"
@@ -1029,6 +1031,7 @@ export default function FeaturesOverview({
                     <RevisionDropdown
                       feature={feature}
                       loading={loading}
+                      revisionLoading={revisionLoading}
                       version={currentVersion}
                       setVersion={setVersion}
                       revisions={revisionList || []}
@@ -1064,9 +1067,8 @@ export default function FeaturesOverview({
                 <Flex
                   align={{ initial: "center", xs: "center", sm: "start" }}
                   justify="end"
-                  flexShrink="0"
                   direction={{ initial: "row", xs: "column", sm: "row" }}
-                  style={{ whiteSpace: "nowrap" }}
+                  style={{ whiteSpace: "nowrap", marginLeft: "auto" }}
                   gap="2"
                 >
                   {(revisionList?.length ?? 0) >= 2 && (

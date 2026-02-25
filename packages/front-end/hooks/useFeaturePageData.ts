@@ -29,6 +29,19 @@ function parseVersion(value: string | string[] | undefined): number | null {
   return Number.isNaN(parsed) ? null : parsed;
 }
 
+/** Build minimal revision for dropdown from a full revision (e.g. one fetched by version) */
+function toMinimalRevision(
+  r: FeatureRevisionInterface,
+): MinimalFeatureRevisionInterface {
+  return {
+    version: r.version,
+    datePublished: r.datePublished ?? null,
+    dateUpdated: r.dateUpdated,
+    createdBy: r.createdBy,
+    status: r.status,
+  };
+}
+
 /**
  * Handles efficient fetching of features and revisions for the Feature Page
  *
@@ -67,25 +80,26 @@ export function useFeaturePageData(
     shouldRun: () => !!fid,
   });
 
-  // We only fetch if we don't already have the full information
-  // either on the base response or in the cache
-  const shouldFetchSelectedVersion =
-    fid !== undefined &&
-    selectedVersion !== null &&
-    !(
-      (baseData?.revisions ?? []).some((r) => r.version === selectedVersion) ||
-      !!cachedRevisions[selectedVersion]
-    );
+  // Only fetch a specific version if it isn't already in the base response or cache.
+  const requestedVersionInBaseSet =
+    baseData?.revisions?.some((r) => r.version === selectedVersion) ?? false;
+  const requestedVersionInCache =
+    selectedVersion != null && !!cachedRevisions[selectedVersion];
+  const shouldFetchFromRevisionsEndpoint =
+    !!fid &&
+    selectedVersion != null &&
+    !requestedVersionInBaseSet &&
+    !requestedVersionInCache;
 
   const {
-    data: selectedVersionData,
+    data: selectedVersionRevisionsData,
     error: selectedVersionError,
     mutate: mutateSelectedVersion,
     isValidating: isValidatingSelectedVersion,
-  } = useApi<FeaturePageResponse>(
-    fid && selectedVersion ? `/feature/${fid}?v=${selectedVersion}` : "",
+  } = useApi<{ status: 200; revisions: FeatureRevisionInterface[] }>(
+    `/feature/${fid}/revisions?versions=${selectedVersion}`,
     {
-      shouldRun: () => shouldFetchSelectedVersion,
+      shouldRun: () => shouldFetchFromRevisionsEndpoint,
     },
   );
 
@@ -97,12 +111,12 @@ export function useFeaturePageData(
 
   const refreshData = async () => {
     await mutateBase();
-    if (shouldFetchSelectedVersion) {
+    if (shouldFetchFromRevisionsEndpoint) {
       await mutateSelectedVersion();
     }
   };
 
-  // Cache revisions from the base response
+  // Seed cache from the initial GET /feature/:id response
   useEffect(() => {
     if (!baseData || !baseData.feature || baseData.feature.id !== fid) {
       return;
@@ -117,35 +131,40 @@ export function useFeaturePageData(
     });
   }, [baseData, fid]);
 
-  // Cache revisions from the version-specific response
+  // Append revisions fetched from GET /feature/:id/revisions?versions= (outside initial set)
   useEffect(() => {
-    if (
-      !selectedVersionData ||
-      !selectedVersionData.feature ||
-      selectedVersionData.feature.id !== fid
-    ) {
+    if (!selectedVersionRevisionsData?.revisions?.length || !fid) {
       return;
     }
 
     setCachedRevisions((prev) => {
       const next = { ...prev };
-      selectedVersionData.revisions.forEach((r) => {
-        next[r.version] = r;
+      selectedVersionRevisionsData.revisions.forEach((r) => {
+        if (r.featureId === fid) next[r.version] = r;
       });
       return next;
     });
-  }, [selectedVersionData, fid]);
+  }, [selectedVersionRevisionsData, fid]);
 
-  // Create a composite response including all individually fetched revisions
+  // Merge base data with any on-demand cached revisions.
   const data = useMemo<FeaturePageResponse | undefined>(() => {
-    const source = baseData ?? selectedVersionData;
-    if (!source) return undefined;
+    if (!baseData) return undefined;
+
+    const baseRevisionList = baseData.revisionList ?? [];
+    const versionInList = new Set(baseRevisionList.map((r) => r.version));
+    const extraMinimal = Object.values(cachedRevisions)
+      .filter((r) => !versionInList.has(r.version))
+      .map(toMinimalRevision);
+    const revisionList = [...baseRevisionList, ...extraMinimal].sort(
+      (a, b) => b.version - a.version,
+    );
 
     return {
-      ...source,
+      ...baseData,
+      revisionList,
       revisions: Object.values(cachedRevisions),
     };
-  }, [baseData, selectedVersionData, cachedRevisions]);
+  }, [baseData, cachedRevisions]);
 
   const baseFeature = data?.feature;
   const revisions = data?.revisions;
@@ -244,6 +263,7 @@ export function useFeaturePageData(
     data,
     error,
     isValidating,
+    revisionLoading: isValidatingSelectedVersion,
     refreshData,
     feature,
     baseFeature: baseFeature ?? null,

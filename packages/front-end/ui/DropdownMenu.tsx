@@ -6,6 +6,7 @@ import {
 } from "@radix-ui/themes";
 import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { PiCaretDown, PiWarningFill } from "react-icons/pi";
+import { amber } from "@radix-ui/colors";
 import React, {
   ReactElement,
   useCallback,
@@ -15,9 +16,8 @@ import React, {
   useContext,
 } from "react";
 import { createPortal } from "react-dom";
-import { amber } from "@radix-ui/colors";
-import Button from "@/ui/Button";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import Button from "@/ui/Button";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Modal from "@/components/Modal";
 
@@ -35,6 +35,7 @@ const DropdownVisibilityContext =
 type DropdownProps = {
   trigger: React.ReactNode;
   triggerClassName?: string;
+  triggerStyle?: React.CSSProperties;
   menuPlacement?: "start" | "center" | "end";
   menuWidth?: "full" | number;
   children: AllowedChildren;
@@ -49,6 +50,7 @@ type DropdownProps = {
 export function DropdownMenu({
   trigger,
   triggerClassName,
+  triggerStyle,
   menuPlacement = "start",
   menuWidth,
   children,
@@ -139,6 +141,7 @@ export function DropdownMenu({
       >
         <RadixDropdownMenu.Trigger
           className={triggerClassName}
+          style={triggerStyle}
           disabled={disabled}
         >
           {triggerComponent}
@@ -215,7 +218,6 @@ export function DropdownMenuItem({
   color,
   onClick,
   confirmation,
-  style,
   ...props
 }: DropdownItemProps) {
   if (color === "default") {
@@ -305,11 +307,11 @@ export function DropdownMenuItem({
         shortcut={shortcut}
         {...props}
       >
-        <Flex as="div" justify="between" align="center" style={style}>
-          <Box as="span" className={`mr-2 ${loading ? "font-italic" : ""}`}>
-            {children}
-          </Box>
-          {loading || error ? (
+        {loading || error ? (
+          <Flex as="div" justify="between" align="center">
+            <Box as="span" className={loading ? "font-italic" : ""}>
+              {children}
+            </Box>
             <Box width="14px" className="ml-3">
               {loading ? <LoadingSpinner /> : null}
               {error ? (
@@ -318,8 +320,10 @@ export function DropdownMenuItem({
                 </Tooltip>
               ) : null}
             </Box>
-          ) : null}
-        </Flex>
+          </Flex>
+        ) : (
+          children
+        )}
       </RadixDropdownMenu.Item>
     </>
   );
