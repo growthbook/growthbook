@@ -165,7 +165,10 @@ export default function FeaturesPage() {
                 {showProjectColumn && (
                   <TableColumnHeader>Project</TableColumnHeader>
                 )}
-                <SortableTableColumnHeader field="tags">
+                <SortableTableColumnHeader
+                  field="tags"
+                  style={{ maxWidth: 180 }}
+                >
                   Tags
                 </SortableTableColumnHeader>
                 {toggleEnvs.map((en) => (
@@ -248,8 +251,12 @@ export default function FeaturesPage() {
                         )}
                       </TableCell>
                     )}
-                    <TableCell>
-                      <SortedTags tags={feature?.tags || []} useFlex={true} />
+                    <TableCell style={{ maxWidth: 180 }}>
+                      <SortedTags
+                        tags={feature?.tags || []}
+                        useFlex={true}
+                        showEllipsisAtIndex={2}
+                      />
                     </TableCell>
                     {toggleEnvs.map((en) => (
                       <TableCell key={en.id}>
