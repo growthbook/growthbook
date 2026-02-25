@@ -326,12 +326,12 @@ export function getHoldoutFeatureDefId(holdoutId: string) {
 export function applyNamespaceToRule(
   rule: FeatureDefinitionRule,
   namespace: NamespaceValue,
-  namespacesMap: Map<
+  namespacesMap?: Map<
     string,
     { hashAttribute?: string; seed?: string; format?: "legacy" | "multiRange" }
   >,
 ): void {
-  const nsDefinition = namespacesMap.get(namespace.name);
+  const nsDefinition = namespacesMap?.get(namespace.name);
 
   // MultiRange format: namespace definition has explicit format flag set to "multiRange"
   if (nsDefinition?.format === "multiRange" || "ranges" in namespace) {
