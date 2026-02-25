@@ -29,7 +29,7 @@ export default function MetricsSettings() {
     ([value, label]) => ({ value, label }),
   );
   return (
-    <Frame>
+    <Frame id="settings-metrics">
       <Flex gap="4">
         <Box width="220px" flexShrink="0">
           <Heading size="4" as="h4">

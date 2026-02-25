@@ -1,5 +1,5 @@
 import cronstrue from "cronstrue";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { FormProvider, useForm, useFormContext } from "react-hook-form";
 import isEqual from "lodash/isEqual";
 import {
@@ -48,6 +48,7 @@ import { AppFeatures } from "@/types/app-features";
 import { StickyTabsList, Tabs, TabsContent, TabsTrigger } from "@/ui/Tabs";
 import Frame from "@/ui/Frame";
 import SavedGroupSettings from "@/components/GeneralSettings/SavedGroupSettings";
+import SettingsSearch from "@/components/GeneralSettings/SettingsSearch";
 
 export const ConnectSettingsForm = ({ children }) => {
   const methods = useFormContext();
@@ -328,6 +329,28 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const ctaEnabled =
     hasChanges(value, originalValue) || promptForm.formState.isDirty;
 
+  const handleSearchNavigate = useCallback(
+    (tab: string, sectionId: string) => {
+      const currentHash = window.location.hash.slice(1);
+      if (currentHash !== tab) {
+        window.location.hash = tab;
+      }
+
+      setTimeout(() => {
+        const element = document.getElementById(sectionId);
+        if (element) {
+          element.scrollIntoView({ behavior: "smooth", block: "start" });
+          element.classList.add("settings-highlight");
+          setTimeout(
+            () => element.classList.remove("settings-highlight"),
+            1500,
+          );
+        }
+      }, 150);
+    },
+    [],
+  );
+
   const savePrompts = promptForm.handleSubmit(async (promptValues) => {
     const formattedPrompts = CUSTOMIZABLE_PROMPT_TYPES.map((type) => ({
       type,
@@ -403,9 +426,12 @@ const GeneralSettingsPage = (): React.ReactElement => {
   return (
     <FormProvider {...form}>
       <Box className="container-fluid pagecontents" mb="4">
-        <Heading as="h1" size="5" mb="3">
-          General Settings
-        </Heading>
+        <Flex justify="between" align="center" mb="3">
+          <Heading as="h1" size="5">
+            General Settings
+          </Heading>
+          <SettingsSearch onNavigate={handleSearchNavigate} />
+        </Flex>
         <Box mb="5">
           <OrganizationAndLicenseSettings
             org={organization}
@@ -438,7 +464,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 updateCronString={updateCronString}
               />
               {growthbook.isOn("bandits") && (
-                <Frame mb="4">
+                <Frame mb="4" id="settings-bandit">
                   <BanditSettings page="org-settings" />
                 </Frame>
               )}
@@ -456,7 +482,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
               </>
             </TabsContent>
 
-            <TabsContent value="import">
+            <TabsContent value="import" id="settings-import-export">
               <ImportSettings
                 hasFileConfig={hasFileConfig()}
                 isCloud={isCloud()}
@@ -465,7 +491,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
               />
             </TabsContent>
 
-            <TabsContent value="custom">
+            <TabsContent value="custom" id="settings-custom-markdown">
               <Frame>
                 <Flex>
                   <Box width="300px">

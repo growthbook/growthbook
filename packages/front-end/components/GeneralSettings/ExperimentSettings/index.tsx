@@ -46,9 +46,9 @@ export default function ExperimentSettings({
 
   return (
     <>
-      <Frame>
+      <Frame id="settings-experiment-settings">
         <Flex gap="4">
-          <Box width="220px" flexShrink="0" id="experiment-settings">
+          <Box width="220px" flexShrink="0">
             <Heading size="4" as="h4">
               Experiment Settings
             </Heading>
@@ -374,14 +374,14 @@ export default function ExperimentSettings({
             </Box>
 
             {/* Sticky Bucketing */}
-            <Box mb="4" width="100%">
+            <Box mb="4" width="100%" id="settings-sticky-bucketing">
               <Box className="appbox p-3">
                 <StickyBucketingSettings />
               </Box>
             </Box>
 
             {/* Experiment Health Settings */}
-            <Box mb="4" width="100%">
+            <Box mb="4" width="100%" id="settings-experiment-health">
               <Box className="appbox p-3">
                 <Heading size="3" className="font-weight-semibold" mb="4">
                   Experiment Health Settings
@@ -478,14 +478,14 @@ export default function ExperimentSettings({
             </Box>
 
             {/* Decision Framework Settings */}
-            <Box mb="4" width="100%">
+            <Box mb="4" width="100%" id="settings-decision-framework">
               <DecisionFrameworkSettings />
             </Box>
           </Flex>
         </Flex>
       </Frame>
 
-      <Frame>
+      <Frame id="settings-experiment-analysis">
         <Flex gap="4">
           <Box width="220px" flexShrink="0">
             <Heading size="4" as="h4">

@@ -8,7 +8,7 @@ export default function SavedGroupSettings() {
   return (
     <ConnectSettingsForm>
       {({ register }) => (
-        <Frame>
+        <Frame id="settings-saved-groups">
           <Flex gap="4">
             <Box width="220px" flexShrink="0">
               <Heading size="4" as="h4">

@@ -8,7 +8,7 @@ export default function NorthStarMetricSettings() {
   return (
     <ConnectSettingsForm>
       {({ watch, setValue }) => (
-        <Frame>
+        <Frame id="settings-north-star">
           <Flex gap="4">
             <Box width="220px" flexShrink="0">
               <Heading size="4" as="h4">

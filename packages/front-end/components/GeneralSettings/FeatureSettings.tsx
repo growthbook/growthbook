@@ -51,7 +51,7 @@ export default function FeatureSettings() {
   }, [form, codeRefsBranchesToFilterStr]);
 
   return (
-    <Frame>
+    <Frame id="settings-feature">
       <Flex gap="4">
         <Box width="220px" flexShrink="0">
           <Heading size="4" as="h4">

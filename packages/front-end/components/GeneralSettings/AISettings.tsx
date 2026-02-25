@@ -341,7 +341,7 @@ export default function AISettings({
 
   return (
     <>
-      <Frame>
+      <Frame id="settings-ai">
         <Flex gap="4">
           <Box width="220px" flexShrink="0">
             <Heading size="4" as="h4">
