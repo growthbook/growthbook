@@ -598,6 +598,8 @@ export abstract class QueryRunner<
       });
     };
 
+    this.integration.queryDocMetadata = { queryType: doc.queryType };
+
     run(doc.query, setExternalId)
       .then(async ({ rows, statistics }) => {
         clearInterval(timer);

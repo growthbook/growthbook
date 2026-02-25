@@ -1,0 +1,109 @@
+.sidebar {
+  padding: var(--space-3);
+  padding-bottom: 0;
+}
+
+.sidebarLeft {
+  border-right: 1px solid var(--gray-6);
+}
+
+.section {
+  margin-bottom: var(--space-3);
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.row {
+  position: relative;
+  width: 100%;
+  padding: var(--space-2);
+  border-radius: var(--radius-2);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  box-sizing: border-box;
+
+  .viewSingleWrapper {
+    position: absolute;
+    top: -8px;
+    right: -4px;
+    opacity: 0;
+    background-color: var(--color-background) !important;
+    border-radius: var(--radius-2);
+    transition: opacity 0.15s ease;
+    .viewSingleButton {
+      background-color: var(--color-background) !important;
+      opacity: 0.5;
+      &:hover {
+        opacity: 1;
+        background-color: unset !important;
+      }
+    }
+    &:hover {
+      opacity: 1;
+    }
+  }
+
+  &:hover {
+    background-color: var(--violet-2);
+    .viewSingleWrapper {
+      opacity: 1;
+    }
+  }
+}
+
+.rowSelected {
+  background-color: var(--violet-3);
+
+  &:hover {
+    background-color: var(--violet-4);
+  }
+}
+
+.rowDisabled {
+  cursor: default;
+  opacity: 0.4;
+
+  &:hover {
+    background-color: transparent;
+  }
+}
+
+.rowSpacer {
+  width: 16px;
+  flex-shrink: 0;
+}
+
+.filterCheckbox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 4px;
+  margin: -8px;
+  margin-right: 0;
+  border-radius: var(--radius-4);
+  transition: background-color 0.15s ease;
+
+  &:hover {
+    background-color: var(--violet-a3);
+  }
+}
+
+.quickActionsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.revisionsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-bottom: var(--space-1);
+}
