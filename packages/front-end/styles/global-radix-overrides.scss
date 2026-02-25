@@ -371,9 +371,12 @@ p.rt-TooltipText {
   }
 }
 
-// List table variant: sticky header, downward-only shadow, rounded top corners
+// List table variant: sticky header, row hover
 .table-list-wrapper {
   &[data-table-list] {
+    .rt-TableBody .rt-TableRow:hover .rt-TableCell {
+      background-color: var(--table-row-highlight-background-color);
+    }
     .rt-TableHeader {
       position: sticky;
       top: var(--table-sticky-top, var(--sticky-header-top));
