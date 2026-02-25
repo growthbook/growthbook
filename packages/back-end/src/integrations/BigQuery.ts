@@ -5,7 +5,7 @@ import {
   bigQueryCreateTablePartitions,
 } from "shared/enterprise";
 import { FormatDialect } from "shared/types/sql";
-import { format } from "shared/sql";
+import { format, formatWithStatus } from "shared/sql";
 import {
   ExternalIdCallback,
   InformationSchema,
@@ -332,8 +332,8 @@ export default class BigQuery extends SqlIntegration {
 
   getMaxTimestampMetricSourceQuery(
     params: MaxTimestampMetricSourceQueryParams,
-  ): string {
-    return format(
+  ) {
+    return formatWithStatus(
       `
       SELECT
         MAX(max_timestamp) AS max_timestamp
@@ -346,8 +346,8 @@ export default class BigQuery extends SqlIntegration {
 
   getMaxTimestampIncrementalUnitsQuery(
     params: MaxTimestampIncrementalUnitsQueryParams,
-  ): string {
-    return format(
+  ) {
+    return formatWithStatus(
       `
       SELECT
         MAX(max_timestamp) AS max_timestamp

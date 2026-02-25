@@ -1,19 +1,14 @@
 import { ExperimentMetricInterface } from "shared/experiments";
 import { FormatDialect, TemplateVariables } from "shared/types/sql";
 
-/** Query string or object with format status. Used by integrations that format SQL. */
-export type PossiblyFormattedSql =
-  | string
-  | { sql: string; isFormatted?: boolean };
+/** Query with format status. Used by integrations that format SQL. */
+export type PossiblyFormattedSql = { sql: string; isFormatted?: boolean };
 
-export function resolveSqlQuery(q: PossiblyFormattedSql): {
-  sql: string;
-  isFormatted: boolean;
-} {
-  return typeof q === "string"
-    ? { sql: q, isFormatted: false }
-    : { sql: q.sql, isFormatted: q.isFormatted ?? false };
+/** Wrap a plain SQL string as PossiblyFormattedSql (unformatted). */
+export function toPossiblyFormattedSql(sql: string): PossiblyFormattedSql {
+  return { sql, isFormatted: false };
 }
+
 import {
   AlterNewIncrementalUnitsQueryParams,
   AutoMetricTrackedEvent,
@@ -132,7 +127,7 @@ export interface SourceIntegrationInterface {
     query: string,
     setExternalId: ExternalIdCallback,
   ): Promise<MetricAnalysisQueryResponse>;
-  getDropUnitsTableQuery(params: DropTableQueryParams): string;
+  getDropUnitsTableQuery(params: DropTableQueryParams): PossiblyFormattedSql;
   runDropTableQuery(
     query: string,
     setExternalId: ExternalIdCallback,

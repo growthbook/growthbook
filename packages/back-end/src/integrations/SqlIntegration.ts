@@ -1593,7 +1593,7 @@ export default abstract class SqlIntegration
     return { results: results.rows, columns: results.columns, duration };
   }
 
-  getDropUnitsTableQuery(params: DropTableQueryParams): string {
+  getDropUnitsTableQuery(params: DropTableQueryParams): PossiblyFormattedSql {
     // valdidate units table query follows expected name to help
     // prevent dropping other tables
     if (!params.fullTablePath.includes(UNITS_TABLE_PREFIX)) {
@@ -1601,7 +1601,10 @@ export default abstract class SqlIntegration
         "Unable to drop table that is not temporary units table.",
       );
     }
-    return `DROP TABLE IF EXISTS ${params.fullTablePath}`;
+    return {
+      sql: `DROP TABLE IF EXISTS ${params.fullTablePath}`,
+      isFormatted: true,
+    };
   }
 
   async runDropTableQuery(

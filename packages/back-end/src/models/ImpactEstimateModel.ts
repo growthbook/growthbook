@@ -4,7 +4,6 @@ import { getMetricWindowHours } from "shared/experiments";
 import { SegmentInterface } from "shared/types/segment";
 import { ImpactEstimateInterface } from "shared/types/impact-estimate";
 import { getMetricById } from "back-end/src/models/MetricModel";
-import { resolveSqlQuery } from "back-end/src/types/Integration";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "back-end/src/util/secrets";
 import { processMetricValueQueryResponse } from "back-end/src/queryRunners/LegacyMetricAnalysisQueryRunner";
@@ -101,7 +100,7 @@ export async function getImpactEstimate(
     factTableMap,
   });
 
-  const { sql: querySql } = resolveSqlQuery(query);
+  const querySql = query.sql;
   const queryResponse = await integration.runMetricValueQuery(
     querySql,
     // We're not storing a query in Mongo for this, so we don't support cancelling here

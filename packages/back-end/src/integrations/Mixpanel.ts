@@ -49,7 +49,10 @@ import { FactMetricInterface } from "shared/types/fact-table";
 import { ReqContext } from "back-end/types/request";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { formatQuery, runQuery } from "back-end/src/services/mixpanel";
-import { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import {
+  PossiblyFormattedSql,
+  SourceIntegrationInterface,
+} from "back-end/src/types/Integration";
 import {
   conditionToJavascript,
   getAggregateFunctions,
@@ -91,7 +94,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
   getMetricAnalysisQuery(
     _metric: FactMetricInterface,
     _params: Omit<MetricAnalysisParams, "metric">,
-  ): string {
+  ): PossiblyFormattedSql {
     throw new Error("Method not implemented.");
   }
   runMetricAnalysisQuery(
@@ -100,7 +103,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
   ): Promise<MetricAnalysisQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  getDropUnitsTableQuery(_: { fullTablePath: string }): string {
+  getDropUnitsTableQuery(_: { fullTablePath: string }): PossiblyFormattedSql {
     throw new Error("Method not implemented.");
   }
   runDropTableQuery(
@@ -109,12 +112,14 @@ export default class Mixpanel implements SourceIntegrationInterface {
   ): Promise<DropTableQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  getExperimentMetricQuery(_: ExperimentMetricQueryParams): string {
+  getExperimentMetricQuery(
+    _: ExperimentMetricQueryParams,
+  ): PossiblyFormattedSql {
     throw new Error("Method not implemented.");
   }
   getExperimentAggregateUnitsQuery(
     _: ExperimentAggregateUnitsQueryParams,
-  ): string {
+  ): PossiblyFormattedSql {
     throw new Error("Method not implemented.");
   }
   runExperimentAggregateUnitsQuery(
@@ -129,7 +134,9 @@ export default class Mixpanel implements SourceIntegrationInterface {
   ): Promise<ExperimentMetricQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  getExperimentUnitsTableQuery(_: ExperimentUnitsQueryParams): string {
+  getExperimentUnitsTableQuery(
+    _: ExperimentUnitsQueryParams,
+  ): PossiblyFormattedSql {
     throw new Error("Method not implemented.");
   }
   runExperimentUnitsQuery(
@@ -140,62 +147,62 @@ export default class Mixpanel implements SourceIntegrationInterface {
   }
   getCreateExperimentIncrementalUnitsQuery(
     _params: CreateExperimentIncrementalUnitsQueryParams,
-  ): string {
+  ): PossiblyFormattedSql {
     throw new Error("Method not implemented.");
   }
   getUpdateExperimentIncrementalUnitsQuery(
     _params: UpdateExperimentIncrementalUnitsQueryParams,
-  ): string {
+  ): PossiblyFormattedSql {
     throw new Error("Method not implemented.");
   }
   getDropOldIncrementalUnitsQuery(
     _params: DropOldIncrementalUnitsQueryParams,
-  ): string {
+  ): PossiblyFormattedSql {
     throw new Error("Method not implemented.");
   }
   getAlterNewIncrementalUnitsQuery(
     _params: AlterNewIncrementalUnitsQueryParams,
-  ): string {
+  ): PossiblyFormattedSql {
     throw new Error("Method not implemented.");
   }
   getMaxTimestampIncrementalUnitsQuery(
     _params: MaxTimestampIncrementalUnitsQueryParams,
-  ): string {
+  ): PossiblyFormattedSql {
     throw new Error("Method not implemented.");
   }
   getMaxTimestampMetricSourceQuery(
     _params: MaxTimestampMetricSourceQueryParams,
-  ): string {
+  ): PossiblyFormattedSql {
     throw new Error("Method not implemented.");
   }
   getCreateMetricSourceTableQuery(
     _params: CreateMetricSourceTableQueryParams,
-  ): string {
+  ): PossiblyFormattedSql {
     throw new Error("Method not implemented.");
   }
   getInsertMetricSourceDataQuery(
     _params: InsertMetricSourceDataQueryParams,
-  ): string {
+  ): PossiblyFormattedSql {
     throw new Error("Method not implemented.");
   }
   getDropMetricSourceCovariateTableQuery(
     _params: DropMetricSourceCovariateTableQueryParams,
-  ): string {
+  ): PossiblyFormattedSql {
     throw new Error("Method not implemented.");
   }
   getCreateMetricSourceCovariateTableQuery(
     _params: CreateMetricSourceCovariateTableQueryParams,
-  ): string {
+  ): PossiblyFormattedSql {
     throw new Error("Method not implemented.");
   }
   getInsertMetricSourceCovariateDataQuery(
     _params: InsertMetricSourceCovariateDataQueryParams,
-  ): string {
+  ): PossiblyFormattedSql {
     throw new Error("Method not implemented.");
   }
   getIncrementalRefreshStatisticsQuery(
     _params: IncrementalRefreshStatisticsQueryParams,
-  ): string {
+  ): PossiblyFormattedSql {
     throw new Error("Method not implemented.");
   }
   runIncrementalWithNoOutputQuery(
@@ -584,10 +591,11 @@ export default class Mixpanel implements SourceIntegrationInterface {
     };
   }
 
-  getMetricValueQuery(params: MetricValueParams): string {
+  getMetricValueQuery(params: MetricValueParams): PossiblyFormattedSql {
     const metric = params.metric;
 
-    return formatQuery(`
+    return {
+      sql: formatQuery(`
       ${this.getMathHelperFunctions()}
       ${this.getMetricFunction(metric, "Metric")}
 
@@ -666,7 +674,9 @@ export default class Mixpanel implements SourceIntegrationInterface {
           if(val.count) return {type: "overall", ...val};
           return val;
         }));
-        `);
+        `),
+      isFormatted: true,
+    };
   }
   async runMetricValueQuery(
     query: string,
@@ -724,7 +734,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
 
     return { rows: [overall, ...result] };
   }
-  getPastExperimentQuery(_: PastExperimentParams): string {
+  getPastExperimentQuery(_: PastExperimentParams): PossiblyFormattedSql {
     throw new Error("Method not implemented.");
   }
   async runPastExperimentQuery(
@@ -733,7 +743,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
   ): Promise<PastExperimentQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  getDimensionSlicesQuery(_: DimensionSlicesQueryParams): string {
+  getDimensionSlicesQuery(_: DimensionSlicesQueryParams): PossiblyFormattedSql {
     throw new Error("Method not implemented.");
   }
   async runDimensionSlicesQuery(

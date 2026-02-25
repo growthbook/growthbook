@@ -17,7 +17,6 @@ import {
 } from "back-end/src/models/QueryModel";
 import {
   PossiblyFormattedSql,
-  resolveSqlQuery,
   SourceIntegrationInterface,
 } from "back-end/src/types/Integration";
 import { logger } from "back-end/src/util/logger";
@@ -650,7 +649,8 @@ export abstract class QueryRunner<
       onSuccess,
       queryType,
     } = params;
-    const { sql: querySql, isFormatted } = resolveSqlQuery(queryParam);
+    const querySql = queryParam.sql;
+    const isFormatted = queryParam.isFormatted ?? false;
     // Re-use recent identical query if it exists
     if (this.useCache) {
       logger.debug("Trying to reuse existing query for " + name);

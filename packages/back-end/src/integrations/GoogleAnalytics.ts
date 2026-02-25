@@ -46,7 +46,10 @@ import { MetricInterface } from "shared/types/metric";
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { ReqContext } from "back-end/types/request";
-import { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import {
+  PossiblyFormattedSql,
+  SourceIntegrationInterface,
+} from "back-end/src/types/Integration";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import {
   GOOGLE_OAUTH_CLIENT_ID,
@@ -106,7 +109,7 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   getMetricAnalysisQuery(
     _metric: FactMetricInterface,
     _params: Omit<MetricAnalysisParams, "metric">,
-  ): string {
+  ): PossiblyFormattedSql {
     throw new Error("Method not implemented.");
   }
   runMetricAnalysisQuery(
@@ -115,7 +118,7 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   ): Promise<MetricAnalysisQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  getDropUnitsTableQuery(_: { fullTablePath: string }): string {
+  getDropUnitsTableQuery(_: { fullTablePath: string }): PossiblyFormattedSql {
     throw new Error("Method not implemented.");
   }
   runDropTableQuery(
@@ -124,12 +127,14 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   ): Promise<DropTableQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  getExperimentMetricQuery(_: ExperimentMetricQueryParams): string {
+  getExperimentMetricQuery(
+    _: ExperimentMetricQueryParams,
+  ): PossiblyFormattedSql {
     throw new Error("Method not implemented.");
   }
   getExperimentAggregateUnitsQuery(
     _: ExperimentAggregateUnitsQueryParams,
-  ): string {
+  ): PossiblyFormattedSql {
     throw new Error("Method not implemented.");
   }
   runExperimentAggregateUnitsQuery(
@@ -144,7 +149,9 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   ): Promise<ExperimentMetricQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  getExperimentUnitsTableQuery(_: ExperimentUnitsQueryParams): string {
+  getExperimentUnitsTableQuery(
+    _: ExperimentUnitsQueryParams,
+  ): PossiblyFormattedSql {
     throw new Error("Method not implemented.");
   }
   runExperimentUnitsQuery(
@@ -153,7 +160,7 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   ): Promise<ExperimentUnitsQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  getPastExperimentQuery(_: PastExperimentParams): string {
+  getPastExperimentQuery(_: PastExperimentParams): PossiblyFormattedSql {
     throw new Error("Method not implemented.");
   }
   runPastExperimentQuery(
@@ -162,7 +169,7 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   ): Promise<PastExperimentQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  getDimensionSlicesQuery(_: DimensionSlicesQueryParams): string {
+  getDimensionSlicesQuery(_: DimensionSlicesQueryParams): PossiblyFormattedSql {
     throw new Error("Method not implemented.");
   }
   async runDimensionSlicesQuery(
@@ -173,45 +180,47 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   }
   getCreateExperimentIncrementalUnitsQuery(
     _: CreateExperimentIncrementalUnitsQueryParams,
-  ): string {
+  ): PossiblyFormattedSql {
     throw new Error("Method not implemented.");
   }
   getUpdateExperimentIncrementalUnitsQuery(
     _: UpdateExperimentIncrementalUnitsQueryParams,
-  ): string {
+  ): PossiblyFormattedSql {
     throw new Error("Method not implemented.");
   }
   getDropOldIncrementalUnitsQuery(
     _: DropOldIncrementalUnitsQueryParams,
-  ): string {
+  ): PossiblyFormattedSql {
     throw new Error("Method not implemented.");
   }
   getAlterNewIncrementalUnitsQuery(
     _: AlterNewIncrementalUnitsQueryParams,
-  ): string {
+  ): PossiblyFormattedSql {
     throw new Error("Method not implemented.");
   }
   getMaxTimestampIncrementalUnitsQuery(
     _: MaxTimestampIncrementalUnitsQueryParams,
-  ): string {
+  ): PossiblyFormattedSql {
     throw new Error("Method not implemented.");
   }
   getMaxTimestampMetricSourceQuery(
     _: MaxTimestampMetricSourceQueryParams,
-  ): string {
+  ): PossiblyFormattedSql {
     throw new Error("Method not implemented.");
   }
   getCreateMetricSourceTableQuery(
     _: CreateMetricSourceTableQueryParams,
-  ): string {
+  ): PossiblyFormattedSql {
     throw new Error("Method not implemented.");
   }
-  getInsertMetricSourceDataQuery(_: InsertMetricSourceDataQueryParams): string {
+  getInsertMetricSourceDataQuery(
+    _: InsertMetricSourceDataQueryParams,
+  ): PossiblyFormattedSql {
     throw new Error("Method not implemented.");
   }
   getIncrementalRefreshStatisticsQuery(
     _: IncrementalRefreshStatisticsQueryParams,
-  ): string {
+  ): PossiblyFormattedSql {
     throw new Error("Method not implemented.");
   }
   runIncrementalWithNoOutputQuery(
@@ -222,17 +231,17 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   }
   getDropMetricSourceCovariateTableQuery(
     _params: DropMetricSourceCovariateTableQueryParams,
-  ): string {
+  ): PossiblyFormattedSql {
     throw new Error("Method not implemented.");
   }
   getCreateMetricSourceCovariateTableQuery(
     _params: CreateMetricSourceCovariateTableQueryParams,
-  ): string {
+  ): PossiblyFormattedSql {
     throw new Error("Method not implemented.");
   }
   getInsertMetricSourceCovariateDataQuery(
     _params: InsertMetricSourceCovariateDataQueryParams,
-  ): string {
+  ): PossiblyFormattedSql {
     throw new Error("Method not implemented.");
   }
   runIncrementalRefreshStatisticsQuery(
@@ -259,34 +268,37 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   runFeatureEvalDiagnosticsQuery(): Promise<FeatureEvalDiagnosticsQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  getMetricValueQuery(params: MetricValueParams): string {
+  getMetricValueQuery(params: MetricValueParams): PossiblyFormattedSql {
     // TODO: support segments
-    return JSON.stringify(
-      {
-        viewId: this.params.viewId,
-        dateRanges: [
-          {
-            startDate: params.from.toISOString().substr(0, 10),
-            endDate: params.to.toISOString().substr(0, 10),
-          },
-        ],
-        metrics: [
-          {
-            expression: params.metric.table,
-          },
-          {
-            expression: "ga:users",
-          },
-        ],
-        dimensions: [
-          {
-            name: "ga:date",
-          },
-        ],
-      },
-      null,
-      2,
-    );
+    return {
+      sql: JSON.stringify(
+        {
+          viewId: this.params.viewId,
+          dateRanges: [
+            {
+              startDate: params.from.toISOString().substr(0, 10),
+              endDate: params.to.toISOString().substr(0, 10),
+            },
+          ],
+          metrics: [
+            {
+              expression: params.metric.table,
+            },
+            {
+              expression: "ga:users",
+            },
+          ],
+          dimensions: [
+            {
+              name: "ga:date",
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      isFormatted: true,
+    };
   }
   async runMetricValueQuery(
     query: string,

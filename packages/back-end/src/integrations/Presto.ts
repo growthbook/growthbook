@@ -1,5 +1,5 @@
 import { Client, ClientOptions, QueryOptions } from "presto-client";
-import { format } from "shared/sql";
+import { format, formatWithStatus } from "shared/sql";
 import { FormatDialect } from "shared/types/sql";
 import { prestoCreateTablePartitions } from "shared/enterprise";
 import {
@@ -208,8 +208,8 @@ export default class Presto extends SqlIntegration {
 
   getMaxTimestampIncrementalUnitsQuery(
     params: MaxTimestampIncrementalUnitsQueryParams,
-  ): string {
-    return format(
+  ) {
+    return formatWithStatus(
       `
       SELECT MAX(max_timestamp) AS max_timestamp
       FROM ${this.getTablePartitionsTableName(params.unitsTableFullName)}
@@ -220,8 +220,8 @@ export default class Presto extends SqlIntegration {
 
   getMaxTimestampMetricSourceQuery(
     params: MaxTimestampMetricSourceQueryParams,
-  ): string {
-    return format(
+  ) {
+    return formatWithStatus(
       `
       SELECT MAX(max_timestamp) AS max_timestamp
       FROM ${this.getTablePartitionsTableName(params.metricSourceTableFullName)}

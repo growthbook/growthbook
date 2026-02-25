@@ -24,7 +24,7 @@ export interface PipelineIntegration {
   ): string;
   getSampleUnitsCTE(): string;
   getPipelineValidationInsertQuery(params: { tableFullName: string }): string;
-  getDropUnitsTableQuery(params: { fullTablePath: string }): string;
+  getDropUnitsTableQuery(params: { fullTablePath: string }): { sql: string };
 }
 
 export type ExternalIdCallback = (id: string) => Promise<void>;
