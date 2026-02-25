@@ -110,8 +110,7 @@ export async function getMinimalRevisions(
     featureId,
   })
     .select("version datePublished dateUpdated createdBy status")
-    .sort({ version: -1 })
-    .limit(25);
+    .sort({ version: -1 });
 
   return docs.map((m) => ({
     version: m.version,

@@ -45,6 +45,7 @@ export default function FeaturePage() {
     data,
     error,
     isValidating,
+    revisionLoading,
     refreshData,
     feature,
     baseFeature,
@@ -142,6 +143,7 @@ export default function FeaturePage() {
           revision={revision}
           revisionList={data.revisionList}
           loading={isValidating}
+          revisionLoading={revisionLoading}
           revisions={data.revisions}
           experiments={experiments}
           safeRollouts={safeRollouts}
