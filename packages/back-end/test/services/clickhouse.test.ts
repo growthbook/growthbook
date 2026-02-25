@@ -104,7 +104,7 @@ describe("getManagedWarehouseUserIdTypes", () => {
       expect(() =>
         getManagedWarehouseUserIdTypes(ds, "ch_exposures", []),
       ).toThrow(
-        "This function can only be called for managed warehouse datasource and table.",
+        "This function can only be called for managed warehouse datasource and fact table.",
       );
     });
   });
