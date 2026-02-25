@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import {
   DashboardBlockInterfaceOrData,
   MetricExplorationBlockInterface,
@@ -11,6 +11,8 @@ import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/Exp
 export default function ProductAnalyticsExplorerSideBarWrapper({
   block,
   setBlock,
+  saveAndCloseTrigger,
+  onSaveAndClose,
 }: {
   block: DashboardBlockInterfaceOrData<
     | MetricExplorationBlockInterface
@@ -24,8 +26,16 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
       | DataSourceExplorationBlockInterface
     >
   >;
+  saveAndCloseTrigger?: number;
+  onSaveAndClose?: () => void;
 }) {
-  const { needsUpdate, draftExploreState } = useExplorerContext();
+  const { needsUpdate, draftExploreState, handleSubmit } = useExplorerContext();
+  const pendingCloseRef = useRef(false);
+  const onSaveAndCloseRef = useRef(onSaveAndClose);
+  onSaveAndCloseRef.current = onSaveAndClose;
+
+  const explorerAnalysisId =
+    "explorerAnalysisId" in block ? block.explorerAnalysisId : undefined;
 
   useEffect(() => {
     if (needsUpdate) {
@@ -36,5 +46,21 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
       });
     }
   }, [needsUpdate, setBlock, block, draftExploreState]);
+
+  // When Save & Close is requested and the block is stale, run the analysis first.
+  useEffect(() => {
+    if (!saveAndCloseTrigger) return;
+    pendingCloseRef.current = true;
+    handleSubmit();
+  }, [saveAndCloseTrigger, handleSubmit]);
+
+  // Once onRunComplete fires and sets explorerAnalysisId, complete the save.
+  useEffect(() => {
+    if (pendingCloseRef.current && explorerAnalysisId) {
+      pendingCloseRef.current = false;
+      onSaveAndCloseRef.current?.();
+    }
+  }, [explorerAnalysisId]);
+
   return <ExplorerSideBar renderingInDashboardSidebar />;
 }

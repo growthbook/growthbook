@@ -90,11 +90,6 @@ const REQUIRED_FIELDS: {
       validation: (config) =>
         isSubmittableConfig(config as ProductAnalyticsConfig),
     },
-    {
-      field: "explorerAnalysisId",
-      validation: (explorerAnalysisId) =>
-        typeof explorerAnalysisId === "string" && explorerAnalysisId.length > 0,
-    },
   ],
   "fact-table-exploration": [
     {
@@ -102,22 +97,12 @@ const REQUIRED_FIELDS: {
       validation: (config) =>
         isSubmittableConfig(config as ProductAnalyticsConfig),
     },
-    {
-      field: "explorerAnalysisId",
-      validation: (explorerAnalysisId) =>
-        typeof explorerAnalysisId === "string" && explorerAnalysisId.length > 0,
-    },
   ],
   "data-source-exploration": [
     {
       field: "config",
       validation: (config) =>
         isSubmittableConfig(config as ProductAnalyticsConfig),
-    },
-    {
-      field: "explorerAnalysisId",
-      validation: (explorerAnalysisId) =>
-        typeof explorerAnalysisId === "string" && explorerAnalysisId.length > 0,
     },
   ],
 };
@@ -267,6 +252,12 @@ export default function EditSingleBlock({
     blockHasFieldOfType(block, "metricTagFilter", isStringArray) &&
       (block.metricTagFilter?.length || 0) > 0,
   );
+  const [saveAndCloseTrigger, setSaveAndCloseTrigger] = useState(0);
+
+  const isExplorationBlock =
+    block?.type === "metric-exploration" ||
+    block?.type === "fact-table-exploration" ||
+    block?.type === "data-source-exploration";
   const prevMetricTagFilterRef = useRef(
     blockHasFieldOfType(block, "metricTagFilter", isStringArray)
       ? block.metricTagFilter?.length || 0
@@ -1660,18 +1651,24 @@ export default function EditSingleBlock({
               <ProductAnalyticsExplorerSettings
                 block={block}
                 setBlock={setBlock}
+                saveAndCloseTrigger={saveAndCloseTrigger}
+                onSaveAndClose={submit}
               />
             )}
             {block.type === "fact-table-exploration" && (
               <ProductAnalyticsExplorerSettings
                 block={block}
                 setBlock={setBlock}
+                saveAndCloseTrigger={saveAndCloseTrigger}
+                onSaveAndClose={submit}
               />
             )}
             {block.type === "data-source-exploration" && (
               <ProductAnalyticsExplorerSettings
                 block={block}
                 setBlock={setBlock}
+                saveAndCloseTrigger={saveAndCloseTrigger}
+                onSaveAndClose={submit}
               />
             )}
           </Flex>
@@ -1689,7 +1686,14 @@ export default function EditSingleBlock({
             <Button
               style={{ flexBasis: "45%", flexGrow: 1 }}
               onClick={() => {
-                submit();
+                if (
+                  isExplorationBlock &&
+                  !("explorerAnalysisId" in block && block.explorerAnalysisId)
+                ) {
+                  setSaveAndCloseTrigger((n) => n + 1);
+                } else {
+                  submit();
+                }
               }}
               disabled={
                 !!(REQUIRED_FIELDS[block.type] || []).find(

@@ -24,11 +24,15 @@ interface Props {
       | DataSourceExplorationBlockInterface
     >
   >;
+  saveAndCloseTrigger?: number;
+  onSaveAndClose?: () => void;
 }
 
 export default function ProductAnalyticsExplorerSettings({
   block,
   setBlock,
+  saveAndCloseTrigger,
+  onSaveAndClose,
 }: Props) {
   const { data, error, isLoading } = useApi<{
     status: number;
@@ -63,6 +67,8 @@ export default function ProductAnalyticsExplorerSettings({
       <ProductAnalyticsExplorerSideBarWrapper
         block={block}
         setBlock={setBlock}
+        saveAndCloseTrigger={saveAndCloseTrigger}
+        onSaveAndClose={onSaveAndClose}
       />
     </ExplorerProvider>
   );
