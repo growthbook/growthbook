@@ -60,9 +60,8 @@ export default function FeaturesPage() {
   const permissionsUtil = usePermissionsUtil();
   const [modalOpen, setModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [featureToDuplicate, setFeatureToDuplicate] = useState<
-    FeatureInterface | null
-  >(null);
+  const [featureToDuplicate, setFeatureToDuplicate] =
+    useState<FeatureInterface | null>(null);
   const [featureToToggleStaleDetection, setFeatureToToggleStaleDetection] =
     useState<FeatureMetaInfo | null>(null);
   const [confirmToggle, setConfirmToggle] = useState<{
@@ -80,8 +79,13 @@ export default function FeaturesPage() {
   const { project } = useDefinitions();
   const environments = useEnvironments();
 
-  const { features: allFeatures, loading, error, mutate, hasArchived } =
-    useFeatureMetaInfo({ project: project || undefined });
+  const {
+    features: allFeatures,
+    loading,
+    error,
+    mutate,
+    hasArchived,
+  } = useFeatureMetaInfo({ project: project || undefined });
 
   // Track whether archived features should be shown (controlled by is:archived filter).
   // useFeatureMetaInfo always returns all features; this controls client-side display.
@@ -109,7 +113,10 @@ export default function FeaturesPage() {
 
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
-  const featureItems = useMemo(() => items.slice(start, end), [items, start, end]);
+  const featureItems = useMemo(
+    () => items.slice(start, end),
+    [items, start, end],
+  );
 
   // Reset to page 1 when a filter changes
   useEffect(() => {
@@ -148,12 +155,12 @@ export default function FeaturesPage() {
 
   useEffect(() => {
     if (hasEnvFilter) statusHook.fetchAll();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasEnvFilter]);
 
   useEffect(() => {
     if (hasDraftFilter) draftHook.fetchAll();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasDraftFilter]);
 
   // fetchSome for visible features when no bulk filter is active
@@ -162,7 +169,7 @@ export default function FeaturesPage() {
     if (!ids.length) return;
     if (!hasEnvFilter) statusHook.fetchSome(ids);
     if (!hasDraftFilter) draftHook.fetchSome(ids);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visibleIdsKey]);
 
   // Reset featureToDuplicate when modal closes
@@ -177,7 +184,10 @@ export default function FeaturesPage() {
         setConfirmToggle({ featureId, envId, state });
       } else {
         await statusHook.toggle(featureId, envId, state);
-        track("Feature Environment Toggle", { environment: envId, enabled: state });
+        track("Feature Environment Toggle", {
+          environment: envId,
+          enabled: state,
+        });
       }
     },
     [showConfirmation, statusHook],
@@ -265,28 +275,12 @@ export default function FeaturesPage() {
                     </td>
                     {showProjectColumn && (
                       <td>
-                        {feature.projectIsDeReferenced ? (
-                          <Tooltip
-                            body={
-                              <>
-                                Project <code>{feature.project}</code> not found
-                              </>
-                            }
-                          >
-                            <span className="text-danger">Invalid project</span>
-                          </Tooltip>
-                        ) : (
-                          <>
-                            {feature.project ? (
-                              <ProjectBadges
-                                resourceType="feature"
-                                projectIds={[feature.projectId]}
-                              />
-                            ) : (
-                              <></>
-                            )}
-                          </>
-                        )}
+                        {feature.project ? (
+                          <ProjectBadges
+                            resourceType="feature"
+                            projectIds={[feature.project]}
+                          />
+                        ) : null}
                       </td>
                     )}
                     <td>
@@ -308,7 +302,9 @@ export default function FeaturesPage() {
                                 )
                               }
                               value={
-                                statusHook.environmentStatus[feature.id]?.[en.id] ?? false
+                                statusHook.environmentStatus[feature.id]?.[
+                                  en.id
+                                ] ?? false
                               }
                               onChange={(on) =>
                                 handleToggle(feature.id, en.id, on)
@@ -476,8 +472,8 @@ export default function FeaturesPage() {
             setConfirmToggle(null);
           }}
         >
-          You are about to set the{" "}
-          <strong>{confirmToggle.envId}</strong> environment to{" "}
+          You are about to set the <strong>{confirmToggle.envId}</strong>{" "}
+          environment to{" "}
           <strong>{confirmToggle.state ? "enabled" : "disabled"}</strong>.
         </Modal>
       )}

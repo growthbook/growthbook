@@ -70,7 +70,6 @@ export default function FeaturesHeader({
   const permissionsUtil = usePermissionsUtil();
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
-  const envs = environments.map((e) => e.id);
   const { apiCall } = useAuth();
   const {
     getProjectById,
@@ -394,7 +393,6 @@ export default function FeaturesHeader({
             });
             mutate();
           }}
-          environments={envs}
         />
       )}
       {deleteModal && (
@@ -407,7 +405,6 @@ export default function FeaturesHeader({
             });
             await router.push("/features");
           }}
-          environments={envs}
         />
       )}
     </>

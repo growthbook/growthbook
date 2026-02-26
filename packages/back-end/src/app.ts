@@ -822,6 +822,7 @@ app.post(
 app.get("/features/meta-info", featuresController.getFeatureMetaInfo);
 app.get("/features/status", featuresController.getFeaturesStatus);
 app.get("/features/draft-states", featuresController.getFeatureDraftStates);
+app.get("/features/dependents", featuresController.getFeaturesDependents);
 app.post(
   "/feature/:id/:version/reorder",
   featuresController.postFeatureMoveRule,

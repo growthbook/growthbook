@@ -8,8 +8,6 @@ import {
   autoMerge,
   checkIfRevisionNeedsReview,
   filterEnvironmentsByFeature,
-  getDependentExperiments,
-  getDependentFeatures,
   mergeResultHasChanges,
 } from "shared/util";
 import { MdRocketLaunch } from "react-icons/md";
@@ -49,6 +47,7 @@ import {
   getRules,
   isRuleInactive,
 } from "@/services/features";
+import { useFeatureDependents } from "@/hooks/useFeatureDependents";
 import Modal from "@/components/Modal";
 import DraftModal from "@/components/Features/DraftModal";
 import RevisionDropdown from "@/components/Features/RevisionDropdown";
@@ -136,8 +135,6 @@ export default function FeaturesOverview({
     i: number;
   } | null>(null);
   const [showDependents, setShowDependents] = useState(false);
-  const [showOtherProjectDependents, setShowOtherProjectDependents] =
-    useState(false);
   const permissionsUtil = usePermissionsUtil();
 
   const [revertIndex, setRevertIndex] = useState(0);
@@ -150,26 +147,15 @@ export default function FeaturesOverview({
   const { hasCommercialFeature } = useUser();
 
   const featureProject = feature.project;
-  const { features } = useFeaturesList(
-    showOtherProjectDependents || !featureProject
-      ? { useCurrentProject: false }
-      : { project: featureProject },
-  );
+  // useFeaturesList is needed to look up parent feature data for prerequisite status rows
+  const { features } = useFeaturesList({ useCurrentProject: false });
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const envs = environments.map((e) => e.id);
 
-  // Calculate dependents based on project scoping
-  const dependentFeatures = useMemo(() => {
-    if (!feature || !features) return [];
-    return getDependentFeatures(feature, features, envs);
-  }, [feature, features, envs]);
-
-  const dependentExperiments = useMemo(() => {
-    if (!feature || !experiments) return [];
-    return getDependentExperiments(feature, experiments);
-  }, [feature, experiments]);
-
+  const { dependents: dependentsData } = useFeatureDependents(feature?.id);
+  const dependentFeatures = dependentsData?.features ?? [];
+  const dependentExperiments = dependentsData?.experiments ?? [];
   const dependents = dependentFeatures.length + dependentExperiments.length;
 
   const { performCopy, copySuccess, copySupported, copyCooldown } =
@@ -887,19 +873,9 @@ export default function FeaturesOverview({
                 <Badge label={dependents + ""} color="gray" radius="medium" />
               </Flex>
               <Flex align="center" gap="4" mb="4">
-                <Text size="2" as="div" style={{ width: "240px" }}>
-                  {featureProject && !showOtherProjectDependents
-                    ? "Showing dependents in this project."
-                    : "Showing dependents in all projects."}
+                <Text size="2" as="div">
+                  Showing dependents across all projects.
                 </Text>
-                {featureProject && (
-                  <Switch
-                    value={showOtherProjectDependents}
-                    onChange={setShowOtherProjectDependents}
-                    label="Include all projects"
-                    size="1"
-                  />
-                )}
               </Flex>
               {dependents > 0 ? (
                 <>
@@ -977,13 +953,7 @@ export default function FeaturesOverview({
                 </>
               ) : (
                 <Box mb="2">
-                  <Text size="2">
-                    No dependents found
-                    {featureProject && !showOtherProjectDependents
-                      ? " in this project"
-                      : ""}
-                    .
-                  </Text>
+                  <Text size="2">No dependents found.</Text>
                 </Box>
               )}
             </Box>
