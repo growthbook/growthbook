@@ -3626,6 +3626,78 @@ input:disabled {
   padding: 10px 0;
 }
 
+/* Design system pagination: left-aligned, design tokens */
+.pagination-ds {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  justify-content: flex-start;
+  padding: var(--space-3, 12px) 0;
+  min-height: var(--space-8, 48px);
+}
+
+.pagination-ds .pagination-radix-container {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  justify-content: flex-start;
+}
+
+.pagination-ds .pagination-link {
+  border-radius: var(--border-radius-3, 6px);
+  border: 1px solid var(--slate-a5, rgba(0, 9, 50, 0.12));
+  background: var(--color-surface, rgba(255, 255, 255, 0.85));
+}
+
+.pagination-ds .pagination-link:hover {
+  background: var(--table-row-highlight-background-color);
+}
+
+.pagination-ds .pagination-link-arrow {
+  display: flex;
+  height: var(--space-6, 32px);
+  padding: var(--space-1, 4px) var(--space-3, 12px);
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  border-radius: var(--border-radius-3, 6px);
+  border: 1px solid var(--slate-a5, rgba(0, 9, 50, 0.12));
+  background: var(--color-surface, rgba(255, 255, 255, 0.85));
+}
+
+.pagination-ds .pagination-link-arrow:hover {
+  background: var(--table-row-highlight-background-color);
+}
+
+.pagination-ds .pagination-disabled .pagination-link-arrow:hover {
+  background: var(--color-surface, rgba(255, 255, 255, 0.85));
+}
+
+.pagination-ds .pagination-active .pagination-link {
+  border-radius: var(--border-radius-3, 6px);
+  border: 1px solid var(--violet-a5, rgba(54, 0, 255, 0.15));
+  background: var(--violet-a3, rgba(68, 0, 238, 0.06));
+  color: var(--violet-11, #6550b9);
+  text-align: center;
+  font-family: Inter, sans-serif;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 500;
+  line-height: 16px;
+}
+
+.pagination-ds .pagination-active .pagination-link:hover {
+  background: var(--violet-a4, rgba(68, 0, 238, 0.1));
+  border-color: var(--violet-a6, rgba(54, 0, 255, 0.2));
+}
+
+.pagination-ds .pagination-radix-container,
+.pagination-ds .pagination-page .pagination-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+}
+
 .needs-attentions-table {
   thead th {
     font-weight: 600;

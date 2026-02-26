@@ -28,7 +28,7 @@ import {
   useFeatureSearch,
 } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Pagination from "@/components/Pagination";
+import Pagination from "@/ui/Pagination";
 import SortedTags from "@/components/Tags/SortedTags";
 import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -464,6 +464,10 @@ export default function FeaturesPage() {
           canCreateFeatures && (
             <div className="col-auto">
               <Button
+                type="button"
+                title="Add Feature"
+                aria-label="Add Feature"
+                className=""
                 onClick={() => {
                   setModalOpen(true);
                   track("Viewed Feature Modal", {
@@ -486,6 +490,10 @@ export default function FeaturesPage() {
             description="Use Feature Flags to change your app's behavior. For example, turn a sales banner on or off, or enable new features for Beta users only."
             leftButton={
               <LinkButton
+                type="button"
+                title="View Docs"
+                aria-label="View Docs"
+                className=""
                 external
                 href="https://docs.growthbook.io/features/basics"
                 variant="outline"
@@ -495,13 +503,23 @@ export default function FeaturesPage() {
             }
             rightButton={
               showSetUpFlow ? (
-                <LinkButton href="/setup?exitLocation=features">
+                <LinkButton
+                  type="button"
+                  title="Connect your SDK"
+                  aria-label="Connect your SDK"
+                  className=""
+                  href="/setup?exitLocation=features"
+                >
                   Connect your SDK
                 </LinkButton>
               ) : (
                 permissionsUtil.canViewFeatureModal(project) &&
                 canCreateFeatures && (
                   <Button
+                    type="button"
+                    title="Add Feature"
+                    aria-label="Add Feature"
+                    className=""
                     onClick={() => {
                       setModalOpen(true);
                       track("Viewed Feature Modal", {

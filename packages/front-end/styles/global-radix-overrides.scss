@@ -409,21 +409,27 @@ p.rt-TooltipText {
 // List table variant: sticky header, row hover
 .table-list-wrapper {
   &[data-table-list] {
+    .rt-TableBody .rt-TableRow .rt-TableCell {
+      background-color: var(--table-list-background-color);
+    }
     .rt-TableBody .rt-TableRow:hover .rt-TableCell {
       background-color: var(--table-row-highlight-background-color);
     }
     .rt-TableHeader {
-      position: sticky;
+      // position: sticky;
       top: var(--table-sticky-top, var(--sticky-header-top));
       z-index: 900;
       // Downward-only shadow when sticky (no upward bleed)
       box-shadow: 0 4px 6px -2px rgba(0, 0, 0, 0.1);
-      // Opaque background so content doesn't show through when scrolling
-      background-color: var(--color-panel-solid, var(--color-panel));
+      // Same background as rows for unified look
+      background-color: var(--table-list-background-color);
+    }
+    .rt-TableHeader .rt-TableRow .rt-TableColumnHeaderCell {
+      background-color: var(--table-list-background-color);
     }
 
     .rt-TableRootTable {
-      overflow: hidden;
+      // No overflw: hidden - it breaks position: sticky on the header (same approach as attributes table)
       border-collapse: separate;
       border-spacing: 0;
 

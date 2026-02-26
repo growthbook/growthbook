@@ -18,15 +18,17 @@ const Pagination: FC<PaginationProps> = ({
   className = "",
 }) => {
   return (
-    <div className={`pagination-area-radix ${className}`}>
+    <div className={`pagination-ds ${className}`}>
       <ReactPaginate
         previousLabel={
           <span className="pagination-arrow">
             <PiCaretLeft size={14} />
+            Prev
           </span>
         }
         nextLabel={
           <span className="pagination-arrow">
+            Next
             <PiCaretRight size={14} />
           </span>
         }
