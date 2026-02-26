@@ -216,12 +216,7 @@ export function ExplorerProvider({
         options?.cache ??
         (isManagedWarehouse || !hasData ? "preferred" : "required");
 
-      // Pre-emptively set the submitted state since we are expecting a result
-      if (cache === "never" || cache === "preferred") {
-        setSubmittedExploreState(cleanedDraftExploreState);
-      }
-
-      // Do the fetch
+      // Do the fetch (we keep previous exploration/submitted state visible until result arrives)
       const { data: fetchResult, error: fetchError } = await fetchData(
         cleanedDraftExploreState,
         { cache },
@@ -236,13 +231,12 @@ export function ExplorerProvider({
       // Clear staleness when there is an error
       if (fetchError) {
         setIsStale(false);
+        setSubmittedExploreState(cleanedDraftExploreState);
       }
 
-      // Set staleness to false when there is a result
+      // Set staleness to false and update submitted state when there is a result
       if (fetchResult) {
-        if (cache === "required") {
-          setSubmittedExploreState(cleanedDraftExploreState);
-        }
+        setSubmittedExploreState(cleanedDraftExploreState);
         setIsStale(false);
       }
 
@@ -283,6 +277,7 @@ export function ExplorerProvider({
   /** Handle auto-submit based on needsFetch and needsUpdate */
   useEffect(() => {
     if (!isSubmittable) return;
+    if (isStale) return;
     if (needsFetch) {
       doSubmit();
     } else if (needsUpdate && !needsFetch) {
@@ -295,6 +290,7 @@ export function ExplorerProvider({
     cleanedDraftExploreState,
     setSubmittedExploreState,
     isSubmittable,
+    isStale,
   ]);
 
   /** Clear staleness when draft matches submitted (known state) */

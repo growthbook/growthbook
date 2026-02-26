@@ -11,7 +11,6 @@ import { useDashboardCharts } from "@/enterprise/components/Dashboards/Dashboard
 import BigValueChart from "@/components/SqlExplorer/BigValueChart";
 import HelperText from "@/ui/HelperText";
 import Callout from "@/ui/Callout";
-import LoadingSpinner from "@/components/LoadingSpinner";
 import Text from "@/ui/Text";
 
 const CHART_ID = "explorer-chart";
@@ -287,11 +286,7 @@ export default function ExplorerChart({
         minHeight: 0,
       }}
     >
-      {loading ? (
-        <Flex justify="center" align="center" style={{ flex: 1, minHeight: 0 }}>
-          <LoadingSpinner style={{ width: "12px", height: "12px" }} />
-        </Flex>
-      ) : error ? (
+      {error ? (
         <Box p="4">
           <Callout status="error">{error}</Callout>
         </Box>

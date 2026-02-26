@@ -226,7 +226,6 @@ export default function ExplorerDataTable({ hasChart }: { hasChart: boolean }) {
     submittedExploreState,
   ]);
 
-  if (loading) return null;
   if (!exploration?.result?.rows?.length && !error) return null;
 
   const stats: QueryStatistics | null = exploration?.result?.statistics || null;
@@ -242,7 +241,7 @@ export default function ExplorerDataTable({ hasChart }: { hasChart: boolean }) {
       showDuration={!!stats}
       headerStructure={headerStructure ?? undefined}
       orderedColumnKeys={orderedColumnKeys}
-      paddingTop={isStale && !hasChart ? 35 : 0}
+      paddingTop={(isStale || loading) && !hasChart ? 35 : 0}
     />
   );
 }
