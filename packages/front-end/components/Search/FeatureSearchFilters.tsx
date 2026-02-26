@@ -227,40 +227,48 @@ const FeatureSearchFilters: FC<
                   <Box style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
                     <Text truncate>{e.id}</Text>
                   </Box>
-                  <Button
-                    size="xs"
-                    variant={isOn ? "solid" : "ghost"}
-                    color={isOn ? "violet" : "gray"}
-                    onClick={() => updateEnvQuery("on", e.id)}
-                  >
-                    On
-                  </Button>
-                  <Button
-                    size="xs"
-                    variant={isOff ? "solid" : "ghost"}
-                    color={isOff ? "violet" : "gray"}
-                    onClick={() => updateEnvQuery("off", e.id)}
-                  >
-                    Off
-                  </Button>
-                  <IconButton
-                    size="1"
-                    variant="ghost"
-                    color="gray"
-                    ml="2"
-                    style={{ visibility: isOn || isOff ? "visible" : "hidden" }}
-                    onClick={() => {
-                      let value = removeEnvValue(
-                        searchInputProps.value,
-                        "on",
-                        e.id,
-                      );
-                      value = removeEnvValue(value, "off", e.id);
-                      setSearchValue(value);
-                    }}
-                  >
-                    <PiX />
-                  </IconButton>
+                  <Flex align="center" gap="2">
+                    <Button
+                      size="sm"
+                      variant={isOn ? "soft" : "ghost"}
+                      color="violet"
+                      onClick={() => updateEnvQuery("on", e.id)}
+                    >
+                      <Text color="text-mid" weight="semibold">
+                        On
+                      </Text>
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={isOff ? "soft" : "ghost"}
+                      color="violet"
+                      onClick={() => updateEnvQuery("off", e.id)}
+                    >
+                      <Text color="text-mid" weight="semibold">
+                        Off
+                      </Text>
+                    </Button>
+                    <IconButton
+                      size="2"
+                      variant="ghost"
+                      color="gray"
+                      style={{
+                        visibility: isOn || isOff ? "visible" : "hidden",
+                        marginLeft: 0,
+                      }}
+                      onClick={() => {
+                        let value = removeEnvValue(
+                          searchInputProps.value,
+                          "on",
+                          e.id,
+                        );
+                        value = removeEnvValue(value, "off", e.id);
+                        setSearchValue(value);
+                      }}
+                    >
+                      <PiX />
+                    </IconButton>
+                  </Flex>
                 </Flex>
               </Box>
             );
