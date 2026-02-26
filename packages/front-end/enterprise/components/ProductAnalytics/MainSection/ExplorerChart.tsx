@@ -268,7 +268,6 @@ export default function ExplorerChart({
   if (
     !shouldChartSectionShow({
       loading,
-      exploration,
       error,
       submittedExploreState,
     })

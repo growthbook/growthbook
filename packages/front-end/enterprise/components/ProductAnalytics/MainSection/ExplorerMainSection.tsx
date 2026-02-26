@@ -26,7 +26,6 @@ export default function ExplorerMainSection() {
 
   const showChartSection = shouldChartSectionShow({
     loading,
-    exploration,
     error,
     submittedExploreState,
   });

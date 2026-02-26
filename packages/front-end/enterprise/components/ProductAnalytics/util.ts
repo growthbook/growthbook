@@ -12,9 +12,13 @@ import type {
   DatasetType,
   ProductAnalyticsDataset,
   ProductAnalyticsConfig,
-  ProductAnalyticsExploration,
 } from "shared/validators";
 import { isEqual } from "lodash";
+import { dateGranularity } from "shared/validators";
+import {
+  calculateProductAnalyticsDateRange,
+  getDateGranularity,
+} from "shared/enterprise";
 
 export const VALUE_TYPE_OPTIONS: {
   value: "unit_count" | "count" | "sum";
@@ -239,6 +243,22 @@ export function getInferredTimestampColumn(
   return commonNameColumn || null;
 }
 
+/** Date range shape with resolved start/end dates. */
+export interface ResolvedDateRange {
+  startDate: Date;
+  endDate: Date;
+}
+
+/** Get valid date granularities for a date range (for filtering dropdown options).
+ * A granularity is valid if getDateGranularity returns it unchanged (or for "auto", always valid). */
+export function getValidDateGranularities(
+  dateRange: ResolvedDateRange,
+): (typeof dateGranularity)[number][] {
+  return dateGranularity.filter(
+    (g) => g === "auto" || getDateGranularity(g, dateRange) === g,
+  );
+}
+
 /** Ensures that dimensions are valid and within the allowed number of dimensions for the dataset type.
  *  Returns a new config with the allowed dimensions (same config object if no changes were made). */
 export function validateDimensions(
@@ -262,12 +282,18 @@ export function validateDimensions(
     validDimensions = validDimensions.slice(0, maxDims);
   }
 
-  const validatedState =
-    validDimensions.length !== config.dimensions.length
-      ? { ...config, dimensions: validDimensions }
-      : config;
+  // Reset date granularity to "auto" when invalid for the selected date range
+  const dateRange = calculateProductAnalyticsDateRange(config.dateRange);
+  const validGranularities = getValidDateGranularities(dateRange);
+  validDimensions = validDimensions.map((d) => {
+    if (d.dimensionType !== "date") return d;
+    if (validGranularities.includes(d.dateGranularity)) return d;
+    return { ...d, dateGranularity: "auto" as const };
+  });
 
-  return validatedState;
+  return !isEqual(validDimensions, config.dimensions)
+    ? { ...config, dimensions: validDimensions }
+    : config;
 }
 
 function hasNonEmptyValues(values: string[] | undefined): boolean {
@@ -458,14 +484,13 @@ export function getRefreshInterval(elapsedSeconds: number): number {
 
 export function shouldChartSectionShow(params: {
   loading: boolean;
-  exploration: ProductAnalyticsExploration | null;
   error: string | null;
   submittedExploreState: ProductAnalyticsConfig | null;
 }): boolean {
-  const { loading, exploration, error, submittedExploreState } = params;
+  const { loading, error, submittedExploreState } = params;
 
   // Chart returns null when there's an error and we have SQL (error shown elsewhere)
-  if (!loading && exploration?.result?.sql && error) return false;
+  if (!loading && error) return false;
 
   // Chart renders empty box for table-only types; table view handles display
   if (

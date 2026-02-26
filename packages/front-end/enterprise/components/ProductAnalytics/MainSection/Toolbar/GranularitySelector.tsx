@@ -9,6 +9,7 @@ import { Select, SelectItem } from "@/ui/Select";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Badge from "@/ui/Badge";
 import Text from "@/ui/Text";
+import { getValidDateGranularities } from "@/enterprise/components/ProductAnalytics/util";
 
 const dateGranularityLabels: Record<(typeof dateGranularity)[number], string> =
   {
@@ -32,6 +33,7 @@ export default function GranularitySelector() {
     draftExploreState.dateRange,
   );
   const effectiveGranularity = getDateGranularity(granularity, dateRange);
+  const validGranularities = getValidDateGranularities(dateRange);
 
   return (
     <Select
@@ -52,7 +54,7 @@ export default function GranularitySelector() {
         }));
       }}
     >
-      {dateGranularity.map((g) => (
+      {validGranularities.map((g) => (
         <SelectItem key={g} value={g}>
           {g === "auto" ? (
             <Flex direction="row" align="center" gap="2">
