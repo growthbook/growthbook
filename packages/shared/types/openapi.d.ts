@@ -1336,7 +1336,7 @@ export interface components {
         comment: string;
         /** Format: date-time */
         date: string;
-        createdBy?: string;
+        createdBy: string;
         publishedBy: string;
       };
       customFields?: {
@@ -1786,7 +1786,7 @@ export interface components {
         comment: string;
         /** Format: date-time */
         date: string;
-        createdBy?: string;
+        createdBy: string;
         publishedBy: string;
       };
       customFields?: {
@@ -4730,7 +4730,7 @@ export interface operations {
                   comment: string;
                   /** Format: date-time */
                   date: string;
-                  createdBy?: string;
+                  createdBy: string;
                   publishedBy: string;
                 };
                 customFields?: {
@@ -5611,7 +5611,7 @@ export interface operations {
                 comment: string;
                 /** Format: date-time */
                 date: string;
-                createdBy?: string;
+                createdBy: string;
                 publishedBy: string;
               };
               customFields?: {
@@ -6082,7 +6082,7 @@ export interface operations {
                 comment: string;
                 /** Format: date-time */
                 date: string;
-                createdBy?: string;
+                createdBy: string;
                 publishedBy: string;
               };
               customFields?: {
@@ -7172,7 +7172,7 @@ export interface operations {
                 comment: string;
                 /** Format: date-time */
                 date: string;
-                createdBy?: string;
+                createdBy: string;
                 publishedBy: string;
               };
               customFields?: {
@@ -7665,7 +7665,7 @@ export interface operations {
                 comment: string;
                 /** Format: date-time */
                 date: string;
-                createdBy?: string;
+                createdBy: string;
                 publishedBy: string;
               };
               customFields?: {
@@ -8134,7 +8134,7 @@ export interface operations {
                 comment: string;
                 /** Format: date-time */
                 date: string;
-                createdBy?: string;
+                createdBy: string;
                 publishedBy: string;
               };
               customFields?: {

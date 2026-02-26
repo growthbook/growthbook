@@ -57,6 +57,7 @@ properties:
       - version
       - comment
       - date
+      - createdBy
       - publishedBy
     properties:
       version:
