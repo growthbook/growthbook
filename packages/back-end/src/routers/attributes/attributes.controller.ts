@@ -277,7 +277,7 @@ export const getAttributeReferences = async (
   }
 
   for (const feature of allFeatures) {
-    for (const envId in feature.environmentSettings) {
+    for (const envId in feature.environmentSettings ?? {}) {
       const env = feature.environmentSettings[envId];
       for (const rule of env?.rules ?? []) {
         try {
