@@ -362,7 +362,7 @@ export default function BanditRefNewFields({
           {settings?.useStickyBucketing && (
             <Switch
               label="Disable Sticky Bucketing"
-              description="Do not persist variation assignments for this experiment (overrides your organization settings)"
+              description="Avoid potential “double counting” when identifier type and metric identifier don't match."
               value={!!form.watch("disableStickyBucketing")}
               onChange={(v) => {
                 form.setValue("disableStickyBucketing", v);
@@ -420,7 +420,9 @@ export default function BanditRefNewFields({
                       style={{ width: 70 }}
                       disabled={form.watch("disableConversionWindow")}
                       className={clsx({
-                        "border-warning": showConversionWindowWarning,
+                        "border-warning":
+                          showConversionWindowWarning &&
+                          !form.watch("disableConversionWindow"),
                       })}
                     />
                     <SelectField
