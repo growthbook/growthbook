@@ -43,10 +43,10 @@ import {
   useEnvironments,
   getAffectedRevisionEnvs,
   getPrerequisites,
-  useFeaturesList,
   getRules,
   isRuleInactive,
 } from "@/services/features";
+import { useFeatureDefaultValues } from "@/hooks/useFeatureDefaultValues";
 import { useFeatureDependents } from "@/hooks/useFeatureDependents";
 import Modal from "@/components/Modal";
 import DraftModal from "@/components/Features/DraftModal";
@@ -147,8 +147,6 @@ export default function FeaturesOverview({
   const { hasCommercialFeature } = useUser();
 
   const featureProject = feature.project;
-  // useFeaturesList is needed to look up parent feature data for prerequisite status rows
-  const { features } = useFeaturesList({ useCurrentProject: false });
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const envs = environments.map((e) => e.id);
@@ -181,6 +179,10 @@ export default function FeaturesOverview({
   }, [revisions, revision, feature, environments]);
 
   const prerequisites = feature?.prerequisites || [];
+
+  const { defaultValues: prereqDefaultValues } = useFeatureDefaultValues(
+    prerequisites.map((p) => p.id),
+  );
 
   // Fetch prerequisite states from backend (handles cross-project prereqs correctly)
   // skipRootConditions: true means we skip the feature's own rules and only evaluate prerequisites
@@ -735,15 +737,12 @@ export default function FeaturesOverview({
                       <td className="w-100" />
                     </tr>
                     {prerequisites.map(({ ...item }, i) => {
-                      const parentFeature = features.find(
-                        (f) => f.id === item.id,
-                      );
                       return (
                         <PrerequisiteStatusRow
                           key={i}
                           i={i}
                           feature={feature}
-                          parentFeature={parentFeature}
+                          prereqDefaultValue={prereqDefaultValues[item.id]}
                           prerequisite={item}
                           environments={environments}
                           mutate={mutate}

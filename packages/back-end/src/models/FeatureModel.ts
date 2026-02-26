@@ -1326,13 +1326,17 @@ export async function getFeatureMetaInfoById(
   opts: {
     includeDefaultValue?: boolean;
     project?: string;
+    ids?: string[];
   } = {},
 ): Promise<FeatureMetaInfo[]> {
-  const { includeDefaultValue = false, project } = opts;
+  const { includeDefaultValue = false, project, ids } = opts;
 
   const query: Record<string, unknown> = { organization: context.org.id };
   if (project) {
     query.project = project;
+  }
+  if (ids?.length) {
+    query.id = { $in: ids };
   }
 
   const projection: Record<string, number> = {

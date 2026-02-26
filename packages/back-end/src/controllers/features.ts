@@ -4054,18 +4054,23 @@ function evalDeterministicPrereqValueBackend(
 
 // Return lightweight feature metadata for UI components
 export async function getFeatureMetaInfo(
-  req: AuthRequest<null, null, { defaultValue?: string; project?: string }>,
+  req: AuthRequest<
+    null,
+    null,
+    { defaultValue?: string; project?: string; ids?: string }
+  >,
   res: Response<
     { status: 200; features: FeatureMetaInfo[] },
     EventUserForResponseLocals
   >,
 ) {
   const context = getContextFromReq(req);
-  const { defaultValue, project } = req.query;
+  const { defaultValue, project, ids } = req.query;
 
   const features = await getFeatureMetaInfoById(context, {
     includeDefaultValue: defaultValue === "1",
     project: project || undefined,
+    ids: ids ? ids.split(",").filter(Boolean) : undefined,
   });
 
   res.status(200).json({ status: 200, features });
