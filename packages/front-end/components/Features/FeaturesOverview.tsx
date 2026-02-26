@@ -400,26 +400,26 @@ export default function FeaturesOverview({
           </Button>,
         );
       } else if (revision.version > 1 && isLive) {
-        actions.push(
-          <Button
-            variant="ghost"
-            color="red"
-            onClick={() => {
-              const previousRevision = revisions
-                .filter(
-                  (r) =>
-                    r.status === "published" && r.version < feature.version,
-                )
-                .sort((a, b) => b.version - a.version)[0];
-              if (previousRevision) {
+        const previousRevision = revisions
+          .filter(
+            (r) => r.status === "published" && r.version < feature.version,
+          )
+          .sort((a, b) => b.version - a.version)[0];
+
+        if (previousRevision) {
+          actions.push(
+            <Button
+              variant="ghost"
+              color="red"
+              onClick={() => {
                 setRevertIndex(previousRevision.version);
-              }
-            }}
-            title="Create a new Draft based on this revision"
-          >
-            Revert to Previous
-          </Button>,
-        );
+              }}
+              title="Create a new Draft based on this revision"
+            >
+              Revert to Previous
+            </Button>,
+          );
+        }
       }
 
       if (drafts.length > 0 && isLocked && !isDraft) {
