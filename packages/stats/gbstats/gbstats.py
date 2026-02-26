@@ -521,6 +521,14 @@ def analyze_metric_df(
         variation_data = []
         baseline_stat: Optional[TestStatistic] = None
 
+        # replace count with quantile_n for quantile metrics
+        # This must happen before processing variations so all variations
+        # (including non-baseline) get the correct quantile_n count
+        if metric.statistic_type in ["quantile_event", "quantile_unit"]:
+            for i in range(num_variations):
+                prefix = f"v{i}" if i > 0 else "baseline"
+                d[f"{prefix}_count"] = d[f"{prefix}_quantile_n"]
+
         # Loop through each non-baseline variation and run an analysis
         for i in range(1, num_variations):
             control_stats = []
@@ -594,12 +602,6 @@ def analyze_metric_df(
                 variation_data.append(variation_response)
             else:
                 raise ValueError(f"Unexpected test result type: {type(res)}")
-
-        # replace count with quantile_n for quantile metrics
-        if metric.statistic_type in ["quantile_event", "quantile_unit"]:
-            for i in range(num_variations):
-                prefix = f"v{i}" if i > 0 else "baseline"
-                d[f"{prefix}_count"] = d[f"{prefix}_quantile_n"]
 
         # TODO check front-end SRM matches this SRM
         srm_p = check_srm(
