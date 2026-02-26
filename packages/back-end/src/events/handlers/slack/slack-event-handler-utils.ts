@@ -15,6 +15,7 @@ import {
   ExperimentDecisionNotificationPayload,
   SafeRolloutDecisionNotificationPayload,
   SafeRolloutUnhealthyNotificationPayload,
+  FeatureStaleNotificationPayload,
 } from "shared/validators";
 import { DiffResult } from "shared/types/events/diff";
 import {
@@ -62,8 +63,7 @@ export const getSlackMessageForNotificationEvent = async (
       );
 
     case "feature.stale":
-      // TODO(stale-event): implement Slack message for feature.stale
-      return null;
+      return buildSlackMessageForFeatureStaleEvent(event.data.object, eventId);
 
     case "feature.saferollout.ship":
       return buildSlackMessageForSafeRolloutShipEvent(
@@ -357,6 +357,32 @@ const buildSlackMessageForFeatureDeletedEvent = async (
           type: "mrkdwn",
           text:
             `The feature *${featureId}* has been deleted by ${eventUser}.` +
+            getEventUrlFormatted(eventId),
+        },
+      },
+    ],
+  };
+};
+
+const buildSlackMessageForFeatureStaleEvent = (
+  data: FeatureStaleNotificationPayload,
+  eventId: string,
+): SlackMessage => {
+  const reasonText =
+    data.staleReason === "no-rules"
+      ? "it has no active targeting rules"
+      : "all of its targeting rules evaluate to the same variation";
+  const text = `Feature ${data.featureId} may be stale because ${reasonText}.`;
+  return {
+    text,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            `Feature *${data.featureId}* may be stale because ${reasonText}.` +
+            getFeatureUrlFormatted(data.featureId) +
             getEventUrlFormatted(eventId),
         },
       },
