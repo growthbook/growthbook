@@ -5,7 +5,11 @@ import Text from "@/ui/Text";
 import { useEnvironments } from "@/services/features";
 import Tag from "@/components/Tags/Tag";
 import Button from "@/ui/Button";
-import { DropdownMenu, DropdownMenuItem, DropdownMenuLabel } from "@/ui/DropdownMenu";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+} from "@/ui/DropdownMenu";
 import {
   BaseSearchFiltersProps,
   FilterHeading,
