@@ -368,10 +368,15 @@ const buildSlackMessageForFeatureStaleEvent = (
   data: FeatureStaleNotificationPayload,
   eventId: string,
 ): SlackMessage => {
-  const reasonText =
-    data.staleReason === "no-rules"
-      ? "it has no active targeting rules"
-      : "all of its targeting rules evaluate to the same variation";
+  const reasonTextMap: Record<typeof data.staleReason, string> = {
+    "no-rules": "it has no active targeting rules",
+    "rules-one-sided":
+      "all of its targeting rules evaluate to the same variation",
+    "abandoned-draft":
+      "it has a draft that has not been updated in over a month",
+    "toggled-off": "all of its environments are disabled",
+  };
+  const reasonText = reasonTextMap[data.staleReason];
   const text = `Feature ${data.featureId} may be stale because ${reasonText}.`;
   return {
     text,

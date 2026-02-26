@@ -1194,7 +1194,7 @@ Triggered when a feature flag is detected as stale (not updated in 2+ weeks with
     data: {
         object: {
             featureId: string;
-            staleReason: "no-rules" | "rules-one-sided";
+            staleReason: "no-rules" | "rules-one-sided" | "abandoned-draft" | "toggled-off";
         };
     };
     user: {

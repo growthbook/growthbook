@@ -1332,7 +1332,9 @@ export async function recalculateFeatureIsStale(
             featureId: feature.id,
             staleReason: (reason ?? "no-rules") as
               | "no-rules"
-              | "rules-one-sided",
+              | "rules-one-sided"
+              | "abandoned-draft"
+              | "toggled-off",
           },
         },
         projects: feature.project ? [feature.project] : [],
