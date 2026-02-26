@@ -6,6 +6,7 @@ export type EnvironmentStatusMap = Record<string, EnvStatusMap>;
 
 // Matches usePrerequisiteStates refresh cadence.
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+const ERROR_RETRY_MS = 30_000;
 
 export interface UseFeaturesStatusReturn {
   // Skips already-loaded IDs; no-op if fetchAll has already run.
@@ -80,16 +81,21 @@ export function useFeaturesStatus(): UseFeaturesStatusReturn {
   useEffect(() => {
     let id: ReturnType<typeof setTimeout>;
     let cancelled = false;
-    const schedule = () => {
+    const schedule = (delay = REFRESH_INTERVAL_MS) => {
       id = setTimeout(async () => {
         if (cancelled) return;
+        let failed = false;
         if (loadedIds.current.size) {
-          await (hasFetchedAll.current
-            ? doFetch()
-            : doFetch([...loadedIds.current]));
+          try {
+            await (hasFetchedAll.current
+              ? doFetch()
+              : doFetch([...loadedIds.current]));
+          } catch {
+            failed = true;
+          }
         }
-        if (!cancelled) schedule();
-      }, REFRESH_INTERVAL_MS);
+        if (!cancelled) schedule(failed ? ERROR_RETRY_MS : REFRESH_INTERVAL_MS);
+      }, delay);
     };
     schedule();
     return () => {

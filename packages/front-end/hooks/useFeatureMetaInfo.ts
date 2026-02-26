@@ -1,13 +1,12 @@
 import { FeatureMetaInfo } from "shared/types/feature";
 import useApi from "@/hooks/useApi";
 
+// The backend always returns archived features; filtering is client-side.
 export function useFeatureMetaInfo({
   project,
-  includeArchived = false,
   includeDefaultValue = false,
 }: {
   project?: string;
-  includeArchived?: boolean;
   includeDefaultValue?: boolean;
 } = {}): {
   features: FeatureMetaInfo[];
@@ -18,7 +17,6 @@ export function useFeatureMetaInfo({
 } {
   const params = new URLSearchParams();
   if (project) params.set("project", project);
-  if (includeArchived) params.set("includeArchived", "1");
   if (includeDefaultValue) params.set("defaultValue", "1");
   const qs = params.toString();
 

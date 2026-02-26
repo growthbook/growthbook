@@ -7,6 +7,7 @@ type DraftStateCache = Record<string, DraftStateEntry>;
 
 // Matches usePrerequisiteStates refresh cadence.
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+const ERROR_RETRY_MS = 30_000;
 
 export interface UseFeatureDraftStatesReturn {
   // featureId → highest-priority active draft entry; absent if no active draft.
@@ -79,16 +80,21 @@ export function useFeatureDraftStates(): UseFeatureDraftStatesReturn {
   useEffect(() => {
     let id: ReturnType<typeof setTimeout>;
     let cancelled = false;
-    const schedule = () => {
+    const schedule = (delay = REFRESH_INTERVAL_MS) => {
       id = setTimeout(async () => {
         if (cancelled) return;
+        let failed = false;
         if (cachedIds.current.size) {
-          await (hasFetchedAll.current
-            ? doFetch()
-            : doFetch([...cachedIds.current]));
+          try {
+            await (hasFetchedAll.current
+              ? doFetch()
+              : doFetch([...cachedIds.current]));
+          } catch {
+            failed = true;
+          }
         }
-        if (!cancelled) schedule();
-      }, REFRESH_INTERVAL_MS);
+        if (!cancelled) schedule(failed ? ERROR_RETRY_MS : REFRESH_INTERVAL_MS);
+      }, delay);
     };
     schedule();
     return () => {
