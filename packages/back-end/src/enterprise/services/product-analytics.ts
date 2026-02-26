@@ -137,19 +137,20 @@ export async function runProductAnalyticsExploration(
   const integration = getSourceIntegrationObject(
     context,
     datasource,
-    !options.skipCache,
+    options.cache !== "never",
   );
   if (!(integration instanceof SqlIntegration)) {
     throw new BadRequestError("Datasource is not a SQL datasource");
   }
 
+  const queryRunner = new ProductAnalyticsExplorationQueryRunner(
+    context,
+    exploration,
+    integration,
+    true,
+  );
+
   try {
-    const queryRunner = new ProductAnalyticsExplorationQueryRunner(
-      context,
-      exploration,
-      integration,
-      true,
-    );
     await queryRunner.startAnalysis({
       factTableMap,
       factMetricMap: metricMap,
@@ -157,16 +158,9 @@ export async function runProductAnalyticsExploration(
     // TODO: add a timeout - if results are taking longer than 5 seconds, return the in progress exploration
     // Frontend will handle this by showing a loading state and polling for updates
     await queryRunner.waitForResults();
-
-    return queryRunner.model;
   } catch (e) {
-    const error = e instanceof Error ? e : new Error(String(e));
-    await context.models.analyticsExplorations.update(exploration, {
-      status: "error",
-      error: error.message,
-    });
-    throw new BadRequestError(
-      "Error running product analytics query: " + error.message,
-    );
+    // Ignore errors here, still return the model
   }
+
+  return queryRunner.model;
 }

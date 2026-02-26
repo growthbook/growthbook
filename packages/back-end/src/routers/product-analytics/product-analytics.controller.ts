@@ -7,6 +7,8 @@ import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { NotFoundError } from "back-end/src/util/errors";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
+import { QueryInterface } from "shared/types/query";
+import { getQueryById } from "back-end/src/models/QueryModel";
 
 export const postProductAnalyticsRun = async (
   req: AuthRequest<
@@ -17,6 +19,7 @@ export const postProductAnalyticsRun = async (
   res: Response<{
     status: 200;
     exploration: ProductAnalyticsExploration | null;
+    query: QueryInterface | null;
   }>,
 ) => {
   const context = getContextFromReq(req);
@@ -27,9 +30,13 @@ export const postProductAnalyticsRun = async (
     { cache: req.query.cache },
   );
 
+  const queryId = exploration?.queries?.[0]?.query;
+  const query = queryId ? await getQueryById(context, queryId) : null;
+
   return res.status(200).json({
     status: 200,
     exploration,
+    query,
   });
 };
 

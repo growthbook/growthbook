@@ -761,6 +761,7 @@ function generateFactTableCTE(
   const baseSql = factTable.sql;
 
   // Get a de-duped list of all filters across all metrics
+  let hasUnfilteredMetric = false;
   const filters = new Set<string>();
   factTableGroup.metrics.forEach((m) => {
     const columnRef = m.useDenominator
@@ -774,7 +775,10 @@ function generateFactTableCTE(
       factTable,
       helpers,
     );
-    if (!filterParts.length) return;
+    if (!filterParts.length) {
+      hasUnfilteredMetric = true;
+      return;
+    }
 
     filterParts.sort();
     filters.add(`(${filterParts.join(" AND ")})`);
@@ -787,7 +791,9 @@ function generateFactTableCTE(
     `${timestampColumn} >= ${helpers.toTimestamp(dateRange.startDate)} AND ${timestampColumn} <= ${helpers.toTimestamp(dateRange.endDate)}`,
   );
 
-  if (filters.size) {
+  // If all of the metrics are filtered, apply the filters to the raw fact table
+  // This is better for performance and makes dynamic dimensions more accurate
+  if (filters.size && !hasUnfilteredMetric) {
     whereClauses.push(`(${Array.from(filters).join(" OR ")})`);
   }
 
@@ -906,9 +912,9 @@ function generateUnitAggregationRollupCTE(
         selects.push(`${metricData.rollupCountExpr} AS ${alias}_denominator`);
       }
     } else {
-      selects.push(`NULL as ${alias}_numerator`);
+      selects.push(`NULL AS ${alias}_numerator`);
       if (metricData?.rollupCountExpr) {
-        selects.push(`NULL as ${alias}_denominator`);
+        selects.push(`NULL AS ${alias}_denominator`);
       }
     }
   });
@@ -951,9 +957,9 @@ function generateEventRollupCTE(
         selects.push(`${metricData.rollupCountExpr} AS ${alias}_denominator`);
       }
     } else {
-      selects.push(`NULL as ${alias}_numerator`);
+      selects.push(`NULL AS ${alias}_numerator`);
       if (metricData?.rollupCountExpr) {
-        selects.push(`NULL as ${alias}_denominator`);
+        selects.push(`NULL AS ${alias}_denominator`);
       }
     }
   });

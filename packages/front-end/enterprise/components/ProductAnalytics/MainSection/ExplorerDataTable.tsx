@@ -1,5 +1,4 @@
 import { useMemo } from "react";
-import { QueryStatistics } from "shared/types/query";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 
@@ -84,7 +83,7 @@ function getSlotValue(
 }
 
 export default function ExplorerDataTable({ hasChart }: { hasChart: boolean }) {
-  const { exploration, submittedExploreState, loading, error, isStale } =
+  const { exploration, submittedExploreState, loading, error, isStale, query } =
     useExplorerContext();
 
   const dimensionColumnHeaders = useMemo(() => {
@@ -228,17 +227,15 @@ export default function ExplorerDataTable({ hasChart }: { hasChart: boolean }) {
 
   if (!exploration?.result?.rows?.length && !error) return null;
 
-  const stats: QueryStatistics | null = exploration?.result?.statistics || null;
-
   return (
     <DisplayTestQueryResults
       results={rowData}
-      duration={stats?.executionDurationMs ?? 0}
-      sql={exploration?.result?.sql || ""}
+      duration={query?.statistics?.executionDurationMs ?? 0}
+      sql={query?.query || ""}
       error={error || ""}
       allowDownload={true}
       showSampleHeader={false}
-      showDuration={!!stats}
+      showDuration={!!query?.statistics}
       headerStructure={headerStructure ?? undefined}
       orderedColumnKeys={orderedColumnKeys}
       paddingTop={(isStale || loading) && !hasChart ? 35 : 0}

@@ -75,8 +75,7 @@ export class ProductAnalyticsExplorationQueryRunner extends QueryRunner<
     if (!rows) {
       throw new Error("Product analytics exploration query result not found");
     }
-    const statistics = query.statistics;
-    const { orderedMetricIds, startDate, endDate } = (
+    const { orderedMetricIds } = (
       this.integration as SqlIntegration
     ).getProductAnalyticsQuery(this.model.config, {
       factTableMap: this.factTableMap as FactTableMap,
@@ -90,9 +89,6 @@ export class ProductAnalyticsExplorationQueryRunner extends QueryRunner<
     );
     return {
       rows: resp.rows,
-      statistics: statistics,
-      sql: query.query,
-      error: query.error,
     };
   }
   async getLatestModel(): Promise<ProductAnalyticsExploration> {

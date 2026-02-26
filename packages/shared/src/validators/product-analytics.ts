@@ -187,9 +187,6 @@ export const productAnalyticsResultRowValidator = z.object({
 });
 export const productAnalyticsResultValidator = z.object({
   rows: z.array(productAnalyticsResultRowValidator),
-  statistics: z.record(z.string(), z.unknown()).optional(),
-  sql: z.string().optional(),
-  error: z.string().nullable().optional(),
 });
 
 export const productAnalyticsExplorationValidator = z.object({

@@ -28,11 +28,13 @@ import {
   validateDimensions,
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useExploreData, CacheOption } from "./useExploreData";
+import { QueryInterface } from "shared/types/query";
 
 type ExplorerCacheValue = {
   draftState: ProductAnalyticsConfig | null;
   submittedState: ProductAnalyticsConfig | null;
   exploration: ProductAnalyticsExploration | null;
+  query: QueryInterface | null;
   error: string | null;
 };
 
@@ -49,6 +51,7 @@ export interface ExplorerContextValue {
   draftExploreState: ProductAnalyticsConfig;
   submittedExploreState: ProductAnalyticsConfig | null;
   exploration: ProductAnalyticsExploration | null;
+  query: QueryInterface | null;
   loading: boolean;
   error: string | null;
   commonColumns: Pick<ColumnInterface, "column" | "name">[];
@@ -95,6 +98,7 @@ export function ExplorerProvider({
         submittedState: initialConfig,
         exploration: null,
         error: null,
+        query: null,
       },
     };
   });
@@ -184,6 +188,9 @@ export function ExplorerProvider({
   const submittedExploreState = isEmpty
     ? null
     : (explorerCache[activeExplorerType]?.submittedState ?? null);
+  const query = isEmpty
+    ? null
+    : (explorerCache[activeExplorerType]?.query ?? null);
 
   const commonColumns = useMemo(() => {
     return getCommonColumns(
@@ -224,7 +231,7 @@ export function ExplorerProvider({
       hasEverFetchedRef.current = true;
 
       // Do the fetch (we keep previous exploration/submitted state visible until result arrives)
-      const { data: fetchResult, error: fetchError } = await fetchData(
+      const { data: fetchResult, query, error: fetchError } = await fetchData(
         cleanedDraftExploreState,
         { cache },
       );
@@ -252,6 +259,7 @@ export function ExplorerProvider({
         [activeExplorerType]: {
           ...prev[activeExplorerType],
           exploration: fetchResult,
+          query,
           error: fetchError || fetchResult?.error || null,
         },
       }));
@@ -455,6 +463,7 @@ export function ExplorerProvider({
           submittedState: null,
           exploration: null,
           error: null,
+          query: null,
         };
       }
       setExplorerCache(newExplorerCache);
@@ -482,6 +491,7 @@ export function ExplorerProvider({
       needsUpdate,
       isSubmittable,
       clearAllDatasets,
+      query,
     }),
     [
       draftExploreState,
@@ -502,6 +512,7 @@ export function ExplorerProvider({
       needsUpdate,
       isSubmittable,
       clearAllDatasets,
+      query,
     ],
   );
 

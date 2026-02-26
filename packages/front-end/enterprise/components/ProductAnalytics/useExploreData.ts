@@ -3,6 +3,7 @@ import type {
   ProductAnalyticsConfig,
   ProductAnalyticsExploration,
 } from "shared/validators";
+import { QueryInterface } from "shared/types/query";
 import { useAuth } from "@/services/auth";
 
 export type CacheOption = "preferred" | "required" | "never";
@@ -17,6 +18,7 @@ export function useExploreData() {
       options?: { cache?: CacheOption },
     ): Promise<{
       data: ProductAnalyticsExploration | null;
+      query: QueryInterface | null;
       error: string | null;
     }> => {
       const cache = options?.cache ?? "preferred";
@@ -29,6 +31,7 @@ export function useExploreData() {
       try {
         const response = await apiCall<{
           exploration: ProductAnalyticsExploration | null;
+          query: QueryInterface | null;
         }>(`/product-analytics/run?cache=${cache}`, {
           method: "POST",
           body: JSON.stringify({ config }),
@@ -36,13 +39,21 @@ export function useExploreData() {
 
         if (response.exploration?.error) {
           const err = new Error(response.exploration.error);
-          return { data: response.exploration, error: err.message };
+          return {
+            data: response.exploration,
+            query: response.query || null,
+            error: err.message,
+          };
         }
         // cache=required can return null when no cached result exists
-        return { data: response.exploration, error: null };
+        return {
+          data: response.exploration,
+          query: response.query || null,
+          error: null,
+        };
       } catch (e) {
         const err = e instanceof Error ? e : new Error(String(e));
-        return { data: null, error: err.message };
+        return { data: null, query: null, error: err.message };
       } finally {
         if (!silent) {
           setLoading(false);
