@@ -1596,7 +1596,7 @@ export function getApiFeatureObj({
       environmentRules[env] = rules;
       environmentDefinitions[env] = JSON.stringify(definition);
     });
-    const revCreatedBy =
+    const createdBy =
       rev?.createdBy?.type === "api_key"
         ? "API"
         : rev?.createdBy?.type === "system"
@@ -1614,7 +1614,7 @@ export function getApiFeatureObj({
       comment: rev?.comment || "",
       date: rev?.dateCreated.toISOString() || "",
       status: rev?.status,
-      createdBy: revCreatedBy,
+      createdBy,
       publishedBy,
       rules: environmentRules,
       definitions: environmentDefinitions,
