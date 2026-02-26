@@ -701,7 +701,7 @@ function generateDynamicDimensionCTE(
   const cteName = `_dimension${dimensionIndex}_top`;
 
   const columnExpr = getColumnExpression(
-    dimension.column,
+    dimension.column || "",
     factTableGroup.factTable,
     helpers.jsonExtract,
   );
@@ -713,7 +713,7 @@ function generateDynamicDimensionCTE(
     FROM ${sourceCTE.name}
     GROUP BY ${columnExpr}
     ORDER BY COUNT(*) DESC
-    LIMIT ${dimension.maxValues}
+    LIMIT ${Math.min(dimension.maxValues, 20)}
   `,
   };
 }

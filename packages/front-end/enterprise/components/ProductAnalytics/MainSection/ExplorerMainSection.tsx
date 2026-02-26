@@ -1,11 +1,12 @@
 import { Box, Flex } from "@radix-ui/themes";
 import { BsGraphUpArrow } from "react-icons/bs";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import { PiArrowsClockwise, PiDotsSix } from "react-icons/pi";
+import { PiArrowsClockwise, PiDotsSix, PiInfo } from "react-icons/pi";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import { shouldChartSectionShow } from "@/enterprise/components/ProductAnalytics/util";
+import Callout from "@/ui/Callout";
 import ExplorerChart from "./ExplorerChart";
 import ExplorerDataTable from "./ExplorerDataTable";
 import Toolbar from "./Toolbar";
@@ -97,7 +98,7 @@ export default function ExplorerMainSection() {
               defaultSize={showChartSection ? 40 : 100}
               minSize={20}
             >
-              <ExplorerDataTable />
+              <ExplorerDataTable hasChart={showChartSection} />
             </Panel>
           </PanelGroup>
         ) : (
@@ -125,30 +126,34 @@ export default function ExplorerMainSection() {
           <Box
             style={{
               position: "absolute",
-              inset: 0,
-              backgroundColor: "rgba(0, 0, 0, 0.3)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              borderRadius: "var(--radius-4)",
-              zIndex: 100,
+              zIndex: 1000,
+              top: 15,
+              right: 15,
+              width: "auto",
             }}
           >
-            <Button
-              size="sm"
-              variant="solid"
-              disabled={
-                loading ||
-                !draftExploreState?.dataset?.values?.length ||
-                !isSubmittable
-              }
-              onClick={() => handleSubmit({ force: true })}
-            >
+            <Callout status="info" size="sm" icon={null}>
               <Flex align="center" gap="2">
-                <PiArrowsClockwise />
-                Update
+                <Text title="Some configuration changes require running a new SQL query against your data source">
+                  <PiInfo /> Latest changes not applied
+                </Text>
+                <Button
+                  size="sm"
+                  variant="solid"
+                  disabled={
+                    loading ||
+                    !draftExploreState?.dataset?.values?.length ||
+                    !isSubmittable
+                  }
+                  onClick={() => handleSubmit({ force: true })}
+                >
+                  <Flex align="center" gap="2">
+                    <PiArrowsClockwise />
+                    Refresh
+                  </Flex>
+                </Button>
               </Flex>
-            </Button>
+            </Callout>
           </Box>
         )}
       </Flex>

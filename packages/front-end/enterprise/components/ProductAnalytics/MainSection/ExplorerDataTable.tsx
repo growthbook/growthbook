@@ -82,8 +82,8 @@ function getSlotValue(
   return getMetricCellValue(row, slot.metricIndex, slot.sub);
 }
 
-export default function ExplorerDataTable() {
-  const { exploration, submittedExploreState, loading, error } =
+export default function ExplorerDataTable({ hasChart }: { hasChart: boolean }) {
+  const { exploration, submittedExploreState, loading, error, isStale } =
     useExplorerContext();
 
   const dimensionColumnHeaders = useMemo(() => {
@@ -239,6 +239,7 @@ export default function ExplorerDataTable() {
       showDuration={false}
       headerStructure={headerStructure ?? undefined}
       orderedColumnKeys={orderedColumnKeys}
+      paddingTop={isStale && !hasChart ? 35 : 0}
     />
   );
 }

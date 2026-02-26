@@ -211,11 +211,17 @@ export function ExplorerProvider({
     return isSubmittableConfig(cleanedDraftExploreState);
   }, [cleanedDraftExploreState]);
 
+  const hasData =
+    !!submittedExploreState?.dataset?.values?.length &&
+    submittedExploreState?.dataset?.values?.length > 0;
+
   const doSubmit = useCallback(
     async (options?: { cache?: CacheOption }) => {
       if (isEmpty || !isSubmittable) return;
+
       const cache: CacheOption =
-        options?.cache ?? (isManagedWarehouse ? "preferred" : "required");
+        options?.cache ??
+        (isManagedWarehouse || !hasData ? "preferred" : "required");
 
       // Pre-emptively set the submitted state since we are expecting a result
       if (cache === "never" || cache === "preferred") {
@@ -263,6 +269,7 @@ export function ExplorerProvider({
       activeExplorerType,
       isEmpty,
       isSubmittable,
+      hasData,
       cleanedDraftExploreState,
       onRunComplete,
       isManagedWarehouse,

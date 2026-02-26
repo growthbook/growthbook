@@ -93,7 +93,7 @@ export default function GroupBySection() {
 
   const commitMaxValues = (index: number, value: string) => {
     const parsed = value ? parseInt(value, 10) : null;
-    const isValid = parsed !== null && parsed >= 1 && !isNaN(parsed);
+    const isValid = parsed !== null && parsed >= 1 && parsed <= 20 && !isNaN(parsed);
 
     if (!isValid) {
       setLocalMaxValues((prev) => {
@@ -223,6 +223,7 @@ export default function GroupBySection() {
                 <Field
                   type="number"
                   min="1"
+                  max="20"
                   value={
                     localMaxValues[i] !== undefined &&
                     localMaxValues[i] !== null

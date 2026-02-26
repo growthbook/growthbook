@@ -28,6 +28,7 @@ export type Props = {
   showDuration?: boolean;
   headerStructure?: HeaderStructure;
   orderedColumnKeys?: string[];
+  paddingTop?: number;
 };
 
 export default function DisplayTestQueryResults({
@@ -43,6 +44,7 @@ export default function DisplayTestQueryResults({
   showDuration = true,
   headerStructure,
   orderedColumnKeys,
+  paddingTop = 0,
 }: Props) {
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const cols = orderedColumnKeys ?? Object.keys(results?.[0] || {});
@@ -87,6 +89,7 @@ export default function DisplayTestQueryResults({
         headerStyles={{
           paddingLeft: "12px",
           paddingRight: "12px",
+          paddingTop: `${paddingTop}px`,
         }}
         header={
           <TabsList>
