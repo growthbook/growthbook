@@ -6,6 +6,7 @@ import cloneDeep from "lodash/cloneDeep";
 import isEqual from "lodash/isEqual";
 import { evalCondition } from "@growthbook/growthbook";
 import { ExperimentRefRule } from "shared/validators";
+import { getJSONValue } from "shared/sdk-versioning";
 import {
   FeatureInterface,
   FeatureRule,
@@ -261,7 +262,24 @@ export type StaleFeatureReason =
   | "never-stale"
   | "no-rules"
   | "rules-one-sided"
-  | "abandoned-draft";
+  | "abandoned-draft"
+  | "recently-updated"
+  | "active-draft"
+  | "has-dependents"
+  | "toggled-off";
+
+export type EnvStaleResult = {
+  stale: boolean;
+  reason?: StaleFeatureReason;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  evaluatesTo?: any; // set when all users receive the same value
+};
+
+export type IsFeatureStaleResult = {
+  stale: boolean;
+  reason?: StaleFeatureReason;
+  envResults: Record<string, EnvStaleResult>;
+};
 
 // type guards
 const isRolloutRule = (rule: FeatureRule): rule is RolloutRule =>
@@ -301,6 +319,85 @@ interface IsFeatureStaleInterface {
   // Most recent dateUpdated among active drafts; null = no drafts; omit to fall back to feature.hasDrafts.
   mostRecentDraftDate?: Date | null;
 }
+
+// Priority order for picking an overall reason when envs disagree.
+const REASON_PRIORITY: StaleFeatureReason[] = [
+  "abandoned-draft",
+  "no-rules",
+  "rules-one-sided",
+];
+
+function pickOverallReason(
+  reasons: (StaleFeatureReason | undefined)[],
+): StaleFeatureReason | undefined {
+  const defined = reasons.filter((r): r is StaleFeatureReason => r != null);
+  if (!defined.length) return undefined;
+  if (defined.every((r) => r === defined[0])) return defined[0];
+  for (const p of REASON_PRIORITY) {
+    if (defined.includes(p)) return p;
+  }
+  return defined[0];
+}
+
+// Per-env staleness breakdown.
+function buildEnvResults(
+  feature: FeatureInterface,
+  environments: string[],
+  experimentMap: Map<string, ExperimentInterfaceStringDates>,
+): Record<string, EnvStaleResult> {
+  const envResults: Record<string, EnvStaleResult> = {};
+
+  for (const [envId, envSetting] of Object.entries(
+    feature.environmentSettings ?? {},
+  )) {
+    if (environments.length && !environments.includes(envId)) continue;
+    if (!envSetting?.enabled) {
+      envResults[envId] = { stale: true, reason: "toggled-off" };
+      continue;
+    }
+
+    const rules = (envSetting.rules ?? []).filter((r) => r.enabled);
+
+    if (rules.length === 0) {
+      envResults[envId] = {
+        stale: true,
+        reason: "no-rules",
+        evaluatesTo: getJSONValue(feature.valueType, feature.defaultValue),
+      };
+      continue;
+    }
+
+    const hasActiveExperiment = rules.filter(isExperimentRefRule).some((r) => {
+      const exp = experimentMap.get(r.experimentId);
+      return exp ? includeExperimentInPayload(exp) : false;
+    });
+    if (hasActiveExperiment) {
+      envResults[envId] = { stale: false };
+      continue;
+    }
+
+    if (areRulesOneSided(rules)) {
+      const firstValueRule = rules.find(
+        (r): r is ForceRule | RolloutRule =>
+          r.type === "force" || r.type === "rollout",
+      );
+      envResults[envId] = {
+        stale: true,
+        reason: "rules-one-sided",
+        evaluatesTo: getJSONValue(
+          feature.valueType,
+          firstValueRule?.value ?? feature.defaultValue,
+        ),
+      };
+      continue;
+    }
+
+    envResults[envId] = { stale: false };
+  }
+
+  return envResults;
+}
+
 export function isFeatureStale({
   feature,
   features,
@@ -310,7 +407,7 @@ export function isFeatureStale({
   featuresMap: prebuiltFeaturesMap,
   experimentMap: prebuiltExperimentMap,
   mostRecentDraftDate,
-}: IsFeatureStaleInterface): { stale: boolean; reason?: StaleFeatureReason } {
+}: IsFeatureStaleInterface): IsFeatureStaleResult {
   const featuresMap =
     prebuiltFeaturesMap ??
     new Map<string, FeatureInterface>((features ?? []).map((f) => [f.id, f]));
@@ -329,39 +426,39 @@ export function isFeatureStale({
     environments = Object.keys(feature.environmentSettings);
   }
 
-  const visit = (
-    feature: FeatureInterface,
-  ): { stale: boolean; reason?: StaleFeatureReason } => {
+  const visit = (feature: FeatureInterface): IsFeatureStaleResult => {
     if (visitedFeatures.has(feature.id)) {
-      return { stale: false };
+      return { stale: false, envResults: {} };
     }
     visitedFeatures.add(feature.id);
 
     try {
+      // envResults is always computed (counterfactual for neverStale / global gates).
+      const envResults = buildEnvResults(feature, environments, experimentMap);
+
       if (feature.neverStale)
-        return { stale: false, reason: "never-stale" as const };
+        return { stale: false, reason: "never-stale", envResults };
 
       const twoWeeksAgo = subWeeks(new Date(), 2);
       const dateUpdated = getValidDate(feature.dateUpdated);
-      const stale = dateUpdated < twoWeeksAgo;
+      const oldEnough = dateUpdated < twoWeeksAgo;
 
-      if (!stale) return { stale };
+      if (!oldEnough)
+        return { stale: false, reason: "recently-updated", envResults };
 
-      // Active drafts prevent stale detection; abandoned drafts (> 1 month untouched) do not.
+      // Active drafts block stale; abandoned ones (>1 month) do not.
       if (mostRecentDraftDate !== undefined) {
         if (mostRecentDraftDate !== null) {
           if (mostRecentDraftDate >= subMonths(new Date(), 1)) {
-            return { stale: false };
+            return { stale: false, reason: "active-draft", envResults };
           }
-          return { stale: true, reason: "abandoned-draft" };
+          return { stale: true, reason: "abandoned-draft", envResults };
         }
-        // null = no active drafts; fall through to normal stale checks
+        // null = no active drafts
       } else if (feature.hasDrafts) {
-        // fallback for callers that don't supply mostRecentDraftDate
-        return { stale: false };
+        return { stale: false, reason: "active-draft", envResults };
       }
 
-      // features with fresh dependents are not stale
       if (features && features.length > 1) {
         const dependentFeatures = getDependentFeatures(
           feature,
@@ -374,7 +471,7 @@ export function isFeatureStale({
           return !visit(f).stale;
         });
         if (dependentFeatures.length && hasNonStaleDependentFeatures) {
-          return { stale: false };
+          return { stale: false, reason: "has-dependents", envResults };
         }
       }
       dependentExperiments =
@@ -383,38 +480,22 @@ export function isFeatureStale({
         includeExperimentInPayload(e),
       );
       if (dependentExperiments.length && hasNonStaleDependentExperiments) {
-        return { stale: false };
+        return { stale: false, reason: "has-dependents", envResults };
       }
 
-      const envSettings = Object.entries(feature.environmentSettings ?? {})
-        .filter(([id]) => !environments.length || environments.includes(id))
-        .map(([, e]) => e);
+      const envValues = Object.values(envResults);
+      const stale = envValues.length === 0 || envValues.every((e) => e.stale);
+      const reason = stale
+        ? envValues.length === 0
+          ? "no-rules"
+          : pickOverallReason(envValues.map((e) => e.reason))
+        : undefined;
 
-      const enabledEnvs = envSettings.filter((e) => e.enabled);
-      const enabledRules = enabledEnvs
-        .map((e) => e.rules)
-        .flat()
-        .filter((r) => r.enabled);
-
-      if (enabledRules.length === 0) return { stale, reason: "no-rules" };
-
-      // Check for active experiments via experiment-ref rules in enabled environments only.
-      const activeExperimentInEnabledEnv = enabledRules
-        .filter(isExperimentRefRule)
-        .some((r) => {
-          const exp = experimentMap.get(r.experimentId);
-          return exp ? includeExperimentInPayload(exp) : false;
-        });
-      if (activeExperimentInEnabledEnv) return { stale: false };
-
-      if (areRulesOneSided(enabledRules))
-        return { stale, reason: "rules-one-sided" };
-
-      return { stale: false };
+      return { stale, reason, envResults };
     } catch (e) {
       // eslint-disable-next-line no-console
       console.error("Error calculating stale feature", e);
-      return { stale: false };
+      return { stale: false, envResults: {} };
     }
   };
 

@@ -287,10 +287,37 @@ export const featureInterface = z
     neverStale: z.boolean().optional(),
     isStale: z.boolean().optional(),
     staleReason: z
-      .enum(["error", "never-stale", "no-rules", "rules-one-sided"])
+      .enum([
+        "error",
+        "never-stale",
+        "no-rules",
+        "rules-one-sided",
+        "abandoned-draft",
+        "recently-updated",
+        "active-draft",
+        "has-dependents",
+      ])
       .nullable()
       .optional(),
     staleLastCalculated: z.date().nullable().optional(),
+    staleByEnv: z
+      .record(
+        z.string(),
+        z.object({
+          isStale: z.boolean(),
+          reason: z
+            .enum([
+              "no-rules",
+              "rules-one-sided",
+              "abandoned-draft",
+              "toggled-off",
+            ])
+            .nullable(),
+
+          evaluatesTo: z.any().optional(),
+        }),
+      )
+      .optional(),
     prerequisites: z.array(featurePrerequisite).optional(),
     holdout: z
       .object({

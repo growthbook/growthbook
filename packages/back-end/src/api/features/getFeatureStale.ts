@@ -22,5 +22,6 @@ export const getFeatureStale = createApiRequestHandler(
         : feature.staleReason,
     staleLastCalculated: feature.staleLastCalculated?.toISOString() ?? null,
     neverStale,
+    staleByEnv: feature.staleByEnv,
   };
 });

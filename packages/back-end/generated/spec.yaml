@@ -965,16 +965,20 @@ paths:
                     description: The feature key
                   isStale:
                     type: boolean
-                    description: Whether the feature is considered stale
+                    description: Whether the feature is considered stale overall (all enabled environments are stale)
                   staleReason:
                     type: string
                     nullable: true
                     enum:
                       - never-stale
+                      - recently-updated
+                      - active-draft
+                      - has-dependents
                       - no-rules
                       - rules-one-sided
+                      - abandoned-draft
                     description: |
-                      Reason for the feature's stale status. `never-stale` means stale detection is permanently disabled for this feature. `no-rules` means the feature has no active targeting rules. `rules-one-sided` means all rules evaluate to the same variation. Null when the feature is not stale and stale detection is active.
+                      Reason for the feature's stale or non-stale status. Non-stale reasons: `never-stale` (stale detection disabled), `recently-updated` (changed within 2 weeks), `active-draft` (open draft in progress), `has-dependents` (used by a non-stale dependent). Stale reasons: `no-rules` (no active rules in any enabled environment), `rules-one-sided` (all rules evaluate to one value), `abandoned-draft` (open draft untouched over a month). Null when non-stale with no single cause (see staleByEnv).
                   staleLastCalculated:
                     type: string
                     format: date-time
@@ -985,6 +989,31 @@ paths:
                     type: boolean
                     description: |
                       When true the feature is permanently excluded from stale detection regardless of its rules.
+                  staleByEnv:
+                    type: object
+                    description: |
+                      Per-environment staleness breakdown. Only present when `neverStale` is false and stale status has been calculated. Keyed by environment ID.
+                    additionalProperties:
+                      type: object
+                      required:
+                        - isStale
+                        - reason
+                      properties:
+                        isStale:
+                          type: boolean
+                          description: Whether this environment is stale
+                        reason:
+                          type: string
+                          nullable: true
+                          enum:
+                            - no-rules
+                            - rules-one-sided
+                            - abandoned-draft
+                            - toggled-off
+                          description: 'Reason for the stale status, if applicable'
+                        evaluatesTo:
+                          description: |
+                            The deterministic value this feature evaluates to in this environment (no rules or all rules unconditional). Only present when deterministic.
   /feature-keys:
     get:
       summary: Get list of feature keys

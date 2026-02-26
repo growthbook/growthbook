@@ -162,6 +162,7 @@ const featureSchema = new mongoose.Schema({
   isStale: Boolean,
   staleReason: String,
   staleLastCalculated: Date,
+  staleByEnv: {},
   customFields: {},
   holdout: {
     id: String,
@@ -1268,16 +1269,20 @@ export async function recalculateFeatureIsStale(
           : null;
     }
 
-    // Only consider environments that apply to this feature's project.
-    const applicableEnvIds = getEnvironments(context.org)
-      .filter(
-        (env) =>
-          !env.projects?.length ||
-          (!!feature.project && env.projects.includes(feature.project)),
-      )
-      .map((env) => env.id);
+    // For project-scoped features, restrict to environments that include the feature's project.
+    // Features without a project are org-wide — pass [] so isFeatureStale evaluates all
+    // environmentSettings keys on the feature instead of applying project filtering.
+    const applicableEnvIds = feature.project
+      ? getEnvironments(context.org)
+          .filter(
+            (env) =>
+              !env.projects?.length ||
+              env.projects.includes(feature.project as string),
+          )
+          .map((env) => env.id)
+      : [];
 
-    const { stale, reason } = isFeatureStale({
+    const { stale, reason, envResults } = isFeatureStale({
       feature,
       features: allFeatures,
       // ExperimentInterface and ExperimentInterfaceStringDates share all fields
@@ -1289,19 +1294,33 @@ export async function recalculateFeatureIsStale(
       mostRecentDraftDate,
     });
 
+    // Map to DB shape (stale → isStale).
+    const staleByEnv = Object.fromEntries(
+      Object.entries(envResults).map(([envId, r]) => [
+        envId,
+        {
+          isStale: r.stale,
+          reason: r.reason ?? null,
+          ...(r.evaluatesTo !== undefined
+            ? { evaluatesTo: r.evaluatesTo }
+            : {}),
+        },
+      ]),
+    );
+
     await FeatureModel.updateOne(
       { organization: feature.organization, id: feature.id },
       {
         $set: {
           isStale: stale,
-          staleReason:
-            stale || reason === "never-stale" ? (reason ?? null) : null,
+          staleReason: reason ?? null,
+          staleByEnv,
           staleLastCalculated: new Date(),
         },
       },
     );
 
-    // Emit event only on transition to stale (skip "error" reason — internal failure)
+    // Emit on transition to stale only; skip transient "error" reason.
     if (stale && !feature.isStale && reason !== "error") {
       await createEvent({
         context,
@@ -1387,6 +1406,7 @@ export async function getFeatureMetaInfoById(
     staleReason: 1,
     staleLastCalculated: 1,
     neverStale: 1,
+    staleByEnv: 1,
     "jsonSchema.enabled": 1,
     holdout: 1,
     revision: 1,
@@ -1415,6 +1435,7 @@ export async function getFeatureMetaInfoById(
       staleReason: f.staleReason as FeatureMetaInfo["staleReason"],
       staleLastCalculated: f.staleLastCalculated,
       neverStale: f.neverStale,
+      staleByEnv: f.staleByEnv as FeatureMetaInfo["staleByEnv"],
       holdout: f.holdout,
       revision: f.revision as FeatureMetaInfo["revision"],
       ...(includeDefaultValue && { defaultValue: f.defaultValue ?? "" }),
@@ -1445,6 +1466,7 @@ export async function getFeatureMetaInfoByIds(
       staleReason: 1,
       staleLastCalculated: 1,
       neverStale: 1,
+      staleByEnv: 1,
       "jsonSchema.enabled": 1,
       revision: 1,
     },
@@ -1468,6 +1490,7 @@ export async function getFeatureMetaInfoByIds(
       staleReason: f.staleReason as FeatureMetaInfo["staleReason"],
       staleLastCalculated: f.staleLastCalculated,
       neverStale: f.neverStale,
+      staleByEnv: f.staleByEnv as FeatureMetaInfo["staleByEnv"],
       revision: f.revision as FeatureMetaInfo["revision"],
     }));
 }

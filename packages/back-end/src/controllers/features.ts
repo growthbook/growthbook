@@ -4106,6 +4106,7 @@ export async function getFeatureStale(
       staleReason: StaleFeatureReason | null;
       neverStale: boolean;
       staleLastCalculated: Date | null;
+      staleByEnv?: FeatureInterface["staleByEnv"];
     },
     EventUserForResponseLocals
   >,
@@ -4116,7 +4117,7 @@ export async function getFeatureStale(
   if (!feature) {
     throw new Error("Could not find feature");
   }
-  // neverStale overrides stale detection
+  // neverStale overrides stale detection; isStale/staleReason are forced to false/null.
   const neverStale = feature.neverStale ?? false;
   res.status(200).json({
     status: 200,
@@ -4124,6 +4125,7 @@ export async function getFeatureStale(
     staleReason: neverStale ? null : (feature.staleReason ?? null),
     neverStale,
     staleLastCalculated: feature.staleLastCalculated ?? null,
+    staleByEnv: feature.staleByEnv,
   });
 }
 

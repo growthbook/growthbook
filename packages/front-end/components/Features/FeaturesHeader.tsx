@@ -127,6 +127,7 @@ export default function FeaturesHeader({
                 <div className="ml-2">
                   <StaleFeatureIcon
                     staleReason={reason}
+                    staleByEnv={feature.staleByEnv}
                     onClick={() => setStaleFFModal(true)}
                   />
                 </div>

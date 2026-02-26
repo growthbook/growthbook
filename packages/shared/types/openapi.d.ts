@@ -8401,14 +8401,14 @@ export interface operations {
           "application/json": {
             /** @description The feature key */
             featureId: string;
-            /** @description Whether the feature is considered stale */
+            /** @description Whether the feature is considered stale overall (all enabled environments are stale) */
             isStale: boolean;
             /**
-             * @description Reason for the feature's stale status. `never-stale` means stale detection is permanently disabled for this feature. `no-rules` means the feature has no active targeting rules. `rules-one-sided` means all rules evaluate to the same variation. Null when the feature is not stale and stale detection is active.
+             * @description Reason for the feature's stale or non-stale status. Non-stale reasons: `never-stale` (stale detection disabled), `recently-updated` (changed within 2 weeks), `active-draft` (open draft in progress), `has-dependents` (used by a non-stale dependent). Stale reasons: `no-rules` (no active rules in any enabled environment), `rules-one-sided` (all rules evaluate to one value), `abandoned-draft` (open draft untouched over a month). Null when non-stale with no single cause (see staleByEnv).
              *  
              * @enum {string|null}
              */
-            staleReason: "never-stale" | "no-rules" | "rules-one-sided" | null;
+            staleReason: "never-stale" | "recently-updated" | "active-draft" | "has-dependents" | "no-rules" | "rules-one-sided" | "abandoned-draft" | null;
             /**
              * Format: date-time 
              * @description ISO 8601 timestamp of when stale status was last computed by the background job. Null if it has never been calculated.
@@ -8416,6 +8416,20 @@ export interface operations {
             staleLastCalculated: string | null;
             /** @description When true the feature is permanently excluded from stale detection regardless of its rules. */
             neverStale: boolean;
+            /** @description Per-environment staleness breakdown. Only present when `neverStale` is false and stale status has been calculated. Keyed by environment ID. */
+            staleByEnv?: {
+              [key: string]: ({
+                /** @description Whether this environment is stale */
+                isStale: boolean;
+                /**
+                 * @description Reason for the stale status, if applicable 
+                 * @enum {string|null}
+                 */
+                reason: "no-rules" | "rules-one-sided" | "abandoned-draft" | "toggled-off" | null;
+                /** @description The deterministic value this feature evaluates to in this environment (no rules or all rules unconditional). Only present when deterministic. */
+                evaluatesTo?: any;
+              }) | undefined;
+            };
           };
         };
       };

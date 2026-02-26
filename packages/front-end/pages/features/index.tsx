@@ -351,6 +351,7 @@ export default function FeaturesPage() {
                       {feature.isStale && !feature.neverStale && (
                         <StaleFeatureIcon
                           staleReason={feature.staleReason ?? undefined}
+                          staleByEnv={feature.staleByEnv}
                           onClick={() => {
                             if (
                               permissionsUtil.canViewFeatureModal(
