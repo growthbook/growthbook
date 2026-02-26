@@ -31,7 +31,7 @@ const BaseClass = MakeModelClass({
   schema: teamSchema,
   collectionName: COLLECTION,
   idPrefix: "team_",
-  globallyUniqueIds: false,
+  globallyUniquePrimaryKeys: false,
   readonlyFields: [],
   additionalIndexes: [],
   defaultValues: {
