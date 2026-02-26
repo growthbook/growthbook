@@ -4,7 +4,7 @@ import {
   FeaturePrerequisite,
   SavedGroupTargeting,
 } from "shared/types/feature";
-import React, { useEffect, useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { getMetricWindowHours } from "shared/experiments";
 import { FaExclamationTriangle } from "react-icons/fa";
 import Collapsible from "react-collapsible";
@@ -140,6 +140,30 @@ export default function BanditRefNewFields({
     }
     return 1; // Default to 1 hour if no metric
   }, [goalMetric]);
+
+  // Set default conversion window override when Decision Metric changes for Bandit
+  useEffect(() => {
+    if (goalMetricId) {
+      // Always update to match the metric's conversion window when metric changes
+      if (defaultConversionWindowHours >= 24) {
+        form.setValue(
+          "banditConversionWindowValue",
+          defaultConversionWindowHours / 24,
+        );
+        form.setValue("banditConversionWindowUnit", "days");
+      } else {
+        form.setValue(
+          "banditConversionWindowValue",
+          defaultConversionWindowHours,
+        );
+        form.setValue("banditConversionWindowUnit", "hours");
+      }
+    } else if (!goalMetricId) {
+      // If no goal metric, set to 1 hour
+      form.setValue("banditConversionWindowValue", 1);
+      form.setValue("banditConversionWindowUnit", "hours");
+    }
+  }, [goalMetricId, defaultConversionWindowHours, form]);
 
   const conversionWindowUnit = form.watch("banditConversionWindowUnit");
   const conversionWindowValue = form.watch("banditConversionWindowValue");

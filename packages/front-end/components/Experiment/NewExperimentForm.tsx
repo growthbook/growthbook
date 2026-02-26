@@ -15,11 +15,7 @@ import {
   validateAndFixCondition,
 } from "shared/util";
 import { getScopedSettings } from "shared/settings";
-import {
-  generateTrackingKey,
-  getEqualWeights,
-  getMetricWindowHours,
-} from "shared/experiments";
+import { generateTrackingKey, getEqualWeights } from "shared/experiments";
 import { kebabCase, debounce } from "lodash";
 import { Box, Flex, Text, Heading, Separator } from "@radix-ui/themes";
 import {
@@ -353,49 +349,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       customMetricSlices: initialValue?.customMetricSlices || [],
     },
   });
-
-  // Calculate default conversion window from goal metric for bandits
-  const goalMetricId = form.watch("goalMetrics")?.[0] as string | undefined;
-  const { getExperimentMetricById } = useDefinitions();
-  const goalMetric = goalMetricId
-    ? getExperimentMetricById(goalMetricId)
-    : null;
-  const goalMetricWindow =
-    goalMetric?.windowSettings.type === "conversion"
-      ? goalMetric.windowSettings
-      : null;
-  const defaultConversionWindowHours = useMemo(() => {
-    if (goalMetricWindow) {
-      return getMetricWindowHours(goalMetricWindow);
-    }
-    return 1; // Default to 1 hour if no metric
-  }, [goalMetric]);
-
-  // Set default conversion window override when Decision Metric changes for Bandit
-  useEffect(() => {
-    const isBandit = form.watch("type") === "multi-armed-bandit";
-    if (!isBandit) return;
-    if (goalMetricId) {
-      // Always update to match the metric's conversion window when metric changes
-      if (defaultConversionWindowHours >= 24) {
-        form.setValue(
-          "banditConversionWindowValue",
-          defaultConversionWindowHours / 24,
-        );
-        form.setValue("banditConversionWindowUnit", "days");
-      } else {
-        form.setValue(
-          "banditConversionWindowValue",
-          defaultConversionWindowHours,
-        );
-        form.setValue("banditConversionWindowUnit", "hours");
-      }
-    } else if (!goalMetricId) {
-      // If no goal metric, set to 1 hour
-      form.setValue("banditConversionWindowValue", 1);
-      form.setValue("banditConversionWindowUnit", "hours");
-    }
-  }, [goalMetricId, defaultConversionWindowHours, form]);
 
   const selectedProject = form.watch("project");
   const customFields = filterCustomFieldsForSectionAndProject(
