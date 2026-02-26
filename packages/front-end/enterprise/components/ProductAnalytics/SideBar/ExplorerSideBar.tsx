@@ -15,6 +15,7 @@ import GranularitySelector from "@/enterprise/components/ProductAnalytics/MainSe
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
 import DataSourceDropdown from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DataSourceDropdown";
+import { createEmptyValue } from "@/enterprise/components/ProductAnalytics/util";
 import SaveToDashboardModal from "@/enterprise/components/ProductAnalytics/SaveToDashboardModal";
 import MetricTabContent from "./MetricTabContent";
 import FactTableTabContent from "./FactTableTabContent";
@@ -200,10 +201,20 @@ export default function ExplorerSideBar({
             <SelectField
               value={factTableDataset.factTableId ?? ""}
               onChange={(factTableId) => {
-                setDraftExploreState((prev) => ({
-                  ...prev,
-                  dataset: { ...factTableDataset, factTableId },
-                }));
+                setDraftExploreState((prev) => {
+                  const prevDataset =
+                    prev.dataset?.type === "fact_table" ? prev.dataset : null;
+                  return {
+                    ...prev,
+                    dataset: {
+                      ...factTableDataset,
+                      factTableId,
+                      values: prevDataset?.values?.length
+                        ? prevDataset.values
+                        : [createEmptyValue("fact_table")],
+                    },
+                  };
+                });
               }}
               options={factTables
                 .filter((f) => f.datasource === draftExploreState.datasource)

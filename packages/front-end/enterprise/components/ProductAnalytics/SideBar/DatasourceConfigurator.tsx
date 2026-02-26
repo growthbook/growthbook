@@ -5,10 +5,14 @@ import {
   InformationSchemaInterfaceWithPaths,
   InformationSchemaTablesInterface,
 } from "shared/types/integrations";
-import { ProductAnalyticsDataset } from "shared/src/validators/product-analytics";
+import {
+  DatabaseValue,
+  ProductAnalyticsDataset,
+} from "shared/src/validators/product-analytics";
 import { PiCheck } from "react-icons/pi";
 import SelectField from "@/components/Forms/SelectField";
 import {
+  createEmptyValue,
   getInferredTimestampColumn,
   mapDatabaseTypeToEnum,
 } from "@/enterprise/components/ProductAnalytics/util";
@@ -272,16 +276,23 @@ export default function DatasourceConfigurator({
               const selectedTable = tableOptions.find(
                 (t) => t.tableId === value,
               );
-              setDraftExploreState((prev) => ({
-                ...prev,
-                dataset: {
-                  ...prev.dataset,
-                  table: value,
-                  path: selectedTable?.tablePath || "",
-                  columnTypes: {},
-                  timestampColumn: "",
-                },
-              }));
+              setDraftExploreState((prev) => {
+                const prevDataset =
+                  prev.dataset?.type === "data_source" ? prev.dataset : null;
+                return {
+                  ...prev,
+                  dataset: {
+                    ...(prevDataset ?? { type: "data_source" as const }),
+                    table: value,
+                    path: selectedTable?.tablePath || "",
+                    columnTypes: {},
+                    timestampColumn: "",
+                    values: prevDataset?.values?.length
+                      ? prevDataset.values
+                      : [createEmptyValue("data_source") as DatabaseValue],
+                  },
+                };
+              });
             }}
             options={tableOptions.map((t) => ({
               label: t.tableName,
