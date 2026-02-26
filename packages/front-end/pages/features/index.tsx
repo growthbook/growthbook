@@ -348,10 +348,12 @@ export default function FeaturesPage() {
                       </td>
                     )}
                     <td style={{ textAlign: "center" }}>
-                      {feature.isStale && !feature.neverStale && (
+                      {!feature.neverStale && (
                         <StaleFeatureIcon
+                          isStale={feature.isStale ?? false}
                           staleReason={feature.staleReason ?? undefined}
                           staleByEnv={feature.staleByEnv}
+                          valueType={feature.valueType}
                           onClick={() => {
                             if (
                               permissionsUtil.canViewFeatureModal(

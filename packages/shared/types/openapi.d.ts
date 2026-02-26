@@ -8426,8 +8426,8 @@ export interface operations {
                  * @enum {string|null}
                  */
                 reason: "no-rules" | "rules-one-sided" | "abandoned-draft" | "toggled-off" | null;
-                /** @description The deterministic value this feature evaluates to in this environment (no rules or all rules unconditional). Only present when deterministic. */
-                evaluatesTo?: any;
+                /** @description The deterministic value this feature evaluates to in this environment (no rules or all rules unconditional), in the same string format as feature.defaultValue. Only present when deterministic. */
+                evaluatesTo?: string;
               }) | undefined;
             };
           };

@@ -44,6 +44,7 @@ export interface HeadingProps {
   align?: HeadingAlign;
   title?: string;
   whiteSpace?: HeadingWhiteSpace;
+  textTransform?: "uppercase" | "lowercase" | "capitalize";
 
   // Margin props
   m?: RadixHeadingProps["m"];
@@ -64,6 +65,7 @@ export default function Heading({
   align = "left",
   title,
   whiteSpace,
+  textTransform,
   m,
   mx,
   my,
@@ -72,7 +74,9 @@ export default function Heading({
   mb,
   ml,
 }: HeadingProps) {
-  const style: React.CSSProperties = whiteSpace ? { whiteSpace } : {};
+  const style: React.CSSProperties = {};
+  if (whiteSpace) style.whiteSpace = whiteSpace;
+  if (textTransform) style.textTransform = textTransform;
 
   if (color === "text-high") {
     style.color = "var(--color-text-high)";

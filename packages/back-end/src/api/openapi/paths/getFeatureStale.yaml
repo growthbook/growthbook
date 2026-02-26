@@ -85,7 +85,9 @@ responses:
                       - toggled-off
                     description: Reason for the stale status, if applicable
                   evaluatesTo:
+                    type: string
                     description: >
                       The deterministic value this feature evaluates to in this
-                      environment (no rules or all rules unconditional).
+                      environment (no rules or all rules unconditional), in the
+                      same string format as feature.defaultValue.
                       Only present when deterministic.

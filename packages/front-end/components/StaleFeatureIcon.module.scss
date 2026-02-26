@@ -1,9 +1,18 @@
 .staleIcon {
-  color: #e0ab00;
+  color: var(--yellow-10);
   cursor: pointer;
 
   &:hover {
-    // slightly darker yellow
-    color: #d1a000;
+    color: var(--amber-10);
+  }
+}
+
+.staleFadedIcon {
+  color: var(--gray-9);
+  opacity: 0.5;
+  cursor: pointer;
+
+  &:hover {
+    opacity: 1;
   }
 }

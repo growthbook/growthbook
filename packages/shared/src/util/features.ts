@@ -6,7 +6,6 @@ import cloneDeep from "lodash/cloneDeep";
 import isEqual from "lodash/isEqual";
 import { evalCondition } from "@growthbook/growthbook";
 import { ExperimentRefRule } from "shared/validators";
-import { getJSONValue } from "shared/sdk-versioning";
 import {
   FeatureInterface,
   FeatureRule,
@@ -271,8 +270,7 @@ export type StaleFeatureReason =
 export type EnvStaleResult = {
   stale: boolean;
   reason?: StaleFeatureReason;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  evaluatesTo?: any; // set when all users receive the same value
+  evaluatesTo?: string; // set when all users receive the same value; same format as feature.defaultValue
 };
 
 export type IsFeatureStaleResult = {
@@ -362,7 +360,7 @@ function buildEnvResults(
       envResults[envId] = {
         stale: true,
         reason: "no-rules",
-        evaluatesTo: getJSONValue(feature.valueType, feature.defaultValue),
+        evaluatesTo: feature.defaultValue,
       };
       continue;
     }
@@ -384,10 +382,7 @@ function buildEnvResults(
       envResults[envId] = {
         stale: true,
         reason: "rules-one-sided",
-        evaluatesTo: getJSONValue(
-          feature.valueType,
-          firstValueRule?.value ?? feature.defaultValue,
-        ),
+        evaluatesTo: firstValueRule?.value ?? feature.defaultValue,
       };
       continue;
     }
@@ -446,13 +441,15 @@ export function isFeatureStale({
       if (!oldEnough)
         return { stale: false, reason: "recently-updated", envResults };
 
-      // Active drafts block stale; abandoned ones (>1 month) do not.
+      // Active drafts block stale. Abandoned drafts (>1 month) don't force
+      // stale on their own — they surface as the reason only if envs are also stale.
+      let hasAbandonedDraft = false;
       if (mostRecentDraftDate !== undefined) {
         if (mostRecentDraftDate !== null) {
           if (mostRecentDraftDate >= subMonths(new Date(), 1)) {
             return { stale: false, reason: "active-draft", envResults };
           }
-          return { stale: true, reason: "abandoned-draft", envResults };
+          hasAbandonedDraft = true;
         }
         // null = no active drafts
       } else if (feature.hasDrafts) {
@@ -486,9 +483,11 @@ export function isFeatureStale({
       const envValues = Object.values(envResults);
       const stale = envValues.length === 0 || envValues.every((e) => e.stale);
       const reason = stale
-        ? envValues.length === 0
-          ? "no-rules"
-          : pickOverallReason(envValues.map((e) => e.reason))
+        ? hasAbandonedDraft
+          ? "abandoned-draft"
+          : envValues.length === 0
+            ? "no-rules"
+            : pickOverallReason(envValues.map((e) => e.reason))
         : undefined;
 
       return { stale, reason, envResults };

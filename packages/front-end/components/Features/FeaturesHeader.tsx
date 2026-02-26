@@ -123,11 +123,13 @@ export default function FeaturesHeader({
               <Heading size="7" as="h1" mb="0">
                 {feature.id}
               </Heading>
-              {stale && (
+              {!feature.neverStale && (
                 <div className="ml-2">
                   <StaleFeatureIcon
+                    isStale={stale}
                     staleReason={reason}
                     staleByEnv={feature.staleByEnv}
+                    valueType={feature.valueType}
                     onClick={() => setStaleFFModal(true)}
                   />
                 </div>

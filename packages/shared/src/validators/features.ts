@@ -314,7 +314,7 @@ export const featureInterface = z
             ])
             .nullable(),
 
-          evaluatesTo: z.any().optional(),
+          evaluatesTo: z.string().optional(),
         }),
       )
       .optional(),

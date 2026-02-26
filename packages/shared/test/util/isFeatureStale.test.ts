@@ -1648,7 +1648,7 @@ describe("isFeatureStale", () => {
       });
     });
 
-    it("abandoned-draft: global stale even when some envs are not stale", () => {
+    it("abandoned-draft: not globally stale when at least one env is not stale", () => {
       feature.environmentSettings = {
         dev: { enabled: true, rules: [] },
         prod: {
@@ -1672,13 +1672,36 @@ describe("isFeatureStale", () => {
         feature,
         mostRecentDraftDate: abandonedDate,
       });
-      expect(result).toMatchObject({ stale: true, reason: "abandoned-draft" });
-      // per-env results are still computed independently
+      // prod is not stale (two-sided rules) so the feature is not globally stale
+      // even though there is an abandoned draft
+      expect(result).toMatchObject({ stale: false });
       expect(result.envResults.dev).toMatchObject({
         stale: true,
         reason: "no-rules",
       });
       expect(result.envResults.prod).toMatchObject({ stale: false });
+    });
+
+    it("abandoned-draft: globally stale when all envs are also stale", () => {
+      feature.environmentSettings = {
+        dev: { enabled: true, rules: [] },
+        prod: { enabled: true, rules: [] },
+      };
+      const abandonedDate = new Date();
+      abandonedDate.setMonth(abandonedDate.getMonth() - 2);
+      const result = isFeatureStale({
+        feature,
+        mostRecentDraftDate: abandonedDate,
+      });
+      expect(result).toMatchObject({ stale: true, reason: "abandoned-draft" });
+      expect(result.envResults.dev).toMatchObject({
+        stale: true,
+        reason: "no-rules",
+      });
+      expect(result.envResults.prod).toMatchObject({
+        stale: true,
+        reason: "no-rules",
+      });
     });
 
     it("has-dependents: global false but envResults are stale", () => {
