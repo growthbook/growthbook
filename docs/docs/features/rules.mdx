@@ -116,6 +116,8 @@ When a user is placed into an experiment, the SDK fires the `trackingCallback` t
 
 ## Safe Rollout
 
+<CommercialFeature feature="safe-rollout" />
+
 Safe Rollout rules combine a gradual percentage rollout with automatic guardrail monitoring. GrowthBook monitors key metrics for regressions and can auto-rollback if something goes wrong.
 
 <MaxWidthImage maxWidth={600}>
@@ -131,8 +133,6 @@ Common scenarios:
 Safe Rollouts follow a fixed ramp-up schedule (10% → 25% → 50% → 75% → 100%) and use the same statistical engine as experiments, optimized for operational safety rather than learning.
 
 → [Full Safe Rollout documentation](/features/safe-rollouts)
-
-<CommercialFeature feature="safe-rollout" />
 
 ## Targeting Conditions
 
