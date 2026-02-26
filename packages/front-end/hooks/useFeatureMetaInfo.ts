@@ -1,38 +1,24 @@
 import { FeatureMetaInfo } from "shared/types/feature";
-import { useMemo } from "react";
 import useApi from "@/hooks/useApi";
-
-export interface UseFeatureMetaInfoOptions {
-  project?: string;
-  includeDefaultValue?: boolean;
-}
 
 export function useFeatureMetaInfo({
   project,
-  includeDefaultValue = false,
-}: UseFeatureMetaInfoOptions = {}) {
+  includeArchived = false,
+}: {
+  project?: string;
+  includeArchived?: boolean;
+} = {}): {
+  features: FeatureMetaInfo[];
+  loading: boolean;
+} {
   const params = new URLSearchParams();
   if (project) params.set("project", project);
-  if (includeDefaultValue) params.set("defaultValue", "1");
+  if (includeArchived) params.set("includeArchived", "1");
+  const qs = params.toString();
 
-  const query = params.toString();
-  const url = query ? `/features/meta-info?${query}` : "/features/meta-info";
-
-  const { data, error, mutate } = useApi<{ features: FeatureMetaInfo[] }>(url);
-
-  const features = useMemo(() => data?.features ?? [], [data]);
-
-  // Archived features are always included; filter client-side as needed.
-  const hasArchived = useMemo(
-    () => features.some((f) => f.archived),
-    [features],
+  const { data, loading } = useApi<{ features: FeatureMetaInfo[] }>(
+    `/features/meta-info${qs ? `?${qs}` : ""}`,
   );
 
-  return {
-    features,
-    hasArchived,
-    loading: !data && !error,
-    error,
-    mutate,
-  };
+  return { features: data?.features ?? [], loading };
 }

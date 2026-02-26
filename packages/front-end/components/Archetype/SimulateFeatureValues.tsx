@@ -15,11 +15,9 @@ import { FeatureTestResult } from "shared/types/feature";
 import Link from "next/link";
 import { FaChevronRight, FaInfoCircle } from "react-icons/fa";
 import { FiAlertTriangle } from "react-icons/fi";
-import {
-  useEnvironments,
-  useFeatureSearch,
-  useFeaturesList,
-} from "@/services/features";
+import { useEnvironments } from "@/services/features";
+import { useSearch } from "@/services/search";
+import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useAuth } from "@/services/auth";
 import TagsFilter, {
   filterByTags,
@@ -71,29 +69,31 @@ export const SimulateFeatureValues: FC<{
     useState(selectedEnvironment);
   const { apiCall } = useAuth();
 
-  const { features: allFeatures, loading } = useFeaturesList({
-    useCurrentProject: true,
-  });
+  const { project } = useDefinitions();
+  const { features: allFeatures, loading } = useFeatureMetaInfo({ project });
 
   const tagsFilter = useTagsFilter("features");
-  const filterResults = useCallback(
-    (items: typeof allFeatures) => {
-      items = items.filter((f) => !f.archived);
-      items = filterByTags(items, tagsFilter.tags);
-      return items;
-    },
-    [tagsFilter.tags],
-  );
   const permissionsUtil = usePermissionsUtil();
-  const { project } = useDefinitions();
   const canCreate = permissionsUtil.canCreateArchetype({ projects: [project] });
   const { hasCommercialFeature } = useUser();
   const hasSimulateFeature = hasCommercialFeature("simulate");
 
-  const { searchInputProps, items, SortableTH } = useFeatureSearch({
-    allFeatures,
-    filterResults,
-    environments,
+  const { searchInputProps, items, SortableTH } = useSearch({
+    items: allFeatures.filter((f) => !f.archived),
+    searchFields: ["id^3", "description"],
+    localStorageKey: "simulate-features",
+    defaultSortField: "id",
+    filterResults: (items) => filterByTags(items, tagsFilter.tags),
+    searchTermFilters: {
+      is: (item) => {
+        const is: string[] = [item.valueType ?? ""];
+        if (item.isStale) is.push("stale");
+        return is;
+      },
+      tag: (item) => item.tags,
+      project: (item) => [item.project ?? ""],
+      owner: (item) => item.owner,
+    },
   });
 
   const featureItems = useMemo(() => {
@@ -195,7 +195,7 @@ export const SimulateFeatureValues: FC<{
   }
 
   const showEnvDropdown = true;
-  const numColumns = showEnvDropdown ? 4 : environments.length + 3;
+  const numColumns = showEnvDropdown ? 3 : environments.length + 2;
   const environmentOptions = [
     ...environments.map((e) => {
       return { label: e.id, value: e.id };
@@ -270,9 +270,6 @@ export const SimulateFeatureValues: FC<{
               <tr>
                 <th>Feature Name</th>
                 <SortableTH field="tags">Tags</SortableTH>
-                <th style={{ borderRight: "1px solid rgba(155,155,155, 0.2)" }}>
-                  Prerequisites
-                </th>
                 {selectedEnvironment !== "all" ? (
                   <th>{selectedEnvironment}</th>
                 ) : (
@@ -288,28 +285,6 @@ export const SimulateFeatureValues: FC<{
             </thead>
             <tbody>
               {featureItems.map((feature) => {
-                // get a list of all the prerequisites for this feature - both top level and rule prerequisites.
-                const prerequisites =
-                  feature.prerequisites?.map((p) => {
-                    return p.id;
-                  }) ?? [];
-                if (feature.environmentSettings) {
-                  Object.values(feature.environmentSettings).forEach(
-                    (envSetting) => {
-                      if (envSetting.rules) {
-                        envSetting.rules.forEach((rule) => {
-                          if (rule.prerequisites) {
-                            rule.prerequisites.forEach((p) => {
-                              if (!prerequisites.includes(p.id)) {
-                                prerequisites.push(p.id);
-                              }
-                            });
-                          }
-                        });
-                      }
-                    },
-                  );
-                }
                 return (
                   <Fragment key={feature.id + "results"}>
                     <tr className={feature.archived ? "text-muted" : ""}>
@@ -323,24 +298,6 @@ export const SimulateFeatureValues: FC<{
                       </td>
                       <td>
                         <SortedTags tags={feature?.tags || []} />
-                      </td>
-                      <td
-                        className="small"
-                        style={{
-                          borderRight: "1px solid rgba(155,155,155, 0.2)",
-                        }}
-                      >
-                        {prerequisites &&
-                          prerequisites.map((p, i) => {
-                            return (
-                              <Fragment key={`loop-${i}`}>
-                                <Link href={`/features/${p}`}>{p}</Link>
-                                {i === (prerequisites?.length || 1) - 1
-                                  ? ""
-                                  : ", "}
-                              </Fragment>
-                            );
-                          })}
                       </td>
                       {selectedEnvironment !== "all" ? (
                         (() => {
