@@ -1365,26 +1365,28 @@ export async function getFeatureMetaInfoById(
 
   const features = await FeatureModel.find(query, projection);
 
-  return features.map((f) => ({
-    id: f.id,
-    project: f.project,
-    archived: f.archived,
-    description: f.description,
-    dateCreated: f.dateCreated,
-    dateUpdated: f.dateUpdated,
-    tags: f.tags,
-    owner: f.owner,
-    valueType: f.valueType,
-    version: f.version,
-    linkedExperiments: f.linkedExperiments,
-    isStale: f.isStale,
-    staleReason: f.staleReason as FeatureMetaInfo["staleReason"],
-    staleLastCalculated: f.staleLastCalculated,
-    neverStale: f.neverStale,
-    holdout: f.holdout,
-    revision: f.revision as FeatureMetaInfo["revision"],
-    ...(includeDefaultValue && { defaultValue: f.defaultValue ?? "" }),
-  }));
+  return features
+    .filter((f) => context.permissions.canReadSingleProjectResource(f.project))
+    .map((f) => ({
+      id: f.id,
+      project: f.project,
+      archived: f.archived,
+      description: f.description,
+      dateCreated: f.dateCreated,
+      dateUpdated: f.dateUpdated,
+      tags: f.tags,
+      owner: f.owner,
+      valueType: f.valueType,
+      version: f.version,
+      linkedExperiments: f.linkedExperiments,
+      isStale: f.isStale,
+      staleReason: f.staleReason as FeatureMetaInfo["staleReason"],
+      staleLastCalculated: f.staleLastCalculated,
+      neverStale: f.neverStale,
+      holdout: f.holdout,
+      revision: f.revision as FeatureMetaInfo["revision"],
+      ...(includeDefaultValue && { defaultValue: f.defaultValue ?? "" }),
+    }));
 }
 
 export async function getFeatureMetaInfoByIds(
@@ -1416,24 +1418,26 @@ export async function getFeatureMetaInfoByIds(
     },
   );
 
-  return features.map((f) => ({
-    id: f.id,
-    project: f.project,
-    archived: f.archived,
-    description: f.description,
-    dateCreated: f.dateCreated,
-    dateUpdated: f.dateUpdated,
-    tags: f.tags,
-    owner: f.owner,
-    valueType: f.valueType,
-    version: f.version,
-    linkedExperiments: f.linkedExperiments,
-    isStale: f.isStale,
-    staleReason: f.staleReason as FeatureMetaInfo["staleReason"],
-    staleLastCalculated: f.staleLastCalculated,
-    neverStale: f.neverStale,
-    revision: f.revision as FeatureMetaInfo["revision"],
-  }));
+  return features
+    .filter((f) => context.permissions.canReadSingleProjectResource(f.project))
+    .map((f) => ({
+      id: f.id,
+      project: f.project,
+      archived: f.archived,
+      description: f.description,
+      dateCreated: f.dateCreated,
+      dateUpdated: f.dateUpdated,
+      tags: f.tags,
+      owner: f.owner,
+      valueType: f.valueType,
+      version: f.version,
+      linkedExperiments: f.linkedExperiments,
+      isStale: f.isStale,
+      staleReason: f.staleReason as FeatureMetaInfo["staleReason"],
+      staleLastCalculated: f.staleLastCalculated,
+      neverStale: f.neverStale,
+      revision: f.revision as FeatureMetaInfo["revision"],
+    }));
 }
 
 export async function getFeatureEnvStatus(
