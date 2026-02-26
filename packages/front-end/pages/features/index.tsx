@@ -346,7 +346,7 @@ export default function FeaturesPage() {
                       </td>
                     )}
                     <td style={{ textAlign: "center" }}>
-                      {feature.isStale && (
+                      {feature.isStale && !feature.neverStale && (
                         <StaleFeatureIcon
                           staleReason={feature.staleReason ?? undefined}
                           onClick={() => {

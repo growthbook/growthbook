@@ -203,7 +203,7 @@ export function useFeatureSearch({
         if (item.valueType === "number") is.push("number");
         if (item.valueType === "boolean") is.push("boolean");
         // isStale is stored on the feature document (computed cross-project by cron).
-        if (item.isStale) is.push("stale");
+        if (item.isStale && !item.neverStale) is.push("stale");
         return is;
       },
       has: (item) => {

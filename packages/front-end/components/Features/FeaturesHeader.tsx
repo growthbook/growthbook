@@ -82,7 +82,8 @@ export default function FeaturesHeader({
     useFeatureIsOn("holdouts_feature") && hasHoldoutsFeature;
 
   // isStale is computed org-wide by the cron job and stored on the feature document.
-  const stale = feature.isStale ?? false;
+  // neverStale overrides the stored value — stale detection is disabled for this feature.
+  const stale = !feature.neverStale && (feature.isStale ?? false);
   const reason = feature.staleReason ?? undefined;
 
   const project = getProjectById(projectId || "");
