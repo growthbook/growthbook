@@ -526,17 +526,19 @@ export const deleteSavedGroup = async (
 
 // region GET /saved-groups/:id/references
 
-type SavedGroupReferencesResponse = {
-  status: 200;
-  features: { id: string; name: string; project?: string }[];
-  experiments: {
-    id: string;
-    name: string;
-    project?: string;
-    projects?: string[];
-  }[];
-  savedGroups: { id: string; groupName: string; projects?: string[] }[];
-};
+type SavedGroupReferencesResponse =
+  | {
+      status: 200;
+      features: { id: string; name: string; project?: string }[];
+      experiments: {
+        id: string;
+        name: string;
+        project?: string;
+        projects?: string[];
+      }[];
+      savedGroups: { id: string; groupName: string; projects?: string[] }[];
+    }
+  | { message: string };
 
 /**
  * GET /saved-groups/:id/references
@@ -554,9 +556,7 @@ export const getSavedGroupReferences = async (
   const allSavedGroups = await context.models.savedGroups.getAll();
   const targetGroup = allSavedGroups.find((sg) => sg.id === id);
   if (!targetGroup) {
-    res
-      .status(404)
-      .json({ status: 200, features: [], experiments: [], savedGroups: [] });
+    res.status(404).json({ message: "Saved group not found" });
     return;
   }
 
