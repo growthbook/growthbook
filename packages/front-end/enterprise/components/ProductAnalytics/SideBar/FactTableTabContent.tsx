@@ -98,6 +98,10 @@ export default function FactTableTabContent() {
                     getValueTypeLabel(val as "count" | "unit_count" | "sum"),
                     draftExploreState.dataset.values,
                   ),
+                  unit:
+                    val === "unit_count" && factTable?.userIdTypes?.length
+                      ? factTable?.userIdTypes[0]
+                      : null,
                 } as FactTableValue)
               }
               options={VALUE_TYPE_OPTIONS.map((o) => ({
