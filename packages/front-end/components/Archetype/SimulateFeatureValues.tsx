@@ -87,7 +87,7 @@ export const SimulateFeatureValues: FC<{
     searchTermFilters: {
       is: (item) => {
         const is: string[] = [item.valueType ?? ""];
-        if (item.isStale) is.push("stale");
+        if (item.isStale && !item.neverStale) is.push("stale");
         return is;
       },
       tag: (item) => item.tags,
