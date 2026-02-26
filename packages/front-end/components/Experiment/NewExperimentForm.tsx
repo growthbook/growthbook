@@ -276,8 +276,15 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     : createInitialPhase({
         dateStarted: new Date(),
         dateEnded: new Date(),
-        variations: initialValue?.phases?.[lastPhase]?.variations,
-        variationWeights: initialValue?.phases?.[lastPhase]?.variationWeights,
+        ...(initialValue?.phases?.[lastPhase]?.variations
+          ? { variations: initialValue?.phases?.[lastPhase]?.variations }
+          : {}),
+        ...(initialValue?.phases?.[lastPhase]?.variationWeights
+          ? {
+              variationWeights:
+                initialValue?.phases?.[lastPhase]?.variationWeights,
+            }
+          : {}),
       });
   const initialPhaseStringDates = {
     ...initialPhase,

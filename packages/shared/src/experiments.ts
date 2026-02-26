@@ -1554,6 +1554,8 @@ export function createInitialVariations(nVariations: number): Variation[] {
 // in an experiment, which should be an edge case
 export function createInitialPhase(
   partialPhase: Partial<ExperimentPhase>,
+  // number of variations to create if no variation data is passed in
+  numVariations: number = 2,
 ): ExperimentPhase {
   let variations: Variation[] = partialPhase.variations ?? [];
   let variationWeights: number[] = partialPhase.variationWeights ?? [];
@@ -1572,6 +1574,9 @@ export function createInitialPhase(
     // If only variations exist, create weights based on the number of variations
     variationWeights = getEqualWeights(partialPhase.variations.length);
     variations = partialPhase.variations;
+  } else if (!partialPhase.variations && !partialPhase.variationWeights) {
+    variations = createInitialVariations(numVariations);
+    variationWeights = getEqualWeights(variations.length);
   }
 
   // If both exis and are different lengths, just pass them through!

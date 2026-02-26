@@ -1351,6 +1351,7 @@ export async function postExperiment(
       phaseStartDate?: string;
       phaseEndDate?: string;
       variationWeights?: number[];
+      variations?: Variation[];
     },
     { id: string }
   >,
@@ -1729,12 +1730,15 @@ export async function postExperiment(
     }
   }
 
-  if (data.variationWeights) {
+  if (data.variationWeights || data.variations) {
     const phases = [...experiment.phases];
     const lastIndex = phases.length - 1;
     phases[lastIndex] = {
       ...phases[lastIndex],
-      variationWeights: data.variationWeights,
+      ...(data.variationWeights
+        ? { variationWeights: data.variationWeights }
+        : {}),
+      ...(data.variations ? { variations: data.variations } : {}),
     };
     changes.phases = phases;
   }

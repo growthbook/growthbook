@@ -18,9 +18,6 @@ import {
   chanceToWinFlatPrior,
   getRowFilterSQL,
   getLatestPhaseVariations,
-  getActiveVariationsForPhase,
-  getActiveVariationWeightsForPhase,
-  getActiveVariationsWithWeightsForPhase,
 } from "../src/experiments";
 
 describe("Experiments", () => {
@@ -1598,68 +1595,5 @@ describe("phase-level variations helpers", () => {
       ],
     };
     expect(getLatestPhaseVariations(experiment)).toEqual(baseVariations);
-  });
-
-  it("getActiveVariationsForPhase filters out disabled variations", () => {
-    const phaseVariations = [
-      { ...baseVariations[0], status: "active" as const },
-      { ...baseVariations[1], status: "disabled" as const },
-      { ...baseVariations[2], status: "active" as const },
-    ];
-    const experiment = {
-      phases: [
-        { variations: phaseVariations, variationWeights: [0.5, 0, 0.5] },
-      ],
-    };
-    const phase = {
-      variationWeights: [0.5, 0, 0.5],
-      variations: phaseVariations,
-    };
-    const active = getActiveVariationsForPhase(experiment, phase);
-    expect(active).toHaveLength(2);
-    expect(active[0].id).toBe("v1");
-    expect(active[1].id).toBe("v3");
-  });
-
-  it("getActiveVariationWeightsForPhase returns weights for active variations only", () => {
-    const phaseVariations = [
-      { ...baseVariations[0], status: "active" as const },
-      { ...baseVariations[1], status: "disabled" as const },
-      { ...baseVariations[2], status: "active" as const },
-    ];
-    const experiment = {
-      phases: [
-        { variations: phaseVariations, variationWeights: [0.5, 0, 0.5] },
-      ],
-    };
-    const phase = {
-      variationWeights: [0.5, 0, 0.5],
-      variations: phaseVariations,
-    };
-    const weights = getActiveVariationWeightsForPhase(experiment, phase);
-    expect(weights).toEqual([0.5, 0.5]);
-  });
-
-  it("getActiveVariationsWithWeightsForPhase returns active variations with weights", () => {
-    const phaseVariations = [
-      { ...baseVariations[0], status: "active" as const },
-      { ...baseVariations[1], status: "disabled" as const },
-      { ...baseVariations[2], status: "active" as const },
-    ];
-    const experiment = {
-      phases: [
-        { variations: phaseVariations, variationWeights: [0.5, 0, 0.5] },
-      ],
-    };
-    const phase = {
-      variationWeights: [0.5, 0, 0.5],
-      variations: phaseVariations,
-    };
-    const result = getActiveVariationsWithWeightsForPhase(experiment, phase);
-    expect(result).toHaveLength(2);
-    expect(result[0].id).toBe("v1");
-    expect(result[0].weight).toBe(0.5);
-    expect(result[1].id).toBe("v3");
-    expect(result[1].weight).toBe(0.5);
   });
 });

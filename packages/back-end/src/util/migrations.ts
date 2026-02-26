@@ -537,17 +537,19 @@ export function upgradeExperimentDoc(
   const experiment = cloneDeep(orig);
 
   // Add missing variation keys and ids
-  experiment.variations.forEach((v, i) => {
-    if (v.key === "" || v.key === undefined || v.key === null) {
-      v.key = i + "";
-    }
-    if (!v.id) {
-      v.id = i + "";
-    }
-    if (!v.name) {
-      v.name = i ? `Variation ${i}` : `Control`;
-    }
-  });
+  if (experiment.variations) {
+    experiment.variations.forEach((v, i) => {
+      if (v.key === "" || v.key === undefined || v.key === null) {
+        v.key = i + "";
+      }
+      if (!v.id) {
+        v.id = i + "";
+      }
+      if (!v.name) {
+        v.name = i ? `Variation ${i}` : `Control`;
+      }
+    });
+  }
 
   // Convert metric fields to new names
   if (!experiment.goalMetrics) {
@@ -604,7 +606,7 @@ export function upgradeExperimentDoc(
   if (experiment.variations) {
     experiment.phases.forEach((phase) => {
       if (!phase.variations) {
-        phase.variations = experiment.variations.map((v) => ({
+        phase.variations = experiment.variations?.map((v) => ({
           ...v,
           status: "active",
         }));
@@ -664,17 +666,18 @@ export function upgradeExperimentDoc(
 
   // releasedVariationId
   if (!("releasedVariationId" in experiment)) {
-    if (experiment.status === "stopped") {
-      if (experiment.results === "lost") {
-        experiment.releasedVariationId = experiment.variations[0]?.id || "";
-      } else if (experiment.results === "won") {
-        experiment.releasedVariationId =
-          experiment.variations[experiment.winner || 1]?.id || "";
-      } else {
-        experiment.releasedVariationId = "";
+    experiment.releasedVariationId = "";
+    const variations =
+      experiment.phases[experiment.phases.length - 1]?.variations;
+    if (variations) {
+      if (experiment.status === "stopped") {
+        if (experiment.results === "lost") {
+          experiment.releasedVariationId = variations[0]?.id || "";
+        } else if (experiment.results === "won") {
+          experiment.releasedVariationId =
+            variations[experiment.winner || 1]?.id || "";
+        }
       }
-    } else {
-      experiment.releasedVariationId = "";
     }
   }
 

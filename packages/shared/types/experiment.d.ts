@@ -163,7 +163,7 @@ export interface LegacyExperimentInterface
   observations?: string;
   metricOverrides?: LegacyMetricOverride[];
   attributionModel: ExperimentInterface["attributionModel"] | "allExposures";
-  variations: LegacyVariation[];
+  variations?: LegacyVariation[];
   phases: LegacyExperimentPhase[];
   releasedVariationId?: string;
   metrics?: string[];

@@ -92,6 +92,7 @@ const EditVariationsForm: FC<{
           }
         }
 
+        console.log(data);
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
           body: JSON.stringify(data),
