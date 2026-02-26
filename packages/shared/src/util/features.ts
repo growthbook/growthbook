@@ -377,7 +377,9 @@ export function isFeatureStale({
         return { stale: false };
       }
 
-      const envSettings = Object.values(feature.environmentSettings ?? {});
+      const envSettings = Object.entries(feature.environmentSettings ?? {})
+        .filter(([id]) => !environments.length || environments.includes(id))
+        .map(([, e]) => e);
 
       const enabledEnvs = envSettings.filter((e) => e.enabled);
       const enabledRules = enabledEnvs

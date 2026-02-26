@@ -4116,9 +4116,7 @@ export async function getFeatureStale(
   if (!feature) {
     throw new Error("Could not find feature");
   }
-  // neverStale overrides stale detection entirely. The DB stores isStale: false for these
-  // features (the cron job short-circuits and never evaluates the counterfactual), so there
-  // is no "would be stale without this flag" value available — aligning with the REST API.
+  // neverStale overrides stale detection
   const neverStale = feature.neverStale ?? false;
   res.status(200).json({
     status: 200,

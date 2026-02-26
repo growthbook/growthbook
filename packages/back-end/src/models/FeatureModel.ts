@@ -44,6 +44,7 @@ import { logger } from "back-end/src/util/logger";
 import {
   getContextForAgendaJobByOrgId,
   getEnvironmentIdsFromOrg,
+  getEnvironments,
 } from "back-end/src/services/organizations";
 import { ApiReqContext } from "back-end/types/api";
 import { getChangedApiFeatureEnvironments } from "back-end/src/events/handlers/utils";
@@ -1246,6 +1247,15 @@ export async function recalculateFeatureIsStale(
     const allExperiments =
       opts.allExperiments ?? (await getAllExperiments(context, {}));
 
+    // Only consider environments that apply to this feature's project.
+    const applicableEnvIds = getEnvironments(context.org)
+      .filter(
+        (env) =>
+          !env.projects?.length ||
+          (!!feature.project && env.projects.includes(feature.project)),
+      )
+      .map((env) => env.id);
+
     const { stale, reason } = isFeatureStale({
       feature,
       features: allFeatures,
@@ -1254,7 +1264,7 @@ export async function recalculateFeatureIsStale(
       experiments: allExperiments as unknown as Parameters<
         typeof isFeatureStale
       >[0]["experiments"],
-      environments: getEnvironmentIdsFromOrg(context.org),
+      environments: applicableEnvIds,
     });
 
     await FeatureModel.updateOne(
