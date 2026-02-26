@@ -75,20 +75,26 @@ export function useFeatureDraftStates(): UseFeatureDraftStatesReturn {
 
   // Periodically refresh whatever has already been loaded.
   // Recursive setTimeout so slow requests don't stack.
+  // cancelled flag prevents rescheduling after unmount, even if a fetch was in-flight.
   useEffect(() => {
     let id: ReturnType<typeof setTimeout>;
+    let cancelled = false;
     const schedule = () => {
       id = setTimeout(async () => {
+        if (cancelled) return;
         if (cachedIds.current.size) {
           await (hasFetchedAll.current
             ? doFetch()
             : doFetch([...cachedIds.current]));
         }
-        schedule();
+        if (!cancelled) schedule();
       }, REFRESH_INTERVAL_MS);
     };
     schedule();
-    return () => clearTimeout(id);
+    return () => {
+      cancelled = true;
+      clearTimeout(id);
+    };
   }, [doFetch]);
 
   return { draftStates, fetchSome, fetchAll, loading, mutate: fetchAll };

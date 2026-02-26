@@ -76,20 +76,26 @@ export function useFeaturesStatus(): UseFeaturesStatusReturn {
   const fetchAll = useCallback(() => doFetch(), [doFetch]);
 
   // Periodically refresh whatever has already been loaded.
+  // cancelled flag prevents rescheduling after unmount, even if a fetch was in-flight.
   useEffect(() => {
     let id: ReturnType<typeof setTimeout>;
+    let cancelled = false;
     const schedule = () => {
       id = setTimeout(async () => {
+        if (cancelled) return;
         if (loadedIds.current.size) {
           await (hasFetchedAll.current
             ? doFetch()
             : doFetch([...loadedIds.current]));
         }
-        schedule();
+        if (!cancelled) schedule();
       }, REFRESH_INTERVAL_MS);
     };
     schedule();
-    return () => clearTimeout(id);
+    return () => {
+      cancelled = true;
+      clearTimeout(id);
+    };
   }, [doFetch]);
 
   const getStatus = useCallback(
