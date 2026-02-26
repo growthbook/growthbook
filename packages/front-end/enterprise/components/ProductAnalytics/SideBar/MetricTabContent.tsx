@@ -12,13 +12,15 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { generateUniqueValueName } from "@/enterprise/components/ProductAnalytics/util";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Text from "@/ui/Text";
+import { useUser } from "@/services/UserContext";
 import ValueCard from "./ValueCard";
 import styles from "./ValueCard.module.scss";
 
 export default function MetricTabContent() {
   const { draftExploreState, addValueToDataset, updateValueInDataset } =
     useExplorerContext();
-  const { factMetrics, getFactTableById } = useDefinitions();
+  const { factMetrics, getFactTableById, project } = useDefinitions();
+  const { permissionsUtil } = useUser();
 
   const values: MetricValue[] =
     draftExploreState.dataset?.type === "metric"
@@ -68,6 +70,11 @@ export default function MetricTabContent() {
               <SelectField
                 className={styles.metricSelect}
                 value={v.metricId}
+                disabled={
+                  !permissionsUtil.canRunMetricQueries({
+                    projects: [project],
+                  }) && !permissionsUtil.canRunMetricQueries({ projects: [] })
+                }
                 onChange={(val) => {
                   const newMetric = factMetrics.find((m) => m.id === val);
                   const newFactTable = newMetric

@@ -189,6 +189,10 @@ export default function ExplorerSideBar({
           </Text>
           <SelectField
             value={factTableDataset.factTableId ?? ""}
+            disabled={
+              !permissionsUtil.canRunFactQueries({ projects: [project] }) &&
+              !permissionsUtil.canRunFactQueries({ projects: [] })
+            }
             onChange={(factTableId) => {
               setDraftExploreState((prev) => {
                 const prevDataset =

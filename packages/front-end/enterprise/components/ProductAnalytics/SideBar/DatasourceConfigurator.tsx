@@ -41,7 +41,7 @@ export default function DatasourceConfigurator({
 }: {
   dataset: ProductAnalyticsDataset;
 }) {
-  const { datasources } = useDefinitions();
+  const { datasources, project } = useDefinitions();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const { setDraftExploreState, draftExploreState } = useExplorerContext();
   const { apiCall } = useAuth();
@@ -298,6 +298,10 @@ export default function DatasourceConfigurator({
               label: t.tableName,
               value: t.tableId,
             }))}
+            disabled={
+              !permissionsUtil.canRunSchemaQueries({ projects: [project] }) &&
+              !permissionsUtil.canRunSchemaQueries({ projects: [] })
+            }
             placeholder="Select table..."
             forceUndefinedValueToNull
           />
