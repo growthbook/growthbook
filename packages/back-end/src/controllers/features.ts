@@ -4204,7 +4204,7 @@ export async function getFeaturesDependents(
       features: getDependentFeatures(feature, allFeatures, allEnvIds),
       experiments: allExperiments
         .filter((e) => {
-          const phase = e.phases.slice(-1)?.[0] ?? null;
+          const phase = e.phases?.slice(-1)?.[0] ?? null;
           return phase?.prerequisites?.some((p) => p.id === feature.id);
         })
         .map((e) => ({ id: e.id, name: e.name })),

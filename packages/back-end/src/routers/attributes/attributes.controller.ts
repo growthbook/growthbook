@@ -311,7 +311,7 @@ export const getAttributeReferences = async (
 
     addExp(experiment.hashAttribute);
 
-    const phase = experiment.phases?.[experiment.phases.length - 1];
+    const phase = experiment.phases?.slice(-1)?.[0];
     try {
       const parsed = JSON.parse(phase?.condition ?? "{}");
       recursiveWalk(parsed, ([nodeKey]) => addExp(nodeKey));
