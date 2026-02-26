@@ -1490,17 +1490,26 @@ export async function postFeatureSync(
   }
 
   const updates: Partial<FeatureInterface> = {
-    defaultValue: data.defaultValue ?? feature.defaultValue,
     description: data.description ?? feature.description,
     owner: data.owner ?? feature.owner,
     tags: data.tags ?? feature.tags,
   };
+  const updatesInRevision: Partial<FeatureInterface> = {};
+
   const changes: Pick<FeatureRevisionInterface, "rules" | "defaultValue"> = {
     rules: {},
     defaultValue: data.defaultValue ?? feature.defaultValue,
   };
 
-  let needsNewRevision = !isEqual(feature.defaultValue, updates.defaultValue);
+  let needsNewRevision = false;
+
+  if (
+    data.defaultValue != null &&
+    !isEqual(feature.defaultValue, data.defaultValue)
+  ) {
+    updatesInRevision.defaultValue = data.defaultValue;
+    needsNewRevision = true;
+  }
 
   environments.forEach((env) => {
     // Revision Changes
@@ -1510,8 +1519,10 @@ export async function postFeatureSync(
       [];
 
     // Feature updates
-    updates.environmentSettings = updates.environmentSettings || {};
-    updates.environmentSettings[env] = updates.environmentSettings[env] || {
+    updatesInRevision.environmentSettings =
+      updatesInRevision.environmentSettings || {};
+    updatesInRevision.environmentSettings[env] = updatesInRevision
+      .environmentSettings[env] || {
       enabled: feature.environmentSettings?.[env]?.enabled ?? false,
       rules: changes.rules[env],
     };
@@ -1540,7 +1551,15 @@ export async function postFeatureSync(
       org,
     });
 
-    updates.version = revision.version;
+    // Approval flows not required, was published immediately
+    if (revision.status === "published") {
+      updates.version = revision.version;
+      Object.assign(updates, updatesInRevision);
+    }
+    // Approval flows required
+    else {
+      updates.hasDrafts = true;
+    }
   }
 
   const updatedFeature = await updateFeature(context, feature, updates);
