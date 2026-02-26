@@ -13,6 +13,7 @@ import { isCloud, isMultiOrg } from "@/services/env";
 import { PermissionFunctions, useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import Badge from "@/ui/Badge";
 import styles from "./SidebarLink.module.scss";
 
 export type SidebarLinkProps = {
@@ -189,7 +190,7 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
                   )}
                   {l.name}
                   {l.beta && (
-                    <div className="badge badge-purple ml-2">beta</div>
+                    <Badge color="indigo" label="Beta" variant="solid" ml="2" />
                   )}
                 </Link>
               </li>

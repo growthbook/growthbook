@@ -104,7 +104,8 @@ const navlinks: SidebarLinkProps[] = [
       {
         name: "Explore",
         href: "/product-analytics/explore",
-        path: /^product-analytics\/explore\//,
+        path: /^product-analytics\/explore(\/|$)/,
+        beta: true,
       },
       {
         name: "Dashboards",

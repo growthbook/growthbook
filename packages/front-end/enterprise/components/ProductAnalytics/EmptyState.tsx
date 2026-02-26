@@ -8,6 +8,7 @@ import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
+import Badge from "@/ui/Badge";
 
 export default function EmptyState() {
   const { permissionsUtil } = useUser();
@@ -18,9 +19,12 @@ export default function EmptyState() {
 
   return (
     <Box m="7">
-      <Heading as="h1" size="2x-large" weight="medium">
-        Product Analytics
-      </Heading>
+      <Flex align="center">
+        <Heading as="h1" size="2x-large" weight="medium">
+          Product Analytics
+        </Heading>
+        <Badge color="indigo" label="Beta" ml="2" variant="solid" />
+      </Flex>
       <Flex
         align="center"
         justify="center"
