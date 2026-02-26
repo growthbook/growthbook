@@ -1,0 +1,18 @@
+.metricLabel {
+  .metricExternalLinkIcon {
+    visibility: hidden;
+    position: relative;
+    margin-left: 4px;
+    top: -1px;
+  }
+
+  &:hover {
+    .metricExternalLinkIcon {
+      visibility: visible;
+    }
+  }
+}
+
+.metricLabelLastWord {
+  white-space: nowrap;
+}

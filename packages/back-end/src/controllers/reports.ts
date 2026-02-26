@@ -4,13 +4,14 @@ import { getValidDate } from "shared/dates";
 import { getSnapshotAnalysis } from "shared/util";
 import { pick, omit } from "lodash";
 import uniqid from "uniqid";
+import { experimentAnalysisSettings } from "shared/validators";
 import {
   ExperimentReportAnalysisSettings,
   ExperimentReportInterface,
   ExperimentSnapshotReportArgs,
   ExperimentSnapshotReportInterface,
   ReportInterface,
-} from "back-end/types/report";
+} from "shared/types/report";
 import {
   getExperimentById,
   getExperimentsByIds,
@@ -39,7 +40,6 @@ import {
 } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
-import { experimentAnalysisSettings } from "back-end/src/validators/experiments";
 import {
   createReportSnapshot,
   generateExperimentReportSSRData,
@@ -106,7 +106,6 @@ export async function postReportFromSnapshot(
       "dateStarted",
       "dateEnded",
       "customMetricSlices",
-      "pinnedMetricSlices",
     ]),
   } as ExperimentReportAnalysisSettings;
   if (!_experimentAnalysisSettings.dateStarted) {
@@ -269,7 +268,7 @@ export async function getReportPublic(
   const _experiment = report.experimentId
     ? (await getExperimentById(context, report.experimentId || "")) || undefined
     : undefined;
-  const experiment = pick(_experiment, ["id", "name", "type"]);
+  const experiment = pick(_experiment, ["id", "name", "type", "uid"]);
 
   const ssrData = await generateExperimentReportSSRData({
     context,
@@ -484,7 +483,6 @@ export async function putReport(
           "dateStarted",
           "dateEnded",
           "customMetricSlices",
-          "pinnedMetricSlices",
         ]),
       };
       updates.experimentAnalysisSettings.dateStarted = getValidDate(
@@ -494,6 +492,16 @@ export async function putReport(
         updates.experimentAnalysisSettings.dateEnded = getValidDate(
           updates.experimentAnalysisSettings.dateEnded,
         );
+      }
+      if (
+        updates.experimentAnalysisSettings.lookbackOverride?.type === "date"
+      ) {
+        updates.experimentAnalysisSettings.lookbackOverride = {
+          type: "date",
+          value: getValidDate(
+            updates.experimentAnalysisSettings.lookbackOverride.value,
+          ),
+        };
       }
     }
 

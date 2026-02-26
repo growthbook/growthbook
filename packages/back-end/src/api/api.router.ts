@@ -7,11 +7,12 @@ import * as Sentry from "@sentry/node";
 import authenticateApiRequestMiddleware from "back-end/src/middleware/authenticateApiRequestMiddleware";
 import { getBuild } from "back-end/src/util/build";
 import { ApiRequestLocals } from "back-end/types/api";
-import { IS_CLOUD, SENTRY_DSN } from "../util/secrets";
+import { IS_CLOUD, SENTRY_DSN } from "back-end/src/util/secrets";
 import featuresRouter from "./features/features.router";
 import experimentsRouter from "./experiments/experiments.router";
 import snapshotsRouter from "./snapshots/snapshots.router";
 import metricsRouter from "./metrics/metrics.router";
+import usageRouter from "./usage/usage.router";
 import segmentsRouter from "./segments/segments.router";
 import projectsRouter from "./projects/projects.router";
 import environmentsRouter from "./environments/environments.router";
@@ -35,7 +36,7 @@ import archetypesRouter from "./archetypes/archetypes.router";
 import { getExperimentNames } from "./experiments/getExperimentNames";
 import queryRouter from "./queries/queries.router";
 import settingsRouter from "./settings/settings.router";
-import customFieldsRouter from "./custom-fields/custom-fields.router";
+import { API_MODELS, defineRouterForApiConfig } from "./ApiModel";
 
 const router = Router();
 let openapiSpec: string;
@@ -57,8 +58,8 @@ router.get("/openapi.yaml", (req, res) => {
   res.send(openapiSpec);
 });
 
-router.use(bodyParser.json({ limit: "1mb" }));
-router.use(bodyParser.urlencoded({ limit: "1mb", extended: true }));
+router.use(bodyParser.json({ limit: "2mb" }));
+router.use(bodyParser.urlencoded({ limit: "2mb", extended: true }));
 
 router.use(authenticateApiRequestMiddleware);
 
@@ -111,6 +112,7 @@ router.use("/experiments", experimentsRouter);
 router.get("/experiment-names", getExperimentNames);
 router.use("/snapshots", snapshotsRouter);
 router.use("/metrics", metricsRouter);
+router.use("/usage", usageRouter);
 router.use("/segments", segmentsRouter);
 router.use("/dimensions", dimensionsRouter);
 router.use("/projects", projectsRouter);
@@ -132,7 +134,14 @@ router.use("/archetypes", archetypesRouter);
 router.use("/queries", queryRouter);
 router.use("/settings", settingsRouter);
 router.post("/transform-copy", postCopyTransform);
-router.use("/custom-fields", customFieldsRouter);
+API_MODELS.forEach((modelClass) => {
+  const apiConfig = modelClass.getModelConfig().apiConfig;
+  if (!apiConfig) return;
+  const r = defineRouterForApiConfig(apiConfig);
+  if (r) {
+    router.use(apiConfig.pathBase, r);
+  }
+});
 
 // 404 route
 router.use(function (req, res) {

@@ -5,13 +5,11 @@ sidebar_label: Data Pipeline
 slug: /app/data-pipeline
 ---
 
+import CommercialFeature from '@site/src/components/CommercialFeature';
+
 # Data Pipeline Mode
 
-:::info Enterprise only
-
-Pipeline mode is only available for Enterprise customers availability differs by warehouse and pipeline strategy.
-
-:::
+<CommercialFeature feature="pipeline-mode" description="Availability differs by warehouse and pipeline strategy." />
 
 Pipeline mode will provide substantial savings for experimenters with lots of data and/or long-running experiments. With **Pipeline Mode**, GrowthBook writes intermediate tables back to your warehouse and re-uses those across metric analyses in an experiment.
 
@@ -31,6 +29,8 @@ Incremental refresh is only available for BigQuery and Presto/Trino. Please reac
 On each experiment update, GrowthBook only scans new data in your warehouse to keep the amount of data consumed to a minimum. Then, GrowthBook materializes several tables in your warehouse to ensure old data does not need to be scanned again, and to reduce the computation needed in future analyses.
 
 Specifically, for the experiment assignment query and fact tables, GrowthBook uses the max timestamp seen in the previous update and only scans for data since that last update, inserting that data into materialized intermediate tables to be used for analysis.
+
+![A flow diagram illustrating an incremental data refresh pipeline for experimentation, organized into three interconnected tracks: Units, Metrics, and CUPED. New data inputs on the left—such as recent experiment exposures and metric facts—merge with existing historical data to update intermediate materialized tables in the center. Data flows sequentially from the Units table to the Metrics tables and then to the CUPED tables. Finally, the processed data from all three stages feeds into a single "Statistics" output on the right to compute analysis results.](/images/incremental-refresh-diagram.jpg)
 
 ### Main benefits
 

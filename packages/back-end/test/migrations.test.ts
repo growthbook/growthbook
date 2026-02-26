@@ -7,10 +7,40 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import omit from "lodash/omit";
-import { LegacyMetricInterface } from "back-end/types/metric";
+import { LegacyMetricInterface } from "shared/types/metric";
+import {
+  DataSourceInterface,
+  DataSourceSettings,
+} from "shared/types/datasource";
+import { MixpanelConnectionParams } from "shared/types/integrations/mixpanel";
+import { PostgresConnectionParams } from "shared/types/integrations/postgres";
+import {
+  LegacyColumnRef,
+  LegacyFactMetricInterface,
+} from "shared/types/fact-table";
+import {
+  ExperimentRule,
+  FeatureInterface,
+  FeatureRule,
+  LegacyFeatureInterface,
+} from "shared/types/feature";
+import { OrganizationInterface } from "shared/types/organization";
+import {
+  ExperimentSnapshotInterface,
+  LegacyExperimentSnapshotInterface,
+} from "shared/types/experiment-snapshot";
+import {
+  ExperimentReportResultDimension,
+  LegacyReportInterface,
+} from "shared/types/report";
+import { Queries } from "shared/types/query";
+import { ExperimentPhase } from "shared/types/experiment";
+import { LegacySavedGroupInterface } from "shared/types/saved-group";
+import { encryptParams } from "back-end/src/services/datasource";
+import { FactMetricModel } from "back-end/src/models/FactMetricModel";
+import { SavedGroupModel } from "back-end/src/models/SavedGroupModel";
 import {
   migrateExperimentReport,
-  migrateSavedGroup,
   migrateSnapshot,
   upgradeDatasourceObject,
   upgradeExperimentDoc,
@@ -19,33 +49,6 @@ import {
   upgradeMetricDoc,
   upgradeOrganizationDoc,
 } from "back-end/src/util/migrations";
-import {
-  DataSourceInterface,
-  DataSourceSettings,
-} from "back-end/types/datasource";
-import { FactMetricModel } from "back-end/src/models/FactMetricModel";
-import { encryptParams } from "back-end/src/services/datasource";
-import { MixpanelConnectionParams } from "back-end/types/integrations/mixpanel";
-import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
-import { LegacyFactMetricInterface } from "back-end/types/fact-table";
-import {
-  ExperimentRule,
-  FeatureInterface,
-  FeatureRule,
-  LegacyFeatureInterface,
-} from "back-end/types/feature";
-import { OrganizationInterface } from "back-end/types/organization";
-import {
-  ExperimentSnapshotInterface,
-  LegacyExperimentSnapshotInterface,
-} from "back-end/types/experiment-snapshot";
-import {
-  ExperimentReportResultDimension,
-  LegacyReportInterface,
-} from "back-end/types/report";
-import { Queries } from "back-end/types/query";
-import { ExperimentPhase } from "back-end/types/experiment";
-import { LegacySavedGroupInterface } from "back-end/types/saved-group";
 
 describe("Fact Metric Migration", () => {
   it("upgrades delay hours", () => {
@@ -66,7 +69,7 @@ describe("Fact Metric Migration", () => {
       numerator: {
         factTableId: "",
         column: "",
-        filters: [],
+        rowFilters: [],
       },
       denominator: null,
 
@@ -119,6 +122,292 @@ describe("Fact Metric Migration", () => {
         windowUnit: "hours",
         windowValue: 0,
       },
+    });
+  });
+
+  describe("ColumnRef migration", () => {
+    it("upgrades filters", () => {
+      expect(
+        FactMetricModel.migrateColumnRef({
+          factTableId: "ft_123",
+          column: "event_name",
+          filters: ["filt_123"],
+        }),
+      ).toEqual({
+        factTableId: "ft_123",
+        column: "event_name",
+        rowFilters: [
+          {
+            operator: "saved_filter",
+            values: ["filt_123"],
+          },
+        ],
+      });
+    });
+    it("upgrades multiple filters", () => {
+      expect(
+        FactMetricModel.migrateColumnRef({
+          factTableId: "ft_123",
+          column: "event_name",
+          filters: ["filt_123", "filt_456"],
+        }),
+      ).toEqual({
+        factTableId: "ft_123",
+        column: "event_name",
+        rowFilters: [
+          {
+            operator: "saved_filter",
+            values: ["filt_123"],
+          },
+          {
+            operator: "saved_filter",
+            values: ["filt_456"],
+          },
+        ],
+      });
+    });
+    it("ignores empty filters array", () => {
+      expect(
+        FactMetricModel.migrateColumnRef({
+          factTableId: "ft_123",
+          column: "event_name",
+          filters: [],
+        }),
+      ).toEqual({
+        factTableId: "ft_123",
+        column: "event_name",
+        rowFilters: [],
+      });
+    });
+
+    it("ignores already migrated rowFilters", () => {
+      expect(
+        FactMetricModel.migrateColumnRef({
+          factTableId: "ft_123",
+          column: "event_name",
+          filters: ["filt_456"],
+          rowFilters: [
+            {
+              operator: "saved_filter",
+              values: ["filt_123"],
+            },
+          ],
+        }),
+      ).toEqual({
+        factTableId: "ft_123",
+        column: "event_name",
+        rowFilters: [
+          {
+            operator: "saved_filter",
+            values: ["filt_123"],
+          },
+        ],
+      });
+    });
+
+    it("migrates inline filters", () => {
+      expect(
+        FactMetricModel.migrateColumnRef({
+          factTableId: "ft_123",
+          column: "event_name",
+          inlineFilters: {
+            event_type: ["value1", "value2"],
+          },
+        }),
+      ).toEqual({
+        factTableId: "ft_123",
+        column: "event_name",
+        rowFilters: [
+          {
+            column: "event_type",
+            operator: "in",
+            values: ["value1", "value2"],
+          },
+        ],
+      });
+    });
+    it("migrates inline filters with a single value to =", () => {
+      expect(
+        FactMetricModel.migrateColumnRef({
+          factTableId: "ft_123",
+          column: "event_name",
+          inlineFilters: {
+            event_type: ["value1"],
+          },
+        }),
+      ).toEqual({
+        factTableId: "ft_123",
+        column: "event_name",
+        rowFilters: [
+          {
+            column: "event_type",
+            operator: "=",
+            values: ["value1"],
+          },
+        ],
+      });
+    });
+    it("migrates multiple inline filters", () => {
+      expect(
+        FactMetricModel.migrateColumnRef({
+          factTableId: "ft_123",
+          column: "event_name",
+          inlineFilters: {
+            event_type: ["value1", "value2"],
+            user_id: ["user1"],
+          },
+        }),
+      ).toEqual({
+        factTableId: "ft_123",
+        column: "event_name",
+        rowFilters: [
+          {
+            column: "event_type",
+            operator: "in",
+            values: ["value1", "value2"],
+          },
+          {
+            column: "user_id",
+            operator: "=",
+            values: ["user1"],
+          },
+        ],
+      });
+    });
+    it("ignores empty inline filters", () => {
+      expect(
+        FactMetricModel.migrateColumnRef({
+          factTableId: "ft_123",
+          column: "event_name",
+          inlineFilters: {},
+        }),
+      ).toEqual({
+        factTableId: "ft_123",
+        column: "event_name",
+        rowFilters: [],
+      });
+    });
+    it("ignores empty arrays in inline filters", () => {
+      expect(
+        FactMetricModel.migrateColumnRef({
+          factTableId: "ft_123",
+          column: "event_name",
+          inlineFilters: {
+            event_type: [],
+          },
+        }),
+      ).toEqual({
+        factTableId: "ft_123",
+        column: "event_name",
+        rowFilters: [],
+      });
+    });
+    it("ignores empty strings in arrays in inline filters", () => {
+      expect(
+        FactMetricModel.migrateColumnRef({
+          factTableId: "ft_123",
+          column: "event_name",
+          inlineFilters: {
+            event_type: [""],
+            other: ["value1", ""],
+          },
+        }),
+      ).toEqual({
+        factTableId: "ft_123",
+        column: "event_name",
+        rowFilters: [
+          {
+            column: "other",
+            operator: "=",
+            values: ["value1"],
+          },
+        ],
+      });
+    });
+    it("migrates both filters and inlineFilters", () => {
+      expect(
+        FactMetricModel.migrateColumnRef({
+          factTableId: "ft_123",
+          column: "event_name",
+          filters: ["filt_456"],
+          inlineFilters: {
+            event_type: ["value1", "value2"],
+          },
+        }),
+      ).toEqual({
+        factTableId: "ft_123",
+        column: "event_name",
+        rowFilters: [
+          {
+            operator: "saved_filter",
+            values: ["filt_456"],
+          },
+          {
+            column: "event_type",
+            operator: "in",
+            values: ["value1", "value2"],
+          },
+        ],
+      });
+    });
+    it("ignores filters and inlineFilters when rowFilters is defined", () => {
+      expect(
+        FactMetricModel.migrateColumnRef({
+          factTableId: "ft_123",
+          column: "event_name",
+          rowFilters: [],
+          filters: ["filt_456"],
+          inlineFilters: {
+            event_type: ["value1", "value2"],
+          },
+        }),
+      ).toEqual({
+        factTableId: "ft_123",
+        column: "event_name",
+        rowFilters: [],
+      });
+    });
+    it("Can unmigrate filters for API responses", () => {
+      const original: LegacyColumnRef = {
+        factTableId: "ft_123",
+        column: "event_name",
+        filters: ["filt_123", "filt_456"],
+        inlineFilters: {
+          event_type: ["value1", "value2"],
+          single_val: ["true"],
+        },
+      };
+      const migrated = FactMetricModel.migrateColumnRef(original);
+      expect(migrated).toEqual({
+        factTableId: "ft_123",
+        column: "event_name",
+        rowFilters: [
+          {
+            operator: "saved_filter",
+            values: ["filt_123"],
+          },
+          {
+            operator: "saved_filter",
+            values: ["filt_456"],
+          },
+          {
+            column: "event_type",
+            operator: "in",
+            values: ["value1", "value2"],
+          },
+          {
+            column: "single_val",
+            operator: "=",
+            values: ["true"],
+          },
+        ],
+      });
+
+      const apiVersion = FactMetricModel.addLegacyFiltersToColumnRef(migrated);
+      expect(apiVersion).toEqual({
+        ...original,
+        rowFilters: migrated.rowFilters,
+      });
     });
   });
 });
@@ -2033,7 +2322,7 @@ describe("saved group migrations", () => {
 
   it("migrates old saved groups without source", () => {
     expect(
-      migrateSavedGroup({
+      SavedGroupModel.migrateSavedGroup({
         ...baseSavedGroup,
         attributeKey: "foo",
         values: ["a", "b"],
@@ -2048,7 +2337,7 @@ describe("saved group migrations", () => {
 
   it("migrates saved groups with source=inline", () => {
     expect(
-      migrateSavedGroup({
+      SavedGroupModel.migrateSavedGroup({
         ...baseSavedGroup,
         attributeKey: "foo",
         values: ["a", "b"],
@@ -2064,7 +2353,7 @@ describe("saved group migrations", () => {
 
   it("migrates saved groups with source=runtime", () => {
     expect(
-      migrateSavedGroup({
+      SavedGroupModel.migrateSavedGroup({
         ...baseSavedGroup,
         attributeKey: "foo",
         values: [],
@@ -2081,7 +2370,7 @@ describe("saved group migrations", () => {
 
   it("does not migrate saved groups that already have type=list", () => {
     expect(
-      migrateSavedGroup({
+      SavedGroupModel.migrateSavedGroup({
         ...baseSavedGroup,
         attributeKey: "foo",
         values: ["a", "b"],
@@ -2098,7 +2387,7 @@ describe("saved group migrations", () => {
 
   it("does not migrate saved groups that already have type=condition", () => {
     expect(
-      migrateSavedGroup({
+      SavedGroupModel.migrateSavedGroup({
         ...baseSavedGroup,
         attributeKey: "foo",
         values: [],

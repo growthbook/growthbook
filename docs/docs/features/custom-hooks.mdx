@@ -38,6 +38,16 @@ When creating a Custom Hook, there is a built-in test interface where you can tw
 
 We recommend making heavy use of `console.log` statements while developing your hooks. This can help you inspect variables and understand the flow of execution.
 
+### Incremental Changes
+
+There is an option for each Custom Hook called "Incremental Changes Only". This affects the behavior of the hook during update operations. If the same error was already present before the update, the hook will be skipped.
+
+This is especially useful for enforcing rules that may be difficult to fix retroactively. For example, if you require all features to have at least one tag, enabling this option will prevent users from being blocked by existing features that violate this rule when they attempt to make unrelated changes.
+
+There are also cases where you would NOT want to enable this option. For example, if you have a hook that prevents publishing changes to "locked" features, you would want this to run every time to ensure the lock is still in place.
+
+**Important**: When using this option, be sure to limit each hook to a single validation check. Otherwise, a failing check early in the hook code may cause later checks to be bypassed unintentionally.
+
 ## Hook Types
 
 GrowthBook supports a few different Custom Hooks. Each hook type is triggered at a different point in the validation process and has different input parameters.
@@ -51,7 +61,9 @@ Example: Require a non-empty description before the feature is toggled ON in pro
 ```js
 if (feature.environmentSettings.production.enabled) {
   if (feature.description.trim() === "") {
-    throw new Error("Feature description is required when enabling in production.");
+    throw new Error(
+      "Feature description is required when enabling in production."
+    );
   }
 }
 ```
@@ -60,7 +72,9 @@ Example: Require all features to have at least 1 tag.
 
 ```js
 if (feature.tags.length === 0) {
-  throw new Error("All features must have at least one tag.");
+  throw new Error(
+    "All features must have at least one tag."
+  );
 }
 ```
 
@@ -68,7 +82,9 @@ Example: Don't allow empty objects as the default value for JSON features.
 
 ```js
 if (feature.valueType === "json" && feature.defaultValue === "{}") {
-  throw new Error("Default value for JSON features cannot be an empty object.");
+  throw new Error(
+    "Default value for JSON features cannot be an empty object."
+  );
 }
 ```
 
@@ -80,7 +96,9 @@ Example: Require a comment before publishing a draft.
 
 ```js
 if (revision.status === "published" && !revision.comment) {
-    throw new Error("A comment is required before publishing a revision.");
+  throw new Error(
+    "A comment is required before publishing a revision."
+  );
 }
 ```
 
@@ -88,13 +106,13 @@ Example: Require all percentage rollouts to use `userId` as the hashing attribut
 
 ```js
 for (const env in revision.rules) {
-    for (const rule of revision.rules[env]) {
-        if (rule.type === "rollout" && rule.hashAttribute !== "userId") {
-            throw new Error(
-                "All percentage rollouts must use 'userId' as the hashing attribute."
-            );
-        }
+  for (const rule of revision.rules[env]) {
+    if (rule.type === "rollout" && rule.hashAttribute !== "userId") {
+      throw new Error(
+        "All rollouts must use 'userId' as the hash attribute."
+      );
     }
+  }
 }
 ```
 
@@ -110,7 +128,7 @@ for (const env in revision.rules) {
                 // Look for the quoted attribute name anywhere in the string
                 if (rule.condition.includes(`"${attr}"`)) {
                     throw new Error(
-                        `Targeting by PII attribute '${attr}' is not allowed.`
+                        `Targeting by PII (${attr}) is not allowed.`
                     );
                 }
             }
@@ -122,23 +140,36 @@ for (const env in revision.rules) {
 Example: Call an external service to validate feature naming conventions.
 
 ```js
-const response = await fetch("https://example.com/validate-feature-name", {
+const response = await fetch(
+  "https://example.com/validate-feature-name",
+  {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ featureName: feature.name }),
-});
+  }
+);
 const result = await response.json();
 if (!result.isValid) {
-    throw new Error(result.message || "Feature name validation failed.");
+  throw new Error(
+    result.message || "Feature name validation failed."
+  );
 }
 ```
 
 Example: If a feature has a "locked" tag, prevent publishing changes (except for one specific admin).
 
 ```js
-if (feature.tags.includes("locked") && revision.status === "published") {
-    if (revision.publishedBy?.email !== "admin@example.com") {
-        throw new Error("This feature is locked and cannot be published.");
+if (
+  feature.tags.includes("locked")
+  && revision.status === "published"
+) {
+    if (
+      revision.publishedBy?.email
+      !== "admin@example.com"
+    ) {
+        throw new Error(
+          "This feature is locked and cannot be published."
+        );
     }
 }
 ```

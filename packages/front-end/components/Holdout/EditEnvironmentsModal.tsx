@@ -1,13 +1,13 @@
-import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
+import { HoldoutInterfaceStringDates } from "shared/validators";
 import { useForm } from "react-hook-form";
 import { Box, Text } from "@radix-ui/themes";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
-import EnvironmentSelect from "../Features/FeatureModal/EnvironmentSelect";
-import Modal from "../Modal";
+import EnvironmentSelect from "@/components/Features/FeatureModal/EnvironmentSelect";
+import Modal from "@/components/Modal";
 import { genEnvironmentSettings } from "./NewHoldoutForm";
 
 const EditEnvironmentsModal = ({
@@ -16,7 +16,7 @@ const EditEnvironmentsModal = ({
   handleCloseModal,
   mutate,
 }: {
-  holdout: HoldoutInterface;
+  holdout: HoldoutInterfaceStringDates;
   experiment: ExperimentInterfaceStringDates;
   handleCloseModal: () => void;
   mutate: () => void;
@@ -25,7 +25,7 @@ const EditEnvironmentsModal = ({
   const permissionsUtils = usePermissionsUtil();
   const { apiCall } = useAuth();
 
-  const form = useForm<Partial<HoldoutInterface>>({
+  const form = useForm<Partial<HoldoutInterfaceStringDates>>({
     defaultValues: {
       environmentSettings:
         holdout.environmentSettings ||
@@ -39,7 +39,7 @@ const EditEnvironmentsModal = ({
 
   const onSubmit = form.handleSubmit(async (rawValue) => {
     await apiCall<{
-      holdout: HoldoutInterface;
+      holdout: HoldoutInterfaceStringDates;
     }>(`/holdout/${holdout.id}`, {
       method: "PUT",
       body: JSON.stringify({

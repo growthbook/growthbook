@@ -1,6 +1,11 @@
 import { Request, Response } from "express";
 import { v4 as uuidv4 } from "uuid";
 import {
+  SignedImageUrlResponse,
+  SignedUploadUrlResponse,
+  UploadResponse,
+} from "shared/types/upload";
+import {
   uploadFile,
   getSignedImageUrl,
   getSignedUploadUrl,
@@ -11,13 +16,12 @@ import {
   getContextFromReq,
   getOrganizationById,
 } from "back-end/src/services/organizations";
-import {
-  SignedImageUrlResponse,
-  SignedUploadUrlResponse,
-  UploadResponse,
-} from "back-end/types/upload";
 import { UPLOAD_METHOD } from "back-end/src/util/secrets";
 import { getExperimentByUid } from "back-end/src/models/ExperimentModel";
+import {
+  getReportByUid,
+  getReportsByExperimentId,
+} from "back-end/src/models/ReportModel";
 
 const SIGNED_IMAGE_EXPIRY_MINUTES = 15;
 
@@ -39,18 +43,21 @@ export async function putUpload(
   req: AuthRequest<Buffer>,
   res: Response<UploadResponse>,
 ) {
+  const context = getContextFromReq(req);
+
   // Only handle direct uploads for local storage
   if (UPLOAD_METHOD !== "local") {
-    throw new Error(
+    context.throwBadRequestError(
       "Direct uploads are only supported for local storage. Use /upload/signed-url-for-upload for cloud storage.",
     );
   }
 
   const contentType = req.headers["content-type"] as string;
-  const context = getContextFromReq(req);
 
   if (context.org.settings?.blockFileUploads) {
-    throw new Error("File uploads are disabled for this organization");
+    context.throwBadRequestError(
+      "File uploads are disabled for this organization",
+    );
   }
 
   // The user can upload images if they have permission to add comments globally, or in atleast 1 project
@@ -59,7 +66,7 @@ export async function putUpload(
   }
 
   if (!(contentType in mimetypes)) {
-    throw new Error(
+    context.throwBadRequestError(
       `Invalid image file type. Only ${Object.keys(mimetypes).join(
         ", ",
       )} accepted.`,
@@ -81,24 +88,27 @@ export async function putUpload(
 }
 
 export function getImage(req: AuthRequest<{ path: string }>, res: Response) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const org = context.org;
 
   if (org.settings?.blockFileUploads) {
-    throw new Error("File uploads are disabled for this organization");
+    context.throwBadRequestError(
+      "File uploads are disabled for this organization",
+    );
   }
 
   const path = req.path[0] === "/" ? req.path.substr(1) : req.path;
 
   const orgFromPath = path.split("/")[0];
   if (orgFromPath !== org.id) {
-    throw new Error("Invalid organization");
+    context.throwBadRequestError("Invalid organization");
   }
 
   const ext = path.split(".")?.pop()?.toLowerCase() ?? "";
   const contentType = extensionsToMimetype[ext] ?? "";
 
   if (!contentType) {
-    throw new Error(`Invalid file extension: ${ext}`);
+    context.throwBadRequestError(`Invalid file extension: ${ext}`);
   }
 
   res.status(200).contentType(contentType);
@@ -111,17 +121,20 @@ export async function getSignedImageToken(
   req: AuthRequest<{ path: string }>,
   res: Response<SignedImageUrlResponse>,
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const org = context.org;
 
   if (org.settings?.blockFileUploads) {
-    throw new Error("File uploads are disabled for this organization");
+    context.throwBadRequestError(
+      "File uploads are disabled for this organization",
+    );
   }
 
   const fullPath = req.path.substring("/signed-url/".length);
 
   const orgFromPath = fullPath.split("/")[0];
   if (orgFromPath !== org.id) {
-    throw new Error("Invalid organization");
+    context.throwBadRequestError("Invalid organization");
   }
 
   const signedUrl = await getSignedImageUrl(
@@ -142,10 +155,12 @@ export async function getSignedUploadToken(
   res: Response<SignedUploadUrlResponse>,
 ) {
   const context = getContextFromReq(req);
-  const { org } = getContextFromReq(req);
+  const org = context.org;
 
   if (org.settings?.blockFileUploads) {
-    throw new Error("File uploads are disabled for this organization");
+    context.throwBadRequestError(
+      "File uploads are disabled for this organization",
+    );
   }
 
   // The user can upload images if they have permission to add comments globally, or in at least 1 project
@@ -156,7 +171,7 @@ export async function getSignedUploadToken(
   const contentType = req.body?.contentType;
 
   if (!contentType || !(contentType in mimetypes)) {
-    throw new Error(
+    return context.throwBadRequestError(
       `Invalid or missing content type. Only ${Object.keys(mimetypes).join(
         ", ",
       )} accepted.`,
@@ -169,7 +184,7 @@ export async function getSignedUploadToken(
   const fileName = "img_" + uuidv4();
   const filePath = `${pathPrefix}${fileName}.${ext}`;
 
-  const { signedUrl, fileUrl } = await getSignedUploadUrl(
+  const { signedUrl, fileUrl, fields } = await getSignedUploadUrl(
     filePath,
     contentType,
     SIGNED_IMAGE_EXPIRY_MINUTES,
@@ -179,6 +194,7 @@ export async function getSignedUploadToken(
     signedUrl,
     fileUrl,
     filePath,
+    fields, // Include POST form fields for S3
     expiresAt: new Date(
       Date.now() + SIGNED_IMAGE_EXPIRY_MINUTES * 60 * 1000,
     ).toISOString(),
@@ -189,39 +205,82 @@ export async function getSignedPublicImageToken(
   req: Request<{ path: string }>,
   res: Response<SignedImageUrlResponse | { status: number; message: string }>,
 ) {
-  // Get the experiment UID from query parameter
-  const experimentUid = req.query.experimentUid as string | undefined;
+  // Get the shareUid and shareType from query parameters
+  const shareUid = req.query.shareUid as string | undefined;
+  const shareType = req.query.shareType as "experiment" | "report" | undefined;
 
-  if (!experimentUid) {
+  if (!shareUid) {
     res.status(400).json({
       status: 400,
-      message: "Missing experimentUid query parameter",
+      message: "Missing shareUid query parameter",
     });
     return;
   }
 
-  // Look up the experiment by UID
-  const experiment = await getExperimentByUid(experimentUid);
-
-  if (!experiment) {
-    res.status(404).json({
-      status: 404,
-      message: "Experiment not found",
+  if (!shareType || (shareType !== "experiment" && shareType !== "report")) {
+    res.status(400).json({
+      status: 400,
+      message:
+        "Invalid or missing shareType query parameter. Must be 'experiment' or 'report'",
     });
     return;
   }
 
-  // Verify the experiment is publicly shared
-  if (experiment.shareLevel !== "public") {
-    res.status(403).json({
-      status: 403,
-      message: "Experiment is not publicly shared",
-    });
-    return;
+  let organizationId: string;
+  let experiment;
+
+  if (shareType === "experiment") {
+    // Look up the experiment by UID
+    experiment = await getExperimentByUid(shareUid);
+
+    if (!experiment) {
+      res.status(404).json({
+        status: 404,
+        message: "Experiment not found",
+      });
+      return;
+    }
+
+    // Verify the experiment is publicly shared
+    if (experiment.shareLevel !== "public") {
+      res.status(403).json({
+        status: 403,
+        message: "Experiment is not publicly shared",
+      });
+      return;
+    }
+
+    organizationId = experiment.organization;
+  } else {
+    // shareType === "report"
+    // Look up the report by UID
+    const report = await getReportByUid(shareUid);
+
+    if (!report || report.type !== "experiment-snapshot") {
+      res.status(404).json({
+        status: 404,
+        message: "Report not found",
+      });
+      return;
+    }
+
+    // Verify the report is publicly shared
+    if (report.shareLevel !== "public") {
+      res.status(403).json({
+        status: 403,
+        message: "Report is not publicly shared",
+      });
+      return;
+    }
+
+    organizationId = report.organization;
+
+    // Note: We check the report description below, but we don't load the experiment
+    // variation screenshots for reports since those are not included in reports
   }
 
   // Get the organization to check settings
-  const org = await getOrganizationById(experiment.organization);
+  const org = await getOrganizationById(organizationId);
 
   if (!org) {
     res.status(404).json({
@@ -244,9 +303,9 @@ export async function getSignedPublicImageToken(
   // /upload/public-signed-url/org_xxx/2025-10/img_xxx.jpeg
   const fullPath = req.path.substring("/upload/public-signed-url/".length);
 
-  // Verify the org in the path matches the experiment's organization
+  // Verify the org in the path matches the organization
   const orgFromPath = fullPath.split("/")[0];
-  if (orgFromPath !== experiment.organization) {
+  if (orgFromPath !== organizationId) {
     res.status(403).json({
       status: 403,
       message: "Invalid organization",
@@ -254,52 +313,81 @@ export async function getSignedPublicImageToken(
     return;
   }
 
-  // Verify the image path exists in the experiment (variations or description markdown)
+  // Verify the image path exists based on shareType
   let imageFound = false;
 
-  // Check variation screenshots
-  for (const variation of experiment.variations) {
-    if (variation.screenshots) {
-      for (const screenshot of variation.screenshots) {
-        // Extract the path from the screenshot URL if it's a full URL
-        let screenshotPath = screenshot.path;
-        try {
-          const url = new URL(screenshot.path);
-          screenshotPath = url.pathname;
-          // Remove leading slash if present
-          if (screenshotPath.startsWith("/")) {
-            screenshotPath = screenshotPath.substring(1);
+  if (shareType === "experiment" && experiment) {
+    // For experiments, check variation screenshots and description
+    for (const variation of experiment.variations) {
+      if (variation.screenshots) {
+        for (const screenshot of variation.screenshots) {
+          // Extract the path from the screenshot URL if it's a full URL
+          let screenshotPath = screenshot.path;
+          try {
+            const url = new URL(screenshot.path);
+            screenshotPath = url.pathname;
+            // Remove leading slash if present
+            if (screenshotPath.startsWith("/")) {
+              screenshotPath = screenshotPath.substring(1);
+            }
+            // Remove /upload/ prefix if present
+            if (screenshotPath.startsWith("upload/")) {
+              screenshotPath = screenshotPath.substring(7);
+            }
+          } catch {
+            // Not a full URL, use as-is
           }
-          // Remove /upload/ prefix if present
-          if (screenshotPath.startsWith("upload/")) {
-            screenshotPath = screenshotPath.substring(7);
-          }
-        } catch {
-          // Not a full URL, use as-is
-        }
 
-        if (screenshotPath === fullPath || screenshot.path.includes(fullPath)) {
+          if (
+            screenshotPath === fullPath ||
+            screenshot.path.includes(fullPath)
+          ) {
+            imageFound = true;
+            break;
+          }
+        }
+        if (imageFound) break;
+      }
+    }
+
+    // Check experiment description for image references
+    if (
+      !imageFound &&
+      experiment.description &&
+      experiment.description.includes(fullPath)
+    ) {
+      imageFound = true;
+    }
+
+    // Check public reports associated with this experiment for image references
+    if (!imageFound) {
+      const reports = await getReportsByExperimentId(
+        experiment.organization,
+        experiment.id,
+      );
+      const publicReports = reports.filter(
+        (r) => r.type === "experiment-snapshot" && r.shareLevel === "public",
+      );
+
+      for (const report of publicReports) {
+        if (report.description && report.description.includes(fullPath)) {
           imageFound = true;
           break;
         }
       }
-      if (imageFound) break;
     }
-  }
-
-  // Check description for image references
-  if (
-    !imageFound &&
-    experiment.description &&
-    experiment.description.includes(fullPath)
-  ) {
-    imageFound = true;
+  } else if (shareType === "report") {
+    // For reports, we already loaded the report above
+    const report = await getReportByUid(shareUid);
+    if (report && report.description && report.description.includes(fullPath)) {
+      imageFound = true;
+    }
   }
 
   if (!imageFound) {
     res.status(404).json({
       status: 404,
-      message: "Image not found in experiment data",
+      message: "Image not found in experiment or report data",
     });
     return;
   }

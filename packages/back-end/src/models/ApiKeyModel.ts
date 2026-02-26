@@ -2,14 +2,14 @@ import crypto from "crypto";
 import { webcrypto } from "node:crypto";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { ApiKeyInterface, SecretApiKey } from "back-end/types/apikey";
+import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
 import {
   IS_MULTI_ORG,
   SECRET_API_KEY,
   SECRET_API_KEY_ROLE,
 } from "back-end/src/util/secrets";
 import { roleForApiKey } from "back-end/src/util/api-key.util";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
   ToInterface,

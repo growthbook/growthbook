@@ -1,6 +1,5 @@
-import { ProjectInterface } from "back-end/types/project";
+import { ProjectInterface } from "shared/types/project";
 import { useRouter } from "next/router";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -22,9 +21,6 @@ const ViewSampleDataButton = ({
 
   const { mutateDefinitions } = useDefinitions();
 
-  const gb = useGrowthBook();
-  const useNewSampleData = gb.isOn("new-sample-data");
-
   const openSample = async () => {
     if (exists && demoExperimentId) {
       if (resource === "experiment") {
@@ -33,20 +29,15 @@ const ViewSampleDataButton = ({
         router.push(`/features/${demoFeatureId}`);
       }
     } else {
-      track("Create Sample Project", {
-        source: "get-started",
-      });
       const res = await apiCall<{
         project: ProjectInterface;
         experimentId: string;
-      }>(
-        useNewSampleData
-          ? "/demo-datasource-project/new"
-          : "/demo-datasource-project",
-        {
-          method: "POST",
-        },
-      );
+      }>("/demo-datasource-project", {
+        method: "POST",
+      });
+      track("Create Sample Project", {
+        source: "get-started",
+      });
       await mutateDefinitions();
       if (res.experimentId) {
         if (resource === "experiment") {

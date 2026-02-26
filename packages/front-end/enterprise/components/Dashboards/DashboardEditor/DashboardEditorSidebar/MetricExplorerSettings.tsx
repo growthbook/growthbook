@@ -1,13 +1,13 @@
 import {
   DashboardBlockInterfaceOrData,
   MetricExplorerBlockInterface,
-} from "back-end/src/enterprise/validators/dashboard-block";
+} from "shared/enterprise";
 import React, { useEffect, useState } from "react";
 import { Flex, TextField, Text, Box } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
 import { PiSlidersHorizontal, PiWrench } from "react-icons/pi";
 import { FaAngleRight } from "react-icons/fa";
-import { FactTableInterface } from "back-end/types/fact-table";
+import { FactTableInterface } from "shared/types/fact-table";
 import { Select, SelectItem } from "@/ui/Select";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import PopulationChooser from "@/components/MetricAnalysis/PopulationChooser";
@@ -58,7 +58,7 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
   useEffect(() => {
     // If there is only one userId type for a Fact Table and no userId type is selected, auto-select for the user
     if (
-      factTable?.userIdTypes?.length === 1 &&
+      factTable?.userIdTypes?.length &&
       block.analysisSettings.userIdType === ""
     ) {
       setBlock({

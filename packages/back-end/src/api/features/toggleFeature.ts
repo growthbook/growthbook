@@ -1,5 +1,6 @@
+import { ToggleFeatureResponse } from "shared/types/openapi";
+import { toggleFeatureValidator } from "shared/validators";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
-import { ToggleFeatureResponse } from "back-end/types/openapi";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import {
   getFeature,
@@ -12,7 +13,6 @@ import {
 } from "back-end/src/services/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { toggleFeatureValidator } from "back-end/src/validators/openapi";
 
 export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
   async (req): Promise<ToggleFeatureResponse> => {
@@ -61,7 +61,7 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
       });
     }
 
-    const groupMap = await getSavedGroupMap(req.organization);
+    const groupMap = await getSavedGroupMap(req.context);
     const experimentMap = await getExperimentMapForFeature(
       req.context,
       updatedFeature.id,

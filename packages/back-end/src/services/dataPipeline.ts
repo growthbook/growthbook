@@ -4,13 +4,13 @@ import {
   isRatioMetric,
   quantileMetricType,
 } from "shared/experiments";
-import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
+import { IncrementalRefreshInterface } from "shared/validators";
+import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import { OrganizationInterface } from "shared/types/organization";
+import { ExperimentInterface } from "shared/types/experiment";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
-import { IncrementalRefreshInterface } from "back-end/src/validators/incremental-refresh";
-import { OrganizationInterface } from "back-end/types/organization";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
-import { ExperimentInterface } from "back-end/types/experiment";
 import {
   getExperimentSettingsHashForIncrementalRefresh,
   getMetricSettingsHashForIncrementalRefresh,

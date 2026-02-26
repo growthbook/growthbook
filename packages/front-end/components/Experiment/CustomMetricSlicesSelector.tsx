@@ -9,20 +9,19 @@ import {
 import { Text, Flex, IconButton } from "@radix-ui/themes";
 import {
   isFactMetric,
-  generatePinnedSliceKey,
   expandMetricGroups,
   SliceLevelsData,
 } from "shared/experiments";
-import { FactMetricInterface } from "back-end/types/fact-table";
+import { FactMetricInterface } from "shared/types/fact-table";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { CustomMetricSlice } from "back-end/src/validators/experiments";
+import { CustomMetricSlice } from "shared/validators";
 import Badge from "@/ui/Badge";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import SelectField from "@/components/Forms/SelectField";
 import Field from "@/components/Forms/Field";
 import Button from "@/ui/Button";
-import { DocLink } from "../DocLink";
+import { DocLink } from "@/components/DocLink";
 
 interface MetricWithStringColumns extends FactMetricInterface {
   stringColumns: Array<{
@@ -41,8 +40,6 @@ export interface CustomMetricSlicesSelectorProps {
   guardrailMetrics: string[];
   customMetricSlices: CustomMetricSlice[];
   setCustomMetricSlices: (slices: CustomMetricSlice[]) => void;
-  pinnedMetricSlices: string[];
-  setPinnedMetricSlices: (slices: string[]) => void;
 }
 
 export default function CustomMetricSlicesSelector({
@@ -51,8 +48,6 @@ export default function CustomMetricSlicesSelector({
   guardrailMetrics,
   customMetricSlices,
   setCustomMetricSlices,
-  pinnedMetricSlices,
-  setPinnedMetricSlices,
 }: CustomMetricSlicesSelectorProps) {
   const growthbook = useGrowthBook();
   const hasMetricSlicesFeature = growthbook?.isOn("metric-slices");
@@ -168,72 +163,12 @@ export default function CustomMetricSlicesSelector({
   const saveEditing = () => {
     if (editingSliceLevels.length === 0) return;
 
-    const sliceLevelsFormatted = editingSliceLevels.map((dl) => {
-      // For boolean "null" slices, use empty array to generate correct pin ID
-      const levels =
-        dl.levels[0] === "null" && dl.datatype === "boolean"
-          ? []
-          : dl.levels[0]
-            ? [dl.levels[0]]
-            : [];
-
-      return {
-        column: dl.column,
-        datatype: dl.datatype,
-        levels,
-      };
-    });
-
     const newLevels: CustomMetricSlice = {
       slices: editingSliceLevels.map((dl) => ({
         column: dl.column,
         levels: dl.levels,
       })),
     };
-
-    // Remove old pinned keys if editing existing entry
-    const keysToRemove: string[] = [];
-    if (editState === "editing" && editingIndex !== null) {
-      const oldLevels = customMetricSlices[editingIndex as number];
-      const oldSliceLevelsFormatted = oldLevels.slices.map((dl) => {
-        // Look up datatype from metricsWithStringColumns
-        const columnMetadata = metricsWithStringColumns
-          .flatMap((metric) => metric.stringColumns || [])
-          .find((col) => col.column === dl.column);
-
-        return {
-          column: dl.column,
-          datatype: (columnMetadata?.datatype === "boolean"
-            ? "boolean"
-            : "string") as "string" | "boolean",
-          levels: dl.levels[0] ? [dl.levels[0]] : [],
-        };
-      });
-
-      // Remove pins for all applicable metrics for the old slice combination
-      [
-        ...expandedGoalMetrics,
-        ...expandedSecondaryMetrics,
-        ...expandedGuardrailMetrics,
-      ].forEach((metricId) => {
-        const locations: ("goal" | "secondary" | "guardrail")[] = [];
-        if (expandedGoalMetrics.includes(metricId)) locations.push("goal");
-        if (expandedSecondaryMetrics.includes(metricId))
-          locations.push("secondary");
-        if (expandedGuardrailMetrics.includes(metricId))
-          locations.push("guardrail");
-
-        locations.forEach((location) => {
-          keysToRemove.push(
-            generatePinnedSliceKey(
-              metricId,
-              oldSliceLevelsFormatted,
-              location as "goal" | "secondary" | "guardrail",
-            ),
-          );
-        });
-      });
-    }
 
     // Update the custom slice levels
     let updatedLevels: CustomMetricSlice[];
@@ -248,99 +183,15 @@ export default function CustomMetricSlicesSelector({
 
     setCustomMetricSlices(updatedLevels);
 
-    // Generate new pinned keys for all applicable metrics
-    const newKeys: string[] = [];
-    [
-      ...expandedGoalMetrics,
-      ...expandedSecondaryMetrics,
-      ...expandedGuardrailMetrics,
-    ].forEach((metricId) => {
-      const locations: ("goal" | "secondary" | "guardrail")[] = [];
-      if (expandedGoalMetrics.includes(metricId)) locations.push("goal");
-      if (expandedSecondaryMetrics.includes(metricId))
-        locations.push("secondary");
-      if (expandedGuardrailMetrics.includes(metricId))
-        locations.push("guardrail");
-
-      locations.forEach((location) => {
-        newKeys.push(
-          generatePinnedSliceKey(
-            metricId,
-            sliceLevelsFormatted,
-            location as "goal" | "secondary" | "guardrail",
-          ),
-        );
-      });
-    });
-
-    // Update pinnedSliceLevels by removing old keys and adding new ones
-    setPinnedMetricSlices([
-      ...pinnedMetricSlices.filter((key) => !keysToRemove.includes(key)),
-      ...newKeys,
-    ]);
-
     cancelEditing();
   };
 
   // Remove a metric slice levels entry
   const removeMetricSliceLevels = (levelsIndex: number) => {
-    const levelsToRemove = customMetricSlices[levelsIndex];
     const updatedLevels = customMetricSlices.filter(
       (_, i) => i !== levelsIndex,
     );
     setCustomMetricSlices(updatedLevels);
-
-    // Auto-unpin custom slice levels from all applicable metrics
-    const sliceLevelsFormatted = levelsToRemove.slices.map((dl) => {
-      // Find the column metadata to check if it's boolean
-      const columnMetadata = metricsWithStringColumns
-        .flatMap((metric) => metric.stringColumns || [])
-        .find((col) => col.column === dl.column);
-
-      // For boolean "null" slices, use empty array to generate correct pin ID
-      const levels =
-        dl.levels[0] === "null" && columnMetadata?.datatype === "boolean"
-          ? []
-          : dl.levels[0]
-            ? [dl.levels[0]]
-            : [];
-
-      return {
-        column: dl.column,
-        datatype: (columnMetadata?.datatype === "boolean"
-          ? "boolean"
-          : "string") as "string" | "boolean",
-        levels,
-      };
-    });
-
-    const keysToRemove: string[] = [];
-    [
-      ...expandedGoalMetrics,
-      ...expandedSecondaryMetrics,
-      ...expandedGuardrailMetrics,
-    ].forEach((metricId) => {
-      const locations: ("goal" | "secondary" | "guardrail")[] = [];
-      if (expandedGoalMetrics.includes(metricId)) locations.push("goal");
-      if (expandedSecondaryMetrics.includes(metricId))
-        locations.push("secondary");
-      if (expandedGuardrailMetrics.includes(metricId))
-        locations.push("guardrail");
-
-      locations.forEach((location) => {
-        keysToRemove.push(
-          generatePinnedSliceKey(
-            metricId,
-            sliceLevelsFormatted,
-            location as "goal" | "secondary" | "guardrail",
-          ),
-        );
-      });
-    });
-
-    setPinnedMetricSlices(
-      pinnedMetricSlices.filter((key) => !keysToRemove.includes(key)),
-    );
   };
 
   // Remove a slice level from the current editing levels

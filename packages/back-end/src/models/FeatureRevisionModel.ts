@@ -1,16 +1,17 @@
 import mongoose from "mongoose";
 import omit from "lodash/omit";
 import { checkIfRevisionNeedsReview } from "shared/util";
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
+import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import {
   FeatureRevisionInterface,
   RevisionLog,
-} from "back-end/types/feature-revision";
-import { EventUser, EventUserLoggedIn } from "back-end/src/events/event-types";
-import { OrganizationInterface, ReqContext } from "back-end/types/organization";
+} from "shared/types/feature-revision";
+import { EventUser, EventUserLoggedIn } from "shared/types/events/event-types";
+import { OrganizationInterface } from "shared/types/organization";
+import { MinimalFeatureRevisionInterface } from "shared/validators";
+import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { applyEnvironmentInheritance } from "back-end/src/util/features";
-import { MinimalFeatureRevisionInterface } from "back-end/src/validators/features";
 import { logger } from "back-end/src/util/logger";
 import { runValidateFeatureRevisionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 
@@ -110,7 +111,7 @@ export async function getMinimalRevisions(
   })
     .select("version datePublished dateUpdated createdBy status")
     .sort({ version: -1 })
-    .limit(25);
+    .limit(200);
 
   return docs.map((m) => ({
     version: m.version,
@@ -203,6 +204,26 @@ export async function getRevision({
   return doc ? toInterface(doc, context) : null;
 }
 
+export async function getRevisionsByVersions({
+  context,
+  organization,
+  featureId,
+  versions,
+}: {
+  context: ReqContext | ApiReqContext;
+  organization: string;
+  featureId: string;
+  versions: number[];
+}) {
+  const docs = await FeatureRevisionModel.find({
+    organization,
+    featureId,
+    version: { $in: versions },
+  }).select("-log");
+
+  return docs.map((doc) => toInterface(doc, context));
+}
+
 export async function getRevisionsByStatus(
   context: ReqContext,
   statuses: string[],
@@ -263,6 +284,22 @@ export async function createRevisionFromLegacyDraft(
   return toInterface(doc, context);
 }
 
+async function getLastRevision(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+): Promise<FeatureRevisionInterface | null> {
+  const lastRevision = (
+    await FeatureRevisionModel.find({
+      organization: context.org.id,
+      featureId: feature.id,
+    })
+      .sort({ version: -1 })
+      .limit(1)
+  )[0];
+
+  return lastRevision ? toInterface(lastRevision, context) : null;
+}
+
 export async function createRevision({
   context,
   feature,
@@ -287,14 +324,7 @@ export async function createRevision({
   canBypassApprovalChecks?: boolean;
 }) {
   // Get max version number
-  const lastRevision = (
-    await FeatureRevisionModel.find({
-      organization: feature.organization,
-      featureId: feature.id,
-    })
-      .sort({ version: -1 })
-      .limit(1)
-  )[0];
+  const lastRevision = await getLastRevision(context, feature);
   const newVersion = lastRevision ? lastRevision.version + 1 : 1;
 
   const defaultValue =
@@ -312,6 +342,10 @@ export async function createRevision({
   });
 
   if (!baseVersion) baseVersion = lastRevision?.version;
+  if (!baseVersion) {
+    throw new Error("can not determine base version for new revision");
+  }
+
   const baseRevision =
     lastRevision?.version === baseVersion
       ? lastRevision
@@ -356,7 +390,12 @@ export async function createRevision({
     revision.status = "pending-review";
   }
 
-  await runValidateFeatureRevisionHooks(context, feature, revision);
+  await runValidateFeatureRevisionHooks({
+    context,
+    feature,
+    revision,
+    original: baseRevision,
+  });
 
   const doc = await FeatureRevisionModel.create(revision);
 
@@ -418,10 +457,15 @@ export async function updateRevision(
     status = "pending-review";
   }
 
-  await runValidateFeatureRevisionHooks(context, feature, {
-    ...revision,
-    ...changes,
-    status,
+  await runValidateFeatureRevisionHooks({
+    context,
+    feature,
+    revision: {
+      ...revision,
+      ...changes,
+      status,
+    },
+    original: revision,
   });
 
   await FeatureRevisionModel.updateOne(
@@ -466,9 +510,14 @@ export async function markRevisionAsPublished(
     comment: revisionComment,
   };
 
-  await runValidateFeatureRevisionHooks(context, feature, {
-    ...revision,
-    ...changes,
+  await runValidateFeatureRevisionHooks({
+    context,
+    feature,
+    revision: {
+      ...revision,
+      ...changes,
+    },
+    original: revision,
   });
 
   await FeatureRevisionModel.updateOne(

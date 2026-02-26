@@ -1,14 +1,14 @@
-import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
+import { HoldoutInterfaceStringDates } from "shared/validators";
 import { Box, Text } from "@radix-ui/themes";
 import { useRouter } from "next/router";
 import { date } from "shared/dates";
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import Link from "@/ui/Link";
-import ValueDisplay from "../Features/ValueDisplay";
+import ValueDisplay from "@/components/Features/ValueDisplay";
 
 interface Props {
-  holdout: HoldoutInterface;
+  holdout: HoldoutInterfaceStringDates;
   features: FeatureInterface[];
 }
 

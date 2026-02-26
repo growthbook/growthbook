@@ -1,22 +1,25 @@
 import {
   ExperimentInterfaceStringDates,
   ExperimentStatus,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import { useForm } from "react-hook-form";
 import { datetime } from "shared/dates";
-import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
+import { HoldoutInterfaceStringDates } from "shared/validators";
+import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import SelectField from "@/components/Forms/SelectField";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import DatePicker from "@/components/DatePicker";
+import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   close: () => void;
   source?: string;
-  holdout?: HoldoutInterface;
+  holdout?: HoldoutInterfaceStringDates;
 }
 
 export default function EditStatusModal({
@@ -60,7 +63,7 @@ export default function EditStatusModal({
       ? [
           {
             value: "analysis",
-            label: "Analysis Period",
+            label: "Analysis Phase",
           },
         ]
       : []),
@@ -73,7 +76,10 @@ export default function EditStatusModal({
     <Modal
       trackingEventModalType="edit-status-modal"
       trackingEventModalSource={source}
-      header={isHoldout ? "Change Holdout Status" : "Change Experiment Status"}
+      header={
+        isHoldout ? "Force Holdout Status Change" : "Change Experiment Status"
+      }
+      bodyClassName="px-5"
       close={close}
       open={true}
       submit={form.handleSubmit(
@@ -96,6 +102,13 @@ export default function EditStatusModal({
               method: "POST",
               body: JSON.stringify(value),
             });
+            await apiCall(`/holdout/${holdout.id}`, {
+              method: "PUT",
+              body: JSON.stringify({
+                statusUpdateSchedule: null,
+                nextScheduledStatusUpdate: null,
+              }),
+            });
             mutate();
           } else {
             await apiCall(`/experiment/${experiment.id}/status`, {
@@ -106,12 +119,24 @@ export default function EditStatusModal({
           }
         },
       )}
+      cta="Update"
+      submitColor="danger"
+      useRadixButton={true}
     >
+      {isHoldout && (
+        <Box mb="5">
+          <Text size="medium" color="text-mid">
+            <strong>Warning: </strong>Changing the status of a Holdout will
+            delete the existing schedule and could change the behavior of
+            associated Feature Flags and Metrics.
+          </Text>
+        </Box>
+      )}
       {hasLinkedChanges && (
-        <div className="alert alert-danger">
-          <strong>Warning:</strong> Changes you make here will immediately
-          affect any linked Feature Flags or Visual Changes.
-        </div>
+        <Callout status="warning">
+          Changes you make here will immediately affect any linked Feature Flags
+          or Visual Changes.
+        </Callout>
       )}
       <SelectField
         label="Status"

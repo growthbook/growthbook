@@ -1,8 +1,7 @@
-import {
-  SavedQuery,
-  savedQueryValidator,
-} from "back-end/src/validators/saved-queries";
-import { MakeModelClass, UpdateProps } from "./BaseModel";
+import { UpdateProps } from "shared/types/base-model";
+import { SavedQuery, savedQueryValidator } from "shared/validators";
+import { chartTypeSupportsAnchorYAxisToZero } from "shared/enterprise";
+import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
   schema: savedQueryValidator,
@@ -26,6 +25,46 @@ const BaseClass = MakeModelClass({
 });
 
 export class SavedQueryDataModel extends BaseClass {
+  protected migrate(legacyDoc: unknown): SavedQuery {
+    const doc = legacyDoc as SavedQuery;
+
+    // Migrate anchorYAxisToZero for line and scatter charts
+    if (doc.dataVizConfig && Array.isArray(doc.dataVizConfig)) {
+      doc.dataVizConfig = doc.dataVizConfig.map((config) => {
+        if (!chartTypeSupportsAnchorYAxisToZero(config.chartType)) {
+          // If the chart type doesn't support display settings, return the config as is
+          return config;
+        }
+
+        const configWithDisplaySettings = config as typeof config & {
+          displaySettings?: {
+            anchorYAxisToZero?: boolean;
+          };
+        };
+        const displaySettings = configWithDisplaySettings.displaySettings;
+
+        // Ensure anchorYAxisToZero exists and is a boolean (default to true)
+        const needsMigration =
+          !displaySettings ||
+          typeof displaySettings.anchorYAxisToZero !== "boolean";
+
+        if (needsMigration) {
+          return {
+            ...config,
+            displaySettings: {
+              ...(displaySettings || {}),
+              anchorYAxisToZero: true,
+            },
+          } as typeof config;
+        }
+
+        return config;
+      });
+    }
+
+    return doc;
+  }
+
   protected canRead(doc: SavedQuery): boolean {
     const { datasource } = this.getForeignRefs(doc);
     return this.context.permissions.canViewSqlExplorerQueries({

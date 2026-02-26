@@ -1,4 +1,4 @@
-import { SnapshotMetric } from "back-end/types/experiment-snapshot";
+import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import { RowResults } from "@/services/experiments";
 import NoScaledImpact from "@/components/Experiment/NoScaledImpact";
 

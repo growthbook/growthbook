@@ -4,9 +4,11 @@ import {
   validateScheduleRules,
 } from "shared/util";
 import { isEqual } from "lodash";
-import { UpdateFeatureResponse } from "back-end/types/openapi";
+import type { UpdateFeatureResponse } from "shared/types/openapi";
+import { updateFeatureValidator, RevisionRules } from "shared/validators";
+import { FeatureInterface } from "shared/types/feature";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { updateFeatureValidator } from "back-end/src/validators/openapi";
 import {
   getFeature,
   updateFeature as updateFeatureToDb,
@@ -15,10 +17,10 @@ import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel"
 import {
   addIdsToRules,
   getApiFeatureObj,
+  getNextScheduledUpdate,
   getSavedGroupMap,
   updateInterfaceEnvSettingsFromApiEnvSettings,
 } from "back-end/src/services/features";
-import { FeatureInterface } from "back-end/types/feature";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
@@ -26,11 +28,10 @@ import {
   createRevision,
   getRevision,
 } from "back-end/src/models/FeatureRevisionModel";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
-import { RevisionRules } from "back-end/src/validators/features";
+import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { parseJsonSchemaForEnterprise, validateEnvKeys } from "./postFeature";
-import { validateCustomFields } from "./validation";
+import { validateCustomFields } from "./validations";
 
 export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
   async (req): Promise<UpdateFeatureResponse> => {
@@ -84,8 +85,18 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     }
 
     // check if the custom fields are valid
-    if (customFields) {
-      await validateCustomFields(customFields, req.context, req.body.project);
+    const projectChanged = project !== undefined && project !== feature.project;
+    const customFieldsChanged = shouldValidateCustomFieldsOnUpdate({
+      existingCustomFieldValues: feature.customFields,
+      updatedCustomFieldValues: customFields,
+    });
+
+    if (projectChanged || customFieldsChanged) {
+      await validateCustomFields(
+        customFields ?? feature.customFields,
+        req.context,
+        effectiveProject,
+      );
     }
 
     // ensure environment keys are valid
@@ -187,6 +198,13 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       addIdsToRules(updates.environmentSettings, feature.id);
     }
 
+    if (updates.environmentSettings) {
+      updates.nextScheduledUpdate = getNextScheduledUpdate(
+        updates.environmentSettings,
+        orgEnvs,
+      );
+    }
+
     // Create a revision for the changes and publish them immediately
     let defaultValueChanged = false;
     const changedEnvironments: string[] = [];
@@ -280,7 +298,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       details: auditDetailsUpdate(feature, updatedFeature),
     });
 
-    const groupMap = await getSavedGroupMap(req.organization);
+    const groupMap = await getSavedGroupMap(req.context);
 
     const experimentMap = await getExperimentMapForFeature(
       req.context,

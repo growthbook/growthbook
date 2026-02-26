@@ -23,9 +23,8 @@ frontend:
     # targetMemoryUtilizationPercentage: 80
   service:
     port: 3000
-  command: [npx, wsrun, -p, front-end, --no-prefix, -c]
-  args:
-    - start
+  command: [node_modules/.bin/pm2-runtime, start, ecosystem.config.js, --only, front-end]
+  args: []
   env:
     - name: API_HOST
       # full URL of your backend, e.g. https://gb-api.example.com
@@ -52,10 +51,9 @@ backend:
     enabled: true
   # For use when providing an existing MongoDB instance
   # mongodbUri:
-  command: [npx, wsrun, -p, back-end, --no-prefix, -c]
-  # To enable tracing/OTEL replace with "start:with-tracing"
-  args:
-    - start
+  command: [node_modules/.bin/pm2-runtime, start, ecosystem.config.js, --only, back-end]
+  # To enable tracing set TRACING_PROVIDER env var to "datadog" or "opentelemetry"
+  args: []
   # Reference: https://docs.growthbook.io/self-host/env
   env:
     # generate random values with: "openssl rand -hex 32"

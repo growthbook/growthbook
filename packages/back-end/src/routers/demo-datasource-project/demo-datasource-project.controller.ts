@@ -1,5 +1,6 @@
 import type { Response } from "express";
 import {
+  getDemoDatasourceFactTableIdForOrganization,
   getDemoDataSourceFeatureId,
   getDemoDatasourceProjectIdForOrganization,
 } from "shared/demo-datasource";
@@ -7,37 +8,39 @@ import {
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
+import { EventUserForResponseLocals } from "shared/types/events/event-types";
+import { PostgresConnectionParams } from "shared/types/integrations/postgres";
+import { DataSourceSettings } from "shared/types/datasource";
+import { ExperimentInterface } from "shared/types/experiment";
+import { ExperimentRefRule, FeatureInterface } from "shared/types/feature";
+import { ProjectInterface } from "shared/types/project";
+import { ExperimentSnapshotAnalysisSettings } from "shared/types/experiment-snapshot";
+import {
+  FactMetricInterface,
+  MetricWindowSettings,
+} from "shared/types/fact-table";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { EventUserForResponseLocals } from "back-end/src/events/event-types";
-import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
 import { createDataSource } from "back-end/src/models/DataSourceModel";
 import {
   createExperiment,
   getAllExperiments,
 } from "back-end/src/models/ExperimentModel";
-import {
-  createMetric,
-  createSnapshot,
-} from "back-end/src/services/experiments";
+import { createSnapshot } from "back-end/src/services/experiments";
 import { PrivateApiErrorResponse } from "back-end/types/api";
-import { DataSourceSettings } from "back-end/types/datasource";
-import { ExperimentInterface } from "back-end/types/experiment";
-import { ExperimentRefRule, FeatureInterface } from "back-end/types/feature";
-import { MetricInterface } from "back-end/types/metric";
-import { ProjectInterface } from "back-end/types/project";
-import { ExperimentSnapshotAnalysisSettings } from "back-end/types/experiment-snapshot";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { createFeature } from "back-end/src/models/FeatureModel";
-import { getFactTableMap } from "back-end/src/models/FactTableModel";
-import { MetricWindowSettings } from "back-end/types/fact-table";
+import {
+  createFactTable,
+  getFactTableMap,
+} from "back-end/src/models/FactTableModel";
 
 // region Constants for Demo Datasource
 
 // Datasource constants
 const DATASOURCE_TYPE = "postgres";
 const DEMO_DATASOURCE_SETTINGS: DataSourceSettings = {
-  userIdTypes: [{ userIdType: "user_id" }],
+  userIdTypes: [{ userIdType: "user_id", description: "Logged-in user id" }],
   queries: {
     exposure: [
       {
@@ -47,6 +50,13 @@ const DEMO_DATASOURCE_SETTINGS: DataSourceSettings = {
         query:
           "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\nexperimentId AS experiment_id,\nvariationId AS variation_id,\nbrowser\nFROM experiment_viewed",
         dimensions: ["browser"],
+        dimensionMetadata: [
+          {
+            dimension: "browser",
+            specifiedSlices: ["Chrome", "Firefox", "Safari", "Edge"],
+            customSlices: true,
+          },
+        ],
       },
     ],
   },
@@ -66,80 +76,80 @@ const ASSET_OWNER = "";
 const DEMO_TAGS = ["growthbook-demo"];
 
 // Metric constants
-const CONVERSION_WINDOW_SETTINGS: MetricWindowSettings = {
-  type: "conversion",
-  windowUnit: "hours",
-  windowValue: 72,
+const RETENTION_WINDOW_SETTINGS: MetricWindowSettings = {
+  type: "",
+  windowUnit: "days",
+  windowValue: 7,
+  delayUnit: "days",
+  delayValue: 7,
+};
+const EMPTY_WINDOW_SETTINGS: MetricWindowSettings = {
+  type: "",
+  windowUnit: "days",
+  windowValue: 3,
   delayUnit: "hours",
   delayValue: 0,
 };
-const DENOMINATOR_METRIC_NAME = "Purchases - Number of Orders (72 hour window)";
 const DEMO_METRICS: Pick<
-  MetricInterface,
-  "name" | "description" | "type" | "sql" | "windowSettings" | "aggregation"
+  FactMetricInterface,
+  "name" | "description" | "metricType" | "numerator" | "windowSettings"
 >[] = [
   {
-    name: "Purchases - Total Revenue (72 hour window)",
+    name: "Revenue per User",
     description: "The total amount of USD spent aggregated at the user level",
-    type: "revenue",
-    sql: "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\namount AS value\nFROM orders",
-    windowSettings: CONVERSION_WINDOW_SETTINGS,
+    metricType: "mean",
+    numerator: {
+      factTableId: "",
+      column: "value",
+    },
+    windowSettings: EMPTY_WINDOW_SETTINGS,
   },
   {
-    name: "Purchases - Any Order (72 hour window)",
+    name: "Any Purchases",
     description: "Whether the user places any order or not (0/1)",
-    type: "binomial",
-    sql: "SELECT\nuserId AS user_id,\ntimestamp AS timestamp\nFROM orders",
-    windowSettings: CONVERSION_WINDOW_SETTINGS,
-  },
-  {
-    name: DENOMINATOR_METRIC_NAME,
-    description: "Total number of discrete orders placed by a user",
-    type: "count",
-    sql: "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\n1 AS value\nFROM orders",
-    windowSettings: CONVERSION_WINDOW_SETTINGS,
-  },
-  {
-    name: "Retention - [1, 14) Days",
-    description:
-      "Whether the user logged in 1-14 days after experiment exposure",
-    type: "binomial",
-    windowSettings: {
-      type: "conversion",
-      delayValue: 24,
-      delayUnit: "hours",
-      windowUnit: "days",
-      windowValue: 13,
+    metricType: "proportion",
+    numerator: {
+      factTableId: "",
+      column: "$$distinctUsers",
     },
-    sql: "SELECT\nuserId AS user_id,\ntimestamp AS timestamp\nFROM pages WHERE path = '/'",
+    windowSettings: EMPTY_WINDOW_SETTINGS,
   },
   {
-    name: "Days Active in Next 7 Days",
-    description:
-      "Count of times the user was active in the next 7 days after exposure",
-    type: "count",
-    windowSettings: {
-      type: "conversion",
-      delayValue: 0,
-      delayUnit: "hours",
-      windowUnit: "days",
-      windowValue: 7,
+    name: "D7 Purchase Retention",
+    description: "",
+    metricType: "retention",
+    numerator: {
+      factTableId: "",
+      column: "$$distinctUsers",
     },
-    aggregation: "COUNT(DISTINCT value)",
-    sql: "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\nDATE_TRUNC('day', timestamp) AS value\nFROM pages WHERE path = '/'",
+    windowSettings: RETENTION_WINDOW_SETTINGS,
   },
 ];
 
 const DEMO_RATIO_METRIC: Pick<
-  MetricInterface,
-  "name" | "description" | "type" | "sql"
+  FactMetricInterface,
+  | "name"
+  | "description"
+  | "metricType"
+  | "numerator"
+  | "denominator"
+  | "windowSettings"
 > = {
-  name: "Purchases - Average Order Value (ratio)",
-  description:
-    "The average value of purchases made in the 72 hours after exposure divided by the total number of purchases",
-  type: "revenue",
-  sql: "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\namount AS value\nFROM orders",
+  name: "Average Order Value",
+  description: "The average value of purchases",
+  metricType: "ratio",
+  numerator: {
+    factTableId: "",
+    column: "value",
+  },
+  denominator: {
+    factTableId: "",
+    column: "$$count",
+  },
+  windowSettings: EMPTY_WINDOW_SETTINGS,
 };
+
+const DEMO_DATA_EXPERIMENT_ID = "gbdemo-add-to-cart-cta";
 
 // endregion Constants for Demo Datasource
 
@@ -176,9 +186,11 @@ export const postDemoDatasourceProject = async (
   const { org, environments } = context;
 
   const demoProjId = getDemoDatasourceProjectIdForOrganization(org.id);
+  const demoFactTableId = getDemoDatasourceFactTableIdForOrganization(org.id);
 
   if (
-    !context.permissions.canCreateMetric({ projects: [demoProjId] }) ||
+    !context.permissions.canCreateFactMetric({ projects: [demoProjId] }) ||
+    !context.permissions.canCreateFactTable({ projects: [demoProjId] }) ||
     !context.permissions.canCreateDataSource({
       projects: [demoProjId],
       type: "postgres",
@@ -220,38 +232,115 @@ export const postDemoDatasourceProject = async (
       [project.id],
     );
 
+    // Create fact table
+    await createFactTable(context, {
+      id: demoFactTableId,
+      name: "purchases",
+      description: "",
+      owner: ASSET_OWNER,
+      tags: DEMO_TAGS,
+      userIdTypes: ["user_id"],
+      sql: "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\namount AS value\nFROM purchases",
+      eventName: "purchases",
+      datasource: datasource.id,
+      projects: [project.id],
+      columns: [
+        {
+          column: "user_id",
+          datatype: "string",
+        },
+        {
+          column: "timestamp",
+          datatype: "date",
+        },
+        {
+          column: "value",
+          datatype: "number",
+          numberFormat: "currency",
+        },
+      ],
+    });
+
     // Create metrics
     const metrics = await Promise.all(
       DEMO_METRICS.map(async (m) => {
-        return createMetric(context, {
+        return context.models.factMetrics.create({
           ...m,
-          organization: org.id,
+          ...(m.metricType === "retention"
+            ? { id: `fact__demo-d7-purchase-retention` }
+            : {}),
           owner: ASSET_OWNER,
-          userIdColumns: { user_id: "user_id" },
-          userIdTypes: ["user_id"],
           datasource: datasource.id,
           projects: [project.id],
           tags: DEMO_TAGS,
+          inverse: false,
+          numerator: {
+            ...m.numerator,
+            factTableId: demoFactTableId,
+          },
+          denominator: null,
+          winRisk: 0.0025,
+          loseRisk: 0.0125,
+          regressionAdjustmentOverride: false,
+          regressionAdjustmentEnabled: false,
+          metricAutoSlices: [],
+          cappingSettings: {
+            type: "",
+            value: 0,
+          },
+          priorSettings: {
+            override: false,
+            proper: false,
+            mean: 0,
+            stddev: 0.3,
+          },
+          maxPercentChange: 0.5,
+          minPercentChange: 0.005,
+          minSampleSize: 150,
+          targetMDE: 0.1,
+          regressionAdjustmentDays: 14,
+          quantileSettings: null,
         });
       }),
     );
 
-    const denominatorMetricId = metrics.find(
-      (m) => m.name === DENOMINATOR_METRIC_NAME,
-    )?.id;
-    const ratioMetric = denominatorMetricId
-      ? await createMetric(context, {
-          ...DEMO_RATIO_METRIC,
-          denominator: denominatorMetricId,
-          organization: org.id,
-          owner: ASSET_OWNER,
-          userIdColumns: { user_id: "user_id" },
-          userIdTypes: ["user_id"],
-          datasource: datasource.id,
-          projects: [project.id],
-          tags: DEMO_TAGS,
-        })
-      : undefined;
+    const ratioMetric = await context.models.factMetrics.create({
+      ...DEMO_RATIO_METRIC,
+      owner: ASSET_OWNER,
+      datasource: datasource.id,
+      projects: [project.id],
+      tags: DEMO_TAGS,
+      inverse: false,
+      numerator: {
+        ...DEMO_RATIO_METRIC.numerator,
+        factTableId: demoFactTableId,
+      },
+      denominator: {
+        ...DEMO_RATIO_METRIC.denominator!,
+        factTableId: demoFactTableId,
+      },
+      winRisk: 0.0025,
+      loseRisk: 0.0125,
+      regressionAdjustmentOverride: false,
+      regressionAdjustmentEnabled: false,
+      metricAutoSlices: [],
+      cappingSettings: {
+        type: "",
+        value: 0,
+      },
+      priorSettings: {
+        override: false,
+        proper: false,
+        mean: 0,
+        stddev: 0.3,
+      },
+      maxPercentChange: 0.5,
+      minPercentChange: 0.005,
+      minSampleSize: 150,
+      targetMDE: 0.1,
+      regressionAdjustmentDays: 14,
+      quantileSettings: null,
+    });
 
     const goalMetrics = metrics.slice(0, 1).map((m) => m.id);
 
@@ -279,15 +368,15 @@ export const postDemoDatasourceProject = async (
       | "trackingKey"
       | "variations"
       | "phases"
+      | "regressionAdjustmentEnabled"
     > = {
-      name: getDemoDataSourceFeatureId(),
-      trackingKey: getDemoDataSourceFeatureId(),
+      name: DEMO_DATA_EXPERIMENT_ID,
+      trackingKey: DEMO_DATA_EXPERIMENT_ID,
       description: `**THIS IS A DEMO EXPERIMENT USED FOR DEMONSTRATION PURPOSES ONLY**
 
-Experiment to test impact of checkout cart design.
-Both variations move the "Proceed to checkout" button to a single table, but with different
-spacing and headings.`,
-      hypothesis: `We predict new variations will increase Purchase metrics and have uncertain effects on Retention.`,
+Experiment to test impact of a different 'Add to Cart' CTA design.
+Treatment shows a larger 'Add to Cart' CTA, but with the same functionality.`,
+      hypothesis: `We predict the treatment will increase Purchase metrics and have uncertain effects on Retention.`,
       owner: ASSET_OWNER,
       datasource: datasource.id,
       project: project.id,
@@ -296,34 +385,25 @@ spacing and headings.`,
       exposureQueryId: "user_id",
       status: "running",
       tags: DEMO_TAGS,
+      regressionAdjustmentEnabled: true,
       variations: [
         {
           id: "v0",
           key: "0",
-          name: "Current",
+          name: "Control",
           screenshots: [
             {
-              path: "/images/demo-datasource/current.png",
+              path: "/images/demo-datasource/add-to-cart-control.png",
             },
           ],
         },
         {
           id: "v1",
           key: "1",
-          name: "Dev-Compact",
+          name: "Treatment",
           screenshots: [
             {
-              path: "/images/demo-datasource/dev-compact.png",
-            },
-          ],
-        },
-        {
-          id: "v2",
-          key: "2",
-          name: "Dev",
-          screenshots: [
-            {
-              path: "/images/demo-datasource/dev.png",
+              path: "/images/demo-datasource/add-to-cart-treatment.png",
             },
           ],
         },
@@ -336,7 +416,7 @@ spacing and headings.`,
           coverage: 1,
           condition: "",
           namespace: { enabled: false, name: "", range: [0, 1] },
-          variationWeights: [0.3334, 0.3333, 0.3333],
+          variationWeights: [0.5, 0.5],
         },
       ],
     };
@@ -355,10 +435,10 @@ spacing and headings.`,
       dateCreated: new Date(),
       dateUpdated: new Date(),
       description:
-        "Controls checkout layout UI. Employees forced to see new UI, other users randomly assigned to one of three designs.",
+        "Controls add to cart CTA. Employees forced to see new CTA, other users randomly assigned to either the control or treatment.",
       owner: ASSET_OWNER,
-      valueType: "string",
-      defaultValue: "current",
+      valueType: "boolean",
+      defaultValue: "false",
       tags: DEMO_TAGS,
       environmentSettings: {},
     };
@@ -371,7 +451,7 @@ spacing and headings.`,
             type: "force",
             description: "",
             id: `${getDemoDataSourceFeatureId()}-employee-force-rule`,
-            value: "dev",
+            value: "true",
             condition: `{"is_employee":true}`,
             enabled: true,
           },
@@ -380,19 +460,15 @@ spacing and headings.`,
             description: "",
             id: `${getDemoDataSourceFeatureId()}-exp-rule`,
             enabled: true,
-            experimentId: getDemoDataSourceFeatureId(), // This value is replaced below after the experiment is created.
+            experimentId: DEMO_DATA_EXPERIMENT_ID, // This value is replaced below after the experiment is created.
             variations: [
               {
                 variationId: "v0",
-                value: "current",
+                value: "false",
               },
               {
                 variationId: "v1",
-                value: "dev-compact",
-              },
-              {
-                variationId: "v2",
-                value: "dev",
+                value: "true",
               },
             ],
           },

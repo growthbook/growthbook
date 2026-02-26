@@ -1,0 +1,764 @@
+---
+title: Roku SDK
+description: GrowthBook SDK for Roku / js
+sidebar_label: Roku
+slug: roku
+toc_max_heading_level: 5
+---
+
+import ExternalLink from '@site/src/components/ExternalLink'
+import SdkResources from '@site/src/components/SdkResources';
+import SdkSupportedFeatures from '@site/src/components/SdkSupportedFeatures';
+import Tabs from '@theme/Tabs'
+import TabItem from '@theme/TabItem'
+
+# Roku SDK
+
+Official GrowthBook SDK for Roku/js applications. Add feature flags and A/B testing to your Roku channels with a simple, lightweight SDK.
+
+<SdkResources sdk="roku" />
+
+## Platform Requirements
+
+<Tabs groupId="platform-requirements">
+<TabItem value="os" label="Roku OS" default>
+
+The GrowthBook SDK supports all modern Roku devices and OS versions:
+
+- **Minimum OS Version:** Roku OS 9.0+
+- **Recommended:** Roku OS 9.2+ (for AES encryption support)
+- **Tested on:** Roku OS 9.0 - 12.x
+
+**Device Compatibility:**
+
+- ✅ Roku Ultra (all versions)
+- ✅ Roku Streaming Stick (all versions)
+- ✅ Roku Express
+- ✅ Roku Premiere
+- ✅ Roku TV
+- ✅ Legacy devices (Roku 2, Roku 3)
+
+</TabItem>
+<TabItem value="js" label="js">
+
+The SDK is written in pure JS and requires:
+
+- **js 1.0+** - Core language features
+- **SceneGraph Support** - For modern Roku channel development
+- **roUrlTransfer** - For API communication (standard in all Roku OS versions)
+- **roEVPCipher** (Optional) - For encrypted payloads (Roku OS 9.2+)
+
+**No External Dependencies:** The SDK is completely self-contained with zero external dependencies, making it easy to integrate into any Roku channel.
+
+</TabItem>
+<TabItem value="performance" label="Performance">
+
+- **Core SDK File:** ~50 KB (single `GrowthBook.brs` file)
+- **Runtime Memory:** &lt;500 KB total footprint
+- **Feature Evaluation:** &lt;1ms per check
+- **Network Calls:** One-time feature load on init (cached for instance lifetime)
+
+**Performance Tested On:**
+
+- Roku Ultra 2023 (high-end reference)
+- Roku Express 2022 (low-end reference)
+- Roku Streaming Stick 4K
+
+</TabItem>
+</Tabs>
+
+## Installation
+
+### Manual Installation (Recommended)
+
+1. Download `GrowthBook.brs` from the [GitHub repository](https://github.com/growthbook/growthbook-roku/tree/main/source).
+2. Copy it to your channel's `source/` directory:
+
+```text
+your-roku-channel/
+├── source/
+│   ├── main.brs
+│   └── GrowthBook.brs  ← Add this file
+└── manifest
+```
+
+### Installation with ropm
+
+If you are using [ropm](https://github.com/rokucommunity/ropm) for dependency management:
+
+```bash
+ropm install growthbook-roku
+```
+
+## Quick Usage
+
+### Step 1: Initialize the SDK
+
+Initialize GrowthBook once when your channel starts. Use a **singleton pattern** to reuse the instance throughout your app.
+
+```js
+sub Main()
+    ' Create global field for GrowthBook instance
+    m.global.addFields({ gb: invalid })
+
+    ' Initialize GrowthBook once
+    m.global.gb = GrowthBook({
+        apiHost: "https://cdn.growthbook.io",
+        clientKey: "sdk-abc123",
+        attributes: {
+            id: GetDeviceId(),
+            deviceType: "roku",
+            appVersion: "1.0.0"
+        }
+    })
+
+    ' Load features
+    if m.global.gb.init()
+        print "GrowthBook ready!"
+    else
+        print "GrowthBook failed to initialize"
+    end if
+
+    ' Start your app
+    ShowHomeScreen()
+end sub
+
+function GetDeviceId() as string
+    deviceInfo = CreateObject("roDeviceInfo")
+    return deviceInfo.GetChannelClientId()
+end function
+```
+
+### Step 2: Use Feature Flags
+
+Once initialized, access the GrowthBook instance anywhere in your channel:
+
+```js
+' Boolean feature flag
+if m.global.gb.isOn("new-player-ui") then
+    ShowNewPlayer()
+else
+    ShowLegacyPlayer()
+end if
+
+' Feature value with fallback
+buttonColor = m.global.gb.getFeatureValue("cta-color", "#0000FF")
+maxVideos = m.global.gb.getFeatureValue("videos-per-page", 12)
+
+' JSON configuration
+playerConfig = m.global.gb.getFeatureValue("player-settings", {
+    autoplay: false,
+    quality: "HD"
+})
+```
+
+## Loading Features
+
+The GrowthBook SDK provides multiple strategies for loading feature flags, allowing you to choose between automated feature loading at the init or using it in offline mode.
+
+### Automated Loading
+
+At the time of initialization, the SDK automatically fetches features from the GrowthBook API when you provide `apiHost` and `clientKey`:
+
+```js
+gb = GrowthBook({
+    apiHost: "https://cdn.growthbook.io",
+    clientKey: "sdk_abc123",
+    attributes: { id: GetDeviceId() }
+})
+
+' Automatically fetches features from API
+if gb.init() then
+    print "Features loaded successfully"
+else
+    print "Failed to load features"
+end if
+```
+
+**How It Works:**
+
+1. When `init()` is called, the SDK makes an HTTP request to `{apiHost}/api/features/{clientKey}`
+2. Features are cached in memory for the lifetime of the instance
+3. All subsequent feature evaluations use the cached data (no additional network calls)
+
+**Feature Refresh Frequency:**
+
+- Features are loaded **once** when `init()` is called
+- **No automatic background refresh** is supported for now.
+- **Roku Limitation:** Unlike web SDKs, Roku does not support Server-Sent Events (SSE) for real-time streaming updates
+- To get updated features, you must reinitialize the GrowthBook instance (typically on app restart)
+- For real-time updates, implement a manual refresh mechanism:
+
+```js
+' Manual refresh example (requires creating new instance)
+sub RefreshFeatures()
+    oldAttributes = m.global.gb.attributes
+
+    ' Create new instance with same config
+    m.global.gb = GrowthBook({
+        apiHost: "https://cdn.growthbook.io",
+        clientKey: "sdk_abc123",
+        attributes: oldAttributes
+    })
+
+    ' Reload from API
+    if m.global.gb.init() then
+        print "Features refreshed successfully"
+    end if
+end sub
+```
+
+### Offline Mode
+
+For scenarios where network access is unavailable or you want to embed features directly in your channel, use offline mode.
+
+```js
+' Pre-define features in your code
+defaultFeatures = {
+    "enable-4k-streaming": {
+        defaultValue: true
+    },
+    "videos-per-page": {
+        defaultValue: 12
+    },
+    "player-settings": {
+        defaultValue: {
+            autoplay: false,
+            quality: "HD",
+            showCaptions: true
+        }
+    },
+    "button-color": {
+        rules: [{
+            variations: ["blue", "red", "green"],
+            weights: [0.5, 0.3, 0.2]
+        }]
+    }
+}
+
+' Initialize with embedded features
+gb = GrowthBook({
+    features: defaultFeatures,
+    attributes: { id: GetDeviceId() }
+    ' Note: Do NOT provide clientKey or apiHost in offline mode
+})
+
+' init() returns true immediately - ZERO network calls made
+gb.init()
+```
+
+**When to Use Offline Mode:**
+
+- ✅ Testing and development without GrowthBook account
+- ✅ Regions with unreliable or no network connectivity
+- ✅ Regulatory requirements preventing external API calls
+- ✅ Feature flags that rarely change and can be bundled with app
+- ✅ Fallback strategy for network failures
+- ✅ Kiosk or offline-first applications
+
+**Limitations:**
+
+- ❌ Features must be updated via channel deployment (sideload or store update)
+- ❌ Cannot change feature values remotely without app update
+- ❌ No real-time experimentation updates
+
+## Configuration Options
+
+### Required Options
+
+At minimum, provide either `clientKey` OR `features`:
+
+```js
+' Option 1: API loading
+gb = GrowthBook({
+    clientKey: "sdk_abc123",
+    attributes: { id: GetDeviceId() }
+})
+
+' Option 2: Offline mode
+gb = GrowthBook({
+    features: myFeatures,
+    attributes: { id: GetDeviceId() }
+})
+```
+
+### All Configuration Options
+
+```js
+gb = GrowthBook({
+    ' API Configuration
+    apiHost: "https://cdn.growthbook.io",      ' API endpoint
+    clientKey: "sdk_abc123",                    ' SDK client key
+
+    ' User Context
+    attributes: {                               ' User attributes for targeting
+        id: GetDeviceId(),
+        appVersion: "1.0.0",
+        country: "US",
+        subscription: "premium"
+    },
+
+    ' Callbacks
+    trackingCallback: sub(experiment, result)   ' Experiment exposure tracking
+        SendAnalyticsEvent(experiment, result)
+    end sub,
+
+    onFeatureUsage: sub(featureKey, result)     ' All feature evaluations
+        LogFeatureUsage(featureKey, result)
+    end sub,
+
+    ' Advanced
+    enableDevMode: true,                        ' Debug logging
+    features: defaultFeatures,                  ' Offline/fallback features
+    savedGroups: {                              ' Saved user groups
+        "beta_testers": ["user1", "user2"]
+    },
+    forcedVariations: {                         ' Force specific variations
+        "feature-key": 1
+    }
+})
+```
+
+## Instance Management (Singleton Pattern)
+
+**Recommended**: Create one instance and reuse it globally.
+
+```js
+' In your main entry point
+sub Main()
+    ' Create global field once
+    m.global.addFields({ gb: invalid })
+
+    ' Initialize once
+    m.global.gb = GrowthBook({
+        clientKey: "sdk_YOUR_KEY",
+        attributes: { id: GetDeviceId() }
+    })
+
+    m.global.gb.init()
+
+    ' Now use throughout app
+    ShowApp()
+end sub
+
+' In any component or function
+function CheckFeature()
+    ' Access the same instance
+    if m.global.gb.isOn("my-feature") then
+        DoSomething()
+    end if
+end function
+```
+
+Creating multiple GrowthBook instances causes problems:
+
+| Problem             | Impact                                                 |
+| ------------------- | ------------------------------------------------------ |
+| Redundant API calls | Every `init()` call fetches features again (expensive) |
+| Memory usage        | Each instance consumes ~150KB of memory                |
+| Poor performance    | Network latency on every feature evaluation            |
+
+### Updating Attributes
+
+Update user attributes without recreating the instance:
+
+```js
+' ✅ DO THIS: Update attributes
+m.global.gb.setAttributes({
+    id: newUserId,
+    subscription: "premium",
+    country: "US"
+})
+
+' ❌ DON'T DO THIS: Recreate instance
+m.global.gb = GrowthBook({ ... })  ' Wrong!
+m.global.gb.init()                 ' Wrong!
+```
+
+## Feature Flags
+
+There are 2 main methods for evaluating features: `isOn` and `getFeatureValue`:
+
+### Boolean Flags
+
+Simple on/off toggles:
+
+```js
+if m.global.gb.isOn("dark-mode") then
+    ApplyDarkTheme()
+end if
+
+if m.global.gb.isOn("enable-4k") then
+    Enable4KStreaming()
+end if
+```
+
+### Feature Values
+
+Get configuration values with type-safe fallbacks:
+
+```js
+' Strings
+buttonColor = m.global.gb.getFeatureValue("button-color", "#0000FF")
+apiEndpoint = m.global.gb.getFeatureValue("api-url", "https://api.example.com")
+
+' Numbers
+maxRetries = m.global.gb.getFeatureValue("max-retries", 3)
+timeout = m.global.gb.getFeatureValue("timeout-ms", 5000)
+
+' Booleans
+autoplay = m.global.gb.getFeatureValue("autoplay-enabled", false)
+```
+
+### JSON Configuration
+
+Complex objects for advanced configuration:
+
+```js
+playerSettings = m.global.gb.getFeatureValue("player-config", {
+    autoplay: false,
+    quality: "HD",
+    subtitles: true,
+    bufferSize: 5,
+    maxBitrate: 10000
+})
+
+' Apply settings
+m.player.autoplay = playerSettings.autoplay
+m.player.quality = playerSettings.quality
+m.player.subtitles = playerSettings.subtitles
+```
+
+## Experimentation (A/B Testing)
+
+There is nothing special you have to do for feature flag experiments. Just evaluate the feature flag like you would normally do. If the user is put into an experiment as part of the feature flag, it will call the `trackingCallback` automatically in the background.
+
+```js
+result = m.global.gb.getFeatureValue("pricing-experiment")
+
+print "Feature key: " + result.key
+print "Value: " + Str(result.value)
+print "Enabled: " + Str(result.on)
+print "Source: " + result.source  ' "defaultValue", "force", "experiment"
+
+if result.source = "experiment" then
+    print "Experiment: " + result.experimentId
+    print "Variation: " + Str(result.variationId)
+    print "Rule: " + result.ruleId
+end if
+```
+
+### Tracking Callbacks
+
+GrowthBook provides two types of callbacks to monitor feature usage and experiment exposure:
+
+#### Experiment Tracking Callback
+
+The `trackingCallback` is fired when a user is placed into an experiment. Use this to send experiment exposure events to your analytics platform (Segment, Mixpanel, Google Analytics, etc.).
+
+```js
+gb = GrowthBook({
+    clientKey: "sdk_abc123",
+    attributes: { id: GetDeviceId() },
+    trackingCallback: sub(experiment, result)
+        ' Send to your analytics platform
+        SendAnalyticsEvent({
+            event: "experiment_viewed",
+            experimentId: result.experimentId,
+            variationId: result.variationId,
+            value: result.value
+        })
+    end sub
+})
+```
+
+**Callback Parameters:**
+
+**`experiment` object:**
+
+- `key` (string) - Experiment identifier
+- `variations` (array) - List of possible variations
+- `weights` (array) - Traffic allocation weights
+- `hashVersion` (integer) - Hash algorithm version
+- `namespace` (array) - Namespace for traffic allocation
+
+**`result` object:**
+
+- `experimentId` (string) - Experiment key
+- `variationId` (integer) - Assigned variation index (0-based)
+- `value` (dynamic) - Actual variation value
+- `ruleId` (string) - ID of the rule that triggered
+- `source` (string) - Always `"experiment"` for tracking callback
+- `on` (boolean) - Whether feature is enabled
+- `key` (string) - Feature key
+
+**When It Fires:**
+
+- User enters an experiment (assigned to a variation)
+- Only fires ONCE per unique experiment + user combination (de-duplicated)
+
+**Does NOT fire for:**
+
+- Features with no experiments
+- Users excluded from experiments
+- Forced variations
+
+#### Feature Usage Callback
+
+The `onFeatureUsage` callback is fired on **every** feature evaluation, not just experiments. Use this for high-level usage tracking or debugging.
+
+```js
+gb = GrowthBook({
+    clientKey: "sdk_abc123",
+    attributes: { id: GetDeviceId() },
+    onFeatureUsage: sub(featureKey, result)
+        print "Feature evaluated: " + featureKey
+        print "Value: " + Str(result.value)
+        print "Source: " + result.source
+
+        ' Optional: Send to analytics for all feature usage
+        if result.source = "experiment" then
+            TrackExperimentUsage(featureKey, result)
+        end if
+    end sub
+})
+```
+
+**Callback Parameters:**
+
+- `featureKey` (string) - The key of the feature being evaluated
+- `result` (object) - Complete evaluation result (same structure as `evalFeature()`)
+
+**When It Fires:**
+
+- Every call to `isOn()`, `getFeatureValue()`, or `evalFeature()`
+- Includes all sources: `"defaultValue"`, `"force"`, `"experiment"`, `"unknownFeature"`
+
+#### Comparison
+
+|                    | `trackingCallback`                | `onFeatureUsage`              |
+| ------------------ | --------------------------------- | ----------------------------- |
+| **Purpose**        | Track experiment exposures        | Track all feature evaluations |
+| **Frequency**      | Once per experiment + user        | Every feature check           |
+| **Use Case**       | Send to analytics for A/B testing | Debugging, usage monitoring   |
+| **Fires For**      | Experiments only                  | All features                  |
+| **De-duplication** | Yes (automatic)                   | No                            |
+
+### Hashing and Consistent Assignment
+
+GrowthBook uses deterministic hashing to ensure users get consistent variation assignments. This is critical for accurate A/B testing.
+
+#### How Hashing Works
+
+When a user is evaluated for an experiment:
+
+1. **Hash Input:** The SDK combines the user's `id` attribute with the experiment key
+2. **Generate Hash:** Uses FNV-1a hashing algorithm to produce a number between 0 and 1
+3. **Map to Bucket:** The hash maps to a specific variation based on traffic weights
+4. **Return Variation:** User is assigned to that variation consistently
+
+```js
+' User with id "user_12345" evaluates feature "button_color"
+' SDK calculates: hash("button_color", "user_12345") → 0.742
+' Traffic split: [0-0.5: blue, 0.5-0.8: red, 0.8-1.0: green]
+' 0.742 falls in red bucket → user sees red
+' EVERY TIME this user checks, they see red (consistent)
+```
+
+#### Hash Attribute
+
+By default, GrowthBook uses the `id` attribute for hashing. You can customize which attribute to use with the `hashAttribute` setting in your experiment rules.
+
+**Default Behavior:**
+
+```js
+gb = GrowthBook({
+    attributes: {
+        id: "user_12345",  // Used for hashing by default
+        email: "user@example.com",
+        subscription: "premium"
+    }
+})
+
+' Hashes using "id" attribute
+color = gb.getFeatureValue("button_color", "blue")
+```
+
+**Custom Hash Attribute:**
+
+In the GrowthBook dashboard, set `hashAttribute` in your experiment rule:
+
+```javascript
+{
+    "key": "button-color-experiment",
+    "hashAttribute": "deviceId",  // Use deviceId instead of id
+    "variations": ["blue", "red", "green"],
+    "weights": [0.5, 0.3, 0.2]
+}
+```
+
+```js
+' Now SDK uses "deviceId" for hashing
+gb = GrowthBook({
+    attributes: {
+        id: "user_12345",
+        deviceId: "roku_device_xyz",  // This is used for hashing
+        email: "user@example.com"
+    }
+})
+
+color = gb.getFeatureValue("button_color", "blue")
+' Variation determined by hash("button-color-experiment", "roku_device_xyz")
+```
+
+#### When to Use Custom Hash Attributes
+
+Use custom hash attributes when:
+
+| Use Case                     | Hash Attribute | Reason                                         |
+| ---------------------------- | -------------- | ---------------------------------------------- |
+| **Device-level experiments** | `deviceId`     | Same variation across all users on that device |
+| **Household experiments**    | `accountId`    | Same variation for all family members          |
+| **Company-level B2B**        | `companyId`    | Consistent experience for all employees        |
+| **Anonymous users**          | `sessionId`    | Consistent during session only                 |
+| **Cross-platform sync**      | `userId`       | Same variation on web, mobile, Roku            |
+
+**Example: Device-Level Experiment**
+
+```js
+' Use case: Test new UI for entire household (device)
+gb = GrowthBook({
+    attributes: {
+        id: "anonymous_user",
+        deviceId: GetDeviceId(),  // Roku device ID
+        householdId: "household_789"
+    }
+})
+
+' In dashboard, set hashAttribute: "deviceId"
+' Now all users on this Roku device see the same UI variant
+if gb.isOn("new-ui-test") then
+    ShowNewUI()
+end if
+```
+
+#### Debugging Hash Assignments
+
+Enable dev mode to see hash calculations:
+
+```js
+gb = GrowthBook({
+    clientKey: "sdk_key",
+    attributes: { id: "user_12345" },
+    enableDevMode: true  ' ← Enable debug logging
+})
+
+' Console output:
+' [GrowthBook] Evaluating experiment: button-color-test
+' [GrowthBook] Hash input: button-color-test|user_12345
+' [GrowthBook] Hash value: 0.742
+' [GrowthBook] Assigned to variation 1 (red)
+```
+
+## Production Best Practices
+
+### Error Handling
+
+Always check if GrowthBook initialized successfully:
+
+```js
+gb = GrowthBook({
+    clientKey: "sdk_key",
+    attributes: { id: GetDeviceId() }
+})
+
+if not gb.init() then
+    print "GrowthBook failed to initialize - using defaults"
+    ' Continue with app using fallback values
+end if
+
+' Safe feature access
+function SafeFeatureCheck(key as string, default as dynamic) as dynamic
+    if m.global.gb <> invalid then
+        return m.global.gb.getFeatureValue(key, default)
+    end if
+    return default
+end function
+```
+
+### Performance Optimization
+
+Avoid calling feature checks in tight loops:
+
+```js
+' ❌ BAD: Feature check in loop
+for each video in videos
+    maxQuality = gb.getFeatureValue("max-quality", "HD")
+    video.quality = maxQuality
+end for
+
+' ✅ GOOD: Check once, use many times
+maxQuality = gb.getFeatureValue("max-quality", "HD")
+for each video in videos
+    video.quality = maxQuality
+end for
+```
+
+## Troubleshooting
+
+### 1) SDK Not Loading
+
+`GrowthBook()` returns `invalid`
+
+1. Verify `GrowthBook.brs` is in `source/` directory
+2. Check file name is exactly `GrowthBook.brs` (case-sensitive)
+3. Ensure no syntax errors in the file
+4. Try compiling channel to see errors
+
+### 2) Features Not Loading
+
+`init()` returns `false`
+
+1. Check `clientKey` is correct
+2. Verify network connectivity
+3. Test API endpoint: `https://cdn.growthbook.io/api/features/YOUR_KEY`
+4. Enable dev mode: `enableDevMode: true` to see error logs
+5. Provide fallback features for offline resilience
+
+### 3) Version Targeting Not Working
+
+Version-based rules don't match
+
+1. Use semantic versioning: `"2.1.0"` not `"2.1"` or `"v2.1.0"`
+2. Verify `appVersion` attribute is set correctly
+3. Test version operators in GrowthBook dashboard preview
+4. Enable dev mode to see evaluation logs
+
+### 4) Inconsistent Variations
+
+User sees different variations across sessions
+
+1. Ensure `id` attribute is stable (use device ID, not random)
+2. Don't use `Rnd()` or random values for `id`
+3. Verify `id` is set before evaluating features
+4. Check that you're not creating multiple GrowthBook instances
+
+### 5) Experiments Show Wrong Traffic Split
+
+50/50 split when expecting 70/30
+
+1. Verify weights in GrowthBook dashboard match expectations
+2. Ensure weights array length matches variations count
+3. Test with multiple user IDs to verify distribution
+4. Check experiment is published and active
+
+## Limitations
+
+- ❌ No Server-Sent Events (SSE) streaming support (Roku limitation)
+- ❌ No Visual Editor experiments (SceneGraph only)
+- ❌ AES decryption requires Roku OS 9.2+ (`roEVPCipher` component)
+- ❌ Network requests are asynchronous only (no sync API)
+
+## Supported Features
+
+<SdkSupportedFeatures sdk="roku" />

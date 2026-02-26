@@ -5,10 +5,11 @@ import styles from "./Metadata.module.scss";
 type Props = {
   label: string;
   value: React.ReactNode | string;
+  style?: React.CSSProperties;
 };
 
 export default forwardRef<HTMLDivElement, Props>(function Metadata(
-  { label, value, ...props },
+  { label, value, style, ...props },
   ref,
 ) {
   const renderLabel = () => {
@@ -30,7 +31,7 @@ export default forwardRef<HTMLDivElement, Props>(function Metadata(
     }
   };
   return (
-    <Flex gap="1" {...props} ref={ref}>
+    <Flex gap="1" style={style} {...props} ref={ref}>
       <span className={styles.titleColor}>{renderLabel()}:</span>
       <span className={styles.dataColor}>{renderValue()}</span>
     </Flex>

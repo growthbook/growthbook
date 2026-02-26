@@ -1,23 +1,28 @@
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
-} from "back-end/types/experiment";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
-import { includeExperimentInPayload, isDefined } from "shared/util";
-import { useCallback, useEffect, useMemo, useState } from "react";
+} from "shared/types/experiment";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import { isDefined, experimentHasLiveLinkedChanges } from "shared/util";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useRouter } from "next/router";
-import { DifferenceType } from "back-end/types/stats";
-import { URLRedirectInterface } from "back-end/types/url-redirect";
+import { DifferenceType } from "shared/types/stats";
+import { URLRedirectInterface } from "shared/types/url-redirect";
 import { FaChartBar } from "react-icons/fa";
-import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
-import { FeatureInterface } from "back-end/types/feature";
+import { HoldoutInterfaceStringDates } from "shared/validators";
+import { FeatureInterface } from "shared/types/feature";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import { Text } from "@radix-ui/themes";
+import {
+  getAvailableMetricsFilters,
+  getAvailableMetricTags,
+  getAvailableSliceTags,
+} from "@/services/experiments";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import FeatureFromExperimentModal from "@/components/Features/FeatureModal/FeatureFromExperimentModal";
 import Modal from "@/components/Modal";
-import HistoryTable from "@/components/HistoryTable";
 import {
   getBrowserDevice,
   openVisualEditor,
@@ -28,11 +33,9 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import DiscussionThread from "@/components/DiscussionThread";
 import { useAuth } from "@/services/auth";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
-import { phaseSummary } from "@/services/utils";
 import EditStatusModal from "@/components/Experiment/EditStatusModal";
 import VisualChangesetModal from "@/components/Experiment/VisualChangesetModal";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
-import { ResultsMetricFilters } from "@/components/Experiment/Results";
 import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import BanditSummaryResultsTab from "@/components/Experiment/TabbedPage/BanditSummaryResultsTab";
@@ -41,6 +44,9 @@ import PremiumCallout from "@/ui/PremiumCallout";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import DashboardsTab from "@/enterprise/components/Dashboards/DashboardsTab";
 import { useExperimentDashboards } from "@/hooks/useDashboards";
+import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
+import CompareExperimentEventsModal from "@/components/Experiment/CompareExperimentEventsModal";
 import ExperimentHeader from "./ExperimentHeader";
 import SetupTabOverview from "./SetupTabOverview";
 import Implementation from "./Implementation";
@@ -62,7 +68,7 @@ export type ExperimentTab =
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
-  holdout?: HoldoutInterface;
+  holdout?: HoldoutInterfaceStringDates;
   linkedFeatures: LinkedFeatureInfo[];
   holdoutFeatures?: FeatureInterface[];
   holdoutExperiments?: ExperimentInterfaceStringDates[];
@@ -76,12 +82,12 @@ export interface Props {
   visualChangesets: VisualChangesetInterface[];
   urlRedirects: URLRedirectInterface[];
   newPhase?: (() => void) | null;
-  editPhases?: (() => void) | null;
   editPhase?: ((i: number | null) => void) | null;
+  editPhases?: (() => void) | null;
   editTargeting?: (() => void) | null;
   editMetrics?: (() => void) | null;
   editResult?: (() => void) | null;
-  stop?: (() => void) | null;
+  editHoldoutSchedule?: (() => void) | null;
 }
 
 export default function TabbedPage({
@@ -97,14 +103,14 @@ export default function TabbedPage({
   visualChangesets,
   envs,
   urlRedirects,
-  editPhases,
   editTargeting,
   newPhase,
+  editPhases,
   editMetrics,
   editResult,
   checklistItemsRemaining,
   setChecklistItemsRemaining,
-  stop,
+  editHoldoutSchedule,
 }: Props) {
   const growthbook = useGrowthBook();
   const dashboardsEnabled = growthbook.isOn("experiment-dashboards-enabled");
@@ -112,6 +118,8 @@ export default function TabbedPage({
     `tabbedPageTab__${experiment.id}`,
     "overview",
   );
+  const tabRef = useRef(tab);
+  tabRef.current = tab;
   const [tabPath, setTabPath] = useState(
     window.location.hash.replace(/^#/, "").split("/").slice(1).join("/"),
   );
@@ -120,7 +128,7 @@ export default function TabbedPage({
 
   const { apiCall } = useAuth();
 
-  const [auditModal, setAuditModal] = useState(false);
+  const [compareModal, setCompareModal] = useState(false);
   const [statusModal, setStatusModal] = useState(false);
   const [watchersModal, setWatchersModal] = useState(false);
   const [visualEditorModal, setVisualEditorModal] = useState(false);
@@ -143,60 +151,46 @@ export default function TabbedPage({
     variationFilter: [],
     differenceType: "relative",
   });
-  const [metricFilter, setMetricFilter] = useLocalStorage<ResultsMetricFilters>(
-    `experiment-page__${experiment.id}__metric_filter`,
-    {
-      tagOrder: [],
-      filterByTag: false,
-    },
+  const [metricTagFilter, setMetricTagFilter] = useLocalStorage<string[]>(
+    `experiment-page__${experiment.id}__metric_tag_filter`,
+    [],
   );
-  const [sortBy, setSortBy] = useLocalStorage<
-    "metric-tags" | "significance" | "change" | null
-  >(`experiment-page__${experiment.id}__sort_by`, null);
+  const [metricsFilter, setMetricsFilter] = useLocalStorage<string[]>(
+    `experiment-page__${experiment.id}__metrics_filter`,
+    [],
+  );
+  const [sliceTagsFilter, setSliceTagsFilter] = useLocalStorage<string[]>(
+    `experiment-page__${experiment.id}__slice_tags_filter`,
+    [],
+  );
+  const [sortBy, setSortBy] = useLocalStorage<"significance" | "change" | null>(
+    `experiment-page__${experiment.id}__sort_by`,
+    null,
+  );
   const [sortDirection, setSortDirection] = useLocalStorage<
     "asc" | "desc" | null
   >(`experiment-page__${experiment.id}__sort_direction`, null);
 
-  const setSortByWithPriority = (
-    newSortBy: "metric-tags" | "significance" | "change" | null,
-  ) => {
-    if (newSortBy === "significance" || newSortBy === "change") {
-      // When sorting by significance or change, clear tag order to avoid conflicts
-      setMetricFilter((prev) => ({
-        ...(prev || {}),
-        tagOrder: [],
-      }));
-    }
-    setSortBy(newSortBy);
-  };
-
-  const setSortDirectionDirect = (direction: "asc" | "desc" | null) => {
-    setSortDirection(direction);
-  };
-
-  const setMetricFilterWithPriority = (
-    newMetricFilter: ResultsMetricFilters,
-  ) => {
-    // If tagOrder has items and we're not already sorting by metric-tags, switch to metric-tags
-    if (
-      (newMetricFilter.tagOrder?.length ?? 0) > 0 &&
-      sortBy !== "metric-tags"
-    ) {
-      setSortBy("metric-tags");
-    }
-    // If tagOrder is empty and we're sorting by metric-tags, switch to null
-    else if (
-      (newMetricFilter.tagOrder?.length ?? 0) === 0 &&
-      sortBy === "metric-tags"
-    ) {
-      setSortBy(null);
-    }
-    setMetricFilter(newMetricFilter);
+  const setMetricTagFilterWithPriority = (newMetricTagFilter: string[]) => {
+    setMetricTagFilter(newMetricTagFilter);
   };
 
   useEffect(() => {
+    const getHash = () => {
+      // Prefer window.location.hash; on client-side nav it can be empty at first,
+      // so fall back to router.asPath (Next.js includes hash in asPath on client).
+      const fromWindow =
+        typeof window !== "undefined"
+          ? window.location.hash.replace(/^#/, "")
+          : "";
+      const fromAsPath = router.asPath.includes("#")
+        ? (router.asPath.split("#")[1] ?? "")
+        : "";
+      return fromWindow || fromAsPath;
+    };
+
     const handler = () => {
-      const hash = window.location.hash.replace(/^#/, "") as ExperimentTab;
+      const hash = getHash() as ExperimentTab;
       let [tabName, ...tabPathSegments] = hash.split("/") as [
         ExperimentTabName,
         ...string[],
@@ -209,12 +203,21 @@ export default function TabbedPage({
         const tabPath = tabPathSegments.join("/");
         setTab(tabName);
         setTabPath(tabPath);
+      } else if (!hash) {
+        // If no hash in URL, add the current tab from state to the URL
+        const newUrl =
+          window.location.href.replace(/#.*/, "") + "#" + tabRef.current;
+        router.replace(newUrl, undefined, { shallow: true }).catch((e) => {
+          if (!e.cancelled) {
+            throw e;
+          }
+        });
       }
     };
     handler();
     window.addEventListener("hashchange", handler, false);
     return () => window.removeEventListener("hashchange", handler, false);
-  }, [setTab, dashboardsEnabled]);
+  }, [setTab, dashboardsEnabled, router]);
 
   const { dashboards } = useExperimentDashboards(experiment.id);
 
@@ -235,7 +238,75 @@ export default function TabbedPage({
   }, [experiment.defaultDashboardId, dashboards]);
 
   const { phase, setPhase } = useSnapshot();
-  const { metricGroups } = useDefinitions();
+  const {
+    metricGroups,
+    getExperimentMetricById,
+    getFactTableById,
+    factTables,
+  } = useDefinitions();
+
+  // Extract available metrics and groups for filtering
+  const availableMetricsFilters = useMemo(
+    () =>
+      getAvailableMetricsFilters({
+        goalMetrics: experiment.goalMetrics,
+        secondaryMetrics: experiment.secondaryMetrics,
+        guardrailMetrics: experiment.guardrailMetrics,
+        metricGroups,
+        getExperimentMetricById,
+      }),
+    [
+      experiment.goalMetrics,
+      experiment.secondaryMetrics,
+      experiment.guardrailMetrics,
+      metricGroups,
+      getExperimentMetricById,
+    ],
+  );
+
+  // Extract all metric tags from expanded metrics
+  const availableMetricTags = useMemo(
+    () =>
+      getAvailableMetricTags({
+        goalMetrics: experiment.goalMetrics,
+        secondaryMetrics: experiment.secondaryMetrics,
+        guardrailMetrics: experiment.guardrailMetrics,
+        metricGroups,
+        getExperimentMetricById,
+      }),
+    [
+      experiment.goalMetrics,
+      experiment.secondaryMetrics,
+      experiment.guardrailMetrics,
+      metricGroups,
+      getExperimentMetricById,
+    ],
+  );
+
+  // Extract all slice tags from expanded metrics
+  const availableSliceTags = useMemo(
+    () =>
+      getAvailableSliceTags({
+        goalMetrics: experiment.goalMetrics,
+        secondaryMetrics: experiment.secondaryMetrics,
+        guardrailMetrics: experiment.guardrailMetrics,
+        customMetricSlices: experiment.customMetricSlices,
+        metricGroups,
+        factTables,
+        getExperimentMetricById,
+        getFactTableById,
+      }),
+    [
+      experiment.goalMetrics,
+      experiment.secondaryMetrics,
+      experiment.guardrailMetrics,
+      experiment.customMetricSlices,
+      metricGroups,
+      getExperimentMetricById,
+      getFactTableById,
+      factTables,
+    ],
+  );
 
   const variables = {
     experiment: experiment.name,
@@ -246,16 +317,34 @@ export default function TabbedPage({
   const viewingOldPhase =
     experiment.phases.length > 0 && phase < experiment.phases.length - 1;
 
-  const setTabAndScroll = (tab: ExperimentTab) => {
+  const setTabAndScroll = (tab: ExperimentTab, scrollToId?: string) => {
     setTab(tab);
     setTabPath("");
     const newUrl = window.location.href.replace(/#.*/, "") + "#" + tab;
-    if (newUrl === window.location.href) return;
-    window.history.pushState("", "", newUrl);
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
+    if (newUrl !== window.location.href) {
+      router.push(newUrl, undefined, { shallow: true }).catch((e) => {
+        // HACK: Workaround for https://github.com/vercel/next.js/issues/37362#issuecomment-1283671326
+        // This navigation gets cancelled by persistTabPath with the default dashboard id
+        if (!e.cancelled) {
+          throw e;
+        }
+      });
+    }
+    if (scrollToId) {
+      requestAnimationFrame(() => {
+        const el = document.getElementById(scrollToId);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
+        } else {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+      });
+    } else if (newUrl !== window.location.href) {
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+    }
   };
 
   const persistTabPath = useCallback(
@@ -264,8 +353,19 @@ export default function TabbedPage({
       const newUrl =
         window.location.href.replace(/#.*/, "") + "#" + tab + "/" + path;
       if (newUrl === window.location.href) return;
-      window.history.pushState("", "", newUrl);
+      router
+        .replace(newUrl, undefined, {
+          shallow: true,
+        })
+        .catch((e) => {
+          // HACK: Workaround for https://github.com/vercel/next.js/issues/37362#issuecomment-1283671326
+          // Route changes can be cancelled when component unmounts or another navigation occurs
+          if (!e.cancelled) {
+            throw e;
+          }
+        });
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [tab],
   );
 
@@ -277,11 +377,6 @@ export default function TabbedPage({
     // Reset notifications when snapshot changes and the health tab needs to re-render
     setHealthNotificationCount(0);
   }, []);
-
-  const hasLiveLinkedChanges = includeExperimentInPayload(
-    experiment,
-    linkedFeatures.map((f) => f.feature),
-  );
 
   const { data: sdkConnectionsData } = useSDKConnections();
   const connections = sdkConnectionsData?.connections || [];
@@ -312,10 +407,12 @@ export default function TabbedPage({
     return getBrowserDevice(ua);
   }, []);
 
-  const safeToEdit = experiment.status !== "running" || !hasLiveLinkedChanges;
-
   const isBandit = experiment.type === "multi-armed-bandit";
   const trackSource = "tabbed-page";
+
+  const safeToEdit =
+    experiment.status !== "running" ||
+    !experimentHasLiveLinkedChanges(experiment, linkedFeatures);
 
   const showMetricGroupPromo = (): boolean => {
     if (metricGroups.length) return false;
@@ -339,17 +436,11 @@ export default function TabbedPage({
 
   return (
     <>
-      {auditModal && (
-        <Modal
-          trackingEventModalType=""
-          open={true}
-          header="Audit Log"
-          close={() => setAuditModal(false)}
-          size="lg"
-          closeCta="Close"
-        >
-          <HistoryTable type="experiment" id={experiment.id} />
-        </Modal>
+      {compareModal && (
+        <CompareExperimentEventsModal
+          experiment={experiment}
+          onClose={() => setCompareModal(false)}
+        />
       )}
       {watchersModal && (
         <Modal
@@ -420,8 +511,7 @@ export default function TabbedPage({
         tab={tab}
         setTab={setTabAndScroll}
         mutate={mutate}
-        safeToEdit={safeToEdit}
-        setAuditModal={setAuditModal}
+        setCompareModal={setCompareModal}
         setStatusModal={setStatusModal}
         setWatchersModal={setWatchersModal}
         duplicate={duplicate}
@@ -435,8 +525,9 @@ export default function TabbedPage({
         healthNotificationCount={healthNotificationCount}
         checklistItemsRemaining={checklistItemsRemaining}
         linkedFeatures={linkedFeatures}
-        stop={stop}
         showDashboardView={showDashboardView}
+        safeToEdit={safeToEdit}
+        editHoldoutSchedule={editHoldoutSchedule}
       />
 
       <div
@@ -478,30 +569,21 @@ export default function TabbedPage({
         {viewingOldPhase &&
           ((!isBandit && tab === "results") ||
             (isBandit && tab === "explore")) && (
-            <div className="alert alert-warning mt-3">
-              <div>
+            <Callout status="info">
+              <Text>
                 {isHoldout
                   ? "You are viewing the results of the entire holdout period."
-                  : "You are viewing the results of a previous experiment phase."}{" "}
-                <a
-                  role="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setPhase(experiment.phases.length - 1);
-                  }}
-                >
-                  {isHoldout
-                    ? "Switch to the analysis period to view results with a lookback based on the analysis period start date."
-                    : "Switch to the latest phase"}
-                </a>
-              </div>
-              {!isHoldout && (
-                <div className="mt-1">
-                  <strong>Phase settings:</strong>{" "}
-                  {phaseSummary(experiment?.phases?.[phase])}
-                </div>
-              )}
-            </div>
+                  : "You are viewing the results of a previous experiment phase."}
+              </Text>
+              <Link
+                ml="2"
+                onClick={() => setPhase(experiment.phases.length - 1)}
+              >
+                {isHoldout
+                  ? "Switch to the analysis phase to view results with a lookback based on the analysis phase start date."
+                  : "Switch to the latest phase"}
+              </Link>
+            </Callout>
           )}
 
         {showDashboardView && (
@@ -535,6 +617,7 @@ export default function TabbedPage({
             checklistItemsRemaining={checklistItemsRemaining}
             setChecklistItemsRemaining={setChecklistItemsRemaining}
             envs={envs}
+            editHoldoutSchedule={editHoldoutSchedule}
           />
           <Implementation
             experiment={experiment}
@@ -608,7 +691,6 @@ export default function TabbedPage({
           experiment={experiment}
           mutate={mutate}
           editMetrics={editMetrics}
-          editPhases={editPhases}
           editResult={editResult}
           newPhase={newPhase}
           connections={connections}
@@ -617,15 +699,21 @@ export default function TabbedPage({
           visualChangesets={visualChangesets}
           editTargeting={editTargeting}
           isTabActive={tab === "results"}
-          safeToEdit={safeToEdit}
-          metricFilter={metricFilter}
+          metricTagFilter={metricTagFilter}
+          metricsFilter={metricsFilter}
+          setMetricsFilter={setMetricsFilter}
+          availableMetricsFilters={availableMetricsFilters}
+          availableMetricTags={availableMetricTags}
+          availableSliceTags={availableSliceTags}
+          sliceTagsFilter={sliceTagsFilter}
+          setSliceTagsFilter={setSliceTagsFilter}
           analysisBarSettings={analysisBarSettings}
           setAnalysisBarSettings={setAnalysisBarSettings}
-          setMetricFilter={setMetricFilterWithPriority}
+          setMetricTagFilter={setMetricTagFilterWithPriority}
           sortBy={sortBy}
-          setSortBy={setSortByWithPriority}
+          setSortBy={setSortBy}
           sortDirection={sortDirection}
-          setSortDirection={setSortDirectionDirect}
+          setSortDirection={setSortDirection}
         />
       </div>
       <div

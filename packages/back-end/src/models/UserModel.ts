@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { Document } from "mongodb";
-import { UserInterface } from "back-end/types/user";
+import { UserInterface } from "shared/types/user";
 import {
   usingOpenId,
   validatePasswordFormat,

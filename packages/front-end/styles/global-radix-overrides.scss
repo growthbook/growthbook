@@ -243,13 +243,54 @@
 
 // Dropdown
 .dropdown-content-width-full {
-  width: var(--radix-dropdown-menu-trigger-width);
+  min-width: var(--radix-dropdown-menu-trigger-width);
+  max-width: var(--radix-dropdown-menu-content-available-width);
   max-height: var(--radix-dropdown-menu-content-available-height);
 }
 .rt-BaseMenuItem {
   cursor: pointer !important;
   &[data-disabled] {
     cursor: not-allowed !important;
+  }
+  &.multiline-item {
+    height: auto !important;
+    min-height: var(--base-menu-item-height) !important;
+    padding-top: var(--space-1) !important;
+    padding-bottom: var(--space-1) !important;
+  }
+  &.selected-item {
+    background-color: var(--accent-a3);
+    &:where([data-highlighted]) {
+      background-color: var(--accent-a4);
+    }
+  }
+}
+
+// Makes a DropdownMenu.Trigger look like a Radix Select trigger (surface variant, size 2).
+.dropdown-trigger-select-style {
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--space-8);
+  overflow: hidden;
+  padding: 0 var(--space-3);
+  background-color: var(--color-surface);
+  box-shadow: inset 0 0 0 1px var(--gray-a7);
+  border-radius: var(--radius-2);
+  color: var(--gray-12);
+  cursor: pointer;
+  text-align: start;
+
+  &:where(:hover) {
+    box-shadow: inset 0 0 0 1px var(--gray-a8);
+  }
+
+  &:where([data-state="open"]) {
+    box-shadow: inset 0 0 0 1px var(--gray-a8);
+  }
+
+  &:where(:focus-visible) {
+    outline: 2px solid var(--focus-8);
+    outline-offset: -1px;
   }
 }
 

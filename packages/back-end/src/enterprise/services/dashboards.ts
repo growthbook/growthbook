@@ -8,28 +8,26 @@ import {
   getBlockSnapshotAnalysis,
   getBlockSnapshotSettings,
   snapshotSatisfiesBlock,
+  DashboardInterface,
+  MetricExplorerBlockInterface,
+  SqlExplorerBlockInterface,
 } from "shared/enterprise";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
-} from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment-snapshot";
 
+import { ExperimentInterface } from "shared/types/experiment";
+import { MetricSnapshotSettings } from "shared/types/report";
+import { StatsEngine } from "shared/types/stats";
+import { MetricAnalysisSettings } from "shared/types/metric-analysis";
 import { findSnapshotsByIds } from "back-end/src/models/ExperimentSnapshotModel";
 
-import { ExperimentInterface } from "back-end/types/experiment";
-import { ReqContext } from "back-end/types/organization";
-
-import { MetricSnapshotSettings } from "back-end/types/report";
+import { ReqContext } from "back-end/types/request";
 
 import { FactTableMap } from "back-end/src/models/FactTableModel";
-import { StatsEngine } from "back-end/types/stats";
 import { ApiReqContext } from "back-end/types/api";
 import { getDataSourcesByIds } from "back-end/src/models/DataSourceModel";
-import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
-import {
-  MetricExplorerBlockInterface,
-  SqlExplorerBlockInterface,
-} from "back-end/src/enterprise/validators/dashboard-block";
 import { executeAndSaveQuery } from "back-end/src/routers/saved-queries/saved-queries.controller";
 import {
   getDefaultExperimentAnalysisSettings,
@@ -38,7 +36,43 @@ import {
   determineNextDate,
 } from "back-end/src/services/experiments";
 import { createMetricAnalysis } from "back-end/src/services/metric-analysis";
-import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
+
+/**
+ * Determines if nextUpdate should be recalculated based on changes to auto-updates or schedule
+ */
+export function shouldRecalculateNextUpdate(
+  updates: {
+    enableAutoUpdates?: boolean;
+    updateSchedule?: DashboardInterface["updateSchedule"];
+  },
+  dashboard: DashboardInterface,
+): boolean {
+  // Auto-updates being disabled - clear nextUpdate
+  if (updates.enableAutoUpdates === false) {
+    return false;
+  }
+
+  // Auto-updates not enabled - no update needed
+  const enableAutoUpdates =
+    updates.enableAutoUpdates ?? dashboard.enableAutoUpdates;
+  if (!enableAutoUpdates) {
+    return false;
+  }
+
+  // Auto-updates being turned on for the first time
+  if (updates.enableAutoUpdates === true && !dashboard.enableAutoUpdates) {
+    return true;
+  }
+
+  // Schedule is being changed
+  if (
+    updates.updateSchedule &&
+    !isEqual(updates.updateSchedule, dashboard.updateSchedule)
+  ) {
+    return true;
+  }
+  return false;
+}
 
 // To be run after creating the main/standard snapshot. Re-uses some of the variables for efficiency
 export async function updateExperimentDashboards({
@@ -47,6 +81,7 @@ export async function updateExperimentDashboards({
   mainSnapshot,
   statsEngine,
   regressionAdjustmentEnabled,
+  postStratificationEnabled,
   settingsForSnapshotMetrics,
   metricMap,
   factTableMap,
@@ -56,6 +91,7 @@ export async function updateExperimentDashboards({
   mainSnapshot: ExperimentSnapshotInterface;
   statsEngine: StatsEngine;
   regressionAdjustmentEnabled: boolean;
+  postStratificationEnabled: boolean;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
@@ -131,13 +167,14 @@ export async function updateExperimentDashboards({
         isEqual,
       );
 
-    const analysisSettings = getDefaultExperimentAnalysisSettings(
+    const analysisSettings = getDefaultExperimentAnalysisSettings({
       statsEngine,
       experiment,
-      context.org,
+      organization: context.org,
       regressionAdjustmentEnabled,
-      snapshotSettings.dimensionId,
-    );
+      postStratificationEnabled,
+      dimension: snapshotSettings.dimensionId,
+    });
 
     const queryRunner = await createSnapshot({
       experiment,

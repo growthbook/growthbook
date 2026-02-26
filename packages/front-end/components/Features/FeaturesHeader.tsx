@@ -1,31 +1,28 @@
 import { useRouter } from "next/router";
 import React, { useMemo, useState } from "react";
-import { Box, Flex, Heading, Text } from "@radix-ui/themes";
-import { FeatureInterface } from "back-end/types/feature";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { Box, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
+import { FeatureInterface } from "shared/types/feature";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { filterEnvironmentsByFeature, isFeatureStale } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
+import { BsThreeDotsVertical } from "react-icons/bs";
+import { HoldoutInterface } from "shared/validators";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useUser } from "@/services/UserContext";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import ConfirmButton from "@/components/Modal/ConfirmButton";
 import { getEnabledEnvironments, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SortedTags from "@/components/Tags/SortedTags";
 import WatchButton from "@/components/WatchButton";
-import Modal from "@/components/Modal";
-import HistoryTable from "@/components/HistoryTable";
+import CompareFeatureEventsModal from "@/components/Features/CompareFeatureEventsModal";
 import FeatureImplementationModal from "@/components/Features/FeatureImplementationModal";
 import FeatureModal from "@/components/Features/FeatureModal";
 import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
 import { FeatureTab } from "@/pages/features/[fid]";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import UserAvatar from "@/components/Avatar/UserAvatar";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
@@ -33,6 +30,14 @@ import Callout from "@/ui/Callout";
 import ProjectBadges from "@/components/ProjectBadges";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import Link from "@/ui/Link";
+import {
+  DropdownMenu,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/ui/DropdownMenu";
+import FeatureArchiveModal from "./FeatureArchiveModal";
+import FeatureDeleteModal from "./FeatureDeleteModal";
 import AddToHoldoutModal from "./AddToHoldoutModal";
 
 export default function FeaturesHeader({
@@ -43,7 +48,6 @@ export default function FeaturesHeader({
   tab,
   setTab,
   setEditFeatureInfoModal,
-  dependents,
   holdout,
   dependentExperiments,
 }: {
@@ -54,7 +58,6 @@ export default function FeaturesHeader({
   tab: FeatureTab;
   setTab: (tab: FeatureTab) => void;
   setEditFeatureInfoModal: (open: boolean) => void;
-  dependents: number;
   holdout: HoldoutInterface | undefined;
   dependentExperiments: ExperimentInterfaceStringDates[];
 }) {
@@ -65,6 +68,9 @@ export default function FeaturesHeader({
   const [duplicateModal, setDuplicateModal] = useState(false);
   const [staleFFModal, setStaleFFModal] = useState(false);
   const [addToHoldoutModal, setAddToHoldoutModal] = useState(false);
+  const [archiveModal, setArchiveModal] = useState(false);
+  const [deleteModal, setDeleteModal] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const [showImplementation, setShowImplementation] = useState(firstFeature);
 
   const { organization, hasCommercialFeature } = useUser();
@@ -140,168 +146,113 @@ export default function FeaturesHeader({
                 </div>
               )}
             </Flex>
-            <Box>
-              <MoreMenu useRadix={true}>
+            <DropdownMenu
+              trigger={
+                <IconButton
+                  variant="ghost"
+                  color="gray"
+                  radius="full"
+                  size="3"
+                  highContrast
+                >
+                  <BsThreeDotsVertical size={18} />
+                </IconButton>
+              }
+              open={dropdownOpen}
+              onOpenChange={setDropdownOpen}
+              menuPlacement="end"
+            >
+              <DropdownMenuGroup>
                 {canEdit && canPublish && (
-                  <a
-                    className="dropdown-item"
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
+                  <DropdownMenuItem
+                    onClick={() => {
                       setEditFeatureInfoModal(true);
+                      setDropdownOpen(false);
                     }}
                   >
                     Edit information
-                  </a>
+                  </DropdownMenuItem>
                 )}
-                <a
-                  className="dropdown-item"
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
+                <DropdownMenuItem
+                  onClick={() => {
                     setShowImplementation(true);
+                    setDropdownOpen(false);
                   }}
                 >
                   Show implementation
-                </a>
-                <a
-                  className="dropdown-item"
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
                     setAuditModal(true);
+                    setDropdownOpen(false);
                   }}
                 >
-                  View Audit Log
-                </a>
-                {canEdit && (
-                  <>
-                    <a
-                      className="dropdown-item"
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setStaleFFModal(true);
-                      }}
-                    >
-                      {feature.neverStale
-                        ? "Enable stale detection"
-                        : "Disable stale detection"}
-                    </a>
-                  </>
-                )}
-                {canEdit &&
-                  canPublish &&
-                  holdoutsEnabled &&
-                  holdouts.length > 0 &&
-                  !holdout?.id && (
-                    <a
-                      className="dropdown-item"
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setAddToHoldoutModal(true);
-                      }}
-                    >
-                      Add to holdout
-                    </a>
-                  )}
-                {canEdit && canPublish && (
-                  <a
-                    className="dropdown-item"
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setDuplicateModal(true);
+                  Audit History
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+              {canEdit && (
+                <DropdownMenuGroup>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setStaleFFModal(true);
+                      setDropdownOpen(false);
                     }}
                   >
-                    Duplicate
-                  </a>
-                )}
-                {canEdit && canPublish && (
-                  <ConfirmButton
-                    onClick={async () => {
-                      await apiCall(`/feature/${feature.id}/archive`, {
-                        method: "POST",
-                      });
-                      mutate();
-                    }}
-                    modalHeader={
-                      isArchived ? "Unarchive Feature" : "Archive Feature"
-                    }
-                    confirmationText={
-                      isArchived ? (
-                        <>
-                          <p>
-                            Are you sure you want to continue? This will make
-                            the current feature active again.
-                          </p>
-                        </>
-                      ) : (
-                        <>
-                          <p>
-                            Are you sure you want to continue? This will make
-                            the current feature inactive. It will not be
-                            included in API responses or Webhook payloads.
-                          </p>
-                        </>
-                      )
-                    }
-                    cta={isArchived ? "Unarchive" : "Archive"}
-                    ctaColor="danger"
-                    ctaEnabled={dependents === 0}
-                    additionalMessage={
-                      dependents > 0 ? (
-                        <Callout status="error">
-                          This feature has{" "}
-                          <strong>
-                            {dependents} dependent{dependents !== 1 && "s"}
-                          </strong>
-                          . This feature cannot be archived until{" "}
-                          {dependents === 1 ? "it has" : "they have"} been
-                          removed.
-                        </Callout>
-                      ) : undefined
-                    }
-                  >
-                    <button className="dropdown-item">
+                    {feature.neverStale
+                      ? "Enable stale detection"
+                      : "Disable stale detection"}
+                  </DropdownMenuItem>
+                  {canPublish &&
+                    holdoutsEnabled &&
+                    holdouts.length > 0 &&
+                    !holdout?.id && (
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setAddToHoldoutModal(true);
+                          setDropdownOpen(false);
+                        }}
+                      >
+                        Add to holdout
+                      </DropdownMenuItem>
+                    )}
+                </DropdownMenuGroup>
+              )}
+              {canEdit && canPublish && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setDuplicateModal(true);
+                        setDropdownOpen(false);
+                      }}
+                    >
+                      Duplicate
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setArchiveModal(true);
+                        setDropdownOpen(false);
+                      }}
+                    >
                       {isArchived ? "Unarchive" : "Archive"}
-                    </button>
-                  </ConfirmButton>
-                )}
-                {canEdit && canPublish && (
-                  <>
-                    <hr className="my-2" />
-                    <DeleteButton
-                      useIcon={false}
-                      displayName="Feature"
-                      onClick={async () => {
-                        await apiCall(`/feature/${feature.id}`, {
-                          method: "DELETE",
-                        });
-                        await router.push("/features");
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem
+                      color="red"
+                      onClick={() => {
+                        setDeleteModal(true);
+                        setDropdownOpen(false);
                       }}
-                      className="dropdown-item text-danger"
-                      text="Delete"
-                      canDelete={dependents === 0}
-                      additionalMessage={
-                        dependents > 0 ? (
-                          <Callout status="error">
-                            This feature has{" "}
-                            <strong>
-                              {dependents} dependent{dependents !== 1 && "s"}
-                            </strong>
-                            . This feature cannot be deleted until{" "}
-                            {dependents === 1 ? "it has" : "they have"} been
-                            removed.
-                          </Callout>
-                        ) : undefined
-                      }
-                    />
-                  </>
-                )}
-              </MoreMenu>
-            </Box>
+                    >
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                </>
+              )}
+            </DropdownMenu>
           </Flex>
           <Flex gap="4">
             {holdout?.id && (
@@ -402,21 +353,16 @@ export default function FeaturesHeader({
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="test">Simulate</TabsTrigger>
               <TabsTrigger value="stats">Code Refs</TabsTrigger>
+              <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>
             </TabsList>
           </Tabs>
         </Box>
       </Box>
       {auditModal && (
-        <Modal
-          trackingEventModalType=""
-          open={true}
-          header="Audit Log"
-          close={() => setAuditModal(false)}
-          size="max"
-          closeCta="Close"
-        >
-          <HistoryTable type="feature" id={feature.id} />
-        </Modal>
+        <CompareFeatureEventsModal
+          feature={feature}
+          onClose={() => setAuditModal(false)}
+        />
       )}
       {duplicateModal && (
         <FeatureModal
@@ -450,6 +396,32 @@ export default function FeaturesHeader({
           close={() => setAddToHoldoutModal(false)}
           feature={feature}
           mutate={mutate}
+        />
+      )}
+      {archiveModal && (
+        <FeatureArchiveModal
+          feature={feature}
+          close={() => setArchiveModal(false)}
+          onArchive={async () => {
+            await apiCall(`/feature/${feature.id}/archive`, {
+              method: "POST",
+            });
+            mutate();
+          }}
+          environments={envs}
+        />
+      )}
+      {deleteModal && (
+        <FeatureDeleteModal
+          feature={feature}
+          close={() => setDeleteModal(false)}
+          onDelete={async () => {
+            await apiCall(`/feature/${feature.id}`, {
+              method: "DELETE",
+            });
+            await router.push("/features");
+          }}
+          environments={envs}
         />
       )}
     </>

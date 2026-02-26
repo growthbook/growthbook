@@ -8,17 +8,17 @@ import {
 } from "shared/util";
 import { DEFAULT_METRIC_HISTOGRAM_BINS } from "shared/constants";
 import {
+  MetricAnalysisParams,
+  MetricAnalysisQueryResponseRows,
+} from "shared/types/integrations";
+import {
   MetricAnalysisHistogram,
   MetricAnalysisInterface,
   MetricAnalysisResult,
-} from "back-end/types/metric-analysis";
-import { FactMetricInterface } from "back-end/types/fact-table";
-import { Queries, QueryStatus } from "back-end/types/query";
-import {
-  MetricAnalysisParams,
-  MetricAnalysisQueryResponseRows,
-} from "back-end/src/types/Integration";
-import { getMetricWithFiltersApplied } from "../services/metric-analysis";
+} from "shared/types/metric-analysis";
+import { FactMetricInterface } from "shared/types/fact-table";
+import { Queries, QueryStatus } from "shared/types/query";
+import { getMetricWithFiltersApplied } from "back-end/src/services/metric-analysis";
 import { QueryRunner, QueryMap } from "./QueryRunner";
 
 export class MetricAnalysisQueryRunner extends QueryRunner<
@@ -48,7 +48,6 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
         dependencies: [],
         run: (query, setExternalId) =>
           this.integration.runMetricAnalysisQuery(query, setExternalId),
-        process: (rows) => rows,
         queryType: "metricAnalysis",
       }),
     ];

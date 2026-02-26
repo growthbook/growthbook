@@ -1,10 +1,10 @@
-import { ExperimentSnapshotTrafficDimension } from "back-end/types/experiment-snapshot";
-import { ExperimentReportVariation } from "back-end/types/report";
+import { ExperimentSnapshotTrafficDimension } from "shared/types/experiment-snapshot";
+import { ExperimentReportVariation } from "shared/types/report";
 import { useMemo, useState } from "react";
 import {
   DataSourceInterfaceWithParams,
   ExposureQuery,
-} from "back-end/types/datasource";
+} from "shared/types/datasource";
 import { getSRMHealthData, SRMHealthStatus } from "shared/health";
 import {
   DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { SDKAttribute, SDKAttributeSchema } from "back-end/types/organization";
-import { ArchetypeAttributeValues } from "back-end/types/archetype";
+import { SDKAttribute, SDKAttributeSchema } from "shared/types/organization";
+import { ArchetypeAttributeValues } from "shared/types/archetype";
 import isEqual from "lodash/isEqual";
 import format from "date-fns/format";
 import { useAttributeSchema } from "@/services/features";
@@ -130,9 +130,13 @@ export default function AttributeForm({
     ) {
       // prep for use in MultiSelectField
       if (Array.isArray(value)) {
-        options = value.map((v: string) => ({ value: v, label: v }));
-      } else if (typeof value === "string") {
-        options = [{ value: value, label: value }];
+        options = value.map((v: string | number) => ({
+          value: String(v),
+          label: String(v),
+        }));
+      } else if (typeof value === "string" || typeof value === "number") {
+        const strValue = String(value);
+        options = [{ value: strValue, label: strValue }];
         value = [value];
       }
     } else if (attribute.datatype === "string") {
@@ -184,6 +188,20 @@ export default function AttributeForm({
                 }}
                 creatable={true}
               />
+            ) : attribute.datatype === "number[]" ? (
+              <MultiSelectField
+                options={options}
+                value={Array.isArray(value) ? value.map(String) : []}
+                onChange={(value) => {
+                  const numArray = value.map((v) => {
+                    const num = Number(v);
+                    return isNaN(num) ? v : num;
+                  });
+                  attributeFormValues.set(attribute.property, numArray);
+                  updateFormValues();
+                }}
+                creatable={true}
+              />
             ) : attribute.datatype === "string" ? (
               <>
                 {attribute.format === "date" ? (
@@ -218,7 +236,9 @@ export default function AttributeForm({
                 type="number"
                 value={value as string}
                 onChange={(e) => {
-                  attributeFormValues.set(attribute.property, e.target.value);
+                  const numValue =
+                    e.target.value === "" ? "" : Number(e.target.value);
+                  attributeFormValues.set(attribute.property, numValue);
                   updateFormValues();
                 }}
               />

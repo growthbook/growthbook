@@ -7,7 +7,7 @@ import { OWNER_JOB_TITLES } from "shared/constants";
 import {
   OwnerJobTitle,
   CreateOrganizationPostBody,
-} from "back-end/types/organization";
+} from "shared/types/organization";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
@@ -73,7 +73,6 @@ const CreateOrJoinOrganization: FC<{
     } else {
       setMode("create");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orgs]);
 
   const joinOrgFormSubmit = async (org) => {

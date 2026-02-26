@@ -5,7 +5,7 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
   ExperimentStatus,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import { getValidDate, date } from "shared/dates";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -19,7 +19,7 @@ import { format } from "date-fns";
 import { GridColumns } from "@visx/grid";
 import styles from "@/components/Metrics/DateGraph.module.scss";
 import EmptyState from "@/components/EmptyState";
-import ExperimentStatusIndicator from "../TabbedPage/ExperimentStatusIndicator";
+import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 
 const margin = { top: 30, right: 60, bottom: 30, left: 200 }; // Increased right margin to prevent end tick cutoff
 

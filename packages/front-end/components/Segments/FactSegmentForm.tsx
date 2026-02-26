@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import { SegmentInterface } from "back-end/types/segment";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { SegmentInterface } from "shared/types/segment";
 import { GBArrowLeft } from "@/components/Icons";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
@@ -13,7 +13,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import SelectOwner from "../Owner/SelectOwner";
+import SelectOwner from "@/components/Owner/SelectOwner";
 
 type Props = {
   goBack: () => void;

@@ -7,7 +7,7 @@ import {
   ComputedFeatureInterface,
   FeatureInterface,
   FeatureRule,
-} from "back-end/types/feature";
+} from "shared/types/feature";
 import { date, datetime } from "shared/dates";
 import {
   featureHasEnvironment,
@@ -78,12 +78,14 @@ export default function FeaturesPage() {
   const environments = useEnvironments();
   const {
     features: allFeatures,
-    experiments,
     loading,
     error,
     mutate,
     hasArchived,
-  } = useFeaturesList(true, showArchived);
+  } = useFeaturesList({
+    useCurrentProject: true,
+    includeArchived: showArchived,
+  });
   const { experiments: allExperiments } = useExperiments();
 
   const { usage, usageDomain } = useRealtimeData(
@@ -97,6 +99,8 @@ export default function FeaturesPage() {
       string,
       { stale: boolean; reason?: StaleFeatureReason }
     > = {};
+    const featuresMap = new Map(allFeatures.map((f) => [f.id, f]));
+    const experimentMap = new Map(allExperiments.map((e) => [e.id, e]));
     allFeatures.forEach((feature) => {
       const featureEnvironments = filterEnvironmentsByFeature(
         environments,
@@ -108,6 +112,8 @@ export default function FeaturesPage() {
         features: allFeatures,
         experiments: allExperiments,
         environments: envs,
+        featuresMap,
+        experimentMap,
       });
     });
     return staleFeatures;
@@ -475,7 +481,6 @@ export default function FeaturesPage() {
             router.push(url);
             mutate({
               features: [...allFeatures, feature],
-              linkedExperiments: experiments,
               hasArchived,
             });
           }}
@@ -568,7 +573,7 @@ export default function FeaturesPage() {
           </TabsContent>
 
           <TabsContent value="drafts">
-            <FeaturesDraftTable features={allFeatures} />
+            <FeaturesDraftTable />
           </TabsContent>
         </Tabs>
       )}

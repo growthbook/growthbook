@@ -1,7 +1,7 @@
 import { FC, ReactNode, useState } from "react";
 import clsx from "clsx";
 import { FaDatabase } from "react-icons/fa";
-import { QueryStatus } from "back-end/types/query";
+import { QueryStatus } from "shared/types/query";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import AsyncQueriesModal from "./AsyncQueriesModal";
 

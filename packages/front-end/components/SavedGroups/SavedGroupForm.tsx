@@ -1,16 +1,18 @@
-import { FC, useEffect, useState } from "react";
+import { FC, useEffect, useMemo, useState } from "react";
 import {
   CreateSavedGroupProps,
   UpdateSavedGroupProps,
-} from "back-end/types/saved-group";
+  SavedGroupInterface,
+  SavedGroupType,
+} from "shared/types/saved-group";
 import { useForm } from "react-hook-form";
 import {
   isIdListSupportedAttribute,
   validateAndFixCondition,
 } from "shared/util";
-import { FaPlusCircle } from "react-icons/fa";
-import { SavedGroupInterface, SavedGroupType } from "shared/src/types";
+import { PiPlus } from "react-icons/pi";
 import clsx from "clsx";
+import { Flex, Text } from "@radix-ui/themes";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
 import { useAttributeSchema } from "@/services/features";
@@ -24,7 +26,8 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import SelectOwner from "../Owner/SelectOwner";
+import Link from "@/ui/Link";
+import SelectOwner from "@/components/Owner/SelectOwner";
 
 const SavedGroupForm: FC<{
   close: () => void;
@@ -38,7 +41,7 @@ const SavedGroupForm: FC<{
 
   const attributeSchema = useAttributeSchema();
 
-  const { mutateDefinitions } = useDefinitions();
+  const { mutateDefinitions, savedGroups } = useDefinitions();
 
   const { projects, project } = useDefinitions();
 
@@ -81,6 +84,12 @@ const SavedGroupForm: FC<{
         (!listAboveSizeLimit || adminBypassSizeLimit)
       : !!form.watch("condition"));
 
+  // Create a Map from saved groups for cycle detection
+  const groupMap = useMemo(
+    () => new Map(savedGroups.map((group) => [group.id, group])),
+    [savedGroups],
+  );
+
   return upgradeModal ? (
     <UpgradeModal
       close={() => setUpgradeModal(false)}
@@ -100,10 +109,15 @@ const SavedGroupForm: FC<{
       ctaEnabled={isValid}
       submit={form.handleSubmit(async (value) => {
         if (type === "condition") {
-          const conditionRes = validateAndFixCondition(value.condition, (c) => {
-            form.setValue("condition", c);
-            forceConditionRender();
-          });
+          const conditionRes = validateAndFixCondition(
+            value.condition,
+            (c) => {
+              form.setValue("condition", c);
+              forceConditionRender();
+            },
+            true,
+            groupMap,
+          );
           if (conditionRes.empty) {
             throw new Error("Condition cannot be empty");
           }
@@ -175,12 +189,18 @@ const SavedGroupForm: FC<{
           }}
         />
       ) : (
-        <p
-          className="cursor-pointer text-color-primary"
-          onClick={() => setShowDescription(true)}
+        <Link
+          onClick={(e) => {
+            e.preventDefault();
+            setShowDescription(true);
+          }}
+          mb="5"
         >
-          <FaPlusCircle /> Add a description
-        </p>
+          <Flex align="center" gap="1">
+            <PiPlus />
+            <Text weight="medium">Add a description</Text>
+          </Flex>
+        </Link>
       )}
       <MultiSelectField
         label="Projects"
@@ -200,6 +220,7 @@ const SavedGroupForm: FC<{
           onChange={(v) => form.setValue("owner", v)}
         />
       )}
+
       {type === "condition" ? (
         <ConditionInput
           defaultValue={form.watch("condition") || ""}
@@ -209,6 +230,8 @@ const SavedGroupForm: FC<{
           emptyText="No conditions specified."
           title="Include all users who match the following"
           require
+          allowNestedSavedGroups={true}
+          excludeSavedGroupId={current.id}
         />
       ) : (
         <>

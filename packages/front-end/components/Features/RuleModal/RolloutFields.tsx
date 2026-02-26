@@ -1,6 +1,5 @@
 import { useFormContext } from "react-hook-form";
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { useState } from "react";
 import { PiCaretDownFill, PiCaretUpFill } from "react-icons/pi";
@@ -12,14 +11,12 @@ import { NewExperimentRefRule, useAttributeSchema } from "@/services/features";
 import ScheduleInputs from "@/components/Features/ScheduleInputs";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
 import ConditionInput from "@/components/Features/ConditionInput";
-import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
+import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 
 export default function RolloutFields({
   feature,
   environments,
   defaultValues,
-  version,
-  revisions,
   setPrerequisiteTargetingSdkIssues,
   isCyclic,
   cyclicFeatureId,
@@ -30,8 +27,6 @@ export default function RolloutFields({
   feature: FeatureInterface;
   environments: string[];
   defaultValues: FeatureRule | NewExperimentRefRule;
-  version: number;
-  revisions?: FeatureRevisionInterface[];
   setPrerequisiteTargetingSdkIssues: (b: boolean) => void;
   isCyclic: boolean;
   cyclicFeatureId: string | null;
@@ -143,14 +138,12 @@ export default function RolloutFields({
           project={feature.project || ""}
         />
         <hr />
-        <PrerequisiteTargetingField
+        <PrerequisiteInput
           value={form.watch("prerequisites") || []}
           setValue={(prerequisites) =>
             form.setValue("prerequisites", prerequisites)
           }
           feature={feature}
-          revisions={revisions}
-          version={version}
           environments={environments}
           setPrerequisiteTargetingSdkIssues={setPrerequisiteTargetingSdkIssues}
         />

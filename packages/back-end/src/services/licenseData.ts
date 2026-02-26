@@ -2,11 +2,12 @@ import path from "path";
 import fs from "fs";
 import md5 from "md5";
 import { LicenseUserCodes } from "shared/enterprise";
+import { DefaultMemberRole, OrgMemberInfo } from "shared/types/organization";
+import { TeamInterface } from "shared/types/team";
 import { findAllSDKConnectionsAcrossAllOrgs } from "back-end/src/models/SdkConnectionModel";
 import { getInstallation } from "back-end/src/models/InstallationModel";
 import { IS_CLOUD, IS_MULTI_ORG } from "back-end/src/util/secrets";
 import { getInstallationDatasources } from "back-end/src/models/DataSourceModel";
-import { DefaultMemberRole, OrgMemberInfo } from "back-end/types/organization";
 import {
   getAllOrgMemberInfoInDb,
   getSelfHostedOrganization,
@@ -16,11 +17,7 @@ import {
   getUsersByIds,
 } from "back-end/src/models/UserModel";
 import { logger } from "back-end/src/util/logger";
-import {
-  getAllTeamRoleInfoInDb,
-  getTeamsForOrganization,
-} from "back-end/src/models/TeamModel";
-import { TeamInterface } from "back-end/types/team";
+import { TeamModel } from "back-end/src/models/TeamModel";
 
 export async function getLicenseMetaData() {
   let installationId = "unknown";
@@ -148,12 +145,12 @@ export async function getUserCodesForOrg(
     organizations = [org];
     const memberIds = org.members.map((member) => member.id);
     users = await getUsersByIds(memberIds);
-    teams = await getTeamsForOrganization(org.id);
+    teams = await TeamModel.dangerousGetTeamsForOrganization(org.id);
   } else {
     // Self-Host, might be multi-org so we have to look across all orgs
     organizations = await getAllOrgMemberInfoInDb();
     users = await getUserIdsAndEmailsForAllUsersInDb();
-    teams = await getAllTeamRoleInfoInDb();
+    teams = await TeamModel.getAllTeamRoleInfoInDb();
   }
 
   const userIdsToEmailHash = users.reduce(

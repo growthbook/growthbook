@@ -1,9 +1,9 @@
 import { databricksCreateTableOptions } from "shared/enterprise";
-import { FormatDialect } from "shared/src/types";
-import { DatabricksConnectionParams } from "back-end/types/integrations/databricks";
+import { FormatDialect } from "shared/types/sql";
+import { QueryResponse, DataType } from "shared/types/integrations";
+import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
 import { runDatabricksQuery } from "back-end/src/services/databricks";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
-import { QueryResponse, DataType } from "back-end/src/types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Databricks extends SqlIntegration {

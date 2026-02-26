@@ -12,9 +12,9 @@ from gbstats.gbstats import (
     detect_unknown_variations,
     reduce_dimensionality,
     analyze_metric_df,
-    get_metric_df,
-    format_results,
+    get_metric_dfs,
     variation_statistic_from_metric_row,
+    process_analysis,
     get_bandit_result,
     create_bandit_statistics,
     preprocess_bandits,
@@ -25,9 +25,14 @@ from gbstats.models.settings import BanditWeightsSinglePeriod
 from gbstats.models.statistics import (
     RegressionAdjustedStatistic,
     SampleMeanStatistic,
-    BanditPeriodDataSampleMean,
 )
-
+from gbstats.models.results import (
+    BaselineResponse,
+    BayesianVariationResponseIndividual,
+    FrequentistVariationResponseIndividual,
+    MetricStats,
+    FrequentistVariationResponse,
+)
 
 DECIMALS = 9
 round_ = partial(np.round, decimals=DECIMALS)
@@ -379,16 +384,17 @@ BANDIT_ANALYSIS = BanditSettingsForStatsEngine(
 
 
 class TestGetMetricDf(TestCase):
-    def test_get_metric_df_missing_count(self):
+    def test_get_metric_dfs_missing_count(self):
         rows = MULTI_DIMENSION_STATISTICS_DF.drop("count", axis=1)
-        df = get_metric_df(
+        dimension_metric_data = get_metric_dfs(
             rows,
             {"zero": 0, "one": 1},
             ["zero", "one"],
         )
-        for i, row in df.iterrows():
-            self.assertEqual(row["baseline_count"], row["baseline_users"])
-            self.assertEqual(row["v1_count"], row["v1_users"])
+        for d in dimension_metric_data:
+            for row in d.data.iterrows():
+                self.assertEqual(row[1]["baseline_count"], row[1]["baseline_users"])
+                self.assertEqual(row[1]["v1_count"], row[1]["v1_users"])
 
 
 class TestVariationStatisticBuilder(TestCase):
@@ -477,258 +483,341 @@ class TestDetectVariations(TestCase):
 class TestReduceDimensionality(TestCase):
     def test_reduce_dimensionality(self):
         rows = pd.concat([MULTI_DIMENSION_STATISTICS_DF, THIRD_DIMENSION_STATISTICS_DF])
-        df = get_metric_df(
+        df = get_metric_dfs(
             rows,
             {"zero": 0, "one": 1},
             ["zero", "one"],
         )
-        reduced = reduce_dimensionality(df, 3)
-        self.assertEqual(len(reduced.index), 3)
-        self.assertEqual(reduced.at[0, "dimension"], "three")
-        self.assertEqual(reduced.at[0, "v1_main_sum"], 222)
+        reduced_3 = reduce_dimensionality(df, num_variations=2, max=3)
+        reduced_2 = reduce_dimensionality(df, num_variations=2, max=2)
 
-        reduced = reduce_dimensionality(df, 2)
-        self.assertEqual(len(reduced.index), 2)
-        self.assertEqual(reduced.at[1, "dimension"], "(other)")
-        self.assertEqual(reduced.at[1, "total_users"], 640)
-        self.assertEqual(reduced.at[1, "v1_main_sum"], 1070)
-        self.assertEqual(reduced.at[1, "v1_main_sum_squares"], 4440)
-        self.assertEqual(reduced.at[1, "v1_users"], 340)
-        self.assertEqual(reduced.at[1, "baseline_users"], 300)
-        self.assertEqual(reduced.at[1, "baseline_main_sum"], 1010)
-        self.assertEqual(reduced.at[1, "baseline_main_sum_squares"], 4464.38)
+        self.assertEqual(len(reduced_3), 3)
+        self.assertEqual(reduced_3[0].data.at[0, "dimension"], "three")
+        self.assertEqual(reduced_3[0].data.at[0, "v1_main_sum"], 222)
+        self.assertEqual(len(reduced_2), 2)
+        self.assertEqual(reduced_2[1].data.at[0, "dimension"], "(other)")
+        self.assertEqual(reduced_2[1].data.at[0, "v1_main_sum"], 1070)
+        self.assertEqual(reduced_2[1].data.at[0, "v1_main_sum_squares"], 4440)
+        self.assertEqual(reduced_2[1].data.at[0, "v1_users"], 340)
+        self.assertEqual(reduced_2[1].data.at[0, "baseline_users"], 300)
+        self.assertEqual(reduced_2[1].data.at[0, "baseline_main_sum"], 1010)
+        self.assertEqual(reduced_2[1].data.at[0, "baseline_main_sum_squares"], 4464.38)
 
     def test_reduce_dimensionality_ratio(self):
         rows = pd.concat(
             [RATIO_STATISTICS_DF, RATIO_STATISTICS_ADDITIONAL_DIMENSION_DF]
         )
-        df = get_metric_df(
+        df = get_metric_dfs(
             rows,
             {"zero": 0, "one": 1},
             ["zero", "one"],
         )
 
-        reduced = reduce_dimensionality(df, 20)
-        self.assertEqual(len(reduced.index), 2)
-        self.assertEqual(reduced.at[0, "dimension"], "one")
-        self.assertEqual(reduced.at[0, "total_users"], 220)
-        self.assertEqual(reduced.at[0, "v1_users"], 120)
-        self.assertEqual(reduced.at[0, "v1_main_sum"], 300)
-        self.assertEqual(reduced.at[0, "v1_main_sum_squares"], 869)
-        self.assertEqual(reduced.at[0, "v1_denominator_sum"], 500)
-        self.assertEqual(reduced.at[0, "v1_denominator_sum_squares"], 800)
-        self.assertEqual(reduced.at[0, "v1_main_denominator_sum_product"], -905)
-        self.assertEqual(reduced.at[0, "baseline_users"], 100)
-        self.assertEqual(reduced.at[0, "baseline_main_sum"], 270)
-        self.assertEqual(reduced.at[0, "baseline_main_sum_squares"], 848.79)
-        self.assertEqual(reduced.at[0, "baseline_denominator_sum"], 510)
-        self.assertEqual(reduced.at[0, "baseline_denominator_sum_squares"], 810)
-        self.assertEqual(reduced.at[0, "baseline_main_denominator_sum_product"], -900)
-
-        reduced = reduce_dimensionality(df, 1)
-        self.assertEqual(len(reduced.index), 1)
-        self.assertEqual(reduced.at[0, "dimension"], "(other)")
-        self.assertEqual(reduced.at[0, "total_users"], 220 * 2)
-        self.assertEqual(reduced.at[0, "v1_users"], 120 * 2)
-        self.assertEqual(reduced.at[0, "v1_main_sum"], 300 * 2)
-        self.assertEqual(reduced.at[0, "v1_main_sum_squares"], 869 * 2)
-        self.assertEqual(reduced.at[0, "v1_denominator_sum"], 500 * 2)
-        self.assertEqual(reduced.at[0, "v1_denominator_sum_squares"], 800 * 2)
-        self.assertEqual(reduced.at[0, "v1_main_denominator_sum_product"], -905 * 2)
-        self.assertEqual(reduced.at[0, "baseline_users"], 100 * 2)
-        self.assertEqual(reduced.at[0, "baseline_main_sum"], 270 * 2)
-        self.assertEqual(reduced.at[0, "baseline_main_sum_squares"], 848.79 * 2)
-        self.assertEqual(reduced.at[0, "baseline_denominator_sum"], 510 * 2)
-        self.assertEqual(reduced.at[0, "baseline_denominator_sum_squares"], 810 * 2)
+        reduced_20 = reduce_dimensionality(df, num_variations=2, max=20)
+        self.assertEqual(len(reduced_20), 2)
+        self.assertEqual(reduced_20[0].data.at[0, "dimension"], "one")
+        self.assertEqual(reduced_20[0].data.at[0, "v1_users"], 120)
+        self.assertEqual(reduced_20[0].data.at[0, "v1_main_sum"], 300)
+        self.assertEqual(reduced_20[0].data.at[0, "v1_main_sum_squares"], 869)
+        self.assertEqual(reduced_20[0].data.at[0, "v1_denominator_sum"], 500)
+        self.assertEqual(reduced_20[0].data.at[0, "v1_denominator_sum_squares"], 800)
         self.assertEqual(
-            reduced.at[0, "baseline_main_denominator_sum_product"], -900 * 2
+            reduced_20[0].data.at[0, "v1_main_denominator_sum_product"], -905
+        )
+        self.assertEqual(reduced_20[0].data.at[0, "baseline_users"], 100)
+        self.assertEqual(reduced_20[0].data.at[0, "baseline_main_sum"], 270)
+        self.assertEqual(reduced_20[0].data.at[0, "baseline_main_sum_squares"], 848.79)
+        self.assertEqual(reduced_20[0].data.at[0, "baseline_denominator_sum"], 510)
+        self.assertEqual(
+            reduced_20[0].data.at[0, "baseline_denominator_sum_squares"], 810
+        )
+        self.assertEqual(
+            reduced_20[0].data.at[0, "baseline_main_denominator_sum_product"], -900
+        )
+
+        reduced_1 = reduce_dimensionality(df, num_variations=2, max=1)
+        self.assertEqual(len(reduced_1), 1)
+        self.assertEqual(reduced_1[0].data.at[0, "dimension"], "(other)")
+        self.assertEqual(reduced_1[0].data.at[0, "v1_users"], 120 * 2)
+        self.assertEqual(reduced_1[0].data.at[0, "v1_main_sum"], 300 * 2)
+        self.assertEqual(reduced_1[0].data.at[0, "v1_main_sum_squares"], 869 * 2)
+        self.assertEqual(reduced_1[0].data.at[0, "v1_denominator_sum"], 500 * 2)
+        self.assertEqual(reduced_1[0].data.at[0, "v1_denominator_sum_squares"], 800 * 2)
+        self.assertEqual(
+            reduced_1[0].data.at[0, "v1_main_denominator_sum_product"], -905 * 2
+        )
+        self.assertEqual(reduced_1[0].data.at[0, "baseline_users"], 100 * 2)
+        self.assertEqual(reduced_1[0].data.at[0, "baseline_main_sum"], 270 * 2)
+        self.assertEqual(
+            reduced_1[0].data.at[0, "baseline_main_sum_squares"], 848.79 * 2
+        )
+        self.assertEqual(reduced_1[0].data.at[0, "baseline_denominator_sum"], 510 * 2)
+        self.assertEqual(
+            reduced_1[0].data.at[0, "baseline_denominator_sum_squares"], 810 * 2
+        )
+        self.assertEqual(
+            reduced_1[0].data.at[0, "baseline_main_denominator_sum_product"], -900 * 2
         )
 
 
 class TestAnalyzeMetricDfBayesian(TestCase):
     # New usage (no mean/stddev correction)
-    def test_get_metric_df_new(self):
+    def test_get_metric_dfs_new(self):
         rows = MULTI_DIMENSION_STATISTICS_DF
-        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
-        result = analyze_metric_df(df, metric=COUNT_METRIC, analysis=DEFAULT_ANALYSIS)
-        self.assertEqual(len(result.index), 2)
-        self.assertEqual(result.at[0, "dimension"], "one")
-        self.assertEqual(round_(result.at[0, "baseline_cr"]), 2.7)
-        self.assertEqual(round_(result.at[0, "v1_cr"]), 2.5)
-        self.assertEqual(round_(result.at[0, "v1_risk"][1]), 0.075691131)
-        self.assertEqual(round_(result.at[0, "v1_expected"]), -0.074074074)
-        self.assertEqual(round_(result.at[0, "v1_prob_beat_baseline"]), 0.071834168)
-        self.assertEqual(result.at[0, "v1_p_value"], None)
+        df = get_metric_dfs(rows, {"zero": 0, "one": 1}, ["zero", "one"])
+        result = analyze_metric_df(
+            df, num_variations=2, metric=COUNT_METRIC, analysis=DEFAULT_ANALYSIS
+        )
+        self.assertEqual(len(result), 2)
 
-    def test_get_metric_df_bayesian_ratio(self):
+        self.assertEqual(result[0].dimension, "one")
+        self.assertEqual(round_(result[0].variations[0].cr), 2.7)
+        self.assertEqual(round_(result[0].variations[1].cr), 2.5)
+        if isinstance(result[0].variations[1], BayesianVariationResponseIndividual):
+            self.assertEqual(round_(result[0].variations[1].risk[1]), 0.075691131)
+            self.assertEqual(round_(result[0].variations[1].expected), -0.074074074)
+            self.assertEqual(round_(result[0].variations[1].chanceToWin), 0.071834168)
+        else:
+            raise TypeError(
+                f"Unexpected variation response type: {type(result[0].variations[1])}"
+            )
+
+    def test_get_metric_dfs_bayesian_ratio(self):
         rows = RATIO_STATISTICS_DF
-        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
+        df = get_metric_dfs(rows, {"zero": 0, "one": 1}, ["zero", "one"])
         result = analyze_metric_df(
-            df=df, metric=RATIO_METRIC, analysis=DEFAULT_ANALYSIS
+            df, num_variations=2, metric=RATIO_METRIC, analysis=DEFAULT_ANALYSIS
         )
 
-        self.assertEqual(len(result.index), 1)
-        self.assertEqual(result.at[0, "dimension"], "one")
-        self.assertEqual(round_(result.at[0, "baseline_cr"]), 0.529411765)
-        self.assertEqual(round_(result.at[0, "v1_cr"]), 0.6)
-        self.assertEqual(round_(result.at[0, "v1_risk"][1]), 0.050934045)
-        self.assertEqual(round_(result.at[0, "v1_expected"]), 0.133333333)
-        self.assertEqual(round_(result.at[0, "v1_prob_beat_baseline"]), 0.694926359)
-        self.assertEqual(result.at[0, "v1_p_value"], None)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].dimension, "one")
+        self.assertEqual(round_(result[0].variations[0].cr), 0.529411765)
+        self.assertEqual(round_(result[0].variations[1].cr), 0.6)
+        if isinstance(result[0].variations[1], BayesianVariationResponseIndividual):
+            self.assertEqual(round_(result[0].variations[1].risk[1]), 0.050934045)
+            self.assertEqual(round_(result[0].variations[1].expected), 0.133333333)
+            self.assertEqual(round_(result[0].variations[1].chanceToWin), 0.694926359)
+        else:
+            raise TypeError(
+                f"Unexpected variation response type: {type(result[0].variations[1])}"
+            )
 
-    def test_get_metric_df_inverse(self):
+    def test_get_metric_dfs_inverse(self):
         rows = MULTI_DIMENSION_STATISTICS_DF
-        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
+        df = get_metric_dfs(rows, {"zero": 0, "one": 1}, ["zero", "one"])
         result = analyze_metric_df(
             df,
+            num_variations=2,
             metric=dataclasses.replace(COUNT_METRIC, inverse=True),
             analysis=DEFAULT_ANALYSIS,
         )
 
-        self.assertEqual(len(result.index), 2)
-        self.assertEqual(result.at[0, "dimension"], "one")
-        self.assertEqual(round_(result.at[0, "baseline_cr"]), 2.7)
-        self.assertEqual(round_(result.at[0, "v1_cr"]), 2.5)
-        self.assertEqual(round_(result.at[0, "v1_risk"][1]), 0.001617057)
-        self.assertEqual(round_(result.at[0, "v1_expected"]), -0.074074074)
-        self.assertEqual(round_(result.at[0, "v1_prob_beat_baseline"]), 1 - 0.071834168)
-        self.assertEqual(result.at[0, "v1_p_value"], None)
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0].dimension, "one")
+        self.assertEqual(round_(result[0].variations[0].cr), 2.7)
+        self.assertEqual(round_(result[0].variations[1].cr), 2.5)
+        if isinstance(result[0].variations[1], BayesianVariationResponseIndividual):
+            self.assertEqual(round_(result[0].variations[1].risk[1]), 0.001617057)
+            self.assertEqual(round_(result[0].variations[1].expected), -0.074074074)
+            self.assertEqual(
+                round_(result[0].variations[1].chanceToWin), 1 - 0.071834168
+            )
+        else:
+            raise TypeError(
+                f"Unexpected variation response type: {type(result[0].variations[1])}"
+            )
 
-    def test_get_metric_df_zero_val(self):
+    def test_get_metric_dfs_zero_val(self):
         rows = ONE_USER_DF
-        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
+        df = get_metric_dfs(rows, {"zero": 0, "one": 1}, ["zero", "one"])
         result = analyze_metric_df(
             df,
+            num_variations=2,
             metric=dataclasses.replace(COUNT_METRIC, inverse=True),
             analysis=DEFAULT_ANALYSIS,
         )
 
-        self.assertEqual(len(result.index), 1)
-        self.assertEqual(result.at[0, "dimension"], "one")
-        self.assertEqual(round_(result.at[0, "baseline_cr"]), 6.666666667)
-        self.assertEqual(round_(result.at[0, "v1_cr"]), 1)
-        self.assertEqual(round_(result.at[0, "v1_risk"][1]), 0)
-        self.assertEqual(round_(result.at[0, "v1_expected"]), -0.85)
-        self.assertEqual(round_(result.at[0, "v1_prob_beat_baseline"]), 0.5)
-        self.assertEqual(result.at[0, "v1_p_value"], None)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].dimension, "one")
+        self.assertEqual(round_(result[0].variations[0].cr), 6.666666667)
+        self.assertEqual(round_(result[0].variations[1].cr), 1)
+        if isinstance(result[0].variations[1], BayesianVariationResponseIndividual):
+            self.assertEqual(round_(result[0].variations[1].risk[1]), 0)
+            self.assertEqual(round_(result[0].variations[1].expected), 0)
+            self.assertEqual(round_(result[0].variations[1].chanceToWin), 0.5)
+        else:
+            raise TypeError(
+                f"Unexpected variation response type: {type(result[0].variations[1])}"
+            )
 
-    def test_get_metric_df_ratio_zero_denom(self):
+    def test_get_metric_dfs_ratio_zero_denom(self):
         rows = ZERO_DENOM_RATIO_STATISTICS_DF
-        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
-        result = analyze_metric_df(df, metric=RATIO_METRIC, analysis=DEFAULT_ANALYSIS)
-
-        self.assertEqual(len(result.index), 1)
-        self.assertEqual(result.at[0, "dimension"], "one")
-        self.assertEqual(round_(result.at[0, "baseline_cr"]), 0)
-        self.assertEqual(round_(result.at[0, "v1_cr"]), 0.6)
-        self.assertEqual(round_(result.at[0, "v1_risk"][1]), 0)
-        self.assertEqual(round_(result.at[0, "v1_expected"]), 0)
-        self.assertEqual(round_(result.at[0, "v1_prob_beat_baseline"]), 0.5)
-        self.assertEqual(result.at[0, "v1_p_value"], None)
+        df = get_metric_dfs(rows, {"zero": 0, "one": 1}, ["zero", "one"])
+        result = analyze_metric_df(
+            df, num_variations=2, metric=RATIO_METRIC, analysis=DEFAULT_ANALYSIS
+        )
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].dimension, "one")
+        self.assertEqual(round_(result[0].variations[0].cr), 0)
+        self.assertEqual(round_(result[0].variations[1].cr), 0.6)
+        if isinstance(result[0].variations[1], BayesianVariationResponseIndividual):
+            self.assertEqual(round_(result[0].variations[1].risk[1]), 0)
+            self.assertEqual(round_(result[0].variations[1].expected), 0)
+            self.assertEqual(round_(result[0].variations[1].chanceToWin), 0.5)
+        else:
+            raise TypeError(
+                f"Unexpected variation response type: {type(result[0].variations[1])}"
+            )
 
 
 class TestAnalyzeMetricDfFrequentist(TestCase):
-    def test_get_metric_df_frequentist(self):
+    def test_get_metric_dfs_frequentist(self):
         rows = MULTI_DIMENSION_STATISTICS_DF
-        df = get_metric_df(
+        df = get_metric_dfs(
             rows,
             {"zero": 0, "one": 1},
             ["zero", "one"],
         )
         result = analyze_metric_df(
             df,
+            num_variations=2,
             metric=COUNT_METRIC,
             analysis=dataclasses.replace(DEFAULT_ANALYSIS, stats_engine="frequentist"),
         )
 
-        self.assertEqual(len(result.index), 2)
-        self.assertEqual(result.at[0, "dimension"], "one")
-        self.assertEqual(round_(result.at[0, "baseline_cr"]), 2.7)
-        self.assertEqual(round_(result.at[0, "v1_cr"]), 2.5)
-        self.assertEqual(result.at[0, "v1_risk"], None)
-        self.assertEqual(round_(result.at[0, "v1_expected"]), -0.074074074)
-        self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
-        self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.145219005)
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0].dimension, "one")
+        self.assertEqual(round_(result[0].variations[0].cr), 2.7)
+        self.assertEqual(round_(result[0].variations[1].cr), 2.5)
+        if isinstance(result[0].variations[1], FrequentistVariationResponseIndividual):
+            self.assertEqual(round_(result[0].variations[1].expected), -0.074074074)
+            if result[0].variations[1].pValue is not None:
+                self.assertEqual(round_(result[0].variations[1].pValue), 0.145219005)
+            else:
+                raise ValueError(
+                    f"pValue is None for variation response: {result[0].variations[1]}"
+                )
+        else:
+            raise TypeError(
+                f"Unexpected variation response type: {type(result[0].variations[1])}"
+            )
 
-    def test_get_metric_df_frequentist_ratio(self):
+    def test_get_metric_dfs_frequentist_ratio(self):
         rows = RATIO_STATISTICS_DF
-        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
+        df = get_metric_dfs(rows, {"zero": 0, "one": 1}, ["zero", "one"])
         result = analyze_metric_df(
             df,
+            num_variations=2,
             metric=RATIO_METRIC,
             analysis=dataclasses.replace(DEFAULT_ANALYSIS, stats_engine="frequentist"),
         )
 
-        self.assertEqual(len(result.index), 1)
-        self.assertEqual(result.at[0, "dimension"], "one")
-        self.assertEqual(round_(result.at[0, "baseline_cr"]), 0.529411765)
-        self.assertEqual(round_(result.at[0, "v1_cr"]), 0.6)
-        self.assertEqual(result.at[0, "v1_risk"], None)
-        self.assertEqual(round_(result.at[0, "v1_expected"]), 0.133333333)
-        self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
-        self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.610663339)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].dimension, "one")
+        self.assertEqual(round_(result[0].variations[0].cr), 0.529411765)
+        self.assertEqual(round_(result[0].variations[1].cr), 0.6)
+        if isinstance(result[0].variations[1], FrequentistVariationResponseIndividual):
+            self.assertEqual(round_(result[0].variations[1].expected), 0.133333333)
+            if result[0].variations[1].pValue is not None:
+                self.assertEqual(round_(result[0].variations[1].pValue), 0.610663339)
+            else:
+                raise ValueError(
+                    f"pValue is None for variation response: {result[0].variations[1]}"
+                )
+        else:
+            raise TypeError(
+                f"Unexpected variation response type: {type(result[0].variations[1])}"
+            )
 
-    def test_get_metric_df_zero_val(self):
+    def test_get_metric_dfs_zero_val(self):
         rows = ONE_USER_DF
-        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
+        df = get_metric_dfs(rows, {"zero": 0, "one": 1}, ["zero", "one"])
         result = analyze_metric_df(
             df,
+            num_variations=2,
             metric=COUNT_METRIC,
             analysis=dataclasses.replace(DEFAULT_ANALYSIS, stats_engine="frequentist"),
         )
 
-        self.assertEqual(len(result.index), 1)
-        self.assertEqual(result.at[0, "dimension"], "one")
-        self.assertEqual(round_(result.at[0, "baseline_cr"]), 6.666666667)
-        self.assertEqual(round_(result.at[0, "v1_cr"]), 1)
-        self.assertEqual(result.at[0, "v1_risk"], None)
-        self.assertEqual(round_(result.at[0, "v1_expected"]), -0.85)
-        self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
-        self.assertEqual(round_(result.at[0, "v1_p_value"]), 1)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].dimension, "one")
+        self.assertEqual(round_(result[0].variations[0].cr), 6.666666667)
+        self.assertEqual(round_(result[0].variations[1].cr), 1)
+        if isinstance(result[0].variations[1], FrequentistVariationResponseIndividual):
+            self.assertEqual(round_(result[0].variations[1].expected), 0)
+            if result[0].variations[1].pValue is not None:
+                self.assertEqual(round_(result[0].variations[1].pValue), 1)
+            else:
+                raise ValueError(
+                    f"pValue is None for variation response: {result[0].variations[1]}"
+                )
+        else:
+            raise TypeError(
+                f"Unexpected variation response type: {type(result[0].variations[1])}"
+            )
 
-    def test_get_metric_df_ratio_zero_denom(self):
+    def test_get_metric_dfs_ratio_zero_denom(self):
         rows = ZERO_DENOM_RATIO_STATISTICS_DF
-        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
+        df = get_metric_dfs(rows, {"zero": 0, "one": 1}, ["zero", "one"])
         result = analyze_metric_df(
             df,
+            num_variations=2,
             metric=RATIO_METRIC,
             analysis=dataclasses.replace(DEFAULT_ANALYSIS, stats_engine="frequentist"),
         )
 
-        self.assertEqual(len(result.index), 1)
-        self.assertEqual(result.at[0, "dimension"], "one")
-        self.assertEqual(round_(result.at[0, "baseline_cr"]), 0)
-        self.assertEqual(round_(result.at[0, "v1_cr"]), 0.6)
-        self.assertEqual(result.at[0, "v1_risk"], None)
-        self.assertEqual(round_(result.at[0, "v1_expected"]), 0)
-        self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
-        self.assertEqual(round_(result.at[0, "v1_p_value"]), 1)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].dimension, "one")
+        self.assertEqual(round_(result[0].variations[0].cr), 0)
+        self.assertEqual(round_(result[0].variations[1].cr), 0.6)
+        if isinstance(result[0].variations[1], FrequentistVariationResponseIndividual):
+            self.assertEqual(round_(result[0].variations[1].expected), 0)
+            if result[0].variations[1].pValue is not None:
+                self.assertEqual(round_(result[0].variations[1].pValue), 1)
+            else:
+                raise ValueError(
+                    f"pValue is None for variation response: {result[0].variations[1]}"
+                )
+        else:
+            raise TypeError(
+                f"Unexpected variation response type: {type(result[0].variations[1])}"
+            )
+        self.assertEqual(round_(result[0].variations[1].pValue), 1)
 
 
 class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
     def test_analyze_metric_df_ra(self):
         rows = RA_STATISTICS_DF
-        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
+        df = get_metric_dfs(rows, {"zero": 0, "one": 1}, ["zero", "one"])
         result = analyze_metric_df(
             df,
+            num_variations=2,
             metric=RA_METRIC,
             analysis=dataclasses.replace(DEFAULT_ANALYSIS, stats_engine="frequentist"),
         )
 
         # Test that meric mean is unadjusted
-        self.assertEqual(len(result.index), 1)
-        self.assertEqual(result.at[0, "dimension"], "All")
-        self.assertEqual(round_(result.at[0, "baseline_cr"]), 0.099966678)
-        self.assertEqual(round_(result.at[0, "baseline_mean"]), 0.099966678)
-        self.assertEqual(round_(result.at[0, "v1_cr"]), 0.074)
-        self.assertEqual(round_(result.at[0, "v1_mean"]), 0.074)
-        self.assertEqual(result.at[0, "v1_risk"], None)
-        self.assertEqual(round_(result.at[0, "v1_expected"]), -0.281707154)
-        self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
-        self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.003732549)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].dimension, "All")
+        self.assertEqual(round_(result[0].variations[0].cr), 0.099966678)
+        self.assertEqual(round_(result[0].variations[0].stats.mean), 0.099966678)
+        self.assertEqual(round_(result[0].variations[1].cr), 0.074)
+        self.assertEqual(round_(result[0].variations[1].stats.mean), 0.074)
+        if isinstance(result[0].variations[1], FrequentistVariationResponseIndividual):
+            self.assertEqual(round_(result[0].variations[1].expected), -0.281707154)
+            if result[0].variations[1].pValue is not None:
+                self.assertEqual(round_(result[0].variations[1].pValue), 0.003732549)
+            else:
+                raise ValueError(
+                    f"pValue is None for variation response: {result[0].variations[1]}"
+                )
+        else:
+            raise TypeError(
+                f"Unexpected variation response type: {type(result[0].variations[1])}"
+            )
         # But difference is not just DIM / control mean, like it used to be
         self.assertNotEqual(
-            np.round(result.at[0, "v1_expected"], 3),
+            np.round(result[0].variations[1].expected, 3),
             (0.074 - 0.110963012) / 0.110963012,
         )
 
@@ -736,9 +825,10 @@ class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
         rows = RA_STATISTICS_DF.copy()
         # override default DF
         rows.drop(columns=["main_sum_squares", "covariate_sum_squares"], inplace=True)
-        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
+        df = get_metric_dfs(rows, {"zero": 0, "one": 1}, ["zero", "one"])
         result = analyze_metric_df(
             df,
+            num_variations=2,
             metric=dataclasses.replace(
                 RA_METRIC,
                 main_metric_type="binomial",
@@ -748,47 +838,66 @@ class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
         )
 
         # Test that metric mean is unadjusted
-        self.assertEqual(len(result.index), 1)
-        self.assertEqual(result.at[0, "dimension"], "All")
-        self.assertEqual(round_(result.at[0, "baseline_cr"]), 0.099966678)
-        self.assertEqual(round_(result.at[0, "baseline_mean"]), 0.099966678)
-        self.assertEqual(round_(result.at[0, "v1_cr"]), 0.074)
-        self.assertEqual(round_(result.at[0, "v1_mean"]), 0.074)
-        self.assertEqual(result.at[0, "v1_risk"], None)
-        self.assertEqual(round_(result.at[0, "v1_expected"]), -0.31620216)
-        self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
-        self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.000000353)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].dimension, "All")
+        self.assertEqual(round_(result[0].variations[0].cr), 0.099966678)
+        self.assertEqual(round_(result[0].variations[0].stats.mean), 0.099966678)
+        self.assertEqual(round_(result[0].variations[1].cr), 0.074)
+        self.assertEqual(round_(result[0].variations[1].stats.mean), 0.074)
+        if isinstance(result[0].variations[1], FrequentistVariationResponseIndividual):
+            self.assertEqual(round_(result[0].variations[1].expected), -0.31620216)
+            if result[0].variations[1].pValue is not None:
+                self.assertEqual(round_(result[0].variations[1].pValue), 0.000000353)
+            else:
+                raise ValueError(
+                    f"pValue is None for variation response: {result[0].variations[1]}"
+                )
+        else:
+            raise TypeError(
+                f"Unexpected variation response type: {type(result[0].variations[1])}"
+            )
+        self.assertEqual(round_(result[0].variations[1].pValue), 0.000000353)
 
     def test_analyze_metric_df_ratio_ra(self):
         rows = RATIO_RA_STATISTICS_DF
-        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
+        df = get_metric_dfs(rows, {"zero": 0, "one": 1}, ["zero", "one"])
         result = analyze_metric_df(
             df,
+            num_variations=2,
             metric=RATIO_RA_METRIC,
             analysis=dataclasses.replace(DEFAULT_ANALYSIS, stats_engine="frequentist"),
         )
-        self.assertEqual(len(result.index), 1)
-        self.assertEqual(result.at[0, "dimension"], "All")
-        self.assertEqual(round_(result.at[0, "baseline_cr"]), 0.713495487)
-        self.assertEqual(round_(result.at[0, "baseline_mean"]), 0.713495487)
-        self.assertEqual(round_(result.at[0, "v1_cr"]), 0.729754963)
-        self.assertEqual(round_(result.at[0, "v1_mean"]), 0.729754963)
-        self.assertEqual(result.at[0, "v1_risk"], None)
-        self.assertEqual(round_(result.at[0, "v1_expected"]), -0.000701483)
-        self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
-        self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.857710405)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].dimension, "All")
+        self.assertEqual(round_(result[0].variations[0].cr), 0.713495487)
+        self.assertEqual(round_(result[0].variations[0].stats.mean), 0.713495487)
+        self.assertEqual(round_(result[0].variations[1].cr), 0.729754963)
+        self.assertEqual(round_(result[0].variations[1].stats.mean), 0.729754963)
+        if isinstance(result[0].variations[1], FrequentistVariationResponseIndividual):
+            self.assertEqual(round_(result[0].variations[1].expected), -0.000701483)
+            if result[0].variations[1].pValue is not None:
+                self.assertEqual(round_(result[0].variations[1].pValue), 0.857710405)
+            else:
+                raise ValueError(
+                    f"pValue is None for variation response: {result[0].variations[1]}"
+                )
+        else:
+            raise TypeError(
+                f"Unexpected variation response type: {type(result[0].variations[1])}"
+            )
 
 
 class TestAnalyzeMetricDfSequential(TestCase):
     def test_analyze_metric_df_sequential(self):
         rows = MULTI_DIMENSION_STATISTICS_DF
-        df = get_metric_df(
+        df = get_metric_dfs(
             rows,
             {"zero": 0, "one": 1},
             ["zero", "one"],
         )
         result = analyze_metric_df(
             df,
+            num_variations=2,
             metric=COUNT_METRIC,
             analysis=dataclasses.replace(
                 DEFAULT_ANALYSIS,
@@ -798,18 +907,32 @@ class TestAnalyzeMetricDfSequential(TestCase):
             ),
         )
 
-        self.assertEqual(len(result.index), 2)
-        self.assertEqual(result.at[0, "dimension"], "one")
-        self.assertEqual(round_(result.at[0, "baseline_cr"]), 2.7)
-        self.assertEqual(round_(result.at[0, "v1_cr"]), 2.5)
-        self.assertEqual(result.at[0, "v1_risk"], None)
-        self.assertEqual(round_(result.at[0, "v1_expected"]), -0.074074074)
-        self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
-        self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.892332229)
-        self.assertEqual(round_(result.at[0, "v1_ci"][0]), -0.233322085)
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0].dimension, "one")
+        self.assertEqual(round_(result[0].variations[0].cr), 2.7)
+        self.assertEqual(round_(result[0].variations[1].cr), 2.5)
+        if isinstance(result[0].variations[1], FrequentistVariationResponseIndividual):
+            self.assertEqual(round_(result[0].variations[1].expected), -0.074074074)
+            if result[0].variations[1].pValue is not None:
+                self.assertEqual(round_(result[0].variations[1].pValue), 0.892332229)
+            else:
+                raise ValueError(
+                    f"pValue is None for variation response: {result[0].variations[1]}"
+                )
+            if result[0].variations[1].ci[0] is not None:
+                self.assertEqual(round_(result[0].variations[1].ci[0]), -0.233322085)
+            else:
+                raise ValueError(
+                    f"ci[0] is None for variation response: {result[0].variations[1]}"
+                )
+        else:
+            raise TypeError(
+                f"Unexpected variation response type: {type(result[0].variations[1])}"
+            )
 
         result_bad_tuning = analyze_metric_df(
             df,
+            num_variations=2,
             metric=COUNT_METRIC,
             analysis=dataclasses.replace(
                 DEFAULT_ANALYSIS,
@@ -820,94 +943,301 @@ class TestAnalyzeMetricDfSequential(TestCase):
         )
 
         # Wider CI with lower tuning parameter to test it passes through
-        self.assertTrue(result.at[0, "v1_ci"][0] > result_bad_tuning.at[0, "v1_ci"][0])
+        if (
+            isinstance(result[0].variations[1].ci[0], float)
+            and isinstance(
+                result[0].variations[1], FrequentistVariationResponseIndividual
+            )
+            and isinstance(
+                result_bad_tuning[0].variations[1],
+                FrequentistVariationResponseIndividual,
+            )
+            and isinstance(result_bad_tuning[0].variations[1].ci[0], float)
+            and isinstance(
+                result_bad_tuning[0].variations[1],
+                FrequentistVariationResponseIndividual,
+            )
+        ):
+            self.assertTrue(
+                result[0].variations[1].ci[0] > result_bad_tuning[0].variations[1].ci[0]
+            )
+        else:
+            raise TypeError(
+                f"Unexpected variation response type: {type(result[0].variations[1])}"
+            )
 
 
-class TestFormatResults(TestCase):
-    def test_format_results_denominator(self):
+class TestProcessAnalysis(TestCase):
+    def test_process_analysis_denominator(self):
         rows = RATIO_STATISTICS_DF
-        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
-        result = format_results(
-            analyze_metric_df(
-                df,
-                metric=COUNT_METRIC,
-                analysis=dataclasses.replace(
-                    DEFAULT_ANALYSIS, stats_engine="frequentist"
-                ),
-            ),
-            0,
+        result = process_analysis(
+            rows,
+            var_id_map={"zero": 0, "one": 1},
+            metric=COUNT_METRIC,
+            analysis=DEFAULT_ANALYSIS,
         )
         for res in result:
             for i, v in enumerate(res.variations):
                 self.assertEqual(v.denominator, 510 if i == 0 else 500)
 
 
-class TestBandit(TestCase):
-    def setUp(self):
-        # preprocessing steps
-        self.rows = QUERY_OUTPUT_BANDITS
-        self.metric = COUNT_METRIC
-        self.analysis = DEFAULT_ANALYSIS
-        self.bandit_analysis = BANDIT_ANALYSIS
-        self.update_messages = [
-            "successfully updated",
-        ]
-        self.true_weights = [0.3716, 0.13325, 0.2488, 0.24635]
-        self.true_additional_reward = 192.0
-        num_variations = len(self.true_weights)
-        self.constant_weights = [1 / num_variations] * num_variations
+# Test data for 3-armed test with CUPED
+THREE_ARMED_CUPED_DF = pd.DataFrame(
+    [
+        {
+            "dimension": "All",
+            "variation": "zero",
+            "main_sum": 300,
+            "main_sum_squares": 600,
+            "covariate_sum": 210,
+            "covariate_sum_squares": 415,
+            "main_covariate_sum_product": -20,
+            "users": 3001,
+            "count": 3001,
+        },
+        {
+            "dimension": "All",
+            "variation": "one",
+            "main_sum": 222,
+            "main_sum_squares": 555,
+            "covariate_sum": 120,
+            "covariate_sum_squares": 405,
+            "main_covariate_sum_product": -10,
+            "users": 3000,
+            "count": 3000,
+        },
+        {
+            "dimension": "All",
+            "variation": "two",
+            "main_sum": 450,
+            "main_sum_squares": 900,
+            "covariate_sum": 300,
+            "covariate_sum_squares": 600,
+            "main_covariate_sum_product": -30,
+            "users": 4000,
+            "count": 4000,
+        },
+    ]
+)
 
-    import unittest
 
-    @unittest.skip("will update this test later in the week")
-    def test_create_bandit_statistics(self):
-        df = get_metric_df(
-            rows=pd.DataFrame(self.rows),
-            var_id_map={v: i for i, v in enumerate(self.bandit_analysis.var_ids)},
-            var_names=self.bandit_analysis.var_names,
+class TestThreeArmedCuped(TestCase):
+    def test_three_armed_cuped_baseline_stats_hardcoded(self):
+        """Test that in a 3-armed test with CUPED, BaselineResponse.stats matches hard-coded value."""
+        rows = THREE_ARMED_CUPED_DF
+        df = get_metric_dfs(
+            rows, {"zero": 0, "one": 1, "two": 2}, ["zero", "one", "two"]
         )
-        result = create_bandit_statistics(df, self.metric)
-        stats_0 = []
-        stats_1 = []
-        for d in QUERY_OUTPUT_BANDITS:
-            if d["bandit_period"] == 0:
-                stats_0.append(
-                    SampleMeanStatistic(
-                        n=d["count"],
-                        sum=d["main_sum"],
-                        sum_squares=d["main_sum_squares"],
-                    )
-                )
-            if d["bandit_period"] == 1:
-                stats_1.append(
-                    SampleMeanStatistic(
-                        n=d["count"],
-                        sum=d["main_sum"],
-                        sum_squares=d["main_sum_squares"],
-                    )
-                )
-        result_true = {
-            0: BanditPeriodDataSampleMean(stats_0, self.constant_weights),
-            1: BanditPeriodDataSampleMean(stats_1, self.constant_weights),
-        }
-        self.assertEqual(result, result_true)
 
-    import unittest
-
-    @unittest.skip("will update this test later in the week")
-    def test_get_bandit_result_2(self):
-        b = preprocess_bandits(
-            self.rows, self.metric, self.bandit_analysis, self.analysis.alpha, "All"
+        three_armed_analysis = dataclasses.replace(
+            DEFAULT_ANALYSIS,
+            var_names=["zero", "one", "two"],
+            var_ids=["0", "1", "2"],
+            weights=[1 / 3, 1 / 3, 1 / 3],
+            stats_engine="frequentist",
         )
-        if isinstance(b, BanditsSimple):
-            result = get_bandit_result(
-                self.rows, self.metric, self.analysis, self.bandit_analysis
-            )
-            self.assertEqual(result.updateMessage, self.update_messages[0])
-            self.assertEqual(result.updatedWeights, self.true_weights)
-            # self.assertEqual(result.additionalReward, self.true_additional_reward)
-        else:
-            assert 1 > 2, "wrong class"
+
+        result = analyze_metric_df(
+            df,
+            num_variations=3,
+            metric=RA_METRIC,
+            analysis=three_armed_analysis,
+        )
+
+        # Get baseline (0th variation) stats
+        baseline_response = result[0].variations[0]
+        self.assertIsInstance(baseline_response, BaselineResponse)
+
+        # Hard-coded expected values for baseline stats
+        expected_stats = MetricStats(
+            users=3001,
+            count=3001,
+            stddev=0.434288923,  # Hard-coded: sqrt of variance from RegressionAdjustedStatistic
+            mean=0.099966678,  # Hard-coded: main_sum / count = 300 / 3001
+        )
+
+        # Verify the stats object matches hard-coded values
+        self.assertEqual(baseline_response.stats.users, expected_stats.users)
+        self.assertEqual(baseline_response.stats.count, expected_stats.count)
+        self.assertEqual(
+            round_(baseline_response.stats.mean), round_(expected_stats.mean)
+        )
+        self.assertEqual(
+            round_(baseline_response.stats.stddev), round_(expected_stats.stddev)
+        )
+
+        # Get variation 1 stats
+        variation1_response = result[0].variations[1]
+        self.assertIsInstance(
+            variation1_response, FrequentistVariationResponseIndividual
+        )
+
+        # Hard-coded expected values for variation 1 stats
+        expected_stats_v1 = MetricStats(
+            users=3000,
+            count=3000,
+            stddev=0.423529598,  # Hard-coded: sqrt of variance from RegressionAdjustedStatistic
+            mean=0.074,  # Hard-coded: main_sum / count = 222 / 3000
+        )
+
+        # Verify variation 1 stats match hard-coded values
+        self.assertEqual(variation1_response.stats.users, expected_stats_v1.users)
+        self.assertEqual(variation1_response.stats.count, expected_stats_v1.count)
+        self.assertEqual(
+            round_(variation1_response.stats.mean), round_(expected_stats_v1.mean)
+        )
+        self.assertEqual(
+            round_(variation1_response.stats.stddev), round_(expected_stats_v1.stddev)
+        )
+
+        # Get variation 2 stats
+        variation2_response = result[0].variations[2]
+        self.assertIsInstance(
+            variation2_response, FrequentistVariationResponseIndividual
+        )
+
+        # Hard-coded expected values for variation 2 stats
+        expected_stats_v2 = MetricStats(
+            users=4000,
+            count=4000,
+            stddev=0.458953951,  # Hard-coded: sqrt of variance from RegressionAdjustedStatistic
+            mean=0.1125,  # Hard-coded: main_sum / count = 450 / 4000
+        )
+
+        # Verify variation 2 stats match hard-coded values
+        self.assertEqual(variation2_response.stats.users, expected_stats_v2.users)
+        self.assertEqual(variation2_response.stats.count, expected_stats_v2.count)
+        self.assertEqual(
+            round_(variation2_response.stats.mean), round_(expected_stats_v2.mean)
+        )
+        self.assertEqual(
+            round_(variation2_response.stats.stddev), round_(expected_stats_v2.stddev)
+        )
+
+    def test_three_armed_cuped_baseline_stddev_different_from_no_cuped(self):
+        """Test that baseline stddev is different when CUPED is on vs off."""
+        rows = THREE_ARMED_CUPED_DF
+        df = get_metric_dfs(
+            rows, {"zero": 0, "one": 1, "two": 2}, ["zero", "one", "two"]
+        )
+
+        three_armed_analysis = dataclasses.replace(
+            DEFAULT_ANALYSIS,
+            var_names=["zero", "one", "two"],
+            var_ids=["0", "1", "2"],
+            weights=[1 / 3, 1 / 3, 1 / 3],
+            stats_engine="frequentist",
+        )
+
+        # Run with CUPED on (mean_ra)
+        result_cuped = analyze_metric_df(
+            df,
+            num_variations=3,
+            metric=RA_METRIC,
+            analysis=three_armed_analysis,
+        )
+
+        # Get baseline stats with CUPED
+        baseline_stats_cuped = result_cuped[0].variations[0].stats
+
+        # Run with CUPED off (mean)
+        result_no_cuped = analyze_metric_df(
+            df,
+            num_variations=3,
+            metric=COUNT_METRIC,
+            analysis=three_armed_analysis,
+        )
+
+        # Get baseline stats without CUPED
+        baseline_stats_no_cuped = result_no_cuped[0].variations[0].stats
+
+        # NB: This behavior may not be always desired, but it is backwards compatible
+        # We may want to have the stats either all be adjusted or unadjusted rather than
+        # having the mean unadjusted and the stddev adjusted.
+
+        # Verify that stddev is different (CUPED should reduce variance)
+        self.assertNotEqual(
+            round_(baseline_stats_cuped.stddev),
+            round_(baseline_stats_no_cuped.stddev),
+            "Baseline stddev should be different with CUPED on vs off",
+        )
+
+        # Verify that mean is the same (unadjusted mean should be the same)
+        self.assertEqual(
+            round_(baseline_stats_cuped.mean),
+            round_(baseline_stats_no_cuped.mean),
+            "Baseline mean should be the same (unadjusted mean)",
+        )
+
+        # Verify that users and count are the same
+        self.assertEqual(baseline_stats_cuped.users, baseline_stats_no_cuped.users)
+        self.assertEqual(baseline_stats_cuped.count, baseline_stats_no_cuped.count)
+
+    # NB: This behavior may not be always desired, but it is backwards compatible
+    def test_three_armed_cuped_baseline_stats_same_as_0_vs_2(self):
+        """Test that baseline stats from 3-armed test match 0 vs 2 test, implying theta from 0 vs 2 is used."""
+        rows = THREE_ARMED_CUPED_DF
+        df = get_metric_dfs(
+            rows, {"zero": 0, "one": 1, "two": 2}, ["zero", "one", "two"]
+        )
+
+        three_armed_analysis = dataclasses.replace(
+            DEFAULT_ANALYSIS,
+            var_names=["zero", "one", "two"],
+            var_ids=["0", "1", "2"],
+            weights=[1 / 3, 1 / 3, 1 / 3],
+            stats_engine="frequentist",
+        )
+
+        # Run full 3-armed test with CUPED
+        result_three_armed = analyze_metric_df(
+            df,
+            num_variations=3,
+            metric=RA_METRIC,
+            analysis=three_armed_analysis,
+        )
+
+        # Get baseline stats from 3-armed test
+        baseline_stats_three_armed = result_three_armed[0].variations[0].stats
+
+        # Now run 2-armed test with just 0 vs 2 (pretending variation 1 doesn't exist)
+        # Rename "two" to "one" for the 2-armed test so var_id_map uses indices 0 and 1
+        two_armed_analysis_02 = dataclasses.replace(
+            DEFAULT_ANALYSIS,
+            var_names=["zero", "one"],
+            var_ids=["0", "1"],
+            weights=[0.5, 0.5],
+            stats_engine="frequentist",
+        )
+
+        # Filter to just variations 0 and 2, then rename "two" to "one"
+        rows_02 = rows[rows["variation"].isin(["zero", "two"])].copy()
+        rows_02.loc[rows_02["variation"] == "two", "variation"] = "one"
+        df_02 = get_metric_dfs(rows_02, {"zero": 0, "one": 1}, ["zero", "one"])
+
+        result_02 = analyze_metric_df(
+            df_02,
+            num_variations=2,
+            metric=RA_METRIC,
+            analysis=two_armed_analysis_02,
+        )
+
+        # Get baseline stats from 0 vs 2 test
+        baseline_stats_02 = result_02[0].variations[0].stats
+
+        # Verify baseline stats are the same (implying theta from 0 vs 2 is used)
+        self.assertEqual(baseline_stats_three_armed.users, baseline_stats_02.users)
+        self.assertEqual(baseline_stats_three_armed.count, baseline_stats_02.count)
+        self.assertEqual(
+            round_(baseline_stats_three_armed.mean),
+            round_(baseline_stats_02.mean),
+            "Baseline mean should be the same",
+        )
+        self.assertEqual(
+            round_(baseline_stats_three_armed.stddev),
+            round_(baseline_stats_02.stddev),
+            "Baseline stddev should be the same, implying theta from 0 vs 2 comparison is used",
+        )
 
 
 if __name__ == "__main__":

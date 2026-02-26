@@ -1,21 +1,19 @@
 import { z } from "zod";
 import type { Response } from "express";
+import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import { PopulationDataInterface } from "shared/types/population-data";
+import type { PopulationDataQuerySettings } from "shared/types/query";
+import { createPopulationDataPropsValidator } from "shared/validators";
 import {
   getIntegrationFromDatasourceId,
   getSourceIntegrationObject,
 } from "back-end/src/services/datasource";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
-import { PopulationDataInterface } from "back-end/types/population-data";
-import {
-  PopulationDataQueryRunner,
-  PopulationDataQuerySettings,
-} from "back-end/src/queryRunners/PopulationDataQueryRunner";
+import { PopulationDataQueryRunner } from "back-end/src/queryRunners/PopulationDataQueryRunner";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
-import { createPopulationDataPropsValidator } from "back-end/src/routers/population-data/population-data.validators";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 
 type CreatePopulationDataProps = z.infer<
@@ -63,7 +61,6 @@ export const postPopulationData = async (
     );
 
   const snapshotSettings: ExperimentSnapshotSettings = {
-    manual: false,
     dimensions: [],
     metricSettings: [],
     goalMetrics: data.metricIds,
@@ -173,7 +170,7 @@ export const getPopulationData = async (
   );
 
   if (!populationData) {
-    throw new Error("PopulationData not found");
+    context.throwNotFoundError("PopulationData not found");
   }
 
   res.status(200).json({
@@ -193,7 +190,7 @@ export async function cancelPopulationData(
   );
 
   if (!populationData) {
-    throw new Error("Could not cancel query");
+    return context.throwNotFoundError("Could not cancel query");
   }
 
   const datasource = await getDataSourceById(
@@ -202,7 +199,9 @@ export async function cancelPopulationData(
   );
 
   if (!datasource) {
-    throw new Error("Could not cancel query, datasource not found");
+    return context.throwNotFoundError(
+      "Could not cancel query, datasource not found",
+    );
   }
 
   const integration = await getSourceIntegrationObject(context, datasource);

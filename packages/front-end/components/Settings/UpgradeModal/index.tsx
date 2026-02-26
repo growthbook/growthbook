@@ -331,8 +331,8 @@ export default function UpgradeModal({
     "require-approvals":
       "Reduce errors by requiring approval flows when changing feature flag values",
     "audit-logging": "Easily export historical audit logs",
-    "managed-warehouse":
-      "Fully managed data warehouse and event tracking pipeline in GrowthBook Cloud",
+    "unlimited-managed-warehouse-usage":
+      "Access to all your tracked events in the Managed Warehouse",
     saveSqlExplorerQueries:
       "Save query results and visualizations from the SQL Explorer.",
     holdouts: "Measure aggregate impact with Holdouts",
@@ -489,7 +489,7 @@ export default function UpgradeModal({
               size={"3"}
               style={{ color: "var(--color-text-high)", fontWeight: 500 }}
             >
-              {dynamicBullet || "Add up to 100 team members"}
+              {dynamicBullet || "Add up to 50 team members"}
             </Text>
           </Flex>
           <Flex align="center" className="pb-2">
@@ -499,7 +499,7 @@ export default function UpgradeModal({
               style={{ color: "var(--color-text-high)", fontWeight: 500 }}
             >
               {dynamicBullet === "advanced-permissions"
-                ? "Add up to 100 team members"
+                ? "Add up to 50 team members"
                 : "Manage advanced user permissions"}
             </Text>
           </Flex>
@@ -554,7 +554,8 @@ export default function UpgradeModal({
                   </tr>
                 </thead>
                 <tbody>
-                  {commercialFeature === "managed-warehouse" && (
+                  {commercialFeature ===
+                    "unlimited-managed-warehouse-usage" && (
                     <tr>
                       <td>
                         Managed Warehouse{" "}

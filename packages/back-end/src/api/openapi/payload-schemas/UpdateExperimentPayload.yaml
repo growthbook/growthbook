@@ -89,7 +89,10 @@ properties:
     enum:
       - firstExposure
       - experimentDuration
-    description: Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override.
+      - lookbackOverride
+    description: Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided.
+  lookbackOverride:
+    $ref: "../schemas/LookbackOverride.yaml"
   statsEngine:
     type: string
     enum:
@@ -249,11 +252,6 @@ properties:
     type: object
     additionalProperties:
       type: string
-  pinnedMetricSlices:
-    type: array
-    items:
-      type: string
-    description: "Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded)"
   customMetricSlices:
     type: array
     items:

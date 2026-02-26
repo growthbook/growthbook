@@ -13,6 +13,7 @@ import emoji from "@jukben/emoji-search";
 import { useDropzone } from "react-dropzone";
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import { PiArrowClockwise } from "react-icons/pi";
+import { AISuggestionType } from "shared/ai";
 import { useAuth } from "@/services/auth";
 import { uploadFile } from "@/services/files";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -22,12 +23,21 @@ import OptInModal from "@/components/License/OptInModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import track from "@/services/track";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Markdown from "./Markdown";
 
 const Item = ({ entity: { name, char } }) => <div>{`${name}: ${char}`}</div>;
 const Loading = () => <div>Loading</div>;
 
+//Extracts a human-readable link label from a URL for Markdown link shorthand.
+function getLinkLabelFromUrl(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "") || "Link";
+  } catch {
+    return "Link";
+  }
+}
 const MarkdownInput: FC<{
   value: string;
   setValue: (value: string) => void;
@@ -44,6 +54,8 @@ const MarkdownInput: FC<{
   onCancel?: () => void;
   hidePreview?: boolean;
   showButtons?: boolean;
+  onAISuggestionReceived?: (result: string) => void;
+  trackingSource?: string;
 }> = ({
   value,
   setValue,
@@ -60,6 +72,8 @@ const MarkdownInput: FC<{
   onOptInModalOpen, // If this component is in Modal itself this can be used to close that modal when the OptInModal opens
   onOptInModalClose, // ... And this can be used to open that modal when the OptInModal closes
   showButtons = true,
+  onAISuggestionReceived,
+  trackingSource,
 }) => {
   const { aiEnabled, aiAgreedTo } = useAISettings();
   const [activeControlledTab, setActiveControlledTab] = useState<
@@ -82,6 +96,35 @@ const MarkdownInput: FC<{
       textareaRef.current.focus();
     }
   }, [autofocus, textareaRef.current]);
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const pasted = e.clipboardData.getData("text/plain").trim();
+    if (!pasted || !/^https?:\/\/\S+$/i.test(pasted)) return;
+
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    e.preventDefault();
+
+    const start = textarea.selectionStart ?? 0;
+    const end = textarea.selectionEnd ?? start;
+    const selectedText = value.slice(start, end).trim();
+    const linkLabel =
+      start !== end && selectedText
+        ? selectedText
+        : getLinkLabelFromUrl(pasted);
+    const markdownLink = `[${linkLabel}](<${pasted}>)`;
+    const newValue = value.slice(0, start) + markdownLink + value.slice(end);
+    setValue(newValue);
+
+    const cursorAfterInsert = start + markdownLink.length;
+    // Defer so React can commit the new value to the DOM first; otherwise
+    // setSelectionRange runs against the old value and may be overwritten.
+    setTimeout(() => {
+      textarea.setSelectionRange(cursorAfterInsert, cursorAfterInsert);
+      textarea.focus();
+    }, 0);
+  };
 
   const onDrop = (files: File[]) => {
     if (blockFileUploads) return;
@@ -122,8 +165,9 @@ const MarkdownInput: FC<{
     HTMLDivElement
   >;
 
-  const doAISuggestion = async () => {
+  const doAISuggestion = async (type?: AISuggestionType) => {
     if (aiSuggestFunction && aiEnabled) {
+      track("ai-suggestion", { source: trackingSource, type });
       setError("");
       try {
         setLoading(true);
@@ -131,6 +175,9 @@ const MarkdownInput: FC<{
         setActiveControlledTab("write");
         const suggestedText = await aiSuggestFunction();
         if (suggestedText) {
+          if (onAISuggestionReceived) {
+            onAISuggestionReceived(suggestedText);
+          }
           if (!value || !value.trim()) {
             setValue(suggestedText);
           } else {
@@ -198,6 +245,7 @@ const MarkdownInput: FC<{
                 onChange={(e) => {
                   setValue(e.target.value);
                 }}
+                onPaste={handlePaste}
                 placeholder={placeholder}
                 trigger={{
                   ":": {
@@ -282,7 +330,7 @@ const MarkdownInput: FC<{
                   <Button
                     variant="soft"
                     disabled={loading}
-                    onClick={doAISuggestion}
+                    onClick={() => doAISuggestion("suggest")}
                   >
                     <BsStars /> {loading ? "Generating..." : aiButtonText}
                   </Button>
@@ -326,7 +374,10 @@ const MarkdownInput: FC<{
                     {aiSuggestionHeader}:
                   </Heading>
                   <Flex gap="2">
-                    <Button variant="ghost" onClick={doAISuggestion}>
+                    <Button
+                      variant="ghost"
+                      onClick={() => doAISuggestion("try-again")}
+                    >
                       <PiArrowClockwise /> Try Again
                     </Button>
                     {aiSuggestionText && value != aiSuggestionText && (
@@ -336,6 +387,9 @@ const MarkdownInput: FC<{
                           onClick={() => {
                             setRevertValue(value);
                             setValue(aiSuggestionText);
+                            track("use-ai-suggestion", {
+                              source: trackingSource,
+                            });
                           }}
                         >
                           Use Suggested
@@ -349,6 +403,9 @@ const MarkdownInput: FC<{
                           onClick={() => {
                             setValue(revertValue);
                             setRevertValue(null);
+                            track("revert-ai-suggestion", {
+                              source: trackingSource,
+                            });
                           }}
                         >
                           Revert

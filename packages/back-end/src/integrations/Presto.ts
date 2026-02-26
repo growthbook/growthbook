@@ -1,20 +1,26 @@
-/// <reference types="../../typings/presto-client" />
-import { Client, IPrestoClientOptions } from "presto-client";
+import { Client, ClientOptions, QueryOptions } from "presto-client";
 import { format } from "shared/sql";
-import { FormatDialect } from "shared/src/types";
+import { FormatDialect } from "shared/types/sql";
 import { prestoCreateTablePartitions } from "shared/enterprise";
-import { QueryStatistics } from "back-end/types/query";
-import { decryptDataSourceParams } from "back-end/src/services/datasource";
-import { PrestoConnectionParams } from "back-end/types/integrations/presto";
 import {
   QueryResponse,
   MaxTimestampIncrementalUnitsQueryParams,
   MaxTimestampMetricSourceQueryParams,
-} from "back-end/src/types/Integration";
+  ExternalIdCallback,
+} from "shared/types/integrations";
+import { QueryMetadata, QueryStatistics } from "shared/types/query";
+import { PrestoConnectionParams } from "shared/types/integrations/presto";
+import { decryptDataSourceParams } from "back-end/src/services/datasource";
+import { getKerberosHeader } from "back-end/src/util/kerberos.util";
+import { getQueryTagString } from "back-end/src/util/integration";
 import SqlIntegration from "./SqlIntegration";
 
 // eslint-disable-next-line
 type Row = any;
+
+// Unknown if there is an actual limit, using 2000 as this is the
+// limit in Snowflake
+const PRESTO_QUERY_TAG_MAX_LENGTH = 2000;
 
 export default class Presto extends SqlIntegration {
   params!: PrestoConnectionParams;
@@ -35,11 +41,18 @@ export default class Presto extends SqlIntegration {
   isWritingTablesSupported(): boolean {
     return true;
   }
-  runQuery(sql: string): Promise<QueryResponse> {
-    const configOptions: IPrestoClientOptions = {
+  runQuery(
+    sql: string,
+    setExternalId?: ExternalIdCallback,
+    queryMetadata?: QueryMetadata,
+  ): Promise<QueryResponse> {
+    const engineHeaderName =
+      this.params.engine === "presto" ? "Presto" : "Trino";
+
+    const configOptions: ClientOptions = {
       host: this.params.host,
       port: this.params.port,
-      user: "growthbook",
+      user: this.params.user || "growthbook",
       source: this.params?.source || "growthbook",
       schema: this.params.schema,
       catalog: this.params.catalog,
@@ -54,6 +67,27 @@ export default class Presto extends SqlIntegration {
     }
     if (this.params?.authType === "customAuth") {
       configOptions.custom_auth = this.params.customAuth || "";
+    }
+    if (this.params?.authType === "kerberos") {
+      const servicePrincipal = this.params.kerberosServicePrincipal;
+      const clientPrincipal = this.params.kerberosClientPrincipal;
+      if (!servicePrincipal) {
+        throw new Error(
+          "Kerberos service principal is required for Kerberos authentication",
+        );
+      }
+
+      // FIXME: To avoid a breaking change, we are setting the engine only for Kerberos.
+      // But we should figure out a proper impersonation logic for all auth types.
+      // See https://github.com/growthbook/growthbook/pull/4921
+      configOptions.engine = this.params.engine;
+      if (this.params.kerberosUser) {
+        configOptions.user = this.params.kerberosUser;
+      }
+
+      // Use a function to generate fresh Kerberos tokens for each request
+      configOptions.custom_auth = () =>
+        getKerberosHeader(servicePrincipal, clientPrincipal);
     }
     if (this.params?.ssl) {
       configOptions.ssl = {
@@ -70,10 +104,16 @@ export default class Presto extends SqlIntegration {
       const rows: Row[] = [];
       const statistics: QueryStatistics = {};
 
-      client.execute({
+      const executeOptions: QueryOptions = {
         query: sql,
         catalog: this.params.catalog,
         schema: this.params.schema,
+        headers: {
+          [`X-${engineHeaderName}-Client-Info`]: getQueryTagString(
+            queryMetadata ?? {},
+            PRESTO_QUERY_TAG_MAX_LENGTH,
+          ),
+        },
         columns: (error, data) => {
           if (error) return;
           cols = data.map((d) => d.name);
@@ -97,6 +137,7 @@ export default class Presto extends SqlIntegration {
             statistics.bytesProcessed = Number(stats.processedBytes);
             statistics.rowsProcessed = Number(stats.processedRows);
             statistics.physicalWrittenBytes = Number(
+              // @ts-expect-error - From our testing this does exist but types are not happy
               stats.physicalWrittenBytes,
             );
           }
@@ -110,7 +151,9 @@ export default class Presto extends SqlIntegration {
             statistics,
           });
         },
-      });
+      };
+
+      client.execute(executeOptions);
     });
   }
   addTime(

@@ -9,7 +9,7 @@ on:
       - ".github/workflows/deploy.yml"
       - "packages/**"
       - "!**.md"
-      - "yarn.lock"
+      - "pnpm-lock.yaml"
       - "Dockerfile"
       - ".dockerignore"
 jobs:
@@ -79,7 +79,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
 
       - name: Checkout code
         uses: actions/checkout@v4
@@ -104,9 +104,12 @@ jobs:
           docker pull ${ECR_REGISTRY}/growthbook:latest
           docker create --name temp-container ${ECR_REGISTRY}/growthbook:latest
           docker cp temp-container:/usr/local/src/app/packages/front-end/.next/static ./static
-          # This is for the sentry source maps task below.
+          # Back-end-dist and front-end-dist is for the sentry source maps task below.
           docker cp temp-container:/usr/local/src/app/packages/back-end/dist ./back-end-dist
-          docker cp temp-container:/usr/local/src/app/packages/front-end/.next ./front-end-dist
+          # Copy only server/ and static/ to front-end-dist as symlinks in .next/node_modules break docker cp
+          mkdir -p front-end-dist
+          cp -r ./static ./front-end-dist/static
+          docker cp temp-container:/usr/local/src/app/packages/front-end/.next/server ./front-end-dist/server
           docker rm temp-container
           aws s3 sync ./static s3://growthbook-cloud-static-files/_next/static
 
@@ -116,6 +119,7 @@ jobs:
           environment: "production"
           sourcemaps: "./back-end-dist"
           release: ${{ github.sha }}
+          inject: false
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: growthbook
@@ -127,6 +131,8 @@ jobs:
           environment: "production"
           sourcemaps: "./front-end-dist"
           release: ${{ github.sha }}
+          inject: false
+          url_prefix: "app:///_next"
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: growthbook

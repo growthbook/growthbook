@@ -1,8 +1,5 @@
 import { Box, Flex, Separator, Text } from "@radix-ui/themes";
-import {
-  DataVizConfig,
-  FilterConfiguration,
-} from "back-end/src/validators/saved-queries";
+import { DataVizConfig, FilterConfiguration } from "shared/validators";
 import { useEffect, useState } from "react";
 import { FaAngleRight, FaPlusCircle } from "react-icons/fa";
 import { PiSlidersHorizontal } from "react-icons/pi";
@@ -12,7 +9,7 @@ import { requiresXAxis } from "@/services/dataVizTypeGuards";
 import { getXAxisConfig } from "@/services/dataVizConfigUtilities";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
-import Tooltip from "../Tooltip/Tooltip";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import { inferFieldType } from "./DataVizConfigPanel";
 import DataVizFilter from "./DataVizFilter";
 

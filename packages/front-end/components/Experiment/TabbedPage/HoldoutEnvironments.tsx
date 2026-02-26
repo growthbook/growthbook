@@ -1,4 +1,4 @@
-import { FeatureEnvironment } from "back-end/types/feature";
+import { FeatureEnvironment } from "shared/types/feature";
 
 export default function HoldoutEnvironments({
   environments,

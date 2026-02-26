@@ -1,8 +1,8 @@
-import { MakeModelClass } from "back-end/src/models/BaseModel";
 import {
   DecisionCriteriaInterface,
   decisionCriteriaInterface,
-} from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.validators";
+} from "shared/enterprise";
+import { MakeModelClass } from "back-end/src/models/BaseModel";
 
 const BaseClass = MakeModelClass({
   schema: decisionCriteriaInterface,

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ProjectInterface } from "back-end/types/project";
+import { ProjectInterface } from "shared/types/project";
 import PQueue from "p-queue";
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import {
   FaCheck,
@@ -11,7 +11,7 @@ import {
 } from "react-icons/fa";
 import { MdPending } from "react-icons/md";
 import { cloneDeep, isEqual } from "lodash";
-import { Environment } from "back-end/types/organization";
+import { Environment } from "shared/types/organization";
 import Link from "next/link";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import Field from "@/components/Forms/Field";
@@ -687,7 +687,9 @@ export default function ImportFromLaunchDarkly() {
     }
   }, [useBackendProxy, setUseBackendProxy]);
 
-  const { features, mutate: mutateFeatures } = useFeaturesList(false);
+  const { features, mutate: mutateFeatures } = useFeaturesList({
+    useCurrentProject: false,
+  });
   const { projects, mutateDefinitions } = useDefinitions();
   const environments = useEnvironments();
   const { refreshOrganization } = useUser();

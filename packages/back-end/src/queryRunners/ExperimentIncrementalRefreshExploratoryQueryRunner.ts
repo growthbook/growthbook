@@ -4,28 +4,28 @@ import {
   isRegressionAdjusted,
 } from "shared/experiments";
 import { cloneDeep } from "lodash";
-import { ApiReqContext } from "back-end/types/api";
+import {
+  Dimension,
+  IncrementalRefreshStatisticsQueryParams,
+} from "shared/types/integrations";
 import {
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
   SnapshotType,
-} from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment-snapshot";
 import {
   ExperimentQueryMetadata,
   Queries,
   QueryPointer,
   QueryStatus,
-} from "back-end/types/query";
+} from "shared/types/query";
+import { ApiReqContext } from "back-end/types/api";
 import {
   findSnapshotById,
   updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getIncrementalRefreshMetricSources } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
-import {
-  Dimension,
-  IncrementalRefreshStatisticsQueryParams,
-  SourceIntegrationInterface,
-} from "back-end/src/types/Integration";
+import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { updateReport } from "back-end/src/models/ReportModel";
 import { parseDimension } from "back-end/src/services/experiments";
@@ -122,10 +122,12 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
   const existingCovariateSources =
     incrementalRefreshModel?.metricCovariateSources;
 
-  const metricSourceGroups = getIncrementalRefreshMetricSources(
-    selectedMetrics.filter((m) => isFactMetric(m)),
-    existingSources ?? [],
-  );
+  const metricSourceGroups = getIncrementalRefreshMetricSources({
+    metrics: selectedMetrics.filter((m) => isFactMetric(m)),
+    existingMetricSources: existingSources ?? [],
+    integration,
+    snapshotSettings,
+  });
 
   for (const group of metricSourceGroups) {
     const existingSource = existingSources?.find(
@@ -167,7 +169,10 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     const metricParams: IncrementalRefreshStatisticsQueryParams = {
       settings: snapshotSettings,
       activationMetric: activationMetric,
-      dimensions: dimensionObjs,
+      // TODO(incremental-refresh): add post-stratification to exploratory analysis
+      // unused in exploratory analysis, use dimensionsForAnalysis instead
+      dimensionsForPrecomputation: [],
+      dimensionsForAnalysis: dimensionObjs,
       factTableMap: params.factTableMap,
       metricSourceTableFullName: existingSource.tableFullName,
       metricSourceCovariateTableFullName:
@@ -183,7 +188,6 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
       dependencies: [],
       run: (query, setExternalId) =>
         integration.runIncrementalRefreshStatisticsQuery(query, setExternalId),
-      process: (rows) => rows,
       queryType: "experimentIncrementalRefreshStatistics",
     });
     queries.push(statisticsQuery);

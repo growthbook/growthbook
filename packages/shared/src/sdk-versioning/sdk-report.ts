@@ -1,7 +1,7 @@
 import fs from "fs";
 import uniq from "lodash/uniq";
 
-import { SDKLanguage } from "back-end/types/sdk-connection";
+import { SDKLanguage } from "shared/types/sdk-connection";
 import {
   SDKCapability,
   getDefaultSDKVersion,
@@ -24,6 +24,8 @@ const allCapabilities: Record<SDKCapability, boolean> = {
   visualEditor: true,
   visualEditorDragDrop: true,
   visualEditorJS: true,
+  caseInsensitiveRegex: true,
+  caseInsensitiveMembership: true,
 };
 
 const languages = Object.keys(sdks);

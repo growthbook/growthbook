@@ -103,8 +103,8 @@ From this, you can export types to use throughout the front-end and back-end. Th
 ```ts
 // File: back-end/types/foo.d.ts
 import { z } from "zod";
-import type { fooSchema } from "back-end/src/validators/foo";
-import { CreateProps, UpdateProps } from "./models";
+import type { fooSchema } from "shared/validators";
+import { CreateProps, UpdateProps } from "shared/types/base-model";
 
 // Full interface
 export type FooInterface = z.infer<fooSchema>;
@@ -119,7 +119,7 @@ Create the data model class based on the schema.
 
 ```ts
 // File: back-end/src/models/FooModel.ts
-import { fooSchema } from "back-end/src/validators/foo";
+import { fooSchema } from "shared/validators";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -397,7 +397,7 @@ First, you would document the endpoint using OpenAPI:
 We use a generator to automatically create Typescript types, Zod validators, and API documentation for all of our resources and endpoints. Any time you edit the `yaml` files, you will need to re-run this generator.
 
 ```bash
-yarn generate-api-types
+pnpm generate-api-types
 ```
 
 ### Router and Business Logic
@@ -406,7 +406,7 @@ Next, you'll need to create a helper function to convert from our internal DB in
 
 ```ts
 // src/models/ProjectModel.ts
-import { ApiProject } from "back-end/types/openapi";
+import { ApiProject } from "shared/types/openapi";
 import { ProjectInterface } from "back-end/types/project";
 
 export class ProjectModel extends BaseClass {
@@ -424,12 +424,12 @@ export class ProjectModel extends BaseClass {
 Then, create a route for your endpoint at `src/api/projects/listProjects.ts`:
 
 ```ts
-import { ListProjectsResponse } from "back-end/types/openapi";
+import { ListProjectsResponse } from "shared/types/openapi";
 import {
   applyPagination,
   createApiRequestHandler,
 } from "back-end/src/util/handler";
-import { listProjectsValidator } from "back-end/src/validators/openapi";
+import { listProjectsValidator } from "shared/validators";
 
 export const listProjects = createApiRequestHandler(listProjectsValidator)(
   async (req): Promise<ListProjectsResponse> => {

@@ -1,13 +1,10 @@
 import { createPrivateKey } from "crypto";
 import { createConnection } from "snowflake-sdk";
-import { SnowflakeConnectionParams } from "back-end/types/integrations/snowflake";
-import {
-  ExternalIdCallback,
-  QueryResponse,
-} from "back-end/src/types/Integration";
+import { ExternalIdCallback, QueryResponse } from "shared/types/integrations";
+import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
+import { QueryMetadata } from "shared/types/query";
 import { TEST_QUERY_SQL } from "back-end/src/integrations/SqlIntegration";
-import { QueryMetadata } from "back-end/types/query";
-import { logger } from "back-end/src/util/logger";
+import { getQueryTagString } from "back-end/src/util/integration";
 
 type ProxyOptions = {
   proxyHost?: string;
@@ -30,37 +27,7 @@ function getProxySettings(): ProxyOptions {
   };
 }
 
-function getSnowflakeQueryTagString(queryMetadata?: QueryMetadata) {
-  const metadata = {
-    application: "growthbook",
-    ...queryMetadata,
-  };
-
-  // 2000 is the max length of a query tag
-  let json = JSON.stringify(metadata);
-
-  if (json.length > 2000) {
-    // delete any key that has tags and try again
-    const tagKeys = Object.keys(metadata).filter((key) => key.includes("tags"));
-    if (tagKeys.length > 0) {
-      json = JSON.stringify({
-        ...Object.fromEntries(
-          Object.entries(metadata).filter(([key]) => !tagKeys.includes(key)),
-        ),
-      });
-    }
-  }
-
-  // if still too long, just send the application key
-  if (json.length > 2000) {
-    logger.warn("Snowflake query tag is too long, truncating", { json });
-    json = JSON.stringify({
-      application: "growthbook",
-    });
-  }
-  return json;
-}
-
+const SNOWFLAKE_QUERY_TAG_MAX_LENGTH = 2000;
 // eslint-disable-next-line
 export async function runSnowflakeQuery<T extends Record<string, any>>(
   conn: SnowflakeConnectionParams,
@@ -110,7 +77,10 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
     ...getProxySettings(),
     application: "GrowthBook_GrowthBook",
     accessUrl: conn.accessUrl ? conn.accessUrl : undefined,
-    queryTag: getSnowflakeQueryTagString(queryMetadata),
+    queryTag: getQueryTagString(
+      queryMetadata ?? {},
+      SNOWFLAKE_QUERY_TAG_MAX_LENGTH,
+    ),
   });
 
   // promise with timeout to prevent hanging, esp. for test query
@@ -129,7 +99,10 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
     });
   });
 
-  const res = await new Promise<T[]>((resolve, reject) => {
+  const res = await new Promise<{
+    rows: T[];
+    columns: { name: string }[];
+  }>((resolve, reject) => {
     connection.execute({
       sqlText: sql,
       complete: async (err, stmt, rows) => {
@@ -142,7 +115,14 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
         if (err) {
           reject(err);
         } else {
-          resolve(rows || []);
+          // Extract column metadata from the statement
+          const stmtColumns = stmt.getColumns();
+          const columns = stmtColumns
+            ? stmtColumns.map((col) => ({
+                name: col.getName().toLowerCase(),
+              }))
+            : [];
+          resolve({ rows: rows || [], columns });
         }
       },
     });
@@ -150,11 +130,11 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
 
   // Annoyingly, Snowflake turns all column names into all caps
   // Need to lowercase them here so they match other data sources
-  const lowercase = res.map((row) => {
+  const lowercase = res.rows.map((row) => {
     return Object.fromEntries(
       Object.entries(row).map(([k, v]) => [k.toLowerCase(), v]),
     ) as T;
   });
 
-  return { rows: lowercase };
+  return { rows: lowercase, columns: res.columns };
 }
