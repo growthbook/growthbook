@@ -1485,17 +1485,26 @@ export async function postFeatureSync(
   }
 
   const updates: Partial<FeatureInterface> = {
-    defaultValue: data.defaultValue ?? feature.defaultValue,
     description: data.description ?? feature.description,
     owner: data.owner ?? feature.owner,
     tags: data.tags ?? feature.tags,
   };
+  const updatesInRevision: Partial<FeatureInterface> = {};
+
   const changes: Pick<FeatureRevisionInterface, "rules" | "defaultValue"> = {
     rules: {},
     defaultValue: data.defaultValue ?? feature.defaultValue,
   };
 
-  let needsNewRevision = !isEqual(feature.defaultValue, updates.defaultValue);
+  let needsNewRevision = false;
+
+  if (
+    data.defaultValue != null &&
+    !isEqual(feature.defaultValue, updates.defaultValue)
+  ) {
+    updatesInRevision.defaultValue = updates.defaultValue;
+    needsNewRevision = true;
+  }
 
   environments.forEach((env) => {
     // Revision Changes
@@ -1505,8 +1514,10 @@ export async function postFeatureSync(
       [];
 
     // Feature updates
-    updates.environmentSettings = updates.environmentSettings || {};
-    updates.environmentSettings[env] = updates.environmentSettings[env] || {
+    updatesInRevision.environmentSettings =
+      updatesInRevision.environmentSettings || {};
+    updatesInRevision.environmentSettings[env] = updatesInRevision
+      .environmentSettings[env] || {
       enabled: feature.environmentSettings?.[env]?.enabled ?? false,
       rules: changes.rules[env],
     };
@@ -1538,36 +1549,31 @@ export async function postFeatureSync(
     // Approval flows not required, was published immediately
     if (revision.status === "published") {
       updates.version = revision.version;
-      const updatedFeature = await updateFeature(context, feature, updates);
-
-      await req.audit({
-        event: "feature.update",
-        entity: {
-          object: "feature",
-          id: feature.id,
-        },
-        details: auditDetailsUpdate(feature, updatedFeature, {
-          revision: updatedFeature.version,
-        }),
-      });
-
-      res.status(200).json({
-        status: 200,
-        feature: updatedFeature,
-      });
+      Object.assign(updates, updatesInRevision);
     }
     // Approval flows required
     else {
-      const updatedFeature = await updateFeature(context, feature, {
-        hasDrafts: true,
-      });
-
-      res.status(200).json({
-        status: 200,
-        feature: updatedFeature,
-      });
+      updates.hasDrafts = true;
     }
   }
+
+  const updatedFeature = await updateFeature(context, feature, updates);
+
+  await req.audit({
+    event: "feature.update",
+    entity: {
+      object: "feature",
+      id: feature.id,
+    },
+    details: auditDetailsUpdate(feature, updatedFeature, {
+      revision: updatedFeature.version,
+    }),
+  });
+
+  res.status(200).json({
+    status: 200,
+    feature: updatedFeature,
+  });
 }
 
 export async function postFeatureExperimentRefRule(
