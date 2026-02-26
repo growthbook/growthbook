@@ -48,6 +48,7 @@ import {
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
   getEffectiveLookbackOverride,
+  createInitialPhase,
 } from "shared/experiments";
 import { hoursBetween } from "shared/dates";
 import { v4 as uuidv4 } from "uuid";
@@ -2692,21 +2693,9 @@ export function postExperimentApiPayloadToInterface(
       variations,
     };
   }) || [
-    {
-      coverage: 1,
-      dateStarted: new Date(),
-      name: "Main",
-      reason: "",
-      variationWeights: variations.map(() => 1 / variations.length),
-      condition: "",
-      savedGroups: [],
-      namespace: {
-        enabled: false,
-        name: "",
-        range: [0, 1],
-      },
+    createInitialPhase({
       variations,
-    },
+    }),
   ];
 
   const obj: Omit<ExperimentInterface, "dateCreated" | "dateUpdated" | "id"> = {
