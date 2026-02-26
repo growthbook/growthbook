@@ -6,6 +6,7 @@ import {
   CreateFactTableProps,
   FactTableInterface,
 } from "shared/types/fact-table";
+import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import {
   MetricDefaults,
@@ -58,7 +59,7 @@ function getBuiltInWarehouseResources(): InitialDatasourceResources {
       {
         factTable: {
           // Give it a known id so we can reference it easily
-          id: "ch_events",
+          id: MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
           name: "Events",
           description: "",
           sql: `SELECT * FROM events

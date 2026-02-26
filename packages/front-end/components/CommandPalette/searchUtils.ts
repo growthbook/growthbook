@@ -7,6 +7,7 @@ import { fuzzyMatch } from "@nozbe/microfuzz";
  * as individual tokens: ["my", "feature", "flag"].
  */
 export function tokenize(str: string): string[] {
+  if (!str) return [];
   return str
     .replace(/([a-z])([A-Z])/g, "$1 $2")
     .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
@@ -24,9 +25,14 @@ export function tokenize(str: string): string[] {
  * "alpha bravo charlie" (from "alpha_bravo_charlie").
  */
 export function fuzzyMatchName(query: string, name: string): number | null {
-  const searchText = tokenize(name).join(" ");
-  const result = fuzzyMatch(searchText, query);
-  return result ? result.score : null;
+  try {
+    const searchText = tokenize(name).join(" ");
+    const result = fuzzyMatch(searchText, query);
+    return result ? result.score : null;
+  } catch (e) {
+    console.error("CommandPalette: error in fuzzyMatchName", e);
+    return null;
+  }
 }
 
 export interface SearchableItem {
@@ -49,25 +55,30 @@ export function combinedSearch<T extends SearchableItem>(
   items: T[],
   query: string,
 ): T[] {
-  const raw = index.search(query);
-  const matchedIds = new Set(raw.map((r) => r.id));
-  const itemMap = new Map(items.map((i) => [i.id, i]));
+  try {
+    const raw = index.search(query);
+    const matchedIds = new Set(raw.map((r) => r.id));
+    const itemMap = new Map(items.map((i) => [i.id, i]));
 
-  const results: T[] = raw
-    .map((r) => itemMap.get(r.id))
-    .filter((item) => item !== undefined);
+    const results: T[] = raw
+      .map((r) => itemMap.get(r.id))
+      .filter((item) => item !== undefined);
 
-  items
-    .filter((item) => !matchedIds.has(item.id))
-    .map((item) => {
-      const score = fuzzyMatchName(query, item.name);
-      return score !== null ? { item, score } : null;
-    })
-    .filter((m) => m !== null)
-    .sort((a, b) => a.score - b.score)
-    .forEach(({ item }) => results.push(item));
+    items
+      .filter((item) => !matchedIds.has(item.id))
+      .map((item) => {
+        const score = fuzzyMatchName(query, item.name);
+        return score !== null ? { item, score } : null;
+      })
+      .filter((m) => m !== null)
+      .sort((a, b) => a.score - b.score)
+      .forEach(({ item }) => results.push(item));
 
-  return results;
+    return results;
+  } catch (e) {
+    console.error("CommandPalette: error in combinedSearch", e);
+    return [];
+  }
 }
 
 /**
