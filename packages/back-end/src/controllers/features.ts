@@ -2221,16 +2221,16 @@ export async function postFeatureMoveRule(
   });
 }
 export async function getDraftandReviewRevisions(
-  req: AuthRequest,
+  req: AuthRequest<null, Record<string, never>, { sparse?: string }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
-  const revisions = await getRevisionsByStatus(context, [
-    "draft",
-    "approved",
-    "changes-requested",
-    "pending-review",
-  ]);
+  const sparse = req.query.sparse !== "false";
+  const revisions = await getRevisionsByStatus(
+    context,
+    ["draft", "approved", "changes-requested", "pending-review"],
+    { sparse },
+  );
 
   const featureIds = Array.from(new Set(revisions.map((r) => r.featureId)));
   const featureMeta = await getFeatureMetaInfoByIds(context, featureIds);

@@ -228,22 +228,29 @@ export async function getRevisionsByVersions({
   return docs.map((doc) => toInterface(doc, context));
 }
 
+// Fields excluded in sparse mode: large/unused payload for list-view callers.
+const SPARSE_REVISION_PROJECTION = {
+  log: 0,
+  rules: 0,
+  defaultValue: 0,
+  baseVersion: 0,
+  datePublished: 0,
+  publishedBy: 0,
+  requiresReview: 0,
+};
+
 export async function getRevisionsByStatus(
   context: ReqContext,
   statuses: string[],
+  { sparse = false }: { sparse?: boolean } = {},
 ) {
-  const revisions = await FeatureRevisionModel.find({
-    organization: context.org.id,
-    status: { $in: statuses },
-  }).select("-log"); // Remove the log when fetching all revisions since it can be large to send over the network
+  const projection = sparse ? SPARSE_REVISION_PROJECTION : { log: 0 };
+  const revisions = await FeatureRevisionModel.find(
+    { organization: context.org.id, status: { $in: statuses } },
+    projection,
+  );
 
-  const docs = revisions
-    .filter((r) => !!r)
-    .map((r) => {
-      return toInterface(r, context);
-    });
-
-  return docs;
+  return revisions.filter((r) => !!r).map((r) => toInterface(r, context));
 }
 
 export async function createInitialRevision(
