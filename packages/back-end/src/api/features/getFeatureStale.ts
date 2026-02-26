@@ -12,6 +12,7 @@ export const getFeatureStale = createApiRequestHandler(
   }
 
   const neverStale = feature.neverStale ?? false;
+  const hasBeenCalculated = !!feature.staleLastCalculated;
   return {
     featureId: feature.id,
     isStale: neverStale ? false : (feature.isStale ?? false),
@@ -22,6 +23,8 @@ export const getFeatureStale = createApiRequestHandler(
         : feature.staleReason,
     staleLastCalculated: feature.staleLastCalculated?.toISOString() ?? null,
     neverStale,
-    staleByEnv: feature.staleByEnv,
+    ...(!neverStale && hasBeenCalculated
+      ? { staleByEnv: feature.staleByEnv }
+      : {}),
   };
 });

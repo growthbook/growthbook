@@ -277,8 +277,7 @@ export default function FeatureFromExperimentModal({
         }
 
         if (existing) {
-          const featureHoldoutId = validFeatures.find((f) => f.id === existing)
-            ?.holdout?.id;
+          const featureHoldoutId = existingFeature?.holdout?.id;
           // Require users to add the holdout to the feature if the experiment has a holdout and the feature does not
           if (experiment.holdoutId && !featureHoldoutId) {
             throw new Error(

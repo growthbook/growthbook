@@ -4138,13 +4138,16 @@ export async function getFeatureStale(
   }
   // neverStale overrides stale detection; isStale/staleReason are forced to false/null.
   const neverStale = feature.neverStale ?? false;
+  const hasBeenCalculated = !!feature.staleLastCalculated;
   res.status(200).json({
     status: 200,
     isStale: neverStale ? false : (feature.isStale ?? false),
     staleReason: neverStale ? null : (feature.staleReason ?? null),
     neverStale,
     staleLastCalculated: feature.staleLastCalculated ?? null,
-    staleByEnv: feature.staleByEnv,
+    ...(!neverStale && hasBeenCalculated
+      ? { staleByEnv: feature.staleByEnv }
+      : {}),
   });
 }
 
