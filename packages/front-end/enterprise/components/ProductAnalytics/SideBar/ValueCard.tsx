@@ -6,6 +6,7 @@ import {
   PiPlus,
   PiCaretDown,
   PiCaretUp,
+  PiUserFill,
 } from "react-icons/pi";
 import Collapsible from "react-collapsible";
 import { z } from "zod";
@@ -259,6 +260,7 @@ export default function ValueCard({
               trigger={
                 <Button size="xs" variant="ghost">
                   <Flex align="center" gap="2">
+                    <PiUserFill />{" "}
                     {draftExploreState.dataset.values[index].unit ??
                       "Select Unit..."}
                   </Flex>

@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { QueryStatistics } from "shared/types/query";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 
@@ -228,15 +229,17 @@ export default function ExplorerDataTable({ hasChart }: { hasChart: boolean }) {
   if (loading) return null;
   if (!exploration?.result?.rows?.length && !error) return null;
 
+  const stats: QueryStatistics | null = exploration?.result?.statistics || null;
+
   return (
     <DisplayTestQueryResults
       results={rowData}
-      duration={0}
+      duration={stats?.executionDurationMs ?? 0}
       sql={exploration?.result?.sql || ""}
       error={error || ""}
       allowDownload={true}
       showSampleHeader={false}
-      showDuration={false}
+      showDuration={!!stats}
       headerStructure={headerStructure ?? undefined}
       orderedColumnKeys={orderedColumnKeys}
       paddingTop={isStale && !hasChart ? 35 : 0}

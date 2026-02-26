@@ -9,6 +9,7 @@ import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { AreaWithHeader } from "@/components/SchemaBrowser/SqlExplorerModal";
+import { floatRound } from "@/services/utils";
 
 export type HeaderStructure = {
   row1: { label: string; colSpan?: number; rowSpan?: number }[];
@@ -137,7 +138,7 @@ export default function DisplayTestQueryResults({
                 <Flex align="center" flexGrow={"1"}>
                   {showDuration && (
                     <span className="font-weight-light pl-2">
-                      Succeeded in {duration}ms
+                      Succeeded in {floatRound(duration, 2)}ms
                     </span>
                   )}
                 </Flex>
