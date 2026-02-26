@@ -434,11 +434,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/GeneralSettings/BanditSettings.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/GeneralSettings/DatasourceSettings.tsx": {
     "no-restricted-imports": {
       "count": 2

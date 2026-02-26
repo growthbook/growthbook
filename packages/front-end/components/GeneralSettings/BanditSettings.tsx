@@ -1,14 +1,13 @@
 import { useFormContext } from "react-hook-form";
-import React from "react";
 import clsx from "clsx";
 import { ScopedSettings } from "shared/settings";
-import { Box, Flex, Heading } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import HelperText from "@/ui/HelperText";
-import useOrgSettings from "@/hooks/useOrgSettings";
+import Heading from "@/ui/Heading";
 
 export default function BanditSettings({
   page = "org-settings",
@@ -22,50 +21,35 @@ export default function BanditSettings({
   const { hasCommercialFeature } = useUser();
   const form = useFormContext();
   const hasBandits = hasCommercialFeature("multi-armed-bandits");
-  const orgSettings = useOrgSettings();
-  const orgStickyBucketing = !!orgSettings?.useStickyBucketing;
-  const disableStickyBucketing = form.watch("disableStickyBucketing");
-  const stickyBucketingDisabled = orgStickyBucketing && disableStickyBucketing;
 
   const scheduleHours =
     parseFloat(form.watch("banditScheduleValue") ?? "0") *
     (form.watch("banditScheduleUnit") === "days" ? 24 : 1);
-
-  // Get conversion window in hours
-  const conversionWindowValue = form.watch("banditConversionWindowValue");
-  const conversionWindowUnit = form.watch("banditConversionWindowUnit");
-  const conversionWindowHours =
-    conversionWindowValue && conversionWindowUnit
-      ? parseFloat(String(conversionWindowValue)) *
-        (conversionWindowUnit === "days" ? 24 : 1)
-      : null;
 
   const scheduleWarning =
     scheduleHours < 1
       ? "Update cadence should be at least 15 minutes longer than it takes to run your data warehouse query"
       : scheduleHours > 24 * 3
         ? "Update cadences longer than 3 days can result in slow learning"
-        : stickyBucketingDisabled &&
-            conversionWindowHours &&
-            scheduleHours < conversionWindowHours * 10
-          ? "Conversion windows longer than 10% of the update cadence may result in counting conversions after a unit switches variations"
-          : null;
+        : null;
 
   return (
     <Box>
-      <Flex gap="4" p="5">
+      <Flex gap="4">
         {page === "org-settings" && (
           <Box width="220px" flexShrink="0">
-            <Heading size="4" as="h4">
+            <Heading size="medium" as="h4">
               Bandit Settings
             </Heading>
           </Box>
         )}
         <Box
           className={clsx({
-            "w-100": page === "org-settings",
-            "col mb-2": page === "experiment-settings",
+            col: page === "experiment-settings",
           })}
+          width={page === "org-settings" ? "100%" : undefined}
+          mb={page === "org-settings" ? "4" : undefined}
+          ml={page === "org-settings" ? "0" : undefined}
         >
           {page === "org-settings" && (
             <>

@@ -99,7 +99,11 @@ export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
           />
           <Flex direction="column" gap="1">
             <Text weight={weight}>{label}</Text>
-            {description && <Text>{description}</Text>}
+            {description && (
+              <Text style={{ color: "var(--color-text-mid)" }}>
+                {description}
+              </Text>
+            )}
             {error && <HelperText status={errorLevel}>{error}</HelperText>}
           </Flex>
         </Flex>

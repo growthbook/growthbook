@@ -9,7 +9,7 @@ import { getMetricWindowHours } from "shared/experiments";
 import { FaExclamationTriangle } from "react-icons/fa";
 import Collapsible from "react-collapsible";
 import { PiCaretRightFill } from "react-icons/pi";
-import { Box, Grid } from "@radix-ui/themes";
+import { Box, Grid, Separator } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import SelectField from "@/components/Forms/SelectField";
@@ -41,6 +41,7 @@ import Checkbox from "@/ui/Checkbox";
 import Text from "@/ui/Text";
 import Switch from "@/ui/Switch";
 import Callout from "@/ui/Callout";
+import clsx from "clsx";
 
 export default function BanditRefNewFields({
   step,
@@ -129,9 +130,9 @@ export default function BanditRefNewFields({
   const goalMetric = goalMetricId
     ? getExperimentMetricById(goalMetricId)
     : null;
-  const goalMetricWindowHours =
+  const goalMetricWindow =
     goalMetric?.windowSettings.type === "conversion"
-      ? getMetricWindowHours(goalMetric.windowSettings)
+      ? goalMetric.windowSettings
       : null;
   const defaultConversionWindowHours = useMemo(() => {
     if (goalMetric?.windowSettings.type === "conversion") {
@@ -139,6 +140,19 @@ export default function BanditRefNewFields({
     }
     return 1; // Default to 1 hour if no metric
   }, [goalMetric]);
+
+  const conversionWindowUnit = form.watch("banditConversionWindowUnit");
+  const conversionWindowValue = form.watch("banditConversionWindowValue");
+
+  const conversionWindowOverrideHours = useMemo(() => {
+    if (form.watch("disableConversionWindow")) {
+      return null;
+    }
+    return conversionWindowValue && conversionWindowUnit
+      ? parseFloat(String(conversionWindowValue)) *
+          (conversionWindowUnit === "days" ? 24 : 1)
+      : null;
+  }, [form, conversionWindowValue, conversionWindowUnit]);
 
   // Track the last goalMetricId we processed to avoid infinite loops
   const lastProcessedGoalMetricId = useRef<string | undefined>(undefined);
@@ -178,6 +192,18 @@ export default function BanditRefNewFields({
       form.setValue("banditConversionWindowUnit", "hours");
     }
   }, [goalMetricId, defaultConversionWindowHours, form]);
+
+  const scheduleHours =
+    parseFloat(form.watch("banditScheduleValue") ?? "0") *
+    (form.watch("banditScheduleUnit") === "days" ? 24 : 1);
+
+  const conversionWindowHours =
+    conversionWindowOverrideHours ?? defaultConversionWindowHours;
+
+  const showConversionWindowWarning =
+    (!settings?.useStickyBucketing || !!form.watch("disableStickyBucketing")) &&
+    conversionWindowHours &&
+    scheduleHours < conversionWindowHours * 10;
 
   return (
     <>
@@ -368,18 +394,24 @@ export default function BanditRefNewFields({
             ) : null}
           </div>
 
+          <Box my="4">
+            <BanditSettings page="experiment-settings" />
+          </Box>
+
           {settings?.useStickyBucketing && (
-            <Checkbox
-              mt="3"
-              mb="5"
-              size="lg"
+            <Switch
               label="Disable Sticky bucketing"
+              description="Do not persist variation assignments for this experiment (overrides your organization settings)"
               value={!!form.watch("disableStickyBucketing")}
-              setValue={(v) => {
+              onChange={(v) => {
                 form.setValue("disableStickyBucketing", v);
               }}
+              mb="5"
+              mt="5"
             />
           )}
+
+          <Separator my="5" size="4" />
 
           <ExperimentMetricsSelector
             datasource={datasource?.id}
@@ -397,72 +429,95 @@ export default function BanditRefNewFields({
 
           {!settings?.useStickyBucketing ||
             (!!form.watch("disableStickyBucketing") && (
-              <Box mt="3">
+              <Box my="5">
                 <Text size="medium" weight="semibold">
                   Decision Metric Conversion Window Override
                 </Text>
-                {form.watch("disableConversionWindow") &&
-                  !goalMetricWindowHours && (
-                    <Callout status="warning" my="2">
-                      Users may switch variations during the bandit and removing
-                      the conversion window could bias results
-                    </Callout>
+                {goalMetricWindow?.windowUnit &&
+                  goalMetricWindow?.windowValue && (
+                    <Text color="text-mid" size="small" as="p" my="1">
+                      Metric default: {goalMetricWindow.windowValue}{" "}
+                      {goalMetricWindow.windowUnit}
+                    </Text>
                   )}
-                <Grid
-                  align="center"
-                  flow="column"
-                  gap="2"
-                  columns="auto"
-                  mt="2"
-                >
-                  <Field
-                    {...form.register("banditConversionWindowValue", {
-                      valueAsNumber: true,
-                    })}
-                    type="number"
-                    min={0}
-                    max={999}
-                    step={"any"}
-                    style={{ width: 70 }}
-                    disabled={form.watch("disableConversionWindow")}
-                  />
-                  <SelectField
-                    value={form.watch("banditConversionWindowUnit") || "hours"}
-                    onChange={(value) => {
-                      form.setValue(
-                        "banditConversionWindowUnit",
-                        value as "hours" | "days",
-                      );
-                    }}
-                    sort={false}
-                    options={[
-                      {
-                        label: "Hour(s)",
-                        value: "hours",
-                      },
-                      {
-                        label: "Day(s)",
-                        value: "days",
-                      },
-                    ]}
-                    disabled={form.watch("disableConversionWindow")}
-                  />
-                  <Box width="50px" />
-                  <Switch
+                <Grid align="end" flow="column" gap="5" columns="auto">
+                  <Grid
+                    align="center"
+                    flow="column"
+                    gap="2"
+                    columns="auto"
+                    mt="2"
+                  >
+                    <Field
+                      {...form.register("banditConversionWindowValue", {
+                        valueAsNumber: true,
+                      })}
+                      type="number"
+                      min={0}
+                      max={999}
+                      step={"any"}
+                      style={{ width: 70 }}
+                      disabled={form.watch("disableConversionWindow")}
+                      className={clsx({
+                        "border-warning": showConversionWindowWarning,
+                      })}
+                    />
+                    <SelectField
+                      value={
+                        form.watch("banditConversionWindowUnit") || "hours"
+                      }
+                      onChange={(value) => {
+                        form.setValue(
+                          "banditConversionWindowUnit",
+                          value as "hours" | "days",
+                        );
+                      }}
+                      sort={false}
+                      options={[
+                        {
+                          label: "Hour(s)",
+                          value: "hours",
+                        },
+                        {
+                          label: "Day(s)",
+                          value: "days",
+                        },
+                      ]}
+                      disabled={form.watch("disableConversionWindow")}
+                    />
+                  </Grid>
+                  <Box width="100px" />
+                  <Checkbox
+                    description="Use the Decision Metric's default conversion window"
                     label="Disable Conversion Window"
-                    size="2"
+                    labelSize="1"
+                    size="sm"
                     value={!!form.watch("disableConversionWindow")}
-                    onChange={(v) => {
+                    setValue={(v) => {
                       form.setValue("disableConversionWindow", v);
                     }}
                   />
                 </Grid>
+                {form.watch("disableConversionWindow") &&
+                  !goalMetricWindow?.windowUnit &&
+                  !goalMetricWindow?.windowValue && (
+                    <Callout status="warning" my="4">
+                      Disabling the conversion window may bias results if units
+                      switch variations during the experiment.
+                    </Callout>
+                  )}
+                {showConversionWindowWarning && (
+                  <Callout status="warning" my="4">
+                    <Text>
+                      To prevent counting conversions after a unit may have
+                      switched assignment, decrease metric conversion window to
+                      use &le; 10% time of{" "}
+                      <Text weight="semibold">Update Cadence</Text>.
+                    </Text>
+                  </Callout>
+                )}
               </Box>
             ))}
-
-          <div className="mt-2 mb-3">
-            <BanditSettings page="experiment-settings" />
-          </div>
 
           <ExperimentMetricsSelector
             datasource={datasource?.id}
