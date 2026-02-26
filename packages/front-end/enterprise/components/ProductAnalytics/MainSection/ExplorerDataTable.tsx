@@ -11,12 +11,27 @@ type ColumnSlot =
       sub: "numerator" | "denominator" | "value" | "single";
     };
 
+function shouldShowTime(
+  submittedExploreState: {
+    dimensions?: { dimensionType?: string; dateGranularity?: string }[];
+  } | null,
+) {
+  if (!submittedExploreState || !submittedExploreState.dimensions) return false;
+  const dateDimension = submittedExploreState.dimensions.find(
+    (d) => d.dimensionType === "date",
+  );
+  if (!dateDimension) return false;
+  return dateDimension.dateGranularity === "hour";
+}
+
 function getDimensionCellValue(
   row: { dimensions: (string | null)[] },
   dimIndex: number,
   context: {
     dimensionColumnHeaders: string[];
-    submittedExploreState: { dimensions?: { dimensionType?: string }[] } | null;
+    submittedExploreState: {
+      dimensions?: { dimensionType?: string; dateGranularity?: string }[];
+    } | null;
   },
 ): unknown {
   const dimension = row.dimensions[dimIndex];
@@ -24,11 +39,19 @@ function getDimensionCellValue(
   if (dimension) {
     const currentDimension = submittedExploreState?.dimensions?.[dimIndex];
     if (currentDimension?.dimensionType === "date") {
-      return new Date(dimension).toLocaleDateString(undefined, {
+      const d = new Date(dimension);
+      let dateString = `${d.toLocaleDateString(undefined, {
         year: "numeric",
         month: "long",
         day: "numeric",
-      });
+      })}`;
+      if (shouldShowTime(submittedExploreState)) {
+        dateString += ` ${d.toLocaleTimeString(undefined, {
+          hour: "2-digit",
+          minute: "2-digit",
+        })}`;
+      }
+      return dateString;
     }
     return dimension;
   }
