@@ -1500,9 +1500,9 @@ export async function postFeatureSync(
 
   if (
     data.defaultValue != null &&
-    !isEqual(feature.defaultValue, updates.defaultValue)
+    !isEqual(feature.defaultValue, data.defaultValue)
   ) {
-    updatesInRevision.defaultValue = updates.defaultValue;
+    updatesInRevision.defaultValue = data.defaultValue;
     needsNewRevision = true;
   }
 
