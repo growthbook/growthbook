@@ -154,6 +154,7 @@ describe("isFeatureStale", () => {
           feature.dateUpdated = subWeeks(new Date(), 1);
           expect(isFeatureStale({ feature })).toEqual({
             stale: false,
+            reason: "never-stale",
           });
         });
       });
@@ -162,6 +163,7 @@ describe("isFeatureStale", () => {
           feature.dateUpdated = subWeeks(new Date(), 3);
           expect(isFeatureStale({ feature })).toEqual({
             stale: false,
+            reason: "never-stale",
           });
         });
       });
