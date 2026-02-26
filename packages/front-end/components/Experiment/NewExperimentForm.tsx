@@ -361,18 +361,22 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const goalMetric = goalMetricId
     ? getExperimentMetricById(goalMetricId)
     : null;
+  const goalMetricWindow =
+    goalMetric?.windowSettings.type === "conversion"
+      ? goalMetric.windowSettings
+      : null;
   const defaultConversionWindowHours = useMemo(() => {
-    if (goalMetric?.windowSettings) {
-      return getMetricWindowHours(goalMetric.windowSettings);
+    if (goalMetricWindow) {
+      return getMetricWindowHours(goalMetricWindow);
     }
     return 1; // Default to 1 hour if no metric
   }, [goalMetric]);
 
-  // Set default conversion window when goal metric changes
+  // Set default conversion window override when Decision Metric changes for Bandit
   useEffect(() => {
-    const type = form.watch("type");
-    const isBandit = type === "multi-armed-bandit";
-    if (isBandit && goalMetricId) {
+    const isBandit = form.watch("type") === "multi-armed-bandit";
+    if (!isBandit) return;
+    if (goalMetricId) {
       // Always update to match the metric's conversion window when metric changes
       if (defaultConversionWindowHours >= 24) {
         form.setValue(
@@ -387,17 +391,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         );
         form.setValue("banditConversionWindowUnit", "hours");
       }
-    } else if (isBandit && !goalMetricId) {
+    } else if (!goalMetricId) {
       // If no goal metric, set to 1 hour
       form.setValue("banditConversionWindowValue", 1);
       form.setValue("banditConversionWindowUnit", "hours");
     }
-  }, [
-    goalMetricId,
-    defaultConversionWindowHours,
-    form,
-    getExperimentMetricById,
-  ]);
+  }, [goalMetricId, defaultConversionWindowHours, form]);
 
   const selectedProject = form.watch("project");
   const customFields = filterCustomFieldsForSectionAndProject(

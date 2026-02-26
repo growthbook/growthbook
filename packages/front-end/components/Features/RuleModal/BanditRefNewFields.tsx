@@ -4,12 +4,13 @@ import {
   FeaturePrerequisite,
   SavedGroupTargeting,
 } from "shared/types/feature";
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useMemo } from "react";
 import { getMetricWindowHours } from "shared/experiments";
 import { FaExclamationTriangle } from "react-icons/fa";
 import Collapsible from "react-collapsible";
 import { PiCaretRightFill } from "react-icons/pi";
 import { Box, Grid, Separator } from "@radix-ui/themes";
+import clsx from "clsx";
 import Field from "@/components/Forms/Field";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import SelectField from "@/components/Forms/SelectField";
@@ -41,7 +42,6 @@ import Checkbox from "@/ui/Checkbox";
 import Text from "@/ui/Text";
 import Switch from "@/ui/Switch";
 import Callout from "@/ui/Callout";
-import clsx from "clsx";
 
 export default function BanditRefNewFields({
   step,
@@ -153,45 +153,6 @@ export default function BanditRefNewFields({
           (conversionWindowUnit === "days" ? 24 : 1)
       : null;
   }, [form, conversionWindowValue, conversionWindowUnit]);
-
-  // Track the last goalMetricId we processed to avoid infinite loops
-  const lastProcessedGoalMetricId = useRef<string | undefined>(undefined);
-  const lastProcessedDefaultHours = useRef<number | undefined>(undefined);
-
-  // Set default conversion window when goal metric changes
-  useEffect(() => {
-    // Only process if goalMetricId or defaultConversionWindowHours actually changed
-    if (
-      lastProcessedGoalMetricId.current === goalMetricId &&
-      lastProcessedDefaultHours.current === defaultConversionWindowHours
-    ) {
-      return;
-    }
-
-    lastProcessedGoalMetricId.current = goalMetricId;
-    lastProcessedDefaultHours.current = defaultConversionWindowHours;
-
-    if (goalMetricId) {
-      // Always update to match the metric's conversion window when metric changes
-      if (defaultConversionWindowHours >= 24) {
-        form.setValue(
-          "banditConversionWindowValue",
-          defaultConversionWindowHours / 24,
-        );
-        form.setValue("banditConversionWindowUnit", "days");
-      } else {
-        form.setValue(
-          "banditConversionWindowValue",
-          defaultConversionWindowHours,
-        );
-        form.setValue("banditConversionWindowUnit", "hours");
-      }
-    } else {
-      // If no goal metric, set to 1 hour
-      form.setValue("banditConversionWindowValue", 1);
-      form.setValue("banditConversionWindowUnit", "hours");
-    }
-  }, [goalMetricId, defaultConversionWindowHours, form]);
 
   const scheduleHours =
     parseFloat(form.watch("banditScheduleValue") ?? "0") *
@@ -484,6 +445,7 @@ export default function BanditRefNewFields({
                         },
                       ]}
                       disabled={form.watch("disableConversionWindow")}
+                      style={{ width: 90, minWidth: 90 }}
                     />
                   </Grid>
                   <Box width="100px" />

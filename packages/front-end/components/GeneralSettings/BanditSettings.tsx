@@ -113,6 +113,7 @@ export default function BanditSettings({
                       },
                     ]}
                     disabled={!hasBandits || lockExploratoryStage}
+                    style={{ width: 90, minWidth: 90 }}
                   />
                 </div>
               </div>
@@ -178,6 +179,7 @@ export default function BanditSettings({
                       },
                     ]}
                     disabled={!hasBandits}
+                    style={{ width: 90, minWidth: 90 }}
                   />
                 </div>
               </div>
