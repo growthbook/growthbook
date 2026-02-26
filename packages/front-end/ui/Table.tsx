@@ -51,7 +51,6 @@ export default function Table({
       className="table-list-wrapper appbox"
       style={
         {
-          overflowX: "auto",
           "--table-sticky-top": `${stickyTopOffset}px`,
         } as React.CSSProperties
       }

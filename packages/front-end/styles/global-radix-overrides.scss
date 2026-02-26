@@ -409,6 +409,14 @@ p.rt-TooltipText {
 // List table variant: sticky header, row hover
 .table-list-wrapper {
   &[data-table-list] {
+    // Sticky header must not sit inside a scroll container; overflow-x: auto would make overflow-y
+    // compute to 'auto' (CSS spec), so the wrapper would become the scroll container. Use visible
+    // so the viewport is the scroll container and sticky works. Wide tables scroll with the page.
+    overflow: visible;
+    .rt-ScrollAreaRoot,
+    .rt-ScrollAreaViewport {
+      overflow: visible !important;
+    }
     .rt-TableBody .rt-TableRow .rt-TableCell {
       background-color: var(--table-list-background-color);
     }
@@ -416,7 +424,7 @@ p.rt-TooltipText {
       background-color: var(--table-row-highlight-background-color);
     }
     .rt-TableHeader {
-      // position: sticky;
+      position: sticky;
       top: var(--table-sticky-top, var(--sticky-header-top));
       z-index: 900;
       // Downward-only shadow when sticky (no upward bleed)
@@ -429,7 +437,7 @@ p.rt-TooltipText {
     }
 
     .rt-TableRootTable {
-      // No overflw: hidden - it breaks position: sticky on the header (same approach as attributes table)
+      overflow: visible !important;
       border-collapse: separate;
       border-spacing: 0;
 
