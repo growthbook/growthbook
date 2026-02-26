@@ -105,6 +105,7 @@ export type FeatureMetaInfo = Pick<
   | "staleReason"
   | "staleLastCalculated"
   | "neverStale"
+  | "holdout"
 > & {
   defaultValue?: string;
   revision?: {

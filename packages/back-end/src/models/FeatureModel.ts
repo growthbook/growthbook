@@ -1356,6 +1356,7 @@ export async function getFeatureMetaInfoById(
     staleLastCalculated: 1,
     neverStale: 1,
     "jsonSchema.enabled": 1,
+    holdout: 1,
     revision: 1,
   };
   if (includeDefaultValue) {
@@ -1380,6 +1381,7 @@ export async function getFeatureMetaInfoById(
     staleReason: f.staleReason as FeatureMetaInfo["staleReason"],
     staleLastCalculated: f.staleLastCalculated,
     neverStale: f.neverStale,
+    holdout: f.holdout,
     revision: f.revision as FeatureMetaInfo["revision"],
     ...(includeDefaultValue && { defaultValue: f.defaultValue ?? "" }),
   }));
