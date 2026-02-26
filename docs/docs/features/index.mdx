@@ -5,50 +5,30 @@ sidebar_label: Feature Flags
 slug: /app/features
 ---
 
-# Feature Flags
+Feature flags let you control your application's behavior from GrowthBook, without deploying new code. Target specific users, gradually roll out changes, or run A/B tests on the client or the server.
 
-Feature Flags enable you to change your application's behavior from within the
-GrowthBook UI. For example, turn on/off a sales banner or change the
-title of your pricing page.
+Feature flags decouple deploys from releases. Release code more frequently and with less risk by launching to a subset of users, ramping up gradually, or turning any change into an experiment.
 
-You can set a global value for everyone, use advanced targeting to
-assign values to users, and run experiments to see which value is
-better.
+## Getting Started
 
-Feature flags aren't limited to front-end changes. Use them on your back-end
-to gradually release a new ML model or enable new fields in an API response.
+To use feature flags, set up an [SDK Connection](/sdk-connections), then explore the docs below.
 
-## Why use Feature Flags?
+### Learn the Basics
 
-Feature flags are a powerful tool for decoupling code deploys from feature releases. This enables you to release code
-more frequently and with less risk. It also enables you to do things like easily launch any new feature to a specific
-subset of users (like beta users), gradually roll out a new features, or turn any feature into an A/B test (experiment).
+- [Fundamentals](/features/basics) — Keys, feature types, default values, and publishing
+- [Environments](/features/environments) — Control which features are enabled per environment (dev, staging, production)
 
-## How to get started with Feature Flags?
+### Set Up Targeting and Rules
 
-1. Create an [SDK Connection](#sdk-connections) in GrowthBook
-2. See [Feature Flag Basics](/features/basics) to learn the fundamentals and see the types of features we support (boolean, number, string, JSON)
-3. Learn about [Targeting](/features/targeting) to target features to users with certain attributes
-4. Add [Rules](/features/rules) to target users with a Forced Value, rollout your feature to a percentage of users, or run an experiment
-5. Learn about [Scheduling](/features/scheduling) features and different feature [Environments](/features/environments)
+- [Rules](/features/rules) — How rules work, choosing a rule type, and configuring forced values, rollouts, experiments, and scheduling
+- [Targeting Conditions](/features/targeting) — Define who sees a feature using attributes, conditions, and saved groups
+- [Safe Rollouts](/features/safe-rollouts) — Release features with automatic guardrail monitoring
+- [Prerequisites](/features/prerequisites) — Gate features based on the state of other features
 
-## SDK Connections
+### Manage Flags at Scale
 
-In order to use feature flags in your application, you need to create an **SDK Connection** in GrowthBook.
-
-At a high level, the SDK Connection generates a unique clientKey which grants read-only access to feature flags in a specific environment. The SDKs use this to fetch feature flag states and rules from the GrowthBook API.
-
-On GrowthBook Cloud, we have a global CDN in front of the API (https://cdn.growthbook.io) to ensure low latency responses from anywhere in the world. The CDN has a 30-second TTL, so changes to a feature may take a little time to be reflected.
-
-### GrowthBook Proxy
-
-We also offer a pre-built proxy server you can deploy on your own infrastructure.
-This can be put in front of either GrowthBook Cloud or a self-hosted GrowthBook instance.
-
-The GrowthBook Proxy offers the following benefits:
-
-- Fast - Requests served from an in-memory cache close to your app servers
-- Scalable - A single Proxy server can handle over 10,000 reqs/second. Horizontally scale for more
-- Responsive - Changes in GrowthBook are rolled out to users in under a second
-
-You can read more about the GrowthBook Proxy [here](/self-host/proxy).
+- [Publishing & Approval Flows](/features/publishing-and-approval-flows) — Drafts, revisions, merge conflicts, and requiring approvals
+- [Stale Feature Detection](/features/stale-detection) — Identify flags that may no longer be in use
+- [Code References](/features/code-references) — Find where flags are used in your codebase
+- [Feature Diagnostics](/features/diagnostics) — Inspect feature evaluations in production
+- [Custom Hooks](/features/custom-hooks) — Extend GrowthBook with custom validation logic (self-hosted Enterprise)

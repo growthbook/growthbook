@@ -1,0 +1,115 @@
+---
+title: Publishing & Approval Flows
+description: Learn about drafts, revisions, merge conflicts, and requiring approvals for feature flag changes
+sidebar_label: Publishing & Approval Flows
+slug: /features/publishing-and-approval-flows
+---
+
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+import CommercialFeature from '@site/src/components/CommercialFeature';
+
+# Publishing & Approval Flows
+
+When you make changes to a feature flag in GrowthBook, those changes go through a publishing workflow before they reach your users. This page covers the full lifecycle: drafts, publishing, revisions, merge conflicts, and optional approval flows.
+
+## Drafts and Publishing
+
+When you change a feature's definition (e.g., the default value or rules), GrowthBook automatically creates a new draft revision. This draft is unpublished and only visible within the GrowthBook UI, not to your users.
+
+Continue adding changes to the draft, and when you're ready, publish them all at once with an optional commit message.
+
+![Draft Modal](/images/features/feature-publishing-2.png)
+
+## Revisions
+
+Once published, a revision becomes locked and can no longer be changed.
+
+To undo changes and revert to a previous state, use the **Revision** dropdown to select the version you want to revert to, then click **Revert**. You can review the changes that will be applied before submitting.
+
+<MaxWidthImage border>
+  ![Feature Revisions](/images/features/revision-dropdown-2.png)
+</MaxWidthImage>
+
+## Merge Conflicts
+
+Your draft can diverge from the live version of a feature if someone else publishes changes while you're still editing. GrowthBook can merge some changes automatically (e.g., if you change a rule in "dev" and someone else changes a rule in "production"). For changes that can't be resolved automatically, you must fix the conflicts before publishing your draft.
+
+The conflict resolution process works similarly to version control systems like Git. For each conflict, GrowthBook shows a diff and lets you choose how to proceed.
+
+In the example below, the Default Value was set to `foo` when you first created your draft. In your draft, you changed the value to `bar`. At the same time, someone else published a new version, changing the value to `hi!!`. So, now you have to choose which change you want to keep.
+
+![Resolve Conflicts](/images/features/resolve-conflicts.png)
+
+## Approval Flows
+
+<CommercialFeature feature="require-approvals" />
+
+With Approval flows, you can require approval before publishing any change to an existing feature flag. Approval flows help reduce errors by making sure changes to features have been viewed and approved by someone else in your organization.
+
+### Settings
+
+Enable Approval Flows for your organization on the settings page. Select the environments that require approvals, or leave the field blank to require approvals on all environments. To force-reset the review when a change is made after approval, toggle on **Reset review on changes**.
+
+![Approval flow organization settings](/images/features/approval-flows/org-settings.png)
+
+### Requesting a Review
+
+When Approval Flows are enabled, you must request a review before publishing changes. Add a detailed comment describing the changes so reviewers can understand the intent of your request.
+
+<MaxWidthImage border>
+  ![Requesting a review for feature changes](/images/features/approval-flows/request-approval-to-publish.png)
+</MaxWidthImage>
+
+Requested reviews appear in the **Drafts** tab on the Features overview page with a **Pending Review** status. Sort by date updated to see your most recent request at the top.
+
+<MaxWidthImage border>
+  ![Pending review list in the Drafts tab](/images/features/approval-flows/drafts-pending-review-list.png)
+</MaxWidthImage>
+
+### Reviewing
+
+Anyone with "Edit" or "Add" permissions for feature flags (see [Permissions](/account/user-permissions)) can serve as a reviewer, except the user who created the request.
+
+Click the feature, then click **Review and Approve** to open the review modal.
+
+<MaxWidthImage border>
+  ![Review and Approve button on a feature](/images/features/approval-flows/review-and-approve-button.png)
+</MaxWidthImage>
+
+From here, you can see the diff between the currently published changes as well as the comments.
+
+![Diff view showing changes between published and draft versions](/images/features/approval-flows/review-draft-changes-diff.png)
+
+Click **Next** to write your review in the comment box and select a status:
+
+- **Comment** — Add a note without formally reviewing the changes
+- **Request Changes** — Flag issues that need to be addressed before approval
+- **Approve** — Confirm that everything looks correct
+
+<MaxWidthImage border>
+  ![Review status options: Comment, Request Changes, Approve](/images/features/approval-flows/review-status-options.png)
+</MaxWidthImage>
+
+Once the changes are **Approved**, they can be published.
+
+<MaxWidthImage border>
+  ![Approved draft ready to publish](/images/features/approval-flows/approved-ready-to-publish.png)
+</MaxWidthImage>
+
+### Publishing with Approvals
+
+Anyone with permission to add or edit feature flags can publish changes once they are marked as **Approved**. Admins can bypass the review requirement by selecting the checkbox at the top of the modal.
+
+<MaxWidthImage border>
+  ![Publishing approved changes with admin bypass option](/images/features/approval-flows/publish-with-admin-bypass.png)
+</MaxWidthImage>
+
+Once published, a green "Live" badge confirms the version is published and active.
+
+![Green badge indicating the published version is live](/images/features/approval-flows/revision-live-badge.png)
+
+### Visualize Changes with Compare Revisions
+
+Get a detailed diff of the changes between published and draft versions by clicking the **Compare Revisions** button.
+
+![Compare Revisions button](/images/features/approval-flows/compare-revisions-diff.png)

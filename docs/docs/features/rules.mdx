@@ -1,128 +1,175 @@
 ---
 title: Feature Flag Rules
-description: Learn about feature flag rules
-sidebar_label: Rules (Force, Rollout, Experimentation)
+description: Learn how rules control who sees what value, how to choose the right rule type, and how to configure each one.
+sidebar_label: Rules
 slug: /features/rules
 ---
 
 import MaxWidthImage from "@site/src/components/MaxWidthImage";
 import CommercialFeature from '@site/src/components/CommercialFeature';
 
-# Rules (Force, Percentage Rollout, Experimentation)
+# Rules
 
-Every feature has a default value that is served to all users. The real power comes when you define **Rules**
-that let you run experiments and/or change the value for specific users.
+Every feature has a [default value](/features/basics#default-values) that applies to all users. Rules let you override that default by targeting specific users, rolling out to a percentage of traffic, or running an experiment to measure impact.
 
-<MaxWidthImage maxWidth={700}>
-    ![Feature rules interface](/images/features/feature-override-rules.png)
-</MaxWidthImage>
+## How Rules Work
 
-Rules are defined separately for each environment (e.g. dev and production). This way you can, for example, test
-an experiment rule in dev first before deploying it to production.
+Rules are defined separately for each [environment](/features/environments) (e.g., dev and production). This lets you test a rule in dev before deploying it to production.
 
-The first matching rule for a user will be applied, so order matters. If there are no matching rules, the default value
-will be used.
+![Feature rules interface](/images/features/feature-override-rules-2.png)
 
-## Targeting Conditions
+Each rule combines two things:
 
-Any rule can specify conditions to limit which users the rule applies to. These conditions are evaluated against the attributes passed into the SDK.
+- **Targeting conditions** define _who_ the rule applies to. Conditions are evaluated against the [attributes](/features/targeting) you pass into the SDK. A rule with no conditions applies to everyone.
+- **Rule type** defines _what happens_ for matching users: a forced value, a percentage rollout, an experiment, or a safe rollout.
 
-Learn more about [targeting here](/features/targeting).
+Rules are evaluated top to bottom. The first matching rule wins. If no rule matches, the default value is used.
 
-![Rule conditions UI](/images/rule-conditions.png)
+## Choosing a Rule Type
+
+Not sure which rule type fits your use case? Start here.
+
+**Do you need to measure the impact of this change on metrics?**
+
+- **Yes, I want to learn which value performs better** → Use an [Experiment](#experiment) rule.
+- **No, I just want to release safely** → Keep reading.
+
+**Do you want automatic monitoring for regressions during rollout?**
+
+- **Yes, monitor guardrails and auto-rollback if something breaks** → Use a [Safe Rollout](/features/safe-rollouts) rule.
+- **No, I just want to control who gets the new value** → Keep reading.
+
+**Do you want to release to a random percentage of users?**
+
+- **Yes, gradually ramp up traffic** → Use a [Percentage Rollout](#percentage-rollout) rule.
+- **No, I want to target specific users or groups** → Use a [Forced Value](#forced-value) rule.
+
+:::tip Rules can be combined
+Add multiple rules to a single feature to layer behaviors. For example, use a Forced Value rule to enable a feature for beta testers, then a Percentage Rollout rule to gradually release to everyone else.
+:::
+
+### Comparison
+
+|                   | Forced Value                                     | Percentage Rollout                    | Experiment                     | Safe Rollout                             |
+| ----------------- | ------------------------------------------------ | ------------------------------------- | ------------------------------ | ---------------------------------------- |
+| **Purpose**       | Target specific users or groups                  | Gradually release to a % of users     | Measure which value wins       | Release safely with guardrail monitoring |
+| **Randomization** | None                                             | Random split                          | Random split                   | Random split                             |
+| **Tracking**      | No                                               | No                                    | Yes                            | Yes                                      |
+| **Typical use**   | Target specific groups like internal, beta users | Make sure this doesn't break anything | Which version converts better? | Ship safely with automatic rollback      |
+| **Plan**          | All plans                                        | All plans                             | All plans                      | Pro and Enterprise                       |
 
 ## Forced Value
 
-The simplest type of Rule is a "Forced Value" rule. This forces everyone who matches the targeting condition to get a specific value. For example, you could have a feature default to OFF and use force rules to turn it ON for a specific list of countries.
+The simplest rule type. Everyone who matches the targeting conditions gets a specific value.
 
 <MaxWidthImage maxWidth={600}>
-    ![Force rule UI](/images/features/feature-force-rule.png)
+    ![Force rule UI](/images/features/feature-force-rule-2.png)
 </MaxWidthImage>
+
+Common scenarios:
+
+- Turning a feature on for internal employees or beta testers
+- Targeting users in a specific country or on a specific plan
+- Overriding a value for a single account that reported a bug
+
+If a user doesn't match the conditions, the rule is skipped and the next rule (or default value) applies.
 
 ## Percentage Rollout
 
-Percentage Rollout rules let you gradually release a feature value to a random sample of your users.
+Percentage Rollout rules release a feature value to a random sample of users.
 
 <MaxWidthImage maxWidth={600}>
-    ![Rollout rule UI](/images/features/feature-rollout-rule.png)
+    ![Rollout rule UI](/images/features/feature-rollout-rule-2.png)
 </MaxWidthImage>
 
-Rollouts are most useful when you want to make sure a new feature doesn't break your app or site. You start by releasing to maybe 10% of users. Then after a while if your metrics look ok, you increase to 30% and so on.
+Common scenarios:
 
-For rollout rules, you choose a user attribute to use for the random sample. Users with the same attribute value will be treated the same (either included or not included in the rollout). For example, if you choose a "company" attribute, then multiple employees in the same company will get the same experience.
+- Rolling out a new feature to 10% of users, then 50%, then 100%
+- Releasing a backend change where you want to watch error rates manually
+- Any gradual release where you aren't running a formal experiment
 
-:::note
+Choose a user attribute (e.g., `id` or `company`) to use for the random sample. Users with the same attribute value always get the same experience. For example, choosing a "company" attribute means all employees in the same company see the same thing.
 
-Percentage Rollouts do not fire any tracking calls so there's no way to precisely correlate the rollout to changes in your application's metrics. If this is a concern, we recommend Experiment rules (below) instead.
-
+:::tip Safe Rollouts Add Monitoring
+For a gradual rollout **with** automatic guardrail monitoring and optional auto-rollback, use a [Safe Rollout](/features/safe-rollouts) instead.
 :::
 
-## Experiments
+## Experiment
 
-The last type of rule is an Experiment. This randomly splits users into buckets, assigns them different values, and
-tracks that assignment in your data warehouse or analytics tool.
-
-Experiments are most useful when you aren't sure which value to assign yet.
-
-Here's what an Experiment rule looks like in the GrowthBook UI:
+Experiment rules randomly split users into variations, assign them different values, and track each assignment in your data warehouse or analytics tool.
 
 <MaxWidthImage maxWidth={600}>
-    ![Experiment rule UI](/images/features/feature-experiment-rules.png)
+    ![Experiment rule UI](/images/features/feature-experiment-rules-2.png)
 </MaxWidthImage>
 
-In the vast majority of cases, you want to split traffic based on either a logged-in user id or some sort of anonymous
-identifier like a device id or session cookie. As long as the user has the same value for this attribute, they will
-always get assigned the same variation. In rare cases, you may want to use an attribute such as company or account
-instead, which ensures all users in a company will see the same thing.
+Common scenarios:
 
-You can control both the percent of users included and the traffic split between the variations. For example, if you include 50% of users and do a 40/60 split, then 20% will see the first variation, 30% will see the 2nd variation, and the remaining 50% will skip the rule entirely and move onto the next rule (or the default value if there are no more matching rules).
+- A/B testing a new checkout flow against the current one
+- Testing 3 different onboarding sequences to see which retains users
+- Any decision where data should drive the outcome
 
-When a user is placed in an experiment via the experiment rule, the SDK will track the experiment assignment
-in your data warehouse or analytics tool, via the `trackingCallback` method.
+In most cases, split traffic based on a logged-in user ID or an anonymous identifier like a device ID or session cookie. As long as a user has the same value for this attribute, they always get the same variation. In rare cases, you may want to split on an attribute like `company` or `account` to ensure all users in a company see the same thing.
 
-You can analyze the result of a Feature Experiment rule the same way you would any experiment in GrowthBook.
+You can control both the percent of users included and the traffic split between variations. For example, if you include 50% of users and do a 40/60 split, then 20% of all users see variation A, 30% see variation B, and the other 50% skip the rule entirely and fall through to the next rule (or the default value).
 
-### Namespaces
+When a user is placed into an experiment, the SDK fires the `trackingCallback` to log the assignment in your data warehouse or analytics tool. Analyze the results the same way you would any experiment in GrowthBook.
 
-If you have multiple experiments that may conflict with each other (e.g. background color and text color), you can
-use **namespaces** to make the conflicting experiments mutually exclusive.
+## Safe Rollout
 
-Users are randomly assigned a value from 0 to 1 for each namespace. Each experiment in a namespace has a range of values
-that it includes. Users are only part of an experiment if their value falls within the experiment's range. So as long
-as two experiment ranges do not overlap, users will only ever be in at most one of them.
+Safe Rollout rules combine a gradual percentage rollout with automatic guardrail monitoring. GrowthBook monitors key metrics for regressions and can auto-rollback if something goes wrong.
 
-<MaxWidthImage border>
-    ![Namespaces](/images/namespaces.png)
+<MaxWidthImage maxWidth={600}>
+    ![Safe Rollout rule UI](/images/features/feature-safe-rollout-rule.png)
 </MaxWidthImage>
 
-In order to use namespaces, simply create a new namespace or modify an existing one in _SDK Configuration → Namespaces_ in the GrowthBook UI's left navigation bar. It's essential to ensure that all experiments within the namespace use the same hash attribute (assignment attribute).
+Common scenarios:
+
+- Shipping a refactored payment flow where any regression in error rate is unacceptable
+- Releasing a new ML model and watching latency and conversion metrics
+- Any release where you want automatic rollback protection
+
+Safe Rollouts follow a fixed ramp-up schedule (10% → 25% → 50% → 75% → 100%) and use the same statistical engine as experiments, optimized for operational safety rather than learning.
+
+→ [Full Safe Rollout documentation](/features/safe-rollouts)
+
+<CommercialFeature feature="safe-rollout" />
+
+## Targeting Conditions
+
+Any rule can include targeting conditions to limit which users it applies to. Conditions you define in GrowthBook are evaluated against the attributes you pass into the SDK.
+
+<MaxWidthImage maxWidth={600}>
+    ![Rule conditions UI](/images/features/feature-rule-conditions.png)
+</MaxWidthImage>
+
+→ [Full targeting reference: attributes, conditions, and saved groups](/features/targeting)
+
+## Scheduling Rules
+
+<CommercialFeature feature="schedule-feature-flag" />
+
+<MaxWidthImage maxWidth={600}>
+    ![Feature Scheduling](/images/features/feature-scheduling-2.png)
+</MaxWidthImage>
+
+Schedule any rule to turn on or off at a specific date and time. This is useful for turning features on or off for holidays or special promotions.
+
+Scheduling works with all rule types: forced value, percentage rollout, experiment, and safe rollout.
 
 ## Testing Rules
 
-You can test your rules in the GrowthBook UI by clicking on the "Test Feature Rules" under the rules. This will open a
-form that will allow you to adjust user attributes and see in real time how the rules will be applied, and what value
-they'll get. User attributes can also added as JSON objects, by clicking on the JSON tab. You can also expand the
-results to see more debug information about why each rule was or wasn't applied.
+Test your rules directly in GrowthBook on the **Simulation** page. Adjust user attributes and see in real time which rules match and what value the user would receive.
 
-<MaxWidthImage border maxWidth={1000}>
-    ![Test Feature Rules](/images/features/feature-test-rules.gif)
-</MaxWidthImage>
+<video autoPlay loop muted style={{width: '100%', height: "auto"}}>
+    <source src="/videos/feature-test-rules.mp4" type="video/mp4" />
+</video>
 
-### Archetype
-
-Archetypes are a way you can save preset user attributes to see how your if the rules will apply to them. This is useful
-if you have specific sets of users who you frequently want to target features to. They are automatically shown along with
-the feature values at the top of the test rules form. Mouse over any value to see more debug information about why that
-value was returned.
-
-![Archetypes](/images/features/feature-archetypes.png)
-
-You can create and manage archetypes in the _Archetypes_ page under the SDK Configuration.
+### Archetypes
 
 <CommercialFeature feature="archetypes" />
 
-### Simulation
+Archetypes let you save preset user attribute profiles so you can quickly test how rules apply to specific types of users. If you frequently target features to certain groups (e.g., beta testers, enterprise accounts), archetypes let you check the result in one click. They appear at the top of the **Simulation** page. Hover over any value to see debug information.
 
-To see which features and experiments a user would be exposed to, you can use the simulation feature. This will show you
-all the features and experiments that a user would or was exposed to based on their attributes. Each feature and experiment
-will show debug information about why that particular value was returned. Feature simulation also works with Archetypes.
+![Archetypes](/images/features/feature-archetypes-2.png)
+
+Create and manage archetypes by navigating to **SDK Configuration** → **Archetypes**.
