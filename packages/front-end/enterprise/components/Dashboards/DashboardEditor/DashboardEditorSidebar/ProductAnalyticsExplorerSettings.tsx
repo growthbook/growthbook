@@ -34,14 +34,14 @@ export default function ProductAnalyticsExplorerSettings({
   saveAndCloseTrigger,
   onSaveAndClose,
 }: Props) {
-  const { data, error, isLoading } = useApi<{
+  const { data, error } = useApi<{
     status: number;
     exploration: ProductAnalyticsExploration;
   }>(`/product-analytics/exploration/${block.explorerAnalysisId}`, {
     shouldRun: () => !!block.explorerAnalysisId,
   });
 
-  if (block.explorerAnalysisId && isLoading) {
+  if (!block.config) {
     return <LoadingSpinner />;
   }
 
