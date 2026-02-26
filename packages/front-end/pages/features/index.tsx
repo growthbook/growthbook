@@ -74,7 +74,7 @@ export default function FeaturesPage() {
   const showGraphs = useFeature("feature-list-realtime-graphs").on;
 
   const permissionsUtil = usePermissionsUtil();
-  const { project } = useDefinitions();
+  const { project, projects } = useDefinitions();
   const environments = useEnvironments();
   const {
     features: allFeatures,
@@ -425,6 +425,28 @@ export default function FeaturesPage() {
     setShowArchived(isArchivedFilter);
   }, [syntaxFilters]);
 
+  const canViewFeatureModal = useMemo(() => {
+    // If a specific project is selected, check permissions for that project
+    if (project) {
+      return permissionsUtil.canViewFeatureModal(project);
+    }
+    // If "All Projects" is selected, check if user has permissions for at least one project
+    return projects.some((p) => permissionsUtil.canViewFeatureModal(p.id));
+  }, [project, projects, permissionsUtil]);
+
+  const canCreateFeatures = useMemo(() => {
+    // If a specific project is selected, check permissions for that project
+    if (project) {
+      return permissionsUtil.canManageFeatureDrafts({ project });
+    }
+    // If "All Projects" is selected, check if user has permissions for at least one project
+    return projects.some(
+      (p) =>
+        permissionsUtil.canCreateFeature({ project: p.id }) &&
+        permissionsUtil.canManageFeatureDrafts({ project: p.id }),
+    );
+  }, [project, projects, permissionsUtil]);
+
   if (error) {
     return (
       <div className="alert alert-danger">
@@ -464,10 +486,6 @@ export default function FeaturesPage() {
 
   const toggleEnvs = environments.filter((en) => en.toggleOnList);
 
-  const canCreateFeatures = permissionsUtil.canManageFeatureDrafts({
-    project,
-  });
-
   return (
     <div className="contents container pagecontents">
       {modalOpen && (
@@ -498,22 +516,20 @@ export default function FeaturesPage() {
         <div className="col">
           <h1>Features</h1>
         </div>
-        {!showSetUpFlow &&
-          permissionsUtil.canViewFeatureModal(project) &&
-          canCreateFeatures && (
-            <div className="col-auto">
-              <Button
-                onClick={() => {
-                  setModalOpen(true);
-                  track("Viewed Feature Modal", {
-                    source: "feature-list",
-                  });
-                }}
-              >
-                Add Feature
-              </Button>
-            </div>
-          )}
+        {!showSetUpFlow && canViewFeatureModal && canCreateFeatures && (
+          <div className="col-auto">
+            <Button
+              onClick={() => {
+                setModalOpen(true);
+                track("Viewed Feature Modal", {
+                  source: "feature-list",
+                });
+              }}
+            >
+              Add Feature
+            </Button>
+          </div>
+        )}
       </div>
       <div className="mt-3">
         <CustomMarkdown page={"featureList"} />
@@ -538,7 +554,7 @@ export default function FeaturesPage() {
                   Connect your SDK
                 </LinkButton>
               ) : (
-                permissionsUtil.canViewFeatureModal(project) &&
+                canViewFeatureModal &&
                 canCreateFeatures && (
                   <Button
                     onClick={() => {
