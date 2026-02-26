@@ -27,19 +27,6 @@ export type QueryStatistics = {
   physicalWrittenBytes?: number;
 };
 
-export type ExperimentQueryMetadata = {
-  experimentProject?: string;
-  experimentOwner?: string;
-  experimentTags?: string[];
-};
-
-export type AdditionalQueryMetadata = ExperimentQueryMetadata;
-
-export type QueryMetadata = AdditionalQueryMetadata & {
-  userName?: string;
-  userId?: string;
-};
-
 export type QueryType =
   | ""
   | "pastExperiment"
@@ -68,6 +55,24 @@ export type QueryType =
   | "experimentIncrementalRefreshStatistics"
   | "experimentIncrementalRefreshHealth"
   | "productAnalyticsExploration";
+
+export type ExperimentQueryMetadata = {
+  experimentProject?: string;
+  experimentOwner?: string;
+  experimentTags?: string[];
+};
+
+export type AdditionalQueryMetadata = ExperimentQueryMetadata;
+
+export type QueryDocMetadata = {
+  queryType?: QueryType;
+};
+
+export type QueryMetadata = AdditionalQueryMetadata &
+  QueryDocMetadata & {
+    userName?: string;
+    userId?: string;
+  };
 
 export interface QueryInterface {
   id: string;

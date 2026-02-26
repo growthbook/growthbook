@@ -6,22 +6,23 @@ import {
 } from "@radix-ui/themes";
 import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { PiCaretDown, PiWarningFill } from "react-icons/pi";
+import { amber } from "@radix-ui/colors";
 import React, {
   ReactElement,
+  useCallback,
   useEffect,
   useState,
   createContext,
   useContext,
 } from "react";
-import { amber } from "@radix-ui/colors";
-import Button from "@/ui/Button";
+import { createPortal } from "react-dom";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import Button from "@/ui/Button";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Modal from "@/components/Modal";
 
 type AllowedChildren = string | React.ReactNode;
 
-// This context is used to hide and show the dropdown menu when a confirmation modal is open
 type DropdownVisibilityContextType = {
   hideDropdown: () => void;
   showDropdown: () => void;
@@ -34,6 +35,7 @@ const DropdownVisibilityContext =
 type DropdownProps = {
   trigger: React.ReactNode;
   triggerClassName?: string;
+  triggerStyle?: React.CSSProperties;
   menuPlacement?: "start" | "center" | "end";
   menuWidth?: "full" | number;
   children: AllowedChildren;
@@ -42,11 +44,13 @@ type DropdownProps = {
   open?: boolean;
   onOpenChange?: (o: boolean) => void;
   disabled?: boolean;
+  modal?: boolean; // blocks clicks underneath the menu
 } & MarginProps;
 
 export function DropdownMenu({
   trigger,
   triggerClassName,
+  triggerStyle,
   menuPlacement = "start",
   menuWidth,
   children,
@@ -55,6 +59,7 @@ export function DropdownMenu({
   disabled,
   open,
   onOpenChange,
+  modal = false,
   ...props
 }: DropdownProps) {
   const triggerComponent =
@@ -69,44 +74,80 @@ export function DropdownMenu({
       trigger
     );
 
-  // Used to hide dropdown while confirmation modal is open without destroying <Modal> component
+  // Track open state internally so we can show/hide the backdrop.
+  const [isOpen, setIsOpen] = useState(open ?? false);
+  useEffect(() => {
+    if (open !== undefined) setIsOpen(open);
+  }, [open]);
+  const handleOpenChange = (o: boolean) => {
+    setIsOpen(o);
+    onOpenChange?.(o);
+  };
+
+  // isHidden/isHiddenWithDelay: keep the menu mounted but invisible while a
+  // confirmation Modal is open above it (avoids remounting the Modal mid-flow).
   const [isHidden, setIsHidden] = useState(false);
   const [isHiddenWithDelay, setIsHiddenWithDelay] = useState(false);
-  // Use a delayed render effect to account for dropdown closing animation.
   useEffect(() => {
     if (isHidden) {
       setIsHiddenWithDelay(true);
     } else {
-      setTimeout(() => {
-        setIsHiddenWithDelay(false);
-      }, 500);
+      setTimeout(() => setIsHiddenWithDelay(false), 500);
     }
-  }, [isHidden, isHiddenWithDelay, setIsHiddenWithDelay]);
+  }, [isHidden, isHiddenWithDelay]);
 
   const hideDropdown = () => setIsHidden(true);
   const showDropdown = () => setIsHidden(false);
   const closeDropdown = () => {
     setIsHidden(false);
-    onOpenChange?.(false);
+    handleOpenChange(false);
   };
+
+  // When modal=true, walk up from the Content node to find the Radix popper
+  // wrapper and elevate its z-index above the backdrop (9998).
+  const contentRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (!modal || !node) return;
+      let el: HTMLElement | null = node.parentElement;
+      while (el) {
+        if (el.hasAttribute("data-radix-popper-content-wrapper")) {
+          el.style.zIndex = "9999";
+          return;
+        }
+        el = el.parentElement;
+      }
+    },
+    [modal],
+  );
 
   return (
     <DropdownVisibilityContext.Provider
       value={{ hideDropdown, showDropdown, closeDropdown }}
     >
+      {modal && isOpen && !isHidden
+        ? createPortal(
+            <div
+              style={{ position: "fixed", inset: 0, zIndex: 9998 }}
+              onClick={() => handleOpenChange(false)}
+            />,
+            document.body,
+          )
+        : null}
       <RadixDropdownMenu.Root
         {...props}
         modal={false}
-        open={open}
-        onOpenChange={onOpenChange}
+        open={open !== undefined ? open : undefined}
+        onOpenChange={handleOpenChange}
       >
         <RadixDropdownMenu.Trigger
           className={triggerClassName}
+          style={triggerStyle}
           disabled={disabled}
         >
           {triggerComponent}
         </RadixDropdownMenu.Trigger>
         <RadixDropdownMenu.Content
+          ref={contentRef}
           align={menuPlacement}
           color={color}
           variant={variant}
@@ -177,7 +218,6 @@ export function DropdownMenuItem({
   color,
   onClick,
   confirmation,
-  style,
   ...props
 }: DropdownItemProps) {
   if (color === "default") {
@@ -267,11 +307,11 @@ export function DropdownMenuItem({
         shortcut={shortcut}
         {...props}
       >
-        <Flex as="div" justify="between" align="center" style={style}>
-          <Box as="span" className={`mr-2 ${loading ? "font-italic" : ""}`}>
-            {children}
-          </Box>
-          {loading || error ? (
+        {loading || error ? (
+          <Flex as="div" justify="between" align="center">
+            <Box as="span" className={loading ? "font-italic" : ""}>
+              {children}
+            </Box>
             <Box width="14px" className="ml-3">
               {loading ? <LoadingSpinner /> : null}
               {error ? (
@@ -280,8 +320,10 @@ export function DropdownMenuItem({
                 </Tooltip>
               ) : null}
             </Box>
-          ) : null}
-        </Flex>
+          </Flex>
+        ) : (
+          children
+        )}
       </RadixDropdownMenu.Item>
     </>
   );

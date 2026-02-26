@@ -99,6 +99,8 @@ export default function FeaturesPage() {
       string,
       { stale: boolean; reason?: StaleFeatureReason }
     > = {};
+    const featuresMap = new Map(allFeatures.map((f) => [f.id, f]));
+    const experimentMap = new Map(allExperiments.map((e) => [e.id, e]));
     allFeatures.forEach((feature) => {
       const featureEnvironments = filterEnvironmentsByFeature(
         environments,
@@ -110,6 +112,8 @@ export default function FeaturesPage() {
         features: allFeatures,
         experiments: allExperiments,
         environments: envs,
+        featuresMap,
+        experimentMap,
       });
     });
     return staleFeatures;

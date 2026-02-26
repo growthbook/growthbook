@@ -26,7 +26,6 @@ import {
 } from "react-icons/pi";
 import { FeatureUsageLookback } from "shared/types/integrations";
 import { Box, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
-import { RxListBullet } from "react-icons/rx";
 import {
   SafeRolloutInterface,
   HoldoutInterface,
@@ -62,7 +61,6 @@ import RevertModal from "@/components/Features/RevertModal";
 import EditRevisionCommentModal from "@/components/Features/EditRevisionCommentModal";
 import FixConflictsModal from "@/components/Features/FixConflictsModal";
 import CompareRevisionsModal from "@/components/Features/CompareRevisionsModal";
-import Revisionlog from "@/components/Features/RevisionLog";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -97,6 +95,7 @@ export default function FeaturesOverview({
   revision,
   revisionList,
   loading,
+  revisionLoading,
   revisions,
   experiments,
   mutate,
@@ -112,6 +111,7 @@ export default function FeaturesOverview({
   revision: FeatureRevisionInterface | null;
   revisionList: MinimalFeatureRevisionInterface[];
   loading: boolean;
+  revisionLoading: boolean;
   revisions: FeatureRevisionInterface[];
   experiments: ExperimentInterfaceStringDates[] | undefined;
   safeRollouts: SafeRolloutInterface[] | undefined;
@@ -132,7 +132,6 @@ export default function FeaturesOverview({
     `hide-disabled-rules`,
     false,
   );
-  const [logModal, setLogModal] = useState(false);
   const [prerequisiteModal, setPrerequisiteModal] = useState<{
     i: number;
   } | null>(null);
@@ -562,18 +561,7 @@ export default function FeaturesOverview({
               {ago(revision.dateUpdated)}
             </Box>
           )}
-          <Flex align="center" gap="2">
-            {renderStatusCopy()}
-            <Button
-              title="View log"
-              variant="ghost"
-              onClick={() => {
-                setLogModal(true);
-              }}
-            >
-              <RxListBullet />
-            </Button>
-          </Flex>
+          {renderStatusCopy()}
         </Flex>
       </Flex>
     );
@@ -1031,7 +1019,7 @@ export default function FeaturesOverview({
                 gap="4"
                 align={{ initial: "center" }}
                 direction={{ initial: "column", xs: "row" }}
-                justify="between"
+                wrap="wrap"
               >
                 <Flex
                   align="center"
@@ -1043,6 +1031,7 @@ export default function FeaturesOverview({
                     <RevisionDropdown
                       feature={feature}
                       loading={loading}
+                      revisionLoading={revisionLoading}
                       version={currentVersion}
                       setVersion={setVersion}
                       revisions={revisionList || []}
@@ -1078,9 +1067,8 @@ export default function FeaturesOverview({
                 <Flex
                   align={{ initial: "center", xs: "center", sm: "start" }}
                   justify="end"
-                  flexShrink="0"
                   direction={{ initial: "row", xs: "column", sm: "row" }}
-                  style={{ whiteSpace: "nowrap" }}
+                  style={{ whiteSpace: "nowrap", marginLeft: "auto" }}
                   gap="2"
                 >
                   {(revisionList?.length ?? 0) >= 2 && (
@@ -1267,19 +1255,6 @@ export default function FeaturesOverview({
             mutate={mutate}
             setVersion={setVersion}
           />
-        )}
-        {logModal && revision && (
-          <Modal
-            trackingEventModalType=""
-            open={true}
-            close={() => setLogModal(false)}
-            header="Revision Log"
-            closeCta={"Close"}
-            size="lg"
-          >
-            <h3>Revision {revision.version}</h3>
-            <Revisionlog feature={feature} revision={revision} />
-          </Modal>
         )}
         {reviewModal && revision && (
           <RequestReviewModal

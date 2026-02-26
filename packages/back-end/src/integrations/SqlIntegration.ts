@@ -150,8 +150,12 @@ import {
   MetricQuantileSettings,
 } from "shared/types/fact-table";
 import type { PopulationDataQuerySettings } from "shared/types/query";
-import { AdditionalQueryMetadata, QueryMetadata } from "shared/types/query";
 import { ProductAnalyticsConfig } from "shared/src/validators/product-analytics";
+import {
+  AdditionalQueryMetadata,
+  QueryDocMetadata,
+  QueryMetadata,
+} from "shared/types/query";
 import { MissingDatasourceParamsError } from "back-end/src/util/errors";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { ReqContext } from "back-end/types/request";
@@ -191,7 +195,11 @@ export default abstract class SqlIntegration
 {
   datasource: DataSourceInterface;
   context: ReqContext;
+  // Metadata set by the individual query runners
   additionalMetadata?: AdditionalQueryMetadata;
+  // Metadata that comes from the QueryInterface document itself for
+  // all query runner queries
+  queryDocMetadata?: QueryDocMetadata;
   decryptionError: boolean;
   // eslint-disable-next-line
   params: any;
@@ -234,6 +242,7 @@ export default abstract class SqlIntegration
         userId: this.context.userId,
         userName: this.context.userName,
         ...this.additionalMetadata,
+        ...this.queryDocMetadata,
       };
       return originalRunQuery.call(this, sql, setExternalId, metadata);
     };
