@@ -107,11 +107,6 @@ const navlinks: SidebarLinkProps[] = [
         path: /^product-analytics\/explore\//,
       },
       {
-        name: "Custom SQL Reports",
-        href: "/sql-explorer",
-        path: /^sql-explorer/,
-      },
-      {
         name: "Dashboards",
         href: "/product-analytics/dashboards",
         path: /^product-analytics\/dashboards/,
