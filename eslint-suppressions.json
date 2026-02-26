@@ -699,11 +699,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Search/SearchFilters.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Settings/DataSourceTypeSelector.tsx": {
     "no-restricted-imports": {
       "count": 1

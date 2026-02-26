@@ -1,12 +1,11 @@
 import { FC, useCallback, useMemo } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiX } from "react-icons/pi";
-import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import { useEnvironments } from "@/services/features";
 import Tag from "@/components/Tags/Tag";
 import Button from "@/ui/Button";
-import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import { DropdownMenu, DropdownMenuItem, DropdownMenuLabel } from "@/ui/DropdownMenu";
 import {
   BaseSearchFiltersProps,
   FilterHeading,
@@ -212,68 +211,62 @@ const FeatureSearchFilters: FC<
         menuPlacement="end"
         onOpenChange={(o) => setDropdownFilterOpen(o ? "on" : "")}
       >
-        <Box px="2" py="1" mb="1">
-          <Heading as="h4" size="x-small">
-            Filter by environment
-          </Heading>
-        </Box>
-        <Box style={{ minWidth: "220px" }}>
-          {environments.map((e) => {
-            const isOn = doesFilterExist("on", e.id, "");
-            const isOff = doesFilterExist("off", e.id, "");
-            return (
-              <Box key={e.id} px="2" py="1">
+        <DropdownMenuLabel>Filter by environment</DropdownMenuLabel>
+        {environments.map((e) => {
+          const isOn = doesFilterExist("on", e.id, "");
+          const isOff = doesFilterExist("off", e.id, "");
+          return (
+            <DropdownMenuItem key={e.id} style={{ minWidth: "220px" }}>
+              <Flex align="center" gap="2" style={{ width: "100%" }}>
+                <Box style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
+                  <Text truncate>{e.id}</Text>
+                </Box>
                 <Flex align="center" gap="2">
-                  <Box style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
-                    <Text truncate>{e.id}</Text>
-                  </Box>
-                  <Flex align="center" gap="2">
-                    <Button
-                      size="sm"
-                      variant={isOn ? "soft" : "ghost"}
-                      color="violet"
-                      onClick={() => updateEnvQuery("on", e.id)}
-                    >
-                      <Text color="text-mid" weight="semibold">
-                        On
-                      </Text>
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={isOff ? "soft" : "ghost"}
-                      color="violet"
-                      onClick={() => updateEnvQuery("off", e.id)}
-                    >
-                      <Text color="text-mid" weight="semibold">
-                        Off
-                      </Text>
-                    </Button>
-                    <IconButton
-                      size="2"
-                      variant="ghost"
-                      color="gray"
-                      style={{
-                        visibility: isOn || isOff ? "visible" : "hidden",
-                        marginLeft: 0,
-                      }}
-                      onClick={() => {
-                        let value = removeEnvValue(
-                          searchInputProps.value,
-                          "on",
-                          e.id,
-                        );
-                        value = removeEnvValue(value, "off", e.id);
-                        setSearchValue(value);
-                      }}
-                    >
-                      <PiX />
-                    </IconButton>
-                  </Flex>
+                  <Button
+                    size="sm"
+                    variant={isOn ? "soft" : "ghost"}
+                    color="violet"
+                    onClick={() => updateEnvQuery("on", e.id)}
+                  >
+                    <Text color="text-mid" weight="semibold">
+                      On
+                    </Text>
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={isOff ? "soft" : "ghost"}
+                    color="violet"
+                    onClick={() => updateEnvQuery("off", e.id)}
+                  >
+                    <Text color="text-mid" weight="semibold">
+                      Off
+                    </Text>
+                  </Button>
+                  <IconButton
+                    size="2"
+                    variant="ghost"
+                    color="gray"
+                    style={{
+                      visibility: isOn || isOff ? "visible" : "hidden",
+                      marginLeft: 0,
+                    }}
+                    onClick={() => {
+                      let value = removeEnvValue(
+                        searchInputProps.value,
+                        "on",
+                        e.id,
+                      );
+                      value = removeEnvValue(value, "off", e.id);
+                      setSearchValue(value);
+                    }}
+                  >
+                    <PiX />
+                  </IconButton>
                 </Flex>
-              </Box>
-            );
-          })}
-        </Box>
+              </Flex>
+            </DropdownMenuItem>
+          );
+        })}
       </DropdownMenu>
 
       <DropdownMenu
@@ -283,6 +276,7 @@ const FeatureSearchFilters: FC<
         })}
         open={dropdownFilterOpen === "more"}
         menuPlacement="end"
+        variant="soft"
         onOpenChange={(o) => {
           setDropdownFilterOpen(o ? "more" : "");
         }}

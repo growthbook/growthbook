@@ -1,4 +1,4 @@
-import React, {
+import {
   ChangeEvent,
   FC,
   Fragment,
@@ -7,10 +7,14 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Box, Flex, Heading, IconButton } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { FaAngleDown, FaAngleUp, FaCheck } from "react-icons/fa";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+} from "@/ui/DropdownMenu";
 import { SearchTermFilterOperator, SyntaxFilter } from "@/services/search";
 import Field from "@/components/Forms/Field";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
@@ -142,55 +146,51 @@ export const FilterDropdown: FC<{
         setOpen(o ? filter : "");
       }}
     >
-      <Box px="2" py="1" mb="1">
-        <Heading as="h4" size="2" weight="bold" mb="0">
-          Filter by {heading ?? filter}
-        </Heading>
-        {showSearchFilter && (
+      <DropdownMenuLabel>Filter by {heading ?? filter}</DropdownMenuLabel>
+      {showSearchFilter && (
+        <Box px="2" pb="1" style={{ maxWidth: "250px" }}>
           <Field
             ref={inputRef}
             value={filterSearch}
             onChange={(e) => setFilterSearch(e.target.value)}
             type="search"
-            className="mt-2"
             onKeyDown={(e) => {
               if (e.key !== "ArrowUp" && e.key !== "ArrowDown") {
                 e.stopPropagation();
               }
             }}
           />
-        )}
-      </Box>
-      <Box overflow="auto" style={{ maxHeight: "300px", maxWidth: "250px" }}>
-        {filteredItems.map((i) => (
-          <Fragment key={i.id}>
-            {i.hr && <Box my="2" style={{ borderBottom: "1px solid #ccc" }} />}
-            <DropdownMenuItem
-              key={i.id}
-              disabled={i.disabled}
-              onClick={() => {
-                const f: SyntaxFilter = {
-                  field: i?.filter ?? filter,
-                  values: [i.searchValue],
-                  operator: i?.operator ?? "",
-                  negated: i?.negated ?? false,
-                };
-                updateQuery(f);
-              }}
-            >
-              <FilterItem
-                item={i.name}
-                exists={doesFilterExistInSearch({
-                  syntaxFilters,
-                  field: i?.filter ?? filter,
-                  value: i.searchValue,
-                  operator: i?.operator ?? operator,
-                })}
-              />
-            </DropdownMenuItem>
-          </Fragment>
-        ))}
-      </Box>
+        </Box>
+      )}
+      {filteredItems.map((i) => (
+        <Fragment key={i.id}>
+          {i.hr && <Box my="2" style={{ borderBottom: "1px solid #ccc" }} />}
+          <DropdownMenuItem
+            key={i.id}
+            disabled={i.disabled}
+            style={{ maxWidth: "250px" }}
+            onClick={() => {
+              const f: SyntaxFilter = {
+                field: i?.filter ?? filter,
+                values: [i.searchValue],
+                operator: i?.operator ?? "",
+                negated: i?.negated ?? false,
+              };
+              updateQuery(f);
+            }}
+          >
+            <FilterItem
+              item={i.name}
+              exists={doesFilterExistInSearch({
+                syntaxFilters,
+                field: i?.filter ?? filter,
+                value: i.searchValue,
+                operator: i?.operator ?? operator,
+              })}
+            />
+          </DropdownMenuItem>
+        </Fragment>
+      ))}
     </DropdownMenu>
   );
 };
