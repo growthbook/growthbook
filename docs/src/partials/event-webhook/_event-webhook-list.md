@@ -5,6 +5,7 @@
   | **[feature.created](#featurecreated)** | Triggered when a feature is created |
 | **[feature.updated](#featureupdated)** | Triggered when a feature is updated |
 | **[feature.deleted](#featuredeleted)** | Triggered when a feature is deleted |
+| **[feature.stale](#featurestale)** | Triggered when a feature flag is detected as stale (not updated in 2+ weeks with no active experiments or non-trivial rules). |
 | **[feature.saferollout.ship](#featuresaferolloutship)** | Triggered when a safe rollout is completed and safe to rollout to 100%. |
 | **[feature.saferollout.rollback](#featuresaferolloutrollback)** | Triggered when a safe rollout has a failing guardrail and should be reverted. |
 | **[feature.saferollout.unhealthy](#featuresaferolloutunhealthy)** | Triggered when a safe rollout is failing a health check and may not be working as expected. |
@@ -1156,6 +1157,44 @@ Triggered when a feature is deleted
                 publishedBy: string;
             };
             customFields?: Record<string, any> | undefined;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+    } | {
+        type: "system";
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.stale
+
+Triggered when a feature flag is detected as stale (not updated in 2+ weeks with no active experiments or non-trivial rules).
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.stale";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            featureId: string;
+            staleReason: "no-rules" | "rules-one-sided";
         };
     };
     user: {

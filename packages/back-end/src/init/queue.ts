@@ -21,6 +21,9 @@ import addSafeRolloutSnapshotJob from "back-end/src/jobs/addSafeRolloutSnapshotJ
 import addDashboardUpdateJob from "back-end/src/jobs/updateDashboards";
 import addHoldoutUpdateJob from "back-end/src/jobs/updateHoldoutStatus";
 import updateAutoSlicesJob from "back-end/src/jobs/updateAutoSlices";
+import updateStaleFeatureFlagsJob, {
+  queueUpdateStaleFeatureFlags,
+} from "back-end/src/jobs/updateStaleFeatureFlags";
 
 export async function queueInit() {
   const agenda = getAgendaInstance();
@@ -42,6 +45,7 @@ export async function queueInit() {
   addDashboardUpdateJob(agenda);
   addHoldoutUpdateJob(agenda);
   updateAutoSlicesJob(agenda);
+  updateStaleFeatureFlagsJob(agenda);
 
   // Make sure we have index needed to delete efficiently
   agenda._collection
@@ -58,4 +62,6 @@ export async function queueInit() {
   if (!IS_CLOUD) {
     await queueUpdateLicense();
   }
+
+  await queueUpdateStaleFeatureFlags();
 }

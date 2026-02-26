@@ -61,6 +61,10 @@ export const getSlackMessageForNotificationEvent = async (
         eventId,
       );
 
+    case "feature.stale":
+      // TODO(stale-event): implement Slack message for feature.stale
+      return null;
+
     case "feature.saferollout.ship":
       return buildSlackMessageForSafeRolloutShipEvent(
         event.data.object,

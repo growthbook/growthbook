@@ -2,7 +2,11 @@ import mongoose, { FilterQuery } from "mongoose";
 import cloneDeep from "lodash/cloneDeep";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
-import { MergeResultChanges, getApiFeatureEnabledEnvs } from "shared/util";
+import {
+  MergeResultChanges,
+  getApiFeatureEnabledEnvs,
+  isFeatureStale,
+} from "shared/util";
 import {
   SafeRolloutInterface,
   SafeRolloutRule,
@@ -21,6 +25,7 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { ResourceEvents } from "shared/types/events/base-types";
 import { DiffResult } from "shared/types/events/diff";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { ExperimentInterface } from "shared/types/experiment";
 import {
   generateRuleId,
   getApiFeatureObj,
@@ -58,6 +63,7 @@ import {
 } from "./EventModel";
 import {
   addLinkedFeatureToExperiment,
+  getAllExperiments,
   getExperimentMapForFeature,
   removeLinkedFeatureFromExperiment,
 } from "./ExperimentModel";
@@ -750,6 +756,10 @@ export async function updateFeature(
     logger.error(e, "Error refreshing SDK Payload on feature update");
   });
 
+  recalculateFeatureIsStale(context, updatedFeature).catch((e) => {
+    logger.error(e, "Error recalculating stale status on feature update");
+  });
+
   return updatedFeature;
 }
 
@@ -1215,6 +1225,74 @@ function getLinkedExperiments(
   });
 
   return [...expIds];
+}
+
+/**
+ * Recomputes isStale/staleReason for a single feature, writing results directly to the DB.
+ * Accepts pre-loaded features/experiments (from the cron job) or loads them on demand
+ * (for inline recalculation after a feature update).
+ * Emits feature.stale when transitioning from non-stale to stale.
+ */
+export async function recalculateFeatureIsStale(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  opts: {
+    allFeatures?: FeatureInterface[];
+    allExperiments?: ExperimentInterface[];
+  } = {},
+): Promise<void> {
+  try {
+    const allFeatures = opts.allFeatures ?? (await getAllFeatures(context, {}));
+    const allExperiments =
+      opts.allExperiments ?? (await getAllExperiments(context, {}));
+
+    const { stale, reason } = isFeatureStale({
+      feature,
+      features: allFeatures,
+      // ExperimentInterface and ExperimentInterfaceStringDates share all fields
+      // that isFeatureStale actually reads (status, phases.prerequisites, linkedExperiments)
+      experiments: allExperiments as unknown as Parameters<
+        typeof isFeatureStale
+      >[0]["experiments"],
+      environments: getEnvironmentIdsFromOrg(context.org),
+    });
+
+    await FeatureModel.updateOne(
+      { organization: feature.organization, id: feature.id },
+      {
+        $set: {
+          isStale: stale,
+          staleReason: stale ? (reason ?? null) : null,
+          staleLastCalculated: new Date(),
+        },
+      },
+    );
+
+    // Emit event only on transition to stale (skip "error" reason — internal failure)
+    if (stale && !feature.isStale && reason !== "error") {
+      await createEvent({
+        context,
+        object: "feature",
+        objectId: feature.id,
+        event: "stale" as ResourceEvents<"feature">,
+        data: {
+          object: {
+            featureId: feature.id,
+            staleReason: reason ?? "no-rules",
+          },
+        },
+        projects: feature.project ? [feature.project] : [],
+        tags: feature.tags || [],
+        environments: [],
+        containsSecrets: false,
+      });
+    }
+  } catch (e) {
+    logger.error(
+      e,
+      `Error recalculating stale status for feature ${feature.id}`,
+    );
+  }
 }
 
 //TODO: I don't see this being called anywhere - can we remove?
