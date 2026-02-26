@@ -5,8 +5,13 @@ import { PiDatabase, PiTable } from "react-icons/pi";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import LinkButton from "@/ui/LinkButton";
+import { useUser } from "@/services/UserContext";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 export default function EmptyState() {
+  const { permissionsUtil } = useUser();
+  const { project } = useDefinitions();
+
   return (
     <Box m="7">
       <Heading as="h1" size="2x-large" weight="medium">
@@ -35,6 +40,11 @@ export default function EmptyState() {
           <LinkButton
             href="/product-analytics/explore/metrics"
             variant="outline"
+            disabled={
+              // If the user can't run metrics for the current project, or globally, don't show enable the button
+              !permissionsUtil.canRunMetricQueries({ projects: [project] }) &&
+              !permissionsUtil.canRunMetricQueries({ projects: [] })
+            }
             style={{
               height: "116px",
               paddingTop: "16px",
@@ -50,6 +60,11 @@ export default function EmptyState() {
           <LinkButton
             href="/product-analytics/explore/fact-table"
             variant="outline"
+            disabled={
+              // If the user can't run fact queries for the current project, or globally, don't show enable the button
+              !permissionsUtil.canRunFactQueries({ projects: [project] }) &&
+              !permissionsUtil.canRunFactQueries({ projects: [] })
+            }
             style={{
               height: "116px",
               paddingTop: "16px",
@@ -65,6 +80,11 @@ export default function EmptyState() {
           <LinkButton
             href="/product-analytics/explore/data-source"
             variant="outline"
+            disabled={
+              // If the user can't run fact queries for the current project, or globally, don't show enable the button
+              !permissionsUtil.canRunFactQueries({ projects: [project] }) &&
+              !!permissionsUtil.canRunFactQueries({ projects: [] })
+            }
             style={{
               height: "116px",
               paddingTop: "16px",

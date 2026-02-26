@@ -57,7 +57,9 @@ export default function SaveToDashboardModal({ close }: Props) {
   const { hasCommercialFeature, permissionsUtil } = useUser();
   const { apiCall } = useAuth();
 
-  const [createOrAdd, setCreateOrAdd] = useState<"create" | "add">("add");
+  const [createOrAdd, setCreateOrAdd] = useState<"new" | "existing">(
+    "existing",
+  );
   const [selectedDashboardId, setSelectedDashboardId] = useState<
     string | undefined
   >(undefined);
@@ -102,7 +104,7 @@ export default function SaveToDashboardModal({ close }: Props) {
 
     let dashboardId: string;
 
-    if (createOrAdd === "create") {
+    if (createOrAdd === "new") {
       const formValues = form.getValues();
       const res = await apiCall<{
         status: number;
@@ -148,9 +150,10 @@ export default function SaveToDashboardModal({ close }: Props) {
   };
 
   const ctaEnabled =
-    !!form.watch("chartTitle").trim() && createOrAdd === "add"
+    !!form.watch("chartTitle").trim() &&
+    (createOrAdd === "existing"
       ? !!selectedDashboardId
-      : !!form.watch("title").trim() && !cronError;
+      : !!form.watch("title").trim() && !cronError);
 
   return (
     <Modal
@@ -158,7 +161,7 @@ export default function SaveToDashboardModal({ close }: Props) {
       submit={handleSubmit}
       open={true}
       header={null}
-      cta={createOrAdd === "add" ? "Add to Dashboard" : "Create Dashboard"}
+      cta={createOrAdd === "existing" ? "Add to Dashboard" : "Create Dashboard"}
       ctaEnabled={ctaEnabled}
       showHeaderCloseButton={false}
       close={close}
@@ -179,26 +182,29 @@ export default function SaveToDashboardModal({ close }: Props) {
           </Text>
           <RadioGroup
             options={[
-              { label: "Existing dashboard", value: "add" },
+              { label: "Existing dashboard", value: "existing" },
               {
                 label: "New dashboard",
                 value: "create",
-                disabled: !permissionsUtil.canCreateGeneralDashboards({
-                  projects: [project],
-                }),
+                disabled:
+                  // If the user can't create a general dashboard for the current project, or globally, don't show enable the button
+                  !permissionsUtil.canCreateGeneralDashboards({
+                    projects: [project],
+                  }) ||
+                  !permissionsUtil.canCreateGeneralDashboards({ projects: [] }),
               },
             ]}
             value={createOrAdd}
-            setValue={(value) => setCreateOrAdd(value as "create" | "add")}
+            setValue={(value) => setCreateOrAdd(value as "new" | "existing")}
           />
         </Flex>
-        {createOrAdd === "add" ? (
+        {createOrAdd === "existing" ? (
           <SelectField
             options={dashboards
               .filter((dashboard) =>
                 permissionsUtil.canUpdateGeneralDashboards(
                   { projects: dashboard.projects },
-                  { projects: [project] },
+                  {},
                 ),
               )
               .map((filteredDashboard) => ({

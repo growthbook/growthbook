@@ -46,9 +46,12 @@ export default function ExplorerSideBar({
   const canCreateDashboards = permissionsUtil.canCreateGeneralDashboards({
     projects: [project],
   });
-  const canEditDashboards = permissionsUtil.canUpdateGeneralDashboards({
-    projects: [project],
-  });
+  const canEditDashboards = permissionsUtil.canUpdateGeneralDashboards(
+    {
+      projects: [project],
+    },
+    {},
+  );
   const hasDashboardsFeature = hasCommercialFeature(
     "product-analytics-dashboards",
   );
