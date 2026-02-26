@@ -56,7 +56,6 @@ export default function FeaturesPage() {
   const router = useRouter();
   const { organization } = useUser();
   const { data: sdkConnectionData } = useSDKConnections();
-  const permissionsUtils = usePermissionsUtil();
   const permissionsUtil = usePermissionsUtil();
   const [modalOpen, setModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -431,11 +430,11 @@ export default function FeaturesPage() {
   );
 
   const canUseSetupFlow =
-    permissionsUtils.canCreateSDKConnection({
+    permissionsUtil.canCreateSDKConnection({
       projects: [project],
       environment: "production",
     }) &&
-    permissionsUtils.canCreateEnvironment({
+    permissionsUtil.canCreateEnvironment({
       projects: [project],
       id: "production",
     });
