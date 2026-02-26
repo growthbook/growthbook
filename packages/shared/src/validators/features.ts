@@ -287,7 +287,7 @@ export const featureInterface = z
     neverStale: z.boolean().optional(),
     isStale: z.boolean().optional(),
     staleReason: z
-      .enum(["error", "no-rules", "rules-one-sided"])
+      .enum(["error", "never-stale", "no-rules", "rules-one-sided"])
       .nullable()
       .optional(),
     staleLastCalculated: z.date().nullable().optional(),
@@ -312,7 +312,7 @@ export const computedFeatureInterface = featureInterface
     stale: z.boolean(),
     // TODO: remove field? staleReason is now persisted on featureInterface; this computed override is unused
     staleReason: z
-      .enum(["error", "no-rules", "rules-one-sided"])
+      .enum(["error", "never-stale", "no-rules", "rules-one-sided"])
       .nullable()
       .optional(),
     ownerName: z.string(),

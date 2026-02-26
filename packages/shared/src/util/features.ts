@@ -260,7 +260,11 @@ export function validateScheduleRules(scheduleRules: ScheduleRule[]): void {
   }
 }
 
-export type StaleFeatureReason = "error" | "no-rules" | "rules-one-sided";
+export type StaleFeatureReason =
+  | "error"
+  | "never-stale"
+  | "no-rules"
+  | "rules-one-sided";
 
 // type guards
 const isRolloutRule = (rule: FeatureRule): rule is RolloutRule =>
@@ -332,7 +336,8 @@ export function isFeatureStale({
     visitedFeatures.add(feature.id);
 
     try {
-      if (feature.neverStale) return { stale: false };
+      if (feature.neverStale)
+        return { stale: false, reason: "never-stale" as const };
 
       const linkedExperiments = (feature?.linkedExperiments ?? [])
         .map((id) => experimentMap.get(id))

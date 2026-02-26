@@ -53,6 +53,10 @@ export interface paths {
     /** Get all revisions for a feature */
     get: operations["getFeatureRevisions"];
   };
+  "/features/{id}/stale": {
+    /** Get stale status for a feature */
+    get: operations["getFeatureStale"];
+  };
   "/feature-keys": {
     /** Get list of feature keys */
     get: operations["getFeatureKeys"];
@@ -8378,6 +8382,40 @@ export interface operations {
             total: number;
             hasMore: boolean;
             nextOffset: OneOf<[number, null]>;
+          };
+        };
+      };
+    };
+  };
+  getFeatureStale: {
+    /** Get stale status for a feature */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            /** @description The feature key */
+            featureId: string;
+            /** @description Whether the feature is considered stale */
+            isStale: boolean;
+            /**
+             * @description Reason for the feature's stale status. `never-stale` means stale detection is permanently disabled for this feature. `no-rules` means the feature has no active targeting rules. `rules-one-sided` means all rules evaluate to the same variation. Null when the feature is not stale and stale detection is active.
+             *  
+             * @enum {string|null}
+             */
+            staleReason: "never-stale" | "no-rules" | "rules-one-sided" | null;
+            /**
+             * Format: date-time 
+             * @description ISO 8601 timestamp of when stale status was last computed by the background job. Null if it has never been calculated.
+             */
+            staleLastCalculated: string | null;
+            /** @description When true the feature is permanently excluded from stale detection regardless of its rules. */
+            neverStale: boolean;
           };
         };
       };
@@ -16791,6 +16829,7 @@ export type DeleteFeatureResponse = operations["deleteFeature"]["responses"]["20
 export type ToggleFeatureResponse = operations["toggleFeature"]["responses"]["200"]["content"]["application/json"];
 export type RevertFeatureResponse = operations["revertFeature"]["responses"]["200"]["content"]["application/json"];
 export type GetFeatureRevisionsResponse = operations["getFeatureRevisions"]["responses"]["200"]["content"]["application/json"];
+export type GetFeatureStaleResponse = operations["getFeatureStale"]["responses"]["200"]["content"]["application/json"];
 export type GetFeatureKeysResponse = operations["getFeatureKeys"]["responses"]["200"]["content"]["application/json"];
 export type ListProjectsResponse = operations["listProjects"]["responses"]["200"]["content"]["application/json"];
 export type PostProjectResponse = operations["postProject"]["responses"]["200"]["content"]["application/json"];

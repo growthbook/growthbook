@@ -1262,7 +1262,8 @@ export async function recalculateFeatureIsStale(
       {
         $set: {
           isStale: stale,
-          staleReason: stale ? (reason ?? null) : null,
+          staleReason:
+            stale || reason === "never-stale" ? (reason ?? null) : null,
           staleLastCalculated: new Date(),
         },
       },
@@ -1278,7 +1279,9 @@ export async function recalculateFeatureIsStale(
         data: {
           object: {
             featureId: feature.id,
-            staleReason: reason ?? "no-rules",
+            staleReason: (reason ?? "no-rules") as
+              | "no-rules"
+              | "rules-one-sided",
           },
         },
         projects: feature.project ? [feature.project] : [],

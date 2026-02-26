@@ -12,6 +12,7 @@ import {
   filterProjectsByEnvironmentWithNull,
   MergeResultChanges,
   MergeStrategy,
+  StaleFeatureReason,
   checkIfRevisionNeedsReview,
   resetReviewOnChange,
   getAffectedEnvsForExperiment,
@@ -4097,7 +4098,7 @@ export async function getFeatureStale(
     {
       status: 200;
       isStale: boolean;
-      staleReason: "error" | "no-rules" | "rules-one-sided" | null;
+      staleReason: StaleFeatureReason | null;
       neverStale: boolean;
       staleLastCalculated: Date | null;
     },

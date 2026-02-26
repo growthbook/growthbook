@@ -934,6 +934,57 @@ paths:
                         items:
                           $ref: '#/components/schemas/FeatureRevision'
                   - $ref: '#/components/schemas/PaginationFields'
+  '/features/{id}/stale':
+    get:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      summary: Get stale status for a feature
+      tags:
+        - features
+      operationId: getFeatureStale
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/features/my_feature/stale \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - featureId
+                  - isStale
+                  - staleReason
+                  - staleLastCalculated
+                  - neverStale
+                properties:
+                  featureId:
+                    type: string
+                    description: The feature key
+                  isStale:
+                    type: boolean
+                    description: Whether the feature is considered stale
+                  staleReason:
+                    type: string
+                    nullable: true
+                    enum:
+                      - never-stale
+                      - no-rules
+                      - rules-one-sided
+                    description: |
+                      Reason for the feature's stale status. `never-stale` means stale detection is permanently disabled for this feature. `no-rules` means the feature has no active targeting rules. `rules-one-sided` means all rules evaluate to the same variation. Null when the feature is not stale and stale detection is active.
+                  staleLastCalculated:
+                    type: string
+                    format: date-time
+                    nullable: true
+                    description: |
+                      ISO 8601 timestamp of when stale status was last computed by the background job. Null if it has never been calculated.
+                  neverStale:
+                    type: boolean
+                    description: |
+                      When true the feature is permanently excluded from stale detection regardless of its rules.
   /feature-keys:
     get:
       summary: Get list of feature keys
