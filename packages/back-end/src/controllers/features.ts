@@ -1535,26 +1535,39 @@ export async function postFeatureSync(
       org,
     });
 
-    updates.version = revision.version;
+    // Approval flows not required, was published immediately
+    if (revision.status === "published") {
+      updates.version = revision.version;
+      const updatedFeature = await updateFeature(context, feature, updates);
+
+      await req.audit({
+        event: "feature.update",
+        entity: {
+          object: "feature",
+          id: feature.id,
+        },
+        details: auditDetailsUpdate(feature, updatedFeature, {
+          revision: updatedFeature.version,
+        }),
+      });
+
+      res.status(200).json({
+        status: 200,
+        feature: updatedFeature,
+      });
+    }
+    // Approval flows required
+    else {
+      const updatedFeature = await updateFeature(context, feature, {
+        hasDrafts: true,
+      });
+
+      res.status(200).json({
+        status: 200,
+        feature: updatedFeature,
+      });
+    }
   }
-
-  const updatedFeature = await updateFeature(context, feature, updates);
-
-  await req.audit({
-    event: "feature.update",
-    entity: {
-      object: "feature",
-      id: feature.id,
-    },
-    details: auditDetailsUpdate(feature, updatedFeature, {
-      revision: updatedFeature.version,
-    }),
-  });
-
-  res.status(200).json({
-    status: 200,
-    feature: updatedFeature,
-  });
 }
 
 export async function postFeatureExperimentRefRule(
