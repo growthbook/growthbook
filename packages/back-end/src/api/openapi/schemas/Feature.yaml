@@ -66,6 +66,8 @@ properties:
       date:
         type: string
         format: date-time
+      createdBy:
+        type: string
       publishedBy:
         type: string
   customFields:

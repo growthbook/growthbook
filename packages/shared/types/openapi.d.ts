@@ -1336,6 +1336,7 @@ export interface components {
         comment: string;
         /** Format: date-time */
         date: string;
+        createdBy?: string;
         publishedBy: string;
       };
       customFields?: {
@@ -1785,6 +1786,7 @@ export interface components {
         comment: string;
         /** Format: date-time */
         date: string;
+        createdBy?: string;
         publishedBy: string;
       };
       customFields?: {
@@ -1798,6 +1800,7 @@ export interface components {
           /** Format: date-time */
           date: string;
           status: string;
+          createdBy?: string;
           publishedBy?: string;
           rules: {
             [key: string]: ((({
@@ -2864,6 +2867,7 @@ export interface components {
       /** Format: date-time */
       date: string;
       status: string;
+      createdBy?: string;
       publishedBy?: string;
       rules: {
         [key: string]: ((({
@@ -4726,6 +4730,7 @@ export interface operations {
                   comment: string;
                   /** Format: date-time */
                   date: string;
+                  createdBy?: string;
                   publishedBy: string;
                 };
                 customFields?: {
@@ -5606,6 +5611,7 @@ export interface operations {
                 comment: string;
                 /** Format: date-time */
                 date: string;
+                createdBy?: string;
                 publishedBy: string;
               };
               customFields?: {
@@ -6076,6 +6082,7 @@ export interface operations {
                 comment: string;
                 /** Format: date-time */
                 date: string;
+                createdBy?: string;
                 publishedBy: string;
               };
               customFields?: {
@@ -6089,6 +6096,7 @@ export interface operations {
                   /** Format: date-time */
                   date: string;
                   status: string;
+                  createdBy?: string;
                   publishedBy?: string;
                   rules: {
                     [key: string]: ((({
@@ -7164,6 +7172,7 @@ export interface operations {
                 comment: string;
                 /** Format: date-time */
                 date: string;
+                createdBy?: string;
                 publishedBy: string;
               };
               customFields?: {
@@ -7656,6 +7665,7 @@ export interface operations {
                 comment: string;
                 /** Format: date-time */
                 date: string;
+                createdBy?: string;
                 publishedBy: string;
               };
               customFields?: {
@@ -8124,6 +8134,7 @@ export interface operations {
                 comment: string;
                 /** Format: date-time */
                 date: string;
+                createdBy?: string;
                 publishedBy: string;
               };
               customFields?: {
@@ -8160,6 +8171,7 @@ export interface operations {
                 /** Format: date-time */
                 date: string;
                 status: string;
+                createdBy?: string;
                 publishedBy?: string;
                 rules: {
                   [key: string]: ((({
