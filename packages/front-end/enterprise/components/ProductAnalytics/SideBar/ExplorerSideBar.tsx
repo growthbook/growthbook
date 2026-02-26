@@ -17,6 +17,7 @@ import Callout from "@/ui/Callout";
 import DataSourceDropdown from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DataSourceDropdown";
 import { createEmptyValue } from "@/enterprise/components/ProductAnalytics/util";
 import SaveToDashboardModal from "@/enterprise/components/ProductAnalytics/SaveToDashboardModal";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
 import MetricTabContent from "./MetricTabContent";
 import FactTableTabContent from "./FactTableTabContent";
 import DatasourceTabContent from "./DatasourceTabContent";
@@ -32,6 +33,7 @@ export default function ExplorerSideBar({
 }: Props) {
   const [showSaveToDashboardModal, setShowSaveToDashboardModal] =
     useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const {
     draftExploreState,
     setDraftExploreState,
@@ -55,9 +57,8 @@ export default function ExplorerSideBar({
   const hasDashboardsFeature = hasCommercialFeature(
     "product-analytics-dashboards",
   );
-  const saveToDashboardDisabledReason = !hasDashboardsFeature
-    ? "Upgrade to a paid plan to save explorations to dashboards."
-    : !canEditDashboards && !canCreateDashboards
+  const saveToDashboardDisabledReason =
+    !canEditDashboards && !canCreateDashboards
       ? "You do not have permission to create or edit dashboards."
       : !isSubmittable
         ? "Configure a valid exploration before saving."
@@ -81,6 +82,13 @@ export default function ExplorerSideBar({
           close={() => setShowSaveToDashboardModal(false)}
         />
       )}
+      {showUpgradeModal && (
+        <UpgradeModal
+          close={() => setShowUpgradeModal(false)}
+          source="product-analytics-explorer"
+          commercialFeature="product-analytics-dashboards"
+        />
+      )}
       {error && renderingInDashboardSidebar ? (
         <Callout status="error">{error}</Callout>
       ) : null}
@@ -94,7 +102,13 @@ export default function ExplorerSideBar({
               size="sm"
               ml="auto"
               disabled={!!saveToDashboardDisabledReason}
-              onClick={() => setShowSaveToDashboardModal(true)}
+              onClick={() => {
+                if (!hasDashboardsFeature) {
+                  setShowUpgradeModal(true);
+                } else {
+                  setShowSaveToDashboardModal(true);
+                }
+              }}
             >
               <Flex align="center" justify="center" gap="2">
                 <PaidFeatureBadge
