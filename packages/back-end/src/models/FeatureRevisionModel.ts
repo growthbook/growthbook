@@ -169,15 +169,20 @@ export async function getFeatureRevisionsByStatus({
   context: ReqContext;
   organization: string;
   featureId: string;
-  status?: string;
+  status?: string | string[];
   limit?: number;
   offset?: number;
   sort?: "asc" | "desc";
 }): Promise<FeatureRevisionInterface[]> {
+  const statusFilter = Array.isArray(status)
+    ? { status: { $in: status } }
+    : status
+    ? { status }
+    : {};
   const docs = await FeatureRevisionModel.find({
     organization,
     featureId,
-    ...(status ? { status } : {}),
+    ...statusFilter,
   })
     .select("-log") // Remove the log when fetching all revisions since it can be large to send over the network
     .sort({ version: sort === "desc" ? -1 : 1 })

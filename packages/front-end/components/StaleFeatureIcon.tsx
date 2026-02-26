@@ -7,6 +7,7 @@ const staleReasonToMessageMap: Record<StaleFeatureReason, string> = {
   "never-stale": "Stale detection is disabled for this feature.",
   "no-rules": "No rules have been defined for this feature.",
   "rules-one-sided": "All rules are one-sided.",
+  "abandoned-draft": "This feature has an open draft that has not been updated in over a month.",
   error: "An error occurred while evaluating the staleness of this feature.",
 };
 

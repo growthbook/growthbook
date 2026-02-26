@@ -6,6 +6,8 @@ import {
   recalculateFeatureIsStale,
 } from "back-end/src/models/FeatureModel";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
+import { getRevisionsByStatus } from "back-end/src/models/FeatureRevisionModel";
+import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 
 const QUEUE_JOB_NAME = "queueStaleFeatureUpdates";
@@ -49,15 +51,27 @@ const updateOrgStaleFeatures = async (job: UpdateOrgJob) => {
   try {
     const context = await getContextForAgendaJobByOrgId(orgId);
 
-    const [allFeatures, allExperiments] = await Promise.all([
-      getAllFeatures(context, {}),
-      getAllExperiments(context, {}),
-    ]);
+    const [allFeatures, allExperiments, activeDraftRevisions] =
+      await Promise.all([
+        getAllFeatures(context, {}),
+        getAllExperiments(context, {}),
+        getRevisionsByStatus(context, [...ACTIVE_DRAFT_STATUSES]),
+      ]);
+
+    // Build featureId -> most recent draft dateUpdated (one query for the whole org)
+    const draftDateByFeatureId = new Map<string, Date>();
+    for (const rev of activeDraftRevisions) {
+      const existing = draftDateByFeatureId.get(rev.featureId);
+      if (!existing || rev.dateUpdated > existing) {
+        draftDateByFeatureId.set(rev.featureId, rev.dateUpdated);
+      }
+    }
 
     for (const feature of allFeatures) {
       await recalculateFeatureIsStale(context, feature, {
         allFeatures,
         allExperiments,
+        mostRecentDraftDate: draftDateByFeatureId.get(feature.id) ?? null,
       });
     }
   } catch (e) {

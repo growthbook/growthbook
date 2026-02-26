@@ -8,6 +8,7 @@ import {
   isFeatureStale,
 } from "shared/util";
 import {
+  ACTIVE_DRAFT_STATUSES,
   SafeRolloutInterface,
   SafeRolloutRule,
   simpleSchemaValidator,
@@ -72,6 +73,7 @@ import {
   createInitialRevision,
   createRevisionFromLegacyDraft,
   deleteAllRevisionsForFeature,
+  getFeatureRevisionsByStatus,
   getRevision,
   hasDraft,
   markRevisionAsPublished,
@@ -1240,12 +1242,31 @@ export async function recalculateFeatureIsStale(
   opts: {
     allFeatures?: FeatureInterface[];
     allExperiments?: ExperimentInterface[];
+    mostRecentDraftDate?: Date | null; // Most recent dateUpdated among active drafts; null = no drafts; omit to fall back to feature.hasDrafts.
   } = {},
 ): Promise<void> {
   try {
     const allFeatures = opts.allFeatures ?? (await getAllFeatures(context, {}));
     const allExperiments =
       opts.allExperiments ?? (await getAllExperiments(context, {}));
+
+    // Resolve mostRecentDraftDate: use pre-supplied value, or query per-feature as fallback.
+    let mostRecentDraftDate = opts.mostRecentDraftDate;
+    if (mostRecentDraftDate === undefined) {
+      const activeDrafts = await getFeatureRevisionsByStatus({
+        context: context as ReqContext,
+        organization: context.org.id,
+        featureId: feature.id,
+        status: [...ACTIVE_DRAFT_STATUSES],
+      });
+      mostRecentDraftDate =
+        activeDrafts.length > 0
+          ? activeDrafts.reduce(
+              (max, r) => (r.dateUpdated > max ? r.dateUpdated : max),
+              activeDrafts[0].dateUpdated,
+            )
+          : null;
+    }
 
     // Only consider environments that apply to this feature's project.
     const applicableEnvIds = getEnvironments(context.org)
@@ -1265,6 +1286,7 @@ export async function recalculateFeatureIsStale(
         typeof isFeatureStale
       >[0]["experiments"],
       environments: applicableEnvIds,
+      mostRecentDraftDate,
     });
 
     await FeatureModel.updateOne(

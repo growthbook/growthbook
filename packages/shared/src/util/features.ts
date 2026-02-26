@@ -1,10 +1,11 @@
 import Ajv from "ajv";
-import { subWeeks } from "date-fns";
+import { subMonths, subWeeks } from "date-fns";
 import dJSON from "dirty-json";
 import stringify from "json-stringify-pretty-compact";
 import cloneDeep from "lodash/cloneDeep";
 import isEqual from "lodash/isEqual";
 import { evalCondition } from "@growthbook/growthbook";
+import { ExperimentRefRule } from "shared/validators";
 import {
   FeatureInterface,
   FeatureRule,
@@ -29,12 +30,7 @@ import {
   conditionHasSavedGroupErrors,
   expandNestedSavedGroups,
 } from "../sdk-versioning";
-import {
-  getMatchingRules,
-  includeExperimentInPayload,
-  isDefined,
-  recursiveWalk,
-} from ".";
+import { getMatchingRules, includeExperimentInPayload, recursiveWalk } from ".";
 
 export const DRAFT_REVISION_STATUSES = [
   "draft",
@@ -264,13 +260,16 @@ export type StaleFeatureReason =
   | "error"
   | "never-stale"
   | "no-rules"
-  | "rules-one-sided";
+  | "rules-one-sided"
+  | "abandoned-draft";
 
 // type guards
 const isRolloutRule = (rule: FeatureRule): rule is RolloutRule =>
   rule.type === "rollout";
 const isForceRule = (rule: FeatureRule): rule is ForceRule =>
   rule.type === "force";
+const isExperimentRefRule = (rule: FeatureRule): rule is ExperimentRefRule =>
+  rule.type === "experiment-ref";
 
 const areRulesOneSided = (
   rules: FeatureRule[], // can assume all rules are enabled
@@ -299,6 +298,8 @@ interface IsFeatureStaleInterface {
   environments?: string[];
   featuresMap?: Map<string, FeatureInterface>;
   experimentMap?: Map<string, ExperimentInterfaceStringDates>;
+  // Most recent dateUpdated among active drafts; null = no drafts; omit to fall back to feature.hasDrafts.
+  mostRecentDraftDate?: Date | null;
 }
 export function isFeatureStale({
   feature,
@@ -308,6 +309,7 @@ export function isFeatureStale({
   environments = [],
   featuresMap: prebuiltFeaturesMap,
   experimentMap: prebuiltExperimentMap,
+  mostRecentDraftDate,
 }: IsFeatureStaleInterface): { stale: boolean; reason?: StaleFeatureReason } {
   const featuresMap =
     prebuiltFeaturesMap ??
@@ -339,18 +341,25 @@ export function isFeatureStale({
       if (feature.neverStale)
         return { stale: false, reason: "never-stale" as const };
 
-      const linkedExperiments = (feature?.linkedExperiments ?? [])
-        .map((id) => experimentMap.get(id))
-        .filter(isDefined);
-
       const twoWeeksAgo = subWeeks(new Date(), 2);
       const dateUpdated = getValidDate(feature.dateUpdated);
       const stale = dateUpdated < twoWeeksAgo;
 
       if (!stale) return { stale };
 
-      // features with draft revisions are not stale
-      if (feature.hasDrafts) return { stale: false };
+      // Active drafts prevent stale detection; abandoned drafts (> 1 month untouched) do not.
+      if (mostRecentDraftDate !== undefined) {
+        if (mostRecentDraftDate !== null) {
+          if (mostRecentDraftDate >= subMonths(new Date(), 1)) {
+            return { stale: false };
+          }
+          return { stale: true, reason: "abandoned-draft" };
+        }
+        // null = no active drafts; fall through to normal stale checks
+      } else if (feature.hasDrafts) {
+        // fallback for callers that don't supply mostRecentDraftDate
+        return { stale: false };
+      }
 
       // features with fresh dependents are not stale
       if (features && features.length > 1) {
@@ -389,9 +398,14 @@ export function isFeatureStale({
 
       if (enabledRules.length === 0) return { stale, reason: "no-rules" };
 
-      // If there's at least one active experiment, it's not stale
-      if (linkedExperiments.some((e) => includeExperimentInPayload(e)))
-        return { stale: false };
+      // Check for active experiments via experiment-ref rules in enabled environments only.
+      const activeExperimentInEnabledEnv = enabledRules
+        .filter(isExperimentRefRule)
+        .some((r) => {
+          const exp = experimentMap.get(r.experimentId);
+          return exp ? includeExperimentInPayload(exp) : false;
+        });
+      if (activeExperimentInEnabledEnv) return { stale: false };
 
       if (areRulesOneSided(enabledRules))
         return { stale, reason: "rules-one-sided" };
