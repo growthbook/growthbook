@@ -1,7 +1,17 @@
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import React, { useMemo, useState } from "react";
-import { FaExclamationTriangle, FaLink } from "react-icons/fa";
+import { FaExclamationTriangle } from "react-icons/fa";
+import {
+  PiCheck,
+  PiLink,
+  PiArrowsLeftRightBold,
+  PiCheckCircleFill,
+  PiCircleDuotone,
+  PiFileX,
+  PiInfo,
+  PiPlusCircleBold,
+} from "react-icons/pi";
 import { FaBoltLightning } from "react-icons/fa6";
 import { ago, datetime } from "shared/dates";
 import {
@@ -14,16 +24,8 @@ import { MdRocketLaunch } from "react-icons/md";
 import { BiHide, BiShow } from "react-icons/bi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { BsClock } from "react-icons/bs";
-import {
-  PiArrowsLeftRightBold,
-  PiCheckCircleFill,
-  PiCircleDuotone,
-  PiFileX,
-  PiInfo,
-  PiPlusCircleBold,
-} from "react-icons/pi";
 import { FeatureUsageLookback } from "shared/types/integrations";
-import { Box, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
+import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import {
   SafeRolloutInterface,
   HoldoutInterface,
@@ -156,11 +158,7 @@ export default function FeaturesOverview({
   const dependentExperiments = dependentsData?.experiments ?? [];
   const dependents = dependentFeatures.length + dependentExperiments.length;
 
-  const { performCopy, copySuccess, copySupported, copyCooldown } =
-    useCopyToClipboard({
-      timeout: 800,
-      cooldown: 500,
-    });
+  const { performCopy, copySuccess } = useCopyToClipboard({ timeout: 800 });
 
   const mergeResult = useMemo(() => {
     if (!feature || !revision) return null;
@@ -1006,32 +1004,29 @@ export default function FeaturesOverview({
                       revisions={revisionList || []}
                     />
                   </Box>
-                  <Tooltip
-                    body={
-                      copySuccess
-                        ? "Copied to clipboard!"
-                        : "Copy a link to this revision"
-                    }
-                    tipPosition="top"
-                    state={copySuccess}
-                    ignoreMouseEvents={!!copySuccess}
-                    shouldDisplay={!copyCooldown}
-                  >
-                    <IconButton
+                  {copySuccess ? (
+                    <Button
                       variant="ghost"
-                      size="3"
+                      icon={<PiCheck />}
+                      style={{ width: 100 }}
+                    >
+                      Link copied
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      icon={<PiLink />}
+                      style={{ width: 100 }}
                       onClick={() => {
-                        if (!copySupported) return;
                         const url =
                           window.location.href.replace(/[?#].*/, "") +
                           `?v=${version}`;
                         performCopy(url);
                       }}
-                      style={{ margin: 0 }}
                     >
-                      <FaLink size={14} />
-                    </IconButton>
-                  </Tooltip>
+                      Copy link
+                    </Button>
+                  )}
                 </Flex>
                 <Flex
                   align={{ initial: "center", xs: "center", sm: "start" }}
