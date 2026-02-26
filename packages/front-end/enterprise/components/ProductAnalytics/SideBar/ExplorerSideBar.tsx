@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useState } from "react";
 import { Flex, Box } from "@radix-ui/themes";
 import { DatasetType } from "shared/validators";
 import { PiArrowsClockwise } from "react-icons/pi";
@@ -35,7 +35,6 @@ export default function ExplorerSideBar({
   const {
     draftExploreState,
     setDraftExploreState,
-    changeDatasetType,
     loading,
     handleSubmit,
     isSubmittable,
@@ -67,14 +66,6 @@ export default function ExplorerSideBar({
     activeType === "fact_table" && dataset?.type === "fact_table"
       ? dataset
       : null;
-
-  const handleTabChange = useCallback(
-    (value: string) => {
-      const newType = value as DatasetType;
-      changeDatasetType(newType);
-    },
-    [changeDatasetType],
-  );
 
   return (
     <Flex
@@ -149,89 +140,95 @@ export default function ExplorerSideBar({
           </Flex>
         )}
       </Flex>
-      <Flex
-        width="100%"
-        direction="column"
-        p="3"
-        gap="2"
-        style={{
-          border: "1px solid var(--gray-a3)",
-          borderRadius: "var(--radius-4)",
-          backgroundColor: "var(--color-panel-translucent)",
-        }}
-      >
-        {!renderingInDashboardSidebar ? (
-          <>
-            <Text weight="medium">Explorer Type</Text>
-            <SelectField
-              value={activeType}
-              onChange={handleTabChange}
-              sort={false}
-              options={[
-                { label: "Metric", value: "metric" },
-                { label: "Fact Table", value: "fact_table" },
-                { label: "Data Source", value: "data_source" },
-              ]}
-            />
-          </>
-        ) : (
-          <Flex direction="column" gap="4" flexBasis="wrap">
-            <Flex direction="column" gap="2">
-              <Text weight="medium">Chart Type</Text>
-              <GraphTypeSelector />
+      {renderingInDashboardSidebar && (
+        <Flex
+          direction="column"
+          gap="4"
+          flexBasis="wrap"
+          p="3"
+          style={{
+            border: "1px solid var(--gray-a3)",
+            borderRadius: "var(--radius-4)",
+            backgroundColor: "var(--color-panel-translucent)",
+          }}
+        >
+          <Flex direction="column" gap="2">
+            <Text weight="medium">Chart Type</Text>
+            <GraphTypeSelector />
+          </Flex>
+          <Flex gap="2" wrap="wrap">
+            <Flex direction="column" gap="2" style={{ minWidth: 0 }}>
+              <Text weight="medium">Date Range</Text>
+              <DateRangePicker shouldWrap />
             </Flex>
-            <Flex gap="2" wrap="wrap">
-              <Flex direction="column" gap="2" style={{ minWidth: 0 }}>
-                <Text weight="medium">Date Range</Text>
-                <DateRangePicker shouldWrap />
-              </Flex>
-              <Flex direction="column" gap="2">
-                <Text weight="medium">Date Granularity</Text>
-                <GranularitySelector />
-              </Flex>
+            <Flex direction="column" gap="2">
+              <Text weight="medium">Date Granularity</Text>
+              <GranularitySelector />
             </Flex>
           </Flex>
-        )}
+        </Flex>
+      )}
 
-        {activeType === "fact_table" && factTableDataset && (
-          <>
-            <Text weight="medium" mt="2">
-              Fact Table
-            </Text>
-            <SelectField
-              value={factTableDataset.factTableId ?? ""}
-              onChange={(factTableId) => {
-                setDraftExploreState((prev) => {
-                  const prevDataset =
-                    prev.dataset?.type === "fact_table" ? prev.dataset : null;
-                  return {
-                    ...prev,
-                    dataset: {
-                      ...factTableDataset,
-                      factTableId,
-                      values: prevDataset?.values?.length
-                        ? prevDataset.values
-                        : [createEmptyValue("fact_table")],
-                    },
-                  };
-                });
-              }}
-              options={factTables
-                .filter((f) => f.datasource === draftExploreState.datasource)
-                .map((ft) => ({
-                  label: ft.name,
-                  value: ft.id,
-                }))}
-              placeholder="Select fact table..."
-              forceUndefinedValueToNull
-            />
-          </>
-        )}
+      {activeType === "fact_table" && factTableDataset && (
+        <Flex
+          width="100%"
+          direction="column"
+          p="3"
+          gap="2"
+          style={{
+            border: "1px solid var(--gray-a3)",
+            borderRadius: "var(--radius-4)",
+            backgroundColor: "var(--color-panel-translucent)",
+          }}
+        >
+          <Text weight="medium" mt="2">
+            Fact Table
+          </Text>
+          <SelectField
+            value={factTableDataset.factTableId ?? ""}
+            onChange={(factTableId) => {
+              setDraftExploreState((prev) => {
+                const prevDataset =
+                  prev.dataset?.type === "fact_table" ? prev.dataset : null;
+                return {
+                  ...prev,
+                  dataset: {
+                    ...factTableDataset,
+                    factTableId,
+                    values: prevDataset?.values?.length
+                      ? prevDataset.values
+                      : [createEmptyValue("fact_table")],
+                  },
+                };
+              });
+            }}
+            options={factTables
+              .filter((f) => f.datasource === draftExploreState.datasource)
+              .map((ft) => ({
+                label: ft.name,
+                value: ft.id,
+              }))}
+            placeholder="Select fact table..."
+            forceUndefinedValueToNull
+          />
+        </Flex>
+      )}
 
-        {activeType === "data_source" && (
+      {activeType === "data_source" && (
+        <Flex
+          width="100%"
+          direction="column"
+          p="3"
+          gap="2"
+          style={{
+            border: "1px solid var(--gray-a3)",
+            borderRadius: "var(--radius-4)",
+            backgroundColor: "var(--color-panel-translucent)",
+          }}
+        >
           <DatasourceConfigurator dataset={dataset} />
-        )}
-      </Flex>
+        </Flex>
+      )}
       <Box p="0">
         {activeType === "metric" && <MetricTabContent />}
         {activeType === "fact_table" && <FactTableTabContent />}

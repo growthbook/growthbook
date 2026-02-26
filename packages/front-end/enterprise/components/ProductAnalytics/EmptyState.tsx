@@ -3,13 +3,10 @@ import { Flex, Box } from "@radix-ui/themes";
 import { BsFillBarChartLineFill } from "react-icons/bs";
 import { PiDatabase, PiTable } from "react-icons/pi";
 import Text from "@/ui/Text";
-import Button from "@/ui/Button";
-import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Heading from "@/ui/Heading";
+import LinkButton from "@/ui/LinkButton";
 
 export default function EmptyState() {
-  const { changeDatasetType } = useExplorerContext();
-
   return (
     <Box m="7">
       <Heading as="h1" size="2x-large" weight="medium">
@@ -35,7 +32,8 @@ export default function EmptyState() {
           Choose how you want to explore your data
         </Text>
         <Flex gap="3" mt="3">
-          <Button
+          <LinkButton
+            href="/product-analytics/explore/metrics"
             variant="outline"
             style={{
               height: "116px",
@@ -43,14 +41,14 @@ export default function EmptyState() {
               paddingBottom: "16px",
               width: "160px",
             }}
-            onClick={() => changeDatasetType("metric")}
           >
             <Flex direction="column" align="center" gap="1">
               <BsFillBarChartLineFill size={24} />
               <Text weight="medium">Metrics</Text>
             </Flex>
-          </Button>
-          <Button
+          </LinkButton>
+          <LinkButton
+            href="/product-analytics/explore/fact-table"
             variant="outline"
             style={{
               height: "116px",
@@ -58,30 +56,27 @@ export default function EmptyState() {
               paddingBottom: "16px",
               width: "160px",
             }}
-            onClick={() => changeDatasetType("fact_table")}
           >
             <Flex direction="column" align="center" gap="1">
               <PiTable size={24} />
               <Text weight="medium">Fact Table</Text>
             </Flex>
-          </Button>
-          <Button
+          </LinkButton>
+          <LinkButton
+            href="/product-analytics/explore/data-source"
             variant="outline"
             style={{
               height: "116px",
               paddingTop: "16px",
               paddingBottom: "16px",
               width: "160px",
-            }}
-            onClick={() => {
-              changeDatasetType("data_source");
             }}
           >
             <Flex direction="column" align="center" gap="1">
               <PiDatabase size={24} />
               <Text weight="medium">Data Source</Text>
             </Flex>
-          </Button>
+          </LinkButton>
         </Flex>
       </Flex>
     </Box>

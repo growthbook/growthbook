@@ -78,7 +78,7 @@ export default function SqlExplorer() {
             <Text weight="semibold">New Feature!</Text>
             <Text>
               Use our{" "}
-              <Link href="/product-analytics/explore/new">
+              <Link href="/product-analytics/explore">
                 Product Analytics Explore
               </Link>{" "}
               tool to create visualizations from your data without writing any

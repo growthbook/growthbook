@@ -62,7 +62,6 @@ export interface ExplorerContextValue {
   addValueToDataset: (datasetType: DatasetType) => void;
   updateValueInDataset: (index: number, value: ProductAnalyticsValue) => void;
   deleteValueFromDataset: (index: number) => void;
-  changeDatasetType: (type: DatasetType) => void;
   updateTimestampColumn: (column: string) => void;
   changeChartType: (chartType: ProductAnalyticsConfig["chartType"]) => void;
   clearAllDatasets: (newDatasourceId?: string) => void;
@@ -71,7 +70,7 @@ const ExplorerContext = createContext<ExplorerContextValue | null>(null);
 
 interface ExplorerProviderProps {
   children: ReactNode;
-  initialConfig?: ProductAnalyticsConfig;
+  initialConfig: ProductAnalyticsConfig;
   onRunComplete?: (exploration: ProductAnalyticsExploration) => void;
 }
 
@@ -84,24 +83,18 @@ export function ExplorerProvider({
 
   const { getFactTableById, getFactMetricById, datasources } = useDefinitions();
 
-  const [activeExplorerType, setActiveExplorerType] =
-    useState<DatasetType | null>(initialConfig?.dataset.type || null);
+  const activeExplorerType = initialConfig?.dataset.type || "metric";
   const [explorerCache, setExplorerCache] = useState<ExplorerCache>(() => {
-    const initialType = initialConfig?.dataset.type;
     return {
       metric: null,
       fact_table: null,
       data_source: null,
-      ...(initialType && initialConfig
-        ? {
-            [initialType]: {
-              draftState: null,
-              submittedState: initialConfig,
-              exploration: null,
-              error: null,
-            },
-          }
-        : {}),
+      [activeExplorerType]: {
+        draftState: null,
+        submittedState: initialConfig,
+        exploration: null,
+        error: null,
+      },
     };
   });
   const [isStale, setIsStale] = useState(false);
@@ -441,31 +434,6 @@ export function ExplorerProvider({
     [setDraftExploreState],
   );
 
-  const changeDatasetType = useCallback(
-    (type: DatasetType) => {
-      setActiveExplorerType(type);
-
-      // if explorer cache is null for this type, we should create a default draft state
-      if (!explorerCache[type]) {
-        const defaultDataset = createEmptyDataset(type);
-        const defaultDraftState = {
-          ...INITIAL_EXPLORE_STATE,
-          datasource: datasources[0]?.id || "",
-          dataset: { ...defaultDataset, values: [createDefaultValue(type)] },
-        } as ProductAnalyticsConfig;
-        setExplorerCache((prev) => ({
-          ...prev,
-          [type]: {
-            ...prev[type],
-            draftState: defaultDraftState,
-          },
-        }));
-        return defaultDraftState;
-      }
-    },
-    [explorerCache, createDefaultValue, datasources, INITIAL_EXPLORE_STATE],
-  );
-
   const clearAllDatasets = useCallback(
     (newDatasourceId?: string) => {
       const datasourceId = newDatasourceId ?? datasources[0]?.id ?? "";
@@ -507,7 +475,6 @@ export function ExplorerProvider({
       addValueToDataset,
       updateValueInDataset,
       deleteValueFromDataset,
-      changeDatasetType,
       updateTimestampColumn,
       changeChartType,
       isEmpty,
@@ -528,7 +495,6 @@ export function ExplorerProvider({
       addValueToDataset,
       updateValueInDataset,
       deleteValueFromDataset,
-      changeDatasetType,
       updateTimestampColumn,
       changeChartType,
       isEmpty,

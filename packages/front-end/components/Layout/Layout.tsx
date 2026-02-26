@@ -103,8 +103,8 @@ const navlinks: SidebarLinkProps[] = [
     subLinks: [
       {
         name: "Explore",
-        href: "/product-analytics/explore/new",
-        path: /^product-analytics\/explore\/new/,
+        href: "/product-analytics/explore",
+        path: /^product-analytics\/explore\//,
       },
       {
         name: "Custom SQL Reports",
