@@ -9,7 +9,7 @@ import { computeAIUsageData } from "shared/ai";
 import { useForm } from "react-hook-form";
 import { experimentHasLinkedChanges } from "shared/util";
 import { datetime } from "shared/dates";
-import { getVariationsForPhase } from "shared/experiments";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { Flex } from "@radix-ui/themes";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useAuth } from "@/services/auth";
@@ -44,7 +44,7 @@ const StopExperimentForm: FC<{
   const isBandit = experiment.type == "multi-armed-bandit";
   const isStopped = experiment.status === "stopped";
 
-  const variations = getVariationsForPhase(experiment, null);
+  const variations = getLatestPhaseVariations(experiment);
 
   const hasLinkedChanges = experimentHasLinkedChanges(experiment);
 

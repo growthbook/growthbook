@@ -10,7 +10,6 @@ import { RxDesktop } from "react-icons/rx";
 import { BsFlag } from "react-icons/bs";
 import { PiShuffle } from "react-icons/pi";
 import { Flex } from "@radix-ui/themes";
-import { getVariationsForPhase } from "shared/experiments";
 import { phaseSummary } from "@/services/utils";
 import { useExperimentSearch } from "@/services/experiments";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -174,8 +173,7 @@ export default function ExperimentList({
                     <div>
                       {" "}
                       {currentPhase?.name} (
-                      {getVariationsForPhase(test, currentPhase).length}{" "}
-                      variations)
+                      {currentPhase?.variations?.length ?? 0} variations)
                     </div>
                   </div>
                 </Link>

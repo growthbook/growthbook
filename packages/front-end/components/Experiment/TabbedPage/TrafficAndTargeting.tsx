@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { getActiveVariationWeightsForPhase } from "shared/experiments";
+import { getVariationsWithWeights } from "shared/experiments";
 import React from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -30,7 +30,9 @@ export default function TrafficAndTargeting({
 
   const resolvedPhaseIndex = phaseIndex ?? experiment.phases.length - 1;
   const phase = experiment.phases?.[resolvedPhaseIndex] ?? null;
-  const activeWeights = getActiveVariationWeightsForPhase(experiment, phase);
+  const activeWeights = phase
+    ? getVariationsWithWeights(phase).map((v) => v.weight)
+    : [];
   const hasNamespace = phase?.namespace && phase.namespace.enabled;
   const namespaceRange = hasNamespace
     ? phase.namespace!.range[1] - phase.namespace!.range[0]

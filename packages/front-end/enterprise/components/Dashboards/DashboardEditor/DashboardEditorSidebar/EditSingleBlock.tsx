@@ -9,8 +9,8 @@ import {
 } from "shared/enterprise";
 import React, { useContext, useEffect, useMemo, useState, useRef } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { getVariationsForPhase } from "shared/experiments";
 import { isNumber, isString, isStringArray } from "shared/util";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { SavedQuery } from "shared/validators";
 import {
   PiCopySimple,
@@ -625,7 +625,7 @@ export default function EditSingleBlock({
   // Only compute baseline/variation options when the block type depends on an experiment
   const hasExperimentContext = !!experiment && requireBaselineVariation;
   const experimentVariations = hasExperimentContext
-    ? getVariationsForPhase(experiment, null)
+    ? getLatestPhaseVariations(experiment)
     : [];
   const baselineVariation = hasExperimentContext
     ? experimentVariations.find((_, i) => i === baselineIndex) ||
@@ -1287,7 +1287,7 @@ export default function EditSingleBlock({
                   }
                   options={
                     experiment
-                      ? getVariationsForPhase(experiment, null).map(
+                      ? getLatestPhaseVariations(experiment).map(
                           (variation, i) => ({
                             label: variation.name,
                             value: i.toString(),
@@ -1332,7 +1332,7 @@ export default function EditSingleBlock({
                   options={variationOptions}
                   formatOptionLabel={({ value, label }) => {
                     const varIndex = experiment
-                      ? getVariationsForPhase(experiment, null).findIndex(
+                      ? getLatestPhaseVariations(experiment).findIndex(
                           ({ id }) => id === value,
                         )
                       : -1;

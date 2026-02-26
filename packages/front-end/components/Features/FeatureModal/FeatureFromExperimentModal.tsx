@@ -8,7 +8,7 @@ import {
 } from "shared/types/feature";
 import { ReactElement, useState } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { getVariationsForPhase } from "shared/experiments";
+import { getLatestPhaseVariations } from "shared/experiments";
 import Link from "next/link";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { filterEnvironmentsByExperiment } from "shared/util";
@@ -87,7 +87,7 @@ const genFormDefaultValues = ({
     permissions,
     project,
   });
-  const expVariations = getVariationsForPhase(experiment, null);
+  const expVariations = getLatestPhaseVariations(experiment);
   const type = expVariations.length > 2 ? "string" : "boolean";
   const defaultValue = getDefaultValue(type);
   return {
@@ -427,7 +427,7 @@ export default function FeatureFromExperimentModal({
       <div className="form-group">
         <label>Variation Values</label>
         <div className="mb-3 bg-light border p-3">
-          {getVariationsForPhase(experiment, null).map((v, i) => (
+          {getLatestPhaseVariations(experiment).map((v, i) => (
             <FeatureValueField
               key={v.id}
               label={v.name}

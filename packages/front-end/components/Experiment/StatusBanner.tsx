@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import { FaPencilAlt } from "react-icons/fa";
-import { getVariationsForPhase } from "shared/experiments";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { useAuth } from "@/services/auth";
 import Button from "@/components/Button";
 import Markdown from "@/components/Markdown/Markdown";
@@ -17,7 +17,7 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
 
   if (experiment?.status === "stopped") {
     const result = experiment.results;
-    const variations = getVariationsForPhase(experiment, null);
+    const variations = getLatestPhaseVariations(experiment);
 
     const winningVariation =
       (result === "lost"

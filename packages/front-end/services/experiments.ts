@@ -39,7 +39,7 @@ import {
   generateSelectAllSliceString,
   parseSliceQueryString,
   SliceDataForMetric,
-  getVariationsForPhase,
+  getLatestPhaseVariations,
 } from "shared/experiments";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { ReactElement } from "react";
@@ -426,7 +426,7 @@ export function useExperimentSearch({
         if (item.hypothesis?.trim()?.length) has.push("hypothesis");
         if (item.description?.trim()?.length) has.push("description");
         if (
-          getVariationsForPhase(item, null).some((v) => !!v.screenshots?.length)
+          getLatestPhaseVariations(item).some((v) => !!v.screenshots?.length)
         ) {
           has.push("screenshots");
         }
@@ -441,8 +441,8 @@ export function useExperimentSearch({
         }
         return has;
       },
-      variations: (item) => getVariationsForPhase(item, null).length,
-      variation: (item) => getVariationsForPhase(item, null).map((v) => v.name),
+      variations: (item) => getLatestPhaseVariations(item).length,
+      variation: (item) => getLatestPhaseVariations(item).map((v) => v.name),
       created: (item) => new Date(item.dateCreated),
       updated: (item) => new Date(item.dateUpdated),
       name: (item) => item.name,

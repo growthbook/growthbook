@@ -8,7 +8,7 @@ import {
 import React, { useMemo, useState } from "react";
 import uniqId from "uniqid";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { getVariationsForPhase } from "shared/experiments";
+import { getLatestPhaseVariations } from "shared/experiments";
 import {
   filterEnvironmentsByFeature,
   generateVariationId,
@@ -554,7 +554,7 @@ export default function RuleModal({
         );
 
         // Experiment created, treat it as an experiment ref rule now
-        const createdVariations = getVariationsForPhase(res.experiment, null);
+        const createdVariations = getLatestPhaseVariations(res.experiment);
         values = {
           type: "experiment-ref",
           description: "",
@@ -581,7 +581,7 @@ export default function RuleModal({
           values.variations.map((v) => [v.variationId, v.value]),
         );
 
-        const expVariations = getVariationsForPhase(exp, null);
+        const expVariations = getLatestPhaseVariations(exp);
         values.variations = expVariations.map((v, i) => {
           return {
             variationId: v.id,

@@ -5,7 +5,7 @@ import {
   ExperimentPhaseStringDates,
   Variation,
 } from "shared/types/experiment";
-import { getEqualWeights, getVariationsForPhase } from "shared/experiments";
+import { getEqualWeights } from "shared/experiments";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import track from "@/services/track";
@@ -28,10 +28,7 @@ const EditVariationsForm: FC<{
   const lastPhaseIndex = experiment.phases.length - 1;
   const lastPhase: ExperimentPhaseStringDates | undefined =
     experiment.phases[lastPhaseIndex];
-  const lastPhaseVariations = getVariationsForPhase(
-    experiment,
-    lastPhase ?? null,
-  );
+  const lastPhaseVariations = lastPhase?.variations ?? [];
 
   const defaultValues = {
     variations: lastPhaseVariations,

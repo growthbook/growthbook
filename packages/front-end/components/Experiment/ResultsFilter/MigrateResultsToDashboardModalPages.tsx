@@ -12,7 +12,7 @@ import {
   parseSliceQueryString,
   isSliceTagSelectAll,
   isMetricGroupId,
-  getVariationsForPhase,
+  getLatestPhaseVariations,
 } from "shared/experiments";
 import Collapsible from "react-collapsible";
 import { PiCaretRightFill } from "react-icons/pi";
@@ -113,7 +113,7 @@ export function SelectDashboardAndBlockPage({
   const sliceTagsCount = sliceTagsFilter?.length || 0;
 
   const variations = useMemo(
-    () => getVariationsForPhase(experiment, null),
+    () => getLatestPhaseVariations(experiment),
     [experiment],
   );
 

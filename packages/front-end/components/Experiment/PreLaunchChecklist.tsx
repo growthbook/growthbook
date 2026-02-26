@@ -7,7 +7,7 @@ import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import React, { ReactElement, useEffect, useMemo, useState } from "react";
 import { FaAngleRight, FaCheck } from "react-icons/fa";
 import { experimentHasLiveLinkedChanges, hasVisualChanges } from "shared/util";
-import { getVariationsForPhase } from "shared/experiments";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
 import Link from "next/link";
 import Collapsible from "react-collapsible";
@@ -74,7 +74,7 @@ export function getChecklistItems({
         case "hypothesis":
           return !!experiment.hypothesis;
         case "screenshots":
-          return getVariationsForPhase(experiment, null).every(
+          return getLatestPhaseVariations(experiment).every(
             (v) => !!v.screenshots.length,
           );
         case "description":

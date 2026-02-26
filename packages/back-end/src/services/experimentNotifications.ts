@@ -5,7 +5,7 @@ import {
 } from "shared/util";
 import {
   getMetricResultStatus,
-  getVariationsForPhase,
+  getLatestPhaseVariations,
 } from "shared/experiments";
 import {
   PRESET_DECISION_CRITERIA,
@@ -361,10 +361,8 @@ export const computeExperimentChanges = async ({
 
       if (winning === null) continue;
 
-      const { id: variationId, name: variationName } = getVariationsForPhase(
-        experiment,
-        null,
-      )[i];
+      const { id: variationId, name: variationName } =
+        getLatestPhaseVariations(experiment)[i];
 
       experimentChanges.push({
         experimentId: experiment.id,

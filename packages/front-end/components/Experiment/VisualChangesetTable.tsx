@@ -3,12 +3,12 @@ import {
   ExperimentInterfaceStringDates,
   Variation,
 } from "shared/types/experiment";
-import { getVariationsForPhase } from "shared/experiments";
 import {
   VisualChange,
   VisualChangesetInterface,
   VisualChangesetURLPattern,
 } from "shared/types/visual-changeset";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { FaAngleRight } from "react-icons/fa";
@@ -273,7 +273,7 @@ export const VisualChangesetTable: FC<Props> = ({
   mutate,
   canEditVisualChangesets,
 }: Props) => {
-  const variations = getVariationsForPhase(experiment, null);
+  const variations = getLatestPhaseVariations(experiment);
   const { apiCall } = useAuth();
   const [showChangeset, setShowChangeset] = useState<string[]>([]);
 

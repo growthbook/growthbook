@@ -9,7 +9,6 @@ import {
   ExperimentInterfaceStringDates,
   Variation,
 } from "shared/types/experiment";
-import { getVariationsForPhase } from "shared/experiments";
 import { PiCaretRightFill } from "react-icons/pi";
 import { datetime, getValidDate } from "shared/dates";
 import {
@@ -124,7 +123,7 @@ const AnalysisForm: FC<{
   }
 
   const phaseObj = experiment.phases[phase];
-  const phaseVariations = getVariationsForPhase(experiment, phaseObj ?? null);
+  const phaseVariations = phaseObj?.variations ?? [];
 
   const form = useForm({
     defaultValues: {
@@ -321,7 +320,6 @@ const AnalysisForm: FC<{
           body.lookbackOverride = undefined;
         }
         if (usingSequentialTestingDefault) {
-          // User checked the org default checkbox; ignore form values
           body.sequentialTestingEnabled =
             !!orgSettings.sequentialTestingEnabled;
           body.sequentialTestingTuningParameter =

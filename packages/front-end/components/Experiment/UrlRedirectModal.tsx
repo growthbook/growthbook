@@ -1,7 +1,7 @@
 import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { getVariationsForPhase } from "shared/experiments";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { isURLTargeted } from "@growthbook/growthbook";
 import { FaExclamationCircle } from "react-icons/fa";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
@@ -57,7 +57,7 @@ const UrlRedirectModal: FC<{
   source?: string;
 }> = ({ mode, experiment, urlRedirect, mutate, close, source }) => {
   const { apiCall } = useAuth();
-  const variations = getVariationsForPhase(experiment, null);
+  const variations = getLatestPhaseVariations(experiment);
   const { data: sdkConnectionsData } = useSDKConnections();
 
   const hasSDKWithRedirects = getConnectionsSDKCapabilities({

@@ -3,7 +3,7 @@ import {
   getAllExpandedMetricIdsFromExperiment,
   isFactMetricId,
   expandAllSliceMetricsInMap,
-  getVariationsForPhase,
+  getLatestPhaseVariations,
 } from "shared/experiments";
 import cloneDeep from "lodash/cloneDeep";
 import {
@@ -103,7 +103,7 @@ export async function updateExperimentTimeSeries({
     factMetrics = await context.models.factMetrics.getByIds(factMetricsIds);
   }
 
-  const experimentVariations = getVariationsForPhase(experiment, null);
+  const experimentVariations = getLatestPhaseVariations(experiment);
   const timeSeriesVariationsPerMetricId = allMetricIds.reduce(
     (acc, metricId) => {
       acc[metricId] = variations.map((_, variationIndex) => ({

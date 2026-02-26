@@ -35,12 +35,11 @@ import {
   getAllMetricIdsFromExperiment,
   getAllExpandedMetricIdsFromExperiment,
   expandAllSliceMetricsInMap,
-  getActiveVariationsWithWeightsForPhase,
   getEqualWeights,
-  getVariationsForPhase,
+  getLatestPhaseVariations,
+  getLatestPhaseVariationsWithWeights,
   getMetricResultStatus,
   getMetricSnapshotSettings,
-  getVariationWeightsForPhase,
   isFactMetric,
   isFactMetricId,
   isMetricJoinable,
@@ -449,7 +448,7 @@ export function getSnapshotSettings({
     !!exposureQuery.dimensionMetadata &&
     !orgDisabledPrecomputedDimensions;
 
-  const activeVariations = getActiveVariationsWithWeightsForPhase(experiment, phase);
+  const variations = getLatestPhaseVariationsWithWeights(experiment);
 
   let dimensions: DimensionForSnapshot[] = dimension ? [{ id: dimension }] : [];
   if (precomputeDimensions) {
@@ -457,7 +456,7 @@ export function getSnapshotSettings({
       getExposureQueryEligibleDimensions({
         exposureQuery,
         incrementalRefreshModel,
-        nVariations: activeVariations.length,
+        nVariations: variations.length,
       });
     dimensions =
       eligibleDimensionsWithSlicesUnderMaxCells.map((d) => ({
@@ -596,12 +595,7 @@ export function getSnapshotSettings({
     logger.warn(
       "JIT initializing banditEvents in memory (getSnapshotSettings)",
     );
-    // just skip getting fullWeights?
-    const fullWeights = getVariationWeightsForPhase(experiment, phase);
-    const weights =
-      phase.variationWeights?.length === fullWeights.length
-        ? phase.variationWeights
-        : fullWeights;
+    const weights = phase.variationWeights ?? [];
     const initialBanditEvent = {
       date: phase.dateStarted || new Date(),
       banditResult: {
@@ -622,7 +616,8 @@ export function getSnapshotSettings({
           currentWeights:
             phase?.banditEvents?.[phase.banditEvents.length - 1]?.banditResult
               ?.updatedWeights ??
-            getVariationWeightsForPhase(experiment, phase),
+            phase.variationWeights ??
+            [],
           historicalWeights:
             phase?.banditEvents
               ?.filter(
@@ -665,7 +660,7 @@ export function getSnapshotSettings({
     defaultMetricPriorSettings: defaultPriorSettings,
     exposureQueryId: experiment.exposureQueryId,
     metricSettings,
-    variations: activeVariations.map((v, i) => ({
+    variations: variations.map((v, i) => ({
       id: v.key || i + "",
       weight: v.weight,
     })),
@@ -848,7 +843,7 @@ export function resetExperimentBanditSettings({
 
     // Set equal weights
     const weights = getEqualWeights(
-      getVariationsForPhase(experiment, null).length,
+      getLatestPhaseVariations(experiment).length,
     );
     changes.phases[phase].variationWeights = weights;
 
@@ -878,7 +873,7 @@ export function resetExperimentBanditSettings({
       const weights =
         changes.phases[phase].variationWeights ||
         experiment.phases[phase]?.variationWeights ||
-        getEqualWeights(getVariationsForPhase(experiment, null).length);
+        getEqualWeights(getLatestPhaseVariations(experiment).length);
       changes.phases[phase].banditEvents = [
         {
           date:
@@ -1235,9 +1230,7 @@ export async function createSnapshot({
     const analysisProps = {
       snapshotType: type,
       snapshotSettings: data.settings,
-      variationNames: getVariationsForPhase(experiment, null).map(
-        (v) => v.name,
-      ),
+      variationNames: getLatestPhaseVariations(experiment).map((v) => v.name),
       metricMap,
       queryParentId: snapshot.id,
       factTableMap,
@@ -1383,7 +1376,7 @@ async function getSnapshotAnalyses(
         snapshot.settings,
       );
       const id = `${i}_${experiment.id}_${snapshot.id}`;
-      const variationNames = getVariationsForPhase(experiment, null).map(
+      const variationNames = getLatestPhaseVariations(experiment).map(
         (v) => v.name,
       );
       const { queryResults, metricSettings, unknownVariations } = mdat;
@@ -1484,7 +1477,7 @@ export async function createSnapshotAnalysis(
     queryData: queryMap,
     snapshotSettings: snapshot.settings,
     analysisSettings: [analysisSettings],
-    variationNames: getVariationsForPhase(experiment, null).map((v) => v.name),
+    variationNames: getLatestPhaseVariations(experiment).map((v) => v.name),
     metricMap: metricMap,
   });
   analysis.results = results[0]?.dimensions || [];
@@ -1573,7 +1566,7 @@ export async function toExperimentApiInterface(
     bucketVersion: experiment.bucketVersion,
     minBucketVersion: experiment.minBucketVersion,
     variations: await Promise.all(
-      getVariationsForPhase(experiment, null).map(async (v) => ({
+      getLatestPhaseVariations(experiment).map(async (v) => ({
         variationId: v.id,
         key: v.key,
         name: v.name || "",
@@ -1664,7 +1657,7 @@ export async function toExperimentApiInterface(
           resultSummary: {
             status: experiment.results,
             winner:
-              getVariationsForPhase(experiment, null)[experiment.winner ?? 0]
+              getLatestPhaseVariations(experiment)[experiment.winner ?? 0]
                 ?.id || "",
             conclusions: experiment.analysis || "",
             releasedVariationId: experiment.releasedVariationId || "",
@@ -1720,9 +1713,7 @@ export function toSnapshotApiInterface(
   const activationMetric =
     snapshot.settings.activationMetric || experiment.activationMetric;
 
-  const variationIds = getVariationsForPhase(experiment, phase).map(
-    (v) => v.id,
-  );
+  const variationIds = phase.variations.map((v) => v.id);
 
   // Get the default analysis
   const analysis = getSnapshotAnalysis(snapshot);
@@ -2948,7 +2939,7 @@ export function updateExperimentApiPayloadToInterface(
               variationWeights:
                 p.variationWeights ||
                 (
-                  payload.variations || getVariationsForPhase(experiment, null)
+                  payload.variations || getLatestPhaseVariations(experiment)
                 )?.map((_v, _i, arr) => 1 / arr.length),
             };
           }),
@@ -3359,7 +3350,7 @@ function getVariationId(
   i: number,
 ): string {
   if ("phases" in experiment) {
-    return getVariationsForPhase(experiment, null)[i]?.id;
+    return getLatestPhaseVariations(experiment)[i]?.id;
   }
   return i + "";
 }

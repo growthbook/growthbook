@@ -3,7 +3,7 @@ import { UserExperimentExposuresQueryResponseRows } from "shared/types/integrati
 import { QueryStatistics } from "shared/types/query";
 import { useEffect, useState } from "react";
 import { datetime } from "shared/dates";
-import { getVariationsForPhase } from "shared/experiments";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -245,7 +245,7 @@ const ExposureDebuggerPage = () => {
                             ? experimentsMap.get(row.id)
                             : null;
                           const expVariations = exp
-                            ? getVariationsForPhase(exp, null)
+                            ? getLatestPhaseVariations(exp)
                             : [];
                           const variationIndex = expVariations.findIndex(
                             (v) => v.key === row.variation_id,

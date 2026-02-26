@@ -2,7 +2,7 @@ import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
-import { getVariationsForPhase } from "shared/experiments";
+import { getLatestPhaseVariations } from "shared/experiments";
 import React from "react";
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import { PiCheckCircleFill, PiWarningFill } from "react-icons/pi";
@@ -19,7 +19,7 @@ type Props = {
 };
 
 export default function LinkedFeatureFlag({ info, experiment, open }: Props) {
-  const variations = getVariationsForPhase(experiment, null);
+  const variations = getLatestPhaseVariations(experiment);
   const orderedValues = variations.map((v) => {
     return info.values.find((v2) => v2.variationId === v.id)?.value || "";
   });

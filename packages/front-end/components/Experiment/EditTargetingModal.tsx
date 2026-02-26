@@ -9,8 +9,8 @@ import isEqual from "lodash/isEqual";
 import { useEffect, useState } from "react";
 import { validateAndFixCondition } from "shared/util";
 import {
-  getActiveVariationsWithWeightsForPhase,
-  getVariationsForPhase,
+  getLatestPhaseVariations,
+  getVariationsWithWeights,
 } from "shared/experiments";
 import { Flex, Box, Text } from "@radix-ui/themes";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -96,10 +96,9 @@ export default function EditTargetingModal({
 
   const lastStepNumber = changeType !== "phase" ? 2 : 1;
 
-  const activeVarsWithWeights = getActiveVariationsWithWeightsForPhase(
-    experiment,
-    lastPhase ?? null,
-  );
+  const activeVarsWithWeights = lastPhase
+    ? getVariationsWithWeights(lastPhase)
+    : [];
   const variations = activeVarsWithWeights;
   const variationWeights = activeVarsWithWeights.map((v) => v.weight);
   const defaultValues = {
@@ -571,10 +570,7 @@ function TargetingForm({
           }
           valueAsId={true}
           variations={
-            getVariationsForPhase(
-              experiment,
-              experiment.phases[experiment.phases.length - 1] ?? null,
-            ).map((v, i) => ({
+            getLatestPhaseVariations(experiment).map((v, i) => ({
               value: v.key || i + "",
               name: v.name,
               weight: form.watch(`variationWeights.${i}`),

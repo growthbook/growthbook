@@ -1,5 +1,4 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { getVariationsForPhase } from "shared/experiments";
 
 export type TrackingType = "mixpanel" | "ga" | "segment" | "custom";
 
@@ -78,7 +77,7 @@ export function generateJavascriptSnippet(
   param: string,
 ): string {
   const phase = exp.phases?.[0];
-  const n = getVariationsForPhase(exp, null).length;
+  const n = phase?.variations?.length ?? 0;
 
   const weights = phase ? phase.variationWeights : new Array(n).fill(1 / n);
   const adjustedWeights = phase

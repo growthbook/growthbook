@@ -1,7 +1,6 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
-  getActiveVariationsWithWeightsForPhase,
-  getVariationsForPhase,
+  getVariationsWithWeights,
   expandMetricGroups,
   getAllMetricIdsFromExperiment,
   getAllExpandedMetricIdsFromExperiment,
@@ -175,10 +174,7 @@ export default function AnalysisSettingsSummary({
     ? getDatasourceById(experiment.datasource)
     : null;
   const phaseObj = experiment.phases?.[phase] ?? null;
-  const variations = getActiveVariationsWithWeightsForPhase(
-    experiment,
-    phaseObj,
-  ).map((v, i) => ({
+  const variations = getVariationsWithWeights(phaseObj).map((v, i) => ({
     id: v.key || i + "",
     name: v.name,
     weight: v.weight,
@@ -518,9 +514,7 @@ export default function AnalysisSettingsSummary({
 
     if (
       isDifferentStringArray(
-        getVariationsForPhase(exp, exp.phases?.[currentPhase ?? 0] ?? null).map(
-          (v) => v.key,
-        ),
+        (exp.phases?.[currentPhase ?? 0]?.variations ?? []).map((v) => v.key),
         snapshotSettings.variations.map((v) => v.id),
       )
     ) {

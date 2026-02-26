@@ -14,7 +14,7 @@ import { MetricAnalysisInterface } from "shared/types/metric-analysis";
 import { ExperimentInterface } from "shared/types/experiment";
 import {
   expandAllSliceMetricsInMap,
-  getVariationsForPhase,
+  getLatestPhaseVariations,
 } from "shared/experiments";
 import {
   AuthRequest,
@@ -236,9 +236,7 @@ export async function refreshDashboardData(
       await queryRunner.startAnalysis({
         snapshotType: "standard",
         snapshotSettings: mainSnapshot.settings,
-        variationNames: getVariationsForPhase(experiment, null).map(
-          (v) => v.name,
-        ),
+        variationNames: getLatestPhaseVariations(experiment).map((v) => v.name),
         metricMap,
         queryParentId: mainSnapshot.id,
         experimentId: experiment.id,

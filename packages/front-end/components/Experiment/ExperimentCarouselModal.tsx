@@ -1,6 +1,6 @@
 import { FC, useState, useCallback, useEffect, useMemo } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { getVariationsForPhase } from "shared/experiments";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { MdArrowBackIosNew, MdArrowForwardIos } from "react-icons/md";
 import { PiCameraSlashLight } from "react-icons/pi";
@@ -33,7 +33,7 @@ const ExperimentCarouselModal: FC<{
   const [zoom, setZoom] = useState(false);
 
   const variations = useMemo(
-    () => getVariationsForPhase(experiment, null),
+    () => getLatestPhaseVariations(experiment),
     [experiment],
   );
 

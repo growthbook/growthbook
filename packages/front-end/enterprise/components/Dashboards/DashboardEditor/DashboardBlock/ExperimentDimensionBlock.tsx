@@ -11,7 +11,7 @@ import {
 } from "shared/constants";
 import {
   isPrecomputedDimension,
-  getVariationsForPhase,
+  getLatestPhaseVariations,
 } from "shared/experiments";
 import { isString } from "shared/util";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -52,7 +52,7 @@ export default function ExperimentDimensionBlock({
   const pValueCorrection =
     ssrPolyfills?.useOrgSettings()?.pValueCorrection || hookPValueCorrection;
 
-  const phaseVariations = getVariationsForPhase(experiment, null);
+  const phaseVariations = getLatestPhaseVariations(experiment);
   const variations = phaseVariations.map((v, i) => ({
     id: v.key || i + "",
     name: v.name,

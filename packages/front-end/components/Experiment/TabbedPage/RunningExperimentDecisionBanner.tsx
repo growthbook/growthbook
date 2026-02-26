@@ -5,8 +5,8 @@ import {
   ExperimentResultStatusData,
   VariationWithIndex,
 } from "shared/types/experiment";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { useState } from "react";
-import { getVariationsForPhase } from "shared/experiments";
 import { BsLightningFill } from "react-icons/bs";
 import Collapsible from "react-collapsible";
 import { FaAngleRight } from "react-icons/fa";
@@ -29,7 +29,7 @@ export default function RunningExperimentDecisionBanner({
 }: Props) {
   const [showDecisionCriteria, setShowDecisionCriteria] = useState(false);
 
-  const variations = getVariationsForPhase(experiment, null);
+  const variations = getLatestPhaseVariations(experiment);
   const indexedVariations = variations.map<VariationWithIndex>((v, i) => ({
     ...v,
     index: i,

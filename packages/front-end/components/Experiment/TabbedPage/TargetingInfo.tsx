@@ -2,7 +2,7 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentTargetingData,
 } from "shared/types/experiment";
-import { getActiveVariationWeightsForPhase } from "shared/experiments";
+import { getVariationsWithWeights } from "shared/experiments";
 import clsx from "clsx";
 import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -51,7 +51,9 @@ export default function TargetingInfo({
 
   const resolvedPhaseIndex = phaseIndex ?? experiment.phases.length - 1;
   const phase = experiment.phases[resolvedPhaseIndex] ?? null;
-  const activeWeights = getActiveVariationWeightsForPhase(experiment, phase);
+  const activeWeights = phase
+    ? getVariationsWithWeights(phase).map((v) => v.weight)
+    : [];
   const changesActiveWeights = (changes?.variationWeights ?? []).filter(
     (w) => w > 0,
   );

@@ -15,7 +15,7 @@ import {
   ExperimentInterfaceStringDates,
   Variation,
 } from "shared/types/experiment";
-import { getVariationsForPhase } from "shared/experiments";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import clsx from "clsx";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
@@ -99,7 +99,7 @@ const Presentation = ({
     // get the results in the right shape:
     const e = em.get(eid);
     const expVariations = e?.experiment
-      ? getVariationsForPhase(e.experiment, null)
+      ? getLatestPhaseVariations(e.experiment)
       : [];
     // get the info on which variation to mark as winner/loser
     const variationExtra: JSX.Element[] = [];
@@ -291,15 +291,13 @@ const Presentation = ({
           >
             <CompactResults
               experimentId={experiment.id}
-              variations={getVariationsForPhase(experiment, phase).map(
-                (v, i) => {
-                  return {
-                    id: v.key || i + "",
-                    name: v.name,
-                    weight: phase?.variationWeights?.[i] || 0,
-                  };
-                },
-              )}
+              variations={phase?.variations?.map((v, i) => {
+                return {
+                  id: v.key || i + "",
+                  name: v.name,
+                  weight: phase?.variationWeights?.[i] || 0,
+                };
+              })}
               multipleExposures={snapshot.multipleExposures || 0}
               results={snapshot?.analyses[0]?.results?.[0]}
               reportDate={snapshot.dateCreated}

@@ -2,7 +2,7 @@ import React, { useEffect, useCallback, useState, useMemo } from "react";
 import {
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
-  getVariationsForPhase,
+  getLatestPhaseVariations,
 } from "shared/experiments";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -454,7 +454,7 @@ const MetricCorrelationCard = ({
                 otherData: {
                   experimentName: experiment.name || experiment.id,
                   variationName:
-                    getVariationsForPhase(experiment, null)[variationIndex]
+                    getLatestPhaseVariations(experiment)[variationIndex]
                       ?.name || "",
                   xMetricName: metric1Name,
                   yMetricName: metric2Name,

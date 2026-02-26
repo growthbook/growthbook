@@ -9,7 +9,7 @@ import {
 } from "shared/constants";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
-  getActiveVariationsWithWeightsForPhase,
+  getVariationsWithWeights,
   getEffectiveLookbackOverride,
 } from "shared/experiments";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
@@ -40,7 +40,7 @@ export default function PublicExperimentResults({
   const phase = phases.length - 1;
   const phaseObj = phases[phase] ?? null;
 
-  const variations = getActiveVariationsWithWeightsForPhase(experiment, phaseObj).map((v, i) => ({
+  const variations = getVariationsWithWeights(phaseObj).map((v, i) => ({
     id: v.key || i + "",
     name: v.name,
     weight: v.weight,

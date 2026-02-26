@@ -103,7 +103,7 @@ export type DomChange = {
   value: string;
 };
 
-export type LegacyVariation = Variation & {
+export type LegacyVariation = Omit<Variation, "status"> & {
   /** @deprecated */
   css?: string;
   /** @deprecated */
@@ -163,7 +163,7 @@ export interface LegacyExperimentInterface
   observations?: string;
   metricOverrides?: LegacyMetricOverride[];
   attributionModel: ExperimentInterface["attributionModel"] | "allExposures";
-  variations: LegacyVariation[] | Variation[];
+  variations: LegacyVariation[];
   phases: LegacyExperimentPhase[];
   releasedVariationId?: string;
   metrics?: string[];

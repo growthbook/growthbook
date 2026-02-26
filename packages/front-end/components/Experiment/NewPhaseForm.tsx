@@ -5,7 +5,7 @@ import {
 } from "shared/types/experiment";
 import { useForm } from "react-hook-form";
 import { validateAndFixCondition } from "shared/util";
-import { getEqualWeights, getVariationsForPhase } from "shared/experiments";
+import { getEqualWeights } from "shared/experiments";
 import { datetime } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import { useWatching } from "@/services/WatchProvider";
@@ -31,23 +31,18 @@ const NewPhaseForm: FC<{
   const firstPhase = !experiment.phases.length;
 
   const prevPhase: Partial<ExperimentPhaseStringDates> =
-    experiment.phases[experiment.phases.length - 1] || {};
-
-  const prevPhaseVariations = getVariationsForPhase(
-    experiment,
-    prevPhase as ExperimentPhaseStringDates | null,
-  );
+    experiment.phases[experiment.phases.length - 1] || {}; // Should always exist thanks to JIT migration
 
   const form = useForm<ExperimentPhaseStringDates>({
     defaultValues: {
       name: prevPhase.name || "Main",
       coverage: prevPhase.coverage || 1,
-      variations: prevPhaseVariations,
+      variations: prevPhase.variations || [],
       variationWeights:
         prevPhase.variationWeights ||
-        getEqualWeights(prevPhaseVariations.length),
+        getEqualWeights(prevPhase.variations?.length || 0),
       reason: "",
-      dateStarted: new Date().toISOString().substr(0, 16),
+      dateStarted: new Date().toISOString().substring(0, 16),
       condition: prevPhase.condition || "",
       savedGroups: prevPhase.savedGroups || [],
       seed: prevPhase.seed || "",
@@ -166,7 +161,7 @@ const NewPhaseForm: FC<{
         }
         valueAsId={true}
         variations={
-          prevPhaseVariations.map((v, i) => {
+          prevPhase.variations?.map((v, i) => {
             return {
               value: v.key || i + "",
               name: v.name,

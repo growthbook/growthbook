@@ -4,7 +4,7 @@ import { BsFlag } from "react-icons/bs";
 import { PiArrowSquareOutBold, PiShuffle } from "react-icons/pi";
 import { TbCloudOff } from "react-icons/tb";
 import React, { useState } from "react";
-import { isFactMetricId, getVariationsForPhase } from "shared/experiments";
+import { getLatestPhaseVariations, isFactMetricId } from "shared/experiments";
 import { date } from "shared/dates";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
@@ -71,7 +71,7 @@ const CompletedExperimentList = ({
         ) : (
           experiments.slice(start, end).map((e, experimentIndex) => {
             const result = e.results;
-            const expVariations = getVariationsForPhase(e, null);
+            const expVariations = getLatestPhaseVariations(e);
 
             const winningVariationIndex =
               result === "lost" ? 0 : result === "won" ? (e.winner ?? 1) : null;

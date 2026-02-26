@@ -35,6 +35,7 @@ import {
   ExperimentSnapshotInterface,
   MetricForSnapshot,
 } from "shared/types/experiment-snapshot";
+import { createInitialPhase, getEqualWeights } from "shared/experiments";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { getConfigOrganizationSettings } from "back-end/src/init/config";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
@@ -609,6 +610,22 @@ export function upgradeExperimentDoc(
         }));
       }
     });
+  }
+  // if no phases, then create dummy phase with the above variations
+  if (!experiment.phases.length) {
+    if (experiment.variations) {
+      experiment.phases = [
+        createInitialPhase({
+          variations: experiment.variations.map((v) => ({
+            ...v,
+            status: "active",
+          })),
+          variationWeights: getEqualWeights(experiment.variations.length),
+        }),
+      ];
+    } else {
+      experiment.phases = [createInitialPhase({})];
+    }
   }
 
   // Upgrade the attribution model

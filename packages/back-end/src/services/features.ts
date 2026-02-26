@@ -23,7 +23,7 @@ import {
   NodeHandler,
   recursiveWalk,
 } from "shared/util";
-import { getActiveVariationsWithWeightsForPhase } from "shared/experiments";
+import { getVariationsWithWeights } from "shared/experiments";
 import {
   getConnectionSDKCapabilities,
   scrubExperiments,
@@ -262,11 +262,11 @@ export function generateAutoExperimentsPayload({
       const phase: ExperimentPhase | null =
         e.phases?.[e.phases.length - 1] ?? null;
 
-      const activeVariations = getActiveVariationsWithWeightsForPhase(e, phase);
+      const variations = phase ? getVariationsWithWeights(phase) : [];
 
       const forcedVariation =
         e.status === "stopped" && e.releasedVariationId
-          ? activeVariations.find((v) => v.id === e.releasedVariationId)
+          ? variations.find((v) => v.id === e.releasedVariationId)
           : null;
 
       const condition = getParsedCondition(
@@ -301,7 +301,7 @@ export function generateAutoExperimentsPayload({
         ),
         status: e.status,
         project: e.project,
-        variations: activeVariations.map((v) => {
+        variations: variations.map((v) => {
           if (data.type === "redirect") {
             const match = data.urlRedirect.destinationURLs.find(
               (d) => d.variation === v.id,
@@ -336,8 +336,8 @@ export function generateAutoExperimentsPayload({
                 },
               ]
             : data.visualChangeset.urlPatterns,
-        weights: activeVariations.map((v) => v.weight),
-        meta: activeVariations.map((v) => ({ key: v.key, name: v.name })),
+        weights: variations.map((v) => v.weight),
+        meta: variations.map((v) => ({ key: v.key, name: v.name })),
         filters: phase?.namespace?.enabled
           ? [
               {
@@ -352,7 +352,7 @@ export function generateAutoExperimentsPayload({
         name: e.name,
         phase: `${e.phases.length - 1}`,
         force: forcedVariation
-          ? activeVariations.indexOf(forcedVariation)
+          ? variations.indexOf(forcedVariation)
           : undefined,
         condition,
         coverage: phase.coverage,

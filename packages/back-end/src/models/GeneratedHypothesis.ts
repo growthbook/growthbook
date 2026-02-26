@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { GeneratedHypothesisInterface } from "shared/types/generated-hypothesis";
 import { ExperimentInterface } from "shared/types/experiment";
-import { getVariationsForPhase } from "shared/experiments";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { ReqContext } from "back-end/types/request";
 import { createExperiment } from "./ExperimentModel";
 import { upsertWatch } from "./WatchModel";
@@ -138,7 +138,7 @@ export const findOrCreateGeneratedHypothesis = async (
 
   // create feature flag or visual change
   const payload = sdk_payload?.experiments?.[0];
-  const createdVariations = getVariationsForPhase(createdExperiment, null);
+  const createdVariations = getLatestPhaseVariations(createdExperiment);
   if (
     payload?.urlPatterns &&
     payload?.targetUrl &&

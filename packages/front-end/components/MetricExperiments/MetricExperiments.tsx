@@ -7,7 +7,7 @@ import { date, datetime } from "shared/dates";
 import {
   ExperimentMetricInterface,
   getMetricResultStatus,
-  getVariationsForPhase,
+  getLatestPhaseVariations,
   isFactMetric,
 } from "shared/experiments";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
@@ -114,7 +114,7 @@ function MetricExperimentResultTab({
       }
     }
     const baseline = variationResults?.[0];
-    const expVariations = getVariationsForPhase(e, null);
+    const expVariations = getLatestPhaseVariations(e);
     expVariations.forEach((v, i) => {
       if (i === 0) return;
       let expVariationData: MetricExperimentData = {

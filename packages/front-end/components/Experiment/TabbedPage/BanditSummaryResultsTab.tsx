@@ -6,7 +6,6 @@ import { TbChartAreaLineFilled } from "react-icons/tb";
 import { BanditEvent } from "shared/validators";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { getSRMValue } from "shared/health";
-import { getVariationsForPhase } from "shared/experiments";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import BanditSummaryTable from "@/components/Experiment/BanditSummaryTable";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -78,7 +77,7 @@ export default function BanditSummaryResultsTab({
 
   const event: BanditEvent | undefined =
     phaseObj?.banditEvents?.[(phaseObj?.banditEvents?.length ?? 1) - 1];
-  const phaseVariations = getVariationsForPhase(experiment, phaseObj);
+  const phaseVariations = phaseObj?.variations ?? [];
   const users = phaseVariations.map(
     (_, i) => event?.banditResult?.singleVariationResults?.[i]?.users ?? 0,
   );

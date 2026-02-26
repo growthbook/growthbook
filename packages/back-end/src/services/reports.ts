@@ -20,7 +20,6 @@ import {
   parseSliceMetricId,
   SliceLevelsData,
   getEffectiveLookbackOverride,
-  getVariationsForPhase,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
 import uniqid from "uniqid";
@@ -85,10 +84,9 @@ import { findDimensionsByOrganization } from "back-end/src/models/DimensionModel
 import { getEffectiveAccountPlan } from "back-end/src/enterprise";
 
 export function getReportVariations(
-  experiment: ExperimentInterface,
   phase: ExperimentPhase,
 ): ExperimentReportVariation[] {
-  return getVariationsForPhase(experiment, phase).map((v, i) => {
+  return phase.variations.map((v, i) => {
     return {
       id: v.key || i + "",
       name: v.name,
@@ -139,7 +137,7 @@ export function reportArgsFromSnapshot(
     startDate: snapshot.settings.startDate,
     endDate: snapshot.settings.endDate,
     dimension: snapshot.dimension || undefined,
-    variations: getReportVariations(experiment, phase),
+    variations: getReportVariations(phase),
     coverage: snapshot.settings.coverage,
     segment: snapshot.settings.segment,
     goalMetrics: experiment.goalMetrics,

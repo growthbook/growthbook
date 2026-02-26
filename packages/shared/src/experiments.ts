@@ -30,6 +30,7 @@ import {
   AttributionModel,
   ExperimentInterface,
   ExperimentInterfaceStringDates,
+  ExperimentPhase,
   LookbackOverride,
   MetricOverride,
 } from "shared/types/experiment";
@@ -50,7 +51,7 @@ import {
 } from "shared/types/stats";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { TemplateVariables } from "../types/sql";
-import { stringToBoolean } from "./util";
+import { generateVariationId, stringToBoolean } from "./util";
 
 export type ExperimentMetricInterface = MetricInterface | FactMetricInterface;
 
@@ -1486,88 +1487,112 @@ export function generateSliceStringFromLevels(
 
 export type VariationWithWeight = Variation & { weight: number };
 
-type PhaseWithVariationInfo = {
-  variations?: Variation[];
-  variationWeights?: number[];
-};
 type ExperimentWithPhases = {
-  phases: PhaseWithVariationInfo[];
+  phases: Pick<ExperimentPhase, "variations" | "variationWeights">[];
 };
 
-/**
- * Returns the full list of variations for a phase.
- * Falls back to the latest phase on the experiment when phase is null/undefined.
- */
-export function getVariationsForPhase(
+export function getLatestPhaseVariations(
   experiment: ExperimentWithPhases,
-  phase: PhaseWithVariationInfo | null,
 ): Variation[] {
-  if (phase) return phase.variations ?? [];
   const lastPhase = experiment.phases[experiment.phases.length - 1];
+  //if (includeDisabledVariations) {
   return lastPhase?.variations ?? [];
+  //}
+  //return lastPhase?.variations?.filter((v) => v.status === "active") ?? [];
 }
 
-export function getVariationWeightsForPhase(
+export function getLatestPhaseVariationsWithWeights(
   experiment: ExperimentWithPhases,
-  phase: Pick<PhaseWithVariationInfo, "variationWeights"> | null,
-): number[] {
-  if (phase) return phase.variationWeights ?? [];
-  const lastPhase = experiment.phases[experiment.phases.length - 1];
-  return lastPhase?.variationWeights ?? [];
-}
-
-/**
- * Returns variations that are not disabled for the given phase.
- * Use for display, payload, snapshots.
- */
-export function getActiveVariationsForPhase(
-  experiment: ExperimentWithPhases,
-  phase: PhaseWithVariationInfo | null,
-): Variation[] {
-  return getVariationsForPhase(experiment, phase).filter(
-    (v) => v.status === "active",
-  );
-}
-
-/**
- * Returns variations with weights
- */
-export function getVariationWithWeightsForPhase(
-  experiment: ExperimentWithPhases,
-  phase: PhaseWithVariationInfo | null,
 ): VariationWithWeight[] {
-  const variations = getVariationsForPhase(experiment, phase);
-  const weights = getVariationWeightsForPhase(experiment, phase);
-  return variations.map((v, i) => ({
-    ...v,
-    weight: weights[i] ?? 0,
+  const lastPhase = experiment.phases[experiment.phases.length - 1];
+  return getVariationsWithWeights(lastPhase);
+}
+
+// includes disabled variations
+export function getVariationsWithWeights(
+  phase: Pick<ExperimentPhase, "variations" | "variationWeights"> | null,
+): VariationWithWeight[] {
+  const variationWithWeights: VariationWithWeight[] = [];
+  // if (includeDisabledVariations) {
+  phase?.variations?.forEach((v, i) => {
+    variationWithWeights.push({
+      ...v,
+      weight: phase?.variationWeights?.[i] ?? 0,
+    });
+  });
+  // } else {
+  //   phase?.variations?.forEach((v, i) => {
+  //     if (v.status === "active") {
+  //       variationWithWeights.push({
+  //         ...v,
+  //         weight: phase?.variationWeights?.[i] ?? 0,
+  //       });
+  //     }
+  //   });
+  // }
+  return variationWithWeights;
+}
+
+/**
+ * Creates initial variations for a new experiment.
+ * @param nVariations - The number of variations to create.
+ * @returns The initial variations.
+ */
+export function createInitialVariations(nVariations: number): Variation[] {
+  return Array.from({ length: nVariations }, (_, i) => ({
+    id: generateVariationId(),
+    name: i ? `Variation ${i}` : "Control",
+    description: "",
+    key: `${i}`,
+    screenshots: [],
+    status: "active" as const,
   }));
 }
 
-/**
- * Returns active (non-disabled) variations with their weights.
- * Combines getActiveVariationsForPhase + getActiveVariationWeightsForPhase.
- */
-export function getActiveVariationsWithWeightsForPhase(
-  experiment: ExperimentWithPhases,
-  phase: PhaseWithVariationInfo | null,
-): VariationWithWeight[] {
-  return getVariationWithWeightsForPhase(experiment, phase).filter(
-    (v) => v.status === "active",
-  );
-}
+// Creates a dummy phase with the given partial phase data
+// This is used to create a dummy phase when no phases exist
+// in an experiment, which should be an edge case
+export function createInitialPhase(
+  partialPhase: Partial<ExperimentPhase>,
+): ExperimentPhase {
+  let variations: Variation[] = partialPhase.variations ?? [];
+  let variationWeights: number[] = partialPhase.variationWeights ?? [];
 
-/**
- * Returns weights for active (non-disabled) variations only.
- * Use for display, payload, snapshots.
- */
-export function getActiveVariationWeightsForPhase(
-  experiment: ExperimentWithPhases,
-  phase: PhaseWithVariationInfo | null,
-): number[] {
-  return getActiveVariationsWithWeightsForPhase(experiment, phase).map(
-    (v) => v.weight,
-  );
+  if (
+    partialPhase.variationWeights?.length &&
+    !partialPhase.variations?.length
+  ) {
+    // If only weights exist, create variations based on the number of weights
+    variationWeights = partialPhase.variationWeights;
+    variations = createInitialVariations(partialPhase.variationWeights.length);
+  } else if (
+    partialPhase.variations?.length &&
+    !partialPhase.variationWeights?.length
+  ) {
+    // If only variations exist, create weights based on the number of variations
+    variationWeights = getEqualWeights(partialPhase.variations.length);
+    variations = partialPhase.variations;
+  }
+
+  // If both exis and are different lengths, just pass them through!
+
+  // TODO: Holdouts?
+  return {
+    name: "Main",
+    // Need to update this whenever starting an experiment
+    dateStarted: new Date(),
+    coverage: 1,
+    namespace: {
+      enabled: false,
+      name: "",
+      range: [0, 1],
+    },
+    reason: "",
+    condition: "",
+    ...partialPhase,
+    variationWeights,
+    variations,
+  };
 }
 
 // Returns n "equal" decimals rounded to 3 places that add up to 1

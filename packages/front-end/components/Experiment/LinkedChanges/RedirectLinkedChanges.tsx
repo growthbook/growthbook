@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { getVariationsForPhase } from "shared/experiments";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { diffChars } from "diff";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import { Box, Flex, Text } from "@radix-ui/themes";
@@ -76,7 +76,7 @@ const Redirect = ({
   const { apiCall } = useAuth();
   const [editingRedirect, setEditingRedirect] = useState<boolean>(false);
   const originUrl = urlRedirect.urlPattern;
-  const variations = getVariationsForPhase(experiment, null);
+  const variations = getLatestPhaseVariations(experiment);
 
   return (
     <>
