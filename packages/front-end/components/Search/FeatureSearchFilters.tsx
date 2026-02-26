@@ -1,7 +1,11 @@
-import React, { FC, useMemo } from "react";
-import { Flex } from "@radix-ui/themes";
+import { FC, useCallback, useMemo } from "react";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { PiX } from "react-icons/pi";
+import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
 import { useEnvironments } from "@/services/features";
 import Tag from "@/components/Tags/Tag";
+import Button from "@/ui/Button";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import {
   BaseSearchFiltersProps,
@@ -11,6 +15,54 @@ import {
   SearchFiltersItem,
   useSearchFiltersBase,
 } from "@/components/Search/SearchFilters";
+
+// Remove a single env value from a field token in the raw search string.
+// e.g. removeEnvValue("on:prod,staging off:dev", "on", "staging") → "on:prod off:dev"
+function removeEnvValue(
+  searchStr: string,
+  field: string,
+  value: string,
+): string {
+  const prefix = `${field}:`;
+  return searchStr
+    .split(/\s+/)
+    .map((token) => {
+      if (!token.startsWith(prefix)) return token;
+      const values = token
+        .slice(prefix.length)
+        .split(",")
+        .filter((v) => v !== value);
+      return values.length > 0 ? `${prefix}${values.join(",")}` : "";
+    })
+    .filter(Boolean)
+    .join(" ");
+}
+
+// Toggle a single env value within a field token in the raw search string.
+// Adds the token if the field is absent; removes the value if already present.
+function toggleEnvValue(
+  searchStr: string,
+  field: string,
+  value: string,
+): string {
+  const prefix = `${field}:`;
+  const tokens = searchStr.split(/\s+/).filter(Boolean);
+  const idx = tokens.findIndex((t) => t.startsWith(prefix));
+  if (idx === -1) {
+    return [...tokens, `${prefix}${value}`].join(" ");
+  }
+  const values = tokens[idx].slice(prefix.length).split(",");
+  const next = values.includes(value)
+    ? values.filter((v) => v !== value)
+    : [...values, value];
+  const updated = [...tokens];
+  if (next.length > 0) {
+    updated[idx] = `${prefix}${next.join(",")}`;
+  } else {
+    updated.splice(idx, 1);
+  }
+  return updated.join(" ");
+}
 
 const FeatureSearchFilters: FC<
   BaseSearchFiltersProps & {
@@ -36,41 +88,32 @@ const FeatureSearchFilters: FC<
     syntaxFilters,
     setSearchValue,
   });
-  // get the environments:
   const environments = useEnvironments();
 
-  // Feature specific state
   const availableTags = useMemo(() => {
-    const availableTags: string[] = [];
+    const tags: string[] = [];
     features.forEach((item) => {
-      if (item.tags) {
-        item.tags.forEach((tag) => {
-          if (!availableTags.includes(tag)) {
-            availableTags.push(tag);
-          }
-        });
-      }
+      item.tags?.forEach((tag) => {
+        if (!tags.includes(tag)) tags.push(tag);
+      });
     });
-    return availableTags;
+    return tags;
   }, [features]);
 
   const owners = useMemo(() => {
-    const owners = new Set<string>();
+    const set = new Set<string>();
     features.forEach((f) => {
-      if (f.owner) {
-        owners.add(f.owner);
-      }
+      if (f.owner) set.add(f.owner);
     });
-    return Array.from(owners);
+    return Array.from(set);
   }, [features]);
 
   const availableFeatureTypes = useMemo(() => {
-    const featureTypes = new Set<string>();
-    features.forEach((f) => {
-      featureTypes.add(f.valueType);
-    });
-    return Array.from(featureTypes);
+    const set = new Set<string>();
+    features.forEach((f) => set.add(f.valueType));
+    return Array.from(set);
   }, [features]);
+
   const allFeatureTypes: SearchFiltersItem[] = [
     {
       name: "Boolean (true/false)",
@@ -98,24 +141,17 @@ const FeatureSearchFilters: FC<
     },
   ];
 
-  const onEnv = environments.map((e) => {
-    return {
-      searchValue: e.id,
-      id: "on-env-" + e.id,
-      name: "On - " + e.id,
-    };
-  });
-  const offEnv = environments.map((e, i) => {
-    return {
-      filter: "off",
-      searchValue: e.id,
-      id: "off-env-" + e.id,
-      name: "Off - " + e.id,
-      hr: i === 0,
-    };
-  });
-  // merge onEnv and offEnv:
-  const allEnv = [...onEnv, ...offEnv];
+  // Atomically swap on:/off: for the same env so contradictory states can't persist.
+  // updateQuery can't be called twice (stale closure), so we mutate the raw string directly.
+  const updateEnvQuery = useCallback(
+    (field: "on" | "off", envId: string) => {
+      const oppositeField = field === "on" ? "off" : "on";
+      let value = removeEnvValue(searchInputProps.value, oppositeField, envId);
+      value = toggleEnvValue(value, field, envId);
+      setSearchValue(value);
+    },
+    [searchInputProps.value, setSearchValue],
+  );
 
   return (
     <Flex gap="5" align="center">
@@ -125,10 +161,13 @@ const FeatureSearchFilters: FC<
           syntaxFilters={syntaxFilters}
           open={dropdownFilterOpen}
           setOpen={setDropdownFilterOpen}
-          items={projects.map((p) => {
-            return { name: p.name, id: p.id, searchValue: p.name };
-          })}
+          items={projects.map((p) => ({
+            name: p.name,
+            id: p.id,
+            searchValue: p.name,
+          }))}
           updateQuery={updateQuery}
+          menuPlacement="end"
         />
       )}
       <FilterDropdown
@@ -136,24 +175,22 @@ const FeatureSearchFilters: FC<
         syntaxFilters={syntaxFilters}
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}
-        items={owners.map((o) => {
-          return { name: o, id: o, searchValue: o };
-        })}
+        items={owners.map((o) => ({ name: o, id: o, searchValue: o }))}
         updateQuery={updateQuery}
+        menuPlacement="end"
       />
       <FilterDropdown
         filter="tag"
         syntaxFilters={syntaxFilters}
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}
-        items={availableTags.map((t) => {
-          return {
-            name: <Tag tag={t} key={t} skipMargin={true} variant="dot" />,
-            id: t,
-            searchValue: t,
-          };
-        })}
+        items={availableTags.map((t) => ({
+          name: <Tag tag={t} key={t} skipMargin={true} variant="dot" />,
+          id: t,
+          searchValue: t,
+        }))}
         updateQuery={updateQuery}
+        menuPlacement="end"
       />
       <FilterDropdown
         filter="type"
@@ -162,22 +199,82 @@ const FeatureSearchFilters: FC<
         setOpen={setDropdownFilterOpen}
         items={allFeatureTypes}
         updateQuery={updateQuery}
+        menuPlacement="end"
       />
-      <FilterDropdown
-        filter="on"
-        heading="environment"
-        syntaxFilters={syntaxFilters}
-        open={dropdownFilterOpen}
-        setOpen={setDropdownFilterOpen}
-        items={allEnv}
-        updateQuery={updateQuery}
-      />
+
+      {/* Environment filter: per-env row with on/off toggles */}
+      <DropdownMenu
+        trigger={FilterHeading({
+          heading: "environment",
+          open: dropdownFilterOpen === "on",
+        })}
+        open={dropdownFilterOpen === "on"}
+        menuPlacement="end"
+        onOpenChange={(o) => setDropdownFilterOpen(o ? "on" : "")}
+      >
+        <Box px="2" py="1" mb="1">
+          <Heading as="h4" size="x-small">
+            Filter by environment
+          </Heading>
+        </Box>
+        <Box style={{ minWidth: "220px" }}>
+          {environments.map((e) => {
+            const isOn = doesFilterExist("on", e.id, "");
+            const isOff = doesFilterExist("off", e.id, "");
+            return (
+              <Box key={e.id} px="2" py="1">
+                <Flex align="center" gap="2">
+                  <Box style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
+                    <Text truncate>{e.id}</Text>
+                  </Box>
+                  <Button
+                    size="xs"
+                    variant={isOn ? "solid" : "ghost"}
+                    color={isOn ? "violet" : "gray"}
+                    onClick={() => updateEnvQuery("on", e.id)}
+                  >
+                    On
+                  </Button>
+                  <Button
+                    size="xs"
+                    variant={isOff ? "solid" : "ghost"}
+                    color={isOff ? "violet" : "gray"}
+                    onClick={() => updateEnvQuery("off", e.id)}
+                  >
+                    Off
+                  </Button>
+                  <IconButton
+                    size="1"
+                    variant="ghost"
+                    color="gray"
+                    ml="2"
+                    style={{ visibility: isOn || isOff ? "visible" : "hidden" }}
+                    onClick={() => {
+                      let value = removeEnvValue(
+                        searchInputProps.value,
+                        "on",
+                        e.id,
+                      );
+                      value = removeEnvValue(value, "off", e.id);
+                      setSearchValue(value);
+                    }}
+                  >
+                    <PiX />
+                  </IconButton>
+                </Flex>
+              </Box>
+            );
+          })}
+        </Box>
+      </DropdownMenu>
+
       <DropdownMenu
         trigger={FilterHeading({
           heading: "more",
           open: dropdownFilterOpen === "more",
         })}
         open={dropdownFilterOpen === "more"}
+        menuPlacement="end"
         onOpenChange={(o) => {
           setDropdownFilterOpen(o ? "more" : "");
         }}

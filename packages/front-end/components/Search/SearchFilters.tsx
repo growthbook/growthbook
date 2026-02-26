@@ -92,6 +92,7 @@ export const FilterDropdown: FC<{
   updateQuery: (filter: SyntaxFilter) => void;
   operator?: string;
   heading?: string;
+  menuPlacement?: "start" | "center" | "end";
 }> = ({
   filter,
   items,
@@ -101,6 +102,7 @@ export const FilterDropdown: FC<{
   syntaxFilters,
   operator = "",
   heading,
+  menuPlacement = "start",
 }) => {
   const [filterSearch, setFilterSearch] = useState<string>("");
   const showSearchFilter = useMemo(
@@ -133,7 +135,9 @@ export const FilterDropdown: FC<{
         heading: heading ?? filter,
         open: open === filter,
       })}
+      variant="soft"
       open={open === filter}
+      menuPlacement={menuPlacement}
       onOpenChange={(o) => {
         setOpen(o ? filter : "");
       }}
@@ -149,8 +153,6 @@ export const FilterDropdown: FC<{
             onChange={(e) => setFilterSearch(e.target.value)}
             type="search"
             className="mt-2"
-            // Prevent events from propagating to parent which might close the dropdown
-            onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => {
               if (e.key !== "ArrowUp" && e.key !== "ArrowDown") {
                 e.stopPropagation();

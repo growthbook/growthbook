@@ -134,35 +134,36 @@ export default function FeaturesPage() {
     [featureItems],
   );
 
-  // Fetch statuses for visible features; fetch all when an env filter is active
-  useEffect(() => {
-    const hasEnvFilter = syntaxFilters.some(
-      (f) => f.field === "on" || f.field === "off",
-    );
-    if (hasEnvFilter) {
-      statusHook.fetchAll();
-    } else {
-      const ids = visibleIdsKey ? visibleIdsKey.split(",") : [];
-      if (ids.length) statusHook.fetchSome(ids);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visibleIdsKey, syntaxFilters]);
+  // fetchAll is triggered only by filter changes, not by visibleIdsKey changes.
+  // Keeping them separate prevents an infinite loop where fetchAll updates the data,
+  // which changes items, which changes visibleIdsKey, which re-triggers fetchAll.
+  const hasEnvFilter = syntaxFilters.some(
+    (f) => f.field === "on" || f.field === "off",
+  );
+  const hasDraftFilter = syntaxFilters.some(
+    (f) =>
+      (f.field === "is" && f.values.includes("draft")) ||
+      (f.field === "has" && f.values.includes("draft")),
+  );
 
-  // Fetch draft states for visible features; fetch all when a draft filter is active
   useEffect(() => {
-    const hasDraftFilter = syntaxFilters.some(
-      (f) =>
-        (f.field === "is" && f.values.includes("draft")) ||
-        (f.field === "has" && f.values.includes("draft")),
-    );
-    if (hasDraftFilter) {
-      draftHook.fetchAll();
-    } else {
-      const ids = visibleIdsKey ? visibleIdsKey.split(",") : [];
-      if (ids.length) draftHook.fetchSome(ids);
-    }
+    if (hasEnvFilter) statusHook.fetchAll();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visibleIdsKey, syntaxFilters]);
+  }, [hasEnvFilter]);
+
+  useEffect(() => {
+    if (hasDraftFilter) draftHook.fetchAll();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasDraftFilter]);
+
+  // fetchSome for visible features when no bulk filter is active
+  useEffect(() => {
+    const ids = visibleIdsKey ? visibleIdsKey.split(",") : [];
+    if (!ids.length) return;
+    if (!hasEnvFilter) statusHook.fetchSome(ids);
+    if (!hasDraftFilter) draftHook.fetchSome(ids);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleIdsKey]);
 
   // Reset featureToDuplicate when modal closes
   useEffect(() => {
