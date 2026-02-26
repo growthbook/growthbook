@@ -635,12 +635,12 @@ def analyze_metric_df(
 
 
 def get_metric_response(
-    metric_row: pd.DataFrame, statistic: TestStatistic, v: int, isQuantile: bool
+    metric_row: pd.DataFrame, statistic: TestStatistic, v: int, is_quantile: bool
 ) -> BaselineResponse:
     prefix = f"v{v}" if v > 0 else "baseline"
 
     count = metric_row[f"{prefix}_count"].sum()
-    if isQuantile:
+    if is_quantile:
         # replace count with quantile_n for quantile metrics
         count = metric_row[f"{prefix}_quantile_n"].sum()
     stats = MetricStats(
