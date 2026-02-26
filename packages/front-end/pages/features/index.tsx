@@ -85,7 +85,10 @@ export default function FeaturesPage() {
     error,
     mutate,
     hasArchived,
-  } = useFeatureMetaInfo({ project: project || undefined });
+  } = useFeatureMetaInfo({
+    project: project || undefined,
+    includeDefaultValue: true,
+  });
 
   // Track whether archived features should be shown (controlled by is:archived filter).
   // useFeatureMetaInfo always returns all features; this controls client-side display.
