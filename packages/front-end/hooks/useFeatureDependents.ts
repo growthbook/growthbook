@@ -8,13 +8,8 @@ export type FeatureDependents = {
   experiments: ExperimentRef[];
 };
 
-// Fetches features and experiments that list the given feature as a prerequisite.
-// Uses GET /features/dependents which runs getDependentFeatures/getDependentExperiments
-// server-side, so only result IDs are sent down the wire instead of full feature docs.
-//
-// The result is cached globally by SWR key (orgId + featureId). dedupingInterval:30s
-// prevents the delete/archive modal (which mounts seconds after the page) from triggering
-// a duplicate fetch. After 5 minutes the cache is considered expired and re-fetched on next mount.
+// Features and experiments that directly list the given feature as a prerequisite (1-hop).
+// Cached for 5 minutes to avoid duplicate fetches when the delete modal mounts shortly after the page.
 export function useFeatureDependents(featureId: string | null | undefined): {
   dependents: FeatureDependents | null;
   loading: boolean;

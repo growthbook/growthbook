@@ -1,6 +1,8 @@
 import type { Response } from "express";
 import { isEqual } from "lodash";
 import {
+  featuresReferencingSavedGroups,
+  experimentsReferencingSavedGroups,
   formatByteSizeString,
   SAVED_GROUP_SIZE_LIMIT_BYTES,
   ID_LIST_DATATYPES,
@@ -14,6 +16,8 @@ import {
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
+import { getAllFeatures } from "back-end/src/models/FeatureModel";
+import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 
 // region POST /saved-groups
 
@@ -519,6 +523,104 @@ export const deleteSavedGroup = async (
 };
 
 // endregion DELETE /saved-groups/:id
+
+// region GET /saved-groups/:id/references
+
+type SavedGroupReferencesResponse = {
+  status: 200;
+  features: { id: string; name: string; project?: string }[];
+  experiments: {
+    id: string;
+    name: string;
+    project?: string;
+    projects?: string[];
+  }[];
+  savedGroups: { id: string; groupName: string; projects?: string[] }[];
+};
+
+/**
+ * GET /saved-groups/:id/references
+ * Returns features, experiments, and saved groups that reference this saved group.
+ * Checks direct references plus one level of saved-group chaining (saved groups whose
+ * condition directly contains this group's ID, and features/experiments that reference those).
+ */
+export const getSavedGroupReferences = async (
+  req: AuthRequest<null, { id: string }>,
+  res: Response<SavedGroupReferencesResponse>,
+) => {
+  const { id } = req.params;
+  const context = getContextFromReq(req);
+
+  const allSavedGroups = await context.models.savedGroups.getAll();
+  const targetGroup = allSavedGroups.find((sg) => sg.id === id);
+  if (!targetGroup) {
+    res
+      .status(404)
+      .json({ status: 200, features: [], experiments: [], savedGroups: [] });
+    return;
+  }
+
+  // Saved groups whose condition string directly references this group (one level of chaining)
+  const savedGroupsReferencingTarget = allSavedGroups.filter(
+    (sg) => sg.id !== id && sg.condition?.includes(id),
+  );
+
+  const savedGroupsToCheck = [targetGroup, ...savedGroupsReferencingTarget];
+
+  const environments = context.org.settings?.environments || [];
+
+  const [allFeatures, allExperiments] = await Promise.all([
+    getAllFeatures(context, {}),
+    getAllExperiments(context, {}),
+  ]);
+
+  const featureRefMap = featuresReferencingSavedGroups({
+    savedGroups: savedGroupsToCheck,
+    features: allFeatures,
+    environments,
+  });
+
+  const experimentRefMap = experimentsReferencingSavedGroups({
+    savedGroups: savedGroupsToCheck,
+    experiments: allExperiments,
+  });
+
+  const featuresSet = new Map<
+    string,
+    { id: string; name: string; project?: string }
+  >();
+  const experimentsSet = new Map<
+    string,
+    { id: string; name: string; project?: string; projects?: string[] }
+  >();
+
+  for (const sg of savedGroupsToCheck) {
+    for (const f of featureRefMap[sg.id] ?? []) {
+      featuresSet.set(f.id, { id: f.id, name: f.id, project: f.project });
+    }
+    for (const e of experimentRefMap[sg.id] ?? []) {
+      experimentsSet.set(e.id, {
+        id: e.id,
+        name: e.name,
+        project: (e as { project?: string }).project,
+        projects: (e as { projects?: string[] }).projects,
+      });
+    }
+  }
+
+  return res.status(200).json({
+    status: 200,
+    features: Array.from(featuresSet.values()),
+    experiments: Array.from(experimentsSet.values()),
+    savedGroups: savedGroupsReferencingTarget.map((sg) => ({
+      id: sg.id,
+      groupName: sg.groupName,
+      projects: sg.projects,
+    })),
+  });
+};
+
+// endregion GET /saved-groups/:id/references
 
 export function validateListSize(
   values: Array<unknown>,
