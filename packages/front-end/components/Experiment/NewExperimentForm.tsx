@@ -82,7 +82,6 @@ import { useTemplates } from "@/hooks/useTemplates";
 import { convertTemplateToExperiment } from "@/services/experiments";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
 import Link from "@/ui/Link";
-import { docUrl } from "@/components/DocLink";
 import Markdown from "@/components/Markdown/Markdown";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import { AppFeatures } from "@/types/app-features";
@@ -606,8 +605,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const [linkNameWithTrackingKey, setLinkNameWithTrackingKey] = useState(true);
 
   let header = isNewExperiment
-    ? `Add new ${isBandit ? "Bandit" : "Experiment"}`
-    : "Add new Experiment Analysis";
+    ? `Add New ${isBandit ? "Bandit" : "Experiment"}`
+    : "Add New Experiment Analysis";
   if (duplicate) {
     header = `Duplicate ${isBandit ? "Bandit" : "Experiment"}`;
   }
@@ -1130,6 +1129,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           </div>
         </Page>
 
+        {/* Standard Experiments */}
         {!isBandit && (isNewExperiment || duplicate)
           ? ["Overview", "Traffic", "Targeting", "Metrics"].map((p, i) => {
               // skip, custom overview page above
@@ -1212,6 +1212,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             })
           : null}
 
+        {/* Bandit Experiments */}
         {isBandit && (isNewExperiment || duplicate)
           ? ["Overview", "Traffic", "Targeting", "Metrics"].map((p, i) => {
               // skip, custom overview page above
@@ -1289,6 +1290,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             })
           : null}
 
+        {/* Imported Experiments */}
         {!(isNewExperiment || duplicate) ? (
           <Page display="Targeting">
             <div>
@@ -1489,27 +1491,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 />
               )}
 
-              {isBandit && settings?.useStickyBucketing && (
-                <Checkbox
-                  mt="3"
-                  mb="3"
-                  size="lg"
-                  label={
-                    <Link
-                      href={docUrl("bandits")}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Disable Sticky bucketing
-                    </Link>
-                  }
-                  value={!!form.watch("disableStickyBucketing")}
-                  setValue={(v) => {
-                    form.setValue("disableStickyBucketing", v);
-                  }}
-                />
-              )}
-
               <ExperimentMetricsSelector
                 datasource={datasource?.id}
                 noLegacyMetrics={willExperimentBeIncludedInIncrementalRefresh}
@@ -1530,52 +1511,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 }
                 experimentId={initialValue?.id}
               />
-
-              {isBandit && (
-                <div className="form-group mt-3">
-                  <label className="font-weight-bold mb-1">
-                    Conversion window length
-                  </label>
-                  <div className="row align-items-center">
-                    <div className="col-auto">
-                      <Field
-                        {...form.register("banditConversionWindowValue", {
-                          valueAsNumber: true,
-                        })}
-                        type="number"
-                        min={0}
-                        max={999}
-                        step={"any"}
-                        style={{ width: 70 }}
-                      />
-                    </div>
-                    <div className="col-auto">
-                      <SelectField
-                        value={
-                          form.watch("banditConversionWindowUnit") || "hours"
-                        }
-                        onChange={(value) => {
-                          form.setValue(
-                            "banditConversionWindowUnit",
-                            value as "hours" | "days",
-                          );
-                        }}
-                        sort={false}
-                        options={[
-                          {
-                            label: "Hour(s)",
-                            value: "hours",
-                          },
-                          {
-                            label: "Day(s)",
-                            value: "days",
-                          },
-                        ]}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
 
             {isImport && (

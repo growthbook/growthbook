@@ -361,7 +361,7 @@ export default function BanditRefNewFields({
 
           {settings?.useStickyBucketing && (
             <Switch
-              label="Disable Sticky bucketing"
+              label="Disable Sticky Bucketing"
               description="Do not persist variation assignments for this experiment (overrides your organization settings)"
               value={!!form.watch("disableStickyBucketing")}
               onChange={(v) => {
