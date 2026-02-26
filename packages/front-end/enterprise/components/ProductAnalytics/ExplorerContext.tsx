@@ -5,6 +5,7 @@ import React, {
   useMemo,
   useCallback,
   useEffect,
+  useRef,
   ReactNode,
 } from "react";
 import { ColumnInterface } from "shared/types/fact-table";
@@ -98,6 +99,7 @@ export function ExplorerProvider({
     };
   });
   const [isStale, setIsStale] = useState(false);
+  const hasEverFetchedRef = useRef(false);
 
   const isEmpty = activeExplorerType === null;
 
@@ -204,17 +206,22 @@ export function ExplorerProvider({
     return isSubmittableConfig(cleanedDraftExploreState);
   }, [cleanedDraftExploreState]);
 
-  const hasData =
-    !!submittedExploreState?.dataset?.values?.length &&
-    submittedExploreState?.dataset?.values?.length > 0;
-
   const doSubmit = useCallback(
     async (options?: { cache?: CacheOption }) => {
       if (isEmpty || !isSubmittable) return;
 
-      const cache: CacheOption =
-        options?.cache ??
-        (isManagedWarehouse || !hasData ? "preferred" : "required");
+      let cache: CacheOption;
+      if (options?.cache) {
+        // explicitly set the cache option
+        cache = options.cache;
+      } else if (!hasEverFetchedRef.current || isManagedWarehouse) {
+        // first load or managed warehouse: use preferred cache
+        cache = "preferred";
+      } else {
+        // otherwise, use required cache
+        cache = "required";
+      }
+      hasEverFetchedRef.current = true;
 
       // Do the fetch (we keep previous exploration/submitted state visible until result arrives)
       const { data: fetchResult, error: fetchError } = await fetchData(
@@ -256,7 +263,6 @@ export function ExplorerProvider({
       activeExplorerType,
       isEmpty,
       isSubmittable,
-      hasData,
       cleanedDraftExploreState,
       onRunComplete,
       isManagedWarehouse,
@@ -277,7 +283,6 @@ export function ExplorerProvider({
   /** Handle auto-submit based on needsFetch and needsUpdate */
   useEffect(() => {
     if (!isSubmittable) return;
-    if (isStale) return;
     if (needsFetch) {
       doSubmit();
     } else if (needsUpdate && !needsFetch) {
@@ -290,7 +295,6 @@ export function ExplorerProvider({
     cleanedDraftExploreState,
     setSubmittedExploreState,
     isSubmittable,
-    isStale,
   ]);
 
   /** Clear staleness when draft matches submitted (known state) */

@@ -5,6 +5,7 @@ import {
   FactTableExplorationBlockInterface,
   DataSourceExplorationBlockInterface,
 } from "shared/enterprise";
+import { isEqual } from "lodash";
 import ExplorerSideBar from "@/enterprise/components/ProductAnalytics/SideBar/ExplorerSideBar";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 
@@ -38,7 +39,7 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
     "explorerAnalysisId" in block ? block.explorerAnalysisId : undefined;
 
   useEffect(() => {
-    if (needsUpdate) {
+    if (needsUpdate && !isEqual(block.config, draftExploreState)) {
       setBlock({
         ...block,
         config: draftExploreState,
