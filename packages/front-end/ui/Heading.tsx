@@ -10,6 +10,13 @@ type HeadingSizes =
   | "2x-large";
 type HeadingWeights = "medium" | "semibold";
 type HeadingAlign = "left" | "center" | "right";
+type HeadingWhiteSpace =
+  | "pre"
+  | "normal"
+  | "nowrap"
+  | "pre-wrap"
+  | "pre-line"
+  | "break-spaces";
 // NB: We might need to expand this to support RadixHeadingProps["color"], but being conservative for now.
 type HeadingColors = "text-high" | "text-mid" | "text-low";
 
@@ -36,6 +43,7 @@ export interface HeadingProps {
   color?: HeadingColors;
   align?: HeadingAlign;
   title?: string;
+  whiteSpace?: HeadingWhiteSpace;
 
   // Margin props
   m?: RadixHeadingProps["m"];
@@ -55,6 +63,7 @@ export default function Heading({
   color,
   align = "left",
   title,
+  whiteSpace,
   m,
   mx,
   my,
@@ -63,7 +72,7 @@ export default function Heading({
   mb,
   ml,
 }: HeadingProps) {
-  const style: React.CSSProperties = {};
+  const style: React.CSSProperties = whiteSpace ? { whiteSpace } : {};
 
   if (color === "text-high") {
     style.color = "var(--color-text-high)";

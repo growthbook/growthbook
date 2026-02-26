@@ -991,7 +991,9 @@ export default function FeaturesOverview({
                 <Flex
                   align="center"
                   justify="between"
-                  gap="2"
+                  gapX="2"
+                  gapY="0"
+                  mr="5"
                   width={{ initial: "98%", sm: "70%", md: "60%", lg: "50%" }}
                 >
                   <Box width="100%">
