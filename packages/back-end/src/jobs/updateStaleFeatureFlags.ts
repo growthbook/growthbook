@@ -1,4 +1,5 @@
 import Agenda, { Job } from "agenda";
+import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import { logger } from "back-end/src/util/logger";
 import {
   FeatureModel,
@@ -7,7 +8,6 @@ import {
 } from "back-end/src/models/FeatureModel";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { getRevisionsByStatus } from "back-end/src/models/FeatureRevisionModel";
-import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 
 const QUEUE_JOB_NAME = "queueStaleFeatureUpdates";

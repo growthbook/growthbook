@@ -177,8 +177,8 @@ export async function getFeatureRevisionsByStatus({
   const statusFilter = Array.isArray(status)
     ? { status: { $in: status } }
     : status
-    ? { status }
-    : {};
+      ? { status }
+      : {};
   const docs = await FeatureRevisionModel.find({
     organization,
     featureId,
