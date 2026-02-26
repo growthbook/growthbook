@@ -1363,7 +1363,7 @@ describe("isFeatureStale", () => {
       expect(result.envResults.prod).toMatchObject({
         stale: true,
         reason: "no-rules",
-        evaluatesTo: false,
+        evaluatesTo: "false",
       });
     });
 
@@ -1389,7 +1389,7 @@ describe("isFeatureStale", () => {
       expect(result.envResults.prod).toMatchObject({
         stale: true,
         reason: "rules-one-sided",
-        evaluatesTo: true,
+        evaluatesTo: "true",
       });
     });
 
@@ -1467,24 +1467,24 @@ describe("isFeatureStale", () => {
       });
     });
 
-    it("parses JSON evaluatesTo correctly", () => {
+    it("stores JSON evaluatesTo as raw string", () => {
       feature.defaultValue = '{"key":"val"}';
       feature.valueType = "json";
       feature.environmentSettings = {
         prod: { enabled: true, rules: [] },
       };
       const result = isFeatureStale({ feature });
-      expect(result.envResults.prod?.evaluatesTo).toEqual({ key: "val" });
+      expect(result.envResults.prod?.evaluatesTo).toBe('{"key":"val"}');
     });
 
-    it("parses number evaluatesTo correctly", () => {
+    it("stores number evaluatesTo as raw string", () => {
       feature.defaultValue = "42";
       feature.valueType = "number";
       feature.environmentSettings = {
         prod: { enabled: true, rules: [] },
       };
       const result = isFeatureStale({ feature });
-      expect(result.envResults.prod?.evaluatesTo).toBe(42);
+      expect(result.envResults.prod?.evaluatesTo).toBe("42");
     });
   });
 

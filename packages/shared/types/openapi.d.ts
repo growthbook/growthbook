@@ -8426,7 +8426,7 @@ export interface operations {
                  * @enum {string|null}
                  */
                 reason: "no-rules" | "rules-one-sided" | "abandoned-draft" | "toggled-off" | null;
-                /** @description The deterministic value this feature evaluates to in this environment (no rules or all rules unconditional), in the same string format as feature.defaultValue. Only present when deterministic. */
+                /** @description The deterministic value this feature evaluates to in this environment (no rules or all rules unconditional). Uses the same raw string encoding as `feature.defaultValue`: booleans are `"true"`/`"false"`, numbers are numeric strings, strings are plain text, and JSON-type features are a JSON-encoded string. Only present when deterministic. */
                 evaluatesTo?: string;
               }) | undefined;
             };

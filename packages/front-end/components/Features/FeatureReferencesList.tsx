@@ -88,7 +88,7 @@ const FeatureReferencesList: FC<FeatureReferencesListProps> = ({
               {experiments.map((experiment) => (
                 <li key={experiment.id}>
                   <Link href={`/experiment/${experiment.id}`} target="_blank">
-                    {experiment.name}
+                    {experiment.name ?? experiment.id}
                   </Link>
                 </li>
               ))}

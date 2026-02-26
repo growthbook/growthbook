@@ -88,6 +88,8 @@ responses:
                     type: string
                     description: >
                       The deterministic value this feature evaluates to in this
-                      environment (no rules or all rules unconditional), in the
-                      same string format as feature.defaultValue.
-                      Only present when deterministic.
+                      environment (no rules or all rules unconditional). Uses
+                      the same raw string encoding as `feature.defaultValue`:
+                      booleans are `"true"`/`"false"`, numbers are numeric
+                      strings, strings are plain text, and JSON-type features
+                      are a JSON-encoded string. Only present when deterministic.
