@@ -142,7 +142,7 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
       result.push({
         id: `experiment::${e.id}`,
         type: "experiment",
-        name: e.name,
+        name: e.name || "",
         description: e.description || "",
         url: `/experiment/${e.id}`,
         tags: (e.tags || []).join(" "),
@@ -154,7 +154,7 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
       result.push({
         id: `metric::${m.id}`,
         type: "metric",
-        name: m.name,
+        name: m.name || "",
         description: m.description || "",
         url: getMetricLink(m.id),
         tags: (m.tags || []).join(" "),
@@ -166,7 +166,7 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
       result.push({
         id: `metric::${fm.id}`,
         type: "metric",
-        name: fm.name,
+        name: fm.name || "",
         description: fm.description || "",
         url: getMetricLink(fm.id),
         tags: (fm.tags || []).join(" "),
@@ -178,7 +178,7 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
       result.push({
         id: `metric::mg-${mg.id}`,
         type: "metric",
-        name: mg.name,
+        name: mg.name || "",
         description: mg.description || "",
         url: `/metric-groups/${mg.id}`,
         tags: (mg.tags || []).join(" "),
@@ -190,7 +190,7 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
       result.push({
         id: `savedGroup::${sg.id}`,
         type: "savedGroup",
-        name: sg.groupName,
+        name: sg.groupName || "",
         description: "",
         url: `/saved-groups/${sg.id}`,
         tags: "",
