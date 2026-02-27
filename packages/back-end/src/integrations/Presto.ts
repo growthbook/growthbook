@@ -38,6 +38,9 @@ export default class Presto extends SqlIntegration {
   toTimestamp(date: Date) {
     return `from_iso8601_timestamp('${date.toISOString()}')`;
   }
+  toTimestampWithMs(date: Date) {
+    return this.toTimestamp(date);
+  }
   isWritingTablesSupported(): boolean {
     return true;
   }
