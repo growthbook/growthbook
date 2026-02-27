@@ -169,18 +169,15 @@ export default function FeaturesPage() {
                 {showProjectColumn && (
                   <TableColumnHeader>Project</TableColumnHeader>
                 )}
-                <SortableTableColumnHeader
-                  field="tags"
-                  style={{ maxWidth: 180 }}
-                >
+                <TableColumnHeader style={{ maxWidth: 180 }}>
                   Tags
-                </SortableTableColumnHeader>
+                </TableColumnHeader>
                 {toggleEnvs.map((en) => (
                   <TableColumnHeader
                     key={en.id}
                     style={{ textAlign: "center" }}
                   >
-                    {en.id === "production" ? "Prod" : en.id}
+                    {en.id === "production" ? "prod" : en.id}
                   </TableColumnHeader>
                 ))}
                 <TableColumnHeader>Data Type</TableColumnHeader>
