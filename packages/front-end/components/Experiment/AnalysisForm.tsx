@@ -342,8 +342,8 @@ const AnalysisForm: FC<{
             throw new Error("Invalid Bandit schedule");
           }
           if (disableBanditConversionWindow) {
-            delete body.banditConversionWindowValue;
-            delete body.banditConversionWindowUnit;
+            body.banditConversionWindowValue = null;
+            body.banditConversionWindowUnit = null;
           } else if (
             !body.banditConversionWindowValue ||
             !body.banditConversionWindowUnit
