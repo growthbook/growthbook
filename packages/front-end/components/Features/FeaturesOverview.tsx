@@ -1,4 +1,3 @@
-import { useRouter } from "next/router";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import React, { useMemo, useState } from "react";
@@ -18,6 +17,7 @@ import { BiHide, BiShow } from "react-icons/bi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { BsClock } from "react-icons/bs";
 import {
+  PiArrowsLeftRightBold,
   PiCheckCircleFill,
   PiCircleDuotone,
   PiFileX,
@@ -25,8 +25,7 @@ import {
   PiPlusCircleBold,
 } from "react-icons/pi";
 import { FeatureUsageLookback } from "shared/types/integrations";
-import { Box, Flex, Heading, Text } from "@radix-ui/themes";
-import { RxListBullet } from "react-icons/rx";
+import { Box, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
 import {
   SafeRolloutInterface,
   HoldoutInterface,
@@ -61,9 +60,8 @@ import EventUser from "@/components/Avatar/EventUser";
 import RevertModal from "@/components/Features/RevertModal";
 import EditRevisionCommentModal from "@/components/Features/EditRevisionCommentModal";
 import FixConflictsModal from "@/components/Features/FixConflictsModal";
-import Revisionlog from "@/components/Features/RevisionLog";
+import CompareRevisionsModal from "@/components/Features/CompareRevisionsModal";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
-import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
@@ -97,6 +95,7 @@ export default function FeaturesOverview({
   revision,
   revisionList,
   loading,
+  revisionLoading,
   revisions,
   experiments,
   mutate,
@@ -112,6 +111,7 @@ export default function FeaturesOverview({
   revision: FeatureRevisionInterface | null;
   revisionList: MinimalFeatureRevisionInterface[];
   loading: boolean;
+  revisionLoading: boolean;
   revisions: FeatureRevisionInterface[];
   experiments: ExperimentInterfaceStringDates[] | undefined;
   safeRollouts: SafeRolloutInterface[] | undefined;
@@ -122,9 +122,6 @@ export default function FeaturesOverview({
   version: number | null;
   setVersion: (v: number) => void;
 }) {
-  const router = useRouter();
-  const { fid } = router.query;
-
   const settings = useOrgSettings();
   const [edit, setEdit] = useState(false);
   const [draftModal, setDraftModal] = useState(false);
@@ -135,7 +132,6 @@ export default function FeaturesOverview({
     `hide-disabled-rules`,
     false,
   );
-  const [logModal, setLogModal] = useState(false);
   const [prerequisiteModal, setPrerequisiteModal] = useState<{
     i: number;
   } | null>(null);
@@ -147,6 +143,8 @@ export default function FeaturesOverview({
   const [revertIndex, setRevertIndex] = useState(0);
 
   const [editCommentModel, setEditCommentModal] = useState(false);
+  const [compareRevisionsModalOpen, setCompareRevisionsModalOpen] =
+    useState(false);
 
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
@@ -174,9 +172,11 @@ export default function FeaturesOverview({
 
   const dependents = dependentFeatures.length + dependentExperiments.length;
 
-  const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
-    timeout: 800,
-  });
+  const { performCopy, copySuccess, copySupported, copyCooldown } =
+    useCopyToClipboard({
+      timeout: 800,
+      cooldown: 500,
+    });
 
   const mergeResult = useMemo(() => {
     if (!feature || !revision) return null;
@@ -400,26 +400,26 @@ export default function FeaturesOverview({
           </Button>,
         );
       } else if (revision.version > 1 && isLive) {
-        actions.push(
-          <Button
-            variant="ghost"
-            color="red"
-            onClick={() => {
-              const previousRevision = revisions
-                .filter(
-                  (r) =>
-                    r.status === "published" && r.version < feature.version,
-                )
-                .sort((a, b) => b.version - a.version)[0];
-              if (previousRevision) {
+        const previousRevision = revisions
+          .filter(
+            (r) => r.status === "published" && r.version < feature.version,
+          )
+          .sort((a, b) => b.version - a.version)[0];
+
+        if (previousRevision) {
+          actions.push(
+            <Button
+              variant="ghost"
+              color="red"
+              onClick={() => {
                 setRevertIndex(previousRevision.version);
-              }
-            }}
-            title="Create a new Draft based on this revision"
-          >
-            Revert to Previous
-          </Button>,
-        );
+              }}
+              title="Create a new Draft based on this revision"
+            >
+              Revert to Previous
+            </Button>,
+          );
+        }
       }
 
       if (drafts.length > 0 && isLocked && !isDraft) {
@@ -561,18 +561,7 @@ export default function FeaturesOverview({
               {ago(revision.dateUpdated)}
             </Box>
           )}
-          <Flex align="center" gap="2">
-            {renderStatusCopy()}
-            <Button
-              title="View log"
-              variant="ghost"
-              onClick={() => {
-                setLogModal(true);
-              }}
-            >
-              <RxListBullet />
-            </Button>
-          </Flex>
+          {renderStatusCopy()}
         </Flex>
       </Flex>
     );
@@ -1030,54 +1019,68 @@ export default function FeaturesOverview({
                 gap="4"
                 align={{ initial: "center" }}
                 direction={{ initial: "column", xs: "row" }}
-                justify="between"
+                wrap="wrap"
               >
                 <Flex
                   align="center"
                   justify="between"
+                  gap="2"
                   width={{ initial: "98%", sm: "70%", md: "60%", lg: "50%" }}
                 >
                   <Box width="100%">
                     <RevisionDropdown
                       feature={feature}
                       loading={loading}
+                      revisionLoading={revisionLoading}
                       version={currentVersion}
                       setVersion={setVersion}
                       revisions={revisionList || []}
                     />
                   </Box>
-                  <Box mx="6">
-                    <a
-                      title="Copy a link to this revision"
-                      href={`/features/${fid}?v=${version}`}
-                      className="position-relative"
-                      onClick={(e) => {
+                  <Tooltip
+                    body={
+                      copySuccess
+                        ? "Copied to clipboard!"
+                        : "Copy a link to this revision"
+                    }
+                    tipPosition="top"
+                    state={copySuccess}
+                    ignoreMouseEvents={!!copySuccess}
+                    shouldDisplay={!copyCooldown}
+                  >
+                    <IconButton
+                      variant="ghost"
+                      size="3"
+                      onClick={() => {
                         if (!copySupported) return;
-
-                        e.preventDefault();
                         const url =
                           window.location.href.replace(/[?#].*/, "") +
                           `?v=${version}`;
                         performCopy(url);
                       }}
+                      style={{ margin: 0 }}
                     >
-                      <FaLink />
-                      {copySuccess ? (
-                        <SimpleTooltip position="right">
-                          Copied to clipboard!
-                        </SimpleTooltip>
-                      ) : null}
-                    </a>
-                  </Box>
+                      <FaLink size={14} />
+                    </IconButton>
+                  </Tooltip>
                 </Flex>
                 <Flex
                   align={{ initial: "center", xs: "center", sm: "start" }}
                   justify="end"
-                  flexShrink="0"
                   direction={{ initial: "row", xs: "column", sm: "row" }}
-                  style={{ whiteSpace: "nowrap" }}
-                  gap="4"
+                  style={{ whiteSpace: "nowrap", marginLeft: "auto" }}
+                  gap="2"
                 >
+                  {(revisionList?.length ?? 0) >= 2 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setCompareRevisionsModalOpen(true)}
+                      icon={<PiArrowsLeftRightBold size={14} />}
+                    >
+                      Compare revisions
+                    </Button>
+                  )}
                   {renderRevisionCTA()}
                 </Flex>
               </Flex>
@@ -1253,19 +1256,6 @@ export default function FeaturesOverview({
             setVersion={setVersion}
           />
         )}
-        {logModal && revision && (
-          <Modal
-            trackingEventModalType=""
-            open={true}
-            close={() => setLogModal(false)}
-            header="Revision Log"
-            closeCta={"Close"}
-            size="lg"
-          >
-            <h3>Revision {revision.version}</h3>
-            <Revisionlog feature={feature} revision={revision} />
-          </Modal>
-        )}
         {reviewModal && revision && (
           <RequestReviewModal
             feature={baseFeature}
@@ -1340,6 +1330,15 @@ export default function FeaturesOverview({
             close={() => setPrerequisiteModal(null)}
             i={prerequisiteModal.i}
             mutate={mutate}
+          />
+        )}
+        {compareRevisionsModalOpen && (
+          <CompareRevisionsModal
+            feature={feature}
+            revisionList={revisionList || []}
+            revisions={revisions}
+            currentVersion={version ?? feature.version}
+            onClose={() => setCompareRevisionsModalOpen(false)}
           />
         )}
       </Box>

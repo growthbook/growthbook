@@ -10,6 +10,7 @@ import {
   mergeResultHasChanges,
 } from "shared/util";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { Flex } from "@radix-ui/themes";
 import {
   getAffectedRevisionEnvs,
   useEnvironments,
@@ -24,9 +25,12 @@ import {
   useFeatureRevisionDiff,
   featureToFeatureRevisionDiffInput,
 } from "@/hooks/useFeatureRevisionDiff";
+import Badge from "@/ui/Badge";
+import { logBadgeColor } from "@/components/Features/FeatureDiffRenders";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import { PreLaunchChecklistFeatureExpRule } from "@/components/Experiment/PreLaunchChecklist";
+import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 
 export interface Props {
   feature: FeatureInterface;
@@ -42,12 +46,16 @@ export function ExpandableDiff({
   title,
   a,
   b,
+  defaultOpen = false,
+  styles,
 }: {
   title: string;
   a: string;
   b: string;
+  defaultOpen?: boolean;
+  styles?: object;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
 
   if (a === b) return null;
 
@@ -72,11 +80,7 @@ export function ExpandableDiff({
             oldValue={a}
             newValue={b}
             compareMethod={DiffMethod.LINES}
-            styles={{
-              contentText: {
-                wordBreak: "break-all",
-              },
-            }}
+            styles={styles ?? { contentText: { wordBreak: "break-all" } }}
           />
         </div>
       )}
@@ -293,10 +297,50 @@ export default function DraftModal({
               </div>
             ) : null}
 
-            <h4>Review Diff</h4>
+            {resultDiffs.length > 0 && (
+              <>
+                <h4 className="mb-3">Summary of changes</h4>
+                {resultDiffs.flatMap((d) => d.badges ?? []).length > 0 && (
+                  <Flex wrap="wrap" gap="2" className="mb-3">
+                    {resultDiffs
+                      .flatMap((d) => d.badges ?? [])
+                      .map(({ label, action }) => (
+                        <Badge
+                          key={label}
+                          color={logBadgeColor(action)}
+                          variant="soft"
+                          label={label}
+                        />
+                      ))}
+                  </Flex>
+                )}
+                {resultDiffs.some((d) => d.customRender) && (
+                  <div className="list-group mb-4">
+                    {resultDiffs
+                      .filter((d) => d.customRender)
+                      .map((d) => (
+                        <div
+                          key={d.title}
+                          className="list-group-item list-group-item-light pb-3"
+                        >
+                          <strong className="d-block mb-2">{d.title}</strong>
+                          {d.customRender}
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </>
+            )}
+            <h4 className="mb-3">Change details</h4>
             <div className="list-group mb-4">
               {resultDiffs.map((diff) => (
-                <ExpandableDiff {...diff} key={diff.title} />
+                <ExpandableDiff
+                  key={diff.title}
+                  title={diff.title}
+                  a={diff.a}
+                  b={diff.b}
+                  styles={COMPACT_DIFF_STYLES}
+                />
               ))}
             </div>
             {hasPermission ? (

@@ -376,7 +376,7 @@
   },
   "packages/front-end/components/Features/RevisionDropdown.tsx": {
     "no-restricted-imports": {
-      "count": 2
+      "count": 1
     }
   },
   "packages/front-end/components/Features/RolloutSummary.tsx": {
@@ -385,11 +385,6 @@
     }
   },
   "packages/front-end/components/Features/Rule.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/RuleModal/ExperimentRefNewFields.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -724,11 +719,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Settings/EditDataSource/DataSourceInlineEditIdentifierTypes/DataSourceInlineEditIdentifierTypes.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Settings/EditDataSource/DataSourceInlineEditIdentityJoins/DataSourceInlineEditIdentityJoins.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -925,11 +915,6 @@
     }
   },
   "packages/front-end/pages/correlations.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    }
-  },
-  "packages/front-end/pages/datasources/[did].tsx": {
     "no-restricted-imports": {
       "count": 2
     }

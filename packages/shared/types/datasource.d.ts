@@ -181,6 +181,7 @@ export interface FeatureUsageQuery {
 export interface UserIdType {
   userIdType: string;
   description?: string;
+  attributes?: string[];
 }
 
 export type DataSourceEvents = {

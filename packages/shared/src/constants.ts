@@ -36,6 +36,10 @@ export const DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER = 5000;
 // Post-Stratification:
 export const DEFAULT_POST_STRATIFICATION_ENABLED = true;
 
+// Lookback Override:
+export const DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT = "days";
+export const DEFAULT_LOOKBACK_OVERRIDE_VALUE_DAYS = 14;
+
 // Query settings
 export const DEFAULT_TEST_QUERY_DAYS = 30;
 export const DEFAULT_USE_STICKY_BUCKETING = false;
@@ -107,6 +111,8 @@ export const SAFE_ROLLOUT_VARIATIONS = [
 export const UNSUPPORTED_METRIC_EXPLORER_TYPES: readonly FactMetricType[] = [
   "quantile",
 ] as const;
+
+export const MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID = "ch_events";
 
 export const sdkLanguages = [
   "nocode-webflow",

@@ -111,7 +111,7 @@ export async function getMinimalRevisions(
   })
     .select("version datePublished dateUpdated createdBy status")
     .sort({ version: -1 })
-    .limit(25);
+    .limit(200);
 
   return docs.map((m) => ({
     version: m.version,
@@ -202,6 +202,26 @@ export async function getRevision({
   }).select(includeLog ? undefined : "-log");
 
   return doc ? toInterface(doc, context) : null;
+}
+
+export async function getRevisionsByVersions({
+  context,
+  organization,
+  featureId,
+  versions,
+}: {
+  context: ReqContext | ApiReqContext;
+  organization: string;
+  featureId: string;
+  versions: number[];
+}) {
+  const docs = await FeatureRevisionModel.find({
+    organization,
+    featureId,
+    version: { $in: versions },
+  }).select("-log");
+
+  return docs.map((doc) => toInterface(doc, context));
 }
 
 export async function getRevisionsByStatus(

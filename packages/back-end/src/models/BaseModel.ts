@@ -3,7 +3,7 @@
 import { v4 as uuidv4 } from "uuid";
 import uniqid from "uniqid";
 import mongoose, { FilterQuery } from "mongoose";
-import { Collection } from "mongodb";
+import { AnyBulkWriteOperation, Collection } from "mongodb";
 import omit from "lodash/omit";
 import { z } from "zod";
 import { isEqual, pick } from "lodash";
@@ -25,6 +25,7 @@ import {
 } from "back-end/src/services/context";
 import { ApiRequest } from "back-end/src/util/handler";
 import { ApiBaseSchema, ApiModelConfig } from "back-end/src/api/ApiModel";
+import { dbSafeBulkWrite } from "back-end/src/util/mongo.util";
 
 export type Context = ApiReqContext | ReqContext;
 
@@ -313,7 +314,7 @@ export abstract class BaseModel<
   public async handleApiList(
     _req: ApiRequest<unknown, z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>,
   ): Promise<z.infer<ApiT>[]> {
-    return (await this.getAll()).map(this.toApiInterface);
+    return (await this.getAll()).map(this.toApiInterface.bind(this));
   }
   public async handleApiDelete(
     req: ApiRequest<
@@ -512,6 +513,7 @@ export abstract class BaseModel<
       skip,
       bypassReadPermissionChecks,
       projection,
+      dangerousCrossOrganization,
     }: {
       sort?: Partial<{
         [key in keyof Omit<z.infer<T>, "organization">]: 1 | -1;
@@ -521,13 +523,10 @@ export abstract class BaseModel<
       bypassReadPermissionChecks?: boolean;
       // Note: projection does not work when using config.yml
       projection?: Partial<Record<keyof z.infer<T>, 0 | 1>>;
+      dangerousCrossOrganization?: boolean;
     } = {},
   ) {
-    const fullQuery = {
-      ...this.getBaseQuery(),
-      ...query,
-      organization: this.context.org.id,
-    };
+    const fullQuery = this.applyBaseQuery(query, dangerousCrossOrganization);
     let rawDocs;
 
     if (this.useConfigFile()) {
@@ -578,11 +577,7 @@ export abstract class BaseModel<
   }
 
   protected async _findOne(query: ScopedFilterQuery<T>) {
-    const fullQuery = {
-      ...this.getBaseQuery(),
-      ...query,
-      organization: this.context.org.id,
-    };
+    const fullQuery = this.applyBaseQuery(query);
     const doc = this.useConfigFile()
       ? this.getConfigDocuments().find((doc) => evalCondition(doc, fullQuery))
       : await this._dangerousGetCollection().findOne(fullQuery);
@@ -624,9 +619,12 @@ export abstract class BaseModel<
       throw new Error("Cannot set dateUpdated field");
     }
 
-    // Add default owner if empty
+    // Add default owner and createdBy if empty
     if ("owner" in props && !props.owner) {
       props.owner = this.context.userName || "";
+    }
+    if ("createdBy" in props && !props.createdBy) {
+      props.createdBy = this.context.userName || "";
     }
 
     const ids: Identifiers = {
@@ -777,6 +775,52 @@ export abstract class BaseModel<
     }
 
     return newDoc;
+  }
+
+  protected async _dangerousCountDocumentsCrossOrganization(
+    filter: ScopedFilterQuery<T>,
+  ) {
+    return this._dangerousGetCollection().countDocuments(filter);
+  }
+
+  protected async _countDocuments(filter: ScopedFilterQuery<T>) {
+    const query = this.applyBaseQuery(filter);
+    return this._dangerousGetCollection().countDocuments(query);
+  }
+
+  protected async _dangerousBulkWriteCrossOrganization(
+    operations: AnyBulkWriteOperation[],
+  ) {
+    return dbSafeBulkWrite(this._dangerousGetCollection(), operations);
+  }
+
+  protected async bulkWrite(operations: AnyBulkWriteOperation[]) {
+    return dbSafeBulkWrite(
+      this._dangerousGetCollection(),
+      operations.map((op) => {
+        if ("insertOne" in op) {
+          return {
+            insertOne: {
+              ...op.insertOne,
+              document: {
+                ...op.insertOne.document,
+                organization: this.context.org.id,
+              },
+            },
+          };
+        } else if ("updateOne" in op) {
+          return {
+            updateOne: {
+              ...op.updateOne,
+              filter: this.applyBaseQuery(op.updateOne.filter),
+            },
+          };
+        }
+        return this.context.throwInternalServerError(
+          "Unsupported bulkWrite operation type in BaseModel#bulkWrite",
+        );
+      }),
+    );
   }
 
   protected async _deleteOne(doc: z.infer<T>, writeOptions?: WriteOptions) {
@@ -996,6 +1040,20 @@ export abstract class BaseModel<
 
   private getBaseQuery(): ScopedFilterQuery<T> {
     return this.config.baseQuery ?? {};
+  }
+
+  private applyBaseQuery(
+    filter: object,
+    dangerousCrossOrganization: boolean = false,
+  ): FilterQuery<z.infer<T>> {
+    const fullQuery: FilterQuery<z.infer<T>> = {
+      ...this.getBaseQuery(),
+      ...filter,
+    };
+    if (!dangerousCrossOrganization) {
+      fullQuery.organization = this.context.org.id;
+    }
+    return fullQuery;
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
