@@ -562,7 +562,12 @@ def analyze_metric_df(
                     analysis,
                 )
 
-            metric_response = get_metric_response(d, test.stat_b, i)
+            metric_response = get_metric_response(
+                d,
+                test.stat_b,
+                i,
+                metric.statistic_type in ["quantile_event", "quantile_unit"],
+            )
             # Create base variation response first
             base_variation_response = BaselineResponse(
                 **asdict(metric_response),
@@ -595,12 +600,6 @@ def analyze_metric_df(
             else:
                 raise ValueError(f"Unexpected test result type: {type(res)}")
 
-        # replace count with quantile_n for quantile metrics
-        if metric.statistic_type in ["quantile_event", "quantile_unit"]:
-            for i in range(num_variations):
-                prefix = f"v{i}" if i > 0 else "baseline"
-                d[f"{prefix}_count"] = d[f"{prefix}_quantile_n"]
-
         # TODO check front-end SRM matches this SRM
         srm_p = check_srm(
             [d["baseline_users"].sum()]
@@ -620,7 +619,12 @@ def analyze_metric_df(
             stats = list(zip(control_stats, control_stats))
             stat_a_summed, _ = sum_stats(stats)
             baseline_stat = stat_a_summed
-        baseline_data = get_metric_response(d, baseline_stat, 0)
+        baseline_data = get_metric_response(
+            d,
+            baseline_stat,
+            0,
+            metric.statistic_type in ["quantile_event", "quantile_unit"],
+        )
         variation_data.insert(analysis.baseline_index, baseline_data)
 
         return DimensionResponseIndividual(
@@ -631,13 +635,17 @@ def analyze_metric_df(
 
 
 def get_metric_response(
-    metric_row: pd.DataFrame, statistic: TestStatistic, v: int
+    metric_row: pd.DataFrame, statistic: TestStatistic, v: int, is_quantile: bool
 ) -> BaselineResponse:
     prefix = f"v{v}" if v > 0 else "baseline"
 
+    count = metric_row[f"{prefix}_count"].sum()
+    if is_quantile:
+        # replace count with quantile_n for quantile metrics
+        count = metric_row[f"{prefix}_quantile_n"].sum()
     stats = MetricStats(
         users=metric_row[f"{prefix}_users"].sum(),
-        count=metric_row[f"{prefix}_count"].sum(),
+        count=count,
         stddev=statistic.stddev,
         mean=statistic.unadjusted_mean,
     )

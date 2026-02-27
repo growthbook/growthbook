@@ -26,12 +26,11 @@ import {
   getFactTable,
   updateColumn,
   updateFactTable,
+  updateFactTableColumns,
   deleteFactTable as deleteFactTableInDb,
   deleteFactFilter as deleteFactFilterInDb,
   createFactFilter,
   updateFactFilter,
-  cleanupMetricAutoSlices,
-  detectRemovedColumns,
 } from "back-end/src/models/FactTableModel";
 import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
@@ -42,6 +41,7 @@ import {
   populateAutoSlices,
   queueFactTableColumnsRefresh,
 } from "back-end/src/jobs/refreshFactTableColumns";
+import { deriveUserIdTypesFromColumns } from "back-end/src/util/factTable";
 import { logger } from "back-end/src/util/logger";
 import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable";
 
@@ -282,9 +282,14 @@ export const putFactTable = async (
   }
   const forceColumnRefresh = !!req.query?.forceColumnRefresh;
 
-  // Update the columns
+  let columnRefreshResults: Partial<
+    Pick<
+      FactTableInterface,
+      "columns" | "columnsError" | "columnRefreshPending" | "userIdTypes"
+    >
+  > | null = null;
+
   if (forceColumnRefresh || needsColumnRefresh(data)) {
-    const originalColumns = cloneDeep(factTable.columns || []);
     const { columns, needsBackgroundRefresh } = await refreshColumns(
       context,
       datasource,
@@ -296,29 +301,29 @@ export const putFactTable = async (
       throw new Error("SQL did not return any columns");
     }
 
-    data.columns = columns;
-    data.columnsError = null;
-    data.columnRefreshPending = needsBackgroundRefresh;
+    columnRefreshResults = {
+      columns,
+      columnsError: null,
+      columnRefreshPending: needsBackgroundRefresh,
+    };
 
-    // Check for removed columns and trigger cleanup
-    const removedColumns = detectRemovedColumns(originalColumns, data.columns);
-
-    if (removedColumns.length > 0) {
-      await cleanupMetricAutoSlices({
-        context,
-        factTableId: factTable.id,
-        removedColumns,
-      });
-    }
+    columnRefreshResults.userIdTypes = deriveUserIdTypesFromColumns(
+      datasource,
+      columns,
+    );
   }
 
   await updateFactTable(context, factTable, data);
 
-  if (data.columnRefreshPending) {
+  if (columnRefreshResults) {
+    await updateFactTableColumns(factTable, columnRefreshResults, context);
+  }
+
+  if (columnRefreshResults?.columnRefreshPending) {
     await queueFactTableColumnsRefresh({
-      ...factTable,
-      ...data,
-    } as FactTableInterface);
+      id: factTable.id,
+      organization: factTable.organization,
+    });
   }
 
   await addTagsDiff(context.org.id, factTable.tags, data.tags || []);

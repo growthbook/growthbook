@@ -88,7 +88,10 @@ export default defineConfig([
 
         typescript: {
           alwaysTryTypes: true,
-          project: ["packages/*/tsconfig.json"],
+          project: [
+            "packages/*/tsconfig.json",
+            "packages/back-end/test/tsconfig.json",
+          ],
         },
       },
     },
