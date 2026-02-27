@@ -32,7 +32,7 @@ export default function GranularitySelector() {
   const dateRange = calculateProductAnalyticsDateRange(
     draftExploreState.dateRange,
   );
-  const effectiveGranularity = getDateGranularity(granularity, dateRange);
+  const autoGranularity = getDateGranularity("auto", dateRange);
   const validGranularities = getValidDateGranularities(dateRange);
 
   return (
@@ -58,7 +58,7 @@ export default function GranularitySelector() {
         <SelectItem key={g} value={g}>
           {g === "auto" ? (
             <Flex direction="row" align="center" gap="2">
-              <Text>{dateGranularityLabels[effectiveGranularity]}</Text>
+              <Text>{dateGranularityLabels[autoGranularity]}</Text>
               <Badge label="Auto" />
             </Flex>
           ) : (

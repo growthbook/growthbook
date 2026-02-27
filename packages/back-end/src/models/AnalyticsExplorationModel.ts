@@ -4,7 +4,10 @@ import {
   productAnalyticsExplorationValidator,
 } from "shared/validators";
 import md5 from "md5";
-import { calculateProductAnalyticsDateRange } from "shared/enterprise";
+import {
+  calculateProductAnalyticsDateRange,
+  getDateGranularity,
+} from "shared/enterprise";
 import { MakeModelClass } from "./BaseModel";
 
 const COLLECTION_NAME = "analyticsexploration";
@@ -21,12 +24,28 @@ export class AnalyticsExplorationModel extends BaseClass {
     const dataset = config.dataset;
     if (!dataset) return null;
 
+    const dateRange = calculateProductAnalyticsDateRange(config.dateRange);
+
+    const dimensions = config.dimensions.map((dimension) => {
+      if (dimension.dimensionType === "date") {
+        // Evaluate "auto" granularity for higher cache hit rates
+        return {
+          ...dimension,
+          dateGranularity: getDateGranularity(
+            dimension.dateGranularity,
+            dateRange,
+          ),
+        };
+      }
+      return dimension;
+    });
+
     // General settings hash
     const generalSettingsHash = md5(
       JSON.stringify({
         datasetType: dataset.type,
         datasource: config.datasource,
-        dimensions: config.dimensions,
+        dimensions: dimensions,
         factTableId: dataset.type === "fact_table" ? dataset.factTableId : null,
         table: dataset.type === "data_source" ? dataset.table : null,
         path: dataset.type === "data_source" ? dataset.path : null,
@@ -36,9 +55,19 @@ export class AnalyticsExplorationModel extends BaseClass {
     );
 
     // Value hashes
-    const valueHashes = dataset.values.map((value) =>
-      md5(JSON.stringify(value)),
-    );
+    const valueHashes = dataset.values.map((value) => {
+      // Ignore disabled filters
+      const rowFilters = value.rowFilters
+        ?.filter((filter) => !filter.disabled)
+        .map((f) => ({ ...f, disabled: undefined }));
+
+      return md5(
+        JSON.stringify({
+          ...value,
+          rowFilters: rowFilters,
+        }),
+      );
+    });
 
     return {
       generalSettingsHash,
