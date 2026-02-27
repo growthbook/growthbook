@@ -551,8 +551,10 @@ export function getSnapshotSettings({
                 unit: "hours",
               }
             : undefined,
-        banditConversionWindowValue: experiment.banditConversionWindowValue,
-        banditConversionWindowUnit: experiment.banditConversionWindowUnit,
+        banditConversionWindowValue:
+          experiment.banditConversionWindowValue ?? undefined,
+        banditConversionWindowUnit:
+          experiment.banditConversionWindowUnit ?? undefined,
       }),
     )
     .filter(isDefined);
@@ -608,8 +610,8 @@ export function getSnapshotSettings({
               })) ?? [],
           useFirstExposure: useStickyBucketing,
           windowSettings:
-            experiment.banditConversionWindowValue !== undefined &&
-            experiment.banditConversionWindowUnit !== undefined
+            experiment.banditConversionWindowValue != null &&
+            experiment.banditConversionWindowUnit != null
               ? {
                   type: "conversion",
                   delayValue: 0,
@@ -1643,8 +1645,10 @@ export async function toExperimentApiInterface(
           banditScheduleUnit: experiment.banditScheduleUnit ?? "days",
           banditBurnInValue: experiment.banditBurnInValue ?? 1,
           banditBurnInUnit: experiment.banditBurnInUnit ?? "days",
-          banditConversionWindowValue: experiment.banditConversionWindowValue,
-          banditConversionWindowUnit: experiment.banditConversionWindowUnit,
+          banditConversionWindowValue:
+            experiment.banditConversionWindowValue ?? undefined,
+          banditConversionWindowUnit:
+            experiment.banditConversionWindowUnit ?? undefined,
         }
       : null),
     linkedFeatures: experiment.linkedFeatures || [],

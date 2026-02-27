@@ -224,9 +224,9 @@ export function getSnapshotSettingsFromReportArgs(
           ...(experiment?.type === "multi-armed-bandit"
             ? {
                 banditConversionWindowValue:
-                  experiment.banditConversionWindowValue,
+                  experiment.banditConversionWindowValue ?? undefined,
                 banditConversionWindowUnit:
-                  experiment.banditConversionWindowUnit,
+                  experiment.banditConversionWindowUnit ?? undefined,
               }
             : {}),
         }),
@@ -710,8 +710,9 @@ export function getReportSnapshotSettings({
         ...(experiment?.type === "multi-armed-bandit"
           ? {
               banditConversionWindowValue:
-                experiment.banditConversionWindowValue,
-              banditConversionWindowUnit: experiment.banditConversionWindowUnit,
+                experiment.banditConversionWindowValue ?? undefined,
+              banditConversionWindowUnit:
+                experiment.banditConversionWindowUnit ?? undefined,
             }
           : {}),
       }),
