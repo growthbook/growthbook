@@ -187,17 +187,20 @@ export function useFeaturePageData(
 
     if (forcedVersionFromQuery) {
       if (
-        revisions &&
-        revisions.some((r) => r.version === forcedVersionFromQuery)
+        data?.revisionList &&
+        data.revisionList.some((r) => r.version === forcedVersionFromQuery)
       ) {
         setVersion(forcedVersionFromQuery);
       }
       return;
     }
 
+    // Search in revisionList (up to 25 minimal revisions) instead of revisions
+    // (only 5 full revisions) to ensure we find drafts even if they're not in
+    // the most recent 5 full revisions
     const draft =
-      revisions &&
-      revisions.find(
+      data?.revisionList &&
+      data.revisionList.find(
         (r) =>
           r.status === "draft" ||
           r.status === "approved" ||
@@ -205,13 +208,7 @@ export function useFeaturePageData(
           r.status === "pending-review",
       );
     setVersion(draft ? draft.version : baseFeatureVersion);
-  }, [
-    cacheSeeded,
-    revisions,
-    version,
-    forcedVersionFromQuery,
-    baseFeatureVersion,
-  ]);
+  }, [cacheSeeded, data, version, forcedVersionFromQuery, baseFeatureVersion]);
 
   const allEnvironments = useEnvironments();
   const environments = useMemo(
