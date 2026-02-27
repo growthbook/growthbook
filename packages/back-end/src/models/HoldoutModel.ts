@@ -164,16 +164,19 @@ export class HoldoutModel extends BaseClass {
   public async getAllPayloadHoldouts(
     environment?: string,
   ): Promise<
-    Map<string, { holdout: HoldoutInterface; experiment: ExperimentInterface }>
+    Map<
+      string,
+      { holdout: HoldoutInterface; holdoutExperiment: ExperimentInterface }
+    >
   > {
     const holdouts = await this._find({});
     const holdoutsWithExperiments = await Promise.all(
       holdouts.map(async (h) => {
-        const experiment = await getExperimentById(
+        const holdoutExperiment = await getExperimentById(
           this.context,
           h.experimentId,
         );
-        return { holdout: h, experiment };
+        return { holdout: h, holdoutExperiment };
       }),
     );
 
@@ -182,11 +185,11 @@ export class HoldoutModel extends BaseClass {
         h,
       ): h is {
         holdout: HoldoutInterface;
-        experiment: ExperimentInterface;
+        holdoutExperiment: ExperimentInterface;
       } => {
-        if (!h.experiment) return false;
-        if (h.experiment.archived) return false;
-        if (h.experiment.status !== "running") return false;
+        if (!h.holdoutExperiment) return false;
+        if (h.holdoutExperiment.archived) return false;
+        if (h.holdoutExperiment.status !== "running") return false;
 
         if (
           Object.keys(h.holdout.linkedExperiments).length === 0 &&
