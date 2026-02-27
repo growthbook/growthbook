@@ -16,6 +16,7 @@ import {
 } from "shared/src/validators/product-analytics";
 import { ProductAnalyticsExploration } from "shared/validators";
 import { DEFAULT_EXPLORE_STATE } from "shared/enterprise";
+import { QueryInterface } from "shared/types/query";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   cleanConfigForSubmission,
@@ -28,7 +29,6 @@ import {
   validateDimensions,
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useExploreData, CacheOption } from "./useExploreData";
-import { QueryInterface } from "shared/types/query";
 
 type ExplorerCacheValue = {
   draftState: ProductAnalyticsConfig | null;
@@ -231,10 +231,11 @@ export function ExplorerProvider({
       hasEverFetchedRef.current = true;
 
       // Do the fetch (we keep previous exploration/submitted state visible until result arrives)
-      const { data: fetchResult, query, error: fetchError } = await fetchData(
-        cleanedDraftExploreState,
-        { cache },
-      );
+      const {
+        data: fetchResult,
+        query,
+        error: fetchError,
+      } = await fetchData(cleanedDraftExploreState, { cache });
 
       // Cache miss when cache=required
       if (cache === "required" && fetchResult === null && !fetchError) {

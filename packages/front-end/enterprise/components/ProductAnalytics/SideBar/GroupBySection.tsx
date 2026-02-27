@@ -93,7 +93,8 @@ export default function GroupBySection() {
 
   const commitMaxValues = (index: number, value: string) => {
     const parsed = value ? parseInt(value, 10) : null;
-    const isValid = parsed !== null && parsed >= 1 && parsed <= 20 && !isNaN(parsed);
+    const isValid =
+      parsed !== null && parsed >= 1 && parsed <= 20 && !isNaN(parsed);
 
     if (!isValid) {
       setLocalMaxValues((prev) => {

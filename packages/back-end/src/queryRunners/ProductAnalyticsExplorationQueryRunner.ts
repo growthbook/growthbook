@@ -5,10 +5,10 @@ import {
 } from "shared/validators";
 import { FactMetricInterface, FactTableMap } from "shared/types/fact-table";
 import { Queries, QueryStatus } from "shared/types/query";
-import { QueryRunner, QueryMap } from "./QueryRunner";
-import SqlIntegration from "../integrations/SqlIntegration";
 import { transformProductAnalyticsRowsToResult } from "shared/enterprise";
 import { UpdateProps } from "shared/types/base-model";
+import SqlIntegration from "back-end/src/integrations/SqlIntegration";
+import { QueryRunner, QueryMap } from "./QueryRunner";
 
 export class ProductAnalyticsExplorationQueryRunner extends QueryRunner<
   ProductAnalyticsExploration,

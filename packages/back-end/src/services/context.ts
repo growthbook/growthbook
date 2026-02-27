@@ -66,8 +66,8 @@ import { SqlResultChunkModel } from "back-end/src/models/SqlResultChunkModel";
 import { CustomHookModel } from "back-end/src/models/CustomHookModel";
 import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
 import { TeamModel } from "back-end/src/models/TeamModel";
+import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
 import { getExperimentMetricsByIds } from "./experiments";
-import { AnalyticsExplorationModel } from "../models/AnalyticsExplorationModel";
 
 export type ForeignRefTypes = {
   experiment: ExperimentInterface;

@@ -3,11 +3,11 @@ import {
   ProductAnalyticsConfig,
   ProductAnalyticsExploration,
 } from "shared/validators";
+import { QueryInterface } from "shared/types/query";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { NotFoundError } from "back-end/src/util/errors";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
-import { QueryInterface } from "shared/types/query";
 import { getQueryById } from "back-end/src/models/QueryModel";
 
 export const postProductAnalyticsRun = async (
