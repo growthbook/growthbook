@@ -559,7 +559,8 @@ export function queueSDKPayloadRefresh(data: {
   });
 }
 
-async function refreshSDKPayloadCache({
+/** Exported for testing lifecycle (cache refresh, webhooks, bulk immutability). */
+export async function refreshSDKPayloadCache({
   context: baseContext,
   payloadKeys,
   skipRefreshForProject,
