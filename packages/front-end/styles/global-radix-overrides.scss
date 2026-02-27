@@ -420,6 +420,7 @@ p.rt-TooltipText {
     border-top: 1px solid var(--slate-a5, rgba(0, 9, 50, 0.12));
     border-bottom: 1px solid var(--slate-a5, rgba(0, 9, 50, 0.12));
     border-left: 1px solid var(--slate-a5, rgba(0, 9, 50, 0.12));
+    border-right: 1px solid var(--slate-a5, rgba(0, 9, 50, 0.12));
     // Override Radix .rt-TableRoot:where(.rt-variant-surface) border so only wrapper border shows
     .rt-TableRoot.table-list {
       border: none;
@@ -473,13 +474,6 @@ p.rt-TooltipText {
 
 // Utility classes
 .truncate {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-// Middle truncation: use with TruncateMiddleWithTooltip or pre-truncated content
-.truncate-middle {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

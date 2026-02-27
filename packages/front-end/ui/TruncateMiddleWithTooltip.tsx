@@ -4,9 +4,12 @@ import Tooltip from "@/ui/Tooltip";
 
 function truncateMiddle(text: string, maxChars: number): string {
   if (text.length <= maxChars) return text;
+  // Need at least 2 chars to show "head…tail"; otherwise avoid slice(-0) bug
+  if (maxChars < 2) return "\u2026";
   const head = Math.floor((maxChars - 1) / 2);
   const tail = maxChars - 1 - head;
-  return `${text.slice(0, head)}\u2026${text.slice(-tail)}`;
+  const tailPart = tail > 0 ? text.slice(-tail) : "";
+  return `${text.slice(0, head)}\u2026${tailPart}`;
 }
 
 export type TruncateMiddleWithTooltipProps = {
@@ -38,7 +41,7 @@ export function TruncateMiddleWithTooltip({
 
   const span = (
     <span
-      className={clsx("truncate-middle", className)}
+      className={clsx("truncate", className)}
       style={style}
       title={undefined}
     >
