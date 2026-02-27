@@ -56,6 +56,7 @@ export default function ProductAnalyticsExplorerSettings({
   return (
     <ExplorerProvider
       initialConfig={data?.exploration?.config || block.config}
+      hasExistingResults={!!block.explorerAnalysisId}
       onRunComplete={(exploration) => {
         setBlock({
           ...block,

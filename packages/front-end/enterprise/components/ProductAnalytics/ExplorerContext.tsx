@@ -75,12 +75,14 @@ const ExplorerContext = createContext<ExplorerContextValue | null>(null);
 interface ExplorerProviderProps {
   children: ReactNode;
   initialConfig: ProductAnalyticsConfig;
+  hasExistingResults?: boolean;
   onRunComplete?: (exploration: ProductAnalyticsExploration) => void;
 }
 
 export function ExplorerProvider({
   children,
   initialConfig,
+  hasExistingResults = false,
   onRunComplete,
 }: ExplorerProviderProps) {
   const { loading, fetchData } = useExploreData();
@@ -94,8 +96,8 @@ export function ExplorerProvider({
       fact_table: null,
       data_source: null,
       [activeExplorerType]: {
-        draftState: null,
-        submittedState: initialConfig,
+        draftState: initialConfig,
+        submittedState: hasExistingResults ? initialConfig : null,
         exploration: null,
         error: null,
         query: null,
