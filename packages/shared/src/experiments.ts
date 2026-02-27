@@ -692,6 +692,8 @@ export function getMetricSnapshotSettings<T extends ExperimentMetricInterface>({
   experimentRegressionAdjustmentEnabled: boolean;
   organizationSettings?: Partial<OrganizationSettings>; // can be RA and prior settings from a snapshot of org settings
   metricOverrides?: MetricOverride[];
+  banditConversionWindowValue?: number;
+  banditConversionWindowUnit?: "hours" | "days";
 }): {
   newMetric: T;
   denominatorMetrics: MetricInterface[];
@@ -859,6 +861,8 @@ export function getAllMetricSettingsForSnapshot({
   experimentMetricOverrides?: MetricOverride[];
   datasourceType?: DataSourceInterfaceWithParams["type"];
   hasRegressionAdjustmentFeature: boolean;
+  banditConversionWindowValue?: number;
+  banditConversionWindowUnit?: "hours" | "days";
 }) {
   const settingsForSnapshotMetrics: MetricSnapshotSettings[] = [];
   let regressionAdjustmentAvailable = true;

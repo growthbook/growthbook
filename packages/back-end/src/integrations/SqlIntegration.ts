@@ -31,6 +31,7 @@ import {
   BANDIT_SRM_DIMENSION_NAME,
   SAFE_ROLLOUT_TRACKING_KEY_PREFIX,
   NULL_DIMENSION_VALUE,
+  NULL_VARIATION_VALUE,
 } from "shared/constants";
 import { PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES } from "shared/enterprise";
 import {
@@ -1754,6 +1755,20 @@ export default abstract class SqlIntegration
     throw new Error("Unknown dimension type: " + (dimension as Dimension).type);
   }
 
+  private getFirstVariationValuePerUnit() {
+    return `SUBSTRING(
+        MIN(
+          CONCAT(SUBSTRING(${this.formatDateTimeString("e.timestamp")}, 1, 19), 
+            coalesce(${this.castToString(
+              `e.variation`,
+            )}, ${this.castToString(`'${NULL_VARIATION_VALUE}'`)})
+          )
+        ),
+        20, 
+        99999
+      )`;
+  }
+
   private getConversionWindowClause(
     baseCol: string,
     metricCol: string,
@@ -2168,11 +2183,15 @@ export default abstract class SqlIntegration
       -- One row per user
       SELECT
         e.${baseIdType} AS ${baseIdType}
-        , ${this.ifElse(
-          "count(distinct e.variation) > 1",
-          "'__multiple__'",
-          "max(e.variation)",
-        )} AS variation
+        , ${
+          !settings.banditSettings?.useFirstExposure && settings.banditSettings
+            ? this.getFirstVariationValuePerUnit()
+            : this.ifElse(
+                "count(distinct e.variation) > 1",
+                "'__multiple__'",
+                "max(e.variation)",
+              )
+        } AS variation
         , MIN(${timestampColumn}) AS first_exposure_timestamp
         ${unitDimensions
           .map(

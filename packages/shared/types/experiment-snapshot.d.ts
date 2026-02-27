@@ -172,6 +172,8 @@ export interface SnapshotBanditSettings {
     weights: number[];
     totalUsers: number;
   }[];
+  useFirstExposure?: boolean;
+  windowSettings?: MetricWindowSettings;
 }
 
 // Settings that control which queries are run

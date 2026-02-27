@@ -6,7 +6,7 @@ import {
 } from "shared/types/experiment";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { validateAndFixCondition } from "shared/util";
 import { getEqualWeights } from "shared/experiments";
 import { Flex, Box, Text } from "@radix-ui/themes";
@@ -441,8 +441,6 @@ function TargetingForm({
 
   const orgStickyBucketing = !!settings.useStickyBucketing;
 
-  const isBandit = experiment.type === "multi-armed-bandit";
-
   return (
     <div className="pt-2">
       {safeToEdit && (
@@ -489,7 +487,7 @@ function TargetingForm({
             project={experiment.project}
           />
 
-          {orgStickyBucketing && !isBandit ? (
+          {orgStickyBucketing ? (
             <Checkbox
               mt="4"
               size="lg"

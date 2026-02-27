@@ -199,11 +199,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/TabbedPage/AnalysisSettings.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/TabbedPage/AnalysisSettingsSummary.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -432,11 +427,6 @@
   "packages/front-end/components/GeneralSettings/AISettings.tsx": {
     "no-restricted-imports": {
       "count": 2
-    }
-  },
-  "packages/front-end/components/GeneralSettings/BanditSettings.tsx": {
-    "no-restricted-imports": {
-      "count": 1
     }
   },
   "packages/front-end/components/GeneralSettings/DatasourceSettings.tsx": {

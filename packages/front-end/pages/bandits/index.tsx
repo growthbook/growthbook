@@ -167,22 +167,13 @@ const ExperimentsPage = (): React.ReactElement => {
               <div className="col-auto">
                 <PremiumTooltip
                   tipPosition="left"
-                  body={
-                    hasStickyBucketFeature && !orgStickyBucketing
-                      ? "Enable Sticky Bucketing in your organization settings to run a Bandit"
-                      : undefined
-                  }
                   commercialFeature="multi-armed-bandits"
                 >
                   <Button
                     onClick={() => {
                       setOpenNewExperimentModal(true);
                     }}
-                    disabled={
-                      !hasMultiArmedBanditFeature ||
-                      !hasStickyBucketFeature ||
-                      !orgStickyBucketing
-                    }
+                    disabled={!hasMultiArmedBanditFeature}
                   >
                     Add Bandit
                   </Button>

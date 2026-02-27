@@ -130,6 +130,8 @@ export default function RuleModal({
 
   const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] =
     useState(false);
+  const [disableBanditConversionWindow, setDisableBanditConversionWindow] =
+    useState(false);
 
   const settings = useOrgSettings();
   const { settings: scopedSettings } = getScopedSettings({ organization });
@@ -408,6 +410,10 @@ export default function RuleModal({
           throw new Error("Prerequisite targeting issues must be resolved");
         }
 
+        const shouldIncludeConversionWindow =
+          values.experimentType === "multi-armed-bandit" &&
+          !disableBanditConversionWindow &&
+          (!settings.useStickyBucketing || values.disableStickyBucketing);
         if (values.experimentType === "multi-armed-bandit") {
           if (!hasCommercialFeature("multi-armed-bandits")) {
             throw new Error("Bandits are a premium feature");
@@ -418,6 +424,15 @@ export default function RuleModal({
           }
           if ((values.goalMetrics?.length ?? 0) !== 1) {
             throw new Error("You must select 1 decision metric");
+          }
+          if (
+            shouldIncludeConversionWindow &&
+            (!values.banditConversionWindowValue ||
+              !values.banditConversionWindowUnit)
+          ) {
+            throw new Error(
+              "Enter a conversion window override or disable the conversion window override",
+            );
           }
         }
 
@@ -516,6 +531,10 @@ export default function RuleModal({
             banditScheduleUnit: values.banditScheduleUnit ?? "days",
             banditBurnInValue: values.banditBurnInValue ?? 1,
             banditBurnInUnit: values.banditBurnInUnit ?? "days",
+            ...(shouldIncludeConversionWindow && {
+              banditConversionWindowValue: values.banditConversionWindowValue,
+              banditConversionWindowUnit: values.banditConversionWindowUnit,
+            }),
           });
         }
 
@@ -1171,6 +1190,10 @@ export default function RuleModal({
                   }
                   setVariations={(variations) =>
                     form.setValue("values", variations)
+                  }
+                  disableBanditConversionWindow={disableBanditConversionWindow}
+                  setDisableBanditConversionWindow={
+                    setDisableBanditConversionWindow
                   }
                 />
               </Page>

@@ -1,13 +1,13 @@
 import { useFormContext } from "react-hook-form";
-import React from "react";
 import clsx from "clsx";
 import { ScopedSettings } from "shared/settings";
-import { Box, Flex, Heading } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import HelperText from "@/ui/HelperText";
+import Heading from "@/ui/Heading";
 
 export default function BanditSettings({
   page = "org-settings",
@@ -25,6 +25,7 @@ export default function BanditSettings({
   const scheduleHours =
     parseFloat(form.watch("banditScheduleValue") ?? "0") *
     (form.watch("banditScheduleUnit") === "days" ? 24 : 1);
+
   const scheduleWarning =
     scheduleHours < 1
       ? "Update cadence should be at least 15 minutes longer than it takes to run your data warehouse query"
@@ -34,19 +35,21 @@ export default function BanditSettings({
 
   return (
     <Box>
-      <Flex gap="4" p="5">
+      <Flex gap="4">
         {page === "org-settings" && (
           <Box width="220px" flexShrink="0">
-            <Heading size="4" as="h4">
+            <Heading size="medium" as="h4">
               Bandit Settings
             </Heading>
           </Box>
         )}
         <Box
           className={clsx({
-            "w-100": page === "org-settings",
-            "col mb-2": page === "experiment-settings",
+            col: page === "experiment-settings",
           })}
+          width={page === "org-settings" ? "100%" : undefined}
+          mb={page === "org-settings" ? "4" : undefined}
+          ml={page === "org-settings" ? "0" : undefined}
         >
           {page === "org-settings" && (
             <>
@@ -110,6 +113,7 @@ export default function BanditSettings({
                       },
                     ]}
                     disabled={!hasBandits || lockExploratoryStage}
+                    style={{ width: 90, minWidth: 90 }}
                   />
                 </div>
               </div>
@@ -175,6 +179,7 @@ export default function BanditSettings({
                       },
                     ]}
                     disabled={!hasBandits}
+                    style={{ width: 90, minWidth: 90 }}
                   />
                 </div>
               </div>

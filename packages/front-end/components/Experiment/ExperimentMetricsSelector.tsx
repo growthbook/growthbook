@@ -5,9 +5,13 @@ import {
   expandMetricGroups,
   quantileMetricType,
   isFactMetric,
+  getUserIdTypes,
 } from "shared/experiments";
+import { FactTableMap } from "shared/types/fact-table";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
+import { getExposureQuery } from "@/services/datasources";
+import Callout from "@/ui/Callout";
 import MetricsSelector from "./MetricsSelector";
 
 export interface Props {
@@ -57,8 +61,12 @@ export default function ExperimentMetricsSelector({
   excludeQuantiles = false,
   experimentId,
 }: Props) {
-  const { getExperimentMetricById, getDatasourceById, metricGroups } =
-    useDefinitions();
+  const {
+    getExperimentMetricById,
+    getDatasourceById,
+    metricGroups,
+    factTables,
+  } = useDefinitions();
 
   const getMetricDisabledInfo = useMemo(
     () => (metricId: string, isGroup: boolean) => {
@@ -176,6 +184,53 @@ export default function ExperimentMetricsSelector({
   const [guardrailCollapsed, setGuardrailCollapsed] = useState<boolean>(
     !!collapseGuardrail && guardrailMetrics.length === 0,
   );
+
+  // Check for mismatch between randomization unit and goal metric identifier type for bandits
+  const hasIdentifierTypeMismatch = useMemo(() => {
+    if (
+      !forceSingleGoalMetric ||
+      !goalMetrics.length ||
+      !datasource ||
+      !exposureQueryId
+    ) {
+      return false;
+    }
+
+    const datasourceObj = getDatasourceById(datasource);
+    const exposureQuery = getExposureQuery(
+      datasourceObj?.settings,
+      exposureQueryId,
+    );
+    const randomizationUnitUserIdType = exposureQuery?.userIdType;
+
+    if (!randomizationUnitUserIdType) {
+      return false;
+    }
+
+    const goalMetricId = goalMetrics[0];
+    const goalMetric = getExperimentMetricById(goalMetricId);
+    if (!goalMetric) {
+      return false;
+    }
+
+    // Build factTableMap for getUserIdTypes
+    const factTableMap: FactTableMap = new Map();
+    factTables.forEach((ft) => {
+      factTableMap.set(ft.id, ft);
+    });
+
+    const metricUserIdTypes = getUserIdTypes(goalMetric, factTableMap);
+    return !metricUserIdTypes.includes(randomizationUnitUserIdType);
+  }, [
+    forceSingleGoalMetric,
+    goalMetrics,
+    datasource,
+    exposureQueryId,
+    getDatasourceById,
+    getExperimentMetricById,
+    factTables,
+  ]);
+
   return (
     <>
       {setGoalMetrics !== undefined && (
@@ -211,6 +266,13 @@ export default function ExperimentMetricsSelector({
             disabled={disabled || goalDisabled}
             getMetricDisabledInfo={getMetricDisabledInfo}
           />
+          {hasIdentifierTypeMismatch && (
+            <Callout status="warning" my="4">
+              Mismatch between the randomization unit and the Decision Metric
+              identifier type can lead to double counting if the randomization
+              unit has multiple exposures.
+            </Callout>
+          )}
         </div>
       )}
 
