@@ -32,7 +32,7 @@ export function TruncateMiddleWithTooltip({
   const truncated = truncateMiddle(text, maxChars);
   const isTruncated = truncated !== text;
 
-  const style: React.CSSProperties = maxWidth
+  const style: React.CSSProperties | undefined = maxWidth
     ? { maxWidth: typeof maxWidth === "number" ? `${maxWidth}px` : maxWidth }
     : undefined;
 
