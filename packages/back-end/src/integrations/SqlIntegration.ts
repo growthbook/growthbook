@@ -36,7 +36,6 @@ import {
   generateProductAnalyticsSQL,
   calculateProductAnalyticsDateRange,
   PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES,
-  transformProductAnalyticsRowsToResult,
 } from "shared/enterprise";
 import {
   ensureLimit,

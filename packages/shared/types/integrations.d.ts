@@ -1,6 +1,5 @@
 import { BigQueryTimestamp } from "@google-cloud/bigquery";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { ProductAnalyticsConfig } from "shared/validators";
 import { MetricAnalysisSettings } from "shared/types/metric-analysis";
 import { DimensionInterface } from "shared/types/dimension";
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
