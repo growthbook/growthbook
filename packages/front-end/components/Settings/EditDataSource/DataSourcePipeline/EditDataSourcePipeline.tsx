@@ -355,8 +355,7 @@ function IncrementalPartitionSettingsInputs({
 }) {
   const partitionSettings = form.watch("partitionSettings");
   const partitionType =
-    partitionSettings?.type === "yearMonthDay" ||
-    partitionSettings?.type === "date"
+    partitionSettings?.type === "yearMonthDay"
       ? partitionSettings.type
       : "none";
 
@@ -368,8 +367,9 @@ function IncrementalPartitionSettingsInputs({
             Partition strategy (optional)
           </Text>
           <Text size="2" style={{ color: "var(--color-text-mid)" }}>
-            Optional for Trino. If you use mixed table layouts, you can skip
-            this and use incremental template variables in SQL.
+            Optional for Trino (default is timestamp). If you use mixed table
+            layouts, you must manage your own partitions using incremental
+            template variables in SQL.
           </Text>
         </Flex>
         <Select
@@ -393,39 +393,12 @@ function IncrementalPartitionSettingsInputs({
               });
               return;
             }
-            if (value === "date") {
-              form.setValue("partitionSettings", {
-                type: "date",
-                dateColumn:
-                  partitionSettings?.type === "date"
-                    ? partitionSettings.dateColumn
-                    : "",
-              });
-              return;
-            }
             form.setValue("partitionSettings", undefined);
           }}
         >
           <SelectItem value="none">No additional partition columns</SelectItem>
           <SelectItem value="yearMonthDay">Year / Month / Day</SelectItem>
-          <SelectItem value="date">Date column</SelectItem>
         </Select>
-
-        {partitionSettings?.type === "date" ? (
-          <Flex direction="column" gap="1">
-            <Text size="3" weight="medium">
-              Date column
-            </Text>
-            <TextField.Root
-              size="3"
-              required
-              value={form.watch("partitionSettings.dateColumn") || ""}
-              onChange={(e) =>
-                form.setValue("partitionSettings.dateColumn", e.target.value)
-              }
-            />
-          </Flex>
-        ) : null}
 
         {partitionSettings?.type === "yearMonthDay" ? (
           <Flex direction="column" gap="3">

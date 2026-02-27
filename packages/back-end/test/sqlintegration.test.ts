@@ -56,26 +56,6 @@ describe("bigquery integration", () => {
     );
   });
 
-  it("builds date partition where clauses", () => {
-    const partitionSettings: PartitionSettings = {
-      type: "date",
-      dateColumn: "partition_date",
-    };
-
-    expect(
-      normalizeSql(
-        bqIntegration["getPartitionWhereClause"]({
-          partitionSettings,
-          startDate: new Date(Date.UTC(2024, 0, 15)),
-          endDate: new Date(Date.UTC(2024, 1, 10)),
-          tableAlias: "m",
-        }),
-      ),
-    ).toBe(
-      "m.partition_date >= '2024-01-15' AND m.partition_date <= '2024-02-10'",
-    );
-  });
-
   it("returns no partition clause for timestamp partition settings", () => {
     const partitionSettings: PartitionSettings = { type: "timestamp" };
 
