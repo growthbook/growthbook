@@ -321,7 +321,7 @@ export default function BanditRefNewFields({
           {settings?.useStickyBucketing && (
             <Switch
               label="Disable Sticky Bucketing"
-              description={`Avoid potential "double counting" when identifier type and metric identifier don't match.`}
+              description={`Permit users in low-performing variations to switch variations in future update periods.`}
               value={!!form.watch("disableStickyBucketing")}
               onChange={(v) => {
                 form.setValue("disableStickyBucketing", v);
