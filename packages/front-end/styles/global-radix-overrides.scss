@@ -399,6 +399,23 @@ p.rt-TooltipText {
   margin-bottom: 0;
 }
 
+// Links inside tooltips: ensure contrast on tooltip background (gray-12 is dark in light theme, light in dark theme)
+.rt-TooltipContent a {
+  color: var(--blue-4);
+  text-decoration: underline;
+  &:hover {
+    color: var(--blue-3);
+  }
+}
+// Dark theme: tooltip background is light, use dark link color
+[data-theme="dark"] .rt-TooltipContent a,
+.dark-theme .rt-TooltipContent a {
+  color: var(--blue-11);
+  &:hover {
+    color: var(--blue-12);
+  }
+}
+
 // Table
 .rt-TableRootTable {
   .rt-TableBody > .rt-TableRow:last-child > .rt-TableCell {

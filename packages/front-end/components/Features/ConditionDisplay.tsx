@@ -346,8 +346,44 @@ function getConditionParts({
   keyPrefix?: string;
   prefix?: ReactNode;
 }) {
+  const isAttributeField = (f: string) =>
+    f !== "value" &&
+    !f.startsWith("value.") &&
+    f !== "$savedGroups" &&
+    f !== "$notSavedGroups";
+
   return conditions.map(({ field, operator, value, parentId }, i) => {
-    let fieldEl: ReactNode = (
+    let fieldEl: ReactNode = isAttributeField(field) ? (
+      <Badge
+        color="gray"
+        label={
+          <Link
+            href={`/attributes/${encodeURIComponent(field)}`}
+            target="_blank"
+            color="violet"
+            title={`View attribute: ${field}`}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+              overflow: "hidden",
+            }}
+          >
+            <span
+              style={{
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                maxWidth: "400px",
+              }}
+            >
+              {field}
+            </span>
+            <PiArrowSquareOut style={{ flexShrink: 0 }} />
+          </Link>
+        }
+      />
+    ) : (
       <Badge
         color="gray"
         className="text-ellipsis d-inline-block"

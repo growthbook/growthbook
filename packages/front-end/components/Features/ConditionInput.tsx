@@ -37,6 +37,7 @@ import CountrySelector, {
 } from "@/components/Forms/CountrySelector";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import DatePicker from "@/components/DatePicker";
+import Markdown from "@/components/Markdown/Markdown";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
@@ -528,7 +529,8 @@ function ConditionAndGroupInput({
                       options: attributeSchema.map((s) => ({
                         label: s.property,
                         value: s.property,
-                        tooltip: s.description || "",
+                        description: s.description,
+                        tags: s.tags,
                       })),
                     },
                     {
@@ -548,10 +550,70 @@ function ConditionAndGroupInput({
                 : attributeSchema.map((s) => ({
                     label: s.property,
                     value: s.property,
-                    tooltip: s.description || "",
+                    description: s.description,
+                    tags: s.tags,
                   }))
             }
-            formatOptionLabel={(o) => <span title={o.tooltip}>{o.label}</span>}
+            formatOptionLabel={(o) => {
+              const opt = o as {
+                label: string;
+                value: string;
+                description?: string;
+                tags?: string[];
+              };
+              const hasTooltip =
+                !!opt.description || (opt.tags?.length ?? 0) > 0;
+              const label = <span>{o.label}</span>;
+              if (!hasTooltip) return label;
+              return (
+                <Tooltip
+                  side="right"
+                  disableHoverableContent={false}
+                  content={
+                    <Box style={{ maxWidth: 280 }}>
+                      {opt.description && (
+                        <Box mb={opt.tags?.length ? "2" : undefined}>
+                          <Markdown style={{ fontSize: 12 }}>
+                            {opt.description}
+                          </Markdown>
+                        </Box>
+                      )}
+                      {opt.tags && opt.tags.length > 0 && (
+                        <Flex gap="1" wrap="wrap">
+                          {opt.tags.map((tag) => (
+                            <Box
+                              key={tag}
+                              as="span"
+                              style={{
+                                fontSize: 11,
+                                padding: "2px 6px",
+                                borderRadius: 4,
+                                backgroundColor: "var(--accent-3)",
+                                color: "var(--accent-11)",
+                              }}
+                            >
+                              {tag}
+                            </Box>
+                          ))}
+                        </Flex>
+                      )}
+                    </Box>
+                  }
+                >
+                  <span
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      margin: "-2px -8px",
+                      padding: "2px 8px",
+                      minHeight: "100%",
+                    }}
+                  >
+                    {o.label}
+                  </span>
+                </Tooltip>
+              );
+            }}
             name="field"
             onChange={(value) => {
               const newConds = [...conds];
