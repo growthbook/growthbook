@@ -48,7 +48,7 @@ function toMinimalRevision(
  * Features can be quite big in size, impacting load time, memory usage, and performance
  * on the page. So we fetch by default only the last 5 full revisions for a Feature.
  *
- * In addition, we fetch 25 'MinimalFeatureRevision' that gives us enough information to
+ * In addition, we fetch up to 200 'MinimalFeatureRevision' that gives us enough information to
  * render them in the UI but does not include rules.
  *
  * This hook controls the logic to automatically fetch additional full revisions if needed
@@ -195,7 +195,7 @@ export function useFeaturePageData(
       return;
     }
 
-    // Search in revisionList (up to 25 minimal revisions) instead of revisions
+    // Search in revisionList (up to 200 minimal revisions) instead of revisions
     // (only 5 full revisions) to ensure we find drafts even if they're not in
     // the most recent 5 full revisions
     const draft =
