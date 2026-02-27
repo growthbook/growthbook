@@ -134,7 +134,9 @@ export default function BanditDecisionMetricSettings({
           {goalMetricWindow?.windowUnit && goalMetricWindow?.windowValue && (
             <Text color="text-mid" size="small" as="p" my="1">
               Metric default: {goalMetricWindow.windowValue}{" "}
-              {goalMetricWindow.windowUnit}
+              {goalMetricWindow.windowValue === 1
+                ? goalMetricWindow.windowUnit.slice(0, -1)
+                : goalMetricWindow.windowUnit}
             </Text>
           )}
           <Grid align="end" flow="column" gap="5" columns="auto">

@@ -270,7 +270,12 @@ export default function AnalysisSettings({
                               <Text size="small">
                                 Conversion Window:{" "}
                                 {experiment.banditConversionWindowValue}{" "}
-                                {experiment.banditConversionWindowUnit}
+                                {experiment.banditConversionWindowValue === 1
+                                  ? experiment.banditConversionWindowUnit.slice(
+                                      0,
+                                      -1,
+                                    )
+                                  : experiment.banditConversionWindowUnit}
                               </Text>
                             )}
                         </li>
