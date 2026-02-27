@@ -355,6 +355,9 @@ export function getExperimentMetricFormatter(
       return formatPercent;
     case "ratio":
       return (() => {
+        if (proportionFormat === "number") {
+          return formatNumber;
+        }
         // If user has set displayAsPercentage to true, format as a percentage
         if (metric.displayAsPercentage) {
           return formatPercent;
