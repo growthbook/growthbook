@@ -25,6 +25,7 @@ describe("productAnalytics", () => {
       // Do not include the timestamp component to make the test deterministic
       `'${d.toISOString().substring(0, 10)} 00:00:00'`,
     formatDialect: "bigquery",
+    castToFloat: (col) => `CAST(${col} AS FLOAT)`,
   };
 
   const factTableMap = new Map<string, FactTableInterface>([
@@ -190,8 +191,8 @@ describe("productAnalytics", () => {
         _factTable0_unit0_rollup AS (
           SELECT
             dimension0,
-            SUM(m0) AS m0_numerator,
-            NULL AS m1_numerator
+            CAST(SUM(m0) AS FLOAT) AS m0_numerator,
+            CAST(NULL AS FLOAT) AS m1_numerator
           FROM _factTable0_unit0
           GROUP BY
             dimension0
@@ -199,8 +200,8 @@ describe("productAnalytics", () => {
         _factTable0_event_rollup AS (
           SELECT
             dimension0,
-            NULL AS m0_numerator,
-            SUM(m1) AS m1_numerator
+            CAST(NULL AS FLOAT) AS m0_numerator,
+            CAST(SUM(m1) AS FLOAT) AS m1_numerator
           FROM _factTable0_rows
           GROUP BY
             dimension0
@@ -316,8 +317,8 @@ describe("productAnalytics", () => {
         _factTable0_unit0_rollup AS (
           SELECT
             dimension0,
-            SUM(m0) AS m0_numerator,
-            NULL AS m1_numerator
+            CAST(SUM(m0) AS FLOAT) AS m0_numerator,
+            CAST(NULL AS FLOAT) AS m1_numerator
           FROM _factTable0_unit0
           GROUP BY
             dimension0
@@ -325,8 +326,8 @@ describe("productAnalytics", () => {
         _factTable0_event_rollup AS (
           SELECT
             dimension0,
-            NULL AS m0_numerator,
-            SUM(m1) AS m1_numerator
+            CAST(NULL AS FLOAT) AS m0_numerator,
+            CAST(SUM(m1) AS FLOAT) AS m1_numerator
           FROM _factTable0_rows
           GROUP BY
             dimension0
@@ -449,8 +450,8 @@ describe("productAnalytics", () => {
         _factTable0_unit0_rollup AS (
           SELECT
             dimension0,
-            SUM(m0) AS m0_numerator,
-            NULL AS m1_numerator
+            CAST(SUM(m0) AS FLOAT) AS m0_numerator,
+            CAST(NULL AS FLOAT) AS m1_numerator
           FROM _factTable0_unit0
           GROUP BY
             dimension0
@@ -458,8 +459,8 @@ describe("productAnalytics", () => {
         _factTable0_event_rollup AS (
           SELECT
             dimension0,
-            NULL AS m0_numerator,
-            SUM(m1) AS m1_numerator
+            CAST(NULL AS FLOAT) AS m0_numerator,
+            CAST(SUM(m1) AS FLOAT) AS m1_numerator
           FROM _factTable0_rows
           GROUP BY
             dimension0
@@ -582,8 +583,8 @@ describe("productAnalytics", () => {
         _factTable0_unit0_rollup AS (
           SELECT
             dimension0,
-            SUM(m0) AS m0_numerator,
-            NULL AS m1_numerator
+            CAST(SUM(m0) AS FLOAT) AS m0_numerator,
+            CAST(NULL AS FLOAT) AS m1_numerator
           FROM _factTable0_unit0
           GROUP BY
             dimension0
@@ -591,8 +592,8 @@ describe("productAnalytics", () => {
         _factTable0_event_rollup AS (
           SELECT
             dimension0,
-            NULL AS m0_numerator,
-            SUM(m1) AS m1_numerator
+            CAST(NULL AS FLOAT) AS m0_numerator,
+            CAST(SUM(m1) AS FLOAT) AS m1_numerator
           FROM _factTable0_rows
           GROUP BY
             dimension0

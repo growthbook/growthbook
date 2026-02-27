@@ -388,7 +388,7 @@ function generateDimensionExpression(
     case "dynamic": {
       const topCTE = `_dimension${dimensionIndex}_top`;
       const columnExpr = getColumnExpression(
-        dimension.column,
+        dimension.column || "",
         factTable,
         helpers.jsonExtract,
       );
@@ -890,6 +890,7 @@ function generateUnitAggregationRollupCTE(
   unitIndex: number,
   includedMetrics: MetricData[],
   allMetrics: string[],
+  helpers: SqlHelpers,
 ): CTE {
   const selects: string[] = [];
   const groupBys: string[] = [];
@@ -906,15 +907,17 @@ function generateUnitAggregationRollupCTE(
 
     if (metricData && metricData.rollupAggregationExpr) {
       selects.push(
-        `${metricData.rollupAggregationExpr || "NULL"} AS ${alias}_numerator`,
+        `${helpers.castToFloat(metricData.rollupAggregationExpr || "NULL")} AS ${alias}_numerator`,
       );
       if (metricData.rollupCountExpr) {
-        selects.push(`${metricData.rollupCountExpr} AS ${alias}_denominator`);
+        selects.push(
+          `${helpers.castToFloat(metricData.rollupCountExpr)} AS ${alias}_denominator`,
+        );
       }
     } else {
-      selects.push(`NULL AS ${alias}_numerator`);
+      selects.push(`${helpers.castToFloat("NULL")} AS ${alias}_numerator`);
       if (metricData?.rollupCountExpr) {
-        selects.push(`NULL AS ${alias}_denominator`);
+        selects.push(`${helpers.castToFloat("NULL")} AS ${alias}_denominator`);
       }
     }
   });
@@ -936,6 +939,7 @@ function generateEventRollupCTE(
   dimensions: DimensionData[],
   includedMetrics: MetricData[],
   allMetrics: string[],
+  helpers: SqlHelpers,
 ): CTE {
   const selects: string[] = [];
   const groupBys: string[] = [];
@@ -951,15 +955,17 @@ function generateEventRollupCTE(
     const metricData = includedMetrics.find((m) => m.alias === alias);
     if (metricData && metricData.rollupAggregationExpr) {
       selects.push(
-        `${metricData.rollupAggregationExpr || "NULL"} AS ${metricData.alias}_numerator`,
+        `${helpers.castToFloat(metricData.rollupAggregationExpr || "NULL")} AS ${metricData.alias}_numerator`,
       );
       if (metricData.rollupCountExpr) {
-        selects.push(`${metricData.rollupCountExpr} AS ${alias}_denominator`);
+        selects.push(
+          `${helpers.castToFloat(metricData.rollupCountExpr)} AS ${alias}_denominator`,
+        );
       }
     } else {
-      selects.push(`NULL AS ${alias}_numerator`);
+      selects.push(`${helpers.castToFloat("NULL")} AS ${alias}_numerator`);
       if (metricData?.rollupCountExpr) {
-        selects.push(`NULL AS ${alias}_denominator`);
+        selects.push(`${helpers.castToFloat("NULL")} AS ${alias}_denominator`);
       }
     }
   });
@@ -1153,6 +1159,7 @@ export function generateProductAnalyticsSQL(
         unitIndex,
         metrics,
         allMetricsAliases,
+        sqlHelpers,
       );
       ctes.push(unitRollupCTE);
       ctesToRollup.push(unitRollupCTE);
@@ -1166,6 +1173,7 @@ export function generateProductAnalyticsSQL(
         allDimensions,
         eventMetrics,
         allMetricsAliases,
+        sqlHelpers,
       );
       ctes.push(eventRollupCTE);
       ctesToRollup.push(eventRollupCTE);

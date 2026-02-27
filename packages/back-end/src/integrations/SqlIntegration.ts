@@ -8039,6 +8039,7 @@ ORDER BY column_name, count DESC
       percentileApprox: this.approxQuantile.bind(this),
       toTimestamp: this.toTimestamp.bind(this),
       formatDialect: this.getFormatDialect(),
+      castToFloat: this.ensureFloat.bind(this),
     };
 
     const dateRange = calculateProductAnalyticsDateRange(config.dateRange);
