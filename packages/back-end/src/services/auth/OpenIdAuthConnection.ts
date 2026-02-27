@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { NextFunction, Request, RequestHandler, Response } from "express";
 import {
   Issuer,
@@ -56,10 +57,26 @@ const ssoConnectionCache = new MemoryCache(async (ssoConnectionId: string) => {
   throw new Error("Could not find SSO connection - " + ssoConnectionId);
 }, 30);
 
-// Stable key for clientMap
+// A stable key for clientMap
+// Cache key must include all fields that affect the OpenID Client, so updates
+// (e.g. clientSecret rotation) invalidate the cache. Otherwise users could be
+// locked out until server restart.
 function getConnectionCacheKey(connection: SSOConnectionInterface): string {
-  if (connection.id) return connection.id;
-  return `${connection.clientId}:${connection.metadata?.issuer ?? ""}`;
+  const baseId =
+    connection.id ??
+    `${connection.clientId}:${connection.metadata?.issuer ?? ""}`;
+  const configHash = crypto
+    .createHash("sha256")
+    .update(
+      JSON.stringify({
+        clientId: connection.clientId,
+        clientSecret: connection.clientSecret ?? "",
+        metadata: connection.metadata,
+      }),
+    )
+    .digest("hex")
+    .slice(0, 16);
+  return `${baseId}:${configHash}`;
 }
 
 const clientMap: Map<string, Client> = new Map();
