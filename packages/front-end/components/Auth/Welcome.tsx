@@ -5,6 +5,7 @@ import track from "@/services/track";
 import { getApiHost } from "@/services/env";
 import Field from "@/components/Forms/Field";
 import WelcomeFrame from "./WelcomeFrame";
+import PasswordInput from "./PasswordInput";
 
 export default function Welcome({
   onSuccess,
@@ -16,6 +17,7 @@ export default function Welcome({
   const [state, setState] = useState<
     "login" | "register" | "forgot" | "forgotSuccess" | "firsttime"
   >(firstTime ? "firsttime" : "login");
+
   const form = useForm({
     defaultValues: {
       companyname: "",
@@ -24,8 +26,9 @@ export default function Welcome({
       password: "",
     },
   });
+
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [welcomeMsgIndex] = useState(Math.floor(Math.random() * 4));
   const { pathname } = useRouter();
 
@@ -41,6 +44,7 @@ export default function Welcome({
     "Hello there, Welcome!",
     "Hey there!",
   ];
+
   const cta =
     state === "login"
       ? "Log in"
@@ -58,9 +62,7 @@ export default function Welcome({
       : form.handleSubmit(async (data) => {
           const res = await fetch(getApiHost() + "/auth/" + state, {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
+            headers: { "Content-Type": "application/json" },
             credentials: "include",
             body: JSON.stringify(data),
           });
@@ -70,18 +72,16 @@ export default function Welcome({
             message?: string;
             projectId?: string;
           } = await res.json();
+
           if (json.status > 200) {
             throw new Error(
               json.message || "An error occurred. Please try again.",
             );
           }
 
-          if (state === "register") {
-            track("Register");
-          }
-          if (state === "firsttime") {
-            track("Register-first");
-          }
+          if (state === "register") track("Register");
+          if (state === "firsttime") track("Register-first");
+
           if (state === "forgot") {
             setState("forgotSuccess");
           } else {
@@ -134,7 +134,8 @@ export default function Welcome({
             try {
               await submit?.();
             } catch (e) {
-              setError(e.message);
+              const msg = e instanceof Error ? e.message : String(e);
+              setError(msg);
             }
             setLoading(false);
           }}
@@ -156,6 +157,7 @@ export default function Welcome({
               </p>
             </div>
           )}
+
           {state === "firsttime" && (
             <div>
               <h3 className="h2">Set up your first account</h3>
@@ -166,6 +168,7 @@ export default function Welcome({
               </p>
             </div>
           )}
+
           {state === "login" && (
             <div>
               <h3 className="h2">Log In</h3>
@@ -183,6 +186,7 @@ export default function Welcome({
               </p>
             </div>
           )}
+
           {state === "forgot" && (
             <div>
               <h3 className="h2">Forgot Password</h3>
@@ -199,6 +203,7 @@ export default function Welcome({
               </p>
             </div>
           )}
+
           {state === "forgotSuccess" && (
             <div>
               <h3 className="h2">Forgot Password</h3>
@@ -220,6 +225,7 @@ export default function Welcome({
               </p>
             </div>
           )}
+
           {state === "firsttime" && (
             <Field
               label="Company name"
@@ -229,6 +235,7 @@ export default function Welcome({
               {...form.register("companyname")}
             />
           )}
+
           {(state === "register" || state === "firsttime") && (
             <Field
               label="Name"
@@ -239,6 +246,7 @@ export default function Welcome({
               minLength={2}
             />
           )}
+
           {(state === "login" ||
             state === "register" ||
             state === "forgot" ||
@@ -252,20 +260,24 @@ export default function Welcome({
               autoComplete="username"
             />
           )}
+
           {(state === "login" ||
             state === "register" ||
             state === "firsttime") && (
-            <Field
-              label="Password"
-              required
-              type="password"
-              {...form.register("password")}
-              autoComplete={
-                state === "login" ? "current-password" : "new-password"
-              }
-              minLength={8}
-              helpText={
-                state === "login" ? (
+            <div className="mb-3">
+              <label className="form-label">Password</label>
+
+              <PasswordInput
+                {...form.register("password", { required: true, minLength: 8 })}
+                autoComplete={
+                  state === "login" ? "current-password" : "new-password"
+                }
+                className="form-control"
+                placeholder={state === "login" ? "Password" : "Create password"}
+              />
+
+              {state === "login" && (
+                <div className="mt-1">
                   <a
                     href="#"
                     onClick={(e) => {
@@ -275,12 +287,18 @@ export default function Welcome({
                   >
                     Forgot Password?
                   </a>
-                ) : null
-              }
-            />
+                </div>
+              )}
+            </div>
           )}
+
           {error && <div className="alert alert-danger mr-auto">{error}</div>}
-          <button className={`btn btn-primary btn-block btn-lg`} type="submit">
+
+          <button
+            className="btn btn-primary btn-block btn-lg"
+            type="submit"
+            disabled={loading}
+          >
             {cta}
           </button>
         </form>
