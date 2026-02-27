@@ -253,6 +253,149 @@ describe("SDK payload generation (comprehensive)", () => {
         (without.rules?.[0] as Record<string, unknown>).name,
       ).toBeUndefined();
     });
+
+    it("includeRuleIds controls rule id for holdout (force) rules", () => {
+      const holdout: HoldoutInterface = {
+        id: "holdout-1",
+        organization: "org-1",
+        name: "H1",
+        description: "",
+        environment: "production",
+        projects: [],
+        experimentId: "exp1",
+        holdoutPercent: 0.1,
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        environmentSettings: {
+          production: { enabled: true, rules: [] },
+        },
+      } as HoldoutInterface;
+      const holdoutExperiment: ExperimentInterface = {
+        id: "exp1",
+        organization: "org-1",
+        project: "",
+        name: "Holdout Exp",
+        hypothesis: "",
+        status: "running",
+        phases: [
+          { phase: "main", coverage: 0.9, variationWeights: [0.5, 0.5] },
+        ],
+        variations: [
+          { id: "v0", key: "0", name: "C" },
+          { id: "v1", key: "1", name: "T" },
+        ],
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        trackingKey: "tk",
+        archived: false,
+      } as ExperimentInterface;
+      const holdoutsMap = new Map([
+        ["holdout-1", { holdout, holdoutExperiment }],
+      ]);
+      const featureWithHoldout: FeatureInterface = {
+        id: "f1",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        defaultValue: true,
+        organization: "org-1",
+        owner: "",
+        valueType: "boolean",
+        archived: false,
+        description: "",
+        version: 1,
+        holdout: { id: "holdout-1" } as HoldoutInterface,
+        environmentSettings: {
+          production: { enabled: true, rules: [] },
+        },
+      } as FeatureInterface;
+      const withId = getFeatureDefinition({
+        feature: featureWithHoldout,
+        environment: "production",
+        groupMap: new Map(),
+        experimentMap: new Map(),
+        safeRolloutMap: new Map(),
+        holdoutsMap,
+        capabilities: ["prerequisites"],
+        includeRuleIds: true,
+      });
+      const withoutId = getFeatureDefinition({
+        feature: featureWithHoldout,
+        environment: "production",
+        groupMap: new Map(),
+        experimentMap: new Map(),
+        safeRolloutMap: new Map(),
+        holdoutsMap,
+        capabilities: ["prerequisites"],
+        includeRuleIds: false,
+      });
+      expect(withId?.rules?.[0]).toBeDefined();
+      expect((withId?.rules?.[0] as Record<string, unknown>).id).toMatch(
+        /^holdout_/,
+      );
+      expect(withoutId?.rules?.[0]).toBeDefined();
+      expect(
+        (withoutId?.rules?.[0] as Record<string, unknown>).id,
+      ).toBeUndefined();
+    });
+
+    it("includeRuleIds controls rule id for inline experiment rules", () => {
+      const feature: FeatureInterface = {
+        id: "f1",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        defaultValue: true,
+        organization: "org-1",
+        owner: "",
+        valueType: "boolean",
+        archived: false,
+        description: "",
+        version: 1,
+        environmentSettings: {
+          production: {
+            enabled: true,
+            rules: [
+              {
+                type: "experiment",
+                id: "inline-rule-id",
+                enabled: true,
+                coverage: 1,
+                values: [
+                  { value: "v0", weight: 0.5, name: "C" },
+                  { value: "v1", weight: 0.5, name: "T" },
+                ],
+                hashAttribute: "id",
+                seed: "s1",
+                namespace: { enabled: true, name: "ns", range: [0, 1] },
+              },
+            ],
+          },
+        },
+      } as FeatureInterface;
+      const withId = getFeatureDefinition({
+        feature,
+        environment: "production",
+        groupMap: new Map(),
+        experimentMap: new Map(),
+        safeRolloutMap: new Map(),
+        capabilities: undefined,
+        includeRuleIds: true,
+      });
+      const withoutId = getFeatureDefinition({
+        feature,
+        environment: "production",
+        groupMap: new Map(),
+        experimentMap: new Map(),
+        safeRolloutMap: new Map(),
+        capabilities: undefined,
+        includeRuleIds: false,
+      });
+      expect((withId?.rules?.[0] as Record<string, unknown>).id).toBe(
+        "inline-rule-id",
+      );
+      expect(
+        (withoutId?.rules?.[0] as Record<string, unknown>).id,
+      ).toBeUndefined();
+    });
   });
 
   describe("project and environment scoping", () => {
@@ -901,7 +1044,7 @@ describe("SDK payload generation (comprehensive)", () => {
   });
 
   describe("holdouts", () => {
-    it("holdout definitions are merged and unreferenced holdouts are pruned", async () => {
+    it("holdout definitions are merged; only referenced holdouts are included in payload", async () => {
       const ctx = minimalContext();
       const holdout: HoldoutInterface = {
         id: "holdout-1",
