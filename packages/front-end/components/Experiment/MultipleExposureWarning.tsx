@@ -40,12 +40,12 @@ export default function MultipleExposureWarning({
         return null;
       }
     } else {
-      // If experiment object is not provided, we can't determine if sticky
-      // bucketing is enabled on the experiment. To avoid showing warnings for
-      // non-sticky-bucketing bandits, we hide the warning when we can't confirm.
-      // If org sticky bucketing is not enabled, the bandit definitely doesn't use it.
-      // If org sticky bucketing is enabled but we don't have the experiment object,
-      // we can't know if disableStickyBucketing is true, so we hide to be safe.
+      /**  If experiment object is not provided, we can't determine if sticky
+       bucketing is enabled on the experiment. To avoid showing warnings for
+       non-sticky-bucketing bandits, we hide the warning when we can't confirm.
+       If org sticky bucketing is not enabled, the bandit definitely doesn't use it.
+       If org sticky bucketing is enabled but we don't have the experiment object,
+       we can't know if disableStickyBucketing is true, so we hide to be safe. */
       return null;
     }
   }
