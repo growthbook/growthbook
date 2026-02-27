@@ -223,6 +223,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   const [prerequisiteTargetingSdkIssues, setPrerequisiteTargetingSdkIssues] =
     useState(false);
+  const [disableBanditConversionWindow, setDisableBanditConversionWindow] =
+    useState(() => {
+      if (initialValue?.type !== "multi-armed-bandit") return false;
+      const hasOverride =
+        initialValue?.banditConversionWindowValue != null &&
+        initialValue?.banditConversionWindowUnit != null;
+      return !hasOverride;
+    });
   const canSubmit = !prerequisiteTargetingSdkIssues;
   const minWordsForSimilarityCheck = 4;
 
@@ -427,6 +435,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         }
         if ((data.goalMetrics?.length ?? 0) !== 1) {
           throw new Error("You must select 1 decision metric");
+        }
+        if (disableBanditConversionWindow) {
+          delete data.banditConversionWindowValue;
+          delete data.banditConversionWindowUnit;
         }
       }
     }
@@ -1236,6 +1248,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                           v.map((v) => v.weight),
                         );
                       }}
+                      disableBanditConversionWindow={
+                        disableBanditConversionWindow
+                      }
+                      setDisableBanditConversionWindow={
+                        setDisableBanditConversionWindow
+                      }
                     />
                   </div>
                 </Page>

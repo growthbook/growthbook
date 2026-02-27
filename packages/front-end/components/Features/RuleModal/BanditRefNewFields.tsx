@@ -66,6 +66,8 @@ export default function BanditRefNewFields({
   setWeight,
   variations,
   setVariations,
+  disableBanditConversionWindow,
+  setDisableBanditConversionWindow,
 }: {
   step: number;
   source: "rule" | "experiment";
@@ -88,6 +90,9 @@ export default function BanditRefNewFields({
   setWeight: (i: number, w: number) => void;
   variations: SortableVariation[];
   setVariations: (v: SortableVariation[]) => void;
+  /** When true, use metric default conversion window; payload should omit banditConversionWindowValue/Unit */
+  disableBanditConversionWindow: boolean;
+  setDisableBanditConversionWindow: (v: boolean) => void;
 }) {
   const form = useFormContext();
 
@@ -169,14 +174,18 @@ export default function BanditRefNewFields({
   const conversionWindowValue = form.watch("banditConversionWindowValue");
 
   const conversionWindowOverrideHours = useMemo(() => {
-    if (form.watch("disableConversionWindow")) {
+    if (disableBanditConversionWindow) {
       return null;
     }
     return conversionWindowValue && conversionWindowUnit
       ? parseFloat(String(conversionWindowValue)) *
           (conversionWindowUnit === "days" ? 24 : 1)
       : null;
-  }, [form, conversionWindowValue, conversionWindowUnit]);
+  }, [
+    disableBanditConversionWindow,
+    conversionWindowValue,
+    conversionWindowUnit,
+  ]);
 
   const scheduleHours =
     parseFloat(form.watch("banditScheduleValue") ?? "0") *
@@ -442,11 +451,11 @@ export default function BanditRefNewFields({
                       max={999}
                       step={"any"}
                       style={{ width: 70 }}
-                      disabled={form.watch("disableConversionWindow")}
+                      disabled={disableBanditConversionWindow}
                       className={clsx({
                         "border-warning":
                           showConversionWindowWarning &&
-                          !form.watch("disableConversionWindow"),
+                          !disableBanditConversionWindow,
                       })}
                     />
                     <SelectField
@@ -470,7 +479,7 @@ export default function BanditRefNewFields({
                           value: "days",
                         },
                       ]}
-                      disabled={form.watch("disableConversionWindow")}
+                      disabled={disableBanditConversionWindow}
                       style={{ width: 90, minWidth: 90 }}
                     />
                   </Grid>
@@ -480,13 +489,11 @@ export default function BanditRefNewFields({
                     label="Disable Conversion Window"
                     labelSize="1"
                     size="sm"
-                    value={!!form.watch("disableConversionWindow")}
-                    setValue={(v) => {
-                      form.setValue("disableConversionWindow", v);
-                    }}
+                    value={disableBanditConversionWindow}
+                    setValue={setDisableBanditConversionWindow}
                   />
                 </Grid>
-                {form.watch("disableConversionWindow") &&
+                {disableBanditConversionWindow &&
                   !goalMetricWindow?.windowUnit &&
                   !goalMetricWindow?.windowValue && (
                     <Callout status="warning" my="4">

@@ -130,6 +130,8 @@ export default function RuleModal({
 
   const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] =
     useState(false);
+  const [disableBanditConversionWindow, setDisableBanditConversionWindow] =
+    useState(false);
 
   const settings = useOrgSettings();
   const { settings: scopedSettings } = getScopedSettings({ organization });
@@ -516,8 +518,10 @@ export default function RuleModal({
             banditScheduleUnit: values.banditScheduleUnit ?? "days",
             banditBurnInValue: values.banditBurnInValue ?? 1,
             banditBurnInUnit: values.banditBurnInUnit ?? "days",
-            banditConversionWindowValue: values.banditConversionWindowValue,
-            banditConversionWindowUnit: values.banditConversionWindowUnit,
+            ...(!disableBanditConversionWindow && {
+              banditConversionWindowValue: values.banditConversionWindowValue,
+              banditConversionWindowUnit: values.banditConversionWindowUnit,
+            }),
           });
         }
 
@@ -1173,6 +1177,10 @@ export default function RuleModal({
                   }
                   setVariations={(variations) =>
                     form.setValue("values", variations)
+                  }
+                  disableBanditConversionWindow={disableBanditConversionWindow}
+                  setDisableBanditConversionWindow={
+                    setDisableBanditConversionWindow
                   }
                 />
               </Page>
