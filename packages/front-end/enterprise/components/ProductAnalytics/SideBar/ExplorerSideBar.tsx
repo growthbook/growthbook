@@ -45,15 +45,19 @@ export default function ExplorerSideBar({
   } = useExplorerContext();
   const { factTables, project } = useDefinitions();
   const { hasCommercialFeature, permissionsUtil } = useUser();
-  const canCreateDashboards = permissionsUtil.canCreateGeneralDashboards({
-    projects: [project],
-  });
-  const canEditDashboards = permissionsUtil.canUpdateGeneralDashboards(
-    {
+  // Check if the user can create dashboards for the current project or globally
+  const canCreateDashboards =
+    permissionsUtil.canCreateGeneralDashboards({
       projects: [project],
-    },
-    {},
-  );
+    }) || permissionsUtil.canCreateGeneralDashboards({ projects: [] });
+  // Check if the user can edit dashboards for the current project or globally
+  const canEditDashboards =
+    permissionsUtil.canUpdateGeneralDashboards(
+      {
+        projects: [project],
+      },
+      {},
+    ) || permissionsUtil.canUpdateGeneralDashboards({ projects: [] }, {});
   const hasDashboardsFeature = hasCommercialFeature(
     "product-analytics-dashboards",
   );

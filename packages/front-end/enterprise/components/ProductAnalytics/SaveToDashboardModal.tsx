@@ -58,7 +58,7 @@ export default function SaveToDashboardModal({ close }: Props) {
   const { apiCall } = useAuth();
 
   const [createOrAdd, setCreateOrAdd] = useState<"new" | "existing">(
-    "existing",
+    dashboards.length === 0 ? "new" : "existing",
   );
   const [selectedDashboardId, setSelectedDashboardId] = useState<
     string | undefined
@@ -182,10 +182,14 @@ export default function SaveToDashboardModal({ close }: Props) {
           </Text>
           <RadioGroup
             options={[
-              { label: "Existing dashboard", value: "existing" },
+              {
+                label: "Existing dashboard",
+                value: "existing",
+                disabled: dashboards.length === 0,
+              },
               {
                 label: "New dashboard",
-                value: "create",
+                value: "new",
                 disabled:
                   // If the user can't create a general dashboard for the current project, or globally, don't show enable the button
                   !permissionsUtil.canCreateGeneralDashboards({
