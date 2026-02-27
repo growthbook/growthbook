@@ -51,7 +51,7 @@ interface Props {
 
 export default function SaveToDashboardModal({ close }: Props) {
   const router = useRouter();
-  const { dashboards, dashboardsMap, mutateDashboards } = useDashboards(true);
+  const { dashboards, dashboardsMap, mutateDashboards } = useDashboards(false);
   const { draftExploreState, exploration } = useExplorerContext();
   const { projects, project } = useDefinitions();
   const { hasCommercialFeature, permissionsUtil } = useUser();
