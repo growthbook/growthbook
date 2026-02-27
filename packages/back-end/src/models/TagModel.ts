@@ -16,6 +16,7 @@ const TagModel = mongoose.model<TagDBInterface>("Tag", tagSchema);
 
 const MIN_TAG_LENGTH = 2;
 const MAX_TAG_LENGTH = 64;
+const DEFAULT_TAG_COLOR = "#029dd1";
 
 function toTagInterface(doc: TagDocument | null): TagInterface[] {
   if (!doc) return [];
@@ -25,10 +26,31 @@ function toTagInterface(doc: TagDocument | null): TagInterface[] {
   return json.tags.map((t) => {
     return {
       id: t,
-      color: settings[t]?.color || "#029dd1",
+      color: settings[t]?.color || DEFAULT_TAG_COLOR,
       description: settings[t]?.description || "",
+      label: settings[t]?.label || t,
     };
   });
+}
+
+export async function getTag(
+  organization: string,
+  tag: string,
+): Promise<TagInterface | null> {
+  const doc = await TagModel.findOne({
+    organization,
+  });
+  if (!doc) return null;
+
+  if (!doc.tags.includes(tag)) return null;
+
+  const settings = doc.settings || {};
+  return {
+    id: tag,
+    color: settings[tag]?.color || DEFAULT_TAG_COLOR,
+    description: settings[tag]?.description || "",
+    label: settings[tag]?.label || tag,
+  };
 }
 
 export async function getAllTags(
@@ -64,21 +86,22 @@ export async function addTag(
   tag: string,
   color: string,
   description: string,
+  label?: string,
 ) {
   if (tag.length < MIN_TAG_LENGTH || tag.length > MAX_TAG_LENGTH) {
     throw new Error(
-      `Tags must be at between ${MIN_TAG_LENGTH} and ${MAX_TAG_LENGTH} characers long.`,
+      `Tags must be at between ${MIN_TAG_LENGTH} and ${MAX_TAG_LENGTH} characters long.`,
     );
   }
   if (description.length > 256) {
-    description = description.substr(0, 256);
+    description = description.substring(0, 256);
   }
 
   const existing = await TagModel.findOne({
     organization,
   });
   const settings = existing?.settings || {};
-  settings[tag] = { color, description };
+  settings[tag] = { color, description, label: label ?? tag };
 
   await TagModel.updateOne(
     { organization },
@@ -100,11 +123,38 @@ export async function addTag(
 
 export async function removeTag(organization: string, tag: string) {
   await TagModel.updateOne(
+    { organization },
+    {
+      $pull: { tags: tag },
+      $unset: { [`settings.${tag}`]: 1 },
+    },
+  );
+}
+
+export async function updateTag(
+  organization: string,
+  tag: string,
+  color: string,
+  description: string,
+  label: string,
+) {
+  if (description.length > 256) {
+    description = description.substring(0, 256);
+  }
+
+  const existing = await getTag(organization, tag);
+  if (!existing) {
+    throw new Error(`Tag ${tag} does not exist.`);
+  }
+
+  await TagModel.updateOne(
     {
       organization,
     },
     {
-      $pull: { tags: tag },
+      $set: {
+        [`settings.${tag}`]: { color, description, label },
+      },
     },
   );
 }

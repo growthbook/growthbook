@@ -1,12 +1,13 @@
 import { useForm } from "react-hook-form";
 import React from "react";
 import { TagInterface } from "shared/types/tag";
-import { Text, Container } from "@radix-ui/themes";
+import { Text, Container, Flex, Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import { RadixColor } from "@/ui/HelperText";
 import { Select, SelectItem } from "@/ui/Select";
+import Badge from "@/ui/Badge";
 import Tag from "./Tag";
 
 export const TAG_COLORS = [
@@ -33,6 +34,7 @@ export default function TagsModal({
       id: existing?.id || "",
       color: existing?.color || "blue",
       description: existing?.description || "",
+      label: existing?.label || "",
     },
   });
   const { apiCall } = useAuth();
@@ -50,30 +52,47 @@ export default function TagsModal({
       open={true}
       close={close}
       cta={existing?.id ? "Save Changes" : "Create Tag"}
-      header={existing?.id ? `Edit Tag: ${existing.id}` : "Create Tag"}
+      header={existing?.id ? `Edit Tag: ${existing.label}` : "Create Tag"}
       submit={form.handleSubmit(async (value) => {
-        await apiCall(`/tag`, {
-          method: "POST",
-          body: JSON.stringify(value),
-        });
+        if (existing?.id) {
+          // update
+          await apiCall(`/tag/${encodeURIComponent(existing.id)}`, {
+            method: "PUT",
+            body: JSON.stringify(value),
+          });
+        } else {
+          // create
+          value.id = value.label;
+          await apiCall(`/tag`, {
+            method: "POST",
+            body: JSON.stringify(value),
+          });
+        }
         await onSuccess();
       })}
     >
       <div>
-        {!existing?.id && (
-          <Container mb="3">
-            <Text as="label" size="3" weight="medium">
-              Name
-            </Text>
-            <Field
-              minLength={2}
-              maxLength={64}
-              className=""
-              required
-              {...form.register("id")}
-            />
-          </Container>
-        )}
+        <Container mb="3">
+          <Text as="label" size="3" weight="medium">
+            Name
+          </Text>
+          <Field
+            minLength={2}
+            maxLength={64}
+            className=""
+            required
+            {...form.register("label")}
+          />
+          {existing?.id &&
+            (existing.id !== existing?.label ||
+              form.watch("label") !== existing.id) && (
+              <Box mt="2">
+                <Text size="1" color="gray">
+                  Tag ID: {existing.id}
+                </Text>
+              </Box>
+            )}
+        </Container>
         <Select
           label="Color"
           value={form.watch("color")}
@@ -82,7 +101,14 @@ export default function TagsModal({
         >
           {colorOptions.map((c) => (
             <SelectItem key={c} value={c}>
-              {c}
+              <Flex gap="3" align="center">
+                <Badge
+                  color={c}
+                  label={" "}
+                  style={{ height: "16px", width: "16px" }}
+                ></Badge>
+                {c}
+              </Flex>
             </SelectItem>
           ))}
         </Select>
@@ -102,6 +128,7 @@ export default function TagsModal({
             {form.watch("id") && (
               <Tag
                 tag={form.watch("id")}
+                label={form.watch("label")}
                 color={form.watch("color") as RadixColor}
                 description={form.watch("description")}
                 skipMargin

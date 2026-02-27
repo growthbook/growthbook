@@ -49,17 +49,19 @@ const TagsInput: FC<{
   tagOptions = [...tagOptions];
   value.forEach((value) => {
     if (!tagSet.has(value)) {
+      const tag = getTagById(value);
       tagOptions?.push({
         id: value,
-        description: "",
-        color: getTagById(value)?.color || "#029dd1",
+        label: tag?.label || value,
+        description: tag?.description || "",
+        color: tag?.color || DEFAULT_TAG_COLOR,
       });
     }
   });
 
   const tagStyles: StylesConfig<ColorOption, true> = {
     option: (styles, { data, isDisabled }) => {
-      const displayColor = data.color ?? "#029dd1";
+      const displayColor = data.color ?? DEFAULT_TAG_COLOR;
       return {
         ...styles,
         color: isDisabled ? "#ccc" : "#000",
@@ -125,7 +127,7 @@ const TagsInput: FC<{
           const hexColor = TAG_COLORS_MAP[t.color] ?? DEFAULT_TAG_COLOR;
           return {
             value: t.id,
-            label: t.id,
+            label: t.label,
             color: hexColor || "var(--form-multivalue-text-color)",
             tooltip: t.description,
           };

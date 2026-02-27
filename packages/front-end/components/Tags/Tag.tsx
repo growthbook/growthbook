@@ -17,6 +17,7 @@ export const TAG_COLORS = [
 
 type Props = {
   tag: string;
+  label?: string;
   color?: RadixColor;
   description?: string;
   skipMargin?: boolean;
@@ -28,12 +29,15 @@ export default function Tag({
   color,
   description,
   skipMargin,
+  label,
   variant = "badge",
 }: Props) {
   const { getTagById } = useDefinitions();
   const fullTag = getTagById(tag);
 
   const displayTitle = description ?? fullTag?.description ?? "";
+
+  const displayLabel = label ?? fullTag?.label ?? tag;
 
   const tagColor = color ?? fullTag?.color ?? "blue";
 
@@ -54,14 +58,14 @@ export default function Tag({
             background: `var(--${tagColor}-10)`,
           }}
         ></div>
-        <div>{tag}</div>
+        <div>{displayLabel}</div>
       </Flex>
     );
   }
   return (
     <Badge
       title={displayTitle}
-      label={tag}
+      label={displayLabel}
       color={tagColor as RadixColor}
       variant="soft"
       mr={skipMargin ? undefined : "2"}
