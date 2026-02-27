@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useState, useEffect, useMemo } from "react";
+import React, { FC, useCallback, useState } from "react";
 import {
   UseFormReturn,
   useFieldArray,
@@ -15,8 +15,8 @@ import { datetime, getValidDate } from "shared/dates";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { isProjectListValidForProject } from "shared/util";
 import { getScopedSettings } from "shared/settings";
-import { getMetricWindowHours } from "shared/experiments";
 import Collapsible from "react-collapsible";
+import { Separator } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
@@ -36,8 +36,6 @@ import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import HelperText from "@/ui/HelperText";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
-import Checkbox from "@/ui/Checkbox";
-import { docUrl } from "@/components/DocLink";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import DatePicker from "@/components/DatePicker";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
@@ -51,6 +49,7 @@ import {
   getDefaultMetricOverridesFormValue,
 } from "./EditMetricsForm";
 import MetricSelector from "./MetricSelector";
+import BanditDecisionMetricSettings from "./BanditDecisionMetricSettings";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 
 const AnalysisForm: FC<{
@@ -195,6 +194,14 @@ const AnalysisForm: FC<{
 
   const [usingSequentialTestingDefault, setUsingSequentialTestingDefault] =
     useState(experiment.sequentialTestingEnabled === undefined);
+  const [disableBanditConversionWindow, setDisableBanditConversionWindow] =
+    useState(() => {
+      if (experiment.type !== "multi-armed-bandit") return false;
+      const hasOverride =
+        experiment.banditConversionWindowValue != null &&
+        experiment.banditConversionWindowUnit != null;
+      return !hasOverride;
+    });
   const setSequentialTestingToDefault = useCallback(
     (enable: boolean) => {
       if (enable) {
@@ -240,48 +247,6 @@ const AnalysisForm: FC<{
   const type = form.watch("type");
   const isBandit = type === "multi-armed-bandit";
   const isHoldout = type === "holdout";
-
-  // Calculate default conversion window from goal metric
-  const goalMetricId = form.watch("goalMetrics")?.[0];
-  const goalMetric = goalMetricId
-    ? getExperimentMetricById(goalMetricId)
-    : null;
-  const defaultConversionWindowHours = useMemo(() => {
-    if (goalMetric?.windowSettings) {
-      return getMetricWindowHours(goalMetric.windowSettings);
-    }
-    return 1; // Default to 1 hour if no metric
-  }, [goalMetric]);
-
-  // Set default conversion window when goal metric changes
-  useEffect(() => {
-    if (isBandit && goalMetricId) {
-      // Always update to match the metric's conversion window when metric changes
-      if (defaultConversionWindowHours >= 24) {
-        form.setValue(
-          "banditConversionWindowValue",
-          defaultConversionWindowHours / 24,
-        );
-        form.setValue("banditConversionWindowUnit", "days");
-      } else {
-        form.setValue(
-          "banditConversionWindowValue",
-          defaultConversionWindowHours,
-        );
-        form.setValue("banditConversionWindowUnit", "hours");
-      }
-    } else if (isBandit && !goalMetricId) {
-      // If no goal metric, set to 1 hour
-      form.setValue("banditConversionWindowValue", 1);
-      form.setValue("banditConversionWindowUnit", "hours");
-    }
-  }, [
-    goalMetricId,
-    defaultConversionWindowHours,
-    isBandit,
-    form,
-    getExperimentMetricById,
-  ]);
 
   const isExperimentIncludedInIncrementalRefresh =
     getIsExperimentIncludedInIncrementalRefresh(
@@ -375,6 +340,17 @@ const AnalysisForm: FC<{
             (body.banditScheduleUnit === "days" ? 24 : 1);
           if (banditScheduleHours < 0.25 || (body.banditBurnInValue ?? 0) < 0) {
             throw new Error("Invalid Bandit schedule");
+          }
+          if (disableBanditConversionWindow) {
+            delete body.banditConversionWindowValue;
+            delete body.banditConversionWindowUnit;
+          } else if (
+            !body.banditConversionWindowValue ||
+            !body.banditConversionWindowUnit
+          ) {
+            throw new Error(
+              "Enter a conversion window override or disable the conversion window override",
+            );
           }
         }
 
@@ -844,25 +820,21 @@ const AnalysisForm: FC<{
           )}
         {editMetrics && (
           <>
-            {isBandit && orgSettings?.useStickyBucketing && (
-              <Checkbox
-                mt="3"
-                mb="3"
-                size="lg"
-                label={
-                  <Link
-                    href={docUrl("stickyBucketing")}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Sticky bucketing enabled
-                  </Link>
-                }
-                value={!form.watch("disableStickyBucketing")}
-                setValue={(v) => {
-                  form.setValue("disableStickyBucketing", !v);
-                }}
-              />
+            {isBandit && (
+              <>
+                <FormProvider {...form}>
+                  <BanditDecisionMetricSettings
+                    disableBanditConversionWindow={
+                      disableBanditConversionWindow
+                    }
+                    setDisableBanditConversionWindow={
+                      setDisableBanditConversionWindow
+                    }
+                    project={experiment.project}
+                  />
+                </FormProvider>
+                {experiment.status !== "draft" && <Separator my="5" size="4" />}
+              </>
             )}
             <ExperimentMetricsSelector
               noLegacyMetrics={isExperimentIncludedInIncrementalRefresh}
@@ -873,8 +845,10 @@ const AnalysisForm: FC<{
               goalMetrics={form.watch("goalMetrics")}
               secondaryMetrics={form.watch("secondaryMetrics")}
               guardrailMetrics={form.watch("guardrailMetrics")}
-              setGoalMetrics={(goalMetrics) =>
-                form.setValue("goalMetrics", goalMetrics)
+              setGoalMetrics={
+                !isBandit
+                  ? (goalMetrics) => form.setValue("goalMetrics", goalMetrics)
+                  : undefined
               }
               setSecondaryMetrics={(secondaryMetrics) =>
                 form.setValue("secondaryMetrics", secondaryMetrics)
@@ -891,54 +865,6 @@ const AnalysisForm: FC<{
               goalDisabled={isBandit && experiment.status !== "draft"}
               experimentId={experiment.id}
             />
-
-            {isBandit && (
-              <div className="form-group mt-3">
-                <label className="font-weight-bold mb-1">
-                  Conversion Window Length
-                </label>
-                <div className="row align-items-center">
-                  <div className="col-auto">
-                    <Field
-                      {...form.register("banditConversionWindowValue", {
-                        valueAsNumber: true,
-                      })}
-                      type="number"
-                      min={0}
-                      max={999}
-                      step={"any"}
-                      style={{ width: 70 }}
-                      disabled={experiment.status !== "draft"}
-                    />
-                  </div>
-                  <div className="col-auto">
-                    <SelectField
-                      value={
-                        form.watch("banditConversionWindowUnit") || "hours"
-                      }
-                      onChange={(value) => {
-                        form.setValue(
-                          "banditConversionWindowUnit",
-                          value as "hours" | "days",
-                        );
-                      }}
-                      sort={false}
-                      options={[
-                        {
-                          label: "Hour(s)",
-                          value: "hours",
-                        },
-                        {
-                          label: "Day(s)",
-                          value: "days",
-                        },
-                      ]}
-                      disabled={experiment.status !== "draft"}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
 
             <CustomMetricSlicesSelector
               goalMetrics={form.watch("goalMetrics")}

@@ -225,7 +225,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     useState(false);
   const [disableBanditConversionWindow, setDisableBanditConversionWindow] =
     useState(() => {
-      if (initialValue?.type !== "multi-armed-bandit") return false;
+      if (initialValue?.type !== "multi-armed-bandit" || isNewExperiment)
+        return false;
       const hasOverride =
         initialValue?.banditConversionWindowValue != null &&
         initialValue?.banditConversionWindowUnit != null;
@@ -436,9 +437,20 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         if ((data.goalMetrics?.length ?? 0) !== 1) {
           throw new Error("You must select 1 decision metric");
         }
-        if (disableBanditConversionWindow) {
+        const shouldIncludeConversionWindow =
+          !disableBanditConversionWindow &&
+          (!settings.useStickyBucketing || data.disableStickyBucketing);
+
+        if (!shouldIncludeConversionWindow) {
           delete data.banditConversionWindowValue;
           delete data.banditConversionWindowUnit;
+        } else if (
+          !data.banditConversionWindowValue ||
+          !data.banditConversionWindowUnit
+        ) {
+          throw new Error(
+            "Enter a conversion window override or disable the conversion window override",
+          );
         }
       }
     }
