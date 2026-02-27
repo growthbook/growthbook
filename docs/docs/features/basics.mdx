@@ -1,139 +1,66 @@
 ---
-title: Feature Flag Basics
+title: Feature Flag Fundamentals
 description: Learn about the basics of feature flags.
-sidebar_label: Feature Flag Basics
+sidebar_label: Fundamentals
 slug: /features/basics
 ---
 
 import MaxWidthImage from "@site/src/components/MaxWidthImage";
 import CommercialFeature from '@site/src/components/CommercialFeature';
 
-# Basics of Feature Flags
+This page covers the core concepts you'll need to create and configure feature flags in GrowthBook.
 
 ## Feature Keys
 
-Every feature is defined by a unique **key**. This is what the engineering team will reference in their code when they
-check the value of a feature. Feature keys **cannot** be changed after they are created, so take care when choosing one.
-If you make a mistake, you can always delete the feature and create a new one.
+Every feature is defined by a unique **key**. This is what your engineering team references in code when checking the value of a feature. Feature keys **cannot** be changed after creation, so take care when choosing one. If you make a mistake, delete the feature and create a new one.
 
-<MaxWidthImage maxWidth={600}>
-  ![Create Feature](/images/features/feature-create-feature-1.png)
-</MaxWidthImage>
+![Create Feature modal in GrowthBook](/images/features/feature-create-feature-2.png)
 
-Feature keys must only include letters, numbers, hyphens, and underscores.
+:::warning Naming Conventions
+Feature keys must only include letters, numbers, hyphens (-), and underscores (\_).
+:::
 
-Some examples of good feature keys:
+## Feature State
 
-- `onboarding-checklist` - ON/OFF flag for a feature
-- `checkout_button_color` - The color of the checkout button
-- `resultsPerPage` - Number of search results to show per page
+Feature flags can be enabled or disabled. When a flag is disabled, GrowthBook excludes the feature from the API response. The feature evaluates to `null` and ignores all targeting and rules. In your app, the SDK will render the feature with the fallback value.
 
-## Default Values
-
-Each feature has a default value that is used when there are no matching rules for the user. A feature that is enabled
-on an environment, with no rules, will use the default value. The default values also depend on the feature type.
-
-Using features in your code is easy. Here's an example from our Javascript SDK:
+Here's an example from the JavaScript SDK:
 
 ```js
-// For boolean features
-if (growthbook.isOn("my-feature")) {
-  // ... Do something
-}
+const showNewCheckout = gb.isOn('new-checkout')
+// Renders false if the feature is disabled
 
-// For number, string, and JSON features
-const value = growthbook.getFeatureValue("other-feature", "fallback");
+const buttonColor = gb.getFeatureValue('button-color', 'red')
+// Renders 'red' if the feature is disabled
 ```
-
-GrowthBook also supports multiple environments, so you can, for example, have a feature enabled in **dev** but not **production**.
-
-You can also change the value of a feature with **Rules**. The following types of rules are supported:
-
-## Rules
-
-Default values are overridden by **Rules**. Rules are used to target specific users or groups of users,
-or when launching A/B tests.
-
-There are three kinds of rules we support:
-
-- [**Forced Value**](/features/rules#forced-value) - use targeting attributes to assign a subset of users the same value
-- [**Percentage Rollout**](/features/rules#percentage-rollout) - use random sampling to roll out a feature to a percent of users
-- [**A/B Experiment**](/features/rules#experiments) - run a randomized A/B test between 2 or more feature values
-
-For more information, see our page on [Rules](/features/rules).
 
 ## Feature Types
 
-Features can be a simple ON/OFF flag or a more complex data type (strings, numbers or JSON) which can be used for remote
-configuration. The type of feature you select depends on your use case.
+Features can be a simple ON/OFF flag or a more complex data type (string, number, or JSON).
 
-GrowthBook supports 4 types of features:
+| Type        | Values               | Best for                                               | Example                                       |
+| ----------- | -------------------- | ------------------------------------------------------ | --------------------------------------------- |
+| **Boolean** | `true` / `false`     | Simple on/off toggles, kill switches, gradual rollouts | `show-onboarding-checklist`                   |
+| **String**  | Any string           | Remote config, multivariate A/B tests                  | `button-color` set to `"red"`, `"blue"`, etc. |
+| **Number**  | Any integer or float | Numeric configuration values                           | `results-per-page` set to `10`, `25`, `50`    |
+| **JSON**    | Any JSON object      | Complex configuration, multiple values in one flag     | `{"maxRetries": 3, "timeout": 5000}`          |
 
-- **Boolean (on/off)**
-- **Number**
-- **String**
-- **JSON**
+**Boolean** flags are the most common. They're limited to two variations in A/B tests (on/off), so if you need more variations, like testing three different button colors, use a string, number, or JSON flag instead.
 
-### Boolean (ON/OFF) Flags
-
-ON/OFF flags can support any of the following use cases:
-
-- Decouple code deploys and releases
-- Kill switch for production
-- Gradual rollout of features
-- Complex targeting and segmentation of features
-- Validating feature releases with A/B tests
-
-Boolean feature flags may only have two values, on and off, so they are best used for simple use cases. Boolean feature
-flags are limited to 2 variations with A/B tests for this reason.
-
-For example, if you have a checkout button that is currently blue, you could use an boolean flag called `new-button-color`
-that sets it to red when ON. This is pretty limiting since you can't easily try other colors in the future without
-changing the code. You may want to use one of the other feature types.
-
-### Number Flags
-
-Similar to string flags, number flags support sending arbitrary numeric values to your application.
-
-### String Flags
-
-String flag types support sending arbitrary string values to your application. This is useful for remote configuration,
-and also for multivariate A/B testing. For our previous example, you could use a string flag named `button-color` where
-you can easily set the value to 'blue', 'red', 'green', or any other color without changing your code.
-
-### JSON Flags
-
-JSON flags support sending arbitrary JSON objects to your application. This is useful for remote configuration, and also
-when you want to send multiple values down to the SDK or code.
-
-JSON feature flags also support JSON validation, which allows you to validate the JSON object against a JSON schema. This
-feature is useful for validating the structure of the JSON object before sending it to your application to eliminate
-chances of typos.
+**JSON** flags also support JSON Schema validation, which lets you enforce the structure of the value before it reaches your application.
 
 <CommercialFeature feature="json-validation" />
 
-## Publishing Changes
+## Default Values
 
-When you make changes to a feature's definition (e.g. the default value or modifying rules), a new draft revision of the feature is created automatically. This draft revision is unpublished and is only visible within the GrowthBook UI, not to your users.
+Each feature has a default value that's used when there are no matching rules for the user. A feature that is enabled on an environment with no rules uses the default value. Default values match the feature type.
 
-You can continue adding changes to this draft and when you are ready, publish them all at once with an optional commit message.
+Default values can be overridden by [**Rules**](/features/rules), which let you target specific users, roll out to a percentage of traffic, or run A/B experiments.
 
-![Draft Modal](/images/features/feature-publishing.png)
+## What's Next
 
-### Revisions
+Now that you understand keys, types, and default values, the next concepts to explore are:
 
-Once a draft revision has been published, it becomes locked and you can no longer make changes to it.
-
-If you need to undo changes and revert back to a previous state, you can do so easily. Use the Revision dropdown to select the version you want to revert to and then click the Revert link. This will let you review the changes that will applied before submitting.
-
-![Feature Revisions](/images/features/revision-dropdown.png)
-
-### Merge Conflicts
-
-It's possible to get into a state where your draft has diverged from the live version of a feature. Some changes we are able to merge automatically (e.g. if you change a rule in "dev" and someone else changes a rule in "production"). For changes that we cannot resolve automatically, you will have to fix the conflicts first before you are able to publish your draft.
-
-We use a similar process to Version Control Systems like git. For each conflict, you will be shown a diff of the conflict and given a choice of how to proceed.
-
-In the example below, the Default Value was set to `foo` when you first created your draft. In your draft, you changed the value to `bar`. At the same time, someone else published a new version, changing the value to `hi!!`. So, now you have to choose which change you want to keep.
-
-![Resolve Conflicts](/images/features/resolve-conflicts.png)
+- **[Environments](/features/environments)** — Control where a feature is active (e.g., enabled in dev but not production). Each environment has its own SDK connection and independent set of rules.
+- **[Rules](/features/rules)** — Override default values by targeting specific users, rolling out to a percentage of traffic, or running A/B experiments. See [Choosing a Rule Type](/features/rules#choosing-a-rule-type) for help picking the right approach.
+- **[Targeting Conditions](/features/targeting)** — Define _who_ sees a rule using attributes like user ID, country, or plan type.
