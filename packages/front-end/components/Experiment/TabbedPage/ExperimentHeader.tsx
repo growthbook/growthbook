@@ -988,7 +988,7 @@ export default function ExperimentHeader({
                   setDropdownOpen(false);
                 }}
               >
-                Audit History
+                Audit history
               </DropdownMenuItem>
               {/* Only show the separator if one of the following cases is true to avoid double separators */}
               {(showConvertButton ||

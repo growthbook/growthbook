@@ -353,15 +353,24 @@ export default function FeaturesPage() {
                           isStale={feature.isStale ?? false}
                           staleReason={feature.staleReason ?? undefined}
                           staleByEnv={feature.staleByEnv}
+                          staleLastCalculated={feature.staleLastCalculated}
                           valueType={feature.valueType}
-                          onClick={() => {
-                            if (
-                              permissionsUtil.canViewFeatureModal(
-                                feature.project,
-                              )
-                            )
-                              setFeatureToToggleStaleDetection(feature);
-                          }}
+                          onRerun={
+                            permissionsUtil.canViewFeatureModal(feature.project)
+                              ? async () => {
+                                  await apiCall(
+                                    `/feature/${feature.id}/recalculate-stale`,
+                                    { method: "POST" },
+                                  );
+                                  mutate();
+                                }
+                              : undefined
+                          }
+                          onDisable={
+                            permissionsUtil.canViewFeatureModal(feature.project)
+                              ? () => setFeatureToToggleStaleDetection(feature)
+                              : undefined
+                          }
                         />
                       )}
                     </td>

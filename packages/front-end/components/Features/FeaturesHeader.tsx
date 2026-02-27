@@ -129,8 +129,23 @@ export default function FeaturesHeader({
                     isStale={stale}
                     staleReason={reason}
                     staleByEnv={feature.staleByEnv}
+                    staleLastCalculated={feature.staleLastCalculated}
                     valueType={feature.valueType}
-                    onClick={() => setStaleFFModal(true)}
+                    showFreshIcon
+                    onRerun={
+                      canEdit
+                        ? async () => {
+                            await apiCall(
+                              `/feature/${feature.id}/recalculate-stale`,
+                              { method: "POST" },
+                            );
+                            mutate();
+                          }
+                        : undefined
+                    }
+                    onDisable={
+                      canEdit ? () => setStaleFFModal(true) : undefined
+                    }
                   />
                 </div>
               )}
@@ -176,38 +191,54 @@ export default function FeaturesHeader({
                     setDropdownOpen(false);
                   }}
                 >
-                  Audit History
+                  Audit history
                 </DropdownMenuItem>
               </DropdownMenuGroup>
-              {canEdit && (
-                <DropdownMenuGroup>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setStaleFFModal(true);
-                      setDropdownOpen(false);
-                    }}
-                  >
-                    {feature.neverStale
-                      ? "Enable stale detection"
-                      : "Disable stale detection"}
-                  </DropdownMenuItem>
-                  {canPublish &&
-                    holdoutsEnabled &&
-                    holdouts.length > 0 &&
-                    !holdout?.id && (
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setAddToHoldoutModal(true);
-                          setDropdownOpen(false);
-                        }}
-                      >
-                        Add to holdout
-                      </DropdownMenuItem>
-                    )}
-                </DropdownMenuGroup>
-              )}
+              {canEdit &&
+                canPublish &&
+                holdoutsEnabled &&
+                holdouts.length > 0 &&
+                !holdout?.id && (
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setAddToHoldoutModal(true);
+                        setDropdownOpen(false);
+                      }}
+                    >
+                      Add to holdout
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                )}
               {canEdit && canPublish && (
                 <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setStaleFFModal(true);
+                        setDropdownOpen(false);
+                      }}
+                    >
+                      {feature.neverStale
+                        ? "Enable stale detection"
+                        : "Disable stale detection"}
+                    </DropdownMenuItem>
+                    {!feature.neverStale && (
+                      <DropdownMenuItem
+                        onClick={async () => {
+                          setDropdownOpen(false);
+                          await apiCall(
+                            `/feature/${feature.id}/recalculate-stale`,
+                            { method: "POST" },
+                          );
+                          mutate();
+                        }}
+                      >
+                        Re-run stale flag detection
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuGroup>
                   <DropdownMenuSeparator />
                   <DropdownMenuGroup>
                     <DropdownMenuItem

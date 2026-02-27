@@ -16,3 +16,12 @@
     opacity: 1;
   }
 }
+
+.freshIcon {
+  color: var(--green-10);
+  cursor: pointer;
+
+  &:hover {
+    color: var(--green-11);
+  }
+}

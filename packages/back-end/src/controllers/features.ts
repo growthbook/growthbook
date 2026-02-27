@@ -84,6 +84,7 @@ import {
   setJsonSchema,
   toggleFeatureEnvironment,
   updateFeature,
+  recalculateFeatureIsStale,
 } from "back-end/src/models/FeatureModel";
 import { getRealtimeUsageByHour } from "back-end/src/models/RealtimeModel";
 import { lookupOrganizationByApiKey } from "back-end/src/models/ApiKeyModel";
@@ -4149,6 +4150,27 @@ export async function getFeatureStale(
       ? { staleByEnv: feature.staleByEnv }
       : {}),
   });
+}
+
+export async function recalculateFeatureStale(
+  req: AuthRequest<null, { id: string }>,
+  res: Response<{ status: 200 }, EventUserForResponseLocals>,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const feature = await getFeature(context, id);
+
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  if (!context.permissions.canUpdateFeature(feature, {})) {
+    context.permissions.throwPermissionError();
+  }
+
+  await recalculateFeatureIsStale(context, feature);
+
+  res.status(200).json({ status: 200 });
 }
 
 export async function getFeaturesStatus(

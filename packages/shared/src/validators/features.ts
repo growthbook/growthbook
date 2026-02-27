@@ -311,6 +311,8 @@ export const featureInterface = z
               "rules-one-sided",
               "abandoned-draft",
               "toggled-off",
+              "active-experiment",
+              "has-rules",
             ])
             .nullable(),
 

@@ -1,8 +1,15 @@
 import { StaleFeatureReason } from "shared/util";
 import { FeatureInterface, FeatureValueType } from "shared/types/feature";
-import { PiTimerBold } from "react-icons/pi";
+import { ago, datetime } from "shared/dates";
+import {
+  PiTimerBold,
+  PiArrowClockwise,
+  PiLightning,
+  PiAsteriskBold,
+} from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
+import Button from "@/ui/Button";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import styles from "./StaleFeatureIcon.module.scss";
@@ -13,9 +20,11 @@ const staleReasonToMessageMap: Record<StaleFeatureReason, string> = {
   "active-draft": "Active draft in progress.",
   "has-dependents": "Used by a non-stale dependent feature or experiment.",
   "no-rules": "No rules defined.",
-  "rules-one-sided": "All rules are one-sided.",
+  "rules-one-sided": "All reachable rules are one-sided.",
   "abandoned-draft": "Draft not updated in over a month.",
   "toggled-off": "Environment is disabled.",
+  "active-experiment": "Live experiment rule in this environment.",
+  "has-rules": "Has rules with targeting conditions.",
   error: "Error evaluating staleness.",
 };
 
@@ -23,22 +32,29 @@ export default function StaleFeatureIcon({
   isStale,
   staleReason,
   staleByEnv,
+  staleLastCalculated,
   valueType,
-  onClick,
+  showFreshIcon = false,
+  onRerun,
+  onDisable,
 }: {
   isStale: boolean;
   staleReason: StaleFeatureReason | undefined;
   staleByEnv?: FeatureInterface["staleByEnv"];
+  staleLastCalculated?: Date | string | null;
   valueType?: FeatureValueType;
-  onClick: () => void;
+  showFreshIcon?: boolean;
+  onRerun?: () => void;
+  onDisable?: () => void;
 }) {
   const hasSomeStaleEnvs = Object.values(staleByEnv ?? {}).some(
     (e) => e.isStale,
   );
 
-  if (!isStale && !hasSomeStaleEnvs) return null;
-
   const mixed = !isStale && hasSomeStaleEnvs;
+  const fresh = !isStale && !hasSomeStaleEnvs;
+
+  if (fresh && !showFreshIcon) return null;
 
   const envEntries = Object.entries(staleByEnv ?? {});
 
@@ -63,8 +79,20 @@ export default function StaleFeatureIcon({
               </Text>
             </span>
           ) : (
-            <Text size="large" color="text-low" weight="semibold">
-              Not Stale
+            <span style={{ color: "var(--green-10)" }}>
+              <Text size="large" weight="semibold">
+                Not Stale
+              </Text>
+            </span>
+          )}
+          {mixed && (
+            <Text as="div" size="medium" color="text-low">
+              <PiAsteriskBold
+                size={10}
+                color="var(--gray-11)"
+                style={{ verticalAlign: 0 }}
+              />{" "}
+              Some environments may be stale
             </Text>
           )}
         </Box>
@@ -98,13 +126,9 @@ export default function StaleFeatureIcon({
             >
               Environment Statuses
             </Text>
-            <Text size="small" color="text-low" mt="1">
-              Environment statuses are informational and may not fully reflect
-              the feature&apos;s current stale state.
-            </Text>
 
             <table
-              className="table table-sm table-valign-top mt-3"
+              className="table table-sm table-valign-top mt-2"
               style={{ tableLayout: "fixed" }}
             >
               <thead>
@@ -134,9 +158,9 @@ export default function StaleFeatureIcon({
                           <Text weight="semibold">Stale</Text>
                         </span>
                       ) : (
-                        <Text color="text-low" weight="semibold">
-                          Not Stale
-                        </Text>
+                        <span style={{ color: "var(--green-10)" }}>
+                          <Text weight="semibold">Not Stale</Text>
+                        </span>
                       )}
                     </td>
                     <td>
@@ -178,6 +202,44 @@ export default function StaleFeatureIcon({
           </Box>
         )}
       </Flex>
+      {(onRerun || onDisable || staleLastCalculated) && (
+        <Flex direction="column" align="end" gap="2" mt="2">
+          <Flex gap="1" align="center">
+            <Tooltip body="Updates every 24 hours" tipPosition="top">
+              <PiLightning style={{ color: "var(--violet-11)" }} />
+            </Tooltip>
+            {staleLastCalculated && (
+              <Tooltip
+                body={`Last run: ${datetime(staleLastCalculated)}`}
+                tipPosition="top"
+              >
+                <Text size="small" color="text-low">
+                  Last run: {ago(new Date(staleLastCalculated))}
+                </Text>
+              </Tooltip>
+            )}
+          </Flex>
+          {(onRerun || onDisable) && (
+            <Flex gap="2">
+              {onRerun && (
+                <Button size="xs" variant="outline" onClick={onRerun}>
+                  <PiArrowClockwise /> Re-run
+                </Button>
+              )}
+              {onDisable && (
+                <Button
+                  size="xs"
+                  color="red"
+                  variant="outline"
+                  onClick={onDisable}
+                >
+                  Disable stale detection
+                </Button>
+              )}
+            </Flex>
+          )}
+        </Flex>
+      )}
     </Box>
   );
 
@@ -190,8 +252,13 @@ export default function StaleFeatureIcon({
     >
       <PiTimerBold
         size={18}
-        onClick={onClick}
-        className={mixed ? styles.staleFadedIcon : styles.staleIcon}
+        className={
+          fresh
+            ? styles.freshIcon
+            : mixed
+              ? styles.staleFadedIcon
+              : styles.staleIcon
+        }
       />
     </Tooltip>
   );

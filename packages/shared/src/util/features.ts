@@ -265,7 +265,9 @@ export type StaleFeatureReason =
   | "recently-updated"
   | "active-draft"
   | "has-dependents"
-  | "toggled-off";
+  | "toggled-off"
+  | "active-experiment"
+  | "has-rules";
 
 export type EnvStaleResult = {
   stale: boolean;
@@ -287,6 +289,19 @@ const isForceRule = (rule: FeatureRule): rule is ForceRule =>
 const isExperimentRefRule = (rule: FeatureRule): rule is ExperimentRefRule =>
   rule.type === "experiment-ref";
 
+// A rule that unconditionally matches all users, blocking any rules after it.
+const isUnconditionalCatcher = (rule: FeatureRule): boolean => {
+  if (!hasNoCondition(rule)) return false;
+  if ((rule.savedGroups ?? []).length > 0) return false;
+  if ((rule.prerequisites ?? []).length > 0) return false;
+  if (isForceRule(rule)) return true;
+  if (isRolloutRule(rule)) return rule.coverage >= 1;
+  return false;
+};
+
+const hasNoCondition = (rule: FeatureRule): boolean =>
+  !rule.condition || rule.condition === "{}";
+
 const areRulesOneSided = (
   rules: FeatureRule[], // can assume all rules are enabled
 ) => {
@@ -296,12 +311,12 @@ const areRulesOneSided = (
   const rolloutRulesOnesided =
     !rolloutRules.length ||
     rolloutRules.every(
-      (r) => r.coverage === 1 && !r.condition && !r.savedGroups?.length,
+      (r) => r.coverage === 1 && hasNoCondition(r) && !r.savedGroups?.length,
     );
 
   const forceRulesOnesided =
     !forceRules.length ||
-    forceRules.every((r) => !r.condition && !r.savedGroups?.length);
+    forceRules.every((r) => hasNoCondition(r) && !r.savedGroups?.length);
 
   return rolloutRulesOnesided && forceRulesOnesided;
 };
@@ -342,8 +357,15 @@ function buildEnvResults(
   feature: FeatureInterface,
   environments: string[],
   experimentMap: Map<string, ExperimentInterfaceStringDates>,
+  dependentFeatureIds: string[],
+  dependentFeatures: Map<string, FeatureInterface>,
+  dependentExperiments: ExperimentInterfaceStringDates[],
 ): Record<string, EnvStaleResult> {
   const envResults: Record<string, EnvStaleResult> = {};
+
+  const hasActiveDependentExperiment = dependentExperiments.some((e) =>
+    includeExperimentInPayload(e),
+  );
 
   for (const [envId, envSetting] of Object.entries(
     feature.environmentSettings ?? {},
@@ -356,21 +378,48 @@ function buildEnvResults(
 
     const rules = (envSetting.rules ?? []).filter((r) => r.enabled);
 
+    const hasDependentsInEnv =
+      hasActiveDependentExperiment ||
+      dependentFeatureIds.some((id) => {
+        const f = dependentFeatures.get(id);
+        if (!f) return false;
+        // Global feature-level prerequisite
+        if (f.prerequisites?.some((p) => p.id === feature.id)) return true;
+        // Rule-level prerequisite in this specific environment
+        return (f.environmentSettings?.[envId]?.rules ?? []).some(
+          (r) => r.enabled && r.prerequisites?.some((p) => p.id === feature.id),
+        );
+      });
+
     if (rules.length === 0) {
-      envResults[envId] = {
-        stale: true,
-        reason: "no-rules",
-        evaluatesTo: feature.defaultValue,
-      };
+      envResults[envId] = hasDependentsInEnv
+        ? {
+            stale: false,
+            reason: "has-dependents",
+            evaluatesTo: feature.defaultValue,
+          }
+        : {
+            stale: true,
+            reason: "no-rules",
+            evaluatesTo: feature.defaultValue,
+          };
       continue;
     }
 
-    const hasActiveExperiment = rules.filter(isExperimentRefRule).some((r) => {
-      const exp = experimentMap.get(r.experimentId);
-      return exp ? includeExperimentInPayload(exp) : false;
-    });
+    // Walk rules in order; an unconditional catcher shadows everything after it.
+    let hasActiveExperiment = false;
+    for (const rule of rules) {
+      if (isUnconditionalCatcher(rule)) break;
+      if (isExperimentRefRule(rule)) {
+        const exp = experimentMap.get(rule.experimentId);
+        if (exp && includeExperimentInPayload(exp)) {
+          hasActiveExperiment = true;
+          break;
+        }
+      }
+    }
     if (hasActiveExperiment) {
-      envResults[envId] = { stale: false };
+      envResults[envId] = { stale: false, reason: "active-experiment" };
       continue;
     }
 
@@ -379,15 +428,21 @@ function buildEnvResults(
         (r): r is ForceRule | RolloutRule =>
           r.type === "force" || r.type === "rollout",
       );
-      envResults[envId] = {
-        stale: true,
-        reason: "rules-one-sided",
-        evaluatesTo: firstValueRule?.value ?? feature.defaultValue,
-      };
+      envResults[envId] = hasDependentsInEnv
+        ? {
+            stale: false,
+            reason: "has-dependents",
+            evaluatesTo: firstValueRule?.value ?? feature.defaultValue,
+          }
+        : {
+            stale: true,
+            reason: "rules-one-sided",
+            evaluatesTo: firstValueRule?.value ?? feature.defaultValue,
+          };
       continue;
     }
 
-    envResults[envId] = { stale: false };
+    envResults[envId] = { stale: false, reason: "has-rules" };
   }
 
   return envResults;
@@ -428,8 +483,27 @@ export function isFeatureStale({
     visitedFeatures.add(feature.id);
 
     try {
-      // envResults is always computed (counterfactual for neverStale / global gates).
-      const envResults = buildEnvResults(feature, environments, experimentMap);
+      // Compute dependents before buildEnvResults so per-env results can use them.
+      const dependentFeatureIds =
+        features && features.length > 1
+          ? getDependentFeatures(feature, features, environments)
+          : [];
+      // Only non-stale dependents protect an env from being marked stale.
+      const nonStaleDependentFeatureIds = dependentFeatureIds.filter((id) => {
+        const f = featuresMap.get(id);
+        return !f || !visit(f).stale;
+      });
+      dependentExperiments =
+        dependentExperiments ?? getDependentExperiments(feature, experiments);
+
+      const envResults = buildEnvResults(
+        feature,
+        environments,
+        experimentMap,
+        nonStaleDependentFeatureIds,
+        featuresMap,
+        dependentExperiments,
+      );
 
       if (feature.neverStale)
         return { stale: false, reason: "never-stale", envResults };
@@ -456,23 +530,9 @@ export function isFeatureStale({
         return { stale: false, reason: "active-draft", envResults };
       }
 
-      if (features && features.length > 1) {
-        const dependentFeatures = getDependentFeatures(
-          feature,
-          features,
-          environments,
-        );
-        const hasNonStaleDependentFeatures = dependentFeatures.some((id) => {
-          const f = featuresMap.get(id);
-          if (!f) return true;
-          return !visit(f).stale;
-        });
-        if (dependentFeatures.length && hasNonStaleDependentFeatures) {
-          return { stale: false, reason: "has-dependents", envResults };
-        }
+      if (nonStaleDependentFeatureIds.length) {
+        return { stale: false, reason: "has-dependents", envResults };
       }
-      dependentExperiments =
-        dependentExperiments ?? getDependentExperiments(feature, experiments);
       const hasNonStaleDependentExperiments = dependentExperiments.some((e) =>
         includeExperimentInPayload(e),
       );

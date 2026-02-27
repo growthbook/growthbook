@@ -26,11 +26,12 @@ export default function StaleDetectionModal({
         });
         mutate();
       }}
+      useRadixButton={true}
     >
       <p>
         {feature.neverStale
-          ? `This will enable stale feature flag detection for ${feature.id}. After two weeks with no changes, if the feature flag meets certain criteria we will mark it as stale.`
-          : `This will disable stale feature flag detection for ${feature.id}. The feature flag will be ignored by our detection algorithm and not be marked as stale. You can re-enable this at any time.`}
+          ? `Enable stale detection for ${feature.id}?`
+          : `Disable stale detection for ${feature.id}? It will no longer be marked as stale.`}
       </p>
     </Modal>
   );

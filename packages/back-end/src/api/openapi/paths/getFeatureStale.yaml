@@ -83,6 +83,8 @@ responses:
                       - rules-one-sided
                       - abandoned-draft
                       - toggled-off
+                      - active-experiment
+                      - has-rules
                     description: Reason for the stale status, if applicable
                   evaluatesTo:
                     type: string

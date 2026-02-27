@@ -377,7 +377,7 @@ export default function EditSavedGroupPage() {
                   setDropdownOpen(false);
                 }}
               >
-                Audit History
+                Audit history
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />

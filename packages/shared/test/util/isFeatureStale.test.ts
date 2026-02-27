@@ -1486,6 +1486,104 @@ describe("isFeatureStale", () => {
       const result = isFeatureStale({ feature });
       expect(result.envResults.prod?.evaluatesTo).toBe("42");
     });
+
+    it("treats experiment as unreachable when an unconditional rule precedes it", () => {
+      const experiments = [
+        genMockExperiment({ id: "exp_live", status: "running" }),
+      ];
+      feature.environmentSettings = {
+        prod: {
+          enabled: true,
+          rules: [
+            {
+              id: "r1",
+              type: "force",
+              enabled: true,
+              value: "foo",
+              description: "",
+              // no condition, no savedGroups — catches everyone
+            },
+            {
+              type: "experiment-ref",
+              enabled: true,
+              description: "",
+              experimentId: "exp_live",
+              id: "rule_2",
+              variations: [
+                { variationId: "v1", value: "true" },
+                { variationId: "v2", value: "false" },
+              ],
+            },
+          ],
+        },
+      };
+      const result = isFeatureStale({ feature, experiments });
+      // experiment is shadowed — env should be stale (rules-one-sided) not active-experiment
+      expect(result.envResults.prod).toMatchObject({
+        stale: true,
+        reason: "rules-one-sided",
+      });
+    });
+
+    it("sets reason to active-experiment when env has a live experiment rule", () => {
+      const experiments = [
+        genMockExperiment({ id: "exp_live", status: "running" }),
+      ];
+      feature.environmentSettings = {
+        prod: {
+          enabled: true,
+          rules: [
+            {
+              type: "experiment-ref",
+              enabled: true,
+              description: "",
+              experimentId: "exp_live",
+              id: "rule_1",
+              variations: [
+                { variationId: "v1", value: "true" },
+                { variationId: "v2", value: "false" },
+              ],
+            },
+          ],
+        },
+      };
+      const result = isFeatureStale({ feature, experiments });
+      expect(result.envResults.prod).toMatchObject({
+        stale: false,
+        reason: "active-experiment",
+      });
+    });
+
+    it("sets reason to has-rules when env has two-sided targeting rules", () => {
+      feature.environmentSettings = {
+        prod: {
+          enabled: true,
+          rules: [
+            {
+              id: "r1",
+              type: "force",
+              enabled: true,
+              value: "true",
+              description: "",
+              condition: '{"premium":true}',
+            },
+            {
+              id: "r2",
+              type: "force",
+              enabled: true,
+              value: "false",
+              description: "",
+              condition: '{"premium":false}',
+            },
+          ],
+        },
+      };
+      const result = isFeatureStale({ feature });
+      expect(result.envResults.prod).toMatchObject({
+        stale: false,
+        reason: "has-rules",
+      });
+    });
   });
 
   describe("when a feature is a prerequisite for a dependent experiment", () => {
@@ -1722,8 +1820,8 @@ describe("isFeatureStale", () => {
       });
       expect(result).toMatchObject({ stale: false, reason: "has-dependents" });
       expect(result.envResults.prod).toMatchObject({
-        stale: true,
-        reason: "no-rules",
+        stale: false,
+        reason: "has-dependents",
       });
     });
 
