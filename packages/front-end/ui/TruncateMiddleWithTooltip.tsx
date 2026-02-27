@@ -3,7 +3,9 @@ import clsx from "clsx";
 import Tooltip from "@/ui/Tooltip";
 
 function truncateMiddle(text: string, maxChars: number): string {
+  if (maxChars <= 0) return "";
   if (text.length <= maxChars) return text;
+  if (maxChars === 1) return "\u2026";
   const head = Math.floor((maxChars - 1) / 2);
   const tail = maxChars - 1 - head;
   return `${text.slice(0, head)}\u2026${text.slice(-tail)}`;
