@@ -638,7 +638,7 @@ mypy-extensions==1.1.0 ; python_full_version >= "3.9.4" and python_version < "4.
 nbclient==0.10.2 ; python_full_version >= "3.9.4" and python_version < "4.0" \
     --hash=sha256:4ffee11e788b4a27fabeb7955547e4318a5298f34342a4bfd01f2e1faaeadc3d \
     --hash=sha256:90b7fc6b810630db87a6d0c2250b1f0ab4cf4d3c27a299b0cde78a4ed3fd9193
-nbconvert==7.16.6 ; python_full_version >= "3.9.4" and python_version < "4.0" \
+nbconvert==7.17.0 ; python_full_version >= "3.9.4" and python_version < "4.0" \
     --hash=sha256:1375a7b67e0c2883678c48e506dc320febb57685e5ee67faa51b18a90f3a712b \
     --hash=sha256:576a7e37c6480da7b8465eefa66c17844243816ce1ccc372633c6b71c3c0f582
 nbformat==5.10.4 ; python_full_version >= "3.9.4" and python_version < "4.0" \
