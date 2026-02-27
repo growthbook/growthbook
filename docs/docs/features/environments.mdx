@@ -29,7 +29,7 @@ A feature can be enabled for an environment but still act as "off" if its value 
 
 Each SDK Connection is tied to a specific environment and has its own unique SDK key. When the SDK fetches its configuration, it receives **only the features and rules for that environment**, keeping your production and development environments separate.
 
-To use multiple environments in the same codebase, use environment variables to set a dynamic key (e.g., `GROWTHBOOK_CLIENT_KEY='sdk-abc123'`) and reference the variable in your code. Depending on your framework, some environment variables aren't exposed on the front-end unless given an appropriate prefix (e.g., `NEXT_GROWTHBOOK_CLIENT_KEY='sdk-abc123'` for Next.js client code).
+To use multiple environments in the same codebase, use environment variables to set a dynamic key (e.g., `GROWTHBOOK_CLIENT_KEY='sdk-abc123'`) and reference the variable in your code.
 
 ## Environments vs. Projects
 

@@ -55,19 +55,7 @@ Features can be a simple ON/OFF flag or a more complex data type (string, number
 
 Each feature has a default value that's used when there are no matching rules for the user. A feature that is enabled on an environment with no rules uses the default value. Default values match the feature type.
 
-Here's an example from the JavaScript SDK:
-
-```js
-// For boolean features
-if (growthbook.isOn("my-feature")) {
-  // ... Do something when the feature is on
-}
-
-// For number, string, and JSON features
-const value = growthbook.getFeatureValue("other-feature", "fallback");
-```
-
-Default values can be overridden by **Rules**, which let you target specific users, roll out to a percentage of traffic, or run A/B experiments.
+Default values can be overridden by [**Rules**](/features/rules), which let you target specific users, roll out to a percentage of traffic, or run A/B experiments.
 
 ## What's Next
 
