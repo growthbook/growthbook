@@ -37,8 +37,16 @@ export default {
         id: "features/index",
       },
       items: [
-        "features/basics", // Feature Flag Basics
-        "features/environments",
+        {
+          type: "category",
+          label: "Core Concepts",
+          collapsible: true,
+          collapsed: false,
+          items: [
+            "features/basics", // Feature Flag Basics
+            "features/environments", // Environments
+          ],
+        },
         {
           type: "category",
           label: "Targeting & Rules",
