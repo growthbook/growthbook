@@ -5,14 +5,13 @@ import {
   useForm,
   FormProvider,
 } from "react-hook-form";
-import {
-  AttributionModel,
-  ExperimentInterfaceStringDates,
-} from "shared/types/experiment";
-import { FaQuestionCircle } from "react-icons/fa";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { PiCaretRightFill } from "react-icons/pi";
 import { datetime, getValidDate } from "shared/dates";
-import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
+import {
+  DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+} from "shared/constants";
 import { isProjectListValidForProject } from "shared/util";
 import { getScopedSettings } from "shared/settings";
 import Collapsible from "react-collapsible";
@@ -39,7 +38,7 @@ import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import DatePicker from "@/components/DatePicker";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
-import { AttributionModelTooltip } from "./AttributionModelTooltip";
+import MetricAnalysisWindowSelector from "./MetricAnalysisWindowSelector";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import { MetricsSelectorTooltip } from "./MetricsSelector";
 import CustomMetricSlicesSelector from "./CustomMetricSlicesSelector";
@@ -169,6 +168,19 @@ const AnalysisForm: FC<{
         getExperimentMetricById,
         orgSettings,
       ),
+      lookbackOverride: experiment.lookbackOverride
+        ? experiment.lookbackOverride.type === "date"
+          ? {
+              type: "date" as const,
+              value: getValidDate(experiment.lookbackOverride.value),
+            }
+          : {
+              ...experiment.lookbackOverride,
+              valueUnit:
+                experiment.lookbackOverride.valueUnit ??
+                DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
+            }
+        : undefined,
       statsEngine: experiment.statsEngine,
       regressionAdjustmentEnabled: experiment.regressionAdjustmentEnabled,
       postStratificationEnabled: experiment.postStratificationEnabled,
@@ -304,6 +316,12 @@ const AnalysisForm: FC<{
 
         if (experiment.status === "stopped") {
           body.phaseEndDate = dateEnded;
+        }
+        // Include lookbackOverride; use undefined to clear when user selects "None"
+        if (value.lookbackOverride !== undefined) {
+          body.lookbackOverride = value.lookbackOverride;
+        } else if (experiment.lookbackOverride !== undefined) {
+          body.lookbackOverride = undefined;
         }
         if (usingSequentialTestingDefault) {
           // User checked the org default checkbox; ignore form values
@@ -888,6 +906,7 @@ const AnalysisForm: FC<{
                     </div>
                   }
                   transitionTime={100}
+                  lazyRender={true}
                 >
                   <div className="rounded px-3 pt-3 pb-1 bg-highlight">
                     {datasourceProperties?.experimentSegments && (
@@ -947,28 +966,25 @@ const AnalysisForm: FC<{
                     )}
                     {datasourceProperties?.separateExperimentResultQueries && (
                       <div className="form-group mb-2">
-                        <SelectField
-                          label={
-                            <AttributionModelTooltip>
-                              <strong>Conversion Window Override</strong>{" "}
-                              <FaQuestionCircle />
-                            </AttributionModelTooltip>
+                        <MetricAnalysisWindowSelector
+                          attributionModel={
+                            form.watch("attributionModel") ||
+                            orgSettings.attributionModel ||
+                            "firstExposure"
                           }
-                          value={form.watch("attributionModel")}
-                          onChange={(value) => {
-                            const model = value as AttributionModel;
-                            form.setValue("attributionModel", model);
-                          }}
-                          options={[
-                            {
-                              label: "Respect Conversion Windows",
-                              value: "firstExposure",
-                            },
-                            {
-                              label: "Ignore Conversion Windows",
-                              value: "experimentDuration",
-                            },
-                          ]}
+                          lookbackOverride={form.watch("lookbackOverride")}
+                          onAttributionModelChange={(v) =>
+                            form.setValue("attributionModel", v)
+                          }
+                          onLookbackOverrideChange={(v) =>
+                            form.setValue("lookbackOverride", v)
+                          }
+                          phaseEndDate={
+                            experiment.status === "stopped" && phaseObj
+                              ? getValidDate(phaseObj.dateEnded ?? "")
+                              : new Date()
+                          }
+                          disabled={isExperimentIncludedInIncrementalRefresh}
                         />
                       </div>
                     )}
@@ -1016,35 +1032,37 @@ const AnalysisForm: FC<{
                       </div>
                     )}
                     {hasMetrics && (
-                      <div className="form-group mb-2">
-                        <PremiumTooltip commercialFeature="override-metrics">
-                          <label className="font-weight-bold mb-1">
-                            Metric Overrides
-                          </label>
-                        </PremiumTooltip>
-                        <small className="form-text text-muted mb-2">
-                          Override metric behaviors within this experiment.
-                          Leave any fields empty that you do not want to
-                          override.
-                        </small>
-                        <MetricsOverridesSelector
-                          experiment={experiment}
-                          form={
-                            form as unknown as UseFormReturn<EditMetricsFormInterface>
-                          }
-                          disabled={
-                            !hasOverrideMetricsFeature ||
-                            isExperimentIncludedInIncrementalRefresh
-                          }
-                        />
-                        {!hasOverrideMetricsFeature && (
-                          <UpgradeMessage
-                            showUpgradeModal={() => setUpgradeModal(true)}
-                            commercialFeature="override-metrics"
-                            upgradeMessage="override metrics"
+                      <>
+                        <div className="form-group mb-2">
+                          <PremiumTooltip commercialFeature="override-metrics">
+                            <label className="font-weight-bold mb-1">
+                              Metric Overrides
+                            </label>
+                          </PremiumTooltip>
+                          <small className="form-text text-muted mb-2">
+                            Override metric behaviors within this experiment.
+                            Leave any fields empty that you do not want to
+                            override.
+                          </small>
+                          <MetricsOverridesSelector
+                            experiment={experiment}
+                            form={
+                              form as unknown as UseFormReturn<EditMetricsFormInterface>
+                            }
+                            disabled={
+                              !hasOverrideMetricsFeature ||
+                              isExperimentIncludedInIncrementalRefresh
+                            }
                           />
-                        )}
-                      </div>
+                          {!hasOverrideMetricsFeature && (
+                            <UpgradeMessage
+                              showUpgradeModal={() => setUpgradeModal(true)}
+                              commercialFeature="override-metrics"
+                              upgradeMessage="override metrics"
+                            />
+                          )}
+                        </div>
+                      </>
                     )}
                   </div>
                 </Collapsible>

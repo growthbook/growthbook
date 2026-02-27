@@ -433,8 +433,6 @@ export interface paths {
     get: operations["getTeam"];
     /** Update a single team */
     put: operations["updateTeam"];
-    /** Delete a single team */
-    delete: operations["deleteTeam"];
   };
   "/teams": {
     /** Get all teams */
@@ -443,8 +441,14 @@ export interface paths {
     post: operations["createTeam"];
   };
   "/teams/{teamId}/members": {
+    /** Add members to team */
     post: operations["addTeamMembers"];
+    /** Remove members from team */
     delete: operations["removeTeamMember"];
+  };
+  "/teams/{teamId}/": {
+    /** Delete a single team */
+    delete: operations["deleteTeam"];
   };
 }
 
@@ -3168,10 +3172,25 @@ export interface components {
         /** @enum {unknown} */
         inProgressConversions: "include" | "exclude";
         /**
-         * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+         * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
          * @enum {unknown}
          */
-        attributionModel: "firstExposure" | "experimentDuration";
+        attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
+        /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+        lookbackOverride?: {
+          /** @enum {unknown} */
+          type: "date" | "window";
+          /**
+           * Format: date-time 
+           * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
+           */
+          value: OneOf<[number, string]>;
+          /**
+           * @description Used when type is "window". Defaults to "days". 
+           * @enum {unknown}
+           */
+          valueUnit?: "minutes" | "hours" | "days" | "weeks";
+        };
         /** @enum {unknown} */
         statsEngine: "bayesian" | "frequentist";
         regressionAdjustmentEnabled?: boolean;
@@ -3280,10 +3299,25 @@ export interface components {
       /** @enum {unknown} */
       inProgressConversions: "include" | "exclude";
       /**
-       * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+       * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
        * @enum {unknown}
        */
-      attributionModel: "firstExposure" | "experimentDuration";
+      attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
+      /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+      lookbackOverride?: {
+        /** @enum {unknown} */
+        type: "date" | "window";
+        /**
+         * Format: date-time 
+         * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
+         */
+        value: OneOf<[number, string]>;
+        /**
+         * @description Used when type is "window". Defaults to "days". 
+         * @enum {unknown}
+         */
+        valueUnit?: "minutes" | "hours" | "days" | "weeks";
+      };
       /** @enum {unknown} */
       statsEngine: "bayesian" | "frequentist";
       regressionAdjustmentEnabled?: boolean;
@@ -3334,6 +3368,21 @@ export interface components {
         };
       };
     };
+    /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+    LookbackOverride: {
+      /** @enum {unknown} */
+      type: "date" | "window";
+      /**
+       * Format: date-time 
+       * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
+       */
+      value: OneOf<[number, string]>;
+      /**
+       * @description Used when type is "window". Defaults to "days". 
+       * @enum {unknown}
+       */
+      valueUnit?: "minutes" | "hours" | "days" | "weeks";
+    };
     ExperimentResults: {
       id: string;
       dateUpdated: string;
@@ -3354,10 +3403,25 @@ export interface components {
         /** @enum {unknown} */
         inProgressConversions: "include" | "exclude";
         /**
-         * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+         * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
          * @enum {unknown}
          */
-        attributionModel: "firstExposure" | "experimentDuration";
+        attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
+        /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+        lookbackOverride?: {
+          /** @enum {unknown} */
+          type: "date" | "window";
+          /**
+           * Format: date-time 
+           * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
+           */
+          value: OneOf<[number, string]>;
+          /**
+           * @description Used when type is "window". Defaults to "days". 
+           * @enum {unknown}
+           */
+          valueUnit?: "minutes" | "hours" | "days" | "weeks";
+        };
         /** @enum {unknown} */
         statsEngine: "bayesian" | "frequentist";
         regressionAdjustmentEnabled?: boolean;
@@ -3505,10 +3569,25 @@ export interface components {
         /** @enum {unknown} */
         inProgressConversions: "include" | "exclude";
         /**
-         * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+         * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
          * @enum {unknown}
          */
-        attributionModel: "firstExposure" | "experimentDuration";
+        attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
+        /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+        lookbackOverride?: {
+          /** @enum {unknown} */
+          type: "date" | "window";
+          /**
+           * Format: date-time 
+           * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
+           */
+          value: OneOf<[number, string]>;
+          /**
+           * @description Used when type is "window". Defaults to "days". 
+           * @enum {unknown}
+           */
+          valueUnit?: "minutes" | "hours" | "days" | "weeks";
+        };
         /** @enum {unknown} */
         statsEngine: "bayesian" | "frequentist";
         regressionAdjustmentEnabled?: boolean;
@@ -4077,7 +4156,7 @@ export interface components {
       sequentialTestingEnabled: boolean;
       sequentialTestingTuningParameter: number;
       /** @enum {string} */
-      attributionModel: "firstExposure" | "experimentDuration";
+      attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
       targetMDE: number;
       delayHours: number;
       windowType: string;
@@ -9447,10 +9526,25 @@ export interface operations {
                   /** @enum {unknown} */
                   inProgressConversions: "include" | "exclude";
                   /**
-                   * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                   * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
                    * @enum {unknown}
                    */
-                  attributionModel: "firstExposure" | "experimentDuration";
+                  attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
+                  /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+                  lookbackOverride?: {
+                    /** @enum {unknown} */
+                    type: "date" | "window";
+                    /**
+                     * Format: date-time 
+                     * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
+                     */
+                    value: OneOf<[number, string]>;
+                    /**
+                     * @description Used when type is "window". Defaults to "days". 
+                     * @enum {unknown}
+                     */
+                    valueUnit?: "minutes" | "hours" | "days" | "weeks";
+                  };
                   /** @enum {unknown} */
                   statsEngine: "bayesian" | "frequentist";
                   regressionAdjustmentEnabled?: boolean;
@@ -9594,10 +9688,25 @@ export interface operations {
           /** @enum {string} */
           inProgressConversions?: "loose" | "strict";
           /**
-           * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+           * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
            * @enum {string}
            */
-          attributionModel?: "firstExposure" | "experimentDuration";
+          attributionModel?: "firstExposure" | "experimentDuration" | "lookbackOverride";
+          /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+          lookbackOverride?: {
+            /** @enum {unknown} */
+            type: "date" | "window";
+            /**
+             * Format: date-time 
+             * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
+             */
+            value: OneOf<[number, string]>;
+            /**
+             * @description Used when type is "window". Defaults to "days". 
+             * @enum {unknown}
+             */
+            valueUnit?: "minutes" | "hours" | "days" | "weeks";
+          };
           /** @enum {string} */
           statsEngine?: "bayesian" | "frequentist";
           variations: ({
@@ -9745,10 +9854,25 @@ export interface operations {
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
                 /**
-                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
                  * @enum {unknown}
                  */
-                attributionModel: "firstExposure" | "experimentDuration";
+                attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
+                /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+                lookbackOverride?: {
+                  /** @enum {unknown} */
+                  type: "date" | "window";
+                  /**
+                   * Format: date-time 
+                   * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
+                   */
+                  value: OneOf<[number, string]>;
+                  /**
+                   * @description Used when type is "window". Defaults to "days". 
+                   * @enum {unknown}
+                   */
+                  valueUnit?: "minutes" | "hours" | "days" | "weeks";
+                };
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
@@ -9937,10 +10061,25 @@ export interface operations {
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
                 /**
-                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
                  * @enum {unknown}
                  */
-                attributionModel: "firstExposure" | "experimentDuration";
+                attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
+                /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+                lookbackOverride?: {
+                  /** @enum {unknown} */
+                  type: "date" | "window";
+                  /**
+                   * Format: date-time 
+                   * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
+                   */
+                  value: OneOf<[number, string]>;
+                  /**
+                   * @description Used when type is "window". Defaults to "days". 
+                   * @enum {unknown}
+                   */
+                  valueUnit?: "minutes" | "hours" | "days" | "weeks";
+                };
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
@@ -10088,10 +10227,25 @@ export interface operations {
           /** @enum {string} */
           inProgressConversions?: "loose" | "strict";
           /**
-           * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+           * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
            * @enum {string}
            */
-          attributionModel?: "firstExposure" | "experimentDuration";
+          attributionModel?: "firstExposure" | "experimentDuration" | "lookbackOverride";
+          /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+          lookbackOverride?: {
+            /** @enum {unknown} */
+            type: "date" | "window";
+            /**
+             * Format: date-time 
+             * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
+             */
+            value: OneOf<[number, string]>;
+            /**
+             * @description Used when type is "window". Defaults to "days". 
+             * @enum {unknown}
+             */
+            valueUnit?: "minutes" | "hours" | "days" | "weeks";
+          };
           /** @enum {string} */
           statsEngine?: "bayesian" | "frequentist";
           variations?: ({
@@ -10239,10 +10393,25 @@ export interface operations {
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
                 /**
-                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
                  * @enum {unknown}
                  */
-                attributionModel: "firstExposure" | "experimentDuration";
+                attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
+                /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+                lookbackOverride?: {
+                  /** @enum {unknown} */
+                  type: "date" | "window";
+                  /**
+                   * Format: date-time 
+                   * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
+                   */
+                  value: OneOf<[number, string]>;
+                  /**
+                   * @description Used when type is "window". Defaults to "days". 
+                   * @enum {unknown}
+                   */
+                  valueUnit?: "minutes" | "hours" | "days" | "weeks";
+                };
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
@@ -10390,10 +10559,25 @@ export interface operations {
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
                 /**
-                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
                  * @enum {unknown}
                  */
-                attributionModel: "firstExposure" | "experimentDuration";
+                attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
+                /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+                lookbackOverride?: {
+                  /** @enum {unknown} */
+                  type: "date" | "window";
+                  /**
+                   * Format: date-time 
+                   * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
+                   */
+                  value: OneOf<[number, string]>;
+                  /**
+                   * @description Used when type is "window". Defaults to "days". 
+                   * @enum {unknown}
+                   */
+                  valueUnit?: "minutes" | "hours" | "days" | "weeks";
+                };
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
@@ -11403,10 +11587,25 @@ export interface operations {
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
                 /**
-                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
                  * @enum {unknown}
                  */
-                attributionModel: "firstExposure" | "experimentDuration";
+                attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
+                /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+                lookbackOverride?: {
+                  /** @enum {unknown} */
+                  type: "date" | "window";
+                  /**
+                   * Format: date-time 
+                   * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
+                   */
+                  value: OneOf<[number, string]>;
+                  /**
+                   * @description Used when type is "window". Defaults to "days". 
+                   * @enum {unknown}
+                   */
+                  valueUnit?: "minutes" | "hours" | "days" | "weeks";
+                };
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
@@ -14520,7 +14719,7 @@ export interface operations {
               sequentialTestingEnabled: boolean;
               sequentialTestingTuningParameter: number;
               /** @enum {string} */
-              attributionModel: "firstExposure" | "experimentDuration";
+              attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
               targetMDE: number;
               delayHours: number;
               windowType: string;
@@ -16388,23 +16587,6 @@ export interface operations {
       };
     };
   };
-  deleteTeam: {
-    /** Delete a single team */
-    parameters: {
-      path: {
-        id: string;
-      };
-    };
-    responses: {
-      200: {
-        content: {
-          "application/json": {
-            deletedId: string;
-          };
-        };
-      };
-    };
-  };
   listTeams: {
     /** Get all teams */
     responses: {
@@ -16511,6 +16693,7 @@ export interface operations {
     };
   };
   addTeamMembers: {
+    /** Add members to team */
     parameters: {
       path: {
         teamId: string;
@@ -16534,6 +16717,7 @@ export interface operations {
     };
   };
   removeTeamMember: {
+    /** Remove members from team */
     parameters: {
       path: {
         teamId: string;
@@ -16551,6 +16735,26 @@ export interface operations {
         content: {
           "application/json": {
             status: number;
+          };
+        };
+      };
+    };
+  };
+  deleteTeam: {
+    /** Delete a single team */
+    parameters: {
+      query: {
+        deleteMembers?: string;
+      };
+      path: {
+        teamId: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
           };
         };
       };
@@ -16585,6 +16789,7 @@ export type ApiExperiment = z.infer<typeof openApiValidators.apiExperimentValida
 export type ApiExperimentSnapshot = z.infer<typeof openApiValidators.apiExperimentSnapshotValidator>;
 export type ApiExperimentMetric = z.infer<typeof openApiValidators.apiExperimentMetricValidator>;
 export type ApiExperimentAnalysisSettings = z.infer<typeof openApiValidators.apiExperimentAnalysisSettingsValidator>;
+export type ApiLookbackOverride = z.infer<typeof openApiValidators.apiLookbackOverrideValidator>;
 export type ApiExperimentResults = z.infer<typeof openApiValidators.apiExperimentResultsValidator>;
 export type ApiExperimentWithEnhancedStatus = z.infer<typeof openApiValidators.apiExperimentWithEnhancedStatusValidator>;
 export type ApiDataSource = z.infer<typeof openApiValidators.apiDataSourceValidator>;

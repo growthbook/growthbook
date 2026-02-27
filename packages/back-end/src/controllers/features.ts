@@ -152,6 +152,10 @@ import { getChangesToStartExperiment } from "back-end/src/services/experiments";
 import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { UnrecoverableApiError } from "back-end/src/util/errors";
+import {
+  shouldValidateCustomFieldsOnUpdate,
+  validateCustomFieldsForSection,
+} from "back-end/src/util/custom-fields";
 
 export type SDKPayloadParams = Pick<
   SDKConnectionInterface,
@@ -488,7 +492,8 @@ export async function postFeatures(
 ) {
   const context = getContextFromReq(req);
   const { org, userId, userName } = context;
-  const { id, environmentSettings, holdout, ...otherProps } = req.body;
+  const { id, environmentSettings, holdout, customFields, ...otherProps } =
+    req.body;
 
   if (
     !context.permissions.canCreateFeature(req.body) ||
@@ -528,6 +533,13 @@ export async function postFeatures(
     await context.models.projects.ensureProjectsExist([otherProps.project]);
   }
 
+  await validateCustomFieldsForSection({
+    customFieldValues: customFields,
+    customFieldsModel: context.models.customFields,
+    section: "feature",
+    project: otherProps.project || undefined,
+  });
+
   const existing = await getFeature(context, id);
   if (existing) {
     throw new Error(
@@ -542,6 +554,7 @@ export async function postFeatures(
     description: "",
     project: "",
     environmentSettings: {},
+    customFields,
     ...otherProps,
     dateCreated: new Date(),
     dateUpdated: new Date(),
@@ -1472,17 +1485,26 @@ export async function postFeatureSync(
   }
 
   const updates: Partial<FeatureInterface> = {
-    defaultValue: data.defaultValue ?? feature.defaultValue,
     description: data.description ?? feature.description,
     owner: data.owner ?? feature.owner,
     tags: data.tags ?? feature.tags,
   };
+  const updatesInRevision: Partial<FeatureInterface> = {};
+
   const changes: Pick<FeatureRevisionInterface, "rules" | "defaultValue"> = {
     rules: {},
     defaultValue: data.defaultValue ?? feature.defaultValue,
   };
 
-  let needsNewRevision = !isEqual(feature.defaultValue, updates.defaultValue);
+  let needsNewRevision = false;
+
+  if (
+    data.defaultValue != null &&
+    !isEqual(feature.defaultValue, data.defaultValue)
+  ) {
+    updatesInRevision.defaultValue = data.defaultValue;
+    needsNewRevision = true;
+  }
 
   environments.forEach((env) => {
     // Revision Changes
@@ -1492,8 +1514,10 @@ export async function postFeatureSync(
       [];
 
     // Feature updates
-    updates.environmentSettings = updates.environmentSettings || {};
-    updates.environmentSettings[env] = updates.environmentSettings[env] || {
+    updatesInRevision.environmentSettings =
+      updatesInRevision.environmentSettings || {};
+    updatesInRevision.environmentSettings[env] = updatesInRevision
+      .environmentSettings[env] || {
       enabled: feature.environmentSettings?.[env]?.enabled ?? false,
       rules: changes.rules[env],
     };
@@ -1522,7 +1546,15 @@ export async function postFeatureSync(
       org,
     });
 
-    updates.version = revision.version;
+    // Approval flows not required, was published immediately
+    if (revision.status === "published") {
+      updates.version = revision.version;
+      Object.assign(updates, updatesInRevision);
+    }
+    // Approval flows required
+    else {
+      updates.hasDrafts = true;
+    }
   }
 
   const updatedFeature = await updateFeature(context, feature, updates);
@@ -2359,6 +2391,23 @@ export async function putFeature(
     ).length > 0
   ) {
     throw new Error("Invalid update fields for feature");
+  }
+
+  // FIXME: We skip validation because project is updated in a different place than where
+  // we define custom fields, and that would prevent the user from doing either update.
+  // Ideally we validate custom fields everytime, but we need to update our UI to support that.
+  if (
+    shouldValidateCustomFieldsOnUpdate({
+      existingCustomFieldValues: feature.customFields,
+      updatedCustomFieldValues: updates.customFields,
+    })
+  ) {
+    await validateCustomFieldsForSection({
+      customFieldValues: updates.customFields,
+      customFieldsModel: context.models.customFields,
+      section: "feature",
+      project: "project" in updates ? updates.project : feature.project,
+    });
   }
 
   const updatedFeature = await updateFeature(context, feature, updates);

@@ -52,6 +52,9 @@ jest.mock("back-end/src/services/features", () => ({
 describe("features API", () => {
   const { app, auditMock, setReqContext } = setupApp();
   const org = { id: "org", settings: { environments: [{ id: "production" }] } };
+  const getEmptyCustomFieldsModel = () => ({
+    getCustomFieldsBySectionAndProject: jest.fn().mockResolvedValue([]),
+  });
 
   beforeEach(() => {
     (getApiFeatureObj as jest.Mock).mockImplementation((v) => v);
@@ -72,6 +75,7 @@ describe("features API", () => {
         safeRollout: {
           getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
         },
+        customFields: getEmptyCustomFieldsModel(),
       },
       permissions: {
         canPublishFeature: () => true,
@@ -145,6 +149,60 @@ describe("features API", () => {
     });
   });
 
+  it("fails to create new features when a required custom field is missing", async () => {
+    setReqContext({
+      org,
+      models: {
+        safeRollout: {
+          getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
+        },
+        customFields: {
+          getCustomFieldsBySectionAndProject: jest.fn().mockResolvedValue([
+            {
+              id: "cfd_team",
+              name: "Owning Team",
+              type: "enum",
+              required: true,
+              values: "growth,platform",
+              section: "feature",
+              dateCreated: new Date("2026-01-01"),
+              dateUpdated: new Date("2026-01-01"),
+            },
+          ]),
+        },
+      },
+      permissions: {
+        canPublishFeature: () => true,
+        canCreateFeature: () => true,
+      },
+      getProjects: async () => [{ id: "project" }],
+    });
+
+    (getFeature as jest.Mock).mockReturnValue(undefined);
+    (createInterfaceEnvSettingsFromApiEnvSettings as jest.Mock).mockReturnValue(
+      "createInterfaceEnvSettingsFromApiEnvSettings",
+    );
+
+    const feature = {
+      defaultValue: "defaultValue",
+      valueType: "string",
+      owner: "owner",
+      description: "description",
+      project: "project",
+      id: "id",
+      archived: true,
+      tags: ["tag"],
+    };
+
+    const response = await request(app).post("/api/v1/features").send(feature);
+
+    expect(response.status).toBe(400);
+    expect(response.body.message).toContain(
+      'Custom field "Owning Team" is required.',
+    );
+    expect(createFeature).not.toHaveBeenCalled();
+  });
+
   describe("requireProjectForFeatures enabled", () => {
     it("fails to create new features without a project", async () => {
       setReqContext({
@@ -158,6 +216,7 @@ describe("features API", () => {
           safeRollout: {
             getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
           },
+          customFields: getEmptyCustomFieldsModel(),
         },
         permissions: {
           canPublishFeature: () => true,
@@ -199,6 +258,7 @@ describe("features API", () => {
           safeRollout: {
             getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
           },
+          customFields: getEmptyCustomFieldsModel(),
         },
         permissions: {
           canPublishFeature: () => true,
@@ -265,6 +325,7 @@ describe("features API", () => {
           safeRollout: {
             getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
           },
+          customFields: getEmptyCustomFieldsModel(),
         },
         permissions: {
           canPublishFeature: () => true,
@@ -339,6 +400,507 @@ describe("features API", () => {
           }),
         }),
       );
+    });
+
+    it("allows updating existing features when required custom fields are missing and payload omits customFields", async () => {
+      const getCustomFieldsBySectionAndProject = jest.fn().mockResolvedValue([
+        {
+          id: "cfd_team",
+          name: "Owning Team",
+          type: "enum",
+          required: true,
+          values: "growth,platform",
+          section: "feature",
+          dateCreated: new Date("2026-01-01"),
+          dateUpdated: new Date("2026-01-01"),
+        },
+      ]);
+      setReqContext({
+        org: {
+          ...org,
+          settings: {
+            requireProjectForFeatures: true,
+          },
+        },
+        models: {
+          safeRollout: {
+            getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
+          },
+          customFields: {
+            getCustomFieldsBySectionAndProject,
+          },
+        },
+        permissions: {
+          canPublishFeature: () => true,
+          canCreateFeature: () => true,
+          canUpdateFeature: () => true,
+        },
+        getProjects: async () => [{ id: "project" }],
+      });
+
+      const existingFeature: FeatureInterface = {
+        organization: org.id,
+        defaultValue: "defaultValue",
+        valueType: "string",
+        owner: "owner",
+        description: "description",
+        project: "project",
+        id: "myexistingfeature",
+        archived: true,
+        tags: ["tag"],
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        version: 1,
+        environmentSettings: {},
+        prerequisites: [],
+        customFields: {},
+      };
+
+      getFeature.mockImplementation((ctx, id) => {
+        if (id === existingFeature.id) {
+          return Promise.resolve(existingFeature);
+        }
+        return Promise.resolve(null);
+      });
+      updateFeature.mockImplementation((ctx, feature, updates) => {
+        if (feature.id === existingFeature.id) {
+          return Promise.resolve({ ...existingFeature, ...updates });
+        }
+        return Promise.resolve(null);
+      });
+
+      const response = await request(app)
+        .post(`/api/v1/features/${existingFeature.id}`)
+        .send({
+          description: "new description",
+        });
+
+      expect(response.status).toBe(200);
+      expect(updateFeature).toHaveBeenCalled();
+      expect(getCustomFieldsBySectionAndProject).not.toHaveBeenCalled();
+    });
+
+    it("allows updating existing features when customFields payload is unchanged", async () => {
+      const getCustomFieldsBySectionAndProject = jest.fn().mockResolvedValue([
+        {
+          id: "cfd_team",
+          name: "Owning Team",
+          type: "enum",
+          required: true,
+          values: "growth,platform",
+          section: "feature",
+          dateCreated: new Date("2026-01-01"),
+          dateUpdated: new Date("2026-01-01"),
+        },
+      ]);
+      setReqContext({
+        org: {
+          ...org,
+          settings: {
+            requireProjectForFeatures: true,
+          },
+        },
+        models: {
+          safeRollout: {
+            getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
+          },
+          customFields: {
+            getCustomFieldsBySectionAndProject,
+          },
+        },
+        permissions: {
+          canPublishFeature: () => true,
+          canCreateFeature: () => true,
+          canUpdateFeature: () => true,
+        },
+        getProjects: async () => [{ id: "project" }],
+      });
+
+      const existingFeature: FeatureInterface = {
+        organization: org.id,
+        defaultValue: "defaultValue",
+        valueType: "string",
+        owner: "owner",
+        description: "description",
+        project: "project",
+        id: "myexistingfeature",
+        archived: true,
+        tags: ["tag"],
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        version: 1,
+        environmentSettings: {},
+        prerequisites: [],
+        customFields: {},
+      };
+
+      getFeature.mockImplementation((ctx, id) => {
+        if (id === existingFeature.id) {
+          return Promise.resolve(existingFeature);
+        }
+        return Promise.resolve(null);
+      });
+      updateFeature.mockImplementation((ctx, feature, updates) => {
+        if (feature.id === existingFeature.id) {
+          return Promise.resolve({ ...existingFeature, ...updates });
+        }
+        return Promise.resolve(null);
+      });
+
+      const response = await request(app)
+        .post(`/api/v1/features/${existingFeature.id}`)
+        .send({
+          description: "new description",
+          customFields: {},
+        });
+
+      expect(response.status).toBe(200);
+      expect(updateFeature).toHaveBeenCalled();
+      expect(getCustomFieldsBySectionAndProject).not.toHaveBeenCalled();
+    });
+
+    it("rejects updating existing features when customFields are cleared from a non-empty object", async () => {
+      const getCustomFieldsBySectionAndProject = jest.fn().mockResolvedValue([
+        {
+          id: "cfd_team",
+          name: "Owning Team",
+          type: "enum",
+          required: true,
+          values: "growth,platform",
+          section: "feature",
+          dateCreated: new Date("2026-01-01"),
+          dateUpdated: new Date("2026-01-01"),
+        },
+      ]);
+      setReqContext({
+        org: {
+          ...org,
+          settings: {
+            requireProjectForFeatures: true,
+          },
+        },
+        models: {
+          safeRollout: {
+            getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
+          },
+          customFields: {
+            getCustomFieldsBySectionAndProject,
+          },
+        },
+        permissions: {
+          canPublishFeature: () => true,
+          canCreateFeature: () => true,
+          canUpdateFeature: () => true,
+        },
+        getProjects: async () => [{ id: "project" }],
+      });
+
+      const existingFeature: FeatureInterface = {
+        organization: org.id,
+        defaultValue: "defaultValue",
+        valueType: "string",
+        owner: "owner",
+        description: "description",
+        project: "project",
+        id: "myexistingfeature",
+        archived: true,
+        tags: ["tag"],
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        version: 1,
+        environmentSettings: {},
+        prerequisites: [],
+        customFields: {
+          cfd_team: "growth",
+        },
+      };
+
+      getFeature.mockImplementation((ctx, id) => {
+        if (id === existingFeature.id) {
+          return Promise.resolve(existingFeature);
+        }
+        return Promise.resolve(null);
+      });
+      updateFeature.mockImplementation((ctx, feature, updates) => {
+        if (feature.id === existingFeature.id) {
+          return Promise.resolve({ ...existingFeature, ...updates });
+        }
+        return Promise.resolve(null);
+      });
+
+      const response = await request(app)
+        .post(`/api/v1/features/${existingFeature.id}`)
+        .send({
+          description: "new description",
+          customFields: {},
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body.message).toContain(
+        'Custom field "Owning Team" is required.',
+      );
+      expect(updateFeature).not.toHaveBeenCalled();
+      expect(getCustomFieldsBySectionAndProject).toHaveBeenCalled();
+    });
+
+    it("allows updating existing features when project payload is unchanged", async () => {
+      const getCustomFieldsBySectionAndProject = jest.fn().mockResolvedValue([
+        {
+          id: "cfd_team",
+          name: "Owning Team",
+          type: "enum",
+          required: true,
+          values: "growth,platform",
+          section: "feature",
+          dateCreated: new Date("2026-01-01"),
+          dateUpdated: new Date("2026-01-01"),
+        },
+      ]);
+      setReqContext({
+        org: {
+          ...org,
+          settings: {
+            requireProjectForFeatures: true,
+          },
+        },
+        models: {
+          safeRollout: {
+            getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
+          },
+          customFields: {
+            getCustomFieldsBySectionAndProject,
+          },
+        },
+        permissions: {
+          canPublishFeature: () => true,
+          canCreateFeature: () => true,
+          canUpdateFeature: () => true,
+        },
+        getProjects: async () => [{ id: "project" }],
+      });
+
+      const existingFeature: FeatureInterface = {
+        organization: org.id,
+        defaultValue: "defaultValue",
+        valueType: "string",
+        owner: "owner",
+        description: "description",
+        project: "project",
+        id: "myexistingfeature",
+        archived: true,
+        tags: ["tag"],
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        version: 1,
+        environmentSettings: {},
+        prerequisites: [],
+        customFields: {},
+      };
+
+      getFeature.mockImplementation((ctx, id) => {
+        if (id === existingFeature.id) {
+          return Promise.resolve(existingFeature);
+        }
+        return Promise.resolve(null);
+      });
+      updateFeature.mockImplementation((ctx, feature, updates) => {
+        if (feature.id === existingFeature.id) {
+          return Promise.resolve({ ...existingFeature, ...updates });
+        }
+        return Promise.resolve(null);
+      });
+
+      const response = await request(app)
+        .post(`/api/v1/features/${existingFeature.id}`)
+        .send({
+          description: "new description",
+          project: "project",
+        });
+
+      expect(response.status).toBe(200);
+      expect(updateFeature).toHaveBeenCalled();
+      expect(getCustomFieldsBySectionAndProject).not.toHaveBeenCalled();
+    });
+
+    it("revalidates and rejects when changing project to one with required custom fields", async () => {
+      const getCustomFieldsBySectionAndProject = jest
+        .fn()
+        .mockImplementation(({ project }) => {
+          if (project === "project-b") {
+            return Promise.resolve([
+              {
+                id: "cfd_team",
+                name: "Owning Team",
+                type: "enum",
+                required: true,
+                values: "growth,platform",
+                section: "feature",
+                dateCreated: new Date("2026-01-01"),
+                dateUpdated: new Date("2026-01-01"),
+              },
+            ]);
+          }
+          return Promise.resolve([]);
+        });
+      setReqContext({
+        org: {
+          ...org,
+          settings: {
+            requireProjectForFeatures: true,
+          },
+        },
+        models: {
+          safeRollout: {
+            getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
+          },
+          customFields: {
+            getCustomFieldsBySectionAndProject,
+          },
+        },
+        permissions: {
+          canPublishFeature: () => true,
+          canCreateFeature: () => true,
+          canUpdateFeature: () => true,
+        },
+        getProjects: async () => [{ id: "project" }, { id: "project-b" }],
+      });
+
+      const existingFeature: FeatureInterface = {
+        organization: org.id,
+        defaultValue: "defaultValue",
+        valueType: "string",
+        owner: "owner",
+        description: "description",
+        project: "project",
+        id: "myexistingfeature",
+        archived: true,
+        tags: ["tag"],
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        version: 1,
+        environmentSettings: {},
+        prerequisites: [],
+        customFields: {},
+      };
+
+      getFeature.mockImplementation((ctx, id) => {
+        if (id === existingFeature.id) {
+          return Promise.resolve(existingFeature);
+        }
+        return Promise.resolve(null);
+      });
+      updateFeature.mockImplementation((ctx, feature, updates) => {
+        if (feature.id === existingFeature.id) {
+          return Promise.resolve({ ...existingFeature, ...updates });
+        }
+        return Promise.resolve(null);
+      });
+
+      const response = await request(app)
+        .post(`/api/v1/features/${existingFeature.id}`)
+        .send({
+          description: "new description",
+          project: "project-b",
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body.message).toContain(
+        'Custom field "Owning Team" is required.',
+      );
+      expect(updateFeature).not.toHaveBeenCalled();
+      expect(getCustomFieldsBySectionAndProject).toHaveBeenCalled();
+    });
+
+    it("revalidates and rejects when changing project and customFields payload is changed", async () => {
+      const getCustomFieldsBySectionAndProject = jest
+        .fn()
+        .mockImplementation(({ project }) => {
+          if (project === "project-b") {
+            return Promise.resolve([
+              {
+                id: "cfd_team",
+                name: "Owning Team",
+                type: "enum",
+                required: true,
+                values: "growth,platform",
+                section: "feature",
+                dateCreated: new Date("2026-01-01"),
+                dateUpdated: new Date("2026-01-01"),
+              },
+            ]);
+          }
+          return Promise.resolve([]);
+        });
+      setReqContext({
+        org: {
+          ...org,
+          settings: {
+            requireProjectForFeatures: true,
+          },
+        },
+        models: {
+          safeRollout: {
+            getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
+          },
+          customFields: {
+            getCustomFieldsBySectionAndProject,
+          },
+        },
+        permissions: {
+          canPublishFeature: () => true,
+          canCreateFeature: () => true,
+          canUpdateFeature: () => true,
+        },
+        getProjects: async () => [{ id: "project" }, { id: "project-b" }],
+      });
+
+      const existingFeature: FeatureInterface = {
+        organization: org.id,
+        defaultValue: "defaultValue",
+        valueType: "string",
+        owner: "owner",
+        description: "description",
+        project: "project",
+        id: "myexistingfeature",
+        archived: true,
+        tags: ["tag"],
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        version: 1,
+        environmentSettings: {},
+        prerequisites: [],
+        customFields: {
+          cfd_team: "growth",
+        },
+      };
+
+      getFeature.mockImplementation((ctx, id) => {
+        if (id === existingFeature.id) {
+          return Promise.resolve(existingFeature);
+        }
+        return Promise.resolve(null);
+      });
+      updateFeature.mockImplementation((ctx, feature, updates) => {
+        if (feature.id === existingFeature.id) {
+          return Promise.resolve({ ...existingFeature, ...updates });
+        }
+        return Promise.resolve(null);
+      });
+
+      const response = await request(app)
+        .post(`/api/v1/features/${existingFeature.id}`)
+        .send({
+          description: "new description",
+          project: "project-b",
+          customFields: {},
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body.message).toContain(
+        'Custom field "Owning Team" is required.',
+      );
+      expect(updateFeature).not.toHaveBeenCalled();
+      expect(getCustomFieldsBySectionAndProject).toHaveBeenCalled();
     });
   });
 
@@ -466,6 +1028,7 @@ describe("features API", () => {
           safeRollout: {
             getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
           },
+          customFields: getEmptyCustomFieldsModel(),
         },
         permissions: {
           canPublishFeature: () => true,

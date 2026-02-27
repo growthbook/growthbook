@@ -370,7 +370,7 @@ pre {
   }
 }
 
-// region d2h differ
+// region d2h differ / Diff Viewer
 
 // d2h loads CSS at the end of the document so we need to do all these !important
 
@@ -423,6 +423,17 @@ pre {
   background-color: var(--surface-background-color-alt) !important;
 }
 
-// endregion d2h differ
+.diff-wrapper td {
+  padding: 0 10px !important;
+  vertical-align: top !important;
+}
 
-// endregion Diff Viewer
+.diff-wrapper-compact {
+  pre,
+  td {
+    font-size: 11px !important;
+    line-height: 1.5 !important;
+  }
+}
+
+// endregion d2h differ / Diff Viewer

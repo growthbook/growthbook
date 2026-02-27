@@ -293,6 +293,8 @@ interface IsFeatureStaleInterface {
   experiments?: ExperimentInterfaceStringDates[];
   dependentExperiments?: ExperimentInterfaceStringDates[];
   environments?: string[];
+  featuresMap?: Map<string, FeatureInterface>;
+  experimentMap?: Map<string, ExperimentInterfaceStringDates>;
 }
 export function isFeatureStale({
   feature,
@@ -300,17 +302,17 @@ export function isFeatureStale({
   experiments = [],
   dependentExperiments,
   environments = [],
+  featuresMap: prebuiltFeaturesMap,
+  experimentMap: prebuiltExperimentMap,
 }: IsFeatureStaleInterface): { stale: boolean; reason?: StaleFeatureReason } {
-  const featuresMap = new Map<string, FeatureInterface>();
-  if (features) {
-    for (const f of features) {
-      featuresMap.set(f.id, f);
-    }
-  }
-  const experimentMap = new Map<string, ExperimentInterfaceStringDates>();
-  for (const e of experiments) {
-    experimentMap.set(e.id, e);
-  }
+  const featuresMap =
+    prebuiltFeaturesMap ??
+    new Map<string, FeatureInterface>((features ?? []).map((f) => [f.id, f]));
+  const experimentMap =
+    prebuiltExperimentMap ??
+    new Map<string, ExperimentInterfaceStringDates>(
+      experiments.map((e) => [e.id, e]),
+    );
 
   const visitedFeatures = new Set<string>();
 

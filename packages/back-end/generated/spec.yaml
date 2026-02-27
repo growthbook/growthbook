@@ -204,6 +204,9 @@ tags:
   - name: FeatureWithRevisions_model
     x-displayName: FeatureWithRevisions
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureWithRevisions" />
+  - name: LookbackOverride_model
+    x-displayName: LookbackOverride
+    description: <SchemaDefinition schemaRef="#/components/schemas/LookbackOverride" />
   - name: Member_model
     x-displayName: Member
     description: <SchemaDefinition schemaRef="#/components/schemas/Member" />
@@ -1993,7 +1996,10 @@ paths:
                   enum:
                     - firstExposure
                     - experimentDuration
-                  description: Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override.
+                    - lookbackOverride
+                  description: Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided.
+                lookbackOverride:
+                  $ref: '#/components/schemas/LookbackOverride'
                 statsEngine:
                   type: string
                   enum:
@@ -2362,7 +2368,10 @@ paths:
                   enum:
                     - firstExposure
                     - experimentDuration
-                  description: Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override.
+                    - lookbackOverride
+                  description: Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided.
+                lookbackOverride:
+                  $ref: '#/components/schemas/LookbackOverride'
                 statsEngine:
                   type: string
                   enum:
@@ -11580,32 +11589,6 @@ paths:
                       - members
                       - managedByIdp
                     additionalProperties: false
-    delete:
-      $skipValidatorGeneration: true
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      tags:
-        - Teams
-      summary: Delete a single team
-      operationId: deleteTeam
-      x-codeSamples:
-        - lang: cURL
-          source: 'curl -X DELETE https://api.growthbook.io/api/v1/teams/{id} -u secret_abc123DEF456'
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                  - deletedId
-                properties:
-                  deletedId:
-                    type: string
     put:
       $skipValidatorGeneration: true
       parameters:
@@ -12080,7 +12063,7 @@ paths:
             type: string
       tags:
         - Teams
-      summary: ''
+      summary: Add members to team
       operationId: addTeamMembers
       x-codeSamples:
         - lang: cURL
@@ -12123,7 +12106,7 @@ paths:
             type: string
       tags:
         - Teams
-      summary: ''
+      summary: Remove members from team
       operationId: removeTeamMember
       x-codeSamples:
         - lang: cURL
@@ -12155,6 +12138,41 @@ paths:
                     type: number
                 required:
                   - status
+                additionalProperties: false
+  '/teams/{teamId}/':
+    delete:
+      $skipValidatorGeneration: true
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: deleteMembers
+          in: query
+          required: false
+          schema:
+            description: 'When ''true'', enables deleting a team that contains members'
+            type: string
+      tags:
+        - Teams
+      summary: Delete a single team
+      operationId: deleteTeam
+      x-codeSamples:
+        - lang: cURL
+          source: 'curl -X DELETE https://api.growthbook.io/api/v1/teams/{teamId}/ -u secret_abc123DEF456'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $schema: 'https://json-schema.org/draft/2020-12/schema'
+                type: object
+                properties:
+                  deletedId:
+                    type: string
+                required:
+                  - deletedId
                 additionalProperties: false
 components:
   parameters:
@@ -14510,7 +14528,10 @@ components:
           enum:
             - firstExposure
             - experimentDuration
-          description: Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override.
+            - lookbackOverride
+          description: Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided.
+        lookbackOverride:
+          $ref: '#/components/schemas/LookbackOverride'
         statsEngine:
           enum:
             - bayesian
@@ -14535,6 +14556,30 @@ components:
             $ref: '#/components/schemas/ExperimentMetric'
         activationMetric:
           $ref: '#/components/schemas/ExperimentMetric'
+    LookbackOverride:
+      type: object
+      description: 'Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required.'
+      required:
+        - type
+        - value
+      properties:
+        type:
+          enum:
+            - date
+            - window
+        value:
+          type:
+            - number
+            - string
+          format: date-time
+          description: For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
+        valueUnit:
+          enum:
+            - minutes
+            - hours
+            - days
+            - weeks
+          description: Used when type is "window". Defaults to "days".
     ExperimentResults:
       type: object
       required:
@@ -15779,6 +15824,7 @@ components:
           enum:
             - firstExposure
             - experimentDuration
+            - lookbackOverride
         targetMDE:
           type: number
         delayHours:
@@ -15986,6 +16032,7 @@ x-tagGroups:
       - FeatureRule_model
       - FeatureSafeRolloutRule_model
       - FeatureWithRevisions_model
+      - LookbackOverride_model
       - Member_model
       - Metric_model
       - MetricAnalysis_model

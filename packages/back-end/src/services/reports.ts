@@ -6,6 +6,7 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_STATS_ENGINE,
   DEFAULT_TARGET_MDE,
+  DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
 } from "shared/constants";
 import {
   isFactMetric,
@@ -18,9 +19,11 @@ import {
   expandAllSliceMetricsInMap,
   parseSliceMetricId,
   SliceLevelsData,
+  getEffectiveLookbackOverride,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
 import uniqid from "uniqid";
+import { differenceInMinutes } from "date-fns";
 import { getScopedSettings } from "shared/settings";
 import uniq from "lodash/uniq";
 import { pick, omit } from "lodash";
@@ -372,11 +375,6 @@ export function getMetricForSnapshot({
   const metric = metricMap.get(id);
   if (!metric) return null;
 
-  // TODO: Is this the right place to ignore conversion window metrics for holdouts?
-  if (metric.windowSettings.type === "conversion" && phaseLookbackWindow) {
-    return null;
-  }
-
   // For slice metrics, use the base metric ID for lookups
   const { baseMetricId } = parseSliceMetricId(id);
   const overrides = metricOverrides?.find((o) => o.id === baseMetricId);
@@ -693,6 +691,30 @@ export function getReportSnapshotSettings({
     }),
   );
 
+  const endDate = report.experimentAnalysisSettings.dateEnded || new Date();
+  const lookbackOverride = getEffectiveLookbackOverride(
+    report.experimentAnalysisSettings.attributionModel,
+    report.experimentAnalysisSettings.lookbackOverride,
+  );
+  const phaseLookbackWindow =
+    lookbackOverride?.type === "window"
+      ? {
+          value: lookbackOverride.value,
+          unit: (lookbackOverride.valueUnit ??
+            DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT) as ConversionWindowUnit,
+        }
+      : lookbackOverride?.type === "date"
+        ? {
+            value: Math.max(
+              0,
+              differenceInMinutes(endDate, lookbackOverride.value, {
+                roundingMethod: "ceil",
+              }),
+            ),
+            unit: "minutes" as ConversionWindowUnit,
+          }
+        : undefined;
+
   const metricSettings = getAllExpandedMetricIdsFromExperiment({
     exp: report.experimentAnalysisSettings,
     expandedMetricMap: metricMap,
@@ -715,6 +737,7 @@ export function getReportSnapshotSettings({
                 experiment.banditConversionWindowUnit ?? undefined,
             }
           : {}),
+        phaseLookbackWindow,
       }),
     )
     .filter(isDefined);
@@ -725,6 +748,7 @@ export function getReportSnapshotSettings({
       report.experimentAnalysisSettings.activationMetric || null,
     attributionModel:
       report.experimentAnalysisSettings.attributionModel || "firstExposure",
+    lookbackOverride: lookbackOverride,
     skipPartialData: !!report.experimentAnalysisSettings.skipPartialData,
     segment: report.experimentAnalysisSettings.segment || "",
     queryFilter: report.experimentAnalysisSettings.queryFilter || "",

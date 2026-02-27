@@ -1369,8 +1369,16 @@ Triggered when an experiment is created
                 segmentId: string;
                 queryFilter: string;
                 inProgressConversions: "include" | "exclude";
-                /** Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. */
-                attributionModel: "firstExposure" | "experimentDuration";
+                /** Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. */
+                attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
+                /** Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+                lookbackOverride?: {
+                    type: "date" | "window";
+                    /** For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string. */
+                    value: number | string;
+                    /** Used when type is "window". Defaults to "days". */
+                    valueUnit?: ("minutes" | "hours" | "days" | "weeks") | undefined;
+                } | undefined;
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean | undefined;
                 sequentialTestingEnabled?: boolean | undefined;
@@ -1537,8 +1545,16 @@ Triggered when an experiment is updated
                 segmentId: string;
                 queryFilter: string;
                 inProgressConversions: "include" | "exclude";
-                /** Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. */
-                attributionModel: "firstExposure" | "experimentDuration";
+                /** Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. */
+                attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
+                /** Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+                lookbackOverride?: {
+                    type: "date" | "window";
+                    /** For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string. */
+                    value: number | string;
+                    /** Used when type is "window". Defaults to "days". */
+                    valueUnit?: ("minutes" | "hours" | "days" | "weeks") | undefined;
+                } | undefined;
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean | undefined;
                 sequentialTestingEnabled?: boolean | undefined;
@@ -1671,8 +1687,16 @@ Triggered when an experiment is updated
                 segmentId: string;
                 queryFilter: string;
                 inProgressConversions: "include" | "exclude";
-                /** Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. */
-                attributionModel: "firstExposure" | "experimentDuration";
+                /** Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. */
+                attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
+                /** Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+                lookbackOverride?: {
+                    type: "date" | "window";
+                    /** For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string. */
+                    value: number | string;
+                    /** Used when type is "window". Defaults to "days". */
+                    valueUnit?: ("minutes" | "hours" | "days" | "weeks") | undefined;
+                } | undefined;
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean | undefined;
                 sequentialTestingEnabled?: boolean | undefined;
@@ -1844,8 +1868,16 @@ Triggered when an experiment is deleted
                 segmentId: string;
                 queryFilter: string;
                 inProgressConversions: "include" | "exclude";
-                /** Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. */
-                attributionModel: "firstExposure" | "experimentDuration";
+                /** Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. */
+                attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
+                /** Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+                lookbackOverride?: {
+                    type: "date" | "window";
+                    /** For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string. */
+                    value: number | string;
+                    /** Used when type is "window". Defaults to "days". */
+                    valueUnit?: ("minutes" | "hours" | "days" | "weeks") | undefined;
+                } | undefined;
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean | undefined;
                 sequentialTestingEnabled?: boolean | undefined;
