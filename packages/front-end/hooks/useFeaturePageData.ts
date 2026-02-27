@@ -173,8 +173,17 @@ export function useFeaturePageData(
   // Set the initial selected version once data is available.
   // If there's a version in the URL query, use that. Otherwise, prefer an
   // active draft revision, falling back to the live (published) version.
+  //
+  // Wait until the revision cache is seeded before deciding: otherwise we run
+  // with revisions=[] (cache not yet populated) and incorrectly set live.
+  const hasRevisionsFromApi = (baseData?.revisions?.length ?? 0) > 0;
+  const cacheSeeded =
+    !!baseData &&
+    !!baseFeatureVersion &&
+    (!hasRevisionsFromApi || (revisions && revisions.length > 0));
   useEffect(() => {
     if (!baseFeatureVersion || version !== null) return;
+    if (!cacheSeeded) return;
 
     if (forcedVersionFromQuery) {
       if (
@@ -196,7 +205,13 @@ export function useFeaturePageData(
           r.status === "pending-review",
       );
     setVersion(draft ? draft.version : baseFeatureVersion);
-  }, [revisions, version, forcedVersionFromQuery, baseFeatureVersion]);
+  }, [
+    cacheSeeded,
+    revisions,
+    version,
+    forcedVersionFromQuery,
+    baseFeatureVersion,
+  ]);
 
   const allEnvironments = useEnvironments();
   const environments = useMemo(
