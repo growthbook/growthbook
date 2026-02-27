@@ -131,7 +131,7 @@ export default function FeaturesHeader({
                     staleByEnv={feature.staleByEnv}
                     staleLastCalculated={feature.staleLastCalculated}
                     valueType={feature.valueType}
-                    showFreshIcon
+                    showNonStaleStatuses
                     onRerun={
                       canEdit
                         ? async () => {

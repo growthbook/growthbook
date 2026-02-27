@@ -34,7 +34,7 @@ export default function StaleFeatureIcon({
   staleByEnv,
   staleLastCalculated,
   valueType,
-  showFreshIcon = false,
+  showNonStaleStatuses = false,
   onRerun,
   onDisable,
 }: {
@@ -43,7 +43,7 @@ export default function StaleFeatureIcon({
   staleByEnv?: FeatureInterface["staleByEnv"];
   staleLastCalculated?: Date | string | null;
   valueType?: FeatureValueType;
-  showFreshIcon?: boolean;
+  showNonStaleStatuses?: boolean;
   onRerun?: () => void;
   onDisable?: () => void;
 }) {
@@ -54,7 +54,7 @@ export default function StaleFeatureIcon({
   const mixed = !isStale && hasSomeStaleEnvs;
   const fresh = !isStale && !hasSomeStaleEnvs;
 
-  if (fresh && !showFreshIcon) return null;
+  if (!isStale && !showNonStaleStatuses) return null;
 
   const envEntries = Object.entries(staleByEnv ?? {});
 
