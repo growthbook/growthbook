@@ -9,10 +9,11 @@
 import cloneDeep from "lodash/cloneDeep";
 import { FeatureInterface } from "shared/types/feature";
 import { ExperimentInterface } from "shared/types/experiment";
-import { HoldoutInterface } from "shared/types/validators";
+import { HoldoutInterface } from "shared/validators";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { OrganizationInterface } from "shared/types/organization";
+import { FeatureDefinition } from "shared/types/sdk";
 import { ApiReqContext } from "back-end/types/api";
 import {
   buildSDKPayloadForConnection,
@@ -21,9 +22,10 @@ import {
   type ConnectionPayloadOptions,
 } from "back-end/src/services/features";
 import { getFeatureDefinition } from "back-end/src/util/features";
-import { FeatureDefinition } from "shared/types/sdk";
 
-function minimalContext(orgOverrides?: Partial<OrganizationInterface>): ApiReqContext {
+function minimalContext(
+  orgOverrides?: Partial<OrganizationInterface>,
+): ApiReqContext {
   return {
     org: {
       id: "org-1",
@@ -43,7 +45,9 @@ function minimalContext(orgOverrides?: Partial<OrganizationInterface>): ApiReqCo
   } as ApiReqContext;
 }
 
-function minimalRawData(overrides?: Partial<SDKPayloadRawData>): SDKPayloadRawData {
+function minimalRawData(
+  overrides?: Partial<SDKPayloadRawData>,
+): SDKPayloadRawData {
   return {
     features: [],
     experimentMap: new Map(),
@@ -109,13 +113,18 @@ describe("SDK payload generation (comprehensive)", () => {
             seed: "s1",
           },
         ],
-        variations: [{ id: "v0", key: "0", name: "C" }, { id: "v1", key: "1", name: "T" }],
+        variations: [
+          { id: "v0", key: "0", name: "C" },
+          { id: "v1", key: "1", name: "T" },
+        ],
         dateCreated: new Date(),
         dateUpdated: new Date(),
         trackingKey: "tk",
         archived: false,
       } as ExperimentInterface;
-      const experimentMap = new Map<string, ExperimentInterface>([["exp1", exp]]);
+      const experimentMap = new Map<string, ExperimentInterface>([
+        ["exp1", exp],
+      ]);
       const groupMap: GroupMap = new Map();
       const safeRolloutMap = new Map<string, SafeRolloutInterface>();
 
@@ -176,7 +185,12 @@ describe("SDK payload generation (comprehensive)", () => {
                 experimentId: "exp1",
                 variations: [
                   { variationId: "v0", value: "v0", key: "0", name: "Control" },
-                  { variationId: "v1", value: "v1", key: "1", name: "Treatment" },
+                  {
+                    variationId: "v1",
+                    value: "v1",
+                    key: "1",
+                    name: "Treatment",
+                  },
                 ],
               },
             ],
@@ -192,7 +206,10 @@ describe("SDK payload generation (comprehensive)", () => {
         status: "running",
         linkedFeatures: [{ featureId: "f1", state: "live" }],
         phases: [{ phase: "main", coverage: 1, variationWeights: [0.5, 0.5] }],
-        variations: [{ id: "v0", key: "0", name: "Control" }, { id: "v1", key: "1", name: "Treatment" }],
+        variations: [
+          { id: "v0", key: "0", name: "Control" },
+          { id: "v1", key: "1", name: "Treatment" },
+        ],
         dateCreated: new Date(),
         dateUpdated: new Date(),
         trackingKey: "tk",
@@ -212,8 +229,12 @@ describe("SDK payload generation (comprehensive)", () => {
         includeRuleIds: true,
         includeExperimentNames: true,
       });
-      expect((withIdsAndNames.rules?.[0] as Record<string, unknown>).id).toBe("rule-id");
-      expect((withIdsAndNames.rules?.[0] as Record<string, unknown>).name).toBe("My Experiment");
+      expect((withIdsAndNames.rules?.[0] as Record<string, unknown>).id).toBe(
+        "rule-id",
+      );
+      expect((withIdsAndNames.rules?.[0] as Record<string, unknown>).name).toBe(
+        "My Experiment",
+      );
 
       const without = getFeatureDefinition({
         feature,
@@ -225,42 +246,16 @@ describe("SDK payload generation (comprehensive)", () => {
         includeRuleIds: false,
         includeExperimentNames: false,
       });
-      expect((without.rules?.[0] as Record<string, unknown>).id).toBeUndefined();
-      expect((without.rules?.[0] as Record<string, unknown>).name).toBeUndefined();
+      expect(
+        (without.rules?.[0] as Record<string, unknown>).id,
+      ).toBeUndefined();
+      expect(
+        (without.rules?.[0] as Record<string, unknown>).name,
+      ).toBeUndefined();
     });
   });
 
   describe("project and environment scoping", () => {
-    it("projects === null returns empty features and experiments", async () => {
-      const ctx = minimalContext();
-      const connection: ConnectionPayloadOptions = {
-        capabilities: ["bucketingV2"],
-        environment: "production",
-        projects: null,
-      };
-      const data = minimalRawData({
-        features: [
-          {
-            id: "f1",
-            project: "p1",
-            dateCreated: new Date(),
-            dateUpdated: new Date(),
-            defaultValue: "x",
-            organization: "org-1",
-            owner: "",
-            valueType: "string",
-            archived: false,
-            description: "",
-            version: 1,
-            environmentSettings: { production: { enabled: true, rules: [] } },
-          } as FeatureInterface,
-        ],
-      });
-      const out = await buildSDKPayloadForConnection({ context: ctx, connection, data });
-      expect(out.features).toEqual({});
-      expect(out.experiments).toEqual([]);
-    });
-
     it("project filter restricts features and experiments to that project", async () => {
       const ctx = minimalContext();
       const f1 = {
@@ -288,26 +283,55 @@ describe("SDK payload generation (comprehensive)", () => {
         projects: ["p1"],
       };
       const data = minimalRawData({ features: [f1, f2] });
-      const out = await buildSDKPayloadForConnection({ context: ctx, connection, data });
+      const out = await buildSDKPayloadForConnection({
+        context: ctx,
+        connection,
+        data,
+      });
       expect(Object.keys(out.features)).toEqual(["f1"]);
+    });
+
+    it("projects === null returns empty features and experiments (edge case: env scrubs all)", async () => {
+      // projects: null is produced when filterProjectsByEnvironmentWithNull() scrubs
+      // the connection's project list by environment and nothing is left (no access).
+      // Path: SDK connection with project scoping → GET payload for an env where none
+      // of those projects are allowed → null → empty payload. Contrast with [] = all projects.
+      const ctx = minimalContext();
+      const connection: ConnectionPayloadOptions = {
+        capabilities: ["bucketingV2"],
+        environment: "production",
+        projects: null,
+      };
+      const data = minimalRawData({
+        features: [
+          {
+            id: "f1",
+            project: "p1",
+            dateCreated: new Date(),
+            dateUpdated: new Date(),
+            defaultValue: "x",
+            organization: "org-1",
+            owner: "",
+            valueType: "string",
+            archived: false,
+            description: "",
+            version: 1,
+            environmentSettings: { production: { enabled: true, rules: [] } },
+          } as FeatureInterface,
+        ],
+      });
+      const out = await buildSDKPayloadForConnection({
+        context: ctx,
+        connection,
+        data,
+      });
+      expect(out.features).toEqual({});
+      expect(out.experiments).toEqual([]);
     });
   });
 
   describe("savedGroupReferencesEnabled and capabilities", () => {
     it("savedGroupReferences capability with savedGroupReferencesEnabled keeps $inGroup; without expands to $in", async () => {
-      const groupMap: GroupMap = new Map([
-        [
-          "sg1",
-          {
-            id: "sg1",
-            organization: "org-1",
-            groupName: "G1",
-            type: "list",
-            values: ["a", "b"],
-            attributeKey: "x",
-          } as SavedGroupInterface & { values: string[] },
-        ],
-      ]);
       const featureDef: FeatureDefinition = {
         defaultValue: true,
         rules: [
@@ -335,7 +359,9 @@ describe("SDK payload generation (comprehensive)", () => {
         ],
         organization: minimalContext().org as OrganizationInterface,
       });
-      expect((withRefs.features.f1.rules?.[0] as { condition: unknown }).condition).toEqual({
+      expect(
+        (withRefs.features.f1.rules?.[0] as { condition: unknown }).condition,
+      ).toEqual({
         id: { $inGroup: "sg1" },
       });
       expect(withRefs.savedGroups).toHaveProperty("sg1");
@@ -358,9 +384,356 @@ describe("SDK payload generation (comprehensive)", () => {
         ],
         organization: minimalContext().org as OrganizationInterface,
       });
-      expect((expanded.features.f1.rules?.[0] as { condition: unknown }).condition).toEqual({
+      expect(
+        (expanded.features.f1.rules?.[0] as { condition: unknown }).condition,
+      ).toEqual({
         id: { $in: ["a", "b"] },
       });
+    });
+
+    it("cross-project saved group is included by reference when savedGroupReferencesEnabled", async () => {
+      const ctx = minimalContext();
+      const sgP2 = {
+        id: "sg-other-project",
+        organization: "org-1",
+        groupName: "Cross-project list",
+        type: "list" as const,
+        values: ["v1", "v2"],
+        attributeKey: "id",
+        projects: ["p2"],
+      } as SavedGroupInterface;
+      const groupMap: GroupMap = new Map([
+        [
+          "sg-other-project",
+          {
+            id: "sg-other-project",
+            type: "list",
+            attributeKey: "id",
+            useEmptyListGroup: false,
+            values: ["v1", "v2"],
+          },
+        ],
+      ]);
+      const featureInP1: FeatureInterface = {
+        id: "f1",
+        project: "p1",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        defaultValue: true,
+        organization: "org-1",
+        owner: "",
+        valueType: "boolean",
+        archived: false,
+        description: "",
+        version: 1,
+        environmentSettings: {
+          production: {
+            enabled: true,
+            rules: [
+              {
+                type: "force",
+                id: "r1",
+                enabled: true,
+                value: false,
+                condition: '{"id":{"$inGroup":"sg-other-project"}}',
+              },
+            ],
+          },
+        },
+      } as FeatureInterface;
+      const connection: ConnectionPayloadOptions = {
+        capabilities: ["savedGroupReferences"],
+        environment: "production",
+        projects: ["p1"],
+        savedGroupReferencesEnabled: true,
+      };
+      const data = minimalRawData({
+        features: [featureInP1],
+        groupMap,
+        savedGroups: [sgP2],
+      });
+      const out = await buildSDKPayloadForConnection({
+        context: ctx,
+        connection,
+        data,
+      });
+      expect(out.features.f1).toBeDefined();
+      expect(
+        (out.features.f1.rules?.[0] as { condition: unknown }).condition,
+      ).toEqual({
+        id: { $inGroup: "sg-other-project" },
+      });
+      expect(out.savedGroups).toHaveProperty("sg-other-project");
+    });
+
+    it("cross-project saved group is expanded inline when savedGroupReferencesEnabled is false", async () => {
+      const ctx = minimalContext();
+      const sgP2 = {
+        id: "sg-other-project",
+        organization: "org-1",
+        groupName: "Cross-project list",
+        type: "list" as const,
+        values: ["v1", "v2"],
+        attributeKey: "id",
+        projects: ["p2"],
+      } as SavedGroupInterface;
+      const groupMap: GroupMap = new Map([
+        [
+          "sg-other-project",
+          {
+            id: "sg-other-project",
+            type: "list",
+            attributeKey: "id",
+            useEmptyListGroup: false,
+            values: ["v1", "v2"],
+          },
+        ],
+      ]);
+      const featureInP1: FeatureInterface = {
+        id: "f1",
+        project: "p1",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        defaultValue: true,
+        organization: "org-1",
+        owner: "",
+        valueType: "boolean",
+        archived: false,
+        description: "",
+        version: 1,
+        environmentSettings: {
+          production: {
+            enabled: true,
+            rules: [
+              {
+                type: "force",
+                id: "r1",
+                enabled: true,
+                value: false,
+                condition: '{"id":{"$inGroup":"sg-other-project"}}',
+              },
+            ],
+          },
+        },
+      } as FeatureInterface;
+      const connection: ConnectionPayloadOptions = {
+        capabilities: ["looseUnmarshalling"],
+        environment: "production",
+        projects: ["p1"],
+        savedGroupReferencesEnabled: false,
+      };
+      const data = minimalRawData({
+        features: [featureInP1],
+        groupMap,
+        savedGroups: [sgP2],
+      });
+      const out = await buildSDKPayloadForConnection({
+        context: ctx,
+        connection,
+        data,
+      });
+      expect(out.features.f1).toBeDefined();
+      expect(
+        (out.features.f1.rules?.[0] as { condition: unknown }).condition,
+      ).toEqual({
+        id: { $in: ["v1", "v2"] },
+      });
+    });
+
+    it("when pass-by-reference: condition group is inlined into rule; list group stays $inGroup and in savedGroups", async () => {
+      const ctx = minimalContext();
+      const sgCond = {
+        id: "sg-cond",
+        organization: "org-1",
+        groupName: "Cond",
+        type: "condition" as const,
+        condition: '{"region":"eu"}',
+        attributeKey: "id",
+        projects: [],
+      } as SavedGroupInterface;
+      const sgList = {
+        id: "sg-list",
+        organization: "org-1",
+        groupName: "List",
+        type: "list" as const,
+        values: ["a", "b"],
+        attributeKey: "id",
+        projects: [],
+      } as SavedGroupInterface;
+      const groupMap: GroupMap = new Map([
+        [
+          "sg-cond",
+          {
+            id: "sg-cond",
+            type: "condition",
+            condition: '{"region":"eu"}',
+            attributeKey: "id",
+            useEmptyListGroup: false,
+          },
+        ],
+        [
+          "sg-list",
+          {
+            id: "sg-list",
+            type: "list",
+            attributeKey: "id",
+            useEmptyListGroup: false,
+            values: ["a", "b"],
+          },
+        ],
+      ]);
+      const feature: FeatureInterface = {
+        id: "f1",
+        project: "p1",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        defaultValue: true,
+        organization: "org-1",
+        owner: "",
+        valueType: "boolean",
+        archived: false,
+        description: "",
+        version: 1,
+        environmentSettings: {
+          production: {
+            enabled: true,
+            rules: [
+              {
+                type: "force",
+                id: "r1",
+                enabled: true,
+                value: "false",
+                condition: "{}",
+                savedGroups: [
+                  { ids: ["sg-cond", "sg-list"], match: "all" as const },
+                ],
+              },
+            ],
+          },
+        },
+      } as FeatureInterface;
+      const connection: ConnectionPayloadOptions = {
+        capabilities: ["savedGroupReferences"],
+        environment: "production",
+        projects: ["p1"],
+        savedGroupReferencesEnabled: true,
+      };
+      const data = minimalRawData({
+        features: [feature],
+        groupMap,
+        savedGroups: [sgCond, sgList],
+      });
+      const out = await buildSDKPayloadForConnection({
+        context: ctx,
+        connection,
+        data,
+      });
+
+      const cond = (
+        out.features.f1?.rules?.[0] as { condition?: { $and?: unknown[] } }
+      )?.condition;
+      expect(cond?.$and).toHaveLength(2);
+      expect(cond?.$and).toContainEqual({ region: "eu" });
+      expect(cond?.$and).toContainEqual({ id: { $inGroup: "sg-list" } });
+      expect(out.savedGroups).toHaveProperty("sg-list");
+      expect(out.savedGroups?.["sg-list"]).toEqual(["a", "b"]);
+    });
+
+    it("when inline (!savedGroupReferencesEnabled): condition group is inlined; list group is expanded to $in", async () => {
+      const ctx = minimalContext();
+      const sgCond = {
+        id: "sg-cond",
+        organization: "org-1",
+        groupName: "Cond",
+        type: "condition" as const,
+        condition: '{"region":"eu"}',
+        attributeKey: "id",
+        projects: [],
+      } as SavedGroupInterface;
+      const sgList = {
+        id: "sg-list",
+        organization: "org-1",
+        groupName: "List",
+        type: "list" as const,
+        values: ["a", "b"],
+        attributeKey: "id",
+        projects: [],
+      } as SavedGroupInterface;
+      const groupMap: GroupMap = new Map([
+        [
+          "sg-cond",
+          {
+            id: "sg-cond",
+            type: "condition",
+            condition: '{"region":"eu"}',
+            attributeKey: "id",
+            useEmptyListGroup: false,
+          },
+        ],
+        [
+          "sg-list",
+          {
+            id: "sg-list",
+            type: "list",
+            attributeKey: "id",
+            useEmptyListGroup: false,
+            values: ["a", "b"],
+          },
+        ],
+      ]);
+      const feature: FeatureInterface = {
+        id: "f1",
+        project: "p1",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        defaultValue: true,
+        organization: "org-1",
+        owner: "",
+        valueType: "boolean",
+        archived: false,
+        description: "",
+        version: 1,
+        environmentSettings: {
+          production: {
+            enabled: true,
+            rules: [
+              {
+                type: "force",
+                id: "r1",
+                enabled: true,
+                value: "false",
+                condition: "{}",
+                savedGroups: [
+                  { ids: ["sg-cond", "sg-list"], match: "all" as const },
+                ],
+              },
+            ],
+          },
+        },
+      } as FeatureInterface;
+      const connection: ConnectionPayloadOptions = {
+        capabilities: ["looseUnmarshalling"],
+        environment: "production",
+        projects: ["p1"],
+        savedGroupReferencesEnabled: false,
+      };
+      const data = minimalRawData({
+        features: [feature],
+        groupMap,
+        savedGroups: [sgCond, sgList],
+      });
+      const out = await buildSDKPayloadForConnection({
+        context: ctx,
+        connection,
+        data,
+      });
+
+      const cond = (
+        out.features.f1?.rules?.[0] as { condition?: { $and?: unknown[] } }
+      )?.condition;
+      expect(cond?.$and).toHaveLength(2);
+      expect(cond?.$and).toContainEqual({ region: "eu" });
+      expect(cond?.$and).toContainEqual({ id: { $in: ["a", "b"] } });
     });
   });
 
@@ -381,8 +754,42 @@ describe("SDK payload generation (comprehensive)", () => {
       expect(out.features).toEqual({});
     });
 
+    it("encryptionKey with encryptPayload false returns plain features, no encryptedFeatures", async () => {
+      const ctx = minimalContext();
+      const out = await getFeatureDefinitionsResponse({
+        features: { f1: { defaultValue: "x", rules: [] } },
+        experiments: [],
+        dateUpdated: new Date(),
+        encryptPayload: false,
+        encryptionKey: "test-key-32-bytes-long!!!!!!!!",
+        capabilities: [],
+        usedSavedGroups: [],
+        organization: ctx.org as OrganizationInterface,
+      });
+      expect(out.encryptedFeatures).toBeUndefined();
+      expect(out.features).toEqual({ f1: { defaultValue: "x", rules: [] } });
+    });
+
+    it("encryptionKey with encryptPayload undefined returns plain features, no encryptedFeatures", async () => {
+      const ctx = minimalContext();
+      const out = await getFeatureDefinitionsResponse({
+        features: { f1: { defaultValue: "x", rules: [] } },
+        experiments: [],
+        dateUpdated: new Date(),
+        encryptionKey: "test-key-32-bytes-long!!!!!!!!",
+        capabilities: [],
+        usedSavedGroups: [],
+        organization: ctx.org as OrganizationInterface,
+      });
+      expect(out.encryptedFeatures).toBeUndefined();
+      expect(out.features).toEqual({ f1: { defaultValue: "x", rules: [] } });
+    });
+
     it("hashSecureAttributes with attributeSchema and salt hashes secure attributes in features", async () => {
-      const secureStringAttr = { property: "secret", datatype: "secureString" as const };
+      const secureStringAttr = {
+        property: "secret",
+        datatype: "secureString" as const,
+      };
       const featureDef: FeatureDefinition = {
         defaultValue: true,
         rules: [
@@ -403,9 +810,93 @@ describe("SDK payload generation (comprehensive)", () => {
         secureAttributeSalt: "salt",
       });
       expect(out.features.f1.rules?.[0]).toHaveProperty("condition");
-      const cond = (out.features.f1.rules?.[0] as { condition: Record<string, unknown> }).condition;
+      const cond = (
+        out.features.f1.rules?.[0] as { condition: Record<string, unknown> }
+      ).condition;
       expect(cond).toHaveProperty("secret");
       expect(cond.secret).not.toBe("plain");
+    });
+
+    it("hashes secure attributes in condition-group saved group", async () => {
+      const ctx = minimalContext({
+        settings: {
+          attributeSchema: [
+            { property: "secret", datatype: "secureString" as const },
+          ],
+          secureAttributeSalt: "salt",
+        },
+      });
+      const sgCondition = {
+        id: "sg-cond",
+        organization: "org-1",
+        groupName: "Cond",
+        type: "condition" as const,
+        condition: '{"secret":"plain"}',
+        attributeKey: "id",
+        projects: [],
+      } as SavedGroupInterface;
+      const groupMap: GroupMap = new Map([
+        [
+          "sg-cond",
+          {
+            id: "sg-cond",
+            type: "condition",
+            condition: '{"secret":"plain"}',
+            attributeKey: "id",
+            useEmptyListGroup: false,
+          },
+        ],
+      ]);
+      const featureWithCondGroup: FeatureInterface = {
+        id: "f1",
+        project: "p1",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        defaultValue: true,
+        organization: "org-1",
+        owner: "",
+        valueType: "boolean",
+        archived: false,
+        description: "",
+        version: 1,
+        environmentSettings: {
+          production: {
+            enabled: true,
+            rules: [
+              {
+                type: "force",
+                id: "r1",
+                enabled: true,
+                value: "false",
+                condition: "{}",
+                savedGroups: [{ ids: ["sg-cond"], match: "all" as const }],
+              },
+            ],
+          },
+        },
+      } as FeatureInterface;
+      const connection: ConnectionPayloadOptions = {
+        capabilities: ["looseUnmarshalling"],
+        environment: "production",
+        projects: ["p1"],
+        savedGroupReferencesEnabled: false,
+        hashSecureAttributes: true,
+      };
+      const data = minimalRawData({
+        features: [featureWithCondGroup],
+        groupMap,
+        savedGroups: [sgCondition],
+      });
+      const out = await buildSDKPayloadForConnection({
+        context: ctx,
+        connection,
+        data,
+      });
+      const cond = (
+        out.features.f1?.rules?.[0] as { condition?: Record<string, unknown> }
+      )?.condition;
+      expect(cond).toHaveProperty("secret");
+      expect(cond?.secret).not.toBe("plain");
     });
   });
 
@@ -431,8 +922,13 @@ describe("SDK payload generation (comprehensive)", () => {
         name: "Holdout Exp",
         hypothesis: "",
         status: "running",
-        phases: [{ phase: "main", coverage: 0.9, variationWeights: [0.5, 0.5] }],
-        variations: [{ id: "v0", key: "0", name: "C" }, { id: "v1", key: "1", name: "T" }],
+        phases: [
+          { phase: "main", coverage: 0.9, variationWeights: [0.5, 0.5] },
+        ],
+        variations: [
+          { id: "v0", key: "0", name: "C" },
+          { id: "v1", key: "1", name: "T" },
+        ],
         dateCreated: new Date(),
         dateUpdated: new Date(),
         trackingKey: "tk",
@@ -483,7 +979,11 @@ describe("SDK payload generation (comprehensive)", () => {
         holdoutsMap,
         experimentMap: new Map([["exp1", holdoutExperiment]]),
       });
-      const out = await buildSDKPayloadForConnection({ context: ctx, connection, data });
+      const out = await buildSDKPayloadForConnection({
+        context: ctx,
+        connection,
+        data,
+      });
       expect(out.features.f1).toBeDefined();
       expect(out.features.f1?.rules?.length).toBeGreaterThanOrEqual(1);
       expect(out.dateUpdated).toBeDefined();
@@ -520,24 +1020,13 @@ describe("SDK payload generation (comprehensive)", () => {
                 hashAttribute: "id",
                 seed: "s1",
                 namespace: { enabled: true, name: "ns", range: [0, 1] },
-                parentConditions: [{ id: "parent", condition: '{"value": true}' }],
+                parentConditions: [
+                  { id: "parent", condition: '{"value": true}' },
+                ],
               },
             ],
           },
         },
-      } as FeatureInterface;
-      const parent: FeatureInterface = {
-        id: "parent",
-        dateCreated: new Date(),
-        dateUpdated: new Date(),
-        defaultValue: true,
-        organization: "org-1",
-        owner: "",
-        valueType: "boolean",
-        archived: false,
-        description: "",
-        version: 1,
-        environmentSettings: { production: { enabled: true, rules: [] } },
       } as FeatureInterface;
       const experimentMap = new Map();
       const groupMap = new Map();
@@ -565,7 +1054,9 @@ describe("SDK payload generation (comprehensive)", () => {
         includeRuleIds: false,
         includeExperimentNames: false,
       });
-      expect((withoutPrereqs.rules?.[0] as Record<string, unknown>).parentConditions).toBeUndefined();
+      expect(
+        (withoutPrereqs.rules?.[0] as Record<string, unknown>).parentConditions,
+      ).toBeUndefined();
     });
   });
 
@@ -620,7 +1111,10 @@ describe("SDK payload generation (comprehensive)", () => {
             seed: "s1",
           },
         ],
-        variations: [{ id: "v0", key: "0", name: "C" }, { id: "v1", key: "1", name: "T" }],
+        variations: [
+          { id: "v0", key: "0", name: "C" },
+          { id: "v1", key: "1", name: "T" },
+        ],
         dateCreated: new Date(),
         dateUpdated: new Date(),
         trackingKey: "tk",
@@ -643,7 +1137,9 @@ describe("SDK payload generation (comprehensive)", () => {
       expect(legacy.rules?.[0]).toHaveProperty("hashVersion");
       expect(legacy.rules?.[0]).toHaveProperty("seed");
       expect((legacy.rules?.[0] as Record<string, unknown>).id).toBeUndefined();
-      expect((legacy.rules?.[0] as Record<string, unknown>).name).toBeUndefined();
+      expect(
+        (legacy.rules?.[0] as Record<string, unknown>).name,
+      ).toBeUndefined();
     });
   });
 
@@ -716,10 +1212,15 @@ describe("SDK payload generation (comprehensive)", () => {
       });
       expect(running.rules?.[0]).toHaveProperty("variations");
       expect(running.rules?.[0]).toHaveProperty("weights");
-      expect((running.rules?.[0] as Record<string, unknown>).force).not.toBe(true);
+      expect((running.rules?.[0] as Record<string, unknown>).force).not.toBe(
+        true,
+      );
 
       const rolledBackMap = new Map([
-        ["sr1", { ...safeRollout, status: "rolled-back" } as SafeRolloutInterface],
+        [
+          "sr1",
+          { ...safeRollout, status: "rolled-back" } as SafeRolloutInterface,
+        ],
       ]);
       const featureRolledBack = {
         ...cloneDeep(featureWithRunning),
@@ -745,7 +1246,9 @@ describe("SDK payload generation (comprehensive)", () => {
         includeRuleIds: false,
         includeExperimentNames: false,
       });
-      expect((rolledBack.rules?.[0] as Record<string, unknown>).force).toBe(false);
+      expect((rolledBack.rules?.[0] as Record<string, unknown>).force).toBe(
+        false,
+      );
     });
   });
 

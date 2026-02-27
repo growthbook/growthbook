@@ -1,11 +1,20 @@
 import Link from "next/link";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { useFeature } from "@growthbook/growthbook-react";
 import { Box, Flex } from "@radix-ui/themes";
-import { FeatureInterface, FeatureMetaInfo } from "shared/types/feature";
+import {
+  ComputedFeatureInterface,
+  FeatureInterface,
+  FeatureRule,
+} from "shared/types/feature";
 import { date, datetime } from "shared/dates";
-import { featureHasEnvironment } from "shared/util";
+import {
+  featureHasEnvironment,
+  filterEnvironmentsByFeature,
+  isFeatureStale,
+  StaleFeatureReason,
+} from "shared/util";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
@@ -13,10 +22,12 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import FeatureModal from "@/components/Features/FeatureModal";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import track from "@/services/track";
-import Switch from "@/ui/Switch";
+import EnvironmentToggle from "@/components/Features/EnvironmentToggle";
 import RealTimeFeatureGraph from "@/components/Features/RealTimeFeatureGraph";
 import {
   getFeatureDefaultValue,
+  getRules,
+  useFeaturesList,
   useRealtimeData,
   useEnvironments,
   useFeatureSearch,
@@ -41,12 +52,7 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import EmptyState from "@/components/EmptyState";
 import ProjectBadges from "@/components/ProjectBadges";
 import FeatureSearchFilters from "@/components/Search/FeatureSearchFilters";
-import { useAuth } from "@/services/auth";
-import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
-import { useFeaturesStatus } from "@/hooks/useFeaturesStatus";
-import { useFeatureDraftStates } from "@/hooks/useFeatureDraftStates";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import Modal from "@/components/Modal";
+import { useExperiments } from "@/hooks/useExperiments";
 import FeaturesDraftTable from "./FeaturesDraftTable";
 
 const NUM_PER_PAGE = 20;
@@ -56,149 +62,62 @@ export default function FeaturesPage() {
   const router = useRouter();
   const { organization } = useUser();
   const { data: sdkConnectionData } = useSDKConnections();
-  const permissionsUtil = usePermissionsUtil();
+  const permissionsUtils = usePermissionsUtil();
   const [modalOpen, setModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [showArchived, setShowArchived] = useState(false);
   const [featureToDuplicate, setFeatureToDuplicate] =
     useState<FeatureInterface | null>(null);
   const [featureToToggleStaleDetection, setFeatureToToggleStaleDetection] =
-    useState<FeatureMetaInfo | null>(null);
-  const [confirmToggle, setConfirmToggle] = useState<{
-    featureId: string;
-    envId: string;
-    state: boolean;
-  } | null>(null);
-
-  const { apiCall } = useAuth();
-  const settings = useOrgSettings();
-  const showConfirmation = !!settings?.killswitchConfirmation;
+    useState<FeatureInterface | null>(null);
 
   const showGraphs = useFeature("feature-list-realtime-graphs").on;
 
-<<<<<<< HEAD
-  const { project } = useDefinitions();
-=======
   const permissionsUtil = usePermissionsUtil();
   const { project, projects } = useDefinitions();
->>>>>>> origin/main
   const environments = useEnvironments();
-
   const {
     features: allFeatures,
     loading,
     error,
     mutate,
     hasArchived,
-  } = useFeatureMetaInfo({
-    project: project || undefined,
-    includeDefaultValue: true,
+  } = useFeaturesList({
+    useCurrentProject: true,
+    includeArchived: showArchived,
   });
-
-  // Track whether archived features should be shown (controlled by is:archived filter).
-  // useFeatureMetaInfo always returns all features; this controls client-side display.
-  const [showArchived, setShowArchived] = useState(false);
+  const { experiments: allExperiments } = useExperiments();
 
   const { usage, usageDomain } = useRealtimeData(
-    allFeatures as unknown as FeatureInterface[],
+    allFeatures,
     !!router?.query?.mockdata,
     showGraphs,
   );
 
-  const statusHook = useFeaturesStatus();
-  const draftHook = useFeatureDraftStates();
-
-  const { searchInputProps, items, SortableTH, setSearchValue, syntaxFilters } =
-    useFeatureSearch({
-      allFeatures: allFeatures as unknown as FeatureInterface[],
-      environments,
-      environmentStatus: statusHook.environmentStatus,
-      draftStates: draftHook.draftStates,
-      filterResults: !showArchived
-        ? (items) => items.filter((f) => !f.archived)
-        : undefined,
+  const staleFeatures = useMemo(() => {
+    const staleFeatures: Record<
+      string,
+      { stale: boolean; reason?: StaleFeatureReason }
+    > = {};
+    const featuresMap = new Map(allFeatures.map((f) => [f.id, f]));
+    const experimentMap = new Map(allExperiments.map((e) => [e.id, e]));
+    allFeatures.forEach((feature) => {
+      const featureEnvironments = filterEnvironmentsByFeature(
+        environments,
+        feature,
+      );
+      const envs = featureEnvironments.map((e) => e.id);
+      staleFeatures[feature.id] = isFeatureStale({
+        feature,
+        features: allFeatures,
+        experiments: allExperiments,
+        environments: envs,
+        featuresMap,
+        experimentMap,
+      });
     });
-
-  const start = (currentPage - 1) * NUM_PER_PAGE;
-  const end = start + NUM_PER_PAGE;
-  const featureItems = useMemo(
-    () => items.slice(start, end),
-    [items, start, end],
-  );
-
-  // Reset to page 1 when a filter changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [items.length]);
-
-  // Sync showArchived from the is:archived syntax filter
-  useEffect(() => {
-    const isArchivedFilter = syntaxFilters.some(
-      (filter) =>
-        filter.field === "is" &&
-        !filter.negated &&
-        filter.values.includes("archived"),
-    );
-    setShowArchived(isArchivedFilter);
-  }, [syntaxFilters]);
-
-  // Stable string key so effects only fire when the visible ID set actually changes,
-  // not just when the slice produces a new array reference.
-  const visibleIdsKey = useMemo(
-    () => featureItems.map((f) => f.id).join(","),
-    [featureItems],
-  );
-
-  // fetchAll is triggered only by filter changes, not by visibleIdsKey changes.
-  // Keeping them separate prevents an infinite loop where fetchAll updates the data,
-  // which changes items, which changes visibleIdsKey, which re-triggers fetchAll.
-  const hasEnvFilter = syntaxFilters.some(
-    (f) => f.field === "on" || f.field === "off",
-  );
-  const hasDraftFilter = syntaxFilters.some(
-    (f) =>
-      (f.field === "is" && f.values.includes("draft")) ||
-      (f.field === "has" && f.values.includes("draft")),
-  );
-
-  useEffect(() => {
-    if (hasEnvFilter) statusHook.fetchAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasEnvFilter]);
-
-  useEffect(() => {
-    if (hasDraftFilter) draftHook.fetchAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasDraftFilter]);
-
-  // fetchSome for visible features when no bulk filter is active
-  useEffect(() => {
-    const ids = visibleIdsKey ? visibleIdsKey.split(",") : [];
-    if (!ids.length) return;
-    if (!hasEnvFilter) statusHook.fetchSome(ids);
-    if (!hasDraftFilter) draftHook.fetchSome(ids);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visibleIdsKey]);
-
-  // Reset featureToDuplicate when modal closes
-  useEffect(() => {
-    if (modalOpen) return;
-    setFeatureToDuplicate(null);
-  }, [modalOpen]);
-
-  const handleToggle = useCallback(
-    async (featureId: string, envId: string, state: boolean) => {
-      if (showConfirmation) {
-        setConfirmToggle({ featureId, envId, state });
-      } else {
-        await statusHook.toggle(featureId, envId, state);
-        track("Feature Environment Toggle", {
-          environment: envId,
-          enabled: state,
-        });
-      }
-    },
-    [showConfirmation, statusHook],
-  );
+    return staleFeatures;
+  }, [allFeatures, allExperiments, environments]);
 
   const renderFeaturesTable = () => {
     return (
@@ -238,7 +157,9 @@ export default function FeaturesPage() {
                     {en.id}
                   </th>
                 ))}
+                <th>Prerequisites</th>
                 <th>Default</th>
+                <th>Rules</th>
                 <th>Version</th>
                 <SortableTH field="dateUpdated">Last Updated</SortableTH>
                 {showGraphs && (
@@ -252,9 +173,35 @@ export default function FeaturesPage() {
               </tr>
             </thead>
             <tbody>
-              {featureItems.map((feature) => {
+              {featureItems.map((feature: ComputedFeatureInterface) => {
+                let rules: FeatureRule[] = [];
+                environments.forEach(
+                  (e) => (rules = rules.concat(getRules(feature, e.id))),
+                );
+
+                // When showing a summary of rules, prefer experiments to rollouts to force rules
+                const orderedRules = [
+                  ...rules.filter((r) => r.type === "experiment"),
+                  ...rules.filter((r) => r.type === "rollout"),
+                  ...rules.filter((r) => r.type === "force"),
+                ];
+
+                const firstRule = orderedRules[0];
+                const totalRules = rules.length || 0;
+
                 const version = feature.version;
-                const draftEntry = draftHook.draftStates[feature.id];
+
+                const { stale, reason: staleReason } = staleFeatures?.[
+                  feature.id
+                ] || { stale: false };
+                const topLevelPrerequisites =
+                  feature.prerequisites?.length || 0;
+                const prerequisiteRules = rules.reduce(
+                  (acc, rule) => acc + (rule.prerequisites?.length || 0),
+                  0,
+                );
+                const totalPrerequisites =
+                  topLevelPrerequisites + prerequisiteRules;
 
                 return (
                   <tr
@@ -282,12 +229,28 @@ export default function FeaturesPage() {
                     </td>
                     {showProjectColumn && (
                       <td>
-                        {feature.project ? (
-                          <ProjectBadges
-                            resourceType="feature"
-                            projectIds={[feature.project]}
-                          />
-                        ) : null}
+                        {feature.projectIsDeReferenced ? (
+                          <Tooltip
+                            body={
+                              <>
+                                Project <code>{feature.project}</code> not found
+                              </>
+                            }
+                          >
+                            <span className="text-danger">Invalid project</span>
+                          </Tooltip>
+                        ) : (
+                          <>
+                            {feature.project ? (
+                              <ProjectBadges
+                                resourceType="feature"
+                                projectIds={[feature.projectId]}
+                              />
+                            ) : (
+                              <></>
+                            )}
+                          </>
+                        )}
                       </td>
                     )}
                     <td>
@@ -296,32 +259,40 @@ export default function FeaturesPage() {
                     {toggleEnvs.map((en) => (
                       <td key={en.id}>
                         <Flex align="center" justify="center">
-                          {featureHasEnvironment(
-                            feature as unknown as FeatureInterface,
-                            en,
-                          ) && (
-                            <Switch
-                              id={`${feature.id}__${en.id}`}
-                              disabled={
-                                !permissionsUtil.canPublishFeature(
-                                  { project: feature.project },
-                                  [en.id],
-                                )
-                              }
-                              value={
-                                statusHook.environmentStatus[feature.id]?.[
-                                  en.id
-                                ] ?? false
-                              }
-                              onChange={(on) =>
-                                handleToggle(feature.id, en.id, on)
-                              }
-                              size="3"
+                          {featureHasEnvironment(feature, en) && (
+                            <EnvironmentToggle
+                              feature={feature}
+                              environment={en.id}
+                              mutate={mutate}
                             />
                           )}
                         </Flex>
                       </td>
                     ))}
+                    <td>
+                      {totalPrerequisites > 0 && (
+                        <div style={{ lineHeight: "16px" }}>
+                          <div className="text-dark">
+                            {totalPrerequisites} total
+                          </div>
+                          <div className="nowrap text-muted">
+                            <small>
+                              {topLevelPrerequisites > 0 && (
+                                <>{topLevelPrerequisites} top level</>
+                              )}
+                              {prerequisiteRules > 0 && (
+                                <>
+                                  <>
+                                    {topLevelPrerequisites > 0 && ", "}
+                                    {prerequisiteRules} rules
+                                  </>
+                                </>
+                              )}
+                            </small>
+                          </div>
+                        </div>
+                      )}
+                    </td>
                     <td style={{ minWidth: 90 }}>
                       <ValueDisplay
                         value={getFeatureDefaultValue(feature) || ""}
@@ -330,9 +301,21 @@ export default function FeaturesPage() {
                         additionalStyle={{ maxWidth: 120, fontSize: "11px" }}
                       />
                     </td>
+                    <td>
+                      <div style={{ lineHeight: "16px" }}>
+                        {firstRule && (
+                          <span className="text-dark">{firstRule.type}</span>
+                        )}
+                        {totalRules > 1 && (
+                          <small className="text-muted ml-1">
+                            +{totalRules - 1} more
+                          </small>
+                        )}
+                      </div>
+                    </td>
                     <td style={{ textAlign: "center" }}>
                       {version}
-                      {draftEntry ? (
+                      {feature?.hasDrafts ? (
                         <Tooltip body="This feature has an active draft that has not been published yet">
                           <FaTriangleExclamation
                             className="text-warning ml-1"
@@ -353,12 +336,9 @@ export default function FeaturesPage() {
                       </td>
                     )}
                     <td style={{ textAlign: "center" }}>
-                      {!feature.neverStale && (
+                      {stale && (
                         <StaleFeatureIcon
-                          isStale={feature.isStale ?? false}
-                          staleReason={feature.staleReason ?? undefined}
-                          staleByEnv={feature.staleByEnv}
-                          valueType={feature.valueType}
+                          staleReason={staleReason}
                           onClick={() => {
                             if (
                               permissionsUtil.canViewFeatureModal(
@@ -374,15 +354,12 @@ export default function FeaturesPage() {
                       <MoreMenu>
                         {permissionsUtil.canCreateFeature(feature) &&
                         permissionsUtil.canManageFeatureDrafts({
-                          project: feature.project,
+                          project: feature.projectId,
                         }) ? (
                           <button
                             className="dropdown-item"
-                            onClick={async () => {
-                              const res = await apiCall<{
-                                feature: FeatureInterface;
-                              }>(`/feature/${feature.id}`);
-                              setFeatureToDuplicate(res.feature);
+                            onClick={() => {
+                              setFeatureToDuplicate(feature);
                               setModalOpen(true);
                             }}
                           >
@@ -416,8 +393,6 @@ export default function FeaturesPage() {
     );
   };
 
-<<<<<<< HEAD
-=======
   const { searchInputProps, items, SortableTH, setSearchValue, syntaxFilters } =
     useFeatureSearch({
       allFeatures,
@@ -472,7 +447,6 @@ export default function FeaturesPage() {
     );
   }, [project, projects, permissionsUtil]);
 
->>>>>>> origin/main
   if (error) {
     return (
       <div className="alert alert-danger">
@@ -484,7 +458,7 @@ export default function FeaturesPage() {
     return <LoadingOverlay />;
   }
 
-  // If "All Projects" is selected and some features are in a project, show the project column
+  // If "All Projects" is selected and some experiments are in a project, show the project column
   const showProjectColumn = !project && allFeatures.some((f) => f.project);
 
   // Ignore the demo datasource
@@ -495,11 +469,11 @@ export default function FeaturesPage() {
   );
 
   const canUseSetupFlow =
-    permissionsUtil.canCreateSDKConnection({
+    permissionsUtils.canCreateSDKConnection({
       projects: [project],
       environment: "production",
     }) &&
-    permissionsUtil.canCreateEnvironment({
+    permissionsUtils.canCreateEnvironment({
       projects: [project],
       id: "production",
     });
@@ -514,32 +488,6 @@ export default function FeaturesPage() {
 
   return (
     <div className="contents container pagecontents">
-      {confirmToggle && (
-        <Modal
-          trackingEventModalType=""
-          header="Toggle environment"
-          close={() => setConfirmToggle(null)}
-          open={true}
-          cta="Confirm"
-          useRadixButton={true}
-          submit={async () => {
-            await statusHook.toggle(
-              confirmToggle.featureId,
-              confirmToggle.envId,
-              confirmToggle.state,
-            );
-            track("Feature Environment Toggle", {
-              environment: confirmToggle.envId,
-              enabled: confirmToggle.state,
-            });
-            setConfirmToggle(null);
-          }}
-        >
-          You are about to set the <strong>{confirmToggle.envId}</strong>{" "}
-          environment to{" "}
-          <strong>{confirmToggle.state ? "enabled" : "disabled"}</strong>.
-        </Modal>
-      )}
       {modalOpen && (
         <FeatureModal
           cta={featureToDuplicate ? "Duplicate" : "Create"}
@@ -549,7 +497,10 @@ export default function FeaturesPage() {
               hasFeatures ? "?new" : "?first&new"
             }`;
             router.push(url);
-            mutate();
+            mutate({
+              features: [...allFeatures, feature],
+              hasArchived,
+            });
           }}
           featureToDuplicate={featureToDuplicate || undefined}
         />
