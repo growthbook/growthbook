@@ -86,7 +86,6 @@ export default function BanditRefNewFields({
   setWeight: (i: number, w: number) => void;
   variations: SortableVariation[];
   setVariations: (v: SortableVariation[]) => void;
-  /** When true, use metric default conversion window; payload should omit banditConversionWindowValue/Unit */
   disableBanditConversionWindow: boolean;
   setDisableBanditConversionWindow: (v: boolean) => void;
 }) {
