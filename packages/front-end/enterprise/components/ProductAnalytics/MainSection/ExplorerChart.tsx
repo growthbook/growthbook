@@ -73,7 +73,10 @@ export default function ExplorerChart({
       return null;
     const rows = exploration.result.rows;
     const chartType = submittedExploreState.chartType;
-    const isHorizontalBar = chartType === "horizontalBar";
+    const isHorizontalBar =
+      chartType === "horizontalBar" || chartType === "stackedHorizontalBar";
+    const isStacked =
+      chartType === "stackedBar" || chartType === "stackedHorizontalBar";
 
     if (chartType === "bigNumber") {
       let value = rows[0]?.values[0]?.numerator ?? 0;
@@ -149,7 +152,11 @@ export default function ExplorerChart({
       const { name } = seriesMeta[seriesKey];
       const seriesDataMap = dataMap[seriesKey];
 
-      if (chartType === "bar" || chartType === "horizontalBar") {
+      if (
+        ["bar", "stackedBar", "stackedHorizontalBar", "horizontalBar"].includes(
+          chartType,
+        )
+      ) {
         // Single metric + single dimension: one series with itemStyle per bar so each bar gets a different color (no grouping)
         if (numMetrics === 1 && numDimensions === 1) {
           const data = sortedXValues.map((x, i) => ({
@@ -164,6 +171,7 @@ export default function ExplorerChart({
           data,
           color: seriesColor(idx),
           type: "bar" as const,
+          stack: isStacked ? "stack" : undefined,
         };
       }
 
@@ -235,10 +243,14 @@ export default function ExplorerChart({
         backgroundColor: tooltipBackgroundColor,
         textStyle: { color: textColor },
         axisPointer: {
-          type:
-            chartType === "bar" || chartType === "horizontalBar"
-              ? "shadow"
-              : "cross",
+          type: [
+            "bar",
+            "stackedBar",
+            "stackedHorizontalBar",
+            "horizontalBar",
+          ].includes(chartType)
+            ? "shadow"
+            : "cross",
         },
       },
       legend: {
@@ -333,7 +345,8 @@ export default function ExplorerChart({
               padding: [0, 0, 0, 0],
               grid: {
                 left:
-                  submittedExploreState?.chartType === "horizontalBar"
+                  submittedExploreState?.chartType === "horizontalBar" ||
+                  submittedExploreState?.chartType === "stackedHorizontalBar"
                     ? "10%"
                     : "8%",
                 right: "5%",

@@ -131,7 +131,9 @@ export const chartTypes = [
   "timeseries-table",
   "table",
   "bar",
+  "stackedBar",
   "horizontalBar",
+  "stackedHorizontalBar",
   "bigNumber",
 ] as const;
 

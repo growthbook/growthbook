@@ -382,6 +382,8 @@ const TIMESERIES_CHART_TYPES: Set<string> = new Set([
 ]);
 const CUMULATIVE_CHART_TYPES: Set<string> = new Set([
   "bar",
+  "stackedBar",
+  "stackedHorizontalBar",
   "horizontalBar",
   "bigNumber",
   "table",

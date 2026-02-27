@@ -3,7 +3,9 @@ import { Flex } from "@radix-ui/themes";
 import { chartTypes as chartTypeValues } from "shared/validators";
 import {
   PiChartBar,
+  PiChartBarDuotone,
   PiChartBarHorizontal,
+  PiChartBarHorizontalDuotone,
   PiChartLine,
   PiHash,
   PiTable,
@@ -38,10 +40,16 @@ const chartTypes: {
     groupLabel: "Cumulative",
     items: [
       { value: "bar", label: "Bar", icon: PiChartBar },
+      { value: "stackedBar", label: "Bar (Stacked)", icon: PiChartBarDuotone },
       {
         value: "horizontalBar",
         label: "Horizontal Bar",
         icon: PiChartBarHorizontal,
+      },
+      {
+        value: "stackedHorizontalBar",
+        label: "Horizontal Bar (Stacked)",
+        icon: PiChartBarHorizontalDuotone,
       },
       { value: "table", label: "Table", icon: PiTable },
       { value: "bigNumber", label: "Big Number", icon: PiHash },
