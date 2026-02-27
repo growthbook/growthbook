@@ -6988,21 +6988,6 @@ ORDER BY column_name, count DESC
       return "";
     }
 
-    if (partitionSettings.type === "date") {
-      const dateColumn = this.qualifyPartitionColumn(
-        partitionSettings.dateColumn,
-        tableAlias,
-      );
-      const start = this.getDatePartitionParts(startDate).date;
-      const clauses = [`${dateColumn} >= '${start}'`];
-      if (endDate) {
-        clauses.push(
-          `${dateColumn} <= '${this.getDatePartitionParts(endDate).date}'`,
-        );
-      }
-      return clauses.join(" AND ");
-    }
-
     const yearColumn = this.qualifyPartitionColumn(
       partitionSettings.yearColumn,
       tableAlias,

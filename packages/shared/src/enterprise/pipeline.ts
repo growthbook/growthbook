@@ -108,8 +108,6 @@ export function getRequiredColumnsForPipelineSettings(
         partitionSettings.monthColumn,
         partitionSettings.dayColumn,
       ];
-    case "date":
-      return [partitionSettings.dateColumn];
     case "timestamp":
       return [];
     default:

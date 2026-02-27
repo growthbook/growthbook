@@ -310,10 +310,6 @@ export type PartitionSettings =
     }
   | {
       type: "timestamp";
-    }
-  | {
-      type: "date";
-      dateColumn: string;
     };
 
 export interface CreateExperimentIncrementalUnitsQueryParams {
