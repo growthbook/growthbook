@@ -2992,8 +2992,10 @@ export async function createExperimentSnapshot({
       hasRegressionAdjustmentFeature: true,
       ...(experiment.type === "multi-armed-bandit"
         ? {
-            banditConversionWindowValue: experiment.banditConversionWindowValue,
-            banditConversionWindowUnit: experiment.banditConversionWindowUnit,
+            banditConversionWindowValue:
+              experiment.banditConversionWindowValue ?? undefined,
+            banditConversionWindowUnit:
+              experiment.banditConversionWindowUnit ?? undefined,
           }
         : {}),
     });
