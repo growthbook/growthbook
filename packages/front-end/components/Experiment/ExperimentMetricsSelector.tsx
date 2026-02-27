@@ -250,15 +250,6 @@ export default function ExperimentMetricsSelector({
                 ? "The primary metrics you are trying to improve with this experiment. "
                 : "Choose the goal metric that will be used to update variation weights. "}
           </Text>
-          {hasIdentifierTypeMismatch && (
-            <div className="mb-1">
-              <Callout status="warning">
-                Mismatch between the randomization unit and the goal metric
-                identifier type can lead to double counting if the randomization
-                unit has multiple exposures.
-              </Callout>
-            </div>
-          )}
           <MetricsSelector
             selected={goalMetrics}
             onChange={setGoalMetrics}
@@ -275,6 +266,13 @@ export default function ExperimentMetricsSelector({
             disabled={disabled || goalDisabled}
             getMetricDisabledInfo={getMetricDisabledInfo}
           />
+          {hasIdentifierTypeMismatch && (
+            <Callout status="warning" my="4">
+              Mismatch between the randomization unit and the Decision Metric
+              identifier type can lead to double counting if the randomization
+              unit has multiple exposures.
+            </Callout>
+          )}
         </div>
       )}
 
