@@ -22,7 +22,8 @@ GrowthBook Cloud provides its own CDN for free for low/medium traffic apps (less
 ## How it Works
 
 1. Add a CDN that sits in front of your GrowthBook API server
-2. Configure the CDN to cache requests to `/api/features/*` (and deny all other routes)
+**Note**: Make sure to use the domain `api.growthbook.io`, not `cdn.growthbook.io`.
+2. Configure the CDN to cache requests to `/api/features/*` (and deny all other routes except `/sub/*`)
 3. Point your SDKs to your CDN's domain instead of your GrowthBook API Server
 4. (optional) Configure a Webhook to invalidate the CDN cache when features change within GrowthBook
 
@@ -38,7 +39,7 @@ public, max-age=30, stale-while-revalidate=3600, stale-if-error=36000
 
 This will serve all requests from cache and refresh in the background every 30 seconds. You can override these settings in your CDN if desired.
 
-**Important**: Make sure to block all other routes besides `/api/features/*`. Doing this will greatly increase security by limiting the potential attack surface.
+**Important**: Make sure to block all other routes besides `/api/features/*` and `/sub/*`. Doing this will greatly increase security by limiting the potential attack surface.
 
 ### Health Checks
 
