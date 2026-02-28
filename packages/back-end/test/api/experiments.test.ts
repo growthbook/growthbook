@@ -466,6 +466,41 @@ describe("experiments API", () => {
       expect(res.status).toBe(200);
       expect(res.body.experiments).toHaveLength(2);
     });
+
+    it("filters experiments by onlyUpdatedSince date", async () => {
+      const recentDate = new Date("2024-06-01T00:00:00Z");
+      const newerDate = new Date("2024-07-01T00:00:00Z");
+
+      const recentExperiment = {
+        ...experiment,
+        id: "exp_recent",
+        trackingKey: "exp_recent",
+        name: "Recent Experiment",
+        dateUpdated: recentDate,
+      };
+      const newerExperiment = {
+        ...experiment,
+        id: "exp_newer",
+        trackingKey: "exp_newer",
+        name: "Newer Experiment",
+        dateUpdated: newerDate,
+      };
+
+      // Mock getAllExperiments to return only experiments updated on or after the specified date
+      (getAllExperiments as jest.Mock).mockResolvedValue([
+        recentExperiment,
+        newerExperiment,
+      ]);
+
+      const res = await request(app)
+        .get("/api/v1/experiments?onlyUpdatedSince=2024-06-01")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(res.body.experiments).toHaveLength(2);
+      expect(res.body.experiments[0].id).toBe("exp_recent");
+      expect(res.body.experiments[1].id).toBe("exp_newer");
+    });
   });
 
   describe("POST /api/v1/experiments", () => {

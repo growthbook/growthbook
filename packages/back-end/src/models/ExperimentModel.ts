@@ -410,10 +410,12 @@ export async function getAllExperiments(
     project,
     includeArchived = false,
     type,
+    onlyUpdatedSince,
   }: {
     project?: string;
     includeArchived?: boolean;
     type?: ExperimentType;
+    onlyUpdatedSince?: Date;
   } = {},
 ): Promise<ExperimentInterface[]> {
   const query: FilterQuery<ExperimentDocument> = {
@@ -436,6 +438,10 @@ export async function getAllExperiments(
     query.type = "holdout";
   } else if (!type) {
     query.type = { $ne: "holdout" };
+  }
+
+  if (onlyUpdatedSince) {
+    query.dateUpdated = { $gte: new Date(onlyUpdatedSince) };
   }
 
   return await findExperiments(context, query);
