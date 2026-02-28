@@ -1,5 +1,5 @@
 import { ExperimentResultStatusData } from "shared/types/experiment";
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import { HoldoutInterface } from "shared/validators";
 import Button from "@/ui/Button";
 
 export interface Props {
@@ -7,7 +7,7 @@ export interface Props {
   editTargeting?: (() => void) | null;
   isBandit?: boolean;
   runningExperimentStatus?: ExperimentResultStatusData;
-  holdout?: HoldoutInterfaceStringDates;
+  holdout?: HoldoutInterface;
 }
 
 export default function ExperimentActionButtons({

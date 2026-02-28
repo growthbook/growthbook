@@ -1,10 +1,10 @@
 import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import React, { ReactElement, useState } from "react";
+import { ReactElement, useState } from "react";
 import { includeHoldoutInPayload } from "shared/util";
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import { HoldoutInterface, holdoutValidator } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
-import useApi from "@/hooks/useApi";
+import { z } from "zod";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
 import EditMetricsForm from "@/components/Experiment/EditMetricsForm";
@@ -23,6 +23,25 @@ import EditHoldoutTargetingModal from "@/components/Holdout/EditHoldoutTargeting
 import NewHoldoutForm from "@/components/Holdout/NewHoldoutForm";
 import StopHoldoutModal from "@/components/Holdout/StopHoldoutModal";
 import EditScheduleModal from "@/components/Holdout/EditScheduleModal";
+import useValidatedApi from "@/hooks/useValidatedApi";
+import ErrorDisplay from "@/ui/ErrorDisplay";
+
+const HOLDOUT_API_RESPONSE_SCHEMA = z.object({
+  holdout: holdoutValidator
+    .omit({
+      dateCreated: true,
+      dateUpdated: true,
+    })
+    .extend({
+      dateCreated: z.coerce.date(),
+      dateUpdated: z.coerce.date(),
+    }),
+  // TODO: Use validators for these fields. Will require some refactor since components expect ExperimentInterfaceStringDates
+  experiment: z.unknown(),
+  linkedFeatures: z.unknown(),
+  linkedExperiments: z.unknown(),
+  envs: z.array(z.string()),
+});
 
 const HoldoutPage = (): ReactElement => {
   const permissionsUtil = usePermissionsUtil();
@@ -45,20 +64,27 @@ const HoldoutPage = (): ReactElement => {
     number | null
   >(null);
 
-  const { data, error, mutate } = useApi<{
-    holdout: HoldoutInterfaceStringDates;
+  const { data, error, mutate } = useValidatedApi<{
+    holdout: HoldoutInterface;
     experiment: ExperimentInterfaceStringDates;
     linkedFeatures: FeatureInterface[];
     linkedExperiments: ExperimentInterfaceStringDates[];
     envs: string[];
-  }>(`/holdout/${hid}`);
+  }>(`/holdout/${hid}`, HOLDOUT_API_RESPONSE_SCHEMA);
 
   useSwitchOrg(data?.experiment?.organization ?? null);
 
   const { apiCall } = useAuth();
 
   if (error) {
-    return <div>There was a problem loading the holdout</div>;
+    return (
+      <ErrorDisplay
+        error={`There was a problem loading the holdout: \n\n ${error.message}`}
+        maxLines={10}
+        mx="3"
+        my="4"
+      />
+    );
   }
   if (!data) {
     return <LoadingOverlay />;

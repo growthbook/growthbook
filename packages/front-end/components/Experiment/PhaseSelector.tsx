@@ -1,7 +1,7 @@
 import { date } from "shared/dates";
 import { ExperimentPhaseStringDates } from "shared/types/experiment";
 import { Flex } from "@radix-ui/themes";
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import { HoldoutInterface } from "shared/validators";
 import { phaseSummary } from "@/services/utils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
@@ -17,7 +17,7 @@ export interface Props {
   isBandit?: boolean;
   isHoldout?: boolean;
   newUi?: boolean;
-  holdout?: HoldoutInterfaceStringDates;
+  holdout?: HoldoutInterface;
 }
 
 export default function PhaseSelector({
