@@ -211,6 +211,7 @@ const FeatureSearchFilters: FC<
           heading: "environment",
           open: dropdownFilterOpen === "on",
         })}
+        variant="soft"
         open={dropdownFilterOpen === "on"}
         menuPlacement="end"
         onOpenChange={(o) => setDropdownFilterOpen(o ? "on" : "")}
@@ -220,8 +221,8 @@ const FeatureSearchFilters: FC<
           const isOn = doesFilterExist("on", e.id, "");
           const isOff = doesFilterExist("off", e.id, "");
           return (
-            <DropdownMenuItem key={e.id} style={{ minWidth: "220px" }}>
-              <Flex align="center" gap="2" style={{ width: "100%" }}>
+            <div key={e.id} style={{ minWidth: "220px", padding: "4px 8px" }}>
+              <Flex align="center" gap="2">
                 <Box style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
                   <Text truncate>{e.id}</Text>
                 </Box>
@@ -268,7 +269,7 @@ const FeatureSearchFilters: FC<
                   </IconButton>
                 </Flex>
               </Flex>
-            </DropdownMenuItem>
+            </div>
           );
         })}
       </DropdownMenu>
