@@ -1,11 +1,5 @@
-import {
-  AuditInterfaceTemplate,
-  EntityType,
-  EventType,
-  EventTypes,
-} from "shared/types/audit";
+import { EntityType, EventType, EventTypes } from "shared/types/audit";
 import { entityTypes } from "shared/constants";
-import { findAuditByEntityList } from "back-end/src/models/AuditModel";
 import { getWatchedByUser } from "back-end/src/models/WatchModel";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
@@ -15,10 +9,10 @@ export function isValidAuditEntityType(type: string): type is EntityType {
 }
 
 export async function getRecentWatchedAudits(
+  context: ReqContext,
   userId: string,
-  organization: string,
 ) {
-  const userWatches = await getWatchedByUser(organization, userId);
+  const userWatches = await getWatchedByUser(context.org.id, userId);
 
   if (!userWatches) {
     return [];
@@ -26,48 +20,30 @@ export async function getRecentWatchedAudits(
   const startTime = new Date();
   startTime.setDate(startTime.getDate() - 7);
 
-  const experimentsFilter = {
-    event: {
-      $in: [
-        "experiment.start",
-        "experiment.stop",
-        "experiment.phase",
-        "experiment.results",
-      ],
-    },
-    dateCreated: {
-      $gte: startTime,
-    },
-  };
+  const experiments = await context.models.audits.findAuditByEntityList({
+    type: "experiment",
+    ids: userWatches.experiments,
+    minDateCreated: startTime,
+    eventList: [
+      "experiment.start",
+      "experiment.stop",
+      "experiment.phase",
+      "experiment.results",
+    ],
+  });
 
-  const featuresFilter = {
-    event: {
-      $in: [
-        "feature.publish",
-        "feature.update",
-        "feature.toggle",
-        "feature.create",
-        "feature.delete",
-      ],
-    },
-    dateCreated: {
-      $gte: startTime,
-    },
-  };
-
-  const experiments = await findAuditByEntityList(
-    organization,
-    "experiment",
-    userWatches.experiments,
-    experimentsFilter,
-  );
-
-  const features = await findAuditByEntityList(
-    organization,
-    "feature",
-    userWatches.features,
-    featuresFilter,
-  );
+  const features = await context.models.audits.findAuditByEntityList({
+    type: "feature",
+    ids: userWatches.features,
+    minDateCreated: startTime,
+    eventList: [
+      "feature.publish",
+      "feature.update",
+      "feature.toggle",
+      "feature.create",
+      "feature.delete",
+    ],
+  });
 
   const all = experiments
     .concat(features)
@@ -133,7 +109,7 @@ export function createModelAuditLogger<E extends EntityType>(
           },
           event: config.createEvent,
           details: config.omitDetails ? "" : auditDetailsCreate(doc),
-        } as AuditInterfaceTemplate<E>);
+        });
       } catch (e) {
         context.logger.error(
           e,
@@ -162,7 +138,7 @@ export function createModelAuditLogger<E extends EntityType>(
           },
           event,
           details: config.omitDetails ? "" : auditDetailsUpdate(doc, newDoc),
-        } as AuditInterfaceTemplate<E>);
+        });
       } catch (e) {
         context.logger.error(e, `Error creating audit log for ${event}`);
       }
@@ -182,7 +158,7 @@ export function createModelAuditLogger<E extends EntityType>(
           },
           event: config.deleteEvent,
           details: config.omitDetails ? "" : auditDetailsDelete(doc),
-        } as AuditInterfaceTemplate<E>);
+        });
       } catch (e) {
         context.logger.error(
           e,
@@ -206,7 +182,7 @@ export function createModelAuditLogger<E extends EntityType>(
           },
           event: config.autocreateEvent,
           details: config.omitDetails ? "" : auditDetailsCreate(doc),
-        } as AuditInterfaceTemplate<E>);
+        });
       } catch (e) {
         context.logger.error(
           e,
