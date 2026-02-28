@@ -1,27 +1,57 @@
-.staleIcon {
-  color: var(--yellow-10);
-  cursor: pointer;
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  align-self: center;
 
-  &:hover {
-    color: var(--amber-10);
+  &.staleDot {
+    background: var(--amber-9);
+  }
+  &.freshDot {
+    background: var(--green-9);
+  }
+  // Mixed badge uses gray background but green dot
+  &.mixedDot {
+    background: var(--green-9);
+  }
+  &.permanentDot {
+    background: var(--red-11);
   }
 }
 
-.staleFadedIcon {
-  color: var(--gray-9);
-  opacity: 0.5;
+.permanentBadge {
   cursor: pointer;
-
+  background-color: var(--gray-3) !important;
+  &.list {
+    background-color: transparent !important;
+  }
+  color: var(--gray-10) !important;
   &:hover {
-    opacity: 1;
+    background-color: var(--gray-5) !important;
   }
 }
-
-.freshIcon {
-  color: var(--green-10);
+.staleBadge {
   cursor: pointer;
-
+  background-color: var(--yellow-3) !important;
+  color: var(--amber-11) !important;
   &:hover {
-    color: var(--green-11);
+    background-color: var(--yellow-5) !important;
+  }
+}
+.freshBadge {
+  cursor: pointer;
+  background-color: var(--green-3) !important;
+  color: var(--green-11) !important;
+  &:hover {
+    background-color: var(--green-5) !important;
+  }
+}
+.mixedBadge {
+  cursor: pointer;
+  background-color: var(--gray-3) !important;
+  color: var(--gray-11) !important;
+  &:hover {
+    background-color: var(--gray-5) !important;
   }
 }

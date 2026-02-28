@@ -137,11 +137,10 @@ describe("isFeatureStale", () => {
       });
     });
     describe("and has not been updated within past two weeks", () => {
-      it("is stale", () => {
+      it("is not stale (no active environments to evaluate)", () => {
         feature.dateUpdated = subWeeks(new Date(), 3);
         expect(isFeatureStale({ feature })).toMatchObject({
-          stale: true,
-          reason: "toggled-off",
+          stale: false,
         });
       });
     });

@@ -312,7 +312,7 @@ const FeatureSearchFilters: FC<
           }}
         >
           <FilterItem
-            item="Has rule(s) in draft"
+            item="Has active draft"
             exists={doesFilterExist("has", "draft", "")}
           />
         </DropdownMenuItem>
@@ -329,6 +329,36 @@ const FeatureSearchFilters: FC<
           <FilterItem
             item="Is stale"
             exists={doesFilterExist("is", "stale", "")}
+          />
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => {
+            updateQuery({
+              field: "has",
+              values: ["stale-env"],
+              operator: "",
+              negated: false,
+            });
+          }}
+        >
+          <FilterItem
+            item="Has stale environments"
+            exists={doesFilterExist("has", "stale-env", "")}
+          />
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => {
+            updateQuery({
+              field: "is",
+              values: ["stale-disabled"],
+              operator: "",
+              negated: false,
+            });
+          }}
+        >
+          <FilterItem
+            item="Stale detection disabled"
+            exists={doesFilterExist("is", "stale-disabled", "")}
           />
         </DropdownMenuItem>
       </DropdownMenu>

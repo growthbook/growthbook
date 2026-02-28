@@ -8401,32 +8401,32 @@ export interface operations {
           "application/json": {
             /** @description The feature key */
             featureId: string;
-            /** @description Whether the feature is considered stale overall (all enabled environments are stale) */
+            /** @description Whether the feature is considered stale overall (all enabled environments are stale). Always false when neverStale is true. */
             isStale: boolean;
             /**
-             * @description Reason for the feature's stale or non-stale status. Non-stale reasons: `never-stale` (stale detection disabled), `recently-updated` (changed within 2 weeks), `active-draft` (open draft in progress), `has-dependents` (used by a non-stale dependent). Stale reasons: `no-rules` (no active rules in any enabled environment), `rules-one-sided` (all rules evaluate to one value), `abandoned-draft` (open draft untouched over a month). Null when non-stale with no single cause (see staleByEnv).
+             * @description Reason for the feature's stale or non-stale status. `never-stale` when stale detection is disabled. Non-stale reasons: `recently-updated`, `active-draft`, `has-dependents`. Stale reasons: `no-rules`, `rules-one-sided`, `abandoned-draft`, `toggled-off`. Null when non-stale with no single cause (see staleByEnv).
              *  
              * @enum {string|null}
              */
-            staleReason: "never-stale" | "recently-updated" | "active-draft" | "has-dependents" | "no-rules" | "rules-one-sided" | "abandoned-draft" | null;
+            staleReason: "never-stale" | "recently-updated" | "active-draft" | "has-dependents" | "no-rules" | "rules-one-sided" | "abandoned-draft" | "toggled-off" | "active-experiment" | "has-rules" | null;
             /**
              * Format: date-time 
-             * @description ISO 8601 timestamp of when stale status was last computed by the background job. Null if it has never been calculated.
+             * @description ISO 8601 timestamp of when stale status was computed for this response.
              */
             staleLastCalculated: string | null;
-            /** @description When true the feature is permanently excluded from stale detection regardless of its rules. */
+            /** @description When true the feature is permanently excluded from stale detection. */
             neverStale: boolean;
-            /** @description Per-environment staleness breakdown. Only present when `neverStale` is false and stale status has been calculated. Keyed by environment ID. */
+            /** @description Per-environment staleness breakdown, keyed by environment ID. Present when environments exist. */
             staleByEnv?: {
               [key: string]: ({
                 /** @description Whether this environment is stale */
                 isStale: boolean;
                 /**
-                 * @description Reason for the stale status, if applicable 
+                 * @description Reason for the stale status in this environment 
                  * @enum {string|null}
                  */
-                reason: "no-rules" | "rules-one-sided" | "abandoned-draft" | "toggled-off" | "active-experiment" | "has-rules" | null;
-                /** @description The deterministic value this feature evaluates to in this environment (no rules or all rules unconditional). Uses the same raw string encoding as `feature.defaultValue`: booleans are `"true"`/`"false"`, numbers are numeric strings, strings are plain text, and JSON-type features are a JSON-encoded string. Only present when deterministic. */
+                reason: "no-rules" | "rules-one-sided" | "abandoned-draft" | "toggled-off" | "active-experiment" | "has-rules" | "recently-updated" | "active-draft" | "has-dependents" | null;
+                /** @description The deterministic value this feature evaluates to in this environment. Uses the same raw string encoding as `feature.defaultValue`. Only present when the value is deterministic or the environment is toggled off. */
                 evaluatesTo?: string;
               }) | undefined;
             };

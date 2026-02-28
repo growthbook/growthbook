@@ -78,10 +78,6 @@ export const eventWebHookEventOptions: {
     id: "feature.deleted",
     name: "feature.deleted",
   },
-  {
-    id: "feature.stale",
-    name: "feature.stale",
-  },
   // Safe Rollouts
   {
     id: "feature.saferollout.ship",

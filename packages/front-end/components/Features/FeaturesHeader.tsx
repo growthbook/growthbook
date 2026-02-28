@@ -1,5 +1,5 @@
 import { useRouter } from "next/router";
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Box, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
 import { FeatureInterface } from "shared/types/feature";
 import { filterEnvironmentsByFeature } from "shared/util";
@@ -35,6 +35,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
+import { useFeatureStaleStates } from "@/hooks/useFeatureStaleStates";
 import FeatureArchiveModal from "./FeatureArchiveModal";
 import FeatureDeleteModal from "./FeatureDeleteModal";
 import AddToHoldoutModal from "./AddToHoldoutModal";
@@ -81,10 +82,33 @@ export default function FeaturesHeader({
   const holdoutsEnabled =
     useFeatureIsOn("holdouts_feature") && hasHoldoutsFeature;
 
-  // isStale is computed org-wide by the cron job and stored on the feature document.
-  // neverStale overrides the stored value — stale detection is disabled for this feature.
-  const stale = !feature.neverStale && (feature.isStale ?? false);
-  const reason = feature.staleReason ?? undefined;
+  const staleHook = useFeatureStaleStates();
+  const staleData = staleHook.getStaleState(feature.id);
+
+  // Initial fetch when navigating to a feature (uses cache if fresh).
+  useEffect(() => {
+    staleHook.fetchSome([feature.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [feature.id]);
+
+  // Re-compute whenever the feature is saved (version increments on publish).
+  const prevVersionRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (
+      prevVersionRef.current !== null &&
+      prevVersionRef.current !== feature.version
+    ) {
+      staleHook.invalidate([feature.id]);
+      staleHook.fetchSome([feature.id]);
+    }
+    prevVersionRef.current = feature.version ?? 0;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [feature.id, feature.version]);
+
+  const handleRerunStale = async () => {
+    staleHook.invalidate([feature.id]);
+    await staleHook.fetchSome([feature.id]);
+  };
 
   const project = getProjectById(projectId || "");
   const projectName = project?.name || null;
@@ -119,36 +143,17 @@ export default function FeaturesHeader({
           )}
 
           <Flex align="center" justify="between">
-            <Flex align="center" mb="2">
+            <Flex align="center" mb="2" gap="4">
               <Heading size="7" as="h1" mb="0">
                 {feature.id}
               </Heading>
-              {!feature.neverStale && (
-                <div className="ml-2">
-                  <StaleFeatureIcon
-                    isStale={stale}
-                    staleReason={reason}
-                    staleByEnv={feature.staleByEnv}
-                    staleLastCalculated={feature.staleLastCalculated}
-                    valueType={feature.valueType}
-                    showNonStaleStatuses
-                    onRerun={
-                      canEdit
-                        ? async () => {
-                            await apiCall(
-                              `/feature/${feature.id}/recalculate-stale`,
-                              { method: "POST" },
-                            );
-                            mutate();
-                          }
-                        : undefined
-                    }
-                    onDisable={
-                      canEdit ? () => setStaleFFModal(true) : undefined
-                    }
-                  />
-                </div>
-              )}
+              <StaleFeatureIcon
+                neverStale={feature.neverStale}
+                valueType={feature.valueType}
+                staleData={staleData}
+                fetchStaleData={handleRerunStale}
+                onDisable={canEdit ? () => setStaleFFModal(true) : undefined}
+              />
             </Flex>
             <DropdownMenu
               trigger={
@@ -224,20 +229,6 @@ export default function FeaturesHeader({
                         ? "Enable stale detection"
                         : "Disable stale detection"}
                     </DropdownMenuItem>
-                    {!feature.neverStale && (
-                      <DropdownMenuItem
-                        onClick={async () => {
-                          setDropdownOpen(false);
-                          await apiCall(
-                            `/feature/${feature.id}/recalculate-stale`,
-                            { method: "POST" },
-                          );
-                          mutate();
-                        }}
-                      >
-                        Re-run stale flag detection
-                      </DropdownMenuItem>
-                    )}
                   </DropdownMenuGroup>
                   <DropdownMenuSeparator />
                   <DropdownMenuGroup>
@@ -400,6 +391,7 @@ export default function FeaturesHeader({
           close={() => setStaleFFModal(false)}
           feature={feature}
           mutate={mutate}
+          onEnable={handleRerunStale}
         />
       )}
       {showImplementation && (

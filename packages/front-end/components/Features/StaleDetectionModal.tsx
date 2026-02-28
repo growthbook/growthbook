@@ -5,26 +5,31 @@ export default function StaleDetectionModal({
   close,
   feature,
   mutate,
+  onEnable,
 }: {
   close: () => void;
   feature: { id: string; neverStale?: boolean };
   mutate: () => void;
+  /** Called after enabling detection (neverStale: true → false) */
+  onEnable?: () => void;
 }) {
   const { apiCall } = useAuth();
+  const enabling = !!feature.neverStale;
   return (
     <Modal
       trackingEventModalType=""
       open
       close={close}
       header={`${
-        feature.neverStale ? "Enable" : "Disable"
+        enabling ? "Enable" : "Disable"
       } stale feature flag detection for ${feature.id}`}
-      cta={feature.neverStale ? "Enable" : "Disable"}
+      cta={enabling ? "Enable" : "Disable"}
       submit={async () => {
         await apiCall(`/feature/${feature.id}/toggleStaleDetection`, {
           method: "POST",
         });
         mutate();
+        if (enabling) onEnable?.();
       }}
       useRadixButton={true}
     >

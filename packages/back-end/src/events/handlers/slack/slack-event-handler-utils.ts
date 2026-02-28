@@ -15,7 +15,6 @@ import {
   ExperimentDecisionNotificationPayload,
   SafeRolloutDecisionNotificationPayload,
   SafeRolloutUnhealthyNotificationPayload,
-  FeatureStaleNotificationPayload,
 } from "shared/validators";
 import { DiffResult } from "shared/types/events/diff";
 import {
@@ -61,9 +60,6 @@ export const getSlackMessageForNotificationEvent = async (
         event.data.object.id,
         eventId,
       );
-
-    case "feature.stale":
-      return buildSlackMessageForFeatureStaleEvent(event.data.object, eventId);
 
     case "feature.saferollout.ship":
       return buildSlackMessageForSafeRolloutShipEvent(
@@ -357,37 +353,6 @@ const buildSlackMessageForFeatureDeletedEvent = async (
           type: "mrkdwn",
           text:
             `The feature *${featureId}* has been deleted by ${eventUser}.` +
-            getEventUrlFormatted(eventId),
-        },
-      },
-    ],
-  };
-};
-
-const buildSlackMessageForFeatureStaleEvent = (
-  data: FeatureStaleNotificationPayload,
-  eventId: string,
-): SlackMessage => {
-  const reasonTextMap: Record<typeof data.staleReason, string> = {
-    "no-rules": "it has no active targeting rules",
-    "rules-one-sided":
-      "all of its targeting rules evaluate to the same variation",
-    "abandoned-draft":
-      "it has a draft that has not been updated in over a month",
-    "toggled-off": "all of its environments are disabled",
-  };
-  const reasonText = reasonTextMap[data.staleReason];
-  const text = `Feature ${data.featureId} may be stale because ${reasonText}.`;
-  return {
-    text,
-    blocks: [
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text:
-            `Feature *${data.featureId}* may be stale because ${reasonText}.` +
-            getFeatureUrlFormatted(data.featureId) +
             getEventUrlFormatted(eventId),
         },
       },

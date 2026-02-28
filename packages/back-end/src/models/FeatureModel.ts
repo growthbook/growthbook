@@ -2,13 +2,8 @@ import mongoose, { FilterQuery } from "mongoose";
 import cloneDeep from "lodash/cloneDeep";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
+import { MergeResultChanges, getApiFeatureEnabledEnvs } from "shared/util";
 import {
-  MergeResultChanges,
-  getApiFeatureEnabledEnvs,
-  isFeatureStale,
-} from "shared/util";
-import {
-  ACTIVE_DRAFT_STATUSES,
   SafeRolloutInterface,
   SafeRolloutRule,
   simpleSchemaValidator,
@@ -26,7 +21,6 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { ResourceEvents } from "shared/types/events/base-types";
 import { DiffResult } from "shared/types/events/diff";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import { ExperimentInterface } from "shared/types/experiment";
 import {
   generateRuleId,
   getApiFeatureObj,
@@ -45,7 +39,6 @@ import { logger } from "back-end/src/util/logger";
 import {
   getContextForAgendaJobByOrgId,
   getEnvironmentIdsFromOrg,
-  getEnvironments,
 } from "back-end/src/services/organizations";
 import { ApiReqContext } from "back-end/types/api";
 import { getChangedApiFeatureEnvironments } from "back-end/src/events/handlers/utils";
@@ -65,7 +58,6 @@ import {
 } from "./EventModel";
 import {
   addLinkedFeatureToExperiment,
-  getAllExperiments,
   getExperimentMapForFeature,
   removeLinkedFeatureFromExperiment,
 } from "./ExperimentModel";
@@ -73,7 +65,6 @@ import {
   createInitialRevision,
   createRevisionFromLegacyDraft,
   deleteAllRevisionsForFeature,
-  getFeatureRevisionsByStatus,
   getRevision,
   hasDraft,
   markRevisionAsPublished,
@@ -159,10 +150,6 @@ const featureSchema = new mongoose.Schema({
   linkedExperiments: [String],
   jsonSchema: {},
   neverStale: Boolean,
-  isStale: Boolean,
-  staleReason: String,
-  staleLastCalculated: Date,
-  staleByEnv: {},
   customFields: {},
   holdout: {
     id: String,
@@ -760,10 +747,6 @@ export async function updateFeature(
     logger.error(e, "Error refreshing SDK Payload on feature update");
   });
 
-  recalculateFeatureIsStale(context, updatedFeature).catch((e) => {
-    logger.error(e, "Error recalculating stale status on feature update");
-  });
-
   return updatedFeature;
 }
 
@@ -1231,127 +1214,6 @@ function getLinkedExperiments(
   return [...expIds];
 }
 
-/**
- * Recomputes isStale/staleReason for a single feature, writing results directly to the DB.
- * Accepts pre-loaded features/experiments (from the cron job) or loads them on demand
- * (for inline recalculation after a feature update).
- * Emits feature.stale when transitioning from non-stale to stale.
- */
-export async function recalculateFeatureIsStale(
-  context: ReqContext | ApiReqContext,
-  feature: FeatureInterface,
-  opts: {
-    allFeatures?: FeatureInterface[];
-    allExperiments?: ExperimentInterface[];
-    mostRecentDraftDate?: Date | null; // Most recent dateUpdated among active drafts; null = no drafts; omit to fall back to feature.hasDrafts.
-  } = {},
-): Promise<void> {
-  try {
-    const allFeatures = opts.allFeatures ?? (await getAllFeatures(context, {}));
-    const allExperiments =
-      opts.allExperiments ?? (await getAllExperiments(context, {}));
-
-    // Resolve mostRecentDraftDate: use pre-supplied value, or query per-feature as fallback.
-    let mostRecentDraftDate = opts.mostRecentDraftDate;
-    if (mostRecentDraftDate === undefined) {
-      const activeDrafts = await getFeatureRevisionsByStatus({
-        context: context as ReqContext,
-        organization: context.org.id,
-        featureId: feature.id,
-        status: [...ACTIVE_DRAFT_STATUSES],
-      });
-      mostRecentDraftDate =
-        activeDrafts.length > 0
-          ? activeDrafts.reduce(
-              (max, r) => (r.dateUpdated > max ? r.dateUpdated : max),
-              activeDrafts[0].dateUpdated,
-            )
-          : null;
-    }
-
-    // For project-scoped features, restrict to environments that include the feature's project.
-    // Features without a project are org-wide — pass [] so isFeatureStale evaluates all
-    // environmentSettings keys on the feature instead of applying project filtering.
-    const applicableEnvIds = feature.project
-      ? getEnvironments(context.org)
-          .filter(
-            (env) =>
-              !env.projects?.length ||
-              env.projects.includes(feature.project as string),
-          )
-          .map((env) => env.id)
-      : [];
-
-    const { stale, reason, envResults } = isFeatureStale({
-      feature,
-      features: allFeatures,
-      // ExperimentInterface and ExperimentInterfaceStringDates share all fields
-      // that isFeatureStale actually reads (status, phases.prerequisites, linkedExperiments)
-      experiments: allExperiments as unknown as Parameters<
-        typeof isFeatureStale
-      >[0]["experiments"],
-      environments: applicableEnvIds,
-      mostRecentDraftDate,
-    });
-
-    // Map to DB shape (stale → isStale).
-    const staleByEnv = Object.fromEntries(
-      Object.entries(envResults).map(([envId, r]) => [
-        envId,
-        {
-          isStale: r.stale,
-          reason: r.reason ?? null,
-          ...(r.evaluatesTo !== undefined
-            ? { evaluatesTo: r.evaluatesTo }
-            : {}),
-        },
-      ]),
-    );
-
-    await FeatureModel.updateOne(
-      { organization: feature.organization, id: feature.id },
-      {
-        $set: {
-          isStale: stale,
-          staleReason: reason ?? null,
-          staleByEnv,
-          staleLastCalculated: new Date(),
-        },
-      },
-    );
-
-    // Emit on transition to stale only; skip transient "error" reason.
-    if (stale && !feature.isStale && reason !== "error") {
-      await createEvent({
-        context,
-        object: "feature",
-        objectId: feature.id,
-        event: "stale" as ResourceEvents<"feature">,
-        data: {
-          object: {
-            featureId: feature.id,
-            staleReason: (reason ?? "no-rules") as
-              | "no-rules"
-              | "rules-one-sided"
-              | "abandoned-draft"
-              | "toggled-off",
-          },
-        },
-        projects: feature.project ? [feature.project] : [],
-        tags: feature.tags || [],
-        environments: [],
-        containsSecrets: false,
-      });
-    }
-  } catch (e) {
-    logger.error(
-      e,
-      `Error recalculating stale status for feature ${feature.id}`,
-    );
-  }
-}
-
-//TODO: I don't see this being called anywhere - can we remove?
 export async function toggleNeverStale(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -1404,11 +1266,7 @@ export async function getFeatureMetaInfoById(
     valueType: 1,
     version: 1,
     linkedExperiments: 1,
-    isStale: 1,
-    staleReason: 1,
-    staleLastCalculated: 1,
     neverStale: 1,
-    staleByEnv: 1,
     "jsonSchema.enabled": 1,
     holdout: 1,
     revision: 1,
@@ -1433,11 +1291,7 @@ export async function getFeatureMetaInfoById(
       valueType: f.valueType,
       version: f.version,
       linkedExperiments: f.linkedExperiments,
-      isStale: f.isStale,
-      staleReason: f.staleReason as FeatureMetaInfo["staleReason"],
-      staleLastCalculated: f.staleLastCalculated,
       neverStale: f.neverStale,
-      staleByEnv: f.staleByEnv as FeatureMetaInfo["staleByEnv"],
       holdout: f.holdout,
       revision: f.revision as FeatureMetaInfo["revision"],
       ...(includeDefaultValue && { defaultValue: f.defaultValue ?? "" }),
@@ -1464,11 +1318,7 @@ export async function getFeatureMetaInfoByIds(
       valueType: 1,
       version: 1,
       linkedExperiments: 1,
-      isStale: 1,
-      staleReason: 1,
-      staleLastCalculated: 1,
       neverStale: 1,
-      staleByEnv: 1,
       "jsonSchema.enabled": 1,
       revision: 1,
     },
@@ -1488,11 +1338,7 @@ export async function getFeatureMetaInfoByIds(
       valueType: f.valueType,
       version: f.version,
       linkedExperiments: f.linkedExperiments,
-      isStale: f.isStale,
-      staleReason: f.staleReason as FeatureMetaInfo["staleReason"],
-      staleLastCalculated: f.staleLastCalculated,
       neverStale: f.neverStale,
-      staleByEnv: f.staleByEnv as FeatureMetaInfo["staleByEnv"],
       revision: f.revision as FeatureMetaInfo["revision"],
     }));
 }

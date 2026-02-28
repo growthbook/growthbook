@@ -45,6 +45,7 @@ import { useAuth } from "@/services/auth";
 import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useFeaturesStatus } from "@/hooks/useFeaturesStatus";
 import { useFeatureDraftStates } from "@/hooks/useFeatureDraftStates";
+import { useFeatureStaleStates } from "@/hooks/useFeatureStaleStates";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "@/components/Modal";
 import FeaturesDraftTable from "./FeaturesDraftTable";
@@ -101,6 +102,7 @@ export default function FeaturesPage() {
 
   const statusHook = useFeaturesStatus();
   const draftHook = useFeatureDraftStates();
+  const staleHook = useFeatureStaleStates();
 
   const { searchInputProps, items, SortableTH, setSearchValue, syntaxFilters } =
     useFeatureSearch({
@@ -108,6 +110,7 @@ export default function FeaturesPage() {
       environments,
       environmentStatus: statusHook.environmentStatus,
       draftStates: draftHook.draftStates,
+      staleStates: staleHook.staleStates,
       filterResults: !showArchived
         ? (items) => items.filter((f) => !f.archived)
         : undefined,
@@ -154,6 +157,11 @@ export default function FeaturesPage() {
       (f.field === "is" && f.values.includes("draft")) ||
       (f.field === "has" && f.values.includes("draft")),
   );
+  const hasStaleFilter = syntaxFilters.some(
+    (f) =>
+      (f.field === "is" && f.values.includes("stale")) ||
+      (f.field === "has" && f.values.includes("stale-env")),
+  );
 
   useEffect(() => {
     if (hasEnvFilter) statusHook.fetchAll();
@@ -165,12 +173,18 @@ export default function FeaturesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasDraftFilter]);
 
+  useEffect(() => {
+    if (hasStaleFilter) staleHook.fetchAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasStaleFilter]);
+
   // fetchSome for visible features when no bulk filter is active
   useEffect(() => {
     const ids = visibleIdsKey ? visibleIdsKey.split(",") : [];
     if (!ids.length) return;
     if (!hasEnvFilter) statusHook.fetchSome(ids);
     if (!hasDraftFilter) draftHook.fetchSome(ids);
+    if (!hasStaleFilter) staleHook.fetchSome(ids);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visibleIdsKey]);
 
@@ -347,32 +361,22 @@ export default function FeaturesPage() {
                         />
                       </td>
                     )}
-                    <td style={{ textAlign: "center" }}>
-                      {!feature.neverStale && (
-                        <StaleFeatureIcon
-                          isStale={feature.isStale ?? false}
-                          staleReason={feature.staleReason ?? undefined}
-                          staleByEnv={feature.staleByEnv}
-                          staleLastCalculated={feature.staleLastCalculated}
-                          valueType={feature.valueType}
-                          onRerun={
-                            permissionsUtil.canViewFeatureModal(feature.project)
-                              ? async () => {
-                                  await apiCall(
-                                    `/feature/${feature.id}/recalculate-stale`,
-                                    { method: "POST" },
-                                  );
-                                  mutate();
-                                }
-                              : undefined
-                          }
-                          onDisable={
-                            permissionsUtil.canViewFeatureModal(feature.project)
-                              ? () => setFeatureToToggleStaleDetection(feature)
-                              : undefined
-                          }
-                        />
-                      )}
+                    <td>
+                      <StaleFeatureIcon
+                        context="list"
+                        neverStale={feature.neverStale}
+                        valueType={feature.valueType}
+                        staleData={staleHook.getStaleState(feature.id)}
+                        fetchStaleData={async () => {
+                          staleHook.invalidate([feature.id]);
+                          await staleHook.fetchSome([feature.id]);
+                        }}
+                        onDisable={
+                          permissionsUtil.canViewFeatureModal(feature.project)
+                            ? () => setFeatureToToggleStaleDetection(feature)
+                            : undefined
+                        }
+                      />
                     </td>
                     <td>
                       <MoreMenu>
@@ -528,6 +532,11 @@ export default function FeaturesPage() {
           close={() => setFeatureToToggleStaleDetection(null)}
           feature={featureToToggleStaleDetection}
           mutate={mutate}
+          onEnable={async () => {
+            const id = featureToToggleStaleDetection.id;
+            staleHook.invalidate([id]);
+            await staleHook.fetchSome([id]);
+          }}
         />
       )}
       <div className="row my-3">

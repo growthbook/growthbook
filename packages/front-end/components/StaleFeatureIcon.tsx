@@ -1,17 +1,17 @@
+import { useState, useEffect } from "react";
 import { StaleFeatureReason } from "shared/util";
-import { FeatureInterface, FeatureValueType } from "shared/types/feature";
-import { ago, datetime } from "shared/dates";
-import {
-  PiTimerBold,
-  PiArrowClockwise,
-  PiLightning,
-  PiAsteriskBold,
-} from "react-icons/pi";
-import { Box, Flex } from "@radix-ui/themes";
+import { FeatureValueType } from "shared/types/feature";
+import { ago } from "shared/dates";
+import { PiArrowClockwise } from "react-icons/pi";
+// eslint-disable-next-line no-restricted-imports
+import { Badge, Box, Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import { Popover } from "@/ui/Popover";
 import ValueDisplay from "@/components/Features/ValueDisplay";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import { StaleStateEntry } from "@/hooks/useFeatureStaleStates";
+import { useIncrementer } from "@/hooks/useIncrementer";
 import styles from "./StaleFeatureIcon.module.scss";
 
 const staleReasonToMessageMap: Record<StaleFeatureReason, string> = {
@@ -29,34 +29,112 @@ const staleReasonToMessageMap: Record<StaleFeatureReason, string> = {
 };
 
 export default function StaleFeatureIcon({
-  isStale,
-  staleReason,
-  staleByEnv,
-  staleLastCalculated,
+  neverStale,
   valueType,
-  showNonStaleStatuses = false,
-  onRerun,
+  staleData,
+  fetchStaleData,
   onDisable,
+  context = "detail",
 }: {
-  isStale: boolean;
-  staleReason: StaleFeatureReason | undefined;
-  staleByEnv?: FeatureInterface["staleByEnv"];
-  staleLastCalculated?: Date | string | null;
+  neverStale?: boolean;
   valueType?: FeatureValueType;
-  showNonStaleStatuses?: boolean;
-  onRerun?: () => void;
+  staleData?: StaleStateEntry;
+  fetchStaleData?: () => Promise<void>;
   onDisable?: () => void;
+  context?: "list" | "detail";
 }) {
-  const hasSomeStaleEnvs = Object.values(staleByEnv ?? {}).some(
-    (e) => e.isStale,
-  );
+  const [rerunning, setRerunning] = useState(false);
+  const [popoverOpen, setPopoverOpen] = useState(false);
+  const [, tick] = useIncrementer();
+  useEffect(() => {
+    const id = setInterval(tick, 60_000);
+    return () => clearInterval(id);
+  }, [tick]);
 
+  // neverStale can be known from the feature prop before staleData loads
+  const effectiveNeverStale = neverStale ?? staleData?.neverStale ?? false;
+
+  // Show the permanent badge immediately — no staleData needed
+  if (effectiveNeverStale) {
+    return (
+      <Popover
+        open={popoverOpen}
+        onOpenChange={setPopoverOpen}
+        side="bottom"
+        align="start"
+        showArrow={true}
+        contentStyle={{ maxWidth: 600, textAlign: "left" }}
+        trigger={
+          <Badge
+            color="gray"
+            variant="soft"
+            radius="full"
+            size={context === "list" ? "1" : "2"}
+            className={`${styles.permanentBadge}${context === "list" ? ` ${styles.list}` : ""}`}
+          >
+            <span className={`${styles.dot} ${styles.permanentDot}`} />
+            {context === "list" ? "Off" : "Stale detection off"}
+          </Badge>
+        }
+        content={
+          <Box>
+            <Flex direction="column" gap="4">
+              <Box>
+                <Text as="div" size="small" weight="semibold" color="text-mid" textTransform="uppercase" mb="1">
+                  Overall Status
+                </Text>
+                <span style={{ color: "var(--green-10)" }}>
+                  <Text size="large" weight="semibold">Not Stale</Text>
+                </span>
+                <Text as="div" size="medium" color="text-low" mt="1">
+                  Stale detection is disabled for this feature.
+                </Text>
+              </Box>
+            </Flex>
+            {onDisable && (
+              <Flex justify="end" mt="4">
+                <Button
+                  size="xs"
+                  variant="outline"
+                  onClick={() => {
+                    setPopoverOpen(false);
+                    onDisable();
+                  }}
+                >
+                  Enable stale detection
+                </Button>
+              </Flex>
+            )}
+          </Box>
+        }
+      />
+    );
+  }
+
+  const isStale = staleData?.stale ?? false;
+  const staleReason: StaleFeatureReason | undefined = staleData?.reason;
+  const envResults = staleData?.envResults ?? {};
+  const computedAt = staleData?.computedAt;
+
+  const hasSomeStaleEnvs = Object.values(envResults).some((e) => e.stale);
   const mixed = !isStale && hasSomeStaleEnvs;
-  const fresh = !isStale && !hasSomeStaleEnvs;
 
-  if (!isStale && !showNonStaleStatuses) return null;
+  if (!staleData) return null;
 
-  const envEntries = Object.entries(staleByEnv ?? {});
+  const envEntries = Object.entries(envResults);
+
+  const handleRerun = fetchStaleData
+    ? async () => {
+        setRerunning(true);
+        try {
+          await fetchStaleData();
+        } finally {
+          setRerunning(false);
+        }
+      }
+    : undefined;
+
+  if (!staleData) return null;
 
   const body = (
     <Box>
@@ -83,17 +161,12 @@ export default function StaleFeatureIcon({
               <Text size="large" weight="semibold">
                 Not Stale
               </Text>
+              {mixed && (
+                <Text as="div" size="medium" color="text-low" mt="1">
+                  Some environments may be stale
+                </Text>
+              )}
             </span>
-          )}
-          {mixed && (
-            <Text as="div" size="medium" color="text-low">
-              <PiAsteriskBold
-                size={10}
-                color="var(--gray-11)"
-                style={{ verticalAlign: 0 }}
-              />{" "}
-              Some environments may be stale
-            </Text>
           )}
         </Box>
 
@@ -127,9 +200,10 @@ export default function StaleFeatureIcon({
               Environment Statuses
             </Text>
 
+            <Box mt="2" style={{ maxHeight: 300, overflowY: "auto" }}>
             <table
-              className="table table-sm table-valign-top mt-2"
-              style={{ tableLayout: "fixed" }}
+              className="table table-sm table-valign-top"
+              style={{ tableLayout: "fixed", width: "100%" }}
             >
               <thead>
                 <tr>
@@ -153,7 +227,7 @@ export default function StaleFeatureIcon({
                       </Text>
                     </td>
                     <td>
-                      {info.isStale ? (
+                      {info.stale ? (
                         <span style={{ color: "var(--yellow-11)" }}>
                           <Text weight="semibold">Stale</Text>
                         </span>
@@ -173,7 +247,12 @@ export default function StaleFeatureIcon({
                       </Text>
                     </td>
                     <td>
-                      {info.evaluatesTo !== undefined && valueType && (
+                      {info.evaluatesTo !== undefined && (info.reason === "toggled-off" || !valueType) && (
+                        <span style={{ fontFamily: "monospace", fontSize: "0.85em" }}>
+                          {info.evaluatesTo}
+                        </span>
+                      )}
+                      {info.evaluatesTo !== undefined && info.reason !== "toggled-off" && valueType && (
                         <ValueDisplay
                           value={info.evaluatesTo}
                           type={valueType}
@@ -184,46 +263,37 @@ export default function StaleFeatureIcon({
                           }}
                         />
                       )}
-                      {info.evaluatesTo !== undefined && !valueType && (
-                        <span
-                          style={{
-                            fontFamily: "monospace",
-                            fontSize: "0.85em",
-                          }}
-                        >
-                          {info.evaluatesTo}
-                        </span>
-                      )}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            </Box>
           </Box>
         )}
       </Flex>
-      {(onRerun || onDisable || staleLastCalculated) && (
+      {(handleRerun || onDisable || computedAt) && (
         <Flex direction="column" align="end" gap="2" mt="2">
-          <Flex gap="1" align="center">
-            <Tooltip body="Updates every 24 hours" tipPosition="top">
-              <PiLightning style={{ color: "var(--violet-11)" }} />
-            </Tooltip>
-            {staleLastCalculated && (
-              <Tooltip
-                body={`Last run: ${datetime(staleLastCalculated)}`}
-                tipPosition="top"
-              >
-                <Text size="small" color="text-low">
-                  Last run: {ago(new Date(staleLastCalculated))}
-                </Text>
-              </Tooltip>
-            )}
-          </Flex>
-          {(onRerun || onDisable) && (
+          {computedAt && (
+            <Text size="small" color="text-low">
+              Last calculated: {ago(new Date(computedAt))}
+            </Text>
+          )}
+          {(handleRerun || onDisable) && (
             <Flex gap="2">
-              {onRerun && (
-                <Button size="xs" variant="outline" onClick={onRerun}>
-                  <PiArrowClockwise /> Re-run
+              {handleRerun && (
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  onClick={handleRerun}
+                  disabled={rerunning}
+                >
+                  {rerunning ? (
+                    <LoadingSpinner />
+                  ) : (
+                    <PiArrowClockwise />
+                  )}{" "}
+                  Re-run
                 </Button>
               )}
               {onDisable && (
@@ -231,7 +301,10 @@ export default function StaleFeatureIcon({
                   size="xs"
                   color="red"
                   variant="outline"
-                  onClick={onDisable}
+                  onClick={() => {
+                    setPopoverOpen(false);
+                    onDisable();
+                  }}
                 >
                   Disable stale detection
                 </Button>
@@ -244,22 +317,38 @@ export default function StaleFeatureIcon({
   );
 
   return (
-    <Tooltip
-      popperClassName="text-left"
-      popperStyle={{ maxWidth: 600 }}
-      body={body}
-      flipTheme={false}
-    >
-      <PiTimerBold
-        size={18}
-        className={
-          fresh
-            ? styles.freshIcon
-            : mixed
-              ? styles.staleFadedIcon
-              : styles.staleIcon
-        }
-      />
-    </Tooltip>
+    <Popover
+      open={popoverOpen}
+      onOpenChange={setPopoverOpen}
+      side="bottom"
+      align="start"
+      showArrow={true}
+      contentStyle={{ maxWidth: 600, textAlign: "left" }}
+      trigger={
+        <Badge
+          color={isStale ? "yellow" : mixed ? "gray" : "green"}
+          variant="soft"
+          radius="full"
+          size={context === "list" ? "1" : "2"}
+          className={
+            isStale
+              ? styles.staleBadge
+              : mixed
+                ? styles.mixedBadge
+                : styles.freshBadge
+          }
+        >
+          <span
+            className={`${styles.dot} ${isStale ? styles.staleDot : mixed ? styles.mixedDot : styles.freshDot}`}
+          />
+          {isStale
+            ? "Stale"
+            : context === "list"
+              ? "OK"
+              : "Not stale"}
+        </Badge>
+      }
+      content={body}
+    />
   );
 }

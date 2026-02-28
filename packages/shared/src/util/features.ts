@@ -367,12 +367,16 @@ function buildEnvResults(
     includeExperimentInPayload(e),
   );
 
-  for (const [envId, envSetting] of Object.entries(
-    feature.environmentSettings ?? {},
-  )) {
-    if (environments.length && !environments.includes(envId)) continue;
+  // Iterate the authoritative org environments list so every applicable env
+  // is evaluated even if the feature has no settings entry for it yet.
+  const envIds = environments.length
+    ? environments
+    : Object.keys(feature.environmentSettings ?? {});
+
+  for (const envId of envIds) {
+    const envSetting = feature.environmentSettings?.[envId];
     if (!envSetting?.enabled) {
-      envResults[envId] = { stale: true, reason: "toggled-off" };
+      envResults[envId] = { stale: true, reason: "toggled-off", evaluatesTo: "null" };
       continue;
     }
 
@@ -541,13 +545,19 @@ export function isFeatureStale({
       }
 
       const envValues = Object.values(envResults);
-      const stale = envValues.length === 0 || envValues.every((e) => e.stale);
+      // Exclude toggled-off environments from the stale determination — a
+      // disabled env isn't "stale", it's just off. Only enabled envs count.
+      const activeEnvValues = envValues.filter(
+        (e) => e.reason !== "toggled-off",
+      );
+      const stale =
+        activeEnvValues.length === 0
+          ? false
+          : activeEnvValues.every((e) => e.stale);
       const reason = stale
         ? hasAbandonedDraft
           ? "abandoned-draft"
-          : envValues.length === 0
-            ? "no-rules"
-            : pickOverallReason(envValues.map((e) => e.reason))
+          : pickOverallReason(activeEnvValues.map((e) => e.reason))
         : undefined;
 
       return { stale, reason, envResults };

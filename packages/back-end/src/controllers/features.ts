@@ -12,12 +12,13 @@ import {
   filterProjectsByEnvironmentWithNull,
   MergeResultChanges,
   MergeStrategy,
-  StaleFeatureReason,
   checkIfRevisionNeedsReview,
   resetReviewOnChange,
   getAffectedEnvsForExperiment,
   getDefaultPrerequisiteCondition,
   getDependentFeatures,
+  isFeatureStale,
+  IsFeatureStaleResult,
 } from "shared/util";
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
@@ -28,6 +29,7 @@ import {
   SafeRolloutInterface,
   HoldoutInterface,
   SafeRolloutRule,
+  ACTIVE_DRAFT_STATUSES,
 } from "shared/validators";
 import { FeatureUsageLookback } from "shared/types/integrations";
 import {
@@ -84,7 +86,6 @@ import {
   setJsonSchema,
   toggleFeatureEnvironment,
   updateFeature,
-  recalculateFeatureIsStale,
 } from "back-end/src/models/FeatureModel";
 import { getRealtimeUsageByHour } from "back-end/src/models/RealtimeModel";
 import { lookupOrganizationByApiKey } from "back-end/src/models/ApiKeyModel";
@@ -4114,63 +4115,73 @@ export async function getFeatureDraftStates(
   res.status(200).json({ status: 200, features });
 }
 
-// TODO: consider adding POST /feature/:id/stale for force-recompute (with write-back),
-// for cases where a related feature/saved-group/attribute changed but the feature itself wasn't updated,
-// or for users wanting a force-recompute.
-export async function getFeatureStale(
-  req: AuthRequest<null, { id: string }>,
+// TODO: consider adding a force-recompute option that writes results back
+export async function getFeaturesStaleStates(
+  req: AuthRequest<null, Record<string, never>, { ids?: string }>,
   res: Response<
     {
       status: 200;
-      isStale: boolean;
-      staleReason: StaleFeatureReason | null;
-      neverStale: boolean;
-      staleLastCalculated: Date | null;
-      staleByEnv?: FeatureInterface["staleByEnv"];
+      features: Record<string, IsFeatureStaleResult & { neverStale: boolean; computedAt: string }>;
     },
     EventUserForResponseLocals
   >,
 ) {
   const context = getContextFromReq(req);
-  const { id } = req.params;
-  const feature = await getFeature(context, id);
-  if (!feature) {
-    throw new Error("Could not find feature");
-  }
-  // neverStale overrides stale detection; isStale/staleReason are forced to false/null.
-  const neverStale = feature.neverStale ?? false;
-  const hasBeenCalculated = !!feature.staleLastCalculated;
-  res.status(200).json({
-    status: 200,
-    isStale: neverStale ? false : (feature.isStale ?? false),
-    staleReason: neverStale ? null : (feature.staleReason ?? null),
-    neverStale,
-    staleLastCalculated: feature.staleLastCalculated ?? null,
-    ...(!neverStale && hasBeenCalculated
-      ? { staleByEnv: feature.staleByEnv }
-      : {}),
-  });
-}
+  const featureIds = req.query.ids
+    ? req.query.ids.split(",").filter(Boolean)
+    : undefined;
 
-export async function recalculateFeatureStale(
-  req: AuthRequest<null, { id: string }>,
-  res: Response<{ status: 200 }, EventUserForResponseLocals>,
-) {
-  const context = getContextFromReq(req);
-  const { id } = req.params;
-  const feature = await getFeature(context, id);
+  const [allFeatures, allExperiments, draftRevisions] = await Promise.all([
+    getAllFeatures(context, {}),
+    getAllExperiments(context, { includeArchived: false }),
+    getRevisionsByStatus(context as ReqContext, [...ACTIVE_DRAFT_STATUSES], { sparse: true }),
+  ]);
 
-  if (!feature) {
-    throw new Error("Could not find feature");
+  // Map most-recent draft date per feature
+  const mostRecentDraftDateByFeatureId = new Map<string, Date>();
+  for (const rev of draftRevisions) {
+    const existing = mostRecentDraftDateByFeatureId.get(rev.featureId);
+    const revDate = new Date(rev.dateUpdated ?? 0);
+    if (!existing || revDate > existing) {
+      mostRecentDraftDateByFeatureId.set(rev.featureId, revDate);
+    }
   }
 
-  if (!context.permissions.canUpdateFeature(feature, {})) {
-    context.permissions.throwPermissionError();
+  const targetFeatures = featureIds
+    ? allFeatures.filter((f) => featureIds.includes(f.id))
+    : allFeatures;
+
+  const computedAt = new Date().toISOString();
+  const result: Record<string, IsFeatureStaleResult & { neverStale: boolean; computedAt: string }> = {};
+
+  for (const feature of targetFeatures) {
+    if (!context.permissions.canReadSingleProjectResource(feature.project)) continue;
+
+    const applicableEnvIds = getEnvironments(context.org)
+      .filter(
+        (env) =>
+          !feature.project ||
+          !env.projects?.length ||
+          env.projects.includes(feature.project as string),
+      )
+      .map((env) => env.id);
+
+    const staleResult = isFeatureStale({
+      feature,
+      features: allFeatures,
+      experiments: allExperiments as unknown as Parameters<typeof isFeatureStale>[0]["experiments"],
+      environments: applicableEnvIds,
+      mostRecentDraftDate: mostRecentDraftDateByFeatureId.get(feature.id) ?? null,
+    });
+
+    result[feature.id] = {
+      ...staleResult,
+      neverStale: feature.neverStale ?? false,
+      computedAt,
+    };
   }
 
-  await recalculateFeatureIsStale(context, feature);
-
-  res.status(200).json({ status: 200 });
+  res.status(200).json({ status: 200, features: result });
 }
 
 export async function getFeaturesStatus(

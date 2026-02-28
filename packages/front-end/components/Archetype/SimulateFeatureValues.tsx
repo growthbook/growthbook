@@ -85,11 +85,7 @@ export const SimulateFeatureValues: FC<{
     defaultSortField: "id",
     filterResults: (items) => filterByTags(items, tagsFilter.tags),
     searchTermFilters: {
-      is: (item) => {
-        const is: string[] = [item.valueType ?? ""];
-        if (item.isStale && !item.neverStale) is.push("stale");
-        return is;
-      },
+      is: (item) => [item.valueType ?? ""],
       tag: (item) => item.tags,
       project: (item) => [item.project ?? ""],
       owner: (item) => item.owner,

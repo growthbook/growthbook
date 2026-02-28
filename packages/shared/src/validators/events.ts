@@ -11,7 +11,7 @@ import {
   safeRolloutDecisionNotificationPayload,
   safeRolloutUnhealthyNotificationPayload,
 } from "./safe-rollout-notifications";
-import { featureStaleNotificationPayload } from "./feature-stale";
+
 import { experimentWarningNotificationPayload } from "./experiment-warnings";
 import { experimentInfoSignificance } from "./experiment-info";
 import { experimentDecisionNotificationPayload } from "./experiment-decision";
@@ -80,11 +80,6 @@ export const notificationEvents = {
     deleted: {
       schema: apiFeatureValidator,
       description: "Triggered when a feature is deleted",
-    },
-    stale: {
-      schema: featureStaleNotificationPayload,
-      description:
-        "Triggered when a feature flag is detected as stale (not updated in 2+ weeks with no active experiments or non-trivial rules).",
     },
     "saferollout.ship": {
       schema: safeRolloutDecisionNotificationPayload,

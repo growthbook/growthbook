@@ -152,6 +152,7 @@ export function useFeatureSearch({
   localStorageKey = "features",
   environmentStatus,
   draftStates,
+  staleStates,
 }: {
   allFeatures: FeatureInterface[];
   defaultSortField?:
@@ -166,6 +167,10 @@ export function useFeatureSearch({
   localStorageKey?: string;
   environmentStatus?: Record<string, Record<string, boolean>>;
   draftStates?: Record<string, unknown>;
+  staleStates?: Record<
+    string,
+    { stale: boolean; neverStale: boolean; envResults?: Record<string, { stale: boolean }> }
+  >;
 }) {
   const { getUserDisplay } = useUser();
   const { getProjectById } = useDefinitions();
@@ -202,14 +207,26 @@ export function useFeatureSearch({
         if (item.valueType === "string") is.push("string");
         if (item.valueType === "number") is.push("number");
         if (item.valueType === "boolean") is.push("boolean");
-        // isStale is stored on the feature document (computed cross-project by cron).
-        if (item.isStale && !item.neverStale) is.push("stale");
+        // item.neverStale is authoritative — overrides staleStates cache immediately
+        if (item.neverStale) {
+          is.push("stale-disabled");
+        } else {
+          const s = staleStates?.[item.id];
+          if (s?.stale) is.push("stale");
+        }
         return is;
       },
       has: (item) => {
         const has: string[] = [];
         if (item.project) has.push("project");
         if (draftStates?.[item.id]) has.push("draft", "drafts");
+        if (!item.neverStale) {
+          const s = staleStates?.[item.id];
+          const hasSomeStaleEnvs = Object.values(s?.envResults ?? {}).some(
+            (e) => e.stale,
+          );
+          if (hasSomeStaleEnvs) has.push("stale-env");
+        }
 
         // TODO: restore has:experiment/rollout/force/rule/prerequisites/savedgroup filters
         // once rules are denormalized to a top-level rules[] field with an `environments`
