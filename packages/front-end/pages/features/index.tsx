@@ -11,12 +11,10 @@ import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import FeatureModal from "@/components/Features/FeatureModal";
-import ValueDisplay from "@/components/Features/ValueDisplay";
 import track from "@/services/track";
 import Switch from "@/ui/Switch";
 import RealTimeFeatureGraph from "@/components/Features/RealTimeFeatureGraph";
 import {
-  getFeatureDefaultValue,
   useRealtimeData,
   useEnvironments,
   useFeatureSearch,
@@ -87,7 +85,6 @@ export default function FeaturesPage() {
     hasArchived,
   } = useFeatureMetaInfo({
     project: project || undefined,
-    includeDefaultValue: true,
   });
 
   // Track whether archived features should be shown (controlled by is:archived filter).
@@ -247,7 +244,7 @@ export default function FeaturesPage() {
                     {en.id}
                   </th>
                 ))}
-                <th>Default</th>
+                <th>Type</th>
                 <th>Version</th>
                 <SortableTH field="dateUpdated">Last Updated</SortableTH>
                 {showGraphs && (
@@ -331,14 +328,7 @@ export default function FeaturesPage() {
                         </Flex>
                       </td>
                     ))}
-                    <td style={{ minWidth: 90 }}>
-                      <ValueDisplay
-                        value={getFeatureDefaultValue(feature) || ""}
-                        type={feature.valueType}
-                        full={false}
-                        additionalStyle={{ maxWidth: 120, fontSize: "11px" }}
-                      />
-                    </td>
+                    <td>{feature.valueType}</td>
                     <td style={{ textAlign: "center" }}>
                       {version}
                       {draftEntry ? (

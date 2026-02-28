@@ -119,7 +119,7 @@ const FeatureSearchFilters: FC<
 
   const allFeatureTypes: SearchFiltersItem[] = [
     {
-      name: "Boolean (true/false)",
+      name: "Boolean",
       id: "feature-type-boolean",
       searchValue: "boolean",
       disabled: !availableFeatureTypes.includes("boolean"),
