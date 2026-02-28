@@ -344,8 +344,12 @@ export async function updateDashboardExplorations(
       const exploration = await runProductAnalyticsExploration(
         context,
         block.config,
-        { skipCache: true },
+        { cache: "never" },
       );
+      // This should never happen when cache="never", but just in case
+      if (!exploration) {
+        throw new Error("Failed run to run product analytics query");
+      }
       block.explorerAnalysisId = exploration.id;
       anyUpdated = true;
     } catch (e) {

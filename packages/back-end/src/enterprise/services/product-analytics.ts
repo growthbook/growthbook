@@ -127,7 +127,7 @@ export async function runProductAnalyticsExploration(
     dateStart: dateRange.startDate,
     dateEnd: dateRange.endDate,
     queries: [],
-    result: { rows: [], statistics: {}, sql: "", error: null },
+    result: { rows: [] },
     runStarted: null,
     status: "running",
     error: null,
