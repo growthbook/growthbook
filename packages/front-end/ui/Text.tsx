@@ -41,6 +41,7 @@ export interface TextProps {
   truncate?: boolean;
   overflowWrap?: TextOverflowWrap;
   whiteSpace?: TextWhiteSpace;
+  textTransform?: "uppercase" | "lowercase" | "capitalize";
 
   // Margin props
   m?: RadixTextProps["m"];
@@ -63,6 +64,7 @@ export default function Text({
   overflowWrap = "normal",
   whiteSpace = "normal",
   truncate = false,
+  textTransform,
   m,
   mx,
   my,
@@ -75,6 +77,7 @@ export default function Text({
     overflowWrap: overflowWrap,
     whiteSpace: whiteSpace,
   };
+  if (textTransform) style.textTransform = textTransform;
 
   if (color === "text-high") {
     style.color = "var(--color-text-high)";

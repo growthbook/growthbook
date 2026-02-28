@@ -146,6 +146,9 @@ paths:
   /features/{id}/revisions:
     get:
       $ref: "./paths/getFeatureRevisions.yaml"
+  /features/{id}/stale:
+    get:
+      $ref: "./paths/getFeatureStale.yaml"
   /feature-keys:
     get:
       $ref: "./paths/getFeatureKeys.yaml"

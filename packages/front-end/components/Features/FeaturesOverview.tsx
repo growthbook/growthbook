@@ -1,22 +1,10 @@
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import React, { useMemo, useState } from "react";
-import { FaExclamationTriangle, FaLink } from "react-icons/fa";
-import { FaBoltLightning } from "react-icons/fa6";
-import { ago, datetime } from "shared/dates";
+import { FaExclamationTriangle } from "react-icons/fa";
 import {
-  autoMerge,
-  checkIfRevisionNeedsReview,
-  filterEnvironmentsByFeature,
-  getDependentExperiments,
-  getDependentFeatures,
-  mergeResultHasChanges,
-} from "shared/util";
-import { MdRocketLaunch } from "react-icons/md";
-import { BiHide, BiShow } from "react-icons/bi";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { BsClock } from "react-icons/bs";
-import {
+  PiCheck,
+  PiLink,
   PiArrowsLeftRightBold,
   PiCheckCircleFill,
   PiCircleDuotone,
@@ -24,8 +12,20 @@ import {
   PiInfo,
   PiPlusCircleBold,
 } from "react-icons/pi";
+import { FaBoltLightning } from "react-icons/fa6";
+import { ago, datetime } from "shared/dates";
+import {
+  autoMerge,
+  checkIfRevisionNeedsReview,
+  filterEnvironmentsByFeature,
+  mergeResultHasChanges,
+} from "shared/util";
+import { MdRocketLaunch } from "react-icons/md";
+import { BiHide, BiShow } from "react-icons/bi";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { BsClock } from "react-icons/bs";
 import { FeatureUsageLookback } from "shared/types/integrations";
-import { Box, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
+import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import {
   SafeRolloutInterface,
   HoldoutInterface,
@@ -45,10 +45,11 @@ import {
   useEnvironments,
   getAffectedRevisionEnvs,
   getPrerequisites,
-  useFeaturesList,
   getRules,
   isRuleInactive,
 } from "@/services/features";
+import { useFeatureDefaultValues } from "@/hooks/useFeatureDefaultValues";
+import { useFeatureDependents } from "@/hooks/useFeatureDependents";
 import Modal from "@/components/Modal";
 import DraftModal from "@/components/Features/DraftModal";
 import RevisionDropdown from "@/components/Features/RevisionDropdown";
@@ -136,8 +137,6 @@ export default function FeaturesOverview({
     i: number;
   } | null>(null);
   const [showDependents, setShowDependents] = useState(false);
-  const [showOtherProjectDependents, setShowOtherProjectDependents] =
-    useState(false);
   const permissionsUtil = usePermissionsUtil();
 
   const [revertIndex, setRevertIndex] = useState(0);
@@ -150,33 +149,16 @@ export default function FeaturesOverview({
   const { hasCommercialFeature } = useUser();
 
   const featureProject = feature.project;
-  const { features } = useFeaturesList(
-    showOtherProjectDependents || !featureProject
-      ? { useCurrentProject: false }
-      : { project: featureProject },
-  );
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const envs = environments.map((e) => e.id);
 
-  // Calculate dependents based on project scoping
-  const dependentFeatures = useMemo(() => {
-    if (!feature || !features) return [];
-    return getDependentFeatures(feature, features, envs);
-  }, [feature, features, envs]);
-
-  const dependentExperiments = useMemo(() => {
-    if (!feature || !experiments) return [];
-    return getDependentExperiments(feature, experiments);
-  }, [feature, experiments]);
-
+  const { dependents: dependentsData } = useFeatureDependents(feature?.id);
+  const dependentFeatures = dependentsData?.features ?? [];
+  const dependentExperiments = dependentsData?.experiments ?? [];
   const dependents = dependentFeatures.length + dependentExperiments.length;
 
-  const { performCopy, copySuccess, copySupported, copyCooldown } =
-    useCopyToClipboard({
-      timeout: 800,
-      cooldown: 500,
-    });
+  const { performCopy, copySuccess } = useCopyToClipboard({ timeout: 800 });
 
   const mergeResult = useMemo(() => {
     if (!feature || !revision) return null;
@@ -195,6 +177,10 @@ export default function FeaturesOverview({
   }, [revisions, revision, feature, environments]);
 
   const prerequisites = feature?.prerequisites || [];
+
+  const { defaultValues: prereqDefaultValues } = useFeatureDefaultValues(
+    prerequisites.map((p) => p.id),
+  );
 
   // Fetch prerequisite states from backend (handles cross-project prereqs correctly)
   // skipRootConditions: true means we skip the feature's own rules and only evaluate prerequisites
@@ -749,15 +735,12 @@ export default function FeaturesOverview({
                       <td className="w-100" />
                     </tr>
                     {prerequisites.map(({ ...item }, i) => {
-                      const parentFeature = features.find(
-                        (f) => f.id === item.id,
-                      );
                       return (
                         <PrerequisiteStatusRow
                           key={i}
                           i={i}
                           feature={feature}
-                          parentFeature={parentFeature}
+                          prereqDefaultValue={prereqDefaultValues[item.id]}
                           prerequisite={item}
                           environments={environments}
                           mutate={mutate}
@@ -887,19 +870,9 @@ export default function FeaturesOverview({
                 <Badge label={dependents + ""} color="gray" radius="medium" />
               </Flex>
               <Flex align="center" gap="4" mb="4">
-                <Text size="2" as="div" style={{ width: "240px" }}>
-                  {featureProject && !showOtherProjectDependents
-                    ? "Showing dependents in this project."
-                    : "Showing dependents in all projects."}
+                <Text size="2" as="div">
+                  Showing dependents across all projects.
                 </Text>
-                {featureProject && (
-                  <Switch
-                    value={showOtherProjectDependents}
-                    onChange={setShowOtherProjectDependents}
-                    label="Include all projects"
-                    size="1"
-                  />
-                )}
               </Flex>
               {dependents > 0 ? (
                 <>
@@ -977,13 +950,7 @@ export default function FeaturesOverview({
                 </>
               ) : (
                 <Box mb="2">
-                  <Text size="2">
-                    No dependents found
-                    {featureProject && !showOtherProjectDependents
-                      ? " in this project"
-                      : ""}
-                    .
-                  </Text>
+                  <Text size="2">No dependents found.</Text>
                 </Box>
               )}
             </Box>
@@ -1024,7 +991,9 @@ export default function FeaturesOverview({
                 <Flex
                   align="center"
                   justify="between"
-                  gap="2"
+                  gapX="2"
+                  gapY="0"
+                  mr="5"
                   width={{ initial: "98%", sm: "70%", md: "60%", lg: "50%" }}
                 >
                   <Box width="100%">
@@ -1037,32 +1006,29 @@ export default function FeaturesOverview({
                       revisions={revisionList || []}
                     />
                   </Box>
-                  <Tooltip
-                    body={
-                      copySuccess
-                        ? "Copied to clipboard!"
-                        : "Copy a link to this revision"
-                    }
-                    tipPosition="top"
-                    state={copySuccess}
-                    ignoreMouseEvents={!!copySuccess}
-                    shouldDisplay={!copyCooldown}
-                  >
-                    <IconButton
+                  {copySuccess ? (
+                    <Button
                       variant="ghost"
-                      size="3"
+                      icon={<PiCheck />}
+                      style={{ width: 100 }}
+                    >
+                      Link copied
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      icon={<PiLink />}
+                      style={{ width: 100 }}
                       onClick={() => {
-                        if (!copySupported) return;
                         const url =
                           window.location.href.replace(/[?#].*/, "") +
                           `?v=${version}`;
                         performCopy(url);
                       }}
-                      style={{ margin: 0 }}
                     >
-                      <FaLink size={14} />
-                    </IconButton>
-                  </Tooltip>
+                      Copy link
+                    </Button>
+                  )}
                 </Flex>
                 <Flex
                   align={{ initial: "center", xs: "center", sm: "start" }}

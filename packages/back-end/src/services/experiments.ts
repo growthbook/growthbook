@@ -733,7 +733,7 @@ export function determineNextDate(schedule: ExperimentUpdateSchedule | null) {
 export function determineNextBanditSchedule(exp: ExperimentInterface): Date {
   const start = (
     exp?.banditStageDateStarted ??
-    exp.phases?.[exp.phases.length - 1]?.dateStarted ??
+    exp.phases?.slice(-1)?.[0]?.dateStarted ??
     new Date()
   ).getTime();
 

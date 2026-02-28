@@ -189,7 +189,7 @@ export function ArchetypeValueDisplay({
   feature,
 }: {
   result: FeatureTestResult;
-  feature: FeatureInterface;
+  feature: { valueType: FeatureInterface["valueType"] };
 }) {
   const { matchedRuleName, brief, debugLog } = parseFeatureResult(result);
   return (

@@ -18,6 +18,7 @@ import {
   NodeHandler,
   recursiveWalk,
 } from "../util";
+import { FeatureValueType } from "../validators";
 import { SDKCapability } from "./types";
 
 const strictFeatureKeys = ["defaultValue", "rules"];
@@ -532,3 +533,18 @@ export const scrubHoldouts = ({
 
   return { holdouts, features };
 };
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function getJSONValue(type: FeatureValueType, value: string): any {
+  if (type === "json") {
+    try {
+      return JSON.parse(value);
+    } catch (e) {
+      return null;
+    }
+  }
+  if (type === "number") return parseFloat(value) || 0;
+  if (type === "string") return value;
+  if (type === "boolean") return value === "false" ? false : true;
+  return null;
+}

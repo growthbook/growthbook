@@ -1,8 +1,4 @@
 import { FC } from "react";
-import {
-  ExperimentInterface,
-  ExperimentInterfaceStringDates,
-} from "shared/types/experiment";
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import { PiCaretRightFill } from "react-icons/pi";
 import Collapsible from "react-collapsible";
@@ -11,7 +7,7 @@ import Badge from "@/ui/Badge";
 
 interface FeatureReferencesListProps {
   features?: string[];
-  experiments?: Array<ExperimentInterface | ExperimentInterfaceStringDates>;
+  experiments?: Array<{ id: string; name: string }>;
 }
 
 const FeatureReferencesList: FC<FeatureReferencesListProps> = ({
@@ -92,7 +88,7 @@ const FeatureReferencesList: FC<FeatureReferencesListProps> = ({
               {experiments.map((experiment) => (
                 <li key={experiment.id}>
                   <Link href={`/experiment/${experiment.id}`} target="_blank">
-                    {experiment.name}
+                    {experiment.name ?? experiment.id}
                   </Link>
                 </li>
               ))}

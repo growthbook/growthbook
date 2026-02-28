@@ -818,7 +818,11 @@ app.post(
   "/features/batch-prerequisite-states",
   featuresController.postBatchPrerequisiteStates,
 );
-app.get("/features/names", featuresController.getFeatureNames);
+app.get("/features/meta-info", featuresController.getFeatureMetaInfo);
+app.get("/features/status", featuresController.getFeaturesStatus);
+app.get("/features/draft-states", featuresController.getFeatureDraftStates);
+app.get("/features/stale", featuresController.getFeaturesStaleStates);
+app.get("/features/dependents", featuresController.getFeaturesDependents);
 app.post(
   "/feature/:id/:version/reorder",
   featuresController.postFeatureMoveRule,

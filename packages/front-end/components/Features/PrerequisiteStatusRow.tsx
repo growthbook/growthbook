@@ -29,7 +29,7 @@ interface Props {
   i: number;
   prerequisite: FeaturePrerequisite;
   feature: FeatureInterface;
-  parentFeature?: FeatureInterface;
+  prereqDefaultValue?: string;
   environments: Environment[];
   mutate: () => void;
   setPrerequisiteModal: (prerequisite: { i: number }) => void;
@@ -39,7 +39,7 @@ export default function PrerequisiteStatusRow({
   i,
   prerequisite,
   feature,
-  parentFeature,
+  prereqDefaultValue,
   environments,
   mutate,
   setPrerequisiteModal,
@@ -60,10 +60,10 @@ export default function PrerequisiteStatusRow({
       enabled: !!prerequisite.id,
     });
 
-  // Build defaultValues map from the parent feature
-  const defaultValues: Record<string, string> | undefined = parentFeature
-    ? Object.fromEntries(envs.map((env) => [env, parentFeature.defaultValue]))
-    : undefined;
+  const defaultValues: Record<string, string> | undefined =
+    prereqDefaultValue !== undefined
+      ? Object.fromEntries(envs.map((env) => [env, prereqDefaultValue]))
+      : undefined;
 
   return (
     <tr>

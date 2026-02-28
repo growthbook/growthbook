@@ -16,6 +16,9 @@ import {
   resetReviewOnChange,
   getAffectedEnvsForExperiment,
   getDefaultPrerequisiteCondition,
+  getDependentFeatures,
+  isFeatureStale,
+  IsFeatureStaleResult,
 } from "shared/util";
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
@@ -26,6 +29,7 @@ import {
   SafeRolloutInterface,
   HoldoutInterface,
   SafeRolloutRule,
+  ACTIVE_DRAFT_STATUSES,
 } from "shared/validators";
 import { FeatureUsageLookback } from "shared/types/integrations";
 import {
@@ -74,6 +78,7 @@ import {
   getFeaturesByIds,
   getFeatureMetaInfoById,
   getFeatureMetaInfoByIds,
+  getFeatureEnvStatus,
   hasArchivedFeatures,
   migrateDraft,
   publishRevision,
@@ -108,6 +113,7 @@ import {
   createInitialRevision,
   createRevision,
   discardRevision,
+  getActiveDraftStates,
   getMinimalRevisions,
   getRevision,
   getRevisionsByVersions,
@@ -142,6 +148,7 @@ import {
   getExperimentById,
   getExperimentsByIds,
   getExperimentsByTrackingKeys,
+  getAllExperiments,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
 import { ApiReqContext } from "back-end/types/api";
@@ -2235,16 +2242,16 @@ export async function postFeatureMoveRule(
   });
 }
 export async function getDraftandReviewRevisions(
-  req: AuthRequest,
+  req: AuthRequest<null, Record<string, never>, { sparse?: string }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
-  const revisions = await getRevisionsByStatus(context, [
-    "draft",
-    "approved",
-    "changes-requested",
-    "pending-review",
-  ]);
+  const sparse = req.query.sparse !== "false";
+  const revisions = await getRevisionsByStatus(
+    context,
+    ["draft", "approved", "changes-requested", "pending-review"],
+    { sparse },
+  );
 
   const featureIds = Array.from(new Set(revisions.map((r) => r.featureId)));
   const featureMeta = await getFeatureMetaInfoByIds(context, featureIds);
@@ -4067,23 +4074,209 @@ function evalDeterministicPrereqValueBackend(
 }
 
 // Return lightweight feature metadata for UI components
-export async function getFeatureNames(
-  req: AuthRequest<null, null, { defaultValue?: string }>,
+export async function getFeatureMetaInfo(
+  req: AuthRequest<
+    null,
+    null,
+    { defaultValue?: string; project?: string; ids?: string }
+  >,
+  res: Response<
+    { status: 200; features: FeatureMetaInfo[] },
+    EventUserForResponseLocals
+  >,
+) {
+  const context = getContextFromReq(req);
+  const { defaultValue, project, ids } = req.query;
+
+  const features = await getFeatureMetaInfoById(context, {
+    includeDefaultValue: defaultValue === "1",
+    project: project || undefined,
+    ids: ids ? ids.split(",").filter(Boolean) : undefined,
+  });
+
+  res.status(200).json({ status: 200, features });
+}
+
+export async function getFeatureDraftStates(
+  req: AuthRequest<null, Record<string, never>, { ids?: string }>,
   res: Response<
     {
       status: 200;
-      features: FeatureMetaInfo[];
+      features: Record<string, { status: string; version: number }>;
     },
     EventUserForResponseLocals
   >,
 ) {
   const context = getContextFromReq(req);
-  const includeDefaultValue = req.query.defaultValue === "1";
+  const featureIds = req.query.ids
+    ? req.query.ids.split(",").filter(Boolean)
+    : undefined;
+  const features = await getActiveDraftStates(context.org.id, featureIds);
+  res.status(200).json({ status: 200, features });
+}
 
-  const features = await getFeatureMetaInfoById(context, includeDefaultValue);
+// TODO: consider adding a force-recompute option that writes results back
+export async function getFeaturesStaleStates(
+  req: AuthRequest<null, Record<string, never>, { ids?: string }>,
+  res: Response<
+    {
+      status: 200;
+      features: Record<
+        string,
+        IsFeatureStaleResult & { neverStale: boolean; computedAt: string }
+      >;
+    },
+    EventUserForResponseLocals
+  >,
+) {
+  const context = getContextFromReq(req);
+  const featureIds = req.query.ids
+    ? req.query.ids.split(",").filter(Boolean)
+    : undefined;
 
-  res.status(200).json({
-    status: 200,
-    features,
-  });
+  const [allFeatures, allExperiments, draftRevisions] = await Promise.all([
+    getAllFeatures(context, {}),
+    getAllExperiments(context, { includeArchived: false }),
+    getRevisionsByStatus(context as ReqContext, [...ACTIVE_DRAFT_STATUSES], {
+      sparse: true,
+    }),
+  ]);
+
+  // Map most-recent draft date per feature
+  const mostRecentDraftDateByFeatureId = new Map<string, Date>();
+  for (const rev of draftRevisions) {
+    const existing = mostRecentDraftDateByFeatureId.get(rev.featureId);
+    const revDate = new Date(rev.dateUpdated ?? 0);
+    if (!existing || revDate > existing) {
+      mostRecentDraftDateByFeatureId.set(rev.featureId, revDate);
+    }
+  }
+
+  const targetFeatures = featureIds
+    ? allFeatures.filter((f) => featureIds.includes(f.id))
+    : allFeatures;
+
+  const computedAt = new Date().toISOString();
+  const result: Record<
+    string,
+    IsFeatureStaleResult & { neverStale: boolean; computedAt: string }
+  > = {};
+
+  for (const feature of targetFeatures) {
+    if (!context.permissions.canReadSingleProjectResource(feature.project))
+      continue;
+
+    const applicableEnvIds = getEnvironments(context.org)
+      .filter(
+        (env) =>
+          !feature.project ||
+          !env.projects?.length ||
+          env.projects.includes(feature.project as string),
+      )
+      .map((env) => env.id);
+
+    const staleResult = isFeatureStale({
+      feature,
+      features: allFeatures,
+      experiments: allExperiments as unknown as Parameters<
+        typeof isFeatureStale
+      >[0]["experiments"],
+      environments: applicableEnvIds,
+      mostRecentDraftDate:
+        mostRecentDraftDateByFeatureId.get(feature.id) ?? null,
+    });
+
+    result[feature.id] = {
+      ...staleResult,
+      neverStale: feature.neverStale ?? false,
+      computedAt,
+    };
+  }
+
+  res.status(200).json({ status: 200, features: result });
+}
+
+export async function getFeaturesStatus(
+  req: AuthRequest<null, Record<string, never>, { ids?: string }>,
+  res: Response<
+    {
+      status: 200;
+      features: Record<string, Record<string, boolean>>;
+    },
+    EventUserForResponseLocals
+  >,
+) {
+  const context = getContextFromReq(req);
+  const featureIds = req.query.ids
+    ? req.query.ids.split(",").filter(Boolean)
+    : undefined;
+
+  const raw = await getFeatureEnvStatus(context, featureIds);
+
+  const features: Record<string, Record<string, boolean>> = {};
+  for (const f of raw) {
+    const envMap: Record<string, boolean> = {};
+    for (const [envId, settings] of Object.entries(
+      f.environmentSettings || {},
+    )) {
+      envMap[envId] = settings.enabled ?? false;
+    }
+    features[f.id] = envMap;
+  }
+
+  res.status(200).json({ status: 200, features });
+}
+
+export async function getFeaturesDependents(
+  req: AuthRequest<null, Record<string, never>, { ids?: string }>,
+  res: Response<
+    {
+      status: 200;
+      dependents: Record<
+        string,
+        { features: string[]; experiments: { id: string; name: string }[] }
+      >;
+    },
+    EventUserForResponseLocals
+  >,
+) {
+  const context = getContextFromReq(req);
+  const featureIds = req.query.ids
+    ? req.query.ids.split(",").filter(Boolean)
+    : [];
+
+  if (!featureIds.length) {
+    return res.status(200).json({ status: 200, dependents: {} });
+  }
+
+  const allEnvIds = (context.org.settings?.environments || []).map((e) => e.id);
+
+  const [allFeatures, allExperiments] = await Promise.all([
+    getAllFeatures(context, { includeArchived: true }),
+    getAllExperiments(context, { includeArchived: true }),
+  ]);
+
+  const dependents: Record<
+    string,
+    { features: string[]; experiments: { id: string; name: string }[] }
+  > = {};
+
+  for (const featureId of featureIds) {
+    const feature = allFeatures.find((f) => f.id === featureId);
+    if (!feature) {
+      dependents[featureId] = { features: [], experiments: [] };
+      continue;
+    }
+    dependents[featureId] = {
+      features: getDependentFeatures(feature, allFeatures, allEnvIds),
+      experiments: allExperiments
+        .filter((e) => {
+          const phase = e.phases?.slice(-1)?.[0] ?? null;
+          return phase?.prerequisites?.some((p) => p.id === feature.id);
+        })
+        .map((e) => ({ id: e.id, name: e.name })),
+    };
+  }
+
+  return res.status(200).json({ status: 200, dependents });
 }

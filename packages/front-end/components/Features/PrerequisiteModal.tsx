@@ -14,7 +14,7 @@ import {
   getPrerequisites,
   useEnvironments,
 } from "@/services/features";
-import { useFeaturesNames } from "@/hooks/useFeaturesNames";
+import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import track from "@/services/track";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import { useAuth } from "@/services/auth";
@@ -45,7 +45,7 @@ export default function PrerequisiteModal({
   i,
   mutate,
 }: Props) {
-  const { features: featureNames } = useFeaturesNames({
+  const { features: featureNames } = useFeatureMetaInfo({
     includeDefaultValue: true,
   });
   const { projects } = useDefinitions();

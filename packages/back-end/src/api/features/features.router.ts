@@ -7,6 +7,7 @@ import { postFeature } from "./postFeature";
 import { updateFeature } from "./updateFeature";
 import { deleteFeatureById } from "./deleteFeature";
 import { getFeatureRevisions } from "./getFeatureRevisions";
+import { getFeatureStale } from "./getFeatureStale";
 
 const router = Router();
 
@@ -20,5 +21,6 @@ router.delete("/:id", deleteFeatureById);
 router.post("/:id/toggle", toggleFeature);
 router.post("/:id/revert", revertFeature);
 router.get("/:id/revisions", getFeatureRevisions);
+router.get("/:id/stale", getFeatureStale);
 
 export default router;

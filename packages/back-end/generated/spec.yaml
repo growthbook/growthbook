@@ -934,6 +934,92 @@ paths:
                         items:
                           $ref: '#/components/schemas/FeatureRevision'
                   - $ref: '#/components/schemas/PaginationFields'
+  '/features/{id}/stale':
+    get:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      summary: Get stale status for a feature
+      tags:
+        - features
+      operationId: getFeatureStale
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/features/my_feature/stale \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - featureId
+                  - isStale
+                  - staleReason
+                  - staleLastCalculated
+                  - neverStale
+                properties:
+                  featureId:
+                    type: string
+                    description: The feature key
+                  isStale:
+                    type: boolean
+                    description: Whether the feature is considered stale overall (all enabled environments are stale). Always false when neverStale is true.
+                  staleReason:
+                    type: string
+                    nullable: true
+                    enum:
+                      - never-stale
+                      - recently-updated
+                      - active-draft
+                      - has-dependents
+                      - no-rules
+                      - rules-one-sided
+                      - abandoned-draft
+                      - toggled-off
+                      - active-experiment
+                      - has-rules
+                    description: |
+                      Reason for the feature's stale or non-stale status. `never-stale` when stale detection is disabled. Non-stale reasons: `recently-updated`, `active-draft`, `has-dependents`. Stale reasons: `no-rules`, `rules-one-sided`, `abandoned-draft`, `toggled-off`. Null when non-stale with no single cause (see staleByEnv).
+                  staleLastCalculated:
+                    type: string
+                    format: date-time
+                    nullable: true
+                    description: ISO 8601 timestamp of when stale status was computed for this response.
+                  neverStale:
+                    type: boolean
+                    description: When true the feature is permanently excluded from stale detection.
+                  staleByEnv:
+                    type: object
+                    description: 'Per-environment staleness breakdown, keyed by environment ID. Present when environments exist.'
+                    additionalProperties:
+                      type: object
+                      required:
+                        - isStale
+                        - reason
+                      properties:
+                        isStale:
+                          type: boolean
+                          description: Whether this environment is stale
+                        reason:
+                          type: string
+                          nullable: true
+                          enum:
+                            - no-rules
+                            - rules-one-sided
+                            - abandoned-draft
+                            - toggled-off
+                            - active-experiment
+                            - has-rules
+                            - recently-updated
+                            - active-draft
+                            - has-dependents
+                          description: Reason for the stale status in this environment
+                        evaluatesTo:
+                          type: string
+                          description: |
+                            The deterministic value this feature evaluates to in this environment. Uses the same raw string encoding as `feature.defaultValue`. Only present when the value is deterministic or the environment is toggled off.
   /feature-keys:
     get:
       summary: Get list of feature keys

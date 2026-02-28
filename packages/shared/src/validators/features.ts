@@ -209,20 +209,33 @@ export type RevisionLog = z.infer<typeof revisionLog>;
 const revisionRulesSchema = z.record(z.string(), z.array(featureRule));
 export type RevisionRules = z.infer<typeof revisionRulesSchema>;
 
+export const revisionStatusSchema = z.enum([
+  "draft",
+  "published",
+  "discarded",
+  "approved",
+  "changes-requested",
+  "pending-review",
+]);
+
+export type RevisionStatus = z.infer<typeof revisionStatusSchema>;
+
+export const activeDraftStatusSchema = revisionStatusSchema.exclude([
+  "published",
+  "discarded",
+]);
+
+export type ActiveDraftStatus = z.infer<typeof activeDraftStatusSchema>;
+
+export const ACTIVE_DRAFT_STATUSES = activeDraftStatusSchema.options;
+
 const minimalFeatureRevisionInterface = z
   .object({
     version: z.number(),
     datePublished: z.union([z.null(), z.date()]),
     dateUpdated: z.date(),
     createdBy: eventUser,
-    status: z.enum([
-      "draft",
-      "published",
-      "discarded",
-      "approved",
-      "changes-requested",
-      "pending-review",
-    ]),
+    status: revisionStatusSchema,
   })
   .strict();
 
@@ -291,7 +304,6 @@ export const computedFeatureInterface = featureInterface
     projectIsDeReferenced: z.boolean(),
     savedGroups: z.array(z.string()),
     stale: z.boolean(),
-    staleReason: z.string(),
     ownerName: z.string(),
   })
   .strict();
