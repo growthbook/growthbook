@@ -57,6 +57,7 @@ properties:
       - version
       - comment
       - date
+      - createdBy
       - publishedBy
     properties:
       version:
@@ -66,6 +67,8 @@ properties:
       date:
         type: string
         format: date-time
+      createdBy:
+        type: string
       publishedBy:
         type: string
   customFields:

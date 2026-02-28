@@ -18,6 +18,8 @@ properties:
     format: date-time
   status:
     type: string
+  createdBy:
+    type: string
   publishedBy:
     type: string
   rules:
