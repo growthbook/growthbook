@@ -144,6 +144,8 @@ const metricSchema = new mongoose.Schema({
 });
 
 metricSchema.index({ id: 1, organization: 1 }, { unique: true });
+// Compound indexes for API list filtering
+metricSchema.index({ organization: 1, datasource: 1 });
 
 const MetricModel = mongoose.model<LegacyMetricInterface>(
   "Metric",
@@ -340,6 +342,7 @@ async function findMetrics(
         projection: { analysis: 0 },
       },
     )
+    .sort({ id: 1 })
     .toArray();
   docs.forEach((doc) => {
     if (metricIds.has(doc.id)) {
@@ -354,10 +357,33 @@ async function findMetrics(
   );
 }
 
+export interface MetricFilterOptions {
+  datasourceId?: string;
+  projectId?: string;
+}
+
 export async function getMetricsByOrganization(
   context: ReqContext | ApiReqContext,
+  options?: MetricFilterOptions,
 ) {
-  return findMetrics(context);
+  // Build query with optional filters
+  const query: Record<string, unknown> = {};
+
+  if (options?.datasourceId) {
+    query.datasource = options.datasourceId;
+  }
+
+  if (options?.projectId) {
+    // Match if: projects array contains the projectId OR projects is empty/missing
+    // (empty projects means the metric is available to all projects)
+    query.$or = [
+      { projects: options.projectId },
+      { projects: { $size: 0 } },
+      { projects: { $exists: false } },
+    ];
+  }
+
+  return findMetrics(context, query as Partial<MetricInterface>);
 }
 
 export async function getMetricsByDatasource(
