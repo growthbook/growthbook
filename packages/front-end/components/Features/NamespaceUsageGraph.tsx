@@ -15,6 +15,7 @@ export interface Props {
   featureId?: string;
   trackingKey?: string;
   range?: [number, number];
+  ranges?: [number, number][];
   setRange?: (range: [number, number]) => void;
   title?: string;
 }
@@ -25,6 +26,7 @@ export default function NamespaceUsageGraph({
   featureId = "",
   trackingKey = "",
   range,
+  ranges,
   setRange,
   title = "Allocation",
 }: Props) {
@@ -79,26 +81,27 @@ export default function NamespaceUsageGraph({
             }}
           />
         ))}
-        {range && (
-          <>
+        {/* Display multiple ranges or single range */}
+        {(ranges || (range ? [range] : [])).map((r, index) => (
+          <div key={`range-${index}`}>
             <div
               className={styles.rangeSelected}
               style={{
-                left: `${+(range[0] * 100).toFixed(4)}%`,
-                width: `${+(range[1] * 100 - range[0] * 100).toFixed(4)}%`,
+                left: `${+(r[0] * 100).toFixed(4)}%`,
+                width: `${+(r[1] * 100 - r[0] * 100).toFixed(4)}%`,
               }}
             ></div>
             <div
               className={styles.rangeMarker}
               style={{
-                left: `${+(range[0] * 100).toFixed(4)}%`,
-                width: `${+(range[1] * 100 - range[0] * 100).toFixed(4)}%`,
+                left: `${+(r[0] * 100).toFixed(4)}%`,
+                width: `${+(r[1] * 100 - r[0] * 100).toFixed(4)}%`,
               }}
             >
-              <span>{percentFormatter.format(range[1] - range[0])}</span>
+              <span>{percentFormatter.format(r[1] - r[0])}</span>
             </div>
-          </>
-        )}
+          </div>
+        ))}
       </div>
     </div>
   );

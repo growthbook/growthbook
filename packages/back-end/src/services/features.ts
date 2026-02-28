@@ -72,6 +72,7 @@ import {
 import {
   Environment,
   OrganizationInterface,
+  Namespaces,
   SDKAttribute,
   SDKAttributeSchema,
 } from "shared/types/organization";
@@ -88,6 +89,7 @@ import {
   getAllVisualExperiments,
 } from "back-end/src/models/ExperimentModel";
 import {
+  applyNamespaceToRule,
   getFeatureDefinition,
   getHoldoutFeatureDefId,
   getParsedCondition,
@@ -118,6 +120,7 @@ export function generateFeaturesPayload({
   prereqStateCache = {},
   safeRolloutMap,
   holdoutsMap,
+  namespaces,
 }: {
   features: FeatureInterface[];
   experimentMap: Map<string, ExperimentInterface>;
@@ -128,6 +131,10 @@ export function generateFeaturesPayload({
   holdoutsMap: Map<
     string,
     { holdout: HoldoutInterface; experiment: ExperimentInterface }
+  >;
+  namespaces?: Map<
+    string,
+    { hashAttribute?: string; seed?: string; format?: "legacy" | "multiRange" }
   >;
 }): Record<string, FeatureDefinition> {
   prereqStateCache[environment] = prereqStateCache[environment] || {};
@@ -147,6 +154,7 @@ export function generateFeaturesPayload({
       experimentMap,
       safeRolloutMap,
       holdoutsMap,
+      namespaces,
     });
     if (def) {
       defs[feature.id] = def;
@@ -217,6 +225,7 @@ export function generateAutoExperimentsPayload({
   features,
   environment,
   prereqStateCache = {},
+  namespaces,
 }: {
   visualExperiments: VisualExperiment[];
   urlRedirectExperiments: URLRedirectExperiment[];
@@ -224,6 +233,10 @@ export function generateAutoExperimentsPayload({
   features: FeatureInterface[];
   environment: string;
   prereqStateCache?: Record<string, Record<string, PrerequisiteStateResult>>;
+  namespaces?: Map<
+    string,
+    { hashAttribute?: string; seed?: string; format?: "legacy" | "multiRange" }
+  >;
 }): AutoExperimentWithProject[] {
   prereqStateCache[environment] = prereqStateCache[environment] || {};
 
@@ -333,25 +346,17 @@ export function generateAutoExperimentsPayload({
             : data.visualChangeset.urlPatterns,
         weights: phase.variationWeights,
         meta: e.variations.map((v) => ({ key: v.key, name: v.name })),
-        filters: phase?.namespace?.enabled
-          ? [
-              {
-                attribute: e.hashAttribute,
-                seed: phase.namespace.name,
-                hashVersion: 2,
-                ranges: [phase.namespace.range],
-              },
-            ]
-          : [],
-        seed: phase.seed,
-        name: e.name,
-        phase: `${e.phases.length - 1}`,
         force: forcedVariation
           ? e.variations.indexOf(forcedVariation)
           : undefined,
         condition,
         coverage: phase.coverage,
       };
+
+      // Handle namespace
+      if (phase?.namespace?.enabled && phase.namespace.name) {
+        applyNamespaceToRule(exp, phase.namespace, namespaces);
+      }
 
       if (prerequisites.length) {
         exp.parentConditions = prerequisites;
@@ -364,6 +369,30 @@ export function generateAutoExperimentsPayload({
       return exp;
     });
   return sdkExperiments.filter(isValidSDKExperiment);
+}
+
+/**
+ * Convert namespaces array to Map for efficient lookups
+ */
+export function namespacesToMap(
+  namespaces?: Namespaces[],
+): Map<
+  string,
+  { hashAttribute?: string; seed?: string; format?: "legacy" | "multiRange" }
+> {
+  if (!namespaces) return new Map();
+  return new Map(
+    namespaces.map((ns) => [
+      ns.name,
+      {
+        // For legacy, hashAttribute and seed might be missing but we try to preserve them if available
+        hashAttribute:
+          ("hashAttribute" in ns ? ns.hashAttribute : undefined) || "id",
+        seed: ("seed" in ns ? ns.seed : undefined) || ns.name,
+        format: ns.format,
+      },
+    ]),
+  );
 }
 
 export async function getSavedGroupMap(
@@ -591,6 +620,7 @@ async function refreshSDKPayloadCache({
       prereqStateCache,
       safeRolloutMap,
       holdoutsMap,
+      namespaces: namespacesToMap(context.org.settings?.namespaces),
     });
     featureDefinitionsByEnv[environment] = featureDefinitions;
 
@@ -606,6 +636,7 @@ async function refreshSDKPayloadCache({
       features: allFeatures,
       environment,
       prereqStateCache,
+      namespaces: namespacesToMap(context.org.settings?.namespaces),
     });
     expDefinitionsByEnv[environment] = experimentsDefinitions;
 
@@ -1078,6 +1109,7 @@ export async function getFeatureDefinitions({
     prereqStateCache,
     safeRolloutMap,
     holdoutsMap,
+    namespaces: namespacesToMap(context.org.settings?.namespaces),
   });
 
   const holdoutFeatureDefinitions = generateHoldoutsPayload({
@@ -1101,6 +1133,7 @@ export async function getFeatureDefinitions({
     features,
     environment,
     prereqStateCache,
+    namespaces: namespacesToMap(context.org.settings?.namespaces),
   });
 
   const savedGroupsInUse = filterUsedSavedGroups(
@@ -1166,6 +1199,7 @@ export function evaluateFeature({
   skipRulesWithPrerequisites = true,
   date = new Date(),
   safeRolloutMap,
+  namespaces,
 }: {
   feature: FeatureInterface;
   attributes: ArchetypeAttributeValues;
@@ -1177,6 +1211,10 @@ export function evaluateFeature({
   skipRulesWithPrerequisites?: boolean;
   date?: Date;
   safeRolloutMap: Map<string, SafeRolloutInterface>;
+  namespaces?: Map<
+    string,
+    { hashAttribute?: string; seed?: string; format?: "legacy" | "multiRange" }
+  >;
 }) {
   const results: FeatureTestResult[] = [];
   const savedGroups = getSavedGroupsValuesFromGroupMap(groupMap);
@@ -1210,6 +1248,7 @@ export function evaluateFeature({
         revision,
         date,
         safeRolloutMap,
+        namespaces: namespaces,
       });
 
       if (definition) {
@@ -1340,6 +1379,7 @@ export async function evaluateAllFeatures({
       prereqStateCache: {},
       safeRolloutMap,
       holdoutsMap,
+      namespaces: namespacesToMap(context.org.settings?.namespaces),
     });
 
     // now we have all the definitions, lets evaluate them
@@ -1540,12 +1580,13 @@ export function getApiFeatureObj({
       experimentMap,
       environment: env,
       safeRolloutMap,
+      namespaces: namespacesToMap(organization.settings?.namespaces),
     });
 
     featureEnvironments[env] = {
       enabled,
       defaultValue,
-      rules,
+      rules: rules as ApiFeatureRule[],
     };
     if (definition) {
       featureEnvironments[env].definition = JSON.stringify(definition);
@@ -1585,9 +1626,10 @@ export function getApiFeatureObj({
         experimentMap,
         environment: env,
         safeRolloutMap,
+        namespaces: namespacesToMap(organization.settings?.namespaces),
       });
 
-      environmentRules[env] = rules;
+      environmentRules[env] = rules as ApiFeatureRule[];
       environmentDefinitions[env] = JSON.stringify(definition);
     });
     const publishedBy =

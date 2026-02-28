@@ -48,7 +48,18 @@ const NewPhaseForm: FC<{
       namespace: {
         enabled: prevPhase.namespace?.enabled || false,
         name: prevPhase.namespace?.name || "",
-        range: prevPhase.namespace?.range || [0, 0.5],
+        // Handle both old (single range) and new (multiple ranges) formats
+        ranges: (() => {
+          const ns = prevPhase.namespace;
+          if (!ns) return [[0, 0.5] as [number, number]];
+
+          if ("ranges" in ns && ns.ranges && ns.ranges.length > 0) {
+            return ns.ranges;
+          } else if ("range" in ns && ns.range) {
+            return [ns.range];
+          }
+          return [[0, 0.5] as [number, number]];
+        })(),
       },
     },
   });

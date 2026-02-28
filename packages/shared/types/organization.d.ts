@@ -142,12 +142,26 @@ export interface MetricDefaults {
   targetMDE?: number;
 }
 
-export interface Namespaces {
+export type NamespaceFormat = NonNullable<Namespaces["format"]>;
+
+export interface NamespaceBase {
   name: string;
   label: string;
   description: string;
   status: "active" | "inactive";
 }
+
+export interface LegacyNamespace extends NamespaceBase {
+  format?: "legacy";
+}
+
+export interface MultiRangeNamespace extends NamespaceBase {
+  format: "multiRange";
+  hashAttribute: string;
+  seed: string;
+}
+
+export type Namespaces = LegacyNamespace | MultiRangeNamespace;
 
 export type SDKAttributeFormat = "" | "version" | "date" | "isoCountryCode";
 

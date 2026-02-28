@@ -25,7 +25,7 @@ import {
   FeatureRule,
   LegacyFeatureInterface,
 } from "shared/types/feature";
-import { OrganizationInterface } from "shared/types/organization";
+import { Namespaces, OrganizationInterface } from "shared/types/organization";
 import {
   ExperimentInterface,
   LegacyExperimentInterface,
@@ -507,12 +507,19 @@ export function upgradeOrganizationDoc(
     }
   });
 
-  // Make sure namespaces have labels- if it's missing, use the name
+  // Make sure namespaces have labels, seeds, and format flags - if missing, use defaults
   if (org?.settings?.namespaces?.length) {
-    org.settings.namespaces = org.settings.namespaces.map((ns) => ({
-      ...ns,
-      label: ns.label || ns.name,
-    }));
+    org.settings.namespaces = org.settings.namespaces.map((ns) => {
+      const hashAttribute =
+        "hashAttribute" in ns ? ns.hashAttribute : undefined;
+      const seed = "seed" in ns ? ns.seed : undefined;
+      return {
+        ...ns,
+        label: ns.label || ns.name,
+        seed: seed || uuidv4(), // Add seed if missing
+        format: ns.format || (hashAttribute ? "multiRange" : "legacy"), // Set format based on hashAttribute presence
+      } as Namespaces;
+    });
   }
 
   // Migrate postStratificationDisabled to postStratificationEnabled
@@ -577,7 +584,7 @@ export function upgradeExperimentDoc(
       };
       // Some experiments have a namespace with only `enabled` set, no idea why
       // This breaks namespaces, so add default values if missing
-      if (!phase.namespace.range) {
+      if (!("range" in phase.namespace) && !("ranges" in phase.namespace)) {
         phase.namespace = {
           enabled: false,
           name: "",

@@ -2,6 +2,7 @@ import { ExperimentRule, FeatureInterface } from "shared/types/feature";
 import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Box, Flex, Text } from "@radix-ui/themes";
+import { calculateNamespaceCoverage } from "shared/util";
 import { getVariationColor } from "@/services/features";
 import ValidateValue from "@/components/Features/ValidateValue";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -30,9 +31,9 @@ export default function ExperimentSummary({
   const { namespaces: allNamespaces } = useOrgSettings();
 
   const hasNamespace = namespace && namespace.enabled;
-  const namespaceRange = hasNamespace
-    ? namespace.range[1] - namespace.range[0]
-    : 1;
+  // Calculate total namespace allocation
+  const namespaceRange =
+    hasNamespace && namespace ? calculateNamespaceCoverage(namespace) : 1;
   const effectiveCoverage = namespaceRange * (coverage ?? 1);
 
   return (
