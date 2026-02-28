@@ -43,7 +43,11 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import useApi from "@/hooks/useApi";
-import { useAddComputedFields, useSearch } from "@/services/search";
+import {
+  useAddComputedFields,
+  useSearch,
+  type SearchFields,
+} from "@/services/search";
 import { useUser } from "@/services/UserContext";
 import { ALL_COUNTRY_CODES } from "@/components/Forms/CountrySelector";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -197,10 +201,12 @@ export function useFeatureSearch({
     allFeatures,
     (f) => {
       const projectId = f.project;
-      const projectName = projectId ? getProjectById(projectId)?.name : "";
+      const projectName = projectId
+        ? (getProjectById(projectId)?.name ?? "")
+        : "";
       const projectIsDeReferenced = projectId && !projectName;
       return {
-        ...f,
+        projectNamesSearch: projectName.trim(),
         projectId,
         projectName,
         projectIsDeReferenced,
@@ -215,7 +221,14 @@ export function useFeatureSearch({
   return useSearch({
     items: features,
     defaultSortField: defaultSortField,
-    searchFields: ["id^3", "description"],
+    // projectNamesSearch added for search (same pattern as Attributes table); cast needed as it's a computed field
+    searchFields: [
+      "id^3",
+      "description",
+      "tags^2",
+      "projectNamesSearch",
+      "valueType",
+    ] as unknown as SearchFields<FeatureInterface>,
     filterResults,
     updateSearchQueryOnChange: true,
     localStorageKey: localStorageKey,

@@ -31,9 +31,7 @@ export default function SortedTags({
 
   const renderEllipsis = () => {
     const tags = sorted.slice(showEllipsisAtIndex);
-    const moreTagsCopy = `${tags.length} more tag${
-      tags.length === 1 ? "" : "s"
-    }...`;
+    const moreTagsCopy = `+${tags.length}`;
     const tagElements = renderTags(tags);
     return (
       <Tooltip

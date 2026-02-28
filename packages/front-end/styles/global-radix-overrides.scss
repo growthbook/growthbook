@@ -406,6 +406,72 @@ p.rt-TooltipText {
   }
 }
 
+// List table variant: sticky header, row hover
+.table-list-wrapper {
+  &[data-table-list] {
+    // Sticky header must not sit inside a scroll container; overflow-x: auto would make overflow-y
+    // compute to 'auto' (CSS spec), so the wrapper would become the scroll container. Use visible
+    // so the viewport is the scroll container and sticky works. Wide tables scroll with the page.
+    overflow: visible;
+    // Override .appbox: no background so it doesn't stick out past the table border
+    background-color: transparent;
+    // Table border (overrides .appbox border)
+    border-radius: var(--radius-4);
+    border-top: 1px solid var(--slate-a5, rgba(0, 9, 50, 0.12));
+    border-bottom: 1px solid var(--slate-a5, rgba(0, 9, 50, 0.12));
+    border-left: 1px solid var(--slate-a5, rgba(0, 9, 50, 0.12));
+    border-right: 1px solid var(--slate-a5, rgba(0, 9, 50, 0.12));
+    // Override Radix .rt-TableRoot:where(.rt-variant-surface) border so only wrapper border shows
+    .rt-TableRoot.table-list {
+      border: none;
+    }
+    .rt-ScrollAreaRoot,
+    .rt-ScrollAreaViewport {
+      overflow: visible !important;
+    }
+    // .rt-TableBody .rt-TableRow .rt-TableCell {
+    //   background-color: var(--table-list-background-color);
+    // }
+    .rt-TableBody .rt-TableRow:hover .rt-TableCell {
+      background-color: var(--table-row-highlight-background-color);
+    }
+    .rt-TableHeader {
+      position: sticky;
+      top: var(--table-sticky-top, var(--sticky-header-top));
+      z-index: 900;
+      // Downward-only shadow when sticky (no upward bleed)
+      box-shadow: 0 4px 6px -2px rgba(0, 0, 0, 0.1);
+      // Same background as rows for unified look
+      background-color: var(--table-list-background-color);
+      overflow: visible;
+    }
+    // .rt-TableHeader .rt-TableRow .rt-TableColumnHeaderCell {
+    //   background-color: var(--table-list-background-color);
+    // }
+
+    .rt-TableRootTable {
+      overflow: visible !important;
+      border-collapse: separate;
+      border-spacing: 0;
+      border: none;
+
+      .rt-TableHeader
+        .rt-TableRow:first-child
+        .rt-TableColumnHeaderCell:first-child {
+        border-top-left-radius: var(--radius-4);
+        overflow: visible;
+      }
+
+      .rt-TableHeader
+        .rt-TableRow:first-child
+        .rt-TableColumnHeaderCell:last-child {
+        border-top-right-radius: var(--radius-4);
+        overflow: visible;
+      }
+    }
+  }
+}
+
 // Utility classes
 .truncate {
   overflow: hidden;
