@@ -1,5 +1,4 @@
 import { Client, ClientOptions, QueryOptions } from "presto-client";
-import { format } from "shared/sql";
 import { FormatDialect } from "shared/types/sql";
 import { prestoCreateTablePartitions } from "shared/enterprise";
 import {
@@ -10,6 +9,7 @@ import {
 } from "shared/types/integrations";
 import { QueryMetadata, QueryStatistics } from "shared/types/query";
 import { PrestoConnectionParams } from "shared/types/integrations/presto";
+import { formatAsync } from "back-end/src/util/sql";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { getKerberosHeader } from "back-end/src/util/kerberos.util";
 import { getQueryTagString } from "back-end/src/util/integration";
@@ -201,12 +201,12 @@ export default class Presto extends SqlIntegration {
 
   // FIXME(incremental-refresh): Consider using 2 separate queries to create table and insert data instead of ignored cteSql
   // NB: CREATE AS CTE does not work when inserting databecause of a bug with timestamp columns with Hive
-  getExperimentUnitsTableQueryFromCte(
-    unitsTableFullName: string,
-    _cteSql: string,
-  ): string {
-    return format(
-      `CREATE TABLE ${unitsTableFullName} (
+  async getExperimentUnitsTableQueryFromCte(
+    tableFullName: string,
+    _cte: string,
+  ): Promise<string> {
+    return await formatAsync(
+      `CREATE TABLE ${tableFullName} (
         user_id ${this.getDataType("string")},
         variation ${this.getDataType("string")},
         first_exposure_timestamp ${this.getDataType("timestamp")}
@@ -225,10 +225,10 @@ export default class Presto extends SqlIntegration {
       : `"${fullTableName}$partitions"`;
   }
 
-  getMaxTimestampIncrementalUnitsQuery(
+  async getMaxTimestampIncrementalUnitsQuery(
     params: MaxTimestampIncrementalUnitsQueryParams,
-  ): string {
-    return format(
+  ): Promise<string> {
+    return await formatAsync(
       `
       SELECT MAX(max_timestamp) AS max_timestamp
       FROM ${this.getTablePartitionsTableName(params.unitsTableFullName)}
@@ -237,10 +237,10 @@ export default class Presto extends SqlIntegration {
     );
   }
 
-  getMaxTimestampMetricSourceQuery(
+  async getMaxTimestampMetricSourceQuery(
     params: MaxTimestampMetricSourceQueryParams,
-  ): string {
-    return format(
+  ): Promise<string> {
+    return await formatAsync(
       `
       SELECT MAX(max_timestamp) AS max_timestamp
       FROM ${this.getTablePartitionsTableName(params.metricSourceTableFullName)}

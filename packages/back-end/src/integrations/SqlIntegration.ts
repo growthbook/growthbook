@@ -153,6 +153,7 @@ import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQ
 import { ReqContext } from "back-end/types/request";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import {
+  formatAsync,
   getBaseIdTypeAndJoins,
   compileSqlTemplate,
   replaceCountStar,
@@ -1935,17 +1936,17 @@ export default abstract class SqlIntegration
     return "";
   }
 
-  getExperimentUnitsTableQueryFromCte(
-    unitsTableFullName: string,
-    cteSql: string,
-  ): string {
-    return format(
+  async getExperimentUnitsTableQueryFromCte(
+    tableFullName: string,
+    cte: string,
+  ): Promise<string> {
+    return await formatAsync(
       `
-      CREATE OR REPLACE TABLE ${unitsTableFullName}
+      CREATE OR REPLACE TABLE ${tableFullName}
       ${this.createUnitsTableOptions()}
       AS (
         WITH
-        ${cteSql}
+        ${cte}
         SELECT * FROM __experimentUnits
       );
     `,
@@ -1953,14 +1954,16 @@ export default abstract class SqlIntegration
     );
   }
 
-  getExperimentUnitsTableQuery(params: ExperimentUnitsQueryParams): string {
+  async getExperimentUnitsTableQuery(
+    params: ExperimentUnitsQueryParams,
+  ): Promise<string> {
     if (!params.unitsTableFullName) {
       throw new Error("Units table full name is required");
     }
 
     const cteSql = this.getExperimentUnitsQuery(params);
 
-    return this.getExperimentUnitsTableQueryFromCte(
+    return await this.getExperimentUnitsTableQueryFromCte(
       params.unitsTableFullName,
       cteSql,
     );
@@ -7123,10 +7126,10 @@ ORDER BY column_name, count DESC
     );
   }
 
-  getMaxTimestampIncrementalUnitsQuery(
+  async getMaxTimestampIncrementalUnitsQuery(
     params: MaxTimestampIncrementalUnitsQueryParams,
-  ): string {
-    return format(
+  ): Promise<string> {
+    return await formatAsync(
       `
       SELECT MAX(max_timestamp) AS max_timestamp FROM ${params.unitsTableFullName}
       `,
@@ -7186,10 +7189,10 @@ ORDER BY column_name, count DESC
     }
   }
 
-  getMaxTimestampMetricSourceQuery(
+  async getMaxTimestampMetricSourceQuery(
     params: MaxTimestampMetricSourceQueryParams,
-  ): string {
-    return format(
+  ): Promise<string> {
+    return await formatAsync(
       `
       SELECT MAX(max_timestamp) AS max_timestamp FROM ${params.metricSourceTableFullName}
       `,

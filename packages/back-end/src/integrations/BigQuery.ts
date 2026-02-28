@@ -5,7 +5,6 @@ import {
   bigQueryCreateTablePartitions,
 } from "shared/enterprise";
 import { FormatDialect } from "shared/types/sql";
-import { format } from "shared/sql";
 import {
   ExternalIdCallback,
   InformationSchema,
@@ -17,6 +16,7 @@ import {
   MaxTimestampIncrementalUnitsQueryParams,
 } from "shared/types/integrations";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
+import { formatAsync } from "back-end/src/util/sql";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
@@ -251,7 +251,7 @@ export default class BigQuery extends SqlIntegration {
 
       try {
         const { rows: datasetResults } = await this.runQuery(
-          format(query, this.getFormatDialect()),
+          await formatAsync(query, this.getFormatDialect()),
         );
 
         if (datasetResults.length > 0) {
@@ -330,10 +330,10 @@ export default class BigQuery extends SqlIntegration {
     return bigQueryCreateTablePartitions(columns);
   }
 
-  getMaxTimestampMetricSourceQuery(
+  async getMaxTimestampMetricSourceQuery(
     params: MaxTimestampMetricSourceQueryParams,
-  ): string {
-    return format(
+  ): Promise<string> {
+    return await formatAsync(
       `
       SELECT
         MAX(max_timestamp) AS max_timestamp
@@ -344,10 +344,10 @@ export default class BigQuery extends SqlIntegration {
     );
   }
 
-  getMaxTimestampIncrementalUnitsQuery(
+  async getMaxTimestampIncrementalUnitsQuery(
     params: MaxTimestampIncrementalUnitsQueryParams,
-  ): string {
-    return format(
+  ): Promise<string> {
+    return await formatAsync(
       `
       SELECT
         MAX(max_timestamp) AS max_timestamp

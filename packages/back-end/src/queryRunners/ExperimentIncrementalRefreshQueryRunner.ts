@@ -411,7 +411,7 @@ const startExperimentIncrementalRefreshQueries = async (
   const maxTimestampUnitsTableQuery = await startQuery({
     name: `max_timestamp_${queryParentId}`,
     displayTitle: "Find Latest Experiment Source Timestamp",
-    query: integration.getMaxTimestampIncrementalUnitsQuery({
+    query: await integration.getMaxTimestampIncrementalUnitsQuery({
       unitsTableFullName,
       lastMaxTimestamp: lastMaxTimestamp || null,
     }),
@@ -669,7 +669,7 @@ const startExperimentIncrementalRefreshQueries = async (
     const maxTimestampMetricsSourceQuery = await startQuery({
       name: `max_timestamp_metrics_source_${group.groupId}`,
       displayTitle: `Find Latest Metrics Source Timestamp ${sourceName}`,
-      query: integration.getMaxTimestampMetricSourceQuery({
+      query: await integration.getMaxTimestampMetricSourceQuery({
         metricSourceTableFullName,
         lastMaxTimestamp: existingSource?.maxTimestamp || null,
       }),

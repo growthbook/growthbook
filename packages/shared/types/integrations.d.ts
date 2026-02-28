@@ -21,7 +21,7 @@ export interface PipelineIntegration {
   getExperimentUnitsTableQueryFromCte(
     tableFullName: string,
     cte: string,
-  ): string;
+  ): Promise<string>;
   getSampleUnitsCTE(): string;
   getPipelineValidationInsertQuery(params: { tableFullName: string }): string;
   getDropUnitsTableQuery(params: { fullTablePath: string }): string;

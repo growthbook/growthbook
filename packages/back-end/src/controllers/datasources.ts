@@ -618,7 +618,7 @@ export async function postValidatePipelineSettings(
 
   try {
     await integration.runTestQuery(
-      getPipelineValidationCreateTableQuery({
+      await getPipelineValidationCreateTableQuery({
         tableFullName: fullTestTablePath,
         integration,
       }),

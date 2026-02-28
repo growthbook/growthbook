@@ -144,7 +144,9 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   ): Promise<ExperimentMetricQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  getExperimentUnitsTableQuery(_: ExperimentUnitsQueryParams): string {
+  async getExperimentUnitsTableQuery(
+    _: ExperimentUnitsQueryParams,
+  ): Promise<string> {
     throw new Error("Method not implemented.");
   }
   runExperimentUnitsQuery(
@@ -191,14 +193,14 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   ): string {
     throw new Error("Method not implemented.");
   }
-  getMaxTimestampIncrementalUnitsQuery(
+  async getMaxTimestampIncrementalUnitsQuery(
     _: MaxTimestampIncrementalUnitsQueryParams,
-  ): string {
+  ): Promise<string> {
     throw new Error("Method not implemented.");
   }
-  getMaxTimestampMetricSourceQuery(
+  async getMaxTimestampMetricSourceQuery(
     _: MaxTimestampMetricSourceQueryParams,
-  ): string {
+  ): Promise<string> {
     throw new Error("Method not implemented.");
   }
   getCreateMetricSourceTableQuery(
