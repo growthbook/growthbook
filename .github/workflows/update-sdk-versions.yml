@@ -1,0 +1,217 @@
+# This workflow receives a repository_dispatch event from the SDK repositories
+# and updates the SDK version in the sdk-versions directory.
+# It then creates a pull request to the main branch.
+
+name: Update SDK Versions
+
+on:
+  repository_dispatch:
+    types: [update-sdk-version]
+  workflow_dispatch:
+    inputs:
+      sdk:
+        description: 'SDK to update (python, js, etc.)'
+        required: true
+        default: 'none'
+      version:
+        description: 'Version to update to'
+        required: true
+      source_repo:
+        description: 'Source repository (for manual testing)'
+        required: false
+        default: 'manual'
+
+jobs:
+  update-sdk-versions:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get Parameters
+        id: params
+        run: |
+          if [ "${{ github.event_name }}" == "repository_dispatch" ]; then
+            echo "sdk=${{ github.event.client_payload.sdk }}" >> $GITHUB_OUTPUT
+            echo "version=${{ github.event.client_payload.version }}" >> $GITHUB_OUTPUT
+            echo "source_repo=${{ github.event.client_payload.source_repo }}" >> $GITHUB_OUTPUT
+          else
+            echo "sdk=${{ inputs.sdk }}" >> $GITHUB_OUTPUT
+            echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
+            echo "source_repo=${{ inputs.source_repo }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Validate Event Payload
+        run: |
+          SDK="${{ steps.params.outputs.sdk }}"
+          VERSION="${{ steps.params.outputs.version }}"
+          
+          # Validate SDK name
+          if [ "$SDK" = "none" ] || [ -z "$SDK" ]; then
+            echo "❌ Error: SDK parameter is required"
+            exit 1
+          fi
+          
+          # Validate version format (semver)
+          if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "❌ Error: Version '$VERSION' must be in semantic versioning format (x.y.z)"
+            exit 1
+          fi
+          
+          echo "✅ Inputs validated: SDK=$SDK, VERSION=$VERSION"
+
+      - name: Validate Source Repository
+        if: steps.params.outputs.source_repo != 'manual'
+        run: |
+          SOURCE_REPO="${{ steps.params.outputs.source_repo }}"
+          echo "Validating source repository: $SOURCE_REPO"
+          
+          # Get list of all repositories in growthbook organization
+          echo "Fetching repositories in growthbook organization..."
+          REPO_LIST=$(gh api orgs/growthbook/repos --paginate --jq '.[].full_name')
+          
+          # Check if source repo exists in the organization
+          if echo "$REPO_LIST" | grep -q "^$SOURCE_REPO$"; then
+            echo "✅ Source repository '$SOURCE_REPO' validated"
+          else
+            echo "❌ Error: Repository '$SOURCE_REPO' not found in growthbook organization"
+            echo "Available repositories:"
+            echo "$REPO_LIST"
+            exit 1
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Branch
+        run: |
+          SDK="${{ steps.params.outputs.sdk }}"
+          VERSION="${{ steps.params.outputs.version }}"
+          BRANCH_NAME="update-${SDK}-sdk-${VERSION}"
+          
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git checkout -b "$BRANCH_NAME"
+          
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_ENV
+
+      - name: Update SDK Version File
+        run: |
+          SDK="${{ steps.params.outputs.sdk }}"
+          VERSION="${{ steps.params.outputs.version }}"
+          SDK_FILE="packages/shared/src/sdk-versioning/sdk-versions/${SDK}.json"
+          
+          echo "Updating SDK version in file: $SDK_FILE"
+          
+          # Check if SDK file exists
+          if [ ! -f "$SDK_FILE" ]; then
+            echo "❌ Error: SDK file $SDK_FILE does not exist"
+            exit 1
+          fi
+          
+          # Check if version already exists
+          if jq -e --arg v "$VERSION" '.versions[] | select(.version == $v)' "$SDK_FILE" > /dev/null; then
+            echo "⚠️  Version $VERSION already exists in $SDK_FILE"
+            echo "version_file_updated=false" >> $GITHUB_ENV
+          else
+            echo "Adding version $VERSION to $SDK_FILE"
+            jq --arg v "$VERSION" '.versions = ([{"version": $v}] + .versions)' "$SDK_FILE" > "${SDK_FILE}.tmp"
+            if [ $? -eq 0 ]; then
+              mv "${SDK_FILE}.tmp" "$SDK_FILE"
+              git add "$SDK_FILE"
+              echo "version_file_updated=true" >> $GITHUB_ENV
+            else
+              echo "❌ Error: Failed to update $SDK_FILE"
+              rm -f "${SDK_FILE}.tmp"
+              exit 1
+            fi
+          fi
+
+      - name: Update SDK Documentation
+        run: |
+          SDK="${{ steps.params.outputs.sdk }}"
+          VERSION="${{ steps.params.outputs.version }}"
+          SDKINFO_FILE="docs/src/data/SDKInfo.json"
+          
+          echo "Updating SDK documentation: $SDKINFO_FILE"
+          
+          if [ ! -f "$SDKINFO_FILE" ]; then
+            echo "⚠️  Warning: SDKInfo.json not found at $SDKINFO_FILE"
+            echo "docs_updated=false" >> $GITHUB_ENV
+          else
+            # Update version for matching SDK
+            jq --arg sdk "$SDK" --arg ver "$VERSION" \
+               'map(if .id == $sdk then .version = $ver else . end)' \
+               "$SDKINFO_FILE" > "${SDKINFO_FILE}.tmp"
+            if [ $? -eq 0 ]; then
+              mv "${SDKINFO_FILE}.tmp" "$SDKINFO_FILE"
+              git add "$SDKINFO_FILE"
+              echo "docs_updated=true" >> $GITHUB_ENV
+              echo "✅ Updated $SDK version to $VERSION in SDKInfo.json"
+            else
+              echo "❌ Error: Failed to update $SDKINFO_FILE"
+              rm -f "${SDKINFO_FILE}.tmp"
+              echo "docs_updated=false" >> $GITHUB_ENV
+            fi
+          fi
+
+      - name: Commit Changes
+        run: |
+          SDK="${{ steps.params.outputs.sdk }}"
+          VERSION="${{ steps.params.outputs.version }}"
+          SOURCE_REPO="${{ steps.params.outputs.source_repo }}"
+          
+          # Check if there are any changes to commit
+          if git diff --cached --quiet; then
+            echo "No changes to commit - version may already be up to date"
+            echo "has_changes=false" >> $GITHUB_ENV
+            exit 0
+          fi
+          
+          # Commit changes
+          if [ "$SOURCE_REPO" = "manual" ]; then
+            COMMIT_MSG="chore: update $SDK SDK to $VERSION (manual)"
+          else
+            COMMIT_MSG="chore: update $SDK SDK to $VERSION"
+          fi
+          
+          git commit -m "$COMMIT_MSG"
+          git push origin "${{ env.branch_name }}"
+          echo "has_changes=true" >> $GITHUB_ENV
+
+      - name: Create Pull Request
+        if: env.has_changes == 'true'
+        run: |
+          SDK="${{ steps.params.outputs.sdk }}"
+          VERSION="${{ steps.params.outputs.version }}"
+          SOURCE_REPO="${{ steps.params.outputs.source_repo }}"
+          
+          # Build PR body
+          if [ "$SOURCE_REPO" = "manual" ]; then
+            PR_BODY="Manual update of $SDK SDK version to $VERSION"
+          else
+            PR_BODY="Automated update of $SDK SDK version to $VERSION triggered by release in $SOURCE_REPO"
+            PR_BODY="${PR_BODY}\n\n## Changes"
+            
+            if [ "${{ env.version_file_updated }}" = "true" ]; then
+              PR_BODY="${PR_BODY}\n- Updated \`packages/shared/src/sdk-versioning/sdk-versions/$SDK.json\`"
+            fi
+            
+            if [ "${{ env.docs_updated }}" = "true" ]; then
+              PR_BODY="${PR_BODY}\n- Updated \`docs/src/data/SDKInfo.json\`"
+            fi
+            
+            PR_BODY="${PR_BODY}\n\nThis ensures the SDK version is reflected in both the capabilities matrix and documentation."
+          fi
+          
+          gh pr create \
+            --title "Update $SDK SDK to $VERSION" \
+            --body-file <(printf "$PR_BODY") \
+            --base main
+            
+          echo "✅ Successfully created PR to update $SDK SDK to $VERSION"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
