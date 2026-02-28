@@ -201,6 +201,15 @@ describe("getUsage", () => {
         );
       });
 
+      it("should return UNLIMITED_USAGE if disableSelfServeBilling is true", async () => {
+        const mockOrganization2 = { ...mockOrganization };
+        mockOrganization2.disableSelfServeBilling = true;
+        const usage = await getUsage(mockOrganization2);
+
+        expect(usage).toEqual(UNLIMITED_USAGE);
+        expect(mockedFetch).toHaveBeenCalledTimes(0);
+      });
+
       it("should return UNLIMITED_USAGE if no usage data is available and license server errors", async () => {
         mockedFetch.mockRejectedValueOnce(new Error("Network error"));
 
