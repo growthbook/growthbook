@@ -842,7 +842,11 @@ export async function putInviteRole(
 
 export async function getOrganization(
   req: AuthRequest,
-  res: Response<GetOrganizationResponse | { status: 200; organization: null }>,
+  res: Response<
+    | GetOrganizationResponse
+    | { status: 200; organization: null }
+    | { status: 403; message: string }
+  >,
 ) {
   if (!req.organization) {
     return res.status(200).json({
@@ -850,6 +854,15 @@ export async function getOrganization(
       organization: null,
     });
   }
+
+  // Check if organization is disabled (backup check in case it wasn't caught in middleware)
+  if (req.organization.disabled === true && !req.superAdmin) {
+    return res.status(403).json({
+      status: 403,
+      message: "This organization has been deleted",
+    });
+  }
+
   const context = getContextFromReq(req);
   const { org, userId } = context;
   const {
@@ -973,6 +986,7 @@ export async function getOrganization(
       customRoles: org.customRoles,
       deactivatedRoles: org.deactivatedRoles,
       isVercelIntegration,
+      disabled: org.disabled,
       settings: {
         ...settings,
         attributeSchema: filteredAttributes,
@@ -2494,6 +2508,45 @@ export async function activateRole(
   await activateRoleById(context.org, id);
 
   res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function deleteOrganization(req: AuthRequest, res: Response) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+
+  // Only allow on cloud
+  if (!IS_CLOUD) {
+    return res.status(403).json({
+      status: 403,
+      message: "Organization deletion is only available on GrowthBook Cloud",
+    });
+  }
+
+  // Only admins can delete
+  if (!context.permissions.canManageOrgSettings()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const updates: Partial<OrganizationInterface> = {};
+  const orig: Partial<OrganizationInterface> = {};
+
+  updates.disabled = true;
+  orig.disabled = org.disabled;
+
+  await updateOrganization(org.id, updates);
+
+  await req.audit({
+    event: "organization.disable",
+    entity: {
+      object: "organization",
+      id: org.id,
+    },
+    details: auditDetailsUpdate(orig, updates),
+  });
+
+  return res.status(200).json({
     status: 200,
   });
 }
