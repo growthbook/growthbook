@@ -244,7 +244,7 @@ npm install --save react-native-sse
 The, tell GrowthBook to use this polyfill:
 
 ```js
-import { setPolyfills } from "@growthbook/growthbook";
+import { setPolyfills } from "@growthbook/growthbook-react";
 import EventSource from "react-native-sse";
 
 // Configure GrowthBook to use the eventsource library
@@ -305,14 +305,13 @@ npm install --save @react-native-async-storage/async-storage
 ```
 
 ```jsx
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { setPolyfills } from "@growthbook/growthbook";
+import { setPolyfills } from "@growthbook/growthbook-react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 setPolyfills({
   localStorage: {
-    // Example using Redis
-    getItem: (key) => JSON.parse(AsyncStorage.getItem(key) || "null")
-    setItem: (key, value) => AsyncStorage.setItem(key, JSON.stringify(value))
+    getItem: (key) => AsyncStorage.getItem(key),
+    setItem: (key, value) => AsyncStorage.setItem(key, value)
   }
 });
 ```
@@ -324,7 +323,7 @@ There are a number of cache settings you can configure within GrowthBook. This m
 Below are all of the default values. You can call `configureCache` with a subset of these fields and the rest will keep their default values.
 
 ```ts
-import { configureCache } from "@growthbook/growthbook";
+import { configureCache } from "@growthbook/growthbook-react";
 
 configureCache({
   // The localStorage key the cache will be stored under
