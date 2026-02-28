@@ -29,6 +29,7 @@ type EventPayload = {
   sdk_language: string;
   sdk_version: string;
   url: string;
+  timestamp: string;
   context_json: Record<string, unknown>;
   user_id: string | null;
   device_id: string | null;
@@ -99,6 +100,7 @@ type EventData = {
   properties: EventProperties;
   attributes: Attributes;
   url: string;
+  timestamp: string;
 };
 
 function getEventPayload({
@@ -106,6 +108,7 @@ function getEventPayload({
   properties,
   attributes,
   url,
+  timestamp,
 }: EventData): EventPayload {
   const { nested, topLevel } = parseAttributes(attributes || {});
 
@@ -116,6 +119,7 @@ function getEventPayload({
     sdk_language: "js",
     sdk_version: SDK_VERSION,
     url: url,
+    timestamp,
     context_json: nested,
   };
 }
@@ -134,7 +138,11 @@ async function track({
   const endpoint = `${
     ingestorHost || "https://us1.gb-ingest.com"
   }/track?client_key=${clientKey}`;
-  const body = JSON.stringify(events);
+  const payload = {
+    events,
+    sentAt: new Date().toISOString(),
+  };
+  const body = JSON.stringify(payload);
 
   try {
     await fetch(endpoint, {
@@ -181,6 +189,7 @@ export function growthbookTrackingPlugin({
     if ("setEventLogger" in gb) {
       let _q: EventPayload[] = [];
       let timer: NodeJS.Timeout | null = null;
+      let isUnloading = false;
       const flush = async () => {
         const events = _q;
         _q = [];
@@ -196,6 +205,7 @@ export function growthbookTrackingPlugin({
           properties,
           attributes: userContext.attributes || {},
           url: userContext.url || "",
+          timestamp: new Date().toISOString(),
         };
 
         // Skip logging if the event is being filtered
@@ -244,23 +254,28 @@ export function growthbookTrackingPlugin({
 
         _q.push(payload);
 
-        // Only one in-progress promise at a time
-        if (!promise) {
-          promise = new Promise((resolve, reject) => {
-            // Flush the queue after a delay
-            timer = setTimeout(() => {
-              flush().then(resolve).catch(reject);
-              promise = null;
-            }, queueFlushInterval);
-          });
+        if (isUnloading) {
+          flush().catch(console.error);
+        } else {
+          // Only one in-progress promise at a time
+          if (!promise) {
+            promise = new Promise((resolve, reject) => {
+              // Flush the queue after a delay
+              timer = setTimeout(() => {
+                flush().then(resolve).catch(reject);
+                promise = null;
+              }, queueFlushInterval);
+            });
+          }
+          await promise;
         }
-        await promise;
       });
 
       // Flush the queue on page unload
       if (typeof document !== "undefined" && document.visibilityState) {
         document.addEventListener("visibilitychange", () => {
           if (document.visibilityState === "hidden") {
+            isUnloading = true;
             flush().catch(console.error);
           }
         });
@@ -269,6 +284,7 @@ export function growthbookTrackingPlugin({
       // Flush the queue when the growthbook instance is destroyed
       "onDestroy" in gb &&
         gb.onDestroy(() => {
+          isUnloading = true;
           flush().catch(console.error);
         });
     }
