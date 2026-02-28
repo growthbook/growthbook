@@ -80,11 +80,20 @@ export default function StaleFeatureIcon({
           <Box>
             <Flex direction="column" gap="4">
               <Box>
-                <Text as="div" size="small" weight="semibold" color="text-mid" textTransform="uppercase" mb="1">
+                <Text
+                  as="div"
+                  size="small"
+                  weight="semibold"
+                  color="text-mid"
+                  textTransform="uppercase"
+                  mb="1"
+                >
                   Overall Status
                 </Text>
                 <span style={{ color: "var(--green-10)" }}>
-                  <Text size="large" weight="semibold">Not Stale</Text>
+                  <Text size="large" weight="semibold">
+                    Not Stale
+                  </Text>
                 </span>
                 <Text as="div" size="medium" color="text-low" mt="1">
                   Stale detection is disabled for this feature.
@@ -133,8 +142,6 @@ export default function StaleFeatureIcon({
         }
       }
     : undefined;
-
-  if (!staleData) return null;
 
   const body = (
     <Box>
@@ -201,73 +208,81 @@ export default function StaleFeatureIcon({
             </Text>
 
             <Box mt="2" style={{ maxHeight: 300, overflowY: "auto" }}>
-            <table
-              className="table table-sm table-valign-top"
-              style={{ tableLayout: "fixed", width: "100%" }}
-            >
-              <thead>
-                <tr>
-                  <th style={{ width: "20%" }} />
-                  <th style={{ width: "15%" }}>Status</th>
-                  <th style={{ width: "25%" }}>Reason</th>
-                  <th>Evaluates to</th>
-                </tr>
-              </thead>
-              <tbody>
-                {envEntries.map(([envId, info]) => (
-                  <tr key={envId} style={{ verticalAlign: "top" }}>
-                    <td style={{ overflow: "hidden" }}>
-                      <Text
-                        size="medium"
-                        weight="medium"
-                        truncate
-                        title={envId}
-                      >
-                        {envId}
-                      </Text>
-                    </td>
-                    <td>
-                      {info.stale ? (
-                        <span style={{ color: "var(--yellow-11)" }}>
-                          <Text weight="semibold">Stale</Text>
-                        </span>
-                      ) : (
-                        <span style={{ color: "var(--green-10)" }}>
-                          <Text weight="semibold">Not Stale</Text>
-                        </span>
-                      )}
-                    </td>
-                    <td>
-                      <Text size="small" color="text-mid">
-                        {info.reason
-                          ? (staleReasonToMessageMap[
-                              info.reason as StaleFeatureReason
-                            ] ?? info.reason)
-                          : null}
-                      </Text>
-                    </td>
-                    <td>
-                      {info.evaluatesTo !== undefined && (info.reason === "toggled-off" || !valueType) && (
-                        <span style={{ fontFamily: "monospace", fontSize: "0.85em" }}>
-                          {info.evaluatesTo}
-                        </span>
-                      )}
-                      {info.evaluatesTo !== undefined && info.reason !== "toggled-off" && valueType && (
-                        <ValueDisplay
-                          value={info.evaluatesTo}
-                          type={valueType}
-                          fullStyle={{
-                            maxHeight: 80,
-                            overflowY: "auto",
-                            maxWidth: "100%",
-                          }}
-                        />
-                      )}
-                    </td>
+              <table
+                className="table table-sm table-valign-top"
+                style={{ tableLayout: "fixed", width: "100%" }}
+              >
+                <thead>
+                  <tr>
+                    <th style={{ width: "20%" }} />
+                    <th style={{ width: "15%" }}>Status</th>
+                    <th style={{ width: "25%" }}>Reason</th>
+                    <th>Evaluates to</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {envEntries.map(([envId, info]) => (
+                    <tr key={envId} style={{ verticalAlign: "top" }}>
+                      <td style={{ overflow: "hidden" }}>
+                        <Text
+                          size="medium"
+                          weight="medium"
+                          truncate
+                          title={envId}
+                        >
+                          {envId}
+                        </Text>
+                      </td>
+                      <td>
+                        {info.stale ? (
+                          <span style={{ color: "var(--yellow-11)" }}>
+                            <Text weight="semibold">Stale</Text>
+                          </span>
+                        ) : (
+                          <span style={{ color: "var(--green-10)" }}>
+                            <Text weight="semibold">Not Stale</Text>
+                          </span>
+                        )}
+                      </td>
+                      <td>
+                        <Text size="small" color="text-mid">
+                          {info.reason
+                            ? (staleReasonToMessageMap[
+                                info.reason as StaleFeatureReason
+                              ] ?? info.reason)
+                            : null}
+                        </Text>
+                      </td>
+                      <td>
+                        {info.evaluatesTo !== undefined &&
+                          (info.reason === "toggled-off" || !valueType) && (
+                            <span
+                              style={{
+                                fontFamily: "monospace",
+                                fontSize: "0.85em",
+                              }}
+                            >
+                              {info.evaluatesTo}
+                            </span>
+                          )}
+                        {info.evaluatesTo !== undefined &&
+                          info.reason !== "toggled-off" &&
+                          valueType && (
+                            <ValueDisplay
+                              value={info.evaluatesTo}
+                              type={valueType}
+                              fullStyle={{
+                                maxHeight: 80,
+                                overflowY: "auto",
+                                maxWidth: "100%",
+                              }}
+                            />
+                          )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </Box>
           </Box>
         )}
@@ -288,12 +303,7 @@ export default function StaleFeatureIcon({
                   onClick={handleRerun}
                   disabled={rerunning}
                 >
-                  {rerunning ? (
-                    <LoadingSpinner />
-                  ) : (
-                    <PiArrowClockwise />
-                  )}{" "}
-                  Re-run
+                  {rerunning ? <LoadingSpinner /> : <PiArrowClockwise />} Re-run
                 </Button>
               )}
               {onDisable && (
@@ -341,11 +351,7 @@ export default function StaleFeatureIcon({
           <span
             className={`${styles.dot} ${isStale ? styles.staleDot : mixed ? styles.mixedDot : styles.freshDot}`}
           />
-          {isStale
-            ? "Stale"
-            : context === "list"
-              ? "OK"
-              : "Not stale"}
+          {isStale ? "Stale" : context === "list" ? "OK" : "Not stale"}
         </Badge>
       }
       content={body}

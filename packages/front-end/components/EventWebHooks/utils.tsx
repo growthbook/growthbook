@@ -43,7 +43,6 @@ export const notificationEventNames = [
   "feature.created",
   "feature.updated",
   "feature.deleted",
-  "feature.stale",
   // Safe Rollouts
   "feature.saferollout.ship",
   "feature.saferollout.rollback",

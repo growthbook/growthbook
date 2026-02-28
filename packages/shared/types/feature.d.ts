@@ -102,7 +102,6 @@ export type FeatureMetaInfo = Pick<
   | "version"
   | "linkedExperiments"
   | "neverStale"
-  | "holdout"
 > & {
   defaultValue?: string;
   revision?: {
