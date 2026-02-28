@@ -376,7 +376,11 @@ function buildEnvResults(
   for (const envId of envIds) {
     const envSetting = feature.environmentSettings?.[envId];
     if (!envSetting?.enabled) {
-      envResults[envId] = { stale: true, reason: "toggled-off", evaluatesTo: "null" };
+      envResults[envId] = {
+        stale: true,
+        reason: "toggled-off",
+        evaluatesTo: "null",
+      };
       continue;
     }
 

@@ -195,18 +195,18 @@ function App({
                             <GetStartedProvider>
                               <DefinitionsProvider>
                                 <FeatureStaleStatesProvider>
-                                {liteLayout ? <LayoutLite /> : <Layout />}
-                                <CommandPaletteLauncher />
-                                <main className={`main ${parts[0]}`}>
-                                  <GuidedGetStartedBar />
-                                  <OrganizationMessagesContainer />
-                                  <DemoDataSourceGlobalBannerContainer />
-                                  <DefinitionsGuard>
-                                    <Component
-                                      {...{ ...pageProps, envReady: ready }}
-                                    />
-                                  </DefinitionsGuard>
-                                </main>
+                                  {liteLayout ? <LayoutLite /> : <Layout />}
+                                  <CommandPaletteLauncher />
+                                  <main className={`main ${parts[0]}`}>
+                                    <GuidedGetStartedBar />
+                                    <OrganizationMessagesContainer />
+                                    <DemoDataSourceGlobalBannerContainer />
+                                    <DefinitionsGuard>
+                                      <Component
+                                        {...{ ...pageProps, envReady: ready }}
+                                      />
+                                    </DefinitionsGuard>
+                                  </main>
                                 </FeatureStaleStatesProvider>
                               </DefinitionsProvider>
                             </GetStartedProvider>

@@ -169,7 +169,11 @@ export function useFeatureSearch({
   draftStates?: Record<string, unknown>;
   staleStates?: Record<
     string,
-    { stale: boolean; neverStale: boolean; envResults?: Record<string, { stale: boolean }> }
+    {
+      stale: boolean;
+      neverStale: boolean;
+      envResults?: Record<string, { stale: boolean }>;
+    }
   >;
 }) {
   const { getUserDisplay } = useUser();

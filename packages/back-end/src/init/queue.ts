@@ -57,5 +57,4 @@ export async function queueInit() {
   if (!IS_CLOUD) {
     await queueUpdateLicense();
   }
-
 }

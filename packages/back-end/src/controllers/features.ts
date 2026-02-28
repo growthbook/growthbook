@@ -4121,7 +4121,10 @@ export async function getFeaturesStaleStates(
   res: Response<
     {
       status: 200;
-      features: Record<string, IsFeatureStaleResult & { neverStale: boolean; computedAt: string }>;
+      features: Record<
+        string,
+        IsFeatureStaleResult & { neverStale: boolean; computedAt: string }
+      >;
     },
     EventUserForResponseLocals
   >,
@@ -4134,7 +4137,9 @@ export async function getFeaturesStaleStates(
   const [allFeatures, allExperiments, draftRevisions] = await Promise.all([
     getAllFeatures(context, {}),
     getAllExperiments(context, { includeArchived: false }),
-    getRevisionsByStatus(context as ReqContext, [...ACTIVE_DRAFT_STATUSES], { sparse: true }),
+    getRevisionsByStatus(context as ReqContext, [...ACTIVE_DRAFT_STATUSES], {
+      sparse: true,
+    }),
   ]);
 
   // Map most-recent draft date per feature
@@ -4152,10 +4157,14 @@ export async function getFeaturesStaleStates(
     : allFeatures;
 
   const computedAt = new Date().toISOString();
-  const result: Record<string, IsFeatureStaleResult & { neverStale: boolean; computedAt: string }> = {};
+  const result: Record<
+    string,
+    IsFeatureStaleResult & { neverStale: boolean; computedAt: string }
+  > = {};
 
   for (const feature of targetFeatures) {
-    if (!context.permissions.canReadSingleProjectResource(feature.project)) continue;
+    if (!context.permissions.canReadSingleProjectResource(feature.project))
+      continue;
 
     const applicableEnvIds = getEnvironments(context.org)
       .filter(
@@ -4169,9 +4178,12 @@ export async function getFeaturesStaleStates(
     const staleResult = isFeatureStale({
       feature,
       features: allFeatures,
-      experiments: allExperiments as unknown as Parameters<typeof isFeatureStale>[0]["experiments"],
+      experiments: allExperiments as unknown as Parameters<
+        typeof isFeatureStale
+      >[0]["experiments"],
       environments: applicableEnvIds,
-      mostRecentDraftDate: mostRecentDraftDateByFeatureId.get(feature.id) ?? null,
+      mostRecentDraftDate:
+        mostRecentDraftDateByFeatureId.get(feature.id) ?? null,
     });
 
     result[feature.id] = {
