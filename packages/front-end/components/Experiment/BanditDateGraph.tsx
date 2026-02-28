@@ -286,7 +286,8 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
   const displayCurrency = ssrPolyfills?.useCurrency() || _displayCurrency;
   const metricFormatterOptions = { currency: displayCurrency };
 
-  const variationNames = experiment.variations.map((v) => v.name);
+  const phaseObj = experiment.phases[phase];
+  const variationNames = phaseObj?.variations?.map((v) => v.name);
   const { containerRef, containerBounds } = useTooltipInPortal({
     scroll: true,
     detectBounds: true,

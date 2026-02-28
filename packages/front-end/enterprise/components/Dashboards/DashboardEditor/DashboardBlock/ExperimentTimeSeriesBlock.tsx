@@ -2,6 +2,7 @@ import React, { useMemo, useCallback, useState } from "react";
 import { ExperimentTimeSeriesBlockInterface } from "shared/enterprise";
 import { MetricSnapshotSettings } from "shared/types/report";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { groupBy } from "lodash";
 import { getValidDate } from "shared/dates";
 import ExperimentMetricTimeSeriesGraphWrapper from "@/components/Experiment/ExperimentMetricTimeSeriesGraphWrapper";
@@ -147,12 +148,11 @@ export default function ExperimentTimeSeriesBlock({
               const appliedPValueCorrection =
                 resultGroup === "goal" ? (pValueCorrection ?? null) : null;
 
-              const showVariations = experiment.variations.map(
+              const expVariations = getLatestPhaseVariations(experiment);
+              const showVariations = expVariations.map(
                 (v) => variationIds.length === 0 || variationIds.includes(v.id),
               );
-              const variationNames = experiment.variations.map(
-                ({ name }) => name,
-              );
+              const variationNames = expVariations.map(({ name }) => name);
 
               // Check if this metric has slices and if it's expanded
               const expandedKey = `${metric.id}:${resultGroup}`;

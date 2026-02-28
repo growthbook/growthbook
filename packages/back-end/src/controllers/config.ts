@@ -2,7 +2,6 @@ import fs from "fs";
 import path from "path";
 import { Request, Response } from "express";
 import {
-  ExperimentInterface,
   LegacyExperimentPhase,
   LegacyVariation,
 } from "shared/types/experiment";
@@ -14,19 +13,6 @@ import {
   getExperimentOverrides,
 } from "back-end/src/services/organizations";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
-
-export function canAutoAssignExperiment(
-  experiment: ExperimentInterface,
-): boolean {
-  if (!experiment.targetURLRegex) return false;
-
-  return (
-    experiment.variations.filter(
-      (v: LegacyVariation) =>
-        (v.dom && v.dom.length > 0) || (v.css && v.css.length > 0),
-    ).length > 0
-  );
-}
 
 export async function getExperimentConfig(
   req: Request<{ key: string }>,
@@ -143,13 +129,15 @@ export async function getExperimentsScript(
         key,
         draft: exp.status === "draft",
         anon: exp.userIdType === "anonymous",
-        variationCode: exp.variations.map((v: LegacyVariation) => {
+        variationCode: (phase?.variations ?? []).map((v) => {
+          // TODO: test... should work since JIT migration just copies forward the variations
+          const lv = v as LegacyVariation;
           const commands: string[] = [];
-          if (v.css) {
-            commands.push("injectStyles(" + JSON.stringify(v.css) + ")");
+          if (lv.css) {
+            commands.push("injectStyles(" + JSON.stringify(lv.css) + ")");
           }
-          if (v.dom) {
-            v.dom.forEach((dom) => {
+          if (lv.dom) {
+            lv.dom.forEach((dom) => {
               commands.push(
                 "mutate.declarative(" + JSON.stringify(dom) + ").revert",
               );
@@ -173,9 +161,8 @@ export async function getExperimentsScript(
       }
 
       if (!data.weights) {
-        data.weights = Array(exp.variations.length).fill(
-          1 / exp.variations.length,
-        );
+        const numVariations = (phase?.variations ?? []).length;
+        data.weights = Array(numVariations).fill(1 / numVariations);
       }
 
       if (exp.status === "stopped") {

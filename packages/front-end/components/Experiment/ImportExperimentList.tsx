@@ -556,35 +556,38 @@ const ImportExperimentList: FC<{
                           className={`btn btn-primary`}
                           onClick={(ev) => {
                             ev.preventDefault();
+                            const importedVariations = e.variationKeys.map(
+                              (vKey, i) => {
+                                let vName = e.variationNames?.[i] || vKey;
+                                if (vName.match(/^[0-9]{1,2}$/)) {
+                                  vName =
+                                    vName === "0"
+                                      ? "Control"
+                                      : `Variation ${vName}`;
+                                }
+                                return {
+                                  name: vName,
+                                  screenshots: [],
+                                  description: "",
+                                  key: vKey,
+                                  id: generateVariationId(),
+                                  status: "active" as const,
+                                };
+                              },
+                            );
                             const importObj: Partial<ExperimentInterfaceStringDates> =
                               {
                                 name: e.experimentName || e.trackingKey,
                                 trackingKey: e.trackingKey,
                                 datasource: data?.experiments?.datasource,
                                 exposureQueryId: e.exposureQueryId || "",
-                                variations: e.variationKeys.map((vKey, i) => {
-                                  let vName = e.variationNames?.[i] || vKey;
-                                  // If the name is an integer, rename 0 to "Control" and anything else to "Variation {name}"
-                                  if (vName.match(/^[0-9]{1,2}$/)) {
-                                    vName =
-                                      vName === "0"
-                                        ? "Control"
-                                        : `Variation ${vName}`;
-                                  }
-                                  return {
-                                    name: vName,
-                                    screenshots: [],
-                                    description: "",
-                                    key: vKey,
-                                    id: generateVariationId(),
-                                  };
-                                }),
                                 phases: [
                                   {
                                     coverage: 1,
                                     name: "Main",
                                     reason: "",
                                     variationWeights: e.weights,
+                                    variations: importedVariations,
                                     dateStarted:
                                       getValidDate(e.startDate)
                                         .toISOString()

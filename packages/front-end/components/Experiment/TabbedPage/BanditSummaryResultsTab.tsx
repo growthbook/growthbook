@@ -77,7 +77,8 @@ export default function BanditSummaryResultsTab({
 
   const event: BanditEvent | undefined =
     phaseObj?.banditEvents?.[(phaseObj?.banditEvents?.length ?? 1) - 1];
-  const users = experiment.variations.map(
+  const phaseVariations = phaseObj?.variations ?? [];
+  const users = phaseVariations.map(
     (_, i) => event?.banditResult?.singleVariationResults?.[i]?.users ?? 0,
   );
   const totalUsers = users.reduce((acc, cur) => acc + cur, 0);

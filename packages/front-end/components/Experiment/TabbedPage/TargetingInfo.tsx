@@ -2,6 +2,7 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentTargetingData,
 } from "shared/types/experiment";
+import { getVariationsWithWeights } from "shared/experiments";
 import clsx from "clsx";
 import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -48,7 +49,14 @@ export default function TargetingInfo({
 }: Props) {
   const { namespaces } = useOrgSettings();
 
-  const phase = experiment.phases[phaseIndex ?? experiment.phases.length - 1];
+  const resolvedPhaseIndex = phaseIndex ?? experiment.phases.length - 1;
+  const phase = experiment.phases[resolvedPhaseIndex] ?? null;
+  const activeWeights = phase
+    ? getVariationsWithWeights(phase).map((v) => v.weight)
+    : [];
+  const changesActiveWeights = (changes?.variationWeights ?? []).filter(
+    (w) => w > 0,
+  );
   const hasNamespace = phase?.namespace && phase.namespace.enabled;
   const namespaceRange = hasNamespace
     ? phase.namespace!.range[1] - phase.namespace!.range[0]
@@ -385,7 +393,7 @@ export default function TargetingInfo({
                           <>
                             ,{" "}
                             {formatTrafficSplit(
-                              phase.variationWeights,
+                              activeWeights,
                               showDecimals ? 2 : 0,
                             )}{" "}
                             split
@@ -404,7 +412,7 @@ export default function TargetingInfo({
                             <>
                               ,{" "}
                               {formatTrafficSplit(
-                                changes?.variationWeights ?? [],
+                                changesActiveWeights,
                                 showDecimals ? 2 : 0,
                               )}{" "}
                               split
@@ -475,7 +483,7 @@ export default function TargetingInfo({
                           )}
                           <div>
                             {formatTrafficSplit(
-                              phase.variationWeights,
+                              activeWeights,
                               showDecimals ? 2 : 0,
                             )}
                           </div>
@@ -487,7 +495,7 @@ export default function TargetingInfo({
                             </div>
                             <div>
                               {formatTrafficSplit(
-                                changes?.variationWeights ?? [],
+                                changesActiveWeights,
                                 showDecimals ? 2 : 0,
                               )}
                             </div>

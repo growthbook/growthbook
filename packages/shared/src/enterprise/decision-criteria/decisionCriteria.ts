@@ -1,4 +1,5 @@
 import { addDays, differenceInHours, differenceInMinutes } from "date-fns";
+import { getLatestPhaseVariations } from "shared/experiments";
 import {
   DecisionCriteriaAction,
   DecisionCriteriaData,
@@ -464,7 +465,7 @@ export function getExperimentResultStatus({
       srm: healthSummary.srm,
       srmThreshold: healthSettings.srmThreshold,
       totalUsersCount: healthSummary.totalUsers,
-      numOfVariations: experimentData.variations.length,
+      numOfVariations: getLatestPhaseVariations(experimentData).length,
       minUsersPerVariation:
         experimentData.type === "multi-armed-bandit"
           ? DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION

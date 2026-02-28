@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { diffChars } from "diff";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import { Box, Flex, Text } from "@radix-ui/themes";
@@ -75,6 +76,7 @@ const Redirect = ({
   const { apiCall } = useAuth();
   const [editingRedirect, setEditingRedirect] = useState<boolean>(false);
   const originUrl = urlRedirect.urlPattern;
+  const variations = getLatestPhaseVariations(experiment);
 
   return (
     <>
@@ -139,10 +141,10 @@ const Redirect = ({
             className="pl-1"
           />
         </h5>
-        {experiment.variations.map((v, i) => (
+        {variations.map((v, i) => (
           <div
             className={
-              i === experiment.variations.length - 1
+              i === variations.length - 1
                 ? `mb-0 variation with-variation-label variation${i}`
                 : `mb-4 variation with-variation-label variation${i}`
             }

@@ -3,7 +3,10 @@ import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
 import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
-import { generateTrackingKey } from "shared/experiments";
+import {
+  generateTrackingKey,
+  getLatestPhaseVariations,
+} from "shared/experiments";
 import { v4 as uuidv4 } from "uuid";
 import { VisualChange } from "shared/types/visual-changeset";
 import { ExperimentInterfaceExcludingHoldouts } from "shared/validators";
@@ -183,35 +186,6 @@ const experimentSchema = new mongoose.Schema({
   implementation: String,
   previewURL: String,
   targetURLRegex: String,
-  variations: [
-    {
-      _id: false,
-      id: String,
-      name: String,
-      description: String,
-      key: String,
-      value: String,
-      screenshots: [
-        {
-          _id: false,
-          path: String,
-          width: Number,
-          height: Number,
-          description: String,
-        },
-      ],
-      css: String,
-      dom: [
-        {
-          _id: false,
-          selector: String,
-          action: String,
-          attribute: String,
-          value: String,
-        },
-      ],
-    },
-  ],
   phases: [
     {
       _id: false,
@@ -239,6 +213,36 @@ const experimentSchema = new mongoose.Schema({
       namespace: {},
       seed: String,
       variationWeights: [Number],
+      variations: [
+        {
+          _id: false,
+          id: String,
+          name: String,
+          description: String,
+          key: String,
+          value: String,
+          status: String,
+          screenshots: [
+            {
+              _id: false,
+              path: String,
+              width: Number,
+              height: Number,
+              description: String,
+            },
+          ],
+          css: String,
+          dom: [
+            {
+              _id: false,
+              selector: String,
+              action: String,
+              attribute: String,
+              value: String,
+            },
+          ],
+        },
+      ],
       groups: [String],
       banditEvents: [
         {
@@ -1731,13 +1735,12 @@ const getExperimentChanges = (
     "releasedVariationId",
     "excludeFromPayload",
     "autoAssign",
-    "variations",
     "phases",
   ];
 
   return {
     ...pick(experiment, importantKeys),
-    variations: experiment.variations.map((v) =>
+    variations: getLatestPhaseVariations(experiment).map((v) =>
       pick(v, ["id", "name", "key"]),
     ),
   };

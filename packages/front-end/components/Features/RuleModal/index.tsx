@@ -8,6 +8,7 @@ import {
 import React, { useMemo, useState } from "react";
 import uniqId from "uniqid";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { getLatestPhaseVariations } from "shared/experiments";
 import {
   filterEnvironmentsByFeature,
   generateVariationId,
@@ -465,12 +466,6 @@ export default function RuleModal({
           targetURLRegex: "",
           ideaSource: "",
           project: feature.project,
-          variations: values.values.map((v, i) => ({
-            id: uniqId("var_"),
-            key: i + "",
-            name: v.name || (i ? `Variation ${i}` : "Control"),
-            screenshots: [],
-          })),
           phases: [
             {
               condition: values.condition || "",
@@ -486,6 +481,13 @@ export default function RuleModal({
               },
               reason: "",
               variationWeights: values.values.map((v) => v.weight),
+              variations: values.values.map((v, i) => ({
+                id: uniqId("var_"),
+                key: i + "",
+                name: v.name || (i ? `Variation ${i}` : "Control"),
+                screenshots: [],
+                status: "active" as const,
+              })),
             },
           ],
           sequentialTestingEnabled:
@@ -552,6 +554,7 @@ export default function RuleModal({
         );
 
         // Experiment created, treat it as an experiment ref rule now
+        const createdVariations = getLatestPhaseVariations(res.experiment);
         values = {
           type: "experiment-ref",
           description: "",
@@ -562,7 +565,7 @@ export default function RuleModal({
           enabled: values.enabled ?? true,
           variations: values.values.map((v, i) => ({
             value: v.value,
-            variationId: res.experiment.variations[i]?.id || "",
+            variationId: createdVariations[i]?.id || "",
           })),
           scheduleRules: values.scheduleRules || [],
         };
@@ -578,7 +581,8 @@ export default function RuleModal({
           values.variations.map((v) => [v.variationId, v.value]),
         );
 
-        values.variations = exp.variations.map((v, i) => {
+        const expVariations = getLatestPhaseVariations(exp);
+        values.variations = expVariations.map((v, i) => {
           return {
             variationId: v.id,
             value: valuesByVariationId.get(v.id) ?? valuesByIndex[i] ?? "",

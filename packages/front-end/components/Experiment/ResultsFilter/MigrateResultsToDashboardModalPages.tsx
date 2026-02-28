@@ -12,6 +12,7 @@ import {
   parseSliceQueryString,
   isSliceTagSelectAll,
   isMetricGroupId,
+  getLatestPhaseVariations,
 } from "shared/experiments";
 import Collapsible from "react-collapsible";
 import { PiCaretRightFill } from "react-icons/pi";
@@ -111,24 +112,29 @@ export function SelectDashboardAndBlockPage({
   const metricsCount = metricsFilter?.length || 0;
   const sliceTagsCount = sliceTagsFilter?.length || 0;
 
+  const variations = useMemo(
+    () => getLatestPhaseVariations(experiment),
+    [experiment],
+  );
+
   const baselineText = useMemo(() => {
-    if (baselineRow === undefined || !experiment.variations[baselineRow]) {
+    if (baselineRow === undefined || !variations[baselineRow]) {
       return null;
     }
-    const variation = experiment.variations[baselineRow];
+    const variation = variations[baselineRow];
     return `${baselineRow} - ${variation.name}`;
-  }, [baselineRow, experiment.variations]);
+  }, [baselineRow, variations]);
 
   const variationsText = useMemo(() => {
     const baselineIndex = baselineRow ?? 0;
-    const visibleIndices = experiment.variations
+    const visibleIndices = variations
       .map((_, index) => index)
       .filter(
         (index) =>
           index !== baselineIndex &&
           (!variationFilter || !variationFilter.includes(index)),
       );
-    const totalVariations = experiment.variations.length - 1;
+    const totalVariations = variations.length - 1;
 
     if (
       visibleIndices.length === 0 ||
@@ -137,7 +143,7 @@ export function SelectDashboardAndBlockPage({
       return "All variations";
     }
     return visibleIndices.map((index) => `#${index}`).join(", ");
-  }, [variationFilter, experiment.variations, baselineRow]);
+  }, [variationFilter, variations, baselineRow]);
 
   const { getExperimentMetricById, getMetricGroupById } = useDefinitions();
 

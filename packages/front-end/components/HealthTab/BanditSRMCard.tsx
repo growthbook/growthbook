@@ -1,9 +1,6 @@
 import { BanditEvent } from "shared/validators";
-import React, { useEffect, useMemo, useState } from "react";
-import {
-  ExperimentInterfaceStringDates,
-  ExperimentPhaseStringDates,
-} from "shared/types/experiment";
+import { useEffect, useMemo, useState } from "react";
+import { ExperimentPhaseStringDates } from "shared/types/experiment";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { getSRMHealthData, getSRMValue } from "shared/health";
 import {
@@ -19,18 +16,12 @@ import { StatusBadge } from "./StatusBadge";
 import { IssueValue } from "./IssueTags";
 
 interface Props {
-  experiment: ExperimentInterfaceStringDates;
   snapshot: ExperimentSnapshotInterface;
   phase: ExperimentPhaseStringDates;
   onNotify: (issue: IssueValue) => void;
 }
 
-export default function BanditSRMCard({
-  experiment,
-  snapshot,
-  phase,
-  onNotify,
-}: Props) {
+export default function BanditSRMCard({ snapshot, phase, onNotify }: Props) {
   const { settings } = useUser();
 
   const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
@@ -39,7 +30,7 @@ export default function BanditSRMCard({
   const currentEvent = banditEvents?.[banditEvents.length - 1];
 
   const srm = getSRMValue("multi-armed-bandit", snapshot);
-  const users = experiment.variations.map(
+  const users = phase.variations.map(
     (_, i) =>
       currentEvent?.banditResult?.singleVariationResults?.[i]?.users ?? 0,
   );
@@ -52,11 +43,11 @@ export default function BanditSRMCard({
       getSRMHealthData({
         srm: srm ?? Infinity,
         srmThreshold,
-        numOfVariations: experiment.variations.length,
+        numOfVariations: phase.variations.length,
         totalUsersCount: totalUsers,
         minUsersPerVariation: DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
       }),
-    [srm, srmThreshold, experiment.variations.length, totalUsers],
+    [srm, srmThreshold, phase.variations.length, totalUsers],
   );
 
   useEffect(() => {
@@ -104,11 +95,7 @@ export default function BanditSRMCard({
                 ]}
               />
             </div>
-            <BanditSRMGraph
-              experiment={experiment}
-              phase={phase}
-              mode={chartMode}
-            />
+            <BanditSRMGraph phase={phase} mode={chartMode} />
           </div>
           <div>
             {overallHealth !== "not-enough-traffic" ? (

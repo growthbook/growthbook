@@ -5,7 +5,10 @@ import {
   useForm,
   FormProvider,
 } from "react-hook-form";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  Variation,
+} from "shared/types/experiment";
 import { PiCaretRightFill } from "react-icons/pi";
 import { datetime, getValidDate } from "shared/dates";
 import {
@@ -120,6 +123,7 @@ const AnalysisForm: FC<{
   }
 
   const phaseObj = experiment.phases[phase];
+  const phaseVariations = phaseObj?.variations ?? [];
 
   const form = useForm({
     defaultValues: {
@@ -145,7 +149,7 @@ const AnalysisForm: FC<{
       dateEnded: getValidDate(phaseObj?.dateEnded ?? "")
         .toISOString()
         .substr(0, 16),
-      variations: experiment.variations || [],
+      variations: phaseVariations,
       phases: experiment.phases || [],
       sequentialTestingEnabled:
         hasSequentialTestingFeature &&
@@ -283,14 +287,22 @@ const AnalysisForm: FC<{
       close={cancel}
       size="lg"
       submit={form.handleSubmit(async (value) => {
-        const { dateStarted, dateEnded, skipPartialData, ...values } = value;
+        const {
+          dateStarted,
+          dateEnded,
+          skipPartialData,
+          variations: formVariations,
+          ...values
+        } = value;
 
         const body: Partial<ExperimentInterfaceStringDates> & {
           phaseStartDate: string;
           phaseEndDate?: string;
           currentPhase?: number;
+          variations?: Variation[];
         } = {
           ...values,
+          variations: formVariations,
           currentPhase: phase,
           phaseStartDate: dateStarted,
           skipPartialData: skipPartialData === "strict",
@@ -308,7 +320,6 @@ const AnalysisForm: FC<{
           body.lookbackOverride = undefined;
         }
         if (usingSequentialTestingDefault) {
-          // User checked the org default checkbox; ignore form values
           body.sequentialTestingEnabled =
             !!orgSettings.sequentialTestingEnabled;
           body.sequentialTestingTuningParameter =

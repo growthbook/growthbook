@@ -692,7 +692,6 @@ export default function TabbedPage({
           mutate={mutate}
           editMetrics={editMetrics}
           editResult={editResult}
-          newPhase={newPhase}
           connections={connections}
           envs={envs}
           setTab={setTabAndScroll}

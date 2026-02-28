@@ -31,17 +31,18 @@ const NewPhaseForm: FC<{
   const firstPhase = !experiment.phases.length;
 
   const prevPhase: Partial<ExperimentPhaseStringDates> =
-    experiment.phases[experiment.phases.length - 1] || {};
+    experiment.phases[experiment.phases.length - 1] || {}; // Should always exist thanks to JIT migration
 
   const form = useForm<ExperimentPhaseStringDates>({
     defaultValues: {
       name: prevPhase.name || "Main",
       coverage: prevPhase.coverage || 1,
+      variations: prevPhase.variations || [],
       variationWeights:
         prevPhase.variationWeights ||
-        getEqualWeights(experiment.variations.length),
+        getEqualWeights(prevPhase.variations?.length || 0),
       reason: "",
-      dateStarted: new Date().toISOString().substr(0, 16),
+      dateStarted: new Date().toISOString().substring(0, 16),
       condition: prevPhase.condition || "",
       savedGroups: prevPhase.savedGroups || [],
       seed: prevPhase.seed || "",
@@ -160,7 +161,7 @@ const NewPhaseForm: FC<{
         }
         valueAsId={true}
         variations={
-          experiment.variations.map((v, i) => {
+          prevPhase.variations?.map((v, i) => {
             return {
               value: v.key || i + "",
               name: v.name,

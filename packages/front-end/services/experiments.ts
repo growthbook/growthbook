@@ -39,6 +39,7 @@ import {
   generateSelectAllSliceString,
   parseSliceQueryString,
   SliceDataForMetric,
+  getLatestPhaseVariations,
 } from "shared/experiments";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { ReactElement } from "react";
@@ -424,7 +425,9 @@ export function useExperimentSearch({
         if (item.linkedFeatures?.length) has.push("features", "feature");
         if (item.hypothesis?.trim()?.length) has.push("hypothesis");
         if (item.description?.trim()?.length) has.push("description");
-        if (item.variations.some((v) => !!v.screenshots?.length)) {
+        if (
+          getLatestPhaseVariations(item).some((v) => !!v.screenshots?.length)
+        ) {
           has.push("screenshots");
         }
         if (
@@ -438,8 +441,8 @@ export function useExperimentSearch({
         }
         return has;
       },
-      variations: (item) => item.variations.length,
-      variation: (item) => item.variations.map((v) => v.name),
+      variations: (item) => getLatestPhaseVariations(item).length,
+      variation: (item) => getLatestPhaseVariations(item).map((v) => v.name),
       created: (item) => new Date(item.dateCreated),
       updated: (item) => new Date(item.dateUpdated),
       name: (item) => item.name,
@@ -745,13 +748,13 @@ export function convertTemplateToExperiment(
   ]);
   return {
     ...templateWithoutTemplateFields,
-    variations: getDefaultVariations(2),
     phases: [
       {
         dateStarted: new Date().toISOString().substr(0, 16),
         dateEnded: new Date().toISOString().substr(0, 16),
         name: "Main",
         reason: "",
+        variations: getDefaultVariations(2),
         variationWeights: getEqualWeights(2),
         ...template.targeting,
       },

@@ -35,6 +35,7 @@ import {
   ExperimentSnapshotInterface,
   MetricForSnapshot,
 } from "shared/types/experiment-snapshot";
+import { createInitialPhase, getEqualWeights } from "shared/experiments";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { getConfigOrganizationSettings } from "back-end/src/init/config";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
@@ -536,17 +537,19 @@ export function upgradeExperimentDoc(
   const experiment = cloneDeep(orig);
 
   // Add missing variation keys and ids
-  experiment.variations.forEach((v, i) => {
-    if (v.key === "" || v.key === undefined || v.key === null) {
-      v.key = i + "";
-    }
-    if (!v.id) {
-      v.id = i + "";
-    }
-    if (!v.name) {
-      v.name = i ? `Variation ${i}` : `Control`;
-    }
-  });
+  if (experiment.variations) {
+    experiment.variations.forEach((v, i) => {
+      if (v.key === "" || v.key === undefined || v.key === null) {
+        v.key = i + "";
+      }
+      if (!v.id) {
+        v.id = i + "";
+      }
+      if (!v.name) {
+        v.name = i ? `Variation ${i}` : `Control`;
+      }
+    });
+  }
 
   // Convert metric fields to new names
   if (!experiment.goalMetrics) {
@@ -600,6 +603,33 @@ export function upgradeExperimentDoc(
     });
   }
 
+  if (experiment.variations) {
+    experiment.phases.forEach((phase) => {
+      if (!phase.variations) {
+        phase.variations = experiment.variations?.map((v) => ({
+          ...v,
+          status: "active",
+        }));
+      }
+    });
+  }
+  // if no phases, then create dummy phase with the above variations
+  if (!experiment.phases.length) {
+    if (experiment.variations) {
+      experiment.phases = [
+        createInitialPhase({
+          variations: experiment.variations.map((v) => ({
+            ...v,
+            status: "active",
+          })),
+          variationWeights: getEqualWeights(experiment.variations.length),
+        }),
+      ];
+    } else {
+      experiment.phases = [createInitialPhase({})];
+    }
+  }
+
   // Upgrade the attribution model
   if (experiment.attributionModel === "allExposures") {
     experiment.attributionModel = "experimentDuration";
@@ -636,17 +666,18 @@ export function upgradeExperimentDoc(
 
   // releasedVariationId
   if (!("releasedVariationId" in experiment)) {
-    if (experiment.status === "stopped") {
-      if (experiment.results === "lost") {
-        experiment.releasedVariationId = experiment.variations[0]?.id || "";
-      } else if (experiment.results === "won") {
-        experiment.releasedVariationId =
-          experiment.variations[experiment.winner || 1]?.id || "";
-      } else {
-        experiment.releasedVariationId = "";
+    experiment.releasedVariationId = "";
+    const variations =
+      experiment.phases[experiment.phases.length - 1]?.variations;
+    if (variations) {
+      if (experiment.status === "stopped") {
+        if (experiment.results === "lost") {
+          experiment.releasedVariationId = variations[0]?.id || "";
+        } else if (experiment.results === "won") {
+          experiment.releasedVariationId =
+            variations[experiment.winner || 1]?.id || "";
+        }
       }
-    } else {
-      experiment.releasedVariationId = "";
     }
   }
 
@@ -665,7 +696,7 @@ export function upgradeExperimentDoc(
     experiment.uid = uuidv4().replace(/-/g, "");
   }
 
-  return experiment as ExperimentInterface;
+  return experiment as unknown as ExperimentInterface;
 }
 
 export function migrateExperimentReport(

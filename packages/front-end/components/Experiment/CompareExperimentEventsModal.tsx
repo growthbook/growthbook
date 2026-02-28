@@ -11,7 +11,6 @@ import {
   renderUserTargetingPhases,
   renderUserTargetingTopLevel,
   renderPhaseInfo,
-  renderVariations,
   renderAnalysisSettings,
   renderMetadata,
   getExperimentTargetingBadges,
@@ -111,7 +110,11 @@ type SectionAssignment = ExperimentSectionId | ExperimentSectionId[] | false;
 //     companion fields, then passes everything else through. This means any new
 //     phase field not yet assigned here will automatically appear in the Phase
 //     info raw JSON diff rather than being silently dropped.
-type PhaseKeyAssignment = "targeting-phases" | "phase-info" | false;
+type PhaseKeyAssignment =
+  | "targeting-phases"
+  | "phase-info"
+  | "variations"
+  | false;
 const PHASE_SUB_KEYS: Record<
   keyof ExperimentPhaseStringDates,
   PhaseKeyAssignment
@@ -132,6 +135,8 @@ const PHASE_SUB_KEYS: Record<
   lookbackStartDate: "phase-info",
   // false = excluded from rendered sections; shown only in the companion raw diff
   banditEvents: false,
+  // shown separately in the variations section
+  variations: "variations",
 };
 function phaseKeys(section: "targeting-phases" | "phase-info"): string[] {
   return Object.entries(PHASE_SUB_KEYS)
@@ -162,9 +167,6 @@ const EXPERIMENT_SECTION_KEYS: Record<
   bucketVersion: "targeting-top-level",
   minBucketVersion: "targeting-top-level",
   disableStickyBucketing: "targeting-top-level",
-
-  // — Variations —
-  variations: "variations",
 
   // — Analysis settings —
   goalMetrics: "analysis",
@@ -329,7 +331,7 @@ const EXPERIMENT_DIFF_CONFIG: AuditDiffConfig<ExperimentInterfaceStringDates> =
       {
         label: "Variations",
         keys: sectionKeys("variations"),
-        render: renderVariations,
+        render: renderPhaseInfo,
         getBadges: getExperimentVariationsBadges,
       },
       {

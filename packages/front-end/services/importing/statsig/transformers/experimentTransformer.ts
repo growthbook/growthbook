@@ -72,6 +72,7 @@ export function transformStatsigExperimentToGB(
     description: group.description || "",
     key: index.toString(),
     screenshots: [],
+    status: "active" as const,
   }));
 
   // Calculate variation weights from group sizes
@@ -137,6 +138,7 @@ export function transformStatsigExperimentToGB(
       name: "Main",
       reason: results ? `Experiment ${results}` : "",
       variationWeights,
+      variations,
       condition: phaseCondition,
       savedGroups: phaseSavedGroups,
       prerequisites: phasePrerequisites,
@@ -161,7 +163,6 @@ export function transformStatsigExperimentToGB(
     hashVersion: 2, // Default to v2
     disableStickyBucketing: false,
     attributionModel: "firstExposure",
-    variations,
     phases,
     goalMetrics,
     secondaryMetrics: secondaryMetricsList,

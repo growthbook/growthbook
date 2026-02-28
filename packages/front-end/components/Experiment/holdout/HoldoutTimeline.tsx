@@ -7,6 +7,7 @@ import {
   ExperimentStatus,
 } from "shared/types/experiment";
 import { getValidDate, date } from "shared/dates";
+import { getLatestPhaseVariations } from "shared/experiments";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
@@ -564,12 +565,12 @@ const HoldoutTimeline: React.FC<{
               {/* Experiment Timelines - simplified bars */}
               {experiments.map((experiment) => {
                 if (experiment.phases) {
-                  // Find shipped variation index and name if it exists
-                  const variationIndex = experiment.variations.findIndex(
+                  const expVariations = getLatestPhaseVariations(experiment);
+                  const variationIndex = expVariations.findIndex(
                     (v) => v.id === experiment.releasedVariationId,
                   );
-                  const shippedVariation = experiment.variations[variationIndex]
-                    ? experiment.variations[variationIndex].name
+                  const shippedVariation = expVariations[variationIndex]
+                    ? expVariations[variationIndex].name
                     : null;
                   return experiment.phases.map((phase, i) => {
                     const start = getValidDate(phase.dateStarted) ?? "";

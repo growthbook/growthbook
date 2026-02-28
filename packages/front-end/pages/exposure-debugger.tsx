@@ -3,6 +3,7 @@ import { UserExperimentExposuresQueryResponseRows } from "shared/types/integrati
 import { QueryStatistics } from "shared/types/query";
 import { useEffect, useState } from "react";
 import { datetime } from "shared/dates";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -243,12 +244,16 @@ const ExposureDebuggerPage = () => {
                           const exp = row.id
                             ? experimentsMap.get(row.id)
                             : null;
-                          const variationIndex = exp?.variations.findIndex(
+                          const expVariations = exp
+                            ? getLatestPhaseVariations(exp)
+                            : [];
+                          const variationIndex = expVariations.findIndex(
                             (v) => v.key === row.variation_id,
                           );
-                          const variation = variationIndex
-                            ? exp?.variations[variationIndex]
-                            : null;
+                          const variation =
+                            variationIndex >= 0
+                              ? expVariations[variationIndex]
+                              : null;
                           return (
                             <tr key={index}>
                               <td>{datetime(row.timestamp)}</td>

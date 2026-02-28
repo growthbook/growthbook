@@ -586,7 +586,7 @@ const ShareModal = ({
                               if (!phase) return null;
 
                               let hasScreenShots = true;
-                              e.variations.forEach((v) => {
+                              (phase.variations ?? []).forEach((v) => {
                                 if (v.screenshots.length < 1) {
                                   hasScreenShots = false;
                                 }

@@ -12,6 +12,7 @@ import {
   CreateFactTableProps,
 } from "shared/types/fact-table";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { ApiCallType } from "@/services/auth";
 import { transformStatsigMetricSourceToFactTable } from "@/services/importing/statsig/transformers/metricSourceTransformer";
 import { transformStatsigMetricToMetric } from "@/services/importing/statsig/transformers/metricTransformer";
@@ -1946,7 +1947,9 @@ export async function runImport(options: RunImportOptions) {
             availableEnvironments,
             {
               id: experimentRes.experiment.id,
-              variations: experimentRes.experiment.variations.map((v) => ({
+              variations: getLatestPhaseVariations(
+                experimentRes.experiment,
+              ).map((v) => ({
                 id: v.id,
                 key: v.key,
               })),

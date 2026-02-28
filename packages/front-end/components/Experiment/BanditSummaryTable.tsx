@@ -63,7 +63,7 @@ export default function BanditSummaryTable({
 
   const phaseObj = experiment.phases[phase];
 
-  const variations = experiment.variations.map((v, i) => {
+  const variations = phaseObj?.variations?.map((v, i) => {
     return {
       id: v.key || i + "",
       index: i,

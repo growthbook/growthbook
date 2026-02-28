@@ -1,6 +1,7 @@
 import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { isURLTargeted } from "@growthbook/growthbook";
 import { FaExclamationCircle } from "react-icons/fa";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
@@ -56,6 +57,7 @@ const UrlRedirectModal: FC<{
   source?: string;
 }> = ({ mode, experiment, urlRedirect, mutate, close, source }) => {
   const { apiCall } = useAuth();
+  const variations = getLatestPhaseVariations(experiment);
   const { data: sdkConnectionsData } = useSDKConnections();
 
   const hasSDKWithRedirects = getConnectionsSDKCapabilities({
@@ -85,7 +87,7 @@ const UrlRedirectModal: FC<{
     form.watch("originUrl")
       ? form.watch("destinationUrls").map((u) => !!u)
       : () => {
-          const initialArray = Array(experiment.variations.length).fill(true);
+          const initialArray = Array(variations.length).fill(true);
           initialArray[0] = false;
           return initialArray;
         },
@@ -94,7 +96,7 @@ const UrlRedirectModal: FC<{
   const onSubmit = form.handleSubmit(async (value) => {
     const payload = {
       urlPattern: value.originUrl,
-      destinationURLs: experiment.variations.map((v, i) => {
+      destinationURLs: variations.map((v, i) => {
         return {
           variation: v.id,
           url: value.destinationUrls[i],
@@ -206,7 +208,7 @@ const UrlRedirectModal: FC<{
         <hr className="mt-4 mb-3" />
         <div className="mt-3">
           <h4>Destination URLs</h4>
-          {experiment.variations.map((v, i) => {
+          {variations.map((v, i) => {
             let warning: string | JSX.Element | undefined;
             const destinationMatchesOrigin =
               !!form.watch("originUrl") &&

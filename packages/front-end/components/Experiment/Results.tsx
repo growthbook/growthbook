@@ -8,8 +8,9 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import {
-  isPrecomputedDimension,
+  getVariationsWithWeights,
   getEffectiveLookbackOverride,
+  isPrecomputedDimension,
 } from "shared/experiments";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { MetricSnapshotSettings } from "shared/types/report";
@@ -124,13 +125,11 @@ const Results: FC<{
     (Date.now() - getValidDate(phaseObj?.dateStarted ?? "").getTime()) /
     (1000 * 60);
 
-  const variations = experiment.variations.map((v, i) => {
-    return {
-      id: v.key || i + "",
-      name: v.name,
-      weight: phaseObj?.variationWeights?.[i] || 0,
-    };
-  });
+  const variations = getVariationsWithWeights(phaseObj).map((v, i) => ({
+    id: v.key || i + "",
+    name: v.name,
+    weight: v.weight,
+  }));
 
   const settingsForSnapshotMetrics: MetricSnapshotSettings[] =
     snapshot?.settings?.metricSettings?.map((m) => ({
@@ -290,7 +289,7 @@ const Results: FC<{
             await apiCall(`/experiment/${experiment.id}`, {
               method: "POST",
               body: JSON.stringify({
-                variations: experiment.variations.map((v, i) => {
+                variations: phaseObj?.variations?.map((v, i) => {
                   return {
                     ...v,
                     key: ids[i] ?? v.key,
