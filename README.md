@@ -4,6 +4,7 @@
     <a href="https://github.com/growthbook/growthbook/github/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/growthbook/growthbook/ci.yml?branch=main" alt="Build Status" height="22"/></a>
     <a href="https://github.com/growthbook/growthbook/releases"><img src="https://img.shields.io/github/v/release/growthbook/growthbook?color=blue&sort=semver" alt="Release" height="22"/></a>
     <a href="https://slack.growthbook.io?ref=readme-badge"><img src="https://img.shields.io/badge/slack-join-E01E5A?logo=slack" alt="Join us on Slack" height="22"/></a>
+    <a href="https://gurubase.io/g/growthbook"><img src="https://img.shields.io/badge/Gurubase-Ask%20GrowthBook%20Guru-006BFF" alt="Ask GrowthBook Guru" height="22"/></a>
 </p>
 
 Create a free [GrowthBook Cloud](https://app.growthbook.io) account to get started quickly.
