@@ -14,7 +14,7 @@ const BaseClass = MakeModelClass({
   schema: webhookSchema,
   collectionName: COLLECTION_NAME,
   idPrefix: "wh_",
-  globallyUniqueIds: true,
+  globallyUniquePrimaryKeys: true,
   readonlyFields: [],
   additionalIndexes: [
     {

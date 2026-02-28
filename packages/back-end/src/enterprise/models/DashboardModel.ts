@@ -25,6 +25,7 @@ import {
 } from "shared/enterprise";
 import omit from "lodash/omit";
 import { getValidDate } from "shared/dates";
+import { defaultPrimaryKeyShape } from "shared/validators";
 import {
   MakeModelClass,
   ScopedFilterQuery,
@@ -59,7 +60,7 @@ const BaseClass = MakeModelClass({
     updateEvent: "dashboard.update",
     deleteEvent: "dashboard.delete",
   },
-  globallyUniqueIds: true,
+  globallyUniquePrimaryKeys: true,
   additionalIndexes: [
     { fields: { organization: 1, experimentId: 1 }, unique: false },
   ],
@@ -109,7 +110,10 @@ export const toInterface: ToInterface<DashboardInterface> = (doc) => {
 export class DashboardModel extends BaseClass {
   public async findByExperiment(
     experimentId: string,
-    additionalFilter: ScopedFilterQuery<typeof dashboardInterface> = {},
+    additionalFilter: ScopedFilterQuery<
+      typeof dashboardInterface,
+      typeof defaultPrimaryKeyShape
+    > = {},
   ): Promise<DashboardInterface[]> {
     return this._find({ experimentId, ...additionalFilter });
   }
