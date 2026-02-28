@@ -8,6 +8,7 @@ import {
   calculateProductAnalyticsDateRange,
   getDateGranularity,
 } from "shared/enterprise";
+import { getValidDate } from "shared/dates";
 import { MakeModelClass } from "./BaseModel";
 
 const COLLECTION_NAME = "analyticsexploration";
@@ -119,7 +120,8 @@ export class AnalyticsExplorationModel extends BaseClass {
         const requestedRange =
           requestedDates.endDate.getTime() - requestedDates.startDate.getTime();
         const currentRange =
-          current.dateEnd.getTime() - current.dateStart.getTime();
+          getValidDate(current.dateEnd).getTime() -
+          getValidDate(current.dateStart).getTime();
 
         if (!requestedRange || !currentRange) {
           return max;
@@ -128,11 +130,11 @@ export class AnalyticsExplorationModel extends BaseClass {
         // Calculate overlap
         const maxStart = Math.max(
           requestedDates.startDate.getTime(),
-          current.dateStart.getTime(),
+          getValidDate(current.dateStart).getTime(),
         );
         const minEnd = Math.min(
           requestedDates.endDate.getTime(),
-          current.dateEnd.getTime(),
+          getValidDate(current.dateEnd).getTime(),
         );
         const overlap = Math.max(0, minEnd - maxStart);
 
@@ -151,7 +153,10 @@ export class AnalyticsExplorationModel extends BaseClass {
 
         return score > max.score ? { analysis: current, score: score } : max;
       },
-      { analysis: null, score: 0 },
+      { analysis: null, score: 0 } as {
+        analysis: ProductAnalyticsExploration | null;
+        score: number;
+      },
     );
 
     // 3. Return if it's a good enough match

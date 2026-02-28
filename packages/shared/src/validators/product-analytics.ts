@@ -159,8 +159,8 @@ export const productAnalyticsConfigValidator = z
       predefined: z.enum(dateRangePredefined),
       lookbackValue: z.number().nullable(),
       lookbackUnit: z.enum(lookbackUnit).nullable(),
-      startDate: z.coerce.date().nullable(),
-      endDate: z.coerce.date().nullable(),
+      startDate: z.string().nullable(),
+      endDate: z.string().nullable(),
     }),
   })
   .strict();
@@ -201,8 +201,8 @@ export const productAnalyticsExplorationValidator = z.object({
   valueHashes: z.array(z.string()),
   config: productAnalyticsConfigValidator,
   result: productAnalyticsResultValidator,
-  dateStart: z.date(),
-  dateEnd: z.date(),
+  dateStart: z.string(),
+  dateEnd: z.string(),
   runStarted: z.date().nullable(),
   status: z.enum(["running", "success", "error"]),
   error: z.string().nullable().optional(),

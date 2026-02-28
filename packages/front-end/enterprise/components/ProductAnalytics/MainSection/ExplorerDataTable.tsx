@@ -115,7 +115,7 @@ export default function ExplorerDataTable({ hasChart }: { hasChart: boolean }) {
       if (dimension.dimensionType === "date") {
         headers.push("Date");
       } else if (dimension.dimensionType === "dynamic") {
-        headers.push(dimension.column);
+        headers.push(dimension.column || "");
       } else {
         // TODO: Handle static and slice dimensions
         console.log("Unknown dimension type", dimension);

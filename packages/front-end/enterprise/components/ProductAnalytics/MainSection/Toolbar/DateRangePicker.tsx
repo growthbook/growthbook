@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Flex } from "@radix-ui/themes";
 import { dateRangePredefined, lookbackUnit } from "shared/validators";
+import { getValidDate } from "shared/dates";
 import { Select, SelectItem } from "@/ui/Select";
 import Field from "@/components/Forms/Field";
 import DatePicker from "@/components/DatePicker";
@@ -160,14 +161,18 @@ export default function DateRangePicker({
           containerClassName="mb-0"
           compact
           wrapRangeInputs={shouldWrap}
-          date={dateRange.startDate || undefined}
-          date2={dateRange.endDate || undefined}
+          date={
+            dateRange.startDate ? getValidDate(dateRange.startDate) : undefined
+          }
+          date2={
+            dateRange.endDate ? getValidDate(dateRange.endDate) : undefined
+          }
           setDate={(d) => {
             setDraftExploreState((prev) => ({
               ...prev,
               dateRange: {
                 ...prev.dateRange,
-                startDate: d || null,
+                startDate: d?.toISOString() || null,
               },
             }));
           }}
@@ -176,7 +181,7 @@ export default function DateRangePicker({
               ...prev,
               dateRange: {
                 ...prev.dateRange,
-                endDate: d || null,
+                endDate: d?.toISOString() || null,
               },
             }));
           }}
