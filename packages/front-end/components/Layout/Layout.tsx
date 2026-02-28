@@ -409,20 +409,30 @@ const otherPageTitles = [
   },
 ];
 
-const backgroundShade = (color: string) => {
+// Validates if a string is a valid hex color code (#RGB or #RRGGBB format)
+const isValidHexColor = (color?: string): boolean => {
+  if (!color) return false;
+  return /^#([0-9A-F]{3}){1,2}$/i.test(color);
+};
+
+const backgroundShade = (color: string): "light" | "dark" => {
+  if (!isValidHexColor(color)) {
+    return "light"; // Default to light if invalid color
+  }
+  
   // convert to RGB
-  // @ts-expect-error TS(2769) If you come across this, please fix it!: No overload matches this call.
-  const c = +("0x" + color.slice(1).replace(color.length < 5 && /./g, "$&$&"));
-  const r = c >> 16;
-  const g = (c >> 8) & 255;
-  const b = c & 255;
+  const normalizedColor = color.slice(1);
+  const expandedColor = normalizedColor.length === 3 
+    ? normalizedColor.split('').map(c => c + c).join('') 
+    : normalizedColor;
+  
+  const r = parseInt(expandedColor.slice(0, 2), 16);
+  const g = parseInt(expandedColor.slice(2, 4), 16);
+  const b = parseInt(expandedColor.slice(4, 6), 16);
+  
   // http://alienryderflex.com/hsp.html
   const hsp = Math.sqrt(0.299 * (r * r) + 0.587 * (g * g) + 0.114 * (b * b));
-  if (hsp > 127.5) {
-    return "light";
-  } else {
-    return "dark";
-  }
+  return hsp > 127.5 ? "light" : "dark";
 };
 
 const Layout = (): React.ReactElement => {
@@ -478,22 +488,31 @@ const Layout = (): React.ReactElement => {
 
   let customStyles = ``;
   if (settings?.customized) {
-    const textColor =
-      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-      backgroundShade(settings?.primaryColor) === "dark" ? "#fff" : "#444";
-
-    // we could support saving this CSS in the settings so it can be customized
-    customStyles = `
-      .sidebar { background-color: ${settings.primaryColor} !important; transition: none }
-      .sidebarlink { transition: none; } 
-      .sidebarlink:hover {
-        background-color: background-color: ${settings.secondaryColor} !important;
-      }
-      .sidebarlink a:hover, .sidebarlink.selected, .sublink.selected { background-color: ${settings.secondaryColor} !important; } 
-      .sublink {border-color: ${settings.secondaryColor} !important; }
-      .sublink:hover, .sublink:hover a { background-color: ${settings.secondaryColor} !important; }
-      .sidebarlink a, .sublink a {color: ${textColor}}
+    // Only proceed if colors are valid hex codes
+    const primaryColorValid = isValidHexColor(settings?.primaryColor);
+    const secondaryColorValid = isValidHexColor(settings?.secondaryColor);
+    
+    if (primaryColorValid && secondaryColorValid) {
+      const textColor = backgroundShade(settings.primaryColor) === "dark" ? "#fff" : "#444";
+      
+      // Define CSS variables and use them in the styles instead of direct interpolation
+      customStyles = `
+        :root {
+          --gb-primary-color: ${settings.primaryColor};
+          --gb-secondary-color: ${settings.secondaryColor};
+          --gb-text-color: ${textColor};
+        }
+        .sidebar { background-color: var(--gb-primary-color) !important; transition: none; }
+        .sidebarlink { transition: none; } 
+        .sidebarlink:hover {
+          background-color: var(--gb-secondary-color) !important;
+        }
+        .sidebarlink a:hover, .sidebarlink.selected, .sublink.selected { background-color: var(--gb-secondary-color) !important; } 
+        .sublink { border-color: var(--gb-secondary-color) !important; }
+        .sublink:hover, .sublink:hover a { background-color: var(--gb-secondary-color) !important; }
+        .sidebarlink a, .sublink a { color: var(--gb-text-color); }
       `;
+    }
   }
 
   const build = getGrowthBookBuild();
@@ -507,7 +526,7 @@ const Layout = (): React.ReactElement => {
           commercialFeature={null}
         />
       )}
-      {settings?.customized && (
+      {settings?.customized && customStyles && (
         <style dangerouslySetInnerHTML={{ __html: customStyles }}></style>
       )}
       <div
