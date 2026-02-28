@@ -7,6 +7,9 @@ properties:
     type: string
   trackingKey:
     type: string
+  allowDuplicateTrackingKey:
+    type: boolean
+    description: If true, allow updating the tracking key even if another experiment with the same tracking key already exists
   name:
     type: string
     description: Name of the experiment
