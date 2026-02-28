@@ -1,10 +1,8 @@
 import React, { useState } from "react";
 import { isProjectListValidForProject } from "shared/util";
 import { SavedQuery } from "shared/validators";
-import { Flex } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
-import Text from "@/ui/Text";
 import LinkButton from "@/ui/LinkButton";
 import Button from "@/ui/Button";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -12,8 +10,6 @@ import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
 import SavedQueriesList from "@/components/SavedQueries/SavedQueriesList";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PremiumCallout from "@/ui/PremiumCallout";
-import Callout from "@/ui/Callout";
-import Link from "@/ui/Link";
 
 export default function SqlExplorer() {
   const { datasources, project } = useDefinitions();
@@ -70,22 +66,6 @@ export default function SqlExplorer() {
             results.
           </span>
         </PremiumCallout>
-      </div>
-
-      <div className="mb-2">
-        <Callout status="info">
-          <Flex direction="row" gap="2">
-            <Text weight="semibold">New Feature!</Text>
-            <Text>
-              Use our{" "}
-              <Link href="/product-analytics/explore">
-                Product Analytics Explore
-              </Link>{" "}
-              tool to create visualizations from your data without writing any
-              SQL.
-            </Text>
-          </Flex>
-        </Callout>
       </div>
 
       {!hasSavedQueries ? (

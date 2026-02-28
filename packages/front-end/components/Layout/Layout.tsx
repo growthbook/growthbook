@@ -97,9 +97,8 @@ const navlinks: SidebarLinkProps[] = [
   {
     name: "Product Analytics",
     href: "/product-analytics/explore",
-    path: /^(product-analytics)/,
+    path: /^(product-analytics|sql-explorer)/,
     Icon: GBProductAnalytics,
-    filter: ({ gb }) => !!gb?.isOn("general-dashboards"),
     subLinks: [
       {
         name: "Explore",
@@ -117,7 +116,7 @@ const navlinks: SidebarLinkProps[] = [
   {
     name: "Metrics and Data",
     href: "/metrics",
-    path: /^(metric\/|metrics|segment|dimension|datasources|fact-|metric-group|sql-explorer)/,
+    path: /^(metric\/|metrics|segment|dimension|datasources|fact-|metric-group)/,
     autoClose: true,
     Icon: GBDatabase,
     subLinks: [
