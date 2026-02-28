@@ -787,9 +787,6 @@ export async function getExperimentsUsingMetric({
         { secondaryMetrics: { $in: allIds } },
         { activationMetric: { $in: allIds } },
       ],
-      archived: {
-        $ne: true,
-      },
     },
     // hard cap at 1000 to prevent too many results
     limit !== undefined ? limit : 1000,
