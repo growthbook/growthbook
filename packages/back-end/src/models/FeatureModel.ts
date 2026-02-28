@@ -70,6 +70,7 @@ import {
   markRevisionAsPublished,
   updateRevision,
 } from "./FeatureRevisionModel";
+import { deleteWatchedByEntityForAllUsers } from "./WatchModel";
 
 const featureSchema = new mongoose.Schema({
   id: String,
@@ -404,6 +405,11 @@ export async function deleteFeature(
   });
   await deleteAllRevisionsForFeature(context.org.id, feature.id);
   await context.models.featureRevisionLogs.deleteAllByFeature(feature);
+  await deleteWatchedByEntityForAllUsers({
+    organization: context.org.id,
+    type: "features",
+    item: feature.id,
+  });
 
   if (feature.linkedExperiments) {
     await Promise.all(
