@@ -6,6 +6,7 @@ const router = express.Router();
 const holdoutController = wrapController(rawHoldoutController);
 
 router.get("/", holdoutController.getHoldouts);
+router.get("/tracking-key", holdoutController.lookupHoldoutByTrackingKey);
 router.get("/:id", holdoutController.getHoldout);
 router.put("/:id", holdoutController.updateHoldout);
 router.post("/", holdoutController.createHoldout);
