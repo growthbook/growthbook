@@ -368,6 +368,7 @@ DEFAULT_ANALYSIS = AnalysisSettingsForStatsEngine(
     alpha=0.05,
     max_dimensions=20,
     one_sided_intervals=False,
+    use_covariate_as_response=False,
 )
 
 
@@ -885,6 +886,275 @@ class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
             raise TypeError(
                 f"Unexpected variation response type: {type(result[0].variations[1])}"
             )
+
+
+class TestUseCovariateAsResponse(TestCase):
+    def test_no_covariates(self):
+        rows = QUERY_OUTPUT
+        df = get_metric_dfs(
+            pd.DataFrame(rows),
+            {"zero": 0, "one": 1},
+            ["zero", "one"],
+            dimension="All",
+            post_stratify=False,
+        )
+        result = analyze_metric_df(
+            df,
+            num_variations=2,
+            metric=COUNT_METRIC,
+            analysis=dataclasses.replace(
+                DEFAULT_ANALYSIS,
+                stats_engine="frequentist",
+                difference_type="absolute",
+                use_covariate_as_response=True,
+            ),
+        )
+
+        df_no_data = pd.DataFrame(copy.deepcopy(QUERY_OUTPUT))
+        df_no_data["main_sum"] = 0.0
+        df_no_data["main_sum_squares"] = 0.0
+        df_pre = get_metric_dfs(df_no_data, {"zero": 0, "one": 1}, ["zero", "one"])
+        result_true = analyze_metric_df(
+            df_pre,
+            num_variations=2,
+            metric=COUNT_METRIC,
+            analysis=dataclasses.replace(
+                DEFAULT_ANALYSIS, stats_engine="frequentist", difference_type="absolute"
+            ),
+        )
+        # when we run use_covariate_as_response=True, we expect the variation means to still be returned
+        # this is not done when calculating result_true
+        result_true[0].variations[0].value = result[0].variations[0].value
+        result_true[0].variations[1].value = result[0].variations[1].value
+        result_true[1].variations[0].value = result[1].variations[0].value
+        result_true[1].variations[1].value = result[1].variations[1].value
+        self.assertEqual(
+            result,
+            result_true,
+        )
+
+    def test_use_covariate_as_response_ra_proportion(self):
+        rows = RA_STATISTICS_DF
+        df = get_metric_dfs(
+            rows=rows,
+            var_id_map={"zero": 0, "one": 1},
+            var_names=["zero", "one"],
+            dimension=DEFAULT_ANALYSIS.dimension,
+            post_stratify=DEFAULT_ANALYSIS.post_stratification_enabled,
+        )
+        result = analyze_metric_df(
+            df,
+            num_variations=2,
+            metric=dataclasses.replace(
+                RA_METRIC, main_metric_type="binomial", covariate_metric_type="binomial"
+            ),
+            analysis=dataclasses.replace(
+                DEFAULT_ANALYSIS,
+                stats_engine="frequentist",
+                difference_type="absolute",
+                use_covariate_as_response=True,
+            ),
+        )
+        drop_cols = [
+            "main_sum",
+            "main_sum_squares",
+            "main_covariate_sum_product",
+            "covariate_sum_squares",
+        ]
+        mapping = {
+            "covariate_sum": "main_sum",
+        }
+        rows_pre = (
+            copy.deepcopy(RA_STATISTICS_DF)
+            .drop(columns=drop_cols)
+            .rename(columns=mapping)
+        )
+        df_pre = get_metric_dfs(rows_pre, {"zero": 0, "one": 1}, ["zero", "one"])
+        result_true = analyze_metric_df(
+            df_pre,
+            num_variations=2,
+            metric=dataclasses.replace(
+                COUNT_METRIC,
+                main_metric_type="binomial",
+            ),
+            analysis=dataclasses.replace(
+                DEFAULT_ANALYSIS, stats_engine="frequentist", difference_type="absolute"
+            ),
+        )
+        # when we run use_covariate_as_response=True, we expect the variation means to still be returned
+        # this is not done when calculating result_true
+        result_true[0].variations[0].value = result[0].variations[0].value
+        result_true[0].variations[1].value = result[0].variations[1].value
+        self.assertEqual(
+            result,
+            result_true,
+        )
+
+    def test_use_covariate_as_response_ra_count(self):
+        rows = RA_STATISTICS_DF
+        df = get_metric_dfs(rows, {"zero": 0, "one": 1}, ["zero", "one"])
+        result = analyze_metric_df(
+            df,
+            num_variations=2,
+            metric=RA_METRIC,
+            analysis=dataclasses.replace(
+                DEFAULT_ANALYSIS,
+                stats_engine="frequentist",
+                difference_type="absolute",
+                use_covariate_as_response=True,
+            ),
+        )
+        drop_cols = ["main_sum", "main_sum_squares", "main_covariate_sum_product"]
+        mapping = {
+            "covariate_sum": "main_sum",
+            "covariate_sum_squares": "main_sum_squares",
+        }
+        rows_pre = (
+            copy.deepcopy(RA_STATISTICS_DF)
+            .drop(columns=drop_cols)
+            .rename(columns=mapping)
+        )
+        df_pre = get_metric_dfs(rows_pre, {"zero": 0, "one": 1}, ["zero", "one"])
+        result_true = analyze_metric_df(
+            df_pre,
+            num_variations=2,
+            metric=COUNT_METRIC,
+            analysis=dataclasses.replace(
+                DEFAULT_ANALYSIS, stats_engine="frequentist", difference_type="absolute"
+            ),
+        )
+        # when we run use_covariate_as_response=True, we expect the variation means to still be returned
+        # this is not done when calculating result_true
+        result_true[0].variations[0].value = result[0].variations[0].value
+        result_true[0].variations[1].value = result[0].variations[1].value
+        self.assertEqual(
+            result,
+            result_true,
+        )
+
+    def test_use_covariate_as_response_ra_ratio(self):
+        rows = RATIO_RA_STATISTICS_DF
+        df = get_metric_dfs(rows, {"zero": 0, "one": 1}, ["zero", "one"])
+        result = analyze_metric_df(
+            df,
+            num_variations=2,
+            metric=RATIO_RA_METRIC,
+            analysis=dataclasses.replace(
+                DEFAULT_ANALYSIS,
+                stats_engine="frequentist",
+                difference_type="absolute",
+                use_covariate_as_response=True,
+            ),
+        )
+
+        drop_cols = [
+            "main_sum",
+            "main_sum_squares",
+            "denominator_sum",
+            "denominator_sum_squares",
+            "main_covariate_sum_product",
+            "main_denominator_sum_product",
+            "main_post_denominator_pre_sum_product",
+            "main_pre_denominator_post_sum_product",
+            "denominator_post_denominator_pre_sum_product",
+        ]
+        mapping = {
+            "covariate_sum": "main_sum",
+            "covariate_sum_squares": "main_sum_squares",
+            "denominator_pre_sum": "denominator_sum",
+            "denominator_pre_sum_squares": "denominator_sum_squares",
+            "main_pre_denominator_pre_sum_product": "main_denominator_sum_product",
+        }
+        rows_pre = (
+            copy.deepcopy(RATIO_RA_STATISTICS_DF)
+            .drop(columns=drop_cols)
+            .rename(columns=mapping)
+        )
+        df_pre = get_metric_dfs(rows_pre, {"zero": 0, "one": 1}, ["zero", "one"])
+        result_true = analyze_metric_df(
+            df_pre,
+            num_variations=2,
+            metric=RATIO_METRIC,
+            analysis=dataclasses.replace(
+                DEFAULT_ANALYSIS, stats_engine="frequentist", difference_type="absolute"
+            ),
+        )
+        # when we run use_covariate_as_response=True, we expect the variation means to still be returned
+        # this is not done when calculating result_true
+        result_true[0].variations[0].value = result[0].variations[0].value
+        result_true[0].variations[1].value = result[0].variations[1].value
+        result_true[0].variations[0].denominator = result[0].variations[0].denominator
+        result_true[0].variations[1].denominator = result[0].variations[1].denominator
+
+        self.assertEqual(
+            result,
+            result_true,
+        )
+
+        self.assertEqual(
+            result,
+            result_true,
+        )
+
+    def test_analyze_metric_df_ra_proportion(self):
+        rows = RA_STATISTICS_DF.copy()
+        # override default DF
+        rows.drop(columns=["main_sum_squares", "covariate_sum_squares"], inplace=True)
+        df = get_metric_dfs(rows, {"zero": 0, "one": 1}, ["zero", "one"])
+        result = analyze_metric_df(
+            df,
+            num_variations=2,
+            metric=dataclasses.replace(
+                RA_METRIC,
+                main_metric_type="binomial",
+                covariate_metric_type="binomial",
+            ),
+            analysis=dataclasses.replace(DEFAULT_ANALYSIS, stats_engine="frequentist"),
+        )
+
+        # Test that metric mean is unadjusted
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].dimension, "All")
+        self.assertEqual(round_(result[0].variations[0].cr), 0.099966678)
+        self.assertEqual(round_(result[0].variations[0].stats.mean), 0.099966678)
+        self.assertEqual(round_(result[0].variations[1].cr), 0.074)
+        self.assertEqual(round_(result[0].variations[1].stats.mean), 0.074)
+        if isinstance(result[0].variations[1], FrequentistVariationResponseIndividual):
+            self.assertEqual(round_(result[0].variations[1].expected), -0.31620216)
+            if result[0].variations[1].pValue is not None:
+                self.assertEqual(round_(result[0].variations[1].pValue), 0.000000353)
+            else:
+                raise ValueError(
+                    f"pValue is None for variation response: {result[0].variations[1]}"
+                )
+        else:
+            raise TypeError(
+                f"Unexpected variation response type: {type(result[0].variations[1])}"
+            )
+
+    def test_analyze_metric_df_ratio_ra(self):
+        rows = RATIO_RA_STATISTICS_DF
+        df = get_metric_dfs(rows, {"zero": 0, "one": 1}, ["zero", "one"])
+        result = analyze_metric_df(
+            df,
+            num_variations=2,
+            metric=RATIO_RA_METRIC,
+            analysis=dataclasses.replace(DEFAULT_ANALYSIS, stats_engine="frequentist"),
+        )
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].dimension, "All")
+        self.assertEqual(round_(result[0].variations[0].cr), 0.713495487)
+        self.assertEqual(round_(result[0].variations[0].stats.mean), 0.713495487)
+        self.assertEqual(round_(result[0].variations[1].cr), 0.729754963)
+        self.assertEqual(round_(result[0].variations[1].stats.mean), 0.729754963)
+        if isinstance(result[0].variations[1], FrequentistVariationResponseIndividual):
+            self.assertEqual(round_(result[0].variations[1].expected), -0.000701483)
+            if result[0].variations[1].pValue is not None:
+                self.assertEqual(round_(result[0].variations[1].pValue), 0.857710405)
+            else:
+                raise ValueError(
+                    f"pValue is None for variation response: {result[0].variations[1]}"
+                )
 
 
 class TestAnalyzeMetricDfSequential(TestCase):

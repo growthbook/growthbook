@@ -1,4 +1,8 @@
-import { analyzeExperimentPower } from "shared/enterprise";
+import {
+  analyzeExperimentPower,
+  tabulateCovariateImbalance,
+} from "shared/enterprise";
+
 import { addDays } from "date-fns";
 import {
   ExperimentMetricInterface,
@@ -451,8 +455,20 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
           variationsSettings: this.model.settings.variations,
         });
       }
+      const analysisForCovariateImbalance = this.model.analyses.find(
+        (a) => a.settings.useCovariateAsResponse === true,
+      );
+      const isEligibleForCovariateImbalanceAnalysis =
+        !!analysisForCovariateImbalance;
+      if (isEligibleForCovariateImbalanceAnalysis) {
+        result.health.covariateImbalance = tabulateCovariateImbalance(
+          analysisForCovariateImbalance,
+          this.model.settings.goalMetrics,
+          this.model.settings.guardrailMetrics,
+          this.model.settings.secondaryMetrics,
+        );
+      }
     }
-
     return result;
   }
 
