@@ -10,7 +10,7 @@ import { logger } from "back-end/src/util/logger";
 
 type UpdateSingleFeatureJob = Job<{
   featureId: string;
-  organization: string;
+  organizationId: string;
 }>;
 
 const QUEUE_FEATURE_UPDATES = "queueScheduledFeatureUpdates";
@@ -26,16 +26,16 @@ async function fireUpdateWebhook(agenda: Agenda) {
 
 async function queueFeatureUpdate(
   agenda: Agenda,
-  feature: { id: string; organization: string },
+  feature: { id: string; organizationId: string },
 ) {
   const job = agenda.create(UPDATE_SINGLE_FEATURE, {
     featureId: feature.id,
-    organization: feature.organization,
+    organizationId: feature.organizationId,
   }) as UpdateSingleFeatureJob;
 
   job.unique({
     featureId: feature.id,
-    organization: feature.organization,
+    organization: feature.organizationId,
   });
   job.schedule(new Date());
   await job.save();
@@ -44,7 +44,7 @@ async function queueFeatureUpdate(
 export default async function (agenda: Agenda) {
   agenda.define(QUEUE_FEATURE_UPDATES, async () => {
     const featureIds = (await getScheduledFeaturesToUpdate()).map((f) => {
-      return { id: f.id, organization: f.organization };
+      return { id: f.id, organizationId: f.organization };
     });
 
     for (let i = 0; i < featureIds.length; i++) {
@@ -58,11 +58,10 @@ export default async function (agenda: Agenda) {
 }
 
 const updateSingleFeature = async (job: UpdateSingleFeatureJob) => {
-  const featureId = job.attrs.data?.featureId;
-  const organization = job.attrs.data?.organization;
-  if (!featureId || !organization) return;
+  const { featureId, organizationId } = job.attrs.data;
+  if (!featureId || !organizationId) return;
 
-  const context = await getContextForAgendaJobByOrgId(organization);
+  const context = await getContextForAgendaJobByOrgId(organizationId);
 
   const feature = await getFeature(context, featureId);
   if (!feature) return;

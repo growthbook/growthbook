@@ -20,7 +20,7 @@ const UPDATE_SINGLE_METRIC = "updateSingleMetric";
 
 type UpdateSingleMetricJob = Job<{
   metricId: string;
-  orgId: string;
+  organizationId: string;
   daysToInclude: number;
 }>;
 
@@ -90,18 +90,18 @@ export default async function (agenda: Agenda) {
 
   async function queueMetricUpdate(
     metricId: string,
-    orgId: string,
+    organizationId: string,
     daysToInclude: number,
   ) {
     const job = agenda.create(UPDATE_SINGLE_METRIC, {
       metricId,
-      orgId,
+      organizationId,
       daysToInclude,
     }) as UpdateSingleMetricJob;
 
     job.unique({
       metricId,
-      orgId,
+      orgId: organizationId,
     });
     job.schedule(new Date());
     await job.save();
@@ -109,33 +109,27 @@ export default async function (agenda: Agenda) {
 }
 
 const updateSingleMetric = async (job: UpdateSingleMetricJob) => {
-  const metricId = job.attrs.data?.metricId;
-  const orgId = job.attrs.data?.orgId;
+  const { metricId, organizationId } = job.attrs.data;
   const daysToInclude =
     job.attrs.data?.daysToInclude || DEFAULT_METRIC_ANALYSIS_DAYS;
 
-  try {
-    if (!metricId || !orgId) {
-      throw new Error("Error getting metricId or orgId from job");
-    }
-
-    const org = await getOrganizationById(orgId);
-    if (!org) {
-      throw new Error("Error getting org to refresh metric: " + orgId);
-    }
-    const context = getContextForAgendaJobByOrgObject(org);
-
-    const metric = await getMetricById(context, metricId, true);
-
-    if (!metric) {
-      throw new Error("Error getting metric to refresh: " + metricId);
-    }
-
-    logger.info("Start Refreshing Metric: " + metricId);
-    await refreshMetric(context, metric, daysToInclude);
-    logger.info("Successfully Refreshed Metric: " + metricId);
-  } catch (e) {
-    logger.error(e, "Error refreshing metric: " + metricId);
-    return false;
+  if (!metricId || !organizationId) {
+    throw new Error("Error getting metricId or organizationId from job");
   }
+
+  const org = await getOrganizationById(organizationId);
+  if (!org) {
+    throw new Error("Error getting org to refresh metric: " + organizationId);
+  }
+  const context = getContextForAgendaJobByOrgObject(org);
+
+  const metric = await getMetricById(context, metricId, true);
+
+  if (!metric) {
+    throw new Error("Error getting metric to refresh: " + metricId);
+  }
+
+  logger.info("Start Refreshing Metric: " + metricId);
+  await refreshMetric(context, metric, daysToInclude);
+  logger.info("Successfully Refreshed Metric: " + metricId);
 };

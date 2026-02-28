@@ -23,16 +23,16 @@ import { logger } from "back-end/src/util/logger";
 
 const JOB_NAME = "refreshFactTableColumns";
 type RefreshFactTableColumnsJob = Job<{
-  organization: string;
+  organizationId: string;
   factTableId: string;
 }>;
 
 const refreshFactTableColumns = async (job: RefreshFactTableColumnsJob) => {
-  const { organization, factTableId } = job.attrs.data;
+  const { organizationId, factTableId } = job.attrs.data;
 
-  if (!factTableId || !organization) return;
+  if (!factTableId || !organizationId) return;
 
-  const context = await getContextForAgendaJobByOrgId(organization);
+  const context = await getContextForAgendaJobByOrgId(organizationId);
 
   const factTable = await getFactTable(context, factTableId);
   if (!factTable) return;
@@ -334,7 +334,7 @@ export async function queueFactTableColumnsRefresh(
   factTable: Pick<FactTableInterface, "id" | "organization">,
 ) {
   const job = agenda.create(JOB_NAME, {
-    organization: factTable.organization,
+    organizationId: factTable.organization,
     factTableId: factTable.id,
   }) as RefreshFactTableColumnsJob;
   job.unique({

@@ -13,20 +13,19 @@ import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizatio
 const UPDATE_STALE_INFORMATION_SCHEMA_TABLE_JOB_NAME =
   "updateStaleInformationSchemaTable";
 type UpdateStaleInformationSchemaTableJob = Job<{
-  organization: string;
+  organizationId: string;
   informationSchemaTableId: string;
 }>;
 
 const updateStaleInformationSchemaTable = async (
   job: UpdateStaleInformationSchemaTableJob,
 ) => {
-  // console.log("starting the job!");
-  const { organization, informationSchemaTableId } = job.attrs.data;
+  const { organizationId, informationSchemaTableId } = job.attrs.data;
 
-  if (!informationSchemaTableId || !organization) return;
+  if (!informationSchemaTableId || !organizationId) return;
 
   const informationSchemaTable = await getInformationSchemaTableById(
-    organization,
+    organizationId,
     informationSchemaTableId,
   );
 
@@ -38,7 +37,7 @@ const updateStaleInformationSchemaTable = async (
     return;
   }
 
-  const context = await getContextForAgendaJobByOrgId(organization);
+  const context = await getContextForAgendaJobByOrgId(organizationId);
 
   const datasource = await getDataSourceById(
     context,
@@ -46,7 +45,7 @@ const updateStaleInformationSchemaTable = async (
   );
 
   const informationSchema = await getInformationSchemaById(
-    organization,
+    organizationId,
     informationSchemaTable.informationSchemaId,
   );
 
@@ -85,7 +84,7 @@ const updateStaleInformationSchemaTable = async (
 
     // update the information schema table
     await updateInformationSchemaTableById(
-      organization,
+      organizationId,
       informationSchemaTableId,
       {
         columns,
@@ -112,16 +111,16 @@ export default function (ag: Agenda) {
 }
 
 export async function queueUpdateStaleInformationSchemaTable(
-  organization: string,
+  organizationId: string,
   informationSchemaTableId: string,
 ) {
-  if (!informationSchemaTableId || !organization) return;
+  if (!informationSchemaTableId || !organizationId) return;
 
   const job = agenda.create(UPDATE_STALE_INFORMATION_SCHEMA_TABLE_JOB_NAME, {
-    organization,
+    organizationId,
     informationSchemaTableId,
   }) as UpdateStaleInformationSchemaTableJob;
-  job.unique({ informationSchemaTableId, organization });
+  job.unique({ informationSchemaTableId, organization: organizationId });
   job.schedule(new Date());
   await job.save();
 }

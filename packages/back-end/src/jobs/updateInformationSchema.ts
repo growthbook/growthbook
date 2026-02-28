@@ -15,19 +15,19 @@ import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizatio
 const UPDATE_INFORMATION_SCHEMA_JOB_NAME = "updateInformationSchema";
 type UpdateInformationSchemaJob = Job<{
   datasourceId: string;
-  organization: string;
+  organizationId: string;
   informationSchemaId: string;
 }>;
 
 const updateInformationSchema = async (job: UpdateInformationSchemaJob) => {
-  const { datasourceId, organization, informationSchemaId } = job.attrs.data;
+  const { datasourceId, organizationId, informationSchemaId } = job.attrs.data;
 
-  const context = await getContextForAgendaJobByOrgId(organization);
+  const context = await getContextForAgendaJobByOrgId(organizationId);
 
   const datasource = await getDataSourceById(context, datasourceId);
 
   const informationSchema = await getInformationSchemaById(
-    organization,
+    organizationId,
     informationSchemaId,
   );
 
@@ -50,7 +50,7 @@ const updateInformationSchema = async (job: UpdateInformationSchemaJob) => {
     if (e instanceof MissingDatasourceParamsError) {
       error.errorType = "missing_params";
     }
-    await updateInformationSchemaById(organization, informationSchemaId, {
+    await updateInformationSchemaById(organizationId, informationSchemaId, {
       status: "COMPLETE",
       error,
     });
@@ -65,17 +65,17 @@ export default function (ag: Agenda) {
 
 export async function queueUpdateInformationSchema(
   datasourceId: string,
-  organization: string,
+  organizationId: string,
   informationSchemaId: string,
 ) {
-  if (!datasourceId || !organization) return;
+  if (!datasourceId || !organizationId) return;
 
   const job = agenda.create(UPDATE_INFORMATION_SCHEMA_JOB_NAME, {
     datasourceId,
-    organization,
+    organizationId,
     informationSchemaId,
   }) as UpdateInformationSchemaJob;
-  job.unique({ datasource: datasourceId, organization });
+  job.unique({ datasource: datasourceId, organization: organizationId });
   job.schedule(new Date());
   await job.save();
 }

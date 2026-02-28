@@ -8,7 +8,7 @@ const QUEUE_DASHBOARD_UPDATES = "queueDashboardUpdates";
 
 const UPDATE_SINGLE_DASH = "updateSingleDashboard";
 type UpdateSingleDashJob = Job<{
-  organization: string;
+  organizationId: string;
   dashboardId: string;
 }>;
 
@@ -33,17 +33,17 @@ export default async function (agenda: Agenda) {
   }
 
   async function queueDashboardUpdate(
-    organization: string,
+    organizationId: string,
     dashboardId: string,
   ) {
     const job = agenda.create(UPDATE_SINGLE_DASH, {
-      organization,
+      organizationId,
       dashboardId,
     }) as UpdateSingleDashJob;
 
     job.unique({
       dashboardId,
-      organization,
+      organization: organizationId,
     });
     job.schedule(new Date());
     await job.save();
@@ -52,11 +52,11 @@ export default async function (agenda: Agenda) {
 
 const updateSingleDashboard = async (job: UpdateSingleDashJob) => {
   const dashboardId = job.attrs.data?.dashboardId;
-  const orgId = job.attrs.data?.organization;
+  const organizationId = job.attrs.data?.organizationId;
 
-  if (!dashboardId || !orgId) return;
+  if (!dashboardId || !organizationId) return;
 
-  const context = await getContextForAgendaJobByOrgId(orgId);
+  const context = await getContextForAgendaJobByOrgId(organizationId);
 
   const dashboard = await context.models.dashboards.getById(dashboardId);
   if (!dashboard) return;

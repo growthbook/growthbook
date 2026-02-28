@@ -12,6 +12,7 @@ const UPDATE_SINGLE_SAFE_ROLLOUT_SNAPSHOT = "updateSingleSafeRolloutSnapshot";
 const QUEUE_SAFE_ROLLOUT_SNAPSHOT_UPDATES = "queueSafeRolloutSnapshotUpdates";
 
 type UpdateSingleSafeRolloutSnapshotJob = Job<{
+  organizationId: string;
   safeRollout: SafeRolloutInterface;
 }>;
 
@@ -45,6 +46,7 @@ export default async function (agenda: Agenda) {
     safeRollout: SafeRolloutInterface,
   ) {
     const job = agenda.create(UPDATE_SINGLE_SAFE_ROLLOUT_SNAPSHOT, {
+      organizationId: safeRollout.organization,
       safeRollout,
     });
     job.unique({ id: safeRollout.id });
@@ -56,12 +58,18 @@ export default async function (agenda: Agenda) {
 const updateSingleSafeRolloutSnapshot = async (
   job: UpdateSingleSafeRolloutSnapshotJob,
 ) => {
-  const { safeRollout } = job.attrs.data;
+  const { safeRollout, organizationId } = job.attrs.data;
 
   const { id, organization, featureId } = safeRollout;
   if (!id || !organization || !featureId) return;
 
-  const context = await getContextForAgendaJobByOrgId(organization);
+  if (organizationId !== organization) {
+    throw new Error(
+      `SafeRollout job organizationId mismatch: job has ${organizationId}, safeRollout has ${organization} (safeRolloutId=${id})`,
+    );
+  }
+
+  const context = await getContextForAgendaJobByOrgId(organizationId);
   const feature = await getFeature(context, featureId);
   if (!feature || feature.archived) return;
 
