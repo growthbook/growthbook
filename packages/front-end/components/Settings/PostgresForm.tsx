@@ -5,10 +5,9 @@ import SSLConnectionFields from "./SSLConnectionFields";
 
 const PostgresForm: FC<{
   params: Partial<PostgresConnectionParams>;
-  existing: boolean;
   onParamChange: ChangeEventHandler<HTMLInputElement | HTMLSelectElement>;
   setParams: (params: { [key: string]: string }) => void;
-}> = ({ params, existing, onParamChange, setParams }) => {
+}> = ({ params, onParamChange, setParams }) => {
   return (
     <>
       <HostWarning
@@ -71,10 +70,9 @@ const PostgresForm: FC<{
             className="form-control password-presentation"
             autoComplete="off"
             name="password"
-            required={!existing}
             value={params.password || ""}
             onChange={onParamChange}
-            placeholder={existing ? "(Keep existing)" : ""}
+            placeholder="(optional)"
           />
         </div>
         <div className="form-group col-md-12">
