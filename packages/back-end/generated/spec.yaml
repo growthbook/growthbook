@@ -6079,6 +6079,26 @@ paths:
                             additionalProperties: false
                       title:
                         type: string
+                      seriesDisplaySettings:
+                        type: object
+                        propertyNames:
+                          type: string
+                        additionalProperties:
+                          type: object
+                          propertyNames:
+                            type: string
+                          additionalProperties:
+                            type: object
+                            properties:
+                              color:
+                                type: string
+                              displayName:
+                                type: string
+                              hidden:
+                                type: boolean
+                            required:
+                              - color
+                            additionalProperties: false
                       projects:
                         type: array
                         items:
@@ -7652,6 +7672,26 @@ paths:
                             additionalProperties: false
                       title:
                         type: string
+                      seriesDisplaySettings:
+                        type: object
+                        propertyNames:
+                          type: string
+                        additionalProperties:
+                          type: object
+                          propertyNames:
+                            type: string
+                          additionalProperties:
+                            type: object
+                            properties:
+                              color:
+                                type: string
+                              displayName:
+                                type: string
+                              hidden:
+                                type: boolean
+                            required:
+                              - color
+                            additionalProperties: false
                       projects:
                         type: array
                         items:
@@ -8723,6 +8763,26 @@ paths:
                             additionalProperties: false
                       title:
                         type: string
+                      seriesDisplaySettings:
+                        type: object
+                        propertyNames:
+                          type: string
+                        additionalProperties:
+                          type: object
+                          propertyNames:
+                            type: string
+                          additionalProperties:
+                            type: object
+                            properties:
+                              color:
+                                type: string
+                              displayName:
+                                type: string
+                              hidden:
+                                type: boolean
+                            required:
+                              - color
+                            additionalProperties: false
                       projects:
                         type: array
                         items:
@@ -9318,6 +9378,26 @@ paths:
                               additionalProperties: false
                         title:
                           type: string
+                        seriesDisplaySettings:
+                          type: object
+                          propertyNames:
+                            type: string
+                          additionalProperties:
+                            type: object
+                            propertyNames:
+                              type: string
+                            additionalProperties:
+                              type: object
+                              properties:
+                                color:
+                                  type: string
+                                displayName:
+                                  type: string
+                                hidden:
+                                  type: boolean
+                              required:
+                                - color
+                              additionalProperties: false
                         projects:
                           type: array
                           items:
@@ -9917,6 +9997,26 @@ paths:
                               additionalProperties: false
                         title:
                           type: string
+                        seriesDisplaySettings:
+                          type: object
+                          propertyNames:
+                            type: string
+                          additionalProperties:
+                            type: object
+                            propertyNames:
+                              type: string
+                            additionalProperties:
+                              type: object
+                              properties:
+                                color:
+                                  type: string
+                                displayName:
+                                  type: string
+                                hidden:
+                                  type: boolean
+                              required:
+                                - color
+                              additionalProperties: false
                         projects:
                           type: array
                           items:
@@ -12328,6 +12428,26 @@ components:
               additionalProperties: false
         title:
           type: string
+        seriesDisplaySettings:
+          type: object
+          propertyNames:
+            type: string
+          additionalProperties:
+            type: object
+            propertyNames:
+              type: string
+            additionalProperties:
+              type: object
+              properties:
+                color:
+                  type: string
+                displayName:
+                  type: string
+                hidden:
+                  type: boolean
+              required:
+                - color
+              additionalProperties: false
         projects:
           type: array
           items:

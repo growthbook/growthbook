@@ -32,7 +32,9 @@ import DashboardEditor, {
 import { SubmitDashboard, UpdateDashboardArgs } from "./DashboardsTab";
 import DashboardEditorSidebar from "./DashboardEditor/DashboardEditorSidebar";
 import DashboardModal from "./DashboardModal";
-
+import { useSeriesDisplaySettings } from "./DashboardSeriesDisplayProvider";
+import EditGlobalColorDropdown from "./DashboardEditor/EditGlobalColorDropdown";
+import { filterSeriesDisplaySettings } from "./seriesDisplaySettingsUtils";
 export const DASHBOARD_WORKSPACE_NAV_HEIGHT = "72px";
 export const DASHBOARD_WORKSPACE_NAV_BOTTOM_PADDING = "12px";
 
@@ -84,20 +86,36 @@ export default function DashboardWorkspace({
     }
   }, [dashboard]);
   const { metricGroups } = useDefinitions();
+  const { getActiveSeriesKeys, getSeriesDisplaySettings } =
+    useSeriesDisplaySettings();
 
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
 
   const [saving, setSaving] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [saveError, setSaveError] = useState<string | undefined>(undefined);
+
   const submit: SubmitDashboard<UpdateDashboardArgs> = useMemo(
     () => async (args) => {
       setSaving(true);
       setSaveError(undefined);
       try {
+        const filteredSettings = filterSeriesDisplaySettings(
+          // Use args if available - the only time that happens is via the Undo Changes button, otherwise use the get the current settings
+          args.data.seriesDisplaySettings || getSeriesDisplaySettings(),
+          // Only filter by active keys when blocks are being updated (for cleanup on removal)
+          // Otherwise, just clean entries without colors
+          args.data.blocks !== undefined ? getActiveSeriesKeys() : undefined,
+        );
         const result = await submitDashboard({
           ...args,
-          data: { ...dashboard, ...args.data },
+          data: {
+            ...dashboard,
+            ...args.data,
+            ...(filteredSettings !== undefined
+              ? { seriesDisplaySettings: filteredSettings }
+              : {}),
+          },
         });
         return result;
       } catch (e) {
@@ -107,7 +125,7 @@ export default function DashboardWorkspace({
         setSaving(false);
       }
     },
-    [submitDashboard, dashboard],
+    [submitDashboard, dashboard, getActiveSeriesKeys, getSeriesDisplaySettings],
   );
 
   const [blocks, setBlocks] = useState<
@@ -334,6 +352,7 @@ export default function DashboardWorkspace({
                         "title",
                         "editLevel",
                         "enableAutoUpdates",
+                        "seriesDisplaySettings",
                       ]),
                     });
                     close();
@@ -459,11 +478,13 @@ export default function DashboardWorkspace({
           >
             <Flex
               align="end"
+              gap="2"
               style={{
                 minHeight: DASHBOARD_TOPBAR_HEIGHT,
                 maxHeight: DASHBOARD_TOPBAR_HEIGHT,
               }}
             >
+              {editSidebarExpanded && <EditGlobalColorDropdown />}
               {isDefined(addBlockIndex) || isDefined(editingBlockIndex) ? (
                 <IconButton
                   mb="1"

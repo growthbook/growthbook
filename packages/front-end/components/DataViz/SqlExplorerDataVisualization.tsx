@@ -13,8 +13,12 @@ import { getValidDate } from "shared/dates";
 import { useDashboardCharts } from "@/enterprise/components/Dashboards/DashboardChartsContext";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { supportsDimension } from "@/services/dataVizTypeGuards";
-import { getXAxisConfig } from "@/services/dataVizConfigUtilities";
+import {
+  CHART_COLOR_PALETTE,
+  getXAxisConfig,
+} from "@/services/dataVizConfigUtilities";
 import { formatNumber } from "@/services/metrics";
+import { useSeriesDisplaySettings } from "@/enterprise/components/Dashboards/DashboardSeriesDisplayProvider";
 import {
   Panel,
   PanelGroup,
@@ -142,11 +146,14 @@ export function DataVisualizationDisplay({
   rows,
   dataVizConfig,
   chartId,
+  trackSeriesKeys = false,
 }: {
   rows: Rows;
   dataVizConfig: Partial<DataVizConfig>;
   chartId?: string;
+  trackSeriesKeys?: boolean;
 }) {
+  const { getSeriesColor, registerSeriesKeys } = useSeriesDisplaySettings();
   const anchorYAxisToZero =
     "displaySettings" in dataVizConfig && dataVizConfig.displaySettings
       ? (dataVizConfig.displaySettings.anchorYAxisToZero ?? true)
@@ -676,6 +683,7 @@ export function DataVisualizationDisplay({
               ? "line"
               : dataVizConfig.chartType,
           ...(dataVizConfig.chartType === "area" && { areaStyle: {} }),
+          color: CHART_COLOR_PALETTE[0],
           encode: {
             x: "x",
             y: "y",
@@ -691,15 +699,28 @@ export function DataVisualizationDisplay({
 
     // Use the first dimension's display setting for stacking
     const shouldStack = dimensionConfigs[0]?.display === "stacked";
+    // Use the first dimension's fieldName as the column name
+    const columnName = dimensionFields[0];
 
-    return dimensionCombinations.map((combination) => {
+    // Register all series keys if tracking is enabled
+    if (trackSeriesKeys && dataVizConfig.chartType !== "pivot-table") {
+      const keys = dimensionCombinations.map((combination) => ({
+        columnName,
+        dimensionValue: combination.join(", "),
+      }));
+      registerSeriesKeys(keys);
+    }
+
+    return dimensionCombinations.map((combination, index) => {
       const dimensionKey = combination.join(", ");
+
       return {
         name: dimensionKey,
         type:
           dataVizConfig.chartType === "area" ? "line" : dataVizConfig.chartType,
         ...(dataVizConfig.chartType === "area" && { areaStyle: {} }),
         stack: shouldStack ? "stack" : undefined,
+        color: getSeriesColor(columnName, dimensionKey, index),
         encode: {
           x: "x",
           y: dimensionKey,
@@ -707,12 +728,15 @@ export function DataVisualizationDisplay({
       };
     });
   }, [
-    dataVizConfig.chartType,
-    xField,
-    dimensionFields,
+    generateAllDimensionCombinations,
     dimensionValuesByField,
     dimensionConfigs,
-    generateAllDimensionCombinations,
+    xField,
+    dataVizConfig.chartType,
+    getSeriesColor,
+    registerSeriesKeys,
+    dimensionFields,
+    trackSeriesKeys,
   ]);
 
   const option = useMemo(() => {
@@ -886,12 +910,14 @@ export function SqlExplorerDataVisualization({
   onDataVizConfigChange,
   showPanel = true,
   graphTitle = "Visualization",
+  trackSeriesKeys = false,
 }: {
   rows: Rows;
   dataVizConfig: Partial<DataVizConfig>;
   onDataVizConfigChange: (dataVizConfig: Partial<DataVizConfig>) => void;
   showPanel?: boolean;
   graphTitle?: string;
+  trackSeriesKeys?: boolean;
 }) {
   return (
     <PanelGroup direction="horizontal">
@@ -908,7 +934,11 @@ export function SqlExplorerDataVisualization({
             </Text>
           }
         >
-          <DataVisualizationDisplay rows={rows} dataVizConfig={dataVizConfig} />
+          <DataVisualizationDisplay
+            rows={rows}
+            dataVizConfig={dataVizConfig}
+            trackSeriesKeys={trackSeriesKeys}
+          />
         </AreaWithHeader>
       </Panel>
       {showPanel ? (
