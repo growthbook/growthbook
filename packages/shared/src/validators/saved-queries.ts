@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
-import { QueryResponseColumnData } from "shared/types/integrations";
 import { factTableColumnTypeValidator } from "./fact-table";
 
 const dateAggregationEnum = z.enum([
@@ -245,14 +244,11 @@ export const jsonFieldsColumnDataValidator = z.object({
   dataType: factTableColumnTypeValidator.optional(),
 });
 
-export const queryResponseColumnDataValidator: z.ZodType<QueryResponseColumnData> =
-  z.lazy(() =>
-    z.object({
-      name: z.string(),
-      dataType: factTableColumnTypeValidator.optional(),
-      fields: z.array(jsonFieldsColumnDataValidator).optional(),
-    }),
-  );
+export const queryResponseColumnDataValidator = z.object({
+  name: z.string(),
+  dataType: factTableColumnTypeValidator.optional(),
+  fields: z.array(jsonFieldsColumnDataValidator).optional(),
+});
 
 export const queryExecutionResultValidator = z.object({
   results: z.array(testQueryRowSchema),
