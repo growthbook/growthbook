@@ -459,6 +459,11 @@ export type MetricAnalysisParams = {
   segment: SegmentInterface | null;
 };
 
+export type ProductAnalyticsExplorationParams = {
+  factTableMap: FactTableMap;
+  factMetricMap: Map<string, FactMetricInterface>;
+};
+
 export type DimensionColumnData = {
   // the column or expression coming from the units table
   value: string;

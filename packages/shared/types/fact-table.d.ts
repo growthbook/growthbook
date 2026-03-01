@@ -79,6 +79,7 @@ export interface FactTableInterface {
   columnRefreshPending?: boolean;
   filters: FactFilterInterface[];
   archived?: boolean;
+  timestampColumn?: string;
   autoSliceUpdatesEnabled?: boolean;
 }
 

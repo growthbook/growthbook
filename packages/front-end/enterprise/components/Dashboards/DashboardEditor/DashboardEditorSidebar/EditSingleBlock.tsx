@@ -10,7 +10,7 @@ import {
 import React, { useContext, useEffect, useMemo, useState, useRef } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { isNumber, isString, isStringArray } from "shared/util";
-import { SavedQuery } from "shared/validators";
+import { ProductAnalyticsConfig, SavedQuery } from "shared/validators";
 import {
   PiCopySimple,
   PiPencilSimpleFill,
@@ -61,7 +61,9 @@ import {
   DashboardSnapshotContext,
 } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
 import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor";
+import { isSubmittableConfig } from "@/enterprise/components/ProductAnalytics/util";
 import MetricExplorerSettings from "./MetricExplorerSettings";
+import ProductAnalyticsExplorerSettings from "./ProductAnalyticsExplorerSettings";
 
 type RequiredField = {
   field: string;
@@ -80,6 +82,27 @@ const REQUIRED_FIELDS: {
     {
       field: "savedQueryId",
       validation: (sqId) => typeof sqId === "string" && sqId.length > 0,
+    },
+  ],
+  "metric-exploration": [
+    {
+      field: "config",
+      validation: (config) =>
+        isSubmittableConfig(config as ProductAnalyticsConfig),
+    },
+  ],
+  "fact-table-exploration": [
+    {
+      field: "config",
+      validation: (config) =>
+        isSubmittableConfig(config as ProductAnalyticsConfig),
+    },
+  ],
+  "data-source-exploration": [
+    {
+      field: "config",
+      validation: (config) =>
+        isSubmittableConfig(config as ProductAnalyticsConfig),
     },
   ],
 };
@@ -229,6 +252,12 @@ export default function EditSingleBlock({
     blockHasFieldOfType(block, "metricTagFilter", isStringArray) &&
       (block.metricTagFilter?.length || 0) > 0,
   );
+  const [saveAndCloseTrigger, setSaveAndCloseTrigger] = useState(0);
+
+  const isExplorationBlock =
+    block?.type === "metric-exploration" ||
+    block?.type === "fact-table-exploration" ||
+    block?.type === "data-source-exploration";
   const prevMetricTagFilterRef = useRef(
     blockHasFieldOfType(block, "metricTagFilter", isStringArray)
       ? block.metricTagFilter?.length || 0
@@ -1618,6 +1647,30 @@ export default function EditSingleBlock({
             {block.type === "metric-explorer" && (
               <MetricExplorerSettings block={block} setBlock={setBlock} />
             )}
+            {block.type === "metric-exploration" && (
+              <ProductAnalyticsExplorerSettings
+                block={block}
+                setBlock={setBlock}
+                saveAndCloseTrigger={saveAndCloseTrigger}
+                onSaveAndClose={submit}
+              />
+            )}
+            {block.type === "fact-table-exploration" && (
+              <ProductAnalyticsExplorerSettings
+                block={block}
+                setBlock={setBlock}
+                saveAndCloseTrigger={saveAndCloseTrigger}
+                onSaveAndClose={submit}
+              />
+            )}
+            {block.type === "data-source-exploration" && (
+              <ProductAnalyticsExplorerSettings
+                block={block}
+                setBlock={setBlock}
+                saveAndCloseTrigger={saveAndCloseTrigger}
+                onSaveAndClose={submit}
+              />
+            )}
           </Flex>
           <Flex mt="5" gap="3" align="center" justify="center">
             <Button
@@ -1633,7 +1686,14 @@ export default function EditSingleBlock({
             <Button
               style={{ flexBasis: "45%", flexGrow: 1 }}
               onClick={() => {
-                submit();
+                if (
+                  isExplorationBlock &&
+                  !("explorerAnalysisId" in block && block.explorerAnalysisId)
+                ) {
+                  setSaveAndCloseTrigger((n) => n + 1);
+                } else {
+                  submit();
+                }
               }}
               disabled={
                 !!(REQUIRED_FIELDS[block.type] || []).find(

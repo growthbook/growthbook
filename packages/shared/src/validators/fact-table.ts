@@ -141,6 +141,7 @@ export const rowFilterValidator = z.object({
   operator: z.enum(rowFilterOperators),
   column: z.string().optional(),
   values: z.array(z.string()).optional(),
+  disabled: z.boolean().optional(),
 });
 
 export const columnRefValidator = z

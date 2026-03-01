@@ -15,6 +15,9 @@ import {
   PiListDashesDuotone,
   PiArticleMediumDuotone,
   PiPencilSimpleFill,
+  PiDatabase,
+  PiTable,
+  PiChartBar,
 } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import {
@@ -60,7 +63,7 @@ import DashboardBlock from "./DashboardBlock";
 export const DASHBOARD_TOPBAR_HEIGHT = "40px";
 export const BLOCK_TYPE_INFO: Record<
   DashboardBlockType,
-  { name: string; icon: ReactElement }
+  { name: string; icon: ReactElement; deprecated?: boolean }
 > = {
   markdown: {
     name: "Markdown",
@@ -87,12 +90,25 @@ export const BLOCK_TYPE_INFO: Record<
     icon: <PiChartLineDuotone />,
   },
   "sql-explorer": {
-    name: "SQL Query",
+    name: "Custom SQL Query",
     icon: <PiFileSqlDuotone />,
   },
   "metric-explorer": {
     name: "Metric",
     icon: <PiFileSqlDuotone />,
+    deprecated: true,
+  },
+  "metric-exploration": {
+    name: "Metric Explorer",
+    icon: <PiChartBar />,
+  },
+  "fact-table-exploration": {
+    name: "Fact Table Explorer",
+    icon: <PiTable />,
+  },
+  "data-source-exploration": {
+    name: "Data Source Explorer",
+    icon: <PiDatabase />,
   },
 };
 
@@ -102,14 +118,21 @@ export const BLOCK_SUBGROUPS: [string, DashboardBlockType[]][] = [
     ["experiment-metric", "experiment-dimension", "experiment-time-series"],
   ],
   ["Experiment Info", ["experiment-metadata", "experiment-traffic"]],
-  ["Other", ["markdown", "sql-explorer", "metric-explorer"]],
+  [
+    "Product Analytics",
+    ["metric-exploration", "fact-table-exploration", "data-source-exploration"],
+  ],
+  ["Other", ["sql-explorer", "markdown", "metric-explorer"]],
 ];
 
 // Block types that are allowed in general dashboards (non-experiment specific)
 export const GENERAL_DASHBOARD_BLOCK_TYPES: DashboardBlockType[] = [
-  "markdown",
   "sql-explorer",
   "metric-explorer",
+  "metric-exploration",
+  "fact-table-exploration",
+  "data-source-exploration",
+  "markdown",
 ];
 
 // Helper function to check if a block type is allowed for the given dashboard type
@@ -169,24 +192,27 @@ function AddBlockDropdown({
 
         return (
           <Fragment key={`${subgroup}-${i}`}>
-            {!isGeneralDashboard && (
-              <DropdownMenuLabel className="font-weight-bold">
-                <Text style={{ color: "var(--color-text-high)" }}>
-                  {subgroup}
-                </Text>
-              </DropdownMenuLabel>
-            )}
-            {allowedBlockTypes.map((bType) => (
-              <DropdownMenuItem
-                key={bType}
-                onClick={() => {
-                  setDropdownOpen(false);
-                  addBlockType(bType);
-                }}
-              >
-                {BLOCK_TYPE_INFO[bType].name}
-              </DropdownMenuItem>
-            ))}
+            <DropdownMenuLabel className="font-weight-bold">
+              <Text style={{ color: "var(--color-text-high)" }}>
+                {subgroup}
+              </Text>
+            </DropdownMenuLabel>
+            {allowedBlockTypes.map((bType) => {
+              if (BLOCK_TYPE_INFO[bType].deprecated) {
+                return null;
+              }
+              return (
+                <DropdownMenuItem
+                  key={bType}
+                  onClick={() => {
+                    setDropdownOpen(false);
+                    addBlockType(bType);
+                  }}
+                >
+                  {BLOCK_TYPE_INFO[bType].name}
+                </DropdownMenuItem>
+              );
+            })}
             {i < BLOCK_SUBGROUPS.length - 1 && <DropdownMenuSeparator />}
           </Fragment>
         );

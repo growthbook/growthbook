@@ -32,7 +32,11 @@ import {
   SAFE_ROLLOUT_TRACKING_KEY_PREFIX,
   NULL_DIMENSION_VALUE,
 } from "shared/constants";
-import { PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES } from "shared/enterprise";
+import {
+  generateProductAnalyticsSQL,
+  calculateProductAnalyticsDateRange,
+  PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES,
+} from "shared/enterprise";
 import {
   ensureLimit,
   format,
@@ -44,6 +48,8 @@ import {
   SQLVars,
   TemplateVariables,
   FormatDialect,
+  DateTruncGranularity,
+  SqlHelpers,
 } from "shared/types/sql";
 import { SegmentInterface } from "shared/types/segment";
 import {
@@ -143,6 +149,7 @@ import {
   MetricQuantileSettings,
 } from "shared/types/fact-table";
 import type { PopulationDataQuerySettings } from "shared/types/query";
+import { ProductAnalyticsConfig } from "shared/src/validators/product-analytics";
 import {
   AdditionalQueryMetadata,
   QueryDocMetadata,
@@ -360,8 +367,8 @@ export default abstract class SqlIntegration
   ): string {
     return `${col} ${sign} INTERVAL '${amount} ${unit}s'`;
   }
-  dateTrunc(col: string) {
-    return `date_trunc('day', ${col})`;
+  dateTrunc(col: string, granularity: DateTruncGranularity = "day") {
+    return `date_trunc('${granularity}', ${col})`;
   }
   dateDiff(startCol: string, endCol: string) {
     return `datediff(day, ${startCol}, ${endCol})`;
@@ -8007,5 +8014,59 @@ ORDER BY column_name, count DESC
       return `${parts[0]}_${encoded}`;
     }
     return parts[0];
+  }
+
+  getProductAnalyticsQuery(
+    config: ProductAnalyticsConfig,
+    {
+      factTableMap,
+      metricMap,
+    }: {
+      factTableMap: FactTableMap;
+      metricMap: Map<string, FactMetricInterface>;
+    },
+  ): {
+    sql: string;
+    orderedMetricIds: string[];
+    startDate: Date;
+    endDate: Date;
+  } {
+    const sqlHelpers: SqlHelpers = {
+      dateTrunc: this.dateTrunc.bind(this),
+      escapeStringLiteral: this.escapeStringLiteral.bind(this),
+      jsonExtract: this.extractJSONField.bind(this),
+      evalBoolean: this.evalBoolean.bind(this),
+      percentileApprox: this.approxQuantile.bind(this),
+      toTimestamp: this.toTimestamp.bind(this),
+      formatDialect: this.getFormatDialect(),
+      castToFloat: this.ensureFloat.bind(this),
+    };
+
+    const dateRange = calculateProductAnalyticsDateRange(config.dateRange);
+
+    const { sql, orderedMetricIds } = generateProductAnalyticsSQL(
+      config,
+      factTableMap,
+      metricMap,
+      sqlHelpers,
+      this.datasource,
+    );
+
+    return {
+      sql: compileSqlTemplate(sql, {
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate,
+      }),
+      orderedMetricIds,
+      startDate: dateRange.startDate,
+      endDate: dateRange.endDate,
+    };
+  }
+
+  async runProductAnalyticsQuery(
+    query: string,
+    setExternalId: ExternalIdCallback,
+  ) {
+    return this.runQuery(query, setExternalId);
   }
 }

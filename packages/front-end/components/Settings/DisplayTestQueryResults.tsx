@@ -9,6 +9,12 @@ import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { AreaWithHeader } from "@/components/SchemaBrowser/SqlExplorerModal";
+import { floatRound } from "@/services/utils";
+
+export type HeaderStructure = {
+  row1: { label: string; colSpan?: number; rowSpan?: number }[];
+  row2Labels: string[];
+};
 
 export type Props = {
   results: Record<string, unknown>[];
@@ -20,6 +26,10 @@ export type Props = {
   allowDownload?: boolean;
   showSampleHeader?: boolean;
   renderedSQLLabel?: string;
+  showDuration?: boolean;
+  headerStructure?: HeaderStructure;
+  orderedColumnKeys?: string[];
+  paddingTop?: number;
 };
 
 export default function DisplayTestQueryResults({
@@ -32,9 +42,14 @@ export default function DisplayTestQueryResults({
   allowDownload,
   showSampleHeader = true,
   renderedSQLLabel = "Rendered SQL",
+  showDuration = true,
+  headerStructure,
+  orderedColumnKeys,
+  paddingTop = 0,
 }: Props) {
   const [downloadError, setDownloadError] = useState<string | null>(null);
-  const cols = Object.keys(results?.[0] || {});
+  const cols = orderedColumnKeys ?? Object.keys(results?.[0] || {});
+  const useTwoRowHeader = headerStructure != null && orderedColumnKeys != null;
 
   const forceShowSql = error || !results.length;
 
@@ -64,6 +79,7 @@ export default function DisplayTestQueryResults({
 
   return (
     <Tabs
+      key={forceShowSql ? "sql" : "results"}
       defaultValue={forceShowSql ? "sql" : "results"}
       style={{
         overflow: "hidden",
@@ -74,6 +90,7 @@ export default function DisplayTestQueryResults({
         headerStyles={{
           paddingLeft: "12px",
           paddingRight: "12px",
+          paddingTop: `${paddingTop}px`,
         }}
         header={
           <TabsList>
@@ -119,9 +136,11 @@ export default function DisplayTestQueryResults({
               ) : null}
               <Flex align="center" gap="4">
                 <Flex align="center" flexGrow={"1"}>
-                  <span className="font-weight-light pl-2">
-                    Succeeded in {duration}ms
-                  </span>
+                  {showDuration && (
+                    <span className="font-weight-light pl-2">
+                      Succeeded in {floatRound(duration, 2)}ms
+                    </span>
+                  )}
                 </Flex>
                 {totalPages > 1 ? (
                   <Flex align="center">
@@ -204,19 +223,40 @@ export default function DisplayTestQueryResults({
                     backgroundColor: "var(--color-panel-solid)",
                   }}
                 >
-                  <tr>
-                    {cols.map((col) => (
-                      <th key={col}>{col}</th>
-                    ))}
-                  </tr>
+                  {useTwoRowHeader && headerStructure ? (
+                    <>
+                      <tr>
+                        {headerStructure.row1.map((cell, idx) => (
+                          <th
+                            key={idx}
+                            rowSpan={cell.rowSpan}
+                            colSpan={cell.colSpan ?? 1}
+                          >
+                            {cell.label}
+                          </th>
+                        ))}
+                      </tr>
+                      <tr>
+                        {headerStructure.row2Labels.map((label, idx) => (
+                          <th key={idx}>{label}</th>
+                        ))}
+                      </tr>
+                    </>
+                  ) : (
+                    <tr>
+                      {cols.map((col) => (
+                        <th key={col}>{col}</th>
+                      ))}
+                    </tr>
+                  )}
                 </thead>
                 <tbody>
                   {results
                     .slice((page - 1) * pageSize, page * pageSize)
                     .map((result, i) => (
                       <tr key={i}>
-                        {Object.values(result).map((val, j) => (
-                          <td key={j}>{JSON.stringify(val)}</td>
+                        {cols.map((key, j) => (
+                          <td key={j}>{JSON.stringify(result[key])}</td>
                         ))}
                       </tr>
                     ))}

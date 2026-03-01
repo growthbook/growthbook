@@ -53,7 +53,8 @@ export type QueryType =
   | "experimentIncrementalRefreshCreateMetricsCovariateTable"
   | "experimentIncrementalRefreshInsertMetricsCovariateData"
   | "experimentIncrementalRefreshStatistics"
-  | "experimentIncrementalRefreshHealth";
+  | "experimentIncrementalRefreshHealth"
+  | "productAnalyticsExploration";
 
 export type ExperimentQueryMetadata = {
   experimentProject?: string;

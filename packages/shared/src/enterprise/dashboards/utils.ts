@@ -23,6 +23,7 @@ import {
   expandMetricGroups,
 } from "../../experiments";
 import { DataVizConfig } from "../../../validators";
+import { getInitialConfigByBlockType } from "../product-analytics/utils";
 
 export const differenceTypes = ["absolute", "relative", "scaled"] as const;
 
@@ -255,6 +256,45 @@ export const CREATE_BLOCK_TYPE: {
     visualizationType: "timeseries",
     valueType: "avg",
     metricAnalysisId: "",
+    ...(initialValues || {}),
+  }),
+  "metric-exploration": ({ initialValues }) => ({
+    type: "metric-exploration",
+    title: "",
+    description: "",
+    explorerAnalysisId: "",
+    config:
+      initialValues?.config ??
+      getInitialConfigByBlockType(
+        "metric-exploration",
+        initialValues?.config?.datasource ?? "",
+      ),
+    ...(initialValues || {}),
+  }),
+  "fact-table-exploration": ({ initialValues }) => ({
+    type: "fact-table-exploration",
+    title: "",
+    description: "",
+    explorerAnalysisId: "",
+    config:
+      initialValues?.config ??
+      getInitialConfigByBlockType(
+        "fact-table-exploration",
+        initialValues?.config?.datasource ?? "",
+      ),
+    ...(initialValues || {}),
+  }),
+  "data-source-exploration": ({ initialValues }) => ({
+    type: "data-source-exploration",
+    title: "",
+    description: "",
+    explorerAnalysisId: "",
+    config:
+      initialValues?.config ??
+      getInitialConfigByBlockType(
+        "data-source-exploration",
+        initialValues?.config?.datasource ?? "",
+      ),
     ...(initialValues || {}),
   }),
 };

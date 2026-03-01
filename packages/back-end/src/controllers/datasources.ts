@@ -871,7 +871,7 @@ export async function runQuery(
     });
   }
 
-  const { results, sql, duration, error } = await runFreeFormQuery(
+  const { results, sql, duration, error, columns } = await runFreeFormQuery(
     context,
     datasource,
     query,
@@ -884,6 +884,7 @@ export async function runQuery(
     results,
     sql,
     error,
+    columns,
   });
 }
 
