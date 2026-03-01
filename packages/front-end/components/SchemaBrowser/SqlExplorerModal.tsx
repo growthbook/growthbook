@@ -31,11 +31,7 @@ import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResul
 import Button from "@/ui/Button";
 import { SelectItem } from "@/ui/Select";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import {
-  formatSql,
-  canFormatSql,
-  preloadPolyglot,
-} from "@/services/sqlFormatter";
+import { formatSql, canFormatSql } from "@/services/sqlFormatter";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import {
   Panel,
@@ -223,11 +219,6 @@ export default function SqlExplorerModal({
     datasource?.properties?.supportsInformationSchema;
 
   const canFormat = datasource ? canFormatSql(datasource.type) : false;
-
-  useEffect(() => {
-    if (canFormat) preloadPolyglot();
-  }, [canFormat]);
-
   const hasResults =
     !!form.watch("results")?.sql && !form.watch("results")?.error;
 

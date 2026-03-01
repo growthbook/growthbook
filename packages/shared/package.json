@@ -36,10 +36,8 @@
     "sql-formatter": "^15.7.2",
     "stripe": "17.7.0",
     "uniqid": "^5.4.0",
-    "zod": "^4.1.12"
-  },
-  "optionalDependencies": {
-    "@polyglot-sql/sdk": "^0.1.9"
+    "zod": "^4.1.12",
+    "@polyglot-sql/sdk": "file:/Users/james/growthbook/polyglot/packages/sdk"
   },
   "devDependencies": {
     "@ephys/zod-to-ts": "^2.3.2",
