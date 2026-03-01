@@ -89,7 +89,7 @@ import {
   updateFeature,
 } from "back-end/src/models/FeatureModel";
 import { getRealtimeUsageByHour } from "back-end/src/models/RealtimeModel";
-import { lookupOrganizationByApiKey } from "back-end/src/models/ApiKeyModel";
+import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import {
   addIdsToRules,
   arrayMove,
@@ -239,7 +239,7 @@ export async function getPayloadParamsFromApiKey(
       project,
       encryptSDK,
       encryptionKey,
-    } = await lookupOrganizationByApiKey(key);
+    } = await ApiKeyModel.lookupOrganizationByApiKey(key);
     if (!organization) {
       throw new UnrecoverableApiError("Invalid API Key");
     }

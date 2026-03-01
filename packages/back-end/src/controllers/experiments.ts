@@ -115,10 +115,6 @@ import {
 import { ApiReqContext, PrivateApiErrorResponse } from "back-end/types/api";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { PastExperimentsQueryRunner } from "back-end/src/queryRunners/PastExperimentsQueryRunner";
-import {
-  createUserVisualEditorApiKey,
-  getVisualEditorApiKey,
-} from "back-end/src/models/ApiKeyModel";
 
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { ReqContext } from "back-end/types/request";
@@ -3820,19 +3816,22 @@ export async function findOrCreateVisualEditorToken(
   req: AuthRequest,
   res: Response,
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
 
   if (!req.userId) throw new Error("No user found");
 
-  let visualEditorKey = await getVisualEditorApiKey(org.id, req.userId);
+  let visualEditorKey = await context.models.apiKeys.getVisualEditorApiKey(
+    req.userId,
+  );
 
   // if not exist, create one
   if (!visualEditorKey) {
-    visualEditorKey = await createUserVisualEditorApiKey({
-      userId: req.userId,
-      organizationId: org.id,
-      description: `Created automatically for the Visual Editor`,
-    });
+    visualEditorKey = await context.models.apiKeys.createUserVisualEditorApiKey(
+      {
+        userId: req.userId,
+        description: `Created automatically for the Visual Editor`,
+      },
+    );
   }
 
   res.status(200).json({
