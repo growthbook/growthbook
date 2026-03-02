@@ -291,6 +291,7 @@ Triggered when a feature is created
                 version: number;
                 comment: string;
                 date: string;
+                createdBy: string;
                 publishedBy: string;
             };
             customFields?: Record<string, any> | undefined;
@@ -588,6 +589,7 @@ Triggered when a feature is updated
                 version: number;
                 comment: string;
                 date: string;
+                createdBy: string;
                 publishedBy: string;
             };
             customFields?: Record<string, any> | undefined;
@@ -851,6 +853,7 @@ Triggered when a feature is updated
                 version: number;
                 comment: string;
                 date: string;
+                createdBy: string;
                 publishedBy: string;
             } | undefined;
             customFields?: Record<string, any> | undefined;
@@ -1153,6 +1156,7 @@ Triggered when a feature is deleted
                 version: number;
                 comment: string;
                 date: string;
+                createdBy: string;
                 publishedBy: string;
             };
             customFields?: Record<string, any> | undefined;
