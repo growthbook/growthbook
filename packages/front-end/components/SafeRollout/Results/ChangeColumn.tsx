@@ -1,9 +1,9 @@
 import clsx from "clsx";
 import { Flex } from "@radix-ui/themes";
-import { SnapshotMetric } from "back-end/types/experiment-snapshot";
+import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
 import React, { DetailedHTMLProps, HTMLAttributes } from "react";
-import { DifferenceType, StatsEngine } from "back-end/types/stats";
+import { DifferenceType, StatsEngine } from "shared/types/stats";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { RowResults } from "@/services/experiments";
 import {

@@ -1,62 +1,83 @@
 import React, { useMemo } from "react";
 import { v4 as uuid4 } from "uuid";
-import { ExperimentMetricBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
-import { isDefined, isString } from "shared/util";
-import { groupBy } from "lodash";
 import {
-  expandMetricGroups,
-  ExperimentMetricInterface,
-} from "shared/experiments";
-import { blockHasFieldOfType } from "shared/enterprise";
+  ExperimentMetricBlockInterface,
+  blockHasFieldOfType,
+} from "shared/enterprise";
+import { isString } from "shared/util";
+import { groupBy } from "lodash";
+import { MetricSnapshotSettings } from "shared/types/report";
+import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
+import { getEffectiveLookbackOverride } from "shared/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import ResultsTable from "@/components/Experiment/ResultsTable";
+import { MetricDrilldownProvider } from "@/components/MetricDrilldown/MetricDrilldownContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { getMetricResultGroup } from "@/components/Experiment/BreakDownResults";
+import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
+import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
+import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
+import { useDashboardEditorHooks } from "@/enterprise/hooks/useDashboardEditorHooks";
 import { BlockProps } from ".";
 
 export default function ExperimentMetricBlock({
+  isTabActive,
   block,
   experiment,
+  snapshot,
   analysis,
   ssrPolyfills,
-  metrics,
+  isEditing,
+  setBlock,
 }: BlockProps<ExperimentMetricBlockInterface>) {
-  const { baselineRow, columnsFilter, variationIds } = block;
-  const blockId = useMemo(
-    () => (blockHasFieldOfType(block, "id", isString) ? block.id : uuid4()),
+  const {
+    columnsFilter,
+    metricIds: blockMetricIds,
+    sliceTagsFilter: blockSliceTagsFilter,
+    metricTagFilter: blockMetricTagFilter,
+    sortBy: blockSortBy,
+    sortDirection: blockSortDirection,
+  } = block;
+
+  // The actual ID of the block which might be null in the case of a block being created
+  const blockInherentId = useMemo(
+    () => (blockHasFieldOfType(block, "id", isString) ? block.id : null),
     [block],
   );
+  const blockId = useMemo(() => blockInherentId ?? uuid4(), [blockInherentId]);
 
   const { pValueCorrection: hookPValueCorrection } = useOrgSettings();
-  const { metricGroups } = useDefinitions();
-  const goalMetrics = useMemo(
-    () => expandMetricGroups(experiment.goalMetrics, metricGroups),
-    [experiment, metricGroups],
-  );
-  const secondaryMetrics = useMemo(
-    () => expandMetricGroups(experiment.secondaryMetrics, metricGroups),
-    [experiment, metricGroups],
-  );
-  const guardrailMetrics = useMemo(
-    () => expandMetricGroups(experiment.guardrailMetrics, metricGroups),
-    [experiment, metricGroups],
-  );
+  const { getExperimentMetricById, getFactTableById } = useDefinitions();
 
   const statsEngine = analysis.settings.statsEngine;
-
   const pValueCorrection =
     ssrPolyfills?.useOrgSettings()?.pValueCorrection || hookPValueCorrection;
+  const sequentialTestingEnabled = analysis?.settings?.sequentialTesting;
 
-  const sortedMetrics: ExperimentMetricInterface[] = useMemo(() => {
-    const metricMap = new Map(metrics.map((m) => [m.id, m]));
-    return [
-      ...new Set([
-        ...goalMetrics.map((mId) => metricMap.get(mId)).filter(isDefined),
-        ...secondaryMetrics.map((mId) => metricMap.get(mId)).filter(isDefined),
-        ...guardrailMetrics.map((mId) => metricMap.get(mId)).filter(isDefined),
-      ]),
-    ];
-  }, [metrics, goalMetrics, secondaryMetrics, guardrailMetrics]);
+  const queryStatusData = getQueryStatus(
+    snapshot.queries || [],
+    snapshot.error,
+  );
+
+  const lastPhaseIndex = experiment.phases.length - 1;
+  const latestPhase = experiment.phases[lastPhaseIndex];
+  const result = analysis.results[0];
+
+  const settingsForSnapshotMetrics: MetricSnapshotSettings[] =
+    snapshot?.settings?.metricSettings?.map((m) => ({
+      metric: m.id,
+      properPrior: m.computedSettings?.properPrior ?? false,
+      properPriorMean: m.computedSettings?.properPriorMean ?? 0,
+      properPriorStdDev:
+        m.computedSettings?.properPriorStdDev ?? DEFAULT_PROPER_PRIOR_STDDEV,
+      regressionAdjustmentReason:
+        m.computedSettings?.regressionAdjustmentReason || "",
+      regressionAdjustmentDays:
+        m.computedSettings?.regressionAdjustmentDays || 0,
+      regressionAdjustmentEnabled:
+        !!m.computedSettings?.regressionAdjustmentEnabled,
+      regressionAdjustmentAvailable:
+        !!m.computedSettings?.regressionAdjustmentAvailable,
+    })) || [];
 
   const variations = experiment.variations.map((v, i) => ({
     id: v.key || i + "",
@@ -65,87 +86,146 @@ export default function ExperimentMetricBlock({
       experiment.phases[experiment.phases.length - 1]?.variationWeights?.[i] ||
       0,
   }));
-  const indexedVariations = experiment.variations.map((v, i) => ({
-    ...v,
-    index: i,
-  }));
 
-  const variationFilter =
-    variationIds && variationIds.length > 0
-      ? indexedVariations
-          .filter((v) => !variationIds.includes(v.id))
-          .map((v) => v.index)
-      : undefined;
+  // Use shared editor hooks for state management
+  const {
+    baselineRow,
+    variationFilter,
+    differenceType,
+    expandedMetrics,
+    toggleExpandedMetric,
+    setSortBy,
+    setSortDirection,
+    setBaselineRow,
+    setVariationFilter,
+    setDifferenceType,
+  } = useDashboardEditorHooks(block, setBlock, variations);
 
-  const latestPhase = experiment.phases[experiment.phases.length - 1];
+  const { rows, getChildRowCounts } = useExperimentTableRows({
+    results: result,
+    goalMetrics: experiment.goalMetrics,
+    secondaryMetrics: experiment.secondaryMetrics,
+    guardrailMetrics: experiment.guardrailMetrics,
+    metricOverrides: experiment.metricOverrides ?? [],
+    ssrPolyfills,
+    customMetricSlices: experiment.customMetricSlices,
+    metricTagFilter: blockMetricTagFilter,
+    metricsFilter: blockMetricIds,
+    sliceTagsFilter: blockSliceTagsFilter,
+    statsEngine,
+    pValueCorrection,
+    settingsForSnapshotMetrics,
+    shouldShowMetricSlices: true,
+    enableExpansion: true,
+    expandedMetrics,
+    sortBy: blockSortBy,
+    sortDirection: blockSortDirection,
+    customMetricOrder:
+      blockSortBy === "metrics" && blockMetricIds && blockMetricIds.length > 0
+        ? blockMetricIds
+        : undefined,
+  });
 
-  const result = analysis.results[0];
+  // Filter rows based on expansion state when there's no slice filter
+  const hasSliceFilter =
+    blockSliceTagsFilter && blockSliceTagsFilter.length > 0;
+  const filteredRows = useMemo(() => {
+    if (hasSliceFilter) {
+      // When filter is active, use isHiddenByFilter from the hook
+      return rows;
+    }
+    // When no filter, filter out slice rows that aren't expanded
+    return rows.filter((row) => {
+      if (!row.isSliceRow) return true; // Always include parent rows
+      // For slice rows, check if parent metric is expanded
+      if (row.parentRowId) {
+        const expandedKey = `${row.parentRowId}:${row.resultGroup}`;
+        return !!expandedMetrics?.[expandedKey];
+      }
+      return true;
+    });
+  }, [rows, hasSliceFilter, expandedMetrics]);
 
-  const allRows = sortedMetrics
-    .map((metric) => {
-      return {
-        label: metric.name,
-        metric,
-        variations: result.variations.map((v) => ({
-          value: v.metrics[metric.id]?.value || 0,
-          cr: v.metrics[metric.id]?.cr || 0,
-          users: v.users,
-          denominator: v.metrics[metric.id]?.denominator,
-          ci: v.metrics[metric.id]?.ci,
-          ciAdjusted: v.metrics[metric.id]?.ciAdjusted,
-          expected: v.metrics[metric.id]?.expected,
-          risk: v.metrics[metric.id]?.risk,
-          riskType: v.metrics[metric.id]?.riskType,
-          stats: v.metrics[metric.id]?.stats,
-          pValue: v.metrics[metric.id]?.pValue,
-          pValueAdjusted: v.metrics[metric.id]?.pValueAdjusted,
-          uplift: v.metrics[metric.id]?.uplift,
-          buckets: v.metrics[metric.id]?.buckets,
-          chanceToWin: v.metrics[metric.id]?.chanceToWin,
-          errorMessage: v.metrics[metric.id]?.errorMessage,
-          power: v.metrics[metric.id]?.power,
-        })),
-        resultGroup: getMetricResultGroup(
-          metric.id,
-          goalMetrics,
-          secondaryMetrics,
-        ),
-        metricOverrideFields: [],
-      };
-    })
-    .filter(isDefined);
-
-  const rowGroups = groupBy(allRows, ({ resultGroup }) => resultGroup);
+  const rowGroups = groupBy(filteredRows, ({ resultGroup }) => resultGroup);
 
   return (
-    <div>
-      {Object.entries(rowGroups).map(([resultGroup, rows]) => (
-        <ResultsTable
-          key={resultGroup}
-          id={blockId}
-          phase={experiment.phases.length - 1}
-          variations={variations}
-          variationFilter={variationFilter}
-          baselineRow={baselineRow}
-          columnsFilter={columnsFilter}
-          status={experiment.status}
-          isLatestPhase={true}
-          startDate={latestPhase?.dateStarted || ""}
-          endDate={latestPhase?.dateEnded || ""}
-          rows={rows}
-          tableRowAxis="metric"
-          labelHeader={`${
-            resultGroup.charAt(0).toUpperCase() + resultGroup.slice(1)
-          } Metrics`}
-          renderLabelColumn={(label) => label}
-          dateCreated={new Date()}
-          statsEngine={statsEngine}
-          pValueCorrection={pValueCorrection}
-          differenceType={analysis?.settings?.differenceType || "relative"}
-          isTabActive={true}
-          isGoalMetrics={resultGroup === "goal"}
-        />
-      ))}
-    </div>
+    <MetricDrilldownProvider
+      experimentId={experiment.id}
+      phase={lastPhaseIndex}
+      experimentStatus={experiment.status}
+      analysis={analysis}
+      variations={variations}
+      goalMetrics={experiment.goalMetrics}
+      secondaryMetrics={experiment.secondaryMetrics}
+      guardrailMetrics={experiment.guardrailMetrics}
+      metricOverrides={experiment.metricOverrides ?? []}
+      settingsForSnapshotMetrics={settingsForSnapshotMetrics}
+      customMetricSlices={experiment.customMetricSlices}
+      statsEngine={statsEngine}
+      pValueCorrection={pValueCorrection}
+      startDate={latestPhase?.dateStarted || ""}
+      endDate={latestPhase?.dateEnded || ""}
+      reportDate={snapshot.dateCreated}
+      isLatestPhase={true}
+      sequentialTestingEnabled={sequentialTestingEnabled}
+      differenceType={differenceType}
+      lookbackOverride={getEffectiveLookbackOverride(
+        snapshot.settings.attributionModel,
+        snapshot.settings.lookbackOverride,
+      )}
+      baselineRow={baselineRow}
+      variationFilter={variationFilter}
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: 30 }}>
+        {Object.entries(rowGroups).map(([resultGroup, rows]) =>
+          !rows.length ? null : (
+            <ResultsTable
+              noStickyHeader
+              key={resultGroup}
+              id={blockId}
+              experimentId={experiment.id}
+              phase={experiment.phases.length - 1}
+              variations={variations}
+              variationFilter={variationFilter}
+              setVariationFilter={isEditing ? setVariationFilter : undefined}
+              baselineRow={baselineRow}
+              setBaselineRow={isEditing ? setBaselineRow : undefined}
+              columnsFilter={columnsFilter}
+              status={experiment.status}
+              isLatestPhase={true}
+              startDate={latestPhase?.dateStarted || ""}
+              endDate={latestPhase?.dateEnded || ""}
+              rows={rows}
+              tableRowAxis="metric"
+              resultGroup={resultGroup as "goal" | "secondary" | "guardrail"}
+              labelHeader={`${resultGroup.charAt(0).toUpperCase() + resultGroup.slice(1)} Metrics`}
+              renderLabelColumn={getRenderLabelColumn({
+                expandedMetrics,
+                toggleExpandedMetric,
+                getExperimentMetricById,
+                getFactTableById,
+                shouldShowMetricSlices: true,
+                getChildRowCounts,
+                sliceTagsFilter: blockSliceTagsFilter,
+              })}
+              dateCreated={snapshot.dateCreated}
+              statsEngine={statsEngine}
+              sequentialTestingEnabled={sequentialTestingEnabled}
+              pValueCorrection={pValueCorrection}
+              differenceType={differenceType}
+              setDifferenceType={isEditing ? setDifferenceType : undefined}
+              queryStatusData={queryStatusData}
+              isTabActive={isTabActive}
+              isGoalMetrics={resultGroup === "goal"}
+              ssrPolyfills={ssrPolyfills}
+              sortBy={blockSortBy}
+              setSortBy={isEditing ? setSortBy : undefined}
+              sortDirection={blockSortDirection ?? null}
+              setSortDirection={isEditing ? setSortDirection : undefined}
+            />
+          ),
+        )}
+      </div>
+    </MetricDrilldownProvider>
   );
 }

@@ -229,3 +229,25 @@ properties:
   customFields:
     type: object
     additionalProperties: true
+  customMetricSlices:
+    type: array
+    items:
+      type: object
+      properties:
+        slices:
+          type: array
+          items:
+            type: object
+            properties:
+              column:
+                type: string
+              levels:
+                type: array
+                items:
+                  type: string
+            required:
+              - column
+              - levels
+      required:
+        - slices
+    description: "Custom slices that apply to ALL applicable metrics in the experiment"

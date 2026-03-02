@@ -6,22 +6,33 @@ import Field from "@/components/Forms/Field";
 import Modal from "@/components/Modal";
 import { useUser } from "@/services/UserContext";
 import SelectField from "@/components/Forms/SelectField";
+import { isCloud, isMultiOrg } from "@/services/env";
 
 const EditOrganizationModal: FC<{
   name: string;
+  installationName?: string;
   ownerEmail: string;
   close: () => void;
   mutate: () => Promise<unknown>;
-}> = ({ close, mutate, name, ownerEmail }) => {
+}> = ({ close, mutate, name, installationName, ownerEmail }) => {
   const { apiCall, setOrgName } = useAuth();
-  const { users } = useUser();
+  const { users, license } = useUser();
   const existingEmails = Array.from(users).map(([, user]) => user.email);
   const permissions = usePermissions();
   const canEdit = permissions.check("organizationSettings");
 
+  const showInstallationName =
+    license?.plan === "enterprise" && !isCloud() && isMultiOrg();
+
+  const installationChartIsShowing =
+    !isCloud() &&
+    license?.plan === "enterprise" &&
+    Object.keys(license?.installationUsers || {}).length > 1;
+
   const form = useForm({
     defaultValues: {
       name,
+      ...(showInstallationName && { installationName }),
       ownerEmail,
     },
   });
@@ -62,6 +73,19 @@ const EditOrganizationModal: FC<{
         if (setOrgName) {
           setOrgName(value.name);
         }
+
+        if (installationChartIsShowing) {
+          // Force refresh license data so that the installation chart is immediately updated
+          try {
+            await apiCall("/license", {
+              method: "GET",
+            });
+          } catch (e) {
+            // The org data was successfully updated so we can ignore any errors here
+            console.warn("Failed to refresh license:", e);
+          }
+        }
+
         // Update org name on settings page
         await mutate();
       })}
@@ -73,6 +97,15 @@ const EditOrganizationModal: FC<{
         {...form.register("name")}
         disabled={!canEdit}
       />
+      {showInstallationName && (
+        <Field
+          label="Installation Name"
+          required
+          {...form.register("installationName")}
+          disabled={!canEdit}
+        />
+      )}
+
       {existingEmails.length < 100 ? (
         <SelectField
           label="Owner Email"

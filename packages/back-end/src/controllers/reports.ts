@@ -4,13 +4,14 @@ import { getValidDate } from "shared/dates";
 import { getSnapshotAnalysis } from "shared/util";
 import { pick, omit } from "lodash";
 import uniqid from "uniqid";
+import { experimentAnalysisSettings } from "shared/validators";
 import {
   ExperimentReportAnalysisSettings,
   ExperimentReportInterface,
   ExperimentSnapshotReportArgs,
   ExperimentSnapshotReportInterface,
   ReportInterface,
-} from "back-end/types/report";
+} from "shared/types/report";
 import {
   getExperimentById,
   getExperimentsByIds,
@@ -39,12 +40,12 @@ import {
 } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
-import { experimentAnalysisSettings } from "back-end/src/validators/experiments";
 import {
   createReportSnapshot,
   generateExperimentReportSSRData,
 } from "back-end/src/services/reports";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
+import { getAdditionalQueryMetadataForExperiment } from "back-end/src/services/experiments";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<ExperimentSnapshotReportArgs, { snapshot: string }>,
@@ -104,6 +105,7 @@ export async function postReportFromSnapshot(
       "dimension",
       "dateStarted",
       "dateEnded",
+      "customMetricSlices",
     ]),
   } as ExperimentReportAnalysisSettings;
   if (!_experimentAnalysisSettings.dateStarted) {
@@ -266,7 +268,7 @@ export async function getReportPublic(
   const _experiment = report.experimentId
     ? (await getExperimentById(context, report.experimentId || "")) || undefined
     : undefined;
-  const experiment = pick(_experiment, ["id", "name", "type"]);
+  const experiment = pick(_experiment, ["id", "name", "type", "uid"]);
 
   const ssrData = await generateExperimentReportSSRData({
     context,
@@ -329,6 +331,7 @@ export async function refreshReport(
 
   const metricMap = await getMetricMap(context);
   const factTableMap = await getFactTableMap(context);
+  const metricGroups = await context.models.metricGroups.getAll();
   const useCache = !req.query["force"];
 
   if (report.type === "experiment-snapshot") {
@@ -390,6 +393,8 @@ export async function refreshReport(
     const updatedReport = await queryRunner.startAnalysis({
       metricMap,
       factTableMap,
+      metricGroups,
+      experimentQueryMetadata: null,
     });
 
     return res.status(200).json({
@@ -477,6 +482,7 @@ export async function putReport(
           "dimension",
           "dateStarted",
           "dateEnded",
+          "customMetricSlices",
         ]),
       };
       updates.experimentAnalysisSettings.dateStarted = getValidDate(
@@ -486,6 +492,16 @@ export async function putReport(
         updates.experimentAnalysisSettings.dateEnded = getValidDate(
           updates.experimentAnalysisSettings.dateEnded,
         );
+      }
+      if (
+        updates.experimentAnalysisSettings.lookbackOverride?.type === "date"
+      ) {
+        updates.experimentAnalysisSettings.lookbackOverride = {
+          type: "date",
+          value: getValidDate(
+            updates.experimentAnalysisSettings.lookbackOverride.value,
+          ),
+        };
       }
     }
 
@@ -549,6 +565,7 @@ export async function putReport(
     if (needsRun) {
       const metricMap = await getMetricMap(context);
       const factTableMap = await getFactTableMap(context);
+      const metricGroups = await context.models.metricGroups.getAll();
 
       const integration = await getIntegrationFromDatasourceId(
         context,
@@ -565,6 +582,10 @@ export async function putReport(
       await queryRunner.startAnalysis({
         metricMap,
         factTableMap,
+        metricGroups,
+        experimentQueryMetadata: experiment
+          ? getAdditionalQueryMetadataForExperiment(experiment)
+          : null,
       });
     }
 

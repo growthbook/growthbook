@@ -1,9 +1,9 @@
-import { FeatureInterface } from "back-end/types/feature";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { FeatureMetaInfo } from "shared/types/feature";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { ago, datetime } from "shared/dates";
-import { EventUserLoggedIn } from "back-end/src/events/event-types";
+import { EventUserLoggedIn } from "shared/types/events/event-types";
 import { PiCheckCircleFill, PiCircleDuotone, PiFileX } from "react-icons/pi";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import useApi from "@/hooks/useApi";
@@ -14,16 +14,14 @@ import Pagination from "@/components/Pagination";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import ProjectBadges from "@/components/ProjectBadges";
-export interface Props {
-  features: FeatureInterface[];
-}
+
 type FeaturesAndRevisions = FeatureRevisionInterface & {
-  feature: FeatureInterface;
+  featureMeta?: FeatureMetaInfo;
 };
-export default function FeaturesDraftTable({ features }: Props) {
+export default function FeaturesDraftTable() {
   const draftAndReviewData = useApi<{
     status: number;
-    revisions: FeatureRevisionInterface[];
+    revisions: FeaturesAndRevisions[];
   }>(`/revision/feature`);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -58,19 +56,7 @@ export default function FeaturesDraftTable({ features }: Props) {
     }
   };
 
-  const featuresAndRevisions = data?.revisions.reduce<FeaturesAndRevisions[]>(
-    (result, revision) => {
-      const feature = features.find((f) => f.id === revision.featureId);
-      if (feature && feature?.dateCreated <= revision.dateCreated) {
-        result.push({
-          ...revision,
-          feature,
-        });
-      }
-      return result;
-    },
-    [],
-  );
+  const featuresAndRevisions = data?.revisions;
 
   const revisions = useAddComputedFields(featuresAndRevisions, (revision) => {
     const createdBy = revision?.createdBy as EventUserLoggedIn | null;
@@ -90,13 +76,13 @@ export default function FeaturesDraftTable({ features }: Props) {
         break;
     }
     return {
-      id: revision.feature?.id,
-      tags: revision.feature?.tags,
+      id: revision.featureId,
+      tags: revision.featureMeta?.tags,
       status: revision?.status,
       version: revision?.version,
       dateCreated: revision?.dateCreated,
       dateUpdated: revision?.dateUpdated,
-      project: revision.feature?.project,
+      project: revision.featureMeta?.project,
       creator: createdBy?.name,
       comment: revision?.comment,
       dateAndStatus,
@@ -120,7 +106,7 @@ export default function FeaturesDraftTable({ features }: Props) {
       },
       status: (item) => item.status,
       tag: (item) => item.tags,
-      project: (item) => item.feature?.project,
+      project: (item) => item.featureMeta?.project,
       created: (item) => item.dateCreated,
       updated: (item) => item.dateUpdated,
       user: (item) => item.creator,

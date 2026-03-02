@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from "react";
 import { getValidDate } from "shared/dates";
 import { Box, Flex, Heading } from "@radix-ui/themes";
-import { ComputedExperimentInterface } from "back-end/types/experiment";
+import { ComputedExperimentInterface } from "shared/types/experiment";
 import { useRouter } from "next/router";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -11,7 +11,7 @@ import CompletedExperimentList from "@/components/Experiment/CompletedExperiment
 import ExperimentSearchFilters from "@/components/Search/ExperimentSearchFilters";
 import DatePicker from "@/components/DatePicker";
 import EmptyState from "@/components/EmptyState";
-import LinkButton from "@/components/Radix/LinkButton";
+import LinkButton from "@/ui/LinkButton";
 import { useExperimentSearch, experimentDate } from "@/services/experiments";
 
 const LearningsPage = (): React.ReactElement => {

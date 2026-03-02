@@ -4,13 +4,15 @@ import {
   getHealthSettings,
   getStatusIndicatorData,
 } from "shared/enterprise";
-import { GetExperimentResponse } from "back-end/types/openapi";
+import {
+  ExperimentInterfaceExcludingHoldouts,
+  getExperimentValidator,
+} from "shared/validators";
+import { GetExperimentResponse } from "shared/types/openapi";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { toExperimentApiInterface } from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { getExperimentValidator } from "back-end/src/validators/openapi";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { ExperimentInterfaceExcludingHoldouts } from "back-end/src/validators/experiments";
 
 export const getExperiment = createApiRequestHandler(getExperimentValidator)(
   async (req): Promise<GetExperimentResponse> => {

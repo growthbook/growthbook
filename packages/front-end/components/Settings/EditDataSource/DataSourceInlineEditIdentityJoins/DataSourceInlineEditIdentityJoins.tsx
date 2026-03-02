@@ -4,15 +4,15 @@ import cloneDeep from "lodash/cloneDeep";
 import {
   DataSourceInterfaceWithParams,
   IdentityJoinQuery,
-} from "back-end/types/datasource";
+} from "shared/types/datasource";
 import { Box, Card, Flex, Heading } from "@radix-ui/themes";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import { AddEditIdentityJoinModal } from "@/components/Settings/EditDataSource/DataSourceInlineEditIdentityJoins/AddEditIdentityJoinModal";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Code from "@/components/SyntaxHighlighting/Code";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Badge from "@/components/Radix/Badge";
-import Button from "@/components/Radix/Button";
+import Badge from "@/ui/Badge";
+import Button from "@/ui/Button";
 
 type DataSourceInlineEditIdentityJoinsProps =
   DataSourceQueryEditingModalBaseProps;
@@ -26,7 +26,11 @@ export const DataSourceInlineEditIdentityJoins: FC<
   const permissionsUtil = usePermissionsUtil();
   canEdit = canEdit && permissionsUtil.canUpdateDataSourceSettings(dataSource);
 
-  const [openIndexes, setOpenIndexes] = useState<boolean[]>([]);
+  const [openIndexes, setOpenIndexes] = useState<boolean[]>(
+    Array.from(
+      Array(dataSource?.settings?.queries?.identityJoins?.length || 0),
+    ).fill(true),
+  );
 
   const handleCancel = useCallback(() => {
     setUiMode("view");
@@ -186,6 +190,7 @@ export const DataSourceInlineEditIdentityJoins: FC<
                         language="sql"
                         code={identityJoin.query}
                         containerClassName="mb-0"
+                        expandable
                       />
                     </Box>
                   )}

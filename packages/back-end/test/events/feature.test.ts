@@ -1,3 +1,4 @@
+import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import {
   logFeatureCreatedEvent,
   logFeatureUpdatedEvent,
@@ -7,7 +8,6 @@ import { getLegacyMessageForNotificationEvent } from "back-end/src/events/handle
 import { featureSnapshot } from "back-end/test/snapshots/feature.snapshot";
 import { EventModel } from "back-end/src/models/EventModel";
 import { setupApp } from "back-end/test/api/api.setup";
-import { SafeRolloutInterface } from "../../types/safe-rollout";
 
 jest.mock("back-end/src/events/notifiers/EventNotifier", () => ({
   EventNotifier: class Dummy {
@@ -59,6 +59,9 @@ describe("features events", () => {
             .fn()
             .mockResolvedValue(new Map([["sr_123", safeRollout]])),
         },
+        savedGroups: {
+          getAll: jest.fn().mockResolvedValue([]),
+        },
       },
       userId: "aabb",
       email: "user@mail.com",
@@ -109,6 +112,7 @@ describe("features events", () => {
             project: "project",
             revision: {
               comment: "",
+              createdBy: "",
               date: "",
               publishedBy: "",
               version: undefined,
@@ -156,7 +160,7 @@ describe("features events", () => {
             id: "id",
             owner: "owner",
             project: "project",
-            revision: { comment: "", date: "", publishedBy: "" },
+            revision: { comment: "", createdBy: "", date: "", publishedBy: "" },
             tags: ["tag"],
             valueType: "string",
           }),
@@ -218,6 +222,7 @@ describe("features events", () => {
             project: "project",
             revision: {
               comment: "",
+              createdBy: "",
               date: "",
               publishedBy: "",
               version: undefined,
@@ -266,7 +271,7 @@ describe("features events", () => {
             id: "id",
             owner: "owner",
             project: "project",
-            revision: { comment: "", date: "", publishedBy: "" },
+            revision: { comment: "", createdBy: "", date: "", publishedBy: "" },
             tags: ["tag"],
             valueType: "string",
           }),
@@ -291,7 +296,7 @@ describe("features events", () => {
             id: "id",
             owner: "owner",
             project: "project",
-            revision: { comment: "", date: "", publishedBy: "" },
+            revision: { comment: "", createdBy: "", date: "", publishedBy: "" },
             tags: ["tag"],
             valueType: "string",
           }),
@@ -350,6 +355,7 @@ describe("features events", () => {
             project: "project",
             revision: {
               comment: "",
+              createdBy: "",
               date: "",
               publishedBy: "",
               version: undefined,
@@ -397,7 +403,7 @@ describe("features events", () => {
             id: "id",
             owner: "owner",
             project: "project",
-            revision: { comment: "", date: "", publishedBy: "" },
+            revision: { comment: "", createdBy: "", date: "", publishedBy: "" },
             tags: ["tag"],
             valueType: "string",
           }),

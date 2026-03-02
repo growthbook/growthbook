@@ -1,17 +1,17 @@
 import React, { useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
-import Checkbox from "@/components/Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
 import { hasFileConfig } from "@/services/env";
 import { useUser } from "@/services/UserContext";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import Field from "@/components/Forms/Field";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { AttributionModelTooltip } from "@/components/Experiment/AttributionModelTooltip";
 import ExperimentCheckListModal from "@/components/Settings/ExperimentCheckListModal";
-import RadioGroup from "@/components/Radix/RadioGroup";
+import RadioGroup from "@/ui/RadioGroup";
 import { GBInfo } from "@/components/Icons";
-import Frame from "@/components/Radix/Frame";
+import Frame from "@/ui/Frame";
 import StatsEngineSettings from "./StatsEngineSettings";
 import StickyBucketingSettings from "./StickyBucketingSettings";
 import DecisionFrameworkSettings from "./DecisionFrameworkSettings";
@@ -48,7 +48,7 @@ export default function ExperimentSettings({
     <>
       <Frame>
         <Flex gap="4">
-          <Box width="220px" flexShrink="0">
+          <Box width="220px" flexShrink="0" id="experiment-settings">
             <Heading size="4" as="h4">
               Experiment Settings
             </Heading>

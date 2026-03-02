@@ -1,6 +1,6 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useForm } from "react-hook-form";
-import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
+import { HoldoutInterfaceStringDates } from "shared/validators";
 import { isEqual } from "lodash";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
@@ -8,7 +8,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import TagsInput from "@/components/Tags/TagsInput";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import { useAuth } from "@/services/auth";
 import SelectOwner from "@/components/Owner/SelectOwner";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -16,7 +16,7 @@ import { FocusSelector } from "./EditExperimentInfoModal";
 
 interface Props {
   experiment: ExperimentInterfaceStringDates;
-  holdout: HoldoutInterface;
+  holdout: HoldoutInterfaceStringDates;
   setShowEditInfoModal: (value: boolean) => void;
   mutate: () => void;
   focusSelector?: FocusSelector;

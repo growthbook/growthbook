@@ -2,13 +2,18 @@ import {
   FeatureInterface,
   FeatureTestResult,
   FeatureValueType,
-} from "back-end/types/feature";
-import React, { CSSProperties, useMemo } from "react";
+} from "shared/types/feature";
+import React, { CSSProperties, useMemo, useState } from "react";
 import stringify from "json-stringify-pretty-compact";
+import { Flex, IconButton } from "@radix-ui/themes";
+import { PiCheck, PiCornersOut, PiCopy } from "react-icons/pi";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import styles from "@/components/Archetype/ArchetypeResults.module.scss";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { parseFeatureResult } from "@/hooks/useArchetype";
+import Modal from "@/components/Modal";
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import Button from "@/ui/Button";
 
 export default function ValueDisplay({
   value,
@@ -17,6 +22,9 @@ export default function ValueDisplay({
   additionalStyle = {},
   fullStyle = { maxHeight: 150, overflowY: "auto", maxWidth: "100%" },
   fullClassName = "",
+  showFullscreenButton: _showFullscreenButton = false,
+  showCopyButton = true,
+  isFullscreen = false,
 }: {
   value: string;
   type: FeatureValueType;
@@ -24,7 +32,14 @@ export default function ValueDisplay({
   additionalStyle?: CSSProperties;
   fullStyle?: CSSProperties;
   fullClassName?: string;
+  showFullscreenButton?: boolean;
+  showCopyButton?: boolean;
+  isFullscreen?: boolean;
 }) {
+  const [modalOpen, setModalOpen] = useState(false);
+  const { performCopy, copySuccess } = useCopyToClipboard({
+    timeout: 800,
+  });
   const formatted = useMemo(() => {
     if (type === "boolean") return value;
     if (type === "number") return value || "null";
@@ -35,6 +50,8 @@ export default function ValueDisplay({
       return value;
     }
   }, [value, type]);
+
+  const showFullscreenButton = _showFullscreenButton && type === "json";
 
   if (type === "boolean") {
     const on = !(value === "false" || value === "null" || !value);
@@ -73,9 +90,97 @@ export default function ValueDisplay({
   }
 
   return (
-    <div style={fullStyle} className={fullClassName}>
-      <InlineCode language="json" code={formatted} />
-    </div>
+    <>
+      <div style={{ position: "relative" }}>
+        <div style={fullStyle} className={fullClassName}>
+          <InlineCode language="json" code={formatted} />
+        </div>
+        {!isFullscreen && (
+          <Flex
+            align="center"
+            gap="3"
+            style={{
+              position: "absolute",
+              bottom: -4,
+              right: 16,
+            }}
+          >
+            {showCopyButton && (type === "json" || type === "string") ? (
+              <Tooltip
+                body={copySuccess ? "Copied" : "Copy to clipboard"}
+                usePortal={true}
+              >
+                <IconButton
+                  type="button"
+                  radius="full"
+                  variant="ghost"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (!copySuccess) performCopy(value);
+                  }}
+                >
+                  {copySuccess ? <PiCheck size={12} /> : <PiCopy size={12} />}
+                </IconButton>
+              </Tooltip>
+            ) : null}
+            {showFullscreenButton && type === "json" && (
+              <Tooltip body="View in full screen" usePortal={true}>
+                <IconButton
+                  type="button"
+                  radius="full"
+                  variant="ghost"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setModalOpen(true);
+                  }}
+                >
+                  <PiCornersOut size={12} />
+                </IconButton>
+              </Tooltip>
+            )}
+          </Flex>
+        )}
+      </div>
+      {modalOpen && (
+        <Modal
+          header="Feature Value"
+          open={modalOpen}
+          close={() => setModalOpen(false)}
+          trackingEventModalType=""
+          size="max"
+          sizeY="max"
+          secondaryCTA={
+            copySuccess ? (
+              <Button style={{ width: 100 }} icon={<PiCheck />} color="gray">
+                Copied
+              </Button>
+            ) : (
+              <Button
+                style={{ width: 100 }}
+                icon={<PiCopy />}
+                onClick={() => {
+                  if (!copySuccess) performCopy(value);
+                }}
+              >
+                Copy
+              </Button>
+            )
+          }
+          closeCta="Close"
+          useRadixButton={true}
+        >
+          <ValueDisplay
+            value={value}
+            type={type}
+            full={true}
+            fullStyle={{ minHeight: 400, maxWidth: "100%" }}
+            isFullscreen={true}
+          />
+        </Modal>
+      )}
+    </>
   );
 }
 
@@ -90,6 +195,7 @@ export function ArchetypeValueDisplay({
   return (
     <Tooltip
       className="d-inline-block text-left"
+      flipTheme={false}
       body={
         <div className="text-left">
           {!result.enabled ? (
@@ -160,6 +266,7 @@ export function ArchetypeValueDisplay({
               }
               type={feature.valueType}
               full={true}
+              showCopyButton={false}
             />
           ) : (
             <span className="text-muted">disabled</span>

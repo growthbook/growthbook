@@ -1,11 +1,11 @@
 import React, { FC, Fragment, useState } from "react";
 import { ago } from "shared/dates";
-import { DimensionSlicesInterface } from "back-end/types/dimension";
+import { DimensionSlicesInterface } from "shared/types/dimension";
 import { BsGear } from "react-icons/bs";
 import { useForm } from "react-hook-form";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { QueryStatus } from "back-end/types/query";
+import { QueryStatus } from "shared/types/query";
 import RunQueriesButton, {
   getQueryStatus,
 } from "@/components/Queries/RunQueriesButton";
@@ -15,7 +15,7 @@ import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
 import { AppFeatures } from "@/types/app-features";
-import Link from "@/components/Radix/Link";
+import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 
 const smallPercentFormatter = new Intl.NumberFormat(undefined, {

@@ -1,19 +1,23 @@
 import mongoose, { FilterQuery, PipelineStage } from "mongoose";
 import omit from "lodash/omit";
-import { blockHasFieldOfType, dashboardCanAutoUpdate } from "shared/enterprise";
+import {
+  snapshotSatisfiesBlock,
+  blockHasFieldOfType,
+  DashboardInterface,
+} from "shared/enterprise";
 import { isString } from "shared/util";
 import {
   SnapshotType,
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
   LegacyExperimentSnapshotInterface,
-} from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment-snapshot";
 import { logger } from "back-end/src/util/logger";
 import { migrateSnapshot } from "back-end/src/util/migrations";
 import { notifyExperimentChange } from "back-end/src/services/experimentNotifications";
 import { updateExperimentAnalysisSummary } from "back-end/src/services/experiments";
 import { updateExperimentTimeSeries } from "back-end/src/services/experimentTimeSeries";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { queriesSchema } from "./QueryModel";
 import { Context } from "./BaseModel";
@@ -113,6 +117,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
               ],
               chanceToWin: Number,
               pValue: Number,
+              supplementalResults: {},
             },
           },
         },
@@ -295,22 +300,42 @@ export async function updateSnapshot({
         );
       }
     }
+  }
 
-    const dashboards = await context.models.dashboards.findByExperiment(
-      experimentSnapshotModel.experiment,
-    );
-    for (const dashboard of dashboards) {
-      if (!dashboard.enableAutoUpdates || !dashboardCanAutoUpdate(dashboard))
-        continue;
-      const blocks = dashboard.blocks.map((block) =>
-        blockHasFieldOfType(block, "snapshotId", isString)
-          ? { ...block, snapshotId: experimentSnapshotModel.id }
-          : block,
-      );
+  const updateDashboardWithSnapshot = async (dashboard: DashboardInterface) => {
+    let updatedBlock = false;
+    const blocks = dashboard.blocks.map((block) => {
+      if (
+        !blockHasFieldOfType(block, "snapshotId", isString) ||
+        !snapshotSatisfiesBlock(experimentSnapshotModel, block)
+      )
+        return block;
+      updatedBlock = true;
+      return { ...block, snapshotId: experimentSnapshotModel.id };
+    });
+    if (updatedBlock) {
       await context.models.dashboards.dangerousUpdateBypassPermission(
         dashboard,
-        { blocks },
+        {
+          blocks,
+        },
       );
+    }
+  };
+
+  if (
+    experimentSnapshotModel.status === "success" &&
+    // Only use main snapshots or those triggered automatically for dashboards
+    experimentSnapshotModel.triggeredBy !== "manual-dashboard" &&
+    (experimentSnapshotModel.triggeredBy === "update-dashboards" ||
+      experimentSnapshotModel.type === "standard")
+  ) {
+    const dashboards = await context.models.dashboards.findByExperiment(
+      experimentSnapshotModel.experiment,
+      { enableAutoUpdates: true },
+    );
+    for (const dashboard of dashboards) {
+      await updateDashboardWithSnapshot(dashboard);
     }
   }
 }

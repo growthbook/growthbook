@@ -2,12 +2,12 @@ import React, { FC, useCallback, useState } from "react";
 import {
   ExperimentInterfaceStringDates,
   Variation,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import {
   VisualChange,
   VisualChangesetInterface,
   VisualChangesetURLPattern,
-} from "back-end/types/visual-changeset";
+} from "shared/types/visual-changeset";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { FaAngleRight } from "react-icons/fa";
@@ -17,10 +17,10 @@ import { useAuth } from "@/services/auth";
 import VisualChangesetModal from "@/components/Experiment/VisualChangesetModal";
 import EditDOMMutationsModal from "@/components/Experiment/EditDOMMutationsModal";
 import LinkedChange from "@/components/Experiment/LinkedChange";
-import Badge from "@/components/Radix/Badge";
-import Button from "@/components/Radix/Button";
+import Badge from "@/ui/Badge";
+import Button from "@/ui/Button";
 import Code from "@/components/SyntaxHighlighting/Code";
-import Link from "@/components/Radix/Link";
+import Link from "@/ui/Link";
 
 type Props = {
   experiment: ExperimentInterfaceStringDates;
@@ -55,8 +55,8 @@ const drawChange = ({
   }) => void;
   simpleUrlPatterns: VisualChangesetURLPattern[];
   regexUrlPatterns: VisualChangesetURLPattern[];
-  showChangeset: number[];
-  setShowChangeset: (value: number[]) => void;
+  showChangeset: string[];
+  setShowChangeset: (value: string[]) => void;
 }) => {
   return (
     <>
@@ -132,6 +132,7 @@ const drawChange = ({
           </Flex>
           <Box>
             {variations.map((v, j) => {
+              const key = `${i}-${j}`;
               const changes = vc.visualChanges[j];
               const numChanges =
                 (changes?.css ? 1 : 0) +
@@ -168,7 +169,7 @@ const drawChange = ({
                           className="label mt-1"
                           style={{ width: 20, height: 20 }}
                         >
-                          {i}
+                          {j}
                         </span>
                         <Flex direction="column">
                           <span
@@ -182,9 +183,9 @@ const drawChange = ({
                             onClick={(e) => {
                               e.preventDefault();
                               setShowChangeset(
-                                showChangeset.includes(j)
-                                  ? showChangeset.filter((item) => item !== j)
-                                  : [...showChangeset, j],
+                                showChangeset.includes(key)
+                                  ? showChangeset.filter((item) => item !== key)
+                                  : [...showChangeset, key],
                               );
                             }}
                           >
@@ -199,7 +200,9 @@ const drawChange = ({
                                 className="chevron"
                                 style={{
                                   transform: `rotate(${
-                                    showChangeset.includes(j) ? "90deg" : "0deg"
+                                    showChangeset.includes(key)
+                                      ? "90deg"
+                                      : "0deg"
                                   })`,
                                 }}
                               />
@@ -233,7 +236,7 @@ const drawChange = ({
                         )}
                       </Flex>
                     </Flex>
-                    {showChangeset.includes(j) && (
+                    {showChangeset.includes(key) && (
                       <Box>
                         <Code
                           language="json"
@@ -271,7 +274,7 @@ export const VisualChangesetTable: FC<Props> = ({
 }: Props) => {
   const { variations } = experiment;
   const { apiCall } = useAuth();
-  const [showChangeset, setShowChangeset] = useState<number[]>([]);
+  const [showChangeset, setShowChangeset] = useState<string[]>([]);
 
   const [editingVisualChangeset, setEditingVisualChangeset] =
     useState<VisualChangesetInterface | null>(null);

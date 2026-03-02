@@ -1,4 +1,4 @@
-import { SDKLanguage } from "back-end/types/sdk-connection";
+import { SDKLanguage } from "shared/types/sdk-connection";
 import React, { useCallback, useMemo } from "react";
 import { Box } from "@radix-ui/themes";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -41,7 +41,7 @@ export default function InstallationCodeSnippet({
       `.trim()
       : `
 <script async
-  data-api-host=${JSON.stringify(apiHost)}
+  data-api-host=${JSON.stringify(apiHost)}${eventTracker === "growthbook" ? `\n  data-tracking="growthbook"` : ""}
   data-client-key=${JSON.stringify(apiKey)}${
     encryptionKey
       ? `\n  data-decryption-key=${JSON.stringify(encryptionKey)}`

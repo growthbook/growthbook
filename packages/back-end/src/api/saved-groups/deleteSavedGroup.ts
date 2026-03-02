@@ -1,17 +1,12 @@
-import { DeleteSavedGroupResponse } from "back-end/types/openapi";
-import {
-  deleteSavedGroupById,
-  getSavedGroupById,
-} from "back-end/src/models/SavedGroupModel";
+import { DeleteSavedGroupResponse } from "shared/types/openapi";
+import { deleteSavedGroupValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { deleteSavedGroupValidator } from "back-end/src/validators/openapi";
 
 export const deleteSavedGroup = createApiRequestHandler(
   deleteSavedGroupValidator,
 )(async (req): Promise<DeleteSavedGroupResponse> => {
-  const savedGroup = await getSavedGroupById(
+  const savedGroup = await req.context.models.savedGroups.getById(
     req.params.id,
-    req.organization.id,
   );
 
   if (!savedGroup) {
@@ -22,7 +17,7 @@ export const deleteSavedGroup = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
 
-  await deleteSavedGroupById(req.params.id, req.organization.id);
+  await req.context.models.savedGroups.deleteById(req.params.id);
 
   return {
     deletedId: req.params.id,

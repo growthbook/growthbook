@@ -1,9 +1,22 @@
 import dynamic from "next/dynamic";
-import { useEffect, useState, useRef, createElement } from "react";
+import {
+  type ComponentType,
+  useEffect,
+  useState,
+  useRef,
+  createElement,
+  useId,
+} from "react";
 import type { Ace } from "ace-builds";
 import type { IAceEditorProps } from "react-ace";
+import clsx from "clsx";
+import { Flex, IconButton } from "@radix-ui/themes";
+import { PiCornersOut, PiCornersIn, PiCopy, PiCheck } from "react-icons/pi";
+import Button from "@/ui/Button";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { CursorData } from "@/components/Segments/SegmentForm";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Field, { FieldProps } from "./Field";
 
 export type AceCompletion = {
@@ -17,73 +30,56 @@ interface AceEditorProps extends IAceEditorProps {
   completions?: AceCompletion[];
 }
 
+interface AceModule {
+  config: { setModuleUrl: (path: string, url: string) => void };
+  require: (path: string) => unknown;
+}
+
+interface LangTools {
+  setCompleters: (completers: unknown[]) => void;
+  addCompleter: (completer: unknown) => void;
+}
+
 const AceEditor = dynamic(
   async () => {
-    const [ace, reactAce, jsonWorkerUrl, jsWorkerUrl, yamlWorkerUrl] =
-      await Promise.all([
-        import(
-          /* webpackChunkName: "ace-editor" */
-          "ace-builds/src-min-noconflict/ace"
-        ),
-        import(
-          /* webpackChunkName: "ace-editor" */
-          "react-ace"
-        ),
-        import(
-          /* webpackChunkName: "ace-editor" */
-          "ace-builds/src-min-noconflict/worker-json"
-        ),
-        import(
-          /* webpackChunkName: "ace-editor" */
-          "ace-builds/src-min-noconflict/worker-javascript"
-        ),
-        import(
-          /* webpackChunkName: "ace-editor" */
-          "ace-builds/src-min-noconflict/worker-yaml"
-        ),
-        import(
-          /* webpackChunkName: "ace-editor" */
-          "ace-builds/src-min-noconflict/ext-language_tools"
-        ),
-        import(
-          /* webpackChunkName: "ace-editor" */
-          "ace-builds/src-min-noconflict/ext-searchbox"
-        ),
-        import(
-          /* webpackChunkName: "ace-editor" */
-          "ace-builds/src-min-noconflict/mode-sql"
-        ),
-        import(
-          /* webpackChunkName: "ace-editor" */
-          "ace-builds/src-min-noconflict/mode-javascript"
-        ),
-        import(
-          /* webpackChunkName: "ace-editor" */
-          "ace-builds/src-min-noconflict/mode-python"
-        ),
-        import(
-          /* webpackChunkName: "ace-editor" */
-          "ace-builds/src-min-noconflict/mode-yaml"
-        ),
-        import(
-          /* webpackChunkName: "ace-editor" */
-          "ace-builds/src-min-noconflict/mode-json"
-        ),
-        import(
-          /* webpackChunkName: "ace-editor" */
-          "ace-builds/src-min-noconflict/theme-textmate"
-        ),
-        import(
-          /* webpackChunkName: "ace-editor" */
-          "ace-builds/src-min-noconflict/theme-tomorrow_night"
-        ),
-      ]);
+    // Load ace first - other modules expect global `ace`
+    const aceModule = await import("ace-builds/src-min-noconflict/ace");
+    const ace = (aceModule as { default?: AceModule }).default ?? aceModule;
+    if (typeof window !== "undefined") {
+      (window as unknown as { ace: unknown }).ace = ace;
+    }
 
-    ace.config.setModuleUrl("ace/mode/json_worker", jsonWorkerUrl.default);
-    ace.config.setModuleUrl("ace/mode/javascript_worker", jsWorkerUrl.default);
-    ace.config.setModuleUrl("ace/mode/yaml_worker", yamlWorkerUrl.default);
+    const [reactAce, jsonWorker, jsWorker, yamlWorker] = await Promise.all([
+      import("react-ace"),
+      import("ace-builds/src-min-noconflict/worker-json"),
+      import("ace-builds/src-min-noconflict/worker-javascript"),
+      import("ace-builds/src-min-noconflict/worker-yaml"),
+      import("ace-builds/src-min-noconflict/ext-language_tools"),
+      import("ace-builds/src-min-noconflict/ext-searchbox"),
+      import("ace-builds/src-min-noconflict/mode-sql"),
+      import("ace-builds/src-min-noconflict/mode-javascript"),
+      import("ace-builds/src-min-noconflict/mode-python"),
+      import("ace-builds/src-min-noconflict/mode-yaml"),
+      import("ace-builds/src-min-noconflict/mode-json"),
+      import("ace-builds/src-min-noconflict/theme-textmate"),
+      import("ace-builds/src-min-noconflict/theme-tomorrow_night"),
+    ]);
 
-    const langTools = ace.require("ace/ext/language_tools");
+    // Workers: raw-loader gives us source; create blob: URLs for Ace
+    const toWorkerUrl = (mod: { default: string }) =>
+      URL.createObjectURL(
+        new Blob([mod.default], { type: "application/javascript" }),
+      );
+    const jsonWorkerUrl = toWorkerUrl(jsonWorker);
+    const jsWorkerUrl = toWorkerUrl(jsWorker);
+    const yamlWorkerUrl = toWorkerUrl(yamlWorker);
+
+    const aceTyped = ace as AceModule;
+    aceTyped.config.setModuleUrl("ace/mode/json_worker", jsonWorkerUrl);
+    aceTyped.config.setModuleUrl("ace/mode/javascript_worker", jsWorkerUrl);
+    aceTyped.config.setModuleUrl("ace/mode/yaml_worker", yamlWorkerUrl);
+
+    const langTools = aceTyped.require("ace/ext/language_tools") as LangTools;
 
     // Return a wrapper component that handles completions
     const AceEditorWithCompletions = (props: AceEditorProps) => {
@@ -157,10 +153,10 @@ const AceEditor = dynamic(
         }
       }, [editor, completions]); // Depend on both editor and completions
 
-      return createElement(reactAce.default, {
-        ...otherProps,
-        onLoad: handleLoad,
-      });
+      return createElement(
+        (reactAce as { default: ComponentType<IAceEditorProps> }).default,
+        { ...otherProps, onLoad: handleLoad },
+      );
     };
 
     AceEditorWithCompletions.displayName = "AceEditorWithCompletions";
@@ -174,10 +170,22 @@ const AceEditor = dynamic(
 
 export type Language = "sql" | "json" | "javascript" | "python" | "yml";
 
-export type Props = Omit<
+export const FIVE_LINES_HEIGHT = 97;
+export const TEN_LINES_HEIGHT = 194;
+
+type CodeTextAreaFieldProps = Omit<
   FieldProps,
-  "value" | "onChange" | "options" | "multi" | "initialOption"
-> & {
+  | "value"
+  | "onChange"
+  | "options"
+  | "multi"
+  | "initialOption"
+  | "render"
+  | "containerClassName"
+  | "ref"
+>;
+
+export type Props = CodeTextAreaFieldProps & {
   language: Language;
   value: string;
   setValue: (value: string) => void;
@@ -188,6 +196,10 @@ export type Props = Omit<
   onCtrlEnter?: () => void;
   wrapperClassName?: string;
   completions?: AceCompletion[];
+  resizable?: boolean;
+  defaultHeight?: number;
+  showCopyButton?: boolean;
+  showFullscreenButton?: boolean;
 };
 
 const LIGHT_THEME = "textmate";
@@ -205,15 +217,28 @@ export default function CodeTextArea({
   onCtrlEnter,
   wrapperClassName,
   completions,
+  resizable = false,
+  defaultHeight = TEN_LINES_HEIGHT, // for resizable
+  showCopyButton = false,
+  showFullscreenButton = false,
   ...otherProps
 }: Props) {
-  // eslint-disable-next-line
-  const fieldProps = otherProps as any;
+  const fieldProps = otherProps as CodeTextAreaFieldProps;
   const { theme } = useAppearanceUITheme();
   const [editor, setEditor] = useState<null | Ace.Editor>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const editorUid = useId();
 
-  const heightProps = fullHeight ? { height: "100%" } : { minLines, maxLines };
+  const { performCopy, copySuccess } = useCopyToClipboard({
+    timeout: 800,
+  });
+
+  // Throttle cursor updates to avoid excessive re-renders
+  const cursorUpdateTimeoutRef = useRef<NodeJS.Timeout>();
+
+  const heightProps =
+    fullHeight || resizable ? { height: "100%" } : { minLines, maxLines };
 
   // Handle Ctrl+Enter binding
   useEffect(() => {
@@ -234,18 +259,58 @@ export default function CodeTextArea({
 
   // Auto-resize editor when container size changes
   useEffect(() => {
-    if (!editor || !containerRef.current || !fullHeight) return;
+    if (!editor || !containerRef.current) return;
+    if (!fullHeight && !resizable && !isFullscreen) return;
 
+    // Debounce resize calls to avoid excessive editor.resize() calls
+    let resizeTimeout: NodeJS.Timeout;
     const resizeObserver = new ResizeObserver(() => {
-      editor.resize();
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => editor.resize(), 100);
     });
-
     resizeObserver.observe(containerRef.current);
 
     return () => {
+      clearTimeout(resizeTimeout);
       resizeObserver.disconnect();
     };
-  }, [editor, fullHeight]);
+  }, [editor, fullHeight, resizable, isFullscreen]);
+
+  // Resize and focus editor when entering/exiting fullscreen
+  useEffect(() => {
+    if (!editor) return;
+    // Small delay to allow CSS transition to complete
+    const timer = setTimeout(() => {
+      editor.resize();
+      if (isFullscreen) {
+        editor.focus();
+      }
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [editor, isFullscreen]);
+
+  // Escape key to exit fullscreen
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsFullscreen(false);
+      }
+    };
+    document.addEventListener("keydown", handleEscape, true);
+    return () => document.removeEventListener("keydown", handleEscape, true);
+  }, [isFullscreen]);
+
+  // Cleanup cursor timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (cursorUpdateTimeoutRef.current) {
+        clearTimeout(cursorUpdateTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return (
     <Field
@@ -254,42 +319,191 @@ export default function CodeTextArea({
       render={(id) => {
         return (
           <>
+            <style>{`
+              .code-editor-fullscreen {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                z-index: 1050;
+                background-color: var(--color-surface-solid);
+                padding: 1rem;
+                display: flex;
+                flex-direction: column;
+              }
+              .code-editor-fullscreen .editor-container {
+                flex: 1;
+                overflow: hidden;
+              }
+            `}</style>
             <div
-              ref={containerRef}
-              className={`border rounded ${wrapperClassName} ${
-                fullHeight ? "h-100" : ""
-              }`}
+              id={editorUid}
+              className={clsx({
+                "ace-editor-disabled": fieldProps.disabled,
+                "h-100": fullHeight && !isFullscreen,
+                "code-editor-fullscreen": isFullscreen,
+              })}
             >
-              <AceEditor
-                name={id}
-                onLoad={(e) => setEditor(e)}
-                mode={language}
-                theme={theme === "light" ? LIGHT_THEME : DARK_THEME}
-                width="inherit"
-                value={value}
-                onChange={(newValue) => setValue(newValue)}
-                placeholder={placeholder}
-                fontSize="1em"
-                completions={completions}
-                {...heightProps}
-                setOptions={
-                  language === "sql"
+              {isFullscreen ? (
+                <Flex align="center" gap="3" mb="2" justify="between">
+                  <label className="mb-0 d-block font-weight-bold">
+                    {fieldProps.label}
+                  </label>
+                  <Button
+                    type="button"
+                    size="xs"
+                    color="gray"
+                    variant="ghost"
+                    onClick={() => setIsFullscreen(false)}
+                  >
+                    Exit full screen (ESC)
+                  </Button>
+                </Flex>
+              ) : null}
+              <div
+                ref={containerRef}
+                className={clsx(
+                  "position-relative border rounded",
+                  wrapperClassName,
+                  {
+                    "h-100": fullHeight,
+                    "editor-container": isFullscreen,
+                  },
+                )}
+                style={{
+                  ...(resizable && !isFullscreen
                     ? {
-                        enableBasicAutocompletion: true,
-                        enableLiveAutocompletion: true,
+                        resize: "vertical",
+                        overflow: "auto",
+                        height: !fullHeight ? defaultHeight : undefined,
                       }
-                    : undefined
-                }
-                readOnly={fieldProps.disabled}
-                onCursorChange={(e) =>
-                  setCursorData &&
-                  setCursorData({
-                    row: e.cursor.row,
-                    column: e.cursor.column,
-                    input: e.cursor.document.$lines,
-                  })
-                }
-              />
+                    : {}),
+                }}
+              >
+                {fieldProps.disabled && (
+                  <style>{`
+                    .ace-editor-disabled .ace_content {
+                      background-color: ${
+                        theme === "light"
+                          ? "rgba(180, 180, 180, 0.20)"
+                          : "rgba(110, 110, 110, 0.25)"
+                      };
+                    }
+                    .ace-editor-disabled .ace_gutter {
+                      background-color: ${
+                        theme === "light"
+                          ? "rgba(180, 180, 180, 0.10)"
+                          : "rgba(110, 110, 110, 0.15)"
+                      } !important;
+                    }
+                  `}</style>
+                )}
+                <AceEditor
+                  name={id}
+                  onLoad={(e) => {
+                    setEditor(e);
+                    // Clear auto-selection after editor loads
+                    setTimeout(() => {
+                      e.clearSelection();
+                    }, 100);
+                  }}
+                  mode={language}
+                  theme={theme === "light" ? LIGHT_THEME : DARK_THEME}
+                  width="inherit"
+                  value={value}
+                  onChange={(newValue) => setValue(newValue)}
+                  placeholder={placeholder}
+                  fontSize="1em"
+                  completions={completions}
+                  {...heightProps}
+                  setOptions={{
+                    wrap: true,
+                    ...(language === "sql"
+                      ? {
+                          enableBasicAutocompletion: true,
+                          enableLiveAutocompletion: true,
+                        }
+                      : {}),
+                  }}
+                  readOnly={fieldProps.disabled}
+                  onCursorChange={(e) => {
+                    if (!setCursorData) return;
+                    // Throttle cursor updates to reduce performance impact on large files
+                    clearTimeout(cursorUpdateTimeoutRef.current);
+                    cursorUpdateTimeoutRef.current = setTimeout(() => {
+                      setCursorData({
+                        row: e.cursor.row,
+                        column: e.cursor.column,
+                        input: e.cursor.document.$lines,
+                      });
+                    }, 150);
+                  }}
+                />
+                {(showCopyButton || showFullscreenButton) && (
+                  <Flex
+                    align="center"
+                    gap="3"
+                    style={{
+                      position: "absolute",
+                      bottom: 0,
+                      right: 14,
+                    }}
+                  >
+                    {showCopyButton && (
+                      <Tooltip
+                        body={copySuccess ? "Copied" : "Copy to clipboard"}
+                      >
+                        <IconButton
+                          type="button"
+                          radius="full"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (!copySuccess) performCopy(value);
+                          }}
+                          style={{ position: "relative", zIndex: 1000 }}
+                        >
+                          {copySuccess ? (
+                            <PiCheck size={isFullscreen ? 16 : 12} />
+                          ) : (
+                            <PiCopy size={isFullscreen ? 14 : 12} />
+                          )}
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                    {showFullscreenButton && (
+                      <Tooltip
+                        key={isFullscreen ? "exit" : "enter"}
+                        body={
+                          isFullscreen
+                            ? "Exit full screen (ESC)"
+                            : "Edit in full screen"
+                        }
+                      >
+                        <IconButton
+                          type="button"
+                          radius="full"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setIsFullscreen(!isFullscreen);
+                          }}
+                          style={{ position: "relative", zIndex: 1000 }}
+                        >
+                          {isFullscreen ? (
+                            <PiCornersIn size={isFullscreen ? 16 : 12} />
+                          ) : (
+                            <PiCornersOut size={isFullscreen ? 16 : 12} />
+                          )}
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                  </Flex>
+                )}
+              </div>
             </div>
           </>
         );

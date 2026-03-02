@@ -17,11 +17,11 @@ import {
   FeatureUsageData,
   FeatureUsageDataPoint,
   FeatureValueType,
-} from "back-end/types/feature";
-import { FeatureUsageLookback } from "back-end/src/types/Integration";
+} from "shared/types/feature";
+import { FeatureUsageLookback } from "shared/types/integrations";
 import { useRouter } from "next/router";
 import { Box, Flex, Grid } from "@radix-ui/themes";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { defaultStyles, TooltipWithBounds, useTooltip } from "@visx/tooltip";
 import { localPoint } from "@visx/event";
 import { SeriesPoint } from "@visx/shape/lib/types";
@@ -31,12 +31,7 @@ import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { growthbook } from "@/services/utils";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/Radix/Tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 
 function generateTimeSeries(lookback: FeatureUsageLookback, keys: string[]) {

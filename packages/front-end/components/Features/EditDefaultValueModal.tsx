@@ -1,9 +1,11 @@
 import { useForm } from "react-hook-form";
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import { validateFeatureValue } from "shared/util";
+import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { getFeatureDefaultValue } from "@/services/features";
 import Modal from "@/components/Modal";
+import HelperText from "@/ui/HelperText";
 import FeatureValueField from "./FeatureValueField";
 
 export interface Props {
@@ -59,10 +61,12 @@ export default function EditDefaultValueModal({
       open={true}
       size={feature.valueType === "json" ? "lg" : "md"}
     >
-      <div className="alert alert-info">
-        Changes here will be added to a draft revision. You will have a chance
-        to review it before making it live.
-      </div>
+      <Box mb="4">
+        <HelperText status="info">
+          Changes here will be added to a draft revision. You will have a chance
+          to review it before making it live.
+        </HelperText>
+      </Box>
       <FeatureValueField
         label="Value When Enabled"
         id="defaultValue"
@@ -71,6 +75,8 @@ export default function EditDefaultValueModal({
         valueType={feature.valueType}
         feature={feature}
         renderJSONInline={true}
+        useCodeInput={true}
+        showFullscreenButton={true}
       />
     </Modal>
   );

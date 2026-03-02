@@ -1,20 +1,25 @@
 import { isRoleValid, roleSupportsEnvLimit } from "shared/permissions";
 import { cloneDeep } from "lodash";
-import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { updateOrganization } from "back-end/src/models/OrganizationModel";
-import { auditDetailsUpdate } from "back-end/src/services/audit";
-import { UpdateMemberRoleResponse } from "back-end/types/openapi";
-import { createApiRequestHandler } from "back-end/src/util/handler";
-import { updateMemberRoleValidator } from "back-end/src/validators/openapi";
+import { UpdateMemberRoleResponse } from "shared/types/openapi";
+import { updateMemberRoleValidator } from "shared/validators";
+import { accountFeatures } from "shared/enterprise";
 import {
   Member,
   OrganizationInterface,
   ProjectMemberRole,
-} from "back-end/types/organization";
+} from "shared/types/organization";
+import {
+  orgHasPremiumFeature,
+  getLowestPlanPerFeature,
+} from "back-end/src/enterprise";
+import { updateOrganization } from "back-end/src/models/OrganizationModel";
+import { auditDetailsUpdate } from "back-end/src/services/audit";
+import { createApiRequestHandler } from "back-end/src/util/handler";
 
-function validateRoleAndEnvs(
+export function validateRoleAndEnvs(
   org: OrganizationInterface,
   role: string,
+  limitAccessByEnvironment: boolean,
   environments?: string[],
 ): { memberIsValid: boolean; reason: string } {
   try {
@@ -22,34 +27,50 @@ function validateRoleAndEnvs(
       throw new Error(`${role}) is not a valid role`);
     }
 
+    const lowestPlanMap = getLowestPlanPerFeature(accountFeatures);
+
     if (role === "noaccess" && !orgHasPremiumFeature(org, "no-access-role")) {
+      const planName = lowestPlanMap["no-access-role"];
       throw new Error(
-        "Must have a commercial License Key to gain access to the no-access role.",
+        `Must have a ${planName} plan to gain access to the no-access role.`,
       );
     }
 
-    if (environments?.length) {
-      if (!orgHasPremiumFeature(org, "advanced-permissions")) {
-        throw new Error(
-          "Must have a commercial License Key to restrict permissions by environment.",
-        );
-      }
+    if (
+      role === "gbDefault_projectAdmin" &&
+      !orgHasPremiumFeature(org, "project-admin-role")
+    ) {
+      const planName = lowestPlanMap["project-admin-role"];
+      throw new Error(
+        `Must have a ${planName} plan to gain access to the project admin role.`,
+      );
+    }
 
-      if (!roleSupportsEnvLimit(role, org)) {
-        throw new Error(
-          `${role} does not support restricting access to certain environments.`,
-        );
-      }
-
-      environments.forEach((env) => {
-        const environmentIds =
-          org.settings?.environments?.map((e) => e.id) || [];
-        if (!environmentIds.includes(env)) {
+    if (limitAccessByEnvironment) {
+      if (environments?.length) {
+        if (!orgHasPremiumFeature(org, "advanced-permissions")) {
+          const planName = lowestPlanMap["advanced-permissions"];
           throw new Error(
-            `${env} is not a valid environment ID for this organization.`,
+            `Must have a ${planName} plan to restrict permissions by environment.`,
           );
         }
-      });
+
+        if (!roleSupportsEnvLimit(role, org)) {
+          throw new Error(
+            `${role} does not support restricting access to certain environments.`,
+          );
+        }
+
+        environments.forEach((env) => {
+          const environmentIds =
+            org.settings?.environments?.map((e) => e.id) || [];
+          if (!environmentIds.includes(env)) {
+            throw new Error(
+              `${env} is not a valid environment ID for this organization.`,
+            );
+          }
+        });
+      }
     }
   } catch (e) {
     return {
@@ -98,6 +119,7 @@ export const updateMemberRole = createApiRequestHandler(
   const { memberIsValid, reason } = validateRoleAndEnvs(
     req.context.org,
     updatedMember.role,
+    updatedMember.limitAccessByEnvironment,
     updatedMember.environments,
   );
 
@@ -117,6 +139,7 @@ export const updateMemberRole = createApiRequestHandler(
       const { memberIsValid, reason } = validateRoleAndEnvs(
         req.context.org,
         updatedProjectRole.role,
+        updatedProjectRole.limitAccessByEnvironment || false,
         updatedProjectRole.environments,
       );
 

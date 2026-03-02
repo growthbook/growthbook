@@ -17,7 +17,7 @@ import { date, datetime } from "shared/dates";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import { BiRadioCircle, BiRadioCircleMarked } from "react-icons/bi";
 import { formatNumber } from "@/services/metrics";
 import { getVariationColor } from "@/services/features";
@@ -448,8 +448,8 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
                   <rect
                     x={0}
                     y={0}
-                    width={width - margin[1] - margin[3]}
-                    height={height - margin[0] - margin[2]}
+                    width={Math.max(0, width - margin[1] - margin[3])}
+                    height={Math.max(0, height - margin[0] - margin[2])}
                   />
                 </clipPath>
               </defs>

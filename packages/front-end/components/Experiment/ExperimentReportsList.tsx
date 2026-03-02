@@ -1,7 +1,7 @@
-import { ReportInterface } from "back-end/types/report";
+import { ReportInterface } from "shared/types/report";
 import Link from "next/link";
 import React from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useRouter } from "next/router";
 import { ago, datetime } from "shared/dates";
 import { FaExclamationTriangle } from "react-icons/fa";

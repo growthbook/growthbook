@@ -1,7 +1,7 @@
 import {
   InformationSchema,
   RawInformationSchema,
-} from "back-end/src/types/Integration";
+} from "shared/types/integrations";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
 import {
   mergeStaleInformationSchemaWithUpdate,

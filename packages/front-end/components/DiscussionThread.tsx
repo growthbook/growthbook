@@ -3,7 +3,7 @@ import {
   DiscussionParentType,
   DiscussionInterface,
   Comment,
-} from "back-end/types/discussion";
+} from "shared/types/discussion";
 import { FaPencilAlt } from "react-icons/fa";
 import { date } from "shared/dates";
 import { useAuth } from "@/services/auth";

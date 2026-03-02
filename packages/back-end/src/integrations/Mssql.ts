@@ -1,8 +1,8 @@
-import { FormatDialect } from "shared/src/types";
-import { MssqlConnectionParams } from "back-end/types/integrations/mssql";
+import { FormatDialect } from "shared/types/sql";
+import { QueryResponse } from "shared/types/integrations";
+import { MssqlConnectionParams } from "shared/types/integrations/mssql";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { findOrCreateConnection } from "back-end/src/util/mssqlPoolManager";
-import { QueryResponse } from "back-end/src/types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Mssql extends SqlIntegration {
@@ -73,6 +73,10 @@ export default class Mssql extends SqlIntegration {
   extractJSONField(jsonCol: string, path: string, isNumeric: boolean): string {
     const raw = `JSON_VALUE(${jsonCol}, '$.${path}')`;
     return isNumeric ? this.ensureFloat(raw) : raw;
+  }
+  evalBoolean(col: string, value: boolean): string {
+    // MS SQL does not support `IS TRUE` / `IS FALSE`
+    return `${col} = ${value ? "1" : "0"}`;
   }
   getDefaultDatabase() {
     return this.params.database;

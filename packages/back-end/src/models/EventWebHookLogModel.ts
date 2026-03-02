@@ -4,9 +4,9 @@ import mongoose from "mongoose";
 import {
   EventWebHookLegacyLogInterface,
   EventWebHookLogInterface,
-} from "back-end/types/event-webhook-log";
-import { EventWebHookMethod } from "back-end/types/event-webhook";
-import { NotificationEventName } from "back-end/types/event";
+} from "shared/types/event-webhook-log";
+import { EventWebHookMethod } from "shared/types/event-webhook";
+import { NotificationEventName } from "shared/types/events/event";
 
 const eventWebHookLogSchema = new mongoose.Schema({
   id: {

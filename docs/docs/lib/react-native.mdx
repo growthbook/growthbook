@@ -281,7 +281,7 @@ const gb = new GrowthBook({
 });
 ```
 
-:::note
+:::note Sticky Bucketing with Remote Evaluation
 
 If you would like to implement Sticky Bucketing while using Remote Evaluation, you must configure your remote evaluation backend to support Sticky Bucketing. In the case of the GrowthBook Proxy Server, this means implementing a Redis database for sticky bucketing use. You will not need to provide a StickyBucketService instance to the client side SDK.
 

@@ -6,7 +6,7 @@ import numpy as np
 import random
 from pydantic.dataclasses import dataclass
 
-from gbstats.models.results import BanditResult, SingleVariationResult
+from gbstats.models.results import ResponseCI, BanditResult, SingleVariationResult
 from gbstats.models.statistics import (
     SampleMeanStatistic,
     RatioStatistic,
@@ -32,7 +32,7 @@ class BanditConfig(BayesianConfig):
 class BanditResponse:
     users: Optional[List[float]]
     cr: Optional[List[float]]
-    ci: Optional[List[List[float]]]
+    ci: Optional[List[ResponseCI]]
     bandit_weights: Optional[List[float]]
     best_arm_probabilities: Optional[List[float]]
     seed: int
@@ -176,7 +176,7 @@ class Bandits(ABC):
         update_message = "successfully updated"
         p[p < self.config.min_variation_weight] = self.config.min_variation_weight
         p /= sum(p)
-        credible_intervals = [
+        credible_intervals: List[ResponseCI] = [
             gaussian_credible_interval(mn, s, self.config.alpha)
             for mn, s in zip(self.variation_means, np.sqrt(self.posterior_variance))
         ]

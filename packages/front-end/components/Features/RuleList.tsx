@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
+import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import {
   DndContext,
   DragOverlay,
@@ -15,9 +15,8 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
-import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { SafeRolloutInterface, HoldoutInterface } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import {
   getRules,
@@ -51,7 +50,7 @@ export default function RuleList({
     environment: string;
     i: number;
     defaultType?: string;
-    duplicate?: boolean;
+    mode: "create" | "edit" | "duplicate";
   }) => void;
   setCopyRuleModal: (args: {
     environment: string;
@@ -157,11 +156,14 @@ export default function RuleList({
           <em>No Active Rules</em>
         </div>
       )}
-      <HoldoutRule
-        feature={feature}
-        setRuleModal={openHoldoutModal}
-        mutate={mutate}
-      />
+      {holdout && (
+        <HoldoutRule
+          feature={feature}
+          setRuleModal={openHoldoutModal}
+          mutate={mutate}
+          ruleCount={items.length}
+        />
+      )}
       <SortableContext items={items} strategy={verticalListSortingStrategy}>
         {items.map(({ ...rule }, i) => (
           <SortableRule

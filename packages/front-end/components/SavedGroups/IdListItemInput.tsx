@@ -1,30 +1,36 @@
-import { FC, useEffect, useState } from "react";
+import { FC, useState } from "react";
 import { SAVED_GROUP_SIZE_LIMIT_BYTES } from "shared/util";
-import {
-  FaCheckCircle,
-  FaExclamationTriangle,
-  FaRetweet,
-} from "react-icons/fa";
+import { FaCheckCircle, FaExclamationTriangle } from "react-icons/fa";
 import clsx from "clsx";
 import { Container, Text } from "@radix-ui/themes";
-import Field from "@/components/Forms/Field";
 import StringArrayField from "@/components/Forms/StringArrayField";
-import RadioGroup from "@/components/Radix/RadioGroup";
-import Link from "@/components/Radix/Link";
+import RadioGroup from "@/ui/RadioGroup";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Checkbox from "@/ui/Checkbox";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import LargeSavedGroupPerformanceWarning, {
   useLargeSavedGroupSupport,
 } from "./LargeSavedGroupSupportWarning";
 
 export const IdListItemInput: FC<{
   values: string[];
+  listAboveSizeLimit: boolean;
+  bypassSizeLimit: boolean;
+  projects: string[] | undefined;
   setValues: (newValues: string[]) => void;
+  setBypassSizeLimit: React.Dispatch<boolean>;
   openUpgradeModal?: () => void;
-}> = ({ values, setValues, openUpgradeModal }) => {
-  const [rawTextMode, setRawTextMode] = useState(false);
-  const [rawText, setRawText] = useState(values.join(", ") || "");
-  useEffect(() => {
-    setRawText(values.join(","));
-  }, [values]);
+}> = ({
+  values,
+  listAboveSizeLimit,
+  setValues,
+  openUpgradeModal,
+  projects,
+  bypassSizeLimit,
+  setBypassSizeLimit,
+}) => {
+  const { canBypassSavedGroupSizeLimit } = usePermissionsUtil();
+  const { savedGroupSizeLimit } = useOrgSettings();
 
   const [importMethod, setImportMethod] = useState("file");
   const [numValuesToImport, setNumValuesToImport] = useState<number | null>(
@@ -68,6 +74,17 @@ export const IdListItemInput: FC<{
           setValue={setImportMethod}
         />
       </Container>
+      {listAboveSizeLimit && (
+        <Container mb="2">
+          <Checkbox
+            disabled={!canBypassSavedGroupSizeLimit(projects)}
+            disabledMessage="You don't have permission to bypass the size limit for this saved group"
+            description={`Bypass the size limit of ${savedGroupSizeLimit} items`}
+            value={bypassSizeLimit}
+            setValue={setBypassSizeLimit}
+          />
+        </Container>
+      )}
       {importMethod === "file" && (
         <>
           <Text weight="bold">Upload CSV</Text>
@@ -165,49 +182,19 @@ export const IdListItemInput: FC<{
         </>
       )}
       {importMethod === "values" && (
-        <>
-          {rawTextMode ? (
-            <Field
-              containerClassName="mb-0"
-              label="List values to include"
-              labelClassName="font-weight-bold"
-              required
-              textarea
-              value={rawText}
-              placeholder="Use commas to separate values"
-              minRows={1}
-              onChange={(e) => {
-                if (e.target.value === "") {
-                  setValues([]);
-                } else {
-                  setValues(e.target.value.split(",").map((val) => val.trim()));
-                }
-              }}
-            />
-          ) : (
-            <StringArrayField
-              containerClassName="mb-0"
-              label="List Values to Include"
-              labelClassName="font-weight-bold"
-              value={values}
-              onChange={(values) => {
-                setValues(values);
-              }}
-              placeholder="Separate values using the 'Enter' key"
-              delimiters={["Enter", "Tab"]}
-            />
-          )}
-          <div className="row justify-content-end mr-0">
-            <Link
-              onClick={(e) => {
-                e.preventDefault();
-                setRawTextMode((prev) => !prev);
-              }}
-            >
-              <FaRetweet /> Switch to {rawTextMode ? "Token" : "Raw Text"} Mode
-            </Link>
-          </div>
-        </>
+        <StringArrayField
+          containerClassName="mb-0"
+          label="List Values to Include"
+          labelClassName="font-weight-bold"
+          value={values}
+          onChange={setValues}
+          placeholder="Separate values using the 'Enter' key"
+          delimiters={["Enter", "Tab"]}
+          enableRawTextMode
+          removeDuplicates={false}
+          showCopyButton={false}
+          required
+        />
       )}
     </>
   );

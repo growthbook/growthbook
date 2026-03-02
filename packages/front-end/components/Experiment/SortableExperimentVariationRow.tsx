@@ -6,7 +6,7 @@ import {
   ExperimentValue,
   FeatureInterface,
   FeatureValueType,
-} from "back-end/types/feature";
+} from "shared/types/feature";
 import clsx from "clsx";
 import {
   decimalToPercent,
@@ -125,6 +125,8 @@ export const ExperimentVariationRow = forwardRef<
               valueType={valueType}
               feature={feature}
               renderJSONInline={false}
+              useCodeInput={true}
+              showFullscreenButton={true}
             />
           ) : (
             <>{variation.value}</>

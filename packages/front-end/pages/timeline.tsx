@@ -1,7 +1,9 @@
 import React, { useCallback, useState, useEffect } from "react";
+import { useRouter } from "next/router";
+import { useSearchParams } from "next/navigation";
 import { getValidDate } from "shared/dates";
 import { Box, Flex, Heading } from "@radix-ui/themes";
-import { ComputedExperimentInterface } from "back-end/types/experiment";
+import { ComputedExperimentInterface } from "shared/types/experiment";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
@@ -11,41 +13,45 @@ import ExperimentSearchFilters from "@/components/Search/ExperimentSearchFilters
 import DatePicker from "@/components/DatePicker";
 import EmptyState from "@/components/EmptyState";
 import { useExperimentSearch, experimentDate } from "@/services/experiments";
-import LinkButton from "@/components/Radix/LinkButton";
+import LinkButton from "@/ui/LinkButton";
+import { formatDateForURL, parseDateFromURL } from "@/utils/date";
 
 const ExperimentTimelinePage = (): React.ReactElement => {
+  const router = useRouter();
   const { ready, project } = useDefinitions();
-  const searchParams = new URLSearchParams(window.location.search);
+  const searchParams = useSearchParams();
   const today = new Date();
   const [startDate, setStartDate] = useState<Date>(
     searchParams.get("startDate")
-      ? new Date(searchParams.get("startDate")!)
+      ? parseDateFromURL(searchParams.get("startDate")!)
       : new Date(today.getTime() - 180 * 24 * 60 * 60 * 1000), // 180 days ago
   );
   const [endDate, setEndDate] = useState<Date>(
     searchParams.get("endDate")
-      ? new Date(searchParams.get("endDate")!)
+      ? parseDateFromURL(searchParams.get("endDate")!)
       : new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000), // 7 days in the future
   );
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    params.set("startDate", startDate.toISOString().slice(0, 10)); // Keep only YYYY-MM-DD
-    params.set("endDate", endDate.toISOString().slice(0, 10)); // Keep only YYYY-MM-DD
-    const newUrl = `${window.location.pathname}?${params.toString()}`;
-    window.history.pushState({}, "", newUrl);
+    params.set("startDate", formatDateForURL(startDate));
+    params.set("endDate", formatDateForURL(endDate));
+    router.replace(`${router.pathname}?${params.toString()}`, undefined, {
+      shallow: true,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startDate, endDate]);
 
   const {
     experiments: allExperiments,
     error,
     loading,
-  } = useExperiments(project, false, "standard");
+  } = useExperiments(project, true, "standard");
 
   const filterResults = useCallback(
     (items: ComputedExperimentInterface[]) => {
-      // only show experiments that are not archived and within the date range
+      // only show experiments that are within the date range
       items = items.filter((item) => {
-        if (item.archived) return false;
         const expDate = experimentDate(item);
         if (!expDate) return false;
         return (

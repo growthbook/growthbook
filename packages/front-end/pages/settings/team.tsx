@@ -3,18 +3,13 @@ import { Box } from "@radix-ui/themes";
 import TeamsList from "@/components/Settings/Teams/TeamsList";
 import TeamModal from "@/components/Teams/TeamModal";
 import { Team, useUser } from "@/services/UserContext";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from "@/components/Radix/Tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { MembersTabView } from "@/components/Settings/Team/MembersTabView";
 import RoleList from "@/components/Teams/Roles/RoleList";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Button from "@/components/Radix/Button";
-import LinkButton from "@/components/Radix/LinkButton";
+import Button from "@/ui/Button";
+import LinkButton from "@/ui/LinkButton";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 
 const TeamPage: FC = () => {
@@ -36,7 +31,7 @@ const TeamPage: FC = () => {
 
   return (
     <div className="container-fluid pagecontents">
-      <Tabs defaultValue="members">
+      <Tabs defaultValue="members" persistInURL>
         <Box mb="5">
           <TabsList>
             <TabsTrigger value="members">Members</TabsTrigger>

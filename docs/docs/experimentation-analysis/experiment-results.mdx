@@ -29,12 +29,6 @@ For both columns, the raw data in grey underneath shows the numerator and denomi
 
 **Chance to Win** tells you the probability that the variation is better. Anything above 95% (a customizable threshold set at the organization level) is highlighted green indicating a very clear winner. Anything below 5% is highlighted red, indicating a very clear loser. Anything in between is grayed out indicating it's inconclusive. If that's the case, there's either no measurable difference or you haven't gathered enough data yet.
 
-Furthermore, we include tooltips for **Risk**, which captures the average loss in a metric if the variation were actually to be worse than control. We use this tooltip to let you know about "risky" cases. For example, in cases like in the screenshot above, the chance to win is above 50% for a few metrics, but the average loss if the baseline was actually better is above the risk threshold, indicating that shipping the variation still has substantial risk. More information about risk is available in a tooltip when you mouseover the result:
-
-<MaxWidthImage maxWidth={500} border>
-  ![Results Tooltip](/images/results-tooltip.png)
-</MaxWidthImage>
-
 The graph and the **% Change** column show you how much better/worse the variation is compared to the baseline. It is a probability density graph and the thicker the area, the more likely the true percent change will be there.
 As you collect more data, the tails of the graphs will shorten, indicating more certainty around the estimates.
 
@@ -50,17 +44,28 @@ The graph now represents a 95% confidence interval (or 100\*(1 - $\alpha$)% conf
 
 The _% Change_ column is unaffected, although we now also represent the width of the confidence interval in grey.
 
+## Metric Drilldown
+
+Clicking any metric or slice row in the results table opens the **Metric Drilldown** modal, which provides a focused view of that metric, its slices, and more debugging information. The modal includes three tabs:
+
+- **Overview** - Metric details and [time series](/app/experiment-time-series) for the metric, a link to the metric page, a results table for that metric with analysis controls (baseline, variation filter, difference type), and a metric card showing key information.
+- **Slices** - All slices for that metric displayed in a searchable, sortable table. Clicking a slice row in the main results table opens the modal with the Slices tab focused and that slice pre-filtered for quick exploration. This is also where time series for metric slices are displayed.
+- **Debug** - Debug information for power users to show the impact of: CUPED, Post-Stratification, Capping, and informative priors (Bayesian engine only).
+
+<MaxWidthImage maxWidth={800} border>
+  ![Metric Drilldown modal - Overview tab](/images/experiment-results/metric-drilldown-overview.png)
+</MaxWidthImage>
+
+<MaxWidthImage maxWidth={800} border>
+  ![Metric Drilldown modal - Debug tab](/images/experiment-results/metric-drilldown-debug.png)
+</MaxWidthImage>
+
+For more information on how metric slices are defined, see [Metric Slices](/app/metrics#metric-slices), an Enterprise-only feature.
+
 ## Guardrails
 
-Guardrail metrics are treated much like regular metrics, but they are placed in a separate part of the results view, have an additional tooltip warning if they are trending in the wrong direction, and are not part of any p-value corrections in the frequentist engine (in other words, even with p-value corrections applied, these results will be more sensitive to negative or positive trends).
+Guardrail metrics are treated much like regular metrics, but they are placed in a separate part of the results view and are not part of any p-value corrections in the frequentist engine (in other words, even with p-value corrections applied, these results will be more sensitive to negative or positive trends). They also can be used differently from regular metrics in the [Experiment Decision Framework](/app/experiment-decisions).
 
-## Time Series
-
-Time series showing the cumulative results of your experiment through a given experiment update are available in the experiment results. They use a history of experiment updates (either manually triggered or from automatic refreshes) to show how the results have evolved over time. To read more about time series, see the [Experiment Time Series](/app/experiment-time-series) documentation.
-
-<MaxWidthImage border maxWidth={800}>
-![Experiment Time Series](/images/experiment-time-series-tooltip.png)
-</MaxWidthImage>
 ## Results Table Settings
 
 There are several settings at the top of the results table that allow you to control your results.
@@ -93,7 +98,7 @@ Dimensions allow you to slice and dice your data, but require additional queries
 
 #### User or Experiment
 
-If you have defined dimensions for your data source, you can use the **Dimension** dropdown to drill down into your results. For SQL integrations (e.g. non-MixPanel) GrowthBook enforces one dimension per user to prevent statistical bias and to simplify analyses. For more on how GrowthBook picks a dimension when more than one are present for a user, see the [Dimensions documentation](/app/dimensions).
+If you have defined dimensions for your data source, you can use the **Unit Dimension** dropdown to drill down into your results. For SQL integrations (e.g. non-MixPanel) GrowthBook enforces one dimension per user to prevent statistical bias and to simplify analyses. For more on how GrowthBook picks a dimension when more than one are present for a user, see the [Dimensions documentation](/app/dimensions).
 This is very useful for debugging (e.g. if Safari is down, but the other browsers are fine, you may have an implementation bug) or for better understanding your experiment effects.
 
 Be careful. The more metrics and dimensions you look at, the more likely you are to see a false positive. If you find something that looks

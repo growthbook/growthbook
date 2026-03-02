@@ -23,6 +23,7 @@ type TooltipData = { x: number; y: number; d: Datapoint };
 
 interface HistogramGraphProps {
   data: Datapoint[];
+  xAxisLabel?: string;
   mean?: number;
   formatter: (value: number, options?: Intl.NumberFormatOptions) => string;
   height?: number;
@@ -74,6 +75,7 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
   data,
   mean,
   formatter,
+  xAxisLabel,
   height = 220,
   margin = [15, 15, 30, 80],
   highlightPositiveNegative = false,
@@ -146,47 +148,43 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
     setHoverBin(bin);
   };
 
-  useEffect(
-    () => {
-      if (hoverBin === null || !data || data.length === 0) {
-        hideTooltip();
-        return;
-      }
-      const datapoint = data[hoverBin];
-      if (!datapoint) {
-        hideTooltip();
-        return;
-      }
-      const innerWidth = outerWidth - marginLeft - marginRight;
-      const tooltipData = getTooltipDataFromDatapoint(
-        datapoint,
-        data,
-        innerWidth,
-        yScale,
-      );
-      if (!tooltipData) {
-        hideTooltip();
-        return;
-      }
-
-      showTooltip({
-        tooltipLeft: tooltipData.x,
-        tooltipTop: tooltipData.y,
-        tooltipData: tooltipData,
-      });
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      hoverBin,
+  useEffect(() => {
+    if (hoverBin === null || !data || data.length === 0) {
+      hideTooltip();
+      return;
+    }
+    const datapoint = data[hoverBin];
+    if (!datapoint) {
+      hideTooltip();
+      return;
+    }
+    const innerWidth = outerWidth - marginLeft - marginRight;
+    const tooltipData = getTooltipDataFromDatapoint(
+      datapoint,
       data,
-      marginLeft,
-      marginRight,
-      outerWidth,
-      showTooltip,
-      hideTooltip,
+      innerWidth,
       yScale,
-    ],
-  );
+    );
+    if (!tooltipData) {
+      hideTooltip();
+      return;
+    }
+
+    showTooltip({
+      tooltipLeft: tooltipData.x,
+      tooltipTop: tooltipData.y,
+      tooltipData: tooltipData,
+    });
+  }, [
+    hoverBin,
+    data,
+    marginLeft,
+    marginRight,
+    outerWidth,
+    showTooltip,
+    hideTooltip,
+    yScale,
+  ]);
 
   const getContentXScale = useCallback(
     (currentXMax: number) => {
@@ -367,7 +365,7 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
                     fontSize: 10,
                     textAnchor: "middle",
                   })}
-                  label="Lift"
+                  label={xAxisLabel}
                   labelClassName="h5"
                   labelOffset={25}
                   labelProps={{

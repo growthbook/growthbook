@@ -1,9 +1,10 @@
-import { useState, useCallback, Fragment } from "react";
+import { useState, useCallback } from "react";
 import { date, datetime } from "shared/dates";
-import { SavedQuery } from "back-end/src/validators/saved-queries";
-import Link from "next/link";
-import { BiHide, BiShow } from "react-icons/bi";
-import { BsXCircle } from "react-icons/bs";
+import { SavedQuery } from "shared/validators";
+import { blockHasFieldOfType } from "shared/enterprise";
+import { isString } from "shared/util";
+import { BiShow } from "react-icons/bi";
+import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -13,10 +14,11 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Button from "@/components/Button";
 import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
 import { useAllDashboards } from "@/hooks/useDashboards";
-import Callout from "@/components/Radix/Callout";
-import Tooltip from "@/components/Tooltip/Tooltip";
-
-const MAX_REFERENCES = 10;
+import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
+import Modal from "@/components/Modal";
+import Tooltip from "@/ui/Tooltip";
+import DashboardReferencesList from "@/components/SavedQueries/DashboardReferencesList";
 
 interface Props {
   savedQueries: SavedQuery[];
@@ -31,16 +33,17 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
   const [selectedSavedQuery, setSelectedSavedQuery] = useState<
     SavedQuery | undefined
   >();
-  const [showReferences, setShowReferences] = useState<number | null>(null);
+  const [showReferencesModal, setShowReferencesModal] = useState<number | null>(
+    null,
+  );
 
-  const { items, searchInputProps, isFiltered, SortableTH, clear, pagination } =
-    useSearch({
-      items: savedQueries,
-      defaultSortField: "dateUpdated",
-      localStorageKey: "savedqueries",
-      searchFields: ["name^3", "sql"],
-      pageSize: 20,
-    });
+  const { items, isFiltered, SortableTH, clear, pagination } = useSearch({
+    items: savedQueries,
+    defaultSortField: "dateUpdated",
+    localStorageKey: "savedqueries",
+    searchFields: ["name^3", "sql"],
+    pageSize: 20,
+  });
 
   const handleDelete = useCallback(
     async (query: SavedQuery) => {
@@ -54,14 +57,6 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
 
   const handleEdit = useCallback((query: SavedQuery) => {
     setSelectedSavedQuery(query);
-  }, []);
-
-  const handleDuplicate = useCallback((query: SavedQuery) => {
-    setSelectedSavedQuery({
-      ...query,
-      id: "",
-      name: `${query.name}-copy`,
-    });
   }, []);
 
   const canEdit = useCallback(
@@ -98,17 +93,42 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
         />
       )}
 
-      <div className="mb-3">
-        <input
-          type="search"
-          className="form-control"
-          placeholder="Search saved queries..."
-          {...searchInputProps}
-        />
-      </div>
+      {showReferencesModal !== null &&
+        items[showReferencesModal] &&
+        (() => {
+          const selectedQuery = items[showReferencesModal];
+          const activeIds = (selectedQuery.linkedDashboardIds || []).filter(
+            (dashId) =>
+              dashboardsMap
+                .get(dashId)
+                ?.blocks?.some(
+                  (block) =>
+                    blockHasFieldOfType(block, "savedQueryId", isString) &&
+                    block.savedQueryId === selectedQuery.id,
+                ),
+          );
+          const modalDashboards = activeIds
+            .map((id) => dashboardsMap.get(id))
+            .filter((d): d is NonNullable<typeof d> => d != null);
+          return (
+            <Modal
+              header={`'${selectedQuery.name}' References`}
+              trackingEventModalType="show-saved-query-references"
+              close={() => setShowReferencesModal(null)}
+              open={true}
+              useRadixButton={true}
+              closeCta="Close"
+            >
+              <Text as="p" mb="3">
+                This saved query is referenced by the following dashboards.
+              </Text>
+              <DashboardReferencesList dashboards={modalDashboards} />
+            </Modal>
+          );
+        })()}
 
       {items.length > 0 ? (
-        <>
+        <div className="mt-3">
           <table className="table appbox gbtable">
             <thead>
               <tr>
@@ -128,7 +148,17 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                 const datasource = getDatasourceById(query.datasourceId);
                 const datasourceName = datasource?.name || "Unknown";
                 const linkedDashboardIds = query.linkedDashboardIds || [];
-                const numReferences = linkedDashboardIds.length;
+                const activeReferences = linkedDashboardIds.filter((dashId) =>
+                  dashboardsMap
+                    .get(dashId)
+                    // Check that the link is still active for each dashboard
+                    ?.blocks?.some(
+                      (block) =>
+                        blockHasFieldOfType(block, "savedQueryId", isString) &&
+                        block.savedQueryId === query.id,
+                    ),
+                );
+                const numReferences = activeReferences.length;
 
                 return (
                   <tr key={query.id}>
@@ -147,112 +177,32 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                         : "No"}
                     </td>
                     <td>{query.results?.results?.length || 0}</td>
-                    <td>
-                      <div
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          e.preventDefault();
-                        }}
-                      >
-                        <Tooltip
-                          delay={0}
-                          tipPosition="bottom"
-                          state={showReferences === i}
-                          popperStyle={{ marginLeft: 50, marginTop: 15 }}
-                          flipTheme={false}
-                          ignoreMouseEvents={true}
-                          body={
-                            <div
-                              className="pl-3 pr-0 py-2"
-                              style={{ minWidth: 250, maxWidth: 350 }}
-                            >
-                              <a
-                                role="button"
-                                style={{ top: 3, right: 5 }}
-                                className="position-absolute text-dark-gray cursor-pointer"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  setShowReferences(null);
-                                }}
-                              >
-                                <BsXCircle size={16} />
-                              </a>
-                              <div
-                                style={{ maxHeight: 300, overflowY: "auto" }}
-                              >
-                                {linkedDashboardIds.length > 0 && (
-                                  <>
-                                    <div className="mt-1 text-muted font-weight-bold">
-                                      Dashboards:
-                                    </div>
-                                    <div className="mb-2">
-                                      <ul className="pl-3 mb-0">
-                                        {linkedDashboardIds.map(
-                                          (dashboardId, j) => {
-                                            const dashboard =
-                                              dashboardsMap.get(dashboardId);
-                                            if (!dashboard) return null;
-                                            return (
-                                              <Fragment key={"dashboard-" + j}>
-                                                {j < MAX_REFERENCES ? (
-                                                  <li
-                                                    key={"f_" + j}
-                                                    className="my-1"
-                                                    style={{ maxWidth: 320 }}
-                                                  >
-                                                    <Link
-                                                      href={`/experiment/${dashboard.experimentId}#dashboards/${dashboard.id}`}
-                                                    >
-                                                      {dashboard.title}
-                                                    </Link>
-                                                  </li>
-                                                ) : j === MAX_REFERENCES ? (
-                                                  <li
-                                                    key={"f_" + j}
-                                                    className="my-1"
-                                                  >
-                                                    <em>
-                                                      {linkedDashboardIds.length -
-                                                        j}{" "}
-                                                      more...
-                                                    </em>
-                                                  </li>
-                                                ) : null}
-                                              </Fragment>
-                                            );
-                                          },
-                                        )}
-                                      </ul>
-                                    </div>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          }
+                    <td
+                      onClick={(e) => {
+                        e.stopPropagation();
+                      }}
+                    >
+                      {numReferences > 0 ? (
+                        <Link
+                          onClick={() => setShowReferencesModal(i)}
+                          className="nowrap"
                         >
-                          <></>
-                        </Tooltip>
-                        {numReferences > 0 && (
-                          <a
-                            role="button"
-                            className="link-purple nowrap"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              setShowReferences(
-                                showReferences !== i ? i : null,
-                              );
+                          <BiShow /> {numReferences} reference
+                          {numReferences === 1 ? "" : "s"}
+                        </Link>
+                      ) : (
+                        <Tooltip content="No dashboards reference this saved query.">
+                          <span
+                            className="nowrap"
+                            style={{
+                              color: "var(--gray-10)",
+                              cursor: "not-allowed",
                             }}
                           >
-                            {numReferences} reference
-                            {numReferences !== 1 && "s"}
-                            {showReferences === i ? (
-                              <BiHide className="ml-2" />
-                            ) : (
-                              <BiShow className="ml-2" />
-                            )}
-                          </a>
-                        )}
-                      </div>
+                            <BiShow /> 0 references
+                          </span>
+                        </Tooltip>
+                      )}
                     </td>
                     <td title={datetime(query.dateUpdated)}>
                       {date(query.dateUpdated)}
@@ -270,14 +220,6 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                             Edit
                           </button>
                         )}
-                        {canEdit(query) && (
-                          <button
-                            className="dropdown-item"
-                            onClick={() => handleDuplicate(query)}
-                          >
-                            Duplicate
-                          </button>
-                        )}
                         {canDelete(query) && (
                           <>
                             {canEdit(query) && (
@@ -290,34 +232,30 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                               className="dropdown-item text-danger"
                               text="Delete"
                               getConfirmationContent={async () => {
-                                const dashboardIds =
-                                  query.linkedDashboardIds || [];
-                                if (dashboardIds.length === 0) return null;
+                                if (activeReferences.length === 0) return null;
                                 return (
                                   <div>
                                     <Callout
                                       status="warning"
                                       mb="2"
                                     >{`This saved query is in use by ${
-                                      dashboardIds.length
+                                      activeReferences.length
                                     } dashboard${
-                                      dashboardIds.length === 1 ? "" : "s"
+                                      activeReferences.length === 1 ? "" : "s"
                                     }. If deleted, linked SQL Explorer blocks will lose their visualizations.`}</Callout>
                                     <ul>
-                                      {dashboardIds.map((dashId) => {
+                                      {activeReferences.map((dashId) => {
                                         const dashboard =
                                           dashboardsMap.get(dashId);
                                         if (!dashboard) return null;
-                                        if (!dashboard.experimentId)
-                                          return (
-                                            <li key={dashId}>
-                                              <span>{dashboard.title}</span>
-                                            </li>
-                                          );
                                         return (
                                           <li key={dashId}>
                                             <Link
-                                              href={`/experiment/${dashboard.experimentId}#dashboards/${dashId}`}
+                                              href={
+                                                dashboard.experimentId
+                                                  ? `/experiment/${dashboard.experimentId}#dashboards/${dashId}`
+                                                  : `/product-analytics/dashboards/${dashId}`
+                                              }
                                             >
                                               {dashboard.title}
                                             </Link>
@@ -339,7 +277,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
             </tbody>
           </table>
           {pagination}
-        </>
+        </div>
       ) : isFiltered ? (
         <div className="appbox p-4 text-center">
           <p>No saved queries match your search.</p>

@@ -2,7 +2,7 @@ import { FC, useMemo, useState } from "react";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
-} from "back-end/types/report";
+} from "shared/types/report";
 import { getValidDate, getValidDateOffsetByUTC } from "shared/dates";
 import {
   expandMetricGroups,
@@ -12,7 +12,7 @@ import {
   quantileMetricType,
   shouldHighlight,
 } from "shared/experiments";
-import { DifferenceType, StatsEngine } from "back-end/types/stats";
+import { DifferenceType, StatsEngine } from "shared/types/stats";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   formatNumber,
@@ -23,11 +23,11 @@ import { getEffectLabel } from "@/services/experiments";
 import { useCurrency } from "@/hooks/useCurrency";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
-import Toggle from "@/components/Forms/Toggle";
-import { getMetricResultGroup } from "@/components/Experiment/BreakDownResults";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Switch from "@/ui/Switch";
+import { getMetricResultGroup } from "@/hooks/useExperimentDimensionRows";
+import Tooltip from "@/ui/Tooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
-import Badge from "@/components/Radix/Badge";
+import Badge from "@/ui/Badge";
 import ExperimentDateGraph, {
   ExperimentDateGraphDataPoint,
 } from "./ExperimentDateGraph";
@@ -325,27 +325,26 @@ const DateResults: FC<{
           </div>
           <div>
             <Tooltip
-              body="Cumulative charts disabled for Scaled Impact difference type"
-              shouldDisplay={differenceType === "scaled"}
+              content="Cumulative charts disabled for Scaled Impact difference type"
+              enabled={differenceType === "scaled"}
             >
-              <Toggle
-                label="Cumulative"
+              <Switch
                 id="cumulative"
+                label="Cumulative"
                 value={cumulative}
-                setValue={setCumulative}
+                onChange={setCumulative}
                 disabled={differenceType === "scaled"}
               />
             </Tooltip>
-            Cumulative
           </div>
         </div>
       )}
       <div className="mb-5">
-        <h2>Users</h2>
+        <h2>Units</h2>
         <ExperimentDateGraph
           yaxis="users"
           variationNames={variations.map((v) => v.name)}
-          label="Users"
+          label="Units"
           datapoints={users}
           formatter={formatNumber}
           cumulative={cumulative}

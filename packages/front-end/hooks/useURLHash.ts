@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 /**
  * Hook to sync a component's state with the URL hash.
@@ -38,11 +38,24 @@ export default function useURLHash<Id extends string>(
     }
   });
 
-  const setHashAndURL = (newHash: Id) => {
-    if (validIds === undefined || validIds.includes(newHash)) {
-      window.location.hash = newHash;
-    }
-  };
+  const setHashAndURL = useCallback(
+    (newHash: Id) => {
+      if (validIds === undefined || validIds.includes(newHash)) {
+        setHashState((currentHash) => {
+          if (newHash === currentHash) return currentHash;
+          // Use replaceState here as we are just changing the hash
+          // eslint-disable-next-line no-restricted-syntax
+          window.history.replaceState(
+            window.history.state,
+            "",
+            `${window.location.pathname}${window.location.search}#${newHash}`,
+          );
+          return newHash;
+        });
+      }
+    },
+    [validIds],
+  );
 
   // Listen for URL changes
   useEffect(() => {

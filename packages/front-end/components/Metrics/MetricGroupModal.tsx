@@ -1,6 +1,6 @@
 import React, { FC } from "react";
 import { useForm } from "react-hook-form";
-import { MetricGroupInterface } from "back-end/types/metric-groups";
+import { MetricGroupInterface } from "shared/types/metric-groups";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "@/components/Modal";
@@ -77,6 +77,7 @@ const MetricGroupModal: FC<{
                 datasource: value.datasource,
                 projects: value.projects,
                 metrics: value.metrics,
+                owner: "",
               }),
             },
           );

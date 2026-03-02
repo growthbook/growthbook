@@ -1,17 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { SDKAttribute, SDKAttributeSchema } from "back-end/types/organization";
-import { ArchetypeAttributeValues } from "back-end/types/archetype";
+import { SDKAttribute, SDKAttributeSchema } from "shared/types/organization";
+import { ArchetypeAttributeValues } from "shared/types/archetype";
 import isEqual from "lodash/isEqual";
-import { Switch } from "@radix-ui/themes";
 import format from "date-fns/format";
 import { useAttributeSchema } from "@/services/features";
 import Field from "@/components/Forms/Field";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from "@/components/Radix/Tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
+import Switch from "@/ui/Switch";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import DatePicker from "@/components/DatePicker";
@@ -135,9 +130,13 @@ export default function AttributeForm({
     ) {
       // prep for use in MultiSelectField
       if (Array.isArray(value)) {
-        options = value.map((v: string) => ({ value: v, label: v }));
-      } else if (typeof value === "string") {
-        options = [{ value: value, label: value }];
+        options = value.map((v: string | number) => ({
+          value: String(v),
+          label: String(v),
+        }));
+      } else if (typeof value === "string" || typeof value === "number") {
+        const strValue = String(value);
+        options = [{ value: strValue, label: strValue }];
         value = [value];
       }
     } else if (attribute.datatype === "string") {
@@ -156,8 +155,8 @@ export default function AttributeForm({
               <Switch
                 my="1"
                 id={"form-toggle" + attribute.property}
-                checked={!!attributeFormValues.get(attribute.property)}
-                onCheckedChange={(value) => {
+                value={!!attributeFormValues.get(attribute.property)}
+                onChange={(value) => {
                   attributeFormValues.set(attribute.property, value);
                   updateFormValues();
                 }}
@@ -185,6 +184,20 @@ export default function AttributeForm({
                 value={Array.isArray(value) ? value : []}
                 onChange={(value) => {
                   attributeFormValues.set(attribute.property, value);
+                  updateFormValues();
+                }}
+                creatable={true}
+              />
+            ) : attribute.datatype === "number[]" ? (
+              <MultiSelectField
+                options={options}
+                value={Array.isArray(value) ? value.map(String) : []}
+                onChange={(value) => {
+                  const numArray = value.map((v) => {
+                    const num = Number(v);
+                    return isNaN(num) ? v : num;
+                  });
+                  attributeFormValues.set(attribute.property, numArray);
                   updateFormValues();
                 }}
                 creatable={true}
@@ -223,7 +236,9 @@ export default function AttributeForm({
                 type="number"
                 value={value as string}
                 onChange={(e) => {
-                  attributeFormValues.set(attribute.property, e.target.value);
+                  const numValue =
+                    e.target.value === "" ? "" : Number(e.target.value);
+                  attributeFormValues.set(attribute.property, numValue);
                   updateFormValues();
                 }}
               />

@@ -5,7 +5,7 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
   ExperimentStatus,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import { getValidDate, date } from "shared/dates";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -249,14 +249,14 @@ const ExperimentTimeline: React.FC<{
                 <Box>
                   <strong>Started:</strong>{" "}
                   {tooltipData.phase.dateStarted
-                    ? date(tooltipData.phase.dateStarted)
+                    ? date(tooltipData.phase.dateStarted, "UTC")
                     : "-"}
                 </Box>
                 {tooltipData.status === "stopped" && (
                   <Box>
                     <strong>Ended:</strong>{" "}
                     {tooltipData.phase.dateEnded
-                      ? date(tooltipData.phase.dateEnded)
+                      ? date(tooltipData.phase.dateEnded, "UTC")
                       : "-"}
                   </Box>
                 )}

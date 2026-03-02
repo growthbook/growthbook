@@ -1,4 +1,4 @@
-import { TestQueryRow } from "back-end/src/types/Integration";
+import { TestQueryRow } from "shared/types/integrations";
 
 export function convertToCSV(rows: TestQueryRow[]): string {
   if (!rows.length) return "";

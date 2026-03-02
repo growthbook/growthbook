@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Box } from "@radix-ui/themes";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   PresentationInterface,
   PresentationSlide,
-} from "back-end/types/presentation";
+} from "shared/types/presentation";
 import {
   resetServerContext,
   DragDropContext,
@@ -30,13 +30,8 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import SortedTags from "@/components/Tags/SortedTags";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from "@/components/Radix/Tabs";
-import Avatar from "@/components/Radix/Avatar";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
+import Avatar from "@/ui/Avatar";
 import { capitalizeFirstLetter } from "@/services/utils";
 import Preview from "./Preview";
 

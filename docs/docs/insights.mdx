@@ -34,7 +34,7 @@ Summing the scaled impact of "Lost" experiments helps demonstrate how experiment
 
 We also provide an opportunity to "de-bias" these estimates so long as there are at least 6 experiments that were stopped in this window, since simple sums of experiment impacts are subject to a variety of biases when considering total impact.
 
-:::caution
+:::caution Summed experiment impact relies on several assumptions
 
 Summed experiment impact relies on several assumptions (independence of experiments, additivity of experiment impacts, and no selection bias). However, this tool should not replace accurate impact estimation via [holdouts](kb/experiments/holdouts).
 
@@ -122,6 +122,6 @@ The next screenshot shows a more ambiguous case (or, potentially, even a negativ
     ![Metric Correlations - Negative Correlation](/images/insights/correlations-two.png)
 </MaxWidthImage>
 
-In this example, consider an app with in-app purchases. "User Retention" and "Total User Revenue" are both important as User Retention could be a leading indicator for long-run success and revenue. In this image, the effects are more scattered—or even concentrated in the top-left and bottom-right quadrants—indicating a neutral or negative correlation. This could mean there is a trade-off between maximizing revenue and keeping users engaged. This could indicate a dark pattern, where your experiments are driving purchasing behavior but somehow also making the product worse. In this situation, you'll often want to consider which goal metric is truly important and how to make trade-offs between them, or consider new experiments or features that may improve both jointly.
+In this example, consider an app with in-app purchases. "User Retention" and "Total User Revenue" are both important as User Retention could be a leading indicator for long-run success and revenue. In this image, the effects are more scattered—or even concentrated in the top-left and bottom-right quadrants—indicating a neutral or negative correlation. This could mean there is a trade-off between maximizing revenue and keeping users engaged. This could indicate a [dark pattern](https://blog.growthbook.io/dark-patterns-a-b-testing/), where your experiments are driving purchasing behavior but somehow also making the product worse. In this situation, you'll often want to consider which goal metric is truly important and how to make trade-offs between them, or consider new experiments or features that may improve both jointly.
 
 For a more technical discussion of this topic, read this excellent blog post by Tom Cunningham: [Thinking About Tradeoffs? Draw an Ellipse](https://tecunningham.github.io/posts/2023-10-23-pareto-frontiers-experiments-ranking.html).

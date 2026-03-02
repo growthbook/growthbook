@@ -7,10 +7,12 @@ import MaxWidthImage from "@site/src/components/MaxWidthImage";
 
 # Experiment Time Series
 
-The time series chart shows the cumulative results of your experiment. It's accessible directly from the experiment results view. Each data point represents cumulative results for that day. When there are multiple updates within a day, GrowthBook consolidates them into a single daily point to keep the chart easy to read.
+The time series chart shows the cumulative results of your experiment. It's accessible from the [Metric Drilldown](/app/experiment-results#metric-drilldown) available from the experiment results view. Click on the row for the metric whose time series you want to see.
+
+Each data point represents cumulative results for that day. When there are multiple updates within a day, GrowthBook consolidates them into a single daily point to keep the chart easy to read.
 
 <MaxWidthImage border maxWidth={800}>
-![Tooltip of a single data point in the time series](/images/experiment-time-series-tooltip.png)
+![Time Series inside of a Metric Drilldown](/images/experiment-results/metric-drilldown-time-series.png)
 </MaxWidthImage>
 
 Selecting a difference type (Relative, Absolute, Scaled Impact) will change the y-axis of the time series to the relevant effect. Selecting a different baseline variation will hide the time series as they are only computed for the default baseline variation.

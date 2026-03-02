@@ -1,9 +1,9 @@
 import omit from "lodash/omit";
-import z from "zod";
+import { z } from "zod";
 import mongoose from "mongoose";
+import { InformationSchemaTablesInterface } from "shared/types/integrations";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { logger } from "back-end/src/util/logger";
-import { InformationSchemaTablesInterface } from "back-end/src/types/Integration";
 
 const informationSchemaTablesSchema = new mongoose.Schema({
   id: String,

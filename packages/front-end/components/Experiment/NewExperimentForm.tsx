@@ -4,11 +4,12 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentStatus,
   Variation,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import { useRouter } from "next/router";
 import { date, datetime, getValidDate } from "shared/dates";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import { OrganizationSettings } from "back-end/types/organization";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { OrganizationSettings } from "shared/types/organization";
+import { getProviderFromEmbeddingModel } from "shared/ai";
 import {
   isProjectListValidForProject,
   validateAndFixCondition,
@@ -40,6 +41,7 @@ import {
   useEnvironments,
 } from "@/services/features";
 import useOrgSettings, { useAISettings } from "@/hooks/useOrgSettings";
+import { hasOpenAIKey, hasMistralKey, hasGoogleAIKey } from "@/services/env";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { useIncrementer } from "@/hooks/useIncrementer";
@@ -50,7 +52,7 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
 } from "@/components/Experiment/HashVersionSelector";
-import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
+import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 import TagsInput from "@/components/Tags/TagsInput";
 import Page from "@/components/Modal/Page";
 import PagedModal from "@/components/Modal/PagedModal";
@@ -65,21 +67,22 @@ import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "@/components/Features/SavedGroupTargetingField";
-import Toggle from "@/components/Forms/Toggle";
 import { useExperiments } from "@/hooks/useExperiments";
 import BanditRefNewFields from "@/components/Features/RuleModal/BanditRefNewFields";
 import ExperimentRefNewFields from "@/components/Features/RuleModal/ExperimentRefNewFields";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
+import Checkbox from "@/ui/Checkbox";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import DatePicker from "@/components/DatePicker";
 import { useTemplates } from "@/hooks/useTemplates";
 import { convertTemplateToExperiment } from "@/services/experiments";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
-import Link from "@/components/Radix/Link";
+import Link from "@/ui/Link";
 import Markdown from "@/components/Markdown/Markdown";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import { AppFeatures } from "@/types/app-features";
-import PremiumTooltip from "../Marketing/PremiumTooltip";
+import { useHoldouts } from "@/hooks/useHoldouts";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 
 const weekAgo = new Date();
@@ -119,12 +122,19 @@ export function getDefaultVariations(num: number) {
   return variations;
 }
 
-export function getNewExperimentDatasourceDefaults(
-  datasources: DataSourceInterfaceWithParams[],
-  settings: OrganizationSettings,
-  project?: string,
-  initialValue?: Partial<ExperimentInterfaceStringDates>,
-): Pick<ExperimentInterfaceStringDates, "datasource" | "exposureQueryId"> {
+export function getNewExperimentDatasourceDefaults({
+  datasources,
+  settings,
+  project,
+  initialValue,
+  initialHashAttribute,
+}: {
+  datasources: DataSourceInterfaceWithParams[];
+  settings: OrganizationSettings;
+  project?: string;
+  initialValue?: Partial<ExperimentInterfaceStringDates>;
+  initialHashAttribute?: string;
+}): Pick<ExperimentInterfaceStringDates, "datasource" | "exposureQueryId"> {
   const validDatasources = datasources.filter(
     (d) =>
       d.id === initialValue?.datasource ||
@@ -139,13 +149,19 @@ export function getNewExperimentDatasourceDefaults(
     (initialId && validDatasources.find((d) => d.id === initialId)) ||
     validDatasources[0];
 
+  const initialUserIdType = initialHashAttribute
+    ? (initialDatasource.settings?.userIdTypes?.find((t) =>
+        t.attributes?.includes(initialHashAttribute),
+      )?.userIdType ?? "anonymous_id")
+    : "anonymous_id";
+
   return {
     datasource: initialDatasource.id,
     exposureQueryId:
       getExposureQuery(
         initialDatasource.settings,
         initialValue?.exposureQueryId,
-        initialValue?.userIdType,
+        initialUserIdType,
       )?.id || "",
   };
 }
@@ -186,6 +202,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   >([]);
   const [aiLoading, setAiLoading] = useState<boolean>(false);
   const [enoughWords, setEnoughWords] = useState(false);
+  const [missingEmbeddingKey, setMissingEmbeddingKey] = useState<{
+    provider: string;
+    envVar: string;
+  } | null>(null);
   const [expandSimilarResults, setExpandSimilarResults] = useState(false);
   const environments = useEnvironments();
   const { experiments } = useExperiments();
@@ -196,6 +216,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     templatesMap,
     mutateTemplates: refreshTemplates,
   } = useTemplates();
+
+  const { experimentsMap, holdoutsMap } = useHoldouts();
+
   const envs = environments.map((e) => e.id);
 
   const [prerequisiteTargetingSdkIssues, setPrerequisiteTargetingSdkIssues] =
@@ -232,22 +255,24 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   const orgStickyBucketing = !!settings.useStickyBucketing;
   const lastPhase = (initialValue?.phases?.length ?? 1) - 1;
+  const initialHashAttribute = initialValue?.hashAttribute || hashAttribute;
 
   const form = useForm<Partial<ExperimentInterfaceStringDates>>({
     defaultValues: {
       project: initialValue?.project || project || "",
       trackingKey: initialValue?.trackingKey || "",
-      ...getNewExperimentDatasourceDefaults(
+      ...getNewExperimentDatasourceDefaults({
         datasources,
         settings,
-        initialValue?.project || project || "",
+        project: initialValue?.project || project || "",
         initialValue,
-      ),
+        initialHashAttribute,
+      }),
       name: initialValue?.name || "",
       type: initialValue?.type ?? "standard",
       hypothesis: initialValue?.hypothesis || "",
       activationMetric: initialValue?.activationMetric || "",
-      hashAttribute: initialValue?.hashAttribute || hashAttribute,
+      hashAttribute: initialHashAttribute,
       hashVersion:
         initialValue?.hashVersion || (hasSDKWithNoBucketingV2 ? 1 : 2),
       disableStickyBucketing: initialValue?.disableStickyBucketing ?? false,
@@ -317,11 +342,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       banditBurnInValue: scopedSettings.banditBurnInValue.value,
       banditBurnInUnit: scopedSettings.banditScheduleUnit.value,
       templateId: initialValue?.templateId || "",
-      holdoutId: initialValue?.holdoutId || "",
+      holdoutId: initialValue?.holdoutId || undefined,
+      customMetricSlices: initialValue?.customMetricSlices || [],
     },
   });
 
-  const [selectedProject, setSelectedProject] = useState(form.watch("project"));
+  const selectedProject = form.watch("project");
   const customFields = filterCustomFieldsForSectionAndProject(
     useCustomFields(),
     "experiment",
@@ -332,12 +358,18 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     ? getDatasourceById(form.watch("datasource") ?? "")
     : null;
 
+  const isPipelineIncrementalEnabledForDatasource =
+    datasource?.settings.pipelineSettings?.mode === "incremental";
+  const willExperimentBeIncludedInIncrementalRefresh =
+    isPipelineIncrementalEnabledForDatasource &&
+    datasource?.settings.pipelineSettings?.includedExperimentIds === undefined;
+
   const { apiCall } = useAuth();
 
   const onSubmit = form.handleSubmit(async (rawValue) => {
     const value = { ...rawValue, name: rawValue.name?.trim() };
-    if (value.holdoutId === "none") {
-      delete value.holdoutId;
+    if (value.holdoutId === "") {
+      value.holdoutId = undefined;
     }
     // Make sure there's an experiment name
     if ((value.name?.length ?? 0) < 1) {
@@ -489,8 +521,22 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         keepDefaultValues: true,
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // If a holdout is set for a new experiment, use the hash attribute of the holdout experiment
+  const holdoutId = form.watch("holdoutId");
+  const holdoutExperimentId = holdoutId
+    ? holdoutsMap.get(holdoutId)?.experimentId
+    : undefined;
+  const holdoutHashAttribute = holdoutExperimentId
+    ? experimentsMap.get(holdoutExperimentId)?.hashAttribute
+    : undefined;
+
+  useEffect(() => {
+    if (holdoutId && holdoutHashAttribute) {
+      form.setValue("hashAttribute", holdoutHashAttribute);
+    }
+  }, [holdoutId, holdoutHashAttribute]);
 
   const templateRequired =
     hasCommercialFeature("templates") &&
@@ -523,6 +569,40 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   const checkForSimilar = useCallback(async () => {
     if (!aiEnabled || !useCheckForSimilar) return;
+
+    // Check if we have the API key for the embedding model provider
+    const embeddingModel = settings.embeddingModel || "text-embedding-ada-002";
+    let hasEmbeddingKey = false;
+    let embeddingProvider = "openai";
+    const providerEnvVars: Record<string, string> = {
+      openai: "OPENAI_API_KEY",
+      mistral: "MISTRAL_API_KEY",
+      google: "GOOGLE_AI_API_KEY",
+    };
+    try {
+      embeddingProvider = getProviderFromEmbeddingModel(embeddingModel);
+      if (embeddingProvider === "openai") {
+        hasEmbeddingKey = hasOpenAIKey();
+      } else if (embeddingProvider === "mistral") {
+        hasEmbeddingKey = hasMistralKey();
+      } else if (embeddingProvider === "google") {
+        hasEmbeddingKey = hasGoogleAIKey();
+      }
+    } catch {
+      //  Ignore if we can't determine the provider
+    }
+
+    if (!hasEmbeddingKey) {
+      setMissingEmbeddingKey({
+        provider:
+          embeddingProvider.charAt(0).toUpperCase() +
+          embeddingProvider.slice(1),
+        envVar: providerEnvVars[embeddingProvider] || "API_KEY",
+      });
+      return;
+    }
+
+    setMissingEmbeddingKey(null);
 
     // check how many words we're sending in the hypothesis, name, and description:
     const wordCount =
@@ -681,7 +761,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   value={form.watch("project") ?? ""}
                   onChange={(p) => {
                     form.setValue("project", p);
-                    setSelectedProject(p);
                   }}
                   name="project"
                   initialOption={allowAllProjects ? "All Projects" : undefined}
@@ -698,8 +777,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   setHoldout={(holdoutId) => {
                     form.setValue("holdoutId", holdoutId);
                   }}
+                  formType="experiment"
                 />
-                <Separator size="4" mt="6" mb="5" />
+                <Separator size="4" mt="5" mb="5" />
               </>
             )}
 
@@ -782,7 +862,16 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             )}
             {useCheckForSimilar && (
               <>
-                {!enoughWords ? (
+                {missingEmbeddingKey ? (
+                  <Box my="4">
+                    <Callout status="warning">
+                      {missingEmbeddingKey.provider} API key is required for
+                      checking similar experiments. Please set{" "}
+                      <code>{missingEmbeddingKey.envVar}</code> in your
+                      environment variables.
+                    </Callout>
+                  </Box>
+                ) : !enoughWords ? (
                   <Box my="4">
                     <Flex gap="2" className="text-muted" align="center">
                       <FaExclamationCircle />
@@ -1064,6 +1153,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                       variationValuesAsIds={true}
                       hideVariationIds={!isImport}
                       orgStickyBucketing={orgStickyBucketing}
+                      holdoutHashAttribute={holdoutHashAttribute}
                     />
                   </div>
                 </Page>
@@ -1150,7 +1240,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
         {!(isNewExperiment || duplicate) ? (
           <Page display="Targeting">
-            <div className="px-2">
+            <div>
               {isNewExperiment && (
                 <>
                   <div className="d-flex" style={{ gap: "2rem" }}>
@@ -1205,7 +1295,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     project={project}
                   />
                   <hr />
-                  <PrerequisiteTargetingField
+                  <PrerequisiteInput
                     value={form.watch("phases.0.prerequisites") || []}
                     setValue={(prerequisites) =>
                       form.setValue("phases.0.prerequisites", prerequisites)
@@ -1287,7 +1377,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
         {!(isNewExperiment || duplicate) ? (
           <Page display="Metrics">
-            <div className="px-2" style={{ minHeight: 350 }}>
+            <div style={{ minHeight: 350 }}>
               {(!isImport || fromFeature) && (
                 <SelectField
                   label="Data Source"
@@ -1350,6 +1440,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
               <ExperimentMetricsSelector
                 datasource={datasource?.id}
+                noLegacyMetrics={willExperimentBeIncludedInIncrementalRefresh}
+                excludeQuantiles={willExperimentBeIncludedInIncrementalRefresh}
                 exposureQueryId={exposureQueryId}
                 project={project}
                 goalMetrics={form.watch("goalMetrics") ?? []}
@@ -1364,19 +1456,19 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 setGuardrailMetrics={(guardrailMetrics) =>
                   form.setValue("guardrailMetrics", guardrailMetrics)
                 }
+                experimentId={initialValue?.id}
               />
             </div>
 
             {isImport && (
-              <div className="form-group ml-2">
-                <Toggle
-                  id="auto_refresh_results"
-                  label="Auto Refresh Results"
-                  value={autoRefreshResults}
-                  setValue={setAutoRefreshResults}
-                />
-                <label>Populate Results on Save</label>
-              </div>
+              <Checkbox
+                id="auto_refresh_results"
+                label="Auto Refresh Results"
+                description="Populate results on save"
+                value={autoRefreshResults}
+                setValue={setAutoRefreshResults}
+                ml="2"
+              />
             )}
           </Page>
         ) : null}

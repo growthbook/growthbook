@@ -1,7 +1,7 @@
+import { PutMetricResponse } from "shared/types/openapi";
+import { putMetricValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getMetricById, updateMetric } from "back-end/src/models/MetricModel";
-import { PutMetricResponse } from "back-end/types/openapi";
-import { putMetricValidator } from "back-end/src/validators/openapi";
 import {
   putMetricApiPayloadIsValid,
   putMetricApiPayloadToMetricInterface,
@@ -27,10 +27,6 @@ export const putMetric = createApiRequestHandler(putMetricValidator)(async (
   }
 
   const updated = putMetricApiPayloadToMetricInterface(req.body);
-
-  if (!req.context.permissions.canUpdateMetric(metric, updated)) {
-    req.context.permissions.throwPermissionError();
-  }
 
   await updateMetric(req.context, metric, updated);
 

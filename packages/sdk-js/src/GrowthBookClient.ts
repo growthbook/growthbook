@@ -4,6 +4,7 @@ import type {
   AutoExperiment,
   ClientKey,
   ClientOptions,
+  DestroyOptions,
   EvalContext,
   EventLogger,
   EventProperties,
@@ -11,6 +12,7 @@ import type {
   FeatureApiResponse,
   FeatureDefinitions,
   FeatureResult,
+  FeatureUsageCallback,
   GlobalContext,
   InitOptions,
   InitResponse,
@@ -26,6 +28,7 @@ import type {
 } from "./types/growthbook";
 import { loadSDKVersion } from "./util";
 import {
+  clearAutoRefresh,
   configureCache,
   refreshFeatures,
   startStreaming,
@@ -209,9 +212,13 @@ export class GrowthBookClient<
     this._options.globalAttributes = attributes;
   }
 
-  public destroy() {
+  public destroy(options?: DestroyOptions) {
+    options = options || {};
     this._destroyed = true;
     unsubscribe(this);
+    if (options.destroyAllStreams) {
+      clearAutoRefresh();
+    }
 
     // Release references to save memory
     this._features = {};
@@ -327,6 +334,10 @@ export class GrowthBookClient<
 
   public setTrackingCallback(callback: TrackingCallbackWithUser) {
     this._options.trackingCallback = callback;
+  }
+
+  public setFeatureUsageCallback(callback: FeatureUsageCallback) {
+    this._options.onFeatureUsage = callback;
   }
 
   public async applyStickyBuckets(

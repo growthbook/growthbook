@@ -118,7 +118,7 @@ const ImportedExperimentGuide = (): React.ReactElement => {
                   onClick={() =>
                     setStep({
                       step: "Connect to Your Data Warehouse",
-                      source: "importedExperiments",
+                      source: "importedExperimentGuide",
                       stepKey: "connectDataWarehouse",
                     })
                   }
@@ -170,7 +170,7 @@ const ImportedExperimentGuide = (): React.ReactElement => {
                   onClick={() =>
                     setStep({
                       step: "Define Fact Tables and Metrics",
-                      source: "importedExperiments",
+                      source: "importedExperimentGuide",
                       stepKey: "createFactTables",
                     })
                   }
@@ -224,7 +224,7 @@ const ImportedExperimentGuide = (): React.ReactElement => {
                         project && " in this Project"
                       } &
                       View Results`,
-                      source: "importedExperiments",
+                      source: "importedExperimentGuide",
                       stepKey: "importExperiment",
                     })
                   }

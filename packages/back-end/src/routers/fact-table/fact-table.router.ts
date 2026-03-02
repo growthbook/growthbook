@@ -1,7 +1,5 @@
 import express from "express";
-import z from "zod";
-import { wrapController } from "back-end/src/routers/wrapController";
-import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
+import { z } from "zod";
 import {
   createFactFilterPropsValidator,
   createFactTablePropsValidator,
@@ -9,7 +7,9 @@ import {
   updateColumnPropsValidator,
   updateFactTablePropsValidator,
   testFactFilterPropsValidator,
-} from "./fact-table.validators";
+} from "shared/validators";
+import { wrapController } from "back-end/src/routers/wrapController";
+import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawFactTableController from "./fact-table.controller";
 
 const router = express.Router();
@@ -52,6 +52,14 @@ router.delete(
     params: factTableParams,
   }),
   factTableController.deleteFactTable,
+);
+
+router.post(
+  "/fact-tables/:id/column/:column/top-values",
+  validateRequestMiddleware({
+    params: columnParams,
+  }),
+  factTableController.postColumnTopValues,
 );
 
 router.put(

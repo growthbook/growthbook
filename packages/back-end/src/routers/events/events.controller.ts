@@ -1,6 +1,6 @@
 import type { Response } from "express";
+import { EventInterface } from "shared/types/events/event";
 import * as Event from "back-end/src/models/EventModel";
-import { EventInterface } from "back-end/types/event";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";

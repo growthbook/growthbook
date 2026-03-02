@@ -1,9 +1,9 @@
+import uniq from "lodash/uniq";
+import { paddedVersionString } from "@growthbook/growthbook";
 import {
   SDKConnectionInterface,
   SDKLanguage,
-} from "back-end/types/sdk-connection";
-import uniq from "lodash/uniq";
-import { paddedVersionString } from "@growthbook/growthbook";
+} from "shared/types/sdk-connection";
 import { CapabilityStrategy, SDKCapability } from "./types";
 
 import * as nocode_json from "./sdk-versions/nocode.json";
@@ -25,6 +25,8 @@ import * as edge_cloudflare_json from "./sdk-versions/edge-cloudflare.json";
 import * as edge_fastly_json from "./sdk-versions/edge-fastly.json";
 import * as edge_lambda_json from "./sdk-versions/edge-lambda.json";
 import * as edge_other_json from "./sdk-versions/edge-other.json";
+import * as rust_json from "./sdk-versions/rust.json";
+import * as roku_json from "./sdk-versions/roku.json";
 import * as other_json from "./sdk-versions/other.json";
 
 type SDKRecords = Record<SDKLanguage, SDKData>;
@@ -55,6 +57,8 @@ export const sdks: SDKRecords = {
   flutter: flutter_json,
   csharp: csharp_json,
   elixir: elixir_json,
+  rust: rust_json,
+  roku: roku_json,
   "edge-cloudflare": edge_cloudflare_json,
   "edge-fastly": edge_fastly_json,
   "edge-lambda": edge_lambda_json,
@@ -87,6 +91,8 @@ const defaultSdkVersions: Record<SDKLanguage, string> = {
   "edge-fastly": "0.1.4",
   "edge-lambda": "0.0.5",
   "edge-other": "0.1.3",
+  rust: "0.0.4",
+  roku: "1.3.1",
   other: "0.0.0",
 };
 
@@ -134,6 +140,7 @@ export const getSDKCapabilities = (
   expandLooseUnmashalling?: boolean,
 ): SDKCapability[] => {
   language = language || "other";
+
   version = version || getDefaultSDKVersion(language);
   const sdkData = getSdkData(language);
   const versions = sdkData?.versions || [];

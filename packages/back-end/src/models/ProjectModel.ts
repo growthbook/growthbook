@@ -1,29 +1,11 @@
-import { z } from "zod";
-import { ApiProject } from "back-end/types/openapi";
-import { statsEngines } from "back-end/src/util/constants";
+import { ApiProject } from "shared/types/openapi";
 import {
-  managedByValidator,
   ManagedBy,
-} from "back-end/src/validators/managed-by";
-import { baseSchema, MakeModelClass } from "./BaseModel";
-export const statsEnginesValidator = z.enum(statsEngines);
-
-export const projectSettingsValidator = z.object({
-  statsEngine: statsEnginesValidator.optional(),
-});
-
-export const projectValidator = baseSchema
-  .extend({
-    name: z.string(),
-    description: z.string().default("").optional(),
-    settings: projectSettingsValidator.default({}).optional(),
-    managedBy: managedByValidator.optional(),
-  })
-  .strict();
-
-export type StatsEngine = z.infer<typeof statsEnginesValidator>;
-export type ProjectSettings = z.infer<typeof projectSettingsValidator>;
-export type ProjectInterface = z.infer<typeof projectValidator>;
+  ProjectInterface,
+  ProjectSettings,
+  projectValidator,
+} from "shared/validators";
+import { MakeModelClass } from "./BaseModel";
 
 type MigratedProject = Omit<ProjectInterface, "settings"> & {
   settings: Partial<ProjectInterface["settings"]>;
@@ -40,6 +22,10 @@ const BaseClass = MakeModelClass({
     deleteEvent: "project.delete",
   },
   globallyUniqueIds: true,
+  defaultValues: {
+    description: "",
+    settings: {},
+  },
 });
 
 interface CreateProjectProps {

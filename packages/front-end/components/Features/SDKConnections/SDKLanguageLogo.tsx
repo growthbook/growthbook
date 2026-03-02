@@ -1,7 +1,7 @@
-import { SDKLanguage } from "back-end/types/sdk-connection";
+import { SDKLanguage } from "shared/types/sdk-connection";
 import { IconType } from "react-icons";
 import { DiRuby, DiPython, DiReact, DiAndroid } from "react-icons/di";
-import { FaHashtag, FaApple, FaJava, FaCode } from "react-icons/fa";
+import { FaHashtag, FaApple, FaJava, FaCode, FaRust } from "react-icons/fa";
 import {
   SiAwslambda,
   SiCloudflare,
@@ -16,6 +16,7 @@ import {
   SiElixir,
   SiFastly,
   SiNextdotjs,
+  SiRoku,
 } from "react-icons/si";
 import React, { ReactElement } from "react";
 import { isSDKOutdated } from "shared/sdk-versioning";
@@ -82,6 +83,16 @@ export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
     filters: ["browser", "mobile", "popular"],
     packageName: "@growthbook/growthbook-react",
     packageUrl: "https://www.npmjs.com/package/@growthbook/growthbook-react",
+  },
+  roku: {
+    Icon: SiRoku,
+    color: "#4F01A3",
+    label: "Roku",
+    docs: "roku",
+    type: "frontend",
+    filters: ["browser"],
+    packageName: "growthbook-roku",
+    packageUrl: "https://www.npmjs.com/package/growthbook-roku",
   },
   nodejs: {
     Icon: SiNodedotjs,
@@ -162,6 +173,16 @@ export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
     filters: ["server"],
     packageName: "github.com/growthbook/growthbook-golang",
     packageUrl: "https://pkg.go.dev/github.com/growthbook/growthbook-golang",
+  },
+  rust: {
+    Icon: FaRust,
+    color: "#D34516",
+    label: "Rust",
+    docs: "rust",
+    type: "backend",
+    filters: ["server"],
+    packageName: "growthbook-rust",
+    packageUrl: "https://crates.io/crates/growthbook-rust",
   },
   elixir: {
     Icon: SiElixir,

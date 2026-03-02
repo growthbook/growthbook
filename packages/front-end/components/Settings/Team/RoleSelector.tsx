@@ -1,4 +1,4 @@
-import { MemberRoleWithProjects } from "back-end/types/organization";
+import { MemberRoleWithProjects } from "shared/types/organization";
 import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import SingleRoleSelector from "./SingleRoleSelector";
 import ProjectRolesSelector from "./ProjectRolesSelector";
@@ -28,6 +28,7 @@ export default function RoleSelector({
         }}
         label="Global Role"
         includeAdminRole={true}
+        includeProjectAdminRole={true}
       />
       <ProjectRolesSelector
         projectRoles={value.projectRoles || []}

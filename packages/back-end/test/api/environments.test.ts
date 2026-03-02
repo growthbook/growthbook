@@ -335,7 +335,8 @@ describe("environements API", () => {
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({
-      message: "Request body: [toggleOnList] Expected boolean, received string",
+      message:
+        "Request body: [toggleOnList] Invalid input: expected boolean, received string",
     });
     expect(updateOrganization).not.toHaveBeenCalledWith();
     expect(auditMock).not.toHaveBeenCalledWith();
@@ -555,7 +556,8 @@ describe("environements API", () => {
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({
-      message: "Request body: [id] Required",
+      message:
+        "Request body: [id] Invalid input: expected string, received undefined",
     });
     expect(updateOrganization).not.toHaveBeenCalledWith();
     expect(auditMock).not.toHaveBeenCalledWith();

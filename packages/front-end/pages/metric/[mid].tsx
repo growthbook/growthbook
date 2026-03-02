@@ -9,18 +9,15 @@ import React, {
 } from "react";
 import Link from "next/link";
 import { FaQuestionCircle, FaTimes } from "react-icons/fa";
-import { MetricInterface } from "back-end/types/metric";
+import { MetricInterface } from "shared/types/metric";
 import { useForm } from "react-hook-form";
 import { BsGear } from "react-icons/bs";
-import { IdeaInterface } from "back-end/types/idea";
+import { IdeaInterface } from "shared/types/idea";
 import { date } from "shared/dates";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import {
-  DEFAULT_LOSE_RISK_THRESHOLD,
-  DEFAULT_WIN_RISK_THRESHOLD,
-} from "shared/constants";
-import { Box } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { isBinomialMetric } from "shared/experiments";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import DiscussionThread from "@/components/DiscussionThread";
@@ -30,12 +27,7 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import { getMetricFormatter } from "@/services/metrics";
 import MetricForm, { usesValueColumn } from "@/components/Metrics/MetricForm";
-import {
-  TabsList,
-  Tabs,
-  TabsContent,
-  TabsTrigger,
-} from "@/components/Radix/Tabs";
+import { TabsList, Tabs, TabsContent, TabsTrigger } from "@/ui/Tabs";
 import HistoryTable from "@/components/HistoryTable";
 import DateGraph from "@/components/Metrics/DateGraph";
 import RunQueriesButton, {
@@ -56,7 +48,7 @@ import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefa
 import ProjectBadges from "@/components/ProjectBadges";
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import { GBCuped, GBEdit } from "@/components/Icons";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/ui/Switch";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useCurrency } from "@/hooks/useCurrency";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
@@ -69,6 +61,7 @@ import MetricPriorRightRailSectionGroup from "@/components/Metrics/MetricPriorRi
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import MetricExperiments from "@/components/MetricExperiments/MetricExperiments";
 import { MetricModal } from "@/components/FactTables/NewMetricModal";
+import { AppFeatures } from "@/types/app-features";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -86,6 +79,7 @@ const MetricPage: FC = () => {
   } = useDefinitions();
   const settings = useOrgSettings();
   const { organization } = useUser();
+  const gb = useGrowthBook<AppFeatures>();
 
   const [editModalOpen, setEditModalOpen] = useState<boolean | number>(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState<boolean>(false);
@@ -138,11 +132,18 @@ const MetricPage: FC = () => {
   }
 
   const metric = data.metric;
-  const canDuplicateMetric = permissionsUtil.canCreateMetric(metric);
-  const canEditMetric =
-    permissionsUtil.canUpdateMetric(metric, {}) && !metric.managedBy;
-  const canDeleteMetric =
-    permissionsUtil.canDeleteMetric(metric) && !metric.managedBy;
+  const canDuplicateMetric = permissionsUtil.canCreateMetric({
+    // Don't pass in managedBy as we allow non-admins to duplicate official metrics - the duplicated metric will be non-official
+    projects: metric.projects,
+  });
+  let canEditMetric = permissionsUtil.canUpdateMetric(metric, {});
+  let canDeleteMetric = permissionsUtil.canDeleteMetric(metric);
+
+  // Additional check if managed by api or config
+  if (metric.managedBy && ["api", "config"].includes(metric.managedBy)) {
+    canEditMetric = false;
+    canDeleteMetric = false;
+  }
   const datasource = metric.datasource
     ? getDatasourceById(metric.datasource)
     : null;
@@ -316,6 +317,8 @@ const MetricPage: FC = () => {
           currentMetric={{
             ...metric,
             name: metric.name + " (copy)",
+            // If managedBy is admin, only copy that over if the user has the ManageOfficialResources policy
+            managedBy: "",
           }}
           close={() => setDuplicateModalOpen(false)}
           source="metrics-detail"
@@ -555,13 +558,20 @@ const MetricPage: FC = () => {
                           mutateDefinitions({});
                         }}
                         aiSuggestFunction={async () => {
+                          // Only evaluate the feature flag if suggestion is requested
+                          const aiTemperature =
+                            gb?.getFeatureValue(
+                              "ai-suggestions-temperature",
+                              0.1,
+                            ) || 0.1;
+
                           const res = await apiCall<{
                             status: number;
                             data: {
                               description: string;
                             };
                           }>(
-                            `/metrics/${metric.id}/gen-description`,
+                            `/metrics/${metric.id}/gen-description?temperature=${aiTemperature}`,
                             {
                               method: "GET",
                             },
@@ -577,6 +587,8 @@ const MetricPage: FC = () => {
                                 throw new Error(
                                   `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`,
                                 );
+                              } else if (responseData.message) {
+                                throw new Error(responseData.message);
                               } else {
                                 throw new Error("Error getting AI suggestion");
                               }
@@ -772,24 +784,27 @@ const MetricPage: FC = () => {
                               </div>
                               <div className="col">
                                 <div className="float-right mr-2">
-                                  <label
-                                    className="small my-0 mr-2 text-right align-middle"
-                                    htmlFor="toggle-group-by-avg"
-                                  >
-                                    Smoothing
-                                    <br />
-                                    (7 day trailing)
-                                  </label>
-                                  <Toggle
-                                    value={smoothByAvg === "week"}
-                                    setValue={() =>
-                                      setSmoothByAvg(
-                                        smoothByAvg === "week" ? "day" : "week",
-                                      )
-                                    }
-                                    id="toggle-group-by-avg"
-                                    className="align-middle"
-                                  />
+                                  <Flex align="center" gap="1">
+                                    <Switch
+                                      value={smoothByAvg === "week"}
+                                      onChange={() =>
+                                        setSmoothByAvg(
+                                          smoothByAvg === "week"
+                                            ? "day"
+                                            : "week",
+                                        )
+                                      }
+                                      id="toggle-group-by-avg"
+                                    />
+                                    <label
+                                      className="small my-0 mr-2 text-right align-middle"
+                                      htmlFor="toggle-group-by-avg"
+                                    >
+                                      Smoothing
+                                      <br />
+                                      (7 day trailing)
+                                    </label>
+                                  </Flex>
                                 </div>
                               </div>
                             </div>
@@ -847,24 +862,25 @@ const MetricPage: FC = () => {
                           </div>
                           <div className="col">
                             <div className="float-right mr-2">
-                              <label
-                                className="small my-0 mr-2 text-right align-middle"
-                                htmlFor="toggle-group-by-sum"
-                              >
-                                Smoothing
-                                <br />
-                                (7 day trailing)
-                              </label>
-                              <Toggle
-                                value={smoothBySum === "week"}
-                                setValue={() =>
-                                  setSmoothBySum(
-                                    smoothBySum === "week" ? "day" : "week",
-                                  )
-                                }
-                                id="toggle-group-by-sum"
-                                className="align-middle"
-                              />
+                              <Flex align="center" gap="1">
+                                <Switch
+                                  value={smoothBySum === "week"}
+                                  onChange={() =>
+                                    setSmoothBySum(
+                                      smoothBySum === "week" ? "day" : "week",
+                                    )
+                                  }
+                                  id="toggle-group-by-sum"
+                                />
+                                <label
+                                  className="small my-0 mr-2 text-right align-middle"
+                                  htmlFor="toggle-group-by-sum"
+                                >
+                                  Smoothing
+                                  <br />
+                                  (7 day trailing)
+                                </label>
+                              </Flex>
                             </div>
                           </div>
                         </div>
@@ -1306,29 +1322,6 @@ const MetricPage: FC = () => {
                     <span className="text-gray">Min percent change:</span>{" "}
                     <span className="font-weight-bold">
                       {getMinPercentageChangeForMetric(metric) * 100}%
-                    </span>
-                  </li>
-                </ul>
-              </RightRailSectionGroup>
-
-              <RightRailSectionGroup type="custom" empty="">
-                <ul className="right-rail-subsection list-unstyled mb-4">
-                  <li className="mt-3 mb-2">
-                    <span className="uppercase-title lg">Risk Thresholds</span>
-                    <small className="d-block mb-1 text-muted">
-                      Only applicable to Bayesian analyses
-                    </small>
-                  </li>
-                  <li className="mb-2">
-                    <span className="text-gray">Acceptable risk &lt;</span>{" "}
-                    <span className="font-weight-bold">
-                      {(metric.winRisk || DEFAULT_WIN_RISK_THRESHOLD) * 100}%
-                    </span>
-                  </li>
-                  <li className="mb-2">
-                    <span className="text-gray">Unacceptable risk &gt;</span>{" "}
-                    <span className="font-weight-bold">
-                      {(metric.loseRisk || DEFAULT_LOSE_RISK_THRESHOLD) * 100}%
                     </span>
                   </li>
                 </ul>

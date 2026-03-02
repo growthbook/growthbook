@@ -2,9 +2,8 @@ import { cloneDeep } from "lodash";
 import {
   ALL_PERMISSIONS,
   ENV_SCOPED_PERMISSIONS,
-  getPermissionsObjectByPolicies,
-  getRoleById,
   roleSupportsEnvLimit,
+  roleToPermissionMap,
 } from "shared/permissions";
 import {
   OrganizationInterface,
@@ -13,8 +12,8 @@ import {
   ProjectMemberRole,
   UserPermission,
   UserPermissions,
-} from "back-end/types/organization";
-import { TeamInterface } from "back-end/types/team";
+} from "shared/types/organization";
+import { TeamInterface } from "shared/types/team";
 import { SUPERADMIN_DEFAULT_ROLE } from "./secrets";
 
 function hasEnvScopedPermissions(userPermission: PermissionsObject): boolean {
@@ -50,15 +49,6 @@ export function getEnvironments(org: OrganizationInterface) {
     ];
   }
   return org.settings.environments;
-}
-
-export function roleToPermissionMap(
-  roleId: string,
-  org: OrganizationInterface,
-): PermissionsObject {
-  const role = getRoleById(roleId || "readonly", org);
-  const policies = role?.policies || [];
-  return getPermissionsObjectByPolicies(policies);
 }
 
 function isValidPermission(permission: string): permission is Permission {
@@ -297,14 +287,3 @@ export function getUserPermissions(
 
   return userPermissions;
 }
-
-export const attributeDataTypes = [
-  "boolean",
-  "string",
-  "number",
-  "secureString",
-  "enum",
-  "string[]",
-  "number[]",
-  "secureString[]",
-] as const;

@@ -1,9 +1,10 @@
 import { createPrivateKey } from "crypto";
 import { createConnection } from "snowflake-sdk";
-import { SnowflakeConnectionParams } from "back-end/types/integrations/snowflake";
-import { QueryResponse } from "back-end/src/types/Integration";
-import { logger } from "back-end/src/util/logger";
+import { ExternalIdCallback, QueryResponse } from "shared/types/integrations";
+import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
+import { QueryMetadata } from "shared/types/query";
 import { TEST_QUERY_SQL } from "back-end/src/integrations/SqlIntegration";
+import { getQueryTagString } from "back-end/src/util/integration";
 
 type ProxyOptions = {
   proxyHost?: string;
@@ -26,10 +27,13 @@ function getProxySettings(): ProxyOptions {
   };
 }
 
+const SNOWFLAKE_QUERY_TAG_MAX_LENGTH = 2000;
 // eslint-disable-next-line
 export async function runSnowflakeQuery<T extends Record<string, any>>(
   conn: SnowflakeConnectionParams,
   sql: string,
+  setExternalId?: ExternalIdCallback,
+  queryMetadata?: QueryMetadata,
 ): Promise<QueryResponse<T[]>> {
   //remove out the .us-west-2 from the account name
   const account = conn.account.replace(/\.us-west-2$/, "");
@@ -45,10 +49,12 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
 
       authenticationDetails = {
         authenticator: "SNOWFLAKE_JWT",
-        privateKey: privateKeyObject.export({
-          format: "pem",
-          type: "pkcs8",
-        }),
+        privateKey: privateKeyObject
+          .export({
+            format: "pem",
+            type: "pkcs8",
+          })
+          .toString(),
       };
     } catch (e) {
       throw new Error("Invalid private key or private key password");
@@ -71,7 +77,12 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
     ...getProxySettings(),
     application: "GrowthBook_GrowthBook",
     accessUrl: conn.accessUrl ? conn.accessUrl : undefined,
+    queryTag: getQueryTagString(
+      queryMetadata ?? {},
+      SNOWFLAKE_QUERY_TAG_MAX_LENGTH,
+    ),
   });
+
   // promise with timeout to prevent hanging, esp. for test query
   const connectionTimeout = sql === TEST_QUERY_SQL ? 30000 : 600000;
   await new Promise((resolve, reject) => {
@@ -88,34 +99,30 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
     });
   });
 
-  // currently the Node.js driver does not support adding session parameters in the connection string.
-  // see https://github.com/snowflakedb/snowflake-connector-nodejs/issues/61 in case they fix it one day.
-  // Tagging this session query with the GB tag. This is used to identify queries that are run by GrowthBook
-  try {
-    await new Promise<void>((resolve, reject) => {
-      connection.execute({
-        sqlText: "ALTER SESSION SET QUERY_TAG = 'growthbook'",
-        complete: (err) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve();
-          }
-        },
-      });
-    });
-  } catch (e) {
-    logger.warn(e, "Snowflake query tag failed");
-  }
-
-  const res = await new Promise<T[]>((resolve, reject) => {
+  const res = await new Promise<{
+    rows: T[];
+    columns: { name: string }[];
+  }>((resolve, reject) => {
     connection.execute({
       sqlText: sql,
-      complete: (err, stmt, rows) => {
+      complete: async (err, stmt, rows) => {
+        if (setExternalId) {
+          const queryId = await stmt.getQueryId();
+          if (queryId) {
+            setExternalId(queryId);
+          }
+        }
         if (err) {
           reject(err);
         } else {
-          resolve(rows || []);
+          // Extract column metadata from the statement
+          const stmtColumns = stmt.getColumns();
+          const columns = stmtColumns
+            ? stmtColumns.map((col) => ({
+                name: col.getName().toLowerCase(),
+              }))
+            : [];
+          resolve({ rows: rows || [], columns });
         }
       },
     });
@@ -123,11 +130,11 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
 
   // Annoyingly, Snowflake turns all column names into all caps
   // Need to lowercase them here so they match other data sources
-  const lowercase = res.map((row) => {
+  const lowercase = res.rows.map((row) => {
     return Object.fromEntries(
       Object.entries(row).map(([k, v]) => [k.toLowerCase(), v]),
     ) as T;
   });
 
-  return { rows: lowercase };
+  return { rows: lowercase, columns: res.columns };
 }

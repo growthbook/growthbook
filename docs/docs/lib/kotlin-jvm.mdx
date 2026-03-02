@@ -1,0 +1,917 @@
+---
+title: Kotlin (JVM) SDK
+description: GrowthBook SDK for Kotlin - JVM Backend
+sidebar_label: Kotlin (JVM)
+slug: kotlin-jvm
+---
+
+import SdkResources from '@site/src/components/SdkResources';
+import SdkSupportedFeatures from '@site/src/components/SdkSupportedFeatures';
+import Tabs from '@theme/Tabs'
+import TabItem from '@theme/TabItem'
+
+# Kotlin (JVM)
+
+This SDK supports Kotlin and Java backend applications running on the JVM, including server applications, CLI tools, and worker processes. It's optimized for server-side usage with suspend-first APIs and production-safe defaults.
+
+:::info Android Development?
+If you're building Android applications, see the [Kotlin (Android)](/lib/kotlin) documentation instead, which includes Android-specific guidance for Gradle Android plugin, Android engines, and AARs.
+:::
+
+<SdkResources sdk="kotlin" />
+
+## Supported Platforms
+
+- **JVM**: Java 8+ and Kotlin 1.5+
+- **Server Applications**: Ktor, Spring Boot, Micronaut, Quarkus
+- **CLI Tools**: Command-line applications and scripts
+- **Worker Processes**: Background jobs and data processing
+- **Microservices**: Containerized applications and serverless functions
+
+## Installation
+
+Add the GrowthBook JVM SDK and a network dispatcher to your project:
+
+<Tabs>
+<TabItem value="gradle-kotlin" label="Gradle (Kotlin DSL)">
+
+```kotlin
+dependencies {
+    implementation("io.github.growthbook:GrowthBook-jvm:6.0.1")
+
+    // Choose ONE network dispatcher (JVM-safe):
+    implementation("io.github.growthbook:NetworkDispatcherOkHttp-jvm:1.0.2") // Recommended for servers
+    // OR
+    implementation("io.github.growthbook:NetworkDispatcherKtor-jvm:1.0.6")   // If using Ktor CIO
+
+    // Optional: JSON serialization helpers
+    implementation("io.github.growthbook:GrowthBookKotlinxSerialization-jvm:1.0.0")
+}
+```
+
+</TabItem>
+<TabItem value="gradle-groovy" label="Gradle (Groovy DSL)">
+
+```groovy
+dependencies {
+    implementation 'io.github.growthbook:GrowthBook-jvm:6.0.1'
+
+    // Choose ONE network dispatcher (JVM-safe):
+    implementation 'io.github.growthbook:NetworkDispatcherOkHttp-jvm:1.0.2' // Recommended for servers
+    // OR
+    implementation 'io.github.growthbook:NetworkDispatcherKtor-jvm:1.0.6'   // If using Ktor CIO
+
+    // Optional: JSON serialization helpers
+    implementation 'io.github.growthbook:GrowthBookKotlinxSerialization-jvm:1.0.0'
+}
+```
+
+</TabItem>
+<TabItem value="maven" label="Maven">
+
+```xml
+<dependencies>
+    <dependency>
+        <groupId>io.github.growthbook</groupId>
+        <artifactId>GrowthBook-jvm</artifactId>
+        <version>6.0.1</version>
+    </dependency>
+
+    <!-- Choose ONE network dispatcher (JVM-safe): -->
+    <dependency>
+        <groupId>io.github.growthbook</groupId>
+        <artifactId>NetworkDispatcherOkHttp-jvm</artifactId>
+        <version>1.0.2</version>
+    </dependency>
+    <!-- OR -->
+    <dependency>
+        <groupId>io.github.growthbook</groupId>
+        <artifactId>NetworkDispatcherKtor-jvm</artifactId>
+        <version>1.0.6</version>
+    </dependency>
+
+    <!-- Optional: JSON serialization helpers -->
+    <dependency>
+        <groupId>io.github.growthbook</groupId>
+        <artifactId>GrowthBookKotlinxSerialization-jvm</artifactId>
+        <version>1.0.0</version>
+    </dependency>
+</dependencies>
+```
+
+</TabItem>
+</Tabs>
+
+:::warning Important: Use JVM-specific Artifacts
+Always use the `-jvm` variants of the artifacts for server applications. Do not include Android artifacts or the Ktor Android engine, as they will add unnecessary dependencies and increase your application size.
+:::
+
+## Quick Start
+
+Here's a minimal example to get started with the GrowthBook Kotlin JVM SDK:
+
+```kotlin
+import kotlinx.coroutines.runBlocking
+import com.sdk.growthbook.GBSDKBuilder
+import com.sdk.growthbook.network.NetworkDispatcherOkHttp
+
+suspend fun main() {
+    // User attributes for targeting and experiments
+    val attributes = mapOf(
+        "id" to "user_123",
+        "environment" to "production",
+        "organization" to "acme-corp",
+        "role" to "admin"
+    )
+
+    // Create network dispatcher (OkHttp recommended for servers)
+    val networkDispatcher = NetworkDispatcherOkHttp()
+
+    // Build GrowthBook SDK instance
+    val growthBook = GBSDKBuilder(
+        apiKey = "sdk_abc123",
+        hostURL = "https://cdn.growthbook.io/",
+        attributes = attributes,
+        networkDispatcher = networkDispatcher,
+        trackingCallback = { experiment, result ->
+            // Track experiment views in your analytics
+            println("Experiment: ${experiment.key}, Variation: ${result.key}")
+        }
+    ).initialize()
+
+    // Fetch feature definitions
+    growthBook.refreshCache()
+
+    // Evaluate feature flags
+    val newFeatureEnabled = growthBook.feature("new-checkout-flow").on
+    val maxRetries = growthBook.feature("max-retries").value ?: 3
+
+    println("New checkout flow: $newFeatureEnabled")
+    println("Max retries: $maxRetries")
+
+    // Run inline experiments
+    val buttonColorExperiment = growthBook.run(
+        experiment = mapOf(
+            "key" to "button-color-test",
+            "variations" to listOf("blue", "red", "green")
+        )
+    )
+
+    println("Button color: ${buttonColorExperiment.value}")
+}
+```
+
+## Network Dispatchers
+
+The GrowthBook SDK requires a network dispatcher for fetching feature definitions. Choose the appropriate one for your use case:
+
+### OkHttp Dispatcher (Recommended)
+
+Best for most server applications due to its smaller dependency footprint:
+
+```kotlin
+import com.sdk.growthbook.network.NetworkDispatcherOkHttp
+
+val networkDispatcher = NetworkDispatcherOkHttp(
+    // Optional configuration
+    client = customOkHttpClient, // Use your existing OkHttp client
+    timeout = 30_000L // 30 second timeout
+)
+```
+
+### Ktor CIO Dispatcher
+
+Use this if you're already using Ktor in your application:
+
+```kotlin
+import com.sdk.growthbook.network.NetworkDispatcherKtor
+import io.ktor.client.engine.cio.*
+
+val networkDispatcher = NetworkDispatcherKtor(
+    engine = CIO.create {
+        // Configure CIO engine
+        requestTimeout = 30_000
+        connectTimeout = 10_000
+    }
+)
+```
+
+:::warning Avoid Android Engines
+When using Ktor, always specify the CIO engine explicitly. Do not use the Android engine in server applications as it will add unnecessary dependencies.
+:::
+
+## Configuration
+
+Configure the GrowthBook SDK for your server environment:
+
+```kotlin
+val growthBook = GBSDKBuilder(
+    // Required
+    apiKey = "sdk_abc123",
+    hostURL = "https://cdn.growthbook.io/",
+    attributes = userAttributes,
+    networkDispatcher = networkDispatcher,
+
+    // Optional configuration
+    trackingCallback = { experiment, result ->
+        // Your analytics tracking
+        analyticsService.track("experiment_viewed", mapOf(
+            "experiment_id" to experiment.key,
+            "variation_id" to result.key,
+            "user_id" to userAttributes["id"]
+        ))
+    },
+
+    // Caching configuration
+    cacheTimeout = 60_000L, // Cache timeout in milliseconds
+
+    // Enable real-time updates via Server-Sent Events
+    enableSSE = true,
+
+    // Logging
+    logLevel = GBLogLevel.INFO,
+
+    // QA mode (disable randomization for testing)
+    qaMode = false,
+
+    // Custom feature refresh callback
+    onFeatureRefresh = { success, error ->
+        if (success) {
+            logger.info("Features refreshed successfully")
+        } else {
+            logger.error("Feature refresh failed", error)
+        }
+    }
+).initialize()
+```
+
+### Environment Variables
+
+You can also configure the SDK using environment variables:
+
+```bash
+export GROWTHBOOK_API_KEY="sdk_abc123"
+export GROWTHBOOK_HOST_URL="https://cdn.growthbook.io/"
+export GROWTHBOOK_CACHE_TIMEOUT="60000"
+export GROWTHBOOK_LOG_LEVEL="INFO"
+```
+
+## Evaluating Features and Running Experiments
+
+### Feature Flags
+
+Evaluate feature flags to control application behavior:
+
+```kotlin
+// Simple boolean feature
+val newFeatureEnabled = growthBook.feature("new-checkout-flow").on
+if (newFeatureEnabled) {
+    // Show new checkout flow
+    showNewCheckoutFlow()
+} else {
+    // Show legacy checkout
+    showLegacyCheckout()
+}
+
+// Feature with default value
+val maxRetries = growthBook.feature("max-retries").value ?: 3
+val timeout = growthBook.feature("api-timeout").value as? Long ?: 5000L
+
+// Complex feature values
+val config = growthBook.feature("service-config").value as? Map<String, Any>
+val enabledServices = config?.get("enabled") as? List<String> ?: emptyList()
+```
+
+### Feature Evaluation with Context
+
+Update user attributes for different contexts:
+
+```kotlin
+// Evaluate for different users
+growthBook.setAttributes(mapOf(
+    "id" to "user_123",
+    "plan" to "premium",
+    "country" to "US"
+))
+val premiumFeature = growthBook.feature("premium-dashboard").on
+
+// Switch to different user context
+growthBook.setAttributes(mapOf(
+    "id" to "user_456",
+    "plan" to "free",
+    "country" to "CA"
+))
+val freeUserFeature = growthBook.feature("premium-dashboard").on // Will be different
+```
+
+### Running Experiments
+
+Run A/B tests and experiments directly:
+
+```kotlin
+// Simple A/B test
+val experiment = mapOf(
+    "key" to "button-color-test",
+    "variations" to listOf("blue", "red", "green"),
+    "weights" to listOf(0.33, 0.33, 0.34)
+)
+
+val result = growthBook.run(experiment)
+val buttonColor = result.value as String
+val inExperiment = result.inExperiment
+
+if (inExperiment) {
+    println("User is in experiment, showing $buttonColor button")
+    setButtonColor(buttonColor)
+} else {
+    println("User not in experiment, using default")
+    setButtonColor("blue") // default
+}
+
+// Complex experiment with targeting
+val pricingExperiment = mapOf(
+    "key" to "pricing-test",
+    "variations" to listOf(9.99, 14.99, 19.99),
+    "weights" to listOf(0.5, 0.3, 0.2),
+    "condition" to mapOf(
+        "country" to "US",
+        "plan" to "premium"
+    )
+)
+
+val pricingResult = growthBook.run(pricingExperiment)
+if (pricingResult.inExperiment) {
+    val price = pricingResult.value as Double
+    displayPrice(price)
+}
+```
+
+### Experiment Tracking
+
+Track experiment exposures for analytics:
+
+```kotlin
+val growthBook = GBSDKBuilder(
+    // ... other config
+    trackingCallback = { experiment, result ->
+        // Send to your analytics platform
+        analytics.track("experiment_viewed", mapOf(
+            "experiment_id" to experiment.key,
+            "variation_id" to result.key,
+            "variation_value" to result.value,
+            "user_id" to attributes["id"],
+            "in_experiment" to result.inExperiment
+        ))
+
+        println("Tracked: ${experiment.key} -> ${result.value}")
+    }
+).initialize()
+```
+
+### Advanced Features
+
+For more advanced usage including sticky bucketing, encrypted features, custom attributes, and mobile-specific considerations, see the [Kotlin (Android)](/lib/kotlin) documentation which covers these topics in detail.
+
+## Serialization Support
+
+The optional serialization module provides helpers for working with `GBValue` and kotlinx.serialization:
+
+```kotlin
+import com.sdk.growthbook.serialization.*
+
+@Serializable
+data class FeatureConfig(
+    val maxRetries: Int,
+    val timeout: Long,
+    val enabledFeatures: List<String>
+)
+
+// Convert GBValue to typed objects
+val configValue = growthBook.feature("service-config").value
+val config: FeatureConfig? = configValue?.decodeAs<FeatureConfig>()
+
+// Use the configuration
+config?.let {
+    println("Max retries: ${it.maxRetries}")
+    println("Timeout: ${it.timeout}")
+}
+```
+
+:::info When to Use Serialization
+You only need the serialization module if you want to work with complex JSON feature values as typed Kotlin objects. For simple boolean, string, and number features, you can skip this dependency.
+:::
+
+## Caching and Server-Sent Events
+
+### In-Memory Caching
+
+The SDK automatically caches feature definitions in memory with configurable TTL:
+
+```kotlin
+val growthBook = GBSDKBuilder(
+    // ... other config
+    cacheTimeout = 300_000L, // 5 minutes cache
+).initialize()
+
+// Manual cache refresh
+growthBook.refreshCache()
+
+// Check cache status
+val cacheInfo = growthBook.getCacheInfo()
+println("Cache age: ${cacheInfo.ageMs}ms")
+println("Cache size: ${cacheInfo.featureCount} features")
+```
+
+### Real-time Updates with SSE
+
+Enable Server-Sent Events for live feature updates:
+
+```kotlin
+val growthBook = GBSDKBuilder(
+    // ... other config
+    enableSSE = true,
+    onFeatureRefresh = { success, error ->
+        if (success) {
+            logger.info("Features updated via SSE")
+            // Optionally notify application components
+            eventBus.publish(FeaturesUpdatedEvent())
+        }
+    }
+).initialize()
+```
+
+## Error Handling and Observability
+
+### Exception Handling
+
+The SDK uses suspend functions and handles errors gracefully:
+
+```kotlin
+try {
+    val success = growthBook.refreshCache()
+    if (!success) {
+        logger.warn("Feature refresh failed, using cached features")
+    }
+} catch (e: Exception) {
+    logger.error("Failed to refresh features", e)
+    // SDK will continue working with cached features
+}
+```
+
+### Logging Integration
+
+Integrate with your existing logging framework:
+
+```kotlin
+import org.slf4j.LoggerFactory
+
+val logger = LoggerFactory.getLogger("GrowthBook")
+
+val growthBook = GBSDKBuilder(
+    // ... other config
+    logLevel = GBLogLevel.DEBUG,
+    logCallback = { level, message, error ->
+        when (level) {
+            GBLogLevel.ERROR -> logger.error(message, error)
+            GBLogLevel.WARN -> logger.warn(message)
+            GBLogLevel.INFO -> logger.info(message)
+            GBLogLevel.DEBUG -> logger.debug(message)
+        }
+    }
+).initialize()
+```
+
+## Testing
+
+### Mock Dispatchers
+
+Use mock dispatchers for unit testing:
+
+```kotlin
+class MockNetworkDispatcher : NetworkDispatcher {
+    var mockFeatures: String = """{"features": {}}"""
+
+    override suspend fun consumeGBRequest(request: GBRequest): GBResponse {
+        return GBResponse(
+            data = mockFeatures,
+            isSuccessful = true,
+            statusCode = 200
+        )
+    }
+}
+
+// In your tests
+@Test
+fun testFeatureEvaluation() = runTest {
+    val mockDispatcher = MockNetworkDispatcher()
+    mockDispatcher.mockFeatures = """
+        {
+            "features": {
+                "test-feature": {
+                    "defaultValue": true,
+                    "rules": []
+                }
+            }
+        }
+    """.trimIndent()
+
+    val growthBook = GBSDKBuilder(
+        apiKey = "test",
+        hostURL = "http://localhost",
+        attributes = mapOf("id" to "test-user"),
+        networkDispatcher = mockDispatcher
+    ).initialize()
+
+    growthBook.refreshCache()
+
+    assertTrue(growthBook.feature("test-feature").on)
+}
+```
+
+### Deterministic Testing
+
+Use local JSON fixtures for predictable tests:
+
+```kotlin
+@Test
+fun testExperimentVariations() = runTest {
+    val testFeatures = loadResourceAsString("/test-features.json")
+
+    val mockDispatcher = MockNetworkDispatcher()
+    mockDispatcher.mockFeatures = testFeatures
+
+    val growthBook = GBSDKBuilder(
+        apiKey = "test",
+        hostURL = "http://localhost",
+        attributes = mapOf("id" to "user_123"), // Deterministic user
+        networkDispatcher = mockDispatcher
+    ).initialize()
+
+    growthBook.refreshCache()
+
+    // Test will always get the same variation for user_123
+    val result = growthBook.run(mapOf(
+        "key" to "button-color-test",
+        "variations" to listOf("blue", "red")
+    ))
+
+    assertEquals("blue", result.value) // Deterministic based on user ID
+}
+```
+
+## Performance and Resource Usage
+
+### Connection Pooling
+
+Configure connection pooling for high-throughput applications:
+
+```kotlin
+val customOkHttpClient = OkHttpClient.Builder()
+    .connectionPool(ConnectionPool(10, 5, TimeUnit.MINUTES))
+    .connectTimeout(10, TimeUnit.SECONDS)
+    .readTimeout(30, TimeUnit.SECONDS)
+    .writeTimeout(10, TimeUnit.SECONDS)
+    .build()
+
+val networkDispatcher = NetworkDispatcherOkHttp(client = customOkHttpClient)
+```
+
+### Coroutine Dispatchers
+
+Use appropriate dispatchers for different workloads:
+
+```kotlin
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
+// For CPU-intensive feature evaluation
+val result = withContext(Dispatchers.Default) {
+    growthBook.feature("complex-feature").on
+}
+
+// For network operations (handled internally by SDK)
+val refreshed = withContext(Dispatchers.IO) {
+    growthBook.refreshCache()
+}
+```
+
+### Avoid Blocking Calls
+
+Never use `runBlocking` on request threads in server applications:
+
+```kotlin
+// ❌ DON'T: Blocks the request thread
+fun handleRequest(request: HttpRequest): HttpResponse {
+    val feature = runBlocking {
+        growthBook.feature("new-feature").on
+    }
+    // ...
+}
+
+// ✅ DO: Use suspend functions end-to-end
+suspend fun handleRequest(request: HttpRequest): HttpResponse {
+    val feature = growthBook.feature("new-feature").on
+    // ...
+}
+```
+
+## Framework Integration Examples
+
+### Ktor Server
+
+```kotlin
+import io.ktor.server.application.*
+import io.ktor.server.engine.*
+import io.ktor.server.netty.*
+import io.ktor.server.response.*
+import io.ktor.server.routing.*
+
+fun main() {
+    embeddedServer(Netty, port = 8080) {
+        // Initialize GrowthBook as singleton
+        val growthBook = GBSDKBuilder(
+            apiKey = System.getenv("GROWTHBOOK_API_KEY"),
+            hostURL = "https://cdn.growthbook.io/",
+            attributes = mapOf("environment" to "production"),
+            networkDispatcher = NetworkDispatcherKtor()
+        ).initialize()
+
+        // Refresh features on startup
+        launch {
+            growthBook.refreshCache()
+        }
+
+        routing {
+            get("/api/features/{userId}") {
+                val userId = call.parameters["userId"] ?: return@get call.respond(400)
+
+                // Create user-specific attributes
+                val userAttributes = mapOf(
+                    "id" to userId,
+                    "environment" to "production"
+                )
+
+                // Update attributes for this request
+                growthBook.setAttributes(userAttributes)
+
+                // Evaluate features
+                val features = mapOf(
+                    "newDashboard" to growthBook.feature("new-dashboard").on,
+                    "maxItems" to growthBook.feature("max-items").value,
+                    "theme" to growthBook.feature("theme").value
+                )
+
+                call.respond(features)
+            }
+        }
+    }.start(wait = true)
+}
+```
+
+### Spring Boot
+
+```kotlin
+import org.springframework.boot.autoconfigure.SpringBootApplication
+import org.springframework.boot.runApplication
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
+import org.springframework.web.bind.annotation.*
+
+@SpringBootApplication
+class Application
+
+@Configuration
+class GrowthBookConfig {
+
+    @Bean
+    suspend fun growthBook(): GrowthBookSDK {
+        val growthBook = GBSDKBuilder(
+            apiKey = System.getenv("GROWTHBOOK_API_KEY"),
+            hostURL = "https://cdn.growthbook.io/",
+            attributes = mapOf("environment" to "production"),
+            networkDispatcher = NetworkDispatcherOkHttp()
+        ).initialize()
+
+        growthBook.refreshCache()
+        return growthBook
+    }
+}
+
+@RestController
+@RequestMapping("/api")
+class FeatureController(private val growthBook: GrowthBookSDK) {
+
+    @GetMapping("/features/{userId}")
+    suspend fun getUserFeatures(@PathVariable userId: String): Map<String, Any?> {
+        // Set user-specific attributes
+        growthBook.setAttributes(mapOf(
+            "id" to userId,
+            "environment" to "production"
+        ))
+
+        return mapOf(
+            "newDashboard" to growthBook.feature("new-dashboard").on,
+            "maxItems" to growthBook.feature("max-items").value,
+            "premiumFeatures" to growthBook.feature("premium-features").on
+        )
+    }
+
+    @PostMapping("/experiments/{userId}")
+    suspend fun runExperiment(
+        @PathVariable userId: String,
+        @RequestParam experimentKey: String
+    ): Map<String, Any?> {
+        growthBook.setAttributes(mapOf("id" to userId))
+
+        val result = growthBook.run(mapOf(
+            "key" to experimentKey,
+            "variations" to listOf("control", "treatment")
+        ))
+
+        return mapOf(
+            "variation" to result.value,
+            "inExperiment" to result.inExperiment,
+            "variationId" to result.key
+        )
+    }
+}
+
+fun main(args: Array<String>) {
+    runApplication<Application>(*args)
+}
+```
+
+### CLI Application
+
+```kotlin
+import kotlinx.coroutines.runBlocking
+
+fun main(args: Array<String>) = runBlocking {
+    val userId = args.getOrNull(0) ?: "cli-user"
+
+    // Initialize GrowthBook for CLI usage
+    val growthBook = GBSDKBuilder(
+        apiKey = System.getenv("GROWTHBOOK_API_KEY") ?: "sdk_dev_key",
+        hostURL = "https://cdn.growthbook.io/",
+        attributes = mapOf(
+            "id" to userId,
+            "environment" to "cli",
+            "version" to "1.0.0"
+        ),
+        networkDispatcher = NetworkDispatcherOkHttp()
+    ).initialize()
+
+    try {
+        // Fetch latest features
+        println("Fetching feature definitions...")
+        val success = growthBook.refreshCache()
+
+        if (!success) {
+            println("Warning: Failed to fetch features, using defaults")
+        }
+
+        // Evaluate features for CLI behavior
+        val verboseLogging = growthBook.feature("verbose-logging").on
+        val maxConcurrency = growthBook.feature("max-concurrency").value as? Int ?: 1
+        val outputFormat = growthBook.feature("output-format").value as? String ?: "json"
+
+        println("Configuration:")
+        println("  Verbose logging: $verboseLogging")
+        println("  Max concurrency: $maxConcurrency")
+        println("  Output format: $outputFormat")
+
+        // Run your CLI logic here
+        performCliTask(verboseLogging, maxConcurrency, outputFormat)
+
+    } catch (e: Exception) {
+        println("Error: ${e.message}")
+        kotlin.system.exitProcess(1)
+    }
+}
+
+suspend fun performCliTask(verbose: Boolean, concurrency: Int, format: String) {
+    // Your CLI implementation
+    if (verbose) {
+        println("Running with verbose logging enabled")
+    }
+    println("Processing with concurrency level: $concurrency")
+    println("Output format: $format")
+}
+```
+
+## Versioning and Compatibility
+
+### Module Versions
+
+GrowthBook Kotlin JVM modules follow independent versioning:
+
+| Module                               | Latest Version | Purpose             |
+| ------------------------------------ | -------------- | ------------------- |
+| `GrowthBook-jvm`                     | 6.0.1          | Core SDK            |
+| `NetworkDispatcherOkHttp-jvm`        | 1.0.2          | OkHttp networking   |
+| `NetworkDispatcherKtor-jvm`          | 1.0.6          | Ktor CIO networking |
+| `GrowthBookKotlinxSerialization-jvm` | 1.0.0          | JSON serialization  |
+
+### Compatibility Matrix
+
+| SDK Version | Min Kotlin | Min JDK | OkHttp Dispatcher | Ktor Dispatcher |
+| ----------- | ---------- | ------- | ----------------- | --------------- |
+| 6.0.x       | 1.5.0      | Java 8  | 1.0.2+            | 1.0.6+          |
+| 5.x.x       | 1.4.0      | Java 8  | 1.0.1+            | 1.0.5+          |
+
+### Dependency Management
+
+Pin JVM-specific versions explicitly in monorepos:
+
+```kotlin
+// build.gradle.kts
+dependencies {
+    // Explicitly specify JVM variants
+    implementation("io.github.growthbook:GrowthBook-jvm:6.0.1")
+    implementation("io.github.growthbook:NetworkDispatcherOkHttp-jvm:1.0.2")
+
+    // Avoid mixing Android and JVM artifacts
+    // ❌ Don't do this in server projects:
+    // implementation("io.github.growthbook:GrowthBook:1.1.60") // Android variant
+}
+```
+
+## Migration from Android Documentation
+
+If you started with the Android documentation but need server-side usage:
+
+### Key Differences
+
+| Aspect        | Android                    | JVM (Server)                  |
+| ------------- | -------------------------- | ----------------------------- |
+| **Artifacts** | `GrowthBook:1.1.60`        | `GrowthBook-jvm:6.0.1`        |
+| **Network**   | Android engines OK         | Use CIO or OkHttp only        |
+| **Threading** | Main thread considerations | Suspend-first, no runBlocking |
+| **Lifecycle** | Activity/Fragment tied     | Long-running singleton        |
+| **Caching**   | Persistent storage         | In-memory with TTL            |
+
+### Migration Steps
+
+1. **Update Dependencies**: Replace Android artifacts with JVM variants
+2. **Remove Android Engines**: Use OkHttp or Ktor CIO only
+3. **Update Network Dispatcher**: Ensure JVM-compatible engines
+4. **Review Threading**: Remove `runBlocking` from request handlers
+5. **Update Caching**: Configure appropriate TTL for server usage
+
+## Troubleshooting
+
+### Common Issues
+
+**Problem**: `ClassNotFoundException` for Android classes
+
+```
+Solution: Ensure you're using -jvm artifacts, not Android variants
+```
+
+**Problem**: Large JAR size in server deployments
+
+```
+Solution: Use OkHttp dispatcher instead of Ktor with Android engine
+```
+
+**Problem**: Blocking network calls in request handlers
+
+```
+Solution: Use suspend functions end-to-end, avoid runBlocking
+```
+
+**Problem**: Features not updating in long-running processes
+
+```
+Solution: Enable SSE or implement periodic cache refresh
+```
+
+### Debug Logging
+
+Enable debug logging to troubleshoot issues:
+
+```kotlin
+val growthBook = GBSDKBuilder(
+    // ... other config
+    logLevel = GBLogLevel.DEBUG,
+    logCallback = { level, message, error ->
+        println("[$level] $message")
+        error?.printStackTrace()
+    }
+).initialize()
+```
+
+## Supported Features
+
+<SdkSupportedFeatures sdk="kotlin" />
+
+## Further Reading
+
+- [Kotlin (Android) Documentation](/lib/kotlin) - For mobile app development
+- [Java SDK Documentation](/lib/java) - Alternative JVM SDK
+- [GrowthBook API Reference](/api) - REST API documentation
+- [Feature Flag Best Practices](/app/features) - Feature management guide
+
+---
+
+**Need help?** Join our [Slack community](https://slack.growthbook.io) or check out our [GitHub repository](https://github.com/growthbook/growthbook-kotlin) for examples and support.

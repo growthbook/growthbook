@@ -4,9 +4,10 @@ import {
   DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
   DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
 } from "shared/constants";
-import { SafeRolloutSnapshotInterface } from "back-end/types/safe-rollout";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { SafeRolloutSnapshotInterface } from "shared/types/safe-rollout";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import Callout from "@/ui/Callout";
 import { StatusBadge } from "./StatusBadge";
 import { IssueValue } from "./IssueTags";
 
@@ -67,7 +68,7 @@ export default function MultipleExposuresCard({
       <div className="row justify-content-start">
         <div className="ml-2 mr-2 mt-1 w-100">
           {health.status === "healthy" ? (
-            <div className="alert alert-info">
+            <Callout status="info" contentsAs="div">
               {multipleExposures === 0 ? (
                 <b>Multiple exposures were not detected.</b>
               ) : (
@@ -77,15 +78,15 @@ export default function MultipleExposuresCard({
                   minPercentThreshold,
                 )}`
               )}
-            </div>
+            </Callout>
           ) : (
-            <div className="alert alert-warning mb-0">
+            <Callout status="warning" contentsAs="div">
               <strong>Multiple Exposures Warning</strong>.{" "}
               {numberFormatter.format(multipleExposures)} users (
               {percentFormatter.format(health.rawDecimal)}) saw multiple
               variations and were automatically removed from results. Check for
               bugs in your implementation, event tracking, or data pipeline.
-            </div>
+            </Callout>
           )}
         </div>
       </div>

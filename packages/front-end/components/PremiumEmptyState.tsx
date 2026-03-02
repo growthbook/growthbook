@@ -1,8 +1,8 @@
 import React, { FC, useState } from "react";
 import { CommercialFeature } from "shared/enterprise";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
-import LinkButton from "@/components/Radix/LinkButton";
-import Button from "@/components/Radix/Button";
+import LinkButton from "@/ui/LinkButton";
+import Button from "@/ui/Button";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useUser } from "@/services/UserContext";
 
@@ -49,7 +49,7 @@ const PremiumEmptyState: FC<Props> = ({
           <div className="appbox p-5 text-center">
             <div className="py-2">
               <h2>{title}</h2>
-              <p>{description}</p>
+              <p style={{ color: "var(--color-text-mid)" }}>{description}</p>
               <div className="mt-4">
                 {learnMoreLink && (
                   <div className="mr-4 d-inline-block">

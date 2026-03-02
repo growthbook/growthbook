@@ -1,14 +1,14 @@
 import {
   ExperimentSnapshotTraffic,
   ExperimentSnapshotTrafficDimension,
-} from "back-end/types/experiment-snapshot";
-import { ExperimentReportVariation } from "back-end/types/report";
+} from "shared/types/experiment-snapshot";
+import { ExperimentReportVariation } from "shared/types/report";
 import { useEffect, useMemo, useState } from "react";
 import { getValidDate } from "shared/dates";
 import { FaCircle } from "react-icons/fa6";
 import { parseISO } from "date-fns";
 import { DEFAULT_SRM_THRESHOLD } from "shared/constants";
-import { Switch } from "@radix-ui/themes";
+import Switch from "@/ui/Switch";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 import { formatTrafficSplit } from "@/services/utils";
@@ -120,25 +120,27 @@ export default function TrafficCard({
   return (
     <div className={containerClassName}>
       <div className="mx-2">
-        <div className="d-flex flex-row mt-1">
-          <h2 className="d-inline">{cardTitle}</h2>
-          <div className="flex-1" />
-          <div className="col-auto">
-            <div className="uppercase-title text-muted">Dimension</div>
-            <SelectField
-              containerClassName={"select-dropdown-underline"}
-              initialOption="Over Time"
-              options={availableDimensions}
-              value={selectedDimension}
-              onChange={(v) => {
-                if (v === selectedDimension) return;
-                track("Select health tab traffic card dimension");
-                setSelectedDimension(v);
-              }}
-              disabled={!availableDimensions.length}
-            />
+        {!disableDimensions && (
+          <div className="d-flex flex-row mt-1">
+            <h2 className="d-inline">{cardTitle}</h2>
+            <div className="flex-1" />
+            <div className="col-auto">
+              <div className="uppercase-title text-muted">Dimension</div>
+              <SelectField
+                containerClassName={"select-dropdown-underline"}
+                initialOption="Over Time"
+                options={availableDimensions}
+                value={selectedDimension}
+                onChange={(v) => {
+                  if (v === selectedDimension) return;
+                  track("Select health tab traffic card dimension");
+                  setSelectedDimension(v);
+                }}
+                disabled={!availableDimensions.length}
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="mt-3 mb-3 d-flex align-items-center">
           <h3>
@@ -150,8 +152,7 @@ export default function TrafficCard({
           </h3>
           {!selectedDimension && (
             <div className="ml-auto">
-              Cumulative{" "}
-              <Switch checked={cumulative} onCheckedChange={setCumulative} />
+              Cumulative <Switch value={cumulative} onChange={setCumulative} />
             </div>
           )}
         </div>
@@ -251,7 +252,7 @@ export default function TrafficCard({
           <ExperimentDateGraph
             yaxis="users"
             variationNames={variations.map((v) => v.name)}
-            label="Users"
+            label="Units"
             datapoints={usersPerDate}
             formatter={formatNumber}
             cumulative={cumulative}

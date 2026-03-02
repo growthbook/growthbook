@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { Response } from "express";
 import { AccountPlan } from "shared/enterprise";
+import { LicenseServerError } from "back-end/src/util/errors";
 import {
   getLicenseMetaData,
   getUserCodesForOrg,
@@ -12,7 +13,6 @@ import { PrivateApiErrorResponse } from "back-end/types/api";
 import {
   licenseInit,
   postCreateTrialEnterpriseLicenseToLicenseServer,
-  LicenseServerError,
   postResendEmailVerificationEmailToLicenseServer,
   postVerifyEmailToLicenseServer,
 } from "back-end/src/enterprise";

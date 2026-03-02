@@ -1,6 +1,6 @@
 import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import { Box } from "@radix-ui/themes";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
@@ -8,7 +8,7 @@ import TagsInput from "@/components/Tags/TagsInput";
 import SelectOwner from "@/components/Owner/SelectOwner";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import SelectField from "@/components/Forms/SelectField";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useOrgSettings from "@/hooks/useOrgSettings";

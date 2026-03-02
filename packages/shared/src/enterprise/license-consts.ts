@@ -20,6 +20,7 @@ export type CommercialFeature =
   | "custom-metadata"
   | "override-metrics"
   | "regression-adjustment"
+  | "post-stratification"
   | "sequential-testing"
   | "pipeline-mode"
   | "audit-logging"
@@ -35,6 +36,7 @@ export type CommercialFeature =
   | "custom-launch-checklist"
   | "multi-metric-queries"
   | "no-access-role"
+  | "project-admin-role"
   | "teams"
   | "sticky-bucketing"
   | "require-approvals"
@@ -57,7 +59,7 @@ export type CommercialFeature =
   | "historical-power"
   | "decision-framework"
   | "unlimited-cdn-usage"
-  | "managed-warehouse"
+  | "unlimited-managed-warehouse-usage"
   | "safe-rollout"
   | "require-project-for-features-setting"
   | "holdouts"
@@ -65,7 +67,13 @@ export type CommercialFeature =
   | "metric-effects"
   | "metric-correlations"
   | "dashboards"
-  | "precomputed-dimensions";
+  | "product-analytics-dashboards"
+  | "share-product-analytics-dashboards"
+  | "precomputed-dimensions"
+  | "custom-hooks"
+  | "metric-slices"
+  | "manage-official-resources"
+  | "incremental-refresh";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
@@ -137,6 +145,7 @@ export interface LicenseInterface {
   installationUsers: {
     [installationId: string]: {
       date: string;
+      installationName?: string;
       userHashes: string[];
       licenseUserCodes?: LicenseUserCodes;
     };
@@ -206,9 +215,10 @@ export const accountFeatures: CommercialFeaturesMap = {
     "historical-power",
     "decision-framework",
     "safe-rollout",
-    "managed-warehouse",
+    "unlimited-managed-warehouse-usage",
     "saveSqlExplorerQueries",
     "precomputed-dimensions",
+    "product-analytics-dashboards",
   ]),
   pro_sso: new Set<CommercialFeature>([
     "sso",
@@ -237,9 +247,10 @@ export const accountFeatures: CommercialFeaturesMap = {
     "historical-power",
     "decision-framework",
     "safe-rollout",
-    "managed-warehouse",
+    "unlimited-managed-warehouse-usage",
     "saveSqlExplorerQueries",
     "precomputed-dimensions",
+    "product-analytics-dashboards",
   ]),
   enterprise: new Set<CommercialFeature>([
     "ai-suggestions",
@@ -252,6 +263,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "custom-metadata",
     "override-metrics",
     "regression-adjustment",
+    "post-stratification",
     "sequential-testing",
     "pipeline-mode",
     "multi-metric-queries",
@@ -277,6 +289,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "quantile-metrics",
     "retention-metrics",
     "custom-roles",
+    "project-admin-role",
     "custom-markdown",
     "experiment-impact",
     "metric-populations",
@@ -288,7 +301,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "historical-power",
     "decision-framework",
     "safe-rollout",
-    "managed-warehouse",
+    "unlimited-managed-warehouse-usage",
     "require-project-for-features-setting",
     "holdouts",
     "saveSqlExplorerQueries",
@@ -296,6 +309,12 @@ export const accountFeatures: CommercialFeaturesMap = {
     "metric-correlations",
     "dashboards",
     "precomputed-dimensions",
+    "custom-hooks",
+    "metric-slices",
+    "manage-official-resources",
+    "product-analytics-dashboards",
+    "share-product-analytics-dashboards",
+    "incremental-refresh",
   ]),
 };
 
@@ -313,6 +332,7 @@ export interface LicenseUserCodes {
 
 export interface LicenseMetaData {
   installationId: string;
+  installationName?: string;
   gitSha: string;
   gitCommitDate: string;
   sdkLanguages: string[];

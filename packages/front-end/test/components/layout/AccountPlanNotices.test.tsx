@@ -1,10 +1,7 @@
-// @vitest-environment jsdom
-
 import React from "react";
 import { useRouter } from "next/router";
 import { render, screen } from "@testing-library/react";
 import { describe, it, beforeEach, vi, expect } from "vitest";
-import "@testing-library/jest-dom";
 import AccountPlanNotices from "@/components/Layout/AccountPlanNotices";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";

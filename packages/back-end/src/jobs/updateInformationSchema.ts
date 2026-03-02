@@ -1,16 +1,15 @@
 import Agenda, { Job } from "agenda";
+import { InformationSchemaError } from "shared/types/integrations";
+import {
+  DataSourceNotSupportedError,
+  MissingDatasourceParamsError,
+} from "back-end/src/util/errors";
 import { updateDatasourceInformationSchema } from "back-end/src/services/informationSchema";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
-  getInformationSchemaByDatasourceId,
   getInformationSchemaById,
   updateInformationSchemaById,
 } from "back-end/src/models/InformationSchemaModel";
-import {
-  DataSourceNotSupportedError,
-  InformationSchemaError,
-  MissingDatasourceParamsError,
-} from "back-end/src/types/Integration";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 
 const UPDATE_INFORMATION_SCHEMA_JOB_NAME = "updateInformationSchema";
@@ -22,8 +21,6 @@ type UpdateInformationSchemaJob = Job<{
 
 const updateInformationSchema = async (job: UpdateInformationSchemaJob) => {
   const { datasourceId, organization, informationSchemaId } = job.attrs.data;
-
-  if (!datasourceId || !organization) return;
 
   const context = await getContextForAgendaJobByOrgId(organization);
 
@@ -53,17 +50,10 @@ const updateInformationSchema = async (job: UpdateInformationSchemaJob) => {
     if (e instanceof MissingDatasourceParamsError) {
       error.errorType = "missing_params";
     }
-    const informationSchema = await getInformationSchemaByDatasourceId(
-      datasource.id,
-      organization,
-    );
-    if (informationSchema) {
-      await updateInformationSchemaById(organization, informationSchema.id, {
-        ...informationSchema,
-        status: "COMPLETE",
-        error,
-      });
-    }
+    await updateInformationSchemaById(organization, informationSchemaId, {
+      status: "COMPLETE",
+      error,
+    });
   }
 };
 

@@ -1,16 +1,15 @@
 import React, { FC } from "react";
 import { useForm } from "react-hook-form";
-import { ArchetypeInterface } from "back-end/types/archetype";
+import { ArchetypeInterface } from "shared/types/archetype";
 import Field from "@/components/Forms/Field";
 import AttributeForm from "@/components/Archetype/AttributeForm";
-import Toggle from "@/components/Forms/Toggle";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Modal from "@/components/Modal";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useProjectOptions from "@/hooks/useProjectOptions";
+import Checkbox from "@/ui/Checkbox";
 
 const ArchetypeAttributesModal: FC<{
   close: () => void;
@@ -120,19 +119,12 @@ const ArchetypeAttributesModal: FC<{
             </div>
           )}
           <div className="mb-3">
-            <label className="mr-3">
-              Make archetype public?{" "}
-              <Tooltip
-                body={
-                  "Allow other team members to see this archetypal user for testing"
-                }
-              />
-            </label>
-            <Toggle
+            <Checkbox
               id="public"
+              label="Make archetype public"
+              description="Allow other team members to see this archetypal user for testing"
               value={form.watch("isPublic")}
               setValue={(v) => form.setValue("isPublic", v)}
-              label="Public"
             />
           </div>
           <div>

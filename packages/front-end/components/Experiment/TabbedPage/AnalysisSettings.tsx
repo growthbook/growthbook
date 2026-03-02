@@ -1,4 +1,4 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import React, { useMemo, useState } from "react";
 import { Text } from "@radix-ui/themes";
 import { getScopedSettings } from "shared/settings";
@@ -6,6 +6,7 @@ import {
   expandMetricGroups,
   ExperimentMetricInterface,
   getMetricLink,
+  isFactMetric,
 } from "shared/experiments";
 import { DEFAULT_TARGET_MDE } from "shared/constants";
 import { useGrowthBook } from "@growthbook/growthbook-react";
@@ -14,7 +15,7 @@ import { useUser } from "@/services/UserContext";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
-import Link from "@/components/Radix/Link";
+import Link from "@/ui/Link";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import DecisionCriteriaSelectorModal from "@/components/DecisionCriteria/DecisionCriteriaSelectorModal";
 import TargetMDEModal from "@/components/Experiment/TabbedPage/TargetMDEModal";
@@ -53,6 +54,7 @@ export default function AnalysisSettings({
   const {
     getDatasourceById,
     getExperimentMetricById,
+    getMetricById,
     getSegmentById,
     metricGroups,
   } = useDefinitions();
@@ -115,10 +117,16 @@ export default function AnalysisSettings({
     const metric =
       ssrPolyfills?.getExperimentMetricById?.(m) || getExperimentMetricById(m);
     if (metric) {
+      // For legacy metrics with a denominator, look up the denominator metric
+      const denominatorMetric =
+        !isFactMetric(metric) && metric.denominator
+          ? getMetricById(metric.denominator)
+          : undefined;
       const { settings: scopedSettings } = getScopedSettings({
         organization,
         experiment,
         metric,
+        denominatorMetric: denominatorMetric ?? undefined,
       });
       goalsWithTargetMDE.push({
         ...metric,

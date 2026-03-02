@@ -1,7 +1,8 @@
 import { useFormContext } from "react-hook-form";
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FaExclamationTriangle } from "react-icons/fa";
+import { useState } from "react";
+import { PiCaretDownFill, PiCaretUpFill } from "react-icons/pi";
 import Field from "@/components/Forms/Field";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import RolloutPercentInput from "@/components/Features/RolloutPercentInput";
@@ -10,14 +11,12 @@ import { NewExperimentRefRule, useAttributeSchema } from "@/services/features";
 import ScheduleInputs from "@/components/Features/ScheduleInputs";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
 import ConditionInput from "@/components/Features/ConditionInput";
-import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
+import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 
 export default function RolloutFields({
   feature,
-  environment,
+  environments,
   defaultValues,
-  version,
-  revisions,
   setPrerequisiteTargetingSdkIssues,
   isCyclic,
   cyclicFeatureId,
@@ -26,10 +25,8 @@ export default function RolloutFields({
   setScheduleToggleEnabled,
 }: {
   feature: FeatureInterface;
-  environment: string;
+  environments: string[];
   defaultValues: FeatureRule | NewExperimentRefRule;
-  version: number;
-  revisions?: FeatureRevisionInterface[];
   setPrerequisiteTargetingSdkIssues: (b: boolean) => void;
   isCyclic: boolean;
   cyclicFeatureId: string | null;
@@ -38,6 +35,9 @@ export default function RolloutFields({
   setScheduleToggleEnabled: (b: boolean) => void;
 }) {
   const form = useFormContext();
+  const [advancedOptionsOpen, setadvancedOptionsOpen] = useState(
+    !!form.watch("seed"),
+  );
   const attributeSchema = useAttributeSchema(false, feature.project);
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
@@ -62,6 +62,8 @@ export default function RolloutFields({
             valueType={feature.valueType}
             feature={feature}
             renderJSONInline={true}
+            useCodeInput={true}
+            showFullscreenButton={true}
           />
         </div>
         <ScheduleInputs
@@ -77,10 +79,10 @@ export default function RolloutFields({
             setValue={(coverage) => {
               form.setValue("coverage", coverage);
             }}
-            className="mb-1"
+            className="mb-3"
           />
           <SelectField
-            label="Enroll based on attribute"
+            label="Sample based on attribute"
             options={attributeSchema
               .filter((s) => !hasHashAttributes || s.hashAttribute)
               .map((s) => ({ label: s.property, value: s.property }))}
@@ -89,6 +91,38 @@ export default function RolloutFields({
               form.setValue("hashAttribute", v);
             }}
           />
+          <div className="mb-2">
+            <span
+              className="ml-auto link-purple cursor-pointer"
+              onClick={(e) => {
+                e.preventDefault();
+                setadvancedOptionsOpen(!advancedOptionsOpen);
+              }}
+            >
+              {!advancedOptionsOpen ? (
+                <PiCaretDownFill className="mr-1" />
+              ) : (
+                <PiCaretUpFill className="mr-1" />
+              )}
+              Advanced Options
+            </span>
+            {advancedOptionsOpen && (
+              <div className="mt-3">
+                <Field
+                  label="Seed"
+                  type="input"
+                  {...form.register("seed")}
+                  placeholder={feature.id}
+                  helpText={
+                    <>
+                      <strong className="text-danger">Warning:</strong> Changing
+                      this will re-randomize rollout traffic.
+                    </>
+                  }
+                />
+              </div>
+            )}
+          </div>
         </div>
 
         <SavedGroupTargetingField
@@ -104,15 +138,13 @@ export default function RolloutFields({
           project={feature.project || ""}
         />
         <hr />
-        <PrerequisiteTargetingField
+        <PrerequisiteInput
           value={form.watch("prerequisites") || []}
           setValue={(prerequisites) =>
             form.setValue("prerequisites", prerequisites)
           }
           feature={feature}
-          revisions={revisions}
-          version={version}
-          environments={[environment]}
+          environments={environments}
           setPrerequisiteTargetingSdkIssues={setPrerequisiteTargetingSdkIssues}
         />
         {isCyclic && (

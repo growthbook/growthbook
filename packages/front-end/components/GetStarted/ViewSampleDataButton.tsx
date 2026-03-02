@@ -1,11 +1,11 @@
-import { ProjectInterface } from "back-end/types/project";
+import { ProjectInterface } from "shared/types/project";
 import { useRouter } from "next/router";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 
 const ViewSampleDataButton = ({
   resource = "experiment",
@@ -29,14 +29,14 @@ const ViewSampleDataButton = ({
         router.push(`/features/${demoFeatureId}`);
       }
     } else {
-      track("Create Sample Project", {
-        source: "get-started",
-      });
       const res = await apiCall<{
         project: ProjectInterface;
         experimentId: string;
       }>("/demo-datasource-project", {
         method: "POST",
+      });
+      track("Create Sample Project", {
+        source: "get-started",
       });
       await mutateDefinitions();
       if (res.experimentId) {

@@ -1,35 +1,29 @@
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import React, { useEffect, useState } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
-  FeatureRevisionInterface,
   FeatureRule,
-} from "back-end/src/validators/features";
-import { Environment } from "back-end/types/organization";
+  SafeRolloutInterface,
+  HoldoutInterface,
+} from "shared/validators";
+import { Environment } from "shared/types/organization";
 import { Box, Container, Flex, Text } from "@radix-ui/themes";
 import clsx from "clsx";
-import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { AppFeatures } from "@/types/app-features";
 import RuleModal from "@/components/Features/RuleModal/index";
 import RuleList from "@/components/Features/RuleList";
 import track from "@/services/track";
 import { getRules, useEnvironmentState } from "@/services/features";
 import CopyRuleModal from "@/components/Features/CopyRuleModal";
-import Button from "@/components/Radix/Button";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/Radix/Tabs";
-import Badge from "@/components/Radix/Badge";
-import Link from "@/components/Radix/Link";
-import Callout from "@/components/Radix/Callout";
+import Button from "@/ui/Button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
+import Badge from "@/ui/Badge";
+import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
 import { useUser } from "@/services/UserContext";
-import PremiumCallout from "@/components/Radix/PremiumCallout";
-import EnvironmentDropdown from "../Environments/EnvironmentDropdown";
+import PremiumCallout from "@/ui/PremiumCallout";
+import EnvironmentDropdown from "@/components/Environments/EnvironmentDropdown";
 import CompareEnvironmentsModal from "./CompareEnvironmentsModal";
 import HoldoutValueModal from "./HoldoutValueModal";
 
@@ -38,7 +32,6 @@ export default function FeatureRules({
   feature,
   isLocked,
   canEditDrafts,
-  revisions,
   experimentsMap,
   mutate,
   currentVersion,
@@ -52,7 +45,6 @@ export default function FeatureRules({
   feature: FeatureInterface;
   isLocked: boolean;
   canEditDrafts: boolean;
-  revisions: FeatureRevisionInterface[];
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
   mutate: () => Promise<unknown>;
   currentVersion: number;
@@ -69,7 +61,7 @@ export default function FeatureRules({
     i: number;
     environment: string;
     defaultType?: string;
-    duplicate?: boolean;
+    mode: "create" | "edit" | "duplicate";
   } | null>(null);
   const [copyRuleModal, setCopyRuleModal] = useState<{
     environment: string;
@@ -125,7 +117,7 @@ export default function FeatureRules({
                     <Badge
                       ml="2"
                       label={
-                        holdout?.environmentSettings[e.id].enabled
+                        holdout?.environmentSettings?.[e.id]?.enabled
                           ? (rulesByEnv[e.id].length + 1).toString()
                           : rulesByEnv[e.id].length.toString()
                       }
@@ -144,7 +136,13 @@ export default function FeatureRules({
                     </Flex>
                     <Badge
                       ml="2"
-                      label={rulesByEnv[dropdownEnvs[0].id].length.toString()}
+                      label={
+                        holdout?.environmentSettings[dropdownEnvs[0].id].enabled
+                          ? (
+                              rulesByEnv[dropdownEnvs[0].id].length + 1
+                            ).toString()
+                          : rulesByEnv[dropdownEnvs[0].id].length.toString()
+                      }
                       radius="full"
                       variant="solid"
                       color="violet"
@@ -181,7 +179,11 @@ export default function FeatureRules({
                             <Badge
                               ml="2"
                               mr="3"
-                              label={rulesByEnv[value].length.toString()}
+                              label={
+                                holdout?.environmentSettings[value].enabled
+                                  ? (rulesByEnv[value].length + 1).toString()
+                                  : rulesByEnv[value].length.toString()
+                              }
                               radius="full"
                               variant="solid"
                               color="violet"
@@ -207,7 +209,7 @@ export default function FeatureRules({
         </Container>
         {environments.map((e) => {
           const includeHoldoutRule =
-            holdout && holdout.environmentSettings[e.id].enabled;
+            !!holdout && !!holdout?.environmentSettings?.[e.id]?.enabled;
           return (
             <TabsContent key={e.id} value={e.id}>
               <div className="mt-2">
@@ -245,6 +247,7 @@ export default function FeatureRules({
                           setRuleModal({
                             environment: env,
                             i: getRules(feature, env).length,
+                            mode: "create",
                           });
                           track("Viewed Rule Modal", {
                             source: "add-rule",
@@ -274,6 +277,8 @@ export default function FeatureRules({
                         mt="5"
                         status="info"
                         icon={<Badge label="NEW!" />}
+                        dismissible
+                        id="safe-rollout-promo"
                       >
                         Use <strong>Safe Rollouts</strong> to test for guardrail
                         errors while releasing a new value. Click &lsquo;Add
@@ -298,8 +303,7 @@ export default function FeatureRules({
           defaultType={ruleModal.defaultType || ""}
           version={currentVersion}
           setVersion={setVersion}
-          revisions={revisions}
-          duplicate={ruleModal?.duplicate || false}
+          mode={ruleModal.mode}
         />
       )}
       {copyRuleModal !== null && (

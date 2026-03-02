@@ -18,6 +18,9 @@ import updateLicenseJob, {
 import deleteOldAgendaJobs from "back-end/src/jobs/deleteOldAgendaJobs";
 import { logger } from "back-end/src/util/logger";
 import addSafeRolloutSnapshotJob from "back-end/src/jobs/addSafeRolloutSnapshotJob";
+import addDashboardUpdateJob from "back-end/src/jobs/updateDashboards";
+import addHoldoutUpdateJob from "back-end/src/jobs/updateHoldoutStatus";
+import updateAutoSlicesJob from "back-end/src/jobs/updateAutoSlices";
 
 export async function queueInit() {
   const agenda = getAgendaInstance();
@@ -36,6 +39,9 @@ export async function queueInit() {
   addSdkWebhooksJob(agenda);
   updateLicenseJob(agenda);
   addSafeRolloutSnapshotJob(agenda);
+  addDashboardUpdateJob(agenda);
+  addHoldoutUpdateJob(agenda);
+  updateAutoSlicesJob(agenda);
 
   // Make sure we have index needed to delete efficiently
   agenda._collection

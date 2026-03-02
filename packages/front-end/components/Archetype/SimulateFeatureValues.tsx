@@ -10,8 +10,8 @@ import React, {
 import {
   ArchetypeAttributeValues,
   ArchetypeInterface,
-} from "back-end/types/archetype";
-import { FeatureTestResult } from "back-end/types/feature";
+} from "shared/types/archetype";
+import { FeatureTestResult } from "shared/types/feature";
 import Link from "next/link";
 import { FaChevronRight, FaInfoCircle } from "react-icons/fa";
 import { FiAlertTriangle } from "react-icons/fi";
@@ -36,7 +36,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import { useUser } from "@/services/UserContext";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 
@@ -71,7 +71,9 @@ export const SimulateFeatureValues: FC<{
     useState(selectedEnvironment);
   const { apiCall } = useAuth();
 
-  const { features: allFeatures, loading } = useFeaturesList(true, false);
+  const { features: allFeatures, loading } = useFeaturesList({
+    useCurrentProject: true,
+  });
 
   const tagsFilter = useTagsFilter("features");
   const filterResults = useCallback(

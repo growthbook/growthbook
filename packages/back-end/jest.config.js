@@ -6,6 +6,8 @@ module.exports = {
   testMatch: ["**/test/**/*.test.(ts|js)"],
   moduleNameMapper: {
     "^axios$": "axios/dist/axios.js",
+    "^@typespec/ts-http-runtime/internal/(.*)$":
+      "<rootDir>/../../node_modules/.pnpm/@typespec+ts-http-runtime@0.3.1/node_modules/@typespec/ts-http-runtime/dist/commonjs/$1/internal.js",
   },
   setupFilesAfterEnv: ["<rootDir>/test/jest.setup.ts"],
 };

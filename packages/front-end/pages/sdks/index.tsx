@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { ApiKeyInterface } from "back-end/types/apikey";
-import { WebhookInterface } from "back-end/types/webhook";
+import { ApiKeyInterface } from "shared/types/apikey";
+import { WebhookInterface } from "shared/types/webhook";
 import SDKConnectionsList from "@/components/Features/SDKConnections/SDKConnectionsList";
 import SDKEndpoints, {
   getPublishableKeys,

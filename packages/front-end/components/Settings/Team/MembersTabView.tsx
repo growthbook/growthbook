@@ -17,7 +17,7 @@ import VerifyingEmailModal from "@/components/Settings/UpgradeModal/VerifyingEma
 import PleaseVerifyEmailModal from "@/components/Settings/UpgradeModal/PleaseVerifyEmailModal";
 import LicenseSuccessModal from "@/components/Settings/UpgradeModal/LicenseSuccessModal";
 import track from "@/services/track";
-import PremiumCallout from "@/components/Radix/PremiumCallout";
+import PremiumCallout from "@/ui/PremiumCallout";
 
 export const MembersTabView: FC = () => {
   const {

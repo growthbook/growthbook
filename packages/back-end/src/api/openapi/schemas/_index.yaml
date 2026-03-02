@@ -46,6 +46,8 @@ ExperimentMetric:
   $ref: "./ExperimentMetric.yaml"
 ExperimentAnalysisSettings:
   $ref: "./ExperimentAnalysisSettings.yaml"
+LookbackOverride:
+  $ref: "./LookbackOverride.yaml"
 ExperimentResults:
   $ref: "./ExperimentResults.yaml"
 ExperimentWithEnhancedStatus:
@@ -62,15 +64,23 @@ Organization:
   $ref: "./Organization.yaml"
 FactTable:
   $ref: "./FactTable.yaml"
+FactTableColumn:
+  $ref: "./FactTableColumn.yaml"
 FactTableFilter:
   $ref: "./FactTableFilter.yaml"
 FactMetric:
   $ref: "./FactMetric.yaml"
+MetricAnalysis:
+  $ref: "./MetricAnalysis.yaml"
+MetricUsage:
+  $ref: "./MetricUsage.yaml"
 Member:
   $ref: "./Member.yaml"
 Archetype:
   $ref: "./Archetype.yaml"
 Query:
   $ref: "./Query.yaml"
+Settings:
+  $ref: "./Settings.yaml"
 CodeRef:
   $ref: "./CodeRef.yaml"

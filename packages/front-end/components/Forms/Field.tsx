@@ -28,6 +28,7 @@ export type BaseFieldProps = {
   markRequired?: boolean;
   error?: ReactNode;
   helpText?: ReactNode;
+  helpTextClassName?: string;
   containerClassName?: string;
   containerStyle?: React.CSSProperties;
   inputGroupClassName?: string;
@@ -96,6 +97,7 @@ const Field = forwardRef(
       className,
       error,
       helpText,
+      helpTextClassName,
       containerClassName,
       containerStyle,
       inputGroupClassName,
@@ -235,7 +237,11 @@ const Field = forwardRef(
         </div>
         {component}
         {error && <div className="form-text text-danger">{error}</div>}
-        {helpText && <small className="form-text text-muted">{helpText}</small>}
+        {helpText && (
+          <small className={clsx("form-text text-muted", helpTextClassName)}>
+            {helpText}
+          </small>
+        )}
       </div>
     );
   },

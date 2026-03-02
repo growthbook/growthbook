@@ -2,6 +2,15 @@ import * as crypto from "crypto";
 import { createClient as createClickhouseClient } from "@clickhouse/client";
 import generator from "generate-password";
 import { AIPromptType } from "shared/ai";
+import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import {
+  GrowthbookClickhouseDataSource,
+  DataSourceParams,
+  MaterializedColumn,
+} from "shared/types/datasource";
+import { DailyUsage } from "shared/types/organization";
+import { FactTableColumnType } from "shared/types/fact-table";
 import {
   CLICKHOUSE_HOST,
   CLICKHOUSE_ADMIN_USER,
@@ -11,19 +20,13 @@ import {
   ENVIRONMENT,
   IS_CLOUD,
   CLICKHOUSE_DEV_PREFIX,
+  CLICKHOUSE_OVERAGE_TABLE,
 } from "back-end/src/util/secrets";
-import {
-  GrowthbookClickhouseDataSource,
-  DataSourceParams,
-  MaterializedColumn,
-} from "back-end/types/datasource";
-import { DailyUsage, ReqContext } from "back-end/types/organization";
+import type { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
-import { SDKConnectionInterface } from "back-end/types/sdk-connection";
-import { FactTableColumnType } from "back-end/types/fact-table";
 import {
   getFactTablesForDatasource,
-  updateFactTable,
+  updateFactTableColumns,
 } from "back-end/src/models/FactTableModel";
 import {
   lockDataSource,
@@ -515,6 +518,18 @@ export async function addCloudSDKMapping(connection: SDKConnectionInterface) {
   }
 }
 
+export async function migrateOverageEventsForOrgId(orgId: string) {
+  const client = createAdminClickhouseClient();
+  await runCommand(
+    client,
+    `INSERT INTO ${CLICKHOUSE_MAIN_TABLE} SELECT * FROM ${CLICKHOUSE_OVERAGE_TABLE} WHERE organization = '${orgId}'`,
+  );
+  await runCommand(
+    client,
+    `ALTER TABLE ${CLICKHOUSE_OVERAGE_TABLE} DELETE WHERE organization = '${orgId}'`,
+  );
+}
+
 // In order to monitor usage and quality of AI responses on cloud we log each request to AI agents
 export async function logCloudAIUsage({
   organization,
@@ -527,8 +542,8 @@ export async function logCloudAIUsage({
 }: {
   organization: string;
   model: string;
-  numPromptTokensUsed: number;
-  numCompletionTokensUsed: number;
+  numPromptTokensUsed?: number;
+  numCompletionTokensUsed?: number;
   type: AIPromptType;
   temperature?: number;
   usedDefaultPrompt: boolean;
@@ -564,7 +579,7 @@ export async function logCloudAIUsage({
   }
 }
 
-export async function getDailyCDNUsageForOrg(
+export async function getDailyUsageForOrg(
   orgId: string,
   start: Date,
   end: Date,
@@ -586,13 +601,48 @@ export async function getDailyCDNUsageForOrg(
 
   const sql = `
 select
-  toStartOfDay(hour) as date,
+  date,
   sum(requests) as requests,
-  sum(bandwidth) as bandwidth
-from usage.cdn_hourly
-where
-  organization = '${sanitizedOrgId}'
-  AND date BETWEEN '${startString}' AND '${endString}'
+  sum(bandwidth) as bandwidth,
+  sum(managedClickhouseEvents) as managedClickhouseEvents
+from (
+  select
+    toStartOfDay(hour) as date,
+    sum(requests) as requests,
+    sum(bandwidth) as bandwidth,
+    0 as managedClickhouseEvents
+  from usage.cdn_hourly
+  where
+    organization = '${sanitizedOrgId}'
+    AND date BETWEEN '${startString}' AND '${endString}'
+  group by date
+  
+  union all
+  
+  select
+    toStartOfDay(received_at) as date,
+    0 as requests,
+    0 as bandwidth,
+    count(1) as managedClickhouseEvents
+  from ${CLICKHOUSE_MAIN_TABLE}
+  where
+    organization = '${sanitizedOrgId}'
+    AND received_at BETWEEN '${startString}' AND '${endString}'
+  group by date
+  
+  union all
+  
+  select
+    toStartOfDay(received_at) as date,
+    0 as requests,
+    0 as bandwidth,
+    count(1) as managedClickhouseEvents
+  from ${CLICKHOUSE_OVERAGE_TABLE}
+  where
+    organization = '${sanitizedOrgId}'
+    AND received_at BETWEEN '${startString}' AND '${endString}'
+  group by date
+)
 group by date
 order by date ASC
 WITH FILL
@@ -612,13 +662,15 @@ WITH FILL
     // That is very unlikely, and even if it happens it will still be approximately correct
     requests: string;
     bandwidth: string;
+    managedClickhouseEvents: string;
   }[] = await res.json();
 
-  // Convert strings to numbers for requests/bandwidth
+  // Convert strings to numbers for all metrics
   return data.map((d) => ({
     date: d.date,
     requests: parseInt(d.requests) || 0,
     bandwidth: parseInt(d.bandwidth) || 0,
+    managedClickhouseEvents: parseInt(d.managedClickhouseEvents) || 0,
   }));
 }
 
@@ -725,11 +777,20 @@ export async function updateMaterializedColumns({
 
     // Update the main events fact table with the new columns
     const factTables = await getFactTablesForDatasource(context, datasource.id);
-    const ft = factTables.find((ft) => ft.id === "ch_events");
+    const ft = factTables.find(
+      (ft) => ft.id === MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
+    );
     if (ft) {
       const newColumns = [...ft.columns];
+      newColumns.forEach((col) => {
+        if (col.numberFormat === undefined) {
+          col.numberFormat = "";
+        }
+      });
+
       columnsToAdd.forEach((col) => {
-        if (!newColumns.find((c) => c.column === col.columnName)) {
+        const existingCol = newColumns.find((c) => c.column === col.columnName);
+        if (!existingCol) {
           newColumns.push({
             column: col.columnName,
             name: col.columnName,
@@ -740,14 +801,24 @@ export async function updateMaterializedColumns({
             description: "",
             numberFormat: "",
           });
+        } else {
+          // If the column already exists but was previously removed, restore it.
+          existingCol.deleted = false;
+          existingCol.dateUpdated = new Date();
         }
       });
       columnsToRename.forEach(({ from, to }) => {
         const col = newColumns.find((c) => c.column === from);
         if (col) {
+          const existingDestinationCol = newColumns.find(
+            (c) => c.column === to,
+          );
           // Destination already exists
-          if (newColumns.find((c) => c.column === to)) {
-            // Just mark the old column as deleted
+          if (existingDestinationCol) {
+            // Restore destination if it had been previously removed.
+            existingDestinationCol.deleted = false;
+            existingDestinationCol.dateUpdated = new Date();
+            // Mark the old column as deleted.
             col.deleted = true;
             col.dateUpdated = new Date();
           } else {
@@ -766,13 +837,14 @@ export async function updateMaterializedColumns({
         }
       });
 
-      await updateFactTable(
-        context,
+      const newIdentifierTypes = finalColumns
+        .filter((col) => col.type === "identifier")
+        .map((col) => col.columnName);
+
+      await updateFactTableColumns(
         ft,
-        { columns: newColumns },
-        {
-          bypassManagedByCheck: true,
-        },
+        { columns: newColumns, userIdTypes: newIdentifierTypes },
+        context,
       );
     }
   } finally {

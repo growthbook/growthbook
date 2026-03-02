@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import { Environment } from "back-end/types/organization";
+import { Environment } from "shared/types/organization";
 import React, { useMemo } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { DEFAULT_ENVIRONMENT_IDS } from "shared/util";
@@ -11,9 +11,9 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/ui/Switch";
 import SelectField from "@/components/Forms/SelectField";
-import { DocLink } from "../DocLink";
+import { DocLink } from "@/components/DocLink";
 
 export default function EnvironmentModal({
   existing,
@@ -215,26 +215,23 @@ export default function EnvironmentModal({
           </div>
         )}
       </div>
-      <div className="mb-3">
-        <Toggle
-          id={"defaultToggle"}
-          label="Identifier"
-          value={!!form.watch("defaultState")}
-          setValue={(value) => {
-            form.setValue("defaultState", value);
-          }}
-        />{" "}
-        <label htmlFor="defaultToggle">Default state for new features</label>
-      </div>
-      <Toggle
+      <Switch
+        id={"defaultToggle"}
+        label="Default state for new features"
+        value={!!form.watch("defaultState")}
+        onChange={(value) => {
+          form.setValue("defaultState", value);
+        }}
+        mb="3"
+      />
+      <Switch
         id={"toggle"}
-        label="Identifier"
+        label="Show toggle on feature list"
         value={!!form.watch("toggleOnList")}
-        setValue={(value) => {
+        onChange={(value) => {
           form.setValue("toggleOnList", value);
         }}
-      />{" "}
-      <label htmlFor="toggle">Show toggle on feature list </label>
+      />
     </Modal>
   );
 }

@@ -4,8 +4,8 @@ import {
   getSafeRolloutResultStatus,
 } from "shared/enterprise";
 
-import { SafeRolloutRule } from "back-end/src/validators/features";
-import HelperText from "@/components/Radix/HelperText";
+import { SafeRolloutRule } from "shared/validators";
+import HelperText from "@/ui/HelperText";
 import { useUser } from "@/services/UserContext";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
 

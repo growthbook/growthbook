@@ -4,7 +4,7 @@ import {
   FactFilterTestResults,
   FactTableInterface,
   UpdateFactFilterProps,
-} from "back-end/types/fact-table";
+} from "shared/types/fact-table";
 import { useForm } from "react-hook-form";
 import { useEffect, useState } from "react";
 import { FaAngleDown, FaAngleRight, FaPlay } from "react-icons/fa";
@@ -17,7 +17,7 @@ import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import Button from "@/components/Button";
-import Checkbox from "@/components/Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
 import FactTableSchema from "./FactTableSchema";
 
 export interface Props {

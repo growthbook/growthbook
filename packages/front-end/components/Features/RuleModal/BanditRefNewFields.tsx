@@ -3,10 +3,9 @@ import {
   FeatureInterface,
   FeaturePrerequisite,
   SavedGroupTargeting,
-} from "back-end/types/feature";
+} from "shared/types/feature";
 import React, { useEffect } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import Collapsible from "react-collapsible";
 import { PiCaretRightFill } from "react-icons/pi";
 import Field from "@/components/Forms/Field";
@@ -23,13 +22,14 @@ import {
 import useSDKConnections from "@/hooks/useSDKConnections";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
 import ConditionInput from "@/components/Features/ConditionInput";
-import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
+import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
+import CustomMetricSlicesSelector from "@/components/Experiment/CustomMetricSlicesSelector";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { GBCuped } from "@/components/Icons";
 import { useUser } from "@/services/UserContext";
@@ -41,10 +41,7 @@ export default function BanditRefNewFields({
   source,
   feature,
   project,
-  environment,
   environments,
-  revisions,
-  version,
   prerequisiteValue,
   setPrerequisiteValue,
   setPrerequisiteTargetingSdkIssues,
@@ -67,10 +64,7 @@ export default function BanditRefNewFields({
   source: "rule" | "experiment";
   feature?: FeatureInterface;
   project?: string;
-  environment?: string;
-  environments?: string[];
-  revisions?: FeatureRevisionInterface[];
-  version?: number;
+  environments: string[];
   prerequisiteValue: FeaturePrerequisite[];
   setPrerequisiteValue: (prerequisites: FeaturePrerequisite[]) => void;
   setPrerequisiteTargetingSdkIssues: (b: boolean) => void;
@@ -231,17 +225,11 @@ export default function BanditRefNewFields({
             project={project || ""}
           />
           <hr />
-          <PrerequisiteTargetingField
+          <PrerequisiteInput
             value={prerequisiteValue}
             setValue={setPrerequisiteValue}
-            // value={form.watch("prerequisites") || []}
-            // setValue={(prerequisites) =>
-            //   form.setValue("prerequisites", prerequisites)
-            // }
             feature={feature}
-            revisions={revisions}
-            version={version}
-            environments={environment ? [environment] : (environments ?? [])}
+            environments={environments ?? []}
             setPrerequisiteTargetingSdkIssues={
               setPrerequisiteTargetingSdkIssues
             }
@@ -351,6 +339,16 @@ export default function BanditRefNewFields({
             }
             collapseSecondary={true}
             collapseGuardrail={true}
+          />
+
+          <CustomMetricSlicesSelector
+            goalMetrics={form.watch("goalMetrics") ?? []}
+            secondaryMetrics={form.watch("secondaryMetrics") ?? []}
+            guardrailMetrics={form.watch("guardrailMetrics") ?? []}
+            customMetricSlices={form.watch("customMetricSlices") ?? []}
+            setCustomMetricSlices={(slices) =>
+              form.setValue("customMetricSlices", slices)
+            }
           />
 
           <hr className="mt-4" />

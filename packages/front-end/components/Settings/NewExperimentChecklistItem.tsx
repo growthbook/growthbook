@@ -1,5 +1,5 @@
 import CreatableSelect from "react-select/creatable";
-import { ChecklistTask } from "back-end/types/experimentLaunchChecklist";
+import { ChecklistTask } from "shared/types/experimentLaunchChecklist";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import { ReactSelectProps } from "@/components/Forms/SelectField";
@@ -159,7 +159,7 @@ export default function NewExperimentChecklistItem({
               addNewTask(newTaskInput);
             }}
           >
-            Add Task
+            Add To Checklist
           </button>
           <button
             className="btn btn-link"

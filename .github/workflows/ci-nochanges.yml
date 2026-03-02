@@ -4,16 +4,16 @@ on:
     branches: [main]
     paths-ignore:
       - "packages/**"
-      - "yarn.lock"
-      - ".eslintrc"
-      - ".eslintignore"
+      - "pnpm-lock.yaml"
+      - "eslint.config.mjs"
+      - "eslint-suppressions.json"
       - ".prettierignore"
   pull_request:
     paths-ignore:
       - "packages/**"
-      - "yarn.lock"
-      - ".eslintrc"
-      - ".eslintignore"
+      - "pnpm-lock.yaml"
+      - "eslint.config.mjs"
+      - "eslint-suppressions.json"
       - ".prettierignore"
 
 # If nothing of importance changed, the normal CI workflow is skipped

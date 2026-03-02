@@ -1,12 +1,12 @@
 import express from "express";
-import z from "zod";
-import { wrapController } from "back-end/src/routers/wrapController";
-import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
-import * as rawSavedGroupController from "./saved-group.controller";
+import { z } from "zod";
 import {
   postSavedGroupBodyValidator,
   putSavedGroupBodyValidator,
-} from "./saved-group.validators";
+} from "shared/validators";
+import { wrapController } from "back-end/src/routers/wrapController";
+import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
+import * as rawSavedGroupController from "./saved-group.controller";
 
 const router = express.Router();
 

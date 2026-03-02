@@ -1,9 +1,9 @@
 import React, { FC, useCallback, useMemo, useState } from "react";
-import { ApiKeyInterface, SecretApiKey } from "back-end/types/apikey";
+import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
 import { useAuth } from "@/services/auth";
 import { ApiKeysTable } from "@/components/ApiKeysTable/ApiKeysTable";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import ApiKeysModal from "./ApiKeysModal";
 
 const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({

@@ -1,8 +1,8 @@
 import {
   ExperimentInterfaceStringDates,
   Variation,
-} from "back-end/types/experiment";
-import { FC, useState } from "react";
+} from "shared/types/experiment";
+import { FC, useState, useRef, useCallback } from "react";
 import { Box, Flex, Grid, Heading, Text } from "@radix-ui/themes";
 import { PiCameraLight, PiCameraPlusLight } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
@@ -10,8 +10,9 @@ import { trafficSplitPercentages } from "@/services/utils";
 import Carousel from "@/components/Carousel";
 import ScreenshotUpload from "@/components/EditExperiment/ScreenshotUpload";
 import AuthorizedImage from "@/components/AuthorizedImage";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import ExperimentCarouselModal from "@/components/Experiment/ExperimentCarouselModal";
+import useOrgSettings from "@/hooks/useOrgSettings";
 
 const imageCache = {};
 
@@ -19,8 +20,54 @@ const ScreenshotCarousel: FC<{
   variation: Variation;
   maxChildHeight?: number;
   onClick?: (i: number) => void;
-}> = ({ variation, maxChildHeight, onClick }) => {
+  isPublic?: boolean;
+  shareUid?: string;
+  shareType?: "experiment" | "report";
+}> = ({
+  variation,
+  maxChildHeight,
+  onClick,
+  isPublic = false,
+  shareUid,
+  shareType = "experiment",
+}) => {
   const [allowClick, setAllowClick] = useState(true);
+  const hasErrorRef = useRef(false);
+
+  const handleError = useCallback(
+    (msg: string) => {
+      // Only update state if we haven't already set the error
+      if (!hasErrorRef.current) {
+        hasErrorRef.current = true;
+        // Use setTimeout to defer the state update to avoid setState during render
+        setTimeout(() => {
+          setAllowClick(false);
+        }, 0);
+      }
+
+      return (
+        <Flex
+          title={msg}
+          align="center"
+          justify="center"
+          className="appbox mb-0"
+          width="100%"
+          style={{
+            backgroundColor: "var(--slate-a3)",
+            height: maxChildHeight + "px",
+            width: "100%",
+            color: "var(--slate-a9)",
+          }}
+        >
+          <Text size="8">
+            <PiCameraLight />
+          </Text>
+        </Flex>
+      );
+    },
+    [maxChildHeight],
+  );
+
   return (
     <Carousel
       onClick={(i) => {
@@ -41,28 +88,10 @@ const ScreenshotCarousel: FC<{
             height: "100%",
             objectFit: "contain",
           }}
-          onErrorMsg={(msg) => {
-            setAllowClick(false);
-            return (
-              <Flex
-                title={msg}
-                align="center"
-                justify="center"
-                className="appbox mb-0"
-                width="100%"
-                style={{
-                  backgroundColor: "var(--slate-a3)",
-                  height: maxChildHeight + "px",
-                  width: "100%",
-                  color: "var(--slate-a9)",
-                }}
-              >
-                <Text size="8">
-                  <PiCameraLight />
-                </Text>
-              </Flex>
-            );
-          }}
+          onErrorMsg={handleError}
+          isPublic={isPublic}
+          shareUid={shareUid}
+          shareType={shareType}
         />
       ))}
     </Carousel>
@@ -76,6 +105,10 @@ interface Props {
   // for some experiments, screenshots don't make sense - this is for a future state where you can mark exp as such.
   allowImages?: boolean;
   mutate?: () => void;
+  noMargin?: boolean;
+  isPublic?: boolean;
+  shareUid?: string;
+  shareType?: "experiment" | "report";
 }
 
 function NoImageBox({
@@ -117,6 +150,9 @@ export function VariationBox({
   mutate,
   percent,
   minWidth,
+  isPublic = false,
+  shareUid,
+  shareType = "experiment",
 }: {
   i: number;
   v: Variation;
@@ -130,7 +166,12 @@ export function VariationBox({
   mutate?: () => void;
   percent?: number;
   minWidth?: string | number;
+  isPublic?: boolean;
+  shareUid?: string;
+  shareType?: "experiment" | "report";
 }) {
+  const { blockFileUploads } = useOrgSettings();
+
   return (
     <Box
       key={i}
@@ -174,10 +215,13 @@ export function VariationBox({
                     if (!openCarousel) return;
                     openCarousel(v.id, j);
                   }}
+                  isPublic={isPublic}
+                  shareUid={shareUid}
+                  shareType={shareType}
                 />
               ) : (
                 <>
-                  {canEdit ? (
+                  {canEdit && !blockFileUploads ? (
                     <>
                       <ScreenshotUpload
                         variation={i}
@@ -213,7 +257,7 @@ export function VariationBox({
                     {v.screenshots.length > 1 ? "s" : ""}
                   </Text>
                 ) : null}
-                {canEdit && (
+                {canEdit && !blockFileUploads && (
                   <div>
                     <ScreenshotUpload
                       variation={i}
@@ -240,7 +284,11 @@ const VariationsTable: FC<Props> = ({
   variationsList,
   canEditExperiment,
   allowImages = true,
+  noMargin = false,
   mutate,
+  isPublic = false,
+  shareUid,
+  shareType = "experiment",
 }) => {
   const { apiCall } = useAuth();
   const { variations } = experiment;
@@ -265,7 +313,7 @@ const VariationsTable: FC<Props> = ({
   const maxImageHeight = hasAnyImages ? 200 : 110; // shrink the image height if there are no images
 
   return (
-    <Box mx="4">
+    <Box mx={noMargin ? "0" : "4"}>
       <Grid
         gap={gap}
         columns={{
@@ -292,6 +340,9 @@ const VariationsTable: FC<Props> = ({
               }}
               mutate={mutate}
               percent={percentages?.[i]}
+              isPublic={isPublic}
+              shareUid={shareUid}
+              shareType={shareType}
             />
           ),
         )}

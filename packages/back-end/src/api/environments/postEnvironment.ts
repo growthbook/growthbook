@@ -1,8 +1,8 @@
-import { PostEnvironmentResponse } from "back-end/types/openapi";
+import { PostEnvironmentResponse } from "shared/types/openapi";
+import { postEnvironmentValidator } from "shared/validators";
+import { OrganizationInterface } from "shared/types/organization";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { postEnvironmentValidator } from "back-end/src/validators/openapi";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
-import { OrganizationInterface } from "back-end/types/organization";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 import { validatePayload } from "./validations";
 

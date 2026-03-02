@@ -1,0 +1,1394 @@
+import { FeatureInterface } from "shared/types/feature";
+import {
+  FeatureRevisionInterface,
+  MinimalFeatureRevisionInterface,
+  RevisionLog,
+} from "shared/types/feature-revision";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+
+import { Box, Flex } from "@radix-ui/themes";
+import {
+  PiArrowsLeftRightBold,
+  PiClockClockwise,
+  PiWarningBold,
+  PiX,
+} from "react-icons/pi";
+import { datetime } from "shared/dates";
+import { DRAFT_REVISION_STATUSES } from "shared/util";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/ui/DropdownMenu";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import useApi from "@/hooks/useApi";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
+import Checkbox from "@/ui/Checkbox";
+import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
+import { useAuth } from "@/services/auth";
+import Modal from "@/components/Modal";
+import Button from "@/ui/Button";
+import Link from "@/ui/Link";
+import { Select, SelectItem } from "@/ui/Select";
+import Badge from "@/ui/Badge";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import EventUser from "@/components/Avatar/EventUser";
+import {
+  useFeatureRevisionDiff,
+  FeatureRevisionDiffInput,
+  FeatureRevisionDiff,
+} from "@/hooks/useFeatureRevisionDiff";
+import { logBadgeColor } from "@/components/Features/FeatureDiffRenders";
+import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
+import Callout from "@/ui/Callout";
+import HelperText from "@/ui/HelperText";
+import {
+  COMPACT_DIFF_STYLES,
+  dedupeDiffBadges,
+} from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
+import { ExpandableDiff } from "./DraftModal";
+import RevisionStatusBadge from "./RevisionStatusBadge";
+import styles from "./CompareRevisionsModal.module.scss";
+
+const STORAGE_KEY_PREFIX = "feature:compare-revisions";
+
+export interface Props {
+  feature: FeatureInterface;
+  revisionList: MinimalFeatureRevisionInterface[];
+  revisions: FeatureRevisionInterface[];
+  currentVersion: number;
+  onClose: () => void;
+}
+
+function revisionToDiffInput(
+  r: FeatureRevisionInterface,
+): FeatureRevisionDiffInput {
+  return { defaultValue: r.defaultValue, rules: r.rules ?? {} };
+}
+
+function RevisionCompareLabel({
+  versionA,
+  versionB,
+  revA,
+  revB,
+  liveVersion,
+  revAFailed = false,
+  revBFailed = false,
+  mb,
+  mt,
+}: {
+  versionA: number;
+  versionB: number;
+  revA: FeatureRevisionInterface | null;
+  revB: FeatureRevisionInterface | null;
+  liveVersion: number;
+  revAFailed?: boolean;
+  revBFailed?: boolean;
+  mb?: "1" | "2" | "3" | "4";
+  mt?: "1" | "2" | "3" | "4";
+}) {
+  return (
+    <Flex align="center" gap="4" wrap="nowrap" mb={mb} mt={mt}>
+      <Flex direction="column">
+        <Flex align="center" justify="between" gap="2">
+          <Flex align="center" gap="1">
+            {revAFailed && (
+              <Tooltip body="Could not load revision">
+                <PiWarningBold
+                  style={{ color: "var(--red-9)", flexShrink: 0 }}
+                />
+              </Tooltip>
+            )}
+            <Text weight="semibold" size="medium">
+              Revision {versionA}
+            </Text>
+          </Flex>
+          <RevisionStatusBadge revision={revA} liveVersion={liveVersion} />
+        </Flex>
+        {revA && (
+          <Text as="div" size="small" color="text-low">
+            {datetime(
+              (revA.status === "published" ? revA.datePublished : null) ??
+                revA.dateUpdated,
+            )}{" "}
+            · <EventUser user={revA.createdBy} display="name" />
+          </Text>
+        )}
+        {revA &&
+          revA.baseVersion !== 0 &&
+          (DRAFT_REVISION_STATUSES.includes(revA.status) &&
+          revA.baseVersion !== liveVersion ? (
+            <HelperText status="warning" size="sm">
+              based on: {revA.baseVersion}
+            </HelperText>
+          ) : (
+            <Text as="div" size="small" color="text-low">
+              based on: {revA.baseVersion}
+            </Text>
+          ))}
+      </Flex>
+      <PiArrowsLeftRightBold size={16} />
+      <Flex direction="column">
+        <Flex align="center" justify="between" gap="2">
+          <Flex align="center" gap="1">
+            {revBFailed && (
+              <Tooltip body="Could not load revision">
+                <PiWarningBold
+                  style={{ color: "var(--red-9)", flexShrink: 0 }}
+                />
+              </Tooltip>
+            )}
+            <Text weight="semibold" size="medium">
+              Revision {versionB}
+            </Text>
+          </Flex>
+          <RevisionStatusBadge revision={revB} liveVersion={liveVersion} />
+        </Flex>
+        {revB && (
+          <Text as="div" size="small" color="text-low">
+            {datetime(
+              (revB.status === "published" ? revB.datePublished : null) ??
+                revB.dateUpdated,
+            )}{" "}
+            · <EventUser user={revB.createdBy} display="name" />
+          </Text>
+        )}
+        {revB &&
+          revB.baseVersion !== 0 &&
+          (DRAFT_REVISION_STATUSES.includes(revB.status) &&
+          revB.baseVersion !== liveVersion ? (
+            <HelperText status="warning" size="sm">
+              based on: {revB.baseVersion}
+            </HelperText>
+          ) : (
+            <Text as="div" size="small" color="text-low">
+              based on: {revB.baseVersion}
+            </Text>
+          ))}
+      </Flex>
+    </Flex>
+  );
+}
+
+function badgesFromDiffs(diffs: FeatureRevisionDiff[]): DiffBadge[] {
+  return dedupeDiffBadges(diffs.flatMap((d) => d.badges ?? []));
+}
+
+// Renders the comment for a single revision version. Returns null if there is
+// no comment on either the revision object or any "edit comment" log entry.
+function RevisionCommentItem({
+  featureId,
+  version,
+  revisionComment,
+}: {
+  featureId: string;
+  version: number;
+  revisionComment?: string | null;
+}) {
+  const { data } = useApi<{ log: RevisionLog[] }>(
+    `/feature/${featureId}/${version}/log`,
+  );
+
+  const logEntry = useMemo(() => {
+    if (!data?.log) return null;
+    const sorted = [...data.log].sort((a, b) =>
+      (b.timestamp as unknown as string).localeCompare(
+        a.timestamp as unknown as string,
+      ),
+    );
+    for (const entry of sorted) {
+      if (entry.action === "edit comment") {
+        try {
+          const c = JSON.parse(entry.value)?.comment;
+          if (c)
+            return {
+              comment: c as string,
+              user: entry.user,
+              timestamp: entry.timestamp,
+            };
+        } catch {
+          // ignore
+        }
+      }
+    }
+    return null;
+  }, [data]);
+
+  const comment = revisionComment || logEntry?.comment;
+  if (!comment) return null;
+
+  return (
+    <Box>
+      <Flex align="center" gap="2" mb="1" wrap="wrap">
+        <Text size="medium" weight="medium" color="text-mid">
+          Revision {version} comment
+        </Text>
+        {logEntry?.user && (
+          <Text size="small" color="text-low">
+            · <EventUser user={logEntry.user} display="name" /> ·{" "}
+            {datetime(logEntry.timestamp)}
+          </Text>
+        )}
+      </Flex>
+      <Box pl="2" style={{ borderLeft: "2px solid var(--gray-a4)" }} mb="2">
+        <Text as="p" color="text-mid" mb="0">
+          {comment}
+        </Text>
+      </Box>
+    </Box>
+  );
+}
+
+function RevisionCommentSection({
+  featureId,
+  versions,
+}: {
+  featureId: string;
+  versions: Array<{ version: number; revisionComment?: string | null }>;
+}) {
+  if (versions.length === 0) return null;
+  return (
+    <Flex direction="column" gap="3" mb="3" mt="4">
+      {versions.map(({ version, revisionComment }) => (
+        <RevisionCommentItem
+          key={version}
+          featureId={featureId}
+          version={version}
+          revisionComment={revisionComment}
+        />
+      ))}
+    </Flex>
+  );
+}
+
+function RevisionLogSection({
+  featureId,
+  version,
+  fallbackBadges,
+}: {
+  featureId: string;
+  version: number;
+  fallbackBadges?: DiffBadge[];
+}) {
+  const { data } = useApi<{ log: RevisionLog[] }>(
+    `/feature/${featureId}/${version}/log`,
+  );
+
+  const dedupedEntries = useMemo(() => {
+    if (!data?.log) return null; // null = still loading
+    const filtered = data.log.filter((e) => e.action !== "new revision");
+    // Deduplicate by label — track the first representative entry per label
+    // so the badge colour reflects the action, plus a count for repeats.
+    const seen = new Map<string, { action: string; count: number }>();
+    for (const e of filtered) {
+      const label =
+        e.action.charAt(0).toUpperCase() +
+        e.action.slice(1) +
+        (e.subject ? ` ${e.subject}` : "");
+      const existing = seen.get(label);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        seen.set(label, { action: e.action, count: 1 });
+      }
+    }
+    return Array.from(seen.entries()).map(([label, { action, count }]) => ({
+      label,
+      action,
+      count,
+    }));
+  }, [data]);
+
+  // Still loading
+  if (dedupedEntries === null) return null;
+
+  // Log has entries — show them
+  if (dedupedEntries.length > 0) {
+    return (
+      <Flex wrap="wrap" gap="2">
+        {dedupedEntries.map(({ label, action, count }) => (
+          <Badge
+            key={label}
+            color={logBadgeColor(action)}
+            variant="soft"
+            label={count > 1 ? `${label} ×${count}` : label}
+          />
+        ))}
+      </Flex>
+    );
+  }
+
+  // Log empty — fall back to diff-derived badges if provided
+  if (fallbackBadges?.length) {
+    return (
+      <Flex wrap="wrap" gap="2">
+        {fallbackBadges.map(({ label, action }) => (
+          <Badge
+            key={label}
+            color={logBadgeColor(action)}
+            variant="soft"
+            label={label}
+          />
+        ))}
+      </Flex>
+    );
+  }
+
+  return null;
+}
+
+function RevisionLogSummary({
+  featureId,
+  versions,
+  fallbackBadges,
+}: {
+  featureId: string;
+  versions: number[];
+  fallbackBadges?: DiffBadge[];
+}) {
+  if (versions.length === 0) return null;
+  return (
+    <Flex direction="column" gap="3" mb="3">
+      {versions.map((v) => (
+        <RevisionLogSection
+          key={v}
+          featureId={featureId}
+          version={v}
+          fallbackBadges={fallbackBadges}
+        />
+      ))}
+    </Flex>
+  );
+}
+
+export default function CompareRevisionsModal({
+  feature,
+  revisionList,
+  revisions,
+  currentVersion,
+  onClose,
+}: Props) {
+  const { apiCall } = useAuth();
+  const liveVersion = feature.version;
+
+  const [showDiscarded, setShowDiscarded] = useLocalStorage(
+    `${STORAGE_KEY_PREFIX}:showDiscarded`,
+    false,
+  );
+  const [showDrafts, setShowDrafts] = useLocalStorage(
+    `${STORAGE_KEY_PREFIX}:showDrafts`,
+    true,
+  );
+  const [diffViewModeRaw, setDiffViewModeRaw] = useLocalStorage<string>(
+    `${STORAGE_KEY_PREFIX}:diffViewMode`,
+    "steps",
+  );
+  const diffViewMode = diffViewModeRaw === "single" ? "single" : "steps";
+
+  const filteredRevisionList = useMemo(
+    () =>
+      revisionList.filter((r) => {
+        if (r.status === "discarded" && !showDiscarded) return false;
+        if (DRAFT_REVISION_STATUSES.includes(r.status) && !showDrafts)
+          return false;
+        return true;
+      }),
+    [revisionList, showDiscarded, showDrafts],
+  );
+
+  const versionsDesc = useMemo(() => {
+    const list = [...filteredRevisionList];
+    list.sort((a, b) => b.version - a.version);
+    return list.map((r) => r.version);
+  }, [filteredRevisionList]);
+
+  const versionsAsc = useMemo(
+    () => [...versionsDesc].sort((a, b) => a - b),
+    [versionsDesc],
+  );
+
+  const defaultAdjacentVersion = useMemo(() => {
+    if (versionsDesc.length < 2) return null;
+    const idx = versionsDesc.indexOf(currentVersion);
+    if (idx < 0) return versionsDesc[1] ?? versionsDesc[0];
+    if (idx === versionsDesc.length - 1) {
+      return versionsDesc[idx - 1] ?? null;
+    }
+    return versionsDesc[idx + 1];
+  }, [versionsDesc, currentVersion]);
+
+  const [selectedVersions, setSelectedVersions] = useState<number[]>(() => {
+    if (!defaultAdjacentVersion) return [currentVersion];
+    const pair = [currentVersion, defaultAdjacentVersion].sort((a, b) => a - b);
+    return pair;
+  });
+
+  const [fetchedRevisions, setFetchedRevisions] = useState<
+    Record<number, FeatureRevisionInterface>
+  >({});
+  const [loadingVersions, setLoadingVersions] = useState<Set<number>>(
+    new Set(),
+  );
+  const [failedVersions, setFailedVersions] = useState<Set<number>>(new Set());
+  const fetchingRef = useRef<Set<number>>(new Set());
+
+  const getFullRevision = useCallback(
+    (version: number): FeatureRevisionInterface | null => {
+      const fromRevisions = revisions.find((r) => r.version === version);
+      if (fromRevisions) return fromRevisions;
+      return fetchedRevisions[version] ?? null;
+    },
+    [revisions, fetchedRevisions],
+  );
+
+  const fetchRevisions = useCallback(
+    async (versions: number[]) => {
+      // Filter out already cached or currently in-flight versions
+      const toFetch = versions.filter(
+        (v) => !getFullRevision(v) && !fetchingRef.current.has(v),
+      );
+      if (!toFetch.length) return;
+
+      // Clear any previous failures for versions we're about to (re)fetch
+      setFailedVersions((prev) => {
+        if (!toFetch.some((v) => prev.has(v))) return prev;
+        const next = new Set(prev);
+        toFetch.forEach((v) => next.delete(v));
+        return next;
+      });
+
+      toFetch.forEach((v) => fetchingRef.current.add(v));
+      setLoadingVersions((prev) => {
+        const next = new Set(prev);
+        toFetch.forEach((v) => next.add(v));
+        return next;
+      });
+
+      try {
+        const response = await apiCall<{
+          revisions: FeatureRevisionInterface[];
+        }>(`/feature/${feature.id}/revisions?versions=${toFetch.join(",")}`);
+        const returnedVersions = new Set(
+          response.revisions?.map((r) => r.version) ?? [],
+        );
+        if (returnedVersions.size) {
+          setFetchedRevisions((prev) => {
+            const next = { ...prev };
+            response.revisions.forEach((r) => {
+              next[r.version] = r;
+            });
+            return next;
+          });
+        }
+        // Versions that were requested but not returned are definitively missing
+        const missing = toFetch.filter((v) => !returnedVersions.has(v));
+        if (missing.length) {
+          setFailedVersions((prev) => {
+            const next = new Set(prev);
+            missing.forEach((v) => next.add(v));
+            return next;
+          });
+        }
+      } catch {
+        // Network / server error — all requested versions failed
+        setFailedVersions((prev) => {
+          const next = new Set(prev);
+          toFetch.forEach((v) => next.add(v));
+          return next;
+        });
+      } finally {
+        toFetch.forEach((v) => fetchingRef.current.delete(v));
+        setLoadingVersions((prev) => {
+          const next = new Set(prev);
+          toFetch.forEach((v) => next.delete(v));
+          return next;
+        });
+      }
+    },
+    [apiCall, feature.id, getFullRevision],
+  );
+
+  const selectedSorted = useMemo(() => {
+    // selectedVersions holds exactly 2 endpoints [lo, hi]; expand to all
+    // visible (non-filtered) versions between them for stepped diffing.
+    if (selectedVersions.length < 2) {
+      return [...selectedVersions]
+        .filter((v) => filteredRevisionList.some((r) => r.version === v))
+        .sort((a, b) => a - b);
+    }
+    const lo = Math.min(...selectedVersions);
+    const hi = Math.max(...selectedVersions);
+    return filteredRevisionList
+      .filter((r) => r.version >= lo && r.version <= hi)
+      .map((r) => r.version)
+      .sort((a, b) => a - b);
+  }, [selectedVersions, filteredRevisionList]);
+
+  // Compare ranges by their endpoints only (both arrays are sorted ascending).
+  const isRangeEqual = useCallback(
+    (a: number[], b: number[] | null) =>
+      !!b &&
+      a.length >= 2 &&
+      b.length >= 2 &&
+      Math.min(...a) === Math.min(...b) &&
+      Math.max(...a) === Math.max(...b),
+    [],
+  );
+  const steps = useMemo(() => {
+    const pairs: [number, number][] = [];
+    for (let i = 0; i < selectedSorted.length - 1; i++) {
+      pairs.push([selectedSorted[i], selectedSorted[i + 1]]);
+    }
+    return pairs.reverse();
+  }, [selectedSorted]);
+
+  const selectedSortedSet = useMemo(
+    () => new Set(selectedSorted),
+    [selectedSorted],
+  );
+
+  const neededVersions = selectedSortedSet;
+
+  useEffect(() => {
+    const missing = [...neededVersions].filter((v) => !getFullRevision(v));
+    if (missing.length) fetchRevisions(missing);
+  }, [neededVersions, getFullRevision, fetchRevisions]);
+
+  // A version is failed if the fetch completed but it wasn't returned
+  const isVersionFailed = useCallback(
+    (v: number) =>
+      failedVersions.has(v) && !loadingVersions.has(v) && !getFullRevision(v),
+    [failedVersions, loadingVersions, getFullRevision],
+  );
+
+  const [diffPage, setDiffPage] = useState(0);
+  // Helper: reset endpoints to the two newest visible versions.
+  const resetToTopTwo = useCallback(
+    (prev: number[]) => {
+      const top2 = [...filteredRevisionList]
+        .sort((a, b) => b.version - a.version)
+        .slice(0, 2)
+        .map((r) => r.version)
+        .sort((a, b) => a - b);
+      return top2.length >= 2 ? top2 : prev;
+    },
+    [filteredRevisionList],
+  );
+
+  const prevShowDiscardedRef = useRef(showDiscarded);
+  useEffect(() => {
+    if (prevShowDiscardedRef.current === showDiscarded) return;
+    prevShowDiscardedRef.current = showDiscarded;
+    if (!showDiscarded) {
+      // If hiding discarded revision knocks out either endpoint, reset.
+      setSelectedVersions((prev) => {
+        const visibleSet = new Set(filteredRevisionList.map((r) => r.version));
+        if (prev.every((v) => visibleSet.has(v))) return prev;
+        return resetToTopTwo(prev);
+      });
+    }
+    // When showing discarded: selectedSorted auto-expands to include them.
+  }, [showDiscarded, filteredRevisionList, resetToTopTwo]);
+
+  const prevShowDraftsRef = useRef(showDrafts);
+  useEffect(() => {
+    if (prevShowDraftsRef.current === showDrafts) return;
+    prevShowDraftsRef.current = showDrafts;
+    if (!showDrafts) {
+      // If hiding drafts knocks out either endpoint, reset.
+      setSelectedVersions((prev) => {
+        const visibleSet = new Set(filteredRevisionList.map((r) => r.version));
+        if (prev.every((v) => visibleSet.has(v))) return prev;
+        return resetToTopTwo(prev);
+      });
+    }
+  }, [showDrafts, filteredRevisionList, resetToTopTwo]);
+  useEffect(() => {
+    setDiffPage((p) =>
+      steps.length === 0 ? 0 : Math.min(p, steps.length - 1),
+    );
+  }, [steps.length]);
+  const applyQuickAction = useCallback((range: number[]) => {
+    setSelectedVersions(range);
+    setDiffPage(0);
+  }, []);
+  const safeDiffPage = Math.min(
+    Math.max(0, diffPage),
+    steps.length > 0 ? steps.length - 1 : 0,
+  );
+
+  const toggleVersion = (version: number) => {
+    setSelectedVersions((prev) => {
+      const idx = versionsDesc.indexOf(version);
+      if (idx === -1) return prev;
+
+      // Find the current selection range as indices in versionsDesc (newest-first)
+      const prevIndices = prev
+        .map((v) => versionsDesc.indexOf(v))
+        .filter((i) => i !== -1)
+        .sort((a, b) => a - b);
+
+      const startIdx = prevIndices[0] ?? -1; // newest selected (lowest display index)
+      const endIdx = prevIndices[prevIndices.length - 1] ?? -1; // oldest selected
+
+      // Clicking an endpoint shrinks the range to the nearest visible item inward.
+      // versionsDesc[startIdx] is the newer (top) endpoint; versionsDesc[endIdx] is the older.
+      // Visibility = presence in filteredRevisionList (respects draft/discarded filters).
+      if (prev.includes(version)) {
+        if (startIdx === -1 || endIdx === -1 || endIdx - startIdx <= 1)
+          return prev;
+        const visibleVersions = new Set(
+          filteredRevisionList.map((r) => r.version),
+        );
+        if (idx === startIdx) {
+          let newStart = startIdx + 1;
+          while (
+            newStart < endIdx &&
+            !visibleVersions.has(versionsDesc[newStart])
+          )
+            newStart++;
+          if (newStart >= endIdx) return prev; // no visible item found
+          return [versionsDesc[newStart], versionsDesc[endIdx]].sort(
+            (a, b) => a - b,
+          );
+        }
+        if (idx === endIdx) {
+          let newEnd = endIdx - 1;
+          while (
+            newEnd > startIdx &&
+            !visibleVersions.has(versionsDesc[newEnd])
+          )
+            newEnd--;
+          if (newEnd <= startIdx) return prev; // no visible item found
+          return [versionsDesc[startIdx], versionsDesc[newEnd]].sort(
+            (a, b) => a - b,
+          );
+        }
+        return prev;
+      }
+
+      if (prevIndices.length > 0) {
+        // Count visible revisions (in filteredRevisionList) strictly between
+        // two indices in versionsDesc (exclusive of endpoints).
+        const visibleVersionSet = new Set(
+          filteredRevisionList.map((r) => r.version),
+        );
+        const visibleBetween = (a: number, b: number): number => {
+          const [lo, hi] = a < b ? [a, b] : [b, a];
+          let count = 0;
+          for (let i = lo + 1; i < hi; i++) {
+            if (visibleVersionSet.has(versionsDesc[i])) count++;
+          }
+          return count;
+        };
+
+        // Clicking within the range: shorten by moving the nearer endpoint.
+        // versionsDesc is newest-first, so startIdx (lower) = newer, endIdx (higher) = older.
+        // Tiebreaker: move the newer (top) endpoint.
+        if (idx > startIdx && idx < endIdx) {
+          const distToNewer = idx - startIdx;
+          const distToOlder = endIdx - idx;
+          if (distToNewer <= distToOlder) {
+            return [versionsDesc[idx], versionsDesc[endIdx]].sort(
+              (a, b) => a - b,
+            );
+          } else {
+            return [versionsDesc[startIdx], versionsDesc[idx]].sort(
+              (a, b) => a - b,
+            );
+          }
+        }
+
+        // If 4+ visible items outside the current range, clear and pair with
+        // the item immediately below (older) instead of expanding.
+        if (
+          (idx < startIdx && visibleBetween(idx, startIdx) >= 8) ||
+          (idx > endIdx && visibleBetween(endIdx, idx) >= 8)
+        ) {
+          if (idx < versionsDesc.length - 1) {
+            return [versionsDesc[idx + 1], versionsDesc[idx]].sort(
+              (a, b) => a - b,
+            );
+          }
+          // Clicked the very last (oldest) revision — round up to the two newest
+          if (versionsDesc.length >= 2) {
+            return [versionsDesc[1], versionsDesc[0]].sort((a, b) => a - b);
+          }
+          return prev;
+        }
+      }
+
+      const low = Math.min(...prev);
+      const high = Math.max(...prev);
+      const newLow = Math.min(low, version);
+      const newHigh = Math.max(high, version);
+      // Store only the two endpoints; selectedSorted derives all intermediate visible versions.
+      return [newLow, newHigh];
+    });
+  };
+
+  const hasDiscardedRevisions = useMemo(
+    () => revisionList.some((r) => r.status === "discarded"),
+    [revisionList],
+  );
+  const hasDraftRevisions = useMemo(
+    () => revisionList.some((r) => DRAFT_REVISION_STATUSES.includes(r.status)),
+    [revisionList],
+  );
+
+  // Returns true when a revision is a draft whose base is not the current live
+  // version — publishing it would use a 3-way merge, so the diff shown may
+  // not match the actual published result.
+  const isOutOfOrderDraft = useCallback(
+    (rev: FeatureRevisionInterface | null): boolean => {
+      if (!rev) return false;
+      return (
+        DRAFT_REVISION_STATUSES.includes(rev.status) &&
+        rev.baseVersion !== liveVersion
+      );
+    },
+    [liveVersion],
+  );
+
+  const revisionListByVersion = useMemo(
+    () => new Map(filteredRevisionList.map((r) => [r.version, r])),
+    [filteredRevisionList],
+  );
+
+  const mostRecentDraftVersion = useMemo(() => {
+    const drafts = filteredRevisionList.filter((r) =>
+      DRAFT_REVISION_STATUSES.includes(r.status),
+    );
+    if (drafts.length === 0) return null;
+    return Math.max(...drafts.map((r) => r.version));
+  }, [filteredRevisionList]);
+
+  const quickActionRanges = useMemo(() => {
+    const draftLow =
+      mostRecentDraftVersion && liveVersion
+        ? Math.min(mostRecentDraftVersion, liveVersion)
+        : null;
+    const draftHigh =
+      mostRecentDraftVersion && liveVersion
+        ? Math.max(mostRecentDraftVersion, liveVersion)
+        : null;
+    const draftRange: number[] | null =
+      draftLow &&
+      draftHigh &&
+      draftLow !== draftHigh &&
+      versionsAsc.includes(draftLow) &&
+      versionsAsc.includes(draftHigh)
+        ? [draftLow, draftHigh]
+        : null;
+    const prevLockedVersion = revisionList
+      .filter((r) => r.status === "published" && r.version < liveVersion)
+      .reduce<
+        number | null
+      >((best, r) => (best === null || r.version > best ? r.version : best), null);
+    const liveRange: number[] | null =
+      prevLockedVersion !== null && versionsAsc.includes(liveVersion)
+        ? [prevLockedVersion, liveVersion]
+        : null;
+    const allRange: number[] | null =
+      versionsAsc.length >= 2
+        ? [versionsAsc[0], versionsAsc[versionsAsc.length - 1]]
+        : null;
+    return { draftRange, liveRange, allRange };
+  }, [mostRecentDraftVersion, liveVersion, versionsAsc, revisionList]);
+
+  const currentStep = steps[safeDiffPage];
+  const stepRevA = currentStep ? getFullRevision(currentStep[0]) : null;
+  const stepRevB = currentStep ? getFullRevision(currentStep[1]) : null;
+
+  // Versions needed by whichever diff view is currently shown
+  const displayVersions =
+    steps.length === 0
+      ? []
+      : diffViewMode === "steps" && currentStep
+        ? [currentStep[0], currentStep[1]]
+        : selectedSorted.length >= 2
+          ? [selectedSorted[0], selectedSorted[selectedSorted.length - 1]]
+          : [];
+  const displayLoading = displayVersions.some((v) => loadingVersions.has(v));
+  const displayFailed = displayVersions.filter((v) => isVersionFailed(v));
+  const stepDiffs = useFeatureRevisionDiff({
+    current: stepRevA
+      ? revisionToDiffInput(stepRevA)
+      : { defaultValue: "", rules: {} },
+    draft: stepRevB
+      ? revisionToDiffInput(stepRevB)
+      : { defaultValue: "", rules: {} },
+  });
+
+  const singleRevFirst =
+    selectedSorted.length >= 2 ? getFullRevision(selectedSorted[0]) : null;
+  const singleRevLast =
+    selectedSorted.length >= 2
+      ? getFullRevision(selectedSorted[selectedSorted.length - 1])
+      : null;
+  const mergedDiffs = useFeatureRevisionDiff({
+    current: singleRevFirst
+      ? revisionToDiffInput(singleRevFirst)
+      : { defaultValue: "", rules: {} },
+    draft: singleRevLast
+      ? revisionToDiffInput(singleRevLast)
+      : { defaultValue: "", rules: {} },
+  });
+
+  return (
+    <Modal
+      trackingEventModalType="compare-revisions"
+      open={true}
+      header="Compare revisions"
+      close={onClose}
+      hideCta
+      includeCloseCta
+      closeCta="Close"
+      size="max"
+      sizeY="max"
+      bodyClassName="p-0"
+    >
+      <Flex style={{ flex: 1, minHeight: 0 }}>
+        <Box
+          style={{ width: 300, minWidth: 300, minHeight: 0 }}
+          className={`${styles.sidebar} ${styles.sidebarLeft} overflow-auto`}
+        >
+          {(quickActionRanges.draftRange ||
+            quickActionRanges.liveRange ||
+            quickActionRanges.allRange) && (
+            <Box className={`${styles.section} border-bottom`} pb="2">
+              <Text
+                size="medium"
+                weight="medium"
+                color="text-mid"
+                mb="2"
+                as="p"
+              >
+                Quick actions
+              </Text>
+              <Flex direction="column" className={styles.quickActionsList}>
+                {quickActionRanges.draftRange && (
+                  <Box
+                    className={`${styles.row} ${isRangeEqual(selectedSorted, quickActionRanges.draftRange) ? styles.rowSelected : ""}`}
+                    onClick={() =>
+                      quickActionRanges.draftRange &&
+                      applyQuickAction(quickActionRanges.draftRange)
+                    }
+                  >
+                    <Box className={styles.rowSpacer} />
+                    <Flex direction="column" gap="1" style={{ minWidth: 0 }}>
+                      <Text weight="semibold">Most recent draft changes</Text>
+                      <Text size="small" color="text-low">
+                        Revisions {quickActionRanges.draftRange[0]}{" "}
+                        <PiArrowsLeftRightBold />{" "}
+                        {
+                          quickActionRanges.draftRange[
+                            quickActionRanges.draftRange.length - 1
+                          ]
+                        }
+                      </Text>
+                    </Flex>
+                  </Box>
+                )}
+                {quickActionRanges.liveRange && (
+                  <Box
+                    className={`${styles.row} ${isRangeEqual(selectedSorted, quickActionRanges.liveRange) ? styles.rowSelected : ""}`}
+                    onClick={() =>
+                      quickActionRanges.liveRange &&
+                      applyQuickAction(quickActionRanges.liveRange)
+                    }
+                  >
+                    <Box className={styles.rowSpacer} />
+                    <Flex direction="column" gap="1" style={{ minWidth: 0 }}>
+                      <Text weight="semibold">Most recent live changes</Text>
+                      <Text size="small" color="text-low">
+                        Revisions {quickActionRanges.liveRange[0]}{" "}
+                        <PiArrowsLeftRightBold />{" "}
+                        {quickActionRanges.liveRange[1]}
+                      </Text>
+                    </Flex>
+                  </Box>
+                )}
+                {quickActionRanges.allRange && (
+                  <Box
+                    className={`${styles.row} ${isRangeEqual(selectedSorted, quickActionRanges.allRange) ? styles.rowSelected : ""}`}
+                    onClick={() =>
+                      quickActionRanges.allRange &&
+                      applyQuickAction(quickActionRanges.allRange)
+                    }
+                  >
+                    <Box className={styles.rowSpacer} />
+                    <Flex direction="column" gap="1" style={{ minWidth: 0 }}>
+                      <Text weight="semibold">All changes</Text>
+                      <Text size="small" color="text-low">
+                        Revisions {quickActionRanges.allRange[0]}{" "}
+                        <PiArrowsLeftRightBold />{" "}
+                        {
+                          quickActionRanges.allRange[
+                            quickActionRanges.allRange.length - 1
+                          ]
+                        }
+                      </Text>
+                    </Flex>
+                  </Box>
+                )}
+              </Flex>
+            </Box>
+          )}
+          <Box className={styles.section} pb="3">
+            <Flex align="center" justify="between" mb="2">
+              <Text size="medium" weight="medium" color="text-mid">
+                Select range of revisions
+              </Text>
+              {(hasDraftRevisions || hasDiscardedRevisions) &&
+                (() => {
+                  const opts = [
+                    ...(hasDraftRevisions
+                      ? [
+                          {
+                            label: "Show drafts",
+                            hidden: !showDrafts,
+                            toggle: () => setShowDrafts((v) => !v),
+                          },
+                        ]
+                      : []),
+                    ...(hasDiscardedRevisions
+                      ? [
+                          {
+                            label: "Show discarded",
+                            hidden: !showDiscarded,
+                            toggle: () => setShowDiscarded((v) => !v),
+                          },
+                        ]
+                      : []),
+                  ];
+                  const count = opts.filter((o) => o.hidden).length;
+                  const isShowingAll = count === 0;
+                  const isAtDefault =
+                    (!hasDraftRevisions || showDrafts) &&
+                    (!hasDiscardedRevisions || !showDiscarded);
+                  return (
+                    <DropdownMenu
+                      modal={true}
+                      trigger={
+                        <Link>
+                          Filters
+                          {count > 0 && (
+                            <Badge
+                              color="indigo"
+                              variant="solid"
+                              radius="full"
+                              label={String(count)}
+                              style={{ minWidth: 18, height: 18, marginTop: 1 }}
+                              ml="1"
+                            />
+                          )}
+                        </Link>
+                      }
+                      menuPlacement="end"
+                      variant="soft"
+                    >
+                      {!isShowingAll && (
+                        <DropdownMenuItem
+                          onClick={() => {
+                            if (hasDraftRevisions) setShowDrafts(true);
+                            if (hasDiscardedRevisions) setShowDiscarded(true);
+                          }}
+                        >
+                          <Flex align="center">
+                            <span style={{ width: 24, display: "inline-flex" }}>
+                              <PiX size={16} />
+                            </span>
+                            Remove all filters
+                          </Flex>
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem
+                        disabled={isAtDefault}
+                        onClick={() => {
+                          setShowDrafts(true);
+                          setShowDiscarded(false);
+                        }}
+                      >
+                        <Flex align="center">
+                          <span style={{ width: 24, display: "inline-flex" }}>
+                            <PiClockClockwise size={16} />
+                          </span>
+                          {isAtDefault
+                            ? "Using default filters"
+                            : "Use default filters"}
+                        </Flex>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      {opts.map((opt) => (
+                        <DropdownMenuItem
+                          key={opt.label}
+                          onClick={() => opt.toggle()}
+                        >
+                          <Flex align="center">
+                            <span
+                              style={{
+                                width: 24,
+                                display: "inline-flex",
+                                pointerEvents: "none",
+                              }}
+                            >
+                              <Checkbox
+                                value={!opt.hidden}
+                                setValue={() => {}}
+                              />
+                            </span>
+                            {opt.label}
+                          </Flex>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenu>
+                  );
+                })()}
+            </Flex>
+            <Flex direction="column" className={styles.revisionsList}>
+              {versionsDesc.map((v) => {
+                const minRev = revisionListByVersion.get(v);
+                const fullRev = getFullRevision(v);
+                const showBase = isOutOfOrderDraft(fullRev);
+                const date =
+                  minRev?.status === "published"
+                    ? minRev?.datePublished
+                    : minRev?.dateUpdated;
+                const isSelected = selectedSortedSet.has(v);
+                const rowId = `compare-rev-${v}`;
+                return (
+                  <Box
+                    key={v}
+                    asChild
+                    className={`${styles.row} ${isSelected ? styles.rowSelected : ""}`}
+                  >
+                    <label htmlFor={rowId}>
+                      <span style={{ pointerEvents: "none" }}>
+                        <Checkbox
+                          id={rowId}
+                          value={isSelected}
+                          setValue={() => toggleVersion(v)}
+                        />
+                      </span>
+                      <Flex
+                        direction="column"
+                        gap="1"
+                        style={{ flex: 1, minWidth: 0 }}
+                      >
+                        <Flex
+                          align="center"
+                          justify="between"
+                          gap="2"
+                          width="100%"
+                        >
+                          <Flex align="center" gap="1">
+                            {isSelected && isVersionFailed(v) && (
+                              <Tooltip body="Could not load revision">
+                                <PiWarningBold
+                                  style={{
+                                    color: "var(--red-9)",
+                                    flexShrink: 0,
+                                  }}
+                                />
+                              </Tooltip>
+                            )}
+                            <Text weight="semibold">Revision {v}</Text>
+                          </Flex>
+                          {minRev ? (
+                            <RevisionStatusBadge
+                              revision={minRev}
+                              liveVersion={liveVersion}
+                            />
+                          ) : null}
+                        </Flex>
+                        {date && minRev ? (
+                          <Text size="small" color="text-low">
+                            {datetime(date)} ·{" "}
+                            <EventUser user={minRev.createdBy} display="name" />
+                          </Text>
+                        ) : null}
+                        {showBase && fullRev && fullRev.baseVersion !== 0 ? (
+                          <HelperText status="info" size="sm" mt="1">
+                            based on: {fullRev.baseVersion}
+                          </HelperText>
+                        ) : null}
+                      </Flex>
+                    </label>
+                  </Box>
+                );
+              })}
+            </Flex>
+          </Box>
+        </Box>
+        <Box
+          flexGrow="1"
+          position="relative"
+          className={`${styles.sidebar} overflow-auto`}
+          style={{ minHeight: 0 }}
+        >
+          {steps.length === 0 ? (
+            <Text color="text-low">
+              Select at least two revisions in the list to see the diff.
+            </Text>
+          ) : (
+            <>
+              <Box
+                pb="3"
+                mb="3"
+                style={{ borderBottom: "1px solid var(--gray-5)" }}
+              >
+                <Flex align="center" justify="between" gap="4" wrap="wrap">
+                  <Flex align="center" gap="4">
+                    {diffViewMode === "steps" && (
+                      <>
+                        <Heading as="h2" size="small" mb="0">
+                          Step {safeDiffPage + 1} of {steps.length}
+                        </Heading>
+                        <Flex gap="2">
+                          <Button
+                            variant="soft"
+                            size="sm"
+                            disabled={safeDiffPage <= 0}
+                            onClick={() =>
+                              setDiffPage((p) => Math.max(0, p - 1))
+                            }
+                          >
+                            Previous
+                          </Button>
+                          <Button
+                            variant="soft"
+                            size="sm"
+                            disabled={safeDiffPage >= steps.length - 1}
+                            onClick={() =>
+                              setDiffPage((p) =>
+                                Math.min(steps.length - 1, p + 1),
+                              )
+                            }
+                          >
+                            Next
+                          </Button>
+                        </Flex>
+                      </>
+                    )}
+                    {diffViewMode === "single" &&
+                      selectedSorted.length >= 2 && (
+                        <RevisionCompareLabel
+                          versionA={selectedSorted[0]}
+                          versionB={selectedSorted[selectedSorted.length - 1]}
+                          revA={singleRevFirst}
+                          revB={singleRevLast}
+                          liveVersion={liveVersion}
+                          revAFailed={isVersionFailed(selectedSorted[0])}
+                          revBFailed={isVersionFailed(
+                            selectedSorted[selectedSorted.length - 1],
+                          )}
+                        />
+                      )}
+                  </Flex>
+                  <Flex align="center" gap="2">
+                    <Text size="medium" weight="medium" color="text-mid">
+                      Show diff as
+                    </Text>
+                    <Select
+                      value={diffViewMode}
+                      setValue={(v) => setDiffViewModeRaw(v)}
+                      size="2"
+                      mb="0"
+                    >
+                      <SelectItem value="steps">Steps</SelectItem>
+                      <SelectItem value="single">Single diff</SelectItem>
+                    </Select>
+                  </Flex>
+                </Flex>
+                {diffViewMode === "steps" && currentStep && (
+                  <RevisionCompareLabel
+                    versionA={currentStep[0]}
+                    versionB={currentStep[1]}
+                    revA={stepRevA}
+                    revB={stepRevB}
+                    liveVersion={liveVersion}
+                    revAFailed={isVersionFailed(currentStep[0])}
+                    revBFailed={isVersionFailed(currentStep[1])}
+                    mt="3"
+                  />
+                )}
+              </Box>
+              {displayLoading ? (
+                <LoadingOverlay />
+              ) : displayFailed.length > 0 ? (
+                <Callout status="error" contentsAs="div" mt="4">
+                  <Flex gap="4" align="start">
+                    <span>
+                      Could not load revision
+                      {displayFailed.length > 1 ? "s" : ""}{" "}
+                      {displayFailed.join(", ")}.
+                    </span>
+                    <Link onClick={() => fetchRevisions(displayFailed)}>
+                      Reload revision{displayFailed.length > 1 ? "s" : ""}
+                    </Link>
+                  </Flex>
+                </Callout>
+              ) : (
+                <>
+                  {(() => {
+                    // Versions whose log badges describe what is currently diffed.
+                    // Steps mode: only the newer revision (B) represents the A→B delta.
+                    // Single mode: all selected revisions, newest first.
+                    const badgeVersions =
+                      diffViewMode === "steps" && currentStep
+                        ? [currentStep[1]]
+                        : diffViewMode === "single"
+                          ? [...selectedSorted].reverse()
+                          : [];
+                    // Versions whose comments are surfaced. Include both fenceposts.
+                    const commentVersions =
+                      diffViewMode === "steps" && currentStep
+                        ? [currentStep[1], currentStep[0]]
+                        : diffViewMode === "single"
+                          ? [...selectedSorted].reverse()
+                          : [];
+                    const commentItems = commentVersions.map((v) => ({
+                      version: v,
+                      revisionComment: getFullRevision(v)?.comment,
+                    }));
+
+                    const diffs =
+                      diffViewMode === "single" ? mergedDiffs : stepDiffs;
+                    const withRender = diffs.filter((d) => d.customRender);
+
+                    // Diff-derived badges used as fallback when the revision log
+                    // has no actionable entries (e.g. rules added via the
+                    // "connect experiment" flow only write a "new revision" entry).
+                    const diffFallbackBadges = badgesFromDiffs(diffs);
+
+                    const formatSectionTitle = (title: string) => {
+                      if (title === "Default Value") return "Default value";
+                      if (title.startsWith("Rules - ")) {
+                        const env = title.slice("Rules - ".length);
+                        return `${env.charAt(0).toUpperCase() + env.slice(1)} rules`;
+                      }
+                      return title;
+                    };
+
+                    const hasSummary =
+                      badgeVersions.length > 0 || withRender.length > 0;
+
+                    return (
+                      <>
+                        <RevisionCommentSection
+                          featureId={feature.id}
+                          versions={commentItems}
+                        />
+
+                        {hasSummary && (
+                          <Box>
+                            <Heading
+                              as="h5"
+                              size="small"
+                              color="text-mid"
+                              mt="4"
+                            >
+                              Summary of changes
+                            </Heading>
+
+                            {/* Log action badges (with diff-derived fallback) */}
+                            {badgeVersions.length > 0 && (
+                              <Box mt="2" mb="2">
+                                <RevisionLogSummary
+                                  featureId={feature.id}
+                                  versions={badgeVersions}
+                                  fallbackBadges={diffFallbackBadges}
+                                />
+                              </Box>
+                            )}
+
+                            {/* Human-readable section renders */}
+                            {withRender.length > 0 && (
+                              <Flex direction="column" gap="0">
+                                {withRender.map((d) => (
+                                  <Box
+                                    key={d.title}
+                                    p="3"
+                                    my="3"
+                                    className="rounded bg-light"
+                                  >
+                                    <Heading
+                                      as="h6"
+                                      size="small"
+                                      color="text-mid"
+                                      mb="2"
+                                    >
+                                      {formatSectionTitle(d.title)}
+                                    </Heading>
+                                    {d.customRender}
+                                  </Box>
+                                ))}
+                              </Flex>
+                            )}
+                          </Box>
+                        )}
+
+                        {(diffViewMode === "single"
+                          ? isOutOfOrderDraft(singleRevFirst) ||
+                            isOutOfOrderDraft(singleRevLast)
+                          : isOutOfOrderDraft(stepRevA) ||
+                            isOutOfOrderDraft(stepRevB)) && (
+                          <Callout status="info" size="sm" mb="4">
+                            A draft in this comparison is based on an older
+                            version than what is currently live. When you
+                            publish, it will be merged with the live version, so
+                            the result may differ from the diff shown here.
+                          </Callout>
+                        )}
+
+                        {diffs.length === 0 ? (
+                          <Text color="text-low">
+                            No changes between these revisions.
+                          </Text>
+                        ) : (
+                          <>
+                            {hasSummary && (
+                              <Heading
+                                as="h5"
+                                size="small"
+                                color="text-mid"
+                                mt="4"
+                                mb="3"
+                              >
+                                Change details
+                              </Heading>
+                            )}
+                            <Flex direction="column" gap="4">
+                              {diffs.map((d) => (
+                                <ExpandableDiff
+                                  key={d.title}
+                                  title={d.title}
+                                  a={d.a}
+                                  b={d.b}
+                                  defaultOpen
+                                  styles={COMPACT_DIFF_STYLES}
+                                />
+                              ))}
+                            </Flex>
+                          </>
+                        )}
+                      </>
+                    );
+                  })()}
+                </>
+              )}
+            </>
+          )}
+        </Box>
+      </Flex>
+    </Modal>
+  );
+}

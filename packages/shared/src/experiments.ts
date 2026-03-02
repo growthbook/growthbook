@@ -1,5 +1,16 @@
 import normal from "@stdlib/stats/base/dists/normal";
-import { MetricInterface } from "back-end/types/metric";
+import cloneDeep from "lodash/cloneDeep";
+import uniqid from "uniqid";
+import {
+  DEFAULT_GUARDRAIL_ALPHA,
+  DEFAULT_PROPER_PRIOR_STDDEV,
+  DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+  PRECOMPUTED_DIMENSION_PREFIX,
+  NULL_DIMENSION_VALUE,
+  NULL_DIMENSION_DISPLAY,
+} from "shared/constants";
+import { MetricInterface } from "shared/types/metric";
 import {
   ColumnRef,
   FactMetricInterface,
@@ -8,44 +19,58 @@ import {
   FactTableMap,
   MetricQuantileSettings,
   MetricWindowSettings,
-} from "back-end/types/fact-table";
-import { TemplateVariables } from "back-end/types/sql";
+  RowFilter,
+} from "shared/types/fact-table";
 import {
   MetricDefaults,
   OrganizationSettings,
-} from "back-end/types/organization";
+} from "shared/types/organization";
 import {
+  AttributionModel,
   ExperimentInterface,
   ExperimentInterfaceStringDates,
+  LookbackOverride,
   MetricOverride,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import {
   ExperimentReportResultDimension,
   MetricSnapshotSettings,
-} from "back-end/types/report";
-import { DEFAULT_GUARDRAIL_ALPHA } from "shared/constants";
-import cloneDeep from "lodash/cloneDeep";
+} from "shared/types/report";
 import {
   DataSourceInterfaceWithParams,
   DataSourceSettings,
-  ExperimentDimensionMetadata,
-} from "back-end/types/datasource";
-import { SnapshotMetric } from "back-end/types/experiment-snapshot";
+} from "shared/types/datasource";
+import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import {
   DifferenceType,
   IndexedPValue,
   PValueCorrection,
   StatsEngine,
-} from "back-end/types/stats";
-import { MetricGroupInterface } from "back-end/types/metric-groups";
-import uniqid from "uniqid";
-import {
-  DEFAULT_PROPER_PRIOR_STDDEV,
-  DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
-  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-} from "./constants";
+} from "shared/types/stats";
+import { MetricGroupInterface } from "shared/types/metric-groups";
+import { TemplateVariables } from "../types/sql";
+import { stringToBoolean } from "./util";
 
 export type ExperimentMetricInterface = MetricInterface | FactMetricInterface;
+
+export type ExperimentSortBy =
+  | "significance"
+  | "change"
+  | "metrics"
+  | "metricTags"
+  | null;
+export type SetExperimentSortBy = (value: ExperimentSortBy) => void;
+
+export function formatDimensionValueForDisplay(
+  value: string | undefined,
+): string {
+  if (!value) return "";
+  if (value === NULL_DIMENSION_VALUE) {
+    return NULL_DIMENSION_DISPLAY;
+  }
+
+  return value;
+}
 
 export function isFactMetricId(id: string): boolean {
   return !!id.match(/^fact__/);
@@ -58,7 +83,14 @@ export function isMetricGroupId(id: string): boolean {
 export function isFactMetric(
   m: ExperimentMetricInterface,
 ): m is FactMetricInterface {
+  if (!m || typeof m !== "object") return false;
   return "metricType" in m;
+}
+
+export function isLegacyMetric(
+  m: ExperimentMetricInterface,
+): m is MetricInterface {
+  return !isFactMetric(m);
 }
 
 export function canInlineFilterColumn(
@@ -68,10 +100,13 @@ export function canInlineFilterColumn(
   // If the column is one of the identifier columns, it is not eligible for prompting
   if (factTable.userIdTypes.includes(column)) return false;
 
-  if (
-    getSelectedColumnDatatype({ factTable, column, excludeDeleted: true }) !==
-    "string"
-  ) {
+  const dataType = getSelectedColumnDatatype({
+    factTable,
+    column,
+    excludeDeleted: true,
+  });
+
+  if (dataType !== "string" && dataType !== "boolean") {
     return false;
   }
 
@@ -81,6 +116,7 @@ export function canInlineFilterColumn(
 export function getColumnExpression(
   column: string,
   factTable: Pick<FactTableInterface, "columns">,
+  // todo: add stringification for dimension cols that may not be string type
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string,
   alias: string = "",
 ): string {
@@ -104,51 +140,226 @@ export function getColumnExpression(
   return alias ? `${alias}.${column}` : column;
 }
 
-export function getColumnRefWhereClause(
-  factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">,
-  columnRef: ColumnRef,
-  escapeStringLiteral: (s: string) => string,
-  jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string,
+export function getColumnRefWhereClause({
+  factTable,
+  columnRef,
+  escapeStringLiteral,
+  jsonExtract,
+  evalBoolean,
   showSourceComment = false,
-): string[] {
-  const inlineFilters = columnRef.inlineFilters || {};
-  const filterIds = columnRef.filters || [];
-
+  sliceInfo,
+}: {
+  factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">;
+  columnRef: ColumnRef;
+  escapeStringLiteral: (s: string) => string;
+  jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string;
+  evalBoolean: (col: string, value: boolean) => string;
+  showSourceComment?: boolean;
+  sliceInfo?: SliceMetricInfo;
+}): string[] {
   const where = new Set<string>();
 
-  // First add inline filters
-  Object.entries(inlineFilters).forEach(([column, values]) => {
-    const escapedValues = new Set(
-      values
-        .filter((v) => v.length > 0)
-        .map((v) => "'" + escapeStringLiteral(v) + "'"),
-    );
-
-    const columnExpr = getColumnExpression(column, factTable, jsonExtract);
-
-    if (!escapedValues.size) {
-      return;
-    } else if (escapedValues.size === 1) {
-      // parentheses are overkill here but they help de-dupe with
-      // any identical user additional filters
-      where.add(`(${columnExpr} = ${[...escapedValues][0]})`);
-    } else {
-      where.add(
-        `(${columnExpr} IN (\n  ${[...escapedValues].join(",\n  ")}\n))`,
+  // First add slice filters if this is a slice metric
+  if (sliceInfo?.isSliceMetric) {
+    // Apply filters for each slice level
+    sliceInfo.sliceLevels.forEach((sliceLevel) => {
+      const sliceColumn = factTable.columns.find(
+        (col) => col.column === sliceLevel.column,
       );
-    }
-  });
 
-  // Then add additional filters
-  filterIds.forEach((filterId) => {
-    const filter = factTable.filters.find((f) => f.id === filterId);
-    if (filter) {
-      const comment = showSourceComment ? `-- Filter: ${filter.name}\n` : "";
-      where.add(comment + `(${filter.value})`);
+      if (sliceColumn && !sliceColumn.deleted) {
+        const columnExpr = getColumnExpression(
+          sliceLevel.column,
+          factTable,
+          jsonExtract,
+        );
+
+        if (
+          sliceLevel.levels.length === 0 ||
+          (sliceColumn.datatype === "boolean" &&
+            sliceLevel.levels[0] === "null")
+        ) {
+          // For "other" or "null", exclude all auto slice values
+          if (sliceColumn.datatype === "boolean") {
+            // For boolean "other"/"null", check for NULL values
+            where.add(`(${columnExpr} IS NULL)`);
+          } else if (
+            sliceColumn.autoSlices &&
+            sliceColumn.autoSlices.length > 0
+          ) {
+            const escapedValues = sliceColumn.autoSlices.map(
+              (v: string) => "'" + escapeStringLiteral(v) + "'",
+            );
+            where.add(
+              `(${columnExpr} NOT IN (\n  ${escapedValues.join(",\n  ")}\n))`,
+            );
+          }
+        } else {
+          // For specific auto slice values, filter to that value
+          if (sliceColumn.datatype === "boolean") {
+            const boolValue = stringToBoolean(sliceLevel.levels[0]);
+            where.add(`(${evalBoolean(columnExpr, boolValue)})`);
+            return;
+          }
+
+          where.add(
+            `(${columnExpr} = '${escapeStringLiteral(sliceLevel.levels[0])}')`,
+          );
+        }
+      }
+    });
+  }
+
+  columnRef.rowFilters?.forEach((filter) => {
+    const filterSQL = getRowFilterSQL({
+      rowFilter: filter,
+      factTable,
+      jsonExtract,
+      escapeStringLiteral,
+      evalBoolean,
+      showSourceComment,
+    });
+    if (filterSQL) {
+      where.add(filterSQL);
     }
   });
 
   return [...where];
+}
+
+export function getRowFilterSQL({
+  rowFilter,
+  factTable,
+  jsonExtract,
+  escapeStringLiteral,
+  evalBoolean,
+  showSourceComment = false,
+}: {
+  rowFilter: RowFilter;
+  factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">;
+  jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string;
+  escapeStringLiteral: (s: string) => string;
+  evalBoolean: (col: string, value: boolean) => string;
+  showSourceComment?: boolean;
+}): string | null {
+  // Some operators do not require a column
+  if (rowFilter.operator === "saved_filter") {
+    const filter = factTable.filters.find(
+      (f) => f.id === rowFilter.values?.[0],
+    );
+    if (filter) {
+      const comment = showSourceComment ? `-- Filter: ${filter.name}\n` : "";
+      return comment + `(${filter.value})`;
+    }
+    return null;
+  }
+  if (rowFilter.operator === "sql_expr") {
+    if (!rowFilter.values?.[0]) {
+      return null;
+    }
+    return `(${rowFilter.values?.[0] || ""})`;
+  }
+
+  if (!rowFilter.column) {
+    return null;
+  }
+  const columnExpr = getColumnExpression(
+    rowFilter.column,
+    factTable,
+    jsonExtract,
+  );
+  const columnType = getSelectedColumnDatatype({
+    factTable,
+    column: rowFilter.column,
+  });
+
+  // If a boolean column is using equals operator, convert to is_true/is_false
+  let operator = rowFilter.operator;
+  if (
+    operator === "=" &&
+    rowFilter.values?.[0] === "true" &&
+    columnType === "boolean"
+  ) {
+    operator = "is_true";
+  }
+  if (
+    operator === "=" &&
+    rowFilter.values?.[0] === "false" &&
+    columnType === "boolean"
+  ) {
+    operator = "is_false";
+  }
+
+  // Some operators do not require values
+  if (operator === "is_null") {
+    return `(${columnExpr} IS NULL)`;
+  }
+  if (operator === "not_null") {
+    return `(${columnExpr} IS NOT NULL)`;
+  }
+  if (operator === "is_true") {
+    return `(${evalBoolean(columnExpr, true)})`;
+  }
+  if (operator === "is_false") {
+    return `(${evalBoolean(columnExpr, false)})`;
+  }
+
+  if (!rowFilter.values?.length) {
+    return null;
+  }
+  const escapedValues = [
+    ...new Set(
+      rowFilter.values.map((v) => {
+        // Number, don't wrap in quotes
+        if (columnType === "number" && v.match(/^-?(\d+|\d*\.\d+)$/)) {
+          return v;
+        }
+
+        return "'" + escapeStringLiteral(v) + "'";
+      }),
+    ),
+  ];
+
+  const firstEscapedValue = escapedValues[0];
+
+  // Convert single-value in/not_in to =/!=
+  if (escapedValues.length === 1) {
+    if (operator === "in") {
+      operator = "=";
+    } else if (operator === "not_in") {
+      operator = "!=";
+    }
+  }
+
+  const likeEscapedValue = escapeStringLiteral(rowFilter.values[0]).replace(
+    /([%_])/g,
+    "\\$1",
+  );
+
+  // Handle remaining operators
+  switch (operator) {
+    case "=":
+    case "!=":
+    case "<":
+    case "<=":
+    case ">":
+    case ">=":
+      return `(${columnExpr} ${operator} ${firstEscapedValue})`;
+    case "in":
+      return `(${columnExpr} IN (\n  ${escapedValues.join(",\n  ")}\n))`;
+    case "not_in":
+      return `(${columnExpr} NOT IN (\n  ${escapedValues.join(",\n  ")}\n))`;
+    case "starts_with":
+      return `(${columnExpr} LIKE '${likeEscapedValue}%')`;
+    case "ends_with":
+      return `(${columnExpr} LIKE '%${likeEscapedValue}')`;
+    case "contains":
+      return `(${columnExpr} LIKE '%${likeEscapedValue}%')`;
+    case "not_contains":
+      return `(${columnExpr} NOT LIKE '%${likeEscapedValue}%')`;
+
+    // IMPORTANT: no default to ensure missing cases are caught by the compiler
+  }
 }
 
 export function getAggregateFilters({
@@ -188,6 +399,15 @@ export function getAggregateFilters({
   return filters;
 }
 
+export function getFactTableTemplateVariables(
+  factTable: FactTableInterface,
+): TemplateVariables {
+  return {
+    eventName: factTable.eventName,
+  };
+}
+
+// TODO(sql): refactor to remove factTableMap
 export function getMetricTemplateVariables(
   m: ExperimentMetricInterface,
   factTableMap: FactTableMap,
@@ -206,6 +426,10 @@ export function getMetricTemplateVariables(
   }
 
   return m.templateVariables || {};
+}
+
+export function isCappableMetricType(m: ExperimentMetricInterface) {
+  return !quantileMetricType(m) && !isBinomialMetric(m);
 }
 
 export function isBinomialMetric(m: ExperimentMetricInterface) {
@@ -257,7 +481,35 @@ export function isRegressionAdjusted(
   );
 }
 
-export function getConversionWindowHours(
+export function isPercentileCappedMetric(metric: ExperimentMetricInterface) {
+  return (
+    metric.cappingSettings.type === "percentile" &&
+    !!metric.cappingSettings.value &&
+    metric.cappingSettings.value < 1 &&
+    isCappableMetricType(metric)
+  );
+}
+
+function isAbsoluteCappedMetric(metric: ExperimentMetricInterface) {
+  return (
+    metric.cappingSettings.type === "absolute" &&
+    !!metric.cappingSettings.value &&
+    isCappableMetricType(metric)
+  );
+}
+
+export function isSliceMetric(metric: ExperimentMetricInterface) {
+  return parseSliceMetricId(metric.id).isSliceMetric;
+}
+
+export function eligibleForUncappedMetric(metric: ExperimentMetricInterface) {
+  return (
+    (isPercentileCappedMetric(metric) || isAbsoluteCappedMetric(metric)) &&
+    !isSliceMetric(metric)
+  );
+}
+
+export function getMetricWindowHours(
   windowSettings: MetricWindowSettings,
 ): number {
   const value = windowSettings.windowValue;
@@ -325,6 +577,102 @@ export function getUserIdTypes(
   }
 
   return metric.userIdTypes || [];
+}
+
+export interface SliceMetricInfo {
+  isSliceMetric: boolean;
+  baseMetricId: string;
+  sliceLevels: SliceLevelsData[];
+}
+
+/**
+ * Parses a slice query string (e.g., "dim:browser=Chrome&dim:country=AU")
+ * and returns the slice levels with datatypes.
+ */
+export function parseSliceQueryString(
+  queryString: string,
+  factTableMap?: Record<string, FactTableInterface>,
+): SliceLevelsData[] {
+  const sliceLevels: SliceLevelsData[] = [];
+  const params = new URLSearchParams(queryString);
+
+  for (const [key, value] of params.entries()) {
+    if (key.startsWith("dim:")) {
+      const column = decodeURIComponent(key.substring(4)); // Remove 'dim:' prefix
+      const level = value === "" ? null : decodeURIComponent(value);
+      // Look up datatype from factTableMap if available
+      let datatype: "string" | "boolean" = "string";
+      if (factTableMap) {
+        for (const factTable of Object.values(factTableMap)) {
+          const columnInfo = factTable.columns.find(
+            (col) => col.column === column,
+          );
+          if (columnInfo) {
+            datatype = columnInfo.datatype === "boolean" ? "boolean" : "string";
+            break;
+          }
+        }
+      }
+
+      sliceLevels.push({
+        column: column,
+        datatype,
+        levels: level ? [level] : [],
+      });
+    }
+  }
+
+  return sliceLevels;
+}
+
+export function isSliceTagSelectAll(tagId: string): {
+  isSelectAll: boolean;
+  column?: string;
+} {
+  // Handle "select all" format: dim:column (no equals sign)
+  if (!tagId.includes("=")) {
+    const columnMatch = tagId.match(/^dim:(.+)$/);
+    if (columnMatch) {
+      return {
+        isSelectAll: true,
+        column: decodeURIComponent(columnMatch[1]),
+      };
+    }
+  }
+  return { isSelectAll: false };
+}
+
+export function parseSliceMetricId(
+  metricId: string,
+  factTableMap?: Record<string, FactTableInterface>,
+): SliceMetricInfo {
+  const questionMarkIndex = metricId.indexOf("?");
+  if (questionMarkIndex === -1) {
+    return {
+      isSliceMetric: false,
+      baseMetricId: metricId,
+      sliceLevels: [],
+    };
+  }
+
+  const baseMetricId = metricId.substring(0, questionMarkIndex);
+  const queryString = metricId.substring(questionMarkIndex + 1);
+
+  const sliceLevels = parseSliceQueryString(queryString, factTableMap);
+
+  if (sliceLevels.length === 0) {
+    return {
+      isSliceMetric: false,
+      baseMetricId,
+      sliceLevels: [],
+    };
+  }
+
+  return {
+    isSliceMetric: true,
+    baseMetricId,
+    sliceLevels: sliceLevels,
+  };
 }
 
 export function getMetricLink(id: string): string {
@@ -412,7 +760,9 @@ export function getMetricSnapshotSettings<T extends ExperimentMetricInterface>({
 
   // get RA and prior settings from metric override
   if (metricOverrides) {
-    const metricOverride = metricOverrides.find((mo) => mo.id === metric.id);
+    // For slice metrics, use the base metric ID for lookups
+    const { baseMetricId } = parseSliceMetricId(metric.id);
+    const metricOverride = metricOverrides.find((mo) => mo.id === baseMetricId);
 
     // RA override
     if (metricOverride?.regressionAdjustmentOverride) {
@@ -874,6 +1224,7 @@ export function chanceToWinFlatPrior(
   return 1 - ctwInverse;
 }
 
+// get all metric ids from an experiment, excluding ephemeral metrics (slices)
 export function getAllMetricIdsFromExperiment(
   exp: {
     goalMetrics?: string[];
@@ -881,8 +1232,8 @@ export function getAllMetricIdsFromExperiment(
     guardrailMetrics?: string[];
     activationMetric?: string | null;
   },
-  includeActivationMetric: boolean = true,
-  metricGroups: MetricGroupInterface[] = [],
+  includeActivationMetric: boolean,
+  metricGroups: MetricGroupInterface[],
 ) {
   return Array.from(
     new Set(
@@ -899,6 +1250,237 @@ export function getAllMetricIdsFromExperiment(
       ),
     ),
   );
+}
+
+// Extracts all metric ids from an experiment, including ephemeral metrics (slices)
+// NOTE: The expandedMetricMap should be expanded with slice metrics via expandAllSliceMetricsInMap() before calling this function
+export function getAllExpandedMetricIdsFromExperiment({
+  exp,
+  expandedMetricMap,
+  includeActivationMetric = true,
+  metricGroups = [],
+}: {
+  exp: {
+    goalMetrics?: string[];
+    secondaryMetrics?: string[];
+    guardrailMetrics?: string[];
+    activationMetric?: string | null;
+  };
+  expandedMetricMap: Map<string, ExperimentMetricInterface>;
+  includeActivationMetric?: boolean;
+  metricGroups?: MetricGroupInterface[];
+}): string[] {
+  const baseMetricIds = getAllMetricIdsFromExperiment(
+    exp,
+    includeActivationMetric,
+    metricGroups,
+  );
+  const expandedMetricIds = new Set<string>(baseMetricIds);
+
+  // Add all slice metrics that are already in the expandedMetricMap
+  // This includes both standard and custom dimension metrics
+  expandedMetricMap.forEach((_, metricId) => {
+    // Check if this is a dimension metric (contains dim: parameter)
+    if (/[?&]dim:/.test(metricId)) {
+      expandedMetricIds.add(metricId);
+    }
+  });
+
+  return Array.from(expandedMetricIds);
+}
+
+export interface SliceLevelsData {
+  column: string;
+  datatype: "string" | "boolean";
+  levels: string[];
+}
+
+// For building slice metric rows (FE)
+export interface SliceDataForMetric {
+  id: string; // Format: `${parentId}?dim:${encodedColumnId}=${encodedValue}` or `${parentId}?dim:${encodedColumnId}=` for "other"
+  name: string; // Format: `${parentName} (${columnName}: ${value})` or `${parentName} (${columnName}: other)`
+  description: string;
+  sliceLevels: SliceLevelsData[];
+  allSliceLevels: string[];
+}
+
+// Creates auto slice data for a fact metric based on the metric's metricAutoSlices
+// Used for FE: row generation, slice filtering/expansion
+export function createAutoSliceDataForMetric({
+  parentMetric,
+  factTable,
+  includeOther = true,
+}: {
+  parentMetric: ExperimentMetricInterface | null | undefined;
+  factTable: FactTableInterface | null | undefined;
+  includeOther?: boolean;
+}): SliceDataForMetric[] {
+  // Sanity checks
+  if (!parentMetric || !isFactMetric(parentMetric)) return [];
+  if (!factTable) return [];
+
+  // Cast to FactMetricInterface after type check
+  const factMetric = parentMetric as FactMetricInterface;
+  if (!factMetric.metricAutoSlices?.length) return [];
+
+  const sliceData: SliceDataForMetric[] = [];
+
+  // Get the intersection of metricAutoSlices with fact table auto slice columns
+  const factTableAutoSliceColumns = factTable.columns.filter(
+    (col) =>
+      col.isAutoSliceColumn &&
+      !col.deleted &&
+      (col.autoSlices?.length || 0) > 0,
+  );
+
+  const autoSliceColumns = factTableAutoSliceColumns.filter((col) =>
+    factMetric.metricAutoSlices?.includes(col.column),
+  );
+
+  autoSliceColumns.forEach((col) => {
+    const autoSlices = col.autoSlices || [];
+    const columnName = col.name || col.column;
+
+    // For boolean columns, generate true/false slices, "null" will be handled as "other" below
+    const sliceValues =
+      col.datatype === "boolean" ? ["true", "false"] : autoSlices;
+
+    // Create slice data for each slice value
+    sliceValues.forEach((value) => {
+      const sliceString = generateSliceString({ [col.column]: value });
+      sliceData.push({
+        id: `${factMetric.id}?${sliceString}`,
+        name: `${factMetric.name} (${columnName}: ${value})`,
+        description: `Slice analysis of ${factMetric.name} for ${columnName} = ${value}`,
+        sliceLevels: [
+          {
+            column: col.column,
+            datatype: col.datatype as "string" | "boolean",
+            levels: [value],
+          },
+        ],
+        allSliceLevels: autoSlices,
+      });
+    });
+
+    // Create an "other" slice data for values not in autoSlices (includes NULL for boolean)
+    if (includeOther && (autoSlices.length > 0 || col.datatype === "boolean")) {
+      const sliceString = generateSliceString({ [col.column]: "" });
+      sliceData.push({
+        id: `${factMetric.id}?${sliceString}`,
+        name: `${factMetric.name} (${columnName}: other)`,
+        description: `Slice analysis of ${factMetric.name} for ${columnName} (other)`,
+        sliceLevels: [
+          {
+            column: col.column,
+            datatype: col.datatype as "string" | "boolean",
+            levels: [],
+          },
+        ],
+        allSliceLevels: autoSlices,
+      });
+    }
+  });
+
+  return sliceData;
+}
+
+// Creates custom slice data for a fact metric by using the experiment's customMetricSlices
+export function createCustomSliceDataForMetric({
+  metricId,
+  metricName,
+  customMetricSlices,
+  factTable,
+}: {
+  metricId: string;
+  metricName: string;
+  customMetricSlices?: { slices: { column: string; levels: string[] }[] }[];
+  factTable?: FactTableInterface | null;
+}): SliceDataForMetric[] {
+  // Sanity checks
+  if (!customMetricSlices?.length) return [];
+
+  const customSliceData: SliceDataForMetric[] = [];
+
+  customMetricSlices.forEach((group) => {
+    // Sort slices alphabetically for consistent ID generation
+    const sortedSlices = group.slices.sort((a, b) =>
+      a.column.localeCompare(b.column),
+    );
+
+    // Create slice levels with proper handling for boolean "null" values
+    const sliceLevelsForString = sortedSlices.map((d) => {
+      const column = factTable?.columns.find((col) => col.column === d.column);
+      // For boolean "null" slices, use empty array to generate ?dim:col= format
+      const levels =
+        d.levels[0] === "null" && column?.datatype === "boolean"
+          ? []
+          : d.levels;
+      return {
+        column: d.column,
+        datatype: (column?.datatype === "boolean" ? "boolean" : "string") as
+          | "string"
+          | "boolean",
+        levels,
+      };
+    });
+
+    const sliceString = generateSliceStringFromLevels(sliceLevelsForString);
+
+    const customSliceMetric = {
+      id: `${metricId}?${sliceString}`,
+      name: `${metricName} (${sortedSlices.map((combo) => `${combo.column}: ${combo.levels[0] || ""}`).join(", ")})`,
+      description: `Slice analysis of ${metricName} for ${sortedSlices.map((combo) => `${combo.column} = ${combo.levels[0] || ""}`).join(" and ")}`,
+      sliceLevels: sortedSlices.map((d) => {
+        const column = factTable?.columns.find(
+          (col) => col.column === d.column,
+        );
+        // For boolean "null" slices, use empty array to match "other" slice format
+        const levels =
+          d.levels[0] === "null" && column?.datatype === "boolean"
+            ? []
+            : d.levels;
+        return {
+          column: d.column,
+          datatype: (column?.datatype === "boolean" ? "boolean" : "string") as
+            | "string"
+            | "boolean",
+          levels,
+        };
+      }),
+      allSliceLevels: sortedSlices.flatMap((slice) => slice.levels),
+    };
+    customSliceData.push(customSliceMetric);
+  });
+
+  return customSliceData;
+}
+
+export function generateSelectAllSliceString(column: string): string {
+  // Generate "select all" tag format: dim:column (no equals sign)
+  return `dim:${encodeURIComponent(column)}`;
+}
+
+export function generateSliceString(slices: Record<string, string>): string {
+  const sortedSlices = Object.entries(slices).sort((a, b) =>
+    a[0].localeCompare(b[0]),
+  );
+  return sortedSlices
+    .map(
+      ([col, val]) =>
+        `dim:${encodeURIComponent(col)}=${encodeURIComponent(val)}`,
+    )
+    .join("&");
+}
+
+export function generateSliceStringFromLevels(
+  sliceLevels: SliceLevelsData[],
+): string {
+  const slices: Record<string, string> = {};
+  sliceLevels.forEach((dl) => {
+    slices[dl.column] = dl.levels[0] || "";
+  });
+  return generateSliceString(slices);
 }
 
 // Returns n "equal" decimals rounded to 3 places that add up to 1
@@ -1183,39 +1765,167 @@ export function getAdjustedCI(
   }
 }
 
-export function getPredefinedDimensionSlicesByExperiment(
-  dimensionMetadata: ExperimentDimensionMetadata[],
-  nVariations: number,
-): ExperimentDimensionMetadata[] {
-  // Ensure we return no more than 1k rows in full joint distribution
-  // for post-stratification
-  let dimensions = dimensionMetadata;
-
-  // remove dimensions that have no slices
-  dimensions = dimensions.filter((d) => d.specifiedSlices.length > 0);
-
-  let totalLevels = countDimensionLevels(dimensions, nVariations);
-  const maxLevels = 1000;
-  while (totalLevels > maxLevels) {
-    dimensions = dimensions.slice(0, -1);
-    if (dimensions.length === 0) {
-      break;
+export function dedupeSliceMetrics(
+  metrics: SliceDataForMetric[],
+): SliceDataForMetric[] {
+  const seen = new Set<string>();
+  return metrics.filter((metric) => {
+    if (seen.has(metric.id)) {
+      return false;
     }
-    totalLevels = countDimensionLevels(dimensions, nVariations);
-  }
-
-  return dimensions;
+    seen.add(metric.id);
+    return true;
+  });
 }
 
-export function countDimensionLevels(
-  dimensionMetadata: { specifiedSlices: string[] }[],
-  nVariations: number,
-): number {
-  const nLevels: number[] = [];
-  dimensionMetadata.forEach((dim) => {
-    // add 1 for __other__ slice
-    nLevels.push(dim.specifiedSlices.length + 1);
-  });
+export function expandAllSliceMetricsInMap({
+  metricMap,
+  factTableMap,
+  experiment,
+  metricGroups = [],
+}: {
+  metricMap: Map<string, ExperimentMetricInterface>;
+  factTableMap: FactTableMap;
+  experiment: Pick<
+    ExperimentInterface,
+    | "goalMetrics"
+    | "secondaryMetrics"
+    | "guardrailMetrics"
+    | "activationMetric"
+    | "customMetricSlices"
+  >;
+  metricGroups?: MetricGroupInterface[];
+}): void {
+  // Get base metrics
+  const baseMetricIds = getAllMetricIdsFromExperiment(
+    experiment,
+    false,
+    metricGroups,
+  );
+  const baseMetrics = baseMetricIds.map((m) => metricMap.get(m)!);
 
-  return nLevels.reduce((acc, n) => acc * n, 1) * nVariations;
+  for (const metric of baseMetrics) {
+    if (!metric) continue;
+    if (!isFactMetric(metric)) continue;
+
+    const factTable = factTableMap.get(metric.numerator.factTableId);
+    if (!factTable) continue;
+
+    // 1. Add auto slice metrics
+    if (metric.metricAutoSlices?.length) {
+      const autoSliceColumns = factTable.columns.filter(
+        (col) =>
+          col.isAutoSliceColumn &&
+          !col.deleted &&
+          (col.autoSlices?.length || 0) > 0 &&
+          metric.metricAutoSlices?.includes(col.column),
+      );
+
+      autoSliceColumns.forEach((col) => {
+        const autoSlices = col.autoSlices || [];
+
+        // Create a metric for each auto slice
+        autoSlices.forEach((value: string) => {
+          const sliceString = generateSliceString({
+            [col.column]: value,
+          });
+          const sliceMetric: ExperimentMetricInterface = {
+            ...metric,
+            id: `${metric.id}?${sliceString}`,
+            name: `${metric.name} (${col.name || col.column}: ${value})`,
+            description: `Slice analysis of ${metric.name} for ${col.name || col.column} = ${value}`,
+          };
+          metricMap.set(sliceMetric.id, sliceMetric);
+        });
+
+        // Create an "other" metric for values not in autoSlices (includes NULL for boolean)
+        if (autoSlices.length > 0 || col.datatype === "boolean") {
+          const sliceString = generateSliceString({
+            [col.column]: "",
+          });
+          const otherMetric: ExperimentMetricInterface = {
+            ...metric,
+            id: `${metric.id}?${sliceString}`,
+            name: `${metric.name} (${col.name || col.column}: other)`,
+            description: `Slice analysis of ${metric.name} for ${col.name || col.column} = other`,
+          };
+          metricMap.set(otherMetric.id, otherMetric);
+        }
+      });
+    }
+
+    // 2. Add custom slice metrics
+    if (experiment.customMetricSlices) {
+      experiment.customMetricSlices.forEach((customSliceGroup) => {
+        // Sort slices alphabetically for consistent ID generation
+        const sortedSliceGroups = customSliceGroup.slices.sort((a, b) =>
+          a.column.localeCompare(b.column),
+        );
+
+        // Verify all custom slice columns exist and are string or boolean type
+        const hasAllRequiredColumns = sortedSliceGroups.every((slice) => {
+          const column = factTable.columns.find(
+            (col) => col.column === slice.column,
+          );
+          return (
+            column &&
+            !column.deleted &&
+            (column.datatype === "string" || column.datatype === "boolean") &&
+            !factTable.userIdTypes.includes(column.column)
+          );
+        });
+
+        if (!hasAllRequiredColumns) return;
+
+        // Create slice levels
+        const sliceLevelsForString = sortedSliceGroups.map((d) => {
+          const column = factTable.columns.find(
+            (col) => col.column === d.column,
+          );
+          // For boolean "null" slices, use empty array to generate ?dim:col= format
+          const levels =
+            column?.datatype === "boolean" && d.levels[0] === "null"
+              ? []
+              : d.levels;
+          return {
+            column: d.column,
+            datatype: (column?.datatype === "boolean"
+              ? "boolean"
+              : "string") as "string" | "boolean",
+            levels,
+          };
+        });
+
+        const sliceString = generateSliceStringFromLevels(sliceLevelsForString);
+
+        const customSliceMetric: ExperimentMetricInterface = {
+          ...metric,
+          id: `${metric.id}?${sliceString}`,
+          name: `${metric.name} (${sortedSliceGroups.map((combo) => `${combo.column}: ${combo.levels[0] || ""}`).join(", ")})`,
+          description: `Slice analysis of ${metric.name} for ${sortedSliceGroups.map((combo) => `${combo.column} = ${combo.levels[0] || ""}`).join(" and ")}`,
+        };
+        metricMap.set(customSliceMetric.id, customSliceMetric);
+      });
+    }
+  }
+}
+
+export function isPrecomputedDimension(dimension: string | undefined): boolean {
+  return dimension?.startsWith(PRECOMPUTED_DIMENSION_PREFIX) ?? false;
+}
+
+/**
+ * Returns the LookbackOverride only when both conditions are met:
+ *   1. attributionModel === "lookbackOverride"
+ *   2. lookbackOverride is defined
+ * Use this everywhere you need to decide whether to apply a lookback override.
+ */
+export function getEffectiveLookbackOverride(
+  attributionModel: AttributionModel | undefined,
+  lookbackOverride: LookbackOverride | undefined,
+): LookbackOverride | undefined {
+  if (attributionModel === "lookbackOverride" && lookbackOverride) {
+    return lookbackOverride;
+  }
+  return undefined;
 }

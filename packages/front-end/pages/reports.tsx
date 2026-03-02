@@ -1,14 +1,14 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
-import { ReportInterface } from "back-end/types/report";
-import { ExperimentInterface } from "back-end/types/experiment";
+import { ReportInterface } from "shared/types/report";
+import { ExperimentInterface } from "shared/types/experiment";
 import { datetime, ago } from "shared/dates";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useApi from "@/hooks/useApi";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/ui/Switch";
 import { useUser } from "@/services/UserContext";
 import Field from "@/components/Forms/Field";
 import ShareStatusBadge from "@/components/Report/ShareStatusBadge";
@@ -139,15 +139,12 @@ const ReportsPage = (): React.ReactElement => {
         <div className="col-lg-3 col-md-4 col-6">
           <Field placeholder="Search..." type="search" {...searchInputProps} />
         </div>
-        <div className="col-auto">
-          <Toggle
-            id={"onlymine"}
-            value={onlyMyReports}
-            label={"onlymine"}
-            setValue={setOnlyMyReports}
-          />
-          Show only my reports
-        </div>
+        <Switch
+          id={"onlymine"}
+          value={onlyMyReports}
+          label="Show only my reports"
+          onChange={setOnlyMyReports}
+        />
         <div style={{ flex: 1 }} />
       </div>
       <table className="table appbox gbtable table-hover">

@@ -2,7 +2,7 @@ import React, { FC, useState } from "react";
 import { FaArchive, FaExclamationTriangle } from "react-icons/fa";
 import router from "next/router";
 import { date } from "shared/dates";
-import { MetricGroupInterface } from "back-end/types/metric-groups";
+import { MetricGroupInterface } from "shared/types/metric-groups";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -12,7 +12,7 @@ import MetricGroupModal from "@/components/Metrics/MetricGroupModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ConfirmModal from "@/components/ConfirmModal";
 import { useUser } from "@/services/UserContext";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 
 const MetricGroupsList: FC = () => {

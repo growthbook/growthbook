@@ -1,7 +1,7 @@
 parameters:
   - $ref: "../parameters.yaml#/id"
 tags:
-  - dimensions
+  - segments
 summary: Update a single segment
 operationId: updateSegment
 x-codeSamples:

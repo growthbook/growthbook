@@ -4,12 +4,14 @@ import {
   getSafeRolloutResultStatus,
 } from "shared/enterprise";
 import { autoMerge } from "shared/util";
+import { SafeRolloutStatus } from "shared/validators";
 import {
   SafeRolloutInterface,
   SafeRolloutSnapshotInterface,
-} from "back-end/types/safe-rollout";
-import { SafeRolloutStatus } from "back-end/src/validators/safe-rollout";
-import { OrganizationInterface, ReqContext } from "back-end/types/organization";
+} from "shared/types/safe-rollout";
+import { OrganizationInterface } from "shared/types/organization";
+import { FeatureInterface } from "shared/types/feature";
+import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { orgHasPremiumFeature } from "back-end/src/enterprise/licenseUtil";
 import {
@@ -20,7 +22,6 @@ import {
   createRevision,
   getRevision,
 } from "back-end/src/models/FeatureRevisionModel";
-import { FeatureInterface } from "back-end/types/feature";
 import { determineNextDate } from "back-end/src/services/experiments";
 
 export interface UpdateRampUpScheduleParams {
@@ -109,6 +110,7 @@ export async function checkAndRollbackSafeRollout({
     });
     await editFeatureRule(
       context,
+      feature,
       revision,
       updatedSafeRollout.environment,
       ruleIndex,

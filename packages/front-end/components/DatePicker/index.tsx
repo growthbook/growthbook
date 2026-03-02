@@ -9,6 +9,7 @@ import clsx from "clsx";
 import { debounce } from "lodash";
 import Field from "@/components/Forms/Field";
 import { RadixTheme } from "@/services/RadixTheme";
+import Button from "@/ui/Button";
 import styles from "./DatePicker.module.scss";
 
 type Props = {
@@ -28,6 +29,7 @@ type Props = {
   scheduleStartDate?: Date | string;
   scheduleEndDate?: Date | string;
   containerClassName?: string;
+  clearButton?: boolean;
 };
 
 const modifiersClassNames = {
@@ -55,6 +57,7 @@ export default function DatePicker({
   scheduleStartDate,
   scheduleEndDate,
   containerClassName = "form-group",
+  clearButton = false,
 }: Props) {
   const dateFormat =
     precision === "datetime" ? "yyyy-MM-dd'T'HH:mm" : "yyyy-MM-dd";
@@ -149,36 +152,66 @@ export default function DatePicker({
             <div style={{ width: inputWidth || "100%", minHeight: 38 }}>
               {label ? <label>{label}</label> : null}
               <div
-                className="form-control p-0"
-                style={{
-                  width: inputWidth || "100%",
-                  minHeight: 38,
-                  overflow: "clip",
-                }}
+                style={
+                  clearButton && !isRange
+                    ? {
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.5rem",
+                      }
+                    : {}
+                }
               >
-                <Field
-                  id={id ?? ""}
+                <div
+                  className="form-control p-0"
                   style={{
-                    border: 0,
-                    marginRight: -20,
-                    width: "calc(100% + 30px)",
+                    flex: 1,
+                    minWidth: 0,
                     minHeight: 38,
-                    cursor: "pointer",
+                    overflow: "clip",
                   }}
-                  className={clsx("date-picker-field", { "text-muted": !date })}
-                  type={precision === "datetime" ? "datetime-local" : "date"}
-                  value={bufferedDate}
-                  onChange={(e) => {
-                    setBufferedDate(e.target.value);
-                    debouncedSetDate(e.target.value);
-                  }}
-                  onBlur={() => debouncedSetDate.flush()} // Ensure immediate validation on blur
-                  onClick={(e) => {
-                    e.preventDefault();
-                    fieldClickedTime.current = new Date();
-                    setOpen(true);
-                  }}
-                />
+                >
+                  <Field
+                    id={id ?? ""}
+                    style={{
+                      border: 0,
+                      marginRight: -20,
+                      width: "calc(100% + 30px)",
+                      minHeight: 38,
+                      cursor: "pointer",
+                    }}
+                    className={clsx("date-picker-field", {
+                      "text-muted": !date,
+                    })}
+                    type={precision === "datetime" ? "datetime-local" : "date"}
+                    value={bufferedDate}
+                    onChange={(e) => {
+                      setBufferedDate(e.target.value);
+                      debouncedSetDate(e.target.value);
+                    }}
+                    onBlur={() => debouncedSetDate.flush()}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      fieldClickedTime.current = new Date();
+                      setOpen(true);
+                    }}
+                  />
+                </div>
+                {/* TODO: Support clearing date ranges as well. Clear button is meant to be a stop gap until we can add a clear button within the field itself */}
+                {clearButton && !isRange && (
+                  <Button
+                    color="red"
+                    disabled={!bufferedDate}
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setBufferedDate("");
+                      setDate(undefined);
+                    }}
+                  >
+                    Clear
+                  </Button>
+                )}
               </div>
             </div>
             {isRange && (

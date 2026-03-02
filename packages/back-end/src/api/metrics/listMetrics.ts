@@ -1,4 +1,5 @@
-import { ListMetricsResponse } from "back-end/types/openapi";
+import { ListMetricsResponse } from "shared/types/openapi";
+import { listMetricsValidator } from "shared/validators";
 import { getDataSourcesByOrganization } from "back-end/src/models/DataSourceModel";
 import { getMetricsByOrganization } from "back-end/src/models/MetricModel";
 import { toMetricApiInterface } from "back-end/src/services/experiments";
@@ -7,7 +8,6 @@ import {
   applyPagination,
   createApiRequestHandler,
 } from "back-end/src/util/handler";
-import { listMetricsValidator } from "back-end/src/validators/openapi";
 
 export const listMetrics = createApiRequestHandler(listMetricsValidator)(async (
   req,

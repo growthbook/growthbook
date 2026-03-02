@@ -3,16 +3,17 @@ import {
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
 } from "shared/experiments";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { MetricGroupInterface } from "shared/types/metric-groups";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   ExperimentSnapshotInterface,
   ExperimentWithSnapshot,
-} from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
 import { Box, Flex, Text } from "@radix-ui/themes";
-import { DifferenceType } from "back-end/types/stats";
+import { DifferenceType } from "shared/types/stats";
 import router, { useRouter } from "next/router";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import ScatterPlotGraph, {
   ScatterPointData,
 } from "@/components/ScatterPlotGraph";
@@ -30,7 +31,7 @@ import { useUser } from "@/services/UserContext";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import EmptyState from "@/components/EmptyState";
-import LinkButton from "@/components/Radix/LinkButton";
+import LinkButton from "@/ui/LinkButton";
 import MetricCorrelationsExperimentTable from "@/enterprise/components/Insights/MetricCorrelations/MetricCorrelationsExperimentTable";
 import { useCurrency } from "@/hooks/useCurrency";
 
@@ -38,12 +39,17 @@ export const filterExperimentsByMetrics = (
   experiments: ExperimentInterfaceStringDates[],
   metric1: string,
   metric2?: string,
+  metricGroups: MetricGroupInterface[] = [],
 ): ExperimentInterfaceStringDates[] => {
   if (!experiments || experiments.length === 0) {
     return [];
   }
   return experiments.filter((experiment) => {
-    const metricIds = getAllMetricIdsFromExperiment(experiment);
+    const metricIds = getAllMetricIdsFromExperiment(
+      experiment,
+      false,
+      metricGroups,
+    );
     const hasMetric1 = metricIds.includes(metric1);
     const hasMetric2 = metric2 ? metricIds.includes(metric2) : true;
 
@@ -356,6 +362,7 @@ const MetricCorrelationCard = ({
       experiments,
       metric1,
       metric2,
+      metricGroups,
     );
 
     const filteredExperimentsWithSnapshot: Record<
@@ -481,6 +488,7 @@ const MetricCorrelationCard = ({
     setSearchParams,
     apiCall,
     excludedExperimentVariations,
+    metricGroups,
   ]);
 
   useEffect(() => {

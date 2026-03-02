@@ -1,11 +1,13 @@
 import type { Response } from "express";
 import { isFactMetric } from "shared/experiments";
 import { getValidDate } from "shared/dates";
+import { stringToBoolean } from "shared/util";
 import {
   CreateMetricAnalysisProps,
   MetricAnalysisInterface,
   MetricAnalysisSettings,
-} from "back-end/types/metric-analysis";
+} from "shared/types/metric-analysis";
+import { metricAnalysisSettingsValidator } from "shared/validators";
 import { createMetricAnalysis } from "back-end/src/services/metric-analysis";
 import { MetricAnalysisQueryRunner } from "back-end/src/queryRunners/MetricAnalysisQueryRunner";
 import { getExperimentMetricById } from "back-end/src/services/experiments";
@@ -49,6 +51,7 @@ export const postMetricAnalysis = async (
   ) {
     throw new Error("Custom metric populations are a premium feature");
   }
+
   const metricAnalysisSettings: MetricAnalysisSettings = {
     userIdType: data.userIdType,
     lookbackDays: data.lookbackDays,
@@ -56,7 +59,10 @@ export const postMetricAnalysis = async (
     endDate: getValidDate(data.endDate),
     populationType: data.populationType,
     populationId: data.populationId ?? null,
+    additionalNumeratorFilters: data.additionalNumeratorFilters,
+    additionalDenominatorFilters: data.additionalDenominatorFilters,
   };
+
   const metricAnalysis = await createMetricAnalysis(
     context,
     metricObj,
@@ -128,8 +134,58 @@ export async function cancelMetricAnalysis(
   });
 }
 
+export async function refreshMetricAnalysisStatus(
+  req: AuthRequest<null, { id: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+
+  const metricAnalysis = await context.models.metricAnalysis.getById(
+    req.params.id,
+  );
+
+  if (!metricAnalysis) {
+    throw new Error("Could not refresh metric analysis status");
+  }
+
+  const metric = await context.models.factMetrics.getById(
+    metricAnalysis.metric,
+  );
+
+  if (!metric) {
+    throw new Error(
+      "Could not refresh metric analysis status, metric not found",
+    );
+  }
+  if (!metric.datasource) {
+    throw new Error(
+      "Could not refresh metric analysis status, no datasource provided",
+    );
+  }
+  const integration = await getIntegrationFromDatasourceId(
+    context,
+    metric.datasource,
+  );
+
+  const queryRunner = new MetricAnalysisQueryRunner(
+    context,
+    metricAnalysis,
+    integration,
+  );
+  queryRunner.setMetric(metric);
+  await queryRunner.refreshQueryStatuses();
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
 export async function getLatestMetricAnalysis(
-  req: AuthRequest<null, { metricid: string }>,
+  req: AuthRequest<
+    null,
+    { metricid: string },
+    { settings?: string; withHistogram?: string }
+  >,
   res: Response<{
     status: 200;
     metricAnalysis: MetricAnalysisInterface | null;
@@ -137,9 +193,54 @@ export async function getLatestMetricAnalysis(
 ) {
   const context = getContextFromReq(req);
 
+  // If we're trying to match specific analysis settings
+  if (req.query.settings) {
+    const rawSettings = JSON.parse(req.query.settings || "{}");
+    // Fix dates
+    rawSettings.startDate = getValidDate(rawSettings.startDate);
+    rawSettings.endDate = getValidDate(rawSettings.endDate);
+
+    const settings = metricAnalysisSettingsValidator.parse(rawSettings);
+
+    const metricAnalysis =
+      await context.models.metricAnalysis.findLatestBySettings(
+        req.params.metricid,
+        { settings, withHistogram: stringToBoolean(req.query.withHistogram) },
+      );
+    res.status(200).json({
+      status: 200,
+      metricAnalysis,
+    });
+    return;
+  }
+
+  // Otherwise, just find the latest one, regardless of settings
   const metricAnalysis = await context.models.metricAnalysis.findLatestByMetric(
     req.params.metricid,
   );
+
+  res.status(200).json({
+    status: 200,
+    metricAnalysis,
+  });
+}
+
+export async function getMetricAnalysisById(
+  req: AuthRequest<null, { id: string }>,
+  res: Response<{
+    status: 200;
+    metricAnalysis: MetricAnalysisInterface | null;
+  }>,
+) {
+  const context = getContextFromReq(req);
+
+  const metricAnalysis = await context.models.metricAnalysis.getById(
+    req.params.id,
+  );
+
+  if (!metricAnalysis) {
+    throw new Error("Metric analysis not found");
+  }
 
   res.status(200).json({
     status: 200,

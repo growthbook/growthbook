@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { Request } from "express";
 import mongoose from "mongoose";
-import { UserInterface } from "back-end/types/user";
+import { UserInterface } from "shared/types/user";
 
 export interface AuthRefreshInterface {
   token: string;

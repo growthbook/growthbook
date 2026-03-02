@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { PiCaretDown } from "react-icons/pi";
@@ -10,32 +10,39 @@ import ImportExperimentModal from "@/components/Experiment/ImportExperimentModal
 import { useExperiments } from "@/hooks/useExperiments";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
-import LinkButton from "@/components/Radix/LinkButton";
+import LinkButton from "@/ui/LinkButton";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuSeparator,
-} from "@/components/Radix/DropdownMenu";
-import Button from "@/components/Radix/Button";
+} from "@/ui/DropdownMenu";
+import Button from "@/ui/Button";
 import ViewSampleDataButton from "@/components/GetStarted/ViewSampleDataButton";
 import EmptyState from "@/components/EmptyState";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import { useExperimentSearch } from "@/services/experiments";
 import { useWatching } from "@/services/WatchProvider";
 import ExperimentSearchFilters from "@/components/Search/ExperimentSearchFilters";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/Radix/Tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import ExperimentsListTable from "@/components/Experiment/ExperimentsListTable";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
+import useURLHash from "@/hooks/useURLHash";
 
 const ExperimentsPage = (): React.ReactElement => {
   const { ready, project } = useDefinitions();
 
-  const [tab, setTab] = useState<string>("all");
+  const [urlHash, setUrlHash] = useURLHash();
+  const [tab, setTab] = useLocalStorage<string>("experiments-list-tab", "all");
+  useEffect(() => {
+    if (urlHash) {
+      setTab(urlHash);
+    }
+  }, [urlHash, setTab]);
+  useEffect(() => {
+    setUrlHash(tab);
+  }, [tab, setUrlHash]);
+
   const analyzeExisting = useRouter().query?.analyzeExisting === "true";
 
   const {
@@ -191,11 +198,7 @@ const ExperimentsPage = (): React.ReactElement => {
           ) : (
             hasExperiments && (
               <>
-                <Tabs
-                  defaultValue="all"
-                  persistInURL={true}
-                  onValueChange={(v) => setTab(v)}
-                >
+                <Tabs value={tab} onValueChange={(v) => setTab(v)}>
                   <div className="row align-items-center mb-3">
                     <div className="col-auto d-flex">
                       <TabsList>

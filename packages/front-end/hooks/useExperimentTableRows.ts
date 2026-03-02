@@ -1,0 +1,815 @@
+import { useMemo } from "react";
+import {
+  ExperimentReportResultDimension,
+  MetricSnapshotSettings,
+} from "shared/types/report";
+import { MetricOverride } from "shared/types/experiment";
+import { PValueCorrection, StatsEngine } from "shared/types/stats";
+import {
+  FactMetricInterface,
+  FactTableInterface,
+} from "shared/types/fact-table";
+import {
+  expandMetricGroups,
+  ExperimentMetricInterface,
+  ExperimentSortBy,
+  createCustomSliceDataForMetric,
+  createAutoSliceDataForMetric,
+  setAdjustedCIs,
+  setAdjustedPValuesOnResults,
+  dedupeSliceMetrics,
+  SliceDataForMetric,
+  isFactMetric,
+  generateSliceString,
+  generateSelectAllSliceString,
+  isMetricGroupId,
+} from "shared/experiments";
+import { MetricGroupInterface } from "shared/types/metric-groups";
+import { isDefined } from "shared/util";
+import { useDefinitions } from "@/services/DefinitionsContext";
+
+// Special metric selector IDs that should be filtered out of customMetricOrder
+const METRIC_SELECTOR_IDS = [
+  "experiment-goal",
+  "experiment-secondary",
+  "experiment-guardrail",
+] as const;
+
+import {
+  applyMetricOverrides,
+  ExperimentTableRow,
+} from "@/services/experiments";
+import usePValueThreshold from "@/hooks/usePValueThreshold";
+import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import { useTableSorting } from "@/hooks/useTableSorting";
+
+export interface UseExperimentTableRowsParams {
+  results: ExperimentReportResultDimension;
+  goalMetrics: string[];
+  secondaryMetrics: string[];
+  guardrailMetrics: string[];
+  metricOverrides: MetricOverride[];
+  ssrPolyfills?: SSRPolyfills;
+  customMetricSlices?: Array<{
+    slices: Array<{
+      column: string;
+      levels: string[];
+    }>;
+  }>;
+  metricTagFilter?: string[];
+  metricsFilter?: string[];
+  sliceTagsFilter?: string[];
+  sortBy?: ExperimentSortBy;
+  sortDirection?: "asc" | "desc" | null;
+  customMetricOrder?: string[];
+  analysisBarSettings?: {
+    variationFilter: number[];
+  };
+  statsEngine: StatsEngine;
+  pValueCorrection?: PValueCorrection;
+  settingsForSnapshotMetrics?: MetricSnapshotSettings[];
+  shouldShowMetricSlices?: boolean;
+  enableExpansion?: boolean;
+  expandedMetrics: Record<string, boolean>;
+}
+
+export interface UseExperimentTableRowsReturn {
+  rows: ExperimentTableRow[];
+  getChildRowCounts: (metricId: string) => number;
+}
+
+export function useExperimentTableRows({
+  results,
+  goalMetrics,
+  secondaryMetrics,
+  guardrailMetrics,
+  metricOverrides,
+  ssrPolyfills,
+  customMetricSlices,
+  metricTagFilter,
+  metricsFilter,
+  sliceTagsFilter,
+  sortBy,
+  sortDirection,
+  customMetricOrder,
+  analysisBarSettings,
+  statsEngine,
+  pValueCorrection,
+  settingsForSnapshotMetrics,
+  shouldShowMetricSlices = true,
+  enableExpansion: _enableExpansion = true,
+  expandedMetrics,
+}: UseExperimentTableRowsParams): UseExperimentTableRowsReturn {
+  const {
+    getExperimentMetricById: _getExperimentMetricById,
+    getFactTableById: _getFactTableById,
+    metricGroups: _metricGroups,
+    ready,
+  } = useDefinitions();
+
+  const getExperimentMetricById =
+    ssrPolyfills?.getExperimentMetricById || _getExperimentMetricById;
+  const getFactTableById = ssrPolyfills?.getFactTableById || _getFactTableById;
+  const metricGroups = ssrPolyfills?.metricGroups || _metricGroups;
+
+  const _pValueThreshold = usePValueThreshold();
+  const pValueThreshold =
+    ssrPolyfills?.usePValueThreshold() || _pValueThreshold;
+
+  const { expandedGoals, expandedSecondaries, expandedGuardrails } =
+    useMemo(() => {
+      const allMetricGroups = ssrPolyfills?.metricGroups || metricGroups;
+
+      // Check for selector IDs in metricsFilter (they constrain which categories to show)
+      const hasGoalSelector =
+        metricsFilter?.includes("experiment-goal") ?? false;
+      const hasSecondarySelector =
+        metricsFilter?.includes("experiment-secondary") ?? false;
+      const hasGuardrailSelector =
+        metricsFilter?.includes("experiment-guardrail") ?? false;
+
+      // Filter out selector IDs from the actual metric filter
+      const actualMetricFilter =
+        metricsFilter?.filter(
+          (id) =>
+            ![
+              "experiment-goal",
+              "experiment-secondary",
+              "experiment-guardrail",
+            ].includes(id),
+        ) ?? [];
+
+      // Determine which categories to include based on selector IDs
+      // If no selectors are present, include all categories (equivalent to "all")
+      const includeGoals =
+        hasGoalSelector ||
+        (!hasGoalSelector && !hasSecondarySelector && !hasGuardrailSelector);
+      const includeSecondaries =
+        hasSecondarySelector ||
+        (!hasGoalSelector && !hasSecondarySelector && !hasGuardrailSelector);
+      const includeGuardrails =
+        hasGuardrailSelector ||
+        (!hasGoalSelector && !hasSecondarySelector && !hasGuardrailSelector);
+
+      // Filter by metric groups if filter is active
+      let filteredGoalMetrics: string[] = [];
+      let filteredSecondaryMetrics: string[] = [];
+      let filteredGuardrailMetrics: string[] = [];
+
+      if (
+        actualMetricFilter.length > 0 ||
+        hasGoalSelector ||
+        hasSecondarySelector ||
+        hasGuardrailSelector
+      ) {
+        // Create a set of allowed metric IDs from expanded groups and individual metrics
+        const allowedMetricIds = new Set<string>();
+        actualMetricFilter.forEach((id) => {
+          if (isMetricGroupId(id)) {
+            const group = allMetricGroups.find((g) => g.id === id);
+            if (group) {
+              group.metrics.forEach((metricId) =>
+                allowedMetricIds.add(metricId),
+              );
+            }
+          } else {
+            allowedMetricIds.add(id);
+          }
+        });
+
+        // Filter metrics by group or allowed metric IDs
+        // Only include categories that are selected via selector IDs
+        if (includeGoals) {
+          filteredGoalMetrics = goalMetrics.filter((id) => {
+            // If no actual metric filter, include all goal metrics (selector-only case)
+            if (actualMetricFilter.length === 0) return true;
+            // Otherwise, filter by actual metric filter (within goal category)
+            if (actualMetricFilter.includes(id)) return true;
+            if (allowedMetricIds.has(id)) return true;
+            if (isMetricGroupId(id)) {
+              const group = allMetricGroups.find((g) => g.id === id);
+              return group?.metrics?.some((metricId) =>
+                allowedMetricIds.has(metricId),
+              );
+            }
+            return false;
+          });
+        }
+
+        if (includeSecondaries) {
+          filteredSecondaryMetrics = secondaryMetrics.filter((id) => {
+            // If no actual metric filter, include all secondary metrics (selector-only case)
+            if (actualMetricFilter.length === 0) return true;
+            // Otherwise, filter by actual metric filter (within secondary category)
+            if (actualMetricFilter.includes(id)) return true;
+            if (allowedMetricIds.has(id)) return true;
+            if (isMetricGroupId(id)) {
+              const group = allMetricGroups.find((g) => g.id === id);
+              return group?.metrics?.some((metricId) =>
+                allowedMetricIds.has(metricId),
+              );
+            }
+            return false;
+          });
+        }
+
+        if (includeGuardrails) {
+          filteredGuardrailMetrics = guardrailMetrics.filter((id) => {
+            // If no actual metric filter, include all guardrail metrics (selector-only case)
+            if (actualMetricFilter.length === 0) return true;
+            // Otherwise, filter by actual metric filter (within guardrail category)
+            if (actualMetricFilter.includes(id)) return true;
+            if (allowedMetricIds.has(id)) return true;
+            if (isMetricGroupId(id)) {
+              const group = allMetricGroups.find((g) => g.id === id);
+              return group?.metrics?.some((metricId) =>
+                allowedMetricIds.has(metricId),
+              );
+            }
+            return false;
+          });
+        }
+      } else {
+        // No filter at all - include all metrics
+        filteredGoalMetrics = goalMetrics;
+        filteredSecondaryMetrics = secondaryMetrics;
+        filteredGuardrailMetrics = guardrailMetrics;
+      }
+
+      const expandedGoals = expandMetricGroups(
+        filteredGoalMetrics,
+        allMetricGroups,
+      );
+      const expandedSecondaries = expandMetricGroups(
+        filteredSecondaryMetrics,
+        allMetricGroups,
+      );
+      const expandedGuardrails = expandMetricGroups(
+        filteredGuardrailMetrics,
+        allMetricGroups,
+      );
+
+      // Dedup metric rows to prevent rendering the same metric multiple times
+      const dedupedGoals: string[] = [];
+      expandedGoals.forEach((metricId) => {
+        if (!dedupedGoals.includes(metricId)) {
+          dedupedGoals.push(metricId);
+        }
+      });
+      const dedupedSecondaries: string[] = [];
+      expandedSecondaries.forEach((metricId) => {
+        if (!dedupedSecondaries.includes(metricId)) {
+          dedupedSecondaries.push(metricId);
+        }
+      });
+      const dedupedGuardrails: string[] = [];
+      expandedGuardrails.forEach((metricId) => {
+        if (!dedupedGuardrails.includes(metricId)) {
+          dedupedGuardrails.push(metricId);
+        }
+      });
+
+      return {
+        expandedGoals: dedupedGoals,
+        expandedSecondaries: dedupedSecondaries,
+        expandedGuardrails: dedupedGuardrails,
+      };
+    }, [
+      goalMetrics,
+      metricGroups,
+      ssrPolyfills?.metricGroups,
+      secondaryMetrics,
+      guardrailMetrics,
+      metricsFilter,
+    ]);
+
+  const unsortedRows = useMemo<ExperimentTableRow[]>(() => {
+    function getRowsForMetric(
+      metricId: string,
+      resultGroup: "goal" | "secondary" | "guardrail",
+    ): ExperimentTableRow[] {
+      return generateRowsForMetric({
+        metricId,
+        resultGroup,
+        results,
+        metricOverrides,
+        settingsForSnapshotMetrics,
+        shouldShowMetricSlices,
+        customMetricSlices,
+        expandedMetrics,
+        getExperimentMetricById,
+        getFactTableById,
+        sliceTagsFilter,
+      });
+    }
+
+    if (!results || !results.variations || (!ready && !ssrPolyfills)) return [];
+    if (pValueCorrection && statsEngine === "frequentist") {
+      // Only include goals in calculation, not secondary or guardrails
+      setAdjustedPValuesOnResults([results], expandedGoals, pValueCorrection);
+      setAdjustedCIs([results], pValueThreshold);
+    }
+
+    const metricDefs = expandedGoals
+      .map(
+        (metricId) =>
+          ssrPolyfills?.getExperimentMetricById?.(metricId) ||
+          getExperimentMetricById(metricId),
+      )
+      .filter(isDefined);
+
+    // Apply tag filtering first (independent of sorting)
+    const filteredMetrics = filterMetricsByTags(metricDefs, metricTagFilter);
+
+    // Apply sorting on top of filtered metrics
+    const sortedFilteredMetrics =
+      sortBy === "metrics" && customMetricOrder
+        ? sortMetricsByCustomOrder(
+            metricDefs.filter((m) => filteredMetrics.includes(m.id)),
+            customMetricOrder,
+            metricGroups,
+          )
+        : sortBy === "metricTags" &&
+            metricTagFilter &&
+            metricTagFilter.length > 0
+          ? sortMetricsByTags(
+              metricDefs.filter((m) => filteredMetrics.includes(m.id)),
+              metricTagFilter,
+              metricGroups,
+            )
+          : filteredMetrics;
+
+    const secondaryDefs = expandedSecondaries
+      .map(
+        (metricId) =>
+          ssrPolyfills?.getExperimentMetricById?.(metricId) ||
+          getExperimentMetricById(metricId),
+      )
+      .filter(isDefined);
+
+    // Apply tag filtering first (independent of sorting)
+    const filteredSecondary = filterMetricsByTags(
+      secondaryDefs,
+      metricTagFilter,
+    );
+
+    // Apply sorting on top of filtered secondary metrics
+    const sortedFilteredSecondary =
+      sortBy === "metrics" && customMetricOrder
+        ? sortMetricsByCustomOrder(
+            secondaryDefs.filter((m) => filteredSecondary.includes(m.id)),
+            customMetricOrder,
+            metricGroups,
+          )
+        : sortBy === "metricTags" &&
+            metricTagFilter &&
+            metricTagFilter.length > 0
+          ? sortMetricsByTags(
+              secondaryDefs.filter((m) => filteredSecondary.includes(m.id)),
+              metricTagFilter,
+              metricGroups,
+            )
+          : filteredSecondary;
+
+    const guardrailDefs = expandedGuardrails
+      .map(
+        (metricId) =>
+          ssrPolyfills?.getExperimentMetricById?.(metricId) ||
+          getExperimentMetricById(metricId),
+      )
+      .filter(isDefined);
+
+    // Apply tag filtering first (independent of sorting)
+    const filteredGuardrails = filterMetricsByTags(
+      guardrailDefs,
+      metricTagFilter,
+    );
+
+    // Apply sorting on top of filtered guardrail metrics
+    const sortedFilteredGuardrails =
+      sortBy === "metrics" && customMetricOrder
+        ? sortMetricsByCustomOrder(
+            guardrailDefs.filter((m) => filteredGuardrails.includes(m.id)),
+            customMetricOrder,
+            metricGroups,
+          )
+        : sortBy === "metricTags" &&
+            metricTagFilter &&
+            metricTagFilter.length > 0
+          ? sortMetricsByTags(
+              guardrailDefs.filter((m) => filteredGuardrails.includes(m.id)),
+              metricTagFilter,
+              metricGroups,
+            )
+          : filteredGuardrails;
+
+    const retMetrics = sortedFilteredMetrics.flatMap((metricId) =>
+      getRowsForMetric(metricId, "goal"),
+    );
+    const retSecondary = sortedFilteredSecondary.flatMap((metricId) =>
+      getRowsForMetric(metricId, "secondary"),
+    );
+    const retGuardrails = sortedFilteredGuardrails.flatMap((metricId) =>
+      getRowsForMetric(metricId, "guardrail"),
+    );
+
+    return [...retMetrics, ...retSecondary, ...retGuardrails];
+  }, [
+    results,
+    metricGroups,
+    expandedGoals,
+    expandedSecondaries,
+    expandedGuardrails,
+    metricOverrides,
+    settingsForSnapshotMetrics,
+    pValueCorrection,
+    pValueThreshold,
+    statsEngine,
+    ready,
+    ssrPolyfills,
+    getExperimentMetricById,
+    getFactTableById,
+    metricTagFilter,
+    expandedMetrics,
+    shouldShowMetricSlices,
+    sliceTagsFilter,
+    customMetricSlices,
+    sortBy,
+    customMetricOrder,
+  ]);
+
+  // Apply sorting using the reusable useTableSorting hook
+  const rows = useTableSorting({
+    rows: unsortedRows,
+    sortBy: sortBy ?? null,
+    sortDirection: sortDirection ?? null,
+    variationFilter: analysisBarSettings?.variationFilter ?? [],
+  });
+
+  const getChildRowCounts = (metricId: string) => {
+    const childRows = rows.filter(
+      (row) => row.parentRowId === metricId && !row.isHiddenByFilter,
+    );
+    return childRows.length;
+  };
+
+  return {
+    rows,
+    getChildRowCounts,
+  };
+}
+
+export function generateRowsForMetric({
+  metricId,
+  resultGroup,
+  results,
+  metricOverrides,
+  settingsForSnapshotMetrics,
+  shouldShowMetricSlices,
+  customMetricSlices,
+  expandedMetrics,
+  getExperimentMetricById,
+  getFactTableById,
+  sliceTagsFilter,
+}: {
+  metricId: string;
+  resultGroup: "goal" | "secondary" | "guardrail";
+  results: ExperimentReportResultDimension | ExperimentReportResultDimension[];
+  metricOverrides: MetricOverride[];
+  settingsForSnapshotMetrics?: MetricSnapshotSettings[];
+  shouldShowMetricSlices: boolean;
+  customMetricSlices?: Array<{
+    slices: Array<{
+      column: string;
+      levels: string[];
+    }>;
+  }>;
+  expandedMetrics?: Record<string, boolean>;
+  getExperimentMetricById: (id: string) => ExperimentMetricInterface | null;
+  getFactTableById: (id: string) => FactTableInterface | null;
+  sliceTagsFilter?: string[];
+}): ExperimentTableRow[] {
+  const resultsArray = Array.isArray(results) ? results : [results];
+  const metric = getExperimentMetricById(metricId);
+  if (!metric) return [];
+
+  const { newMetric, overrideFields } = applyMetricOverrides(
+    metric,
+    metricOverrides,
+  );
+  let metricSnapshotSettings: MetricSnapshotSettings | undefined;
+  if (settingsForSnapshotMetrics) {
+    metricSnapshotSettings = settingsForSnapshotMetrics.find(
+      (s) => s.metric === metricId,
+    );
+  }
+  // Calculate slice count (will be computed from actual slice data below)
+  let numSlices = 0;
+
+  let sliceData: SliceDataForMetric[] = [];
+
+  if (shouldShowMetricSlices && isFactMetric(metric)) {
+    const standardSliceData = createAutoSliceDataForMetric({
+      parentMetric: getExperimentMetricById(metricId),
+      factTable: getFactTableById(
+        (getExperimentMetricById(metricId) as FactMetricInterface)?.numerator
+          ?.factTableId || "",
+      ),
+      includeOther: true,
+    });
+
+    const customSliceData = createCustomSliceDataForMetric({
+      metricId,
+      metricName: newMetric?.name || "",
+      customMetricSlices: customMetricSlices || [],
+      factTable: getFactTableById(
+        (metric as FactMetricInterface)?.numerator?.factTableId || "",
+      ),
+    });
+
+    // Dedupe (auto and custom slices sometimes overlap)
+    sliceData = dedupeSliceMetrics([...standardSliceData, ...customSliceData]);
+  }
+
+  numSlices = sliceData.length;
+
+  // If slice filter is active and metric has no slices, don't show parent row (unless "overall" filter is set)
+  if (
+    sliceTagsFilter &&
+    sliceTagsFilter.length > 0 &&
+    numSlices === 0 &&
+    !sliceTagsFilter.includes("overall")
+  ) {
+    return [];
+  }
+
+  // When slice filters are active and metric has slices, make parent row label-only (unless "overall" filter is set)
+  const isLabelOnly =
+    sliceTagsFilter &&
+    sliceTagsFilter.length > 0 &&
+    numSlices > 0 &&
+    !sliceTagsFilter.includes("overall");
+
+  const parentRow: ExperimentTableRow = {
+    label: newMetric?.name,
+    metric: newMetric,
+    metricOverrideFields: overrideFields,
+    rowClass: newMetric?.inverse ? "inverse" : "",
+    variations: isLabelOnly
+      ? resultsArray[0].variations.map(() => ({
+          users: 0,
+          value: 0,
+          cr: 0,
+          errorMessage: "No data",
+        }))
+      : resultsArray[0].variations.map((v) => {
+          return (
+            v.metrics?.[metricId] || {
+              users: 0,
+              value: 0,
+              cr: 0,
+              errorMessage: "No data",
+            }
+          );
+        }),
+    metricSnapshotSettings,
+    resultGroup,
+    numSlices,
+    labelOnly: isLabelOnly,
+  };
+
+  const rows: ExperimentTableRow[] = [];
+
+  if (numSlices > 0) {
+    const expandedKey = `${metricId}:${resultGroup}`;
+    // Auto-expand all metrics when slice filter is active
+    const isExpanded =
+      sliceTagsFilter && sliceTagsFilter.length > 0
+        ? true
+        : !!expandedMetrics?.[expandedKey];
+
+    // Track if any slice matches the filter (for parent row visibility)
+    let hasMatchingSlice = false;
+
+    sliceData.forEach((slice) => {
+      // Check if slice matches filter
+      let sliceMatches = true;
+      if (sliceTagsFilter && sliceTagsFilter.length > 0) {
+        // Check if any "select all" filter is active for columns in this slice
+        const hasSelectAllFilter = slice.sliceLevels.some((sliceLevel) => {
+          const selectAllTag = generateSelectAllSliceString(sliceLevel.column);
+          return sliceTagsFilter.includes(selectAllTag);
+        });
+
+        if (hasSelectAllFilter) {
+          // If "select all" is active for any column in this slice, include it
+          sliceMatches = true;
+          hasMatchingSlice = true;
+        } else {
+          // Extract slice tags from slice data
+          const sliceTags: string[] = [];
+          // Generate single dimension tags
+          slice.sliceLevels.forEach((sliceLevel) => {
+            const value = sliceLevel.levels[0] || "";
+            const tag = generateSliceString({ [sliceLevel.column]: value });
+            sliceTags.push(tag);
+          });
+          // Generate combined tag for multi-dimensional slices
+          if (slice.sliceLevels.length > 1) {
+            const slices: Record<string, string> = {};
+            slice.sliceLevels.forEach((sl) => {
+              slices[sl.column] = sl.levels[0] || "";
+            });
+            const comboTag = generateSliceString(slices);
+            sliceTags.push(comboTag);
+          }
+          // Check if any slice tag matches the filter
+          sliceMatches = sliceTags.some((tag) => sliceTagsFilter.includes(tag));
+          if (sliceMatches) {
+            hasMatchingSlice = true;
+          }
+        }
+      }
+
+      // Show if: expanded AND matches filter (when filter is active)
+      const hasFilter = sliceTagsFilter && sliceTagsFilter.length > 0;
+      const shouldShowLevel = hasFilter
+        ? isExpanded && sliceMatches
+        : isExpanded;
+
+      const label = slice.sliceLevels
+        .map((dl, _index) => {
+          if (dl.levels.length === 0) {
+            const emptyValue = dl.datatype === "string" ? "other" : "null";
+            return `${dl.column}: ${emptyValue}`;
+          }
+          const value = dl.levels[0];
+          if (dl.datatype === "boolean") {
+            return `${dl.column}: ${value}`;
+          }
+          return value;
+        })
+        .join(" + ");
+
+      const sliceRow: ExperimentTableRow = {
+        label,
+        metric: {
+          ...newMetric,
+          name: slice.name,
+        },
+        metricOverrideFields: overrideFields,
+        rowClass: `${newMetric?.inverse ? "inverse" : ""} slice-row`,
+        sliceId: slice.id,
+        variations: resultsArray[0].variations.map((v) => {
+          // Use the slice metric's data instead of the parent metric's data
+          return (
+            v.metrics?.[slice.id] || {
+              users: 0,
+              value: 0,
+              cr: 0,
+              errorMessage: "No data",
+            }
+          );
+        }),
+        metricSnapshotSettings,
+        resultGroup,
+        numSlices: 0,
+        isSliceRow: true,
+        parentRowId: metricId,
+        sliceLevels: slice.sliceLevels.map((dl) => ({
+          column: dl.column,
+          datatype: dl.datatype,
+          levels: dl.levels,
+        })),
+        allSliceLevels: slice.allSliceLevels,
+        // Only use isHiddenByFilter when there's actually a filter active
+        // When no filter, expansion state is handled by rendering logic
+        isHiddenByFilter: hasFilter ? !shouldShowLevel : false,
+      };
+
+      // Skip "other" slice rows with no data
+      if (
+        slice.sliceLevels.every((dl) => dl.levels.length === 0) &&
+        sliceRow.variations.every((v) => v.value === 0)
+      ) {
+        return;
+      }
+      rows.push(sliceRow);
+    });
+
+    // If slice filter is active and no slices match, don't show parent row
+    // Exception: if "overall" is in the filter, show the row anyway
+    if (
+      sliceTagsFilter &&
+      sliceTagsFilter.length > 0 &&
+      !hasMatchingSlice &&
+      !sliceTagsFilter.includes("overall")
+    ) {
+      return [];
+    }
+  }
+
+  // Add parent row only if we should show it
+  rows.unshift(parentRow);
+
+  return rows;
+}
+
+export function sortMetricsByCustomOrder(
+  metrics: ExperimentMetricInterface[],
+  customOrder: string[],
+  metricGroups?: MetricGroupInterface[],
+): string[] {
+  // Filter out special metric selector IDs
+  const filteredCustomOrder = customOrder.filter(
+    (id) =>
+      !METRIC_SELECTOR_IDS.includes(id as (typeof METRIC_SELECTOR_IDS)[number]),
+  );
+  const metricIds = metrics.map((m) => m.id);
+
+  // Pre-expand all groups in the custom order
+  const expandedOrder: string[] = [];
+  const seenMetrics = new Set<string>();
+
+  filteredCustomOrder.forEach((id) => {
+    if (isMetricGroupId(id) && metricGroups) {
+      // Expand the group and add metrics in order, skipping duplicates
+      const group = metricGroups.find((g) => g.id === id);
+      if (group) {
+        group.metrics.forEach((metricId) => {
+          if (!seenMetrics.has(metricId) && metricIds.includes(metricId)) {
+            expandedOrder.push(metricId);
+            seenMetrics.add(metricId);
+          }
+        });
+      }
+    } else {
+      // Individual metric - add if not seen and exists in metrics
+      if (!seenMetrics.has(id) && metricIds.includes(id)) {
+        expandedOrder.push(id);
+        seenMetrics.add(id);
+      }
+    }
+  });
+
+  // Add any remaining metrics that weren't in the custom order
+  const unorderedMetrics = metricIds.filter((id) => !seenMetrics.has(id));
+  return [...expandedOrder, ...unorderedMetrics];
+}
+
+export function sortMetricsByTags(
+  metrics: ExperimentMetricInterface[],
+  metricTagFilter: string[],
+  metricGroups: MetricGroupInterface[],
+): string[] {
+  // Expand any metric groups in the metrics array before sorting
+  const metricIds = metrics.map((m) => m.id);
+  const expandedMetricIds = expandMetricGroups(metricIds, metricGroups);
+
+  // Create a map of metric ID to metric object for quick lookup
+  const metricMap = new Map(metrics.map((m) => [m.id, m]));
+
+  // Filter to only include expanded metric IDs that have corresponding metric objects
+  // (metrics from expanded groups that aren't in the original array won't be included)
+  const validExpandedIds = expandedMetricIds.filter((id) => metricMap.has(id));
+
+  // Start with default order (all expanded metrics in their current order)
+  const sorted: string[] = [];
+  const unsorted = new Set(validExpandedIds);
+
+  // For each tag in order, find metrics with that tag and move them to the front
+  for (const tag of metricTagFilter) {
+    // Find metrics with this tag that haven't been sorted yet
+    const metricsWithTag = validExpandedIds.filter((metricId) => {
+      if (!unsorted.has(metricId)) return false;
+      const metric = metricMap.get(metricId);
+      if (!metric) return false;
+      return metric.tags?.includes(tag);
+    });
+
+    // Add metrics with this tag to the sorted list (preserving their relative order from default sort)
+    for (const metricId of metricsWithTag) {
+      sorted.push(metricId);
+      unsorted.delete(metricId);
+    }
+  }
+
+  // Add remaining unsorted metrics at the end (preserving their relative order)
+  return [...sorted, ...Array.from(unsorted)];
+}
+
+export function filterMetricsByTags(
+  metrics: ExperimentMetricInterface[],
+  tagFilter?: string[],
+): string[] {
+  // If no filter, return all metrics
+  if (!tagFilter || tagFilter.length === 0) {
+    return metrics.map((m) => m.id);
+  }
+
+  return metrics
+    .filter((metric) => {
+      return metric.tags?.some((tag) => tagFilter.includes(tag));
+    })
+    .map((m) => m.id);
+}

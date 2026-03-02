@@ -196,7 +196,7 @@ Example payload:
     {
       "operation": "upsert",
       "key": "gb_payload",
-      "value": "{\"features\":{\"my-feature\":{\"defaultValue\":true}}}"
+      "value": {"features":{"my-feature":{"defaultValue":true}}}
     }
   ]
 }
@@ -209,7 +209,7 @@ In order for this to work properly, you must specify the following options as we
 - Headers = `{ "Authorization": "Bearer your_vercel_api_token_here" }`
 - Payload Key = `your_value_key_here` (defaults to `gb_payload` if left blank)
 
-:::tip
+:::tip Updating Edge Config items owned by a team
 
 If you are updating an Edge Config item owned by a team, add `?teamId=your_team_id_here` to the end of your Endpoint URL.
 

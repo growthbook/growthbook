@@ -1,15 +1,15 @@
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import React from "react";
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import { PiCheckCircleFill, PiWarningFill } from "react-icons/pi";
 import LinkedChange from "@/components/Experiment/LinkedChange";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ForceSummary from "@/components/Features/ForceSummary";
-import Badge from "@/components/Radix/Badge";
-import Callout from "@/components/Radix/Callout";
+import Badge from "@/ui/Badge";
+import Callout from "@/ui/Callout";
 
 type Props = {
   info: LinkedFeatureInfo;

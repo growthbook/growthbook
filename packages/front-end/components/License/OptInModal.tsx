@@ -1,12 +1,12 @@
 import React, { useCallback, useState } from "react";
 import { Box, Text } from "@radix-ui/themes";
-import { AgreementType } from "back-end/src/validators/agreements";
+import { AgreementType } from "shared/validators";
 import { PiCaretRight } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Modal from "@/components/Modal";
 import { useUser } from "@/services/UserContext";
-import Checkbox from "@/components/Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
 
 // hard coded agreements for now:
 const agreements: Record<

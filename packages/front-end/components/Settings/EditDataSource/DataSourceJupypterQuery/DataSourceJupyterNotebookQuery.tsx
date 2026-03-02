@@ -5,7 +5,7 @@ import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/Edit
 import { EditJupyterNotebookQueryRunner } from "@/components/Settings/EditDataSource/DataSourceJupypterQuery/EditJupyterNotebookQueryRunner";
 import Code from "@/components/SyntaxHighlighting/Code";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 
 type DataSourceJupyterNotebookQueryProps = DataSourceQueryEditingModalBaseProps;
 

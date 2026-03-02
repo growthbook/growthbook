@@ -1,21 +1,17 @@
 import { createHmac } from "crypto";
 import Agenda, { Job } from "agenda";
-import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
-import { filterProjectsByEnvironmentWithNull } from "shared/util";
-import { getFeatureDefinitions } from "back-end/src/services/features";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import { getFeatureDefinitionsWithCache } from "back-end/src/controllers/features";
 import { IS_CLOUD } from "back-end/src/util/secrets";
-import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import {
   clearProxyError,
   findSDKConnectionById,
-  findSDKConnectionsByOrganization,
   setProxyError,
 } from "back-end/src/models/SdkConnectionModel";
-import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import { logger } from "back-end/src/util/logger";
 import { ApiReqContext } from "back-end/types/api";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 
 const PROXY_UPDATE_JOB_NAME = "proxyUpdate";
@@ -77,32 +73,12 @@ const proxyUpdate = async (job: ProxyUpdateJob) => {
     return;
   }
 
-  const environmentDoc = context.org?.settings?.environments?.find(
-    (e) => e.id === connection.environment,
+  const payload = JSON.stringify(
+    await getFeatureDefinitionsWithCache({
+      context,
+      params: connection,
+    }),
   );
-  const filteredProjects = filterProjectsByEnvironmentWithNull(
-    connection.projects,
-    environmentDoc,
-    true,
-  );
-
-  const defs = await getFeatureDefinitions({
-    context,
-    capabilities: getConnectionSDKCapabilities(connection),
-    environment: connection.environment,
-    projects: filteredProjects,
-    encryptionKey: connection.encryptPayload
-      ? connection.encryptionKey
-      : undefined,
-    includeVisualExperiments: connection.includeVisualExperiments,
-    includeDraftExperiments: connection.includeDraftExperiments,
-    includeExperimentNames: connection.includeExperimentNames,
-    includeRedirectExperiments: connection.includeRedirectExperiments,
-    includeRuleIds: connection.includeRuleIds,
-    hashSecureAttributes: connection.hashSecureAttributes,
-  });
-
-  const payload = JSON.stringify(defs);
 
   // note: Cloud users will typically have proxy.enabled === false (unless using a local proxy), but will still have a valid proxy.signingKey
   const signature = createHmac("sha256", connection.proxy.signingKey)
@@ -182,28 +158,12 @@ export async function queueSingleProxyUpdate(
 
 export async function queueProxyUpdate(
   context: ReqContext | ApiReqContext,
-  payloadKeys: SDKPayloadKey[],
+  connections: SDKConnectionInterface[],
 ) {
-  if (!payloadKeys.length) return;
-
-  const connections = await findSDKConnectionsByOrganization(context);
-
-  if (!connections) return;
+  if (!connections.length) return;
 
   for (let i = 0; i < connections.length; i++) {
     const connection = connections[i];
-
-    // Skip if this SDK Connection isn't affected by the changes
-    if (
-      !payloadKeys.some(
-        (key) =>
-          key.environment === connection.environment &&
-          (!connection.projects.length ||
-            connection.projects.includes(key.project)),
-      )
-    ) {
-      continue;
-    }
 
     if (IS_CLOUD) {
       // Always fire webhook to GB Cloud Proxy for cloud users

@@ -7,7 +7,7 @@ import { OWNER_JOB_TITLES } from "shared/constants";
 import {
   OwnerJobTitle,
   CreateOrganizationPostBody,
-} from "back-end/types/organization";
+} from "shared/types/organization";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
@@ -21,7 +21,7 @@ import Field from "@/components/Forms/Field";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useProject } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
-import Checkbox from "@/components/Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
 import style from "./CreateOrJoinOrganization.module.scss";
 import WelcomeFrame from "./WelcomeFrame";
 
@@ -73,7 +73,6 @@ const CreateOrJoinOrganization: FC<{
     } else {
       setMode("create");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orgs]);
 
   const joinOrgFormSubmit = async (org) => {

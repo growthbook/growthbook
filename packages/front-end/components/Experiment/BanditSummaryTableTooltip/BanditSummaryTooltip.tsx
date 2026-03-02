@@ -1,11 +1,11 @@
 import React, { DetailedHTMLProps, HTMLAttributes, useEffect } from "react";
-import { SnapshotMetric } from "back-end/types/experiment-snapshot";
+import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import { BsXCircle } from "react-icons/bs";
 import clsx from "clsx";
 import { MdSwapCalls } from "react-icons/md";
 import { isFactMetric } from "shared/experiments";
-import { MetricInterface } from "back-end/types/metric";
-import { BanditEvent } from "back-end/src/validators/experiments";
+import { MetricInterface } from "shared/types/metric";
+import { BanditEvent } from "shared/validators";
 import { RxInfoCircled } from "react-icons/rx";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -272,7 +272,7 @@ export default function BanditSummaryTooltip({
                   percentFormatter.format(data?.probability ?? 0)
                 ) : (
                   <em className="text-muted">
-                    <small>not enough data</small>
+                    <small>Not enough data</small>
                   </em>
                 )}
               </div>

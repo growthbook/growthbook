@@ -12,7 +12,7 @@ import {
   useTooltipInPortal,
 } from "@visx/tooltip";
 import { date, getValidDate } from "shared/dates";
-import { StatsEngine } from "back-end/types/stats";
+import { StatsEngine } from "shared/types/stats";
 import cloneDeep from "lodash/cloneDeep";
 import { ScaleLinear } from "d3-scale";
 import { BiCheckbox, BiCheckboxSquare } from "react-icons/bi";
@@ -83,7 +83,7 @@ const getTooltipContents = (
         <thead>
           <tr>
             <td></td>
-            <td>Users</td>
+            <td>Units</td>
 
             {yaxis === "effect" && (
               <>
@@ -519,8 +519,8 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                   <rect
                     x={0}
                     y={0}
-                    width={width - margin[1] - margin[3]}
-                    height={height - margin[0] - margin[2]}
+                    width={Math.max(0, width - margin[1] - margin[3])}
+                    height={Math.max(0, height - margin[0] - margin[2])}
                   />
                 </clipPath>
               </defs>

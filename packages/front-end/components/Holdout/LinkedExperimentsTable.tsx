@@ -1,16 +1,16 @@
-import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { HoldoutInterfaceStringDates } from "shared/validators";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Box, Text } from "@radix-ui/themes";
 import { useRouter } from "next/router";
 import { date } from "shared/dates";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import { useUser } from "@/services/UserContext";
 import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
-import Link from "../Radix/Link";
-import Tooltip from "../Tooltip/Tooltip";
+import Link from "@/ui/Link";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 interface Props {
-  holdout: HoldoutInterface;
+  holdout: HoldoutInterfaceStringDates;
   experiments: ExperimentInterfaceStringDates[];
 }
 
@@ -89,7 +89,6 @@ const LinkedExperimentsTable = ({ holdout, experiments }: Props) => {
                   <Link href={`/experiment/${exp.id}`}>{exp.name}</Link>
                 </td>
                 <td data-title="Status">
-                  {" "}
                   {exp.statusIndicator.tooltip &&
                   !exp.statusIndicator.detailedStatus ? (
                     <Tooltip body={exp.statusIndicator.tooltip}>

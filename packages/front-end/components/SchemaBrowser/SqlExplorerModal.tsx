@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FaPlay, FaExclamationTriangle } from "react-icons/fa";
 import {
@@ -12,69 +12,85 @@ import {
   DataVizConfig,
   SavedQuery,
   QueryExecutionResult,
-} from "back-end/src/validators/saved-queries";
+} from "shared/validators";
+import { computeAIUsageData } from "shared/ai";
 import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
 import { getValidDate } from "shared/dates";
 import { isReadOnlySQL, SQL_ROW_LIMIT } from "shared/sql";
 import { BsThreeDotsVertical, BsStars } from "react-icons/bs";
-import { InformationSchemaInterface } from "back-end/src/types/Integration";
+import { InformationSchemaInterfaceWithPaths } from "shared/types/integrations";
 import { FiChevronRight } from "react-icons/fi";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import CodeTextArea, { AceCompletion } from "@/components/Forms/CodeTextArea";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
-import Button from "@/components/Radix/Button";
-import { SelectItem } from "@/components/Radix/Select";
+import Button from "@/ui/Button";
+import { SelectItem } from "@/ui/Select";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { formatSql, canFormatSql } from "@/services/sqlFormatter";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/Radix/Tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import {
   Panel,
   PanelGroup,
   PanelResizeHandle,
 } from "@/components/ResizablePanels";
+import { AppFeatures } from "@/types/app-features";
+import track from "@/services/track";
 import useOrgSettings, { useAISettings } from "@/hooks/useOrgSettings";
 import { VisualizationAddIcon } from "@/components/Icons";
-import { requiresXAxis } from "@/services/dataVizTypeGuards";
+import { requiresXAxes, requiresXAxis } from "@/services/dataVizTypeGuards";
+import {
+  getXAxisConfig,
+  setXAxisConfig,
+} from "@/services/dataVizConfigUtilities";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { getAutoCompletions } from "@/services/sqlAutoComplete";
 import Field from "@/components/Forms/Field";
 import OptInModal from "@/components/License/OptInModal";
-import Badge from "@/components/Radix/Badge";
-import { SqlExplorerDataVisualization } from "../DataViz/SqlExplorerDataVisualization";
-import Modal from "../Modal";
-import SelectField from "../Forms/SelectField";
-import Tooltip from "../Tooltip/Tooltip";
-import { DropdownMenu, DropdownMenuItem } from "../Radix/DropdownMenu";
+import Badge from "@/ui/Badge";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import { SqlExplorerDataVisualization } from "@/components/DataViz/SqlExplorerDataVisualization";
+import Modal from "@/components/Modal";
+import SelectField from "@/components/Forms/SelectField";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import { filterOptions } from "@/components/DataViz/DataVizFilter";
 import SchemaBrowser from "./SchemaBrowser";
 import styles from "./EditSqlModal.module.scss";
 
+export interface SqlExplorerModalInitial {
+  sql?: string;
+  name?: string;
+  datasourceId?: string;
+  results?: QueryExecutionResult;
+  dateLastRan?: Date | string;
+  dataVizConfig?: DataVizConfig[];
+}
+
 export interface Props {
+  dashboardId?: string;
   close: () => void;
-  initial?: {
-    sql?: string;
-    name?: string;
-    datasourceId?: string;
-    results?: QueryExecutionResult;
-    dateLastRan?: Date | string;
-    dataVizConfig?: DataVizConfig[];
-  };
+  initial?: SqlExplorerModalInitial;
   id?: string;
   mutate: () => void;
   disableSave?: boolean; // Controls if user can save query AND also controls if they can create/save visualizations
   header?: string;
   lockDatasource?: boolean; // Prevents changing data source. Useful if an org opens this from a data source id page, or when editing an experiment query that requires a certain data source
   trackingEventModalSource?: string;
+  onSave?: (data: {
+    savedQueryId: string | undefined;
+    name: string | undefined;
+    newVisualizationIds: string[];
+    allVisualizationIds: string[];
+  }) => Promise<void>;
+  projects?: string[];
 }
 
 export default function SqlExplorerModal({
+  dashboardId,
   close,
   initial,
   id,
@@ -83,6 +99,8 @@ export default function SqlExplorerModal({
   header,
   lockDatasource = false,
   trackingEventModalSource = "",
+  onSave,
+  projects = [],
 }: Props) {
   const [showSidePanel, setSidePanel] = useState(true);
   const [dirty, setDirty] = useState(id ? false : true);
@@ -99,14 +117,43 @@ export default function SqlExplorerModal({
   );
   const [autoCompletions, setAutoCompletions] = useState<AceCompletion[]>([]);
   const [informationSchema, setInformationSchema] = useState<
-    InformationSchemaInterface | undefined
+    InformationSchemaInterfaceWithPaths | undefined
   >();
-
   const { getDatasourceById, datasources } = useDefinitions();
   const { defaultDataSource } = useOrgSettings();
 
-  const initialDatasourceId =
-    initial?.datasourceId || defaultDataSource || datasources[0]?.id;
+  let filteredDatasources: DataSourceInterfaceWithParams[] = [];
+
+  // If the dashboard has a projects list, only include datasources that are contain all of the projects in the list or are in 'All Projects'
+  if (projects.length) {
+    filteredDatasources = datasources.filter((d) => {
+      if (!d.projects || !d.projects.length) {
+        return true;
+      }
+
+      // Always include the existing datasource if it exists, this will prevent issues if the datasource or the dashboard's projects have changed since the query was created.
+      if (initial?.datasourceId && d.id === initial?.datasourceId) {
+        return true;
+      }
+
+      return projects.every((p) => d.projects?.includes(p));
+    });
+  } else {
+    filteredDatasources = datasources;
+  }
+
+  let initialDatasourceId = filteredDatasources[0]?.id;
+  if (
+    initial?.datasourceId &&
+    filteredDatasources.find((d) => d.id === initial?.datasourceId)
+  ) {
+    initialDatasourceId = initial.datasourceId;
+  } else if (
+    defaultDataSource &&
+    filteredDatasources.find((d) => d.id === defaultDataSource)
+  ) {
+    initialDatasourceId = defaultDataSource;
+  }
 
   const form = useForm<
     Omit<SavedQuery, "dateCreated" | "dateUpdated" | "dataVizConfig"> & {
@@ -114,7 +161,7 @@ export default function SqlExplorerModal({
     }
   >({
     defaultValues: {
-      name: initial?.name || "",
+      name: initial?.name || "New Query",
       sql: initial?.sql || "",
       dateLastRan: initial?.dateLastRan
         ? getValidDate(initial?.dateLastRan)
@@ -130,7 +177,7 @@ export default function SqlExplorerModal({
     },
   });
 
-  const datasourceId = form.watch("datasourceId") || initialDatasourceId;
+  const datasourceId = form.watch("datasourceId");
 
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
@@ -140,6 +187,8 @@ export default function SqlExplorerModal({
   const [aiInput, setAiInput] = useState("");
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiAgreementModal, setAiAgreementModal] = useState<boolean>(false);
+  const gb = useGrowthBook<AppFeatures>();
+  const aiSuggestionRef = useRef<string | undefined>(undefined);
   const permissionsUtil = usePermissionsUtil();
   const [cursorData, setCursorData] = useState<null | CursorData>(null);
   const [formatError, setFormatError] = useState<string | null>(null);
@@ -171,9 +220,13 @@ export default function SqlExplorerModal({
 
   const canFormat = datasource ? canFormatSql(datasource.type) : false;
 
+  const hasResults =
+    !!form.watch("results")?.sql && !form.watch("results")?.error;
+
   const canSave: boolean =
     hasPermission &&
     hasCommercialFeature("saveSqlExplorerQueries") &&
+    (!dashboardId || hasResults) &&
     !!form.watch("sql").trim();
 
   const runQuery = useCallback(
@@ -208,19 +261,40 @@ export default function SqlExplorerModal({
       throw new Error("You must enter a name for your query");
     }
 
-    // Validate that the name only contains letters, numbers, hyphens, and underscores
-    if (!currentName.match(/^[a-zA-Z0-9_.:|\s-]+$/)) {
-      setLoading(false);
-      setIsEditingName(true);
-      throw new Error(
-        "Query name can only contain letters, numbers, hyphens, underscores, and spaces",
-      );
-    }
-
     // If we have an empty object for dataVizConfig, set it to an empty array
     const dataVizConfig = form.watch("dataVizConfig") || [];
+
+    // Normalize dataVizConfig to ensure pivot tables have xAxis as arrays
+    // and other charts have xAxis as single objects (for API compatibility)
+    const normalizedDataVizConfig = dataVizConfig.map((config) => {
+      // If the chart type doesn't support displaySettings, remove the displaySettings property
+      // Only line and scatter charts support displaySettings
+      const chartType = config.chartType;
+      if (
+        chartType &&
+        !["line", "scatter"].includes(chartType) &&
+        "displaySettings" in config
+      ) {
+        const { displaySettings: _displaySettings, ...rest } = config;
+        return rest as DataVizConfig;
+      }
+      if (!requiresXAxis(config) || !config.xAxis) {
+        return config as DataVizConfig;
+      }
+
+      // Get xAxis as array (internal representation)
+      const xAxisConfigs = getXAxisConfig(config);
+
+      if (xAxisConfigs.length === 0) {
+        return config as DataVizConfig;
+      }
+
+      // Use setXAxisConfig to ensure correct format for API (array for pivot, single for others)
+      return setXAxisConfig(config, xAxisConfigs) as DataVizConfig;
+    }) as DataVizConfig[];
+
     // Validate each dataVizConfig object
-    dataVizConfig.forEach((config, index) => {
+    normalizedDataVizConfig.forEach((config, index) => {
       // Check if chart type requires xAxis but doesn't have one
       if (requiresXAxis(config) && !config.xAxis) {
         setTab(`visualization-${index}`);
@@ -228,6 +302,14 @@ export default function SqlExplorerModal({
           `X axis is required for Visualization ${
             config.title ? config.title : `${index + 1}`
           }. Please add an X axis or remove the visualization to save the query.`,
+        );
+      }
+      if (requiresXAxes(config) && !config.xAxes) {
+        setTab(`visualization-${index}`);
+        throw new Error(
+          `Columns are required for Visualization ${
+            config.title ? config.title : `${index + 1}`
+          }. Please add a column or remove the visualization to save the query.`,
         );
       }
       if (!config.yAxis) {
@@ -238,12 +320,128 @@ export default function SqlExplorerModal({
           }. Please add a y axis or remove the visualization to save the query.`,
         );
       }
+
+      // Validate filters
+      if (config.filters && config.filters.length > 0) {
+        config.filters.forEach((filter, filterIndex) => {
+          const vizTitle = config.title || `${index + 1}`;
+
+          // Validate required filter fields
+          if (!filter.column) {
+            setTab(`visualization-${index}`);
+            throw new Error(
+              `Filter ${filterIndex + 1} in Visualization ${vizTitle} is missing a column selection.`,
+            );
+          }
+
+          if (!filter.columnType) {
+            setTab(`visualization-${index}`);
+            throw new Error(
+              `Filter ${filterIndex + 1} in Visualization ${vizTitle} is missing a type selection.`,
+            );
+          }
+
+          if (!filter.filterMethod) {
+            setTab(`visualization-${index}`);
+            throw new Error(
+              `Filter ${filterIndex + 1} in Visualization ${vizTitle} is missing a filter type selection.`,
+            );
+          }
+
+          // // Validate filter type matches the data type
+          const filterOptionIndex = filterOptions.findIndex(
+            (option) => option.value === filter.filterMethod,
+          );
+
+          if (filterOptionIndex === -1) {
+            setTab(`visualization-${index}`);
+            throw new Error(
+              `Filter ${filterIndex + 1} in Visualization ${vizTitle} has an invalid filter type "${filter.filterMethod}" for data type "${filter.columnType}".`,
+            );
+          }
+
+          const validFilterTypes =
+            filterOptions[filterOptionIndex].supportedTypes;
+
+          if (!validFilterTypes.includes(filter.columnType)) {
+            setTab(`visualization-${index}`);
+            throw new Error(
+              `Filter ${filterIndex + 1} in Visualization ${vizTitle} has an invalid filter type "${filter.filterMethod}" for data type "${filter.columnType}".`,
+            );
+          }
+
+          // Validate required config values based on filter type using discriminated union
+          switch (filter.filterMethod) {
+            case "dateRange":
+              if (!filter.config.startDate && !filter.config.endDate) {
+                setTab(`visualization-${index}`);
+                throw new Error(
+                  `Date range filter ${filterIndex + 1} in Visualization ${vizTitle} requires at least a start date or end date.`,
+                );
+              }
+              break;
+
+            case "numberRange":
+              if (
+                filter.config.min === undefined &&
+                filter.config.max === undefined
+              ) {
+                setTab(`visualization-${index}`);
+                throw new Error(
+                  `Number range filter ${filterIndex + 1} in Visualization ${vizTitle} requires at least a minimum or maximum value.`,
+                );
+              }
+              break;
+
+            case "greaterThan":
+            case "lessThan":
+            case "equalTo":
+              if (
+                filter.config.value === undefined ||
+                filter.config.value === ""
+              ) {
+                setTab(`visualization-${index}`);
+                throw new Error(
+                  `Filter ${filterIndex + 1} in Visualization ${vizTitle} requires a value.`,
+                );
+              }
+              break;
+
+            case "contains":
+              if (
+                !filter.config.value ||
+                String(filter.config.value).trim() === ""
+              ) {
+                setTab(`visualization-${index}`);
+                throw new Error(
+                  `Text search filter ${filterIndex + 1} in Visualization ${vizTitle} requires search text.`,
+                );
+              }
+              break;
+
+            case "includes":
+              if (
+                !Array.isArray(filter.config.values) ||
+                filter.config.values.length === 0
+              ) {
+                setTab(`visualization-${index}`);
+                throw new Error(
+                  `Multi-select filter ${filterIndex + 1} in Visualization ${vizTitle} requires at least one selected value.`,
+                );
+              }
+              break;
+          }
+        });
+      }
     });
 
     // If it's a new query (no savedQuery.id), always save
     if (!id) {
       try {
-        await apiCall("/saved-queries", {
+        const res = await apiCall<{
+          savedQuery: SavedQuery;
+          status: number;
+        }>("/saved-queries", {
           method: "POST",
           body: JSON.stringify({
             name: currentName,
@@ -251,10 +449,32 @@ export default function SqlExplorerModal({
             datasourceId: form.watch("datasourceId"),
             dateLastRan: form.watch("dateLastRan"),
             results: form.watch("results"),
-            dataVizConfig,
+            dataVizConfig: normalizedDataVizConfig,
+            linkedDashboardIds:
+              dashboardId && dashboardId !== "new" ? [dashboardId] : [],
           }),
         });
         mutate();
+        if (onSave) {
+          const visualizationIds =
+            res?.savedQuery?.dataVizConfig
+              ?.map((viz) => viz.id)
+              .filter((id): id is string => !!id) || [];
+          await onSave({
+            savedQueryId: res?.savedQuery?.id,
+            name: currentName,
+            newVisualizationIds: visualizationIds,
+            allVisualizationIds: visualizationIds,
+          });
+        }
+        if (aiSuggestionRef.current) {
+          track("sql-query-saved-after-ai-suggestion", {
+            aiUsageData: computeAIUsageData({
+              value: form.watch("sql"),
+              aiSuggestionText: aiSuggestionRef.current,
+            }),
+          });
+        }
         close();
       } catch (error) {
         setLoading(false);
@@ -272,18 +492,56 @@ export default function SqlExplorerModal({
 
     // Something changed, so save the updates
     try {
-      await apiCall(`/saved-queries/${id}`, {
+      const results = form.watch("results");
+      const { savedQuery: updatedSavedQuery } = await apiCall<{
+        status: number;
+        savedQuery: SavedQuery;
+      }>(`/saved-queries/${id}`, {
         method: "PUT",
         body: JSON.stringify({
           name: currentName,
           sql: form.watch("sql"),
           datasourceId: form.watch("datasourceId"),
           dateLastRan: form.watch("dateLastRan"),
-          dataVizConfig: dataVizConfig,
-          results: form.watch("results"),
+          dataVizConfig: normalizedDataVizConfig,
+          results: {
+            ...results,
+            error: results.error || undefined, // Convert null/empty to undefined
+          },
         }),
       });
       mutate();
+      // Calculate existing and new visualization IDs
+      // Existing IDs come from the initial dataVizConfig (what was there before)
+      const existingVizIds =
+        initial?.dataVizConfig
+          ?.map((viz) => viz.id)
+          .filter((id): id is string => !!id) || [];
+      // Current IDs come from the response (all visualization IDs that exist now)
+      const allCurrentVizIds =
+        updatedSavedQuery?.dataVizConfig
+          ?.map((viz) => viz.id)
+          .filter((id): id is string => !!id) || [];
+      // Find which IDs are newly added (in current but not in existing)
+      const newlyAddedVizIds = allCurrentVizIds.filter(
+        (id) => !existingVizIds.includes(id),
+      );
+      if (onSave) {
+        await onSave({
+          savedQueryId: id,
+          name: currentName,
+          newVisualizationIds: newlyAddedVizIds,
+          allVisualizationIds: allCurrentVizIds,
+        });
+      }
+      if (aiSuggestionRef.current) {
+        track("sql-query-saved-after-ai-suggestion", {
+          aiUsageData: computeAIUsageData({
+            value: form.watch("sql"),
+            aiSuggestionText: aiSuggestionRef.current,
+          }),
+        });
+      }
       close();
     } catch (error) {
       setLoading(false);
@@ -321,6 +579,15 @@ export default function SqlExplorerModal({
       });
     }
     setIsRunningQuery(false);
+
+    if (aiSuggestionRef.current) {
+      track("SQL Query Run", {
+        aiUsageData: computeAIUsageData({
+          value: form.watch("sql"),
+          aiSuggestionText: aiSuggestionRef.current,
+        }),
+      });
+    }
   }, [form, runQuery]);
 
   const handleFormatClick = () => {
@@ -341,6 +608,9 @@ export default function SqlExplorerModal({
       }, 0);
     } else {
       if (aiEnabled) {
+        const aiTemperature =
+          gb?.getFeatureValue("ai-suggestions-temperature", 0.1) || 0.1;
+        track("ai-suggestion", { source: "sql-explorer", type: "suggest" });
         setAiError(null);
         setLoading(true);
         apiCall(
@@ -350,6 +620,7 @@ export default function SqlExplorerModal({
             body: JSON.stringify({
               input: aiInput,
               datasourceId: form.watch("datasourceId"),
+              temperature: aiTemperature,
             }),
           },
           (responseData) => {
@@ -360,6 +631,11 @@ export default function SqlExplorerModal({
               setAiError(
                 `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`,
               );
+            } else if (responseData.message) {
+              setAiError(
+                "Error getting AI suggestion: " + responseData.message,
+              );
+              throw new Error(responseData.message);
             } else {
               setAiError("Error getting AI suggestion");
             }
@@ -368,6 +644,7 @@ export default function SqlExplorerModal({
         )
           .then((res: { data: { sql: string; errors: string[] } }) => {
             form.setValue("sql", res.data.sql);
+            aiSuggestionRef.current = res.data.sql;
             if (res.data.errors && res.data.errors.length > 0) {
               setAiError(res.data.errors.join(", "));
             }
@@ -419,7 +696,7 @@ export default function SqlExplorerModal({
 
   // Filter datasources to only those that support SQL queries
   // Also only show datasources that the user has permission to query
-  const validDatasources = datasources.filter(
+  const validDatasources = filteredDatasources.filter(
     (d) =>
       d.type !== "google_analytics" &&
       permissionsUtil.canRunSqlExplorerQueries(d),
@@ -470,7 +747,7 @@ export default function SqlExplorerModal({
       }
       try {
         const response = await apiCall<{
-          informationSchema: InformationSchemaInterface;
+          informationSchema: InformationSchemaInterfaceWithPaths;
         }>(`/datasource/${datasourceId}/schema`);
         setInformationSchema(response.informationSchema);
       } catch (error) {
@@ -487,6 +764,7 @@ export default function SqlExplorerModal({
       <Modal
         bodyClassName="p-0"
         borderlessHeader={true}
+        backgroundlessHeader={true}
         close={close}
         loading={loading}
         closeCta="Close"
@@ -498,10 +776,11 @@ export default function SqlExplorerModal({
             ? "Upgrade to a Pro or Enterprise plan to save your queries."
             : !hasPermission
               ? "You don't have permission to save this query."
-              : undefined
+              : dashboardId && !hasResults
+                ? "Run the query first before saving."
+                : undefined
         }
         header={header || `${id ? "Update" : "Create"} SQL Query`}
-        headerClassName={styles["modal-header-backgroundless"]}
         open={showModal}
         showHeaderCloseButton={true}
         size="max"
@@ -643,6 +922,7 @@ export default function SqlExplorerModal({
                                     ...dataVizConfig,
                                     {
                                       ...config,
+                                      id: undefined, // Generate a new ID once the request hits the backend
                                       title: `${
                                         config.title ||
                                         `Visualization ${index + 1}`

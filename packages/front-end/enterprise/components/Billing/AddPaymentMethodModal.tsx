@@ -5,7 +5,7 @@ import {
   useStripe,
 } from "@stripe/react-stripe-js";
 import { Flex } from "@radix-ui/themes";
-import Checkbox from "@/components/Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useStripeContext } from "@/hooks/useStripeContext";

@@ -1,15 +1,16 @@
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import { useState, useMemo } from "react";
 import { FaAngleDown, FaAngleRight, FaArrowLeft } from "react-icons/fa";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   autoMerge,
   filterEnvironmentsByFeature,
   getAffectedEnvsForExperiment,
   mergeResultHasChanges,
 } from "shared/util";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { Flex } from "@radix-ui/themes";
 import {
   getAffectedRevisionEnvs,
   useEnvironments,
@@ -20,9 +21,16 @@ import Modal from "@/components/Modal";
 import Button from "@/components/Button";
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Callout from "@/components/Radix/Callout";
-import Checkbox from "@/components/Radix/Checkbox";
+import {
+  useFeatureRevisionDiff,
+  featureToFeatureRevisionDiffInput,
+} from "@/hooks/useFeatureRevisionDiff";
+import Badge from "@/ui/Badge";
+import { logBadgeColor } from "@/components/Features/FeatureDiffRenders";
+import Callout from "@/ui/Callout";
+import Checkbox from "@/ui/Checkbox";
 import { PreLaunchChecklistFeatureExpRule } from "@/components/Experiment/PreLaunchChecklist";
+import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 
 export interface Props {
   feature: FeatureInterface;
@@ -38,12 +46,16 @@ export function ExpandableDiff({
   title,
   a,
   b,
+  defaultOpen = false,
+  styles,
 }: {
   title: string;
   a: string;
   b: string;
+  defaultOpen?: boolean;
+  styles?: object;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
 
   if (a === b) return null;
 
@@ -68,6 +80,7 @@ export function ExpandableDiff({
             oldValue={a}
             newValue={b}
             compareMethod={DiffMethod.LINES}
+            styles={styles ?? { contentText: { wordBreak: "break-all" } }}
           />
         </div>
       )}
@@ -96,16 +109,11 @@ export default function DraftModal({
   );
   const liveRevision = revisions.find((r) => r.version === feature.version);
 
+  const envIds = environments.map((e) => e.id);
   const mergeResult = useMemo(() => {
     if (!revision || !baseRevision || !liveRevision) return null;
-    return autoMerge(
-      liveRevision,
-      baseRevision,
-      revision,
-      environments.map((e) => e.id),
-      {},
-    );
-  }, [revision, baseRevision, liveRevision]);
+    return autoMerge(liveRevision, baseRevision, revision, envIds, {});
+  }, [revision, baseRevision, liveRevision, envIds]);
 
   const [comment, setComment] = useState(revision?.comment || "");
 
@@ -120,36 +128,18 @@ export default function DraftModal({
   );
   const [experimentsStep, setExperimentsStep] = useState(false);
 
-  const resultDiffs = useMemo(() => {
-    const diffs: { a: string; b: string; title: string }[] = [];
-
-    if (!mergeResult) return diffs;
-    if (!mergeResult.success) return diffs;
-
-    const result = mergeResult.result;
-
-    if (result.defaultValue !== undefined) {
-      diffs.push({
-        title: "Default Value",
-        a: feature.defaultValue,
-        b: result.defaultValue,
-      });
-    }
-    if (result.rules) {
-      environments.forEach((env) => {
-        const liveRules = feature.environmentSettings?.[env.id]?.rules || [];
-        if (result.rules && result.rules[env.id]) {
-          diffs.push({
-            title: `Rules - ${env.id}`,
-            a: JSON.stringify(liveRules, null, 2),
-            b: JSON.stringify(result.rules[env.id], null, 2),
-          });
+  const currentRevisionData = featureToFeatureRevisionDiffInput(feature);
+  const resultDiffs = useFeatureRevisionDiff({
+    current: currentRevisionData,
+    draft: mergeResult?.success
+      ? {
+          // Use current values as fallback when merge result doesn't have changes
+          defaultValue:
+            mergeResult.result.defaultValue ?? currentRevisionData.defaultValue,
+          rules: mergeResult.result.rules ?? currentRevisionData.rules,
         }
-      });
-    }
-
-    return diffs;
-  }, [mergeResult]);
+      : currentRevisionData,
+  });
 
   if (!revision || !mergeResult) return null;
 
@@ -307,10 +297,50 @@ export default function DraftModal({
               </div>
             ) : null}
 
-            <h4>Review Diff</h4>
+            {resultDiffs.length > 0 && (
+              <>
+                <h4 className="mb-3">Summary of changes</h4>
+                {resultDiffs.flatMap((d) => d.badges ?? []).length > 0 && (
+                  <Flex wrap="wrap" gap="2" className="mb-3">
+                    {resultDiffs
+                      .flatMap((d) => d.badges ?? [])
+                      .map(({ label, action }) => (
+                        <Badge
+                          key={label}
+                          color={logBadgeColor(action)}
+                          variant="soft"
+                          label={label}
+                        />
+                      ))}
+                  </Flex>
+                )}
+                {resultDiffs.some((d) => d.customRender) && (
+                  <div className="list-group mb-4">
+                    {resultDiffs
+                      .filter((d) => d.customRender)
+                      .map((d) => (
+                        <div
+                          key={d.title}
+                          className="list-group-item list-group-item-light pb-3"
+                        >
+                          <strong className="d-block mb-2">{d.title}</strong>
+                          {d.customRender}
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </>
+            )}
+            <h4 className="mb-3">Change details</h4>
             <div className="list-group mb-4">
               {resultDiffs.map((diff) => (
-                <ExpandableDiff {...diff} key={diff.title} />
+                <ExpandableDiff
+                  key={diff.title}
+                  title={diff.title}
+                  a={diff.a}
+                  b={diff.b}
+                  styles={COMPACT_DIFF_STYLES}
+                />
               ))}
             </div>
             {hasPermission ? (

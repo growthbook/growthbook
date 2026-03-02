@@ -1,95 +1,141 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import React, { Fragment, useEffect, useState } from "react";
-import { PiCaretDownFill, PiPlus } from "react-icons/pi";
+import React, {
+  Fragment,
+  ReactElement,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import {
+  PiCaretDownFill,
+  PiPlus,
+  PiTableDuotone,
+  PiChartLineDuotone,
+  PiFileSqlDuotone,
+  PiListDashesDuotone,
+  PiArticleMediumDuotone,
+  PiPencilSimpleFill,
+} from "react-icons/pi";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import {
   DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
   DashboardBlockType,
-} from "back-end/src/enterprise/validators/dashboard-block";
+  dashboardBlockHasIds,
+  getBlockData,
+  DashboardEditLevel,
+  DashboardInterface,
+  DashboardShareLevel,
+  DashboardUpdateSchedule,
+} from "shared/enterprise";
 import { isDefined } from "shared/util";
 import { Container, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
 import clsx from "clsx";
-import { CREATE_BLOCK_TYPE, getBlockData } from "shared/enterprise";
-import { withErrorBoundary } from "@sentry/react";
-import Button from "@/components/Radix/Button";
+import { withErrorBoundary } from "@sentry/nextjs";
+import Button from "@/ui/Button";
 import {
   DropdownMenu,
   DropdownMenuItem,
+  DropdownMenuGroup,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-} from "@/components/Radix/DropdownMenu";
+} from "@/ui/DropdownMenu";
+import Callout from "@/ui/Callout";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Callout from "@/components/Radix/Callout";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import DashboardBlock from "./DashboardBlock";
-import DashboardBlockEditDrawer from "./DashboardBlockEditDrawer";
+import { useAuth } from "@/services/auth";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useUser } from "@/services/UserContext";
+import ShareStatusBadge from "@/components/Report/ShareStatusBadge";
+import ProjectBadges from "@/components/ProjectBadges";
+import UserAvatar from "@/components/Avatar/UserAvatar";
+import DashboardModal from "@/enterprise/components/Dashboards/DashboardModal";
+import DashboardShareModal from "@/enterprise/components/Dashboards/DashboardShareModal";
+import { DashboardChartsProvider } from "@/enterprise/components/Dashboards/DashboardChartsContext";
+import Badge from "@/ui/Badge";
+import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
+import { DashboardSnapshotContext } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
 import DashboardUpdateDisplay from "./DashboardUpdateDisplay";
+import DashboardBlock from "./DashboardBlock";
 
-export const BLOCK_TYPE_INFO: Record<DashboardBlockType, { name: string }> = {
+export const DASHBOARD_TOPBAR_HEIGHT = "40px";
+export const BLOCK_TYPE_INFO: Record<
+  DashboardBlockType,
+  { name: string; icon: ReactElement }
+> = {
   markdown: {
     name: "Markdown",
+    icon: <PiArticleMediumDuotone />,
   },
-  "experiment-description": {
-    name: "Experiment Description",
-  },
-  "experiment-hypothesis": {
-    name: "Experiment Hypothesis",
-  },
-  "experiment-variation-image": {
-    name: "Variations / Screenshots",
+  "experiment-metadata": {
+    name: "Experiment Metadata",
+    icon: <PiListDashesDuotone />,
   },
   "experiment-metric": {
     name: "Metric Results",
+    icon: <PiTableDuotone />,
   },
   "experiment-dimension": {
     name: "Dimension Results",
+    icon: <PiTableDuotone />,
   },
   "experiment-time-series": {
     name: "Time Series",
+    icon: <PiChartLineDuotone />,
   },
-  "experiment-traffic-graph": {
-    name: "Traffic Time Series",
-  },
-  "experiment-traffic-table": {
-    name: "Traffic",
+  "experiment-traffic": {
+    name: "Experiment Traffic",
+    icon: <PiChartLineDuotone />,
   },
   "sql-explorer": {
-    name: "SQL Explorer",
+    name: "SQL Query",
+    icon: <PiFileSqlDuotone />,
+  },
+  "metric-explorer": {
+    name: "Metric",
+    icon: <PiFileSqlDuotone />,
   },
 };
 
-const BLOCK_SUBGROUPS: [string, DashboardBlockType[]][] = [
+export const BLOCK_SUBGROUPS: [string, DashboardBlockType[]][] = [
   [
     "Metric Results",
     ["experiment-metric", "experiment-dimension", "experiment-time-series"],
   ],
-  [
-    "Experiment Traffic",
-    ["experiment-traffic-table", "experiment-traffic-graph"],
-  ],
-  [
-    "Experiment Overview",
-    [
-      "experiment-description",
-      "experiment-hypothesis",
-      "experiment-variation-image",
-    ],
-  ],
-  ["Other", ["markdown", "sql-explorer"]],
+  ["Experiment Info", ["experiment-metadata", "experiment-traffic"]],
+  ["Other", ["markdown", "sql-explorer", "metric-explorer"]],
 ];
+
+// Block types that are allowed in general dashboards (non-experiment specific)
+export const GENERAL_DASHBOARD_BLOCK_TYPES: DashboardBlockType[] = [
+  "markdown",
+  "sql-explorer",
+  "metric-explorer",
+];
+
+// Helper function to check if a block type is allowed for the given dashboard type
+export const isBlockTypeAllowed = (
+  blockType: DashboardBlockType,
+  isGeneralDashboard: boolean,
+): boolean => {
+  if (isGeneralDashboard) {
+    return GENERAL_DASHBOARD_BLOCK_TYPES.includes(blockType);
+  } else {
+    return true; // All block types are allowed for experiment dashboards
+  }
+};
 
 function AddBlockDropdown({
   trigger,
   addBlockType,
-  forceToEditing,
   onDropdownOpen,
   onDropdownClose,
+  isGeneralDashboard = false,
 }: {
   trigger: React.ReactNode;
   addBlockType: (bType: DashboardBlockType) => void;
-  forceToEditing?: () => void;
   onDropdownOpen?: () => void;
   onDropdownClose?: () => void;
+  isGeneralDashboard?: boolean;
 }) {
   const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
   useEffect(() => {
@@ -110,271 +156,262 @@ function AddBlockDropdown({
       }}
       trigger={trigger}
     >
-      {BLOCK_SUBGROUPS.map(([subgroup, blockTypes], i) => (
-        <Fragment key={`${subgroup}-${i}`}>
-          <DropdownMenuLabel className="font-weight-bold">
-            <Text style={{ color: "var(--color-text-high)" }}>{subgroup}</Text>
-          </DropdownMenuLabel>
-          {blockTypes.map((bType) => (
-            <DropdownMenuItem
-              key={bType}
-              onClick={() => {
-                forceToEditing?.();
-                setDropdownOpen(false);
-                addBlockType(bType);
-              }}
-            >
-              {BLOCK_TYPE_INFO[bType].name}
-            </DropdownMenuItem>
-          ))}
-          {i < BLOCK_SUBGROUPS.length - 1 && <DropdownMenuSeparator />}
-        </Fragment>
-      ))}
+      {BLOCK_SUBGROUPS.map(([subgroup, blockTypes], i) => {
+        // Filter block types based on dashboard type
+        const allowedBlockTypes = blockTypes.filter((bType) =>
+          isBlockTypeAllowed(bType, isGeneralDashboard),
+        );
+
+        // Don't render the subgroup if no block types are allowed
+        if (allowedBlockTypes.length === 0) {
+          return null;
+        }
+
+        return (
+          <Fragment key={`${subgroup}-${i}`}>
+            {!isGeneralDashboard && (
+              <DropdownMenuLabel className="font-weight-bold">
+                <Text style={{ color: "var(--color-text-high)" }}>
+                  {subgroup}
+                </Text>
+              </DropdownMenuLabel>
+            )}
+            {allowedBlockTypes.map((bType) => (
+              <DropdownMenuItem
+                key={bType}
+                onClick={() => {
+                  setDropdownOpen(false);
+                  addBlockType(bType);
+                }}
+              >
+                {BLOCK_TYPE_INFO[bType].name}
+              </DropdownMenuItem>
+            ))}
+            {i < BLOCK_SUBGROUPS.length - 1 && <DropdownMenuSeparator />}
+          </Fragment>
+        );
+      })}
     </DropdownMenu>
   );
 }
 
+interface EditBlockProps {
+  scrollAreaRef: null | React.MutableRefObject<HTMLDivElement | null>;
+  editSidebarDirty: boolean;
+  focusedBlockIndex: number | undefined;
+  stagedBlockIndex: number | undefined;
+  addBlockType: (bType: DashboardBlockType, i?: number) => void;
+  moveBlock: (index: number, direction: -1 | 1) => void;
+  editBlock: (index: number) => void;
+  duplicateBlock: (index: number) => void;
+  deleteBlock: (index: number) => void;
+}
+
 interface Props {
-  experiment: ExperimentInterfaceStringDates;
+  isTabActive: boolean;
+  title: string;
   blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
-  canEdit: boolean;
+  id: string;
   isEditing: boolean;
-  editDrawerOpen: boolean;
+  projects: string[];
   enableAutoUpdates: boolean;
-  setBlocks: React.Dispatch<
-    DashboardBlockInterfaceOrData<DashboardBlockInterface>[]
-  >;
-  forceToEditing: () => void;
-  setEditDrawerOpen: React.Dispatch<boolean>;
+  updateSchedule: DashboardUpdateSchedule | undefined;
+  ownerId: string;
+  initialEditLevel: DashboardEditLevel;
+  initialShareLevel: DashboardShareLevel;
+  dashboardOwnerId: string;
+  nextUpdate: Date | undefined;
+  dashboardLastUpdated?: Date;
+  setBlock:
+    | undefined
+    | ((
+        index: number,
+        block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+      ) => void);
   mutate: () => void;
+  switchToExperimentView?: () => void;
+  isGeneralDashboard: boolean;
+  setIsEditing?: (v: boolean) => void;
+  enterEditModeForBlock?: (blockIndex: number) => void;
+  editBlockProps?: EditBlockProps;
 }
 
 function DashboardEditor({
-  experiment,
+  isTabActive,
+  title,
   blocks,
-  canEdit,
   isEditing,
-  editDrawerOpen,
   enableAutoUpdates,
-  setBlocks,
-  forceToEditing,
-  setEditDrawerOpen,
+  updateSchedule,
+  ownerId,
+  initialEditLevel,
+  initialShareLevel,
+  id,
+  dashboardOwnerId,
+  nextUpdate,
+  dashboardLastUpdated,
+  projects,
+  setBlock,
   mutate,
+  switchToExperimentView,
+  isGeneralDashboard = false,
+  setIsEditing,
+  enterEditModeForBlock,
+  editBlockProps,
 }: Props) {
-  const { metricGroups } = useDefinitions();
-  const [hoverAddBlock, setHoverAddBlock] = useState<number | undefined>(
-    undefined,
+  const {
+    editSidebarDirty,
+    focusedBlockIndex,
+    stagedBlockIndex,
+    scrollAreaRef,
+    moveBlock,
+    addBlockType,
+    editBlock,
+    duplicateBlock,
+    deleteBlock,
+  } = editBlockProps ?? {};
+
+  const [editDashboard, setEditDashboard] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [duplicateDashboard, setDuplicateDashboard] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [queriesModalOpen, setQueriesModalOpen] = useState(false);
+  const { apiCall } = useAuth();
+  const { userId, getUserDisplay } = useUser();
+  const permissionsUtil = usePermissionsUtil();
+  const { allQueries, savedQueriesMap, snapshotError } = useContext(
+    DashboardSnapshotContext,
   );
-  const [showAddBlock, setShowAddBlock] = useState<number | undefined>(
-    undefined,
+  const isOwner = dashboardOwnerId === userId;
+  const isAdmin = permissionsUtil.canManageOrgSettings();
+  let canEdit = permissionsUtil.canUpdateGeneralDashboards(
+    { projects: projects || [] },
+    {},
   );
-  const [addBlockDropdown, setAddBlockDropdown] = useState<number | undefined>(
-    undefined,
-  );
-  const [editingBlockIndex, setEditingBlockIndex] = useState<
-    number | undefined
-  >(undefined);
-  const [addBlockIndex, setAddBlockIndex] = useState<number | undefined>(
-    undefined,
-  );
+  const canDelete =
+    permissionsUtil.canDeleteGeneralDashboards({
+      projects: projects || [],
+    }) &&
+    (isOwner || isAdmin);
+  const canDuplicate = permissionsUtil.canCreateGeneralDashboards({
+    projects: projects || [],
+  });
+  const canManageSharingAndEditLevels = canEdit && (isOwner || isAdmin);
 
-  useEffect(() => {
-    if (!isEditing) {
-      setAddBlockIndex(undefined);
-      setStagedAddBlock(undefined);
-      setEditingBlockIndex(undefined);
-      setStagedEditBlock(undefined);
-    }
-  }, [isEditing]);
-
-  useEffect(() => {
-    setEditDrawerOpen(isDefined(addBlockIndex) || isDefined(editingBlockIndex));
-  }, [addBlockIndex, editingBlockIndex, setEditDrawerOpen]);
-
-  const [stagedAddBlock, setStagedAddBlock] = useState<
-    DashboardBlockInterfaceOrData<DashboardBlockInterface> | undefined
-  >(undefined);
-  const [stagedEditBlock, setStagedEditBlock] = useState<
-    DashboardBlockInterfaceOrData<DashboardBlockInterface> | undefined
-  >(undefined);
-
-  useEffect(() => {
-    setStagedEditBlock(
-      isDefined(editingBlockIndex) ? blocks[editingBlockIndex] : undefined,
-    );
-  }, [editingBlockIndex, blocks]);
-
-  const addBlockType = (bType: DashboardBlockType, index?: number) => {
-    index = index ?? blocks.length;
-    setStagedAddBlock(
-      CREATE_BLOCK_TYPE[bType]({
-        experiment,
-        metricGroups,
-      }),
-    );
-    setAddBlockIndex(index);
-  };
-
-  if (blocks.length === 0 && !isDefined(addBlockIndex)) {
-    return (
-      <div className="mt-3">
-        <Flex
-          direction="column"
-          align="center"
-          justify="center"
-          px="80px"
-          pt="60px"
-          pb="70px"
-          className="appbox"
-          gap="5"
-        >
-          <Flex direction="column">
-            <Heading weight="medium" align="center">
-              Build a Custom Dashboard
-            </Heading>
-            <Text align="center">
-              Choose a block type to get started. Rearrange blocks to tell a
-              story with experiment data.
-            </Text>
-          </Flex>
-          {canEdit && (
-            <AddBlockDropdown
-              addBlockType={addBlockType}
-              trigger={
-                <Button icon={<PiCaretDownFill />} iconPosition="right">
-                  Add block
-                </Button>
-              }
-              forceToEditing={forceToEditing}
-            />
-          )}
-        </Flex>
-      </div>
-    );
+  if (initialEditLevel === "private" && !isOwner && !isAdmin) {
+    canEdit = false;
   }
+  const ownerName = getUserDisplay(dashboardOwnerId, false) || "";
+
+  const savedQueryIds = [...savedQueriesMap.keys()];
+  const queryStrings = useMemo(() => {
+    return allQueries.map((q) => q.query) ?? [];
+  }, [allQueries]);
+
+  const error = snapshotError;
+  const count = queryStrings.length + savedQueryIds.length;
+
+  const handleViewQueries = () => {
+    setQueriesModalOpen(true);
+    setDropdownOpen(false);
+  };
 
   const renderSingleBlock = ({
     i,
     key,
-    forceRenderAddBlock,
     block,
+    isFocused,
     setBlock,
     isEditingBlock,
+    isLastBlock,
   }: {
-    i: number | undefined;
+    i: number;
     key: number | string;
-    forceRenderAddBlock?: boolean;
     block: DashboardBlockInterfaceOrData<DashboardBlockInterface>;
-    setBlock: React.Dispatch<
-      DashboardBlockInterfaceOrData<DashboardBlockInterface>
-    >;
+    isFocused: boolean;
+    setBlock:
+      | undefined
+      | React.Dispatch<DashboardBlockInterfaceOrData<DashboardBlockInterface>>;
     isEditingBlock: boolean;
+    isLastBlock: boolean;
   }) => {
     return (
       <Flex direction="column" key={key}>
         <DashboardBlock
+          isTabActive={isTabActive}
           block={block}
-          dashboardExperiment={experiment}
+          blockIndex={i}
           isEditing={isEditing}
+          isFocused={isFocused}
           editingBlock={isEditingBlock}
-          disableBlock={editDrawerOpen && !isEditingBlock}
+          disableBlock={
+            editSidebarDirty && !isEditingBlock
+              ? "full"
+              : isDefined(stagedBlockIndex)
+                ? "partial"
+                : "none"
+          }
           isFirstBlock={i === 0}
           isLastBlock={i === blocks.length - 1}
+          scrollAreaRef={scrollAreaRef ?? null}
           setBlock={setBlock}
-          editBlock={() => {
-            setEditingBlockIndex(i);
-          }}
-          duplicateBlock={() => {
-            if (isDefined(i)) {
-              setAddBlockIndex(i + 1);
-              setStagedAddBlock(getBlockData(block));
-            }
-          }}
-          deleteBlock={() => {
-            if (isDefined(i)) {
-              setBlocks([...blocks.slice(0, i), ...blocks.slice(i + 1)]);
-            }
-          }}
-          moveBlock={(direction) => {
-            if (isDefined(i)) {
-              const otherBlocks = blocks.toSpliced(i, 1);
-              setBlocks([
-                ...otherBlocks.slice(0, i + direction),
-                block,
-                ...otherBlocks.slice(i + direction),
-              ]);
-            }
-          }}
+          editBlock={editBlock ? () => editBlock(i) : () => {}}
+          duplicateBlock={duplicateBlock ? () => duplicateBlock(i) : () => {}}
+          deleteBlock={deleteBlock ? () => deleteBlock(i) : () => {}}
+          moveBlock={
+            moveBlock ? (direction) => moveBlock(i, direction) : () => {}
+          }
           mutate={mutate}
+          canEdit={canEdit}
+          setIsEditing={setIsEditing}
+          enterEditModeForBlock={enterEditModeForBlock}
         />
         <Container
-          py="1em"
-          onMouseEnter={() => {
-            if (!isDefined(addBlockDropdown)) setShowAddBlock(i);
-          }}
-          onMouseLeave={() => {
-            if (!isDefined(addBlockDropdown)) setShowAddBlock(undefined);
-          }}
+          py="2px"
           className={clsx({
-            "dashboard-disabled": editDrawerOpen,
+            "dashboard-disabled": editSidebarDirty,
           })}
+          mb={!isEditing ? "4" : "0"}
         >
           {isEditing && (
-            <Flex justify="center" position="relative">
-              {isDefined(i) &&
-                (hoverAddBlock === i || addBlockDropdown === i) && (
-                  <div
-                    style={{
-                      pointerEvents: "none",
-                      position: "absolute",
-                      top: "0",
-                      width: "100%",
-                      height: "50%",
-                      borderBottom: "1px solid var(--violet-a9)",
-                      zIndex: -1,
-                    }}
-                  />
-                )}
+            <Flex
+              justify="center"
+              position="relative"
+              mt={isLastBlock ? "2" : "0"}
+              className="hover-show"
+              style={!editSidebarDirty ? {} : { visibility: "hidden" }}
+            >
+              {isDefined(i) && (
+                <div
+                  style={{
+                    pointerEvents: "none",
+                    position: "absolute",
+                    top: "0",
+                    width: "100%",
+                    height: "50%",
+                    borderBottom: "1px solid var(--violet-a9)",
+                  }}
+                  className={"show-target"}
+                />
+              )}
               <AddBlockDropdown
-                onDropdownOpen={() => setAddBlockDropdown(i)}
-                onDropdownClose={() => {
-                  setAddBlockDropdown(undefined);
-                  setShowAddBlock(undefined);
-                }}
                 trigger={
                   <IconButton
-                    onMouseEnter={() => {
-                      setHoverAddBlock(i);
-                    }}
-                    onMouseLeave={() => {
-                      setHoverAddBlock(undefined);
-                    }}
-                    className={clsx({
-                      "d-none":
-                        !forceRenderAddBlock &&
-                        (!isDefined(i) || showAddBlock !== i),
-                    })}
+                    className={isLastBlock ? "" : "show-target"}
                     size="1"
+                    style={{ zIndex: 10 }}
                   >
-                    <Tooltip
-                      body="Add block"
-                      tipPosition="top"
-                      delay={0}
-                      state={hoverAddBlock === i && addBlockDropdown !== i}
-                      ignoreMouseEvents
-                      innerClassName="px-0 py-1"
-                    >
-                      <Flex height="16px" align="center">
-                        <PiPlus size="10" />
-                      </Flex>
-                    </Tooltip>
+                    <Flex height="16px" align="center">
+                      <PiPlus size="10" />
+                    </Flex>
                   </IconButton>
                 }
                 addBlockType={(bType: DashboardBlockType) => {
-                  if (isDefined(i)) {
+                  if (isDefined(i) && addBlockType) {
                     addBlockType(bType, i + 1);
                   }
                 }}
+                isGeneralDashboard={isGeneralDashboard}
               />
             </Flex>
           )}
@@ -384,132 +421,349 @@ function DashboardEditor({
   };
 
   return (
-    <>
-      <div className="mt-3">
-        <Flex align="center" justify="between" mb="2">
-          <Flex align="center" gap="1">
-            {isEditing && (
-              <AddBlockDropdown
-                trigger={
-                  <Button
-                    className={clsx({
-                      "dashboard-disabled": editDrawerOpen,
-                    })}
-                    icon={<PiCaretDownFill />}
-                    iconPosition="right"
-                    size="xs"
-                  >
-                    Add block
-                  </Button>
-                }
-                addBlockType={addBlockType}
-              />
-            )}
-          </Flex>
+    <DashboardChartsProvider>
+      {editDashboard && (
+        <DashboardModal
+          mode="edit"
+          type={isGeneralDashboard ? "general" : "experiment"}
+          initial={{
+            title: title,
+            editLevel: initialEditLevel,
+            enableAutoUpdates: enableAutoUpdates,
+            updateSchedule: updateSchedule || undefined,
+            shareLevel: initialShareLevel,
+            projects: projects,
+            userId: ownerId,
+          }}
+          close={() => setEditDashboard(false)}
+          submit={async (data) => {
+            await apiCall(`/dashboards/${id}`, {
+              method: "PUT",
+              body: JSON.stringify(data),
+            });
+            mutate();
+          }}
+        />
+      )}
+      {duplicateDashboard && (
+        <DashboardModal
+          mode="duplicate"
+          type={isGeneralDashboard ? "general" : "experiment"}
+          initial={{
+            title: `Copy of ${title}`,
+            editLevel: initialEditLevel,
+            enableAutoUpdates: enableAutoUpdates,
+            updateSchedule: updateSchedule || undefined,
+            shareLevel: initialShareLevel,
+            projects,
+            userId: ownerId,
+            blocks,
+          }}
+          close={() => setDuplicateDashboard(false)}
+          submit={async (data) => {
+            const res = await apiCall<{
+              status: number;
+              dashboard: DashboardInterface;
+            }>(`/dashboards`, {
+              method: "POST",
+              body: JSON.stringify({
+                title: data.title,
+                editLevel: data.editLevel,
+                shareLevel: data.shareLevel,
+                enableAutoUpdates: data.enableAutoUpdates,
+                experimentId: "",
+                updateSchedule: data.updateSchedule,
+                projects: data.projects,
+                blocks: (data.blocks ?? []).map(getBlockData),
+              }),
+            });
+            if (res.status === 200) {
+              if (typeof window !== "undefined") {
+                window.location.href = `/product-analytics/dashboards/${res.dashboard.id}`;
+              }
+            } else {
+              console.error(res);
+            }
+          }}
+        />
+      )}
+      <DashboardShareModal
+        isOpen={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+        onSubmit={async (data) => {
+          await apiCall(`/dashboards/${id}`, {
+            method: "PUT",
+            body: JSON.stringify({
+              shareLevel: data.shareLevel,
+              editLevel: data.editLevel,
+            }),
+          });
+          await mutate();
+        }}
+        initialValues={{
+          shareLevel: initialShareLevel,
+          editLevel: initialEditLevel,
+        }}
+        isGeneralDashboard={isGeneralDashboard}
+        dashboardId={id}
+      />
+      <div className="mb-3">
+        <Flex align="center" height={DASHBOARD_TOPBAR_HEIGHT} gap="1">
+          {switchToExperimentView ? (
+            <Button variant="ghost" size="xs" onClick={switchToExperimentView}>
+              View Regular Experiment View
+            </Button>
+          ) : (
+            <Text
+              weight="medium"
+              size="5"
+              style={{
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                flexShrink: 1,
+              }}
+            >
+              <Flex align="center" gap="2">
+                {title}
+                <ShareStatusBadge
+                  shareLevel={
+                    initialShareLevel === "published"
+                      ? "organization"
+                      : "private"
+                  }
+                  editLevel={
+                    initialEditLevel === "private" ? "private" : "organization"
+                  }
+                  isOwner={dashboardOwnerId === userId}
+                />
+              </Flex>
+            </Text>
+          )}
+          <div style={{ flexGrow: 1 }} />
           <DashboardUpdateDisplay
-            blocks={blocks}
+            dashboardId={id}
             enableAutoUpdates={enableAutoUpdates}
-            disabled={editDrawerOpen}
+            nextUpdate={nextUpdate}
+            dashboardLastUpdated={dashboardLastUpdated}
+            disabled={!!editSidebarDirty}
+            isEditing={isEditing}
           />
+          {isGeneralDashboard && setIsEditing && !isEditing ? (
+            <Flex align="center" gap="4" ml="4">
+              {canManageSharingAndEditLevels && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShareModalOpen(true)}
+                >
+                  Share...
+                </Button>
+              )}
+              <Button
+                variant="solid"
+                size="sm"
+                disabled={!canEdit}
+                onClick={() => setIsEditing(true)}
+              >
+                <PiPencilSimpleFill className="mr-2" />
+                Edit Blocks
+              </Button>
+
+              <DropdownMenu
+                trigger={
+                  <IconButton
+                    variant="ghost"
+                    color="gray"
+                    radius="full"
+                    size="3"
+                    highContrast
+                  >
+                    <BsThreeDotsVertical size={18} />
+                  </IconButton>
+                }
+                open={dropdownOpen}
+                onOpenChange={(o) => {
+                  setDropdownOpen(!!o);
+                }}
+                menuPlacement="end"
+                variant="soft"
+              >
+                <DropdownMenuGroup>
+                  {canEdit && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setEditDashboard(true);
+                        setDropdownOpen(false);
+                      }}
+                    >
+                      Edit Dashboard Settings
+                    </DropdownMenuItem>
+                  )}
+                  {canDuplicate && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setDuplicateDashboard(true);
+                        setDropdownOpen(false);
+                      }}
+                    >
+                      Duplicate
+                    </DropdownMenuItem>
+                  )}
+                  {queryStrings.length > 0 || savedQueryIds.length > 0 ? (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={handleViewQueries}>
+                        View queries
+                        <Badge
+                          variant="soft"
+                          radius="full"
+                          label={String(count)}
+                          ml="2"
+                          color={error ? "red" : undefined}
+                        />
+                      </DropdownMenuItem>
+                    </>
+                  ) : null}
+                  {canDelete && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        color="red"
+                        confirmation={{
+                          confirmationTitle: "Delete Dashboard?",
+                          cta: "Delete",
+                          submit: async () => {
+                            await apiCall(`/dashboards/${id}`, {
+                              method: "DELETE",
+                            });
+                            if (typeof window !== "undefined") {
+                              window.location.href =
+                                "/product-analytics/dashboards";
+                            }
+                          },
+                          closeDropdown: () => {
+                            setDropdownOpen(false);
+                          },
+                        }}
+                      >
+                        Delete
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuGroup>
+              </DropdownMenu>
+              {queriesModalOpen &&
+                (queryStrings.length > 0 || savedQueryIds.length > 0) && (
+                  <AsyncQueriesModal
+                    close={() => setQueriesModalOpen(false)}
+                    queries={queryStrings}
+                    savedQueries={savedQueryIds}
+                    error={error}
+                  />
+                )}
+            </Flex>
+          ) : null}
         </Flex>
+        {!isEditing && (
+          <Flex align="center" gap="3">
+            <Flex align="center" gap="1">
+              <Text weight="medium">Projects:</Text>
+              {projects?.length ? (
+                <Tooltip
+                  body={
+                    <Flex direction="column" gap="1">
+                      <ProjectBadges
+                        skipMargin
+                        resourceType="dashboard"
+                        projectIds={projects}
+                      />
+                    </Flex>
+                  }
+                >
+                  <span role="button">{projects.length}</span>
+                </Tooltip>
+              ) : (
+                <ProjectBadges resourceType="dashboard" />
+              )}
+            </Flex>
+            <Flex align="center" gap="1">
+              <Text weight="medium">Owner:</Text>
+              {ownerName ? (
+                <>
+                  <UserAvatar name={ownerName} size="sm" variant="soft" />
+                  <Text>{ownerName}</Text>
+                </>
+              ) : (
+                "None"
+              )}
+            </Flex>
+          </Flex>
+        )}
+      </div>
+      <div>
         <div>
-          {blocks.map((block, i) => {
-            // Show in-progress edits directly on the block
-            const isEditingBlock = i === editingBlockIndex;
-            const effectiveBlock = isEditingBlock
-              ? (stagedEditBlock ?? block)
-              : block;
-            const effectiveSetBlock = (
-              blockData: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
-            ) => {
-              isEditingBlock
-                ? setStagedEditBlock({
-                    ...(stagedEditBlock ?? block),
-                    ...blockData,
-                  })
-                : setBlocks([
-                    ...blocks.slice(0, i),
-                    { ...block, ...blockData },
-                    ...blocks.slice(i + 1),
-                  ]);
-            };
-            return (
-              <Fragment key={`block-${i}`}>
-                {addBlockIndex === i &&
-                  isDefined(stagedAddBlock) &&
-                  renderSingleBlock({
-                    i: undefined,
-                    key: "new-block",
-                    block: stagedAddBlock,
-                    setBlock: setStagedAddBlock,
-                    isEditingBlock: true,
-                  })}
-                {renderSingleBlock({
-                  i,
-                  key: i,
-                  block: effectiveBlock,
-                  setBlock: effectiveSetBlock,
-                  isEditingBlock,
-                  // Always show the final add block button when there isn't a block being edited
-                  forceRenderAddBlock:
-                    !isDefined(addBlockIndex) &&
-                    !isDefined(editingBlockIndex) &&
-                    i === blocks.length - 1,
-                })}
-              </Fragment>
-            );
-          })}
-          {addBlockIndex === blocks.length &&
-            isDefined(stagedAddBlock) &&
-            renderSingleBlock({
-              i: undefined,
-              key: "new-block",
-              block: stagedAddBlock,
-              setBlock: setStagedAddBlock,
-              isEditingBlock: true,
-            })}
+          {blocks.length === 0 ? (
+            <Flex
+              direction="column"
+              align="center"
+              justify="center"
+              px="80px"
+              pt="60px"
+              pb="70px"
+              className="appbox"
+              gap="5"
+            >
+              <Flex direction="column">
+                <Heading weight="medium" align="center">
+                  Add Content Blocks
+                </Heading>
+                <Text align="center">
+                  {addBlockType
+                    ? "Choose a block type to get started."
+                    : "Add some blocks to get started"}
+                </Text>
+              </Flex>
+              {addBlockType ? (
+                <AddBlockDropdown
+                  addBlockType={addBlockType}
+                  isGeneralDashboard={isGeneralDashboard}
+                  trigger={
+                    <Button
+                      size="sm"
+                      icon={<PiCaretDownFill />}
+                      iconPosition="right"
+                    >
+                      Add Block
+                    </Button>
+                  }
+                />
+              ) : canEdit && setIsEditing ? (
+                <Button size="md" onClick={() => setIsEditing(true)}>
+                  Add Block
+                </Button>
+              ) : null}
+            </Flex>
+          ) : (
+            blocks.map((block, i) =>
+              renderSingleBlock({
+                i,
+                key: dashboardBlockHasIds(block)
+                  ? block.id
+                  : `${block.type}-${i}`,
+                block: block,
+                isFocused: focusedBlockIndex === i,
+                setBlock: setBlock ? (block) => setBlock(i, block) : undefined,
+                isEditingBlock: stagedBlockIndex === i,
+                isLastBlock: i === blocks.length - 1,
+              }),
+            )
+          )}
+          {/* Add padding at the bottom so there's room to scroll the selected block to the middle/top of the page */}
+          {isEditing && <div style={{ height: 350 }} />}
         </div>
       </div>
-
-      <DashboardBlockEditDrawer
-        experiment={experiment}
-        open={editDrawerOpen}
-        cancel={() => {
-          setAddBlockIndex(undefined);
-          setStagedAddBlock(undefined);
-          setEditingBlockIndex(undefined);
-        }}
-        submit={() => {
-          if (isDefined(addBlockIndex) && isDefined(stagedAddBlock)) {
-            setBlocks([
-              ...blocks.slice(0, addBlockIndex),
-              stagedAddBlock,
-              ...blocks.slice(addBlockIndex),
-            ]);
-          }
-          if (isDefined(editingBlockIndex) && isDefined(stagedEditBlock)) {
-            setBlocks([
-              ...blocks.slice(0, editingBlockIndex),
-              stagedEditBlock,
-              ...blocks.slice(editingBlockIndex + 1),
-            ]);
-          }
-          setAddBlockIndex(undefined);
-          setStagedAddBlock(undefined);
-          setEditingBlockIndex(undefined);
-        }}
-        block={
-          isDefined(addBlockIndex)
-            ? stagedAddBlock
-            : isDefined(editingBlockIndex)
-              ? stagedEditBlock
-              : undefined
-        }
-        setBlock={
-          isDefined(addBlockIndex) ? setStagedAddBlock : setStagedEditBlock
-        }
-      />
-    </>
+    </DashboardChartsProvider>
   );
 }
 

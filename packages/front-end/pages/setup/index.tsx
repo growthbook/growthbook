@@ -3,10 +3,10 @@ import {
   CreateSDKConnectionParams,
   SDKConnectionInterface,
   SDKLanguage,
-} from "back-end/types/sdk-connection";
+} from "shared/types/sdk-connection";
 import { getLatestSDKVersion, getSDKCapabilities } from "shared/sdk-versioning";
-import { ProjectInterface } from "back-end/types/project";
-import { Environment } from "back-end/types/organization";
+import { ProjectInterface } from "shared/types/project";
+import { Environment } from "shared/types/organization";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
 import PagedModal from "@/components/Modal/PagedModal";

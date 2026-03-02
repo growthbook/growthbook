@@ -4,15 +4,18 @@ import { z } from "zod";
 import { isEqual } from "lodash";
 import cloneDeep from "lodash/cloneDeep";
 import {
+  DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
   DEFAULT_METRIC_CAPPING,
   DEFAULT_METRIC_CAPPING_VALUE,
   DEFAULT_METRIC_WINDOW,
   DEFAULT_METRIC_WINDOW_DELAY_HOURS,
   DEFAULT_P_VALUE_THRESHOLD,
+  DEFAULT_POST_STRATIFICATION_ENABLED,
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
+  PRECOMPUTED_DIMENSION_PREFIX,
 } from "shared/constants";
 import { getScopedSettings, ScopedSettings } from "shared/settings";
 import {
@@ -30,21 +33,25 @@ import {
   expandMetricGroups,
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
+  getAllExpandedMetricIdsFromExperiment,
+  expandAllSliceMetricsInMap,
   getEqualWeights,
   getMetricResultStatus,
   getMetricSnapshotSettings,
-  getPredefinedDimensionSlicesByExperiment,
   isFactMetric,
   isFactMetricId,
   isMetricJoinable,
+  isPrecomputedDimension,
+  parseSliceMetricId,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
+  getEffectiveLookbackOverride,
 } from "shared/experiments";
 import { hoursBetween } from "shared/dates";
 import { v4 as uuidv4 } from "uuid";
-import { differenceInHours } from "date-fns";
-import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { MetricPriorSettings } from "back-end/types/fact-table";
+import { differenceInMinutes } from "date-fns";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import { SegmentInterface } from "shared/types/segment";
 import {
   ExperimentAnalysisSummaryVariationStatus,
   BanditResult,
@@ -52,10 +59,26 @@ import {
   ExperimentAnalysisSummaryResultsStatus,
   GoalMetricResult,
   ExperimentInterfaceExcludingHoldouts,
-} from "back-end/src/validators/experiments";
-import { updateExperiment } from "back-end/src/models/ExperimentModel";
-import { promiseAllChunks } from "back-end/src/util/promise";
-import { Context } from "back-end/src/models/BaseModel";
+  SafeRolloutInterface,
+  postExperimentValidator,
+  postMetricValidator,
+  putMetricValidator,
+  updateExperimentValidator,
+  SafeRolloutSnapshotAnalysis,
+  IncrementalRefreshInterface,
+  LookbackOverrideValueUnit,
+} from "shared/validators";
+import { Dimension } from "shared/types/integrations";
+import {
+  ApiExperiment,
+  ApiExperimentMetric,
+  ApiExperimentResults,
+  ApiMetric,
+} from "shared/types/openapi";
+import {
+  ConversionWindowUnit,
+  MetricPriorSettings,
+} from "shared/types/fact-table";
 import {
   ExperimentAnalysisParamsContextData,
   ExperimentSnapshotAnalysis,
@@ -64,32 +87,10 @@ import {
   ExperimentSnapshotSettings,
   SnapshotTriggeredBy,
   SnapshotType,
-  SnapshotVariation,
   SnapshotBanditSettings,
   DimensionForSnapshot,
-} from "back-end/types/experiment-snapshot";
-import {
-  getMetricById,
-  getMetricMap,
-  getMetricsByIds,
-  insertMetric,
-} from "back-end/src/models/MetricModel";
-import { checkSrm, sumSquaresFromStats } from "back-end/src/util/stats";
-import { addTags } from "back-end/src/models/TagModel";
-import {
-  addOrUpdateSnapshotAnalysis,
-  createExperimentSnapshotModel,
-  getLatestSnapshotMultipleExperiments,
-  updateSnapshotAnalysis,
-} from "back-end/src/models/ExperimentSnapshotModel";
-import { Dimension } from "back-end/src/types/Integration";
-import {
-  Condition,
-  MetricInterface,
-  MetricStats,
-  Operator,
-} from "back-end/types/metric";
-import { SegmentInterface } from "back-end/types/segment";
+} from "shared/types/experiment-snapshot";
+import { Condition, MetricInterface, Operator } from "shared/types/metric";
 import {
   Changeset,
   ExperimentInterface,
@@ -98,37 +99,46 @@ import {
   LinkedFeatureEnvState,
   LinkedFeatureInfo,
   LinkedFeatureState,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
+import {
+  ExperimentUpdateSchedule,
+  OrganizationInterface,
+} from "shared/types/organization";
+import { DataSourceInterface, ExposureQuery } from "shared/types/datasource";
+import {
+  ExperimentReportAnalysisSettings,
+  MetricSnapshotSettings,
+} from "shared/types/report";
+import { StatsEngine } from "shared/types/stats";
+import { ExperimentRefRule, FeatureRule } from "shared/types/feature";
+import { ProjectInterface } from "shared/types/project";
+import { MetricGroupInterface } from "shared/types/metric-groups";
+import { ExperimentQueryMetadata } from "shared/types/query";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { updateExperiment } from "back-end/src/models/ExperimentModel";
+import { promiseAllChunks } from "back-end/src/util/promise";
+import { Context } from "back-end/src/models/BaseModel";
+import {
+  getMetricById,
+  getMetricMap,
+  getMetricsByIds,
+  insertMetric,
+} from "back-end/src/models/MetricModel";
+import { addTags } from "back-end/src/models/TagModel";
+import {
+  addOrUpdateSnapshotAnalysis,
+  createExperimentSnapshotModel,
+  getLatestSnapshotMultipleExperiments,
+  updateSnapshotAnalysis,
+} from "back-end/src/models/ExperimentSnapshotModel";
 import { findDimensionById } from "back-end/src/models/DimensionModel";
 import {
   APP_ORIGIN,
   DEFAULT_CONVERSION_WINDOW_HOURS,
   EXPERIMENT_REFRESH_FREQUENCY,
 } from "back-end/src/util/secrets";
-import {
-  ExperimentUpdateSchedule,
-  OrganizationInterface,
-  ReqContext,
-} from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
-import { DataSourceInterface, ExposureQuery } from "back-end/types/datasource";
-import {
-  ApiExperiment,
-  ApiExperimentMetric,
-  ApiExperimentResults,
-  ApiMetric,
-} from "back-end/types/openapi";
-import {
-  ExperimentReportAnalysisSettings,
-  MetricSnapshotSettings,
-} from "back-end/types/report";
-import {
-  postExperimentValidator,
-  postMetricValidator,
-  putMetricValidator,
-  updateExperimentValidator,
-} from "back-end/src/validators/openapi";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { LegacyMetricAnalysisQueryRunner } from "back-end/src/queryRunners/LegacyMetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { QueryMap, getQueryMap } from "back-end/src/queryRunners/QueryRunner";
@@ -136,17 +146,17 @@ import {
   FactTableMap,
   getFactTableMap,
 } from "back-end/src/models/FactTableModel";
-import { StatsEngine } from "back-end/types/stats";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { getFeatureRevisionsByFeatureIds } from "back-end/src/models/FeatureRevisionModel";
-import { ExperimentRefRule, FeatureRule } from "back-end/types/feature";
 import { ApiReqContext } from "back-end/types/api";
-import { ProjectInterface } from "back-end/types/project";
-import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
-import { SafeRolloutSnapshotAnalysis } from "back-end/src/validators/safe-rollout-snapshot";
-import { getReportVariations, getMetricForSnapshot } from "./reports";
+import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
+import { getSignedImageUrl } from "back-end/src/services/files";
+import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
+import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
+import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
+import { getMetricForSnapshot } from "./reports";
+import { validateIncrementalPipeline } from "./dataPipeline";
 import {
   getIntegrationFromDatasourceId,
   getSourceIntegrationObject,
@@ -154,11 +164,7 @@ import {
 import {
   analyzeExperimentResults,
   getMetricsAndQueryDataForStatsEngine,
-  getMetricSettingsForStatsEngine,
-  MetricSettingsForStatsEngine,
-  QueryResultsForStatsEngine,
   runSnapshotAnalyses,
-  runSnapshotAnalysis,
   writeSnapshotAnalyses,
 } from "./stats";
 import {
@@ -171,8 +177,11 @@ import {
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
-export async function createMetric(data: Partial<MetricInterface>) {
-  const metric = insertMetric({
+export async function createMetric(
+  context: Context,
+  data: Partial<MetricInterface>,
+) {
+  const metric = insertMetric(context, {
     id: uniqid("met_"),
     ...data,
     dateCreated: new Date(),
@@ -190,10 +199,16 @@ export async function getExperimentMetricById(
   context: Context,
   metricId: string,
 ): Promise<ExperimentMetricInterface | null> {
-  if (isFactMetricId(metricId)) {
-    return context.models.factMetrics.getById(metricId);
+  // Handle slice metric IDs by extracting the base metric ID
+  const sliceInfo = parseSliceMetricId(metricId);
+  const actualMetricId = sliceInfo.isSliceMetric
+    ? sliceInfo.baseMetricId
+    : metricId;
+
+  if (isFactMetricId(actualMetricId)) {
+    return context.models.factMetrics.getById(actualMetricId);
   }
-  return getMetricById(context, metricId);
+  return getMetricById(context, actualMetricId);
 }
 
 export async function getExperimentMetricsByIds(
@@ -266,107 +281,31 @@ export async function refreshMetric(
   }
 }
 
-export async function getManualSnapshotData(
-  experiment: ExperimentInterface,
-  snapshotSettings: ExperimentSnapshotSettings,
-  analysisSettings: ExperimentSnapshotAnalysisSettings,
-  phaseIndex: number,
-  users: number[],
-  metrics: {
-    [key: string]: MetricStats[];
-  },
-  metricMap: Map<string, ExperimentMetricInterface>,
-) {
-  const phase = experiment.phases[phaseIndex];
-
-  // Default variation values, override from SQL results if available
-  const variations: SnapshotVariation[] = experiment.variations.map((v, i) => ({
-    users: users[i],
-    metrics: {},
-  }));
-
-  const metricSettings: Record<string, MetricSettingsForStatsEngine> = {};
-  const queryResults: QueryResultsForStatsEngine[] = [];
-  Object.keys(metrics).forEach((m) => {
-    const stats = metrics[m];
-    const metric = metricMap.get(m);
-    if (!metric) return null;
-    metricSettings[m] = {
-      ...getMetricSettingsForStatsEngine(metric, metricMap, snapshotSettings),
-      // no ratio or regression adjustment for manual snapshots
-      statistic_type: "mean",
-    };
-    queryResults.push({
-      rows: stats.map((s, i) => {
-        return {
-          dimension: "All",
-          variation: experiment.variations[i].key || i + "",
-          users: s.count,
-          count: s.count,
-          main_sum: s.mean * s.count,
-          main_sum_squares: sumSquaresFromStats(
-            s.mean * s.count,
-            Math.pow(s.stddev, 2),
-            s.count,
-          ),
-        };
-      }),
-      metrics: [m],
-    });
-  });
-
-  const { results } = await runSnapshotAnalysis({
-    id: experiment.id,
-    variations: getReportVariations(experiment, phase),
-    phaseLengthHours: Math.max(
-      hoursBetween(phase.dateStarted, phase.dateEnded ?? new Date()),
-      1,
-    ),
-    coverage: experiment.phases?.[phaseIndex]?.coverage ?? 1,
-    analyses: [{ ...analysisSettings, regressionAdjusted: false }], // no RA for manual snapshots
-    metrics: metricSettings,
-    queryResults: queryResults,
-  });
-
-  results.forEach(({ metric, analyses }) => {
-    const res = analyses[0];
-    const data = res.dimensions[0];
-    if (!data) return;
-
-    // If the value inside the ci is null from gbstats
-    // it actually means Infinity, so handle that case
-    data.variations.map((v, i) => {
-      const ci: [number, number] | undefined = v.ci
-        ? [v.ci[0] ?? -Infinity, v.ci[1] ?? Infinity]
-        : undefined;
-      variations[i].metrics[metric] = {
-        ...v,
-        ci,
-      };
-    });
-  });
-
-  const srm = checkSrm(users, phase.variationWeights);
-
-  return {
-    srm,
-    variations,
-  };
-}
-
-export function getDefaultExperimentAnalysisSettings(
-  statsEngine: StatsEngine,
-  experiment: ExperimentInterface | ExperimentReportAnalysisSettings,
-  organization: OrganizationInterface,
-  regressionAdjustmentEnabled?: boolean,
-  dimension?: string,
-): ExperimentSnapshotAnalysisSettings {
+export function getDefaultExperimentAnalysisSettings({
+  statsEngine,
+  experiment,
+  organization,
+  regressionAdjustmentEnabled,
+  postStratificationEnabled,
+  dimension,
+}: {
+  statsEngine: StatsEngine;
+  experiment: ExperimentInterface | ExperimentReportAnalysisSettings;
+  organization: OrganizationInterface;
+  regressionAdjustmentEnabled?: boolean;
+  postStratificationEnabled?: boolean;
+  dimension?: string;
+}): ExperimentSnapshotAnalysisSettings {
   const hasRegressionAdjustmentFeature = organization
     ? orgHasPremiumFeature(organization, "regression-adjustment")
+    : false;
+  const hasPostStratificationFeature = organization
+    ? orgHasPremiumFeature(organization, "post-stratification")
     : false;
   const hasSequentialTestingFeature = organization
     ? orgHasPremiumFeature(organization, "sequential-testing")
     : false;
+
   return {
     statsEngine,
     dimensions: dimension ? [dimension] : [],
@@ -375,6 +314,8 @@ export function getDefaultExperimentAnalysisSettings(
       (regressionAdjustmentEnabled !== undefined
         ? regressionAdjustmentEnabled
         : (organization.settings?.regressionAdjustmentEnabled ?? false)),
+    postStratificationEnabled:
+      hasPostStratificationFeature && postStratificationEnabled,
     sequentialTesting:
       hasSequentialTestingFeature &&
       statsEngine === "frequentist" &&
@@ -455,6 +396,7 @@ export function getSnapshotSettings({
   metricMap,
   factTableMap,
   metricGroups,
+  incrementalRefreshModel,
   reweight,
   datasource,
 }: {
@@ -469,6 +411,8 @@ export function getSnapshotSettings({
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
   metricGroups: MetricGroupInterface[];
+  // Should be null if full refresh
+  incrementalRefreshModel: IncrementalRefreshInterface | null;
   reweight?: boolean;
   datasource?: DataSourceInterface;
 }): ExperimentSnapshotSettings {
@@ -492,6 +436,7 @@ export function getSnapshotSettings({
   // get dimensions for standard analysis
   // TODO(dimensions): customize which dimensions to use at experiment level
 
+  // if standard snapshot with no dimension set, we should pre-compute dimensions
   const precomputeDimensions =
     snapshotType === "standard" &&
     experiment.type !== "multi-armed-bandit" &&
@@ -503,14 +448,15 @@ export function getSnapshotSettings({
 
   let dimensions: DimensionForSnapshot[] = dimension ? [{ id: dimension }] : [];
   if (precomputeDimensions) {
-    // if standard snapshot with no dimension set, we should pre-compute dimensions
-    const predefinedDimensions = getPredefinedDimensionSlicesByExperiment(
-      exposureQuery.dimensionMetadata ?? [],
-      experiment.variations.length,
-    );
+    const { eligibleDimensionsWithSlicesUnderMaxCells } =
+      getExposureQueryEligibleDimensions({
+        exposureQuery,
+        incrementalRefreshModel,
+        nVariations: experiment.variations.length,
+      });
     dimensions =
-      predefinedDimensions.map((d) => ({
-        id: "precomputed:" + d.dimension,
+      eligibleDimensionsWithSlicesUnderMaxCells.map((d) => ({
+        id: "precomputed:" + d.id,
         slices: d.specifiedSlices,
       })) ?? [];
   }
@@ -569,10 +515,61 @@ export function getSnapshotSettings({
   // Set currentDate in a const to use the same date for all metric settings
   const currentDate = new Date();
 
-  const metricSettings = expandMetricGroups(
-    getAllMetricIdsFromExperiment(experiment),
+  // Expand all slice metrics (auto and custom) and add them to the metricMap
+  // Skip slice expansion for dimension snapshots
+  if (!dimension) {
+    expandAllSliceMetricsInMap({
+      metricMap,
+      factTableMap,
+      experiment,
+      metricGroups,
+    });
+  }
+
+  const phaseEndDate = phase.dateEnded || currentDate;
+  const lookbackOverride = getEffectiveLookbackOverride(
+    experiment.attributionModel,
+    experiment.lookbackOverride,
+  );
+  const phaseLookbackWindow =
+    lookbackOverride?.type === "window"
+      ? {
+          value: lookbackOverride.value,
+          unit: (lookbackOverride.valueUnit ??
+            DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT) as ConversionWindowUnit,
+        }
+      : lookbackOverride?.type === "date"
+        ? {
+            value: Math.max(
+              0,
+              differenceInMinutes(phaseEndDate, lookbackOverride.value, {
+                roundingMethod: "ceil",
+              }),
+            ),
+            unit: "minutes" as const,
+          }
+        : experiment.type === "holdout" &&
+            phase.lookbackStartDate &&
+            phase.lookbackStartDate < currentDate
+          ? {
+              value: differenceInMinutes(currentDate, phase.lookbackStartDate, {
+                roundingMethod: "ceil",
+              }),
+              unit: "minutes" as const,
+            }
+          : undefined;
+
+  const metricSettings = getAllExpandedMetricIdsFromExperiment({
+    exp: {
+      goalMetrics,
+      secondaryMetrics,
+      guardrailMetrics,
+      activationMetric: experiment.activationMetric,
+    },
+    expandedMetricMap: metricMap,
+    includeActivationMetric: true,
     metricGroups,
-  )
+  })
     .map((m) =>
       getMetricForSnapshot({
         id: m,
@@ -580,20 +577,32 @@ export function getSnapshotSettings({
         settingsForSnapshotMetrics,
         metricOverrides: experiment.metricOverrides,
         decisionFrameworkSettings: experiment.decisionFrameworkSettings,
-        phaseLookbackWindow:
-          experiment.type === "holdout" &&
-          phase.lookbackStartDate &&
-          phase.lookbackStartDate < currentDate
-            ? {
-                value: differenceInHours(currentDate, phase.lookbackStartDate, {
-                  roundingMethod: "ceil",
-                }),
-                unit: "hours",
-              }
-            : undefined,
+        phaseLookbackWindow,
       }),
     )
     .filter(isDefined);
+
+  // JIT initialize banditEvents in memory if missing
+  if (
+    experiment.type === "multi-armed-bandit" &&
+    phase &&
+    (!phase.banditEvents || phase.banditEvents.length === 0)
+  ) {
+    logger.warn(
+      "JIT initializing banditEvents in memory (getSnapshotSettings)",
+    );
+    const weights =
+      phase.variationWeights || getEqualWeights(experiment.variations.length);
+    const initialBanditEvent = {
+      date: phase.dateStarted || new Date(),
+      banditResult: {
+        currentWeights: weights,
+        updatedWeights: weights,
+        bestArmProbabilities: weights,
+      },
+    };
+    phase.banditEvents = [initialBanditEvent];
+  }
 
   const banditSettings: SnapshotBanditSettings | undefined =
     experiment.type === "multi-armed-bandit"
@@ -626,9 +635,9 @@ export function getSnapshotSettings({
       : undefined;
 
   return {
-    manual: !experiment.datasource,
     activationMetric: experiment.activationMetric || null,
     attributionModel: experiment.attributionModel || "firstExposure",
+    lookbackOverride: lookbackOverride,
     skipPartialData: !!experiment.skipPartialData,
     segment: experiment.segment || "",
     queryFilter: experiment.queryFilter || "",
@@ -637,6 +646,10 @@ export function getSnapshotSettings({
     startDate: phase.dateStarted,
     endDate: phase.dateEnded || new Date(),
     experimentId: experiment.trackingKey || experiment.id,
+    phase: {
+      index: phaseIndex + "",
+    },
+    customFields: experiment.customFields,
     goalMetrics,
     secondaryMetrics,
     guardrailMetrics,
@@ -653,82 +666,6 @@ export function getSnapshotSettings({
   };
 }
 
-export async function createManualSnapshot({
-  experiment,
-  phaseIndex,
-  users,
-  metrics,
-  orgPriorSettings,
-  analysisSettings,
-  metricMap,
-}: {
-  experiment: ExperimentInterface;
-  phaseIndex: number;
-  users: number[];
-  metrics: {
-    [key: string]: MetricStats[];
-  };
-  orgPriorSettings: MetricPriorSettings | undefined;
-  analysisSettings: ExperimentSnapshotAnalysisSettings;
-  metricMap: Map<string, ExperimentMetricInterface>;
-}) {
-  const snapshotSettings = getSnapshotSettings({
-    experiment,
-    phaseIndex,
-    orgPriorSettings: orgPriorSettings,
-    orgDisabledPrecomputedDimensions: false,
-    snapshotType: "standard",
-    dimension: null,
-    regressionAdjustmentEnabled: false,
-    settingsForSnapshotMetrics: [],
-    metricMap,
-    factTableMap: new Map(), // todo
-    metricGroups: [], // todo?
-  });
-
-  const { srm, variations } = await getManualSnapshotData(
-    experiment,
-    snapshotSettings,
-    analysisSettings,
-    phaseIndex,
-    users,
-    metrics,
-    metricMap,
-  );
-
-  const data: ExperimentSnapshotInterface = {
-    id: uniqid("snp_"),
-    organization: experiment.organization,
-    experiment: experiment.id,
-    dimension: null,
-    phase: phaseIndex,
-    queries: [],
-    runStarted: new Date(),
-    dateCreated: new Date(),
-    status: "success",
-    settings: snapshotSettings,
-    unknownVariations: [],
-    multipleExposures: 0,
-    analyses: [
-      {
-        dateCreated: new Date(),
-        status: "success",
-        settings: analysisSettings,
-        results: [
-          {
-            name: "All",
-            srm,
-            variations,
-          },
-        ],
-      },
-    ],
-    triggeredBy: "manual",
-  };
-
-  return await createExperimentSnapshotModel({ data });
-}
-
 export async function parseDimension(
   dimension: string | null | undefined,
   slices: string[] | undefined,
@@ -738,19 +675,19 @@ export async function parseDimension(
     if (dimension.match(/^exp:/)) {
       return {
         type: "experiment",
-        id: dimension.substr(4),
+        id: dimension.substring(4),
         specifiedSlices: slices,
       };
-    } else if (dimension.match(/^precomputed:/)) {
+    } else if (isPrecomputedDimension(dimension)) {
       return {
         type: "experiment",
-        id: dimension.substr(12),
+        id: dimension.substring(PRECOMPUTED_DIMENSION_PREFIX.length),
         specifiedSlices: slices,
       };
-    } else if (dimension.substr(0, 4) === "pre:") {
+    } else if (dimension.substring(0, 4) === "pre:") {
       return {
         // eslint-disable-next-line
-        type: dimension.substr(4) as any,
+        type: dimension.substring(4) as any,
       };
     } else {
       const obj = await findDimensionById(dimension, organization);
@@ -916,6 +853,36 @@ export function resetExperimentBanditSettings({
         },
       },
     ];
+  } else {
+    // Even when preserving existing events, ensure banditEvents exists and has at least one event
+    const changesBanditEvents = changes.phases[phase]?.banditEvents;
+    const experimentBanditEvents = experiment.phases[phase]?.banditEvents;
+    const hasValidBanditEvents =
+      (changesBanditEvents && changesBanditEvents.length > 0) ||
+      (experimentBanditEvents && experimentBanditEvents.length > 0);
+
+    if (!hasValidBanditEvents) {
+      logger.warn(
+        "initializing missing banditEvents (resetExperimentBanditSettings)",
+      );
+      const weights =
+        changes.phases[phase].variationWeights ||
+        experiment.phases[phase]?.variationWeights ||
+        getEqualWeights(experiment.variations.length ?? 0);
+      changes.phases[phase].banditEvents = [
+        {
+          date:
+            changes.phases[phase].dateStarted ||
+            experiment.phases[phase]?.dateStarted ||
+            new Date(),
+          banditResult: {
+            currentWeights: weights,
+            updatedWeights: weights,
+            bestArmProbabilities: weights,
+          },
+        },
+      ];
+    }
   }
 
   // Scheduling
@@ -1044,6 +1011,16 @@ export function updateExperimentBanditSettings({
   return changes;
 }
 
+export function getAdditionalQueryMetadataForExperiment(
+  experiment: ExperimentInterface,
+): ExperimentQueryMetadata {
+  return {
+    experimentOwner: experiment.owner || undefined,
+    experimentProject: experiment.project || undefined,
+    experimentTags: experiment.tags.length > 0 ? experiment.tags : undefined,
+  };
+}
+
 export async function createSnapshot({
   experiment,
   context,
@@ -1057,6 +1034,7 @@ export async function createSnapshot({
   metricMap,
   factTableMap,
   reweight,
+  preventStartingAnalysis,
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
@@ -1070,7 +1048,12 @@ export async function createSnapshot({
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
   reweight?: boolean;
-}): Promise<ExperimentResultsQueryRunner> {
+  preventStartingAnalysis?: boolean;
+}): Promise<
+  | ExperimentResultsQueryRunner
+  | ExperimentIncrementalRefreshQueryRunner
+  | ExperimentIncrementalRefreshExploratoryQueryRunner
+> {
   const { org: organization } = context;
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
   const metricGroups = await context.models.metricGroups.getAll();
@@ -1079,6 +1062,14 @@ export async function createSnapshot({
   if (!datasource) {
     throw new Error("Could not load data source");
   }
+
+  // TODO(incremental-refresh): use other signal other than useCache
+  // to determine full refresh
+  const fullRefresh = !useCache;
+
+  const incrementalRefreshModel = fullRefresh
+    ? null
+    : await context.models.incrementalRefresh.getByExperimentId(experiment.id);
 
   const snapshotSettings = getSnapshotSettings({
     experiment,
@@ -1095,6 +1086,7 @@ export async function createSnapshot({
     metricGroups,
     reweight,
     datasource,
+    incrementalRefreshModel,
   });
 
   const data: ExperimentSnapshotInterface = {
@@ -1158,23 +1150,128 @@ export async function createSnapshot({
   }
 
   const snapshot = await createExperimentSnapshotModel({ data });
-
   const integration = getSourceIntegrationObject(context, datasource, true);
 
-  const queryRunner = new ExperimentResultsQueryRunner(
-    context,
-    snapshot,
-    integration,
-    useCache,
-  );
-  await queryRunner.startAnalysis({
-    snapshotType: type,
-    snapshotSettings: data.settings,
-    variationNames: experiment.variations.map((v) => v.name),
-    metricMap,
-    queryParentId: snapshot.id,
-    factTableMap,
-  });
+  const isIncrementalRefreshEnabledForExperiment =
+    datasource.settings.pipelineSettings?.mode === "incremental" &&
+    !datasource.settings.pipelineSettings?.excludedExperimentIds?.includes(
+      experiment.id,
+    ) &&
+    (datasource.settings.pipelineSettings?.includedExperimentIds ===
+      undefined ||
+      datasource.settings.pipelineSettings?.includedExperimentIds.includes(
+        experiment.id,
+      ));
+
+  let isExperimentCompatibleWithIncrementalRefresh;
+  try {
+    await validateIncrementalPipeline({
+      org: organization,
+      integration,
+      snapshotSettings: data.settings,
+      metricMap,
+      factTableMap,
+      experiment,
+      incrementalRefreshModel,
+      analysisType: fullRefresh
+        ? "main-fullRefresh"
+        : snapshot.type === "standard"
+          ? "main-update"
+          : "exploratory",
+    });
+    isExperimentCompatibleWithIncrementalRefresh = true;
+  } catch (error) {
+    isExperimentCompatibleWithIncrementalRefresh = false;
+    logger.info(
+      `Experiment ${experiment.id} does not support incremental refresh: ${"message" in error ? error.message : error}`,
+    );
+  }
+
+  let queryRunner:
+    | ExperimentResultsQueryRunner
+    | ExperimentIncrementalRefreshQueryRunner
+    | ExperimentIncrementalRefreshExploratoryQueryRunner;
+
+  if (
+    isIncrementalRefreshEnabledForExperiment &&
+    (experiment.type === undefined || experiment.type === "standard") &&
+    isExperimentCompatibleWithIncrementalRefresh
+  ) {
+    if (snapshot.type === "exploratory") {
+      queryRunner = new ExperimentIncrementalRefreshExploratoryQueryRunner(
+        context,
+        snapshot,
+        integration,
+        false, // TODO(incremental-refresh): allow cache + cache override for exploratory queries
+      );
+    } else {
+      queryRunner = new ExperimentIncrementalRefreshQueryRunner(
+        context,
+        snapshot,
+        integration,
+        false, // always ignore cache for incremental refresh queries
+      );
+    }
+  } else {
+    queryRunner = new ExperimentResultsQueryRunner(
+      context,
+      snapshot,
+      integration,
+      useCache,
+    );
+  }
+
+  if (!preventStartingAnalysis) {
+    const analysisProps = {
+      snapshotType: type,
+      snapshotSettings: data.settings,
+      variationNames: experiment.variations.map((v) => v.name),
+      metricMap,
+      queryParentId: snapshot.id,
+      factTableMap,
+      experimentQueryMetadata:
+        getAdditionalQueryMetadataForExperiment(experiment),
+    };
+
+    if (
+      queryRunner instanceof ExperimentIncrementalRefreshQueryRunner ||
+      queryRunner instanceof ExperimentIncrementalRefreshExploratoryQueryRunner
+    ) {
+      const fullRefresh = !useCache && snapshot.type === "standard";
+
+      await queryRunner.startAnalysis({
+        ...analysisProps,
+        experimentId: experiment.id,
+        incrementalRefreshStartTime: new Date(),
+        fullRefresh,
+      });
+    } else {
+      await queryRunner.startAnalysis(analysisProps);
+    }
+  }
+
+  const runningSnapshot = queryRunner.model;
+  // Whenever the standard snapshot for an experiment is refreshed, also refresh the associated dashboards in the background
+  if (
+    runningSnapshot.type === "standard" &&
+    runningSnapshot.triggeredBy !== "manual-dashboard"
+  ) {
+    updateExperimentDashboards({
+      context,
+      experiment,
+      mainSnapshot: runningSnapshot,
+      statsEngine: defaultAnalysisSettings.statsEngine,
+      regressionAdjustmentEnabled:
+        defaultAnalysisSettings.regressionAdjusted ??
+        DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+      postStratificationEnabled:
+        defaultAnalysisSettings.postStratificationEnabled ??
+        DEFAULT_POST_STRATIFICATION_ENABLED,
+      settingsForSnapshotMetrics,
+      metricMap,
+      factTableMap,
+    });
+  }
 
   return queryRunner;
 }
@@ -1219,7 +1316,7 @@ async function getSnapshotAnalyses(
 
   // get queryMap for all snapshots
   const queryMap = await getQueryMap(
-    context.org.id,
+    context,
     params.map((p) => p.snapshot.queries).flat(),
   );
 
@@ -1335,6 +1432,7 @@ export async function createSnapshotAnalyses(
 }
 
 export async function createSnapshotAnalysis(
+  context: ReqContext | ApiReqContext,
   params: SnapshotAnalysisParams,
 ): Promise<void> {
   const { snapshot, analysisSettings, organization, experiment, metricMap } =
@@ -1358,17 +1456,14 @@ export async function createSnapshotAnalysis(
     dateCreated: new Date(),
   };
   // and analysis to mongo record if it does not exist, overwrite if it does
-  addOrUpdateSnapshotAnalysis({
+  await addOrUpdateSnapshotAnalysis({
     organization: organization.id,
     id: snapshot.id,
     analysis,
   });
 
   // Format data correctly
-  const queryMap: QueryMap = await getQueryMap(
-    organization.id,
-    snapshot.queries,
-  );
+  const queryMap: QueryMap = await getQueryMap(context, snapshot.queries);
 
   // Run the analysis
   const { results } = await analyzeExperimentResults({
@@ -1382,7 +1477,7 @@ export async function createSnapshotAnalysis(
   analysis.status = "success";
   analysis.error = undefined;
 
-  updateSnapshotAnalysis({
+  await updateSnapshotAnalysis({
     organization: organization.id,
     id: snapshot.id,
     analysis,
@@ -1393,7 +1488,11 @@ function getExperimentMetric(
   experiment: ExperimentInterface,
   id: string,
 ): ApiExperimentMetric {
-  const overrides = experiment.metricOverrides?.find((o) => o.id === id);
+  // For slice metrics, use the base metric ID for lookups
+  const { baseMetricId } = parseSliceMetricId(id);
+  const overrides = experiment.metricOverrides?.find(
+    (o) => o.id === baseMetricId,
+  );
   const ret: ApiExperimentMetric = {
     metricId: id,
     overrides: {},
@@ -1418,13 +1517,17 @@ function getExperimentMetric(
 export async function toExperimentApiInterface(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterfaceExcludingHoldouts,
+  projectMap?: Map<string, ProjectInterface>,
 ): Promise<ApiExperiment> {
   const appOrigin = (APP_ORIGIN ?? "").replace(/\/$/, "");
 
   let project: ProjectInterface | null = null;
   const organization = context.org;
   if (experiment.project) {
-    project = await context.models.projects.getById(experiment.project);
+    // Use pre-loaded project from map if available, otherwise fetch individually
+    project =
+      projectMap?.get(experiment.project) ??
+      (await context.models.projects.getById(experiment.project));
   }
   const { settings: scopedSettings } = getScopedSettings({
     organization,
@@ -1455,13 +1558,23 @@ export async function toExperimentApiInterface(
     disableStickyBucketing: experiment.disableStickyBucketing,
     bucketVersion: experiment.bucketVersion,
     minBucketVersion: experiment.minBucketVersion,
-    variations: experiment.variations.map((v) => ({
-      variationId: v.id,
-      key: v.key,
-      name: v.name || "",
-      description: v.description || "",
-      screenshots: v.screenshots.map((s) => s.path),
-    })),
+    variations: await Promise.all(
+      experiment.variations.map(async (v) => ({
+        variationId: v.id,
+        key: v.key,
+        name: v.name || "",
+        description: v.description || "",
+        screenshots: await Promise.all(
+          v.screenshots.map(async (s) => {
+            try {
+              return await getSignedImageUrl(s.path);
+            } catch (e) {
+              return s.path;
+            }
+          }),
+        ),
+      })),
+    ),
     phases: experiment.phases.map((p) => ({
       name: p.name,
       dateStarted: p.dateStarted.toISOString(),
@@ -1494,6 +1607,18 @@ export async function toExperimentApiInterface(
       queryFilter: experiment.queryFilter || "",
       inProgressConversions: experiment.skipPartialData ? "exclude" : "include",
       attributionModel: experiment.attributionModel || "firstExposure",
+      lookbackOverride: experiment.lookbackOverride
+        ? experiment.lookbackOverride.type === "date"
+          ? {
+              type: "date" as const,
+              value: experiment.lookbackOverride?.value.toISOString(),
+            }
+          : {
+              type: "window" as const,
+              value: experiment.lookbackOverride?.value,
+              valueUnit: experiment.lookbackOverride?.valueUnit,
+            }
+        : undefined,
       statsEngine: scopedSettings.statsEngine.value || DEFAULT_STATS_ENGINE,
       goals: experiment.goalMetrics.map((m) =>
         getExperimentMetric(experiment, m),
@@ -1579,12 +1704,18 @@ export function toSnapshotApiInterface(
   const activationMetric =
     snapshot.settings.activationMetric || experiment.activationMetric;
 
-  const metricIds = getAllMetricIdsFromExperiment(experiment);
-
   const variationIds = experiment.variations.map((v) => v.id);
 
   // Get the default analysis
   const analysis = getSnapshotAnalysis(snapshot);
+
+  // Get all metric IDs from the snapshot results
+  const metricIds = new Set<string>();
+  (analysis?.results || []).forEach((s) => {
+    s.variations.forEach((v) => {
+      Object.keys(v.metrics).forEach((m) => metricIds.add(m));
+    });
+  });
 
   return {
     id: snapshot.id,
@@ -2455,6 +2586,48 @@ export function toMetricApiInterface(
 export const toNamespaceRange = (
   raw: number[] | undefined,
 ): [number, number] => [raw?.[0] ?? 0, raw?.[1] ?? 1];
+
+/**
+ * Converts an API lookbackOverride payload to the internal representation.
+ * Validates that "date" values are strings (not raw numbers) and that
+ * "window" values are non-negative numbers with a valid unit.
+ */
+function toLookbackOverrideForSave(lookbackOverride: {
+  type: string;
+  value: string | number;
+  valueUnit?: LookbackOverrideValueUnit;
+}): NonNullable<ExperimentInterface["lookbackOverride"]> {
+  if (lookbackOverride.type === "date") {
+    if (typeof lookbackOverride.value === "number") {
+      throw new Error(
+        "lookbackOverride date value must be an ISO 8601 string, not a number",
+      );
+    }
+    const d = new Date(lookbackOverride.value);
+    if (isNaN(d.getTime())) {
+      throw new Error("lookbackOverride date value is not a valid date string");
+    }
+    return { type: "date", value: d };
+  } else if (lookbackOverride.type === "window") {
+    const num =
+      typeof lookbackOverride.value === "string"
+        ? parseFloat(lookbackOverride.value)
+        : lookbackOverride.value;
+    if (!Number.isFinite(num) || num < 0) {
+      throw new Error(
+        "lookbackOverride window value must be a non-negative number",
+      );
+    }
+    return {
+      type: "window",
+      value: num,
+      valueUnit:
+        lookbackOverride.valueUnit ?? DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
+    };
+  }
+  throw new Error("Invalid lookbackOverride.type");
+}
+
 /**
  * Converts the OpenAPI POST /experiment payload to a {@link ExperimentInterface}
  * @param payload
@@ -2535,7 +2708,7 @@ export function postExperimentApiPayloadToInterface(
     ...(payload.minBucketVersion !== undefined
       ? { minBucketVersion: payload.minBucketVersion }
       : {}),
-    autoSnapshots: true,
+    autoSnapshots: payload.autoRefresh ?? true,
     project: payload.project,
     owner: payload.owner || "",
     trackingKey: payload.trackingKey || "",
@@ -2559,7 +2732,13 @@ export function postExperimentApiPayloadToInterface(
     queryFilter: payload.queryFilter || "",
     skipPartialData: payload.inProgressConversions === "strict",
     attributionModel: payload.attributionModel || "firstExposure",
+    ...(payload.lookbackOverride
+      ? {
+          lookbackOverride: toLookbackOverrideForSave(payload.lookbackOverride),
+        }
+      : {}),
     ...(payload.statsEngine ? { statsEngine: payload.statsEngine } : {}),
+    // Note: attributionModel + lookbackOverride consistency is validated by the controller
     variations:
       payload.variations.map((v) => ({
         ...v,
@@ -2587,6 +2766,8 @@ export function postExperimentApiPayloadToInterface(
       payload.regressionAdjustmentEnabled ??
       !!organization?.settings?.regressionAdjustmentEnabled,
     shareLevel: payload.shareLevel,
+    customMetricSlices: payload.customMetricSlices || [],
+    customFields: payload.customFields,
   };
 
   const { settings } = getScopedSettings({
@@ -2648,12 +2829,16 @@ export function updateExperimentApiPayloadToInterface(
     excludeFromPayload,
     inProgressConversions,
     attributionModel,
+    lookbackOverride,
     statsEngine,
     regressionAdjustmentEnabled,
     sequentialTestingEnabled,
     sequentialTestingTuningParameter,
     secondaryMetrics,
     shareLevel,
+    customMetricSlices,
+    customFields,
+    autoRefresh,
   } = payload;
   let changes: ExperimentInterface = {
     ...(trackingKey ? { trackingKey } : {}),
@@ -2685,6 +2870,9 @@ export function updateExperimentApiPayloadToInterface(
       ? { skipPartialData: inProgressConversions === "strict" }
       : {}),
     ...(attributionModel !== undefined ? { attributionModel } : {}),
+    ...(lookbackOverride !== undefined
+      ? { lookbackOverride: toLookbackOverrideForSave(lookbackOverride) }
+      : {}),
     ...(statsEngine !== undefined ? { statsEngine } : {}),
     ...(regressionAdjustmentEnabled !== undefined
       ? { regressionAdjustmentEnabled }
@@ -2750,6 +2938,9 @@ export function updateExperimentApiPayloadToInterface(
         }
       : {}),
     ...(shareLevel !== undefined ? { shareLevel } : {}),
+    ...(customMetricSlices !== undefined ? { customMetricSlices } : {}),
+    ...(customFields !== undefined ? { customFields } : {}),
+    ...(autoRefresh !== undefined ? { autoSnapshots: !!autoRefresh } : {}),
     dateUpdated: new Date(),
   } as ExperimentInterface;
 
@@ -2800,12 +2991,13 @@ export async function getSettingsForSnapshotMetrics(
 }> {
   let regressionAdjustmentEnabled = false;
   const settingsForSnapshotMetrics: MetricSnapshotSettings[] = [];
-
   const metricMap = await getMetricMap(context);
 
+  const metricGroups = await context.models.metricGroups.getAll();
   const allExperimentMetricIds = getAllMetricIdsFromExperiment(
     experiment,
     false,
+    metricGroups,
   );
   const allExperimentMetrics = allExperimentMetricIds
     .map((id) => metricMap.get(id))
@@ -3241,7 +3433,7 @@ export async function computeResultsStatus({
 
           if (resultsStatus.clearSignalResultsStatus === "won") {
             metricStatus.superStatSigStatus = "won";
-          } else if (resultsStatus.resultsStatus === "lost") {
+          } else if (resultsStatus.clearSignalResultsStatus === "lost") {
             metricStatus.superStatSigStatus = "lost";
           }
           if (!variationStatus.goalMetrics) {
@@ -3281,7 +3473,11 @@ export async function computeResultsStatus({
 export async function validateExperimentData(
   context: ReqContext,
   data: Partial<ExperimentInterfaceStringDates>,
-): Promise<{ metricIds: string[]; datasource: DataSourceInterface | null }> {
+): Promise<{
+  metricIds: string[];
+  datasource: DataSourceInterface | null;
+  invalidMetricIds: string[];
+}> {
   let datasource: DataSourceInterface | null = null;
   if (data.datasource) {
     datasource = await getDataSourceById(context, data.datasource);
@@ -3290,8 +3486,11 @@ export async function validateExperimentData(
     }
   }
 
+  const invalidMetricIds: string[] = [];
+
   // Validate that specified metrics exist and belong to the organization
-  const metricIds = getAllMetricIdsFromExperiment(data);
+  const allMetricGroups = await context.models.metricGroups.getAll();
+  const metricIds = getAllMetricIdsFromExperiment(data, true, allMetricGroups);
   if (metricIds.length) {
     const map = await getMetricMap(context);
     for (let i = 0; i < metricIds.length; i++) {
@@ -3319,11 +3518,13 @@ export async function validateExperimentData(
           }
         } else {
           // new metric that's not recognized...
-          throw new Error("Unknown metric: " + metricIds[i]);
+          invalidMetricIds.push(metricIds[i]);
+          // TODO: Commented out as a hotfix. Remove when issue #5316 is fixed.
+          // throw new Error("Unknown metric: " + metricIds[i]);
         }
       }
     }
   }
 
-  return { metricIds, datasource };
+  return { metricIds, datasource, invalidMetricIds };
 }

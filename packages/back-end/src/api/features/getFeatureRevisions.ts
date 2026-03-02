@@ -1,16 +1,18 @@
 import omit from "lodash/omit";
+import { getFeatureRevisionsValidator } from "shared/validators";
 import {
   getFeatureRevisionsByStatus,
   countDocuments,
 } from "back-end/src/models/FeatureRevisionModel";
-import { createApiRequestHandler } from "back-end/src/util/handler";
-import { getFeatureRevisionsValidator } from "back-end/src/validators/openapi";
+import {
+  createApiRequestHandler,
+  validatePagination,
+} from "back-end/src/util/handler";
 
 export const getFeatureRevisions = createApiRequestHandler(
   getFeatureRevisionsValidator,
 )(async (req) => {
-  const limit = req.query.limit ?? 10;
-  const offset = req.query.offset ?? 0;
+  const { limit, offset } = validatePagination(req.query);
   // Fetch paginated revisions from DB
   const pagedRevisions = await getFeatureRevisionsByStatus({
     context: req.context,

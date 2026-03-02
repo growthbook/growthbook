@@ -12,12 +12,12 @@ import {
   ExperimentHealthSettings,
   ExperimentResultStatusData,
   ExperimentUnhealthyData,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import {
   SafeRolloutInterface,
   SafeRolloutSnapshotInterface,
-} from "back-end/types/safe-rollout";
-import { OrganizationSettings } from "back-end/types/organization";
+} from "shared/types/safe-rollout";
+import { OrganizationSettings } from "shared/types/organization";
 import {
   DEFAULT_DECISION_FRAMEWORK_ENABLED,
   DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
@@ -110,22 +110,22 @@ export function evaluateDecisionRuleOnVariation({
 export function getVariationDecisions({
   resultsStatus,
   decisionCriteria,
+  powerReached,
   goalMetrics,
   guardrailMetrics,
-  requireSuperStatSig,
 }: {
   resultsStatus: ExperimentAnalysisSummaryResultsStatus;
   decisionCriteria: DecisionCriteriaData;
+  powerReached: boolean;
   goalMetrics: string[];
   guardrailMetrics: string[];
-  requireSuperStatSig: boolean;
 }): {
   variation: DecisionFrameworkVariation;
-  decisionCriteriaAction: DecisionCriteriaAction;
+  decisionCriteriaAction: DecisionCriteriaAction | null;
 }[] {
   const results: {
     variation: DecisionFrameworkVariation;
-    decisionCriteriaAction: DecisionCriteriaAction;
+    decisionCriteriaAction: DecisionCriteriaAction | null;
   }[] = [];
 
   const { rules } = decisionCriteria;
@@ -138,7 +138,7 @@ export function getVariationDecisions({
         variationStatus: variation,
         goalMetrics,
         guardrailMetrics,
-        requireSuperStatSig,
+        requireSuperStatSig: false,
       });
       if (action) {
         results.push({
@@ -152,22 +152,95 @@ export function getVariationDecisions({
         break;
       }
     }
-    // If no decision was reached, use the default action from the
-    // decision criteria
     if (!decisionReached) {
-      results.push({
-        variation: {
-          variationId: variation.variationId,
-          decidingRule: null,
-        },
-        decisionCriteriaAction: decisionCriteria.defaultAction,
-      });
+      // if no decision was reached and power was reached, return the default action
+      if (powerReached) {
+        results.push({
+          variation: {
+            variationId: variation.variationId,
+            decidingRule: null,
+          },
+          decisionCriteriaAction: decisionCriteria.defaultAction,
+        });
+      } else {
+        // if no decision was reached and power was not reached (sequential testing), return null
+        results.push({
+          variation: {
+            variationId: variation.variationId,
+            decidingRule: null,
+          },
+          decisionCriteriaAction: null,
+        });
+      }
     }
   });
 
   return results;
 }
 
+// Early stopping decision criteria requires "super stat sig" status
+// and does not use the fallback action, instead preferring to render
+// no result
+export function getEarlyStoppingVariationDecisions({
+  resultsStatus,
+  decisionCriteria,
+  goalMetrics,
+  guardrailMetrics,
+}: {
+  resultsStatus: ExperimentAnalysisSummaryResultsStatus;
+  decisionCriteria: DecisionCriteriaData;
+  goalMetrics: string[];
+  guardrailMetrics: string[];
+}): {
+  variation: DecisionFrameworkVariation;
+  decisionCriteriaAction: DecisionCriteriaAction | null;
+}[] {
+  const results: {
+    variation: DecisionFrameworkVariation;
+    decisionCriteriaAction: DecisionCriteriaAction | null;
+  }[] = [];
+
+  const { rules } = decisionCriteria;
+
+  resultsStatus.variations.forEach((variation) => {
+    let decisionReached = false;
+    for (const rule of rules) {
+      const action = evaluateDecisionRuleOnVariation({
+        rule,
+        variationStatus: variation,
+        goalMetrics,
+        guardrailMetrics,
+        requireSuperStatSig: true,
+      });
+      if (action) {
+        results.push({
+          variation: {
+            variationId: variation.variationId,
+            decidingRule: rule,
+          },
+          decisionCriteriaAction: action,
+        });
+        decisionReached = true;
+        break;
+      }
+    }
+    // If no decision was reached, return null, ignoring the fallback
+    // action since we only want to prematurely stop if the experiment has
+    // met one of the explicitly stated criteria with a clear level of
+    // evidence
+    if (!decisionReached) {
+      results.push({
+        variation: {
+          variationId: variation.variationId,
+          decidingRule: null,
+        },
+        decisionCriteriaAction: null,
+      });
+    }
+  });
+
+  return results;
+}
 export function getHealthSettings(
   settings?: OrganizationSettings,
   hasDecisionFramework?: boolean,
@@ -216,7 +289,7 @@ export function getDecisionFrameworkStatus({
       decisionCriteria,
       goalMetrics,
       guardrailMetrics,
-      requireSuperStatSig: false,
+      powerReached,
     });
 
     const allRollbackNow =
@@ -263,12 +336,14 @@ export function getDecisionFrameworkStatus({
     }
   } else {
     // only return ship or rollback for super stat sig metrics
-    const superStatSigVariationDecisions = getVariationDecisions({
+    // using the strict decision criteria
+    const earlyStoppingCriteria = PRESET_DECISION_CRITERIA;
+
+    const superStatSigVariationDecisions = getEarlyStoppingVariationDecisions({
       resultsStatus,
-      decisionCriteria,
+      decisionCriteria: earlyStoppingCriteria,
       goalMetrics,
       guardrailMetrics,
-      requireSuperStatSig: true,
     });
 
     const allRollbackNow =
@@ -288,10 +363,27 @@ export function getDecisionFrameworkStatus({
       };
     }
 
+    // Early stopping should only say ship if one variation is a clear winner
+    // and all other variations are clearly not winners
+    // So only early stop if you have met shipping criteria with stat sig
+    // status and all other variations are rollback
+
+    // For two-armed variations, this means if the one variation is ready to ship
+    // early, then we recommend shipping, so this only slows down early shipping
+    // if you have many arms, where it requires more logic to determine if you have
+    // a clear winner
     const shipVariations = superStatSigVariationDecisions.filter(
       (d) => d.decisionCriteriaAction === "ship",
     );
-    if (shipVariations.length > 0) {
+    const onlyOneShip = shipVariations.length === 1;
+    const numberOfRollbackVariations = superStatSigVariationDecisions.filter(
+      (d) => d.decisionCriteriaAction === "rollback",
+    ).length;
+
+    const restRollback =
+      numberOfRollbackVariations === superStatSigVariationDecisions.length - 1;
+
+    if (onlyOneShip && restRollback) {
       return {
         status: "ship-now",
         variations: shipVariations.map(({ variation }) => variation),

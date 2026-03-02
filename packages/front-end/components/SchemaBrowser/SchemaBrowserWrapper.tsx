@@ -1,4 +1,4 @@
-import { InformationSchemaInterface } from "back-end/src/types/Integration";
+import { InformationSchemaInterface } from "shared/types/integrations";
 import { FaDatabase, FaRedo } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -57,9 +57,7 @@ export default function SchemaBrowserWrapper({
               >
                 <button
                   className="btn btn-link p-0 text-secondary"
-                  disabled={
-                    informationSchema.status === "PENDING" || !canRunQueries
-                  }
+                  disabled={fetching || !canRunQueries}
                   onClick={async (e) => {
                     e.preventDefault();
                     setError(null);

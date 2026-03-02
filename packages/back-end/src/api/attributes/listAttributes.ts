@@ -1,6 +1,6 @@
-import { ListAttributesResponse } from "back-end/types/openapi";
+import { ListAttributesResponse } from "shared/types/openapi";
+import { listAttributesValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { listAttributesValidator } from "back-end/src/validators/openapi";
 
 export const listAttributes = createApiRequestHandler(listAttributesValidator)(
   async (req): Promise<ListAttributesResponse> => {

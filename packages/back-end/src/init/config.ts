@@ -2,6 +2,15 @@ import { readFileSync, existsSync, statSync } from "fs";
 import path from "path";
 import { env } from "string-env-interpolation";
 import yaml from "js-yaml";
+import { SegmentInterface } from "shared/types/segment";
+import {
+  DataSourceInterface,
+  DataSourceInterfaceWithParams,
+} from "shared/types/datasource";
+import { MetricInterface } from "shared/types/metric";
+import { DimensionInterface } from "shared/types/dimension";
+import { OrganizationSettings } from "shared/types/organization";
+import { encryptParams } from "back-end/src/services/datasource";
 import {
   EMAIL_ENABLED,
   ENVIRONMENT,
@@ -12,20 +21,12 @@ import {
   EMAIL_HOST_USER,
   EMAIL_PORT,
 } from "back-end/src/util/secrets";
-import {
-  DataSourceInterface,
-  DataSourceInterfaceWithParams,
-} from "back-end/types/datasource";
-import { MetricInterface } from "back-end/types/metric";
-import { DimensionInterface } from "back-end/types/dimension";
-import { encryptParams } from "back-end/src/services/datasource";
-import { OrganizationSettings, ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import {
   upgradeMetricDoc,
   upgradeDatasourceObject,
 } from "back-end/src/util/migrations";
 import { logger } from "back-end/src/util/logger";
-import { SegmentInterface } from "back-end/types/segment";
 import { ApiReqContext } from "back-end/types/api";
 
 export type ConfigFile = {

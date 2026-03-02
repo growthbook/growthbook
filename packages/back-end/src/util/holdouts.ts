@@ -1,4 +1,4 @@
-import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
+import { HoldoutInterface } from "shared/validators";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { getSDKPayloadKeys } from "./features";
 
@@ -26,7 +26,9 @@ export function getAffectedSDKPayloadKeys(
 
   const environments = getEnabledEnvironments(holdout, allowedEnvs);
 
-  const projects = new Set(holdout.projects);
+  const projects = new Set(
+    holdout.projects.length > 0 ? holdout.projects : [""],
+  );
   keys.push(...getSDKPayloadKeys(environments, projects));
 
   // Unique the list

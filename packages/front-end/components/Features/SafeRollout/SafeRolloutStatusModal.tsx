@@ -1,9 +1,9 @@
-import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import {
+  SafeRolloutInterface,
   FeatureInterface,
   FeatureValueType,
   SafeRolloutRule,
-} from "back-end/src/validators/features";
+} from "shared/validators";
 import { useForm } from "react-hook-form";
 import { Text } from "@radix-ui/themes";
 import {
@@ -11,14 +11,14 @@ import {
   getSafeRolloutDaysLeft,
   getSafeRolloutResultStatus,
 } from "shared/enterprise";
-import { ExperimentResultStatus } from "back-end/types/experiment";
+import { ExperimentResultStatus } from "shared/types/experiment";
 import { useEffect, useMemo } from "react";
 import { featureRequiresReview } from "shared/util";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useUser } from "@/services/UserContext";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import SelectField from "@/components/Forms/SelectField";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 

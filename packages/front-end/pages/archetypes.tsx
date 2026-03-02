@@ -1,13 +1,8 @@
-import { ArchetypeInterface } from "back-end/types/archetype";
+import { ArchetypeInterface } from "shared/types/archetype";
 import React from "react";
 import { Box } from "@radix-ui/themes";
 import useApi from "@/hooks/useApi";
-import {
-  Tabs,
-  TabsTrigger,
-  TabsList,
-  TabsContent,
-} from "@/components/Radix/Tabs";
+import { Tabs, TabsTrigger, TabsList, TabsContent } from "@/ui/Tabs";
 import { SimulateFeatureValues } from "@/components/Archetype/SimulateFeatureValues";
 import { ArchetypeList } from "@/components/Archetype/ArchetypeList";
 

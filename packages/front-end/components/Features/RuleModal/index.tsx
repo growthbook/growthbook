@@ -4,17 +4,15 @@ import {
   FeatureInterface,
   FeatureRule,
   ScheduleRule,
-} from "back-end/types/feature";
+} from "shared/types/feature";
 import React, { useMemo, useState } from "react";
 import uniqId from "uniqid";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
+  filterEnvironmentsByFeature,
   generateVariationId,
-  isFeatureCyclic,
   isProjectListValidForProject,
 } from "shared/util";
-import cloneDeep from "lodash/cloneDeep";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { PiCaretRight } from "react-icons/pi";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
@@ -24,19 +22,19 @@ import { Text } from "@radix-ui/themes";
 import {
   CreateSafeRolloutInterface,
   SafeRolloutInterface,
-} from "back-end/src/validators/safe-rollout";
-import { SafeRolloutRule } from "back-end/src/validators/features";
+  SafeRolloutRule,
+} from "shared/validators";
 import {
   PostFeatureRuleBody,
   PutFeatureRuleBody,
-} from "back-end/types/feature-rule";
+} from "shared/types/feature-rule";
 import {
   NewExperimentRefRule,
   getDefaultRuleValue,
   getFeatureDefaultValue,
   getRules,
   useAttributeSchema,
-  useFeaturesList,
+  useEnvironments,
   validateFeatureRule,
 } from "@/services/features";
 import track from "@/services/track";
@@ -51,8 +49,8 @@ import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewE
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { AppFeatures } from "@/types/app-features";
 import { useUser } from "@/services/UserContext";
-import RadioCards from "@/components/Radix/RadioCards";
-import RadioGroup from "@/components/Radix/RadioGroup";
+import RadioCards from "@/ui/RadioCards";
+import RadioGroup from "@/ui/RadioGroup";
 import PagedModal from "@/components/Modal/PagedModal";
 import ForceValueFields from "@/components/Features/RuleModal/ForceValueFields";
 import RolloutFields from "@/components/Features/RuleModal/RolloutFields";
@@ -62,9 +60,11 @@ import Page from "@/components/Modal/Page";
 import BanditRefFields from "@/components/Features/RuleModal/BanditRefFields";
 import BanditRefNewFields from "@/components/Features/RuleModal/BanditRefNewFields";
 import { useIncrementer } from "@/hooks/useIncrementer";
-import HelperText from "@/components/Radix/HelperText";
+import HelperText from "@/ui/HelperText";
 import { useTemplates } from "@/hooks/useTemplates";
+import { useBatchPrerequisiteStates } from "@/hooks/usePrerequisiteStates";
 import SafeRolloutFields from "@/components/Features/RuleModal/SafeRolloutFields";
+import EnvironmentSelect from "@/components/Features/FeatureModal/EnvironmentSelect";
 
 export interface Props {
   close: () => void;
@@ -75,8 +75,7 @@ export interface Props {
   i: number;
   environment: string;
   defaultType?: string;
-  revisions?: FeatureRevisionInterface[];
-  duplicate?: boolean;
+  mode: "create" | "edit" | "duplicate";
   safeRolloutsMap?: Map<string, SafeRolloutInterface>;
 }
 
@@ -108,8 +107,7 @@ export default function RuleModal({
   defaultType = "",
   version,
   setVersion,
-  revisions,
-  duplicate,
+  mode,
   safeRolloutsMap,
 }: Props) {
   const growthbook = useGrowthBook<AppFeatures>();
@@ -120,15 +118,15 @@ export default function RuleModal({
 
   const rules = getRules(feature, environment);
   const rule: (typeof rules)[number] | undefined = rules[i];
-  const isNewRule = !rule;
   const safeRollout =
     rule?.type === "safe-rollout"
       ? safeRolloutsMap?.get(rule?.safeRolloutId)
       : undefined;
-  const { features } = useFeaturesList();
   const { datasources, project: currentProject } = useDefinitions();
   const { experimentsMap, mutateExperiments } = useExperiments();
   const { templates: allTemplates } = useTemplates();
+  const allEnvironments = useEnvironments();
+  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
 
   const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] =
     useState(false);
@@ -164,8 +162,9 @@ export default function RuleModal({
   };
 
   // Overview Page
-  const [newRuleOverviewPage, setNewRuleOverviewPage] =
-    useState<boolean>(isNewRule);
+  const [newRuleOverviewPage, setNewRuleOverviewPage] = useState<boolean>(
+    mode === "create",
+  );
   const [overviewRadioSelectorRuleType, setOverviewRadioSelectorRuleType] =
     useState<RadioSelectorRuleType | "">("");
   const [overviewRuleType, setOverviewRuleType] = useState<
@@ -182,6 +181,12 @@ export default function RuleModal({
   >({
     defaultValues,
   });
+
+  const [selectedEnvironments, setSelectedEnvironments] = useState<string[]>(
+    settings.defaultFeatureRulesInAllEnvs
+      ? environments.map((env) => env.id)
+      : [environment],
+  );
 
   const defaultHasSchedule = (defaultValues.scheduleRules || []).some(
     (scheduleRule) => scheduleRule.timestamp !== null,
@@ -232,31 +237,27 @@ export default function RuleModal({
     availableTemplates.length >= 1;
 
   const prerequisites = form.watch("prerequisites") || [];
-  const [isCyclic, cyclicFeatureId] = useMemo(() => {
-    if (!prerequisites.length) return [false, null];
-    const newFeature = cloneDeep(feature);
-    const revision = revisions?.find((r) => r.version === version);
-    const newRevision = cloneDeep(revision);
-    if (newRevision) {
-      // merge form values into revision
-      const newRule = form.getValues() as FeatureRule;
-      newRevision.rules[environment] = newRevision.rules[environment] || [];
-      newRevision.rules[environment][i] = newRule;
-    }
-    const featuresMap = new Map(features.map((f) => [f.id, f]));
-    return isFeatureCyclic(newFeature, featuresMap, newRevision, [environment]);
-  }, [
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    JSON.stringify(prerequisites),
-    prerequisites.length,
-    features,
-    feature,
-    revisions,
-    version,
-    environment,
-    form,
-    i,
-  ]);
+
+  const { checkRulePrerequisitesCyclic } = useBatchPrerequisiteStates({
+    baseFeatureId: feature.id,
+    featureIds: [],
+    environments: [environment],
+    enabled: prerequisites.length > 0,
+    checkRulePrerequisites:
+      prerequisites.length > 0
+        ? {
+            environment,
+            ruleIndex: i,
+            prerequisites: prerequisites.map((p) => ({
+              id: p.id,
+              condition: p.condition,
+            })),
+          }
+        : undefined,
+  });
+
+  const isCyclic = checkRulePrerequisitesCyclic?.wouldBeCyclic ?? false;
+  const cyclicFeatureId = checkRulePrerequisitesCyclic?.cyclicFeatureId ?? null;
 
   const [prerequisiteTargetingSdkIssues, setPrerequisiteTargetingSdkIssues] =
     useState(false);
@@ -340,11 +341,7 @@ export default function RuleModal({
   };
 
   const submit = form.handleSubmit(async (values) => {
-    const ruleAction = duplicate
-      ? "duplicate"
-      : i === rules.length
-        ? "add"
-        : "edit";
+    const ruleAction = mode === "create" ? "add" : mode;
 
     // If the user built a schedule, but disabled the toggle, we ignore the schedule
     if (!scheduleToggleEnabled) {
@@ -352,7 +349,7 @@ export default function RuleModal({
     }
 
     // unset the ID if we're duplicating the rule.
-    if (duplicate) {
+    if (mode === "duplicate") {
       values.id = "";
     }
 
@@ -438,11 +435,11 @@ export default function RuleModal({
           archived: false,
           autoSnapshots: true,
           // Use template datasource/exposure query id if available
-          ...getNewExperimentDatasourceDefaults(
+          ...getNewExperimentDatasourceDefaults({
             datasources,
             settings,
-            feature.project || "",
-          ),
+            project: feature.project || "",
+          }),
           hashAttribute: values.hashAttribute,
           fallbackAttribute: values.fallbackAttribute || "",
           disableStickyBucketing: values.disableStickyBucketing ?? false,
@@ -611,7 +608,7 @@ export default function RuleModal({
         delete (values as any).value; //saferollout uses controlValue so we want to remove the value
         // eslint-disable-next-line
         delete (values as any).trackingKey;
-        if (!values.sameSeed) {
+        if (mode === "duplicate" && !values.sameSeed) {
           // eslint-disable-next-line
           delete (values as any).seed;
         }
@@ -647,10 +644,11 @@ export default function RuleModal({
         hasSavedGroups: !!values.savedGroups?.length,
         hasPrerequisites: !!values.prerequisites?.length,
         hasDescription: values.description && values.description.length > 0,
+        numEnvironments: selectedEnvironments.length,
       });
       let res: { version: number } | undefined;
 
-      if (!duplicate && i !== rules.length) {
+      if (mode === "edit") {
         if (values.type === "safe-rollout") {
           res = await apiCall(`/safe-rollout/${values.safeRolloutId}`, {
             method: "PUT",
@@ -684,7 +682,10 @@ export default function RuleModal({
             method: "POST",
             body: JSON.stringify({
               rule: values,
-              environment,
+              environments:
+                values.type === "safe-rollout"
+                  ? [environment]
+                  : selectedEnvironments,
               safeRolloutFields,
             } as PostFeatureRuleBody),
           },
@@ -700,6 +701,7 @@ export default function RuleModal({
         source: ruleAction,
         ruleIndex: i,
         environment,
+        numEnvironments: selectedEnvironments.length,
         type: values.type,
         hasCondition: values.condition && values.condition.length > 2,
         hasSavedGroups: !!values.savedGroups?.length,
@@ -725,9 +727,8 @@ export default function RuleModal({
             <PiCaretRight className="position-relative" style={{ top: -1 }} />
           </>
         }
-        ctaEnabled={!!overviewRuleType}
-        bodyClassName="px-4"
-        header={`New Rule in ${environment}`}
+        ctaEnabled={!!overviewRuleType && selectedEnvironments.length > 0}
+        header={`New Rule`}
         subHeader="You will have a chance to review new rules as a draft before publishing changes."
         submit={submitOverview}
         autoCloseOnSubmit={false}
@@ -860,6 +861,7 @@ export default function RuleModal({
             }}
           />
         </div>
+
         {overviewRadioSelectorRuleType === "experiment" && (
           <>
             <h5>Add Experiment</h5>
@@ -876,6 +878,7 @@ export default function RuleModal({
               ]}
               value={overviewRuleType}
               setValue={(v: OverviewRuleType) => setOverviewRuleType(v)}
+              mb="4"
             />
           </>
         )}
@@ -895,19 +898,45 @@ export default function RuleModal({
               ]}
               value={overviewRuleType}
               setValue={(v: OverviewRuleType) => setOverviewRuleType(v)}
+              mb="4"
             />
           </>
+        )}
+
+        {environments.length > 1 && overviewRuleType !== "safe-rollout" && (
+          <EnvironmentSelect
+            environments={environments}
+            environmentSettings={Object.fromEntries(
+              environments.map((env) => [
+                env.id,
+                { enabled: selectedEnvironments.includes(env.id) },
+              ]),
+            )}
+            setValue={(env, enabled) => {
+              if (enabled) {
+                setSelectedEnvironments((prev) => [
+                  ...new Set([...prev, env.id]),
+                ]);
+              } else {
+                setSelectedEnvironments((prev) =>
+                  prev.filter((id) => id !== env.id),
+                );
+              }
+            }}
+            label="Create Rule in Environments"
+          />
         )}
       </Modal>
     );
   }
 
-  let headerText = duplicate ? "Duplicate " : isNewRule ? "Add " : "Edit ";
+  let headerText =
+    mode === "duplicate" ? "Duplicate " : mode === "create" ? "Add " : "Edit ";
   headerText +=
     ruleType === "force"
-      ? `${isNewRule ? "new " : ""}Force Value Rule`
+      ? `${mode === "create" ? "new " : ""}Force Value Rule`
       : ruleType === "rollout"
-        ? `${isNewRule ? "new " : ""}Percentage Rollout Rule`
+        ? `${mode === "create" ? "new " : ""}Percentage Rollout Rule`
         : ["experiment-ref", "experiment-ref-new", "experiment"].includes(
               ruleType ?? "",
             ) && experimentType === "bandit"
@@ -924,7 +953,14 @@ export default function RuleModal({
               ? "Safe Rollout Rule"
               : "Rule";
   const trackingEventModalType = kebabCase(headerText);
-  headerText += ` in ${environment}`;
+  headerText +=
+    ruleType === "safe-rollout"
+      ? ` in ${environment}`
+      : ` in ${selectedEnvironments[0]}${
+          selectedEnvironments.length > 1
+            ? ` + ${selectedEnvironments.length - 1} more`
+            : ""
+        }`;
 
   return (
     <FormProvider {...form}>
@@ -934,7 +970,6 @@ export default function RuleModal({
         size="lg"
         cta="Save"
         ctaEnabled={newRuleOverviewPage ? ruleType !== undefined : canSubmit}
-        bodyClassName="px-4"
         header={headerText}
         docSection={
           ruleType === "experiment-ref-new"
@@ -946,17 +981,15 @@ export default function RuleModal({
         hideNav={ruleType !== "experiment-ref-new" && ruleType !== "experiment"}
         backButton={true}
         onBackFirstStep={
-          isNewRule ? () => setNewRuleOverviewPage(true) : undefined
+          mode === "create" ? () => setNewRuleOverviewPage(true) : undefined
         }
         submit={submit}
       >
         {ruleType === "force" && (
           <ForceValueFields
             feature={feature}
-            environment={environment}
+            environments={selectedEnvironments}
             defaultValues={defaultValues}
-            version={version}
-            revisions={revisions}
             setPrerequisiteTargetingSdkIssues={
               setPrerequisiteTargetingSdkIssues
             }
@@ -971,10 +1004,8 @@ export default function RuleModal({
         {ruleType === "rollout" && (
           <RolloutFields
             feature={feature}
-            environment={environment}
+            environments={selectedEnvironments}
             defaultValues={defaultValues}
-            version={version}
-            revisions={revisions}
             setPrerequisiteTargetingSdkIssues={
               setPrerequisiteTargetingSdkIssues
             }
@@ -991,8 +1022,6 @@ export default function RuleModal({
             feature={feature}
             environment={environment}
             defaultValues={defaultValues}
-            version={version}
-            revisions={revisions}
             setPrerequisiteTargetingSdkIssues={
               setPrerequisiteTargetingSdkIssues
             }
@@ -1001,9 +1030,8 @@ export default function RuleModal({
             conditionKey={conditionKey}
             scheduleToggleEnabled={scheduleToggleEnabled}
             setScheduleToggleEnabled={setScheduleToggleEnabled}
-            isNewRule={isNewRule}
+            mode={mode}
             isDraft={!safeRollout?.startedAt}
-            duplicate={!!duplicate}
           />
         )}
 
@@ -1011,8 +1039,7 @@ export default function RuleModal({
         experimentType === "experiment" ? (
           <ExperimentRefFields
             feature={feature}
-            environment={environment}
-            i={i}
+            existingRule={mode === "edit"}
             defaultValues={defaultValues}
             changeRuleType={changeRuleType}
             noSchedule={!defaultHasSchedule}
@@ -1025,8 +1052,7 @@ export default function RuleModal({
         experimentType === "bandit" ? (
           <BanditRefFields
             feature={feature}
-            environment={environment}
-            i={i}
+            existingRule={mode === "edit"}
             changeRuleType={changeRuleType}
           />
         ) : null}
@@ -1041,10 +1067,8 @@ export default function RuleModal({
                   source="rule"
                   feature={feature}
                   project={feature.project}
-                  environment={environment}
+                  environments={selectedEnvironments}
                   defaultValues={defaultValues}
-                  version={version}
-                  revisions={revisions}
                   prerequisiteValue={form.watch("prerequisites") || []}
                   setPrerequisiteValue={(prerequisites) =>
                     form.setValue("prerequisites", prerequisites)
@@ -1107,9 +1131,7 @@ export default function RuleModal({
                   source="rule"
                   feature={feature}
                   project={feature.project}
-                  environment={environment}
-                  version={version}
-                  revisions={revisions}
+                  environments={selectedEnvironments}
                   prerequisiteValue={form.watch("prerequisites") || []}
                   setPrerequisiteValue={(prerequisites) =>
                     form.setValue("prerequisites", prerequisites)

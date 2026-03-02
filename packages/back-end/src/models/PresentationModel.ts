@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { PresentationInterface } from "back-end/types/presentation";
+import { PresentationInterface } from "shared/types/presentation";
 
 const presentationSchema = new mongoose.Schema({
   id: String,

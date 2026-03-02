@@ -1,10 +1,10 @@
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import {
   LDListFeatureFlagsResponse,
   transformLDEnvironmentsToGBEnvironment,
   transformLDFeatureFlagToGBFeature,
   transformLDProjectsToGBProject,
-} from "@/services/importing";
+} from "@/services/importing/launchdarkly/launchdarkly-importing";
 
 describe("importing utils", () => {
   describe("transformLDEnvironmentsToGBEnvironment", () => {

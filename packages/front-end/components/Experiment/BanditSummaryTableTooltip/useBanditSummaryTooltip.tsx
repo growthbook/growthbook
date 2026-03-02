@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTooltip, useTooltipInPortal } from "@visx/tooltip";
-import { BanditEvent } from "back-end/src/validators/experiments";
+import { BanditEvent } from "shared/validators";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { WIN_THRESHOLD_PROBABILITY } from "@/components/Experiment/BanditSummaryTable";
 import {

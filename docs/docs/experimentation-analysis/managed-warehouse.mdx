@@ -37,6 +37,13 @@ The following SDKs have a built-in plugin to automatically send events.
 - [HTML Script Tag](#html-script-tag)
 - [Client-Side JavaScript / React](#client-side-javascript--react)
 - [Node.js](#nodejs)
+- Python
+- Java
+- PHP
+- Golang
+- Flutter
+- Swift (Coming Soon)
+- Kotlin (Coming Soon)
 
 For everything else, use the [Ingestion API](#ingestion-api).
 
@@ -249,6 +256,12 @@ Read more about [fact tables and metrics](/app/metrics) and how to use them in G
 ## SQL Explorer
 
 You can use the SQL Explorer to run ad-hoc queries against your events. This can be useful for exploring your data, debugging issues, or creating custom reports.
+
+:::note
+
+The SQL Explorer only allows read-only SELECT queries. Write operations (INSERT, UPDATE, etc.) are prevented from being executed by the platform.
+
+:::
 
 You will see 3 tables in the SQL Explorer:
 

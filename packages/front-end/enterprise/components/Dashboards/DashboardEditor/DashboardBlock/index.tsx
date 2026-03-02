@@ -1,48 +1,54 @@
 import React, { useContext, useEffect, useRef, useState } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   DashboardBlockInterface,
   DashboardBlockInterfaceOrData,
-} from "back-end/src/enterprise/validators/dashboard-block";
+  blockHasFieldOfType,
+} from "shared/enterprise";
 import { Flex, IconButton, Text } from "@radix-ui/themes";
-import { PiCaretDown, PiCaretUp, PiDotsSixVertical } from "react-icons/pi";
+import {
+  PiCaretDown,
+  PiCaretUp,
+  PiCaretUpDown,
+  PiPencilSimpleFill,
+} from "react-icons/pi";
 import clsx from "clsx";
-import { blockHasFieldOfType } from "shared/enterprise";
-import { isNumber, isString, isStringArray, isDefined } from "shared/util";
+import { isNumber, isString, isDefined } from "shared/util";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
-} from "back-end/types/experiment-snapshot";
-import { SavedQuery } from "back-end/src/validators/saved-queries";
+} from "shared/types/experiment-snapshot";
+import { SavedQuery } from "shared/validators";
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
 } from "shared/experiments";
-import { ErrorBoundary } from "@sentry/react";
+import { ErrorBoundary } from "@sentry/nextjs";
+import { BsThreeDotsVertical } from "react-icons/bs";
+import { MetricAnalysisInterface } from "shared/types/metric-analysis";
+import { FactMetricInterface } from "shared/types/fact-table";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
-import Button from "@/components/Radix/Button";
 import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuSeparator,
-} from "@/components/Radix/DropdownMenu";
+} from "@/ui/DropdownMenu";
 import { useExperiments } from "@/hooks/useExperiments";
 import {
   DashboardSnapshotContext,
+  useDashboardMetricAnalysis,
   useDashboardSnapshot,
 } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
-import { BLOCK_TYPE_INFO } from "..";
+import Field from "@/components/Forms/Field";
+import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor";
 import MarkdownBlock from "./MarkdownBlock";
-import ExperimentDescriptionBlock from "./ExperimentDescriptionBlock";
+import ExperimentMetadataBlock from "./ExperimentMetadataBlock";
 import ExperimentMetricBlock from "./ExperimentMetricBlock";
-import ExperimentVariationImageBlock from "./ExperimentVariationImageBlock";
 import ExperimentDimensionBlock from "./ExperimentDimensionBlock";
 import ExperimentTimeSeriesBlock from "./ExperimentTimeSeriesBlock";
-import ExperimentHypothesisBlock from "./ExperimentHypothesisBlock";
-import ExperimentTrafficGraphBlock from "./ExperimentTrafficGraphBlock";
-import ExperimentTrafficTableBlock from "./ExperimentTrafficTableBlock";
+import ExperimentTrafficBlock from "./ExperimentTrafficBlock";
 import SqlExplorerBlock from "./SqlExplorerBlock";
 import {
   BlockLoadingSnapshot,
@@ -52,13 +58,15 @@ import {
   BlockObjectMissing,
   BlockRenderError,
 } from "./BlockErrorStates";
+import MetricExplorerBlock from "./MetricExplorerBlock";
 
 // Typescript helpers for passing objects to the block components based on id fields
 interface BlockIdFieldToObjectMap {
   experimentId: ExperimentInterfaceStringDates;
-  metricId: ExperimentMetricInterface;
   metricIds: ExperimentMetricInterface[];
+  factMetricId: FactMetricInterface;
   savedQueryId: SavedQuery;
+  metricAnalysisId: MetricAnalysisInterface;
 }
 type ObjectProps<Block> = {
   [K in keyof BlockIdFieldToObjectMap as K extends keyof Block
@@ -72,8 +80,9 @@ type ObjectProps<Block> = {
 };
 
 export type BlockProps<T extends DashboardBlockInterface> = {
+  isTabActive: boolean;
   block: DashboardBlockInterfaceOrData<T>;
-  setBlock: React.Dispatch<DashboardBlockInterfaceOrData<T>>;
+  setBlock: undefined | React.Dispatch<DashboardBlockInterfaceOrData<T>>;
   snapshot: ExperimentSnapshotInterface;
   analysis: ExperimentSnapshotAnalysis;
   mutate: () => void;
@@ -82,58 +91,72 @@ export type BlockProps<T extends DashboardBlockInterface> = {
 } & ObjectProps<T>;
 
 interface Props<DashboardBlock extends DashboardBlockInterface> {
+  isTabActive: boolean;
   block: DashboardBlockInterfaceOrData<DashboardBlock>;
-  dashboardExperiment: ExperimentInterfaceStringDates;
+  blockIndex?: number;
+  isFocused: boolean;
   isEditing: boolean;
   editingBlock: boolean;
-  disableBlock: boolean;
+  disableBlock: "full" | "partial" | "none";
   isFirstBlock: boolean;
   isLastBlock: boolean;
-  setBlock: React.Dispatch<DashboardBlockInterfaceOrData<DashboardBlock>>;
+  scrollAreaRef: null | React.MutableRefObject<HTMLDivElement | null>;
+  setBlock:
+    | undefined
+    | React.Dispatch<DashboardBlockInterfaceOrData<DashboardBlock>>;
   editBlock: () => void;
   duplicateBlock: () => void;
   deleteBlock: () => void;
   moveBlock: (direction: 1 | -1) => void;
   mutate: () => void;
+  canEdit?: boolean;
+  setIsEditing?: (value: boolean) => void;
+  enterEditModeForBlock?: (blockIndex: number) => void;
 }
 
 const BLOCK_COMPONENTS: {
   [B in DashboardBlockInterface as B["type"]]: React.FC<BlockProps<B>>;
 } = {
   markdown: MarkdownBlock,
-  "experiment-description": ExperimentDescriptionBlock,
-  "experiment-hypothesis": ExperimentHypothesisBlock,
-  "experiment-variation-image": ExperimentVariationImageBlock,
+  "experiment-metadata": ExperimentMetadataBlock,
   "experiment-metric": ExperimentMetricBlock,
   "experiment-dimension": ExperimentDimensionBlock,
   "experiment-time-series": ExperimentTimeSeriesBlock,
-  "experiment-traffic-graph": ExperimentTrafficGraphBlock,
-  "experiment-traffic-table": ExperimentTrafficTableBlock,
+  "experiment-traffic": ExperimentTrafficBlock,
   "sql-explorer": SqlExplorerBlock,
+  "metric-explorer": MetricExplorerBlock,
 };
 
 export default function DashboardBlock<T extends DashboardBlockInterface>({
+  isTabActive,
   block,
+  blockIndex,
   isEditing,
+  isFocused,
   editingBlock,
   disableBlock,
   isFirstBlock,
   isLastBlock,
+  scrollAreaRef,
   setBlock,
   editBlock,
   duplicateBlock,
   deleteBlock,
   moveBlock,
   mutate,
+  canEdit,
+  setIsEditing,
+  enterEditModeForBlock,
 }: Props<T>) {
   const { experimentsMap, loading: experimentsLoading } = useExperiments();
   const {
     getExperimentMetricById,
     metricGroups,
+    getFactMetricById,
     ready: definitionsReady,
   } = useDefinitions();
   const [moveBlockOpen, setMoveBlockOpen] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const {
     snapshot,
     analysis,
@@ -142,21 +165,47 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
   const { savedQueriesMap, loading: dashboardContextLoading } = useContext(
     DashboardSnapshotContext,
   );
+  const { metricAnalysis, loading: metricAnalysisLoading } =
+    useDashboardMetricAnalysis(block, setBlock);
   const blockHasSavedQuery = blockHasFieldOfType(
     block,
     "savedQueryId",
     isString,
   );
+
+  const [editTitle, setEditTitle] = useState(false);
+
+  // Type guards for sql-explorer blocks
+  const isSqlExplorerWithDataVizIndex = (
+    b: typeof block,
+  ): b is typeof block & { dataVizConfigIndex: number } => {
+    return (
+      b.type === "sql-explorer" &&
+      blockHasFieldOfType(b, "dataVizConfigIndex", isNumber)
+    );
+  };
+
+  const isSqlExplorerWithBlockConfig = (
+    b: typeof block,
+  ): b is typeof block & { blockConfig: string[] } => {
+    return b.type === "sql-explorer" && "blockConfig" in b;
+  };
+
   // Use the API directly when the saved query hasn't been attached to the dashboard yet (when editing)
-  const shouldRun = () =>
+  const shouldFetchSavedQuery = () =>
     blockHasSavedQuery && !savedQueriesMap.has(block.savedQueryId);
   const { data: savedQueryData, isLoading: savedQueryLoading } = useApi<{
     status: number;
     savedQuery: SavedQuery;
   }>(`/saved-queries/${blockHasSavedQuery ? block.savedQueryId : ""}`, {
-    shouldRun,
+    shouldRun: shouldFetchSavedQuery,
   });
 
+  const blockHasMetricAnalysis = blockHasFieldOfType(
+    block,
+    "metricAnalysisId",
+    isString,
+  );
   const BlockComponent = BLOCK_COMPONENTS[block.type] as React.FC<
     BlockProps<T>
   >;
@@ -174,26 +223,72 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
   if (blockHasExperiment) {
     objectProps = { ...objectProps, experiment: blockExperiment };
   }
-  const blockHasMetric = blockHasFieldOfType(block, "metricId", isString);
-  const blockMetric = blockHasMetric
-    ? getExperimentMetricById(block.metricId)
-    : undefined;
-  if (blockHasMetric) {
-    objectProps = { ...objectProps, metric: blockMetric };
-  }
   const blockHasMetrics = blockHasFieldOfType(
     block,
     "metricIds",
-    isStringArray,
+    (val): val is string[] => Array.isArray(val),
   );
-  const blockMetrics = blockHasMetrics
-    ? expandMetricGroups(block.metricIds, metricGroups).map(
-        getExperimentMetricById,
-      )
-    : undefined;
-  if (blockHasMetrics) {
+  if (blockHasMetrics && blockHasExperiment) {
+    // TypeScript needs help here - blockHasMetrics narrows the type but TS can't infer it
+    const blockWithMetrics = block as Extract<T, { metricIds: string[] }>;
+    const blockMetricIds = blockWithMetrics.metricIds;
+    const hasGoalSelector = blockMetricIds.includes("experiment-goal");
+    const hasSecondarySelector = blockMetricIds.includes(
+      "experiment-secondary",
+    );
+    const hasGuardrailSelector = blockMetricIds.includes(
+      "experiment-guardrail",
+    );
+
+    let baseMetricIds: string[] = [];
+    if (hasGoalSelector || hasSecondarySelector || hasGuardrailSelector) {
+      // If any selector is present, include metrics from those categories
+      if (hasGoalSelector) {
+        baseMetricIds.push(...(blockExperiment?.goalMetrics ?? []));
+      }
+      if (hasSecondarySelector) {
+        baseMetricIds.push(...(blockExperiment?.secondaryMetrics ?? []));
+      }
+      if (hasGuardrailSelector) {
+        baseMetricIds.push(...(blockExperiment?.guardrailMetrics ?? []));
+      }
+    } else {
+      // No selectors - include all metrics (equivalent to "all")
+      baseMetricIds = [
+        ...(blockExperiment?.goalMetrics ?? []),
+        ...(blockExperiment?.secondaryMetrics ?? []),
+        ...(blockExperiment?.guardrailMetrics ?? []),
+      ];
+    }
+
+    let expandedMetricIds = expandMetricGroups(baseMetricIds, metricGroups);
+
+    // Filter by actual metric IDs (excluding selector IDs)
+    const actualMetricIds = blockMetricIds.filter(
+      (id) =>
+        ![
+          "experiment-goal",
+          "experiment-secondary",
+          "experiment-guardrail",
+        ].includes(id),
+    );
+    if (actualMetricIds.length > 0) {
+      const filteredMetricIds = expandMetricGroups(
+        actualMetricIds,
+        metricGroups,
+      );
+      const filteredMetricIdsSet = new Set(filteredMetricIds);
+      expandedMetricIds = expandedMetricIds.filter((id) =>
+        filteredMetricIdsSet.has(id),
+      );
+    }
+
+    const blockMetrics = expandedMetricIds
+      .map(getExperimentMetricById)
+      .filter(isDefined);
     objectProps = { ...objectProps, metrics: blockMetrics };
   }
+
   const blockSavedQuery = blockHasSavedQuery
     ? (savedQueriesMap.get(block.savedQueryId) ?? savedQueryData?.savedQuery)
     : undefined;
@@ -204,47 +299,131 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
     };
   }
 
+  if (blockHasMetricAnalysis) {
+    objectProps = {
+      ...objectProps,
+      metricAnalysis,
+    };
+  }
+
+  const blockHasFactMetric = blockHasFieldOfType(
+    block,
+    "factMetricId",
+    isString,
+  );
+  const blockFactMetric = blockHasFactMetric
+    ? getFactMetricById(block.factMetricId)
+    : undefined;
+  if (blockHasFactMetric) {
+    objectProps = {
+      ...objectProps,
+      factMetric: blockFactMetric,
+    };
+  }
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollToBlock = () => {
-    if (scrollRef.current) {
-      window.scrollTo(0, scrollRef.current.offsetTop + 250);
+    if (scrollRef.current && scrollAreaRef && scrollAreaRef.current) {
+      scrollAreaRef.current.scrollTo({
+        left: 0,
+        top: scrollRef.current.offsetTop - scrollAreaRef.current.offsetTop,
+        behavior: "smooth",
+      });
     }
   };
   useEffect(() => {
-    if (editingBlock) setTimeout(() => scrollToBlock(), 100);
-  }, [editingBlock]);
+    if (editingBlock || isFocused) setTimeout(() => scrollToBlock(), 100);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingBlock, isFocused]);
 
+  // Blocks with metrics don't need configuration - empty metricIds means "all metrics"
+  // Selector IDs (experiment-goal, experiment-secondary, experiment-guardrail) are also valid
   const blockNeedsConfiguration =
-    (blockHasFieldOfType(block, "metricIds", isStringArray) &&
-      block.metricIds.length === 0) ||
     (blockHasFieldOfType(block, "dimensionId", isString) &&
       block.dimensionId.length === 0) ||
-    (blockHasMetric && block.metricId.length === 0) ||
     (blockHasSavedQuery &&
       (block.savedQueryId.length === 0 || !blockSavedQuery)) ||
-    (blockHasFieldOfType(block, "dataVizConfigIndex", isNumber) &&
-      (block.dataVizConfigIndex === -1 ||
-        !blockSavedQuery?.dataVizConfig?.[block.dataVizConfigIndex]));
+    (blockHasSavedQuery &&
+      block.type === "sql-explorer" &&
+      (isSqlExplorerWithDataVizIndex(block)
+        ? block.dataVizConfigIndex === -1 ||
+          !blockSavedQuery?.dataVizConfig?.[block.dataVizConfigIndex]
+        : isSqlExplorerWithBlockConfig(block)
+          ? !block.blockConfig || block.blockConfig.length === 0
+          : true)) ||
+    (blockHasFactMetric &&
+      (block.factMetricId.length === 0 || !blockFactMetric)) ||
+    (blockHasMetricAnalysis &&
+      (block.metricAnalysisId.length === 0 || !metricAnalysis));
 
   const blockMissingHealthCheck =
-    block.type === "experiment-traffic-graph" && !snapshot?.health?.traffic;
+    block.type === "experiment-traffic" &&
+    block.showTimeseries &&
+    !snapshot?.health?.traffic;
+
+  const canEditTitle = isEditing && disableBlock === "none" && !isFocused;
+
+  // Only experiment-result blocks require experiment snapshots/analysis.
+  // Non-experiment blocks (e.g., markdown, experiment-metadata) should not show
+  // "No data yet" just because there's no snapshot.
+  const experimentResultBlockTypes = [
+    "experiment-metric",
+    "experiment-dimension",
+    "experiment-time-series",
+    "experiment-traffic",
+  ] as const;
+  const requiresSnapshot = (
+    experimentResultBlockTypes as readonly string[]
+  ).includes(block.type as string);
+
+  function getDefaultValueForTitle(
+    blockType: DashboardBlockInterface["type"],
+  ): string {
+    return blockType === "markdown" ? "" : BLOCK_TYPE_INFO[blockType].name;
+  }
 
   return (
     <Flex
       ref={scrollRef}
       className={clsx("appbox px-4 py-3 mb-0 position-relative", {
-        "border-violet": editingBlock,
-        "dashboard-disabled": disableBlock,
+        "border-violet": editingBlock || isFocused,
+        "dashboard-disabled": disableBlock === "full",
       })}
+      style={{ overflow: "auto" }}
       direction="column"
     >
+      {isEditing && !editingBlock && disableBlock === "none" && (
+        <div
+          style={{
+            position: "absolute",
+            top: 45,
+            left: 24,
+            right: 24,
+            bottom: 12,
+            backgroundColor:
+              "color-mix(in srgb, var(--violet-a3) 30%, transparent)",
+            cursor: "pointer",
+            // This will make the underlying block non-interactive
+            // The user must click this overlay to enter editing mode and then they can interact
+            opacity: 0.01,
+            zIndex: 999,
+            borderRadius: 6,
+          }}
+          className="fade-hover"
+          onClick={(e) => {
+            e.stopPropagation();
+            editBlock();
+          }}
+        ></div>
+      )}
       {isEditing && (
         <DropdownMenu
           open={moveBlockOpen}
           onOpenChange={setMoveBlockOpen}
-          disabled={disableBlock || editingBlock}
+          disabled={disableBlock === "partial"}
           trigger={
             <IconButton
+              onClick={(e) => e.stopPropagation()}
               className="position-absolute"
               style={{
                 top: 20,
@@ -252,15 +431,16 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
               }}
               variant="ghost"
             >
-              <PiDotsSixVertical />
+              <PiCaretUpDown />
             </IconButton>
           }
         >
           <DropdownMenuItem
             disabled={isFirstBlock}
-            onClick={() => {
+            onClick={(e) => {
               moveBlock(-1);
               setMoveBlockOpen(false);
+              e.stopPropagation();
             }}
           >
             <Text>
@@ -269,9 +449,10 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
           </DropdownMenuItem>
           <DropdownMenuItem
             disabled={isLastBlock}
-            onClick={() => {
+            onClick={(e) => {
               moveBlock(1);
               setMoveBlockOpen(false);
+              e.stopPropagation();
             }}
           >
             <Text>
@@ -280,78 +461,171 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
           </DropdownMenuItem>
         </DropdownMenu>
       )}
-      <Flex align="center" justify="between">
-        <h4 style={{ margin: 0 }}>
-          {block.title
-            ? block.title
-            : isEditing
-              ? BLOCK_TYPE_INFO[block.type].name
-              : ""}
-        </h4>
+      <Flex align="center" mb="2">
+        {canEditTitle && editTitle && setBlock ? (
+          <Field
+            autoFocus
+            defaultValue={block.title || getDefaultValueForTitle(block.type)}
+            placeholder="Title"
+            onFocus={(e) => {
+              e.target.select();
+            }}
+            onBlur={(e) => {
+              setEditTitle(false);
+              const title = e.target.value;
+              if (title !== block.title) {
+                setBlock({ ...block, title });
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                (e.target as HTMLInputElement).blur();
+              } else if (e.key === "Escape") {
+                setEditTitle(false);
+              }
+            }}
+            containerClassName="flex-1"
+          />
+        ) : (
+          <>
+            <h4
+              onDoubleClick={
+                canEditTitle
+                  ? (e) => {
+                      e.preventDefault();
+                      setEditTitle(true);
+                    }
+                  : undefined
+              }
+              style={{
+                margin: 0,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                flexShrink: 1,
+              }}
+            >
+              {block.title || getDefaultValueForTitle(block.type)}
+            </h4>
+            {canEditTitle && (
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setEditTitle(true);
+                }}
+                className="ml-2"
+                style={{ color: "var(--violet-9)" }}
+                title="Edit Title"
+              >
+                <PiPencilSimpleFill />
+              </a>
+            )}
 
-        {isEditing && (
+            <div style={{ flexGrow: 1, marginRight: 30 }} />
+          </>
+        )}
+
+        {isEditing ? (
           <div>
-            {editingBlock ? (
-              <Text size="1" color="gray">
-                Editing
-              </Text>
-            ) : (
+            {!editingBlock && (
               <DropdownMenu
-                open={editOpen}
-                onOpenChange={setEditOpen}
+                open={dropdownOpen}
+                onOpenChange={setDropdownOpen}
+                variant="soft"
+                menuPlacement="end"
                 trigger={
-                  <Button
-                    icon={<PiCaretDown />}
-                    iconPosition="right"
+                  <IconButton
                     variant="ghost"
-                    size="xs"
+                    radius="full"
+                    size="1"
+                    onClick={(e) => e.stopPropagation()}
                   >
-                    Edit
-                  </Button>
+                    <BsThreeDotsVertical />
+                  </IconButton>
                 }
               >
                 <DropdownMenuItem
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     editBlock();
-                    setEditOpen(false);
+                    setDropdownOpen(false);
                   }}
                 >
                   Edit
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     duplicateBlock();
-                    setEditOpen(false);
+                    setDropdownOpen(false);
                   }}
                 >
                   Duplicate
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     deleteBlock();
-                    setEditOpen(false);
+                    setDropdownOpen(false);
                   }}
+                  color="red"
                 >
-                  <Text color="red">Delete</Text>
+                  Delete
                 </DropdownMenuItem>
               </DropdownMenu>
             )}
           </div>
-        )}
+        ) : canEdit && setIsEditing ? (
+          <div>
+            <DropdownMenu
+              open={dropdownOpen}
+              onOpenChange={setDropdownOpen}
+              variant="soft"
+              menuPlacement="end"
+              trigger={
+                <IconButton
+                  variant="ghost"
+                  radius="full"
+                  size="1"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <BsThreeDotsVertical />
+                </IconButton>
+              }
+            >
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (typeof blockIndex === "number" && enterEditModeForBlock) {
+                    enterEditModeForBlock(blockIndex);
+                  } else {
+                    setIsEditing(true);
+                  }
+                  setDropdownOpen(false);
+                }}
+              >
+                Edit
+              </DropdownMenuItem>
+            </DropdownMenu>
+          </div>
+        ) : null}
       </Flex>
       <Text>{block.description}</Text>
-
       {/* Check for possible error states to ensure block component has all necessary data */}
       {!definitionsReady ||
       experimentsLoading ||
       dashboardSnapshotLoading ||
+      metricAnalysisLoading ||
       dashboardContextLoading ||
-      (blockHasSavedQuery && savedQueryLoading) ? (
+      (blockHasSavedQuery && savedQueryLoading) ||
+      (blockHasMetricAnalysis && metricAnalysisLoading) ? (
         <BlockLoadingSnapshot />
       ) : blockNeedsConfiguration ? (
         <BlockNeedsConfiguration block={block} />
-      ) : !snapshot || !analysis || !analysis.results[0] ? (
+      ) : requiresSnapshot &&
+        (!snapshot || !analysis || !analysis.results[0]) ? (
         <BlockMissingData />
       ) : blockMissingHealthCheck ? (
         <BlockMissingHealthCheck />
@@ -365,11 +639,20 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
       ) : (
         <ErrorBoundary fallback={<BlockRenderError block={block} />}>
           <BlockComponent
+            isTabActive={isTabActive}
             block={block}
             setBlock={setBlock}
             isEditing={isEditing}
-            snapshot={snapshot}
-            analysis={analysis}
+            snapshot={
+              requiresSnapshot
+                ? (snapshot as ExperimentSnapshotInterface)
+                : ({} as ExperimentSnapshotInterface)
+            }
+            analysis={
+              requiresSnapshot
+                ? (analysis as ExperimentSnapshotAnalysis)
+                : ({} as ExperimentSnapshotAnalysis)
+            }
             mutate={mutate}
             // objectProps should be validated above to actually contain all the keys and not be Partial
             {...(objectProps as unknown as ObjectProps<T>)}

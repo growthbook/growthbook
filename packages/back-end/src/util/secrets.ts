@@ -96,6 +96,8 @@ if ((prod || !isLocalhost) && !IS_CLOUD && JWT_SECRET === "dev") {
   );
 }
 
+export const AWS_ASSUME_ROLE = process.env.AWS_ASSUME_ROLE || "";
+
 export const EMAIL_ENABLED = stringToBoolean(process.env.EMAIL_ENABLED);
 export const EMAIL_HOST = process.env.EMAIL_HOST;
 export const EMAIL_PORT = parseInt(process.env.EMAIL_PORT || "") || 587;
@@ -126,6 +128,9 @@ export const DEFAULT_CONVERSION_WINDOW_HOURS =
 // Update metrics every X hours
 export const METRIC_REFRESH_FREQUENCY =
   parseInt(process.env.METRIC_REFRESH_FREQUENCY || "") || 24;
+
+export const AUTO_SLICE_UPDATE_FREQUENCY_HOURS =
+  parseInt(process.env.AUTO_SLICE_UPDATE_FREQUENCY_HOURS || "") || 168; // Default: 7 days
 
 export const QUERY_CACHE_TTL_MINS =
   parseInt(process.env.QUERY_CACHE_TTL_MINS || "") || 60;
@@ -165,6 +170,10 @@ export const ALLOW_CREATE_METRICS = stringToBoolean(
 // If set to false AND using a config file, don't allow creating dimension via the UI
 export const ALLOW_CREATE_DIMENSIONS = stringToBoolean(
   process.env.ALLOW_CREATE_DIMENSIONS,
+);
+
+export const API_ALLOW_SKIP_PAGINATION = stringToBoolean(
+  process.env.API_ALLOW_SKIP_PAGINATION,
 );
 
 // Defines the User-Agent header for all requests made by the API
@@ -209,6 +218,7 @@ const webhooksValidator = z.array(
           "standard-no-payload",
           "sdkPayload",
           "edgeConfig",
+          "edgeConfigUnescaped",
           "vercelNativeIntegration",
           "none",
         ])
@@ -276,8 +286,15 @@ export const CLICKHOUSE_ADMIN_PASSWORD =
   process.env.CLICKHOUSE_ADMIN_PASSWORD || "";
 export const CLICKHOUSE_DATABASE = process.env.CLICKHOUSE_DATABASE || "";
 export const CLICKHOUSE_MAIN_TABLE = process.env.CLICKHOUSE_MAIN_TABLE || "";
+export const CLICKHOUSE_OVERAGE_TABLE =
+  process.env.CLICKHOUSE_OVERAGE_TABLE || "overage_events";
 export const CLICKHOUSE_DEV_PREFIX =
   process.env.CLICKHOUSE_DEV_PREFIX || "test_";
+
+// Note: the Visual Editor relies on the information in this path, so disabling it will prevent some features from working correctly.
+export const DISABLE_API_ROOT_PATH = stringToBoolean(
+  process.env.DISABLE_API_ROOT_PATH,
+);
 
 export type SecretsReplacer = <T extends string | Record<string, string>>(
   s: T,

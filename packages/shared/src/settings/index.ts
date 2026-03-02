@@ -1,3 +1,4 @@
+import { isFactMetric } from "../../experiments";
 import genDefaultResolver from "./resolvers/genDefaultResolver";
 import genMetricOverrideResolver from "./resolvers/genMetricOverrideResolver";
 import genDefaultSettings from "./resolvers/genDefaultSettings";
@@ -13,6 +14,9 @@ import {
 } from "./types";
 import regressionAdjustmentResolver from "./resolvers/regressionAdjustmentEnabledResolver";
 import metricTargetMDEResolver from "./resolvers/metricTargetMDEResolver";
+import postStratificationEnabledResolver from "./resolvers/postStratificationEnabledResolver";
+export * from "./types";
+export { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "../../constants";
 
 export const resolvers: Record<
   keyof Settings,
@@ -71,6 +75,12 @@ export const resolvers: Record<
     metric: true,
     report: true,
   }),
+  pValueCorrection: genDefaultResolver("pValueCorrection", {
+    project: "settings.pValueCorrection",
+    experiment: true,
+    metric: true,
+    report: true,
+  }),
   regressionAdjustmentEnabled: regressionAdjustmentResolver("enabled"),
   regressionAdjustmentDays: regressionAdjustmentResolver("days"),
   sequentialTestingEnabled: genDefaultResolver("sequentialTestingEnabled", {
@@ -84,11 +94,13 @@ export const resolvers: Record<
       report: true,
     },
   ),
+  postStratificationEnabled: postStratificationEnabledResolver(),
   attributionModel: genDefaultResolver("attributionModel", {
     project: "settings.attributionModel",
     experiment: true,
     report: true,
   }),
+  srmThreshold: genDefaultResolver("srmThreshold"),
   targetMDE: metricTargetMDEResolver(),
   delayHours: genMetricOverrideResolver("delayHours"),
   windowType: genMetricOverrideResolver("windowType"),
@@ -106,6 +118,8 @@ export const resolvers: Record<
   banditBurnInUnit: genDefaultResolver("banditBurnInUnit"),
   experimentMinLengthDays: genDefaultResolver("experimentMinLengthDays"),
   experimentMaxLengthDays: genDefaultResolver("experimentMaxLengthDays"),
+  maxMetricSliceLevels: genDefaultResolver("maxMetricSliceLevels"),
+  useStickyBucketing: genDefaultResolver("useStickyBucketing"),
   // TODO prior resolvers
 };
 
@@ -124,7 +138,6 @@ const scopeSettings = (
   // iterate over resolvers and apply them to the base settings
   const settings = Object.entries(resolvers).reduce(
     (acc, [fieldName, resolver]) => {
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-expect-error - todo: we need to figure out how to resolve the type
       acc[fieldName as keyof Settings] = resolver(ctx);
       return acc;
@@ -166,8 +179,11 @@ export const getScopedSettings = (
   scopes: ScopeDefinition,
 ): ScopedSettingsReturn => {
   const settings = normalizeInputSettings(scopes.organization.settings || {});
+  // Only warn for legacy metrics with a denominator (string metric ID reference).
+  // FactMetrics have denominator as a ColumnRef object, not a separate metric.
   if (
     scopes?.metric &&
+    !isFactMetric(scopes.metric) &&
     scopes.metric.denominator &&
     !scopes.denominatorMetric
   ) {
@@ -177,5 +193,3 @@ export const getScopedSettings = (
 
   return scopeSettings(settings, scopes);
 };
-
-export type { ScopedSettings } from "./types";

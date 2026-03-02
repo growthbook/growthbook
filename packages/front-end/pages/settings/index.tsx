@@ -14,16 +14,19 @@ import {
   DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
   DEFAULT_DECISION_FRAMEWORK_ENABLED,
   DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
+  DEFAULT_POST_STRATIFICATION_ENABLED,
 } from "shared/constants";
-import { OrganizationSettings } from "back-end/types/organization";
+import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
+import { OrganizationSettings } from "shared/types/organization";
 import Link from "next/link";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import { PRESET_DECISION_CRITERIA } from "shared/enterprise";
+import { CUSTOMIZABLE_PROMPT_TYPES } from "shared/ai";
 import { useAuth } from "@/services/auth";
 import { hasFileConfig, isCloud } from "@/services/env";
 import TempMessage from "@/components/TempMessage";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import {
   OrganizationSettingsWithMetricDefaults,
   useOrganizationMetricDefaults,
@@ -35,20 +38,16 @@ import ImportSettings from "@/components/GeneralSettings/ImportSettings";
 import NorthStarMetricSettings from "@/components/GeneralSettings/NorthStarMetricSettings";
 import ExperimentSettings from "@/components/GeneralSettings/ExperimentSettings";
 import MetricsSettings from "@/components/GeneralSettings/MetricsSettings";
-import FeaturesSettings from "@/components/GeneralSettings/FeaturesSettings";
+import FeatureSettings from "@/components/GeneralSettings/FeatureSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import DatasourceSettings from "@/components/GeneralSettings/DatasourceSettings";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import AISettings from "@/components/GeneralSettings/AISettings";
-import HelperText from "@/components/Radix/HelperText";
+import HelperText from "@/ui/HelperText";
 import { AppFeatures } from "@/types/app-features";
-import {
-  StickyTabsList,
-  Tabs,
-  TabsContent,
-  TabsTrigger,
-} from "@/components/Radix/Tabs";
-import Frame from "@/components/Radix/Frame";
+import { StickyTabsList, Tabs, TabsContent, TabsTrigger } from "@/ui/Tabs";
+import Frame from "@/ui/Frame";
+import SavedGroupSettings from "@/components/GeneralSettings/SavedGroupSettings";
 
 export const ConnectSettingsForm = ({ children }) => {
   const methods = useFormContext();
@@ -167,11 +166,24 @@ const GeneralSettingsPage = (): React.ReactElement => {
         settings.decisionFrameworkEnabled ?? DEFAULT_DECISION_FRAMEWORK_ENABLED,
       defaultDecisionCriteriaId:
         settings.defaultDecisionCriteriaId ?? PRESET_DECISION_CRITERIA.id,
+      blockFileUploads: settings.blockFileUploads ?? false,
       requireProjectForFeatures:
         settings.requireProjectForFeatures ??
         DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
       aiEnabled: settings.aiEnabled ?? false,
-      openAIDefaultModel: settings.openAIDefaultModel || "gpt-4o-mini",
+      defaultAIModel: settings.defaultAIModel || "gpt-4o-mini",
+      embeddingModel: settings.embeddingModel || "text-embedding-ada-002",
+      disableLegacyMetricCreation:
+        settings.disableLegacyMetricCreation ?? false,
+      defaultFeatureRulesInAllEnvs:
+        settings.defaultFeatureRulesInAllEnvs ?? false,
+      preferredEnvironment: settings.preferredEnvironment || "",
+      maxMetricSliceLevels:
+        settings.maxMetricSliceLevels ?? DEFAULT_MAX_METRIC_SLICE_LEVELS,
+      savedGroupSizeLimit: undefined,
+      postStratificationEnabled:
+        settings.postStratificationEnabled ??
+        DEFAULT_POST_STRATIFICATION_ENABLED,
     },
   });
   const { apiCall } = useAuth();
@@ -217,7 +229,13 @@ const GeneralSettingsPage = (): React.ReactElement => {
     codeRefsBranchesToFilter: form.watch("codeRefsBranchesToFilter"),
     codeRefsPlatformUrl: form.watch("codeRefsPlatformUrl"),
     aiEnabled: form.watch("aiEnabled"),
-    openAIDefaultModel: form.watch("openAIDefaultModel"),
+    defaultAIModel: form.watch("defaultAIModel"),
+    embeddingModel: form.watch("embeddingModel"),
+    disableLegacyMetricCreation: form.watch("disableLegacyMetricCreation"),
+    defaultFeatureRulesInAllEnvs: form.watch("defaultFeatureRulesInAllEnvs"),
+    preferredEnvironment: form.watch("preferredEnvironment") || "",
+    maxMetricSliceLevels: form.watch("maxMetricSliceLevels"),
+    savedGroupSizeLimit: form.watch("savedGroupSizeLimit"),
   };
   function updateCronString(cron?: string) {
     cron = cron || value.updateSchedule?.cron || "";
@@ -311,13 +329,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
     hasChanges(value, originalValue) || promptForm.formState.isDirty;
 
   const savePrompts = promptForm.handleSubmit(async (promptValues) => {
-    const formattedPrompts = Object.entries(promptValues).map(
-      ([key, value]) => ({
-        type: key,
-        prompt: value,
-      }),
-    );
-
+    const formattedPrompts = CUSTOMIZABLE_PROMPT_TYPES.map((type) => ({
+      type,
+      prompt: promptValues[type],
+      overrideModel: promptValues[`${type}-model`] || undefined,
+    }));
     await apiCall(`/ai/prompts`, {
       method: "POST",
       body: JSON.stringify({ prompts: formattedPrompts }),
@@ -336,6 +352,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       confidenceLevel: (value.confidenceLevel ?? 0.95) / 100,
       multipleExposureMinPercent:
         (value.multipleExposureMinPercent ?? 0.01) / 100,
+      preferredEnvironment: value.preferredEnvironment || null,
     };
 
     // Make sure the feature key example is valid
@@ -401,6 +418,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
             <TabsTrigger value="experiment">Experiment Settings</TabsTrigger>
             <TabsTrigger value="feature">Feature Settings</TabsTrigger>
             <TabsTrigger value="metrics">Metrics &amp; Data</TabsTrigger>
+            <TabsTrigger value="sdk">SDK Configuration</TabsTrigger>
             <TabsTrigger value="import">Import &amp; Export</TabsTrigger>
             <TabsTrigger value="custom">
               <PremiumTooltip commercialFeature="custom-markdown">
@@ -427,7 +445,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
             </TabsContent>
 
             <TabsContent value="feature">
-              <FeaturesSettings />
+              <FeatureSettings />
             </TabsContent>
 
             <TabsContent value="metrics">
@@ -472,6 +490,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
             <TabsContent value="ai">
               <AISettings promptForm={promptForm} />
             </TabsContent>
+            <TabsContent value="sdk">
+              <>
+                <SavedGroupSettings />
+              </>
+            </TabsContent>
           </Box>
         </Tabs>
       </Box>
@@ -505,7 +528,10 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 setSubmitError(null);
                 if (!ctaEnabled) return;
                 await saveSettings();
-                await savePrompts();
+                // Only save prompts if the prompt form has changes
+                if (promptForm.formState.isDirty) {
+                  await savePrompts();
+                }
               }}
               setError={setSubmitError}
             >

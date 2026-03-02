@@ -1,6 +1,11 @@
 import express from "express";
 import { wrapController } from "back-end/src/routers/wrapController";
+import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import { IS_CLOUD } from "back-end/src/util/secrets";
+import {
+  putDefaultRoleValidator,
+  putMemberProjectRoleValidator,
+} from "./organizations.validators";
 import * as organizationsControllerRaw from "./organizations.controller";
 
 const router = express.Router();
@@ -47,12 +52,22 @@ router.post("/member/:id/approve", organizationsController.postMemberApproval);
 router.delete("/member/:id", organizationsController.deleteMember);
 router.put("/member/:id/role", organizationsController.putMemberRole);
 router.put(
+  "/member/:id/project-role",
+  validateRequestMiddleware({
+    body: putMemberProjectRoleValidator,
+  }),
+  organizationsController.putMemberProjectRole,
+);
+router.put(
   "/member/:id/admin-password-reset",
   organizationsController.putAdminResetUserPassword,
 );
 router.put("/organization/license", organizationsController.putLicenseKey);
 router.put(
   "/organization/default-role",
+  validateRequestMiddleware({
+    body: putDefaultRoleValidator,
+  }),
   organizationsController.putDefaultRole,
 );
 router.put(
@@ -62,6 +77,10 @@ router.put(
 router.put(
   "/organization/setup-event-tracker",
   organizationsController.putSetupEventTracker,
+);
+router.get(
+  "/organization/feature-exp-usage",
+  organizationsController.getFeatureExpUsage,
 );
 
 // API keys

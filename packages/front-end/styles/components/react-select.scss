@@ -12,18 +12,26 @@
   min-width: 100% !important;
   width: max-content !important;
   background-color: var(--color-surface-solid) !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
+}
+.gb-select__menu-list,
+.gb-multi-select__menu-list {
+  padding: 8px !important;
 }
 
 .gb-multi-select__option,
 .gb-select__option {
   color: var(--text-color-main) !important;
   background-color: transparent !important;
+  border-radius: 4px !important;
 
   &--is-selected {
+    background-color: var(--gray-a3) !important;
   }
 
   &--is-focused {
-    background-color: var(--select-hover-background) !important;
+    background-color: var(--accent-a4) !important;
   }
 
   .disabled {
@@ -31,10 +39,31 @@
   }
 }
 
-.gb-multi-select__group,
-.gb-select__group {
+.gb-select__group,
+.gb-multi-select__group {
   padding-top: 0 !important;
   padding-bottom: 0 !important;
+
+  .gb-multi-select__group-heading,
+  .gb-select__group-heading {
+    margin-top: var(--space-4) !important;
+    margin-bottom: var(--space-2) !important;
+    padding-bottom: var(--space-1) !important;
+    margin-left: var(--space-3) !important;
+    margin-right: var(--space-3) !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    color: var(--color-text-low) !important;
+    border-bottom: 1px solid var(--gray-6) !important;
+    font-size: var(--font-size-1) !important;
+    text-transform: uppercase !important;
+  }
+  &:first-of-type {
+    .gb-multi-select__group-heading,
+    .gb-select__group-heading {
+      margin-top: var(--space-1) !important;
+    }
+  }
 }
 
 .gb-multi-select__input-container,
@@ -58,6 +87,158 @@
 .gb-multi-select__multi-value__label {
   // This one is dynamic. Style it in JS.
   font-weight: 600;
+}
+
+.gb-multi-select__multi-value__remove,
+.gb-select__multi-value__remove {
+  opacity: 0.25;
+  cursor: pointer;
+  transition:
+    opacity 0.15s ease,
+    background-color 0.15s ease;
+
+  &:hover {
+    opacity: 1;
+    background-color: var(--slate-a4) !important;
+    color: var(--slate-12) !important;
+  }
+}
+
+// Hide clear (X) and raw-text-mode buttons until the field is hovered
+.gb-multi-select__control,
+.gb-select__control {
+  .gb-multi-select__indicators,
+  .gb-select__indicators {
+    margin-left: -8px;
+    margin-right: 2px;
+    position: relative;
+  }
+  .gb-multi-select__clear-indicator,
+  .gb-select__clear-indicator,
+  .gb-multi-select__raw-text-mode-indicator,
+  .gb-select__raw-text-mode-indicator,
+  .gb-select__copy-button,
+  .gb-multi-select__copy-button {
+    opacity: 0 !important;
+    transition: opacity 0.1s ease-in-out;
+  }
+}
+.gb-multi-select__control:hover,
+.gb-select__control:hover {
+  .gb-multi-select__clear-indicator,
+  .gb-select__clear-indicator,
+  .gb-multi-select__raw-text-mode-indicator,
+  .gb-select__raw-text-mode-indicator,
+  .gb-select__copy-button,
+  .gb-multi-select__copy-button {
+    opacity: 1 !important;
+  }
+}
+
+.gb-multi-select__clear-indicator,
+.gb-select__clear-indicator,
+.gb-select__raw-text-mode-indicator,
+.gb-select__copy-button,
+.gb-multi-select__copy-button {
+  width: 22px;
+  height: 22px;
+  margin: 0 1px;
+  padding: 4px !important;
+  cursor: pointer;
+  border-radius: 16px !important;
+  background-color: transparent !important;
+  &:hover {
+    background-color: var(--gray-a3) !important;
+  }
+}
+.gb-select__dropdown-indicator,
+.gb-multi-select__dropdown-indicator {
+  padding: 4px !important;
+  margin-right: -4px;
+}
+
+// Raw text / token mode toggle button inside creatable multiselect (StringArrayField)
+.gb-select__raw-text-mode-indicator,
+.gb-select__copy-button,
+.gb-multi-select__copy-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: hsl(0, 0%, 80%);
+  cursor: pointer;
+  transition: color 0.15s ease;
+
+  &:hover {
+    color: hsl(0, 0%, 60%);
+  }
+
+  svg {
+    width: 14px;
+    height: 14px;
+    fill: currentColor;
+  }
+}
+
+.gb-select__control--is-focused .gb-select__raw-text-mode-indicator,
+.gb-multi-select__control--is-focused .gb-select__raw-text-mode-indicator,
+.gb-select__control--is-focused .gb-select__copy-button,
+.gb-multi-select__control--is-focused .gb-multi-select__copy-button {
+  color: hsl(0, 0%, 40%);
+  &:hover {
+    color: hsl(0, 0%, 20%);
+  }
+}
+
+// Raw text mode: value-container (textarea) + indicators (button) in one row
+.gb-select__raw-text-control {
+  display: flex;
+  align-items: stretch;
+  min-height: 38px;
+  border: 1px solid var(--border-color-200) !important;
+  border-radius: 0.25rem;
+
+  &:focus-within {
+    border-color: var(--border-color-200);
+    box-shadow: 0px 0px 0px 1px var(--violet-8);
+  }
+
+  .gb-select__raw-text-value-container {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    align-items: stretch;
+  }
+
+  .gb-select__raw-text-input {
+    width: 100%;
+    min-height: 38px;
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+
+    &:focus {
+      outline: none;
+      box-shadow: none !important;
+    }
+  }
+
+  .gb-select__indicators {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    padding-right: 4px;
+  }
+
+  .gb-select__indicators .gb-select__raw-text-mode-indicator {
+    opacity: 0 !important;
+    transition: opacity 0.1s ease-in-out;
+  }
+
+  &:hover .gb-select__indicators .gb-select__raw-text-mode-indicator {
+    opacity: 1 !important;
+  }
 }
 
 .gb-multi-select__menu-portal,

@@ -6,6 +6,7 @@ import {
   FaQuestionCircle,
 } from "react-icons/fa";
 import clsx from "clsx";
+import { isEqual } from "lodash";
 import { isBinomialMetric } from "shared/experiments";
 import {
   CreateMetricAnalysisProps,
@@ -13,15 +14,15 @@ import {
   MetricAnalysisPopulationType,
   MetricAnalysisResult,
   MetricAnalysisSettings,
-} from "back-end/types/metric-analysis";
-import { FactMetricInterface } from "back-end/types/fact-table";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+} from "shared/types/metric-analysis";
+import { FactMetricInterface } from "shared/types/fact-table";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import RunQueriesButton, {
   getQueryStatus,
 } from "@/components/Queries/RunQueriesButton";
 import useApi from "@/hooks/useApi";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/ui/Switch";
 import DateGraph from "@/components/Metrics/DateGraph";
 import HistogramGraph from "@/components/MetricAnalysis/HistogramGraph";
 import IdentifierChooser from "@/components/MetricAnalysis/IdentifierChooser";
@@ -43,7 +44,7 @@ import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton"
 import OutdatedBadge from "@/components/OutdatedBadge";
 import MetricAnalysisMoreMenu from "@/components/MetricAnalysis/MetricAnalysisMoreMenu";
 import track from "@/services/track";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import { getMetricAnalysisProps } from "@/components/MetricAnalysis/metric-analysis-props";
 import { useCurrency } from "@/hooks/useCurrency";
 
@@ -156,10 +157,11 @@ function settingsMatch(
 ) {
   // skip strict date checking
   const fieldsThatCanDiffer = ["startDate", "endDate"];
-  return Object.entries(settings).every(
-    ([key, value]) =>
-      desiredSettings[key] === value || fieldsThatCanDiffer.includes(key),
-  );
+  return Object.entries(settings).every(([key, value]) => {
+    return (
+      fieldsThatCanDiffer.includes(key) || isEqual(value, desiredSettings[key])
+    );
+  });
 }
 
 function isOutdated(
@@ -190,6 +192,8 @@ function getAnalysisSettingsForm(
     lookbackDays: settings?.lookbackDays ?? 30,
     populationType: settings?.populationType ?? "factTable",
     populationId: settings?.populationId ?? null,
+    additionalNumeratorFilters: settings?.additionalNumeratorFilters,
+    additionalDenominatorFilters: settings?.additionalDenominatorFilters,
   };
 }
 
@@ -201,6 +205,8 @@ export type MetricAnalysisFormFields = {
 
   populationType: MetricAnalysisPopulationType;
   populationId: string | null;
+  additionalNumeratorFilters?: string[];
+  additionalDenominatorFilters?: string[];
 };
 
 interface MetricAnalysisProps {
@@ -317,6 +323,11 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
           <Callout status="warning" mt="2" mb="2">
             Standalone metric analysis not available for quantile metrics.
           </Callout>
+        ) : factMetric.metricType === "dailyParticipation" ? (
+          <Callout status="warning" mt="2" mb="2">
+            Standalone metric analysis not yet available for daily participation
+            metrics.
+          </Callout>
         ) : (
           <>
             <div
@@ -383,13 +394,13 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
               <div className="col-auto form-inline pr-5">
                 <PopulationChooser
                   value={populationValue ?? "factTable"}
-                  setValue={(v) =>
+                  setValue={(v, populationId) => {
                     setValue(
                       "populationType",
                       v as MetricAnalysisPopulationType,
-                    )
-                  }
-                  setPopulationValue={(v) => setValue("populationId", v)}
+                    );
+                    setValue("populationId", populationId);
+                  }}
                   userIdType={watch("userIdType")}
                   datasourceId={factMetric.datasource}
                 />
@@ -642,17 +653,9 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                                 </div>
                                 <div className="col">
                                   <div className="float-right mr-2">
-                                    <label
-                                      className="small my-0 mr-2 text-right align-middle"
-                                      htmlFor="toggle-group-by-avg"
-                                    >
-                                      Smoothing
-                                      <br />
-                                      (7 day trailing)
-                                    </label>
-                                    <Toggle
+                                    <Switch
                                       value={smoothByAvg === "week"}
-                                      setValue={() =>
+                                      onChange={() =>
                                         setSmoothByAvg(
                                           smoothByAvg === "week"
                                             ? "day"
@@ -660,7 +663,8 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                                         )
                                       }
                                       id="toggle-group-by-avg"
-                                      className="align-middle"
+                                      label="Smoothing"
+                                      description="7 day trailing"
                                     />
                                   </div>
                                 </div>
@@ -731,17 +735,9 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                                 </div>
                                 <div className="col">
                                   <div className="float-right mr-2">
-                                    <label
-                                      className="small my-0 mr-2 text-right align-middle"
-                                      htmlFor="toggle-group-by-sum"
-                                    >
-                                      Smoothing
-                                      <br />
-                                      (7 day trailing)
-                                    </label>
-                                    <Toggle
+                                    <Switch
                                       value={smoothBySum === "week"}
-                                      setValue={() =>
+                                      onChange={() =>
                                         setSmoothBySum(
                                           smoothBySum === "week"
                                             ? "day"
@@ -749,7 +745,8 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                                         )
                                       }
                                       id="toggle-group-by-sum"
-                                      className="align-middle"
+                                      label="Smoothing"
+                                      description="7 day trailing"
                                     />
                                   </div>
                                 </div>

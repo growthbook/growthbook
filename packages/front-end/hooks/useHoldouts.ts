@@ -1,6 +1,6 @@
 import { useMemo } from "react";
-import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { HoldoutInterface } from "shared/validators";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import useApi from "./useApi";
 
 export function useHoldouts(
@@ -30,12 +30,18 @@ export function useHoldouts(
     [experiments],
   );
 
+  const experimentToHoldoutsMap = useMemo(
+    () => new Map(holdouts.map((h) => [h.experimentId, h])),
+    [holdouts],
+  );
+
   return {
     loading: !error && !data,
     holdouts: holdouts,
     holdoutsMap,
     experiments,
     experimentsMap,
+    experimentToHoldoutsMap,
     error: error,
     mutateHoldouts: mutate,
     hasArchived: data?.hasArchived || false,

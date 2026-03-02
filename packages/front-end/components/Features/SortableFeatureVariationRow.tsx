@@ -6,7 +6,7 @@ import {
   ExperimentValue,
   FeatureInterface,
   FeatureValueType,
-} from "back-end/types/feature";
+} from "shared/types/feature";
 import clsx from "clsx";
 import {
   decimalToPercent,
@@ -20,6 +20,7 @@ import {
 } from "@/services/features";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Field from "@/components/Forms/Field";
+import { FIVE_LINES_HEIGHT } from "@/components/Forms/CodeTextArea";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import FeatureValueField from "./FeatureValueField";
 import styles from "./VariationsInput.module.scss";
@@ -121,11 +122,14 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                 backgroundColor: getVariationColor(i, true),
               }}
             />
-            {i}
+            <span style={{ position: "relative", top: 6 }}>{i}</span>
           </td>
         )}
         {!hideValueField && (
-          <td key={`${variation.id}__${i}__1`}>
+          <td
+            key={`${variation.id}__${i}__1`}
+            style={valueType === "json" ? { minWidth: 300 } : undefined}
+          >
             {setVariations ? (
               <FeatureValueField
                 id={`value_${i}`}
@@ -142,6 +146,9 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                 valueType={valueType}
                 feature={feature}
                 renderJSONInline={false}
+                useCodeInput={true}
+                showFullscreenButton={true}
+                codeInputDefaultHeight={FIVE_LINES_HEIGHT}
               />
             ) : (
               <>{variation.value}</>
@@ -166,7 +173,9 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
               }}
             />
           ) : (
-            <strong>{variation.name || ""}</strong>
+            <strong style={{ position: "relative", top: 6 }}>
+              {variation.name || ""}
+            </strong>
           )}
         </td>
         {showDescription && (
@@ -186,7 +195,9 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                 minRows={1}
               />
             ) : (
-              <span>{variation.description || ""}</span>
+              <span style={{ position: "relative", top: 6 }}>
+                {variation.description || ""}
+              </span>
             )}
           </td>
         )}
@@ -225,7 +236,9 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                   </div>
                 ) : (
                   <div className="col d-flex flex-row">
-                    {decimalToPercent(weights[i])}%
+                    <span style={{ position: "relative", top: 6 }}>
+                      {decimalToPercent(weights[i])}%
+                    </span>
                   </div>
                 )}
               </>
@@ -234,11 +247,14 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
               setVariations &&
               !onlySafeToEditVariationMetadata && (
                 <div {...handle} title="Drag and drop to re-order rules">
-                  <FaArrowsAlt />
+                  <FaArrowsAlt style={{ position: "relative", top: 4 }} />
                 </div>
               )}
             {setVariations && !onlySafeToEditVariationMetadata && (
-              <div className="col-auto">
+              <div
+                className="col-auto"
+                style={{ position: "relative", top: 4 }}
+              >
                 <MoreMenu zIndex={1000000}>
                   <Tooltip
                     body="Experiments must have at least two variations"

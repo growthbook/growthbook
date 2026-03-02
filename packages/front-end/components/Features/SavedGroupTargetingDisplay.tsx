@@ -1,11 +1,17 @@
-import { SavedGroupTargeting } from "back-end/types/feature";
-import Link from "next/link";
+import { SavedGroupTargeting } from "shared/types/feature";
+import { Flex } from "@radix-ui/themes";
+import { PiArrowSquareOut } from "react-icons/pi";
+import { ReactNode } from "react";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import Badge from "@/ui/Badge";
+import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 
 export interface Props {
   savedGroups?: SavedGroupTargeting[];
   initialAnd?: boolean;
   groupClassName?: string;
+  prefix?: ReactNode;
 }
 
 function getDescription({ match, ids }: SavedGroupTargeting): string {
@@ -23,6 +29,7 @@ export default function SavedGroupTargetingDisplay({
   savedGroups,
   initialAnd = false,
   groupClassName = "",
+  prefix,
 }: Props) {
   const { getSavedGroupById } = useDefinitions();
 
@@ -30,31 +37,60 @@ export default function SavedGroupTargetingDisplay({
     <>
       {savedGroups?.map((s, i) => {
         return (
-          <div className={"d-flex " + groupClassName} key={"savedGroup-" + i}>
-            {i || initialAnd ? <div className="mr-1">AND</div> : null}
-            <div className="mr-1">{getDescription(s)}</div>
-            <div>
-              {s.ids.length > 1 && "( "}
+          <Flex
+            wrap="wrap"
+            gap="2"
+            className={i === 0 && prefix ? undefined : groupClassName}
+            key={"savedGroup-" + i}
+          >
+            {i === 0 && prefix}
+            {i || initialAnd ? <Text weight="medium">AND</Text> : null}
+            {getDescription(s)}
+            <Flex wrap="wrap" gap="2">
+              {s.ids.length > 1 && "("}
               {s.ids.map((id) => {
                 const group = getSavedGroupById(id);
-                const link =
-                  group?.type === "list"
-                    ? `/saved-groups/${group.id}`
-                    : "/saved-groups#conditionGroups";
+                if (!group) {
+                  return (
+                    <Badge key={id} color="gray" label={<Text>{id}</Text>} />
+                  );
+                }
                 return (
-                  <Link
-                    href={link}
+                  <Badge
                     key={id}
-                    className={`border px-2 bg-light rounded mr-1`}
-                    title="Manage Saved Group"
-                  >
-                    {group?.groupName || id}
-                  </Link>
+                    color="gray"
+                    label={
+                      <Link
+                        href={`/saved-groups/${group.id}`}
+                        title={`Manage Saved Group: ${group.groupName}`}
+                        target="_blank"
+                        color="violet"
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px",
+                          overflow: "hidden",
+                        }}
+                      >
+                        <span
+                          style={{
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            maxWidth: "400px",
+                          }}
+                        >
+                          {group.groupName}
+                        </span>
+                        <PiArrowSquareOut style={{ flexShrink: 0 }} />
+                      </Link>
+                    }
+                  />
                 );
               })}
               {s.ids.length > 1 && ")"}
-            </div>
-          </div>
+            </Flex>
+          </Flex>
         );
       })}
     </>

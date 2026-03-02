@@ -9,7 +9,7 @@ import {
 import {
   DataSourceInterfaceWithParams,
   SchemaFormat,
-} from "back-end/types/datasource";
+} from "shared/types/datasource";
 import { useForm } from "react-hook-form";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { FaExternalLinkAlt } from "react-icons/fa";
@@ -37,13 +37,13 @@ import useProjectOptions from "@/hooks/useProjectOptions";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import { DocLink } from "@/components/DocLink";
 import DataSourceTypeSelector from "@/components/Settings/DataSourceTypeSelector";
 import { isCloud } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import ManagedWarehouseModal from "@/components/InitialSetup/ManagedWarehouseModal";
-import Badge from "@/components/Radix/Badge";
+import Badge from "@/ui/Badge";
 import EventSourceList from "./EventSourceList";
 import ConnectionSettings from "./ConnectionSettings";
 
@@ -80,7 +80,7 @@ const NewDataSourceForm: FC<{
   } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
   const { apiCall, orgId } = useAuth();
-  const { hasCommercialFeature, license } = useUser();
+  const { license } = useUser();
   const gb = useGrowthBook();
 
   const settings = useOrgSettings();
@@ -112,9 +112,9 @@ const NewDataSourceForm: FC<{
   const showManagedWarehouse =
     isCloud() &&
     !datasources.some((d) => d.type === "growthbook_clickhouse") &&
-    (!hasCommercialFeature("managed-warehouse") ||
-      !!license?.orbSubscription) &&
+    (!license || !!license?.orbSubscription) &&
     gb.isOn("inbuilt-data-warehouse");
+
   const [managedWarehouseOpen, setManagedWarehouseOpen] = useState(false);
 
   // Form data for the schema options screen

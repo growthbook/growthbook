@@ -15,5 +15,5 @@
     "rootDir": "src",
     "resolveJsonModule": true
   },
-  "include": ["src/**/*", "typings.d.ts"]
+  "include": ["src/**/*", "typings.d.ts", "types", "types.js"]
 }

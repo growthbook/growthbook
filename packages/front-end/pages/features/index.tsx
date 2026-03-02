@@ -7,7 +7,7 @@ import {
   ComputedFeatureInterface,
   FeatureInterface,
   FeatureRule,
-} from "back-end/types/feature";
+} from "shared/types/feature";
 import { date, datetime } from "shared/dates";
 import {
   featureHasEnvironment,
@@ -41,17 +41,12 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
 import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from "@/components/Radix/Tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
-import Button from "@/components/Radix/Button";
-import Callout from "@/components/Radix/Callout";
-import LinkButton from "@/components/Radix/LinkButton";
+import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
+import LinkButton from "@/ui/LinkButton";
 import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import EmptyState from "@/components/EmptyState";
@@ -79,16 +74,18 @@ export default function FeaturesPage() {
   const showGraphs = useFeature("feature-list-realtime-graphs").on;
 
   const permissionsUtil = usePermissionsUtil();
-  const { project } = useDefinitions();
+  const { project, projects } = useDefinitions();
   const environments = useEnvironments();
   const {
     features: allFeatures,
-    experiments,
     loading,
     error,
     mutate,
     hasArchived,
-  } = useFeaturesList(true, showArchived);
+  } = useFeaturesList({
+    useCurrentProject: true,
+    includeArchived: showArchived,
+  });
   const { experiments: allExperiments } = useExperiments();
 
   const { usage, usageDomain } = useRealtimeData(
@@ -102,6 +99,8 @@ export default function FeaturesPage() {
       string,
       { stale: boolean; reason?: StaleFeatureReason }
     > = {};
+    const featuresMap = new Map(allFeatures.map((f) => [f.id, f]));
+    const experimentMap = new Map(allExperiments.map((e) => [e.id, e]));
     allFeatures.forEach((feature) => {
       const featureEnvironments = filterEnvironmentsByFeature(
         environments,
@@ -113,6 +112,8 @@ export default function FeaturesPage() {
         features: allFeatures,
         experiments: allExperiments,
         environments: envs,
+        featuresMap,
+        experimentMap,
       });
     });
     return staleFeatures;
@@ -256,14 +257,16 @@ export default function FeaturesPage() {
                       <SortedTags tags={feature?.tags || []} useFlex={true} />
                     </td>
                     {toggleEnvs.map((en) => (
-                      <td key={en.id} className="position-relative text-center">
-                        {featureHasEnvironment(feature, en) && (
-                          <EnvironmentToggle
-                            feature={feature}
-                            environment={en.id}
-                            mutate={mutate}
-                          />
-                        )}
+                      <td key={en.id}>
+                        <Flex align="center" justify="center">
+                          {featureHasEnvironment(feature, en) && (
+                            <EnvironmentToggle
+                              feature={feature}
+                              environment={en.id}
+                              mutate={mutate}
+                            />
+                          )}
+                        </Flex>
                       </td>
                     ))}
                     <td>
@@ -422,6 +425,41 @@ export default function FeaturesPage() {
     setShowArchived(isArchivedFilter);
   }, [syntaxFilters]);
 
+  const canViewFeatureModal = useMemo(() => {
+    // If a specific project is selected, check permissions for that project
+    if (project) {
+      return permissionsUtil.canViewFeatureModal(project);
+    }
+    if (projects?.length) {
+      // If "All Projects" is selected, check if user has permissions for at least one project
+
+      return projects.some((p) => permissionsUtil.canViewFeatureModal(p.id));
+    }
+    // No projects - fall back to global permission check (e.g. admin in new org)
+    return permissionsUtil.canViewFeatureModal();
+  }, [project, projects, permissionsUtil]);
+
+  const canCreateFeatures = useMemo(() => {
+    // If a specific project is selected, check permissions for that project
+    if (project) {
+      return permissionsUtil.canManageFeatureDrafts({ project });
+    }
+    if (projects?.length) {
+      // If "All Projects" is selected, check if user has permissions for at least one project
+
+      return projects.some(
+        (p) =>
+          permissionsUtil.canCreateFeature({ project: p.id }) &&
+          permissionsUtil.canManageFeatureDrafts({ project: p.id }),
+      );
+    }
+    // No projects - fall back to global permission check (e.g. admin in new org)
+    return (
+      permissionsUtil.canCreateFeature({ project: "" }) &&
+      permissionsUtil.canManageFeatureDrafts({ project: "" })
+    );
+  }, [project, projects, permissionsUtil]);
+
   if (error) {
     return (
       <div className="alert alert-danger">
@@ -461,10 +499,6 @@ export default function FeaturesPage() {
 
   const toggleEnvs = environments.filter((en) => en.toggleOnList);
 
-  const canCreateFeatures = permissionsUtil.canManageFeatureDrafts({
-    project,
-  });
-
   return (
     <div className="contents container pagecontents">
       {modalOpen && (
@@ -478,7 +512,6 @@ export default function FeaturesPage() {
             router.push(url);
             mutate({
               features: [...allFeatures, feature],
-              linkedExperiments: experiments,
               hasArchived,
             });
           }}
@@ -496,22 +529,20 @@ export default function FeaturesPage() {
         <div className="col">
           <h1>Features</h1>
         </div>
-        {!showSetUpFlow &&
-          permissionsUtil.canViewFeatureModal(project) &&
-          canCreateFeatures && (
-            <div className="col-auto">
-              <Button
-                onClick={() => {
-                  setModalOpen(true);
-                  track("Viewed Feature Modal", {
-                    source: "feature-list",
-                  });
-                }}
-              >
-                Add Feature
-              </Button>
-            </div>
-          )}
+        {!showSetUpFlow && canViewFeatureModal && canCreateFeatures && (
+          <div className="col-auto">
+            <Button
+              onClick={() => {
+                setModalOpen(true);
+                track("Viewed Feature Modal", {
+                  source: "feature-list",
+                });
+              }}
+            >
+              Add Feature
+            </Button>
+          </div>
+        )}
       </div>
       <div className="mt-3">
         <CustomMarkdown page={"featureList"} />
@@ -536,7 +567,7 @@ export default function FeaturesPage() {
                   Connect your SDK
                 </LinkButton>
               ) : (
-                permissionsUtil.canViewFeatureModal(project) &&
+                canViewFeatureModal &&
                 canCreateFeatures && (
                   <Button
                     onClick={() => {
@@ -571,7 +602,7 @@ export default function FeaturesPage() {
           </TabsContent>
 
           <TabsContent value="drafts">
-            <FeaturesDraftTable features={allFeatures} />
+            <FeaturesDraftTable />
           </TabsContent>
         </Tabs>
       )}

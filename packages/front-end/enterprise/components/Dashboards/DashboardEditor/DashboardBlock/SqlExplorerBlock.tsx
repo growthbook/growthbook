@@ -1,25 +1,110 @@
-import { SqlExplorerBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
-import { SqlExplorerDataVisualization } from "@/components/DataViz/SqlExplorerDataVisualization";
+import { Box, Flex } from "@radix-ui/themes";
+import {
+  blockHasFieldOfType,
+  isResultsTableItem,
+  SqlExplorerBlockInterface,
+} from "shared/enterprise";
+import { isString } from "shared/util";
+import { useMemo } from "react";
+import {
+  DataVisualizationDisplay,
+  SqlExplorerDataVisualization,
+} from "@/components/DataViz/SqlExplorerDataVisualization";
+import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import { BlockProps } from ".";
 
 export default function SqlExplorerBlock({
   block,
   savedQuery,
 }: BlockProps<SqlExplorerBlockInterface>) {
-  const { dataVizConfigIndex } = block;
+  // Generate a unique ID for this block's charts
+  const blockId = useMemo(() => {
+    if (blockHasFieldOfType(block, "id", isString) && block.id) {
+      return block.id;
+    }
+    return null;
+  }, [block]);
 
-  const dataVizConfig = savedQuery.dataVizConfig?.[dataVizConfigIndex];
-  if (!dataVizConfig) return null; // Warning state handled by parent component
+  // Backwards compatibility: Check if using the old dataVizConfigIndex approach
+  if (block.dataVizConfigIndex !== undefined) {
+    const dataVizConfig = savedQuery.dataVizConfig?.[block.dataVizConfigIndex];
+    if (!dataVizConfig) return null; // Warning state handled by parent component
+
+    return (
+      <div>
+        <SqlExplorerDataVisualization
+          rows={savedQuery.results.results}
+          dataVizConfig={dataVizConfig}
+          onDataVizConfigChange={() => {}}
+          showPanel={false}
+          graphTitle={""}
+        />
+      </div>
+    );
+  }
+
+  const blockConfig = block.blockConfig || [];
+
+  // Process blockConfig to render items in order
+  const renderItems = blockConfig.map((configId, index) => {
+    if (isResultsTableItem(configId)) {
+      // Render results table
+      return (
+        <div key={`${configId}-${index}`}>
+          <Box
+            style={{
+              height: 500,
+              position: "relative",
+              overflow: "auto",
+            }}
+          >
+            <DisplayTestQueryResults
+              duration={savedQuery.results?.duration || 0}
+              results={savedQuery.results?.results || []}
+              sql={savedQuery.results?.sql || ""}
+              error={savedQuery.results?.error || ""}
+              allowDownload={true}
+              showSampleHeader={false}
+              renderedSQLLabel="SQL"
+            />
+          </Box>
+        </div>
+      );
+    } else {
+      // Render visualization - try to find by ID first, then fallback to title
+      const dataVizConfig = savedQuery.dataVizConfig?.find(
+        (config) => config.id === configId || config.title === configId,
+      );
+      if (!dataVizConfig) return null;
+
+      return (
+        <Flex
+          key={`${configId}-${index}`}
+          py="5"
+          align="center"
+          justify="center"
+          style={{
+            border: "1px solid var(--gray-a3)",
+            borderRadius: "var(--radius-4)",
+          }}
+        >
+          <Box style={{ width: "100%", height: "100%" }}>
+            <DataVisualizationDisplay
+              rows={savedQuery.results.results}
+              dataVizConfig={dataVizConfig}
+              chartId={
+                blockId ? `sql-explorer-${blockId}-${configId}` : undefined
+              }
+            />
+          </Box>
+        </Flex>
+      );
+    }
+  });
 
   return (
-    <div>
-      <SqlExplorerDataVisualization
-        rows={savedQuery.results.results}
-        dataVizConfig={dataVizConfig}
-        onDataVizConfigChange={() => {}}
-        showPanel={false}
-        graphTitle={""}
-      />
-    </div>
+    <Flex direction="column" gap="4">
+      {renderItems}
+    </Flex>
   );
 }

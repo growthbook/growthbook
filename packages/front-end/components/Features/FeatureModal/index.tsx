@@ -3,7 +3,7 @@ import {
   FeatureEnvironment,
   FeatureInterface,
   FeatureValueType,
-} from "back-end/types/feature";
+} from "shared/types/feature";
 import React, { ReactElement, useState } from "react";
 import { validateFeatureValue } from "shared/util";
 import { PiInfo } from "react-icons/pi";
@@ -126,7 +126,9 @@ const genFormDefaultValues = ({
         tags: featureToDuplicate.tags,
         environmentSettings,
         customFields: customFieldValues,
-        holdout: featureToDuplicate.holdout,
+        holdout: featureToDuplicate.holdout?.id
+          ? featureToDuplicate.holdout
+          : undefined,
       }
     : {
         valueType: "" as FeatureValueType,
@@ -137,6 +139,7 @@ const genFormDefaultValues = ({
         tags: [],
         environmentSettings,
         customFields: customFieldValues,
+        holdout: undefined,
       };
 };
 
@@ -155,8 +158,9 @@ export default function FeatureModal({
   const { hasCommercialFeature } = useUser();
   const { requireProjectForFeatures } = useOrgSettings();
 
-  const customFields = filterCustomFieldsForSectionAndProject(
-    useCustomFields(),
+  const allCustomFields = useCustomFields();
+  const initialCustomFields = filterCustomFieldsForSectionAndProject(
+    allCustomFields,
     "feature",
     project,
   );
@@ -169,7 +173,7 @@ export default function FeatureModal({
     featureToDuplicate,
     project,
     customFields: hasCommercialFeature("custom-metadata")
-      ? customFields
+      ? initialCustomFields
       : undefined,
   });
 
@@ -182,6 +186,11 @@ export default function FeatureModal({
     project ? [project] : [],
   );
   const selectedProject = form.watch("project");
+  const customFields = filterCustomFieldsForSectionAndProject(
+    allCustomFields,
+    "feature",
+    selectedProject,
+  );
   const { projectId: demoProjectId } = useDemoDataSourceProject();
 
   const [showTags, setShowTags] = useState(!!featureToDuplicate?.tags?.length);
@@ -229,14 +238,14 @@ export default function FeatureModal({
       submit={form.handleSubmit(async (values) => {
         const { defaultValue, ...feature } = values;
         const valueType = feature.valueType;
-        const { holdout, ...featureWithoutHoldout } = feature;
+        const { holdout } = feature;
 
         if (!valueType) {
           throw new Error("Please select a value type");
         }
 
         const newDefaultValue = validateFeatureValue(
-          featureWithoutHoldout,
+          feature,
           defaultValue,
           "Value",
         );
@@ -255,13 +264,10 @@ export default function FeatureModal({
         const body = {
           ...feature,
           defaultValue: parseDefaultValue(defaultValue, valueType),
-          ...(holdout?.id &&
-            holdout.id !== "none" && {
-              holdout: {
-                id: holdout.id,
-                value: parseDefaultValue(defaultValue, valueType),
-              },
-            }),
+          holdout: {
+            id: holdout?.id ?? "",
+            value: parseDefaultValue(defaultValue, valueType),
+          },
         };
 
         const res = await apiCall<{ feature: FeatureInterface }>(`/feature`, {
@@ -362,10 +368,11 @@ export default function FeatureModal({
         {holdoutsEnabled && (
           <HoldoutSelect
             selectedProject={selectedProject}
-            selectedHoldoutId={form.watch("holdout")?.id ?? ""}
+            selectedHoldoutId={form.watch("holdout")?.id}
             setHoldout={(holdoutId) => {
               form.setValue("holdout", { id: holdoutId, value: "" });
             }}
+            formType="feature"
           />
         )}
 
@@ -380,6 +387,7 @@ export default function FeatureModal({
                 }}
                 currentCustomFields={form.watch("customFields") || {}}
                 section={"feature"}
+                project={selectedProject}
               />
             </div>
           )}
@@ -423,6 +431,8 @@ export default function FeatureModal({
             value={form.watch("defaultValue")}
             setValue={(v) => form.setValue("defaultValue", v)}
             valueType={valueType}
+            useCodeInput={true}
+            showFullscreenButton={true}
           />
         )}
 

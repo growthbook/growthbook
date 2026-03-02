@@ -44,7 +44,7 @@ for line in sys.stdin:
             'id': id,
             'results': results,
             'time': time.time() - start
-        }, allow_nan=False) + "\n")
+        }, allow_nan=True) + "\n")
         sys.stdout.flush()
     except Exception as e:
         sys.stdout.write(json.dumps({
@@ -53,5 +53,5 @@ for line in sys.stdin:
             # Include formatted stack trace
             'stack_trace': traceback.format_exc(),
             'time': time.time() - start
-        }, allow_nan=False) + "\n")
+        }, allow_nan=True) + "\n")
         sys.stdout.flush()

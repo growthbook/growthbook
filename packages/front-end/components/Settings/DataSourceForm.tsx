@@ -5,7 +5,8 @@ import {
   ChangeEventHandler,
   ReactElement,
 } from "react";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { dataSourceConnections } from "@/services/eventSchema";
 import Button from "@/components/Button";
 import SelectField from "@/components/Forms/SelectField";
@@ -21,6 +22,7 @@ import { ensureAndReturn } from "@/types/utils";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { useUser } from "@/services/UserContext";
 import EditSchemaOptions from "./EditSchemaOptions";
 
 const typeOptions = dataSourceConnections;
@@ -47,12 +49,18 @@ const DataSourceForm: FC<{
   secondaryCTA,
 }) => {
   const { projects } = useDefinitions();
+  const { organization } = useUser();
   const [dirty, setDirty] = useState(false);
   const [datasource, setDatasource] = useState<
     Partial<DataSourceInterfaceWithParams> | undefined
   >();
   const [hasError, setHasError] = useState(false);
   const permissionsUtil = usePermissionsUtil();
+
+  const isSampleData =
+    data.projects?.includes(
+      getDemoDatasourceProjectIdForOrganization(organization.id),
+    ) ?? false;
 
   const permissionRequired = (project: string) => {
     return existing
@@ -178,6 +186,12 @@ const DataSourceForm: FC<{
       cta={cta}
       size="lg"
       secondaryCTA={secondaryCTA}
+      ctaEnabled={!isSampleData}
+      disabledMessage={
+        isSampleData
+          ? "You cannot edit the sample data source connection."
+          : undefined
+      }
     >
       {importSampleData && !datasource.type && (
         <div className="alert alert-info">

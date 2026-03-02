@@ -1,15 +1,15 @@
-import { MaterializedColumn } from "back-end/types/datasource";
+import { MaterializedColumn } from "shared/types/datasource";
 import { cloneDeep } from "lodash";
 import { useForm } from "react-hook-form";
 import { useMemo, useState } from "react";
-import { JSONColumnFields } from "back-end/types/fact-table";
+import { JSONColumnFields } from "shared/types/fact-table";
 import { Flex, Text, Tooltip } from "@radix-ui/themes";
 import { PiArrowClockwise, PiSpinner } from "react-icons/pi";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 
 interface BaseProps {
   existingColumnNames: string[];
@@ -176,7 +176,10 @@ export default function AddMaterializedColumnsModal({
           if (contextJsonFields && value in contextJsonFields) {
             let datatype = contextJsonFields[value].datatype;
 
-            if (!["string", "number", "boolean"].includes(datatype)) {
+            if (
+              !datatype ||
+              !["string", "number", "boolean"].includes(datatype)
+            ) {
               datatype = "other";
             }
 

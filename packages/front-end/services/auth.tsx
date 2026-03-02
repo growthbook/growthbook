@@ -10,12 +10,12 @@ import { useRouter } from "next/router";
 import {
   MemberRoleInfo,
   OrganizationInterface,
-} from "back-end/types/organization";
+} from "shared/types/organization";
 import {
   IdTokenResponse,
   UnauthenticatedResponse,
-} from "back-end/types/sso-connection";
-import * as Sentry from "@sentry/nextjs";
+} from "shared/types/sso-connection";
+import { setUser as sentrySetUser } from "@sentry/nextjs";
 import { roleSupportsEnvLimit } from "shared/permissions";
 import Modal from "@/components/Modal";
 import { DocLink } from "@/components/DocLink";
@@ -485,7 +485,7 @@ export const AuthProvider: React.FC<{
           setSpecialOrg(null);
           setToken("");
           if (isSentryEnabled()) {
-            Sentry.setUser(null);
+            sentrySetUser(null);
           }
           await redirectWithTimeout(res.redirectURI || window.location.origin);
         },

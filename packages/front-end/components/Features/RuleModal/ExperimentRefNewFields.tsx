@@ -4,17 +4,20 @@ import {
   FeaturePrerequisite,
   FeatureRule,
   SavedGroupTargeting,
-} from "back-end/types/feature";
-import React from "react";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+} from "shared/types/feature";
+import React, { useMemo } from "react";
 import Collapsible from "react-collapsible";
-import { Flex, Tooltip, Text } from "@radix-ui/themes";
+import { Flex, Tooltip } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
 import { PiCaretRightFill } from "react-icons/pi";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import Field from "@/components/Forms/Field";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import SelectField from "@/components/Forms/SelectField";
+import SelectField, {
+  GroupedValue,
+  SingleValue,
+} from "@/components/Forms/SelectField";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
 import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
@@ -27,38 +30,39 @@ import {
 import useSDKConnections from "@/hooks/useSDKConnections";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
 import ConditionInput from "@/components/Features/ConditionInput";
-import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
+import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import ScheduleInputs from "@/components/Features/ScheduleInputs";
 import { SortableVariation } from "@/components/Features/SortableFeatureVariationRow";
-import Checkbox from "@/components/Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import { MetricsSelectorTooltip } from "@/components/Experiment/MetricsSelector";
+import CustomMetricSlicesSelector from "@/components/Experiment/CustomMetricSlicesSelector";
 import { useTemplates } from "@/hooks/useTemplates";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { convertTemplateToExperimentRule } from "@/services/experiments";
 import { useUser } from "@/services/UserContext";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 import {
   filterCustomFieldsForSectionAndProject,
   useCustomFields,
 } from "@/hooks/useCustomFields";
+import HelperText from "@/ui/HelperText";
+import { getExposureQuery } from "@/services/datasources";
+import Text from "@/ui/Text";
 
 export default function ExperimentRefNewFields({
   step,
   source,
   feature,
   project,
-  environment,
   environments,
   defaultValues,
-  revisions,
-  version,
   prerequisiteValue,
   setPrerequisiteValue,
   setPrerequisiteTargetingSdkIssues,
@@ -84,16 +88,14 @@ export default function ExperimentRefNewFields({
   orgStickyBucketing,
   setCustomFields,
   isTemplate = false,
+  holdoutHashAttribute,
 }: {
   step: number;
   source: "rule" | "experiment";
   feature?: FeatureInterface;
   project?: string;
-  environment?: string;
-  environments?: string[];
+  environments: string[];
   defaultValues?: FeatureRule | NewExperimentRefRule;
-  revisions?: FeatureRevisionInterface[];
-  version?: number;
   prerequisiteValue: FeaturePrerequisite[];
   setPrerequisiteValue: (prerequisites: FeaturePrerequisite[]) => void;
   setPrerequisiteTargetingSdkIssues: (b: boolean) => void;
@@ -119,6 +121,7 @@ export default function ExperimentRefNewFields({
   orgStickyBucketing?: boolean;
   setCustomFields?: (customFields: Record<string, string>) => void;
   isTemplate?: boolean;
+  holdoutHashAttribute?: string;
 }) {
   const form = useFormContext();
 
@@ -157,6 +160,82 @@ export default function ExperimentRefNewFields({
   const attributeSchema = useAttributeSchema(false, project);
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
+
+  const hashAttribute = form.watch("hashAttribute");
+
+  const hashAttributeToIdentifierTypeMap = useMemo(() => {
+    const attributeToIdentifierType = new Map<string, string[]>();
+    for (const userIdType of datasource?.settings?.userIdTypes ?? []) {
+      for (const attribute of userIdType.attributes ?? []) {
+        attributeToIdentifierType.set(attribute, [
+          ...(attributeToIdentifierType.get(attribute) ?? []),
+          userIdType.userIdType,
+        ]);
+      }
+    }
+    return attributeToIdentifierType;
+  }, [datasource?.settings?.userIdTypes]);
+
+  const groupedExposureQueries: (GroupedValue | SingleValue)[] = useMemo(() => {
+    const matchHashAttribute = exposureQueries?.filter((q) => {
+      return hashAttributeToIdentifierTypeMap
+        .get(hashAttribute)
+        ?.includes(q.userIdType);
+    });
+    const remainingExposureQueries = exposureQueries?.filter(
+      (q) => !matchHashAttribute?.includes(q),
+    );
+    if (hashAttributeToIdentifierTypeMap.size > 0) {
+      const matches =
+        matchHashAttribute && matchHashAttribute.length > 0
+          ? {
+              label: "Matches Hash Attribute",
+              options: matchHashAttribute.map((q) => {
+                return {
+                  label: q.name,
+                  value: q.id,
+                };
+              }),
+            }
+          : null;
+
+      const doesNotMatch =
+        remainingExposureQueries && remainingExposureQueries.length > 0
+          ? {
+              label: "Does Not Match Hash Attribute",
+              options: remainingExposureQueries.map((q) => {
+                return {
+                  label: q.name,
+                  value: q.id,
+                };
+              }),
+            }
+          : null;
+
+      return [matches, doesNotMatch].filter((x) => x !== null);
+    }
+    return (
+      remainingExposureQueries?.map((q) => {
+        return {
+          label: q.name,
+          value: q.id,
+        };
+      }) ?? []
+    );
+  }, [exposureQueries, hashAttributeToIdentifierTypeMap, hashAttribute]);
+
+  const getMatchingExposureQuery = (
+    attribute: string,
+    datasource: DataSourceInterfaceWithParams | null,
+  ) => {
+    const userIdType = datasource?.settings?.userIdTypes?.find((t) =>
+      t.attributes?.includes(attribute),
+    )?.userIdType;
+    if (userIdType) {
+      return getExposureQuery(datasource?.settings, "", userIdType)?.id ?? null;
+    }
+    return null;
+  };
 
   const { data: sdkConnectionsData } = useSDKConnections();
   const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
@@ -225,7 +304,7 @@ export default function ExperimentRefNewFields({
                   return (
                     <Flex as="div" align="baseline">
                       <Text>{value.label}</Text>
-                      <Text size="1" className="text-muted" ml="auto">
+                      <Text size="small" color="text-mid" ml="auto">
                         Created {date(t.dateCreated)}
                       </Text>
                     </Flex>
@@ -293,14 +372,26 @@ export default function ExperimentRefNewFields({
               options={attributeSchema
                 .filter((s) => !hasHashAttributes || s.hashAttribute)
                 .map((s) => ({ label: s.property, value: s.property }))}
-              value={form.watch("hashAttribute")}
+              value={hashAttribute}
               onChange={(v) => {
                 form.setValue("hashAttribute", v);
+                // Try and find a matching exposure query for the new hash attribute
+                const exposureQueryId = getMatchingExposureQuery(v, datasource);
+                if (exposureQueryId) {
+                  form.setValue("exposureQueryId", exposureQueryId);
+                }
               }}
               helpText={
                 "Will be hashed together with the Tracking Key to determine which variation to assign"
               }
             />
+            {!!holdoutHashAttribute &&
+              form.watch("hashAttribute") !== holdoutHashAttribute && (
+                <HelperText status="warning" size="sm" mb="4">
+                  The hash attribute of this experiment does not match the hash
+                  attribute of the holdout this experiment will belong to.
+                </HelperText>
+              )}
             <FallbackAttributeSelector
               form={form}
               attributeSchema={attributeSchema}
@@ -373,13 +464,11 @@ export default function ExperimentRefNewFields({
             project={project || ""}
           />
           <hr />
-          <PrerequisiteTargetingField
+          <PrerequisiteInput
             value={prerequisiteValue}
             setValue={setPrerequisiteValue}
             feature={feature}
-            revisions={revisions}
-            version={version}
-            environments={environment ? [environment] : (environments ?? [])}
+            environments={environments ?? []}
             setPrerequisiteTargetingSdkIssues={
               setPrerequisiteTargetingSdkIssues
             }
@@ -438,6 +527,15 @@ export default function ExperimentRefNewFields({
                 if (activationMetric && !isValidMetric(activationMetric)) {
                   form.setValue("activationMetric", "");
                 }
+
+                // Try and find a matching exposure query for the new datasource
+                const exposureQueryId = getMatchingExposureQuery(
+                  hashAttribute,
+                  getDatasourceById(newDatasource),
+                );
+                if (exposureQueryId) {
+                  form.setValue("exposureQueryId", exposureQueryId);
+                }
               }}
               options={datasources.map((d) => {
                 const isDefaultDataSource = d.id === settings.defaultDataSource;
@@ -463,12 +561,8 @@ export default function ExperimentRefNewFields({
                 value={form.watch("exposureQueryId") ?? ""}
                 onChange={(v) => form.setValue("exposureQueryId", v)}
                 required
-                options={exposureQueries?.map((q) => {
-                  return {
-                    label: q.name,
-                    value: q.id,
-                  };
-                })}
+                sort={false}
+                options={groupedExposureQueries}
                 formatOptionLabel={({ label, value }) => {
                   const userIdType = exposureQueries?.find(
                     (e) => e.id === value,
@@ -511,6 +605,16 @@ export default function ExperimentRefNewFields({
             collapseGuardrail={true}
           />
 
+          <CustomMetricSlicesSelector
+            goalMetrics={form.watch("goalMetrics") ?? []}
+            secondaryMetrics={form.watch("secondaryMetrics") ?? []}
+            guardrailMetrics={form.watch("guardrailMetrics") ?? []}
+            customMetricSlices={form.watch("customMetricSlices") ?? []}
+            setCustomMetricSlices={(slices) =>
+              form.setValue("customMetricSlices", slices)
+            }
+          />
+
           <hr className="mt-4" />
 
           <Collapsible
@@ -533,7 +637,10 @@ export default function ExperimentRefNewFields({
                   label={
                     <>
                       Activation Metric{" "}
-                      <MetricsSelectorTooltip onlyBinomial={true} />
+                      <MetricsSelectorTooltip
+                        onlyBinomial={true}
+                        isSingular={true}
+                      />
                     </>
                   }
                   initialOption="None"

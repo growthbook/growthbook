@@ -20,12 +20,17 @@ const env: EnvironmentInitValue = {
   storeSegmentsInMongo: false,
   allowCreateMetrics: true,
   allowCreateDimensions: true,
-  usingFileProxy: false,
   superadminDefaultRole: "readonly",
   ingestorOverride: "",
   stripePublishableKey: "",
   experimentRefreshFrequency: 6,
+  autoSliceUpdateFrequencyHours: 168, // Default: 7 days
   hasOpenAIKey: false,
+  hasAnthropicKey: false,
+  hasXaiKey: false,
+  hasMistralKey: false,
+  hasGoogleAIKey: false,
+  uploadMethod: "local",
 };
 
 export async function initEnv() {
@@ -105,9 +110,6 @@ export function isSentryEnabled() {
 export function storeSegmentsInMongo() {
   return env.storeSegmentsInMongo;
 }
-export function usingFileProxy() {
-  return env.usingFileProxy;
-}
 export function getSuperadminDefaultRole() {
   return env.superadminDefaultRole;
 }
@@ -122,6 +124,30 @@ export function hasOpenAIKey() {
   return env.hasOpenAIKey || false;
 }
 
+export function hasAnthropicKey() {
+  return env.hasAnthropicKey || false;
+}
+
+export function hasXaiKey() {
+  return env.hasXaiKey || false;
+}
+
+export function hasMistralKey() {
+  return env.hasMistralKey || false;
+}
+
+export function hasGoogleAIKey() {
+  return env.hasGoogleAIKey || false;
+}
+
 export function getExperimentRefreshFrequency() {
   return env.experimentRefreshFrequency;
+}
+
+export function getAutoSliceUpdateFrequencyHours() {
+  return env.autoSliceUpdateFrequencyHours;
+}
+
+export function getUploadMethod(): "local" | "s3" | "google-cloud" {
+  return env.uploadMethod;
 }

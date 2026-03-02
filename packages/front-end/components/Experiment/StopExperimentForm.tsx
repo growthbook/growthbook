@@ -1,10 +1,11 @@
-import { FC, useState } from "react";
+import { FC, useRef, useState } from "react";
 import {
   DecisionCriteriaData,
   ExperimentInterfaceStringDates,
   ExperimentResultStatusData,
   ExperimentResultsType,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
+import { computeAIUsageData } from "shared/ai";
 import { useForm } from "react-hook-form";
 import { experimentHasLinkedChanges } from "shared/util";
 import { datetime } from "shared/dates";
@@ -15,11 +16,11 @@ import track from "@/services/track";
 import SelectField from "@/components/Forms/SelectField";
 import Modal from "@/components/Modal";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
-import Toggle from "@/components/Forms/Toggle";
 import { DocLink } from "@/components/DocLink";
 import DatePicker from "@/components/DatePicker";
 import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
-import Callout from "@/components/Radix/Callout";
+import Checkbox from "@/ui/Checkbox";
+import Callout from "@/ui/Callout";
 import { AppFeatures } from "@/types/app-features";
 import { Results } from "./ResultsIndicator";
 
@@ -45,10 +46,15 @@ const StopExperimentForm: FC<{
   const hasLinkedChanges = experimentHasLinkedChanges(experiment);
 
   const gb = useGrowthBook<AppFeatures>();
+  const aiSuggestionRef = useRef<string | undefined>(undefined);
+
   const aiSuggestFunction = gb.isOn(
     "ai-suggestions-for-experiment-analysis-input",
   )
-    ? async () => {
+    ? async (): Promise<string> => {
+        // Only evaluate the feature flag if suggestion is requested
+        const aiTemperature =
+          gb.getFeatureValue("ai-suggestions-temperature", 0.1) || 0.1;
         const response = await apiCall<{
           status: number;
           data: {
@@ -62,6 +68,7 @@ const StopExperimentForm: FC<{
               results: form.watch("results"),
               winner: form.watch("winner"),
               releasedVariationId: form.watch("releasedVariationId"),
+              temperature: aiTemperature,
             }),
           },
           (responseData) => {
@@ -72,6 +79,8 @@ const StopExperimentForm: FC<{
               throw new Error(
                 `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`,
               );
+            } else if (responseData.message) {
+              throw new Error(responseData.message);
             } else {
               throw new Error("Error getting AI suggestion");
             }
@@ -194,11 +203,15 @@ const StopExperimentForm: FC<{
       },
     );
 
-    if (!isStopped) {
-      track("Stop Experiment", {
-        result: value.results,
-      });
-    }
+    const aiUsageData = computeAIUsageData({
+      value: value.analysis,
+      aiSuggestionText: aiSuggestionRef.current,
+    });
+    track("Stop Experiment", {
+      result: value.results,
+      isStopped,
+      aiUsageData,
+    });
 
     mutate();
   });
@@ -318,17 +331,14 @@ const StopExperimentForm: FC<{
           <>
             <div className="row">
               <div className="form-group col">
-                <label>Enable Temporary Rollout</label>
-
-                <div>
-                  <Toggle
-                    id="excludeFromPayload"
-                    value={!form.watch("excludeFromPayload")}
-                    setValue={(includeInPayload) => {
-                      form.setValue("excludeFromPayload", !includeInPayload);
-                    }}
-                  />
-                </div>
+                <Checkbox
+                  id="excludeFromPayload"
+                  label="Enable Temporary Rollout"
+                  value={!form.watch("excludeFromPayload")}
+                  setValue={(includeInPayload) => {
+                    form.setValue("excludeFromPayload", !includeInPayload);
+                  }}
+                />
 
                 <small className="form-text text-muted">
                   Keep the {isBandit ? "Bandit" : "Experiment"} running until
@@ -393,6 +403,10 @@ const StopExperimentForm: FC<{
               aiSuggestFunction={aiSuggestFunction}
               aiButtonText="Generate Analysis"
               aiSuggestionHeader="Suggested Summary"
+              trackingSource="stop-experiment"
+              onAISuggestionReceived={(result) => {
+                aiSuggestionRef.current = result;
+              }}
               onOptInModalClose={() => {
                 setShowModal(true);
               }}

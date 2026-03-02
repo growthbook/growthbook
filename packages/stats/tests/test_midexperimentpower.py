@@ -6,7 +6,7 @@ import numpy as np
 from scipy.stats import norm
 import copy
 
-from gbstats.models.tests import BaseConfig
+from gbstats.models.tests import BaseConfig, EffectMoments, EffectMomentsConfig
 
 from gbstats.frequentist.tests import (
     FrequentistConfig,
@@ -63,25 +63,37 @@ class TestMidExperimentPower(TestCase):
         self.stat_b = SampleMeanStatistic(
             n=500, sum=525.0000000000008, sum_squares=1551.2499999999998
         )
-        self.res_freq = TwoSidedTTest(
+        self.effect_moments = EffectMoments(
+            [(self.stat_a, self.stat_b)],
+            EffectMomentsConfig(difference_type="relative"),
+        )
+        self.test_freq = TwoSidedTTest(
             [(self.stat_a, self.stat_b)], FrequentistConfig(alpha=self.alpha)
-        ).compute_result()
-        self.res_seq = SequentialTwoSidedTTest(
+        )
+        self.test_seq = SequentialTwoSidedTTest(
             [(self.stat_a, self.stat_b)], SequentialConfig(alpha=self.alpha)
-        ).compute_result()
-        self.res_bayes = EffectBayesianABTest(
+        )
+        self.test_bayes = EffectBayesianABTest(
             [(self.stat_a, self.stat_b)],
             EffectBayesianConfig(prior_effect=self.prior_effect, alpha=self.alpha),
-        ).compute_result()
+        )
+        self.res_freq = self.test_freq.compute_result()
+        self.res_seq = self.test_seq.compute_result()
+        self.res_bayes = self.test_bayes.compute_result()
         self.m_freq = MidExperimentPower(
-            self.stat_a, self.stat_b, self.res_freq, self.config, self.power_config_freq
+            self.test_freq.moments_result,
+            self.res_freq,
+            self.config,
+            self.power_config_freq,
         )
         self.m_seq = MidExperimentPower(
-            self.stat_a, self.stat_b, self.res_seq, self.config, self.power_config_seq
+            self.test_seq.moments_result,
+            self.res_seq,
+            self.config,
+            self.power_config_seq,
         )
         self.m_bayes = MidExperimentPower(
-            self.stat_a,
-            self.stat_b,
+            self.test_bayes.moments_result,
             self.res_bayes,
             self.config,
             self.power_config_bayes,

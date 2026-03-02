@@ -1,8 +1,8 @@
+import { SegmentInterface } from "shared/types/segment";
+import { UpdateSegmentResponse } from "shared/types/openapi";
+import { updateSegmentValidator } from "shared/validators";
 import { toSegmentApiInterface } from "back-end/src/services/segments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { UpdateSegmentResponse } from "back-end/types/openapi";
-import { updateSegmentValidator } from "back-end/src/validators/openapi";
-import { SegmentInterface } from "back-end/types/segment";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getFactTable } from "back-end/src/models/FactTableModel";
 

@@ -1,20 +1,25 @@
 import { omit } from "lodash";
-import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
+import {
+  DEFAULT_PROPER_PRIOR_STDDEV,
+  DEFAULT_TARGET_MDE,
+} from "shared/constants";
 import {
   getAggregateFilters,
   getSelectedColumnDatatype,
 } from "shared/experiments";
+import { UpdateProps } from "shared/types/base-model";
+import { factMetricValidator } from "shared/validators";
 import {
   ColumnRef,
   FactMetricInterface,
   FactMetricType,
   FactTableInterface,
+  LegacyColumnRef,
   LegacyFactMetricInterface,
-} from "back-end/types/fact-table";
-import { ApiFactMetric } from "back-end/types/openapi";
-import { factMetricValidator } from "back-end/src/routers/fact-table/fact-table.validators";
+} from "shared/types/fact-table";
+import { ApiFactMetric } from "shared/types/openapi";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "back-end/src/util/secrets";
-import { UpdateProps } from "back-end/types/models";
+import { promiseAllChunks } from "back-end/src/util/promise";
 import { MakeModelClass } from "./BaseModel";
 import { getFactTableMap } from "./FactTableModel";
 
@@ -30,6 +35,10 @@ const BaseClass = MakeModelClass({
   },
   globallyUniqueIds: false,
   readonlyFields: ["datasource"],
+  defaultValues: {
+    owner: "",
+    tags: [],
+  },
 });
 
 // extra checks on user filter
@@ -49,10 +58,14 @@ function validateUserFilter({
     );
   }
 
-  // error if metric type is not retention or proportion
-  if (metricType !== "retention" && metricType !== "proportion") {
+  // error if metric type is not retention, proportion, or ratio
+  if (
+    metricType !== "retention" &&
+    metricType !== "proportion" &&
+    metricType !== "ratio"
+  ) {
     throw new Error(
-      `Aggregate filter is only supported for retention and proportion metrics.`,
+      `Aggregate filter is only supported for retention, proportion, and ratio metrics.`,
     );
   }
 
@@ -78,6 +91,19 @@ function validateUserFilter({
       column: numerator.aggregateFilterColumn,
       ignoreInvalid: false,
     });
+  }
+}
+
+function denominatorRequiredByMetricType(metricType: FactMetricType): boolean {
+  switch (metricType) {
+    case "mean":
+    case "dailyParticipation":
+    case "quantile":
+    case "retention":
+    case "proportion":
+      return false;
+    case "ratio":
+      return true;
   }
 }
 
@@ -137,7 +163,55 @@ export class FactMetricModel extends BaseClass {
       };
     }
 
+    if (newDoc.numerator) {
+      newDoc.numerator = FactMetricModel.migrateColumnRef(newDoc.numerator);
+    }
+
+    // Clean up orphaned denominators that should not exist
+    if (!denominatorRequiredByMetricType(newDoc.metricType)) {
+      newDoc.denominator = null;
+    }
+
+    if (newDoc.denominator) {
+      newDoc.denominator = FactMetricModel.migrateColumnRef(newDoc.denominator);
+    }
+
     return newDoc as FactMetricInterface;
+  }
+
+  public static migrateColumnRef(columnRef: LegacyColumnRef): ColumnRef {
+    const { filters, inlineFilters, ...newColumnRef } = columnRef;
+
+    // If row filters are already defined, do nothing
+    if (newColumnRef.rowFilters !== undefined) {
+      return newColumnRef;
+    }
+
+    newColumnRef.rowFilters = [];
+
+    if (filters) {
+      for (const f of filters) {
+        newColumnRef.rowFilters.push({
+          operator: "saved_filter",
+          values: [f],
+        });
+      }
+    }
+
+    if (inlineFilters) {
+      for (const [column, values] of Object.entries(inlineFilters)) {
+        const filteredValues = values.filter((v) => !!v);
+        if (filteredValues.length === 0) continue;
+
+        newColumnRef.rowFilters.push({
+          operator: filteredValues.length > 1 ? "in" : "=",
+          column,
+          values: filteredValues,
+        });
+      }
+    }
+
+    return newColumnRef;
   }
 
   protected migrate(legacyDoc: unknown): FactMetricInterface {
@@ -152,18 +226,43 @@ export class FactMetricModel extends BaseClass {
         "Fact metric ids MUST start with 'fact__' and contain only letters, numbers, underscores, and dashes",
       );
     }
+
+    if (doc.managedBy === "api" && !this.context.isApiRequest) {
+      throw new Error(
+        "Cannot create fact metric managed by API if the request isn't from the API.",
+      );
+    }
+
+    if (
+      doc.managedBy === "admin" &&
+      !this.context.hasPremiumFeature("manage-official-resources")
+    ) {
+      throw new Error(
+        "Your organization's plan does not support creating official fact metrics.",
+      );
+    }
   }
 
   protected async beforeUpdate(existing: FactMetricInterface) {
+    // Check the admin permission here?
     if (existing.managedBy === "api" && !this.context.isApiRequest) {
-      throw new Error("Cannot update fact metric managed by API");
+      throw new Error(
+        "Cannot update fact metric managed by API if the request isn't from the API.",
+      );
     }
   }
 
   protected async beforeDelete(existing: FactMetricInterface) {
+    // Check the admin permission here?
     if (existing.managedBy === "api" && !this.context.isApiRequest) {
-      throw new Error("Cannot delete fact metric managed by API");
+      throw new Error(
+        "Cannot delete fact metric managed by API if the request isn't from the API.",
+      );
     }
+  }
+
+  protected async afterDelete(doc: FactMetricInterface) {
+    await this.context.models.metricGroups.removeMetricFromAllGroups(doc.id);
   }
 
   // TODO: Once we migrate fact tables to new data model, we can use that instead
@@ -183,11 +282,31 @@ export class FactMetricModel extends BaseClass {
       throw new Error("Could not find numerator fact table");
     }
 
-    if (data.numerator.filters?.length) {
-      for (const filter of data.numerator.filters) {
-        if (!numeratorFactTable.filters.some((f) => f.id === filter)) {
-          throw new Error(`Invalid numerator filter id: ${filter}`);
+    if (data.numerator.rowFilters?.length) {
+      for (const filter of data.numerator.rowFilters) {
+        const filterId = filter.values?.[0];
+        if (
+          filter.operator === "saved_filter" &&
+          filterId &&
+          !numeratorFactTable.filters.some((f) => f.id === filterId)
+        ) {
+          throw new Error(`Invalid numerator filter id: ${filterId}`);
         }
+      }
+    }
+
+    // validate column
+    const metricSupportsDistinctDates =
+      data.metricType === "mean" ||
+      data.metricType === "ratio" ||
+      data.metricType === "dailyParticipation" ||
+      (data.metricType === "quantile" &&
+        data.quantileSettings?.type === "unit");
+    if (data.numerator.column === "$$distinctDates") {
+      if (!metricSupportsDistinctDates) {
+        throw new Error(
+          "$$distinctDates is only supported for mean, ratio, daily participation, and quantile metrics",
+        );
       }
     }
 
@@ -220,10 +339,15 @@ export class FactMetricModel extends BaseClass {
           );
         }
 
-        if (data.denominator.filters?.length) {
-          for (const filter of data.denominator.filters) {
-            if (!denominatorFactTable.filters.some((f) => f.id === filter)) {
-              throw new Error(`Invalid denominator filter id: ${filter}`);
+        if (data.denominator.rowFilters?.length) {
+          for (const filter of data.denominator.rowFilters) {
+            const filterId = filter.values?.[0];
+            if (
+              filter.operator === "saved_filter" &&
+              filterId &&
+              !denominatorFactTable.filters.some((f) => f.id === filterId)
+            ) {
+              throw new Error(`Invalid denominator filter id: ${filterId}`);
             }
           }
         }
@@ -242,7 +366,8 @@ export class FactMetricModel extends BaseClass {
     }
     if (
       data.metricType === "retention" &&
-      !this.context.hasPremiumFeature("retention-metrics")
+      !this.context.hasPremiumFeature("retention-metrics") &&
+      data.id !== "fact__demo-d7-purchase-retention" // Allows demo retention metric to be created without premium feature
     ) {
       throw new Error("Retention metrics are a premium feature");
     }
@@ -259,6 +384,44 @@ export class FactMetricModel extends BaseClass {
     }
   }
 
+  public async deleteAllFactMetricsForAProject(projectId: string) {
+    const factMetrics = await this._find({
+      projects: [projectId],
+    });
+    await promiseAllChunks(
+      factMetrics.map(
+        (factMetric) => async () => await this.delete(factMetric),
+      ),
+      5,
+    );
+  }
+
+  public static addLegacyFiltersToColumnRef(
+    columnRef: ColumnRef,
+  ): LegacyColumnRef {
+    const newColumnRef: LegacyColumnRef = {
+      ...columnRef,
+      filters: [],
+      inlineFilters: {},
+    };
+
+    newColumnRef.rowFilters?.forEach((rf) => {
+      if (rf.operator === "saved_filter") {
+        newColumnRef.filters?.push(rf.values?.[0] || "");
+      } else if (rf.operator === "=" || rf.operator === "in") {
+        newColumnRef.inlineFilters = newColumnRef.inlineFilters || {};
+        newColumnRef.inlineFilters[rf.column || ""] = rf.values || [];
+      } else if (rf.operator === "is_true" || rf.operator === "is_false") {
+        newColumnRef.inlineFilters = newColumnRef.inlineFilters || {};
+        newColumnRef.inlineFilters[rf.column || ""] = [
+          rf.operator === "is_true" ? "true" : "false",
+        ];
+      }
+    });
+
+    return newColumnRef;
+  }
+
   public toApiInterface(factMetric: FactMetricInterface): ApiFactMetric {
     const {
       quantileSettings,
@@ -269,10 +432,12 @@ export class FactMetricModel extends BaseClass {
       regressionAdjustmentOverride,
       dateCreated,
       dateUpdated,
+      numerator,
       denominator,
       metricType,
       loseRisk,
       winRisk,
+      targetMDE,
       ...otherFields
     } = omit(factMetric, ["organization"]);
 
@@ -280,6 +445,7 @@ export class FactMetricModel extends BaseClass {
       ...otherFields,
       riskThresholdDanger: loseRisk,
       riskThresholdSuccess: winRisk,
+      targetMDE: targetMDE || DEFAULT_TARGET_MDE,
       metricType: metricType,
       quantileSettings: quantileSettings || undefined,
       cappingSettings: {
@@ -291,7 +457,10 @@ export class FactMetricModel extends BaseClass {
         type: windowSettings.type || "none",
       },
       managedBy: factMetric.managedBy || "",
-      denominator: denominator || undefined,
+      numerator: FactMetricModel.addLegacyFiltersToColumnRef(numerator),
+      denominator: denominator
+        ? FactMetricModel.addLegacyFiltersToColumnRef(denominator)
+        : undefined,
       regressionAdjustmentSettings: {
         override: regressionAdjustmentOverride || false,
         ...(regressionAdjustmentOverride

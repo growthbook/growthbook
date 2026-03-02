@@ -1,9 +1,9 @@
 import React, { FC, useEffect, useMemo, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useRouter } from "next/router";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import { OrganizationSettings } from "back-end/types/organization";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { OrganizationSettings } from "shared/types/organization";
 import {
   isProjectListValidForProject,
   validateAndFixCondition,
@@ -11,11 +11,11 @@ import {
 import { getScopedSettings } from "shared/settings";
 import { generateTrackingKey } from "shared/experiments";
 import { kebabCase } from "lodash";
-import { Tooltip, Text, Box } from "@radix-ui/themes";
+import { Tooltip, Text } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
 import { PiArrowSquareOutFill, PiCaretRightFill } from "react-icons/pi";
-import { FeatureEnvironment } from "back-end/types/feature";
-import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
+import { FeatureEnvironment } from "shared/types/feature";
+import { HoldoutInterfaceStringDates } from "shared/validators";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -43,19 +43,19 @@ import { useExperiments } from "@/hooks/useExperiments";
 import { decimalToPercent, percentToDecimal } from "@/services/utils";
 import variationInputStyles from "@/components/Features/VariationsInput.module.scss";
 import useSDKConnections from "@/hooks/useSDKConnections";
-import Link from "@/components/Radix/Link";
-import Callout from "@/components/Radix/Callout";
-import ExperimentMetricsSelector from "../Experiment/ExperimentMetricsSelector";
-import StatsEngineSelect from "../Settings/forms/StatsEngineSelect";
-import EnvironmentSelect from "../Features/FeatureModal/EnvironmentSelect";
-import MultiSelectField from "../Forms/MultiSelectField";
+import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
+import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
+import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
+import EnvironmentSelect from "@/components/Features/FeatureModal/EnvironmentSelect";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
 
 export type NewHoldoutFormProps = {
   initialStep?: number;
-  initialHoldout?: Partial<HoldoutInterface>;
+  initialHoldout?: Partial<HoldoutInterfaceStringDates>;
   initialExperiment?: Partial<ExperimentInterfaceStringDates>;
   includeDescription?: boolean;
   duplicate?: boolean;
@@ -176,6 +176,9 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
     mustMatchAllConnections: true,
     project,
   }).includes("prerequisites");
+  const hasSDKWithRemoteEval = (sdkConnectionsData?.connections || []).some(
+    (c) => c.remoteEvalEnabled,
+  );
 
   const [conditionKey, forceConditionRender] = useIncrementer();
 
@@ -194,7 +197,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
         ExperimentInterfaceStringDates,
         "id" | "linkedFeatures" | "linkedExperiments"
       > &
-        HoldoutInterface
+        HoldoutInterfaceStringDates
     >
   >({
     defaultValues: {
@@ -216,7 +219,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
           coverage: initialExperiment?.phases?.[0]?.coverage || 0.1,
           dateStarted: new Date().toISOString().substr(0, 16),
           dateEnded: new Date().toISOString().substr(0, 16),
-          name: "Full Holdout",
+          name: "Holdout",
           reason: "",
           variationWeights: [0.5, 0.5],
           savedGroups: initialExperiment?.phases?.[0]?.savedGroups || [],
@@ -287,7 +290,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
 
     const res = await apiCall<{
       experiment: ExperimentInterfaceStringDates;
-      holdout: HoldoutInterface;
+      holdout: HoldoutInterfaceStringDates;
     }>("/holdout", {
       method: "POST",
       body,
@@ -345,21 +348,27 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
 
   const prerequisiteAlert = hasSDKWithNoPrerequisites ? (
     <Callout status={hasSDKWithPrerequisites ? "warning" : "error"} mb="4">
-      <Box as="span" pr="1">
-        {hasSDKWithNoPrerequisites
-          ? "Some of your SDK Connections in this Project may not support Prerequisite evaluation, which is mandatory for Holdouts."
-          : "None of your SDK Connections in this Project support Prerequisite evaluation, which is mandatory for Holdouts. Either upgrade your SDKs or add a supported SDK."}
-        <Link
-          href={"/sdks"}
-          weight="bold"
-          className="pl-2"
-          rel="noreferrer"
-          target="_blank"
-        >
-          View SDKs
-          <PiArrowSquareOutFill className="ml-1" />
-        </Link>
-      </Box>
+      {hasSDKWithPrerequisites
+        ? "Some of your SDK Connections in this project may not support Prerequisite evaluation, which is mandatory for Holdouts."
+        : "None of your SDK Connections in this project support Prerequisite evaluation, which is mandatory for Holdouts. Either upgrade your SDKs or add a supported SDK."}
+      <Link
+        href={"/sdks"}
+        weight="bold"
+        className="pl-2"
+        rel="noreferrer"
+        target="_blank"
+      >
+        View SDKs
+        <PiArrowSquareOutFill className="ml-1" />
+      </Link>
+    </Callout>
+  ) : null;
+
+  const remoteEvalAlert = hasSDKWithRemoteEval ? (
+    <Callout status="info" mb="4">
+      When using a Remote Evaluated SDK Connection with Holdouts, you must use a
+      compatible version of <strong>GrowthBook Proxy</strong> (1.2.8+) or the{" "}
+      <strong>remote evaluation library</strong> (1.1.0+).
     </Callout>
   ) : null;
 
@@ -370,7 +379,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
         trackingEventModalSource={source}
         header={header}
         close={onClose}
-        docSection="experimentConfiguration"
+        docSection="holdouts"
         submit={onSubmit}
         cta="Save"
         ctaEnabled={hasSDKWithPrerequisites}
@@ -394,6 +403,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
             )}
 
             {prerequisiteAlert}
+            {remoteEvalAlert}
 
             <Field
               label={"Holdout Name"}
@@ -512,14 +522,14 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                 </Text>
               </Text>
               <div
-                className={`position-relative ${variationInputStyles.percentInputWrap}`}
+                className={`position-relative ${variationInputStyles.percentInputWrap} ${variationInputStyles.hideArrows}`}
                 style={{ width: 110 }}
               >
                 <Field
-                  style={{ width: 105 }}
+                  style={{ width: 95 }}
                   value={
                     isNaN(form.watch("phases.0.coverage") ?? 0)
-                      ? "5"
+                      ? ""
                       : decimalToPercent(
                           (form.watch("phases.0.coverage") ?? 0) / 2,
                         )
@@ -533,7 +543,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                   type="number"
                   min={0}
                   max={100}
-                  step="1"
+                  step="0.01"
                 />
                 <span>%</span>
               </div>
@@ -542,7 +552,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
         </Page>
 
         <Page display="Targeting">
-          <div className="px-2">
+          <div>
             {prerequisiteAlert}
 
             <SavedGroupTargetingField
@@ -670,28 +680,6 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
               transitionTime={100}
             >
               <div className="rounded px-3 pt-3 pb-1 bg-highlight">
-                {/* {!!datasource && (
-                <MetricSelector
-                  datasource={form.watch("datasource")}
-                  exposureQueryId={exposureQueryId}
-                  project={project}
-                  includeFacts={true}
-                  labelClassName="font-weight-bold"
-                  label={
-                    <>
-                      Activation Metric{" "}
-                      <MetricsSelectorTooltip onlyBinomial={true} />
-                    </>
-                  }
-                  initialOption="None"
-                  onlyBinomial
-                  value={form.watch("activationMetric") || ""}
-                  onChange={(value) =>
-                    form.setValue("activationMetric", value || "")
-                  }
-                  helpText="Users must convert on this metric before being included"
-                />
-              )} */}
                 <StatsEngineSelect
                   className="mb-4"
                   label={<div>Statistics Engine</div>}

@@ -1,9 +1,11 @@
 import type { Response } from "express";
+import { SDKAttribute } from "shared/types/organization";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { SDKAttribute } from "back-end/types/organization";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
+import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
+import { ReqContext } from "back-end/types/request";
 
 export const postAttribute = async (
   req: AuthRequest<SDKAttribute>,
@@ -18,6 +20,7 @@ export const postAttribute = async (
     enum: enumValue,
     hashAttribute,
     disableEqualityConditions,
+    tags = [],
   } = req.body;
   const context = getContextFromReq(req);
 
@@ -29,7 +32,11 @@ export const postAttribute = async (
   const attributeSchema = org.settings?.attributeSchema || [];
 
   if (attributeSchema.some((a) => a.property === property)) {
-    throw new Error("An attribute with that name already exists");
+    context.throwBadRequestError("An attribute with that name already exists");
+  }
+
+  if (tags.length > 0) {
+    await addTags(org.id, tags);
   }
 
   const newAttribute: SDKAttribute = {
@@ -41,6 +48,7 @@ export const postAttribute = async (
     enum: enumValue,
     hashAttribute,
     disableEqualityConditions,
+    tags: tags.length > 0 ? tags : undefined,
   };
 
   await updateOrganization(org.id, {
@@ -85,6 +93,7 @@ export const putAttribute = async (
     archived,
     disableEqualityConditions,
     previousName,
+    tags,
   } = req.body;
   const context = getContextFromReq(req);
   const { org } = context;
@@ -97,7 +106,7 @@ export const putAttribute = async (
   );
 
   if (index === -1) {
-    throw new Error("Attribute not found");
+    context.throwNotFoundError("Attribute not found");
   }
 
   const existing = attributeSchema[index];
@@ -111,7 +120,11 @@ export const putAttribute = async (
     attributeSchema.some((a) => a.property === property)
   ) {
     // If the name is being changed, check if the new name already exists
-    throw new Error("An attribute with that name already exists");
+    context.throwBadRequestError("An attribute with that name already exists");
+  }
+
+  if (tags !== undefined) {
+    await addTagsDiff(org.id, existing.tags || [], tags);
   }
 
   // Update the attribute
@@ -126,6 +139,7 @@ export const putAttribute = async (
     hashAttribute,
     archived,
     disableEqualityConditions,
+    ...(tags !== undefined && { tags: tags.length > 0 ? tags : undefined }),
   };
 
   await updateOrganization(org.id, {
@@ -168,7 +182,7 @@ export const deleteAttribute = async (
   const index = attributeSchema.findIndex((a) => a.property === id);
 
   if (index === -1) {
-    throw new Error("Attribute not found");
+    context.throwNotFoundError("Attribute not found");
   }
 
   // Check permissions on existing project list
@@ -204,3 +218,26 @@ export const deleteAttribute = async (
     status: 200,
   });
 };
+
+export async function removeTagInAttribute(
+  context: ReqContext,
+  tag: string,
+): Promise<void> {
+  const { org } = context;
+  const attributeSchema = org.settings?.attributeSchema || [];
+
+  const hasTag = attributeSchema.some((a) => (a.tags || []).includes(tag));
+  if (!hasTag) return;
+
+  const updatedAttributeSchema = attributeSchema.map((attr) => ({
+    ...attr,
+    tags: (attr.tags || []).filter((t) => t !== tag),
+  }));
+
+  await updateOrganization(org.id, {
+    settings: {
+      ...org.settings,
+      attributeSchema: updatedAttributeSchema,
+    },
+  });
+}

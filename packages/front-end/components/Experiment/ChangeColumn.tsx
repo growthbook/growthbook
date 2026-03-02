@@ -1,9 +1,9 @@
 import clsx from "clsx";
 import { Flex } from "@radix-ui/themes";
-import { SnapshotMetric } from "back-end/types/experiment-snapshot";
+import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
 import React, { DetailedHTMLProps, TdHTMLAttributes } from "react";
-import { DifferenceType, StatsEngine } from "back-end/types/stats";
+import { DifferenceType, StatsEngine } from "shared/types/stats";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { RowResults } from "@/services/experiments";
 import {
@@ -13,6 +13,7 @@ import {
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import { useResultPopover } from "./useResultPopover";
 
 interface Props
   extends DetailedHTMLProps<
@@ -23,7 +24,15 @@ interface Props
   stats: SnapshotMetric;
   rowResults: Pick<
     RowResults,
-    "directionalStatus" | "enoughData" | "hasScaledImpact"
+    | "directionalStatus"
+    | "enoughData"
+    | "hasScaledImpact"
+    | "resultsStatus"
+    | "significant"
+    | "suspiciousChange"
+    | "suspiciousThreshold"
+    | "minPercentChange"
+    | "currentMetricTotal"
   >;
   statsEngine: StatsEngine;
   showPlusMinus?: boolean;
@@ -32,6 +41,7 @@ interface Props
   className?: string;
   ssrPolyfills?: SSRPolyfills;
   additionalButton?: React.ReactNode;
+  minSampleSize?: number;
 }
 
 export default function ChangeColumn({
@@ -45,6 +55,7 @@ export default function ChangeColumn({
   className,
   ssrPolyfills,
   additionalButton,
+  minSampleSize = 0,
   ...otherProps
 }: Props) {
   const _displayCurrency = useCurrency();
@@ -70,63 +81,81 @@ export default function ChangeColumn({
     ...(differenceType === "relative" ? { maximumFractionDigits: 1 } : {}),
     ...(differenceType === "scaled" ? { notation: "compact" } : {}),
   };
+  const showPopover = !!stats?.ci;
+
+  const { Trigger } = useResultPopover({
+    enabled: showPopover,
+    positioning: "element",
+    data: {
+      stats,
+      metric,
+      significant: rowResults.significant,
+      resultsStatus: rowResults.resultsStatus,
+      differenceType,
+      statsEngine,
+      ssrPolyfills,
+      suspiciousChange: rowResults.suspiciousChange,
+      suspiciousThreshold: rowResults.suspiciousThreshold,
+      notEnoughData: !rowResults.enoughData,
+      minSampleSize,
+      minPercentChange: rowResults.minPercentChange,
+      currentMetricTotal: rowResults.currentMetricTotal,
+    },
+  });
+
   if (!rowResults.hasScaledImpact && differenceType === "scaled") {
     return null;
   }
-  return (
-    <>
-      {metric && rowResults.enoughData ? (
-        <td className={clsx("results-change", className)} {...otherProps}>
-          <Flex align="center" justify="end" gap="2">
-            <div
-              className={clsx("nowrap change", {
-                "text-left": showCI,
-                "text-right": !showCI,
-              })}
-            >
-              <span className="expectedArrows">
-                {(rowResults.directionalStatus === "winning" &&
-                  !metric.inverse) ||
-                (rowResults.directionalStatus === "losing" &&
-                  metric.inverse) ? (
-                  <FaArrowUp />
-                ) : expected !== 0 ? (
-                  <FaArrowDown />
-                ) : null}
-              </span>{" "}
-              {expected === 0 && stats.errorMessage ? (
-                <span className="expected">n/a</span>
-              ) : (
-                <span className="expected">
-                  {formatter(expected, formatterOptions)}{" "}
-                </span>
-              )}
-              {statsEngine === "frequentist" && showPlusMinus ? (
-                <span className="plusminus font-weight-normal text-gray ml-1">
-                  ±
-                  {Math.abs(ci0) === Infinity || Math.abs(ci1) === Infinity ? (
-                    <span style={{ fontSize: "18px", verticalAlign: "-2px" }}>
-                      ∞
-                    </span>
-                  ) : (
-                    formatter(expected - ci0, formatterOptions)
-                  )}
-                </span>
-              ) : null}
-              {showCI ? (
-                <span className="ml-2 ci font-weight-normal text-gray">
-                  [{formatter(ci0, formatterOptions)},{" "}
-                  {formatter(ci1, formatterOptions)}]
-                </span>
-              ) : null}
-            </div>
 
-            {additionalButton}
-          </Flex>
-        </td>
+  const changeContent = (
+    <div
+      className={clsx("nowrap change", {
+        "text-left": showCI,
+        "text-right": !showCI,
+      })}
+    >
+      <span className="expectedArrows">
+        {(rowResults.directionalStatus === "winning" && !metric.inverse) ||
+        (rowResults.directionalStatus === "losing" && metric.inverse) ? (
+          <FaArrowUp />
+        ) : expected !== 0 ? (
+          <FaArrowDown />
+        ) : null}
+      </span>{" "}
+      {expected === 0 && stats.errorMessage ? (
+        <span className="expected">n/a</span>
       ) : (
-        <td />
+        <span className="expected">
+          {formatter(expected, formatterOptions)}{" "}
+        </span>
       )}
-    </>
+      {statsEngine === "frequentist" && showPlusMinus ? (
+        <span className="plusminus font-weight-normal text-gray ml-1">
+          ±
+          {Math.abs(ci0) === Infinity || Math.abs(ci1) === Infinity ? (
+            <span style={{ fontSize: "18px", verticalAlign: "-2px" }}>∞</span>
+          ) : (
+            formatter(expected - ci0, formatterOptions)
+          )}
+        </span>
+      ) : null}
+      {showCI ? (
+        <span className="ml-2 ci font-weight-normal text-gray">
+          [{formatter(ci0, formatterOptions)},{" "}
+          {formatter(ci1, formatterOptions)}]
+        </span>
+      ) : null}
+    </div>
+  );
+
+  return metric && rowResults.enoughData ? (
+    <td className={clsx("results-change", className)} {...otherProps}>
+      <Flex align="center" justify="end" gap="2">
+        <Trigger>{changeContent}</Trigger>
+        {additionalButton}
+      </Flex>
+    </td>
+  ) : (
+    <td />
   );
 }

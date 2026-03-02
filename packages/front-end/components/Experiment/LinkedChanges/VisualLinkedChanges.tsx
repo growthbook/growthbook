@@ -1,5 +1,5 @@
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import track from "@/services/track";
 import { VisualChangesetTable } from "@/components/Experiment/VisualChangesetTable";
 import LinkedChangesContainer from "@/components/Experiment/LinkedChanges/LinkedChangesContainer";

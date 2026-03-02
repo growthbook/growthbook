@@ -2,13 +2,13 @@ import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { v4 as uuidv4 } from "uuid";
 import omit from "lodash/omit";
-import { migrateExperimentReport } from "back-end/src/util/migrations";
 import {
   ExperimentReportInterface,
   ExperimentSnapshotReportInterface,
   ReportInterface,
-} from "back-end/types/report";
-import { ReqContext } from "back-end/types/organization";
+} from "shared/types/report";
+import { migrateExperimentReport } from "back-end/src/util/migrations";
+import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { logger } from "back-end/src/util/logger";
 import { getAllExperiments } from "./ExperimentModel";

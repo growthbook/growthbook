@@ -10,7 +10,7 @@ import {
   getDisallowedProjects,
 } from "shared/util";
 import clsx from "clsx";
-import type { SDKLanguage } from "back-end/types/sdk-connection";
+import type { SDKLanguage } from "shared/types/sdk-connection";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Box, Flex, Heading, Separator, Text } from "@radix-ui/themes";
 import { getLatestSDKVersion } from "shared/sdk-versioning";
@@ -24,10 +24,10 @@ import StatusCircle from "@/components/Helpers/StatusCircle";
 import ProjectBadges from "@/components/ProjectBadges";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useEnvironments } from "@/services/features";
-import Badge from "@/components/Radix/Badge";
-import Button from "@/components/Radix/Button";
+import Badge from "@/ui/Badge";
+import Button from "@/ui/Button";
 import { capitalizeFirstLetter } from "@/services/utils";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import SDKLanguageLogo, {
   getLanguagesByFilter,
   languageMapping,

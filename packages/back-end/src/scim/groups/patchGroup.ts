@@ -9,15 +9,11 @@ import {
   ScimGroupPatchRequest,
 } from "back-end/types/scim";
 import {
-  findTeamById,
-  updateTeamMetadata,
-} from "back-end/src/models/TeamModel";
-import {
   addMembersToTeam,
   expandOrgMembers,
+  getMembersOfTeam,
   removeMembersFromTeam,
 } from "back-end/src/services/organizations";
-import { Member } from "back-end/types/organization";
 
 export async function patchGroup(
   req: ScimGroupPatchRequest,
@@ -28,7 +24,7 @@ export async function patchGroup(
 
   const org = req.organization;
 
-  const team = await findTeamById(id, org.id);
+  const team = await req.context.models.teams.getById(id);
 
   if (!team) {
     return res.status(404).json({
@@ -83,12 +79,10 @@ export async function patchGroup(
       } else if (normalizedOp === "replace" && normalizedPath === "members") {
         // Replace all team members with requested members
         if (value) {
-          const prevMembers: Member[] = org.members.filter((member) =>
-            member.teams?.includes(id),
-          );
+          const prevMembers = getMembersOfTeam(org, id);
           await removeMembersFromTeam({
             organization: org,
-            userIds: prevMembers.map((m) => m.id),
+            userIds: prevMembers,
             teamId: id,
           });
 
@@ -110,7 +104,7 @@ export async function patchGroup(
             });
           }
         }
-        await updateTeamMetadata(team.id, org.id, {
+        await req.context.models.teams.update(team, {
           ...team,
           name: (value as BasicScimGroup).displayName,
           managedByIdp: true,
