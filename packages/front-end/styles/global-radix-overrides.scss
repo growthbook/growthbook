@@ -390,6 +390,17 @@
   --tab-inner-border-radius: var(--radius-2);
 }
 
+// Ensure Frame & appbox do not override/ignore mb props
+.appbox.rt-Box {
+  margin-bottom: var(--margin-bottom-override, var(--margin-bottom));
+}
+
+// Text should be styling only, no spacing
+p.rt-Text,
+label.rt-Text {
+  margin-bottom: 0;
+}
+
 // Tooltip
 p.rt-TooltipText {
   margin-bottom: 0;
