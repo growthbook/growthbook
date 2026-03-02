@@ -53,13 +53,17 @@ export default class Presto extends SqlIntegration {
       engine: this.params.engine,
       host: this.params.host,
       port: this.params.port,
-      user: this.params.user || "growthbook",
       source: this.params?.source || "growthbook",
       schema: this.params.schema,
       catalog: this.params.catalog,
       timeout: this.params.requestTimeout ?? 0,
       checkInterval: 500,
     };
+    if (this.params.engine === "trino" && this.params.trinoUser) {
+      configOptions.user = this.params.trinoUser;
+    } else {
+      configOptions.user = this.params.user || "growthbook";
+    }
     if (!this.params?.authType || this.params?.authType === "basicAuth") {
       configOptions.basic_auth = {
         user: this.params.username || "",
