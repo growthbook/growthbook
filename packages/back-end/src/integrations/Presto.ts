@@ -50,15 +50,22 @@ export default class Presto extends SqlIntegration {
       this.params.engine === "presto" ? "Presto" : "Trino";
 
     const configOptions: ClientOptions = {
+      engine: this.params.engine,
       host: this.params.host,
       port: this.params.port,
-      user: this.params.user || "growthbook",
       source: this.params?.source || "growthbook",
       schema: this.params.schema,
       catalog: this.params.catalog,
       timeout: this.params.requestTimeout ?? 0,
       checkInterval: 500,
     };
+    if (this.params.engine === "trino") {
+      if (this.params.trinoUser) {
+        configOptions.user = this.params.trinoUser;
+      }
+    } else {
+      configOptions.user = this.params.user || "growthbook";
+    }
     if (!this.params?.authType || this.params?.authType === "basicAuth") {
       configOptions.basic_auth = {
         user: this.params.username || "",
@@ -77,10 +84,6 @@ export default class Presto extends SqlIntegration {
         );
       }
 
-      // FIXME: To avoid a breaking change, we are setting the engine only for Kerberos.
-      // But we should figure out a proper impersonation logic for all auth types.
-      // See https://github.com/growthbook/growthbook/pull/4921
-      configOptions.engine = this.params.engine;
       if (this.params.kerberosUser) {
         configOptions.user = this.params.kerberosUser;
       }
