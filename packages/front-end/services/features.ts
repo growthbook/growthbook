@@ -1681,7 +1681,6 @@ export function useFeatureExperimentChecklists({
         linkedFeatures: [],
         visualChangesets: [],
         checklist: checklistData?.checklist,
-        usingStickyBucketing: orgStickyBucketing && !exp.disableStickyBucketing,
         checkLinkedChanges: false,
         connections: projectConnections,
       });
