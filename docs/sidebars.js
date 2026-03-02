@@ -38,65 +38,39 @@ export default {
       },
       items: [
         {
-          type: "doc",
-          id: "features/basics",
-          label: "Basics",
+          type: "category",
+          label: "Core Concepts",
+          collapsible: true,
+          collapsed: false,
+          items: [
+            "features/basics", // Feature Flag Basics
+            "features/environments", // Environments
+          ],
         },
         {
-          type: "doc",
-          id: "features/environments",
-          label: "Environments",
+          type: "category",
+          label: "Targeting & Rules",
+          collapsible: true,
+          collapsed: false,
+          items: [
+            "features/rules", // Rules (overview, choosing a rule type, all rule types)
+            "features/targeting", // Targeting Conditions (attributes, conditions, saved groups)
+            "features/safe-rollouts", // Safe Rollouts
+            "features/prerequisites", // Prerequisite Features
+          ],
         },
         {
-          type: "doc",
-          id: "features/targeting",
-          label: "Targeting",
-        },
-        {
-          type: "doc",
-          id: "features/rules",
-          label: "Rules",
-        },
-        {
-          type: "doc",
-          id: "features/safe-rollouts",
-          label: "Safe Rollouts",
-          className: "pill-new",
-        },
-        {
-          type: "doc",
-          id: "features/prerequisites",
-          label: "Prerequisites",
-        },
-        {
-          type: "doc",
-          id: "features/scheduling",
-          label: "Scheduling",
-        },
-        {
-          type: "doc",
-          id: "features/stale-detection",
-          label: "Stale Feature Detection",
-        },
-        {
-          type: "doc",
-          id: "features/code-references",
-          label: "Code References",
-        },
-        {
-          type: "doc",
-          id: "features/approval-flows",
-          label: "Approval Flows",
-        },
-        {
-          type: "doc",
-          id: "features/custom-hooks",
-          label: "Custom Hooks",
-        },
-        {
-          type: "doc",
-          id: "features/diagnostics",
-          label: "Feature Evaluation Diagnostics",
+          type: "category",
+          label: "Governance & Lifecycle",
+          collapsible: true,
+          collapsed: false,
+          items: [
+            "features/publishing-and-approval-flows", // Publishing & Approval Flows (NEW)
+            "features/stale-detection", // Stale Feature Detection
+            "features/code-references", // Code References
+            "features/diagnostics", // Feature Diagnostics
+            "features/custom-hooks", // Custom Hooks
+          ],
         },
       ],
     },

@@ -13639,6 +13639,7 @@ components:
             - version
             - comment
             - date
+            - createdBy
             - publishedBy
           properties:
             version:
@@ -13648,6 +13649,8 @@ components:
             date:
               type: string
               format: date-time
+            createdBy:
+              type: string
             publishedBy:
               type: string
         customFields:
@@ -14107,6 +14110,8 @@ components:
           type: string
           format: date-time
         status:
+          type: string
+        createdBy:
           type: string
         publishedBy:
           type: string
