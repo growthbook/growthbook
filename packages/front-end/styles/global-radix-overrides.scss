@@ -366,10 +366,6 @@
   color: var(--gray-9);
 }
 
-.rt-TabsContent[data-state="inactive"] {
-  display: none;
-}
-
 .rt-BaseTabListTrigger {
   color: var(--color-text-mid);
   font-weight: var(--font-weight-medium);
