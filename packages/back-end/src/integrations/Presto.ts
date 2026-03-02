@@ -50,6 +50,7 @@ export default class Presto extends SqlIntegration {
       this.params.engine === "presto" ? "Presto" : "Trino";
 
     const configOptions: ClientOptions = {
+      engine: this.params.engine,
       host: this.params.host,
       port: this.params.port,
       user: this.params.user || "growthbook",
@@ -77,10 +78,6 @@ export default class Presto extends SqlIntegration {
         );
       }
 
-      // FIXME: To avoid a breaking change, we are setting the engine only for Kerberos.
-      // But we should figure out a proper impersonation logic for all auth types.
-      // See https://github.com/growthbook/growthbook/pull/4921
-      configOptions.engine = this.params.engine;
       if (this.params.kerberosUser) {
         configOptions.user = this.params.kerberosUser;
       }
