@@ -275,7 +275,7 @@ export function getChecklistItems({
         : undefined,
   });
 
-  if (isBandit) {
+  if (isBandit && usingStickyBucketing) {
     items.push({
       type: "auto",
       status: usingStickyBucketing ? "complete" : "incomplete",

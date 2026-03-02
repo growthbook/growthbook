@@ -5,7 +5,7 @@ import {
   FeatureRule,
   ScheduleRule,
 } from "shared/types/feature";
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import uniqId from "uniqid";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
@@ -197,7 +197,6 @@ export default function RuleModal({
     useState(defaultHasSchedule);
 
   const orgStickyBucketing = !!settings.useStickyBucketing;
-  const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
   const hasMultiArmedBanditFeature = hasCommercialFeature(
     "multi-armed-bandits",
   );
@@ -833,10 +832,7 @@ export default function RuleModal({
                 ? [
                     {
                       value: "bandit",
-                      disabled:
-                        !hasMultiArmedBanditFeature ||
-                        !hasStickyBucketFeature ||
-                        !orgStickyBucketing,
+                      disabled: !hasMultiArmedBanditFeature,
                       label: (
                         <PremiumTooltip
                           commercialFeature="multi-armed-bandits"
@@ -851,12 +847,6 @@ export default function RuleModal({
                             Find a winner among many variations on one goal
                             metric
                           </div>
-                          {hasStickyBucketFeature && !orgStickyBucketing && (
-                            <HelperText status="info" size="sm" mt="2">
-                              Enable Sticky Bucketing in your organization
-                              settings to run a Bandit
-                            </HelperText>
-                          )}
                         </>
                       ),
                     },

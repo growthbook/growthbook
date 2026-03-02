@@ -27,7 +27,6 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 import Button from "@/ui/Button";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import LinkButton from "@/ui/LinkButton";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
@@ -56,7 +55,6 @@ const ExperimentsPage = (): React.ReactElement => {
 
   const { userId, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
-  const settings = useOrgSettings();
 
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -102,8 +100,6 @@ const ExperimentsPage = (): React.ReactElement => {
   // If "All Projects" is selected is selected and some experiments are in a project, show the project column
   const showProjectColumn = !project && items.some((e) => e.project);
 
-  const orgStickyBucketing = !!settings.useStickyBucketing;
-  const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
   const hasMultiArmedBanditFeature = hasCommercialFeature(
     "multi-armed-bandits",
   );
@@ -200,22 +196,13 @@ const ExperimentsPage = (): React.ReactElement => {
                   <PremiumTooltip
                     tipPosition="left"
                     popperStyle={{ top: 15 }}
-                    body={
-                      hasStickyBucketFeature && !orgStickyBucketing
-                        ? "Enable Sticky Bucketing in your organization settings to run a Bandit"
-                        : undefined
-                    }
                     commercialFeature="multi-armed-bandits"
                   >
                     <Button
                       onClick={() => {
                         setOpenNewExperimentModal(true);
                       }}
-                      disabled={
-                        !hasMultiArmedBanditFeature ||
-                        !hasStickyBucketFeature ||
-                        !orgStickyBucketing
-                      }
+                      disabled={!hasMultiArmedBanditFeature}
                     >
                       Add Bandit
                     </Button>
