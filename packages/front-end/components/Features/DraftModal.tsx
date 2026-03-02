@@ -141,6 +141,12 @@ export default function DraftModal({
       : currentRevisionData,
   });
 
+  // Exclude no-op diffs (e.g. semantic equality but different raw strings)
+  const resultDiffsWithChanges = useMemo(
+    () => resultDiffs.filter((d) => d.a !== d.b),
+    [resultDiffs],
+  );
+
   if (!revision || !mergeResult) return null;
 
   const hasPermission = permissionsUtil.canPublishFeature(
@@ -297,12 +303,13 @@ export default function DraftModal({
               </div>
             ) : null}
 
-            {resultDiffs.length > 0 && (
+            {resultDiffsWithChanges.length > 0 && (
               <>
                 <h4 className="mb-3">Summary of changes</h4>
-                {resultDiffs.flatMap((d) => d.badges ?? []).length > 0 && (
+                {resultDiffsWithChanges.flatMap((d) => d.badges ?? []).length >
+                  0 && (
                   <Flex wrap="wrap" gap="2" className="mb-3">
-                    {resultDiffs
+                    {resultDiffsWithChanges
                       .flatMap((d) => d.badges ?? [])
                       .map(({ label, action }) => (
                         <Badge
@@ -314,9 +321,9 @@ export default function DraftModal({
                       ))}
                   </Flex>
                 )}
-                {resultDiffs.some((d) => d.customRender) && (
+                {resultDiffsWithChanges.some((d) => d.customRender) && (
                   <div className="list-group mb-4">
-                    {resultDiffs
+                    {resultDiffsWithChanges
                       .filter((d) => d.customRender)
                       .map((d) => (
                         <div
@@ -333,7 +340,7 @@ export default function DraftModal({
             )}
             <h4 className="mb-3">Change details</h4>
             <div className="list-group mb-4">
-              {resultDiffs.map((diff) => (
+              {resultDiffsWithChanges.map((diff) => (
                 <ExpandableDiff
                   key={diff.title}
                   title={diff.title}

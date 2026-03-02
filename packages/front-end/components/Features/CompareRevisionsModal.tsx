@@ -1262,12 +1262,17 @@ export default function CompareRevisionsModal({
 
                     const diffs =
                       diffViewMode === "single" ? mergedDiffs : stepDiffs;
-                    const withRender = diffs.filter((d) => d.customRender);
+                    // Exclude no-op diffs (e.g. semantic equality but different raw strings)
+                    const diffsWithChanges = diffs.filter((d) => d.a !== d.b);
+                    const withRender = diffsWithChanges.filter(
+                      (d) => d.customRender,
+                    );
 
                     // Diff-derived badges used as fallback when the revision log
                     // has no actionable entries (e.g. rules added via the
                     // "connect experiment" flow only write a "new revision" entry).
-                    const diffFallbackBadges = badgesFromDiffs(diffs);
+                    const diffFallbackBadges =
+                      badgesFromDiffs(diffsWithChanges);
 
                     const formatSectionTitle = (title: string) => {
                       if (title === "Default Value") return "Default value";
@@ -1349,7 +1354,7 @@ export default function CompareRevisionsModal({
                           </Callout>
                         )}
 
-                        {diffs.length === 0 ? (
+                        {diffsWithChanges.length === 0 ? (
                           <Text color="text-low">
                             No changes between these revisions.
                           </Text>
@@ -1367,7 +1372,7 @@ export default function CompareRevisionsModal({
                               </Heading>
                             )}
                             <Flex direction="column" gap="4">
-                              {diffs.map((d) => (
+                              {diffsWithChanges.map((d) => (
                                 <ExpandableDiff
                                   key={d.title}
                                   title={d.title}
