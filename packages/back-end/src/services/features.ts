@@ -1570,6 +1570,12 @@ export function getApiFeatureObj({
       featureEnvironments[env].definition = JSON.stringify(definition);
     }
   });
+  const createdBy =
+    revision?.createdBy?.type === "api_key"
+      ? "API"
+      : revision?.createdBy?.type === "system"
+        ? "SYSTEM"
+        : revision?.createdBy?.name;
   const publishedBy =
     revision?.publishedBy?.type === "api_key"
       ? "API"
@@ -1609,6 +1615,12 @@ export function getApiFeatureObj({
       environmentRules[env] = rules;
       environmentDefinitions[env] = JSON.stringify(definition);
     });
+    const createdBy =
+      rev?.createdBy?.type === "api_key"
+        ? "API"
+        : rev?.createdBy?.type === "system"
+          ? "SYSTEM"
+          : rev?.createdBy?.name;
     const publishedBy =
       rev?.publishedBy?.type === "api_key"
         ? "API"
@@ -1621,6 +1633,7 @@ export function getApiFeatureObj({
       comment: rev?.comment || "",
       date: rev?.dateCreated.toISOString() || "",
       status: rev?.status,
+      createdBy,
       publishedBy,
       rules: environmentRules,
       definitions: environmentDefinitions,
@@ -1643,6 +1656,7 @@ export function getApiFeatureObj({
     revision: {
       comment: revision?.comment || "",
       date: revision?.dateCreated.toISOString() || "",
+      createdBy: createdBy || "",
       publishedBy: publishedBy || "",
       version: feature.version,
     },
