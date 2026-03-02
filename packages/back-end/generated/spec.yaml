@@ -6709,8 +6709,6 @@ paths:
                                                             type: array
                                                             items:
                                                               type: string
-                                                          disabled:
-                                                            type: boolean
                                                         required:
                                                           - operator
                                                         additionalProperties: false
@@ -6822,8 +6820,6 @@ paths:
                                                       type: array
                                                       items:
                                                         type: string
-                                                    disabled:
-                                                      type: boolean
                                                   required:
                                                     - operator
                                                   additionalProperties: false
@@ -6997,8 +6993,6 @@ paths:
                                                             type: array
                                                             items:
                                                               type: string
-                                                          disabled:
-                                                            type: boolean
                                                         required:
                                                           - operator
                                                         additionalProperties: false
@@ -7114,8 +7108,6 @@ paths:
                                                       type: array
                                                       items:
                                                         type: string
-                                                    disabled:
-                                                      type: boolean
                                                   required:
                                                     - operator
                                                   additionalProperties: false
@@ -7294,8 +7286,6 @@ paths:
                                                             type: array
                                                             items:
                                                               type: string
-                                                          disabled:
-                                                            type: boolean
                                                         required:
                                                           - operator
                                                         additionalProperties: false
@@ -7425,8 +7415,6 @@ paths:
                                                       type: array
                                                       items:
                                                         type: string
-                                                    disabled:
-                                                      type: boolean
                                                   required:
                                                     - operator
                                                   additionalProperties: false
@@ -8612,8 +8600,6 @@ paths:
                                                           type: array
                                                           items:
                                                             type: string
-                                                        disabled:
-                                                          type: boolean
                                                       required:
                                                         - operator
                                                       additionalProperties: false
@@ -8725,8 +8711,6 @@ paths:
                                                     type: array
                                                     items:
                                                       type: string
-                                                  disabled:
-                                                    type: boolean
                                                 required:
                                                   - operator
                                                 additionalProperties: false
@@ -8900,8 +8884,6 @@ paths:
                                                           type: array
                                                           items:
                                                             type: string
-                                                        disabled:
-                                                          type: boolean
                                                       required:
                                                         - operator
                                                       additionalProperties: false
@@ -9017,8 +8999,6 @@ paths:
                                                     type: array
                                                     items:
                                                       type: string
-                                                  disabled:
-                                                    type: boolean
                                                 required:
                                                   - operator
                                                 additionalProperties: false
@@ -9197,8 +9177,6 @@ paths:
                                                           type: array
                                                           items:
                                                             type: string
-                                                        disabled:
-                                                          type: boolean
                                                       required:
                                                         - operator
                                                       additionalProperties: false
@@ -9328,8 +9306,6 @@ paths:
                                                     type: array
                                                     items:
                                                       type: string
-                                                  disabled:
-                                                    type: boolean
                                                 required:
                                                   - operator
                                                 additionalProperties: false
@@ -10080,8 +10056,6 @@ paths:
                                                             type: array
                                                             items:
                                                               type: string
-                                                          disabled:
-                                                            type: boolean
                                                         required:
                                                           - operator
                                                         additionalProperties: false
@@ -10193,8 +10167,6 @@ paths:
                                                       type: array
                                                       items:
                                                         type: string
-                                                    disabled:
-                                                      type: boolean
                                                   required:
                                                     - operator
                                                   additionalProperties: false
@@ -10368,8 +10340,6 @@ paths:
                                                             type: array
                                                             items:
                                                               type: string
-                                                          disabled:
-                                                            type: boolean
                                                         required:
                                                           - operator
                                                         additionalProperties: false
@@ -10485,8 +10455,6 @@ paths:
                                                       type: array
                                                       items:
                                                         type: string
-                                                    disabled:
-                                                      type: boolean
                                                   required:
                                                     - operator
                                                   additionalProperties: false
@@ -10665,8 +10633,6 @@ paths:
                                                             type: array
                                                             items:
                                                               type: string
-                                                          disabled:
-                                                            type: boolean
                                                         required:
                                                           - operator
                                                         additionalProperties: false
@@ -10796,8 +10762,6 @@ paths:
                                                       type: array
                                                       items:
                                                         type: string
-                                                    disabled:
-                                                      type: boolean
                                                   required:
                                                     - operator
                                                   additionalProperties: false
@@ -12050,8 +12014,6 @@ paths:
                                                             type: array
                                                             items:
                                                               type: string
-                                                          disabled:
-                                                            type: boolean
                                                         required:
                                                           - operator
                                                         additionalProperties: false
@@ -12163,8 +12125,6 @@ paths:
                                                       type: array
                                                       items:
                                                         type: string
-                                                    disabled:
-                                                      type: boolean
                                                   required:
                                                     - operator
                                                   additionalProperties: false
@@ -12338,8 +12298,6 @@ paths:
                                                             type: array
                                                             items:
                                                               type: string
-                                                          disabled:
-                                                            type: boolean
                                                         required:
                                                           - operator
                                                         additionalProperties: false
@@ -12455,8 +12413,6 @@ paths:
                                                       type: array
                                                       items:
                                                         type: string
-                                                    disabled:
-                                                      type: boolean
                                                   required:
                                                     - operator
                                                   additionalProperties: false
@@ -12635,8 +12591,6 @@ paths:
                                                             type: array
                                                             items:
                                                               type: string
-                                                          disabled:
-                                                            type: boolean
                                                         required:
                                                           - operator
                                                         additionalProperties: false
@@ -12766,8 +12720,6 @@ paths:
                                                       type: array
                                                       items:
                                                         type: string
-                                                    disabled:
-                                                      type: boolean
                                                   required:
                                                     - operator
                                                   additionalProperties: false
@@ -13544,8 +13496,6 @@ paths:
                                                               type: array
                                                               items:
                                                                 type: string
-                                                            disabled:
-                                                              type: boolean
                                                           required:
                                                             - operator
                                                           additionalProperties: false
@@ -13657,8 +13607,6 @@ paths:
                                                         type: array
                                                         items:
                                                           type: string
-                                                      disabled:
-                                                        type: boolean
                                                     required:
                                                       - operator
                                                     additionalProperties: false
@@ -13832,8 +13780,6 @@ paths:
                                                               type: array
                                                               items:
                                                                 type: string
-                                                            disabled:
-                                                              type: boolean
                                                           required:
                                                             - operator
                                                           additionalProperties: false
@@ -13949,8 +13895,6 @@ paths:
                                                         type: array
                                                         items:
                                                           type: string
-                                                      disabled:
-                                                        type: boolean
                                                     required:
                                                       - operator
                                                     additionalProperties: false
@@ -14129,8 +14073,6 @@ paths:
                                                               type: array
                                                               items:
                                                                 type: string
-                                                            disabled:
-                                                              type: boolean
                                                           required:
                                                             - operator
                                                           additionalProperties: false
@@ -14260,8 +14202,6 @@ paths:
                                                         type: array
                                                         items:
                                                           type: string
-                                                      disabled:
-                                                        type: boolean
                                                     required:
                                                       - operator
                                                     additionalProperties: false
@@ -15042,8 +14982,6 @@ paths:
                                                               type: array
                                                               items:
                                                                 type: string
-                                                            disabled:
-                                                              type: boolean
                                                           required:
                                                             - operator
                                                           additionalProperties: false
@@ -15155,8 +15093,6 @@ paths:
                                                         type: array
                                                         items:
                                                           type: string
-                                                      disabled:
-                                                        type: boolean
                                                     required:
                                                       - operator
                                                     additionalProperties: false
@@ -15330,8 +15266,6 @@ paths:
                                                               type: array
                                                               items:
                                                                 type: string
-                                                            disabled:
-                                                              type: boolean
                                                           required:
                                                             - operator
                                                           additionalProperties: false
@@ -15447,8 +15381,6 @@ paths:
                                                         type: array
                                                         items:
                                                           type: string
-                                                      disabled:
-                                                        type: boolean
                                                     required:
                                                       - operator
                                                     additionalProperties: false
@@ -15627,8 +15559,6 @@ paths:
                                                               type: array
                                                               items:
                                                                 type: string
-                                                            disabled:
-                                                              type: boolean
                                                           required:
                                                             - operator
                                                           additionalProperties: false
@@ -15758,8 +15688,6 @@ paths:
                                                         type: array
                                                         items:
                                                           type: string
-                                                      disabled:
-                                                        type: boolean
                                                     required:
                                                       - operator
                                                     additionalProperties: false
@@ -18352,8 +18280,6 @@ components:
                                               type: array
                                               items:
                                                 type: string
-                                            disabled:
-                                              type: boolean
                                           required:
                                             - operator
                                           additionalProperties: false
@@ -18465,8 +18391,6 @@ components:
                                         type: array
                                         items:
                                           type: string
-                                      disabled:
-                                        type: boolean
                                     required:
                                       - operator
                                     additionalProperties: false
@@ -18640,8 +18564,6 @@ components:
                                               type: array
                                               items:
                                                 type: string
-                                            disabled:
-                                              type: boolean
                                           required:
                                             - operator
                                           additionalProperties: false
@@ -18757,8 +18679,6 @@ components:
                                         type: array
                                         items:
                                           type: string
-                                      disabled:
-                                        type: boolean
                                     required:
                                       - operator
                                     additionalProperties: false
@@ -18937,8 +18857,6 @@ components:
                                               type: array
                                               items:
                                                 type: string
-                                            disabled:
-                                              type: boolean
                                           required:
                                             - operator
                                           additionalProperties: false
@@ -19068,8 +18986,6 @@ components:
                                         type: array
                                         items:
                                           type: string
-                                      disabled:
-                                        type: boolean
                                     required:
                                       - operator
                                     additionalProperties: false

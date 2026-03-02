@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Flex, Box, TextField } from "@radix-ui/themes";
 import {
   PiX,
@@ -14,12 +14,15 @@ import { rowFilterValidator } from "shared/validators";
 import { FactTableInterface } from "shared/types/fact-table";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/ui/Button";
-import { CompactRowFilterInput } from "@/components/FactTables/CompactRowFilterInput";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Text from "@/ui/Text";
-import { DataSourceRowFilterInput } from "./DataSourceRowFilterInput";
+import {
+  factTableToColumnSource,
+  columnTypesToColumnSource,
+} from "./ExplorerFilterRow";
 import styles from "./ValueCard.module.scss";
+import { ExplorerRowFilterInput } from "./ExplorerRowFilterInput";
 
 type RowFilter = z.infer<typeof rowFilterValidator>;
 
@@ -53,8 +56,6 @@ export default function ValueCard({
       factTable = getFactTableById(factTableId);
     }
   }
-
-  const dataSourceId = draftExploreState.datasource;
 
   const displayName = (name ?? "").trim();
 
@@ -114,17 +115,21 @@ export default function ValueCard({
     }
   }
 
-  let canAddFilter = false;
-  if (
-    draftExploreState.dataset.type === "fact_table" ||
-    draftExploreState.dataset.type === "metric"
-  ) {
-    canAddFilter = !!factTable;
-  } else if (draftExploreState.dataset.type === "data_source" && dataSourceId) {
-    canAddFilter =
-      !!dataSourceId &&
-      Object.keys(draftExploreState.dataset.columnTypes || {}).length > 0;
-  }
+  const columnSource = useMemo(() => {
+    if (factTable) {
+      return factTableToColumnSource(factTable);
+    }
+    if (
+      draftExploreState.dataset.type === "data_source" &&
+      draftExploreState.dataset.columnTypes &&
+      Object.keys(draftExploreState.dataset.columnTypes).length > 0
+    ) {
+      return columnTypesToColumnSource(draftExploreState.dataset.columnTypes);
+    }
+    return null;
+  }, [factTable, draftExploreState.dataset]);
+
+  const canAddFilter = !!columnSource;
 
   return (
     <Box
@@ -207,31 +212,15 @@ export default function ValueCard({
       >
         <Box mt="2">
           {children}
-          {factTable && (
+          {columnSource && (
             <Box mt="2">
-              <CompactRowFilterInput
-                factTable={factTable}
+              <ExplorerRowFilterInput
+                columnSource={columnSource}
                 value={filters}
                 setValue={handleFiltersChange}
-                hideAddButton
-                deferTextInputUpdates
               />
             </Box>
           )}
-          {draftExploreState.dataset.type === "data_source" &&
-            Object.keys(draftExploreState.dataset.columnTypes || {}).length >
-              0 && (
-              <Box mt="2">
-                <DataSourceRowFilterInput
-                  columnTypes={draftExploreState.dataset.columnTypes ?? {}}
-                  value={filters}
-                  setValue={handleFiltersChange}
-                  variant="compact"
-                  hideAddButton
-                  deferTextInputUpdates
-                />
-              </Box>
-            )}
         </Box>
         <Flex justify="between" align="center" mt="2">
           <Button

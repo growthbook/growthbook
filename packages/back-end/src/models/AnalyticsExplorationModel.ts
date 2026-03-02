@@ -57,17 +57,7 @@ export class AnalyticsExplorationModel extends BaseClass {
 
     // Value hashes
     const valueHashes = dataset.values.map((value) => {
-      // Ignore disabled filters
-      const rowFilters = value.rowFilters
-        ?.filter((filter) => !filter.disabled)
-        .map((f) => ({ ...f, disabled: undefined }));
-
-      return md5(
-        JSON.stringify({
-          ...value,
-          rowFilters: rowFilters,
-        }),
-      );
+      return md5(JSON.stringify(value));
     });
 
     return {

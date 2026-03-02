@@ -660,7 +660,6 @@ export interface components {
                         operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
                         column?: string;
                         values?: (string)[];
-                        disabled?: boolean;
                       })[];
                   })[];
               }))[];
@@ -686,7 +685,6 @@ export interface components {
                       operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
                       column?: string;
                       values?: (string)[];
-                      disabled?: boolean;
                     })[];
                   /** @constant */
                   type: "metric";
@@ -734,7 +732,6 @@ export interface components {
                         operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
                         column?: string;
                         values?: (string)[];
-                        disabled?: boolean;
                       })[];
                   })[];
               }))[];
@@ -761,7 +758,6 @@ export interface components {
                       operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
                       column?: string;
                       values?: (string)[];
-                      disabled?: boolean;
                     })[];
                   /** @constant */
                   type: "fact_table";
@@ -810,7 +806,6 @@ export interface components {
                         operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
                         column?: string;
                         values?: (string)[];
-                        disabled?: boolean;
                       })[];
                   })[];
               }))[];
@@ -842,7 +837,6 @@ export interface components {
                       operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
                       column?: string;
                       values?: (string)[];
-                      disabled?: boolean;
                     })[];
                   /** @constant */
                   type: "data_source";
@@ -15171,7 +15165,6 @@ export interface operations {
                                 operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
                                 column?: string;
                                 values?: (string)[];
-                                disabled?: boolean;
                               })[];
                           })[];
                       }))[];
@@ -15197,7 +15190,6 @@ export interface operations {
                               operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
                               column?: string;
                               values?: (string)[];
-                              disabled?: boolean;
                             })[];
                           /** @constant */
                           type: "metric";
@@ -15245,7 +15237,6 @@ export interface operations {
                                 operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
                                 column?: string;
                                 values?: (string)[];
-                                disabled?: boolean;
                               })[];
                           })[];
                       }))[];
@@ -15272,7 +15263,6 @@ export interface operations {
                               operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
                               column?: string;
                               values?: (string)[];
-                              disabled?: boolean;
                             })[];
                           /** @constant */
                           type: "fact_table";
@@ -15321,7 +15311,6 @@ export interface operations {
                                 operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
                                 column?: string;
                                 values?: (string)[];
-                                disabled?: boolean;
                               })[];
                           })[];
                       }))[];
@@ -15353,7 +15342,6 @@ export interface operations {
                               operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
                               column?: string;
                               values?: (string)[];
-                              disabled?: boolean;
                             })[];
                           /** @constant */
                           type: "data_source";
@@ -15689,7 +15677,6 @@ export interface operations {
                             operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
                             column?: string;
                             values?: (string)[];
-                            disabled?: boolean;
                           })[];
                       })[];
                   }))[];
@@ -15715,7 +15702,6 @@ export interface operations {
                           operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
                           column?: string;
                           values?: (string)[];
-                          disabled?: boolean;
                         })[];
                       /** @constant */
                       type: "metric";
@@ -15763,7 +15749,6 @@ export interface operations {
                             operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
                             column?: string;
                             values?: (string)[];
-                            disabled?: boolean;
                           })[];
                       })[];
                   }))[];
@@ -15790,7 +15775,6 @@ export interface operations {
                           operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
                           column?: string;
                           values?: (string)[];
-                          disabled?: boolean;
                         })[];
                       /** @constant */
                       type: "fact_table";
@@ -15839,7 +15823,6 @@ export interface operations {
                             operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
                             column?: string;
                             values?: (string)[];
-                            disabled?: boolean;
                           })[];
                       })[];
                   }))[];
@@ -15871,7 +15854,6 @@ export interface operations {
                           operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
                           column?: string;
                           values?: (string)[];
-                          disabled?: boolean;
                         })[];
                       /** @constant */
                       type: "data_source";
@@ -16094,7 +16076,6 @@ export interface operations {
                                 operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
                                 column?: string;
                                 values?: (string)[];
-                                disabled?: boolean;
                               })[];
                           })[];
                       }))[];
@@ -16120,7 +16101,6 @@ export interface operations {
                               operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
                               column?: string;
                               values?: (string)[];
-                              disabled?: boolean;
                             })[];
                           /** @constant */
                           type: "metric";
@@ -16168,7 +16148,6 @@ export interface operations {
                                 operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
                                 column?: string;
                                 values?: (string)[];
-                                disabled?: boolean;
                               })[];
                           })[];
                       }))[];
@@ -16195,7 +16174,6 @@ export interface operations {
                               operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
                               column?: string;
                               values?: (string)[];
-                              disabled?: boolean;
                             })[];
                           /** @constant */
                           type: "fact_table";
@@ -16244,7 +16222,6 @@ export interface operations {
                                 operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
                                 column?: string;
                                 values?: (string)[];
-                                disabled?: boolean;
                               })[];
                           })[];
                       }))[];
@@ -16276,7 +16253,6 @@ export interface operations {
                               operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
                               column?: string;
                               values?: (string)[];
-                              disabled?: boolean;
                             })[];
                           /** @constant */
                           type: "data_source";
@@ -16521,7 +16497,6 @@ export interface operations {
                                   operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
                                   column?: string;
                                   values?: (string)[];
-                                  disabled?: boolean;
                                 })[];
                             })[];
                         }))[];
@@ -16547,7 +16522,6 @@ export interface operations {
                                 operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
                                 column?: string;
                                 values?: (string)[];
-                                disabled?: boolean;
                               })[];
                             /** @constant */
                             type: "metric";
@@ -16595,7 +16569,6 @@ export interface operations {
                                   operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
                                   column?: string;
                                   values?: (string)[];
-                                  disabled?: boolean;
                                 })[];
                             })[];
                         }))[];
@@ -16622,7 +16595,6 @@ export interface operations {
                                 operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
                                 column?: string;
                                 values?: (string)[];
-                                disabled?: boolean;
                               })[];
                             /** @constant */
                             type: "fact_table";
@@ -16671,7 +16643,6 @@ export interface operations {
                                   operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
                                   column?: string;
                                   values?: (string)[];
-                                  disabled?: boolean;
                                 })[];
                             })[];
                         }))[];
@@ -16703,7 +16674,6 @@ export interface operations {
                                 operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
                                 column?: string;
                                 values?: (string)[];
-                                disabled?: boolean;
                               })[];
                             /** @constant */
                             type: "data_source";
@@ -17076,7 +17046,6 @@ export interface operations {
                                 operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
                                 column?: string;
                                 values?: (string)[];
-                                disabled?: boolean;
                               })[];
                           })[];
                       }))[];
@@ -17102,7 +17071,6 @@ export interface operations {
                               operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
                               column?: string;
                               values?: (string)[];
-                              disabled?: boolean;
                             })[];
                           /** @constant */
                           type: "metric";
@@ -17150,7 +17118,6 @@ export interface operations {
                                 operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
                                 column?: string;
                                 values?: (string)[];
-                                disabled?: boolean;
                               })[];
                           })[];
                       }))[];
@@ -17177,7 +17144,6 @@ export interface operations {
                               operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
                               column?: string;
                               values?: (string)[];
-                              disabled?: boolean;
                             })[];
                           /** @constant */
                           type: "fact_table";
@@ -17226,7 +17192,6 @@ export interface operations {
                                 operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
                                 column?: string;
                                 values?: (string)[];
-                                disabled?: boolean;
                               })[];
                           })[];
                       }))[];
@@ -17258,7 +17223,6 @@ export interface operations {
                               operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
                               column?: string;
                               values?: (string)[];
-                              disabled?: boolean;
                             })[];
                           /** @constant */
                           type: "data_source";
@@ -17491,7 +17455,6 @@ export interface operations {
                                   operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
                                   column?: string;
                                   values?: (string)[];
-                                  disabled?: boolean;
                                 })[];
                             })[];
                         }))[];
@@ -17517,7 +17480,6 @@ export interface operations {
                                 operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
                                 column?: string;
                                 values?: (string)[];
-                                disabled?: boolean;
                               })[];
                             /** @constant */
                             type: "metric";
@@ -17565,7 +17527,6 @@ export interface operations {
                                   operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
                                   column?: string;
                                   values?: (string)[];
-                                  disabled?: boolean;
                                 })[];
                             })[];
                         }))[];
@@ -17592,7 +17553,6 @@ export interface operations {
                                 operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
                                 column?: string;
                                 values?: (string)[];
-                                disabled?: boolean;
                               })[];
                             /** @constant */
                             type: "fact_table";
@@ -17641,7 +17601,6 @@ export interface operations {
                                   operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
                                   column?: string;
                                   values?: (string)[];
-                                  disabled?: boolean;
                                 })[];
                             })[];
                         }))[];
@@ -17673,7 +17632,6 @@ export interface operations {
                                 operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
                                 column?: string;
                                 values?: (string)[];
-                                disabled?: boolean;
                               })[];
                             /** @constant */
                             type: "data_source";
