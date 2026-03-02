@@ -1,5 +1,5 @@
 import { format } from "shared/sql";
-import { ProductAnalyticsConfig } from "shared/validators";
+import { ExplorationConfig } from "shared/validators";
 import { SqlHelpers } from "shared/types/sql";
 import { generateProductAnalyticsSQL } from "shared/src/enterprise/product-analytics/sql";
 import {
@@ -107,7 +107,8 @@ describe("productAnalytics", () => {
   const metricMap = new Map<string, FactMetricInterface>();
 
   it("generates SQL for fact tables", () => {
-    const config: ProductAnalyticsConfig = {
+    const config: ExplorationConfig = {
+      type: "fact_table",
       datasource: "ds_1",
       chartType: "line",
       dateRange: {
@@ -226,7 +227,8 @@ describe("productAnalytics", () => {
   });
 
   it("generates SQL for fact tables with mix of filtered and unfiltered values", () => {
-    const config: ProductAnalyticsConfig = {
+    const config: ExplorationConfig = {
+      type: "fact_table",
       datasource: "ds_1",
       chartType: "line",
       dateRange: {
@@ -352,7 +354,8 @@ describe("productAnalytics", () => {
   });
 
   it("generates SQL for fact tables with all values filtered", () => {
-    const config: ProductAnalyticsConfig = {
+    const config: ExplorationConfig = {
+      type: "fact_table",
       datasource: "ds_1",
       chartType: "line",
       dateRange: {
@@ -485,7 +488,8 @@ describe("productAnalytics", () => {
   });
 
   it("generates SQL for fact tables with deduped value filters", () => {
-    const config: ProductAnalyticsConfig = {
+    const config: ExplorationConfig = {
+      type: "fact_table",
       datasource: "ds_1",
       chartType: "line",
       dateRange: {

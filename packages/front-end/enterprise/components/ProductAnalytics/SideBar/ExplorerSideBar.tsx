@@ -1,6 +1,10 @@
 import React, { useState } from "react";
 import { Flex, Box } from "@radix-ui/themes";
-import { DatasetType, FactTableValue } from "shared/validators";
+import {
+  DatasetType,
+  FactTableValue,
+  ExplorationConfig,
+} from "shared/validators";
 import { PiArrowsClockwise } from "react-icons/pi";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import Text from "@/ui/Text";
@@ -224,7 +228,7 @@ export default function ExplorerSideBar({
                       ? prevDataset.values
                       : [createEmptyValue("fact_table") as FactTableValue],
                   },
-                };
+                } as ExplorationConfig;
               });
             }}
             options={factTables

@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import { Flex, Separator } from "@radix-ui/themes";
 import { PiTable, PiPlus } from "react-icons/pi";
-import type { DatabaseValue } from "shared/validators";
+import type { DataSourceValue } from "shared/validators";
 import SelectField from "@/components/Forms/SelectField";
 import Button from "@/ui/Button";
 import {
@@ -29,7 +29,7 @@ export default function DatasourceTabContent() {
     draftExploreState.dataset?.type === "data_source"
       ? draftExploreState.dataset
       : null;
-  const values: DatabaseValue[] = dataset?.values || [];
+  const values: DataSourceValue[] = dataset?.values || [];
 
   const columnOptions = useMemo(() => {
     return Object.entries(dataset?.columnTypes ?? {}).map(([name]) => ({
@@ -105,7 +105,7 @@ export default function DatasourceTabContent() {
                         ),
                         draftExploreState.dataset.values,
                       ),
-                    } as DatabaseValue)
+                    } as DataSourceValue)
                   }
                   options={VALUE_TYPE_OPTIONS.filter(
                     (o) => o.value !== "unit_count",
@@ -126,7 +126,7 @@ export default function DatasourceTabContent() {
                         updateValueInDataset(idx, {
                           ...v,
                           valueColumn: val,
-                        } as DatabaseValue)
+                        } as DataSourceValue)
                       }
                       options={columnOptions}
                       placeholder="Select column..."

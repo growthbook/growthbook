@@ -7,11 +7,11 @@ import {
 import type {
   MetricValue,
   FactTableValue,
-  DatabaseValue,
+  DataSourceValue,
   ProductAnalyticsValue,
   DatasetType,
-  ProductAnalyticsDataset,
-  ProductAnalyticsConfig,
+  ExplorationDataset,
+  ExplorationConfig,
 } from "shared/validators";
 import { isEqual } from "lodash";
 import { dateGranularity } from "shared/validators";
@@ -82,7 +82,7 @@ export function createEmptyValue(type: DatasetType): ProductAnalyticsValue {
         valueType: "count",
         valueColumn: null,
         unit: null,
-      } as DatabaseValue;
+      } as DataSourceValue;
     default:
       throw new Error(`Invalid dataset type: ${type}`);
   }
@@ -110,7 +110,7 @@ export function generateUniqueValueName(
   return `${baseName} ${i}`;
 }
 
-export function createEmptyDataset(type: DatasetType): ProductAnalyticsDataset {
+export function createEmptyDataset(type: DatasetType): ExplorationDataset {
   if (type === "metric") {
     return { type, values: [] };
   } else if (type === "fact_table") {
@@ -130,7 +130,7 @@ export function createEmptyDataset(type: DatasetType): ProductAnalyticsDataset {
 }
 
 export function getCommonColumns(
-  dataset: ProductAnalyticsDataset | null,
+  dataset: ExplorationDataset | null,
   getFactTableById: (id: string) => FactTableInterface | null,
   getFactMetricById: (id: string) => FactMetricInterface | null,
 ): Pick<ColumnInterface, "column" | "name">[] {
@@ -175,7 +175,7 @@ export function getCommonColumns(
     .map((c) => ({ column: c.column, name: c.name }));
 }
 
-export function getMaxDimensions(dataset: ProductAnalyticsDataset): number {
+export function getMaxDimensions(dataset: ExplorationDataset): number {
   let maxDimensions = 2;
   if (dataset.values.length > 1) {
     maxDimensions -= 1;
@@ -262,10 +262,10 @@ export function getValidDateGranularities(
 /** Ensures that dimensions are valid and within the allowed number of dimensions for the dataset type.
  *  Returns a new config with the allowed dimensions (same config object if no changes were made). */
 export function validateDimensions(
-  config: ProductAnalyticsConfig,
+  config: ExplorationConfig,
   getFactTableById: (id: string) => FactTableInterface | null,
   getFactMetricById: (id: string) => FactMetricInterface | null,
-): ProductAnalyticsConfig {
+): ExplorationConfig {
   // Validate dimensions against commonColumns
   const columns = getCommonColumns(
     config.dataset,
@@ -324,8 +324,8 @@ function cleanRowFilters<T extends ProductAnalyticsValue>(value: T): T {
 
 /** Removes incomplete (partially configured) inputs (values, filters) from a dataset. (e.g. sum values without a value column) */
 export function removeIncompleteInputs(
-  dataset: ProductAnalyticsDataset,
-): ProductAnalyticsDataset {
+  dataset: ExplorationDataset,
+): ExplorationDataset {
   if (dataset.type === "metric") {
     return {
       ...dataset,
@@ -361,8 +361,8 @@ export function removeIncompleteInputs(
 
 /** Prepares a config for submission by removing incomplete inputs (values, filters) from the dataset. */
 export function cleanConfigForSubmission(
-  config: ProductAnalyticsConfig,
-): ProductAnalyticsConfig {
+  config: ExplorationConfig,
+): ExplorationConfig {
   const cleanedDataset = removeIncompleteInputs(config.dataset);
   // remove any dimensions with a null column
   const cleanedDimensions = config.dimensions.filter(
@@ -372,7 +372,7 @@ export function cleanConfigForSubmission(
     ...config,
     dataset: cleanedDataset,
     dimensions: cleanedDimensions,
-  };
+  } as ExplorationConfig;
 }
 
 const TIMESERIES_CHART_TYPES: Set<string> = new Set([
@@ -391,16 +391,14 @@ const CUMULATIVE_CHART_TYPES: Set<string> = new Set([
 
 /** Returns the category of a chart type (timeseries or cumulative).
  *  Used to determine if a fetch or local update is needed. */
-function getChartCategory(
-  chartType: ProductAnalyticsConfig["chartType"],
-): string {
+function getChartCategory(chartType: ExplorationConfig["chartType"]): string {
   if (CUMULATIVE_CHART_TYPES.has(chartType)) return "cumulative";
   if (TIMESERIES_CHART_TYPES.has(chartType)) return "timeseries";
   throw new Error(`Invalid chart type: ${chartType}`);
 }
 
 /** Strips fields that only affect rendering, not data fetching. */
-function toFetchKey(config: ProductAnalyticsConfig): unknown {
+function toFetchKey(config: ExplorationConfig): unknown {
   return {
     ...config,
     chartType: getChartCategory(config.chartType),
@@ -417,9 +415,7 @@ function toFetchKey(config: ProductAnalyticsConfig): unknown {
  *  fact tables just need a fact table id
  *  data sources just need a datasource, table, and timestamp column
  */
-export function isSubmittableConfig(
-  cleanedConfig: ProductAnalyticsConfig,
-): boolean {
+export function isSubmittableConfig(cleanedConfig: ExplorationConfig): boolean {
   if (!cleanedConfig?.dataset || !Array.isArray(cleanedConfig.dataset.values)) {
     return false;
   }
@@ -449,8 +445,8 @@ export function isSubmittableConfig(
 
 /** Compares two configs and determines if a fetch or local update is needed. */
 export function compareConfig(
-  lastSubmittedConfig: ProductAnalyticsConfig | null,
-  newConfig: ProductAnalyticsConfig,
+  lastSubmittedConfig: ExplorationConfig | null,
+  newConfig: ExplorationConfig,
 ): { needsFetch: boolean; needsUpdate: boolean } {
   if (!lastSubmittedConfig) {
     const hasValues = newConfig.dataset.values.length > 0;
@@ -487,7 +483,7 @@ export function getRefreshInterval(elapsedSeconds: number): number {
 export function shouldChartSectionShow(params: {
   loading: boolean;
   error: string | null;
-  submittedExploreState: ProductAnalyticsConfig | null;
+  submittedExploreState: ExplorationConfig | null;
 }): boolean {
   const { loading, error, submittedExploreState } = params;
 

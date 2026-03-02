@@ -10,12 +10,11 @@ import React, {
 } from "react";
 import { ColumnInterface } from "shared/types/fact-table";
 import {
-  ProductAnalyticsConfig,
+  ExplorationConfig,
   ProductAnalyticsValue,
   DatasetType,
 } from "shared/src/validators/product-analytics";
 import { ProductAnalyticsExploration } from "shared/validators";
-import { DEFAULT_EXPLORE_STATE } from "shared/enterprise";
 import { QueryInterface } from "shared/types/query";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -30,32 +29,19 @@ import {
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useExploreData, CacheOption } from "./useExploreData";
 
-type ExplorerCacheValue = {
-  draftState: ProductAnalyticsConfig | null;
-  submittedState: ProductAnalyticsConfig | null;
-  exploration: ProductAnalyticsExploration | null;
-  query: QueryInterface | null;
-  error: string | null;
-};
-
-type ExplorerCache = {
-  [key in DatasetType]: ExplorerCacheValue | null;
-};
-
 type SetDraftStateAction =
-  | ProductAnalyticsConfig
-  | ((prevState: ProductAnalyticsConfig) => ProductAnalyticsConfig);
+  | ExplorationConfig
+  | ((prevState: ExplorationConfig) => ExplorationConfig);
 
 export interface ExplorerContextValue {
   // ─── State ─────────────────────────────────────────────────────────────
-  draftExploreState: ProductAnalyticsConfig;
-  submittedExploreState: ProductAnalyticsConfig | null;
+  draftExploreState: ExplorationConfig;
+  submittedExploreState: ExplorationConfig | null;
   exploration: ProductAnalyticsExploration | null;
   query: QueryInterface | null;
   loading: boolean;
   error: string | null;
   commonColumns: Pick<ColumnInterface, "column" | "name">[];
-  isEmpty: boolean;
   isStale: boolean;
   needsUpdate: boolean;
   isSubmittable: boolean;
@@ -67,14 +53,14 @@ export interface ExplorerContextValue {
   updateValueInDataset: (index: number, value: ProductAnalyticsValue) => void;
   deleteValueFromDataset: (index: number) => void;
   updateTimestampColumn: (column: string) => void;
-  changeChartType: (chartType: ProductAnalyticsConfig["chartType"]) => void;
+  changeChartType: (chartType: ExplorationConfig["chartType"]) => void;
   clearAllDatasets: (newDatasourceId?: string) => void;
 }
 const ExplorerContext = createContext<ExplorerContextValue | null>(null);
 
 interface ExplorerProviderProps {
   children: ReactNode;
-  initialConfig: ProductAnalyticsConfig;
+  initialConfig: ExplorationConfig;
   hasExistingResults?: boolean;
   onRunComplete?: (exploration: ProductAnalyticsExploration) => void;
 }
@@ -90,45 +76,28 @@ export function ExplorerProvider({
   const { getFactTableById, getFactMetricById, datasources } = useDefinitions();
 
   const activeExplorerType = initialConfig?.dataset.type || "metric";
-  const [explorerCache, setExplorerCache] = useState<ExplorerCache>(() => {
-    return {
-      metric: null,
-      fact_table: null,
-      data_source: null,
-      [activeExplorerType]: {
-        draftState: initialConfig,
-        submittedState: hasExistingResults ? initialConfig : null,
-        exploration: null,
-        error: null,
-        query: null,
-      },
-    };
+  const [explorerState, setExplorerState] = useState<{
+    draftState: ExplorationConfig;
+    submittedState: ExplorationConfig | null;
+    exploration: ProductAnalyticsExploration | null;
+    error: string | null;
+    query: QueryInterface | null;
+  }>({
+    draftState: initialConfig,
+    submittedState: hasExistingResults ? initialConfig : null,
+    exploration: null,
+    error: null,
+    query: null,
   });
   const [isStale, setIsStale] = useState(false);
   const hasEverFetchedRef = useRef(false);
 
-  const isEmpty = activeExplorerType === null;
-
-  const INITIAL_EXPLORE_STATE = useMemo(
-    () =>
-      initialConfig || {
-        ...DEFAULT_EXPLORE_STATE,
-        datasource: datasources[0]?.id || "",
-      },
-    [initialConfig, datasources],
-  );
-
-  const draftExploreState: ProductAnalyticsConfig = isEmpty
-    ? INITIAL_EXPLORE_STATE
-    : (explorerCache[activeExplorerType]?.draftState ?? INITIAL_EXPLORE_STATE);
+  const draftExploreState: ExplorationConfig = explorerState.draftState;
 
   const setDraftExploreState = useCallback(
     (newStateOrUpdater: SetDraftStateAction) => {
-      if (isEmpty) return;
-
-      setExplorerCache((prev) => {
-        const currentDraft =
-          prev[activeExplorerType]?.draftState ?? INITIAL_EXPLORE_STATE;
+      setExplorerState((prev) => {
+        const currentDraft = prev.draftState;
         const newState =
           typeof newStateOrUpdater === "function"
             ? newStateOrUpdater(currentDraft)
@@ -143,20 +112,11 @@ export function ExplorerProvider({
 
         return {
           ...prev,
-          [activeExplorerType]: {
-            ...prev[activeExplorerType],
-            draftState: validatedState,
-          },
+          draftState: validatedState,
         };
       });
     },
-    [
-      activeExplorerType,
-      getFactTableById,
-      getFactMetricById,
-      isEmpty,
-      INITIAL_EXPLORE_STATE,
-    ],
+    [getFactTableById, getFactMetricById],
   );
 
   const isManagedWarehouse = useMemo(() => {
@@ -167,32 +127,17 @@ export function ExplorerProvider({
     return datasource?.type === "growthbook_clickhouse";
   }, [datasources, draftExploreState.datasource]);
 
-  const setSubmittedExploreState = useCallback(
-    (state: ProductAnalyticsConfig) => {
-      if (isEmpty) return;
-      setExplorerCache((prev) => ({
-        ...prev,
-        [activeExplorerType]: {
-          ...prev[activeExplorerType],
-          submittedState: state,
-        },
-      }));
-    },
-    [activeExplorerType, isEmpty],
-  );
+  const setSubmittedExploreState = useCallback((state: ExplorationConfig) => {
+    setExplorerState((prev) => ({
+      ...prev,
+      submittedState: state,
+    }));
+  }, []);
 
-  const data = isEmpty
-    ? null
-    : (explorerCache[activeExplorerType]?.exploration ?? null);
-  const error = isEmpty
-    ? null
-    : (explorerCache[activeExplorerType]?.error ?? null);
-  const submittedExploreState = isEmpty
-    ? null
-    : (explorerCache[activeExplorerType]?.submittedState ?? null);
-  const query = isEmpty
-    ? null
-    : (explorerCache[activeExplorerType]?.query ?? null);
+  const data = explorerState.exploration;
+  const error = explorerState.error;
+  const submittedExploreState = explorerState.submittedState;
+  const query = explorerState.query;
 
   const commonColumns = useMemo(() => {
     return getCommonColumns(
@@ -217,7 +162,7 @@ export function ExplorerProvider({
 
   const doSubmit = useCallback(
     async (options?: { cache?: CacheOption }) => {
-      if (isEmpty || !isSubmittable) return;
+      if (!isSubmittable) return;
 
       let cache: CacheOption;
       if (options?.cache) {
@@ -257,22 +202,17 @@ export function ExplorerProvider({
         setIsStale(false);
       }
 
-      setExplorerCache((prev) => ({
+      setExplorerState((prev) => ({
         ...prev,
-        [activeExplorerType]: {
-          ...prev[activeExplorerType],
-          exploration: fetchResult,
-          query,
-          error: fetchError || fetchResult?.error || null,
-        },
+        exploration: fetchResult,
+        query,
+        error: fetchError || fetchResult?.error || null,
       }));
       if (fetchResult) onRunComplete?.(fetchResult);
     },
     [
       setSubmittedExploreState,
       fetchData,
-      activeExplorerType,
-      isEmpty,
       isSubmittable,
       cleanedDraftExploreState,
       onRunComplete,
@@ -341,7 +281,7 @@ export function ExplorerProvider({
             ...prev.dataset,
             values: [...prev.dataset.values, value],
           },
-        } as ProductAnalyticsConfig;
+        } as ExplorationConfig;
       });
     },
     [createDefaultValue, setDraftExploreState],
@@ -363,7 +303,7 @@ export function ExplorerProvider({
               ...prev.dataset.values.slice(index + 1),
             ],
           },
-        } as ProductAnalyticsConfig;
+        } as ExplorationConfig;
       });
     },
     [setDraftExploreState],
@@ -382,7 +322,7 @@ export function ExplorerProvider({
         return {
           ...prev,
           dataset: { ...prev.dataset, values: newValues },
-        } as ProductAnalyticsConfig;
+        } as ExplorationConfig;
       });
     },
     [setDraftExploreState],
@@ -397,14 +337,14 @@ export function ExplorerProvider({
         return {
           ...prev,
           dataset: { ...prev.dataset, timestampColumn: column },
-        } as ProductAnalyticsConfig;
+        } as ExplorationConfig;
       });
     },
     [setDraftExploreState],
   );
 
   const changeChartType = useCallback(
-    (chartType: ProductAnalyticsConfig["chartType"]) => {
+    (chartType: ExplorationConfig["chartType"]) => {
       setDraftExploreState((prev) => {
         let dimensions = prev.dimensions;
         let dataset = prev.dataset;
@@ -417,7 +357,7 @@ export function ExplorerProvider({
             dataset = {
               ...prev.dataset,
               values: values.slice(0, 1),
-            } as ProductAnalyticsConfig["dataset"];
+            } as ExplorationConfig["dataset"];
           }
         } else {
           // Time-series charts (line, area) need date dimensions
@@ -439,7 +379,7 @@ export function ExplorerProvider({
             ];
           }
         }
-        return { ...prev, chartType, dimensions, dataset };
+        return { ...prev, chartType, dimensions, dataset } as ExplorationConfig;
       });
     },
     [setDraftExploreState],
@@ -449,29 +389,26 @@ export function ExplorerProvider({
     (newDatasourceId?: string) => {
       const datasourceId = newDatasourceId ?? datasources[0]?.id ?? "";
       setIsStale(false);
-      const newExplorerCache: ExplorerCache = {
-        metric: null,
-        fact_table: null,
-        data_source: null,
-      };
-      for (const type of Object.keys(explorerCache) as DatasetType[]) {
-        const defaultDataset = createEmptyDataset(type);
-        const defaultDraftState = {
-          ...INITIAL_EXPLORE_STATE,
-          datasource: datasourceId,
-          dataset: { ...defaultDataset, values: [createDefaultValue(type)] },
-        } as ProductAnalyticsConfig;
-        newExplorerCache[type] = {
-          draftState: defaultDraftState,
+
+      setExplorerState((prev) => {
+        const type = prev.draftState.dataset.type;
+        return {
+          draftState: {
+            ...initialConfig,
+            datasource: datasourceId,
+            dataset: {
+              ...createEmptyDataset(type),
+              values: [createDefaultValue(type)],
+            },
+          } as ExplorationConfig,
           submittedState: null,
           exploration: null,
           error: null,
           query: null,
         };
-      }
-      setExplorerCache(newExplorerCache);
+      });
     },
-    [explorerCache, createDefaultValue, datasources, INITIAL_EXPLORE_STATE],
+    [createDefaultValue, datasources, initialConfig],
   );
 
   const value = useMemo<ExplorerContextValue>(
@@ -489,7 +426,6 @@ export function ExplorerProvider({
       deleteValueFromDataset,
       updateTimestampColumn,
       changeChartType,
-      isEmpty,
       isStale,
       needsUpdate,
       isSubmittable,
@@ -510,7 +446,6 @@ export function ExplorerProvider({
       deleteValueFromDataset,
       updateTimestampColumn,
       changeChartType,
-      isEmpty,
       isStale,
       needsUpdate,
       isSubmittable,

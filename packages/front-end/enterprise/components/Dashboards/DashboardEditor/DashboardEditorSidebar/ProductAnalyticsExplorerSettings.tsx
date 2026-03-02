@@ -62,7 +62,10 @@ export default function ProductAnalyticsExplorerSettings({
           ...block,
           explorerAnalysisId: exploration.id,
           config: exploration.config,
-        });
+        } as
+          | MetricExplorationBlockInterface
+          | FactTableExplorationBlockInterface
+          | DataSourceExplorationBlockInterface);
       }}
     >
       <ProductAnalyticsExplorerSideBarWrapper

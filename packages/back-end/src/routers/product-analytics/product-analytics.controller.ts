@@ -1,6 +1,6 @@
 import type { Response } from "express";
 import {
-  ProductAnalyticsConfig,
+  ExplorationConfig,
   ProductAnalyticsExploration,
 } from "shared/validators";
 import { QueryInterface } from "shared/types/query";
@@ -12,7 +12,7 @@ import { getQueryById } from "back-end/src/models/QueryModel";
 
 export const postProductAnalyticsRun = async (
   req: AuthRequest<
-    { config: ProductAnalyticsConfig },
+    { config: ExplorationConfig },
     unknown,
     { cache?: "preferred" | "required" | "never" }
   >,

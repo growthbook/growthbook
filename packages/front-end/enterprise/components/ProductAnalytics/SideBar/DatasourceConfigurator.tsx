@@ -6,8 +6,9 @@ import {
   InformationSchemaTablesInterface,
 } from "shared/types/integrations";
 import {
-  DatabaseValue,
-  ProductAnalyticsDataset,
+  DataSourceValue,
+  ExplorationDataset,
+  ExplorationConfig,
 } from "shared/src/validators/product-analytics";
 import { PiCheck } from "react-icons/pi";
 import SelectField from "@/components/Forms/SelectField";
@@ -39,7 +40,7 @@ type TableOption = {
 export default function DatasourceConfigurator({
   dataset,
 }: {
-  dataset: ProductAnalyticsDataset;
+  dataset: ExplorationDataset;
 }) {
   const { datasources, project } = useDefinitions();
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -137,14 +138,17 @@ export default function DatasourceConfigurator({
 
       const timestampColumn = getInferredTimestampColumn(columnTypes);
 
-      setDraftExploreState((prev) => ({
-        ...prev,
-        dataset: {
-          ...prev.dataset,
-          columnTypes,
-          timestampColumn: timestampColumn || "",
-        },
-      }));
+      setDraftExploreState(
+        (prev) =>
+          ({
+            ...prev,
+            dataset: {
+              ...prev.dataset,
+              columnTypes,
+              timestampColumn: timestampColumn || "",
+            } as ExplorationDataset,
+          }) as ExplorationConfig,
+      );
     }
   }, [tableDataResponse, setDraftExploreState]);
 
@@ -289,9 +293,9 @@ export default function DatasourceConfigurator({
                     timestampColumn: "",
                     values: prevDataset?.values?.length
                       ? prevDataset.values
-                      : [createEmptyValue("data_source") as DatabaseValue],
+                      : [createEmptyValue("data_source") as DataSourceValue],
                   },
-                };
+                } as ExplorationConfig;
               });
             }}
             options={tableOptions.map((t) => ({
@@ -330,13 +334,16 @@ export default function DatasourceConfigurator({
                     <DropdownMenuItem
                       key={column.columnName}
                       onClick={() => {
-                        setDraftExploreState((prev) => ({
-                          ...prev,
-                          dataset: {
-                            ...prev.dataset,
-                            timestampColumn: column.columnName,
-                          },
-                        }));
+                        setDraftExploreState(
+                          (prev) =>
+                            ({
+                              ...prev,
+                              dataset: {
+                                ...prev.dataset,
+                                timestampColumn: column.columnName,
+                              },
+                            }) as ExplorationConfig,
+                        );
                       }}
                     >
                       <Flex align="center" justify="between" gap="2">

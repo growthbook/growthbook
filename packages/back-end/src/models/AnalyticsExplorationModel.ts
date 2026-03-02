@@ -1,5 +1,5 @@
 import {
-  ProductAnalyticsConfig,
+  ExplorationConfig,
   ProductAnalyticsExploration,
   productAnalyticsExplorationValidator,
 } from "shared/validators";
@@ -21,7 +21,7 @@ const BaseClass = MakeModelClass({
 });
 
 export class AnalyticsExplorationModel extends BaseClass {
-  public getConfigHashes(config: ProductAnalyticsConfig) {
+  public getConfigHashes(config: ExplorationConfig) {
     const dataset = config.dataset;
     if (!dataset) return null;
 
@@ -44,7 +44,6 @@ export class AnalyticsExplorationModel extends BaseClass {
     // General settings hash
     const generalSettingsHash = md5(
       JSON.stringify({
-        datasetType: dataset.type,
         datasource: config.datasource,
         dimensions: dimensions,
         factTableId: dataset.type === "fact_table" ? dataset.factTableId : null,
@@ -94,7 +93,7 @@ export class AnalyticsExplorationModel extends BaseClass {
     return this.canCreate(doc);
   }
 
-  public async findLatestByConfig(config: ProductAnalyticsConfig) {
+  public async findLatestByConfig(config: ExplorationConfig) {
     const { dataset } = config;
     if (!dataset) return null;
 
@@ -104,6 +103,7 @@ export class AnalyticsExplorationModel extends BaseClass {
     // 1. Get all possible matches (ignoring date ranges for now)
     const matches = await this._find(
       {
+        type: config.type,
         datasource: config.datasource,
         status: "success",
         configHash: configHashes.generalSettingsHash,

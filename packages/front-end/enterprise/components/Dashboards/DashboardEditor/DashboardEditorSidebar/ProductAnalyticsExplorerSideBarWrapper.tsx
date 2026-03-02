@@ -44,7 +44,10 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
         ...block,
         config: draftExploreState,
         explorerAnalysisId: "",
-      });
+      } as
+        | MetricExplorationBlockInterface
+        | FactTableExplorationBlockInterface
+        | DataSourceExplorationBlockInterface);
     }
   }, [needsUpdate, setBlock, block, draftExploreState]);
 

@@ -149,7 +149,7 @@ import {
   MetricQuantileSettings,
 } from "shared/types/fact-table";
 import type { PopulationDataQuerySettings } from "shared/types/query";
-import { ProductAnalyticsConfig } from "shared/src/validators/product-analytics";
+import { ExplorationConfig } from "shared/src/validators/product-analytics";
 import {
   AdditionalQueryMetadata,
   QueryDocMetadata,
@@ -8017,7 +8017,7 @@ ORDER BY column_name, count DESC
   }
 
   getProductAnalyticsQuery(
-    config: ProductAnalyticsConfig,
+    config: ExplorationConfig,
     {
       factTableMap,
       metricMap,

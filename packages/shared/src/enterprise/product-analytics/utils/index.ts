@@ -1,7 +1,8 @@
-import type { ProductAnalyticsConfig } from "../../../validators/product-analytics";
+import type { ExplorationConfig } from "../../../validators/product-analytics";
 
 /** Default product analytics config used for new blocks and Explorer initial state. */
-export const DEFAULT_EXPLORE_STATE: ProductAnalyticsConfig = {
+export const DEFAULT_EXPLORE_STATE: ExplorationConfig = {
+  type: "metric",
   dataset: {
     type: "metric",
     values: [],
@@ -32,7 +33,7 @@ export type ProductAnalyticsExplorationBlockType =
 export function getInitialConfigByBlockType(
   blockType: ProductAnalyticsExplorationBlockType,
   datasourceId: string,
-): ProductAnalyticsConfig {
+): ExplorationConfig {
   switch (blockType) {
     case "metric-exploration":
       return {
@@ -42,6 +43,7 @@ export function getInitialConfigByBlockType(
     case "fact-table-exploration":
       return {
         ...DEFAULT_EXPLORE_STATE,
+        type: "fact_table",
         dataset: {
           type: "fact_table",
           values: [],
@@ -52,6 +54,7 @@ export function getInitialConfigByBlockType(
     case "data-source-exploration":
       return {
         ...DEFAULT_EXPLORE_STATE,
+        type: "data_source",
         dataset: {
           type: "data_source",
           values: [],

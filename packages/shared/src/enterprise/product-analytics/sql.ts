@@ -17,8 +17,8 @@ import {
   ProductAnalyticsDimension,
   ProductAnalyticsDynamicDimension,
   FactTableDataset,
-  ProductAnalyticsConfig,
-  DatabaseDataset,
+  ExplorationConfig,
+  DataSourceDataset,
   ProductAnalyticsResult,
   ProductAnalyticsResultRow,
 } from "../../validators/product-analytics";
@@ -91,7 +91,7 @@ function getMetricAliases(index: number) {
 
 // Helpers to convert to internal types
 function getMetricsAndUnitsFromValues(
-  values: FactTableDataset["values"] | DatabaseDataset["values"],
+  values: FactTableDataset["values"] | DataSourceDataset["values"],
 ): { metrics: MetricWithMetadata[]; units: string[] } {
   const units = new Set<string>();
 
@@ -123,7 +123,7 @@ function getFactTableGroups({
   metricMap,
   datasourceSettings,
 }: {
-  config: ProductAnalyticsConfig;
+  config: ExplorationConfig;
   factTableMap: FactTableMap;
   metricMap: Map<string, FactMetricInterface>;
   datasourceSettings: DataSourceSettings | null;
@@ -260,7 +260,7 @@ function getFactTableGroups({
   }
 }
 export function calculateProductAnalyticsDateRange(
-  dateRange: ProductAnalyticsConfig["dateRange"],
+  dateRange: ExplorationConfig["dateRange"],
 ): DateRange {
   const startDate = new Date();
   const endDate = new Date();
@@ -1023,7 +1023,7 @@ function generateFinalSelect(
 }
 
 export function generateProductAnalyticsSQL(
-  config: ProductAnalyticsConfig,
+  config: ExplorationConfig,
   factTableMap: FactTableMap,
   metricMap: Map<string, FactMetricInterface>,
   sqlHelpers: SqlHelpers,
@@ -1225,7 +1225,7 @@ function parseNumberValue(value: unknown): number | null {
 }
 
 export function transformProductAnalyticsRowsToResult(
-  config: ProductAnalyticsConfig,
+  config: ExplorationConfig,
   rows: Record<string, unknown>[],
   orderedMetricIds: string[],
 ): ProductAnalyticsResult {

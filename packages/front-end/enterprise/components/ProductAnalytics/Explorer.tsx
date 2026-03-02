@@ -2,23 +2,16 @@ import React from "react";
 import { Flex, Box } from "@radix-ui/themes";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { PiDotsSix } from "react-icons/pi";
-import { DatasetType, ProductAnalyticsConfig } from "shared/validators";
+import { DatasetType, ExplorationConfig } from "shared/validators";
 import { DEFAULT_EXPLORE_STATE } from "shared/enterprise";
 import ShadowedScrollArea from "@/components/ShadowedScrollArea/ShadowedScrollArea";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ExplorerSideBar from "./SideBar/ExplorerSideBar";
-import { ExplorerProvider, useExplorerContext } from "./ExplorerContext";
+import { ExplorerProvider } from "./ExplorerContext";
 import ExplorerMainSection from "./MainSection/ExplorerMainSection";
-import EmptyState from "./EmptyState";
 import { createEmptyDataset, createEmptyValue } from "./util";
 
 function ExplorerContent() {
-  const { isEmpty } = useExplorerContext();
-
-  if (isEmpty) {
-    return <EmptyState />;
-  }
-
   return (
     <Flex direction="column" gap="3" height="calc(100vh - 72px)">
       <PanelGroup direction="horizontal">
@@ -73,26 +66,10 @@ export default function Explorer({ type }: { type: DatasetType }) {
   const defaultDataset = createEmptyDataset(type);
   const defaultDraftState = {
     ...DEFAULT_EXPLORE_STATE,
+    type,
     datasource: datasources[0]?.id || "",
     dataset: { ...defaultDataset, values: [createEmptyValue(type)] },
-  } as ProductAnalyticsConfig;
-
-  // const { hasCommercialFeature } = useUser();
-
-  // TODO: Re-enable this
-  // if (!hasCommercialFeature("product-analytics-dashboards")) {
-  //   return (
-  //     <div className="p-3 container-fluid pagecontents">
-  //       <PremiumCallout
-  //         id="product-analytics-explore"
-  //         dismissable={false}
-  //         commercialFeature="product-analytics-dashboards"
-  //       >
-  //         Use of Product Analytics Explore requires a paid plan
-  //       </PremiumCallout>
-  //     </div>
-  //   );
-  // }
+  } as ExplorationConfig;
 
   return (
     <ExplorerProvider initialConfig={defaultDraftState}>

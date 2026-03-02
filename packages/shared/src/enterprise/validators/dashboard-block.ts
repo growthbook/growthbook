@@ -4,7 +4,11 @@ import {
   metricAnalysisSettingsStringDatesValidator,
   metricAnalysisSettingsValidator,
 } from "../../validators/metric-analysis";
-import { productAnalyticsConfigValidator } from "../../validators/product-analytics";
+import {
+  metricExplorationConfigValidator,
+  factTableExplorationConfigValidator,
+  dataSourceExplorationConfigValidator,
+} from "../../validators/product-analytics";
 import { differenceTypes, pinSources } from "../dashboards/utils";
 
 const baseBlockInterface = z
@@ -258,25 +262,23 @@ export type MetricExplorerBlockInterface = z.infer<
   typeof metricExplorerBlockInterface
 >;
 
-const productAnalyticsExplorerBaseInterface = baseBlockInterface.extend({
+const metricExplorationBlockInterface = baseBlockInterface.extend({
+  type: z.literal("metric-exploration"),
   explorerAnalysisId: z.string(),
-  config: productAnalyticsConfigValidator,
+  config: metricExplorationConfigValidator,
 });
 
-const metricExplorationBlockInterface =
-  productAnalyticsExplorerBaseInterface.extend({
-    type: z.literal("metric-exploration"),
-  });
+const factTableExplorationBlockInterface = baseBlockInterface.extend({
+  type: z.literal("fact-table-exploration"),
+  explorerAnalysisId: z.string(),
+  config: factTableExplorationConfigValidator,
+});
 
-const factTableExplorationBlockInterface =
-  productAnalyticsExplorerBaseInterface.extend({
-    type: z.literal("fact-table-exploration"),
-  });
-
-const dataSourceExplorationBlockInterface =
-  productAnalyticsExplorerBaseInterface.extend({
-    type: z.literal("data-source-exploration"),
-  });
+const dataSourceExplorationBlockInterface = baseBlockInterface.extend({
+  type: z.literal("data-source-exploration"),
+  explorerAnalysisId: z.string(),
+  config: dataSourceExplorationConfigValidator,
+});
 
 export type MetricExplorationBlockInterface = z.infer<
   typeof metricExplorationBlockInterface
@@ -296,20 +298,17 @@ const standardAndApiCommonBlocks = [
   experimentTimeSeriesBlockInterface,
   experimentTrafficBlockInterface,
   sqlExplorerBlockInterface,
+  metricExplorationBlockInterface,
+  factTableExplorationBlockInterface,
+  dataSourceExplorationBlockInterface,
 ];
 
 export const dashboardBlockInterface = z.discriminatedUnion("type", [
   metricExplorerBlockInterface,
-  metricExplorationBlockInterface,
-  factTableExplorationBlockInterface,
-  dataSourceExplorationBlockInterface,
   ...standardAndApiCommonBlocks,
 ]);
 export const apiDashboardBlockInterface = z.discriminatedUnion("type", [
   apiMetricExplorerBlockInterface,
-  metricExplorationBlockInterface,
-  factTableExplorationBlockInterface,
-  dataSourceExplorationBlockInterface,
   ...standardAndApiCommonBlocks,
 ]);
 export const legacyDashboardBlockInterface = z.discriminatedUnion("type", [

@@ -12,6 +12,7 @@ import {
   MetricExplorerBlockInterface,
   DashboardBlockInterface,
 } from "shared/enterprise";
+import { ExplorationConfig } from "shared/validators";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
@@ -315,7 +316,7 @@ function isProductAnalyticsExplorationBlock(
   block: DashboardInterface["blocks"][number],
 ): block is DashboardInterface["blocks"][number] & {
   explorerAnalysisId: string;
-  config: import("shared/validators").ProductAnalyticsConfig;
+  config: ExplorationConfig;
 } {
   return (
     PRODUCT_ANALYTICS_EXPLORATION_BLOCK_TYPES.includes(

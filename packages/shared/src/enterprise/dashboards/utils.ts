@@ -7,6 +7,11 @@ import {
   DashboardTemplateInterface,
 } from "shared/enterprise";
 import {
+  MetricExplorationConfig,
+  FactTableExplorationConfig,
+  DataSourceExplorationConfig,
+} from "shared/validators";
+import {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
 } from "shared/types/experiment";
@@ -56,8 +61,9 @@ export function dashboardBlockHasIds<T extends DashboardBlockInterface>(
 }
 
 export function isDifferenceType(
-  value: string,
+  value: unknown,
 ): value is (typeof differenceTypes)[number] {
+  if (typeof value !== "string") return false;
   return (differenceTypes as readonly string[]).includes(value);
 }
 
@@ -265,10 +271,10 @@ export const CREATE_BLOCK_TYPE: {
     explorerAnalysisId: "",
     config:
       initialValues?.config ??
-      getInitialConfigByBlockType(
+      (getInitialConfigByBlockType(
         "metric-exploration",
         initialValues?.config?.datasource ?? "",
-      ),
+      ) as MetricExplorationConfig),
     ...(initialValues || {}),
   }),
   "fact-table-exploration": ({ initialValues }) => ({
@@ -278,10 +284,10 @@ export const CREATE_BLOCK_TYPE: {
     explorerAnalysisId: "",
     config:
       initialValues?.config ??
-      getInitialConfigByBlockType(
+      (getInitialConfigByBlockType(
         "fact-table-exploration",
         initialValues?.config?.datasource ?? "",
-      ),
+      ) as FactTableExplorationConfig),
     ...(initialValues || {}),
   }),
   "data-source-exploration": ({ initialValues }) => ({
@@ -291,10 +297,10 @@ export const CREATE_BLOCK_TYPE: {
     explorerAnalysisId: "",
     config:
       initialValues?.config ??
-      getInitialConfigByBlockType(
+      (getInitialConfigByBlockType(
         "data-source-exploration",
         initialValues?.config?.datasource ?? "",
-      ),
+      ) as DataSourceExplorationConfig),
     ...(initialValues || {}),
   }),
 };
@@ -307,7 +313,12 @@ export function createDashboardBlocksFromTemplate(
   metricGroups: MetricGroupInterface[],
 ): CreateDashboardBlockInterface[] {
   return blockInitialValues.map(({ type, ...initialValues }) =>
-    CREATE_BLOCK_TYPE[type]({ initialValues, experiment, metricGroups }),
+    // TypeScript can't correlate destructured discriminant with rest properties
+    (CREATE_BLOCK_TYPE[type] as CreateBlock<DashboardBlockInterface>)({
+      initialValues,
+      experiment,
+      metricGroups,
+    }),
   );
 }
 

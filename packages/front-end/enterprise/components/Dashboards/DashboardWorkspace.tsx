@@ -214,7 +214,13 @@ export default function DashboardWorkspace({
       bType === "metric-exploration" ||
       bType === "fact-table-exploration" ||
       bType === "data-source-exploration";
-    const blockData = CREATE_BLOCK_TYPE[bType]({
+    // TypeScript can't correlate block type with its config in a discriminated union
+    const createBlock = CREATE_BLOCK_TYPE[bType] as (args: {
+      experiment: ExperimentInterfaceStringDates;
+      metricGroups: typeof metricGroups;
+      initialValues?: Record<string, unknown>;
+    }) => ReturnType<(typeof CREATE_BLOCK_TYPE)[typeof bType]>;
+    const blockData = createBlock({
       experiment: experiment!,
       metricGroups,
       initialValues: isExplorationBlock

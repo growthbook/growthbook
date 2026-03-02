@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
 import type {
-  ProductAnalyticsConfig,
+  ExplorationConfig,
   ProductAnalyticsExploration,
 } from "shared/validators";
 import { shouldChartSectionShow } from "@/enterprise/components/ProductAnalytics/util";
@@ -38,7 +38,7 @@ function formatNumber(value: number): string {
 }
 
 function getSeriesTitle(
-  config: ProductAnalyticsConfig | null,
+  config: ExplorationConfig | null,
   valueIndex: number,
   fallback: string,
 ): string {
@@ -53,7 +53,7 @@ export default function ExplorerChart({
 }: {
   exploration: ProductAnalyticsExploration | null;
   error: string | null;
-  submittedExploreState: ProductAnalyticsConfig;
+  submittedExploreState: ExplorationConfig;
   loading: boolean;
 }) {
   const { theme } = useAppearanceUITheme();

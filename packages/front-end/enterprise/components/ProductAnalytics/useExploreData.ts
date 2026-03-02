@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import type {
-  ProductAnalyticsConfig,
+  ExplorationConfig,
   ProductAnalyticsExploration,
 } from "shared/validators";
 import { QueryInterface } from "shared/types/query";
@@ -14,7 +14,7 @@ export function useExploreData() {
 
   const fetchData = useCallback(
     async (
-      config: ProductAnalyticsConfig,
+      config: ExplorationConfig,
       options?: { cache?: CacheOption },
     ): Promise<{
       data: ProductAnalyticsExploration | null;

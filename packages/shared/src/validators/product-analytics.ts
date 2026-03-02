@@ -45,15 +45,15 @@ const factTableDatasetValidator = z
   .strict();
 
 // Database
-const databaseValueValidator = baseValueValidator.extend({
+const dataSourceValueValidator = baseValueValidator.extend({
   type: z.literal("data_source"),
   valueType: z.enum(valueType),
   valueColumn: z.string().nullable(),
   unit: z.string().nullable(),
 });
-export type DatabaseValue = z.infer<typeof databaseValueValidator>;
+export type DataSourceValue = z.infer<typeof dataSourceValueValidator>;
 
-const databaseDatasetValidator = z
+const dataSourceDatasetValidator = z
   .object({
     type: z.literal("data_source"),
     table: z.string(),
@@ -63,21 +63,20 @@ const databaseDatasetValidator = z
       z.string(),
       z.enum(["string", "number", "date", "boolean", "other"]),
     ),
-    values: z.array(databaseValueValidator),
+    values: z.array(dataSourceValueValidator),
   })
   .strict();
 
-const datasetValidator = z.discriminatedUnion("type", [
+export const explorationDatasetValidator = z.discriminatedUnion("type", [
   metricDatasetValidator,
   factTableDatasetValidator,
-  databaseDatasetValidator,
+  dataSourceDatasetValidator,
 ]);
-export type ProductAnalyticsDataset = z.infer<typeof datasetValidator>;
 
 const _valueValidator = z.discriminatedUnion("type", [
   metricValueValidator,
   factTableValueValidator,
-  databaseValueValidator,
+  dataSourceValueValidator,
 ]);
 export type ProductAnalyticsValue = z.infer<typeof _valueValidator>;
 
@@ -148,22 +147,36 @@ export const dateRangePredefined = [
 
 export const lookbackUnit = ["hour", "day", "week", "month"] as const;
 
-// The config defined in the UI
-export const productAnalyticsConfigValidator = z
-  .object({
-    datasource: z.string(),
-    dataset: datasetValidator,
-    dimensions: z.array(dimensionValidator),
-    chartType: z.enum(chartTypes),
-    dateRange: z.object({
-      predefined: z.enum(dateRangePredefined),
-      lookbackValue: z.number().nullable(),
-      lookbackUnit: z.enum(lookbackUnit).nullable(),
-      startDate: z.string().nullable(),
-      endDate: z.string().nullable(),
-    }),
-  })
-  .strict();
+export const baseExplorationConfigValidator = z.object({
+  datasource: z.string(),
+  dimensions: z.array(dimensionValidator),
+  chartType: z.enum(chartTypes),
+  dateRange: z.object({
+    predefined: z.enum(dateRangePredefined),
+    lookbackValue: z.number().nullable(),
+    lookbackUnit: z.enum(lookbackUnit).nullable(),
+    startDate: z.string().nullable(),
+    endDate: z.string().nullable(),
+  }),
+});
+
+export const metricExplorationConfigValidator =
+  baseExplorationConfigValidator.extend({
+    type: z.literal("metric"),
+    dataset: metricDatasetValidator,
+  });
+
+export const factTableExplorationConfigValidator =
+  baseExplorationConfigValidator.extend({
+    type: z.literal("fact_table"),
+    dataset: factTableDatasetValidator,
+  });
+
+export const dataSourceExplorationConfigValidator =
+  baseExplorationConfigValidator.extend({
+    type: z.literal("data_source"),
+    dataset: dataSourceDatasetValidator,
+  });
 
 // For SQL datasets, we need to know the column types
 // This is the shape of the response from the warehouse / API
@@ -199,7 +212,11 @@ export const productAnalyticsExplorationValidator = z.object({
   datasource: z.string(),
   configHash: z.string(),
   valueHashes: z.array(z.string()),
-  config: productAnalyticsConfigValidator,
+  config: z.discriminatedUnion("type", [
+    metricExplorationConfigValidator,
+    factTableExplorationConfigValidator,
+    dataSourceExplorationConfigValidator,
+  ]),
   result: productAnalyticsResultValidator,
   dateStart: z.string(),
   dateEnd: z.string(),
@@ -209,11 +226,32 @@ export const productAnalyticsExplorationValidator = z.object({
   queries: z.array(queryPointerValidator),
 });
 
-export type ProductAnalyticsConfig = z.infer<
-  typeof productAnalyticsConfigValidator
+export type BaseExplorationConfig = z.infer<
+  typeof baseExplorationConfigValidator
 >;
+
+export const explorationConfigValidator = z.discriminatedUnion("type", [
+  metricExplorationConfigValidator,
+  factTableExplorationConfigValidator,
+  dataSourceExplorationConfigValidator,
+]);
+export type ExplorationConfig = z.infer<typeof explorationConfigValidator>;
+
+export type MetricExplorationConfig = z.infer<
+  typeof metricExplorationConfigValidator
+>;
+export type FactTableExplorationConfig = z.infer<
+  typeof factTableExplorationConfigValidator
+>;
+export type DataSourceExplorationConfig = z.infer<
+  typeof dataSourceExplorationConfigValidator
+>;
+
+export type MetricDataset = z.infer<typeof metricDatasetValidator>;
 export type FactTableDataset = z.infer<typeof factTableDatasetValidator>;
-export type DatabaseDataset = z.infer<typeof databaseDatasetValidator>;
+export type DataSourceDataset = z.infer<typeof dataSourceDatasetValidator>;
+export type ExplorationDataset = z.infer<typeof explorationDatasetValidator>;
+
 export type ProductAnalyticsDimension = z.infer<typeof dimensionValidator>;
 export type ProductAnalyticsDynamicDimension = z.infer<
   typeof dynamicDimensionValidator

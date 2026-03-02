@@ -1,6 +1,6 @@
 import express from "express";
 import { z } from "zod";
-import { productAnalyticsConfigValidator } from "shared/validators";
+import { explorationConfigValidator } from "shared/validators";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawProductAnalyticsController from "./product-analytics.controller";
@@ -20,7 +20,7 @@ router.get(
 router.post(
   "/run",
   validateRequestMiddleware({
-    body: z.object({ config: productAnalyticsConfigValidator }).strict(),
+    body: z.object({ config: explorationConfigValidator }).strict(),
     query: z
       .object({ cache: z.enum(["preferred", "required", "never"]) })
       .optional(),

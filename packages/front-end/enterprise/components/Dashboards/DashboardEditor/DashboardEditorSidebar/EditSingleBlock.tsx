@@ -10,7 +10,12 @@ import {
 import React, { useContext, useEffect, useMemo, useState, useRef } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { isNumber, isString, isStringArray } from "shared/util";
-import { ProductAnalyticsConfig, SavedQuery } from "shared/validators";
+import {
+  FactTableExplorationConfig,
+  DataSourceExplorationConfig,
+  MetricExplorationConfig,
+  SavedQuery,
+} from "shared/validators";
 import {
   PiCopySimple,
   PiPencilSimpleFill,
@@ -88,21 +93,21 @@ const REQUIRED_FIELDS: {
     {
       field: "config",
       validation: (config) =>
-        isSubmittableConfig(config as ProductAnalyticsConfig),
+        isSubmittableConfig(config as MetricExplorationConfig),
     },
   ],
   "fact-table-exploration": [
     {
       field: "config",
       validation: (config) =>
-        isSubmittableConfig(config as ProductAnalyticsConfig),
+        isSubmittableConfig(config as FactTableExplorationConfig),
     },
   ],
   "data-source-exploration": [
     {
       field: "config",
       validation: (config) =>
-        isSubmittableConfig(config as ProductAnalyticsConfig),
+        isSubmittableConfig(config as DataSourceExplorationConfig),
     },
   ],
 };
