@@ -67,6 +67,7 @@ import { CustomHookModel } from "back-end/src/models/CustomHookModel";
 import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
 import { TeamModel } from "back-end/src/models/TeamModel";
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
+import { ApprovalFlowModel } from "back-end/src/enterprise/models/ApprovalFlowModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
@@ -105,7 +106,8 @@ export type ModelName =
   | "sdkWebhooks"
   | "savedGroups"
   | "teams"
-  | "analyticsExplorations";
+  | "analyticsExplorations"
+  | "approvalFlows";
 
 export const modelClasses = {
   agreements: AgreementModel,
@@ -137,6 +139,7 @@ export const modelClasses = {
   savedGroups: SavedGroupModel,
   teams: TeamModel,
   analyticsExplorations: AnalyticsExplorationModel,
+  approvalFlows: ApprovalFlowModel,
 };
 export type ModelClass = (typeof modelClasses)[ModelName];
 type ModelInstances = {
@@ -177,6 +180,7 @@ export class ReqContextClass {
       savedGroups: new SavedGroupModel(this),
       teams: new TeamModel(this),
       analyticsExplorations: new AnalyticsExplorationModel(this),
+      approvalFlows: new ApprovalFlowModel(this),
     };
   }
 
