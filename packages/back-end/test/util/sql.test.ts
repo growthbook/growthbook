@@ -6,6 +6,7 @@ import {
   replaceCountStar,
   determineColumnTypes,
   getHost,
+  formatAsync,
 } from "back-end/src/util/sql";
 
 describe("backend", () => {
@@ -584,5 +585,61 @@ describe("getHost", () => {
   });
   it("tries best if URL is malformed", () => {
     expect(getHost("localhost", 8080)).toEqual("http://localhost:8080");
+  });
+});
+
+describe("formatAsync", () => {
+  it("formats SQL using worker threads", async () => {
+    const sql = "SELECT id, name, email FROM users WHERE active = 1";
+    const result = await formatAsync(sql, "postgresql");
+
+    expect(result).toEqual(`SELECT
+  id,
+  name,
+  email
+FROM
+  users
+WHERE
+  active = 1`);
+  });
+
+  it("handles SQL without dialect", async () => {
+    const sql = "SELECT * FROM users";
+    const result = await formatAsync(sql);
+
+    // Without dialect, should return original SQL
+    expect(result).toEqual(sql);
+  });
+
+  it("handles formatting errors gracefully", async () => {
+    const invalidSql = "SELECT ((( INVALID";
+    let errorCalled = false;
+
+    const result = await formatAsync(invalidSql, "postgresql", (error) => {
+      errorCalled = true;
+      expect(error.error).toBeDefined();
+      expect(error.originalSql).toEqual(invalidSql);
+    });
+
+    // Should return original SQL on error
+    expect(result).toEqual(invalidSql);
+    expect(errorCalled).toBe(true);
+  });
+
+  it("processes multiple requests in parallel", async () => {
+    const queries = Array.from(
+      { length: 5 },
+      (_, i) => `SELECT id, name FROM table_${i} WHERE status = 'active'`,
+    );
+
+    const results = await Promise.all(
+      queries.map((sql) => formatAsync(sql, "postgresql")),
+    );
+
+    expect(results).toHaveLength(5);
+    results.forEach((result, i) => {
+      expect(result).toContain("SELECT");
+      expect(result).toContain(`table_${i}`);
+    });
   });
 });

@@ -1,6 +1,10 @@
+import { Worker } from "worker_threads";
+import path from "path";
 import Handlebars from "handlebars";
-import { SQLVars } from "shared/types/sql";
+import { FormatDialect, SQLVars } from "shared/types/sql";
+import { MAX_SQL_LENGTH_TO_FORMAT } from "shared/sql";
 import { FactTableColumnType, JSONColumnFields } from "shared/types/fact-table";
+import { FormatError } from "shared/types/error";
 import { helpers } from "./handlebarsHelpers";
 
 // Register all the helpers from handlebarsHelpers
@@ -314,4 +318,189 @@ export function determineColumnTypes(
   });
 
   return columns;
+}
+interface FormatMessage {
+  sql: string;
+  dialect?: FormatDialect;
+}
+
+interface FormatResult {
+  formatted: string;
+  error?: FormatError;
+}
+
+// Worker pool management
+interface FormatWorkerPoolItem {
+  worker: Worker;
+  busy: boolean;
+}
+
+class FormatWorkerPool {
+  private pool: FormatWorkerPoolItem[] = [];
+  private readonly minSize: number =
+    parseInt(process.env.FORMAT_WORKER_POOL_MIN_SIZE || "") || 0;
+  private readonly maxSize: number =
+    parseInt(process.env.FORMAT_WORKER_POOL_MIN_SIZE || "") || 2;
+  private pendingTasks: Array<{
+    message: FormatMessage;
+    resolve: (value: string) => void;
+    reject: (error: Error) => void;
+    onError?: (error: FormatError) => void;
+  }> = [];
+
+  constructor() {
+    // Initialize with minimum pool size
+    for (let i = 0; i < this.minSize; i++) {
+      this.createWorker();
+    }
+  }
+
+  private createWorker(): FormatWorkerPoolItem {
+    const workerPath = path.join(
+      __dirname,
+      "..",
+      "..",
+      "scripts",
+      "sql-format.worker.mjs",
+    );
+    const worker = new Worker(workerPath);
+    const poolItem: FormatWorkerPoolItem = { worker, busy: false };
+
+    worker.on("error", () => {
+      // Remove this worker from the pool and create a new one
+      const index = this.pool.indexOf(poolItem);
+      if (index > -1) {
+        this.pool.splice(index, 1);
+      }
+      worker.terminate();
+
+      // Create a replacement worker if we're below min size
+      if (this.pool.length < this.minSize) {
+        this.createWorker();
+      }
+    });
+
+    this.pool.push(poolItem);
+    return poolItem;
+  }
+
+  private getAvailableWorker(): FormatWorkerPoolItem | null {
+    // Try to find an idle worker
+    const available = this.pool.find((item) => !item.busy);
+    if (available) {
+      return available;
+    }
+
+    // If no idle workers and we can grow the pool, create a new one
+    if (this.pool.length < this.maxSize) {
+      return this.createWorker();
+    }
+
+    return null;
+  }
+
+  private processNextTask(): void {
+    if (this.pendingTasks.length === 0) return;
+
+    const poolItem = this.getAvailableWorker();
+    if (!poolItem) return;
+
+    const task = this.pendingTasks.shift();
+    if (!task) return;
+
+    this.executeTask(poolItem, task);
+  }
+
+  private executeTask(
+    poolItem: FormatWorkerPoolItem,
+    task: {
+      message: FormatMessage;
+      resolve: (value: string) => void;
+      reject: (error: Error) => void;
+      onError?: (error: FormatError) => void;
+    },
+  ): void {
+    poolItem.busy = true;
+
+    const messageHandler = (result: FormatResult) => {
+      poolItem.worker.off("message", messageHandler);
+      poolItem.busy = false;
+
+      if (result.error && task.onError) {
+        task.onError(result.error);
+      }
+
+      task.resolve(result.formatted);
+
+      // Process next pending task if any
+      this.processNextTask();
+    };
+
+    poolItem.worker.on("message", messageHandler);
+    poolItem.worker.postMessage(task.message);
+  }
+
+  public async format(
+    sql: string,
+    dialect?: FormatDialect,
+    onError?: (error: FormatError) => void,
+  ): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const message: FormatMessage = { sql, dialect };
+      const task = { message, resolve, reject, onError };
+
+      const poolItem = this.getAvailableWorker();
+      if (poolItem) {
+        this.executeTask(poolItem, task);
+      } else {
+        // Queue the task if all workers are busy
+        this.pendingTasks.push(task);
+      }
+    });
+  }
+
+  public async shutdown(): Promise<void> {
+    if (this.pool.length === 0) return;
+    await Promise.all(this.pool.map((item) => item.worker.terminate()));
+    this.pool = [];
+    this.pendingTasks = [];
+  }
+}
+
+// Global worker pool instance
+const workerPool = new FormatWorkerPool();
+
+// Clean up worker pool on process exit and test completion
+const cleanup = () => {
+  workerPool.shutdown().catch(() => {
+    /* ignore cleanup errors */
+  });
+};
+
+process.on("beforeExit", cleanup);
+
+/**
+ * Shut down the worker pool. This should be called when the application exits
+ * or in test cleanup (afterAll) to ensure worker threads are properly terminated.
+ */
+export async function shutdownFormatWorkerPool(): Promise<void> {
+  await workerPool.shutdown();
+}
+
+/**
+ * Format SQL asynchronously using a worker thread pool to avoid blocking the main thread.
+ * This is useful for large queries as format is very CPU-intensive.
+ * Workers are kept alive in a pool to eliminate worker creation overhead
+ * and allow parallel processing when multiple format requests come in simultaneously.
+ */
+export async function formatAsync(
+  sql: string,
+  dialect?: FormatDialect,
+  onError?: (error: FormatError) => void,
+): Promise<string> {
+  // Since format is not doing anything for big sql, no sense in passing it to the worker.
+  if (MAX_SQL_LENGTH_TO_FORMAT && sql.length > MAX_SQL_LENGTH_TO_FORMAT) {
+    return sql;
+  }
+  return workerPool.format(sql, dialect, onError);
 }
