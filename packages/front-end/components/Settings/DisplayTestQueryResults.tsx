@@ -30,6 +30,7 @@ export type Props = {
   headerStructure?: HeaderStructure;
   orderedColumnKeys?: string[];
   paddingTop?: number;
+  showNoRowsWarning?: boolean;
 };
 
 export default function DisplayTestQueryResults({
@@ -46,6 +47,7 @@ export default function DisplayTestQueryResults({
   headerStructure,
   orderedColumnKeys,
   paddingTop = 0,
+  showNoRowsWarning = true,
 }: Props) {
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const cols = orderedColumnKeys ?? Object.keys(results?.[0] || {});
@@ -282,6 +284,7 @@ export default function DisplayTestQueryResults({
             {error ? (
               <div className="alert alert-danger mr-auto">{error}</div>
             ) : (
+              showNoRowsWarning &&
               !results.length && (
                 <div className="alert alert-warning mr-auto">
                   <FaExclamationTriangle /> No rows returned, could not verify

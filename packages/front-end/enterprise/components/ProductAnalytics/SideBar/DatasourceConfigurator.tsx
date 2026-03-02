@@ -299,7 +299,7 @@ export default function DatasourceConfigurator({
               });
             }}
             options={tableOptions.map((t) => ({
-              label: t.tableName,
+              label: t.tablePath,
               value: t.tableId,
             }))}
             disabled={

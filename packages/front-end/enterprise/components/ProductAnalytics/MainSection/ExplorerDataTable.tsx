@@ -248,8 +248,6 @@ export default function ExplorerDataTable({ hasChart }: { hasChart: boolean }) {
     submittedExploreState,
   ]);
 
-  if (!exploration?.result?.rows?.length && !error) return null;
-
   return (
     <DisplayTestQueryResults
       results={rowData}
@@ -262,6 +260,7 @@ export default function ExplorerDataTable({ hasChart }: { hasChart: boolean }) {
       headerStructure={headerStructure ?? undefined}
       orderedColumnKeys={orderedColumnKeys}
       paddingTop={(isStale || loading) && !hasChart ? 35 : 0}
+      showNoRowsWarning={false}
     />
   );
 }

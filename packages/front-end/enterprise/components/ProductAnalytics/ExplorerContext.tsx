@@ -75,7 +75,6 @@ export function ExplorerProvider({
 
   const { getFactTableById, getFactMetricById, datasources } = useDefinitions();
 
-  const activeExplorerType = initialConfig?.dataset.type || "metric";
   const [explorerState, setExplorerState] = useState<{
     draftState: ExplorationConfig;
     submittedState: ExplorationConfig | null;

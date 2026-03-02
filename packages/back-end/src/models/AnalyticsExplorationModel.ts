@@ -44,6 +44,7 @@ export class AnalyticsExplorationModel extends BaseClass {
     // General settings hash
     const generalSettingsHash = md5(
       JSON.stringify({
+        type: config.type,
         datasource: config.datasource,
         dimensions: dimensions,
         factTableId: dataset.type === "fact_table" ? dataset.factTableId : null,
@@ -103,7 +104,6 @@ export class AnalyticsExplorationModel extends BaseClass {
     // 1. Get all possible matches (ignoring date ranges for now)
     const matches = await this._find(
       {
-        type: config.type,
         datasource: config.datasource,
         status: "success",
         configHash: configHashes.generalSettingsHash,
