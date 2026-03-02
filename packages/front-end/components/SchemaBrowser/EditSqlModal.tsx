@@ -177,12 +177,12 @@ export default function EditSqlModal({
   }, [form, runTestQuery]);
 
   const datasource = getDatasourceById(datasourceId);
-  const canFormat = datasource ? canFormatSql(datasource.type) : false;
   const canRunQueries = datasource
     ? permissionsUtil.canRunTestQueries(datasource)
     : null;
   const supportsSchemaBrowser =
     datasource?.properties?.supportsInformationSchema;
+  const canFormat = datasource ? canFormatSql(datasource.type) : false;
 
   const hasEventName = usesEventName(form.watch("sql"));
   const hasValueCol = usesValueColumn(form.watch("sql"));

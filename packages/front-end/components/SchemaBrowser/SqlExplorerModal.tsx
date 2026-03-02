@@ -219,6 +219,7 @@ export default function SqlExplorerModal({
     datasource?.properties?.supportsInformationSchema;
 
   const canFormat = datasource ? canFormatSql(datasource.type) : false;
+
   const hasResults =
     !!form.watch("results")?.sql && !form.watch("results")?.error;
 
