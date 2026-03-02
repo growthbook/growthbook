@@ -450,4 +450,27 @@ describe("features events", () => {
     );
     expect(rawPayload.environments.length).toBe(2);
   });
+
+  it("includes all environments when archiving a feature (global event)", async () => {
+    let rawPayload;
+
+    jest
+      .spyOn(EventModel, "create")
+      .mockImplementation((doc: unknown, callback?: unknown) => {
+        rawPayload = doc.data;
+        const result = { toJSON: () => "" };
+        if (callback) callback(null, result);
+        return result;
+      });
+
+    const unarchivedFeature = { ...featureSnapshot, archived: false };
+    const archivedFeature = { ...featureSnapshot, archived: true };
+
+    await logFeatureUpdatedEvent(context, unarchivedFeature, archivedFeature);
+
+    expect(rawPayload.environments).toEqual(
+      expect.arrayContaining(["dev", "production"]),
+    );
+    expect(rawPayload.environments.length).toBe(2);
+  });
 });
