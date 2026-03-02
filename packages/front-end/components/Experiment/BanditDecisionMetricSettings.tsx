@@ -206,9 +206,10 @@ export default function BanditDecisionMetricSettings({
           {showConversionWindowWarning && !disabled && (
             <Callout status="warning" my="4">
               <Text>
-                To prevent counting conversions after a unit may have switched
-                variations, decrease metric conversion window to have length
-                &le; 10% of the <Text weight="semibold">Update Cadence</Text>.
+                Limit how many conversions are counted after a unit may have
+                switched variations by decreasing the metric conversion window
+                to be &le; 10% of the{" "}
+                <Text weight="semibold">Update Cadence</Text>.
               </Text>
             </Callout>
           )}
