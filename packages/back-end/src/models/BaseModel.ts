@@ -91,6 +91,18 @@ export type IndexableFieldPath<T> = T extends object
     : keyof T
   : never;
 
+export type FindOptions<T> = {
+  sort?: Partial<{
+    [key in keyof Omit<z.infer<T>, "organization">]: 1 | -1;
+  }>;
+  limit?: number;
+  skip?: number;
+  bypassReadPermissionChecks?: boolean;
+  // Note: projection does not work when using config.yml
+  projection?: Partial<Record<keyof z.infer<T>, 0 | 1>>;
+  dangerousCrossOrganization?: boolean;
+};
+
 export interface ModelConfig<
   T extends BaseSchema,
   Entity extends EntityType,
@@ -514,17 +526,7 @@ export abstract class BaseModel<
       bypassReadPermissionChecks,
       projection,
       dangerousCrossOrganization,
-    }: {
-      sort?: Partial<{
-        [key in keyof Omit<z.infer<T>, "organization">]: 1 | -1;
-      }>;
-      limit?: number;
-      skip?: number;
-      bypassReadPermissionChecks?: boolean;
-      // Note: projection does not work when using config.yml
-      projection?: Partial<Record<keyof z.infer<T>, 0 | 1>>;
-      dangerousCrossOrganization?: boolean;
-    } = {},
+    }: FindOptions<T> = {},
   ) {
     const fullQuery = this.applyBaseQuery(query, dangerousCrossOrganization);
     let rawDocs;

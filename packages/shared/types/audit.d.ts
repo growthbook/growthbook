@@ -1,53 +1,40 @@
+import { z } from "zod";
 import { entityEvents, entityTypes } from "shared/constants";
+import {
+  auditSchema,
+  auditUserApiKey,
+  auditUserLoggedIn,
+  auditUserSystem,
+} from "shared/validators";
+import { CreateProps } from "./base-model";
 
 export type EntityEvents = typeof entityEvents;
-
 export type EntityType = (typeof entityTypes)[number];
-
 export type EventTypes<K> = K extends EntityType
   ? `${K}.${EntityEvents[K][number]}`
   : never;
-
 export type EventType = EventTypes<EntityType>;
-export interface AuditUserLoggedIn {
-  id: string;
-  email: string;
-  name: string;
-}
+export type AuditUserLoggedIn = z.infer<typeof auditUserLoggedIn>;
+export type AuditUserApiKey = z.infer<typeof auditUserApiKey>;
+export type AuditUserSystem = z.infer<typeof auditUserSystem>;
 
-export interface AuditUserApiKey {
-  apiKey: string;
-}
+type InferredAuditInterface = z.infer<typeof auditSchema>;
+// Reintroduce generic typing for AuditInterface to help type narrowing based on entity type
+// This relationship is validated in the zod schema at runtime but can't be inferred
+export type AuditInterface<Entity extends EntityType = EntityType> = Omit<
+  InferredAuditInterface,
+  "event" | "entity" | "parent"
+> & {
+  event: EventTypes<Entity>;
+  entity: {
+    object: Entity;
+    id: string;
+    name?: string;
+  };
+  parent?: {
+    object: Entity;
+    id: string;
+  };
+};
 
-export interface AuditUserSystem {
-  system: true;
-}
-
-export type AuditInterfaceTemplate<Entity> = Entity extends EntityType
-  ? {
-      id: string;
-      organization: string;
-      user: AuditUserLoggedIn | AuditUserApiKey | AuditUserSystem;
-      event: `${Entity}.${EntityEvents[Entity][number]}`;
-      entity: {
-        object: Entity;
-        id: string;
-        name?: string;
-      };
-      parent?: {
-        object: Entity;
-        id: string;
-      };
-      reason?: string;
-      details?: string;
-      dateCreated: Date;
-    }
-  : never;
-
-export type AuditInterface = AuditInterfaceTemplate<EntityType>;
-
-export type AuditInterfaceInputTemplate<Interface> = Interface extends unknown
-  ? Omit<Interface, "user" | "id" | "organization" | "dateCreated">
-  : never;
-
-export type AuditInterfaceInput = AuditInterfaceInputTemplate<AuditInterface>;
+export type AuditInputData = Omit<CreateProps<AuditInterface>, "user">;

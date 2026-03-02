@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
-import { AuditInterface } from "shared/types/audit";
+import { AuditInputData } from "shared/types/audit";
 import {
   EnvScopedPermission,
   GlobalPermission,
@@ -42,9 +42,7 @@ export type AuthRequest<
   superAdmin?: boolean;
   organization?: OrganizationInterface;
   teams: TeamInterface[];
-  audit: (
-    data: Omit<AuditInterface, "organization" | "id" | "user" | "dateCreated">,
-  ) => Promise<void>;
+  audit: (data: AuditInputData) => Promise<void>;
 } & PermissionFunctions;
 
 export type ResponseWithStatusAndError<T = unknown> = Response<

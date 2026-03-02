@@ -2,11 +2,11 @@ import {
   AutoExperiment,
   FeatureRule as FeatureDefinitionRule,
 } from "@growthbook/growthbook";
-import { AuditInterfaceInput } from "shared/types/audit";
 import { EventUser } from "shared/types/events/event-types";
 import { ExperimentStatus } from "shared/types/experiment";
 import { OrganizationInterface } from "shared/types/organization";
 import { UserInterface } from "shared/types/user";
+import { AuditInputData } from "shared/types/audit";
 import { PermissionFunctions } from "back-end/src/types/AuthRequest";
 import { ReqContext } from "./request";
 
@@ -53,7 +53,7 @@ export type ApiRequestLocals = PermissionFunctions & {
   user?: UserInterface;
   organization: OrganizationInterface;
   eventAudit: EventUser;
-  audit: (data: AuditInterfaceInput) => Promise<void>;
+  audit: (data: AuditInputData) => Promise<void>;
   context: ApiReqContext;
 };
 

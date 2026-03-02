@@ -8,7 +8,6 @@ import type pino from "pino";
 import type { Request } from "express";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { CommercialFeature } from "shared/enterprise";
-import { AuditInterfaceInput } from "shared/types/audit";
 import {
   OrganizationInterface,
   Permission,
@@ -20,6 +19,7 @@ import { ProjectInterface } from "shared/types/project";
 import { ExperimentInterface } from "shared/types/experiment";
 import { DataSourceInterface } from "shared/types/datasource";
 import { FeatureInterface } from "shared/types/feature";
+import { AuditInputData } from "shared/types/audit";
 import {
   BadRequestError,
   UnauthorizedError,
@@ -39,7 +39,6 @@ import {
 import { FactMetricModel } from "back-end/src/models/FactMetricModel";
 import { ProjectModel } from "back-end/src/models/ProjectModel";
 import { addTags, getAllTags } from "back-end/src/models/TagModel";
-import { insertAudit } from "back-end/src/models/AuditModel";
 import { logger } from "back-end/src/util/logger";
 import { UrlRedirectModel } from "back-end/src/models/UrlRedirectModel";
 import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
@@ -66,6 +65,7 @@ import { SqlResultChunkModel } from "back-end/src/models/SqlResultChunkModel";
 import { CustomHookModel } from "back-end/src/models/CustomHookModel";
 import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
 import { TeamModel } from "back-end/src/models/TeamModel";
+import { AuditModel } from "back-end/src/models/AuditModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
@@ -103,7 +103,8 @@ export type ModelName =
   | "sdkConnectionCache"
   | "sdkWebhooks"
   | "savedGroups"
-  | "teams";
+  | "teams"
+  | "audits";
 
 export const modelClasses = {
   agreements: AgreementModel,
@@ -134,6 +135,7 @@ export const modelClasses = {
   sdkWebhooks: SdkWebhookModel,
   savedGroups: SavedGroupModel,
   teams: TeamModel,
+  audits: AuditModel,
 };
 export type ModelClass = (typeof modelClasses)[ModelName];
 type ModelInstances = {
@@ -173,6 +175,7 @@ export class ReqContextClass {
       sdkWebhooks: new SdkWebhookModel(this),
       savedGroups: new SavedGroupModel(this),
       teams: new TeamModel(this),
+      audits: new AuditModel(this),
     };
   }
 
@@ -311,7 +314,7 @@ export class ReqContextClass {
   }
 
   // Record an audit log entry
-  public async auditLog(data: AuditInterfaceInput) {
+  public async auditLog(data: AuditInputData) {
     const auditUser = this.userId
       ? {
           id: this.userId,
@@ -328,11 +331,9 @@ export class ReqContextClass {
     if (!auditUser) {
       throw new Error("Must have user or apiKey in context to audit log");
     }
-    await insertAudit({
+    await this.models.audits.create({
       ...data,
       user: auditUser,
-      organization: this.org.id,
-      dateCreated: new Date(),
     });
   }
 

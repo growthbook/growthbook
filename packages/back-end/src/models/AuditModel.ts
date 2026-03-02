@@ -1,233 +1,188 @@
-import mongoose, { FilterQuery, QueryOptions } from "mongoose";
-import uniqid from "uniqid";
-import { AuditInterface, EntityType } from "shared/types/audit";
-import {
-  removeMongooseFields,
-  ToInterface,
-} from "back-end/src/util/mongo.util";
+import { AuditInterface, EventTypes, EntityType } from "shared/types/audit";
+import { auditSchema } from "shared/validators";
+import { MakeModelClass, ScopedFilterQuery } from "./BaseModel";
 
-const auditSchema = new mongoose.Schema({
-  id: {
-    type: String,
-    unique: true,
-  },
-  organization: {
-    type: String,
-    index: true,
-  },
-  user: {
-    _id: false,
-    id: String,
-    email: String,
-    name: String,
-    apiKey: String,
-  },
-  reason: String,
-  event: String,
-  entity: {
-    _id: false,
-    object: String,
-    id: String,
-    name: String,
-  },
-  parent: {
-    _id: false,
-    object: String,
-    id: String,
-  },
-  details: String,
-  dateCreated: Date,
+const COLLECTION_NAME = "audits";
+const BaseClass = MakeModelClass({
+  schema: auditSchema,
+  collectionName: COLLECTION_NAME,
+  idPrefix: "aud_",
+  globallyUniqueIds: false,
+  readonlyFields: [],
+  additionalIndexes: [
+    {
+      fields: { "user.id": 1, organization: 1 },
+    },
+    { fields: { organization: 1, "entity.object": 1, "entity.id": 1 } },
+    { fields: { organization: 1, "parent.object": 1, "parent.id": 1 } },
+  ],
 });
 
-type AuditDocument = mongoose.Document & AuditInterface;
+export class AuditModel extends BaseClass {
+  protected canCreate(): boolean {
+    return true;
+  }
+  protected canRead(): boolean {
+    return true;
+  }
+  // Audits should be append-only
+  protected canUpdate(): boolean {
+    return false;
+  }
+  protected canDelete(): boolean {
+    return false;
+  }
 
-const AuditModel = mongoose.model<AuditInterface>("Audit", auditSchema);
+  public async findRecentAuditByUserId(userId: string) {
+    return await this._find(
+      {
+        "user.id": userId,
+      },
+      {
+        limit: 10,
+        projection: {
+          details: 0,
+        },
+        sort: { dateCreated: -1 },
+      },
+    );
+  }
 
-const toInterface: ToInterface<AuditInterface> = (doc: AuditDocument) => {
-  return removeMongooseFields(doc);
-};
-
-export async function insertAudit(
-  data: Omit<AuditInterface, "id">,
-): Promise<AuditInterface> {
-  const auditDoc = await AuditModel.create({
-    ...data,
-    id: uniqid("aud_"),
-  });
-  return toInterface(auditDoc);
-}
-
-/**
- * find all audits by user id and organization
- * @param userId
- * @param organization
- */
-export async function findRecentAuditByUserIdAndOrganization(
-  userId: string,
-  organization: string,
-): Promise<Omit<AuditInterface, "details">[]> {
-  const userAudits = await AuditModel.find({
-    "user.id": userId,
-    organization,
-  })
-    .select("-details")
-    .limit(10)
-    .sort({ dateCreated: -1 });
-  const transformed = userAudits.map((doc) => toInterface(doc));
-  return transformed;
-}
-
-export async function findAuditByOrganization(
-  organization: string,
-  options?: QueryOptions,
-): Promise<AuditInterface[]> {
-  const auditDocs = await AuditModel.find(
-    {
-      organization,
-    },
-    options,
-  );
-  return auditDocs.map((doc) => toInterface(doc));
-}
-
-export async function findAuditByEntity(
-  organization: string,
-  type: EntityType,
-  id: string,
-  options?: QueryOptions,
-  customFilter?: FilterQuery<AuditDocument>,
-): Promise<AuditInterface[]> {
-  const auditDocs = await AuditModel.find(
-    {
-      organization,
+  public async findAuditByEntity({
+    type,
+    id,
+    limit,
+    maxDateCreated,
+  }: {
+    type: EntityType;
+    id: string;
+    limit?: number;
+    maxDateCreated?: Date;
+  }): Promise<AuditInterface[]> {
+    const filter: ScopedFilterQuery<typeof auditSchema> = {
       "entity.object": type,
       "entity.id": id,
-      ...customFilter,
-    },
-    null,
-    options,
-  );
-  return auditDocs.map((doc) => toInterface(doc));
-}
+    };
+    if (maxDateCreated) {
+      filter.dateCreated = { $lt: maxDateCreated };
+    }
+    return await this._find(filter, { limit, sort: { dateCreated: -1 } });
+  }
 
-export async function findAuditByEntityList(
-  organization: string,
-  type: EntityType,
-  ids: string[],
-  customFilter?: FilterQuery<AuditDocument>,
-  options?: QueryOptions,
-): Promise<AuditInterface[]> {
-  const auditDocs = await AuditModel.find(
-    {
-      organization,
+  public async findAuditByEntityList<E extends EntityType = EntityType>({
+    type,
+    ids,
+    minDateCreated,
+    eventList,
+  }: {
+    type: E;
+    ids: string[];
+    minDateCreated?: Date;
+    eventList?: EventTypes<E>[];
+  }): Promise<AuditInterface[]> {
+    const filter: ScopedFilterQuery<typeof auditSchema> = {
       "entity.object": type,
       "entity.id": {
         $in: ids,
       },
-      ...customFilter,
-    },
-    null,
-    options,
-  );
-  return auditDocs.map((doc) => toInterface(doc));
-}
+    };
+    if (minDateCreated) {
+      filter.dateCreated = { $gte: minDateCreated };
+    }
+    if (eventList) {
+      filter.event = { $in: eventList };
+    }
+    return await this._find(filter);
+  }
 
-export async function findAuditByEntityParent(
-  organization: string,
-  type: EntityType,
-  id: string,
-  options?: QueryOptions,
-  customFilter?: FilterQuery<AuditDocument>,
-): Promise<AuditInterface[]> {
-  const auditDocs = await AuditModel.find(
-    {
-      organization,
+  public async findAuditByEntityParent({
+    type,
+    id,
+    limit,
+    maxDateCreated,
+  }: {
+    type: EntityType;
+    id: string;
+    limit?: number;
+    maxDateCreated?: Date;
+  }): Promise<AuditInterface[]> {
+    const filter: ScopedFilterQuery<typeof auditSchema> = {
       "parent.object": type,
       "parent.id": id,
-      ...customFilter,
-    },
-    null,
-    options,
-  );
-  return auditDocs.map((doc) => toInterface(doc));
-}
+    };
+    if (maxDateCreated) {
+      filter.dateCreated = { $lt: maxDateCreated };
+    }
+    return await this._find(filter, { limit, sort: { dateCreated: -1 } });
+  }
 
-export async function findAllAuditsByEntityType(
-  organization: string,
-  type: EntityType,
-  options?: QueryOptions,
-  customFilter?: FilterQuery<AuditDocument>,
-): Promise<AuditInterface[]> {
-  const auditDocs = await AuditModel.find(
-    {
-      organization,
+  public async findAllAuditsByEntityType({
+    type,
+    limit,
+    maxDateCreated,
+  }: {
+    type: EntityType;
+    limit?: number;
+    maxDateCreated?: Date;
+  }): Promise<AuditInterface[]> {
+    const filter: ScopedFilterQuery<typeof auditSchema> = {
       "entity.object": type,
-      ...customFilter,
-    },
-    null,
-    options,
-  );
-  return auditDocs.map((doc) => toInterface(doc));
-}
+    };
+    if (maxDateCreated) {
+      filter.dateCreated = { $lt: maxDateCreated };
+    }
+    return await this._find(filter, { limit, sort: { dateCreated: -1 } });
+  }
 
-export async function findAllAuditsByEntityTypeParent(
-  organization: string,
-  type: EntityType,
-  options?: QueryOptions,
-  customFilter?: FilterQuery<AuditDocument>,
-): Promise<AuditInterface[]> {
-  const auditDocs = await AuditModel.find(
-    {
-      organization,
+  public async findAllAuditsByEntityTypeParent({
+    type,
+    limit,
+    maxDateCreated,
+  }: {
+    type: EntityType;
+    limit?: number;
+    maxDateCreated?: Date;
+  }): Promise<AuditInterface[]> {
+    const filter: ScopedFilterQuery<typeof auditSchema> = {
       "parent.object": type,
-      ...customFilter,
-    },
-    null,
-    options,
-  );
-  return auditDocs.map((doc) => toInterface(doc));
-}
+    };
+    if (maxDateCreated) {
+      filter.dateCreated = { $lt: maxDateCreated };
+    }
+    return await this._find(filter, { limit, sort: { dateCreated: -1 } });
+  }
 
-export async function countAuditByEntity(
-  organization: string,
-  type: EntityType,
-  id: string,
-): Promise<number> {
-  return await AuditModel.countDocuments({
-    organization,
-    "entity.object": type,
-    "entity.id": id,
-  });
-}
+  public async countAuditByEntity(
+    type: EntityType,
+    id: string,
+  ): Promise<number> {
+    return await this._countDocuments({
+      "entity.object": type,
+      "entity.id": id,
+    });
+  }
 
-export async function countAuditByEntityParent(
-  organization: string,
-  type: EntityType,
-  id: string,
-): Promise<number> {
-  return await AuditModel.countDocuments({
-    organization,
-    "parent.object": type,
-    "parent.id": id,
-  });
-}
+  public async countAuditByEntityParent(
+    type: EntityType,
+    id: string,
+  ): Promise<number> {
+    return await this._countDocuments({
+      "parent.object": type,
+      "parent.id": id,
+    });
+  }
 
-export async function countAllAuditsByEntityType(
-  organization: string,
-  type: EntityType,
-): Promise<number> {
-  return await AuditModel.countDocuments({
-    organization,
-    "entity.object": type,
-  });
-}
+  public async countAllAuditsByEntityType(type: EntityType): Promise<number> {
+    return await this._countDocuments({
+      "entity.object": type,
+    });
+  }
 
-export async function countAllAuditsByEntityTypeParent(
-  organization: string,
-  type: EntityType,
-): Promise<number> {
-  return await AuditModel.countDocuments({
-    organization,
-    "parent.object": type,
-  });
+  public async countAllAuditsByEntityTypeParent(
+    type: EntityType,
+  ): Promise<number> {
+    return await this._countDocuments({
+      "parent.object": type,
+    });
+  }
 }

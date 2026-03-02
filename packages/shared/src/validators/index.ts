@@ -37,3 +37,4 @@ export * from "./sdk-connection-cache";
 export * from "./metric-group";
 export * from "./organization";
 export * from "./team";
+export * from "./audit";

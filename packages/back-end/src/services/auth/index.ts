@@ -17,6 +17,7 @@ import {
   getUserByEmail,
 } from "back-end/src/models/UserModel";
 import {
+  getContextFromReq,
   getOrganizationById,
   validateLoginMethod,
 } from "back-end/src/services/organizations";
@@ -31,7 +32,6 @@ import {
   SSOConnectionIdCookie,
 } from "back-end/src/util/cookie";
 import { getUserPermissions } from "back-end/src/util/organization.util";
-import { insertAudit } from "back-end/src/models/AuditModel";
 import {
   getLicenseMetaData,
   getUserCodesForOrg,
@@ -266,15 +266,14 @@ export async function processJWT(
         "user" | "organization" | "dateCreated" | "id"
       >,
     ) => {
-      await insertAudit({
+      const context = getContextFromReq(req);
+      await context.models.audits.create({
         ...data,
         user: {
           id: user.id,
           email: user.email,
           name: user.name || "",
         },
-        organization: req.organization?.id || "",
-        dateCreated: new Date(),
       });
     };
   } else {
