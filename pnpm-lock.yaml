@@ -562,9 +562,6 @@ importers:
       rimraf:
         specifier: ^3.0.2
         version: 3.0.2
-      sql-formatter:
-        specifier: ^15.7.2
-        version: 15.7.2
       supertest:
         specifier: ^7.0.0
         version: 7.0.0

@@ -173,7 +173,6 @@
     "mongodb-memory-server": "^9.2.0",
     "node-gyp": "^12.2.0",
     "rimraf": "^3.0.2",
-    "sql-formatter": "^15.7.2",
     "supertest": "^7.0.0",
     "typescript": "5.7.3"
   },
