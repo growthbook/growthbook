@@ -17,9 +17,6 @@ export default class Redshift extends SqlIntegration {
   getSensitiveParamKeys(): string[] {
     return ["password", "caCert", "clientCert", "clientKey"];
   }
-  hasEfficientPercentile(): boolean {
-    return false;
-  }
   runQuery(sql: string): Promise<QueryResponse> {
     return runPostgresQuery(this.params, sql);
   }
