@@ -1141,8 +1141,8 @@ importers:
         specifier: 1.6.5
         version: 1.6.5
       '@polyglot-sql/sdk':
-        specifier: ^0.1.11
-        version: 0.1.11
+        specifier: file:/Users/james/growthbook/polyglot/packages/sdk
+        version: file:../polyglot/packages/sdk
       '@stdlib/stats':
         specifier: ^0.1.1
         version: 0.1.1
@@ -4576,8 +4576,8 @@ packages:
   '@polka/url@1.0.0-next.29':
     resolution: {integrity: sha512-wwQAWhWSuHaag8c4q/KN/vCoeOJYshAIvMQwD4GpSb3OiZklFfvAgmj0VCBBImRpuF/aFgIRzllXlVX93Jevww==}
 
-  '@polyglot-sql/sdk@0.1.11':
-    resolution: {integrity: sha512-NayLLl09aLlpNNlT+axtcHvRGGnPbvia/e9Gb4OdaXF0O+cHxBJEQg+quiog+PRb/ZrCyiGtLu6pqk/A9zVgKg==}
+  '@polyglot-sql/sdk@file:../polyglot/packages/sdk':
+    resolution: {directory: ../polyglot/packages/sdk, type: directory}
     engines: {node: '>=22', pnpm: '>=10'}
 
   '@popperjs/core@2.11.5':
@@ -19198,7 +19198,7 @@ snapshots:
 
   '@polka/url@1.0.0-next.29': {}
 
-  '@polyglot-sql/sdk@0.1.11': {}
+  '@polyglot-sql/sdk@file:../polyglot/packages/sdk': {}
 
   '@popperjs/core@2.11.5': {}
 

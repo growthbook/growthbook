@@ -1,4 +1,8 @@
-import { format as polyglotFormat, Dialect } from "@polyglot-sql/sdk";
+import {
+  format as polyglotFormat,
+  init as polyglotInit,
+  Dialect,
+} from "@polyglot-sql/sdk";
 import { format as sqlFormat } from "sql-formatter";
 import { SqlResultChunkInterface } from "../types/query";
 import { FormatDialect } from "../types/sql";
@@ -16,6 +20,16 @@ export function setFormatMetricsReporter(
   reporter: (event: FormatMetricsEvent) => void,
 ): void {
   formatMetricsReporter = reporter;
+}
+
+let polyglotInitPromise: Promise<void> | null = null;
+
+export async function initPolyglotFormat(): Promise<void> {
+  if (typeof polyglotInit !== "function") return;
+  if (!polyglotInitPromise) {
+    polyglotInitPromise = polyglotInit().catch(() => {});
+  }
+  await polyglotInitPromise;
 }
 
 export const SQL_ROW_LIMIT = 1000;
@@ -69,6 +83,7 @@ export function format(
   const report = formatMetricsReporter;
 
   // 1. Try polyglot first (high length limit; fast)
+  // initPolyglotFormat() must be called before first use (back-end: at startup; front-end: when modal mounts)
   if (
     MAX_SQL_LENGTH_FOR_POLYGLOT &&
     sql.length <= MAX_SQL_LENGTH_FOR_POLYGLOT
@@ -76,10 +91,11 @@ export function format(
     const polyglotStart = performance.now();
     let result: string | null = null;
     try {
-      const pgDialect = getPolyglotDialect(dialect as string);
+      const pgDialect = getPolyglotDialect(dialect);
       const fmtResult = polyglotFormat(sql, pgDialect);
-      if (fmtResult?.success && fmtResult?.sql?.length)
+      if (fmtResult?.success && fmtResult?.sql?.length) {
         result = fmtResult.sql[0];
+      }
     } catch {
       /* fall through */
     }

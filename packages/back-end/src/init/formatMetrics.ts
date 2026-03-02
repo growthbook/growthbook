@@ -1,7 +1,8 @@
-import { setFormatMetricsReporter } from "shared/sql";
+import { initPolyglotFormat, setFormatMetricsReporter } from "shared/sql";
 import { metrics } from "back-end/src/util/metrics";
 
-export function initFormatMetrics(): void {
+export async function initFormatMetrics(): Promise<void> {
+  await initPolyglotFormat();
   const polyglotSuccess = metrics.getCounter("format.polyglot.success");
   const polyglotFailure = metrics.getCounter("format.polyglot.failure");
   const polyglotTime = metrics.getHistogram("format.polyglot.time");

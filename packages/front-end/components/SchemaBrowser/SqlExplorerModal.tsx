@@ -16,7 +16,7 @@ import {
 import { computeAIUsageData } from "shared/ai";
 import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
 import { getValidDate } from "shared/dates";
-import { isReadOnlySQL, SQL_ROW_LIMIT } from "shared/sql";
+import { initPolyglotFormat, isReadOnlySQL, SQL_ROW_LIMIT } from "shared/sql";
 import { BsThreeDotsVertical, BsStars } from "react-icons/bs";
 import { InformationSchemaInterfaceWithPaths } from "shared/types/integrations";
 import { FiChevronRight } from "react-icons/fi";
@@ -703,6 +703,11 @@ export default function SqlExplorerModal({
   );
 
   const dataVizConfig = form.watch("dataVizConfig") || [];
+
+  // Preload polyglot WASM when modal mounts so Format button works (browser build requires init)
+  useEffect(() => {
+    initPolyglotFormat();
+  }, []);
 
   // Update autocompletions when cursor or schema changes
   useEffect(() => {
