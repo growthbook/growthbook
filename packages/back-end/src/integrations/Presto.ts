@@ -59,8 +59,10 @@ export default class Presto extends SqlIntegration {
       timeout: this.params.requestTimeout ?? 0,
       checkInterval: 500,
     };
-    if (this.params.engine === "trino" && this.params.trinoUser) {
-      configOptions.user = this.params.trinoUser;
+    if (this.params.engine === "trino") {
+      if (this.params.trinoUser) {
+        configOptions.user = this.params.trinoUser;
+      }
     } else {
       configOptions.user = this.params.user || "growthbook";
     }
