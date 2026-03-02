@@ -622,7 +622,232 @@ export interface components {
           savedQueryId: string;
           dataVizConfigIndex?: number;
           blockConfig: (string)[];
-        })[];
+        } | ({
+          organization: string;
+          id: string;
+          uid: string;
+          /** @constant */
+          type: "metric-exploration";
+          title: string;
+          description: string;
+          snapshotId?: string;
+          explorerAnalysisId: string;
+          config: {
+            datasource: string;
+            dimensions: (({
+                /** @constant */
+                dimensionType: "date";
+                column: string | null;
+                /** @enum {string} */
+                dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+              }) | ({
+                /** @constant */
+                dimensionType: "dynamic";
+                column: string | null;
+                maxValues: number;
+              }) | {
+                /** @constant */
+                dimensionType: "static";
+                column: string;
+                values: (string)[];
+              } | ({
+                /** @constant */
+                dimensionType: "slice";
+                slices: ({
+                    name: string;
+                    filters: ({
+                        /** @enum {string} */
+                        operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                        column?: string;
+                        values?: (string)[];
+                      })[];
+                  })[];
+              }))[];
+            /** @enum {string} */
+            chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+            dateRange: {
+              /** @enum {string} */
+              predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+              lookbackValue: number | null;
+              lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+              startDate: string | null;
+              endDate: string | null;
+            };
+            /** @constant */
+            type: "metric";
+            dataset: {
+              /** @constant */
+              type: "metric";
+              values: ({
+                  name: string;
+                  rowFilters: ({
+                      /** @enum {string} */
+                      operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                      column?: string;
+                      values?: (string)[];
+                    })[];
+                  /** @constant */
+                  type: "metric";
+                  metricId: string;
+                  unit: string | null;
+                  denominatorUnit: string | null;
+                })[];
+            };
+          };
+        }) | ({
+          organization: string;
+          id: string;
+          uid: string;
+          /** @constant */
+          type: "fact-table-exploration";
+          title: string;
+          description: string;
+          snapshotId?: string;
+          explorerAnalysisId: string;
+          config: {
+            datasource: string;
+            dimensions: (({
+                /** @constant */
+                dimensionType: "date";
+                column: string | null;
+                /** @enum {string} */
+                dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+              }) | ({
+                /** @constant */
+                dimensionType: "dynamic";
+                column: string | null;
+                maxValues: number;
+              }) | {
+                /** @constant */
+                dimensionType: "static";
+                column: string;
+                values: (string)[];
+              } | ({
+                /** @constant */
+                dimensionType: "slice";
+                slices: ({
+                    name: string;
+                    filters: ({
+                        /** @enum {string} */
+                        operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                        column?: string;
+                        values?: (string)[];
+                      })[];
+                  })[];
+              }))[];
+            /** @enum {string} */
+            chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+            dateRange: {
+              /** @enum {string} */
+              predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+              lookbackValue: number | null;
+              lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+              startDate: string | null;
+              endDate: string | null;
+            };
+            /** @constant */
+            type: "fact_table";
+            dataset: {
+              /** @constant */
+              type: "fact_table";
+              factTableId: string | null;
+              values: ({
+                  name: string;
+                  rowFilters: ({
+                      /** @enum {string} */
+                      operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                      column?: string;
+                      values?: (string)[];
+                    })[];
+                  /** @constant */
+                  type: "fact_table";
+                  /** @enum {string} */
+                  valueType: "unit_count" | "count" | "sum";
+                  valueColumn: string | null;
+                  unit: string | null;
+                })[];
+            };
+          };
+        }) | ({
+          organization: string;
+          id: string;
+          uid: string;
+          /** @constant */
+          type: "data-source-exploration";
+          title: string;
+          description: string;
+          snapshotId?: string;
+          explorerAnalysisId: string;
+          config: {
+            datasource: string;
+            dimensions: (({
+                /** @constant */
+                dimensionType: "date";
+                column: string | null;
+                /** @enum {string} */
+                dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+              }) | ({
+                /** @constant */
+                dimensionType: "dynamic";
+                column: string | null;
+                maxValues: number;
+              }) | {
+                /** @constant */
+                dimensionType: "static";
+                column: string;
+                values: (string)[];
+              } | ({
+                /** @constant */
+                dimensionType: "slice";
+                slices: ({
+                    name: string;
+                    filters: ({
+                        /** @enum {string} */
+                        operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                        column?: string;
+                        values?: (string)[];
+                      })[];
+                  })[];
+              }))[];
+            /** @enum {string} */
+            chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+            dateRange: {
+              /** @enum {string} */
+              predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+              lookbackValue: number | null;
+              lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+              startDate: string | null;
+              endDate: string | null;
+            };
+            /** @constant */
+            type: "data_source";
+            dataset: {
+              /** @constant */
+              type: "data_source";
+              table: string;
+              path: string;
+              timestampColumn: string;
+              columnTypes: {
+                [key: string]: ("string" | "number" | "date" | "boolean" | "other") | undefined;
+              };
+              values: ({
+                  name: string;
+                  rowFilters: ({
+                      /** @enum {string} */
+                      operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                      column?: string;
+                      values?: (string)[];
+                    })[];
+                  /** @constant */
+                  type: "data_source";
+                  /** @enum {string} */
+                  valueType: "unit_count" | "count" | "sum";
+                  valueColumn: string | null;
+                  unit: string | null;
+                })[];
+            };
+          };
+        }))[];
     };
     CustomField: {
       id: string;
@@ -14914,7 +15139,232 @@ export interface operations {
                   savedQueryId: string;
                   dataVizConfigIndex?: number;
                   blockConfig: (string)[];
-                })[];
+                } | ({
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "metric-exploration";
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                  explorerAnalysisId: string;
+                  config: {
+                    datasource: string;
+                    dimensions: (({
+                        /** @constant */
+                        dimensionType: "date";
+                        column: string | null;
+                        /** @enum {string} */
+                        dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                      }) | ({
+                        /** @constant */
+                        dimensionType: "dynamic";
+                        column: string | null;
+                        maxValues: number;
+                      }) | {
+                        /** @constant */
+                        dimensionType: "static";
+                        column: string;
+                        values: (string)[];
+                      } | ({
+                        /** @constant */
+                        dimensionType: "slice";
+                        slices: ({
+                            name: string;
+                            filters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                          })[];
+                      }))[];
+                    /** @enum {string} */
+                    chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                    dateRange: {
+                      /** @enum {string} */
+                      predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                      lookbackValue: number | null;
+                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                      startDate: string | null;
+                      endDate: string | null;
+                    };
+                    /** @constant */
+                    type: "metric";
+                    dataset: {
+                      /** @constant */
+                      type: "metric";
+                      values: ({
+                          name: string;
+                          rowFilters: ({
+                              /** @enum {string} */
+                              operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                              column?: string;
+                              values?: (string)[];
+                            })[];
+                          /** @constant */
+                          type: "metric";
+                          metricId: string;
+                          unit: string | null;
+                          denominatorUnit: string | null;
+                        })[];
+                    };
+                  };
+                }) | ({
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "fact-table-exploration";
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                  explorerAnalysisId: string;
+                  config: {
+                    datasource: string;
+                    dimensions: (({
+                        /** @constant */
+                        dimensionType: "date";
+                        column: string | null;
+                        /** @enum {string} */
+                        dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                      }) | ({
+                        /** @constant */
+                        dimensionType: "dynamic";
+                        column: string | null;
+                        maxValues: number;
+                      }) | {
+                        /** @constant */
+                        dimensionType: "static";
+                        column: string;
+                        values: (string)[];
+                      } | ({
+                        /** @constant */
+                        dimensionType: "slice";
+                        slices: ({
+                            name: string;
+                            filters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                          })[];
+                      }))[];
+                    /** @enum {string} */
+                    chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                    dateRange: {
+                      /** @enum {string} */
+                      predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                      lookbackValue: number | null;
+                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                      startDate: string | null;
+                      endDate: string | null;
+                    };
+                    /** @constant */
+                    type: "fact_table";
+                    dataset: {
+                      /** @constant */
+                      type: "fact_table";
+                      factTableId: string | null;
+                      values: ({
+                          name: string;
+                          rowFilters: ({
+                              /** @enum {string} */
+                              operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                              column?: string;
+                              values?: (string)[];
+                            })[];
+                          /** @constant */
+                          type: "fact_table";
+                          /** @enum {string} */
+                          valueType: "unit_count" | "count" | "sum";
+                          valueColumn: string | null;
+                          unit: string | null;
+                        })[];
+                    };
+                  };
+                }) | ({
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "data-source-exploration";
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                  explorerAnalysisId: string;
+                  config: {
+                    datasource: string;
+                    dimensions: (({
+                        /** @constant */
+                        dimensionType: "date";
+                        column: string | null;
+                        /** @enum {string} */
+                        dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                      }) | ({
+                        /** @constant */
+                        dimensionType: "dynamic";
+                        column: string | null;
+                        maxValues: number;
+                      }) | {
+                        /** @constant */
+                        dimensionType: "static";
+                        column: string;
+                        values: (string)[];
+                      } | ({
+                        /** @constant */
+                        dimensionType: "slice";
+                        slices: ({
+                            name: string;
+                            filters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                          })[];
+                      }))[];
+                    /** @enum {string} */
+                    chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                    dateRange: {
+                      /** @enum {string} */
+                      predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                      lookbackValue: number | null;
+                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                      startDate: string | null;
+                      endDate: string | null;
+                    };
+                    /** @constant */
+                    type: "data_source";
+                    dataset: {
+                      /** @constant */
+                      type: "data_source";
+                      table: string;
+                      path: string;
+                      timestampColumn: string;
+                      columnTypes: {
+                        [key: string]: ("string" | "number" | "date" | "boolean" | "other") | undefined;
+                      };
+                      values: ({
+                          name: string;
+                          rowFilters: ({
+                              /** @enum {string} */
+                              operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                              column?: string;
+                              values?: (string)[];
+                            })[];
+                          /** @constant */
+                          type: "data_source";
+                          /** @enum {string} */
+                          valueType: "unit_count" | "count" | "sum";
+                          valueColumn: string | null;
+                          unit: string | null;
+                        })[];
+                    };
+                  };
+                }))[];
             };
           };
         };
@@ -15201,7 +15651,232 @@ export interface operations {
               savedQueryId: string;
               dataVizConfigIndex?: number;
               blockConfig: (string)[];
-            }))[];
+            } | ({
+              organization: string;
+              id: string;
+              uid: string;
+              /** @constant */
+              type: "metric-exploration";
+              title: string;
+              description: string;
+              snapshotId?: string;
+              explorerAnalysisId: string;
+              config: {
+                datasource: string;
+                dimensions: (({
+                    /** @constant */
+                    dimensionType: "date";
+                    column: string | null;
+                    /** @enum {string} */
+                    dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                  }) | ({
+                    /** @constant */
+                    dimensionType: "dynamic";
+                    column: string | null;
+                    maxValues: number;
+                  }) | {
+                    /** @constant */
+                    dimensionType: "static";
+                    column: string;
+                    values: (string)[];
+                  } | ({
+                    /** @constant */
+                    dimensionType: "slice";
+                    slices: ({
+                        name: string;
+                        filters: ({
+                            /** @enum {string} */
+                            operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                            column?: string;
+                            values?: (string)[];
+                          })[];
+                      })[];
+                  }))[];
+                /** @enum {string} */
+                chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                dateRange: {
+                  /** @enum {string} */
+                  predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                  lookbackValue: number | null;
+                  lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                  startDate: string | null;
+                  endDate: string | null;
+                };
+                /** @constant */
+                type: "metric";
+                dataset: {
+                  /** @constant */
+                  type: "metric";
+                  values: ({
+                      name: string;
+                      rowFilters: ({
+                          /** @enum {string} */
+                          operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                          column?: string;
+                          values?: (string)[];
+                        })[];
+                      /** @constant */
+                      type: "metric";
+                      metricId: string;
+                      unit: string | null;
+                      denominatorUnit: string | null;
+                    })[];
+                };
+              };
+            }) | ({
+              organization: string;
+              id: string;
+              uid: string;
+              /** @constant */
+              type: "fact-table-exploration";
+              title: string;
+              description: string;
+              snapshotId?: string;
+              explorerAnalysisId: string;
+              config: {
+                datasource: string;
+                dimensions: (({
+                    /** @constant */
+                    dimensionType: "date";
+                    column: string | null;
+                    /** @enum {string} */
+                    dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                  }) | ({
+                    /** @constant */
+                    dimensionType: "dynamic";
+                    column: string | null;
+                    maxValues: number;
+                  }) | {
+                    /** @constant */
+                    dimensionType: "static";
+                    column: string;
+                    values: (string)[];
+                  } | ({
+                    /** @constant */
+                    dimensionType: "slice";
+                    slices: ({
+                        name: string;
+                        filters: ({
+                            /** @enum {string} */
+                            operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                            column?: string;
+                            values?: (string)[];
+                          })[];
+                      })[];
+                  }))[];
+                /** @enum {string} */
+                chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                dateRange: {
+                  /** @enum {string} */
+                  predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                  lookbackValue: number | null;
+                  lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                  startDate: string | null;
+                  endDate: string | null;
+                };
+                /** @constant */
+                type: "fact_table";
+                dataset: {
+                  /** @constant */
+                  type: "fact_table";
+                  factTableId: string | null;
+                  values: ({
+                      name: string;
+                      rowFilters: ({
+                          /** @enum {string} */
+                          operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                          column?: string;
+                          values?: (string)[];
+                        })[];
+                      /** @constant */
+                      type: "fact_table";
+                      /** @enum {string} */
+                      valueType: "unit_count" | "count" | "sum";
+                      valueColumn: string | null;
+                      unit: string | null;
+                    })[];
+                };
+              };
+            }) | ({
+              organization: string;
+              id: string;
+              uid: string;
+              /** @constant */
+              type: "data-source-exploration";
+              title: string;
+              description: string;
+              snapshotId?: string;
+              explorerAnalysisId: string;
+              config: {
+                datasource: string;
+                dimensions: (({
+                    /** @constant */
+                    dimensionType: "date";
+                    column: string | null;
+                    /** @enum {string} */
+                    dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                  }) | ({
+                    /** @constant */
+                    dimensionType: "dynamic";
+                    column: string | null;
+                    maxValues: number;
+                  }) | {
+                    /** @constant */
+                    dimensionType: "static";
+                    column: string;
+                    values: (string)[];
+                  } | ({
+                    /** @constant */
+                    dimensionType: "slice";
+                    slices: ({
+                        name: string;
+                        filters: ({
+                            /** @enum {string} */
+                            operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                            column?: string;
+                            values?: (string)[];
+                          })[];
+                      })[];
+                  }))[];
+                /** @enum {string} */
+                chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                dateRange: {
+                  /** @enum {string} */
+                  predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                  lookbackValue: number | null;
+                  lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                  startDate: string | null;
+                  endDate: string | null;
+                };
+                /** @constant */
+                type: "data_source";
+                dataset: {
+                  /** @constant */
+                  type: "data_source";
+                  table: string;
+                  path: string;
+                  timestampColumn: string;
+                  columnTypes: {
+                    [key: string]: ("string" | "number" | "date" | "boolean" | "other") | undefined;
+                  };
+                  values: ({
+                      name: string;
+                      rowFilters: ({
+                          /** @enum {string} */
+                          operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                          column?: string;
+                          values?: (string)[];
+                        })[];
+                      /** @constant */
+                      type: "data_source";
+                      /** @enum {string} */
+                      valueType: "unit_count" | "count" | "sum";
+                      valueColumn: string | null;
+                      unit: string | null;
+                    })[];
+                };
+              };
+            })))[];
         };
       };
     };
@@ -15375,7 +16050,232 @@ export interface operations {
                   savedQueryId: string;
                   dataVizConfigIndex?: number;
                   blockConfig: (string)[];
-                })[];
+                } | ({
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "metric-exploration";
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                  explorerAnalysisId: string;
+                  config: {
+                    datasource: string;
+                    dimensions: (({
+                        /** @constant */
+                        dimensionType: "date";
+                        column: string | null;
+                        /** @enum {string} */
+                        dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                      }) | ({
+                        /** @constant */
+                        dimensionType: "dynamic";
+                        column: string | null;
+                        maxValues: number;
+                      }) | {
+                        /** @constant */
+                        dimensionType: "static";
+                        column: string;
+                        values: (string)[];
+                      } | ({
+                        /** @constant */
+                        dimensionType: "slice";
+                        slices: ({
+                            name: string;
+                            filters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                          })[];
+                      }))[];
+                    /** @enum {string} */
+                    chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                    dateRange: {
+                      /** @enum {string} */
+                      predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                      lookbackValue: number | null;
+                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                      startDate: string | null;
+                      endDate: string | null;
+                    };
+                    /** @constant */
+                    type: "metric";
+                    dataset: {
+                      /** @constant */
+                      type: "metric";
+                      values: ({
+                          name: string;
+                          rowFilters: ({
+                              /** @enum {string} */
+                              operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                              column?: string;
+                              values?: (string)[];
+                            })[];
+                          /** @constant */
+                          type: "metric";
+                          metricId: string;
+                          unit: string | null;
+                          denominatorUnit: string | null;
+                        })[];
+                    };
+                  };
+                }) | ({
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "fact-table-exploration";
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                  explorerAnalysisId: string;
+                  config: {
+                    datasource: string;
+                    dimensions: (({
+                        /** @constant */
+                        dimensionType: "date";
+                        column: string | null;
+                        /** @enum {string} */
+                        dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                      }) | ({
+                        /** @constant */
+                        dimensionType: "dynamic";
+                        column: string | null;
+                        maxValues: number;
+                      }) | {
+                        /** @constant */
+                        dimensionType: "static";
+                        column: string;
+                        values: (string)[];
+                      } | ({
+                        /** @constant */
+                        dimensionType: "slice";
+                        slices: ({
+                            name: string;
+                            filters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                          })[];
+                      }))[];
+                    /** @enum {string} */
+                    chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                    dateRange: {
+                      /** @enum {string} */
+                      predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                      lookbackValue: number | null;
+                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                      startDate: string | null;
+                      endDate: string | null;
+                    };
+                    /** @constant */
+                    type: "fact_table";
+                    dataset: {
+                      /** @constant */
+                      type: "fact_table";
+                      factTableId: string | null;
+                      values: ({
+                          name: string;
+                          rowFilters: ({
+                              /** @enum {string} */
+                              operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                              column?: string;
+                              values?: (string)[];
+                            })[];
+                          /** @constant */
+                          type: "fact_table";
+                          /** @enum {string} */
+                          valueType: "unit_count" | "count" | "sum";
+                          valueColumn: string | null;
+                          unit: string | null;
+                        })[];
+                    };
+                  };
+                }) | ({
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "data-source-exploration";
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                  explorerAnalysisId: string;
+                  config: {
+                    datasource: string;
+                    dimensions: (({
+                        /** @constant */
+                        dimensionType: "date";
+                        column: string | null;
+                        /** @enum {string} */
+                        dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                      }) | ({
+                        /** @constant */
+                        dimensionType: "dynamic";
+                        column: string | null;
+                        maxValues: number;
+                      }) | {
+                        /** @constant */
+                        dimensionType: "static";
+                        column: string;
+                        values: (string)[];
+                      } | ({
+                        /** @constant */
+                        dimensionType: "slice";
+                        slices: ({
+                            name: string;
+                            filters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                          })[];
+                      }))[];
+                    /** @enum {string} */
+                    chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                    dateRange: {
+                      /** @enum {string} */
+                      predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                      lookbackValue: number | null;
+                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                      startDate: string | null;
+                      endDate: string | null;
+                    };
+                    /** @constant */
+                    type: "data_source";
+                    dataset: {
+                      /** @constant */
+                      type: "data_source";
+                      table: string;
+                      path: string;
+                      timestampColumn: string;
+                      columnTypes: {
+                        [key: string]: ("string" | "number" | "date" | "boolean" | "other") | undefined;
+                      };
+                      values: ({
+                          name: string;
+                          rowFilters: ({
+                              /** @enum {string} */
+                              operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                              column?: string;
+                              values?: (string)[];
+                            })[];
+                          /** @constant */
+                          type: "data_source";
+                          /** @enum {string} */
+                          valueType: "unit_count" | "count" | "sum";
+                          valueColumn: string | null;
+                          unit: string | null;
+                        })[];
+                    };
+                  };
+                }))[];
             };
           };
         };
@@ -15571,7 +16471,232 @@ export interface operations {
                     savedQueryId: string;
                     dataVizConfigIndex?: number;
                     blockConfig: (string)[];
-                  })[];
+                  } | ({
+                    organization: string;
+                    id: string;
+                    uid: string;
+                    /** @constant */
+                    type: "metric-exploration";
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                    explorerAnalysisId: string;
+                    config: {
+                      datasource: string;
+                      dimensions: (({
+                          /** @constant */
+                          dimensionType: "date";
+                          column: string | null;
+                          /** @enum {string} */
+                          dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                        }) | ({
+                          /** @constant */
+                          dimensionType: "dynamic";
+                          column: string | null;
+                          maxValues: number;
+                        }) | {
+                          /** @constant */
+                          dimensionType: "static";
+                          column: string;
+                          values: (string)[];
+                        } | ({
+                          /** @constant */
+                          dimensionType: "slice";
+                          slices: ({
+                              name: string;
+                              filters: ({
+                                  /** @enum {string} */
+                                  operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                  column?: string;
+                                  values?: (string)[];
+                                })[];
+                            })[];
+                        }))[];
+                      /** @enum {string} */
+                      chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                      dateRange: {
+                        /** @enum {string} */
+                        predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                        lookbackValue: number | null;
+                        lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                        startDate: string | null;
+                        endDate: string | null;
+                      };
+                      /** @constant */
+                      type: "metric";
+                      dataset: {
+                        /** @constant */
+                        type: "metric";
+                        values: ({
+                            name: string;
+                            rowFilters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                            /** @constant */
+                            type: "metric";
+                            metricId: string;
+                            unit: string | null;
+                            denominatorUnit: string | null;
+                          })[];
+                      };
+                    };
+                  }) | ({
+                    organization: string;
+                    id: string;
+                    uid: string;
+                    /** @constant */
+                    type: "fact-table-exploration";
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                    explorerAnalysisId: string;
+                    config: {
+                      datasource: string;
+                      dimensions: (({
+                          /** @constant */
+                          dimensionType: "date";
+                          column: string | null;
+                          /** @enum {string} */
+                          dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                        }) | ({
+                          /** @constant */
+                          dimensionType: "dynamic";
+                          column: string | null;
+                          maxValues: number;
+                        }) | {
+                          /** @constant */
+                          dimensionType: "static";
+                          column: string;
+                          values: (string)[];
+                        } | ({
+                          /** @constant */
+                          dimensionType: "slice";
+                          slices: ({
+                              name: string;
+                              filters: ({
+                                  /** @enum {string} */
+                                  operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                  column?: string;
+                                  values?: (string)[];
+                                })[];
+                            })[];
+                        }))[];
+                      /** @enum {string} */
+                      chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                      dateRange: {
+                        /** @enum {string} */
+                        predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                        lookbackValue: number | null;
+                        lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                        startDate: string | null;
+                        endDate: string | null;
+                      };
+                      /** @constant */
+                      type: "fact_table";
+                      dataset: {
+                        /** @constant */
+                        type: "fact_table";
+                        factTableId: string | null;
+                        values: ({
+                            name: string;
+                            rowFilters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                            /** @constant */
+                            type: "fact_table";
+                            /** @enum {string} */
+                            valueType: "unit_count" | "count" | "sum";
+                            valueColumn: string | null;
+                            unit: string | null;
+                          })[];
+                      };
+                    };
+                  }) | ({
+                    organization: string;
+                    id: string;
+                    uid: string;
+                    /** @constant */
+                    type: "data-source-exploration";
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                    explorerAnalysisId: string;
+                    config: {
+                      datasource: string;
+                      dimensions: (({
+                          /** @constant */
+                          dimensionType: "date";
+                          column: string | null;
+                          /** @enum {string} */
+                          dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                        }) | ({
+                          /** @constant */
+                          dimensionType: "dynamic";
+                          column: string | null;
+                          maxValues: number;
+                        }) | {
+                          /** @constant */
+                          dimensionType: "static";
+                          column: string;
+                          values: (string)[];
+                        } | ({
+                          /** @constant */
+                          dimensionType: "slice";
+                          slices: ({
+                              name: string;
+                              filters: ({
+                                  /** @enum {string} */
+                                  operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                  column?: string;
+                                  values?: (string)[];
+                                })[];
+                            })[];
+                        }))[];
+                      /** @enum {string} */
+                      chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                      dateRange: {
+                        /** @enum {string} */
+                        predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                        lookbackValue: number | null;
+                        lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                        startDate: string | null;
+                        endDate: string | null;
+                      };
+                      /** @constant */
+                      type: "data_source";
+                      dataset: {
+                        /** @constant */
+                        type: "data_source";
+                        table: string;
+                        path: string;
+                        timestampColumn: string;
+                        columnTypes: {
+                          [key: string]: ("string" | "number" | "date" | "boolean" | "other") | undefined;
+                        };
+                        values: ({
+                            name: string;
+                            rowFilters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                            /** @constant */
+                            type: "data_source";
+                            /** @enum {string} */
+                            valueType: "unit_count" | "count" | "sum";
+                            valueColumn: string | null;
+                            unit: string | null;
+                          })[];
+                      };
+                    };
+                  }))[];
               })[];
           };
         };
@@ -15895,7 +17020,232 @@ export interface operations {
                   savedQueryId: string;
                   dataVizConfigIndex?: number;
                   blockConfig: (string)[];
-                })[];
+                } | ({
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "metric-exploration";
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                  explorerAnalysisId: string;
+                  config: {
+                    datasource: string;
+                    dimensions: (({
+                        /** @constant */
+                        dimensionType: "date";
+                        column: string | null;
+                        /** @enum {string} */
+                        dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                      }) | ({
+                        /** @constant */
+                        dimensionType: "dynamic";
+                        column: string | null;
+                        maxValues: number;
+                      }) | {
+                        /** @constant */
+                        dimensionType: "static";
+                        column: string;
+                        values: (string)[];
+                      } | ({
+                        /** @constant */
+                        dimensionType: "slice";
+                        slices: ({
+                            name: string;
+                            filters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                          })[];
+                      }))[];
+                    /** @enum {string} */
+                    chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                    dateRange: {
+                      /** @enum {string} */
+                      predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                      lookbackValue: number | null;
+                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                      startDate: string | null;
+                      endDate: string | null;
+                    };
+                    /** @constant */
+                    type: "metric";
+                    dataset: {
+                      /** @constant */
+                      type: "metric";
+                      values: ({
+                          name: string;
+                          rowFilters: ({
+                              /** @enum {string} */
+                              operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                              column?: string;
+                              values?: (string)[];
+                            })[];
+                          /** @constant */
+                          type: "metric";
+                          metricId: string;
+                          unit: string | null;
+                          denominatorUnit: string | null;
+                        })[];
+                    };
+                  };
+                }) | ({
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "fact-table-exploration";
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                  explorerAnalysisId: string;
+                  config: {
+                    datasource: string;
+                    dimensions: (({
+                        /** @constant */
+                        dimensionType: "date";
+                        column: string | null;
+                        /** @enum {string} */
+                        dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                      }) | ({
+                        /** @constant */
+                        dimensionType: "dynamic";
+                        column: string | null;
+                        maxValues: number;
+                      }) | {
+                        /** @constant */
+                        dimensionType: "static";
+                        column: string;
+                        values: (string)[];
+                      } | ({
+                        /** @constant */
+                        dimensionType: "slice";
+                        slices: ({
+                            name: string;
+                            filters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                          })[];
+                      }))[];
+                    /** @enum {string} */
+                    chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                    dateRange: {
+                      /** @enum {string} */
+                      predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                      lookbackValue: number | null;
+                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                      startDate: string | null;
+                      endDate: string | null;
+                    };
+                    /** @constant */
+                    type: "fact_table";
+                    dataset: {
+                      /** @constant */
+                      type: "fact_table";
+                      factTableId: string | null;
+                      values: ({
+                          name: string;
+                          rowFilters: ({
+                              /** @enum {string} */
+                              operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                              column?: string;
+                              values?: (string)[];
+                            })[];
+                          /** @constant */
+                          type: "fact_table";
+                          /** @enum {string} */
+                          valueType: "unit_count" | "count" | "sum";
+                          valueColumn: string | null;
+                          unit: string | null;
+                        })[];
+                    };
+                  };
+                }) | ({
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "data-source-exploration";
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                  explorerAnalysisId: string;
+                  config: {
+                    datasource: string;
+                    dimensions: (({
+                        /** @constant */
+                        dimensionType: "date";
+                        column: string | null;
+                        /** @enum {string} */
+                        dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                      }) | ({
+                        /** @constant */
+                        dimensionType: "dynamic";
+                        column: string | null;
+                        maxValues: number;
+                      }) | {
+                        /** @constant */
+                        dimensionType: "static";
+                        column: string;
+                        values: (string)[];
+                      } | ({
+                        /** @constant */
+                        dimensionType: "slice";
+                        slices: ({
+                            name: string;
+                            filters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                          })[];
+                      }))[];
+                    /** @enum {string} */
+                    chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                    dateRange: {
+                      /** @enum {string} */
+                      predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                      lookbackValue: number | null;
+                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                      startDate: string | null;
+                      endDate: string | null;
+                    };
+                    /** @constant */
+                    type: "data_source";
+                    dataset: {
+                      /** @constant */
+                      type: "data_source";
+                      table: string;
+                      path: string;
+                      timestampColumn: string;
+                      columnTypes: {
+                        [key: string]: ("string" | "number" | "date" | "boolean" | "other") | undefined;
+                      };
+                      values: ({
+                          name: string;
+                          rowFilters: ({
+                              /** @enum {string} */
+                              operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                              column?: string;
+                              values?: (string)[];
+                            })[];
+                          /** @constant */
+                          type: "data_source";
+                          /** @enum {string} */
+                          valueType: "unit_count" | "count" | "sum";
+                          valueColumn: string | null;
+                          unit: string | null;
+                        })[];
+                    };
+                  };
+                }))[];
             };
           };
         };
@@ -16079,7 +17429,232 @@ export interface operations {
                     savedQueryId: string;
                     dataVizConfigIndex?: number;
                     blockConfig: (string)[];
-                  })[];
+                  } | ({
+                    organization: string;
+                    id: string;
+                    uid: string;
+                    /** @constant */
+                    type: "metric-exploration";
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                    explorerAnalysisId: string;
+                    config: {
+                      datasource: string;
+                      dimensions: (({
+                          /** @constant */
+                          dimensionType: "date";
+                          column: string | null;
+                          /** @enum {string} */
+                          dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                        }) | ({
+                          /** @constant */
+                          dimensionType: "dynamic";
+                          column: string | null;
+                          maxValues: number;
+                        }) | {
+                          /** @constant */
+                          dimensionType: "static";
+                          column: string;
+                          values: (string)[];
+                        } | ({
+                          /** @constant */
+                          dimensionType: "slice";
+                          slices: ({
+                              name: string;
+                              filters: ({
+                                  /** @enum {string} */
+                                  operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                  column?: string;
+                                  values?: (string)[];
+                                })[];
+                            })[];
+                        }))[];
+                      /** @enum {string} */
+                      chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                      dateRange: {
+                        /** @enum {string} */
+                        predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                        lookbackValue: number | null;
+                        lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                        startDate: string | null;
+                        endDate: string | null;
+                      };
+                      /** @constant */
+                      type: "metric";
+                      dataset: {
+                        /** @constant */
+                        type: "metric";
+                        values: ({
+                            name: string;
+                            rowFilters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                            /** @constant */
+                            type: "metric";
+                            metricId: string;
+                            unit: string | null;
+                            denominatorUnit: string | null;
+                          })[];
+                      };
+                    };
+                  }) | ({
+                    organization: string;
+                    id: string;
+                    uid: string;
+                    /** @constant */
+                    type: "fact-table-exploration";
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                    explorerAnalysisId: string;
+                    config: {
+                      datasource: string;
+                      dimensions: (({
+                          /** @constant */
+                          dimensionType: "date";
+                          column: string | null;
+                          /** @enum {string} */
+                          dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                        }) | ({
+                          /** @constant */
+                          dimensionType: "dynamic";
+                          column: string | null;
+                          maxValues: number;
+                        }) | {
+                          /** @constant */
+                          dimensionType: "static";
+                          column: string;
+                          values: (string)[];
+                        } | ({
+                          /** @constant */
+                          dimensionType: "slice";
+                          slices: ({
+                              name: string;
+                              filters: ({
+                                  /** @enum {string} */
+                                  operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                  column?: string;
+                                  values?: (string)[];
+                                })[];
+                            })[];
+                        }))[];
+                      /** @enum {string} */
+                      chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                      dateRange: {
+                        /** @enum {string} */
+                        predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                        lookbackValue: number | null;
+                        lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                        startDate: string | null;
+                        endDate: string | null;
+                      };
+                      /** @constant */
+                      type: "fact_table";
+                      dataset: {
+                        /** @constant */
+                        type: "fact_table";
+                        factTableId: string | null;
+                        values: ({
+                            name: string;
+                            rowFilters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                            /** @constant */
+                            type: "fact_table";
+                            /** @enum {string} */
+                            valueType: "unit_count" | "count" | "sum";
+                            valueColumn: string | null;
+                            unit: string | null;
+                          })[];
+                      };
+                    };
+                  }) | ({
+                    organization: string;
+                    id: string;
+                    uid: string;
+                    /** @constant */
+                    type: "data-source-exploration";
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                    explorerAnalysisId: string;
+                    config: {
+                      datasource: string;
+                      dimensions: (({
+                          /** @constant */
+                          dimensionType: "date";
+                          column: string | null;
+                          /** @enum {string} */
+                          dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                        }) | ({
+                          /** @constant */
+                          dimensionType: "dynamic";
+                          column: string | null;
+                          maxValues: number;
+                        }) | {
+                          /** @constant */
+                          dimensionType: "static";
+                          column: string;
+                          values: (string)[];
+                        } | ({
+                          /** @constant */
+                          dimensionType: "slice";
+                          slices: ({
+                              name: string;
+                              filters: ({
+                                  /** @enum {string} */
+                                  operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                  column?: string;
+                                  values?: (string)[];
+                                })[];
+                            })[];
+                        }))[];
+                      /** @enum {string} */
+                      chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                      dateRange: {
+                        /** @enum {string} */
+                        predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                        lookbackValue: number | null;
+                        lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                        startDate: string | null;
+                        endDate: string | null;
+                      };
+                      /** @constant */
+                      type: "data_source";
+                      dataset: {
+                        /** @constant */
+                        type: "data_source";
+                        table: string;
+                        path: string;
+                        timestampColumn: string;
+                        columnTypes: {
+                          [key: string]: ("string" | "number" | "date" | "boolean" | "other") | undefined;
+                        };
+                        values: ({
+                            name: string;
+                            rowFilters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                            /** @constant */
+                            type: "data_source";
+                            /** @enum {string} */
+                            valueType: "unit_count" | "count" | "sum";
+                            valueColumn: string | null;
+                            unit: string | null;
+                          })[];
+                      };
+                    };
+                  }))[];
               })[];
           };
         };

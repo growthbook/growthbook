@@ -1,6 +1,6 @@
 import mysql, { RowDataPacket } from "mysql2/promise";
 import { ConnectionOptions } from "mysql2";
-import { FormatDialect } from "shared/types/sql";
+import { DateTruncGranularity, FormatDialect } from "shared/types/sql";
 import { QueryResponse } from "shared/types/integrations";
 import { MysqlConnectionParams } from "shared/types/integrations/mysql";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
@@ -54,8 +54,17 @@ export default class Mysql extends SqlIntegration {
       sign === "+" ? "ADD" : "SUB"
     }(${col}, INTERVAL ${amount} ${unit.toUpperCase()})`;
   }
-  dateTrunc(col: string) {
-    return `DATE(${col})`;
+  dateTrunc(col: string, granularity: DateTruncGranularity = "day") {
+    const formatMap: Record<DateTruncGranularity, string> = {
+      hour: `DATE_FORMAT(${col}, '%Y-%m-%d %H:00:00')`,
+      day: `DATE(${col})`,
+      // Hack required for MySQL to calculate the start of the week
+      week: `DATE(DATE_SUB(${col}, INTERVAL WEEKDAY(${col}) DAY))`,
+      month: `DATE_FORMAT(${col}, '%Y-%m-01')`,
+      year: `DATE_FORMAT(${col}, '%Y-01-01')`,
+    };
+
+    return formatMap[granularity];
   }
   formatDate(col: string): string {
     return `DATE_FORMAT(${col}, "%Y-%m-%d")`;
