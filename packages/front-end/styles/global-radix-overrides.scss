@@ -89,6 +89,9 @@
     margin-top: 2px;
   }
 }
+.rt-CalloutRoot:has(> .rt-Box) {
+  display: flex;
+}
 
 // Checkbox
 .rt-CheckboxItem {

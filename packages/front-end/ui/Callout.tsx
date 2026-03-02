@@ -97,9 +97,7 @@ export default forwardRef<
         <RadixCallout.Icon>{renderedIcon}</RadixCallout.Icon>
       ) : null}
       {contentsAs === "div" ? (
-        <Box>
-          <div>{children}</div>
-        </Box>
+        <Box flexGrow="1">{children}</Box>
       ) : (
         <Flex align="start" gap="1" flexGrow="1">
           <RadixCallout.Text size={getRadixSize(size)} style={{ flex: 1 }}>

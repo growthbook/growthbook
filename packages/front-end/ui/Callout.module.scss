@@ -1,3 +1,12 @@
-.callout p:last-of-type {
+.callout {
+  align-items: center;
+}
+
+.callout > p:last-of-type {
   margin-bottom: 0;
+}
+
+.callout .rt-BaseButton {
+  margin-top: -10px;
+  margin-bottom: -10px;
 }

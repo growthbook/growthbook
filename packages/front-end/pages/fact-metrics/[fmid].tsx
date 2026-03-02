@@ -15,7 +15,7 @@ import {
 } from "shared/experiments";
 
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
+import { Flex, IconButton, Text } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
@@ -513,17 +513,15 @@ export default function FactMetricPage() {
         getDemoDatasourceProjectIdForOrganization(organization.id),
       ) && (
         <Callout status="info" contentsAs="div" mb="2">
-          <Flex align="center" justify="between">
+          <Flex align="center" gap="4" justify="between">
             <Text>
               This Fact Metric is part of our sample dataset. You can safely
               delete this once you are done exploring.
             </Text>
-            <Box ml="auto">
-              <DeleteDemoDatasourceButton
-                onDelete={() => router.push("/metrics")}
-                source="fact-metric"
-              />
-            </Box>
+            <DeleteDemoDatasourceButton
+              onDelete={() => router.push("/metrics")}
+              source="fact-metric"
+            />
           </Flex>
         </Callout>
       )}
