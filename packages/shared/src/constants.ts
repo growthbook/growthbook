@@ -1,5 +1,6 @@
 import { FactMetricType } from "shared/types/fact-table";
 import { EntityEvents } from "shared/types/audit";
+import { ApprovalFlowConfigurations } from "shared/types/organization";
 
 export const DEFAULT_STATS_ENGINE = "bayesian" as const;
 export const DEFAULT_METRIC_HISTOGRAM_BINS = 25;
@@ -94,6 +95,12 @@ export const FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS = 180;
 export const SAFE_ROLLOUT_TRACKING_KEY_PREFIX = "srk_";
 
 export const DEFAULT_REQUIRE_PROJECT_FOR_FEATURES = false;
+
+export const DEFAULT_APPROVAL_FLOW_CONFIGURATION: ApprovalFlowConfigurations = {
+  savedGroups: {
+    required: false,
+  },
+};
 
 // Default configuration for Safe Rollout
 export const SAFE_ROLLOUT_VARIATIONS = [
