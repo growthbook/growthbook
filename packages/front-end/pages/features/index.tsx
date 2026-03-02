@@ -177,7 +177,7 @@ export default function FeaturesPage() {
                     key={en.id}
                     style={{ textAlign: "center" }}
                   >
-                    {en.id === "production" ? "prod" : en.id}
+                    {en.id}
                   </TableColumnHeader>
                 ))}
                 <TableColumnHeader>Data Type</TableColumnHeader>
