@@ -1,5 +1,6 @@
 import clsx from "clsx";
 import { FaPencilAlt } from "react-icons/fa";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { useAuth } from "@/services/auth";
 import Button from "@/components/Button";
 import Markdown from "@/components/Markdown/Markdown";
@@ -16,17 +17,18 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
 
   if (experiment?.status === "stopped") {
     const result = experiment.results;
+    const variations = getLatestPhaseVariations(experiment);
 
     const winningVariation =
       (result === "lost"
-        ? experiment.variations[0]?.name
+        ? variations[0]?.name
         : result === "won"
-          ? experiment.variations[experiment.winner || 1]?.name
+          ? variations[experiment.winner || 1]?.name
           : "") || "";
 
     const releasedVariation =
-      experiment.variations.find((v) => v.id === experiment.releasedVariationId)
-        ?.name || "";
+      variations.find((v) => v.id === experiment.releasedVariationId)?.name ||
+      "";
 
     return (
       <div

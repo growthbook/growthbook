@@ -3,6 +3,7 @@ import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { getSnapshotAnalysis } from "shared/util";
 import { pick, omit } from "lodash";
+import { getLatestPhaseVariations } from "shared/experiments";
 import uniqid from "uniqid";
 import { experimentAnalysisSettings } from "shared/validators";
 import {
@@ -140,7 +141,7 @@ export async function postReportFromSnapshot(
           "coverage",
         ]),
       ),
-      variations: experiment.variations.map((variation) =>
+      variations: getLatestPhaseVariations(experiment).map((variation) =>
         omit(variation, ["description", "screenshots"]),
       ),
     },

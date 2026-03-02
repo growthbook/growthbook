@@ -9,6 +9,7 @@ import { computeAIUsageData } from "shared/ai";
 import { useForm } from "react-hook-form";
 import { experimentHasLinkedChanges } from "shared/util";
 import { datetime } from "shared/dates";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { Flex } from "@radix-ui/themes";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useAuth } from "@/services/auth";
@@ -42,6 +43,8 @@ const StopExperimentForm: FC<{
   const [showModal, setShowModal] = useState(true);
   const isBandit = experiment.type == "multi-armed-bandit";
   const isStopped = experiment.status === "stopped";
+
+  const variations = getLatestPhaseVariations(experiment);
 
   const hasLinkedChanges = experimentHasLinkedChanges(experiment);
 
@@ -121,15 +124,10 @@ const StopExperimentForm: FC<{
   const {
     result: recommendedResult,
     releasedVariationId: recommendedReleaseVariationId,
-  } = getRecommendedResult(
-    runningExperimentStatus,
-    experiment.variations?.[0]?.id,
-  );
+  } = getRecommendedResult(runningExperimentStatus, variations?.[0]?.id);
 
   const recommendedReleaseVariationIndex = recommendedReleaseVariationId
-    ? experiment.variations.findIndex(
-        (v) => v.id === recommendedReleaseVariationId,
-      )
+    ? variations.findIndex((v) => v.id === recommendedReleaseVariationId)
     : undefined;
 
   const form = useForm<{
@@ -162,8 +160,7 @@ const StopExperimentForm: FC<{
   const winnerDoesNotMatchRecommendedReleaseVariationId =
     !decisionDoesNotMatchRecommendedResult &&
     recommendedReleaseVariationId !== undefined &&
-    experiment.variations?.[form.watch("winner")]?.id !==
-      recommendedReleaseVariationId;
+    variations?.[form.watch("winner")]?.id !== recommendedReleaseVariationId;
   const { apiCall } = useAuth();
 
   const decisionBanner =
@@ -181,7 +178,7 @@ const StopExperimentForm: FC<{
     if (value.results === "lost") {
       winner = 0;
     } else if (value.results === "won") {
-      if (experiment.variations.length === 2) {
+      if (variations.length === 2) {
         winner = 1;
       } else {
         winner = value.winner;
@@ -266,16 +263,12 @@ const StopExperimentForm: FC<{
                   );
                   form.setValue(
                     "releasedVariationId",
-                    recommendedReleaseVariationId ??
-                      (experiment.variations[1]?.id || ""),
+                    recommendedReleaseVariationId ?? (variations[1]?.id || ""),
                   );
                 } else if (result === "lost") {
                   form.setValue("excludeFromPayload", true);
                   form.setValue("winner", 0);
-                  form.setValue(
-                    "releasedVariationId",
-                    experiment.variations[0]?.id || "",
-                  );
+                  form.setValue("releasedVariationId", variations[0]?.id || "");
                 }
               }}
               placeholder="Pick one..."
@@ -287,29 +280,28 @@ const StopExperimentForm: FC<{
                 { label: "Inconclusive", value: "inconclusive" },
               ]}
             />
-            {form.watch("results") === "won" &&
-              experiment.variations.length > 2 && (
-                <SelectField
-                  label="Winner"
-                  containerClassName="col-lg"
-                  className={
-                    decisionDoesNotMatchRecommendedResult ? "warning" : ""
-                  }
-                  value={form.watch("winner") + ""}
-                  onChange={(v) => {
-                    form.setValue("winner", parseInt(v) || 0);
+            {form.watch("results") === "won" && variations.length > 2 && (
+              <SelectField
+                label="Winner"
+                containerClassName="col-lg"
+                className={
+                  decisionDoesNotMatchRecommendedResult ? "warning" : ""
+                }
+                value={form.watch("winner") + ""}
+                onChange={(v) => {
+                  form.setValue("winner", parseInt(v) || 0);
 
-                    form.setValue(
-                      "releasedVariationId",
-                      experiment.variations[parseInt(v)]?.id ||
-                        form.watch("releasedVariationId"),
-                    );
-                  }}
-                  options={experiment.variations.slice(1).map((v, i) => {
-                    return { value: i + 1 + "", label: v.name };
-                  })}
-                />
-              )}
+                  form.setValue(
+                    "releasedVariationId",
+                    variations[parseInt(v)]?.id ||
+                      form.watch("releasedVariationId"),
+                  );
+                }}
+                options={variations.slice(1).map((v, i) => {
+                  return { value: i + 1 + "", label: v.name };
+                })}
+              />
+            )}
           </div>
           {decisionDoesNotMatchRecommendedResult ||
           winnerDoesNotMatchRecommendedReleaseVariationId ? (
@@ -373,7 +365,7 @@ const StopExperimentForm: FC<{
                     helpText="Send 100% of experiment traffic to this variation"
                     placeholder="Pick one..."
                     required
-                    options={experiment.variations.map((v) => {
+                    options={variations.map((v) => {
                       return { value: v.id, label: v.name };
                     })}
                   />

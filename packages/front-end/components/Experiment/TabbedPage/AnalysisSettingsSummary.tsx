@@ -1,11 +1,6 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { FactTableColumnType } from "shared/types/fact-table";
-import React, { useMemo, useState, useEffect, useRef } from "react";
-import { OrganizationSettings } from "shared/types/organization";
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
-import { DifferenceType, StatsEngine } from "shared/types/stats";
-import { Box, Flex, Text, Separator } from "@radix-ui/themes";
 import {
+  getVariationsWithWeights,
   expandMetricGroups,
   getAllMetricIdsFromExperiment,
   getAllExpandedMetricIdsFromExperiment,
@@ -14,6 +9,12 @@ import {
   expandAllSliceMetricsInMap,
   ExperimentMetricInterface,
 } from "shared/experiments";
+import { FactTableColumnType } from "shared/types/fact-table";
+import React, { useMemo, useState, useEffect, useRef } from "react";
+import { OrganizationSettings } from "shared/types/organization";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import { DifferenceType, StatsEngine } from "shared/types/stats";
+import { Box, Flex, Text, Separator } from "@radix-ui/themes";
 import { getSnapshotAnalysis } from "shared/util";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { getValidDate } from "shared/dates";
@@ -172,14 +173,12 @@ export default function AnalysisSettingsSummary({
   const datasource = experiment
     ? getDatasourceById(experiment.datasource)
     : null;
-  const phaseObj = experiment.phases?.[phase];
-  const variations = experiment.variations.map((v, i) => {
-    return {
-      id: v.key || i + "",
-      name: v.name,
-      weight: phaseObj?.variationWeights?.[i] || 0,
-    };
-  });
+  const phaseObj = experiment.phases?.[phase] ?? null;
+  const variations = getVariationsWithWeights(phaseObj).map((v, i) => ({
+    id: v.key || i + "",
+    name: v.name,
+    weight: v.weight,
+  }));
 
   const totalUnits = useMemo(() => {
     const healthVariationUnits =
@@ -515,7 +514,7 @@ export default function AnalysisSettingsSummary({
 
     if (
       isDifferentStringArray(
-        exp.variations.map((v) => v.key),
+        (exp.phases?.[currentPhase ?? 0]?.variations ?? []).map((v) => v.key),
         snapshotSettings.variations.map((v) => v.id),
       )
     ) {

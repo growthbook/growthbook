@@ -76,8 +76,8 @@ export function generateJavascriptSnippet(
   tracking: TrackingType,
   param: string,
 ): string {
-  const n = exp.variations.length;
   const phase = exp.phases?.[0];
+  const n = phase?.variations?.length ?? 0;
 
   const weights = phase ? phase.variationWeights : new Array(n).fill(1 / n);
   const adjustedWeights = phase

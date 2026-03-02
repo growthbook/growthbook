@@ -212,10 +212,10 @@ export default function ReleaseChangesForm({
             <div className="alert alert-warning text-danger mt-2">
               <FaExclamationCircle className="mr-2" />
               This Bandit will restart. Variation weights will reset (
-              {experiment.variations
+              {lastPhase.variations
                 .map((_, i) =>
                   i < 3
-                    ? formatPercent(1 / (experiment.variations.length ?? 2))
+                    ? formatPercent(1 / (lastPhase.variations.length ?? 2))
                     : i === 3
                       ? "..."
                       : null,
@@ -617,6 +617,7 @@ function getRecommendedRolloutData({
   ) {
     changeVariationWeights = true;
   }
+  // TODO more inputs here
 
   // // 8. Disable variation?
   // todo: blocked variations not implemented yet

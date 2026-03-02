@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
+  Variation,
 } from "shared/types/experiment";
 import { getEqualWeights } from "shared/experiments";
 import { useAuth } from "@/services/auth";
@@ -27,17 +28,19 @@ const EditVariationsForm: FC<{
   const lastPhaseIndex = experiment.phases.length - 1;
   const lastPhase: ExperimentPhaseStringDates | undefined =
     experiment.phases[lastPhaseIndex];
+  const lastPhaseVariations = lastPhase?.variations ?? [];
 
   const defaultValues = {
-    variations: experiment.variations,
+    variations: lastPhaseVariations,
     variationWeights:
       lastPhase?.variationWeights ??
-      getEqualWeights(experiment.variations.length, 4),
+      getEqualWeights(lastPhaseVariations.length, 4),
   };
 
-  const form = useForm<
-    ExperimentInterfaceStringDates & { variationWeights: number[] }
-  >({
+  const form = useForm<{
+    variations: Variation[];
+    variationWeights: number[];
+  }>({
     defaultValues,
   });
   const { apiCall } = useAuth();
@@ -89,6 +92,7 @@ const EditVariationsForm: FC<{
           }
         }
 
+        console.log(data);
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
           body: JSON.stringify(data),
@@ -130,6 +134,8 @@ const EditVariationsForm: FC<{
                 screenshots: [],
                 ...newData,
                 key: value,
+                // TODO(variations): add proper status depending on how variations were edited
+                status: "active" as const,
               };
             }),
           );

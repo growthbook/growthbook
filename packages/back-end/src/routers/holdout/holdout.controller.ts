@@ -167,6 +167,7 @@ export const createHoldout = async (
       key: "0",
       screenshots: [],
       id: generateVariationId(),
+      status: "active" as const,
     },
     {
       name: "Treatment",
@@ -174,6 +175,7 @@ export const createHoldout = async (
       key: "1",
       screenshots: [],
       id: generateVariationId(),
+      status: "active" as const,
     },
   ];
   const obj: Omit<ExperimentInterface, "id" | "uid"> = {
@@ -199,6 +201,7 @@ export const createHoldout = async (
             ...phase,
             dateStarted: dateStarted ? getValidDate(dateStarted) : new Date(),
             dateEnded: dateEnded ? getValidDate(dateEnded) : undefined,
+            variations,
           };
         })
       : [],
@@ -214,7 +217,6 @@ export const createHoldout = async (
     queryFilter: "",
     skipPartialData: false,
     attributionModel: "firstExposure",
-    variations,
     implementation: "code",
     status: "draft",
     results: undefined,
@@ -239,7 +241,7 @@ export const createHoldout = async (
   };
 
   try {
-    validateVariationIds(obj.variations);
+    validateVariationIds(variations);
 
     const experiment = await createExperiment({
       data: obj,

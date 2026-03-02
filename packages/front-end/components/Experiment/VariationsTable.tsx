@@ -2,6 +2,7 @@ import {
   ExperimentInterfaceStringDates,
   Variation,
 } from "shared/types/experiment";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { FC, useState, useRef, useCallback } from "react";
 import { Box, Flex, Grid, Heading, Text } from "@radix-ui/themes";
 import { PiCameraLight, PiCameraPlusLight } from "react-icons/pi";
@@ -291,7 +292,7 @@ const VariationsTable: FC<Props> = ({
   shareType = "experiment",
 }) => {
   const { apiCall } = useAuth();
-  const { variations } = experiment;
+  const variations = getLatestPhaseVariations(experiment);
   const phases = experiment.phases || [];
   const lastPhaseIndex = phases.length - 1;
   const lastPhase = phases[lastPhaseIndex];

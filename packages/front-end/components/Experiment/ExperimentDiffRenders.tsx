@@ -1,6 +1,9 @@
 import { ReactNode } from "react";
 import isEqual from "lodash/isEqual";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  Variation,
+} from "shared/types/experiment";
 import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
 import { getMetricLink } from "shared/experiments";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
@@ -343,7 +346,7 @@ export function renderUserTargetingTopLevel(
   return rows.length ? <div className="mt-1">{rows}</div> : null;
 }
 
-// "Phase info" — phases: dateStarted, dateEnded, name, reason.
+// "Phase info" — phases: dateStarted, dateEnded, name, reason, and variations.
 export function renderPhaseInfo(pre: Pre, post: Post): ReactNode | null {
   type PhaseInfo = {
     dateStarted?: string;
@@ -351,6 +354,7 @@ export function renderPhaseInfo(pre: Pre, post: Post): ReactNode | null {
     name?: string;
     reason?: string;
     lookbackStartDate?: string | Date;
+    variations?: Variation[];
   };
   const prePhases = (pre?.phases ?? []) as PhaseInfo[];
   const postPhases = (post.phases ?? []) as PhaseInfo[];
@@ -446,16 +450,22 @@ export function renderPhaseInfo(pre: Pre, post: Post): ReactNode | null {
         />,
       );
     }
+
+    if (!isEqual(preP.variations, postP.variations)) {
+      renderVariations(preP.variations ?? [], postP.variations ?? []);
+    }
   });
 
   return sections.length ? <div className="mt-1">{sections}</div> : null;
 }
 
 // "Variations" — list with names and keys; highlights added, removed, renamed.
-export function renderVariations(pre: Pre, post: Post): ReactNode | null {
-  type Variation = { name: string; key: string };
-  const preVars = (pre?.variations ?? []) as Variation[];
-  const postVars = (post.variations ?? []) as Variation[];
+function renderVariations(
+  pre: Variation[],
+  post: Variation[],
+): ReactNode | null {
+  const preVars = pre;
+  const postVars = post;
 
   if (!postVars.length && !preVars.length) return null;
 
@@ -761,24 +771,34 @@ export function getExperimentVariationsBadges(
   pre: Pre,
   post: Post,
 ): DiffBadge[] {
-  if (post.variations === undefined) return [];
-  const preCount = pre?.variations?.length ?? 0;
-  const postCount = (post.variations as unknown[]).length;
+  const prePhases = pre?.phases ?? [];
+  const postPhases = post.phases ?? [];
+
+  // Only compare latest phases
+  const prePhase = prePhases[prePhases.length - 1];
+  const postPhase = postPhases[postPhases.length - 1];
+  if (!postPhase?.variations) return [];
+  if (isEqual(prePhase?.variations, postPhase.variations)) return [];
+
+  const preCount = prePhase?.variations?.length ?? 0;
+  const postCount = postPhase.variations.length;
   const diff = postCount - preCount;
-  if (diff > 0)
+  if (diff > 0) {
     return [
       {
         label: `+${diff} variation${diff !== 1 ? "s" : ""}`,
         action: "add variation",
       },
     ];
-  if (diff < 0)
+  }
+  if (diff < 0) {
     return [
       {
         label: `−${Math.abs(diff)} variation${Math.abs(diff) !== 1 ? "s" : ""}`,
         action: "remove variation",
       },
     ];
+  }
   return [{ label: "Edit variation", action: "edit variation" }];
 }
 

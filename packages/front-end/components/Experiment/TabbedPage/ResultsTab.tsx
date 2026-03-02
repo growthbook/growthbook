@@ -39,7 +39,6 @@ export interface Props {
   mutate: () => void;
   editMetrics?: (() => void) | null;
   editResult?: (() => void) | null;
-  newPhase?: (() => void) | null;
   visualChangesets: VisualChangesetInterface[];
   editTargeting?: (() => void) | null;
   envs: string[];

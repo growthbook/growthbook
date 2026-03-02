@@ -8,7 +8,6 @@ export default function ExperimentStatusIndicatorStories() {
         experimentData={{
           archived: false,
           status: "draft",
-          variations: [],
           phases: [],
           goalMetrics: [],
           guardrailMetrics: [],
@@ -21,7 +20,6 @@ export default function ExperimentStatusIndicatorStories() {
         experimentData={{
           archived: false,
           status: "running",
-          variations: [],
           phases: [],
           goalMetrics: [],
           guardrailMetrics: [],
@@ -34,7 +32,6 @@ export default function ExperimentStatusIndicatorStories() {
         experimentData={{
           archived: false,
           status: "stopped",
-          variations: [],
           phases: [],
           goalMetrics: [],
           guardrailMetrics: [],
@@ -48,7 +45,6 @@ export default function ExperimentStatusIndicatorStories() {
           archived: false,
           status: "stopped",
           results: "dnf",
-          variations: [],
           phases: [],
           goalMetrics: [],
           guardrailMetrics: [],
@@ -62,7 +58,6 @@ export default function ExperimentStatusIndicatorStories() {
           archived: false,
           status: "stopped",
           results: "inconclusive",
-          variations: [],
           phases: [],
           goalMetrics: [],
           guardrailMetrics: [],
@@ -76,7 +71,6 @@ export default function ExperimentStatusIndicatorStories() {
           archived: false,
           status: "stopped",
           results: "won",
-          variations: [],
           phases: [],
           goalMetrics: [],
           guardrailMetrics: [],
@@ -90,7 +84,6 @@ export default function ExperimentStatusIndicatorStories() {
           archived: false,
           status: "stopped",
           results: "lost",
-          variations: [],
           phases: [],
           goalMetrics: [],
           guardrailMetrics: [],
@@ -103,7 +96,6 @@ export default function ExperimentStatusIndicatorStories() {
         experimentData={{
           archived: true,
           status: "running",
-          variations: [],
           phases: [],
           goalMetrics: [],
           guardrailMetrics: [],

@@ -865,6 +865,7 @@ export default function ConfigureReport({
                       screenshots: [],
                       ...newData,
                       key: value,
+                      status: "active" as const,
                     };
                   }),
                 );

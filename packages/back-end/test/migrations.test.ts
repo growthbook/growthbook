@@ -1565,6 +1565,29 @@ describe("Experiment Migration", () => {
           name: "",
           range: [0, 1],
         },
+        variations: [
+          {
+            id: "0",
+            key: "0",
+            name: "Control",
+            screenshots: [],
+            variationStatus: "active",
+          },
+          {
+            id: "1",
+            key: "1",
+            name: "Variation 1",
+            screenshots: [],
+            variationStatus: "active",
+          },
+          {
+            id: "foo",
+            key: "bar",
+            name: "Baz",
+            screenshots: [],
+            variationStatus: "active",
+          },
+        ],
       },
       {
         phase: "main",
@@ -1577,6 +1600,29 @@ describe("Experiment Migration", () => {
           name: "",
           range: [0, 1],
         },
+        variations: [
+          {
+            id: "0",
+            key: "0",
+            name: "Control",
+            screenshots: [],
+            variationStatus: "active",
+          },
+          {
+            id: "1",
+            key: "1",
+            name: "Variation 1",
+            screenshots: [],
+            variationStatus: "active",
+          },
+          {
+            id: "foo",
+            key: "bar",
+            name: "Baz",
+            screenshots: [],
+            variationStatus: "active",
+          },
+        ],
       },
     ],
     sequentialTestingEnabled: false,
@@ -1722,6 +1768,70 @@ describe("Experiment Migration", () => {
       // Keeps old metric fields around, but they're not used
       metrics: ["met_abc"],
       guardrails: ["met_def"],
+    });
+  });
+
+  describe("phase variations migration", () => {
+    it("copies experiment variations into phases that lack them", () => {
+      const result = upgradeExperimentDoc({
+        ...exp,
+        phases: [{ phase: "main" }, { phase: "main", name: "Phase 2" }],
+      });
+      const expectedPhaseVariations = upgraded.variations.map((v: any) => ({
+        ...v,
+        variationStatus: "active",
+      }));
+      expect(result.phases[0].variations).toEqual(expectedPhaseVariations);
+      expect(result.phases[1].variations).toEqual(expectedPhaseVariations);
+    });
+
+    it("does not overwrite existing phase variations", () => {
+      const existingPhaseVariations = [
+        {
+          id: "0",
+          key: "0",
+          name: "Control",
+          screenshots: [],
+          variationStatus: "dropped",
+        },
+        {
+          id: "1",
+          key: "1",
+          name: "Variation 1",
+          screenshots: [],
+          variationStatus: "active",
+        },
+      ];
+      const result = upgradeExperimentDoc({
+        ...exp,
+        phases: [{ phase: "main", variations: existingPhaseVariations }],
+      });
+      expect(result.phases[0].variations).toEqual(existingPhaseVariations);
+    });
+
+    it("migrates only phases missing variations when some already have them", () => {
+      const existingPhaseVariations = [
+        {
+          id: "0",
+          key: "0",
+          name: "Control",
+          screenshots: [],
+          variationStatus: "dropped",
+        },
+      ];
+      const result = upgradeExperimentDoc({
+        ...exp,
+        phases: [
+          { phase: "main", variations: existingPhaseVariations },
+          { phase: "main", name: "Phase 2" },
+        ],
+      });
+      expect(result.phases[0].variations).toEqual(existingPhaseVariations);
+      const expectedPhaseVariations = upgraded.variations.map((v: any) => ({
+        ...v,
+        variationStatus: "active",
+      }));
+      expect(result.phases[1].variations).toEqual(expectedPhaseVariations);
     });
   });
 });

@@ -7,10 +7,11 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
-  ExperimentInterfaceStringDates,
-} from "shared/types/experiment";
-import { getEffectiveLookbackOverride } from "shared/experiments";
+  getVariationsWithWeights,
+  getEffectiveLookbackOverride,
+} from "shared/experiments";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -37,15 +38,13 @@ export default function PublicExperimentResults({
 }) {
   const phases = experiment.phases;
   const phase = phases.length - 1;
-  const phaseObj = phases[phase];
+  const phaseObj = phases[phase] ?? null;
 
-  const variations = experiment.variations.map((v, i) => {
-    return {
-      id: v.key || i + "",
-      name: v.name,
-      weight: phaseObj?.variationWeights?.[i] || 0,
-    };
-  });
+  const variations = getVariationsWithWeights(phaseObj).map((v, i) => ({
+    id: v.key || i + "",
+    name: v.name,
+    weight: v.weight,
+  }));
   const analysis = snapshot
     ? getSnapshotAnalysis(snapshot) ?? undefined
     : undefined;

@@ -17,6 +17,7 @@ import {
   setAdjustedPValuesOnResults,
   chanceToWinFlatPrior,
   getRowFilterSQL,
+  getLatestPhaseVariations,
 } from "../src/experiments";
 
 describe("Experiments", () => {
@@ -1559,5 +1560,40 @@ describe("chanceToWinFlatPrior", () => {
         ),
       ),
     ).toEqual(roundToSeventhDecimal(truthInverse));
+  });
+});
+
+describe("phase-level variations helpers", () => {
+  const baseVariations = [
+    {
+      id: "v1",
+      key: "control",
+      name: "Control",
+      screenshots: [],
+      status: "active" as const,
+    },
+    {
+      id: "v2",
+      key: "treatment",
+      name: "Treatment",
+      screenshots: [],
+      status: "active" as const,
+    },
+    {
+      id: "v3",
+      key: "treatment2",
+      name: "Treatment 2",
+      screenshots: [],
+      status: "active" as const,
+    },
+  ];
+
+  it("getLatestPhaseVariations falls back to last phase", () => {
+    const experiment = {
+      phases: [
+        { variations: baseVariations, variationWeights: [0.334, 0.333, 0.333] },
+      ],
+    };
+    expect(getLatestPhaseVariations(experiment)).toEqual(baseVariations);
   });
 });

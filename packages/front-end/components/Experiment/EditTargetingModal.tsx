@@ -6,9 +6,12 @@ import {
 } from "shared/types/experiment";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { validateAndFixCondition } from "shared/util";
-import { getEqualWeights } from "shared/experiments";
+import {
+  getLatestPhaseVariations,
+  getVariationsWithWeights,
+} from "shared/experiments";
 import { Flex, Box, Text } from "@radix-ui/themes";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useIncrementer } from "@/hooks/useIncrementer";
@@ -93,6 +96,11 @@ export default function EditTargetingModal({
 
   const lastStepNumber = changeType !== "phase" ? 2 : 1;
 
+  const activeVarsWithWeights = lastPhase
+    ? getVariationsWithWeights(lastPhase)
+    : [];
+  const variations = activeVarsWithWeights;
+  const variationWeights = activeVarsWithWeights.map((v) => v.weight);
   const defaultValues = {
     condition: lastPhase?.condition ?? "",
     savedGroups: lastPhase?.savedGroups ?? [],
@@ -111,9 +119,8 @@ export default function EditTargetingModal({
     },
     seed: lastPhase?.seed ?? "",
     trackingKey: experiment.trackingKey || "",
-    variationWeights:
-      lastPhase?.variationWeights ??
-      getEqualWeights(experiment.variations.length, 4),
+    variations: variations,
+    variationWeights: variationWeights,
     newPhase: false,
     reseed: true,
   };
@@ -346,7 +353,6 @@ function ChangeTypeSelector({
   setChangeType: (changeType: ChangeType) => void;
 }) {
   const { namespaces } = useOrgSettings();
-
   const options: RadioOptions = [
     { label: "Start a New Phase", value: "phase" },
     {
@@ -564,14 +570,12 @@ function TargetingForm({
           }
           valueAsId={true}
           variations={
-            experiment.variations.map((v, i) => {
-              return {
-                value: v.key || i + "",
-                name: v.name,
-                weight: form.watch(`variationWeights.${i}`),
-                id: v.id,
-              };
-            }) || []
+            getLatestPhaseVariations(experiment).map((v, i) => ({
+              value: v.key || i + "",
+              name: v.name,
+              weight: form.watch(`variationWeights.${i}`),
+              id: v.id,
+            })) || []
           }
           showPreview={false}
           disableCoverage={changeType === "weights"}

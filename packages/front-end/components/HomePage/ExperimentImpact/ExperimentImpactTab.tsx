@@ -3,6 +3,7 @@ import React, { ReactElement } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import clsx from "clsx";
 import { date } from "shared/dates";
+import { getLatestPhaseVariations } from "shared/experiments";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
@@ -36,7 +37,7 @@ export default function ExperimentImpactTab({
     const impactsScaled: JSX.Element[] = [];
     const impactsTotal: JSX.Element[] = [];
     if (!e.error) {
-      e.experiment.variations.forEach((v, i) => {
+      getLatestPhaseVariations(e.experiment).forEach((v, i) => {
         if (i === 0) return;
         if (experimentImpactType !== "other" && i !== e.keyVariationId) return;
         const impact = e.variationImpact?.[i - 1];

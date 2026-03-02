@@ -20,6 +20,7 @@ import {
 } from "shared/types/report";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { format } from "date-fns";
+import { getLatestPhaseVariations } from "shared/experiments";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
@@ -512,11 +513,13 @@ export default function ExperimentHeader({
                     <li>
                       Experiment variations will begin with{" "}
                       <strong>equal weights</strong> (
-                      {experiment.variations
+                      {getLatestPhaseVariations(experiment)
                         .map((_, i) =>
                           i < 3
                             ? formatPercent(
-                                1 / (experiment.variations.length ?? 2),
+                                1 /
+                                  (getLatestPhaseVariations(experiment)
+                                    .length ?? 2),
                               )
                             : i === 3
                               ? "..."
