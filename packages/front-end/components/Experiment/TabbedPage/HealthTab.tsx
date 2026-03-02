@@ -74,7 +74,6 @@ export default function HealthTab({
   const isHoldout = experiment.type === "holdout";
   const orgStickyBucketing = !!useStickyBucketing;
 
-  // Show multiple exposures card for bandits that are using sticky bucketing
   const showMultipleExposures =
     !isBandit ||
     (isBandit && orgStickyBucketing && !experiment.disableStickyBucketing);
