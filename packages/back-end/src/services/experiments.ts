@@ -639,8 +639,8 @@ export function getSnapshotSettings({
               })) ?? [],
           useFirstExposure: useStickyBucketing,
           windowSettings:
-            experiment.banditConversionWindowValue != null &&
-            experiment.banditConversionWindowUnit != null
+            !!experiment.banditConversionWindowValue &&
+            !!experiment.banditConversionWindowUnit
               ? {
                   type: "conversion",
                   delayValue: 0,
