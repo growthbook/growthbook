@@ -267,6 +267,7 @@ export default function FeaturesPage() {
                               feature={feature}
                               environment={en.id}
                               mutate={mutate}
+                              size="2"
                             />
                           )}
                         </Flex>
