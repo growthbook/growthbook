@@ -25,7 +25,7 @@ import { ReqContext } from "back-end/types/request";
 import { addCloudSDKMapping } from "back-end/src/services/clickhouse";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { createModelAuditLogger } from "back-end/src/services/audit";
-import { generateEncryptionKey, generateSigningKey } from "./ApiKeyModel";
+import { ApiKeyModel } from "./ApiKeyModel";
 
 const audit = createModelAuditLogger({
   entity: "sdk-connection",
@@ -210,7 +210,7 @@ export const createSDKConnectionValidator = z
 function generateSDKConnectionKey() {
   // IMPORTANT: we use the /^sdk-/ regex to match against this for incoming API requests
   // DO NOT CHANGE the prefix without also updating that
-  return generateSigningKey("sdk-", 12);
+  return ApiKeyModel.generateSigningKey("sdk-", 12);
 }
 
 export async function createSDKConnection(
@@ -228,7 +228,7 @@ export async function createSDKConnection(
     id: uniqid("sdk_"),
     dateCreated: new Date(),
     dateUpdated: new Date(),
-    encryptionKey: await generateEncryptionKey(),
+    encryptionKey: await ApiKeyModel.generateEncryptionKey(),
     connected: false,
     // This is not for cryptography, it just needs to be long enough to be unique
     key: generateSDKConnectionKey(),
@@ -236,7 +236,7 @@ export async function createSDKConnection(
       enabled: !!proxyEnabled,
       host: proxyHost || "",
       hostExternal: proxyHost || "",
-      signingKey: generateSigningKey(),
+      signingKey: ApiKeyModel.generateSigningKey(),
       connected: false,
       lastError: null,
       version: "",
