@@ -44,10 +44,7 @@ export default function BanditSettings({
           </Box>
         )}
         <Box
-          className={clsx({
-            col: page === "experiment-settings",
-          })}
-          width={page === "org-settings" ? "100%" : undefined}
+          width="100%"
           mb={page === "org-settings" ? "4" : undefined}
           ml={page === "org-settings" ? "0" : undefined}
         >
