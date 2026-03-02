@@ -10,9 +10,7 @@
 
 import cloneDeep from "lodash/cloneDeep";
 import { FeatureInterface } from "shared/types/feature";
-import { ExperimentInterface } from "shared/types/experiment";
-import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
-import { SafeRolloutInterface } from "shared/types/safe-rollout";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import {
@@ -24,11 +22,12 @@ import {
   type SDKPayloadRawData,
   type ConnectionPayloadOptions,
 } from "back-end/src/services/features";
-import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import { getFeatureDefinitionsWithCache, getPayloadParamsFromApiKey } from "back-end/src/controllers/features";
+import {
+  getFeatureDefinitionsWithCache,
+  getPayloadParamsFromApiKey,
+} from "back-end/src/controllers/features";
 import * as FeatureModel from "back-end/src/models/FeatureModel";
 import * as ExperimentModel from "back-end/src/models/ExperimentModel";
-import * as featuresService from "back-end/src/services/features";
 
 jest.mock("back-end/src/models/SdkConnectionModel", () => ({
   findSDKConnectionByKey: jest.fn(),
@@ -54,14 +53,16 @@ jest.mock("back-end/src/models/ExperimentModel", () => ({
 jest.mock("back-end/src/services/organizations", () => ({
   getContextForAgendaJobByOrgObject: jest.fn((org: { id: string }) => ({
     org,
-    models: (global as unknown as { __mockContextModels: unknown }).__mockContextModels,
+    models: (global as unknown as { __mockContextModels: unknown })
+      .__mockContextModels,
     userId: "u",
     email: "e@e.com",
     userName: "U",
     initModels: jest.fn(),
   })),
-  getEnvironmentIdsFromOrg: jest.fn((org: { settings?: { environments?: { id: string }[] } }) =>
-    org.settings?.environments?.map((e) => e.id) ?? ["production"],
+  getEnvironmentIdsFromOrg: jest.fn(
+    (org: { settings?: { environments?: { id: string }[] } }) =>
+      org.settings?.environments?.map((e) => e.id) ?? ["production"],
   ),
 }));
 jest.mock("back-end/src/jobs/updateAllJobs", () => ({
@@ -72,18 +73,20 @@ jest.mock("back-end/src/services/features", () => ({
   getFeatureDefinitions: jest.fn(),
 }));
 
-const findSDKConnectionByKey = jest.requireMock("back-end/src/models/SdkConnectionModel")
-  .findSDKConnectionByKey as jest.Mock;
-const lookupOrganizationByApiKey = jest.requireMock("back-end/src/models/ApiKeyModel")
-  .lookupOrganizationByApiKey as jest.Mock;
+const findSDKConnectionByKey = jest.requireMock(
+  "back-end/src/models/SdkConnectionModel",
+).findSDKConnectionByKey as jest.Mock;
+const lookupOrganizationByApiKey = jest.requireMock(
+  "back-end/src/models/ApiKeyModel",
+).lookupOrganizationByApiKey as jest.Mock;
 const getSDKPayloadCacheLocationMock = jest.requireMock(
   "back-end/src/models/SdkConnectionCacheModel",
 ).getSDKPayloadCacheLocation as jest.Mock;
-const findSDKConnectionsByOrganization = jest.requireMock("back-end/src/models/SdkConnectionModel")
-  .findSDKConnectionsByOrganization as jest.Mock;
-const getContextForAgendaJobByOrgObject = jest.requireMock("back-end/src/services/organizations")
-  .getContextForAgendaJobByOrgObject as jest.Mock;
-const triggerWebhookJobs = jest.requireMock("back-end/src/jobs/updateAllJobs").triggerWebhookJobs as jest.Mock;
+const findSDKConnectionsByOrganization = jest.requireMock(
+  "back-end/src/models/SdkConnectionModel",
+).findSDKConnectionsByOrganization as jest.Mock;
+const triggerWebhookJobs = jest.requireMock("back-end/src/jobs/updateAllJobs")
+  .triggerWebhookJobs as jest.Mock;
 
 function minimalContext(overrides?: Partial<ApiReqContext>): ApiReqContext {
   return {
@@ -106,7 +109,9 @@ function minimalContext(overrides?: Partial<ApiReqContext>): ApiReqContext {
   } as ApiReqContext;
 }
 
-function minimalRawData(overrides?: Partial<SDKPayloadRawData>): SDKPayloadRawData {
+function minimalRawData(
+  overrides?: Partial<SDKPayloadRawData>,
+): SDKPayloadRawData {
   return {
     features: [],
     experimentMap: new Map(),
@@ -121,11 +126,15 @@ function minimalRawData(overrides?: Partial<SDKPayloadRawData>): SDKPayloadRawDa
 describe("SDK payload lifecycle (comprehensive)", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    (global as unknown as { __mockContextModels: unknown }).__mockContextModels = undefined;
+    (
+      global as unknown as { __mockContextModels: unknown }
+    ).__mockContextModels = undefined;
   });
 
   describe("isSDKConnectionAffectedByPayloadKey", () => {
-    const conn = (overrides: Partial<SDKConnectionInterface> = {}): SDKConnectionInterface =>
+    const conn = (
+      overrides: Partial<SDKConnectionInterface> = {},
+    ): SDKConnectionInterface =>
       ({
         key: "sdk-key-1",
         organization: "org-1",
@@ -137,10 +146,13 @@ describe("SDK payload lifecycle (comprehensive)", () => {
 
     it("returns false when environment does not match", () => {
       expect(
-        isSDKConnectionAffectedByPayloadKey(conn({ environment: "production" }), {
-          environment: "dev",
-          project: "p1",
-        }),
+        isSDKConnectionAffectedByPayloadKey(
+          conn({ environment: "production" }),
+          {
+            environment: "dev",
+            project: "p1",
+          },
+        ),
       ).toBe(false);
     });
 
@@ -188,7 +200,10 @@ describe("SDK payload lifecycle (comprehensive)", () => {
 
     it("returns parsed cache when storage !== none and getById returns content", async () => {
       getSDKPayloadCacheLocationMock.mockReturnValue("mongodb");
-      const cached = { features: { f1: { defaultValue: "cached" } }, dateUpdated: new Date().toISOString() };
+      const cached = {
+        features: { f1: { defaultValue: "cached" } },
+        dateUpdated: new Date().toISOString(),
+      };
       mockGetById.mockResolvedValueOnce({ contents: JSON.stringify(cached) });
 
       const ctx = minimalContext({
@@ -229,8 +244,12 @@ describe("SDK payload lifecycle (comprehensive)", () => {
           ...minimalContext().models,
           sdkConnectionCache: { getById: mockGetById, upsert: mockUpsert },
           savedGroups: { getAll: jest.fn().mockResolvedValue([]) },
-          safeRollout: { getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()) },
-          holdout: { getAllPayloadHoldouts: jest.fn().mockResolvedValue(new Map()) },
+          safeRollout: {
+            getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
+          },
+          holdout: {
+            getAllPayloadHoldouts: jest.fn().mockResolvedValue(new Map()),
+          },
         },
       } as ReqContext["models"]);
 
@@ -267,8 +286,12 @@ describe("SDK payload lifecycle (comprehensive)", () => {
           ...minimalContext().models,
           sdkConnectionCache: { getById: mockGetById, upsert: mockUpsert },
           savedGroups: { getAll: jest.fn().mockResolvedValue([]) },
-          safeRollout: { getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()) },
-          holdout: { getAllPayloadHoldouts: jest.fn().mockResolvedValue(new Map()) },
+          safeRollout: {
+            getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
+          },
+          holdout: {
+            getAllPayloadHoldouts: jest.fn().mockResolvedValue(new Map()),
+          },
         },
       } as ReqContext["models"]);
 
@@ -319,7 +342,9 @@ describe("SDK payload lifecycle (comprehensive)", () => {
         encryptSDK: false,
         encryptionKey: "",
       });
-      const params = await getPayloadParamsFromApiKey("pk_legacy", { query: {} } as never);
+      const params = await getPayloadParamsFromApiKey("pk_legacy", {
+        query: {},
+      } as never);
       expect(lookupOrganizationByApiKey).toHaveBeenCalledWith("pk_legacy");
       expect(params.key).toMatch(/^legacy:/);
       expect(params.languages).toEqual(["legacy"]);
@@ -332,24 +357,51 @@ describe("SDK payload lifecycle (comprehensive)", () => {
       getSDKPayloadCacheLocationMock.mockReturnValue("mongo");
       const deleteAllLegacy = jest.fn().mockResolvedValue(undefined);
       const upsert = jest.fn().mockResolvedValue(undefined);
-      const conn1 = { key: "sdk-1", organization: "org-1", environment: "production", projects: [] } as SDKConnectionInterface;
-      const conn2 = { key: "sdk-2", organization: "org-1", environment: "production", projects: [] } as SDKConnectionInterface;
+      const conn1 = {
+        key: "sdk-1",
+        organization: "org-1",
+        environment: "production",
+        projects: [],
+      } as SDKConnectionInterface;
+      const conn2 = {
+        key: "sdk-2",
+        organization: "org-1",
+        environment: "production",
+        projects: [],
+      } as SDKConnectionInterface;
       findSDKConnectionsByOrganization.mockResolvedValue([conn1, conn2]);
       (FeatureModel.getAllFeatures as jest.Mock).mockResolvedValue([]);
-      (ExperimentModel.getAllPayloadExperiments as jest.Mock).mockResolvedValue(new Map());
-      (ExperimentModel.getAllVisualExperiments as jest.Mock).mockResolvedValue([]);
-      (ExperimentModel.getAllURLRedirectExperiments as jest.Mock).mockResolvedValue([]);
+      (ExperimentModel.getAllPayloadExperiments as jest.Mock).mockResolvedValue(
+        new Map(),
+      );
+      (ExperimentModel.getAllVisualExperiments as jest.Mock).mockResolvedValue(
+        [],
+      );
+      (
+        ExperimentModel.getAllURLRedirectExperiments as jest.Mock
+      ).mockResolvedValue([]);
 
       const mockModels = {
-        sdkConnectionCache: { deleteAllLegacyCacheEntries: deleteAllLegacy, upsert },
-        safeRollout: { getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()) },
+        sdkConnectionCache: {
+          deleteAllLegacyCacheEntries: deleteAllLegacy,
+          upsert,
+        },
+        safeRollout: {
+          getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
+        },
         savedGroups: { getAll: jest.fn().mockResolvedValue([]) },
-        holdout: { getAllPayloadHoldouts: jest.fn().mockResolvedValue(new Map()) },
+        holdout: {
+          getAllPayloadHoldouts: jest.fn().mockResolvedValue(new Map()),
+        },
       };
-      (global as unknown as { __mockContextModels: unknown }).__mockContextModels = mockModels;
+      (
+        global as unknown as { __mockContextModels: unknown }
+      ).__mockContextModels = mockModels;
 
       await refreshSDKPayloadCache({
-        context: minimalContext({ models: mockModels as ReqContext["models"] }) as ReqContext,
+        context: minimalContext({
+          models: mockModels as ReqContext["models"],
+        }) as ReqContext,
         payloadKeys: [{ environment: "production", project: "p1" }],
         sdkConnections: [],
       });
@@ -358,8 +410,16 @@ describe("SDK payload lifecycle (comprehensive)", () => {
       expect(FeatureModel.getAllFeatures).toHaveBeenCalled();
       expect(findSDKConnectionsByOrganization).toHaveBeenCalled();
       expect(upsert).toHaveBeenCalledTimes(2);
-      expect(upsert).toHaveBeenCalledWith("sdk-1", expect.any(String), undefined);
-      expect(upsert).toHaveBeenCalledWith("sdk-2", expect.any(String), undefined);
+      expect(upsert).toHaveBeenCalledWith(
+        "sdk-1",
+        expect.any(String),
+        undefined,
+      );
+      expect(upsert).toHaveBeenCalledWith(
+        "sdk-2",
+        expect.any(String),
+        undefined,
+      );
       expect(triggerWebhookJobs).toHaveBeenCalled();
     });
 
@@ -367,30 +427,56 @@ describe("SDK payload lifecycle (comprehensive)", () => {
       getSDKPayloadCacheLocationMock.mockReturnValue("mongo");
       const deleteAllLegacy = jest.fn().mockResolvedValue(undefined);
       const upsert = jest.fn().mockResolvedValue(undefined);
-      const conn = { key: "sdk-single", organization: "org-1", environment: "production", projects: [] } as SDKConnectionInterface;
+      const conn = {
+        key: "sdk-single",
+        organization: "org-1",
+        environment: "production",
+        projects: [],
+      } as SDKConnectionInterface;
 
       (FeatureModel.getAllFeatures as jest.Mock).mockResolvedValue([]);
-      (ExperimentModel.getAllPayloadExperiments as jest.Mock).mockResolvedValue(new Map());
-      (ExperimentModel.getAllVisualExperiments as jest.Mock).mockResolvedValue([]);
-      (ExperimentModel.getAllURLRedirectExperiments as jest.Mock).mockResolvedValue([]);
+      (ExperimentModel.getAllPayloadExperiments as jest.Mock).mockResolvedValue(
+        new Map(),
+      );
+      (ExperimentModel.getAllVisualExperiments as jest.Mock).mockResolvedValue(
+        [],
+      );
+      (
+        ExperimentModel.getAllURLRedirectExperiments as jest.Mock
+      ).mockResolvedValue([]);
 
       const mockModels = {
-        sdkConnectionCache: { deleteAllLegacyCacheEntries: deleteAllLegacy, upsert },
-        safeRollout: { getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()) },
+        sdkConnectionCache: {
+          deleteAllLegacyCacheEntries: deleteAllLegacy,
+          upsert,
+        },
+        safeRollout: {
+          getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
+        },
         savedGroups: { getAll: jest.fn().mockResolvedValue([]) },
-        holdout: { getAllPayloadHoldouts: jest.fn().mockResolvedValue(new Map()) },
+        holdout: {
+          getAllPayloadHoldouts: jest.fn().mockResolvedValue(new Map()),
+        },
       };
-      (global as unknown as { __mockContextModels: unknown }).__mockContextModels = mockModels;
+      (
+        global as unknown as { __mockContextModels: unknown }
+      ).__mockContextModels = mockModels;
 
       await refreshSDKPayloadCache({
-        context: minimalContext({ models: mockModels as ReqContext["models"] }) as ReqContext,
+        context: minimalContext({
+          models: mockModels as ReqContext["models"],
+        }) as ReqContext,
         payloadKeys: [],
         sdkConnections: [conn],
       });
 
       expect(findSDKConnectionsByOrganization).not.toHaveBeenCalled();
       expect(upsert).toHaveBeenCalledTimes(1);
-      expect(upsert).toHaveBeenCalledWith("sdk-single", expect.any(String), undefined);
+      expect(upsert).toHaveBeenCalledWith(
+        "sdk-single",
+        expect.any(String),
+        undefined,
+      );
     });
 
     it("shared rawData is not mutated when building multiple connection payloads", async () => {
@@ -418,12 +504,31 @@ describe("SDK payload lifecycle (comprehensive)", () => {
         holdoutsMap: new Map(),
       });
 
-      const conn1: ConnectionPayloadOptions = { capabilities: [], environment: "production", projects: [] };
-      const conn2: ConnectionPayloadOptions = { capabilities: ["bucketingV2"], environment: "production", projects: [] };
+      const conn1: ConnectionPayloadOptions = {
+        capabilities: [],
+        environment: "production",
+        projects: [],
+      };
+      const conn2: ConnectionPayloadOptions = {
+        capabilities: ["bucketingV2"],
+        environment: "production",
+        projects: [],
+      };
 
-      await buildSDKPayloadForConnection({ context: ctx, connection: conn1, data: rawData });
-      const afterFirst = { length: rawData.features.length, id: rawData.features[0]?.id };
-      await buildSDKPayloadForConnection({ context: ctx, connection: conn2, data: rawData });
+      await buildSDKPayloadForConnection({
+        context: ctx,
+        connection: conn1,
+        data: rawData,
+      });
+      const afterFirst = {
+        length: rawData.features.length,
+        id: rawData.features[0]?.id,
+      };
+      await buildSDKPayloadForConnection({
+        context: ctx,
+        connection: conn2,
+        data: rawData,
+      });
       expect(rawData.features.length).toBe(afterFirst.length);
       expect(rawData.features[0]?.id).toBe(afterFirst.id);
     });
@@ -434,50 +539,98 @@ describe("SDK payload lifecycle (comprehensive)", () => {
       getSDKPayloadCacheLocationMock.mockReturnValue("mongo");
       const deleteAllLegacy = jest.fn().mockResolvedValue(undefined);
       const upsert = jest.fn().mockResolvedValue(undefined);
-      const conn = { key: "sdk-q1", organization: "org-1", environment: "production", projects: [] } as SDKConnectionInterface;
+      const conn = {
+        key: "sdk-q1",
+        organization: "org-1",
+        environment: "production",
+        projects: [],
+      } as SDKConnectionInterface;
       findSDKConnectionsByOrganization.mockResolvedValue([conn]);
       (FeatureModel.getAllFeatures as jest.Mock).mockResolvedValue([]);
-      (ExperimentModel.getAllPayloadExperiments as jest.Mock).mockResolvedValue(new Map());
-      (ExperimentModel.getAllVisualExperiments as jest.Mock).mockResolvedValue([]);
-      (ExperimentModel.getAllURLRedirectExperiments as jest.Mock).mockResolvedValue([]);
+      (ExperimentModel.getAllPayloadExperiments as jest.Mock).mockResolvedValue(
+        new Map(),
+      );
+      (ExperimentModel.getAllVisualExperiments as jest.Mock).mockResolvedValue(
+        [],
+      );
+      (
+        ExperimentModel.getAllURLRedirectExperiments as jest.Mock
+      ).mockResolvedValue([]);
       const mockModels = {
-        sdkConnectionCache: { deleteAllLegacyCacheEntries: deleteAllLegacy, upsert },
-        safeRollout: { getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()) },
+        sdkConnectionCache: {
+          deleteAllLegacyCacheEntries: deleteAllLegacy,
+          upsert,
+        },
+        safeRollout: {
+          getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
+        },
         savedGroups: { getAll: jest.fn().mockResolvedValue([]) },
-        holdout: { getAllPayloadHoldouts: jest.fn().mockResolvedValue(new Map()) },
+        holdout: {
+          getAllPayloadHoldouts: jest.fn().mockResolvedValue(new Map()),
+        },
       };
-      (global as unknown as { __mockContextModels: unknown }).__mockContextModels = mockModels;
+      (
+        global as unknown as { __mockContextModels: unknown }
+      ).__mockContextModels = mockModels;
 
       queueSDKPayloadRefresh({
-        context: minimalContext({ models: mockModels as ReqContext["models"] }) as ReqContext,
+        context: minimalContext({
+          models: mockModels as ReqContext["models"],
+        }) as ReqContext,
         payloadKeys: [{ environment: "production", project: "p1" }],
       });
 
       await new Promise((r) => setTimeout(r, 50));
       expect(findSDKConnectionsByOrganization).toHaveBeenCalled();
       expect(upsert).toHaveBeenCalledTimes(1);
-      expect(upsert).toHaveBeenCalledWith("sdk-q1", expect.any(String), undefined);
+      expect(upsert).toHaveBeenCalledWith(
+        "sdk-q1",
+        expect.any(String),
+        undefined,
+      );
     });
 
     it("runs refresh for given sdkConnections (targeted path)", async () => {
       getSDKPayloadCacheLocationMock.mockReturnValue("mongo");
       const deleteAllLegacy = jest.fn().mockResolvedValue(undefined);
       const upsert = jest.fn().mockResolvedValue(undefined);
-      const conn = { key: "sdk-q2", organization: "org-1", environment: "production", projects: [] } as SDKConnectionInterface;
+      const conn = {
+        key: "sdk-q2",
+        organization: "org-1",
+        environment: "production",
+        projects: [],
+      } as SDKConnectionInterface;
       (FeatureModel.getAllFeatures as jest.Mock).mockResolvedValue([]);
-      (ExperimentModel.getAllPayloadExperiments as jest.Mock).mockResolvedValue(new Map());
-      (ExperimentModel.getAllVisualExperiments as jest.Mock).mockResolvedValue([]);
-      (ExperimentModel.getAllURLRedirectExperiments as jest.Mock).mockResolvedValue([]);
+      (ExperimentModel.getAllPayloadExperiments as jest.Mock).mockResolvedValue(
+        new Map(),
+      );
+      (ExperimentModel.getAllVisualExperiments as jest.Mock).mockResolvedValue(
+        [],
+      );
+      (
+        ExperimentModel.getAllURLRedirectExperiments as jest.Mock
+      ).mockResolvedValue([]);
       const mockModels = {
-        sdkConnectionCache: { deleteAllLegacyCacheEntries: deleteAllLegacy, upsert },
-        safeRollout: { getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()) },
+        sdkConnectionCache: {
+          deleteAllLegacyCacheEntries: deleteAllLegacy,
+          upsert,
+        },
+        safeRollout: {
+          getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
+        },
         savedGroups: { getAll: jest.fn().mockResolvedValue([]) },
-        holdout: { getAllPayloadHoldouts: jest.fn().mockResolvedValue(new Map()) },
+        holdout: {
+          getAllPayloadHoldouts: jest.fn().mockResolvedValue(new Map()),
+        },
       };
-      (global as unknown as { __mockContextModels: unknown }).__mockContextModels = mockModels;
+      (
+        global as unknown as { __mockContextModels: unknown }
+      ).__mockContextModels = mockModels;
 
       queueSDKPayloadRefresh({
-        context: minimalContext({ models: mockModels as ReqContext["models"] }) as ReqContext,
+        context: minimalContext({
+          models: mockModels as ReqContext["models"],
+        }) as ReqContext,
         payloadKeys: [],
         sdkConnections: [conn],
       });
@@ -485,7 +638,11 @@ describe("SDK payload lifecycle (comprehensive)", () => {
       await new Promise((r) => setTimeout(r, 50));
       expect(findSDKConnectionsByOrganization).not.toHaveBeenCalled();
       expect(upsert).toHaveBeenCalledTimes(1);
-      expect(upsert).toHaveBeenCalledWith("sdk-q2", expect.any(String), undefined);
+      expect(upsert).toHaveBeenCalledWith(
+        "sdk-q2",
+        expect.any(String),
+        undefined,
+      );
     });
   });
 });
