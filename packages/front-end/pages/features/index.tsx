@@ -430,8 +430,13 @@ export default function FeaturesPage() {
     if (project) {
       return permissionsUtil.canViewFeatureModal(project);
     }
-    // If "All Projects" is selected, check if user has permissions for at least one project
-    return projects.some((p) => permissionsUtil.canViewFeatureModal(p.id));
+    if (projects?.length) {
+      // If "All Projects" is selected, check if user has permissions for at least one project
+
+      return projects.some((p) => permissionsUtil.canViewFeatureModal(p.id));
+    }
+    // No projects - fall back to global permission check (e.g. admin in new org)
+    return permissionsUtil.canViewFeatureModal();
   }, [project, projects, permissionsUtil]);
 
   const canCreateFeatures = useMemo(() => {
@@ -439,11 +444,19 @@ export default function FeaturesPage() {
     if (project) {
       return permissionsUtil.canManageFeatureDrafts({ project });
     }
-    // If "All Projects" is selected, check if user has permissions for at least one project
-    return projects.some(
-      (p) =>
-        permissionsUtil.canCreateFeature({ project: p.id }) &&
-        permissionsUtil.canManageFeatureDrafts({ project: p.id }),
+    if (projects?.length) {
+      // If "All Projects" is selected, check if user has permissions for at least one project
+
+      return projects.some(
+        (p) =>
+          permissionsUtil.canCreateFeature({ project: p.id }) &&
+          permissionsUtil.canManageFeatureDrafts({ project: p.id }),
+      );
+    }
+    // No projects - fall back to global permission check (e.g. admin in new org)
+    return (
+      permissionsUtil.canCreateFeature({ project: "" }) &&
+      permissionsUtil.canManageFeatureDrafts({ project: "" })
     );
   }, [project, projects, permissionsUtil]);
 
