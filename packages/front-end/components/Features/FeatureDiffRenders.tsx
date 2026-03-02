@@ -93,7 +93,10 @@ function ValueChangedField({
   return (
     <div className="mb-2">
       {label && <div className="font-weight-bold mb-1">{label}</div>}
-      <div style={{ maxHeight: 250, overflowY: "auto" }}>
+      <div
+        className="diff-wrapper"
+        style={{ maxHeight: 250, overflowY: "auto" }}
+      >
         <ReactDiffViewer
           oldValue={pre ?? ""}
           newValue={post ?? ""}
