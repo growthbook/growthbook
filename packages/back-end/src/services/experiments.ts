@@ -637,7 +637,7 @@ export function getSnapshotSettings({
                     0,
                   ) ?? 0,
               })) ?? [],
-          useFirstExposure: useStickyBucketing,
+          useFirstExposure: !useStickyBucketing,
           windowSettings:
             !!experiment.banditConversionWindowValue &&
             !!experiment.banditConversionWindowUnit
