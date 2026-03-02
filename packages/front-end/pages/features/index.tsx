@@ -223,8 +223,8 @@ export default function FeaturesPage() {
                       >
                         <TruncateMiddleWithTooltip
                           text={feature.id}
-                          maxChars={24}
-                          maxWidth={180}
+                          maxChars={36}
+                          maxWidth={270}
                         />
                       </Link>
                     </TableCell>
