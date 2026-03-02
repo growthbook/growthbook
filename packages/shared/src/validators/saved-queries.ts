@@ -181,7 +181,12 @@ const withFormat = z.object({
 const barChartValidator = baseChartConfig
   .merge(z.object({ chartType: z.literal("bar") }))
   .merge(withXAxis)
-  .merge(withExtendedDimensions);
+  .merge(withExtendedDimensions)
+  .extend({
+    displaySettings: z.object({
+      anchorYAxisToZero: z.boolean(),
+    }).optional(),
+  });
 
 const lineChartValidator = baseChartConfig
   .merge(z.object({ chartType: z.literal("line") }))
