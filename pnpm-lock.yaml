@@ -219,9 +219,6 @@ importers:
       '@opentelemetry/winston-transport':
         specifier: ~0.21.0
         version: 0.21.0
-      '@polyglot-sql/sdk':
-        specifier: ^0.1.10
-        version: 0.1.10
       '@sentry/cli-linux-x64':
         specifier: ^2.58.4
         version: 2.58.4
@@ -632,9 +629,6 @@ importers:
       '@next/bundle-analyzer':
         specifier: ^16.1.6
         version: 16.1.6
-      '@polyglot-sql/sdk':
-        specifier: ^0.1.10
-        version: 0.1.10
       '@popperjs/core':
         specifier: ^2.11.5
         version: 2.11.5
@@ -1066,7 +1060,7 @@ importers:
         version: 7.0.2(rollup@4.53.3)
       ts-jest:
         specifier: ^27.0.5
-        version: 27.1.5(@babel/core@7.28.5)(@types/jest@27.0.1)(babel-jest@27.5.1(@babel/core@7.28.5))(jest@27.5.1(ts-node@10.9.1(@swc/core@1.3.4)(@swc/wasm@1.2.130)(@types/node@22.8.6)(typescript@5.7.3)))(typescript@5.7.3)
+        version: 27.1.5(@babel/core@7.28.5)(@types/jest@27.0.1)(babel-jest@27.5.1(@babel/core@7.28.5))(jest@27.5.1)(typescript@5.7.3)
       typescript:
         specifier: 5.7.3
         version: 5.7.3
@@ -1133,7 +1127,7 @@ importers:
         version: 4.53.3
       ts-jest:
         specifier: ^27.0.5
-        version: 27.1.5(@babel/core@7.28.5)(@types/jest@27.0.1)(babel-jest@27.5.1(@babel/core@7.28.5))(jest@27.5.1(ts-node@10.9.1(@swc/core@1.3.4)(@swc/wasm@1.2.130)(@types/node@22.8.6)(typescript@5.7.3)))(typescript@5.7.3)
+        version: 27.1.5(@babel/core@7.28.5)(@types/jest@27.0.1)(babel-jest@27.5.1(@babel/core@7.28.5))(jest@27.5.1)(typescript@5.7.3)
       typescript:
         specifier: 5.7.3
         version: 5.7.3
@@ -1150,8 +1144,8 @@ importers:
         specifier: 1.6.5
         version: 1.6.5
       '@polyglot-sql/sdk':
-        specifier: file:/Users/james/growthbook/polyglot/packages/sdk
-        version: file:../polyglot/packages/sdk
+        specifier: ^0.1.11
+        version: 0.1.11
       '@stdlib/stats':
         specifier: ^0.1.1
         version: 0.1.1
@@ -4585,12 +4579,8 @@ packages:
   '@polka/url@1.0.0-next.29':
     resolution: {integrity: sha512-wwQAWhWSuHaag8c4q/KN/vCoeOJYshAIvMQwD4GpSb3OiZklFfvAgmj0VCBBImRpuF/aFgIRzllXlVX93Jevww==}
 
-  '@polyglot-sql/sdk@0.1.10':
-    resolution: {integrity: sha512-pM6fcM7KppNvHOWQEhlr7KoMvp+Y0lfPbnggjYxoFfg4OJP5i0lT1FRHCX4e0IDOYBKrdaCBj0y1ZHqjAfVv1Q==}
-    engines: {node: '>=22', pnpm: '>=10'}
-
-  '@polyglot-sql/sdk@file:../polyglot/packages/sdk':
-    resolution: {directory: ../polyglot/packages/sdk, type: directory}
+  '@polyglot-sql/sdk@0.1.11':
+    resolution: {integrity: sha512-NayLLl09aLlpNNlT+axtcHvRGGnPbvia/e9Gb4OdaXF0O+cHxBJEQg+quiog+PRb/ZrCyiGtLu6pqk/A9zVgKg==}
     engines: {node: '>=22', pnpm: '>=10'}
 
   '@popperjs/core@2.11.5':
@@ -19211,9 +19201,7 @@ snapshots:
 
   '@polka/url@1.0.0-next.29': {}
 
-  '@polyglot-sql/sdk@0.1.10': {}
-
-  '@polyglot-sql/sdk@file:../polyglot/packages/sdk': {}
+  '@polyglot-sql/sdk@0.1.11': {}
 
   '@popperjs/core@2.11.5': {}
 
@@ -30200,7 +30188,7 @@ snapshots:
     dependencies:
       typescript: 5.7.3
 
-  ts-jest@27.1.5(@babel/core@7.28.5)(@types/jest@27.0.1)(babel-jest@27.5.1(@babel/core@7.28.5))(jest@27.5.1(ts-node@10.9.1(@swc/core@1.3.4)(@swc/wasm@1.2.130)(@types/node@22.8.6)(typescript@5.7.3)))(typescript@5.7.3):
+  ts-jest@27.1.5(@babel/core@7.28.5)(@types/jest@27.0.1)(babel-jest@27.5.1(@babel/core@7.28.5))(jest@27.5.1)(typescript@5.7.3):
     dependencies:
       bs-logger: 0.2.6
       fast-json-stable-stringify: 2.1.0
