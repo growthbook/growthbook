@@ -1,4 +1,5 @@
 import { isEqual } from "lodash";
+import Link from "next/link";
 import React, { useEffect, useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { FaExclamationCircle } from "react-icons/fa";
@@ -7,9 +8,7 @@ import { useUser } from "@/services/UserContext";
 import Field from "@/components/Forms/Field";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import SelectField from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { useEnvironments } from "@/services/features";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import Checkbox from "@/ui/Checkbox";
 import Button from "@/ui/Button";
 import { GBInfo } from "@/components/Icons";
@@ -22,12 +21,10 @@ export default function FeatureSettings() {
   const { hasCommercialFeature } = useUser();
   const environments = useEnvironments();
   const form = useFormContext();
-  const { projects } = useDefinitions();
 
   const hasSecureAttributesFeature = hasCommercialFeature(
     "hash-secure-attributes",
   );
-  const hasRequireApprovals = hasCommercialFeature("require-approvals");
 
   const hasCodeReferencesFeature = hasCommercialFeature("code-references");
 
@@ -300,132 +297,17 @@ export default function FeatureSettings() {
             </Flex>
           </Box>
 
-          {hasRequireApprovals && (
-            <>
-              <Box mb="6" width="100%">
-                <Box className="appbox p-3">
-                  <Heading size="3" className="font-weight-semibold" mb="4">
-                    Approval Flow
-                  </Heading>
-
-                  {form.watch("requireReviews")?.map?.((requireReviews, i) => (
-                    <Box key={`approval-flow-${i}`}>
-                      <Flex gap="3">
-                        <Checkbox
-                          id={`toggle-require-reviews-${i}`}
-                          value={
-                            !!form.watch(`requireReviews.${i}.requireReviewOn`)
-                          }
-                          setValue={(value) => {
-                            form.setValue(
-                              `requireReviews.${i}.requireReviewOn`,
-                              value,
-                            );
-                          }}
-                        />
-                        <Box width="100%">
-                          <Text
-                            as="label"
-                            size="2"
-                            className="font-weight-semibold"
-                            htmlFor={`toggle-require-reviews-${i}`}
-                          >
-                            Require approval to publish changes
-                          </Text>
-
-                          {!!form.watch(
-                            `requireReviews.${i}.requireReviewOn`,
-                          ) && (
-                            <Box mt="4">
-                              <Text
-                                as="label"
-                                htmlFor={`projects-${i}`}
-                                className="font-weight-semibold"
-                              >
-                                Projects
-                              </Text>
-                              <MultiSelectField
-                                id={`projects-${i}`}
-                                value={
-                                  form.watch(`requireReviews.${i}.projects`) ||
-                                  []
-                                }
-                                onChange={(projects) => {
-                                  form.setValue(
-                                    `requireReviews.${i}.projects`,
-                                    projects,
-                                  );
-                                }}
-                                options={projects.map((e) => {
-                                  return {
-                                    value: e.id,
-                                    label: e.name,
-                                  };
-                                })}
-                                placeholder="All Projects"
-                              />
-                              <Text
-                                as="label"
-                                mt="5"
-                                htmlFor={`environments-${i}`}
-                                className="font-weight-semibold"
-                              >
-                                Environments
-                              </Text>
-                              <MultiSelectField
-                                id={`environments-${i}`}
-                                value={
-                                  form.watch(
-                                    `requireReviews.${i}.environments`,
-                                  ) || []
-                                }
-                                onChange={(environments) => {
-                                  form.setValue(
-                                    `requireReviews.${i}.environments`,
-                                    environments,
-                                  );
-                                }}
-                                options={environments.map((e) => {
-                                  return {
-                                    value: e.id,
-                                    label: e.id,
-                                  };
-                                })}
-                                placeholder="All Environments"
-                              />
-                              <Flex gap="3" mt="5">
-                                <Checkbox
-                                  id={`toggle-reset-review-on-change-${i}`}
-                                  value={
-                                    !!form.watch(
-                                      `requireReviews.${i}.resetReviewOnChange`,
-                                    )
-                                  }
-                                  setValue={(value) => {
-                                    form.setValue(
-                                      `requireReviews.${i}.resetReviewOnChange`,
-                                      value,
-                                    );
-                                  }}
-                                />
-                                <Text
-                                  as="label"
-                                  className="font-weight-semibold"
-                                  htmlFor={`toggle-reset-review-on-change-${i}`}
-                                >
-                                  Reset review on changes
-                                </Text>
-                              </Flex>
-                            </Box>
-                          )}
-                        </Box>
-                      </Flex>
-                    </Box>
-                  ))}
-                </Box>
-              </Box>
-            </>
-          )}
+          <Box mb="6" width="100%">
+            <Box className="appbox p-3 mb-0">
+              <Text size="2" weight="medium">
+                Feature Approval Flow settings have moved to the{" "}
+                <Link href="/settings#approval-flow" className="text-link">
+                  Approval Flows
+                </Link>{" "}
+                tab.
+              </Text>
+            </Box>
+          </Box>
 
           {/* Code References */}
           <Box mb="6" width="100%">
