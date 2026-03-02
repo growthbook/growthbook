@@ -444,6 +444,10 @@ p.rt-TooltipText {
       // Same background as rows for unified look
       background-color: var(--table-list-background-color);
       overflow: visible;
+
+      .rt-TableRow .rt-TableColumnHeaderCell {
+        white-space: nowrap;
+      }
     }
     // .rt-TableHeader .rt-TableRow .rt-TableColumnHeaderCell {
     //   background-color: var(--table-list-background-color);
