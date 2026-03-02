@@ -432,9 +432,15 @@ export function useAuditComparison<T>(
     config,
   });
 
-  const activeDiffs = useMemo(
+  const activeDiffsRaw = useMemo(
     () => (diffViewMode === "single" ? mergedDiffs : stepDiffs),
     [diffViewMode, mergedDiffs, stepDiffs],
+  );
+
+  // Exclude no-op diffs (a === b) so badges, renders, and "No changes" stay consistent
+  const activeDiffs = useMemo(
+    () => activeDiffsRaw.filter((d) => d.a !== d.b),
+    [activeDiffsRaw],
   );
 
   const displayFailed = computeDisplayIds(

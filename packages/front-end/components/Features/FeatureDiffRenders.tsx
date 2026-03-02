@@ -236,14 +236,14 @@ function RuleFieldDiffs({
           preCond && preCond !== "{}" ? (
             <ConditionDisplay condition={preCond} />
           ) : (
-            <em>None</em>
+            <em>unset</em>
           )
         }
         newNode={
           postCond && postCond !== "{}" ? (
             <ConditionDisplay condition={postCond} />
           ) : (
-            <em>None</em>
+            <em>unset</em>
           )
         }
       />,
@@ -262,14 +262,14 @@ function RuleFieldDiffs({
           preSG?.length ? (
             <SavedGroupTargetingDisplay savedGroups={preSG} />
           ) : (
-            <em>None</em>
+            <em>unset</em>
           )
         }
         newNode={
           postSG?.length ? (
             <SavedGroupTargetingDisplay savedGroups={postSG} />
           ) : (
-            <em>None</em>
+            <em>unset</em>
           )
         }
       />,
@@ -299,14 +299,14 @@ function RuleFieldDiffs({
           normPrereqs(prePrereqs)?.length ? (
             <ConditionDisplay prerequisites={normPrereqs(prePrereqs)} />
           ) : (
-            <em>None</em>
+            <em>unset</em>
           )
         }
         newNode={
           normPrereqs(postPrereqs)?.length ? (
             <ConditionDisplay prerequisites={normPrereqs(postPrereqs)} />
           ) : (
-            <em>None</em>
+            <em>unset</em>
           )
         }
       />,
@@ -474,7 +474,7 @@ function NewRuleDetails({ rule }: { rule: FeatureRule }) {
         key="cond"
         label="Targeting condition"
         changed
-        oldNode={<em>None</em>}
+        oldNode={<em>unset</em>}
         newNode={<ConditionDisplay condition={cond} />}
       />,
     );
@@ -486,7 +486,7 @@ function NewRuleDetails({ rule }: { rule: FeatureRule }) {
         key="sg"
         label="Saved group targeting"
         changed
-        oldNode={<em>None</em>}
+        oldNode={<em>unset</em>}
         newNode={<SavedGroupTargetingDisplay savedGroups={sg} />}
       />,
     );
@@ -502,7 +502,7 @@ function NewRuleDetails({ rule }: { rule: FeatureRule }) {
         key="prereq"
         label="Prerequisites"
         changed
-        oldNode={<em>None</em>}
+        oldNode={<em>unset</em>}
         newNode={<ConditionDisplay prerequisites={normPrereqs} />}
       />,
     );
@@ -525,7 +525,7 @@ function NewRuleDetails({ rule }: { rule: FeatureRule }) {
         key="coverage"
         label="Coverage"
         changed
-        oldNode={<em>None</em>}
+        oldNode={<em>unset</em>}
         newNode={percentFormatter.format(rule.coverage)}
       />,
       <ValueChangedField
@@ -560,7 +560,7 @@ function NewRuleDetails({ rule }: { rule: FeatureRule }) {
         key="experimentId"
         label="Experiment"
         changed
-        oldNode={<em>None</em>}
+        oldNode={<em>unset</em>}
         newNode={<ExperimentLink experimentId={rule.experimentId} />}
       />,
     );
@@ -582,7 +582,7 @@ function NewRuleDetails({ rule }: { rule: FeatureRule }) {
         key="enabled"
         label="Enabled"
         changed
-        oldNode={<em>None</em>}
+        oldNode={<em>unset</em>}
         newNode="disabled"
       />,
     );
@@ -870,7 +870,7 @@ export function renderFeatureDefaultValueSection(
   if (preStr === postStr) return null;
   return (
     <ValueChangedField
-      pre={preStr != null ? formatValue(preStr) : null}
+      pre={preStr ? formatValue(preStr) : null}
       post={formatValue(postStr)}
     />
   );
@@ -967,7 +967,7 @@ export function renderFeatureMetadataSection(
         key="owner"
         label="Owner"
         changed
-        oldNode={pre?.owner || <em>None</em>}
+        oldNode={pre?.owner || <em>unset</em>}
         newNode={post.owner}
       />,
     );
@@ -980,7 +980,7 @@ export function renderFeatureMetadataSection(
         label="Project"
         changed
         oldNode={
-          pre?.project ? <ProjectName id={pre.project} /> : <em>None</em>
+          pre?.project ? <ProjectName id={pre.project} /> : <em>unset</em>
         }
         newNode={<ProjectName id={post.project} />}
       />,

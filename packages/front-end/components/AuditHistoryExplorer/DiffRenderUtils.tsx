@@ -102,7 +102,7 @@ export function TextChangedField({
           lineHeight: 1.5,
         }}
       >
-        {value || <em className="text-muted">None</em>}
+        {value || <em className="text-muted">unset</em>}
       </div>
     </div>
   );
