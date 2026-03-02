@@ -12,12 +12,12 @@ import SelectField, {
 import StringArrayField from "@/components/Forms/StringArrayField";
 import Button from "@/ui/Button";
 import {
-  DeferredField,
   getAllowedOperators,
   NUMBER_PATTERN,
   operatorLabelMap,
   numberRegex,
-} from "@/components/FactTables/RowFilterInput";
+} from "@/components/FactTables/rowFilterUtils";
+import { DeferredField } from "@/components/FactTables/DeferredField";
 import Switch from "@/ui/Switch";
 
 export type DataSourceRowFilterInputVariant = "default" | "compact";

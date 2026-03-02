@@ -14,7 +14,7 @@ import { rowFilterValidator } from "shared/validators";
 import { FactTableInterface } from "shared/types/fact-table";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/ui/Button";
-import { RowFilterInput } from "@/components/FactTables/RowFilterInput";
+import { CompactRowFilterInput } from "@/components/FactTables/CompactRowFilterInput";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Text from "@/ui/Text";
@@ -209,11 +209,10 @@ export default function ValueCard({
           {children}
           {factTable && (
             <Box mt="2">
-              <RowFilterInput
+              <CompactRowFilterInput
                 factTable={factTable}
                 value={filters}
                 setValue={handleFiltersChange}
-                variant="compact"
                 hideAddButton
                 deferTextInputUpdates
               />
