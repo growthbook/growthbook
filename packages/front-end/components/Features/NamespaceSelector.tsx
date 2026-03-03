@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { UseFormReturn } from "react-hook-form";
 import { Separator } from "@radix-ui/themes";
 import { FaPlus, FaTrash } from "react-icons/fa";
@@ -39,23 +39,19 @@ export default function NamespaceSelector({
 
   const namespace = form.watch(`${formPrefix}namespace.name`);
   const enabled = form.watch(`${formPrefix}namespace.enabled`);
+  const namespaceFormat = form.watch(`${formPrefix}namespace.format`);
+  const namespaceRange = form.watch(`${formPrefix}namespace.range`);
+  const namespaceRanges = form.watch(`${formPrefix}namespace.ranges`) || [];
 
-  // Get ranges - check both formats
-  let ranges: [number, number][] =
-    form.watch(`${formPrefix}namespace.ranges`) || [];
-
-  // If no ranges but has old single range format, convert it
-  if (ranges.length === 0) {
-    const oldRange = form.watch(`${formPrefix}namespace.range`);
-    if (oldRange && Array.isArray(oldRange) && oldRange.length === 2) {
-      ranges = [oldRange as [number, number]];
-      // Update form to use new format
-      form.setValue(`${formPrefix}namespace.ranges`, ranges);
-    }
-  }
+  const ranges: [number, number][] =
+    namespaceFormat === "multiRange"
+      ? namespaceRanges
+      : Array.isArray(namespaceRange) && namespaceRange.length === 2
+        ? [namespaceRange as [number, number]]
+        : [];
 
   //const hasMultipleRanges = ranges.length > 1;
-  const allNamespaces = namespaces || [];
+  const allNamespaces = useMemo(() => namespaces || [], [namespaces]);
   const selectedNamespace = allNamespaces.find((n) => n.name === namespace);
   const effectiveHashAttribute =
     experimentHashAttribute || form.watch("hashAttribute") || "";
@@ -63,8 +59,9 @@ export default function NamespaceSelector({
     fallbackAttribute ?? form.watch("fallbackAttribute") ?? "";
   const isFallbackMode = !!effectiveFallbackAttribute.trim();
 
-  const activeNamespaces = allNamespaces.filter(
-    (n) => n?.status !== "inactive",
+  const activeNamespaces = useMemo(
+    () => allNamespaces.filter((n) => n?.status !== "inactive"),
+    [allNamespaces],
   );
   const isLegacyNamespace = (n: Namespaces) => n.format !== "multiRange";
 
@@ -78,9 +75,13 @@ export default function NamespaceSelector({
     return n.hashAttribute !== effectiveHashAttribute;
   });
 
-  const filteredNamespaces = isFallbackMode
-    ? activeNamespaces.filter((n) => isLegacyNamespace(n))
-    : activeNamespaces;
+  const filteredNamespaces = useMemo(
+    () =>
+      isFallbackMode
+        ? activeNamespaces.filter((n) => isLegacyNamespace(n))
+        : activeNamespaces,
+    [activeNamespaces, isFallbackMode],
+  );
 
   const namespaceOptions: SingleValue[] = isFallbackMode
     ? filteredNamespaces.map((n) => ({ value: n.name, label: n.label }))
@@ -116,6 +117,7 @@ export default function NamespaceSelector({
     );
     if (existsInFiltered) return;
     form.setValue(`${formPrefix}namespace.name`, "");
+    form.setValue(`${formPrefix}namespace.range`, [0, 0]);
     form.setValue(`${formPrefix}namespace.ranges`, []);
   }, [filteredNamespaces, form, formPrefix, namespace]);
 
@@ -141,19 +143,33 @@ export default function NamespaceSelector({
         ...ranges,
         [largestGap.start, largestGap.end] as [number, number],
       ];
-      form.setValue(`${formPrefix}namespace.ranges`, newRanges);
+      if (namespaceFormat === "multiRange") {
+        form.setValue(`${formPrefix}namespace.ranges`, newRanges);
+      } else {
+        form.setValue(`${formPrefix}namespace.range`, newRanges[0] || [0, 0]);
+      }
     }
   };
 
   const removeRange = (index: number) => {
     const newRanges = ranges.filter((_, i) => i !== index);
-    form.setValue(`${formPrefix}namespace.ranges`, newRanges);
+    if (namespaceFormat === "multiRange") {
+      form.setValue(`${formPrefix}namespace.ranges`, newRanges);
+    } else {
+      form.setValue(`${formPrefix}namespace.range`, newRanges[0] || [0, 0]);
+    }
   };
 
   const updateRange = (index: number, field: 0 | 1, value: number) => {
     const newRanges = [...ranges];
+    if (!newRanges[index]) return;
+    newRanges[index] = [...newRanges[index]] as [number, number];
     newRanges[index][field] = value;
-    form.setValue(`${formPrefix}namespace.ranges`, newRanges);
+    if (namespaceFormat === "multiRange") {
+      form.setValue(`${formPrefix}namespace.ranges`, newRanges);
+    } else {
+      form.setValue(`${formPrefix}namespace.range`, newRanges[0] || [0, 0]);
+    }
   };
 
   return (
@@ -175,19 +191,6 @@ export default function NamespaceSelector({
             onChange={(v) => {
               if (v === namespace) return;
               const selected = filteredNamespaces.find((n) => n.name === v);
-              form.setValue(`${formPrefix}namespace.name`, v);
-
-              // Set hashAttribute from namespace
-              if (
-                selected &&
-                "hashAttribute" in selected &&
-                selected.hashAttribute
-              ) {
-                form.setValue(
-                  `${formPrefix}namespace.hashAttribute`,
-                  selected.hashAttribute,
-                );
-              }
 
               // Find largest gap for initial range
               const largestGap = findGaps(
@@ -196,11 +199,29 @@ export default function NamespaceSelector({
                 featureId,
                 trackingKey,
               ).sort((a, b) => b.end - b.start - (a.end - a.start))[0];
+              const initialRange: [number, number] = [
+                largestGap?.start || 0,
+                largestGap?.end || 0,
+              ];
 
-              // Always initialize with ranges array (single range by default)
-              form.setValue(`${formPrefix}namespace.ranges`, [
-                [largestGap?.start || 0, largestGap?.end || 0],
-              ]);
+              if (selected?.format === "multiRange") {
+                form.setValue(`${formPrefix}namespace`, {
+                  enabled: !!enabled,
+                  name: v,
+                  format: "multiRange",
+                  ranges: [initialRange],
+                  ...(selected.hashAttribute
+                    ? { hashAttribute: selected.hashAttribute }
+                    : {}),
+                });
+              } else {
+                form.setValue(`${formPrefix}namespace`, {
+                  enabled: !!enabled,
+                  name: v,
+                  format: "legacy",
+                  range: initialRange,
+                });
+              }
             }}
             placeholder="Choose a namespace..."
             options={namespaceOptions}

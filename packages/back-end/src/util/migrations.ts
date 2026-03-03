@@ -516,7 +516,7 @@ export function upgradeOrganizationDoc(
       return {
         ...ns,
         label: ns.label || ns.name,
-        seed: seed || uuidv4(), // Add seed if missing
+        seed: seed || ns.name, // Use deterministic fallback for missing seed
         format: ns.format || (hashAttribute ? "multiRange" : "legacy"), // Set format based on hashAttribute presence
       } as Namespaces;
     });

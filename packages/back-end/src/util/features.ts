@@ -332,9 +332,12 @@ export function applyNamespaceToRule(
   >,
 ): void {
   const nsDefinition = namespacesMap?.get(namespace.name);
+  const isMultiRangeNamespace =
+    ("format" in namespace && namespace.format === "multiRange") ||
+    nsDefinition?.format === "multiRange";
 
   // MultiRange format: namespace definition has explicit format flag set to "multiRange"
-  if (nsDefinition?.format === "multiRange" || "ranges" in namespace) {
+  if (isMultiRangeNamespace) {
     const hashAttribute = getNamespaceHashAttribute(
       namespace,
       nsDefinition?.hashAttribute || rule.hashAttribute || "id",

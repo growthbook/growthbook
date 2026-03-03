@@ -1596,9 +1596,13 @@ export async function toExperimentApiInterface(
         ? {
             namespaceId: p.namespace.name,
             range:
-              p.namespace.format === "multiRange"
-                ? (p.namespace.ranges?.[0] ?? [0, 0])
-                : (p.namespace.range ?? [0, 0]),
+              p.namespace.format === "multiRange" ||
+              !!(p.namespace as { ranges?: [number, number][] }).ranges?.length
+                ? ((p.namespace as { ranges?: [number, number][] })
+                    .ranges?.[0] ?? [0, 0])
+                : ((p.namespace as { range?: [number, number] }).range ?? [
+                    0, 0,
+                  ]),
           }
         : undefined,
     })),

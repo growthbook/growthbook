@@ -351,6 +351,9 @@ export function generateAutoExperimentsPayload({
           : undefined,
         condition,
         coverage: phase.coverage,
+        seed: phase.seed,
+        name: e.name,
+        phase: `${e.phases.length - 1}`,
       };
 
       // Handle namespace
