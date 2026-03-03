@@ -123,6 +123,9 @@ export default class Mysql extends SqlIntegration {
   hasEfficientPercentile(): boolean {
     return false;
   }
+  canGroupPercentileCappedMetrics(): boolean {
+    return false;
+  }
   getInformationSchemaWhereClause(): string {
     if (!this.params.database)
       throw new Error(
