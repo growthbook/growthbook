@@ -24,10 +24,6 @@ export function useSavedGroupApprovalFlow(
     ? ((router.query.flow as string) ?? null)
     : null;
 
-  // Active tab lives in ?tab= query param (absent → "overview")
-  const activeTab: "overview" | "changes" =
-    router.isReady && router.query.tab === "changes" ? "changes" : "overview";
-
   const { data, mutate: mutateApprovalFlows } = useApi<{
     approvalFlows: ApprovalFlow[];
   }>(`/approval-flow/entity/saved-group/${savedGroupId}`, {
@@ -54,17 +50,13 @@ export function useSavedGroupApprovalFlow(
 
   // Single URL-update helper. Uses routerRef (empty deps) to guarantee stability
   // so effects that depend on it don't re-run every time the router refreshes.
-  const updateUrl = useCallback(
-    (flowId: string | null, tab: "overview" | "changes") => {
-      const r = routerRef.current;
-      if (!r.isReady) return;
-      const query: Record<string, string> = { sgid: r.query.sgid as string };
-      if (flowId) query.flow = flowId;
-      if (tab === "changes") query.tab = "changes";
-      r.replace({ pathname: r.pathname, query }, undefined, { shallow: true });
-    },
-    [], // intentionally empty — access via routerRef
-  );
+  const updateUrl = useCallback((flowId: string | null) => {
+    const r = routerRef.current;
+    if (!r.isReady) return;
+    const query: Record<string, string> = { sgid: r.query.sgid as string };
+    if (flowId) query.flow = flowId;
+    r.replace({ pathname: r.pathname, query }, undefined, { shallow: true });
+  }, []);
 
   // On initial load, default authors to their own most-recent open draft.
   // Respect any flow already in the URL (deep link / browser back).
@@ -90,7 +82,7 @@ export function useSavedGroupApprovalFlow(
       )[0];
 
     if (authoredOpenFlow) {
-      updateUrl(authoredOpenFlow.id, "changes");
+      updateUrl(authoredOpenFlow.id);
     }
     initializedDefaultSelectionFor.current = savedGroupId;
   }, [
@@ -106,42 +98,33 @@ export function useSavedGroupApprovalFlow(
   // Guard on `data` to avoid false-positive deselection before SWR has loaded.
   useEffect(() => {
     if (data && selectedApprovalFlowId && !selectedApprovalFlow) {
-      updateUrl(null, "overview");
+      updateUrl(null);
     }
   }, [data, selectedApprovalFlowId, selectedApprovalFlow, updateUrl]);
 
-  const setActiveTab = useCallback(
-    (tab: "overview" | "changes") => {
-      updateUrl(selectedApprovalFlowId, tab);
-    },
-    [updateUrl, selectedApprovalFlowId],
-  );
-
   const selectFlow = useCallback(
     (flow: ApprovalFlow | null) => {
-      // Only auto-switch to "changes" when a specific flow is selected
-      const newTab = flow ? "changes" : activeTab;
-      updateUrl(flow?.id ?? null, newTab);
+      updateUrl(flow?.id ?? null);
     },
-    [updateUrl, activeTab],
+    [updateUrl],
   );
 
   // Called after creating an approval flow — receives the flow from the backend response.
-  // Selects it in the dropdown and switches to the Changes tab.
+  // Selects it in the dropdown so the status callout appears.
   const onApprovalFlowCreated = useCallback(
     (flow: ApprovalFlow) => {
       // Optimistically add the new flow to the SWR cache so that when the URL
       // update triggers a re-render, selectedApprovalFlow is non-null. Without
       // this, Effect 2 would see selectedApprovalFlowId set but
       // selectedApprovalFlow=null (SWR re-fetch still in-flight) and
-      // immediately clear the URL back to Live + Overview.
+      // immediately clear the URL back to Live.
       mutateApprovalFlows(
         (current) => ({
           approvalFlows: [...(current?.approvalFlows ?? []), flow],
         }),
         { revalidate: true },
       );
-      updateUrl(flow.id, "changes");
+      updateUrl(flow.id);
     },
     [mutateApprovalFlows, updateUrl],
   );
@@ -151,7 +134,7 @@ export function useSavedGroupApprovalFlow(
       await apiCall(`/approval-flow/${flowId}/merge`, { method: "POST" });
       mutateApprovalFlows();
       savedGroupMutate(); // refresh live saved group data after merge
-      updateUrl(null, "overview");
+      updateUrl(null);
     },
     [apiCall, mutateApprovalFlows, savedGroupMutate, updateUrl],
   );
@@ -160,7 +143,7 @@ export function useSavedGroupApprovalFlow(
     async (flowId: string) => {
       await apiCall(`/approval-flow/${flowId}/close`, { method: "POST" });
       mutateApprovalFlows();
-      updateUrl(null, "overview");
+      updateUrl(null);
     },
     [apiCall, mutateApprovalFlows, updateUrl],
   );
@@ -176,8 +159,6 @@ export function useSavedGroupApprovalFlow(
     selectedApprovalFlowId,
     openApprovalFlows,
     allApprovalFlows: data?.approvalFlows ?? [],
-    activeTab,
-    setActiveTab,
     selectFlow,
     onApprovalFlowCreated,
     handlePublish,

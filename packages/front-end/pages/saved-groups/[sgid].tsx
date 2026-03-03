@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import { ago } from "shared/dates";
@@ -62,13 +62,8 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useUser } from "@/services/UserContext";
-import ApprovalFlowList from "@/components/ApprovalFlow/ApprovalFlowList";
 import ApprovalFlowDetail from "@/components/ApprovalFlow/ApprovalFlowDetail";
 import ApprovalFlowVersionSelector from "@/components/ApprovalFlow/ApprovalFlowVersionSelector";
-import ApprovalFlowBanner from "@/components/ApprovalFlow/ApprovalFlowBanner";
 import { useSavedGroupApprovalFlow } from "@/hooks/useSavedGroupApprovalFlow";
 
 const NUM_PER_PAGE = 10;
@@ -88,6 +83,7 @@ export default function EditSavedGroupPage() {
     useState<boolean>(false);
   const [showDeleteModal, setShowDeleteModal] = useState<boolean>(false);
   const [showAuditModal, setShowAuditModal] = useState<boolean>(false);
+  const [showChangesModal, setShowChangesModal] = useState<boolean>(false);
   const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
   const [showOtherProjects, setShowOtherProjects] = useState(false);
   const [adminBypassSizeLimit, setAdminBypassSizeLimit] = useState(false);
@@ -122,8 +118,6 @@ export default function EditSavedGroupPage() {
     "replace",
   );
   const { projects, savedGroups: allSavedGroups } = useDefinitions();
-  const permissionsUtil = usePermissionsUtil();
-  const { userId } = useUser();
 
   const approvalFlowRequired =
     settings.approvalFlows?.savedGroups?.required ?? false;
@@ -134,11 +128,8 @@ export default function EditSavedGroupPage() {
     selectedApprovalFlowId,
     openApprovalFlows,
     allApprovalFlows,
-    activeTab,
-    setActiveTab,
     selectFlow,
     onApprovalFlowCreated,
-    handlePublish,
     handleDiscard,
     mutateApprovalFlows,
     userOpenFlow,
@@ -147,25 +138,14 @@ export default function EditSavedGroupPage() {
   // When the user already has an open flow, block edits to the live version
   const editBlocked = approvalFlowRequired && !!userOpenFlow;
 
-  const canPublish = useMemo(() => {
-    if (!savedGroup || !selectedApprovalFlow) return false;
-    const canEdit = permissionsUtil.canUpdateSavedGroup(savedGroup, {});
-    if (!canEdit) return false;
-    const canBypass = permissionsUtil.canBypassApprovalChecks({
-      project: savedGroup.projects?.[0] || "",
-    });
-    return selectedApprovalFlow.status === "approved" || canBypass;
-  }, [savedGroup, selectedApprovalFlow, permissionsUtil]);
+  // Close the changes modal when the selected flow is deselected (e.g. after publish/discard)
+  useEffect(() => {
+    if (!selectedApprovalFlow) {
+      setShowChangesModal(false);
+    }
+  }, [selectedApprovalFlow]);
 
-  const canDiscard = useMemo(() => {
-    if (!savedGroup || !selectedApprovalFlow) return false;
-    return (
-      userId === selectedApprovalFlow.authorId ||
-      permissionsUtil.canUpdateSavedGroup(savedGroup, {})
-    );
-  }, [savedGroup, selectedApprovalFlow, userId, permissionsUtil]);
-
-  // When a changeset is selected, show its proposed state in the Overview tab
+  // When a revision is selected, show its proposed state in the overview
   const displayedSavedGroup = useMemo(() => {
     if (!selectedApprovalFlow) return savedGroup;
     return {
@@ -507,6 +487,29 @@ export default function EditSavedGroupPage() {
           />
         </Modal>
       )}
+      {showChangesModal && selectedApprovalFlow && (
+        <Modal
+          header="Revision Changes"
+          trackingEventModalType="saved-group-approval-flow-changes"
+          close={() => setShowChangesModal(false)}
+          open={showChangesModal}
+          size="max"
+          hideCta={true}
+          closeCta="Close"
+          useRadixButton={true}
+        >
+          <ApprovalFlowDetail
+            approvalFlow={selectedApprovalFlow}
+            currentState={savedGroup}
+            mutate={mutateApprovalFlows}
+            setCurrentApprovalFlow={(f) => selectFlow(f)}
+            onDiscard={async (flowId) => {
+              await handleDiscard(flowId);
+              setShowChangesModal(false);
+            }}
+          />
+        </Modal>
+      )}
       <PageHead
         breadcrumb={[
           { display: "Saved Groups", href: "/saved-groups" },
@@ -638,273 +641,255 @@ export default function EditSavedGroupPage() {
             instead
           </Callout>
         )}
-        {editBlocked && userOpenFlow && (
-          <Callout status="warning" mb="3">
-            You have an open changeset for this group.{" "}
-            <Link
-              href={`/saved-groups/${sgid}?flow=${userOpenFlow.id}&tab=changes`}
-            >
-              View your open changeset
+        {!selectedApprovalFlow && userOpenFlow && (
+          <Callout status="info" mb="3">
+            You have an open revision for this group.{" "}
+            <Link href={`/saved-groups/${sgid}?flow=${userOpenFlow.id}`}>
+              View your open revision
             </Link>
           </Callout>
         )}
         {selectedApprovalFlow && (
-          <ApprovalFlowBanner
-            approvalFlow={selectedApprovalFlow}
-            onDiscard={handleDiscard}
-            onPublish={handlePublish}
-            canPublish={canPublish}
-            canDiscard={canDiscard}
+          <Callout
+            status={
+              selectedApprovalFlow.status === "approved"
+                ? "success"
+                : selectedApprovalFlow.status === "changes-requested"
+                  ? "warning"
+                  : "info"
+            }
+            mb="3"
+            contentsAs="div"
+          >
+            <Flex align="center" justify="between" gap="3">
+              <span>
+                {selectedApprovalFlow.status === "approved"
+                  ? "This revision has been approved and is ready to publish."
+                  : selectedApprovalFlow.status === "changes-requested"
+                    ? "Changes have been requested on this revision."
+                    : "This revision is pending review."}
+              </span>
+              <Button
+                variant="outline"
+                onClick={() => setShowChangesModal(true)}
+              >
+                See changes
+              </Button>
+            </Flex>
+          </Callout>
+        )}
+        {savedGroup.type === "list" && (
+          <LargeSavedGroupPerformanceWarning
+            hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
+            unsupportedConnections={unsupportedConnections}
+            openUpgradeModal={() => setUpgradeModal(true)}
           />
         )}
-        <Tabs
-          value={activeTab}
-          onValueChange={(v) => setActiveTab(v as "overview" | "changes")}
-        >
-          <TabsList>
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="changes">
-              Changes
-              {openApprovalFlows.length > 0
-                ? ` (${openApprovalFlows.length})`
-                : ""}
-            </TabsTrigger>
-          </TabsList>
-          <Box pt="4">
-            <TabsContent value="overview">
-              {savedGroup.type === "list" && (
-                <LargeSavedGroupPerformanceWarning
-                  hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
-                  unsupportedConnections={unsupportedConnections}
-                  openUpgradeModal={() => setUpgradeModal(true)}
+        {savedGroup.type === "condition" ? (
+          <>
+            <Heading size="4" mb="3">
+              Condition
+            </Heading>
+            <Text as="p" mb="3">
+              Include all users who match the following:
+            </Text>
+            <Card mb="4">
+              <Flex direction="row" gap="2" p="2">
+                <Text weight="medium">IF</Text>
+                <Box>
+                  <ConditionDisplay
+                    condition={displayedSavedGroup?.condition || ""}
+                    savedGroups={[]}
+                  />
+                </Box>
+              </Flex>
+            </Card>
+          </>
+        ) : (
+          <>
+            <Flex align="center" justify="between" mb="3" gap="4">
+              <Box className="relative" width="40%">
+                <Field
+                  placeholder="Search..."
+                  type="search"
+                  value={filter}
+                  onChange={(e) => {
+                    setFilter(e.target.value);
+                  }}
                 />
-              )}
-              {savedGroup.type === "condition" ? (
-                <>
-                  <Heading size="4" mb="3">
-                    Condition
-                  </Heading>
-                  <Text as="p" mb="3">
-                    Include all users who match the following:
-                  </Text>
-                  <Card mb="4">
-                    <Flex direction="row" gap="2" p="2">
-                      <Text weight="medium">IF</Text>
-                      <Box>
-                        <ConditionDisplay
-                          condition={displayedSavedGroup?.condition || ""}
-                          savedGroups={[]}
-                        />
-                      </Box>
-                    </Flex>
-                  </Card>
-                </>
-              ) : (
-                <>
-                  <Flex align="center" justify="between" mb="3" gap="4">
-                    <Box className="relative" width="40%">
-                      <Field
-                        placeholder="Search..."
-                        type="search"
-                        value={filter}
-                        onChange={(e) => {
-                          setFilter(e.target.value);
-                        }}
-                      />
-                    </Box>
-                    <Flex gap="4" align="center">
-                      {selected.size > 0 && (
-                        <DeleteButton
-                          text={`Delete Selected (${selected.size})`}
-                          title={`Delete selected item${selected.size > 1 ? "s" : ""}`}
-                          disabled={editBlocked}
-                          getConfirmationContent={async () => ""}
-                          onClick={async () => {
-                            const res = await apiCall<{
-                              status: number;
-                              requiresApproval?: boolean;
-                              approvalFlow?: import("shared/enterprise").ApprovalFlow;
-                            }>(`/saved-groups/${savedGroup.id}/remove-items`, {
-                              method: "POST",
-                              body: JSON.stringify({ items: [...selected] }),
-                            });
-                            if (res?.requiresApproval) {
-                              if (res.approvalFlow) {
-                                onApprovalFlowCreated(res.approvalFlow);
-                              }
-                              setSelected(new Set());
-                              return;
-                            }
-                            const newValues = values.filter(
-                              (value) => !selected.has(value),
-                            );
-                            mutateValues(newValues);
-                            setSelected(new Set());
-                          }}
-                          link={true}
-                          useIcon={true}
-                          displayName={`${selected.size} selected item${
-                            selected.size > 1 ? "s" : ""
-                          }`}
-                        />
-                      )}
-                      <Button
-                        variant="ghost"
-                        color="red"
-                        disabled={editBlocked}
-                        onClick={() => {
-                          setImportOperation("replace");
-                          setAddItems(true);
-                        }}
-                      >
-                        Overwrite list
-                      </Button>
-                      <Button
-                        variant="outline"
-                        disabled={editBlocked}
-                        onClick={() => {
-                          setImportOperation("append");
-                          setAddItems(true);
-                        }}
-                      >
-                        <span className="mr-1 lh-full">
-                          <FaPlusCircle />
-                        </span>
-                        <span className="lh-full">Add items</span>
-                      </Button>
-                    </Flex>
-                  </Flex>
+              </Box>
+              <Flex gap="4" align="center">
+                {selected.size > 0 && (
+                  <DeleteButton
+                    text={`Delete Selected (${selected.size})`}
+                    title={`Delete selected item${selected.size > 1 ? "s" : ""}`}
+                    disabled={editBlocked}
+                    getConfirmationContent={async () => ""}
+                    onClick={async () => {
+                      const res = await apiCall<{
+                        status: number;
+                        requiresApproval?: boolean;
+                        approvalFlow?: import("shared/enterprise").ApprovalFlow;
+                      }>(`/saved-groups/${savedGroup.id}/remove-items`, {
+                        method: "POST",
+                        body: JSON.stringify({ items: [...selected] }),
+                      });
+                      if (res?.requiresApproval) {
+                        if (res.approvalFlow) {
+                          onApprovalFlowCreated(res.approvalFlow);
+                        }
+                        setSelected(new Set());
+                        return;
+                      }
+                      const newValues = values.filter(
+                        (value) => !selected.has(value),
+                      );
+                      mutateValues(newValues);
+                      setSelected(new Set());
+                    }}
+                    link={true}
+                    useIcon={true}
+                    displayName={`${selected.size} selected item${
+                      selected.size > 1 ? "s" : ""
+                    }`}
+                  />
+                )}
+                <Button
+                  variant="ghost"
+                  color="red"
+                  disabled={editBlocked}
+                  onClick={() => {
+                    setImportOperation("replace");
+                    setAddItems(true);
+                  }}
+                >
+                  Overwrite list
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={editBlocked}
+                  onClick={() => {
+                    setImportOperation("append");
+                    setAddItems(true);
+                  }}
+                >
+                  <span className="mr-1 lh-full">
+                    <FaPlusCircle />
+                  </span>
+                  <span className="lh-full">Add items</span>
+                </Button>
+              </Flex>
+            </Flex>
 
-                  <table className="table gbtable table-hover appbox table-valign-top">
-                    <thead>
-                      <tr>
-                        <th style={{ width: "48px" }}>
-                          <Checkbox
-                            value={
-                              values.length > 0 &&
-                              selected.size === values.length
-                            }
-                            setValue={(checked) => {
-                              if (checked) {
-                                setSelected(new Set(values));
-                              } else {
-                                setSelected(new Set());
-                              }
-                            }}
-                            size="sm"
-                          />
-                        </th>
-                        <th>
-                          <Flex justify="between" align="center">
-                            <span>{savedGroup.attributeKey}</span>
-                            <div
-                              className="cursor-pointer text-color-primary"
-                              onClick={() => {
-                                setSortNewestFirst(!sortNewestFirst);
-                                setCurrentPage(1);
-                              }}
-                            >
-                              <PiArrowsDownUp className="mr-1 lh-full align-middle" />
-                              <span className="lh-full align-middle">
-                                {sortNewestFirst
-                                  ? "Most Recently Added"
-                                  : "Least Recently Added"}
-                              </span>
-                            </div>
-                          </Flex>
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {valuesPage.map((value) => {
-                        return (
-                          <tr
-                            key={value}
-                            onClick={() => {
-                              if (selected.has(value)) {
-                                const newSelected = new Set(selected);
-                                newSelected.delete(value);
-                                setSelected(newSelected);
-                              } else {
-                                setSelected(new Set(selected).add(value));
-                              }
-                            }}
-                          >
-                            <td onClick={(e) => e.stopPropagation()}>
-                              <Checkbox
-                                value={selected.has(value)}
-                                setValue={(checked) => {
-                                  if (checked) {
-                                    setSelected(new Set(selected).add(value));
-                                  } else {
-                                    const newSelected = new Set(selected);
-                                    newSelected.delete(value);
-                                    setSelected(newSelected);
-                                  }
-                                }}
-                                size="sm"
-                              />
-                            </td>
-                            <td>{value}</td>
-                          </tr>
-                        );
-                      })}
-                      {!displayedValues.length && (
-                        <tr>
-                          <td colSpan={2}>
-                            This group doesn&apos;t have any items yet
-                          </td>
-                        </tr>
-                      )}
-                      {displayedValues.length && !filteredValues.length ? (
-                        <tr>
-                          <td colSpan={2}>No matching items</td>
-                        </tr>
-                      ) : (
-                        <></>
-                      )}
-                    </tbody>
-                  </table>
-                  {Math.ceil(filteredValues.length / NUM_PER_PAGE) > 1 && (
-                    <Pagination
-                      numItemsTotal={displayedValues.length}
-                      currentPage={currentPage}
-                      perPage={NUM_PER_PAGE}
-                      onPageChange={(d) => {
-                        setCurrentPage(d);
+            <table className="table gbtable table-hover appbox table-valign-top">
+              <thead>
+                <tr>
+                  <th style={{ width: "48px" }}>
+                    <Checkbox
+                      value={
+                        values.length > 0 && selected.size === values.length
+                      }
+                      setValue={(checked) => {
+                        if (checked) {
+                          setSelected(new Set(values));
+                        } else {
+                          setSelected(new Set());
+                        }
                       }}
+                      size="sm"
                     />
-                  )}
-                  {!displayedValues.length &&
-                    !displayedSavedGroup?.useEmptyListGroup && (
-                      <Callout status="info">
-                        This saved group has legacy behavior when empty and will
-                        be completely ignored when used for targeting.{" "}
-                        <DocLink docSection="idLists">Learn More</DocLink>
-                      </Callout>
-                    )}
-                </>
+                  </th>
+                  <th>
+                    <Flex justify="between" align="center">
+                      <span>{savedGroup.attributeKey}</span>
+                      <div
+                        className="cursor-pointer text-color-primary"
+                        onClick={() => {
+                          setSortNewestFirst(!sortNewestFirst);
+                          setCurrentPage(1);
+                        }}
+                      >
+                        <PiArrowsDownUp className="mr-1 lh-full align-middle" />
+                        <span className="lh-full align-middle">
+                          {sortNewestFirst
+                            ? "Most Recently Added"
+                            : "Least Recently Added"}
+                        </span>
+                      </div>
+                    </Flex>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {valuesPage.map((value) => {
+                  return (
+                    <tr
+                      key={value}
+                      onClick={() => {
+                        if (selected.has(value)) {
+                          const newSelected = new Set(selected);
+                          newSelected.delete(value);
+                          setSelected(newSelected);
+                        } else {
+                          setSelected(new Set(selected).add(value));
+                        }
+                      }}
+                    >
+                      <td onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          value={selected.has(value)}
+                          setValue={(checked) => {
+                            if (checked) {
+                              setSelected(new Set(selected).add(value));
+                            } else {
+                              const newSelected = new Set(selected);
+                              newSelected.delete(value);
+                              setSelected(newSelected);
+                            }
+                          }}
+                          size="sm"
+                        />
+                      </td>
+                      <td>{value}</td>
+                    </tr>
+                  );
+                })}
+                {!displayedValues.length && (
+                  <tr>
+                    <td colSpan={2}>
+                      This group doesn&apos;t have any items yet
+                    </td>
+                  </tr>
+                )}
+                {displayedValues.length && !filteredValues.length ? (
+                  <tr>
+                    <td colSpan={2}>No matching items</td>
+                  </tr>
+                ) : (
+                  <></>
+                )}
+              </tbody>
+            </table>
+            {Math.ceil(filteredValues.length / NUM_PER_PAGE) > 1 && (
+              <Pagination
+                numItemsTotal={displayedValues.length}
+                currentPage={currentPage}
+                perPage={NUM_PER_PAGE}
+                onPageChange={(d) => {
+                  setCurrentPage(d);
+                }}
+              />
+            )}
+            {!displayedValues.length &&
+              !displayedSavedGroup?.useEmptyListGroup && (
+                <Callout status="info">
+                  This saved group has legacy behavior when empty and will be
+                  completely ignored when used for targeting.{" "}
+                  <DocLink docSection="idLists">Learn More</DocLink>
+                </Callout>
               )}
-            </TabsContent>
-            <TabsContent value="changes">
-              {selectedApprovalFlow ? (
-                <ApprovalFlowDetail
-                  approvalFlow={selectedApprovalFlow}
-                  currentState={savedGroup}
-                  mutate={mutateApprovalFlows}
-                  setCurrentApprovalFlow={(f) => selectFlow(f)}
-                  onDiscard={handleDiscard}
-                />
-              ) : (
-                <ApprovalFlowList
-                  approvalFlows={allApprovalFlows}
-                  setApprovalFlow={selectFlow}
-                  showHistory={true}
-                />
-              )}
-            </TabsContent>
-          </Box>
-        </Tabs>
+          </>
+        )}
       </div>
     </>
   );
