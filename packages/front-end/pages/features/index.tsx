@@ -18,6 +18,7 @@ import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import FeatureModal from "@/components/Features/FeatureModal";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
 import track from "@/services/track";
 import EnvironmentToggle from "@/components/Features/EnvironmentToggle";
 import RealTimeFeatureGraph from "@/components/Features/RealTimeFeatureGraph";
@@ -79,6 +80,8 @@ export default function FeaturesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [showArchived, setShowArchived] = useState(false);
+  const [featureToDuplicate, setFeatureToDuplicate] =
+    useState<FeatureInterface | null>(null);
   const [featureToToggleStaleDetection, setFeatureToToggleStaleDetection] =
     useState<FeatureInterface | null>(null);
 
@@ -191,6 +194,7 @@ export default function FeaturesPage() {
                   </TableColumnHeader>
                 )}
                 <TableColumnHeader>Stale</TableColumnHeader>
+                <TableColumnHeader style={{ width: 30 }} />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -311,6 +315,26 @@ export default function FeaturesPage() {
                         />
                       )}
                     </TableCell>
+                    <TableCell>
+                      <MoreMenu>
+                        {permissionsUtil.canCreateFeature({
+                          project: feature.projectId,
+                        }) &&
+                        permissionsUtil.canManageFeatureDrafts({
+                          project: feature.projectId,
+                        }) ? (
+                          <button
+                            className="dropdown-item"
+                            onClick={() => {
+                              setFeatureToDuplicate(feature);
+                              setModalOpen(true);
+                            }}
+                          >
+                            Duplicate
+                          </button>
+                        ) : null}
+                      </MoreMenu>
+                    </TableCell>
                   </TableRow>
                 );
               })}
@@ -318,7 +342,7 @@ export default function FeaturesPage() {
                 <TableRow>
                   <TableCell
                     colSpan={
-                      7 +
+                      8 +
                       (showProjectColumn ? 1 : 0) +
                       toggleEnvs.length +
                       (showGraphs ? 1 : 0)
@@ -365,6 +389,11 @@ export default function FeaturesPage() {
   useEffect(() => {
     setCurrentPage(1);
   }, [items.length]);
+
+  // Reset featureToDuplicate when modal is closed
+  useEffect(() => {
+    if (!modalOpen) setFeatureToDuplicate(null);
+  }, [modalOpen]);
 
   // watch to see if we should include archived features or not:
   useEffect(() => {
@@ -442,8 +471,9 @@ export default function FeaturesPage() {
     <div className="contents container pagecontents">
       {modalOpen && (
         <FeatureModal
-          cta="Create"
+          cta={featureToDuplicate ? "Duplicate" : "Create"}
           close={() => setModalOpen(false)}
+          featureToDuplicate={featureToDuplicate ?? undefined}
           onSuccess={async (feature) => {
             const url = `/features/${feature.id}${
               hasFeatures ? "?new" : "?first&new"
