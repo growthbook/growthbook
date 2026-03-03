@@ -139,3 +139,34 @@ export function rangesToPercentage(ranges: [number, number][]): number {
   const coverage = ranges.reduce((sum, [start, end]) => sum + (end - start), 0);
   return Math.round(coverage * 100 * 100) / 100; // Round to 2 decimals
 }
+
+/**
+ * Determine whether moving from prevRanges to currRanges would drop any users.
+ *
+ * Returns true when any part of prevRanges is no longer covered by currRanges —
+ * i.e. when the new allocation is not a superset of the old one.
+ * This catches both shrinking total coverage AND range shifts that preserve
+ * total coverage but exclude previously-included users (e.g. [0.2,0.6] → [0.0,0.4]).
+ */
+export function hasNarrowedRanges(
+  prevRanges: [number, number][],
+  currRanges: [number, number][],
+): boolean {
+  for (const [prevStart, prevEnd] of prevRanges) {
+    // Find current ranges that overlap this previous range, sorted by start
+    const overlapping = currRanges
+      .filter(([cs, ce]) => cs < prevEnd && ce > prevStart)
+      .sort((a, b) => a[0] - b[0]);
+
+    if (overlapping.length === 0) return true;
+
+    // Walk the overlapping ranges and check they fully cover [prevStart, prevEnd]
+    let covered = prevStart;
+    for (const [cs, ce] of overlapping) {
+      if (cs > covered) return true; // Gap in coverage
+      covered = Math.max(covered, ce);
+    }
+    if (covered < prevEnd) return true; // Tail of range not covered
+  }
+  return false;
+}

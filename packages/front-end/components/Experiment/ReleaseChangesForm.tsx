@@ -14,7 +14,11 @@ import {
   BsExclamationCircle,
   BsLightbulb,
 } from "react-icons/bs";
-import { calculateNamespaceCoverage, NamespaceValue } from "shared/util";
+import {
+  getNamespaceRanges,
+  hasNarrowedRanges,
+  NamespaceValue,
+} from "shared/util";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import {
   ChangeType,
@@ -597,14 +601,17 @@ function getRecommendedRolloutData({
     lastPhase.namespace?.enabled &&
     data.namespace.name === lastPhase.namespace.name
   ) {
-    const currentCoverage = data.namespace
-      ? calculateNamespaceCoverage(data.namespace as NamespaceValue)
-      : 1;
-    const lastCoverage = lastPhase.namespace
-      ? calculateNamespaceCoverage(lastPhase.namespace as NamespaceValue)
-      : 1;
+    const currentRanges = data.namespace
+      ? getNamespaceRanges(data.namespace as NamespaceValue)
+      : ([[0, 1]] as [number, number][]);
+    const lastRanges = lastPhase.namespace
+      ? getNamespaceRanges(lastPhase.namespace as NamespaceValue)
+      : ([[0, 1]] as [number, number][]);
 
-    if (currentCoverage < lastCoverage) {
+    // Warn whenever any user from the previous ranges would be excluded —
+    // this covers both total-coverage reduction and range shifts that keep
+    // the same total size but move the window (e.g. [0.2,0.6] → [0.0,0.4]).
+    if (hasNarrowedRanges(lastRanges, currentRanges)) {
       decreaseNamespaceRange = true;
     }
   }
