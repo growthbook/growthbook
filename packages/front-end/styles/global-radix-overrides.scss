@@ -391,14 +391,11 @@
 }
 
 // Ensure Frame & appbox do not override/ignore mb props
+// Text should be styling only, no spacing by default either
+p.rt-Text,
+label.rt-Text,
 .appbox.rt-Box {
   margin-bottom: var(--margin-bottom-override, var(--margin-bottom));
-}
-
-// Text should be styling only, no spacing
-p.rt-Text,
-label.rt-Text {
-  margin-bottom: 0;
 }
 
 // Tooltip

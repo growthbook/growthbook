@@ -62,6 +62,14 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useUser } from "@/services/UserContext";
+import ApprovalFlowList from "@/components/ApprovalFlow/ApprovalFlowList";
+import ApprovalFlowDetail from "@/components/ApprovalFlow/ApprovalFlowDetail";
+import ApprovalFlowVersionSelector from "@/components/ApprovalFlow/ApprovalFlowVersionSelector";
+import ApprovalFlowBanner from "@/components/ApprovalFlow/ApprovalFlowBanner";
+import { useSavedGroupApprovalFlow } from "@/hooks/useSavedGroupApprovalFlow";
 
 const NUM_PER_PAGE = 10;
 
@@ -83,7 +91,8 @@ export default function EditSavedGroupPage() {
   const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
   const [showOtherProjects, setShowOtherProjects] = useState(false);
   const [adminBypassSizeLimit, setAdminBypassSizeLimit] = useState(false);
-  const { savedGroupSizeLimit } = useOrgSettings();
+  const settings = useOrgSettings();
+  const { savedGroupSizeLimit, attributeSchema } = settings;
 
   // Scope features to saved group's projects
   const savedGroupProjectIds = useMemo(() => {
@@ -107,21 +116,77 @@ export default function EditSavedGroupPage() {
   const values = useMemo(() => savedGroup?.values ?? [], [savedGroup]);
   const [currentPage, setCurrentPage] = useState(1);
   const [filter, setFilter] = useState("");
-  const filteredValues = values.filter((v) => v.match(filter));
+
+  const { apiCall } = useAuth();
+  const [importOperation, setImportOperation] = useState<"replace" | "append">(
+    "replace",
+  );
+  const { projects, savedGroups: allSavedGroups } = useDefinitions();
+  const permissionsUtil = usePermissionsUtil();
+  const { userId } = useUser();
+
+  const approvalFlowRequired =
+    settings.approvalFlows?.savedGroups?.required ?? false;
+
+  const approvalFlowState = useSavedGroupApprovalFlow(savedGroup?.id, mutate);
+  const {
+    selectedApprovalFlow,
+    selectedApprovalFlowId,
+    openApprovalFlows,
+    allApprovalFlows,
+    activeTab,
+    setActiveTab,
+    selectFlow,
+    onApprovalFlowCreated,
+    handlePublish,
+    handleDiscard,
+    mutateApprovalFlows,
+    userOpenFlow,
+  } = approvalFlowState;
+
+  // When the user already has an open flow, block edits to the live version
+  const editBlocked = approvalFlowRequired && !!userOpenFlow;
+
+  const canPublish = useMemo(() => {
+    if (!savedGroup || !selectedApprovalFlow) return false;
+    const canEdit = permissionsUtil.canUpdateSavedGroup(savedGroup, {});
+    if (!canEdit) return false;
+    const canBypass = permissionsUtil.canBypassApprovalChecks({
+      project: savedGroup.projects?.[0] || "",
+    });
+    return selectedApprovalFlow.status === "approved" || canBypass;
+  }, [savedGroup, selectedApprovalFlow, permissionsUtil]);
+
+  const canDiscard = useMemo(() => {
+    if (!savedGroup || !selectedApprovalFlow) return false;
+    return (
+      userId === selectedApprovalFlow.authorId ||
+      permissionsUtil.canUpdateSavedGroup(savedGroup, {})
+    );
+  }, [savedGroup, selectedApprovalFlow, userId, permissionsUtil]);
+
+  // When a changeset is selected, show its proposed state in the Overview tab
+  const displayedSavedGroup = useMemo(() => {
+    if (!selectedApprovalFlow) return savedGroup;
+    return {
+      ...selectedApprovalFlow.target.snapshot,
+      ...selectedApprovalFlow.target.proposedChanges,
+    } as SavedGroupInterface;
+  }, [selectedApprovalFlow, savedGroup]);
+
+  const displayedValues = useMemo(
+    () => displayedSavedGroup?.values ?? [],
+    [displayedSavedGroup],
+  );
+
+  const filteredValues = displayedValues.filter((v) => v.match(filter));
   const sortedValues = sortNewestFirst
     ? filteredValues.reverse()
     : filteredValues;
 
-  const { apiCall } = useAuth();
-
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
   const valuesPage = sortedValues.slice(start, end);
-  const [importOperation, setImportOperation] = useState<"replace" | "append">(
-    "replace",
-  );
-  const { attributeSchema } = useOrgSettings();
-  const { projects, savedGroups: allSavedGroups } = useDefinitions();
 
   const { hasLargeSavedGroupFeature, unsupportedConnections } =
     useLargeSavedGroupSupport();
@@ -343,31 +408,53 @@ export default function EditSavedGroupPage() {
               ? "Add List Items"
               : "Overwrite List Contents"
           }
-          cta="Save"
+          cta={approvalFlowRequired ? "Propose Change" : "Save"}
           ctaEnabled={
             itemsToAdd.length > 0 &&
             (!listAboveSizeLimit || adminBypassSizeLimit)
           }
           submit={async () => {
-            let newValues: Set<string>;
             if (importOperation === "append") {
-              await apiCall(`/saved-groups/${savedGroup.id}/add-items`, {
+              const res = await apiCall<{
+                status: number;
+                requiresApproval?: boolean;
+                approvalFlow?: import("shared/enterprise").ApprovalFlow;
+              }>(`/saved-groups/${savedGroup.id}/add-items`, {
                 method: "POST",
                 body: JSON.stringify({
                   items: itemsToAdd,
                 }),
               });
-              newValues = new Set([...values, ...itemsToAdd]);
+              if (res?.requiresApproval) {
+                if (res.approvalFlow) {
+                  onApprovalFlowCreated(res.approvalFlow);
+                }
+                setItemsToAdd([]);
+                return;
+              }
+              const newValues = new Set([...values, ...itemsToAdd]);
+              mutateValues([...newValues]);
             } else {
-              await apiCall(`/saved-groups/${savedGroup.id}`, {
+              const res = await apiCall<{
+                status: number;
+                requiresApproval?: boolean;
+                approvalFlow?: import("shared/enterprise").ApprovalFlow;
+              }>(`/saved-groups/${savedGroup.id}`, {
                 method: "PUT",
                 body: JSON.stringify({
                   values: itemsToAdd,
                 }),
               });
-              newValues = new Set(itemsToAdd);
+              if (res?.requiresApproval) {
+                if (res.approvalFlow) {
+                  onApprovalFlowCreated(res.approvalFlow);
+                }
+                setItemsToAdd([]);
+                return;
+              }
+              const newValues = new Set(itemsToAdd);
+              mutateValues([...newValues]);
             }
-            mutateValues([...newValues]);
             setItemsToAdd([]);
           }}
         >
@@ -396,6 +483,8 @@ export default function EditSavedGroupPage() {
           }}
           current={savedGroupForm}
           type={savedGroup.type}
+          approvalFlowRequired={approvalFlowRequired}
+          onApprovalFlowCreated={onApprovalFlowCreated}
         />
       )}
       {showReferencesModal && (
@@ -429,53 +518,64 @@ export default function EditSavedGroupPage() {
           <Heading size="7" as="h1">
             {savedGroup.groupName}
           </Heading>
-          <DropdownMenu
-            trigger={
-              <IconButton
-                variant="ghost"
-                color="gray"
-                radius="full"
-                size="3"
-                highContrast
-              >
-                <BsThreeDotsVertical size={18} />
-              </IconButton>
-            }
-            open={dropdownOpen}
-            onOpenChange={setDropdownOpen}
-            menuPlacement="end"
-          >
-            <DropdownMenuGroup>
-              <DropdownMenuItem
-                onClick={() => {
-                  setSavedGroupForm(savedGroup);
-                  setDropdownOpen(false);
-                }}
-              >
-                Edit Information
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => {
-                  setShowAuditModal(true);
-                  setDropdownOpen(false);
-                }}
-              >
-                Audit History
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem
-                color="red"
-                onClick={() => {
-                  setShowDeleteModal(true);
-                  setDropdownOpen(false);
-                }}
-              >
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-          </DropdownMenu>
+          <Flex gap="2" align="center">
+            {approvalFlowRequired && (
+              <ApprovalFlowVersionSelector
+                openApprovalFlows={openApprovalFlows}
+                allApprovalFlows={allApprovalFlows}
+                selectedFlowId={selectedApprovalFlowId}
+                onSelectFlow={selectFlow}
+              />
+            )}
+            <DropdownMenu
+              trigger={
+                <IconButton
+                  variant="ghost"
+                  color="gray"
+                  radius="full"
+                  size="3"
+                  highContrast
+                >
+                  <BsThreeDotsVertical size={18} />
+                </IconButton>
+              }
+              open={dropdownOpen}
+              onOpenChange={setDropdownOpen}
+              menuPlacement="end"
+            >
+              <DropdownMenuGroup>
+                <DropdownMenuItem
+                  disabled={editBlocked}
+                  onClick={() => {
+                    setSavedGroupForm(savedGroup);
+                    setDropdownOpen(false);
+                  }}
+                >
+                  Edit Information
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setShowAuditModal(true);
+                    setDropdownOpen(false);
+                  }}
+                >
+                  View Audit Log
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuItem
+                  color="red"
+                  onClick={() => {
+                    setShowDeleteModal(true);
+                    setDropdownOpen(false);
+                  }}
+                >
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+            </DropdownMenu>
+          </Flex>
         </Flex>
         <Flex align="center" gap="4" mb="4" wrap="wrap" justify="between">
           <Flex align="center" gap="4" wrap="wrap">
@@ -538,207 +638,273 @@ export default function EditSavedGroupPage() {
             instead
           </Callout>
         )}
-        <hr />
-        {savedGroup.type === "list" && (
-          <LargeSavedGroupPerformanceWarning
-            hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
-            unsupportedConnections={unsupportedConnections}
-            openUpgradeModal={() => setUpgradeModal(true)}
+        {editBlocked && userOpenFlow && (
+          <Callout status="warning" mb="3">
+            You have an open changeset for this group.{" "}
+            <Link
+              href={`/saved-groups/${sgid}?flow=${userOpenFlow.id}&tab=changes`}
+            >
+              View your open changeset
+            </Link>
+          </Callout>
+        )}
+        {selectedApprovalFlow && (
+          <ApprovalFlowBanner
+            approvalFlow={selectedApprovalFlow}
+            onDiscard={handleDiscard}
+            onPublish={handlePublish}
+            canPublish={canPublish}
+            canDiscard={canDiscard}
           />
         )}
-        {savedGroup.type === "condition" ? (
-          <>
-            <Heading size="4" mb="3">
-              Condition
-            </Heading>
-            <Text as="p" mb="3">
-              Include all users who match the following:
-            </Text>
-            <Card mb="4">
-              <Flex direction="row" gap="2" p="2">
-                <Text weight="medium">IF</Text>
-                <Box>
-                  <ConditionDisplay
-                    condition={savedGroup.condition || ""}
-                    savedGroups={[]}
-                  />
-                </Box>
-              </Flex>
-            </Card>
-          </>
-        ) : (
-          <>
-            <Flex align="center" justify="between" mb="3" gap="4">
-              <Box className="relative" width="40%">
-                <Field
-                  placeholder="Search..."
-                  type="search"
-                  value={filter}
-                  onChange={(e) => {
-                    setFilter(e.target.value);
-                  }}
+        <Tabs
+          value={activeTab}
+          onValueChange={(v) => setActiveTab(v as "overview" | "changes")}
+        >
+          <TabsList>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="changes">
+              Changes
+              {openApprovalFlows.length > 0
+                ? ` (${openApprovalFlows.length})`
+                : ""}
+            </TabsTrigger>
+          </TabsList>
+          <Box pt="4">
+            <TabsContent value="overview">
+              {savedGroup.type === "list" && (
+                <LargeSavedGroupPerformanceWarning
+                  hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
+                  unsupportedConnections={unsupportedConnections}
+                  openUpgradeModal={() => setUpgradeModal(true)}
                 />
-              </Box>
-              <Flex gap="4" align="center">
-                {selected.size > 0 && (
-                  <DeleteButton
-                    text={`Delete Selected (${selected.size})`}
-                    title={`Delete selected item${selected.size > 1 ? "s" : ""}`}
-                    getConfirmationContent={async () => ""}
-                    onClick={async () => {
-                      await apiCall(
-                        `/saved-groups/${savedGroup.id}/remove-items`,
-                        {
-                          method: "POST",
-                          body: JSON.stringify({ items: [...selected] }),
-                        },
-                      );
-                      const newValues = values.filter(
-                        (value) => !selected.has(value),
-                      );
-                      mutateValues(newValues);
-                      setSelected(new Set());
-                    }}
-                    link={true}
-                    useIcon={true}
-                    displayName={`${selected.size} selected item${
-                      selected.size > 1 ? "s" : ""
-                    }`}
-                  />
-                )}
-                <Button
-                  variant="ghost"
-                  color="red"
-                  onClick={() => {
-                    setImportOperation("replace");
-                    setAddItems(true);
-                  }}
-                >
-                  Overwrite list
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setImportOperation("append");
-                    setAddItems(true);
-                  }}
-                >
-                  <span className="mr-1 lh-full">
-                    <FaPlusCircle />
-                  </span>
-                  <span className="lh-full">Add items</span>
-                </Button>
-              </Flex>
-            </Flex>
-
-            <table className="table gbtable table-hover appbox table-valign-top">
-              <thead>
-                <tr>
-                  <th style={{ width: "48px" }}>
-                    <Checkbox
-                      value={
-                        values.length > 0 && selected.size === values.length
-                      }
-                      setValue={(checked) => {
-                        if (checked) {
-                          setSelected(new Set(values));
-                        } else {
-                          setSelected(new Set());
-                        }
-                      }}
-                      size="sm"
-                    />
-                  </th>
-                  <th>
-                    <Flex justify="between" align="center">
-                      <span>{savedGroup.attributeKey}</span>
-                      <div
-                        className="cursor-pointer text-color-primary"
+              )}
+              {savedGroup.type === "condition" ? (
+                <>
+                  <Heading size="4" mb="3">
+                    Condition
+                  </Heading>
+                  <Text as="p" mb="3">
+                    Include all users who match the following:
+                  </Text>
+                  <Card mb="4">
+                    <Flex direction="row" gap="2" p="2">
+                      <Text weight="medium">IF</Text>
+                      <Box>
+                        <ConditionDisplay
+                          condition={displayedSavedGroup?.condition || ""}
+                          savedGroups={[]}
+                        />
+                      </Box>
+                    </Flex>
+                  </Card>
+                </>
+              ) : (
+                <>
+                  <Flex align="center" justify="between" mb="3" gap="4">
+                    <Box className="relative" width="40%">
+                      <Field
+                        placeholder="Search..."
+                        type="search"
+                        value={filter}
+                        onChange={(e) => {
+                          setFilter(e.target.value);
+                        }}
+                      />
+                    </Box>
+                    <Flex gap="4" align="center">
+                      {selected.size > 0 && (
+                        <DeleteButton
+                          text={`Delete Selected (${selected.size})`}
+                          title={`Delete selected item${selected.size > 1 ? "s" : ""}`}
+                          disabled={editBlocked}
+                          getConfirmationContent={async () => ""}
+                          onClick={async () => {
+                            const res = await apiCall<{
+                              status: number;
+                              requiresApproval?: boolean;
+                              approvalFlow?: import("shared/enterprise").ApprovalFlow;
+                            }>(`/saved-groups/${savedGroup.id}/remove-items`, {
+                              method: "POST",
+                              body: JSON.stringify({ items: [...selected] }),
+                            });
+                            if (res?.requiresApproval) {
+                              if (res.approvalFlow) {
+                                onApprovalFlowCreated(res.approvalFlow);
+                              }
+                              setSelected(new Set());
+                              return;
+                            }
+                            const newValues = values.filter(
+                              (value) => !selected.has(value),
+                            );
+                            mutateValues(newValues);
+                            setSelected(new Set());
+                          }}
+                          link={true}
+                          useIcon={true}
+                          displayName={`${selected.size} selected item${
+                            selected.size > 1 ? "s" : ""
+                          }`}
+                        />
+                      )}
+                      <Button
+                        variant="ghost"
+                        color="red"
+                        disabled={editBlocked}
                         onClick={() => {
-                          setSortNewestFirst(!sortNewestFirst);
-                          setCurrentPage(1);
+                          setImportOperation("replace");
+                          setAddItems(true);
                         }}
                       >
-                        <PiArrowsDownUp className="mr-1 lh-full align-middle" />
-                        <span className="lh-full align-middle">
-                          {sortNewestFirst
-                            ? "Most Recently Added"
-                            : "Least Recently Added"}
+                        Overwrite list
+                      </Button>
+                      <Button
+                        variant="outline"
+                        disabled={editBlocked}
+                        onClick={() => {
+                          setImportOperation("append");
+                          setAddItems(true);
+                        }}
+                      >
+                        <span className="mr-1 lh-full">
+                          <FaPlusCircle />
                         </span>
-                      </div>
+                        <span className="lh-full">Add items</span>
+                      </Button>
                     </Flex>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {valuesPage.map((value) => {
-                  return (
-                    <tr
-                      key={value}
-                      onClick={() => {
-                        if (selected.has(value)) {
-                          const newSelected = new Set(selected);
-                          newSelected.delete(value);
-                          setSelected(newSelected);
-                        } else {
-                          setSelected(new Set(selected).add(value));
-                        }
-                      }}
-                    >
-                      <td onClick={(e) => e.stopPropagation()}>
-                        <Checkbox
-                          value={selected.has(value)}
-                          setValue={(checked) => {
-                            if (checked) {
-                              setSelected(new Set(selected).add(value));
-                            } else {
-                              const newSelected = new Set(selected);
-                              newSelected.delete(value);
-                              setSelected(newSelected);
+                  </Flex>
+
+                  <table className="table gbtable table-hover appbox table-valign-top">
+                    <thead>
+                      <tr>
+                        <th style={{ width: "48px" }}>
+                          <Checkbox
+                            value={
+                              values.length > 0 &&
+                              selected.size === values.length
                             }
-                          }}
-                          size="sm"
-                        />
-                      </td>
-                      <td>{value}</td>
-                    </tr>
-                  );
-                })}
-                {!values.length && (
-                  <tr>
-                    <td colSpan={2}>
-                      This group doesn&apos;t have any items yet
-                    </td>
-                  </tr>
-                )}
-                {values.length && !filteredValues.length ? (
-                  <tr>
-                    <td colSpan={2}>No matching items</td>
-                  </tr>
-                ) : (
-                  <></>
-                )}
-              </tbody>
-            </table>
-            {Math.ceil(filteredValues.length / NUM_PER_PAGE) > 1 && (
-              <Pagination
-                numItemsTotal={values.length}
-                currentPage={currentPage}
-                perPage={NUM_PER_PAGE}
-                onPageChange={(d) => {
-                  setCurrentPage(d);
-                }}
-              />
-            )}
-            {!savedGroup.values?.length && !savedGroup.useEmptyListGroup && (
-              <Callout status="info">
-                This saved group has legacy behavior when empty and will be
-                completely ignored when used for targeting.{" "}
-                <DocLink docSection="idLists">Learn More</DocLink>
-              </Callout>
-            )}
-          </>
-        )}
+                            setValue={(checked) => {
+                              if (checked) {
+                                setSelected(new Set(values));
+                              } else {
+                                setSelected(new Set());
+                              }
+                            }}
+                            size="sm"
+                          />
+                        </th>
+                        <th>
+                          <Flex justify="between" align="center">
+                            <span>{savedGroup.attributeKey}</span>
+                            <div
+                              className="cursor-pointer text-color-primary"
+                              onClick={() => {
+                                setSortNewestFirst(!sortNewestFirst);
+                                setCurrentPage(1);
+                              }}
+                            >
+                              <PiArrowsDownUp className="mr-1 lh-full align-middle" />
+                              <span className="lh-full align-middle">
+                                {sortNewestFirst
+                                  ? "Most Recently Added"
+                                  : "Least Recently Added"}
+                              </span>
+                            </div>
+                          </Flex>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {valuesPage.map((value) => {
+                        return (
+                          <tr
+                            key={value}
+                            onClick={() => {
+                              if (selected.has(value)) {
+                                const newSelected = new Set(selected);
+                                newSelected.delete(value);
+                                setSelected(newSelected);
+                              } else {
+                                setSelected(new Set(selected).add(value));
+                              }
+                            }}
+                          >
+                            <td onClick={(e) => e.stopPropagation()}>
+                              <Checkbox
+                                value={selected.has(value)}
+                                setValue={(checked) => {
+                                  if (checked) {
+                                    setSelected(new Set(selected).add(value));
+                                  } else {
+                                    const newSelected = new Set(selected);
+                                    newSelected.delete(value);
+                                    setSelected(newSelected);
+                                  }
+                                }}
+                                size="sm"
+                              />
+                            </td>
+                            <td>{value}</td>
+                          </tr>
+                        );
+                      })}
+                      {!displayedValues.length && (
+                        <tr>
+                          <td colSpan={2}>
+                            This group doesn&apos;t have any items yet
+                          </td>
+                        </tr>
+                      )}
+                      {displayedValues.length && !filteredValues.length ? (
+                        <tr>
+                          <td colSpan={2}>No matching items</td>
+                        </tr>
+                      ) : (
+                        <></>
+                      )}
+                    </tbody>
+                  </table>
+                  {Math.ceil(filteredValues.length / NUM_PER_PAGE) > 1 && (
+                    <Pagination
+                      numItemsTotal={displayedValues.length}
+                      currentPage={currentPage}
+                      perPage={NUM_PER_PAGE}
+                      onPageChange={(d) => {
+                        setCurrentPage(d);
+                      }}
+                    />
+                  )}
+                  {!displayedValues.length &&
+                    !displayedSavedGroup?.useEmptyListGroup && (
+                      <Callout status="info">
+                        This saved group has legacy behavior when empty and will
+                        be completely ignored when used for targeting.{" "}
+                        <DocLink docSection="idLists">Learn More</DocLink>
+                      </Callout>
+                    )}
+                </>
+              )}
+            </TabsContent>
+            <TabsContent value="changes">
+              {selectedApprovalFlow ? (
+                <ApprovalFlowDetail
+                  approvalFlow={selectedApprovalFlow}
+                  currentState={savedGroup}
+                  mutate={mutateApprovalFlows}
+                  setCurrentApprovalFlow={(f) => selectFlow(f)}
+                  onDiscard={handleDiscard}
+                />
+              ) : (
+                <ApprovalFlowList
+                  approvalFlows={allApprovalFlows}
+                  setApprovalFlow={selectFlow}
+                  showHistory={true}
+                />
+              )}
+            </TabsContent>
+          </Box>
+        </Tabs>
       </div>
     </>
   );

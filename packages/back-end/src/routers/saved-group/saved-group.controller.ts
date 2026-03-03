@@ -11,9 +11,14 @@ import {
   CreateSavedGroupProps,
   UpdateSavedGroupProps,
 } from "shared/types/saved-group";
+import { ApprovalFlow } from "shared/enterprise";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
+import {
+  isApprovalFlowRequired,
+  createOrUpdateSavedGroupApprovalFlow,
+} from "back-end/src/enterprise/approval-flows/util";
 
 // region POST /saved-groups
 
@@ -171,9 +176,9 @@ type PostSavedGroupAddItemsRequest = AuthRequest<
   { id: string }
 >;
 
-type PostSavedGroupAddItemsResponse = {
-  status: 200;
-};
+type PostSavedGroupAddItemsResponse =
+  | { status: 200 }
+  | { status: 202; requiresApproval: true; approvalFlow: ApprovalFlow };
 
 /**
  * POST /saved-groups/:id/add-items
@@ -228,6 +233,42 @@ export const postSavedGroupAddItems = async (
       "Cannot add items to this group. The attribute key's datatype is not supported.",
     );
   }
+
+  const shouldCreateApprovalFlow = isApprovalFlowRequired(
+    context,
+    "saved-group",
+    id,
+  );
+
+  if (shouldCreateApprovalFlow) {
+    const existingFlow =
+      await context.models.approvalFlows.getOpenByTargetAndAuthor(
+        "saved-group",
+        id,
+        context.userId,
+      );
+    const baseValues =
+      existingFlow?.target.proposedChanges?.values ?? savedGroup.values ?? [];
+    const newValues = [...new Set([...baseValues, ...items])];
+    validateListSize(
+      newValues,
+      org.settings?.savedGroupSizeLimit,
+      context.permissions.canBypassSavedGroupSizeLimit(savedGroup.projects),
+    );
+
+    const approvalFlow = await createOrUpdateSavedGroupApprovalFlow(
+      context,
+      savedGroup,
+      { values: newValues },
+    );
+
+    return res.status(202).json({
+      status: 202,
+      requiresApproval: true,
+      approvalFlow,
+    });
+  }
+
   const newValues = [...new Set([...(savedGroup.values || []), ...items])];
   // Check that the size is within the global limit as well as any limit imposed by the organization
   validateListSize(
@@ -254,9 +295,9 @@ type PostSavedGroupRemoveItemsRequest = AuthRequest<
   { id: string }
 >;
 
-type PostSavedGroupRemoveItemsResponse = {
-  status: 200;
-};
+type PostSavedGroupRemoveItemsResponse =
+  | { status: 200 }
+  | { status: 202; requiresApproval: true; approvalFlow: ApprovalFlow };
 
 /**
  * POST /saved-groups/:id/remove-items
@@ -311,6 +352,45 @@ export const postSavedGroupRemoveItems = async (
       "Cannot remove items from this group. The attribute key's datatype is not supported.",
     );
   }
+
+  const shouldCreateApprovalFlow = isApprovalFlowRequired(
+    context,
+    "saved-group",
+    id,
+  );
+
+  if (shouldCreateApprovalFlow) {
+    const existingFlow =
+      await context.models.approvalFlows.getOpenByTargetAndAuthor(
+        "saved-group",
+        id,
+        context.userId,
+      );
+    const baseValues =
+      existingFlow?.target.proposedChanges?.values ?? savedGroup.values ?? [];
+    const toRemove = new Set(items);
+    const newValues = baseValues.filter(
+      (value: string) => !toRemove.has(value),
+    );
+    validateListSize(
+      newValues,
+      org.settings?.savedGroupSizeLimit,
+      context.permissions.canBypassSavedGroupSizeLimit(savedGroup.projects),
+    );
+
+    const approvalFlow = await createOrUpdateSavedGroupApprovalFlow(
+      context,
+      savedGroup,
+      { values: newValues },
+    );
+
+    return res.status(202).json({
+      status: 202,
+      requiresApproval: true,
+      approvalFlow,
+    });
+  }
+
   const toRemove = new Set(items);
   const newValues = (savedGroup.values || []).filter(
     (value) => !toRemove.has(value),
@@ -340,9 +420,16 @@ type PutSavedGroupRequest = AuthRequest<
   { skipCycleCheck?: string }
 >;
 
-type PutSavedGroupResponse = {
-  status: 200;
-};
+type PutSavedGroupResponse =
+  | {
+      status: 200;
+      requiresApproval?: false;
+    }
+  | {
+      status: 202;
+      requiresApproval: true;
+      approvalFlow: ApprovalFlow;
+    };
 
 /**
  * PUT /saved-groups/:id
@@ -371,9 +458,16 @@ export const putSavedGroup = async (
     throw new Error("Could not find saved group");
   }
 
+  // Permission check always runs regardless of approval flow status
   if (!context.permissions.canUpdateSavedGroup(savedGroup, { ...req.body })) {
     context.permissions.throwPermissionError();
   }
+
+  const shouldCreateApprovalFlowRequest = isApprovalFlowRequired(
+    context,
+    "saved-group",
+    id,
+  );
 
   const fieldsToUpdate: UpdateSavedGroupProps = {};
 
@@ -448,10 +542,23 @@ export const putSavedGroup = async (
     });
   }
 
-  await context.models.savedGroups.update(savedGroup, fieldsToUpdate);
+  if (!shouldCreateApprovalFlowRequest) {
+    await context.models.savedGroups.update(savedGroup, fieldsToUpdate);
+    return res.status(200).json({
+      status: 200,
+    });
+  }
 
-  return res.status(200).json({
-    status: 200,
+  const approvalFlow = await createOrUpdateSavedGroupApprovalFlow(
+    context,
+    savedGroup,
+    fieldsToUpdate,
+  );
+
+  return res.status(202).json({
+    status: 202,
+    requiresApproval: true,
+    approvalFlow,
   });
 };
 

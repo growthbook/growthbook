@@ -1,7 +1,6 @@
 import { FeatureInterface } from "shared/types/feature";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import { useState, useMemo } from "react";
-import { FaAngleDown, FaAngleRight, FaArrowLeft } from "react-icons/fa";
+import { FaAngleRight, FaArrowLeft } from "react-icons/fa";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   autoMerge,
@@ -47,13 +46,11 @@ export function ExpandableDiff({
   a,
   b,
   defaultOpen = false,
-  styles,
 }: {
   title: string;
   a: string;
   b: string;
   defaultOpen?: boolean;
-  styles?: object;
 }) {
   const [open, setOpen] = useState(defaultOpen);
 
@@ -80,13 +77,18 @@ export function ExpandableDiff({
             oldValue={a}
             newValue={b}
             compareMethod={DiffMethod.LINES}
-            styles={styles ?? { contentText: { wordBreak: "break-all" } }}
+            styles={{
+              contentText: {
+                wordBreak: "break-all",
+              },
+            }}
           />
         </div>
       )}
     </div>
   );
 }
+export { ExpandableDiff } from "@/components/ExpandableDiff";
 
 export default function DraftModal({
   feature,

@@ -265,7 +265,7 @@ export interface OrganizationSettings {
   /** @deprecated Use postStratificationEnabled instead */
   postStratificationDisabled?: boolean;
   postStratificationEnabled?: boolean;
-  approvalFlows: ApprovalFlowConfigurations;
+  approvalFlows?: ApprovalFlowConfigurations;
 }
 
 export interface OrganizationConnections {

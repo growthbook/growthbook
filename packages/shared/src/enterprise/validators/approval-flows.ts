@@ -25,6 +25,7 @@ export const reviewValidator = z.object({
   id: z.string(),
   userId: z.string(),
   decision: z.enum(reviewDecision),
+  comment: z.string().optional(),
   dateCreated: z.date(),
 });
 export type Review = z.infer<typeof reviewValidator>;
@@ -44,7 +45,7 @@ export const activityLogEntryValidator = z.object({
     "closed",
     "reopened",
   ]),
-  description: z.string().optional(),
+  description: z.string().nullish(),
   dateCreated: z.date(),
 });
 export type ActivityLogEntry = z.infer<typeof activityLogEntryValidator>;
@@ -87,6 +88,20 @@ export const approvalFlowValidator = z.object({
   organization: z.string(),
 });
 export type ApprovalFlow = z.infer<typeof approvalFlowValidator>;
+
+export const approvalFlowCreateValidator = z.object({
+  target: z.object({
+    type: z.enum(approvalFlowTargetType),
+    id: z.string(),
+    proposedChanges: putSavedGroupBodyValidator.partial(),
+  }),
+});
+
+export type ApprovalFlowEntity = {
+  managedBy?: string;
+  ownerTeam?: string;
+  [key: string]: unknown;
+};
 
 // Runtime generated types
 export type Conflict = {

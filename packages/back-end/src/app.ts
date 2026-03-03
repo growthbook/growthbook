@@ -126,6 +126,7 @@ import { dashboardsRouter } from "./routers/dashboards/dashboards.router";
 import { customHooksRouter } from "./routers/custom-hooks/custom-hooks.router";
 import { importingRouter } from "./routers/importing/importing.router";
 import { productAnalyticsRouter } from "./routers/product-analytics/product-analytics.router";
+import { approvalFlowRouter } from "back-end/src/enterprise/routers/approval-flow/approval-flow.router";
 
 const app = express();
 
@@ -757,6 +758,8 @@ app.use("/saved-queries", savedQueriesRouter);
 app.use("/projects", projectRouter);
 
 app.use(factTableRouter);
+
+app.use("/approval-flow", approvalFlowRouter);
 
 app.use("/demo-datasource-project", demoDatasourceProjectRouter);
 
