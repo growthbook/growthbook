@@ -487,6 +487,16 @@ export async function getLatestSnapshot({
     query.type = { $ne: "report" };
   }
 
+  // When the caller hasn't asked for a specific type and is polling for
+  // "latest" (withResults=false), don't let errored *scheduled* snapshots
+  // shadow a user's in-progress manual refresh. In multi-replica
+  // deployments, a scheduled job on a replica with broken warehouse
+  // credentials can produce a newer { status: "error" } snapshot than the
+  // user's running one; surfacing that error in the UI is confusing
+  // because the user never asked for it. Scheduled successes and manual
+  // errors still surface normally.
+  const excludeScheduledErrors = !type && !withResults;
+
   // First try getting new snapshots that have a `status` field
   let all = await ExperimentSnapshotModel.find(
     {
@@ -494,6 +504,9 @@ export async function getLatestSnapshot({
       status: {
         $in: withResults ? ["success"] : ["success", "running", "error"],
       },
+      ...(excludeScheduledErrors
+        ? { $nor: [{ status: "error", triggeredBy: "schedule" }] }
+        : {}),
       ...(beforeSnapshot
         ? { dateCreated: { $lt: beforeSnapshot.dateCreated } }
         : {}),
