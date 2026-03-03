@@ -16,6 +16,7 @@ import {
   resetReviewOnChange,
   getAffectedEnvsForExperiment,
   getDefaultPrerequisiteCondition,
+  getDependentExperiments,
   getDependentFeatures,
   isFeatureStale,
   IsFeatureStaleResult,
@@ -2246,7 +2247,7 @@ export async function getDraftandReviewRevisions(
   res: Response,
 ) {
   const context = getContextFromReq(req);
-  const sparse = req.query.sparse !== "false";
+  const sparse = req.query.sparse === "true";
   const revisions = await getRevisionsByStatus(
     context,
     ["draft", "approved", "changes-requested", "pending-review"],
@@ -4266,12 +4267,9 @@ export async function getFeaturesDependents(
     }
     dependents[featureId] = {
       features: getDependentFeatures(feature, allFeatures, allEnvIds),
-      experiments: allExperiments
-        .filter((e) => {
-          const phase = e.phases?.slice(-1)?.[0] ?? null;
-          return phase?.prerequisites?.some((p) => p.id === feature.id);
-        })
-        .map((e) => ({ id: e.id, name: e.name })),
+      experiments: getDependentExperiments(feature, allExperiments).map(
+        (e) => ({ id: e.id, name: e.name }),
+      ),
     };
   }
 
