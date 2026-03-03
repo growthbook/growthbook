@@ -30,11 +30,7 @@ export interface Props {
   openFlowTargetIds?: Set<string>;
 }
 
-export default function IdLists({
-  groups,
-  mutate,
-  openFlowTargetIds,
-}: Props) {
+export default function IdLists({ groups, mutate, openFlowTargetIds }: Props) {
   const [savedGroupForm, setSavedGroupForm] =
     useState<null | Partial<SavedGroupInterface>>(null);
   const [deleteModal, setDeleteModal] =

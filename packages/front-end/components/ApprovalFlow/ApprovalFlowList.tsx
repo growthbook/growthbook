@@ -303,7 +303,11 @@ const ApprovalFlowList: React.FC<ApprovalFlowListProps> = ({
                       style={{ cursor: "pointer" }}
                       className="hover-highlight"
                     >
-                      <td>{datetime(flow.resolution?.dateCreated || flow.dateCreated)}</td>
+                      <td>
+                        {datetime(
+                          flow.resolution?.dateCreated || flow.dateCreated,
+                        )}
+                      </td>
                       <td>
                         {flow.reviews.length > 0 ? flow.reviews.length : "--"}
                       </td>
@@ -328,7 +332,9 @@ const ApprovalFlowList: React.FC<ApprovalFlowListProps> = ({
                               variant="soft"
                             />
                             <span>
-                              {getUserDisplay(flow.resolution?.userId || flow.authorId)}
+                              {getUserDisplay(
+                                flow.resolution?.userId || flow.authorId,
+                              )}
                             </span>
                           </Flex>
                         ) : (

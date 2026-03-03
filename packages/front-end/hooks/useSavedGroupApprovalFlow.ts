@@ -93,7 +93,14 @@ export function useSavedGroupApprovalFlow(
       updateUrl(authoredOpenFlow.id, "changes");
     }
     initializedDefaultSelectionFor.current = savedGroupId;
-  }, [savedGroupId, userId, data, openApprovalFlows, selectedApprovalFlowId, updateUrl]);
+  }, [
+    savedGroupId,
+    userId,
+    data,
+    openApprovalFlows,
+    selectedApprovalFlowId,
+    updateUrl,
+  ]);
 
   // If the selected flow was merged/closed by another user, gracefully deselect.
   // Guard on `data` to avoid false-positive deselection before SWR has loaded.

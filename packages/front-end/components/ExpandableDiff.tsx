@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { CSSProperties, useState } from "react";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 
@@ -12,6 +12,7 @@ export default function ExpandableDiff({
   a: string;
   b: string;
   defaultOpen?: boolean;
+  styles?: Record<string, CSSProperties | Record<string, CSSProperties>>;
 }) {
   const [open, setOpen] = useState(defaultOpen);
 

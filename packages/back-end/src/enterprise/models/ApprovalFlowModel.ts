@@ -6,8 +6,8 @@ import {
   ReviewDecision,
 } from "shared/enterprise";
 import type { CreateProps } from "shared/types/base-model";
-import { MakeModelClass } from "back-end/src/models/BaseModel";
 import type { SavedGroupInterface } from "shared/types/saved-group";
+import { MakeModelClass } from "back-end/src/models/BaseModel";
 
 export const COLLECTION_NAME = "approvalflows";
 
@@ -164,7 +164,10 @@ export class ApprovalFlowModel extends BaseClass {
       dateCreated: new Date(),
     };
 
-    const actionMap: Record<ReviewDecision, "approved" | "requested-changes" | "commented"> = {
+    const actionMap: Record<
+      ReviewDecision,
+      "approved" | "requested-changes" | "commented"
+    > = {
       approve: "approved",
       "request-changes": "requested-changes",
       comment: "commented",
@@ -260,9 +263,7 @@ export class ApprovalFlowModel extends BaseClass {
     if (!existing) throw new Error("Approval flow not found");
 
     if (existing.status === "merged" || existing.status === "closed") {
-      throw new Error(
-        "Cannot close an already closed or merged approval flow",
-      );
+      throw new Error("Cannot close an already closed or merged approval flow");
     }
 
     return this.update(existing, {

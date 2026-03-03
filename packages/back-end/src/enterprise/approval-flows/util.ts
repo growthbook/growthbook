@@ -31,9 +31,7 @@ export async function ensureNoOpenFlowForAuthor(
     userId,
   );
   if (existing) {
-    throw new Error(
-      "You already have an open approval flow for this resource",
-    );
+    throw new Error("You already have an open approval flow for this resource");
   }
 }
 
