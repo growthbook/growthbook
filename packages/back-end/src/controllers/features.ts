@@ -4267,9 +4267,12 @@ export async function getFeaturesDependents(
     }
     dependents[featureId] = {
       features: getDependentFeatures(feature, allFeatures, allEnvIds),
-      experiments: getDependentExperiments(feature, allExperiments).map(
-        (e) => ({ id: e.id, name: e.name }),
-      ),
+      experiments: getDependentExperiments(
+        feature,
+        allExperiments as unknown as Parameters<
+          typeof getDependentExperiments
+        >[1],
+      ).map((e) => ({ id: e.id, name: e.name })),
     };
   }
 
