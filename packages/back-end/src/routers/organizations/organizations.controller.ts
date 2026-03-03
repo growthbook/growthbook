@@ -1764,19 +1764,10 @@ export async function deleteApiKey(
     throw new Error("Must provide either an API key or id in order to delete");
   }
 
-  const keyObj = await context.models.apiKeys.getApiKeyByIdOrKey(
+  await context.models.apiKeys.deleteByIdOrKey(
     id || undefined,
     key || undefined,
   );
-  if (!keyObj) {
-    throw new Error("Could not find API key to delete");
-  }
-
-  if (id) {
-    await context.models.apiKeys.deleteById(id);
-  } else if (key) {
-    await context.models.apiKeys.deleteApiKeyByKey(key);
-  }
 
   res.status(200).json({
     status: 200,

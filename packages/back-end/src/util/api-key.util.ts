@@ -1,3 +1,5 @@
+import { webcrypto } from "node:crypto";
+import crypto from "crypto";
 import { OrganizationInterface } from "shared/types/organization";
 import { ApiKeyInterface } from "shared/types/apikey";
 
@@ -33,3 +35,23 @@ export const roleForApiKey = (
   // At this stage, we assume it's a secret key with full organizational access, like the initial secret API keys
   return "admin";
 };
+
+export async function generateEncryptionKey(): Promise<string> {
+  const key = await webcrypto.subtle.generateKey(
+    {
+      name: "AES-CBC",
+      length: 128,
+    },
+    true,
+    ["encrypt", "decrypt"],
+  );
+  return Buffer.from(await webcrypto.subtle.exportKey("raw", key)).toString(
+    "base64",
+  );
+}
+
+export function generateSigningKey(prefix: string = "", bytes = 32): string {
+  return (
+    prefix + crypto.randomBytes(bytes).toString("base64").replace(/[=/+]/g, "")
+  );
+}

@@ -1,5 +1,3 @@
-import crypto from "crypto";
-import { webcrypto } from "node:crypto";
 import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
 import { apiKeySchema } from "shared/validators";
 import {
@@ -7,7 +5,11 @@ import {
   SECRET_API_KEY,
   SECRET_API_KEY_ROLE,
 } from "back-end/src/util/secrets";
-import { roleForApiKey } from "back-end/src/util/api-key.util";
+import {
+  generateEncryptionKey,
+  generateSigningKey,
+  roleForApiKey,
+} from "back-end/src/util/api-key.util";
 import {
   getCollection,
   removeMongooseFields,
@@ -20,9 +22,10 @@ const COLLECTION_NAME = "apikeys";
 const BaseClass = MakeModelClass({
   schema: apiKeySchema,
   collectionName: COLLECTION_NAME,
+  pKey: ["key"],
+  globallyUniquePrimaryKeys: true,
   idPrefix: "key_",
-  additionalIndexes: [{ fields: { key: 1 }, unique: true }],
-  // TODO: add default projection to remove encryptionKey and also key if secret is true
+  additionalIndexes: [{ fields: { id: 1 } }],
 });
 
 export class ApiKeyModel extends BaseClass {
@@ -33,7 +36,6 @@ export class ApiKeyModel extends BaseClass {
       return this.context.permissions.canCreateApiKey();
     }
   }
-  // TODO: handle reading secret keys
   protected canRead(apiKey: ApiKeyInterface): boolean {
     if (apiKey.userId) {
       return apiKey.userId === this.context.userId;
@@ -43,8 +45,9 @@ export class ApiKeyModel extends BaseClass {
       );
     }
   }
-  protected canUpdate(): boolean {
-    return true;
+  protected canUpdate(_existing: ApiKeyInterface): boolean {
+    // ApiKeys should be immutable
+    return false;
   }
   protected canDelete(apiKey: ApiKeyInterface): boolean {
     if (apiKey.secret) {
@@ -63,35 +66,21 @@ export class ApiKeyModel extends BaseClass {
     }
   }
 
-  protected migrate(legacyDoc: unknown): ApiKeyInterface {
+  protected static migrate(legacyDoc: unknown): ApiKeyInterface {
     const obj = legacyDoc as ApiKeyInterface;
     return {
       ...obj,
-      id: obj.id ?? this._generateId(),
       role: roleForApiKey(obj) || undefined,
       dateUpdated: obj.dateUpdated ?? new Date(),
     };
   }
-
-  public static async generateEncryptionKey(): Promise<string> {
-    const key = await webcrypto.subtle.generateKey(
-      {
-        name: "AES-CBC",
-        length: 128,
-      },
-      true,
-      ["encrypt", "decrypt"],
-    );
-    return Buffer.from(await webcrypto.subtle.exportKey("raw", key)).toString(
-      "base64",
-    );
+  protected migrate(legacyDoc: unknown): ApiKeyInterface {
+    return ApiKeyModel.migrate(legacyDoc);
   }
 
-  public static generateSigningKey(prefix: string = "", bytes = 32): string {
-    return (
-      prefix +
-      crypto.randomBytes(bytes).toString("base64").replace(/[=/+]/g, "")
-    );
+  protected sanitize(doc: ApiKeyInterface): ApiKeyInterface {
+    if (!doc.secret) return doc;
+    return { ...doc, key: "", encryptionKey: undefined };
   }
 
   public async createOrganizationApiKey({
@@ -147,12 +136,6 @@ export class ApiKeyModel extends BaseClass {
     });
   }
 
-  public async deleteApiKeyByKey(key: string) {
-    const apiKey = await this._findOne({ key });
-    if (!apiKey) this.context.throwNotFoundError();
-    await this.delete(apiKey);
-  }
-
   public async getApiKeyByIdOrKey(
     id: string | undefined,
     key: string | undefined,
@@ -160,6 +143,20 @@ export class ApiKeyModel extends BaseClass {
     if (!id && !key) return null;
 
     return await this._findOne(id ? { id } : { key });
+  }
+
+  public async deleteByIdOrKey(
+    id: string | undefined,
+    key: string | undefined,
+  ): Promise<void> {
+    if (!id && !key) this.context.throwNotFoundError();
+
+    const doc = await this._findOne(id ? { id } : { key }, {
+      bypassSanitization: true,
+    });
+    if (!doc) this.context.throwNotFoundError();
+
+    await this.delete(doc);
   }
 
   public async getVisualEditorApiKey(
@@ -193,16 +190,16 @@ export class ApiKeyModel extends BaseClass {
     });
 
     if (!doc || !doc.organization) return {};
-    return removeMongooseFields(doc);
+    return ApiKeyModel.migrate(removeMongooseFields(doc));
   }
 
   public async getUnredactedSecretKey(
     id: string,
   ): Promise<SecretApiKey | null> {
-    // TODO: add projection override allowing secret
-    return (await this._findOne({
-      id,
-    })) as SecretApiKey;
+    return (await this._findOne(
+      { id },
+      { bypassSanitization: true },
+    )) as SecretApiKey;
   }
 
   private prefixForApiKey({
@@ -272,7 +269,7 @@ export class ApiKeyModel extends BaseClass {
       userId,
       role,
     });
-    const key = ApiKeyModel.generateSigningKey(prefix);
+    const key = generateSigningKey(prefix);
 
     return await this.create({
       environment,
@@ -283,9 +280,7 @@ export class ApiKeyModel extends BaseClass {
       encryptSDK,
       userId,
       role,
-      encryptionKey: encryptSDK
-        ? await ApiKeyModel.generateEncryptionKey()
-        : undefined,
+      encryptionKey: encryptSDK ? await generateEncryptionKey() : undefined,
     });
   }
 }

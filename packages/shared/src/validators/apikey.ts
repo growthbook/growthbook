@@ -1,9 +1,10 @@
 import { z } from "zod";
-import { baseSchema } from "./base-model";
+import { createBaseSchemaWithPrimaryKey } from "./base-model";
 
-export const apiKeySchema = baseSchema.safeExtend({
-  // TODO: deal with optional ID?
+export const apiKeySchema = createBaseSchemaWithPrimaryKey({
   key: z.string(),
+}).safeExtend({
+  id: z.string().optional(),
   environment: z.string().optional(),
   project: z.string().optional(),
   description: z.string().optional(),
@@ -15,7 +16,7 @@ export const apiKeySchema = baseSchema.safeExtend({
 });
 
 export const secretApiKey = apiKeySchema
-  .omit({ secret: true, environment: true, project: true })
-  .safeExtend({ secret: z.literal(true) });
+  .omit({ id: true, secret: true, environment: true, project: true })
+  .safeExtend({ id: z.string(), secret: z.literal(true) });
 
 export const secretApiKeyRedacted = secretApiKey.omit({ key: true });
