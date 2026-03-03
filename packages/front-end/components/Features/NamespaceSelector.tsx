@@ -10,7 +10,10 @@ import { findGaps } from "@/services/features";
 import Field from "@/components/Forms/Field";
 import SelectField, { SingleValue } from "@/components/Forms/SelectField";
 import Checkbox from "@/ui/Checkbox";
+import Callout from "@/ui/Callout";
+import Badge from "@/ui/Badge";
 import Button from "@/components/Button";
+import Text from "@/ui/Text";
 import NamespaceUsageGraph from "./NamespaceUsageGraph";
 
 export interface Props {
@@ -237,16 +240,16 @@ export default function NamespaceSelector({
               {selectedNamespace &&
                 "hashAttribute" in selectedNamespace &&
                 selectedNamespace.hashAttribute && (
-                  <div className="alert alert-info mb-3">
+                  <Callout status="info" mb="3">
                     <strong>Hash Attribute:</strong>{" "}
                     {`${selectedNamespace.hashAttribute}`}
-                  </div>
+                  </Callout>
                 )}
               {selectedIsDifferentHash && (
-                <div className="alert alert-info mb-3">
+                <Callout status="info" mb="3">
                   This namespace hash attribute differs from the experiment hash
                   attribute.
-                </div>
+                </Callout>
               )}
 
               <NamespaceUsageGraph
@@ -264,9 +267,10 @@ export default function NamespaceSelector({
                     Selected Range{ranges.length > 1 ? "s" : ""}
                   </label>
                   {totalAllocation > 0 && (
-                    <span className="badge badge-primary">
-                      Total: {(totalAllocation * 100).toFixed(2)}%
-                    </span>
+                    <Badge
+                      label={`Total: ${(totalAllocation * 100).toFixed(2)}%`}
+                      color="blue"
+                    />
                   )}
                 </div>
 
@@ -288,7 +292,9 @@ export default function NamespaceSelector({
                         }}
                       />
                     </div>
-                    <div className="col-auto">to</div>
+                    <div className="col-auto">
+                      <Text>to</Text>
+                    </div>
                     <div className="col-auto">
                       <Field
                         type="number"

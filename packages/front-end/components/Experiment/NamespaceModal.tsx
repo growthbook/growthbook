@@ -5,6 +5,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
+import Callout from "@/ui/Callout";
 
 type NamespaceFormValue = {
   label: string;
@@ -155,10 +156,10 @@ function LegacyNamespaceModal({
         await onSuccess();
       })}
     >
-      <div className="alert alert-info">
+      <Callout status="info" mb="3">
         This is a legacy namespace. To use the new multi-range features, create
         a new namespace.
-      </div>
+      </Callout>
       <Field label="Name" maxLength={60} required {...form.register("label")} />
       <Field label="Description" textarea {...form.register("description")} />
     </Modal>
