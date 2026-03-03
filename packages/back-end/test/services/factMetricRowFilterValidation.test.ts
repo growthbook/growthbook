@@ -1,6 +1,7 @@
 import { FactTableInterface } from "shared/types/fact-table";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import {
+  getNetNewSqlExprRowFilters,
   getRiskyRowFilterSqlExpressions,
   validateFactMetricRowFilterSql,
 } from "back-end/src/services/factMetricRowFilterValidation";
@@ -56,6 +57,56 @@ describe("factMetricRowFilterValidation", () => {
       ]);
 
       expect(expressions).toEqual([]);
+    });
+  });
+
+  describe("getNetNewSqlExprRowFilters", () => {
+    it("returns all sql_expr filters if there is no previous metric", () => {
+      const filters = getNetNewSqlExprRowFilters({
+        rowFilters: [
+          { operator: "sql_expr", values: ["amount > 100"] },
+          { operator: "saved_filter", values: ["filter_country_us"] },
+        ],
+        previousRowFilters: undefined,
+      });
+
+      expect(filters).toEqual([
+        { operator: "sql_expr", values: ["amount > 100"] },
+      ]);
+    });
+
+    it("returns only net new sql_expr filters on update", () => {
+      const filters = getNetNewSqlExprRowFilters({
+        rowFilters: [
+          { operator: "sql_expr", values: ["amount > 100"] },
+          { operator: "sql_expr", values: ["country = 'US'"] },
+        ],
+        previousRowFilters: [
+          { operator: "sql_expr", values: ["amount > 100"] },
+          { operator: "saved_filter", values: ["filter_country_us"] },
+        ],
+      });
+
+      expect(filters).toEqual([
+        { operator: "sql_expr", values: ["country = 'US'"] },
+      ]);
+    });
+
+    it("can force-validate all sql_expr filters when context changes", () => {
+      const filters = getNetNewSqlExprRowFilters({
+        rowFilters: [
+          { operator: "sql_expr", values: ["amount > 100"] },
+          { operator: "sql_expr", values: ["amount > 100"] },
+        ],
+        previousRowFilters: [
+          { operator: "sql_expr", values: ["amount > 100"] },
+        ],
+        validateAll: true,
+      });
+
+      expect(filters).toEqual([
+        { operator: "sql_expr", values: ["amount > 100"] },
+      ]);
     });
   });
 

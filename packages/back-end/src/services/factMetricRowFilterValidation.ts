@@ -6,6 +6,11 @@ type FactTableForRowFilterValidation = Pick<
   "sql" | "eventName"
 >;
 
+function getNormalizedSqlExpr(rowFilter: RowFilter): string | null {
+  if (rowFilter.operator !== "sql_expr") return null;
+  return rowFilter.values?.[0]?.trim() || null;
+}
+
 export function getRiskyRowFilterSqlExpressions(
   rowFilters: RowFilter[] | undefined,
 ): string[] {
@@ -14,16 +19,49 @@ export function getRiskyRowFilterSqlExpressions(
   const expressions: string[] = [];
 
   rowFilters.forEach((rowFilter) => {
-    if (rowFilter.operator === "sql_expr") {
-      const sqlExpression = rowFilter.values?.[0]?.trim();
-      if (sqlExpression) {
-        // Add a newline before closing parens to support trailing line comments.
-        expressions.push(`(${sqlExpression}\n)`);
-      }
+    const sqlExpression = getNormalizedSqlExpr(rowFilter);
+    if (sqlExpression) {
+      // Add a newline before closing parens to support trailing line comments.
+      expressions.push(`(${sqlExpression}\n)`);
     }
   });
 
   return expressions;
+}
+
+export function getNetNewSqlExprRowFilters({
+  rowFilters,
+  previousRowFilters,
+  validateAll = false,
+}: {
+  rowFilters: RowFilter[] | undefined;
+  previousRowFilters: RowFilter[] | undefined;
+  validateAll?: boolean;
+}): RowFilter[] {
+  if (!rowFilters?.length) return [];
+
+  const previousExpressions = new Set(
+    (previousRowFilters || [])
+      .map(getNormalizedSqlExpr)
+      .filter((s): s is string => !!s),
+  );
+  const seenExpressions = new Set<string>();
+  const netNewSqlExprFilters: RowFilter[] = [];
+
+  rowFilters.forEach((rowFilter) => {
+    const sqlExpression = getNormalizedSqlExpr(rowFilter);
+    if (!sqlExpression) return;
+    if (!validateAll && previousExpressions.has(sqlExpression)) return;
+    if (seenExpressions.has(sqlExpression)) return;
+
+    seenExpressions.add(sqlExpression);
+    netNewSqlExprFilters.push({
+      operator: "sql_expr",
+      values: [sqlExpression],
+    });
+  });
+
+  return netNewSqlExprFilters;
 }
 
 export async function validateFactMetricRowFilterSql({
