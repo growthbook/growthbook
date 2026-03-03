@@ -58,7 +58,6 @@ import { TruncateMiddleWithTooltip } from "@/ui/TruncateMiddleWithTooltip";
 import FeaturesDraftTable from "./FeaturesDraftTable";
 
 const NUM_PER_PAGE = 20;
-const HEADER_HEIGHT_PX = 55;
 
 function valueTypeLabel(
   valueType: "boolean" | "string" | "number" | "json",
@@ -156,12 +155,7 @@ export default function FeaturesPage() {
             </Flex>
           </Box>
 
-          <Table
-            variant="list"
-            stickyHeader
-            stickyTopOffset={HEADER_HEIGHT_PX}
-            roundedCorners
-          >
+          <Table variant="list" stickyHeader roundedCorners>
             <TableHeader>
               <TableRow>
                 <TableColumnHeader style={{ width: 40 }} />

@@ -18,8 +18,6 @@ import Table, {
   TableCell,
 } from "@/ui/Table";
 
-const HEADER_HEIGHT_PX = 55;
-
 interface ExperimentsListTableProps {
   tab: string;
   SortableTableColumnHeader: FC<{
@@ -67,12 +65,7 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
 
   return (
     <>
-      <Table
-        variant="list"
-        stickyHeader
-        stickyTopOffset={HEADER_HEIGHT_PX}
-        roundedCorners
-      >
+      <Table variant="list" stickyHeader roundedCorners>
         <TableHeader>
           <TableRow>
             <TableColumnHeader style={{ width: 40 }} />

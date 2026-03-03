@@ -2,7 +2,8 @@ import React from "react";
 import { Table as RadixTable } from "@radix-ui/themes";
 import clsx from "clsx";
 
-const DEFAULT_STICKY_TOP_OFFSET_PX = 55;
+/** Standard top offset (px) for sticky table headers. Use when aligning with Table. */
+export const DEFAULT_STICKY_TOP_OFFSET_PX = 55;
 
 export type TableProps = Omit<
   React.ComponentProps<typeof RadixTable.Root>,
@@ -12,7 +13,7 @@ export type TableProps = Omit<
   variant?: "list" | "surface" | "ghost";
   /** When true (or when variant="list"), header row is sticky with downward-only shadow */
   stickyHeader?: boolean;
-  /** Top offset in px for sticky header (default 55). Used as CSS var --table-sticky-top. */
+  /** Top offset in px for sticky header (default DEFAULT_STICKY_TOP_OFFSET_PX). Used as CSS var --table-sticky-top. */
   stickyTopOffset?: number;
   /** When true (or when variant="list"), first header row gets rounded top corners */
   roundedCorners?: boolean;

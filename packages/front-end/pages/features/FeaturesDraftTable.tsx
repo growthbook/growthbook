@@ -95,7 +95,6 @@ export default function FeaturesDraftTable() {
     };
   });
 
-  const HEADER_HEIGHT_PX = 55;
   const { searchInputProps, items, SortableTableColumnHeader } = useSearch({
     items: revisions,
     defaultSortField: "dateAndStatus",
@@ -142,12 +141,7 @@ export default function FeaturesDraftTable() {
           </div>
         </div>
 
-        <Table
-          variant="list"
-          stickyHeader
-          stickyTopOffset={HEADER_HEIGHT_PX}
-          roundedCorners
-        >
+        <Table variant="list" stickyHeader roundedCorners>
           <TableHeader>
             <TableRow>
               <SortableTableColumnHeader field="id">
