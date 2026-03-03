@@ -29,6 +29,11 @@ export default {
       label: "Quick Start Guide",
     },
     {
+      type: "link",
+      label: "SDKs",
+      href: "/lib",
+    },
+    {
       type: "category",
       collapsed: true,
       label: "Feature Flags",

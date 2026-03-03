@@ -3490,6 +3490,9 @@ export interface components {
       banditBurnInValue?: number;
       /** @enum {string} */
       banditBurnInUnit?: "days" | "hours";
+      banditConversionWindowValue?: number;
+      /** @enum {string} */
+      banditConversionWindowUnit?: "days" | "hours";
       linkedFeatures?: (string)[];
       hasVisualChangesets?: boolean;
       hasURLRedirects?: boolean;
@@ -3884,6 +3887,9 @@ export interface components {
       banditBurnInValue?: number;
       /** @enum {string} */
       banditBurnInUnit?: "days" | "hours";
+      banditConversionWindowValue?: number;
+      /** @enum {string} */
+      banditConversionWindowUnit?: "days" | "hours";
       linkedFeatures?: (string)[];
       hasVisualChangesets?: boolean;
       hasURLRedirects?: boolean;
@@ -9894,6 +9900,9 @@ export interface operations {
                 banditBurnInValue?: number;
                 /** @enum {string} */
                 banditBurnInUnit?: "days" | "hours";
+                banditConversionWindowValue?: number;
+                /** @enum {string} */
+                banditConversionWindowUnit?: "days" | "hours";
                 linkedFeatures?: (string)[];
                 hasVisualChangesets?: boolean;
                 hasURLRedirects?: boolean;
@@ -10047,6 +10056,9 @@ export interface operations {
           banditBurnInValue?: number;
           /** @enum {string} */
           banditBurnInUnit?: "days" | "hours";
+          banditConversionWindowValue?: number;
+          /** @enum {string} */
+          banditConversionWindowUnit?: "days" | "hours";
           customFields?: {
             [key: string]: string | undefined;
           };
@@ -10216,6 +10228,9 @@ export interface operations {
               banditBurnInValue?: number;
               /** @enum {string} */
               banditBurnInUnit?: "days" | "hours";
+              banditConversionWindowValue?: number;
+              /** @enum {string} */
+              banditConversionWindowUnit?: "days" | "hours";
               linkedFeatures?: (string)[];
               hasVisualChangesets?: boolean;
               hasURLRedirects?: boolean;
@@ -10420,6 +10435,9 @@ export interface operations {
               banditBurnInValue?: number;
               /** @enum {string} */
               banditBurnInUnit?: "days" | "hours";
+              banditConversionWindowValue?: number;
+              /** @enum {string} */
+              banditConversionWindowUnit?: "days" | "hours";
               linkedFeatures?: (string)[];
               hasVisualChangesets?: boolean;
               hasURLRedirects?: boolean;
@@ -10577,6 +10595,9 @@ export interface operations {
           banditBurnInValue?: number;
           /** @enum {string} */
           banditBurnInUnit?: "days" | "hours";
+          banditConversionWindowValue?: number;
+          /** @enum {string} */
+          banditConversionWindowUnit?: "days" | "hours";
           customFields?: {
             [key: string]: string | undefined;
           };
@@ -10746,6 +10767,9 @@ export interface operations {
               banditBurnInValue?: number;
               /** @enum {string} */
               banditBurnInUnit?: "days" | "hours";
+              banditConversionWindowValue?: number;
+              /** @enum {string} */
+              banditConversionWindowUnit?: "days" | "hours";
               linkedFeatures?: (string)[];
               hasVisualChangesets?: boolean;
               hasURLRedirects?: boolean;
@@ -11937,6 +11961,9 @@ export interface operations {
               banditBurnInValue?: number;
               /** @enum {string} */
               banditBurnInUnit?: "days" | "hours";
+              banditConversionWindowValue?: number;
+              /** @enum {string} */
+              banditConversionWindowUnit?: "days" | "hours";
               linkedFeatures?: (string)[];
               hasVisualChangesets?: boolean;
               hasURLRedirects?: boolean;

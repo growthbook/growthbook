@@ -2241,6 +2241,13 @@ paths:
                   enum:
                     - days
                     - hours
+                banditConversionWindowValue:
+                  type: number
+                banditConversionWindowUnit:
+                  type: string
+                  enum:
+                    - days
+                    - hours
                 customFields:
                   type: object
                   additionalProperties:
@@ -2602,6 +2609,13 @@ paths:
                 banditBurnInValue:
                   type: number
                 banditBurnInUnit:
+                  type: string
+                  enum:
+                    - days
+                    - hours
+                banditConversionWindowValue:
+                  type: number
+                banditConversionWindowUnit:
                   type: string
                   enum:
                     - days
@@ -20699,6 +20713,13 @@ components:
         banditBurnInValue:
           type: number
         banditBurnInUnit:
+          type: string
+          enum:
+            - days
+            - hours
+        banditConversionWindowValue:
+          type: number
+        banditConversionWindowUnit:
           type: string
           enum:
             - days

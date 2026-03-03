@@ -2,7 +2,11 @@ import mongoose, { FilterQuery } from "mongoose";
 import cloneDeep from "lodash/cloneDeep";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
-import { MergeResultChanges, getApiFeatureEnabledEnvs } from "shared/util";
+import {
+  MergeResultChanges,
+  getApiFeatureEnabledEnvs,
+  getApiFeatureAllEnvs,
+} from "shared/util";
 import {
   SafeRolloutInterface,
   SafeRolloutRule,
@@ -482,7 +486,10 @@ export const createFeatureEvent = async <
         },
         projects: [currentApiFeature.project],
         tags: currentApiFeature.tags,
-        environments: getApiFeatureEnabledEnvs(currentApiFeature),
+        environments:
+          eventData.event === "deleted"
+            ? getApiFeatureAllEnvs(currentApiFeature)
+            : getApiFeatureEnabledEnvs(currentApiFeature),
         containsSecrets: false,
       } as CreateEventParams<"feature", Event>;
 

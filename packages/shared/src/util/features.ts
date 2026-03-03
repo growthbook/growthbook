@@ -1577,3 +1577,7 @@ export function getApiFeatureEnabledEnvs(feature: ApiFeature) {
   });
   return Array.from(envs);
 }
+
+export function getApiFeatureAllEnvs(feature: ApiFeature) {
+  return Object.keys(feature.environments);
+}

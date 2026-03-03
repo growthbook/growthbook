@@ -102,7 +102,7 @@ export function TextChangedField({
           lineHeight: 1.5,
         }}
       >
-        {value || <em className="text-muted">None</em>}
+        {value || <em className="text-muted">unset</em>}
       </div>
     </div>
   );
@@ -120,6 +120,11 @@ export function TextChangedField({
   );
 }
 
+// Treat as "empty" for display; when both are empty we skip the row to avoid "unset → unset".
+function isEmptyDisplay(val: unknown): boolean {
+  return val === null || val === undefined || val === "";
+}
+
 // Before/after row for fields without a dedicated renderer.
 // Scalars shown as plain text; objects/arrays as compact JSON.
 export function GenericFieldChange({
@@ -132,8 +137,10 @@ export function GenericFieldChange({
   postVal: unknown;
 }) {
   if (isEqual(preVal, postVal)) return null;
+  // Skip when both would display as "unset" (e.g. undefined vs "" for rule description)
+  if (isEmptyDisplay(preVal) && isEmptyDisplay(postVal)) return null;
   const fmt = (v: unknown): ReactNode => {
-    if (v === null || v === undefined) return <em>unset</em>;
+    if (isEmptyDisplay(v)) return <em>unset</em>;
     if (typeof v === "boolean") return v ? "true" : "false";
     if (typeof v === "string" || typeof v === "number") return String(v);
     return (
