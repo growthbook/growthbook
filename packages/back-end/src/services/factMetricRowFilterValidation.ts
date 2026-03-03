@@ -3,12 +3,11 @@ import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 
 type FactTableForRowFilterValidation = Pick<
   FactTableInterface,
-  "sql" | "eventName" | "filters"
+  "sql" | "eventName"
 >;
 
 export function getRiskyRowFilterSqlExpressions(
   rowFilters: RowFilter[] | undefined,
-  factTable: Pick<FactTableInterface, "filters">,
 ): string[] {
   if (!rowFilters?.length) return [];
 
@@ -18,19 +17,8 @@ export function getRiskyRowFilterSqlExpressions(
     if (rowFilter.operator === "sql_expr") {
       const sqlExpression = rowFilter.values?.[0]?.trim();
       if (sqlExpression) {
-        expressions.push(`(${sqlExpression})`);
-      }
-      return;
-    }
-
-    if (rowFilter.operator === "saved_filter") {
-      const filterId = rowFilter.values?.[0];
-      if (!filterId) return;
-
-      const savedFilter = factTable.filters.find((f) => f.id === filterId);
-      const savedFilterSql = savedFilter?.value?.trim();
-      if (savedFilterSql) {
-        expressions.push(`(${savedFilterSql})`);
+        // Add a newline before closing parens to support trailing line comments.
+        expressions.push(`(${sqlExpression}\n)`);
       }
     }
   });
@@ -55,10 +43,7 @@ export async function validateFactMetricRowFilterSql({
     return;
   }
 
-  const riskyFilterExpressions = getRiskyRowFilterSqlExpressions(
-    rowFilters,
-    factTable,
-  );
+  const riskyFilterExpressions = getRiskyRowFilterSqlExpressions(rowFilters);
   if (!riskyFilterExpressions.length) {
     return;
   }

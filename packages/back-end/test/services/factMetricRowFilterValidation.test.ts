@@ -25,28 +25,35 @@ const factTable: Pick<FactTableInterface, "sql" | "eventName" | "filters"> = {
 
 describe("factMetricRowFilterValidation", () => {
   describe("getRiskyRowFilterSqlExpressions", () => {
-    it("returns SQL expressions for sql_expr and saved_filter operators only", () => {
-      const expressions = getRiskyRowFilterSqlExpressions(
-        [
-          { operator: "=", column: "country", values: ["US"] },
-          { operator: "sql_expr", values: ["amount > 100"] },
-          { operator: "saved_filter", values: ["filter_country_us"] },
-        ],
-        factTable,
-      );
+    it("returns SQL expressions for sql_expr operators only", () => {
+      const expressions = getRiskyRowFilterSqlExpressions([
+        { operator: "=", column: "country", values: ["US"] },
+        { operator: "sql_expr", values: ["amount > 100"] },
+        { operator: "saved_filter", values: ["filter_country_us"] },
+      ]);
 
-      expect(expressions).toEqual(["(amount > 100)", "(country = 'US')"]);
+      expect(expressions).toEqual(["(amount > 100\n)"]);
+    });
+
+    it("adds a newline before closing parens for line comments", () => {
+      const expressions = getRiskyRowFilterSqlExpressions([
+        {
+          operator: "sql_expr",
+          values: ["amount > 100 -- keep users with large order values"],
+        },
+      ]);
+
+      expect(expressions).toEqual([
+        "(amount > 100 -- keep users with large order values\n)",
+      ]);
     });
 
     it("ignores empty or unresolved risky operators", () => {
-      const expressions = getRiskyRowFilterSqlExpressions(
-        [
-          { operator: "sql_expr", values: ["   "] },
-          { operator: "saved_filter", values: ["missing_filter"] },
-          { operator: "saved_filter", values: [] },
-        ],
-        factTable,
-      );
+      const expressions = getRiskyRowFilterSqlExpressions([
+        { operator: "sql_expr", values: ["   "] },
+        { operator: "saved_filter", values: ["missing_filter"] },
+        { operator: "saved_filter", values: [] },
+      ]);
 
       expect(expressions).toEqual([]);
     });
@@ -83,12 +90,14 @@ describe("factMetricRowFilterValidation", () => {
       ).resolves.toBeUndefined();
     });
 
-    it("runs a LIMIT-0 validity query for risky filters", async () => {
+    it("runs a validity query for sql_expr filters only", async () => {
+      const getTestValidityQuery = jest
+        .fn()
+        .mockReturnValue("SELECT * FROM __table LIMIT 0");
+      const runTestQuery = jest.fn().mockResolvedValue({ results: [] });
       const integration = {
-        getTestValidityQuery: jest
-          .fn()
-          .mockReturnValue("SELECT * FROM __table LIMIT 0"),
-        runTestQuery: jest.fn().mockResolvedValue({ results: [] }),
+        getTestValidityQuery,
+        runTestQuery,
       } as unknown as SourceIntegrationInterface;
 
       await validateFactMetricRowFilterSql({
@@ -102,12 +111,13 @@ describe("factMetricRowFilterValidation", () => {
         errorPrefix: "Invalid row filter SQL: ",
       });
 
-      expect(integration.getTestValidityQuery).toHaveBeenCalledWith(
-        expect.stringContaining("WHERE (country = 'US') AND (amount > 100)"),
-        14,
-        { eventName: "orders" },
-      );
-      expect(integration.runTestQuery).toHaveBeenCalledWith(
+      const [query, testDays, templateVariables] =
+        getTestValidityQuery.mock.calls[0];
+      expect(query).toContain("WHERE (amount > 100\n)");
+      expect(query).not.toContain("country = 'US'");
+      expect(testDays).toBe(14);
+      expect(templateVariables).toEqual({ eventName: "orders" });
+      expect(runTestQuery).toHaveBeenCalledWith(
         "SELECT * FROM __table LIMIT 0",
       );
     });
