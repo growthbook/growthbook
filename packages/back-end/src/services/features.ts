@@ -346,6 +346,9 @@ export function generateAutoExperimentsPayload({
             : data.visualChangeset.urlPatterns,
         weights: phase.variationWeights,
         meta: e.variations.map((v) => ({ key: v.key, name: v.name })),
+        seed: phase.seed,
+        name: e.name,
+        phase: `${e.phases.length - 1}`,
         force: forcedVariation
           ? e.variations.indexOf(forcedVariation)
           : undefined,
