@@ -4,7 +4,11 @@ import {
   ExperimentPhaseStringDates,
 } from "shared/types/experiment";
 import { useForm } from "react-hook-form";
-import { validateAndFixCondition } from "shared/util";
+import {
+  getNamespaceRanges,
+  NamespaceValue,
+  validateAndFixCondition,
+} from "shared/util";
 import { getEqualWeights } from "shared/experiments";
 import { datetime } from "shared/dates";
 import { useAuth } from "@/services/auth";
@@ -49,17 +53,9 @@ const NewPhaseForm: FC<{
         enabled: prevPhase.namespace?.enabled || false,
         name: prevPhase.namespace?.name || "",
         // Handle both old (single range) and new (multiple ranges) formats
-        ranges: (() => {
-          const ns = prevPhase.namespace;
-          if (!ns) return [[0, 0.5] as [number, number]];
-
-          if ("ranges" in ns && ns.ranges && ns.ranges.length > 0) {
-            return ns.ranges;
-          } else if ("range" in ns && ns.range) {
-            return [ns.range];
-          }
-          return [[0, 0.5] as [number, number]];
-        })(),
+        ranges: prevPhase.namespace
+          ? getNamespaceRanges(prevPhase.namespace as NamespaceValue)
+          : ([[0, 0.5]] as [number, number][]),
       },
     },
   });
