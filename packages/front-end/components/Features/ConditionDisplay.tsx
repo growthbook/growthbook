@@ -139,13 +139,13 @@ export function MultiValuesDisplay({
               <Link
                 href={`/saved-groups/${group.id}`}
                 target="_blank"
-                color="violet"
                 title={`Manage Saved Group: ${displayValue}`}
                 style={{
                   display: "flex",
                   alignItems: "center",
                   gap: "4px",
                   overflow: "hidden",
+                  color: "var(--accent-11)",
                 }}
               >
                 <span
@@ -360,13 +360,13 @@ function getConditionParts({
           <Link
             href={`/attributes/${encodeURIComponent(field)}`}
             target="_blank"
-            color="violet"
             title={`View attribute: ${field}`}
             style={{
               display: "flex",
               alignItems: "center",
               gap: "4px",
               overflow: "hidden",
+              color: "var(--accent-11)",
             }}
           >
             <span
@@ -509,13 +509,13 @@ function getConditionParts({
                   <Link
                     href={`/saved-groups/${group.id}`}
                     target="_blank"
-                    color="violet"
                     title={`Manage Saved Group: ${group.groupName}`}
                     style={{
                       display: "flex",
                       alignItems: "center",
                       gap: "4px",
                       overflow: "hidden",
+                      color: "var(--accent-11)",
                     }}
                   >
                     <span
@@ -578,12 +578,12 @@ function ParentIdLink({ parentId }: { parentId: string }) {
           href={`/features/${parentId}`}
           title={`Manage Feature: ${parentId}`}
           target="_blank"
-          color="violet"
           style={{
             display: "flex",
             alignItems: "center",
             gap: "4px",
             overflow: "hidden",
+            color: "var(--accent-11)",
           }}
         >
           <span
