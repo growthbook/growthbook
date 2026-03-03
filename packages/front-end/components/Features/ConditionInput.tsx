@@ -572,24 +572,29 @@ function ConditionAndGroupInput({
                   disableHoverableContent={false}
                   content={
                     <Box style={{ maxWidth: 280 }}>
-                      {opt.description && (
-                        <Box mb={opt.tags?.length ? "2" : undefined}>
-                          <Markdown style={{ fontSize: 12 }}>
-                            {opt.description}
-                          </Markdown>
-                        </Box>
-                      )}
-                      {opt.tags && opt.tags.length > 0 && (
-                        <SortedTags
-                          tags={opt.tags}
-                          shouldShowEllipsis={true}
-                          showEllipsisAtIndex={5}
-                        />
-                      )}
+                      <Flex direction="column" gap="2">
+                        {opt.description && (
+                          <Box>
+                            <Text size="1" as="div">
+                              <Markdown style={{ fontSize: 12 }}>
+                                {opt.description}
+                              </Markdown>
+                            </Text>
+                          </Box>
+                        )}
+                        {opt.tags && opt.tags.length > 0 && (
+                          <SortedTags
+                            tags={opt.tags}
+                            shouldShowEllipsis={true}
+                            showEllipsisAtIndex={5}
+                          />
+                        )}
+                      </Flex>
                     </Box>
                   }
                 >
-                  <span
+                  <Box
+                    as="span"
                     style={{
                       display: "block",
                       width: "100%",
@@ -598,8 +603,8 @@ function ConditionAndGroupInput({
                       minHeight: "100%",
                     }}
                   >
-                    {o.label}
-                  </span>
+                    <Text size="2">{o.label}</Text>
+                  </Box>
                 </Tooltip>
               );
             }}
