@@ -409,9 +409,9 @@ p.rt-TooltipText {
 // List table variant: sticky header, row hover
 .table-list-wrapper {
   &[data-table-list] {
-    // Sticky header must not sit inside a scroll container; overflow-x: auto would make overflow-y
-    // compute to 'auto' (CSS spec), so the wrapper would become the scroll container. Use visible
-    // so the viewport is the scroll container and sticky works. Wide tables scroll with the page.
+    // Contain table to viewport: horizontal (and vertical) scroll inside wrapper so table doesn't expand the page.
+    // Sticky header sticks to the top of this wrapper when scrolling inside it.
+    max-width: 100%;
     overflow: visible;
     // Override .appbox: no background so it doesn't stick out past the table border
     background-color: transparent;
@@ -424,14 +424,17 @@ p.rt-TooltipText {
     // Override Radix .rt-TableRoot:where(.rt-variant-surface) border so only wrapper border shows
     .rt-TableRoot.table-list {
       border: none;
+      background-color: transparent;
     }
     .rt-ScrollAreaRoot,
     .rt-ScrollAreaViewport {
       overflow: visible !important;
     }
-    // .rt-TableBody .rt-TableRow .rt-TableCell {
-    //   background-color: var(--table-list-background-color);
-    // }
+    // Unify background: header and body use same base color so they align
+    .rt-TableBody .rt-TableRow .rt-TableCell {
+      background-color: var(--table-list-background-color);
+      box-sizing: border-box;
+    }
     .rt-TableBody .rt-TableRow:hover .rt-TableCell {
       background-color: var(--table-row-highlight-background-color);
     }
@@ -439,25 +442,28 @@ p.rt-TooltipText {
       position: sticky;
       top: var(--table-sticky-top, var(--sticky-header-top));
       z-index: 900;
+      width: 100%;
       // Downward-only shadow when sticky (no upward bleed)
       box-shadow: 0 4px 6px -2px rgba(0, 0, 0, 0.1);
-      // Same background as rows for unified look
       background-color: var(--table-list-background-color);
       overflow: visible;
+      box-sizing: border-box;
 
       .rt-TableRow .rt-TableColumnHeaderCell {
         white-space: nowrap;
+        box-sizing: border-box;
       }
     }
-    // .rt-TableHeader .rt-TableRow .rt-TableColumnHeaderCell {
-    //   background-color: var(--table-list-background-color);
-    // }
 
     .rt-TableRootTable {
       overflow: visible !important;
       border-collapse: separate;
       border-spacing: 0;
       border: none;
+      box-sizing: border-box;
+      // Size to content so wrapper scroll matches table width; header row is part of same table so it aligns
+      width: max-content;
+      min-width: 100%;
 
       .rt-TableHeader
         .rt-TableRow:first-child
