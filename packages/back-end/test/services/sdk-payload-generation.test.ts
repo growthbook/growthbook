@@ -60,6 +60,10 @@ function minimalRawData(
   };
 }
 
+// Unique fingerprints for f1 so rule detection is deterministic (no ambiguous structural match).
+const EXP1_FINGERPRINT = 0.31337;
+const F1_FINGERPRINT = "This is our rollout rule";
+
 // Canonical data: f1 (p1) has experiment-ref rule + force rule with $inGroup; f2 (p2); exp1; saved group sg1
 function basicMatrixData(): SDKPayloadRawData {
   const exp: ExperimentInterface = {
@@ -69,7 +73,15 @@ function basicMatrixData(): SDKPayloadRawData {
     name: "Matrix Exp",
     hypothesis: "",
     status: "running",
-    phases: [{ phase: "main", coverage: 1, variationWeights: [0.5, 0.5] }],
+    hashVersion: 2,
+    phases: [
+      {
+        phase: "main",
+        coverage: 1,
+        variationWeights: [EXP1_FINGERPRINT, 1 - EXP1_FINGERPRINT],
+        seed: "matrix-exp-seed",
+      },
+    ],
     variations: [
       { id: "v0", key: "0", name: "Control" },
       { id: "v1", key: "1", name: "Treatment" },
@@ -78,6 +90,7 @@ function basicMatrixData(): SDKPayloadRawData {
     dateUpdated: new Date(),
     trackingKey: "tk",
     archived: false,
+    hasVisualChangesets: true, // required so includeExperimentInPayload(exp) is true and experiment-ref rule is included
   } as ExperimentInterface;
   const f1: FeatureInterface = {
     id: "f1",
@@ -110,7 +123,7 @@ function basicMatrixData(): SDKPayloadRawData {
             id: "r1",
             enabled: true,
             value: false,
-            condition: '{"id":{"$inGroup":"sg1"}}',
+            condition: `{"browser":"${F1_FINGERPRINT}","id":{"$inGroup":"sg1"}}`,
           },
         ],
       },
@@ -361,6 +374,10 @@ describe("SDK payload generation (exhaustive connection matrix)", () => {
       }
 
       const hasBucketingV2 = connection.capabilities.includes("bucketingV2");
+      // When looseUnmarshalling is present, payload generation does not strip keys (allowedKeys = null), so we get full rule shape.
+      const hasFullRuleShape =
+        hasBucketingV2 ||
+        connection.capabilities.includes("looseUnmarshalling");
       const hasSavedGroupRefs =
         connection.capabilities.includes("savedGroupReferences") &&
         connection.savedGroupReferencesEnabled === true;
@@ -380,48 +397,70 @@ describe("SDK payload generation (exhaustive connection matrix)", () => {
       const f1Def = out.features.f1;
       if (!f1Def?.rules?.length) return;
 
-      const expRefRule = f1Def.rules[0] as Record<string, unknown>;
-      if (hasBucketingV2) {
-        expect(expRefRule).toHaveProperty("hashVersion");
-        expect(expRefRule).toHaveProperty("seed");
-        expect(expRefRule).toHaveProperty("meta");
-        expect(expRefRule).toHaveProperty("phase");
-      } else {
-        expect(expRefRule).toHaveProperty("hashAttribute");
-        expect(expRefRule).toHaveProperty("namespace");
-        expect(expRefRule).not.toHaveProperty("hashVersion");
-        expect(expRefRule).not.toHaveProperty("seed");
-        expect(expRefRule).not.toHaveProperty("meta");
-        expect(expRefRule).not.toHaveProperty("name");
+      const rules = f1Def.rules as Record<string, unknown>[];
+      // Deterministic lookup: by id when present, else by unique fingerprint only (so holdout/other rules cannot be mistaken).
+      const expRefRule = rules.find(
+        (r) =>
+          r.id === "rule-matrix" ||
+          (Array.isArray(r.weights) && r.weights[0] === EXP1_FINGERPRINT),
+      );
+      const forceRule = rules.find(
+        (r) =>
+          r.id === "r1" ||
+          (r.condition as Record<string, unknown>)?.browser === F1_FINGERPRINT,
+      );
+
+      if (!expRefRule) {
+        throw new Error(
+          `Canonical data has one experiment-ref rule; payload should include it. Got ${rules.length} rule(s): ${JSON.stringify(rules.map((r) => Object.keys(r)))}`,
+        );
+      }
+      if (!forceRule) {
+        throw new Error(
+          `Canonical data has one force rule ($inGroup sg1); payload should include it. Got ${rules.length} rule(s): ${JSON.stringify(rules.map((r) => Object.keys(r)))}`,
+        );
       }
 
-      if (connection.includeRuleIds === true) {
-        expect(expRefRule.id).toBe("rule-matrix");
-      }
-      if (connection.includeExperimentNames === true && hasBucketingV2) {
-        expect(expRefRule.name).toBe("Matrix Exp");
-      }
-      if (
-        connection.includeRuleIds === false ||
-        connection.includeExperimentNames === false
-      ) {
-        if (connection.includeRuleIds === false)
-          expect(expRefRule.id).toBeUndefined();
-        if (connection.includeExperimentNames === false)
-          expect(expRefRule.name).toBeUndefined();
-      }
-
-      const forceRule = f1Def.rules[1] as Record<string, unknown> | undefined;
-      if (forceRule?.condition) {
-        const cond = forceRule.condition as Record<string, unknown>;
-        if (hasSavedGroupRefs) {
-          expect(cond).toHaveProperty("id");
-          expect((cond.id as Record<string, unknown>).$inGroup).toBe("sg1");
-          expect(out.savedGroups).toHaveProperty("sg1");
+      {
+        if (hasFullRuleShape) {
+          expect(expRefRule).toHaveProperty("hashVersion");
+          expect(expRefRule).toHaveProperty("seed");
+          expect(expRefRule).toHaveProperty("meta");
+          expect(expRefRule).toHaveProperty("phase");
         } else {
-          expect(cond).toHaveProperty("id");
-          expect((cond.id as Record<string, unknown>).$in).toEqual(["a", "b"]);
+          expect(expRefRule).toHaveProperty("hashAttribute");
+          expect(expRefRule).toHaveProperty("namespace");
+          expect(expRefRule).not.toHaveProperty("hashVersion");
+          expect(expRefRule).not.toHaveProperty("seed");
+          expect(expRefRule).not.toHaveProperty("meta");
+          expect(expRefRule).not.toHaveProperty("name");
         }
+
+        if (connection.includeRuleIds === true) {
+          expect(expRefRule.id).toBe("rule-matrix");
+        }
+        if (connection.includeExperimentNames === true && hasFullRuleShape) {
+          expect(expRefRule.name).toBe("Matrix Exp");
+        }
+        if (
+          connection.includeRuleIds === false ||
+          connection.includeExperimentNames === false
+        ) {
+          if (connection.includeRuleIds === false)
+            expect(expRefRule.id).toBeUndefined();
+          if (connection.includeExperimentNames === false)
+            expect(expRefRule.name).toBeUndefined();
+        }
+      }
+
+      const cond = forceRule.condition as Record<string, unknown>;
+      if (hasSavedGroupRefs) {
+        expect(cond).toHaveProperty("id");
+        expect((cond.id as Record<string, unknown>).$inGroup).toBe("sg1");
+        expect(out.savedGroups).toHaveProperty("sg1");
+      } else {
+        expect(cond).toHaveProperty("id");
+        expect((cond.id as Record<string, unknown>).$in).toEqual(["a", "b"]);
       }
     },
   );

@@ -377,6 +377,10 @@ export function getFeatureDefinition({
     !!savedGroupsMap &&
     (savedGroupReferencesEnabled === false ||
       !capabilities.includes("savedGroupReferences"));
+  // looseUnmarshalling = no capability-based strip (emit full rule shape). It is
+  // necessary but not sufficient for connection-controlled fields (rule ids,
+  // feature/experiment/variation names, etc.)—we only add those when the corresponding
+  // SDK Connection setting is true (includeRuleIds, includeExperimentNames, etc.).
   const allowedKeys =
     capabilities !== undefined && !capabilities.includes("looseUnmarshalling")
       ? getPayloadAllowedKeys(capabilities)
@@ -575,9 +579,17 @@ export function getFeatureDefinition({
                 replaceSavedGroups(savedGroupsMap, organization!),
               );
           }
-          return allowedKeys
-            ? (pick(rule, allowedKeys.featureRuleKeys) as FeatureDefinitionRule)
-            : rule;
+          if (allowedKeys) {
+            const picked = pick(
+              rule,
+              allowedKeys.featureRuleKeys,
+            ) as FeatureDefinitionRule;
+            if (includeRuleIds && r.id != null) {
+              (picked as Record<string, unknown>).id = r.id;
+            }
+            return picked;
+          }
+          return rule;
         }
 
         const condition = getParsedCondition(
@@ -724,9 +736,17 @@ export function getFeatureDefinition({
               replaceSavedGroups(savedGroupsMap, organization!),
             );
         }
-        return allowedKeys
-          ? (pick(rule, allowedKeys.featureRuleKeys) as FeatureDefinitionRule)
-          : rule;
+        if (allowedKeys) {
+          const picked = pick(
+            rule,
+            allowedKeys.featureRuleKeys,
+          ) as FeatureDefinitionRule;
+          if (includeRuleIds && r.id != null) {
+            picked.id = r.id;
+          }
+          return picked;
+        }
+        return rule;
       })
       ?.filter(isRule) ?? []),
   ];
