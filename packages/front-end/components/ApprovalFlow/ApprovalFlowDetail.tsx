@@ -15,11 +15,9 @@ import Button from "@/ui/Button";
 import RadioGroup from "@/ui/RadioGroup";
 import Field from "@/components/Forms/Field";
 import Dropdown from "@/components/Dropdown/Dropdown";
-import DropdownLink from "@/components/Dropdown/DropdownLink";
 import Callout from "@/ui/Callout";
 import Modal from "@/components/Modal";
 import Tooltip from "@/ui/Tooltip";
-import SplitButton from "@/ui/SplitButton";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { ExpandableDiff } from "@/components/Features/DraftModal";
 interface ApprovalFlowDetailProps {
@@ -77,7 +75,6 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [confirmPublish, setConfirmPublish] = useState(false);
   const [confirmBypass, setConfirmBypass] = useState(false);
-  const [bypassDropdownOpen, setBypassDropdownOpen] = useState(false);
   const [reviewDropdownOpen, setReviewDropdownOpen] = useState(false);
   const [reviewComment, setReviewComment] = useState("");
   const [reviewDecision, setReviewDecision] = useState<
@@ -245,21 +242,21 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
     }
   };
 
-  const canMerge = (): boolean => {
-    if (!isOpen) return false;
-    if (!!mergeResult && !mergeResult.success) return false;
-    if (approvalFlow.status !== "approved") return false;
-    return permissionsUtil.canUpdateSavedGroup(
-      currentState as SavedGroupInterface,
-      {},
-    );
-  };
-
   const canBypass =
     isOpen &&
     permissionsUtil.canBypassApprovalChecks({
       project: (currentState as SavedGroupInterface).projects?.[0] || "",
     });
+
+  const canMerge = (): boolean => {
+    if (!isOpen) return false;
+    if (!!mergeResult && !mergeResult.success) return false;
+    if (approvalFlow.status !== "approved" && !canBypass) return false;
+    return permissionsUtil.canUpdateSavedGroup(
+      currentState as SavedGroupInterface,
+      {},
+    );
+  };
 
   const getActivityLabel = (
     item: (typeof groupedActivity)[string][number],
@@ -494,64 +491,26 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
               </Flex>
             </Box>
           </Dropdown>
-          {canBypass ? (
-            <SplitButton
-              menu={
-                <Dropdown
-                  uuid="bypass-publish-dropdown"
-                  toggle={
-                    <Button
-                      variant="solid"
-                      color="violet"
-                      disabled={isSubmitting}
-                    >
-                      <Box mx="-2">
-                        <PiCaretDown />
-                      </Box>
-                    </Button>
-                  }
-                  caret={false}
-                  open={bypassDropdownOpen}
-                  setOpen={setBypassDropdownOpen}
-                >
-                  <DropdownLink onClick={() => setConfirmBypass(true)}>
-                    Bypass approval & publish now
-                  </DropdownLink>
-                </Dropdown>
-              }
-            >
-              {!canMerge() && (
-                <Tooltip content="Approval is required before publishing">
-                  <Button
-                    variant="solid"
-                    color="violet"
-                    onClick={() => setConfirmPublish(true)}
-                    disabled={isSubmitting || !canMerge()}
-                    style={!canMerge() ? { pointerEvents: "none" } : undefined}
-                  >
-                    Publish
-                  </Button>
-                </Tooltip>
-              )}
-            </SplitButton>
-          ) : (
-            <Tooltip
-              content="Approval is required before publishing"
-              enabled={!canMerge() && !isSubmitting}
-            >
-              <span style={{ display: "inline-block" }}>
-                <Button
-                  variant="solid"
-                  color="violet"
-                  onClick={() => setConfirmPublish(true)}
-                  disabled={isSubmitting || !canMerge()}
-                  style={!canMerge() ? { pointerEvents: "none" } : undefined}
-                >
-                  Publish
-                </Button>
-              </span>
-            </Tooltip>
-          )}
+          <Tooltip
+            content={
+              canBypass ? undefined : "Approval is required before publishing"
+            }
+            enabled={!canMerge() && !isSubmitting}
+          >
+            <span style={{ display: "inline-block" }}>
+              <Button
+                variant="solid"
+                color="violet"
+                onClick={() =>
+                  canBypass ? setConfirmBypass(true) : setConfirmPublish(true)
+                }
+                disabled={isSubmitting || !canMerge()}
+                style={!canMerge() ? { pointerEvents: "none" } : undefined}
+              >
+                Publish
+              </Button>
+            </span>
+          </Tooltip>
         </Flex>
       </Flex>
 

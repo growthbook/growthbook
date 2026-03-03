@@ -417,7 +417,7 @@ export const postSavedGroupRemoveItems = async (
 type PutSavedGroupRequest = AuthRequest<
   UpdateSavedGroupProps,
   { id: string },
-  { skipCycleCheck?: string }
+  { skipCycleCheck?: string; bypassApproval?: string }
 >;
 
 type PutSavedGroupResponse =
@@ -463,11 +463,16 @@ export const putSavedGroup = async (
     context.permissions.throwPermissionError();
   }
 
-  const shouldCreateApprovalFlowRequest = isApprovalFlowRequired(
-    context,
-    "saved-group",
-    id,
-  );
+  const bypassApproval = req.query.bypassApproval === "1";
+  const approvalRequired = isApprovalFlowRequired(context, "saved-group", id);
+  const shouldCreateApprovalFlowRequest =
+    approvalRequired &&
+    !(
+      bypassApproval &&
+      context.permissions.canBypassApprovalChecks({
+        project: savedGroup.projects?.[0] ?? "",
+      })
+    );
 
   const fieldsToUpdate: UpdateSavedGroupProps = {};
 

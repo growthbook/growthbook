@@ -388,7 +388,7 @@ export default function EditSavedGroupPage() {
               ? "Add List Items"
               : "Overwrite List Contents"
           }
-          cta={approvalFlowRequired ? "Propose Change" : "Save"}
+          cta={approvalFlowRequired ? "Publish" : "Save"}
           ctaEnabled={
             itemsToAdd.length > 0 &&
             (!listAboveSizeLimit || adminBypassSizeLimit)
@@ -464,6 +464,7 @@ export default function EditSavedGroupPage() {
           current={savedGroupForm}
           type={savedGroup.type}
           approvalFlowRequired={approvalFlowRequired}
+          hasExistingRevision={!!userOpenFlow}
           onApprovalFlowCreated={onApprovalFlowCreated}
         />
       )}
@@ -548,9 +549,17 @@ export default function EditSavedGroupPage() {
             >
               <DropdownMenuGroup>
                 <DropdownMenuItem
-                  disabled={editBlocked}
                   onClick={() => {
-                    setSavedGroupForm(savedGroup);
+                    if (!selectedApprovalFlow && userOpenFlow) {
+                      // Switch to the user's open revision so edits stack on it
+                      selectFlow(userOpenFlow);
+                      setSavedGroupForm({
+                        ...userOpenFlow.target.snapshot,
+                        ...userOpenFlow.target.proposedChanges,
+                      } as SavedGroupInterface);
+                    } else {
+                      setSavedGroupForm(displayedSavedGroup ?? savedGroup);
+                    }
                     setDropdownOpen(false);
                   }}
                 >
@@ -757,8 +766,10 @@ export default function EditSavedGroupPage() {
                 <Button
                   variant="ghost"
                   color="red"
-                  disabled={editBlocked}
                   onClick={() => {
+                    if (!selectedApprovalFlow && userOpenFlow) {
+                      selectFlow(userOpenFlow);
+                    }
                     setImportOperation("replace");
                     setAddItems(true);
                   }}
@@ -767,8 +778,10 @@ export default function EditSavedGroupPage() {
                 </Button>
                 <Button
                   variant="outline"
-                  disabled={editBlocked}
                   onClick={() => {
+                    if (!selectedApprovalFlow && userOpenFlow) {
+                      selectFlow(userOpenFlow);
+                    }
                     setImportOperation("append");
                     setAddItems(true);
                   }}

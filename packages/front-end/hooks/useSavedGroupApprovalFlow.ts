@@ -71,11 +71,7 @@ export function useSavedGroupApprovalFlow(
     }
 
     const authoredOpenFlow = openApprovalFlows
-      .filter(
-        (flow) =>
-          flow.authorId === userId &&
-          (flow.status === "draft" || flow.status === "pending-review"),
-      )
+      .filter((flow) => flow.authorId === userId)
       .sort(
         (a, b) =>
           new Date(b.dateUpdated).getTime() - new Date(a.dateUpdated).getTime(),
