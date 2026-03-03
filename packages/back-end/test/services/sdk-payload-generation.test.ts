@@ -925,6 +925,421 @@ describe("SDK payload generation (scenario-specific)", () => {
     );
   });
 
+  describe("prerequisites, holdouts, and experiments permutations", () => {
+    it("prerequisites: parentConditions present with prerequisites capability, stripped without", async () => {
+      const parent: FeatureInterface = {
+        id: "parent",
+        project: "p1",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        defaultValue: true,
+        organization: "org-1",
+        owner: "",
+        valueType: "boolean",
+        archived: false,
+        description: "",
+        version: 1,
+        environmentSettings: {
+          production: { enabled: true, rules: [] },
+        },
+      } as FeatureInterface;
+      const child: FeatureInterface = {
+        ...cloneDeep(parent),
+        id: "child",
+        prerequisites: [{ id: "parent", condition: '{"value": true}' }],
+        environmentSettings: {
+          production: {
+            enabled: true,
+            rules: [
+              {
+                type: "experiment",
+                id: "r1",
+                enabled: true,
+                coverage: 1,
+                values: [
+                  { value: "v0", weight: 0.5, name: "C" },
+                  { value: "v1", weight: 0.5, name: "T" },
+                ],
+                hashAttribute: "id",
+                seed: "s1",
+                namespace: { enabled: true, name: "ns", range: [0, 1] },
+                prerequisites: [{ id: "parent", condition: '{"value": true}' }],
+              },
+            ],
+          },
+        },
+      } as FeatureInterface;
+      const data = minimalRawData({
+        features: [parent, child],
+        experimentMap: new Map(),
+      });
+      const withPrereqs = await buildSDKPayloadForConnection({
+        context: minimalContext(),
+        connection: {
+          capabilities: ["prerequisites", "bucketingV2"],
+          environment: "production",
+          projects: ["p1"],
+        },
+        data,
+      });
+      expect(withPrereqs.features.child?.rules?.[0]).toHaveProperty(
+        "parentConditions",
+      );
+
+      const withoutPrereqs = await buildSDKPayloadForConnection({
+        context: minimalContext(),
+        connection: {
+          capabilities: ["bucketingV2"],
+          environment: "production",
+          projects: ["p1"],
+        },
+        data,
+      });
+      expect(withoutPrereqs.features.child).toBeDefined();
+      expect(
+        (withoutPrereqs.features.child?.rules?.[0] as Record<string, unknown>)
+          ?.parentConditions,
+      ).toBeUndefined();
+    });
+
+    it("prerequisites + project scoping: child in p1, parent in p2; connection [p1] only excludes parent feature", async () => {
+      const parent: FeatureInterface = {
+        id: "parent",
+        project: "p2",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        defaultValue: true,
+        organization: "org-1",
+        owner: "",
+        valueType: "boolean",
+        archived: false,
+        description: "",
+        version: 1,
+        environmentSettings: {
+          production: { enabled: true, rules: [] },
+        },
+      } as FeatureInterface;
+      const child: FeatureInterface = {
+        ...cloneDeep(parent),
+        id: "child",
+        project: "p1",
+        prerequisites: [{ id: "parent", condition: '{"value": true}' }],
+        environmentSettings: {
+          production: {
+            enabled: true,
+            rules: [
+              {
+                type: "experiment",
+                id: "r1",
+                enabled: true,
+                coverage: 1,
+                values: [
+                  { value: "v0", weight: 0.5, name: "C" },
+                  { value: "v1", weight: 0.5, name: "T" },
+                ],
+                hashAttribute: "id",
+                seed: "s1",
+                prerequisites: [{ id: "parent", condition: '{"value": true}' }],
+              },
+            ],
+          },
+        },
+      } as FeatureInterface;
+      const data = minimalRawData({
+        features: [parent, child],
+        experimentMap: new Map(),
+      });
+      const outP1Only = await buildSDKPayloadForConnection({
+        context: minimalContext(),
+        connection: {
+          capabilities: ["prerequisites", "bucketingV2"],
+          environment: "production",
+          projects: ["p1"],
+        },
+        data,
+      });
+      expect(Object.keys(outP1Only.features)).toContain("child");
+      expect(Object.keys(outP1Only.features)).not.toContain("parent");
+      const outBoth = await buildSDKPayloadForConnection({
+        context: minimalContext(),
+        connection: {
+          capabilities: ["prerequisites", "bucketingV2"],
+          environment: "production",
+          projects: [],
+        },
+        data,
+      });
+      expect(Object.keys(outBoth.features)).toContain("child");
+      expect(Object.keys(outBoth.features)).toContain("parent");
+    });
+
+    it("holdouts + capabilities: holdout rule on feature only when prerequisites capability", async () => {
+      const holdout: HoldoutInterface = {
+        id: "holdout-1",
+        organization: "org-1",
+        name: "H1",
+        description: "",
+        environment: "production",
+        projects: [],
+        experimentId: "exp1",
+        holdoutPercent: 0.1,
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        environmentSettings: {
+          production: { enabled: true, rules: [] },
+        },
+      } as HoldoutInterface;
+      const holdoutExperiment: ExperimentInterface = {
+        id: "exp1",
+        organization: "org-1",
+        project: "p1",
+        name: "Holdout Exp",
+        hypothesis: "",
+        status: "running",
+        phases: [
+          { phase: "main", coverage: 0.9, variationWeights: [0.5, 0.5] },
+        ],
+        variations: [
+          { id: "v0", key: "0", name: "C" },
+          { id: "v1", key: "1", name: "T" },
+        ],
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        trackingKey: "tk",
+        archived: false,
+      } as ExperimentInterface;
+      const holdoutsMap = new Map([
+        ["holdout-1", { holdout, holdoutExperiment }],
+      ]);
+      const featureWithHoldout: FeatureInterface = {
+        id: "f1",
+        project: "p1",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        defaultValue: true,
+        organization: "org-1",
+        owner: "",
+        valueType: "boolean",
+        archived: false,
+        description: "",
+        version: 1,
+        holdout: { id: "holdout-1" } as HoldoutInterface,
+        environmentSettings: {
+          production: { enabled: true, rules: [] },
+        },
+      } as FeatureInterface;
+      const data = minimalRawData({
+        features: [featureWithHoldout],
+        holdoutsMap,
+        experimentMap: new Map([["exp1", holdoutExperiment]]),
+      });
+      const withPrereqs = await buildSDKPayloadForConnection({
+        context: minimalContext(),
+        connection: {
+          capabilities: ["prerequisites", "bucketingV2"],
+          environment: "production",
+          projects: ["p1"],
+        },
+        data,
+      });
+      expect(withPrereqs.features.f1?.rules?.length).toBeGreaterThanOrEqual(1);
+      expect(
+        (withPrereqs.features.f1?.rules?.[0] as Record<string, unknown>)
+          ?.parentConditions,
+      ).toBeDefined();
+
+      const withoutPrereqs = await buildSDKPayloadForConnection({
+        context: minimalContext(),
+        connection: {
+          capabilities: ["bucketingV2"],
+          environment: "production",
+          projects: ["p1"],
+        },
+        data,
+      });
+      expect(withoutPrereqs.features.f1?.rules?.length).toBe(0);
+    });
+
+    it("holdouts + project scoping: holdout with projects [p1] included for connection [p1], excluded for [p2]", async () => {
+      const holdout: HoldoutInterface = {
+        id: "holdout-1",
+        organization: "org-1",
+        name: "H1",
+        description: "",
+        environment: "production",
+        projects: ["p1"],
+        experimentId: "exp1",
+        holdoutPercent: 0.1,
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        environmentSettings: {
+          production: { enabled: true, rules: [] },
+        },
+      } as HoldoutInterface;
+      const holdoutExperiment: ExperimentInterface = {
+        id: "exp1",
+        organization: "org-1",
+        project: "p1",
+        name: "Holdout Exp",
+        hypothesis: "",
+        status: "running",
+        phases: [
+          { phase: "main", coverage: 0.9, variationWeights: [0.5, 0.5] },
+        ],
+        variations: [
+          { id: "v0", key: "0", name: "C" },
+          { id: "v1", key: "1", name: "T" },
+        ],
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        trackingKey: "tk",
+        archived: false,
+      } as ExperimentInterface;
+      const holdoutsMap = new Map([
+        ["holdout-1", { holdout, holdoutExperiment }],
+      ]);
+      const featureWithHoldout: FeatureInterface = {
+        id: "f1",
+        project: "p1",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        defaultValue: true,
+        organization: "org-1",
+        owner: "",
+        valueType: "boolean",
+        archived: false,
+        description: "",
+        version: 1,
+        holdout: { id: "holdout-1" } as HoldoutInterface,
+        environmentSettings: {
+          production: { enabled: true, rules: [] },
+        },
+      } as FeatureInterface;
+      const data = minimalRawData({
+        features: [featureWithHoldout],
+        holdoutsMap,
+        experimentMap: new Map([["exp1", holdoutExperiment]]),
+      });
+      const outP1 = await buildSDKPayloadForConnection({
+        context: minimalContext(),
+        connection: {
+          capabilities: ["prerequisites", "bucketingV2"],
+          environment: "production",
+          projects: ["p1"],
+        },
+        data,
+      });
+      const holdoutDefId = "$holdout:holdout-1";
+      expect(outP1.features[holdoutDefId]).toBeDefined();
+      expect(outP1.features.f1?.rules?.length).toBeGreaterThanOrEqual(1);
+
+      const outP2 = await buildSDKPayloadForConnection({
+        context: minimalContext(),
+        connection: {
+          capabilities: ["prerequisites", "bucketingV2"],
+          environment: "production",
+          projects: ["p2"],
+        },
+        data,
+      });
+      expect(outP2.features[holdoutDefId]).toBeUndefined();
+      expect(Object.keys(outP2.features)).not.toContain(holdoutDefId);
+    });
+
+    it("experiments payload: only included when includeVisualExperiments or includeRedirectExperiments", async () => {
+      const data = basicMatrixData();
+      const withVisual = await buildSDKPayloadForConnection({
+        context: minimalContext(),
+        connection: {
+          capabilities: getSDKCapabilities("javascript", "1.6.5"),
+          environment: "production",
+          projects: [],
+          includeVisualExperiments: true,
+          includeRedirectExperiments: false,
+        },
+        data,
+      });
+      const withoutEither = await buildSDKPayloadForConnection({
+        context: minimalContext(),
+        connection: {
+          capabilities: getSDKCapabilities("javascript", "1.6.5"),
+          environment: "production",
+          projects: [],
+          includeVisualExperiments: false,
+          includeRedirectExperiments: false,
+        },
+        data,
+      });
+      expect(withVisual.experiments).toBeDefined();
+      expect(withoutEither.experiments).toBeUndefined();
+    });
+
+    it("experiments payload: project scoping filters which experiments are in payload", async () => {
+      const expP1: ExperimentInterface = {
+        id: "exp-p1",
+        organization: "org-1",
+        project: "p1",
+        name: "Exp P1",
+        hypothesis: "",
+        status: "running",
+        phases: [{ phase: "main", coverage: 1, variationWeights: [1] }],
+        variations: [{ id: "v0", key: "0", name: "C" }],
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        trackingKey: "tk",
+        archived: false,
+        hasVisualChangesets: true,
+      } as ExperimentInterface;
+      const visualChangeset = {
+        id: "vc1",
+        organization: "org-1",
+        experiment: "exp-p1",
+        urlPatterns: [{ include: true, type: "simple" as const, pattern: "*" }],
+        editorUrl: "",
+        visualChanges: [
+          {
+            id: "vc1",
+            description: "",
+            css: "",
+            variation: "v0",
+            domMutations: [],
+          },
+        ],
+      };
+      const data = minimalRawData({
+        features: [],
+        experimentMap: new Map([["exp-p1", expP1]]),
+        visualExperiments: [
+          { type: "visual" as const, experiment: expP1, visualChangeset },
+        ],
+      });
+      const outP1 = await buildSDKPayloadForConnection({
+        context: minimalContext(),
+        connection: {
+          capabilities: ["bucketingV2"],
+          environment: "production",
+          projects: ["p1"],
+          includeVisualExperiments: true,
+        },
+        data,
+      });
+      expect(outP1.experiments?.length).toBe(1);
+      expect(outP1.experiments?.[0].key).toBe("tk");
+
+      const outP2 = await buildSDKPayloadForConnection({
+        context: minimalContext(),
+        connection: {
+          capabilities: ["bucketingV2"],
+          environment: "production",
+          projects: ["p2"],
+          includeVisualExperiments: true,
+        },
+        data,
+      });
+      expect(outP2.experiments?.length).toBe(0);
+    });
+  });
+
   it("includeDraftExperiments false filters draft experiments from response", async () => {
     const ctx = minimalContext();
     const featureDef: FeatureDefinition = {
