@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { UseFormReturn } from "react-hook-form";
 import { Separator } from "@radix-ui/themes";
 import { FaPlus, FaTrash } from "react-icons/fa";
@@ -78,9 +78,12 @@ export default function NamespaceSelector({
     return n.hashAttribute !== effectiveHashAttribute;
   });
 
-  const filteredNamespaces = isFallbackMode
-    ? activeNamespaces.filter((n) => isLegacyNamespace(n))
-    : activeNamespaces;
+  // Memoize so the array reference only changes when the filter criteria actually
+  // change, preventing the useEffect below from firing on every render.
+  const filteredNamespaces = useMemo(() => {
+    const active = (namespaces || []).filter((n) => n?.status !== "inactive");
+    return isFallbackMode ? active.filter((n) => isLegacyNamespace(n)) : active;
+  }, [isFallbackMode, namespaces]);
 
   const namespaceOptions: SingleValue[] = isFallbackMode
     ? filteredNamespaces.map((n) => ({ value: n.name, label: n.label }))
