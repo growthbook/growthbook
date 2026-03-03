@@ -190,7 +190,10 @@ export default function FeaturesPage() {
                 {showGraphs && (
                   <TableColumnHeader>
                     Recent Usage{" "}
-                    <Tooltip body="Client-side feature evaluations for the past 30 minutes. Blue means the feature was 'on', Gray means it was 'off'." />
+                    <Tooltip
+                      flipTheme={false}
+                      body="Client-side feature evaluations for the past 30 minutes. Blue means the feature was 'on', Gray means it was 'off'."
+                    />
                   </TableColumnHeader>
                 )}
                 <TableColumnHeader>Stale</TableColumnHeader>
@@ -228,6 +231,7 @@ export default function FeaturesPage() {
                           text={feature.id}
                           maxChars={36}
                           maxWidth={270}
+                          flipTheme={false}
                         />
                       </Link>
                     </TableCell>
@@ -235,6 +239,7 @@ export default function FeaturesPage() {
                       <TableCell>
                         {feature.projectIsDeReferenced ? (
                           <Tooltip
+                            flipTheme={false}
                             body={
                               <>
                                 Project <code>{feature.project}</code> not found
@@ -274,7 +279,10 @@ export default function FeaturesPage() {
                     </TableCell>
                     <TableCell style={{ textAlign: "center" }}>
                       {feature?.hasDrafts ? (
-                        <Tooltip body="Items requiring review">
+                        <Tooltip
+                          flipTheme={false}
+                          body="Items requiring review"
+                        >
                           <span
                             className="text-danger"
                             style={{

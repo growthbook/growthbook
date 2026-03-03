@@ -192,6 +192,7 @@ export default function FeaturesDraftTable() {
                   <TableCell>
                     {projectIsDeReferenced ? (
                       <Tooltip
+                        flipTheme={false}
                         body={
                           <>
                             Project

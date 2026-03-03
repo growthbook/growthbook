@@ -120,6 +120,7 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
                       <span className="testname">{e.name}</span>
                       {e.hasVisualChangesets ? (
                         <Tooltip
+                          flipTheme={false}
                           className="d-flex align-items-center ml-2"
                           body="Visual experiment"
                         >
@@ -128,6 +129,7 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
                       ) : null}
                       {(e.linkedFeatures || []).length > 0 ? (
                         <Tooltip
+                          flipTheme={false}
                           className="d-flex align-items-center ml-2"
                           body="Linked Feature Flag"
                         >
@@ -136,6 +138,7 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
                       ) : null}
                       {e.hasURLRedirects ? (
                         <Tooltip
+                          flipTheme={false}
                           className="d-flex align-items-center ml-2"
                           body="URL Redirect experiment"
                         >
@@ -158,6 +161,7 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
                 <TableCell>
                   {e.projectIsDeReferenced ? (
                     <Tooltip
+                      flipTheme={false}
                       body={
                         <>
                           Project <code>{e.project}</code> not found
@@ -191,7 +195,7 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
                 <TableCell>
                   {e.statusIndicator.tooltip &&
                   !e.statusIndicator.detailedStatus ? (
-                    <Tooltip body={e.statusIndicator.tooltip}>
+                    <Tooltip flipTheme={false} body={e.statusIndicator.tooltip}>
                       {e.statusIndicator.status}
                     </Tooltip>
                   ) : (

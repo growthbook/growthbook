@@ -1,6 +1,6 @@
 import React from "react";
 import clsx from "clsx";
-import Tooltip from "@/ui/Tooltip";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 function truncateMiddle(text: string, maxChars: number): string {
   if (text.length <= maxChars) return text;
@@ -20,6 +20,7 @@ export type TruncateMiddleWithTooltipProps = {
   /** Max characters before middle truncation (default 24). */
   maxChars?: number;
   className?: string;
+  flipTheme?: boolean;
 };
 
 /**
@@ -31,6 +32,7 @@ export function TruncateMiddleWithTooltip({
   maxWidth,
   maxChars = 24,
   className,
+  flipTheme,
 }: TruncateMiddleWithTooltipProps) {
   const truncated = truncateMiddle(text, maxChars);
   const isTruncated = truncated !== text;
@@ -50,7 +52,11 @@ export function TruncateMiddleWithTooltip({
   );
 
   if (isTruncated) {
-    return <Tooltip content={text}>{span}</Tooltip>;
+    return (
+      <Tooltip body={text} flipTheme={flipTheme}>
+        {span}
+      </Tooltip>
+    );
   }
 
   return span;

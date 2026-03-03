@@ -35,6 +35,7 @@ export default function SortedTags({
     const tagElements = renderTags(tags);
     return (
       <Tooltip
+        flipTheme={false}
         body={<>{renderFlexContainer(tagElements, true)}</>}
         usePortal={true}
       >
