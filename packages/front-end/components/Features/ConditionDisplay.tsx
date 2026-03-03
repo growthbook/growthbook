@@ -4,7 +4,6 @@ import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
 import { isDefined } from "shared/util";
 import { SavedGroupWithoutValues } from "shared/types/saved-group";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiArrowSquareOut } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { Condition, jsonToConds, useAttributeMap } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -158,7 +157,6 @@ export function MultiValuesDisplay({
                 >
                   {displayValue}
                 </span>
-                <PiArrowSquareOut style={{ flexShrink: 0 }} />
               </Link>
             }
           />
@@ -379,7 +377,6 @@ function getConditionParts({
             >
               {field}
             </span>
-            <PiArrowSquareOut style={{ flexShrink: 0 }} />
           </Link>
         }
       />
@@ -528,7 +525,6 @@ function getConditionParts({
                     >
                       {group.groupName}
                     </span>
-                    <PiArrowSquareOut style={{ flexShrink: 0 }} />
                   </Link>
                 }
               />
@@ -596,7 +592,6 @@ function ParentIdLink({ parentId }: { parentId: string }) {
           >
             {parentId}
           </span>
-          <PiArrowSquareOut style={{ flexShrink: 0 }} />
         </Link>
       }
     />

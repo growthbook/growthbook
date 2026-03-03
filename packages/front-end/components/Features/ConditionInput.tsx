@@ -42,6 +42,7 @@ import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import useSDKConnections from "@/hooks/useSDKConnections";
+import SortedTags from "@/components/Tags/SortedTags";
 import {
   TargetingConditionsCard,
   ConditionRow,
@@ -579,23 +580,11 @@ function ConditionAndGroupInput({
                         </Box>
                       )}
                       {opt.tags && opt.tags.length > 0 && (
-                        <Flex gap="1" wrap="wrap">
-                          {opt.tags.map((tag) => (
-                            <Box
-                              key={tag}
-                              as="span"
-                              style={{
-                                fontSize: 11,
-                                padding: "2px 6px",
-                                borderRadius: 4,
-                                backgroundColor: "var(--accent-3)",
-                                color: "var(--accent-11)",
-                              }}
-                            >
-                              {tag}
-                            </Box>
-                          ))}
-                        </Flex>
+                        <SortedTags
+                          tags={opt.tags}
+                          shouldShowEllipsis={true}
+                          showEllipsisAtIndex={5}
+                        />
                       )}
                     </Box>
                   }
