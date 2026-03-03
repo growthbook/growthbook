@@ -2191,9 +2191,7 @@ export default abstract class SqlIntegration
       SELECT
         e.${baseIdType} AS ${baseIdType}
         , ${
-          !!settings.banditSettings?.useFirstExposure &&
-          settings.banditSettings &&
-          settings.banditSettings.windowSettings
+          !!settings.banditSettings?.useFirstExposure && settings.banditSettings
             ? this.getFirstVariationValuePerUnit()
             : this.ifElse(
                 "count(distinct e.variation) > 1",
