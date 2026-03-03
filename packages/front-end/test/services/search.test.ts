@@ -1,6 +1,25 @@
-import { filterSearchTerm, transformQuery } from "@/services/search";
+import React from "react";
+import { useRouter } from "next/router";
+import { act, renderHook } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { filterSearchTerm, transformQuery, useSearch } from "@/services/search";
+
+vi.mock("next/router", () => ({
+  useRouter: vi.fn(),
+}));
 
 describe("useSearch", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.clearAllMocks();
+    // @ts-expect-error "partial test mock"
+    vi.mocked(useRouter).mockReturnValue({
+      query: {},
+      pathname: "/",
+      replace: vi.fn(),
+    });
+  });
+
   describe("transformQuery", () => {
     it("should parse a query string into an object", () => {
       const query = "foo:bar hello baz:>3 world:!a f:1,2,3 h:!^yo unknown:yes";
@@ -38,6 +57,81 @@ describe("useSearch", () => {
       });
     });
   });
+  describe("manual sorting with syntax filters", () => {
+    type SearchItem = {
+      id: string;
+      name: string;
+      owner: string;
+      dateCreated: number;
+    };
+
+    const items: SearchItem[] = [
+      { id: "2", name: "alpha beta", owner: "jeremy", dateCreated: 2 },
+      { id: "1", name: "beta alpha", owner: "jeremy", dateCreated: 1 },
+      { id: "3", name: "alpha", owner: "tom", dateCreated: 3 },
+    ];
+
+    const useSearchHook = () =>
+      useSearch<SearchItem>({
+        items,
+        searchFields: ["name"],
+        localStorageKey: "search-service-test",
+        defaultSortField: "dateCreated",
+        searchTermFilters: {
+          owner: (item) => item.owner,
+        },
+      });
+
+    it("keeps manual sorting enabled for filter-only queries", () => {
+      const { result } = renderHook(() => useSearchHook());
+
+      act(() => {
+        result.current.setSearchValue("owner:jeremy");
+      });
+
+      expect(result.current.unpaginatedItems.map((item) => item.id)).toEqual([
+        "1",
+        "2",
+      ]);
+
+      const header = result.current.SortableTH({
+        field: "dateCreated",
+        children: "Date Created",
+      }) as React.ReactElement;
+      const clickableHeader = header.props.children as React.ReactElement<{
+        onClick: (e: { preventDefault: () => void }) => void;
+      }>;
+
+      expect(React.isValidElement(clickableHeader)).toBe(true);
+
+      act(() => {
+        clickableHeader.props.onClick({
+          preventDefault: vi.fn(),
+        });
+      });
+
+      expect(result.current.unpaginatedItems.map((item) => item.id)).toEqual([
+        "2",
+        "1",
+      ]);
+    });
+
+    it("keeps manual sorting disabled when free-text is present", () => {
+      const { result } = renderHook(() => useSearchHook());
+
+      act(() => {
+        result.current.setSearchValue("alpha owner:jeremy");
+      });
+
+      const header = result.current.SortableTH({
+        field: "dateCreated",
+        children: "Date Created",
+      }) as React.ReactElement;
+
+      expect(React.isValidElement(header.props.children)).toBe(false);
+    });
+  });
+
   describe("filterSearchTerm", () => {
     it("should filter with default operator", () => {
       // Strings (exact default)

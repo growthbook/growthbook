@@ -155,14 +155,16 @@ export function useSearch<T extends { id: string }>({
     return { miniSearch: miniSearchInstance, itemMap };
   }, [items, JSON.stringify(searchFields)]);
 
-  const { filtered, syntaxFilters } = useMemo(() => {
+  const { filtered, syntaxFilters, hasSearchTerm } = useMemo(() => {
     // remove any syntax filters from the search term
     const { searchTerm, syntaxFilters } = searchTermFilters
       ? transformQuery(value, Object.keys(searchTermFilters))
       : { searchTerm: value, syntaxFilters: [] };
 
+    const hasSearchTerm = searchTerm.length > 0;
+
     let filtered = items;
-    if (searchTerm.length > 0) {
+    if (hasSearchTerm) {
       const searchResults = miniSearch.search(searchTerm);
       filtered = searchResults.map((result) => itemMap.get(result.id) as T);
     }
@@ -215,13 +217,13 @@ export function useSearch<T extends { id: string }>({
     if (filterResults) {
       filtered = filterResults(filtered);
     }
-    return { filtered, syntaxFilters };
+    return { filtered, syntaxFilters, hasSearchTerm };
   }, [value, miniSearch, filterResults, transformQuery]);
 
   const isFiltered = value.length > 0;
 
   const sorted = useMemo(() => {
-    if (isFiltered) return filtered;
+    if (hasSearchTerm) return filtered;
 
     const sorted = [...filtered];
 
@@ -255,7 +257,7 @@ export function useSearch<T extends { id: string }>({
       return 0;
     });
     return sorted;
-  }, [sort.field, sort.dir, filtered, isFiltered]);
+  }, [sort.field, sort.dir, filtered, hasSearchTerm]);
 
   const paginated = useMemo(() => {
     if (!pageSize) return sorted;
@@ -277,7 +279,7 @@ export function useSearch<T extends { id: string }>({
       children: ReactNode;
       style?: React.CSSProperties;
     }> = ({ children, field, className = "", style }) => {
-      if (isFiltered) {
+      if (hasSearchTerm) {
         return (
           <th className={className} style={style}>
             {children}
@@ -317,7 +319,7 @@ export function useSearch<T extends { id: string }>({
       );
     };
     return th;
-  }, [sort.dir, sort.field, isFiltered]);
+  }, [sort.dir, sort.field, hasSearchTerm]);
 
   const clear = useCallback(() => {
     setValue("");
