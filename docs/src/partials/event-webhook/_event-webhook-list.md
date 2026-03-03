@@ -1441,6 +1441,8 @@ Triggered when an experiment is created
             banditScheduleUnit?: ("days" | "hours") | undefined;
             banditBurnInValue?: number | undefined;
             banditBurnInUnit?: ("days" | "hours") | undefined;
+            banditConversionWindowValue?: number | undefined;
+            banditConversionWindowUnit?: ("days" | "hours") | undefined;
             linkedFeatures?: string[] | undefined;
             hasVisualChangesets?: boolean | undefined;
             hasURLRedirects?: boolean | undefined;
@@ -1615,6 +1617,8 @@ Triggered when an experiment is updated
             banditScheduleUnit?: ("days" | "hours") | undefined;
             banditBurnInValue?: number | undefined;
             banditBurnInUnit?: ("days" | "hours") | undefined;
+            banditConversionWindowValue?: number | undefined;
+            banditConversionWindowUnit?: ("days" | "hours") | undefined;
             linkedFeatures?: string[] | undefined;
             hasVisualChangesets?: boolean | undefined;
             hasURLRedirects?: boolean | undefined;
@@ -1755,6 +1759,8 @@ Triggered when an experiment is updated
             banditScheduleUnit?: ("days" | "hours") | undefined;
             banditBurnInValue?: number | undefined;
             banditBurnInUnit?: ("days" | "hours") | undefined;
+            banditConversionWindowValue?: number | undefined;
+            banditConversionWindowUnit?: ("days" | "hours") | undefined;
             linkedFeatures?: string[] | undefined;
             hasVisualChangesets?: boolean | undefined;
             hasURLRedirects?: boolean | undefined;
@@ -1934,6 +1940,8 @@ Triggered when an experiment is deleted
             banditScheduleUnit?: ("days" | "hours") | undefined;
             banditBurnInValue?: number | undefined;
             banditBurnInUnit?: ("days" | "hours") | undefined;
+            banditConversionWindowValue?: number | undefined;
+            banditConversionWindowUnit?: ("days" | "hours") | undefined;
             linkedFeatures?: string[] | undefined;
             hasVisualChangesets?: boolean | undefined;
             hasURLRedirects?: boolean | undefined;
