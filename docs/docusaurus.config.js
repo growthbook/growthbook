@@ -260,6 +260,13 @@ const config = {
 
         //... other Algolia params
       },
+      zoom: {
+        selector: ".markdown img",
+        background: {
+          light: "hsl(0 0% 100% / 0.75)",
+          dark: "hsl(0 0% 0% / 0.75)",
+        },
+      },
     },
   plugins: [
     "docusaurus-plugin-sass",
@@ -272,6 +279,7 @@ const config = {
         },
       },
     ],
+    "docusaurus-plugin-image-zoom",
   ],
 
   stylesheets: [

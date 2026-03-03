@@ -35,7 +35,17 @@ import LargeSavedGroupPerformanceWarning, {
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
-import HistoryTable from "@/components/HistoryTable";
+import AuditHistoryExplorerModal from "@/components/AuditHistoryExplorer/AuditHistoryExplorerModal";
+import { OVERFLOW_SECTION_LABEL } from "@/components/AuditHistoryExplorer/useAuditDiff";
+import {
+  renderSavedGroupTargeting,
+  renderSavedGroupProjects,
+  renderSavedGroupSettings,
+  getSavedGroupSettingsBadges,
+  getSavedGroupTargetingBadges,
+  getSavedGroupValuesBadges,
+  getSavedGroupProjectsBadges,
+} from "@/components/SavedGroups/SavedGroupDiffRenders";
 import { DocLink } from "@/components/DocLink";
 import Callout from "@/ui/Callout";
 import { useExperiments } from "@/hooks/useExperiments";
@@ -241,16 +251,83 @@ export default function EditSavedGroupPage() {
         />
       )}
       {showAuditModal && savedGroup && (
-        <Modal
-          trackingEventModalType=""
-          open={true}
-          header="Audit Log"
-          close={() => setShowAuditModal(false)}
-          size="max"
-          closeCta="Close"
-        >
-          <HistoryTable type="savedGroup" id={savedGroup.id} />
-        </Modal>
+        <AuditHistoryExplorerModal<SavedGroupInterface>
+          entityId={savedGroup.id}
+          entityName="Saved Group"
+          config={{
+            entityType: "savedGroup",
+            includedEvents: ["savedGroup.created", "savedGroup.updated"],
+            alwaysVisibleEvents: ["savedGroup.created"],
+            labelOnlyEvents: [
+              {
+                event: "savedGroup.deleted",
+                getLabel: () => "Deleted",
+                alwaysVisible: true,
+              },
+            ],
+            sections: [
+              {
+                label: "Settings",
+                keys: ["groupName", "owner", "description"],
+                render: renderSavedGroupSettings,
+                getBadges: getSavedGroupSettingsBadges,
+              },
+              {
+                label: "Targeting",
+                keys: ["condition"],
+                render: renderSavedGroupTargeting,
+                getBadges: getSavedGroupTargetingBadges,
+              },
+              {
+                label: "Values",
+                keys: ["values", "attributeKey"],
+                getBadges: getSavedGroupValuesBadges,
+              },
+              {
+                label: "Projects",
+                keys: ["projects"],
+                render: renderSavedGroupProjects,
+                getBadges: getSavedGroupProjectsBadges,
+              },
+            ],
+            updateEventNames: ["savedGroup.updated"],
+            defaultGroupBy: "minute",
+            hideFilters: true,
+            hiddenLabelSections: [OVERFLOW_SECTION_LABEL],
+            normalizeSnapshot: (snapshot) => {
+              if (!snapshot || typeof snapshot !== "object") return snapshot;
+              let result = { ...snapshot };
+              if (
+                "condition" in result &&
+                typeof result.condition === "string"
+              ) {
+                try {
+                  result = {
+                    ...result,
+                    condition: JSON.parse(result.condition),
+                  };
+                } catch {
+                  // leave as-is if unparseable
+                }
+              }
+              if ("values" in result && Array.isArray(result.values)) {
+                const vals = result.values as string[];
+                const LIMIT = 100;
+                if (vals.length > LIMIT) {
+                  result = {
+                    ...result,
+                    values: [
+                      ...vals.slice(0, LIMIT),
+                      `— ${vals.length - LIMIT} more values...`,
+                    ],
+                  };
+                }
+              }
+              return result;
+            },
+          }}
+          onClose={() => setShowAuditModal(false)}
+        />
       )}
       {addItems && (
         <Modal
@@ -383,7 +460,7 @@ export default function EditSavedGroupPage() {
                   setDropdownOpen(false);
                 }}
               >
-                View Audit Log
+                Audit History
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />

@@ -77,18 +77,12 @@ export default function ReportAnalysisSettingsBar({
   )?.userIdType;
 
   const totalUnits = useMemo(() => {
-    const healthVariationUnits =
-      snapshot?.health?.traffic?.overall?.variationUnits;
-    if (healthVariationUnits && healthVariationUnits.length > 0) {
-      return healthVariationUnits.reduce((acc, a) => acc + a, 0);
-    }
-    // Fallback to using results for total units if health units not available
     let totalUsers = 0;
     analysis?.results?.forEach((result) => {
       result?.variations?.forEach((v) => (totalUsers += v?.users || 0));
     });
     return totalUsers;
-  }, [analysis?.results, snapshot?.health?.traffic?.overall?.variationUnits]);
+  }, [analysis?.results]);
 
   // Convert userIdType to display name (e.g. "user_id" -> "User Ids")
   const unitDisplayName = userIdType

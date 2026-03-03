@@ -260,9 +260,9 @@ export async function updateFactTable(
 ) {
   // Allow changing columns even for API-managed fact tables
   if (
-    Object.keys(changes).some((k) => k !== "columns") &&
     factTable.managedBy === "api" &&
-    context.auditUser?.type !== "api_key"
+    context.auditUser?.type !== "api_key" &&
+    Object.keys(changes).some((k) => k !== "columns")
   ) {
     throw new Error(
       "Cannot update fact table managed by API if the request isn't from the API.",
@@ -305,25 +305,42 @@ export async function updateFactTable(
   await audit.logUpdate(context, factTable, { ...factTable, ...changes });
 }
 
+const ALLOWED_COLUMN_UPDATE_FIELDS = [
+  "columns",
+  "columnsError",
+  "columnRefreshPending",
+  "userIdTypes",
+] as const;
+
 // This is called from a background cronjob to re-sync all of the columns
 // It doesn't need to check for 'managedBy' and doesn't need to set 'dateUpdated'
 export async function updateFactTableColumns(
   factTable: FactTableInterface,
-  changes: Partial<Pick<FactTableInterface, "columns" | "columnsError">>,
-  context?: ReqContext | ApiReqContext,
+  changes: Partial<
+    Pick<FactTableInterface, (typeof ALLOWED_COLUMN_UPDATE_FIELDS)[number]>
+  >,
+  context: ReqContext | ApiReqContext,
 ) {
+  const safeChanges = Object.fromEntries(
+    Object.entries(changes).filter(([key]) =>
+      ALLOWED_COLUMN_UPDATE_FIELDS.includes(
+        key as (typeof ALLOWED_COLUMN_UPDATE_FIELDS)[number],
+      ),
+    ),
+  );
+
   await FactTableModel.updateOne(
     {
       id: factTable.id,
       organization: factTable.organization,
     },
     {
-      $set: changes,
+      $set: safeChanges,
     },
   );
 
   // Clean up auto slices from metrics if columns were refreshed and some were deleted
-  if (context && changes.columns) {
+  if (changes.columns) {
     const removedColumns = detectRemovedColumns(
       factTable.columns || [],
       changes.columns,

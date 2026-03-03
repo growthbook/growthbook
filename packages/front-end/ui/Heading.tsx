@@ -1,13 +1,20 @@
 import { Heading as RadixHeading } from "@radix-ui/themes";
 import type { HeadingProps as RadixHeadingProps } from "@radix-ui/themes";
 
-type HeadingSizes = "small" | "medium" | "large" | "x-large" | "2x-large";
+type HeadingSizes =
+  | "x-small"
+  | "small"
+  | "medium"
+  | "large"
+  | "x-large"
+  | "2x-large";
 type HeadingWeights = "medium" | "semibold";
 type HeadingAlign = "left" | "center" | "right";
 // NB: We might need to expand this to support RadixHeadingProps["color"], but being conservative for now.
 type HeadingColors = "text-high" | "text-mid" | "text-low";
 
 const radixSizeMap: Record<HeadingSizes, RadixHeadingProps["size"]> = {
+  "x-small": "2",
   small: "3",
   medium: "4",
   large: "5",

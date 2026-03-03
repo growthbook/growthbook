@@ -111,7 +111,7 @@ export async function getMinimalRevisions(
   })
     .select("version datePublished dateUpdated createdBy status")
     .sort({ version: -1 })
-    .limit(25);
+    .limit(200);
 
   return docs.map((m) => ({
     version: m.version,

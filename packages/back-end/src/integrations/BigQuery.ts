@@ -4,7 +4,7 @@ import {
   bigQueryCreateTableOptions,
   bigQueryCreateTablePartitions,
 } from "shared/enterprise";
-import { FormatDialect } from "shared/types/sql";
+import { DateTruncGranularity, FormatDialect } from "shared/types/sql";
 import { format } from "shared/sql";
 import {
   ExternalIdCallback,
@@ -155,8 +155,8 @@ export default class BigQuery extends SqlIntegration {
       sign === "+" ? "ADD" : "SUB"
     }(${col}, INTERVAL ${amount} ${unit.toUpperCase()})`;
   }
-  dateTrunc(col: string) {
-    return `date_trunc(${col}, DAY)`;
+  dateTrunc(col: string, granularity: DateTruncGranularity = "day") {
+    return `date_trunc(${col}, ${granularity.toUpperCase()})`;
   }
   dateDiff(startCol: string, endCol: string) {
     return `date_diff(${endCol}, ${startCol}, DAY)`;

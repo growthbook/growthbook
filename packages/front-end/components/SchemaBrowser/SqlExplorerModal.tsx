@@ -14,7 +14,7 @@ import {
   QueryExecutionResult,
 } from "shared/validators";
 import { computeAIUsageData } from "shared/ai";
-import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { getValidDate } from "shared/dates";
 import { isReadOnlySQL, SQL_ROW_LIMIT } from "shared/sql";
 import { BsThreeDotsVertical, BsStars } from "react-icons/bs";
@@ -58,6 +58,7 @@ import Modal from "@/components/Modal";
 import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { filterOptions } from "@/components/DataViz/DataVizFilter";
+import Text from "@/ui/Text";
 import SchemaBrowser from "./SchemaBrowser";
 import styles from "./EditSqlModal.module.scss";
 
@@ -1042,10 +1043,7 @@ export default function SqlExplorerModal({
                           <Flex align="center" justify="between">
                             <Flex gap="4" align="center">
                               <Box>
-                                <Text
-                                  weight="bold"
-                                  style={{ color: "var(--color-text-mid)" }}
-                                >
+                                <Text weight="semibold" color="text-mid">
                                   SQL
                                 </Text>
                               </Box>
@@ -1103,10 +1101,9 @@ export default function SqlExplorerModal({
                                       disabled={true}
                                     />
                                     <Text
-                                      size="1"
-                                      weight="medium"
-                                      style={{ color: "var(--gray-8)" }}
-                                      className="cursor-pointer"
+                                      size="small"
+                                      weight="regular"
+                                      color="text-low"
                                     >
                                       Limit to {SQL_ROW_LIMIT} rows
                                     </Text>
@@ -1274,10 +1271,7 @@ export default function SqlExplorerModal({
                       <AreaWithHeader
                         header={
                           <Flex align="center" gap="1">
-                            <Text
-                              weight="bold"
-                              style={{ color: "var(--color-text-mid)" }}
-                            >
+                            <Text weight="semibold" color="text-mid">
                               Data Sources
                             </Text>
                           </Flex>
