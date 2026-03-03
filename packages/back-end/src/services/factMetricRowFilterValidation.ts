@@ -68,11 +68,9 @@ export async function validateFactMetricRowFilterSql({
 ) f
 WHERE ${riskyFilterExpressions.join(" AND ")}`;
 
-  const sql = integration.getTestValidityQuery(
-    query,
-    testQueryDays,
-    { eventName: factTable.eventName },
-  );
+  const sql = integration.getTestValidityQuery(query, testQueryDays, {
+    eventName: factTable.eventName,
+  });
 
   try {
     await integration.runTestQuery(sql);

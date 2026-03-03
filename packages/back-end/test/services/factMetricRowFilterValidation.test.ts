@@ -103,9 +103,7 @@ describe("factMetricRowFilterValidation", () => {
       });
 
       expect(integration.getTestValidityQuery).toHaveBeenCalledWith(
-        expect.stringContaining(
-          "WHERE (country = 'US') AND (amount > 100)",
-        ),
+        expect.stringContaining("WHERE (country = 'US') AND (amount > 100)"),
         14,
         { eventName: "orders" },
       );
@@ -130,7 +128,9 @@ describe("factMetricRowFilterValidation", () => {
           testQueryDays: 14,
           errorPrefix: "Invalid numerator row filter SQL: ",
         }),
-      ).rejects.toThrow("Invalid numerator row filter SQL: Syntax error near ')'");
+      ).rejects.toThrow(
+        "Invalid numerator row filter SQL: Syntax error near ')'",
+      );
     });
   });
 });

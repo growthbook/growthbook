@@ -355,7 +355,9 @@ export class FactMetricModel extends BaseClass {
         throw new Error("Could not find denominator fact table");
       }
       if (denominatorFactTable.datasource !== numeratorFactTable.datasource) {
-        throw new Error("Numerator and denominator must be in the same datasource");
+        throw new Error(
+          "Numerator and denominator must be in the same datasource",
+        );
       }
 
       validateSavedFilterIds({
@@ -367,12 +369,19 @@ export class FactMetricModel extends BaseClass {
       throw new Error("Denominator not allowed for non-ratio metric");
     }
 
-    if (data.numerator.rowFilters?.length || data.denominator?.rowFilters?.length) {
+    if (
+      data.numerator.rowFilters?.length ||
+      data.denominator?.rowFilters?.length
+    ) {
       const datasource = await getDataSourceById(this.context, data.datasource);
       if (!datasource) {
         throw new Error("Could not find datasource");
       }
-      const integration = getSourceIntegrationObject(this.context, datasource, true);
+      const integration = getSourceIntegrationObject(
+        this.context,
+        datasource,
+        true,
+      );
 
       await validateFactMetricRowFilterSql({
         integration,
