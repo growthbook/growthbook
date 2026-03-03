@@ -21,7 +21,7 @@ import Modal from "@/components/Modal";
 import Tooltip from "@/ui/Tooltip";
 import SplitButton from "@/ui/SplitButton";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import ExpandableDiff from "@/components/ExpandableDiff";
+import { ExpandableDiff } from "@/components/Features/DraftModal";
 interface ApprovalFlowDetailProps {
   approvalFlow: ApprovalFlow;
   currentState: ApprovalFlow["target"]["snapshot"];

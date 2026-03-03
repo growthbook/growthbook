@@ -1,6 +1,7 @@
 import { FeatureInterface } from "shared/types/feature";
+import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import { useState, useMemo } from "react";
-import { FaAngleRight, FaArrowLeft } from "react-icons/fa";
+import { FaAngleDown, FaAngleRight, FaArrowLeft } from "react-icons/fa";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   autoMerge,
@@ -30,7 +31,6 @@ import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import { PreLaunchChecklistFeatureExpRule } from "@/components/Experiment/PreLaunchChecklist";
 import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
-import ExpandableDiff from "@/components/ExpandableDiff";
 
 export interface Props {
   feature: FeatureInterface;
@@ -42,7 +42,51 @@ export interface Props {
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
 }
 
-export { default as ExpandableDiff } from "@/components/ExpandableDiff";
+export function ExpandableDiff({
+  title,
+  a,
+  b,
+  defaultOpen = false,
+  styles,
+}: {
+  title: string;
+  a: string;
+  b: string;
+  defaultOpen?: boolean;
+  styles?: object;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  if (a === b) return null;
+
+  return (
+    <div className="diff-wrapper">
+      <div
+        className="list-group-item list-group-item-action d-flex"
+        onClick={(e) => {
+          e.preventDefault();
+          setOpen(!open);
+        }}
+      >
+        <div className="text-muted mr-2">Changed:</div>
+        <strong>{title}</strong>
+        <div className="ml-auto">
+          {open ? <FaAngleDown /> : <FaAngleRight />}
+        </div>
+      </div>
+      {open && (
+        <div className="list-group-item list-group-item-light">
+          <ReactDiffViewer
+            oldValue={a}
+            newValue={b}
+            compareMethod={DiffMethod.LINES}
+            styles={styles ?? { contentText: { wordBreak: "break-all" } }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function DraftModal({
   feature,
