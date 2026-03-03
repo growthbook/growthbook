@@ -188,6 +188,8 @@ const NewPhaseForm: FC<{
           form={form}
           featureId={experiment.trackingKey}
           trackingKey={experiment.trackingKey}
+          experimentHashAttribute={experiment.hashAttribute}
+          fallbackAttribute={experiment.fallbackAttribute}
         />
       )}
     </Modal>
