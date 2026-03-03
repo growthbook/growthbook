@@ -382,8 +382,6 @@ export default function AttributeDetailPage() {
             </div>
           </Frame>
         </Box>
-
-        <hr />
       </div>
     </>
   );
