@@ -270,6 +270,7 @@ export default abstract class SqlIntegration
       dropUnitsTable: this.dropUnitsTable(),
       hasQuantileTesting: this.hasQuantileTesting(),
       hasEfficientPercentiles: this.hasEfficientPercentile(),
+      canGroupPercentileCappedMetrics: this.canGroupPercentileCappedMetrics(),
       hasCountDistinctHLL: this.hasCountDistinctHLL(),
       hasIncrementalRefresh: this.canRunIncrementalRefreshQueries(),
       maxColumns: 1000,
@@ -415,6 +416,9 @@ export default abstract class SqlIntegration
     return true;
   }
   hasEfficientPercentile(): boolean {
+    return true;
+  }
+  canGroupPercentileCappedMetrics(): boolean {
     return true;
   }
   hasCountDistinctHLL(): boolean {
