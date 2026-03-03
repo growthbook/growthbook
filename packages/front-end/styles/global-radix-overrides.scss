@@ -413,15 +413,9 @@ p.rt-TooltipText {
     // Sticky header sticks to the top of this wrapper when scrolling inside it.
     max-width: 100%;
     overflow: visible;
-    // Override .appbox: no background so it doesn't stick out past the table border
+    // Override .appbox: no border, no background; border is on the table
     background-color: transparent;
-    // Table border (overrides .appbox border)
-    border-radius: var(--radius-4);
-    border-top: 1px solid var(--slate-a5, rgba(0, 9, 50, 0.12));
-    border-bottom: 1px solid var(--slate-a5, rgba(0, 9, 50, 0.12));
-    border-left: 1px solid var(--slate-a5, rgba(0, 9, 50, 0.12));
-    border-right: 1px solid var(--slate-a5, rgba(0, 9, 50, 0.12));
-    // Override Radix .rt-TableRoot:where(.rt-variant-surface) border so only wrapper border shows
+    border: none;
     .rt-TableRoot.table-list {
       border: none;
       background-color: transparent;
@@ -430,9 +424,8 @@ p.rt-TooltipText {
     .rt-ScrollAreaViewport {
       overflow: visible !important;
     }
-    // Unify background: header and body use same base color so they align
+    // Background on table; cells inherit (row hover overrides)
     .rt-TableBody .rt-TableRow .rt-TableCell {
-      background-color: var(--table-list-background-color);
       box-sizing: border-box;
     }
     .rt-TableBody .rt-TableRow:hover .rt-TableCell {
@@ -443,9 +436,8 @@ p.rt-TooltipText {
       top: var(--table-sticky-top, var(--sticky-header-top));
       z-index: 900;
       width: 100%;
-      // Downward-only shadow when sticky (no upward bleed)
-      box-shadow: 0 4px 6px -2px rgba(0, 0, 0, 0.1);
       background-color: var(--table-list-background-color);
+      box-shadow: 0 4px 6px -2px rgba(0, 0, 0, 0.1);
       overflow: visible;
       box-sizing: border-box;
 
@@ -459,7 +451,9 @@ p.rt-TooltipText {
       overflow: visible !important;
       border-collapse: separate;
       border-spacing: 0;
-      border: none;
+      border: 1px solid var(--slate-a5, rgba(0, 9, 50, 0.12));
+      border-radius: var(--radius-4);
+      background-color: var(--table-list-background-color);
       box-sizing: border-box;
       // Size to content so wrapper scroll matches table width; header row is part of same table so it aligns
       width: max-content;
