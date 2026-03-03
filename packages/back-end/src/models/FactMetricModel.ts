@@ -137,8 +137,6 @@ function validateSavedFilterIds({
 }
 
 export class FactMetricModel extends BaseClass {
-  private _existingMetricFromUpdate: FactMetricInterface | null = null;
-
   protected canRead(doc: FactMetricInterface): boolean {
     return this.context.hasPermission("readData", doc.projects || []);
   }
@@ -281,7 +279,6 @@ export class FactMetricModel extends BaseClass {
         "Cannot update fact metric managed by API if the request isn't from the API.",
       );
     }
-    this._existingMetricFromUpdate = existing;
   }
 
   protected async beforeDelete(existing: FactMetricInterface) {
@@ -306,12 +303,11 @@ export class FactMetricModel extends BaseClass {
     return this._factTableMap;
   }
 
-  protected async customValidation(data: FactMetricInterface): Promise<void> {
-    const existingMetric =
-      this._existingMetricFromUpdate?.id === data.id
-        ? this._existingMetricFromUpdate
-        : null;
-    this._existingMetricFromUpdate = null;
+  protected async customValidation(
+    data: FactMetricInterface,
+    previousData?: FactMetricInterface,
+  ): Promise<void> {
+    const existingMetric = previousData || null;
 
     const factTableMap = await this.getFactTableMap();
 

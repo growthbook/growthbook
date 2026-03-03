@@ -228,7 +228,7 @@ Note: Permission checks, migrations, etc. are all done automatically within the 
 The following hooks are available, letting you add additional validation or perform trigger-like behavior without messing with data model internals. All of these besides `migrate` are async. Define these in your child class and they will be called at appropriate times.
 
 - `migrate(legacyObj): newObj`
-- `customValidation(obj)` (called for both update/create flows)
+- `customValidation(obj, previousObj, writeOptions)` (called for both update/create flows; `previousObj` is only populated on update)
 - `beforeCreate(newObj)`
 - `afterCreate(newObj)`
 - `beforeUpdate(existing, updates, newObj)`
@@ -300,7 +300,7 @@ type WriteOptions = {
 
 export class FactMetricModel extends BaseClass<WriteOptions> {
   // ...
-  protected async customValidation(doc, writeOptions) {
+  protected async customValidation(doc, _previousDoc, writeOptions) {
     if (!writeOptions.skipTestQuery) {
       // Run a test query against the data warehouse to make sure it works
     }
