@@ -29,7 +29,7 @@ function parseVersion(value: string | string[] | undefined): number | null {
   return Number.isNaN(parsed) ? null : parsed;
 }
 
-/** Build minimal revision for dropdown from a full revision (e.g. one fetched by version) */
+// Build minimal revision from a full revision
 function toMinimalRevision(
   r: FeatureRevisionInterface,
 ): MinimalFeatureRevisionInterface {
@@ -42,19 +42,8 @@ function toMinimalRevision(
   };
 }
 
-/**
- * Handles efficient fetching of features and revisions for the Feature Page
- *
- * Features can be quite big in size, impacting load time, memory usage, and performance
- * on the page. So we fetch by default only the last 5 full revisions for a Feature.
- *
- * In addition, we fetch 25 'MinimalFeatureRevision' that gives us enough information to
- * render them in the UI but does not include rules.
- *
- * This hook controls the logic to automatically fetch additional full revisions if needed
- * and also caches them so we don't refetch when changing between the same 2 revisions.
- *
- */
+// Fetches features and revisions. Loads 5 full revisions + 200 minimal revisions.
+// Auto-fetches and caches additional full revisions as needed.
 export function useFeaturePageData(
   fid: string | string[] | undefined,
   versionQueryParam: string | string[] | undefined,
@@ -116,7 +105,7 @@ export function useFeaturePageData(
     }
   };
 
-  // Seed cache from the initial GET /feature/:id response
+  // Seed cache from initial response
   useEffect(() => {
     if (!baseData || !baseData.feature || baseData.feature.id !== fid) {
       return;
@@ -131,7 +120,7 @@ export function useFeaturePageData(
     });
   }, [baseData, fid]);
 
-  // Append revisions fetched from GET /feature/:id/revisions?versions= (outside initial set)
+  // Append on-demand fetched revisions to cache
   useEffect(() => {
     if (!selectedVersionRevisionsData?.revisions?.length || !fid) {
       return;
@@ -146,7 +135,6 @@ export function useFeaturePageData(
     });
   }, [selectedVersionRevisionsData, fid]);
 
-  // Merge base data with any on-demand cached revisions.
   const data = useMemo<FeaturePageResponse | undefined>(() => {
     if (!baseData) return undefined;
 
@@ -170,25 +158,31 @@ export function useFeaturePageData(
   const revisions = data?.revisions;
   const baseFeatureVersion = baseFeature?.version;
 
-  // Set the initial selected version once data is available.
-  // If there's a version in the URL query, use that. Otherwise, prefer an
-  // active draft revision, falling back to the live (published) version.
+  // Set initial version: URL query > draft revision > live version.
+  // Wait for cache to seed to avoid incorrectly selecting live when drafts exist.
+  const hasRevisionsFromApi = (baseData?.revisions?.length ?? 0) > 0;
+  const cacheSeeded =
+    !!baseData &&
+    !!baseFeatureVersion &&
+    (!hasRevisionsFromApi || (revisions && revisions.length > 0));
   useEffect(() => {
     if (!baseFeatureVersion || version !== null) return;
+    if (!cacheSeeded) return;
 
     if (forcedVersionFromQuery) {
       if (
-        revisions &&
-        revisions.some((r) => r.version === forcedVersionFromQuery)
+        data?.revisionList &&
+        data.revisionList.some((r) => r.version === forcedVersionFromQuery)
       ) {
         setVersion(forcedVersionFromQuery);
       }
       return;
     }
 
+    // Search revisionList (200 items) not revisions (5 items) to find all drafts
     const draft =
-      revisions &&
-      revisions.find(
+      data?.revisionList &&
+      data.revisionList.find(
         (r) =>
           r.status === "draft" ||
           r.status === "approved" ||
@@ -196,7 +190,7 @@ export function useFeaturePageData(
           r.status === "pending-review",
       );
     setVersion(draft ? draft.version : baseFeatureVersion);
-  }, [revisions, version, forcedVersionFromQuery, baseFeatureVersion]);
+  }, [cacheSeeded, data, version, forcedVersionFromQuery, baseFeatureVersion]);
 
   const allEnvironments = useEnvironments();
   const environments = useMemo(
@@ -207,7 +201,6 @@ export function useFeaturePageData(
     [allEnvironments, baseFeature],
   );
 
-  // If we are not seeing the live revision, we need to merge it with the current feature definition
   const revision = useMemo<FeatureRevisionInterface | null>(() => {
     if (!baseFeature) return null;
 
@@ -221,8 +214,7 @@ export function useFeaturePageData(
       return match;
     }
 
-    // If we can't find the revision, create a dummy revision just so the page can render.
-    // This is for old features that don't have any revision history saved.
+    // Create dummy revision for old features without revision history
     const rules: Record<string, FeatureRule[]> = {};
     environments.forEach((env) => {
       rules[env.id] = baseFeature.environmentSettings?.[env.id]?.rules || [];

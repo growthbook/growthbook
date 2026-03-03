@@ -112,6 +112,8 @@ export const UNSUPPORTED_METRIC_EXPLORER_TYPES: readonly FactMetricType[] = [
   "quantile",
 ] as const;
 
+export const MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID = "ch_events";
+
 export const sdkLanguages = [
   "nocode-webflow",
   "nocode-wordpress",

@@ -12,13 +12,13 @@ import CommercialFeature from '@site/src/components/CommercialFeature';
 
 <iframe width="560" height="315" style={{aspectRatio: "16/9", width: "100%", height: "auto"}} src="https://www.youtube-nocookie.com/embed/5W7JfvHVI3E?si=CGkhcxHMDUwU-ENM" title="YouTube video player" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen></iframe>
 
-Prerequisite features allow you to control the state of other features, rules, and experiments based on the state of a prerequisite feature.
+Prerequisite features gate other features, [rules](/features/rules), and experiments based on the state of a prerequisite feature.
 
-Some common use cases include:
+Common use cases:
 
-- Grouping multiple related features under a single release feature (ex: `release-2.8`) and toggling them all at once
-- Creating a hierarchy of features which depend on each other and safely enabling them in the correct order, per environment
-- Only enabling a set of features if the user would be bucketed into "variant 1" of an experiment if exposed to that experiment
+- Grouping multiple related features under a single release feature (e.g., `release-2.8`) and toggling them all at once
+- Creating a hierarchy of dependent features and safely enabling them in the correct order, per environment
+- Only enabling a set of features if the user would be bucketed into "variant 1" of an experiment
 
 There are two types of prerequisite features in GrowthBook: **Top-level Prerequisites** (feature gating) and **Inline Prerequisite Targeting** (rule-level and experiment-level gating).
 
@@ -26,17 +26,17 @@ There are two types of prerequisite features in GrowthBook: **Top-level Prerequi
 
 Top-level prerequisites are defined per dependent feature. They function similarly to a feature's kill switches: if the prerequisite feature is not serving `true` then the dependent feature will not be enabled.
 
-<MaxWidthImage maxWidth={700}>
+<MaxWidthImage border>
   ![Top-level prerequisites](/images/features/feature-top-level-prerequisites.png)
 </MaxWidthImage>
 
-Add one or more top-level prerequisites by clicking the "Add Prerequisite Feature" button on the feature page and then selecting the feature you want to use as a prerequisite.
+Add one or more top-level prerequisites by clicking **Add Prerequisite Feature** on the feature page and selecting the feature you want to use as a prerequisite.
 
-In order for a feature to be eligible to be a top-level prerequisite, it must be a boolean (true/false). Also, it must be in the same project as the dependent feature.
+For a feature to be eligible as a top-level prerequisite, it must be a boolean (true/false) and in the same project as the dependent feature.
 
-### Prerequisite states and values
+### Prerequisite States and Values
 
-A summary of the prerequisite state and value will show while adding or editing a prerequisite, as well as on the dependent feature page.
+A summary of the prerequisite state and value appears while adding or editing a prerequisite, as well as on the dependent feature page.
 
 - **Deterministic** states (**live** and **not live**) are applied to your features within GrowthBook.
   - **Live** prerequisites which are serving `true` will allow their dependent features to be enabled
@@ -52,7 +52,7 @@ Any feature that is always "not live" will not be seen by the SDK. Any feature t
 - **Schrödinger** state means that the prerequisite's state cannot be determined in advance. It may depend on user attributes or other non-deterministic factors. (This is homage to the physicist Erwin Schrödinger who proposed a thought experiment involving a cat in a box that is both alive and dead at the same time.)
 
 :::info
-Prerequisites with a Schrödinger state must be evaluated at runtime in the SDK. Prerequisite evaluation is currently supported in the following SDK versions:
+Prerequisites with a Schrödinger state must be evaluated at runtime in the SDK. Prerequisite evaluation is supported in the following SDK versions:
 
 - JavaScript: `0.34.0+`
 - React: `0.24.0+`
@@ -68,7 +68,7 @@ Prerequisites with a Schrödinger state must be evaluated at runtime in the SDK.
 
 ## Inline Prerequisite Targeting
 
-Inline prerequisite targeting allows finer-grained control over prerequisite behavior than top-level prerequisites.
+Inline prerequisite targeting provides finer-grained control than top-level prerequisites.
 
 1. Inline prerequisites can be applied at a feature's [rule](/features/rules) level, and can be environment-specific. This comes with the added benefits of feature draft releases and approvals.
 2. Inline prerequisites can be applied to individual experiments which may not be linked to a specific feature (such as visual experiments).
@@ -76,13 +76,13 @@ Inline prerequisite targeting allows finer-grained control over prerequisite beh
 
 <CommercialFeature feature="prerequisite-targeting" />
 
-To create an inline prerequisite within a feature, simply add prerequisiting targeting to an existing rule or create a new rule with prerequisite targeting. You can specify one or more prerequisite features within the same project and give each a custom evaluation condition. A similar flow exists while editing the targeting rules of an experiment.
+To create an inline prerequisite within a feature, add prerequisite targeting to an existing rule or create a new rule with prerequisite targeting. You can specify one or more prerequisite features within the same project and give each a custom evaluation condition. A similar flow exists while editing the targeting rules of an experiment.
 
 <MaxWidthImage maxWidth={700}>
-  ![Inline prerequisite targeting](/images/features/feature-inline-prerequisite-targeting.png)
+  ![Inline prerequisite targeting](/images/features/feature-inline-prerequisite-targeting-2.png)
 </MaxWidthImage>
 
-### Inline prerequisite states and values
+### Inline Prerequisite States and Values
 
 The same **deterministic** and **Schrödinger** states apply to inline prerequisites as they do to top-level prerequisites ([see above](#prerequisite-states-and-values)). Below is a summary of how they apply to inline prerequisites:
 
@@ -95,7 +95,7 @@ The same **deterministic** and **Schrödinger** states apply to inline prerequis
 
 ## Limitations
 
-There are a few limitations and guardrails within GrowthBook when configuring prerequisites:
+GrowthBook enforces the following limitations when configuring prerequisites:
 
 1. Prerequisite features must be in the same project as the dependent feature or experiment.
 2. You cannot select a prerequisite that would lead to a circular dependency.
@@ -103,5 +103,5 @@ There are a few limitations and guardrails within GrowthBook when configuring pr
 4. Once a feature has been used as a prerequisite for other features or experiments, you are blocked from deleting, archiving, or changing its projects. To perform these actions, you must first remove the feature from all dependent features and experiments. You can see a list of dependencies on the feature page:
 
 <MaxWidthImage maxWidth={700}>
-  ![Prerequisite dependents](/images/features/feature-prerequisite-dependents.png)
+  ![Prerequisite dependents](/images/features/feature-prereq-dependents.png)
 </MaxWidthImage>

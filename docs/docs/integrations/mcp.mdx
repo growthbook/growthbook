@@ -31,14 +31,15 @@ Check us out on the [official MCP Registry](https://registry.modelcontextprotoco
 
 We cover how to connect the GrowthBook MCP server for the most popular tools below, but the installation steps are similar for most AI tools.
 
-Configuration includes 4 environment variables. Here's what they mean:
+Configuration uses the following environment variables:
 
-| Variable Name | Status   | Description                                                                                           |
-| ------------- | -------- | ----------------------------------------------------------------------------------------------------- |
-| GB_API_KEY    | Required | A GrowthBook API key or PAT. When using a PAT, you can only access tools that your permissions allow. |
-| GB_EMAIL      | Required | Your email address used with GrowthBook. Used when creating feature flags and experiments.            |
-| GB_API_URL    | Optional | Your GrowthBook API URL. Defaults to `https://api.growthbook.io`.                                     |
-| GB_APP_ORIGIN | Optional | Your GrowthBook app URL Defaults to `https://app.growthbook.io`.                                      |
+| Variable Name     | Status   | Description                                                                                           |
+| ----------------- | -------- | ----------------------------------------------------------------------------------------------------- |
+| GB_API_KEY        | Required | A GrowthBook API key or PAT. When using a PAT, you can only access tools that your permissions allow. |
+| GB_EMAIL          | Required | Your email address used with GrowthBook. Used when creating feature flags and experiments.            |
+| GB_API_URL        | Optional | Your GrowthBook API URL. Defaults to `https://api.growthbook.io`.                                     |
+| GB_APP_ORIGIN     | Optional | Your GrowthBook app URL Defaults to `https://app.growthbook.io`.                                      |
+| GB*HTTP_HEADER*\* | Optional | Custom HTTP headers included in all API requests. See [Custom Headers](#custom-headers) below.        |
 
 <br />
 
@@ -275,6 +276,104 @@ We have an official extension in the Connectors Directory.
 :::tip Node not required
 Claude Desktop ships with its own version of Node, which means it's not required here
 :::
+
+## Custom Headers
+
+If your GrowthBook instance is behind a reverse proxy or requires additional authentication headers (e.g. Cloudflare Access), you can pass custom HTTP headers via environment variables using the `GB_HTTP_HEADER_*` prefix.
+
+Each environment variable following this pattern is automatically converted to a proper HTTP header and included in every API request the MCP server makes.
+
+### Naming Convention
+
+The variable name after the `GB_HTTP_HEADER_` prefix is converted from `UPPER_SNAKE_CASE` to `Title-Case-With-Dashes`:
+
+| Environment Variable             | HTTP Header Sent  |
+| -------------------------------- | ----------------- |
+| `GB_HTTP_HEADER_X_TENANT_ID`     | `X-Tenant-ID`     |
+| `GB_HTTP_HEADER_CF_ACCESS_TOKEN` | `Cf-Access-Token` |
+| `GB_HTTP_HEADER_X_CUSTOM_AUTH`   | `X-Custom-Auth`   |
+
+:::info Header precedence
+Custom headers cannot override the `Authorization` or `Content-Type` headers, which are always set by the MCP server.
+:::
+
+### Example: Cloudflare Access
+
+If your self-hosted GrowthBook is protected by [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/policies/access/), add the service token headers:
+
+<Tabs groupId="operating-systems">
+<TabItem value="macos" label="macOS / Linux">
+
+```json
+{
+  "mcpServers": {
+    "growthbook": {
+      "command": "npx",
+      "args": ["-y", "@growthbook/mcp@latest"],
+      "env": {
+        "GB_API_KEY": "YOUR_API_KEY",
+        "GB_API_URL": "https://growthbook.internal.example.com",
+        "GB_APP_ORIGIN": "https://growthbook.internal.example.com",
+        "GB_EMAIL": "YOUR_EMAIL",
+        "GB_HTTP_HEADER_CF_ACCESS_CLIENT_ID": "YOUR_CF_CLIENT_ID",
+        "GB_HTTP_HEADER_CF_ACCESS_CLIENT_SECRET": "YOUR_CF_CLIENT_SECRET"
+      }
+    }
+  }
+}
+```
+
+</TabItem>
+<TabItem value="windows" label="Windows">
+
+```json
+{
+  "mcpServers": {
+    "growthbook": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "@growthbook/mcp@latest"],
+      "env": {
+        "GB_API_KEY": "YOUR_API_KEY",
+        "GB_API_URL": "https://growthbook.internal.example.com",
+        "GB_APP_ORIGIN": "https://growthbook.internal.example.com",
+        "GB_EMAIL": "YOUR_EMAIL",
+        "GB_HTTP_HEADER_CF_ACCESS_CLIENT_ID": "YOUR_CF_CLIENT_ID",
+        "GB_HTTP_HEADER_CF_ACCESS_CLIENT_SECRET": "YOUR_CF_CLIENT_SECRET"
+      }
+    }
+  }
+}
+```
+
+</TabItem>
+</Tabs>
+
+For Claude Code, append the custom headers as additional `--env` flags:
+
+```bash
+claude mcp add growthbook --transport stdio \
+  --env GB_API_KEY=YOUR_API_KEY \
+  --env GB_API_URL=https://growthbook.internal.example.com \
+  --env GB_APP_ORIGIN=https://growthbook.internal.example.com \
+  --env GB_EMAIL=YOUR_EMAIL \
+  --env GB_HTTP_HEADER_CF_ACCESS_CLIENT_ID=YOUR_CF_CLIENT_ID \
+  --env GB_HTTP_HEADER_CF_ACCESS_CLIENT_SECRET=YOUR_CF_CLIENT_SECRET \
+  -- npx -y @growthbook/mcp@latest
+```
+
+### Example: Multi-Tenant Proxy
+
+If your API gateway requires a tenant identifier:
+
+```json
+"env": {
+  "GB_API_KEY": "YOUR_API_KEY",
+  "GB_EMAIL": "YOUR_EMAIL",
+  "GB_HTTP_HEADER_X_TENANT_ID": "your-tenant-id"
+}
+```
+
+You can add as many `GB_HTTP_HEADER_*` variables as needed — each one becomes a separate header on every request.
 
 ## Tools
 

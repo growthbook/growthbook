@@ -4,6 +4,7 @@ export interface PrestoConnectionParams {
   host: string;
   port: number;
   user?: string;
+  trinoUser?: string;
   username?: string;
   password?: string;
   customAuth?: string;
