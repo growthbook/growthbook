@@ -275,8 +275,6 @@ export default function FeaturesOverview({
   const revisionHasChanges =
     !!mergeResult && mergeResultHasChanges(mergeResult);
 
-  const canManageCustomFields = permissionsUtil.canManageCustomFields();
-
   const projectId = feature.project;
 
   const hasDraftPublishPermission =
@@ -586,7 +584,7 @@ export default function FeaturesOverview({
         <Box>
           <CustomFieldDisplay
             target={feature}
-            canEdit={canManageCustomFields}
+            canEdit={canEdit}
             mutate={mutate}
             section={"feature"}
           />
