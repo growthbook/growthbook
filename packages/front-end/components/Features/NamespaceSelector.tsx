@@ -151,7 +151,9 @@ export default function NamespaceSelector({
   };
 
   const updateRange = (index: number, field: 0 | 1, value: number) => {
-    const newRanges = [...ranges];
+    const newRanges = ranges.map((r, i) =>
+      i === index ? ([...r] as [number, number]) : r,
+    );
     newRanges[index][field] = value;
     form.setValue(`${formPrefix}namespace.ranges`, newRanges);
   };
