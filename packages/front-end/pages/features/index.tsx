@@ -344,7 +344,7 @@ export default function FeaturesPage() {
                 <TableRow>
                   <TableCell
                     colSpan={
-                      8 +
+                      7 +
                       (showProjectColumn ? 1 : 0) +
                       toggleEnvs.length +
                       (showGraphs ? 1 : 0)
@@ -394,7 +394,8 @@ export default function FeaturesPage() {
 
   // Reset featureToDuplicate when modal is closed
   useEffect(() => {
-    if (!modalOpen) setFeatureToDuplicate(null);
+    if (modalOpen) return;
+    setFeatureToDuplicate(null);
   }, [modalOpen]);
 
   // watch to see if we should include archived features or not:
@@ -475,7 +476,7 @@ export default function FeaturesPage() {
         <FeatureModal
           cta={featureToDuplicate ? "Duplicate" : "Create"}
           close={() => setModalOpen(false)}
-          featureToDuplicate={featureToDuplicate ?? undefined}
+          featureToDuplicate={featureToDuplicate || undefined}
           onSuccess={async (feature) => {
             const url = `/features/${feature.id}${
               hasFeatures ? "?new" : "?first&new"
