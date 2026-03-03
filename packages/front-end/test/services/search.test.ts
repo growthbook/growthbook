@@ -66,23 +66,43 @@ describe("useSearch", () => {
     };
 
     const items: SearchItem[] = [
-      { id: "2", name: "alpha beta", owner: "jeremy", dateCreated: 2 },
-      { id: "1", name: "beta alpha", owner: "jeremy", dateCreated: 1 },
-      { id: "3", name: "alpha", owner: "tom", dateCreated: 3 },
+      { id: "a", name: "alpha one", owner: "jeremy", dateCreated: 3 },
+      { id: "b", name: "alpha two", owner: "jeremy", dateCreated: 1 },
+      { id: "c", name: "alpha three", owner: "tom", dateCreated: 2 },
+      { id: "d", name: "beta one", owner: "jeremy", dateCreated: 4 },
+      { id: "e", name: "beta two", owner: "jeremy", dateCreated: 0 },
     ];
 
-    const useSearchHook = () =>
-      useSearch<SearchItem>({
-        items,
-        searchFields: ["name"],
-        localStorageKey: "search-service-test",
-        defaultSortField: "dateCreated",
-        searchTermFilters: {
-          owner: (item) => item.owner,
-        },
+    const getSortLinkClass = (header: React.ReactElement): string => {
+      const span = header.props.children as React.ReactElement;
+      const link = React.Children.toArray(span.props.children).find(
+        (child) => React.isValidElement(child) && child.type === "a",
+      ) as React.ReactElement<{ className: string }>;
+
+      return link.props.className;
+    };
+
+    const clickHeader = (header: React.ReactElement) => {
+      const span = header.props.children as React.ReactElement<{
+        onClick: (e: { preventDefault: () => void }) => void;
+      }>;
+      span.props.onClick({
+        preventDefault: vi.fn(),
       });
+    };
 
     it("keeps manual sorting enabled for filter-only queries", () => {
+      const useSearchHook = () =>
+        useSearch<SearchItem>({
+          items,
+          searchFields: ["name"],
+          localStorageKey: "search-service-test-filter-only",
+          defaultSortField: "dateCreated",
+          searchTermFilters: {
+            owner: (item) => item.owner,
+          },
+        });
+
       const { result } = renderHook(() => useSearchHook());
 
       act(() => {
@@ -90,45 +110,121 @@ describe("useSearch", () => {
       });
 
       expect(result.current.unpaginatedItems.map((item) => item.id)).toEqual([
-        "1",
-        "2",
+        "b",
+        "a",
+        "d",
+        "e",
       ]);
 
       const header = result.current.SortableTH({
         field: "dateCreated",
         children: "Date Created",
       }) as React.ReactElement;
-      const clickableHeader = header.props.children as React.ReactElement<{
-        onClick: (e: { preventDefault: () => void }) => void;
-      }>;
-
-      expect(React.isValidElement(clickableHeader)).toBe(true);
 
       act(() => {
-        clickableHeader.props.onClick({
-          preventDefault: vi.fn(),
-        });
+        clickHeader(header);
       });
 
       expect(result.current.unpaginatedItems.map((item) => item.id)).toEqual([
-        "2",
-        "1",
+        "d",
+        "a",
+        "b",
+        "e",
       ]);
     });
 
-    it("keeps manual sorting disabled when free-text is present", () => {
+    it("allows overriding relevance sort and resets when free-text changes", () => {
+      const useSearchHook = () =>
+        useSearch<SearchItem>({
+          items,
+          searchFields: ["name"],
+          localStorageKey: "search-service-test-relevance-override",
+          defaultSortField: "owner",
+          searchTermFilters: {
+            owner: (item) => item.owner,
+          },
+        });
       const { result } = renderHook(() => useSearchHook());
+
+      act(() => {
+        result.current.setSearchValue("alpha");
+      });
+
+      const dateCreatedHeader = result.current.SortableTH({
+        field: "dateCreated",
+        children: "Date Created",
+      }) as React.ReactElement;
+      const ownerHeader = result.current.SortableTH({
+        field: "owner",
+        children: "Owner",
+      }) as React.ReactElement;
+
+      // While relevance sort is active, all headers appear unsorted.
+      expect(getSortLinkClass(dateCreatedHeader)).toBe("inactivesort");
+      expect(getSortLinkClass(ownerHeader)).toBe("inactivesort");
+
+      act(() => {
+        clickHeader(dateCreatedHeader);
+      });
+
+      // Clicking a header disables relevance sorting and applies manual sort.
+      expect(result.current.unpaginatedItems.map((item) => item.id)).toEqual([
+        "b",
+        "c",
+        "a",
+      ]);
+      expect(
+        getSortLinkClass(
+          result.current.SortableTH({
+            field: "dateCreated",
+            children: "Date Created",
+          }) as React.ReactElement,
+        ),
+      ).toBe("activesort");
 
       act(() => {
         result.current.setSearchValue("alpha owner:jeremy");
       });
 
-      const header = result.current.SortableTH({
-        field: "dateCreated",
-        children: "Date Created",
-      }) as React.ReactElement;
+      // Adding syntax filters without changing free-text preserves manual sort.
+      expect(result.current.unpaginatedItems.map((item) => item.id)).toEqual([
+        "b",
+        "a",
+      ]);
 
-      expect(React.isValidElement(header.props.children)).toBe(false);
+      act(() => {
+        result.current.setSearchValue("beta owner:jeremy");
+      });
+
+      // Changing free-text re-enables relevance sorting.
+      expect(
+        getSortLinkClass(
+          result.current.SortableTH({
+            field: "dateCreated",
+            children: "Date Created",
+          }) as React.ReactElement,
+        ),
+      ).toBe("inactivesort");
+
+      act(() => {
+        result.current.setSearchValue("owner:jeremy");
+      });
+
+      // Removing free-text falls back to the last selected manual column sort.
+      expect(result.current.unpaginatedItems.map((item) => item.id)).toEqual([
+        "b",
+        "a",
+        "d",
+        "e",
+      ]);
+      expect(
+        getSortLinkClass(
+          result.current.SortableTH({
+            field: "dateCreated",
+            children: "Date Created",
+          }) as React.ReactElement,
+        ),
+      ).toBe("activesort");
     });
   });
 
