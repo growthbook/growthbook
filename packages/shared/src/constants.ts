@@ -49,6 +49,7 @@ export const EXPOSURE_DATE_DIMENSION_NAME = "dim_exposure_date";
 export const BANDIT_SRM_DIMENSION_NAME = "gb_internal_bandit_srm";
 export const AUTOMATIC_DIMENSION_OTHER_NAME = "__Other__";
 export const NULL_DIMENSION_VALUE = "__NULL_DIMENSION";
+export const NULL_VARIATION_VALUE = "__NULL_VARIATION";
 export const NULL_DIMENSION_DISPLAY = "NULL (unset)";
 export const PRECOMPUTED_DIMENSION_PREFIX = "precomputed:";
 // Colors:
@@ -111,6 +112,8 @@ export const SAFE_ROLLOUT_VARIATIONS = [
 export const UNSUPPORTED_METRIC_EXPLORER_TYPES: readonly FactMetricType[] = [
   "quantile",
 ] as const;
+
+export const MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID = "ch_events";
 
 export const sdkLanguages = [
   "nocode-webflow",

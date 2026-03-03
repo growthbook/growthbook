@@ -67,6 +67,10 @@ function buildDiffItem<T>(
   const b = stringify(post);
 
   const customRender = section?.render ? section.render(pre, post) : undefined;
+  // When a section has a custom render and it returns null, treat as no visible change
+  // (e.g. default value undefined vs "" after normalization).
+  if (section?.render && customRender == null) return null;
+
   const customBadges = section?.getBadges
     ? section.getBadges(pre, post)
     : undefined;

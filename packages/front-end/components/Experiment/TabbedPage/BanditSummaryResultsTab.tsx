@@ -139,6 +139,7 @@ export default function BanditSummaryResultsTab({
             <MultipleExposureWarning
               totalUsers={totalUsers}
               multipleExposures={multipleExposures ?? 0}
+              experiment={experiment}
             />
           </Flex>
         )}

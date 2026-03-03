@@ -305,3 +305,13 @@ $content-max-width: 92rem;
 hr {
   background-color: var(--color-border);
 }
+
+// Medium Zoom plugin overrides
+.medium-zoom-overlay,
+.medium-zoom-image--opened {
+  z-index: 999;
+}
+
+.medium-zoom-overlay {
+  backdrop-filter: blur(5px);
+}
