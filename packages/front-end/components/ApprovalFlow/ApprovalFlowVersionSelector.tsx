@@ -40,7 +40,7 @@ export default function ApprovalFlowVersionSelector({
           (revisionNumberByFlowId.get(a.id) ?? 0),
       )
       .map((flow) => ({
-        label: `Changeset ${revisionNumberByFlowId.get(flow.id) ?? 1}`,
+        label: `Revision ${revisionNumberByFlowId.get(flow.id) ?? 1}`,
         value: flow.id,
       })),
   ];
