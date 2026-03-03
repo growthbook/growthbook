@@ -44,7 +44,6 @@ import LinkButton from "@/ui/LinkButton";
 import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import EmptyState from "@/components/EmptyState";
-import ProjectBadges from "@/components/ProjectBadges";
 import FeatureSearchFilters from "@/components/Search/FeatureSearchFilters";
 import { useExperiments } from "@/hooks/useExperiments";
 import Table, {
@@ -86,7 +85,7 @@ export default function FeaturesPage() {
   const showGraphs = useFeature("feature-list-realtime-graphs").on;
 
   const permissionsUtil = usePermissionsUtil();
-  const { project, projects } = useDefinitions();
+  const { project, projects, getProjectById } = useDefinitions();
   const environments = useEnvironments();
   const {
     features: allFeatures,
@@ -241,14 +240,7 @@ export default function FeaturesPage() {
                             <span className="text-danger">Invalid project</span>
                           </Tooltip>
                         ) : (
-                          <>
-                            {feature.project ? (
-                              <ProjectBadges
-                                resourceType="feature"
-                                projectIds={[feature.projectId]}
-                              />
-                            ) : null}
-                          </>
+                          (getProjectById(feature.projectId)?.name ?? null)
                         )}
                       </TableCell>
                     )}
