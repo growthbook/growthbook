@@ -142,8 +142,8 @@ export const getFeatureRevisionsValidator = {
 
 export const getFeatureStaleValidator = {
   bodySchema: z.never(),
-  querySchema: z.never(),
-  paramsSchema: z.object({ "id": z.string() }).strict(),
+  querySchema: z.object({ "ids": z.string() }).strict(),
+  paramsSchema: z.never(),
 };
 
 export const getFeatureKeysValidator = {

@@ -4163,9 +4163,6 @@ export async function getFeaturesStaleStates(
   > = {};
 
   for (const feature of targetFeatures) {
-    if (!context.permissions.canReadSingleProjectResource(feature.project))
-      continue;
-
     const applicableEnvIds = getEnvironments(context.org)
       .filter(
         (env) =>
