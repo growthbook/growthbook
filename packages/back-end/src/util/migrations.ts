@@ -507,7 +507,9 @@ export function upgradeOrganizationDoc(
     }
   });
 
-  // Make sure namespaces have labels, seeds, and format flags - if missing, use defaults
+  // Make sure namespaces have labels, seeds, and format flags - if missing, use deterministic defaults.
+  // Note: do NOT use uuidv4() here. This function runs on every DB read and is never
+  // persisted, so a random seed would change on every request. Use ns.name as a stable fallback.
   if (org?.settings?.namespaces?.length) {
     org.settings.namespaces = org.settings.namespaces.map((ns) => {
       const hashAttribute =
@@ -516,7 +518,7 @@ export function upgradeOrganizationDoc(
       return {
         ...ns,
         label: ns.label || ns.name,
-        seed: seed || uuidv4(), // Add seed if missing
+        seed: seed || ns.name,
         format: ns.format || (hashAttribute ? "multiRange" : "legacy"), // Set format based on hashAttribute presence
       } as Namespaces;
     });
