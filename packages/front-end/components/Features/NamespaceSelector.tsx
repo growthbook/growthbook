@@ -182,6 +182,14 @@ export default function NamespaceSelector({
               const selected = filteredNamespaces.find((n) => n.name === v);
               form.setValue(`${formPrefix}namespace.name`, v);
 
+              // Set format from namespace definition so downstream consumers
+              // (applyNamespaceToRule, toExperimentApiInterface) can discriminate
+              // between legacy and multiRange without relying on structural checks.
+              form.setValue(
+                `${formPrefix}namespace.format`,
+                selected?.format === "multiRange" ? "multiRange" : "legacy",
+              );
+
               // Set hashAttribute from namespace
               if (
                 selected &&

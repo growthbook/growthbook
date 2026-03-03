@@ -8,6 +8,7 @@ import {
 import {
   includeExperimentInPayload,
   isDefined,
+  isMultiRangeNamespaceFormat,
   recursiveWalk,
   getNamespaceRanges,
   getNamespaceHashAttribute,
@@ -333,8 +334,12 @@ export function applyNamespaceToRule(
 ): void {
   const nsDefinition = namespacesMap?.get(namespace.name);
 
-  // MultiRange format: namespace definition has explicit format flag set to "multiRange"
-  if (nsDefinition?.format === "multiRange" || "ranges" in namespace) {
+  // When a namespace map entry is present its format is authoritative.
+  // Fall back to the utility function only when no map entry exists
+  const multiRange = nsDefinition
+    ? nsDefinition.format === "multiRange"
+    : isMultiRangeNamespaceFormat(namespace);
+  if (multiRange) {
     const hashAttribute = getNamespaceHashAttribute(
       namespace,
       nsDefinition?.hashAttribute || rule.hashAttribute || "id",

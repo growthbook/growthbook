@@ -1,8 +1,11 @@
-// Define NamespaceValue type locally to avoid circular dependency
+// These types are defined locally (not imported from validators/shared) to avoid
+// circular dependencies in the shared package's import graph.
+// Keep in sync with the Zod schemas in validators/shared.ts.
 type LegacyNamespaceValue = {
   enabled: boolean;
   name: string;
   range: [number, number];
+  format?: "legacy"; // optional — matches legacyNamespaceValue Zod schema
 };
 
 type MultiRangeNamespaceValue = {
