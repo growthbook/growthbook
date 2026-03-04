@@ -35,7 +35,8 @@ describe("BigQuery reservation job config", () => {
 
   it("includes reservation in query job config when set", async () => {
     integration.params = {
-      reservation: "projects/my-project/locations/US/reservations/my-reservation",
+      reservation:
+        "projects/my-project/locations/US/reservations/my-reservation",
     };
 
     await integration.runQuery("SELECT 1");
