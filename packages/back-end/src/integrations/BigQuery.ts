@@ -82,6 +82,9 @@ export default class BigQuery extends SqlIntegration {
       labels: { integration: "growthbook" },
       query: sql,
       useLegacySql: false,
+      ...(this.params.reservation
+        ? { reservation: this.params.reservation }
+        : {}),
     });
 
     if (setExternalId && job.id) {

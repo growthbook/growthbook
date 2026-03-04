@@ -1,7 +1,4 @@
 import { FC, useState } from "react";
-import { FeatureInterface } from "shared/types/feature";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { SavedGroupWithoutValues } from "shared/types/saved-group";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiCaretRightFill } from "react-icons/pi";
 import Collapsible from "react-collapsible";
@@ -13,10 +10,19 @@ import Pagination from "@/ui/Pagination";
 
 const PER_PAGE = 50;
 
+type FeatureRef = { id: string; name?: string; project?: string };
+type ExperimentRef = {
+  id: string;
+  name?: string;
+  project?: string;
+  projects?: string[];
+};
+type SavedGroupRef = { id: string; groupName?: string; projects?: string[] };
+
 interface SavedGroupReferencesListProps {
-  features?: FeatureInterface[];
-  experiments?: ExperimentInterfaceStringDates[];
-  savedGroups?: SavedGroupWithoutValues[];
+  features?: FeatureRef[];
+  experiments?: ExperimentRef[];
+  savedGroups?: SavedGroupRef[];
 }
 
 const SavedGroupReferencesList: FC<SavedGroupReferencesListProps> = ({
@@ -81,15 +87,12 @@ const SavedGroupReferencesList: FC<SavedGroupReferencesListProps> = ({
                 <li key={feature.id}>
                   <Flex justify="between" align="center" gap="2" my="1">
                     <Link href={`/features/${feature.id}`} target="_blank">
-                      {(feature as { id: string; name?: string }).name ??
-                        feature.id}
+                      {feature.name ?? feature.id}
                     </Link>
                     <ProjectBadges
                       resourceType="feature"
                       projectIds={
-                        (feature as { project?: string }).project
-                          ? [(feature as { project: string }).project]
-                          : undefined
+                        feature.project ? [feature.project] : undefined
                       }
                       skipMargin
                     />
@@ -148,16 +151,10 @@ const SavedGroupReferencesList: FC<SavedGroupReferencesListProps> = ({
                     <ProjectBadges
                       resourceType="experiment"
                       projectIds={
-                        (
-                          experiment as {
-                            project?: string;
-                            projects?: string[];
-                          }
-                        ).project
-                          ? [(experiment as { project?: string }).project!]
-                          : (experiment as { projects?: string[] }).projects
-                                ?.length
-                            ? (experiment as { projects?: string[] }).projects
+                        experiment.project
+                          ? [experiment.project]
+                          : experiment.projects?.length
+                            ? experiment.projects
                             : undefined
                       }
                       skipMargin
