@@ -138,6 +138,12 @@ properties:
     type: string
   killswitchConfirmation:
     type: boolean
+  featureKillSwitchBehavior:
+    type: string
+    enum:
+      - "off"
+      - "warn"
+      - "gate"
   requireReviews:
     type: array
     items:
@@ -155,6 +161,12 @@ properties:
           type: array
           items:
             type: string
+        featureRequirePrerequisiteReview:
+          type: boolean
+        featureRequireMetadataReview:
+          type: boolean
+  restApiBypassesReviews:
+    type: boolean
   featureKeyExample:
     type: string
   featureRegexValidator:

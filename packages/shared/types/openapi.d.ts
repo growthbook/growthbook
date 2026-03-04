@@ -4484,12 +4484,17 @@ export interface components {
       loseRisk: number;
       secureAttributeSalt: string;
       killswitchConfirmation: boolean;
+      /** @enum {string} */
+      featureKillSwitchBehavior?: "off" | "warn" | "gate";
       requireReviews: ({
           requireReviewOn?: boolean;
           resetReviewOnChange?: boolean;
           environments?: (string)[];
           projects?: (string)[];
+          featureRequirePrerequisiteReview?: boolean;
+          featureRequireMetadataReview?: boolean;
         })[];
+      restApiBypassesReviews?: boolean;
       featureKeyExample: string;
       featureRegexValidator: string;
       banditScheduleValue: number;
@@ -15189,12 +15194,17 @@ export interface operations {
               loseRisk: number;
               secureAttributeSalt: string;
               killswitchConfirmation: boolean;
+              /** @enum {string} */
+              featureKillSwitchBehavior?: "off" | "warn" | "gate";
               requireReviews: ({
                   requireReviewOn?: boolean;
                   resetReviewOnChange?: boolean;
                   environments?: (string)[];
                   projects?: (string)[];
+                  featureRequirePrerequisiteReview?: boolean;
+                  featureRequireMetadataReview?: boolean;
                 })[];
+              restApiBypassesReviews?: boolean;
               featureKeyExample: string;
               featureRegexValidator: string;
               banditScheduleValue: number;

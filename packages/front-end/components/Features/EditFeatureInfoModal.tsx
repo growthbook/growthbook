@@ -19,6 +19,7 @@ const EditFeatureInfoModal: FC<{
     tags: string[];
     owner: string;
     project: string;
+    description: string;
   }) => Promise<void>;
   cancel: () => void;
   mutate: () => void;
@@ -31,6 +32,7 @@ const EditFeatureInfoModal: FC<{
       tags: feature.tags || [],
       owner: feature.owner,
       project: feature.project || "",
+      description: feature.description || "",
     },
   });
   const permissionsUtil = usePermissionsUtil();
@@ -67,6 +69,13 @@ const EditFeatureInfoModal: FC<{
           value={feature.valueType}
           disabled={true}
           helpText={"Feature types cannot be changed"}
+        />
+        <Field
+          label="Description"
+          value={form.watch("description")}
+          onChange={(e) => form.setValue("description", e.target.value)}
+          textarea
+          placeholder="Short human-readable description"
         />
         <SelectOwner
           resourceType={resourceType}

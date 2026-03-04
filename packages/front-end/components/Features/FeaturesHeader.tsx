@@ -1,5 +1,6 @@
 import { useRouter } from "next/router";
 import React, { useEffect, useRef, useState } from "react";
+import clsx from "clsx";
 import { Box, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
 import { FeatureInterface } from "shared/types/feature";
 import { filterEnvironmentsByFeature } from "shared/util";
@@ -36,6 +37,7 @@ import {
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import { useFeatureStaleStates } from "@/hooks/useFeatureStaleStates";
+import { useScrollPosition } from "@/hooks/useScrollPosition";
 import FeatureArchiveModal from "./FeatureArchiveModal";
 import FeatureDeleteModal from "./FeatureDeleteModal";
 import AddToHoldoutModal from "./AddToHoldoutModal";
@@ -43,13 +45,15 @@ import AddToHoldoutModal from "./AddToHoldoutModal";
 export default function FeaturesHeader({
   feature,
   mutate,
+  setVersion,
   tab,
   setTab,
   setEditFeatureInfoModal,
   holdout,
 }: {
   feature: FeatureInterface;
-  mutate: () => void;
+  mutate: () => Promise<unknown>;
+  setVersion: (version: number) => void;
   tab: FeatureTab;
   setTab: (tab: FeatureTab) => void;
   setEditFeatureInfoModal: (open: boolean) => void;
@@ -90,6 +94,19 @@ export default function FeaturesHeader({
     staleHook.fetchSome([feature.id]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [feature.id]);
+
+  // Sticky tabs header — mirrors the experiment page pattern
+  // NB: Keep in sync with .feature-tabs top property in global.scss
+  const TABS_HEADER_HEIGHT_PX = 55;
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const [headerPinned, setHeaderPinned] = useState(false);
+  const { scrollY } = useScrollPosition();
+  useEffect(() => {
+    if (!tabsRef.current) return;
+    setHeaderPinned(
+      tabsRef.current.getBoundingClientRect().top <= TABS_HEADER_HEIGHT_PX,
+    );
+  }, [scrollY]);
 
   // Re-compute whenever the feature is saved (version increments on publish).
   const prevVersionRef = useRef<number | null>(null);
@@ -359,16 +376,26 @@ export default function FeaturesHeader({
               </div>
             )}
           </div>
-          <Tabs value={tab} onValueChange={setTab}>
-            <TabsList size="3">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="test">Simulate</TabsTrigger>
-              <TabsTrigger value="stats">Code Refs</TabsTrigger>
-              <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>
-            </TabsList>
-          </Tabs>
         </Box>
       </Box>
+      <div
+        className={clsx("feature-tabs d-print-none", {
+          pinned: headerPinned,
+        })}
+      >
+        <div className="container-fluid pagecontents px-3">
+          <div className="header-tabs" ref={tabsRef}>
+            <Tabs value={tab} onValueChange={setTab}>
+              <TabsList size="3">
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="test">Simulate</TabsTrigger>
+                <TabsTrigger value="stats">Code Refs</TabsTrigger>
+                <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+        </div>
+      </div>
       {auditModal && (
         <CompareFeatureEventsModal
           feature={feature}
@@ -391,6 +418,7 @@ export default function FeaturesHeader({
           close={() => setStaleFFModal(false)}
           feature={feature}
           mutate={mutate}
+          setVersion={setVersion}
           onEnable={handleRerunStale}
         />
       )}

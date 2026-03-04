@@ -11,7 +11,8 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 export interface Props {
   feature: FeatureInterface;
   environment: string;
-  mutate: () => void;
+  mutate: () => Promise<unknown>;
+  setVersion: (version: number) => void;
   id?: string;
 }
 
@@ -19,6 +20,7 @@ export default function EnvironmentToggle({
   feature,
   environment,
   mutate,
+  setVersion,
   id = "",
 }: Props) {
   const [toggling, setToggling] = useState(false);
@@ -33,7 +35,6 @@ export default function EnvironmentToggle({
 
   const [desiredState, setDesiredState] = useState(env?.enabled ?? false);
   const [confirming, setConfirming] = useState(false);
-  const [draftCreated, setDraftCreated] = useState<number | null>(null);
 
   const settings = useOrgSettings();
 
@@ -64,15 +65,15 @@ export default function EnvironmentToggle({
         enabled: state,
         gated: killSwitchBehavior === "gate",
       });
+      await mutate();
       if (res?.draftVersion) {
-        setDraftCreated(res.draftVersion);
+        setVersion(res.draftVersion);
       }
     } catch (e) {
       console.error(e);
     }
 
     setToggling(false);
-    mutate();
   };
 
   const isDisabled = !permissionsUtil.canPublishFeature(feature, [environment]);
@@ -114,21 +115,6 @@ export default function EnvironmentToggle({
         >
           You are about to set the <strong>{environment}</strong> environment to{" "}
           <strong>{desiredState ? "enabled" : "disabled"}</strong>.
-        </Modal>
-      ) : null}
-
-      {draftCreated ? (
-        <Modal
-          trackingEventModalType=""
-          header="Draft revision created"
-          close={() => setDraftCreated(null)}
-          open={true}
-          cta="OK"
-          submit={async () => setDraftCreated(null)}
-        >
-          The environment toggle change has been saved to draft revision{" "}
-          <strong>#{draftCreated}</strong>. It requires approval before it takes
-          effect.
         </Modal>
       ) : null}
 

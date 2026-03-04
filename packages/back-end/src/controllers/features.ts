@@ -2482,7 +2482,7 @@ export async function deleteFeatureRule(
 export async function putFeature(
   req: AuthRequest<Partial<FeatureInterface>, { id: string }>,
   res: Response<
-    { status: 200; feature: FeatureInterface },
+    { status: 200; feature: FeatureInterface; draftVersion?: number },
     EventUserForResponseLocals
   >,
 ) {
@@ -2628,6 +2628,7 @@ export async function putFeature(
     return res.status(200).json({
       status: 200,
       feature: updatedFeature,
+      draftVersion: draft.version,
     });
   }
 
