@@ -453,40 +453,22 @@ export async function setProxyError(
   connection: SDKConnectionInterface,
   error: string,
 ) {
-  const update: Record<string, unknown> = {
-    $set: {
-      "proxy.error": error,
-      "proxy.connected": false,
-      "proxy.lastError": new Date(),
-    },
-    $inc: {
-      "proxy.consecutiveFailures": 1,
-    },
-  };
-
+  const consecutiveFailures = (connection.proxy.consecutiveFailures || 0) + 1;
   await SDKConnectionModel.updateOne(
     {
       organization: connection.organization,
       id: connection.id,
     },
-    update,
+    {
+      $set: {
+        "proxy.error": error,
+        "proxy.connected": false,
+        "proxy.lastError": new Date(),
+        "proxy.consecutiveFailures": consecutiveFailures,
+        ...(consecutiveFailures >= 5 ? { "proxy.enabled": false } : {}),
+      },
+    },
   );
-
-  // Check if we've hit the threshold to auto-disable
-  const newCount = (connection.proxy.consecutiveFailures || 0) + 1;
-  if (newCount >= 5) {
-    await SDKConnectionModel.updateOne(
-      {
-        organization: connection.organization,
-        id: connection.id,
-      },
-      {
-        $set: {
-          "proxy.enabled": false,
-        },
-      },
-    );
-  }
 }
 
 export async function clearProxyError(connection: SDKConnectionInterface) {

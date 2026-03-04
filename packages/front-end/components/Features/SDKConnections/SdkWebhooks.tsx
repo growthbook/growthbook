@@ -127,7 +127,7 @@ export default function SdkWebhooks({
               innerClassName="pb-3"
               usePortal={true}
               body={
-                <Callout key={webhook.id} status="warning">
+                <Callout key={webhook.id} status="error">
                   <div style={{ wordBreak: "break-all" }}>
                     Disabled after {webhook.consecutiveFailures} consecutive
                     failures.
@@ -141,7 +141,7 @@ export default function SdkWebhooks({
                 </Callout>
               }
             >
-              <span className="text-warning-muted">
+              <span className="text-danger">
                 <FaExclamationTriangle /> disabled
               </span>
             </Tooltip>
