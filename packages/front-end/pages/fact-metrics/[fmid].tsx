@@ -193,7 +193,7 @@ export default function FactMetricPage() {
   );
   const { apiCall } = useAuth();
 
-  const { hasCommercialFeature, organization } = useUser();
+  const { hasCommercialFeature, organization, getOwnerDisplay } = useUser();
 
   const permissionsUtil = usePermissionsUtil();
 
@@ -658,7 +658,7 @@ export default function FactMetricPage() {
           )}
         </div>
         <div className="col-auto">
-          Owner:{` ${factMetric.owner ?? ""}`}
+          Owner:{` ${getOwnerDisplay(factMetric.owner ?? "")}`}
           {canEdit && (
             <a
               className="ml-1 cursor-pointer"

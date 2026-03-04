@@ -176,7 +176,7 @@ export function useFeatureSearch({
     }
   >;
 }) {
-  const { getUserDisplay } = useUser();
+  const { getOwnerDisplay } = useUser();
   const { getProjectById } = useDefinitions();
 
   const features = useAddComputedFields(
@@ -190,10 +190,10 @@ export function useFeatureSearch({
         projectId,
         projectName,
         projectIsDeReferenced,
-        ownerName: getUserDisplay(f.owner, false) || "",
+        ownerName: getOwnerDisplay(f.owner),
       };
     },
-    [getProjectById],
+    [getOwnerDisplay, getProjectById],
   );
   return useSearch({
     items: features,
@@ -248,7 +248,7 @@ export function useFeatureSearch({
       experiment: (item) => item.linkedExperiments || [],
       version: (item) => item.version,
       revision: (item) => item.version,
-      owner: (item) => item.owner,
+      owner: (item) => [item.owner, getOwnerDisplay(item.owner || "")],
       tag: (item) => item.tags,
       type: (item) => item.valueType,
       on: (item) => {

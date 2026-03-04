@@ -68,7 +68,7 @@ export default function FactTablePage() {
   const { apiCall } = useAuth();
 
   const permissionsUtil = usePermissionsUtil();
-  const { hasCommercialFeature, organization } = useUser();
+  const { hasCommercialFeature, organization, getOwnerDisplay } = useUser();
 
   const {
     getFactTableById,
@@ -370,7 +370,7 @@ export default function FactTablePage() {
         </div>
         {(factTable.owner || canEdit) && (
           <div className="col-auto">
-            Owner: {factTable.owner}
+            Owner: {getOwnerDisplay(factTable.owner || "")}
             {canEdit && (
               <a
                 className="ml-1 cursor-pointer"

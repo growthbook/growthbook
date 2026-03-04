@@ -33,6 +33,7 @@ import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { GBInfo } from "@/components/Icons";
+import { useUser } from "@/services/UserContext";
 
 export default function FactTablesPage() {
   const {
@@ -45,6 +46,7 @@ export default function FactTablesPage() {
   } = useDefinitions();
 
   const router = useRouter();
+  const { getOwnerDisplay } = useUser();
 
   const { demoDataSourceId } = useDemoDataSourceProject();
 
@@ -468,7 +470,7 @@ export default function FactTablesPage() {
                   <td>{f.numMetrics}</td>
                   <td>{f.numAutoSlices}</td>
                   <td>{f.numFilters}</td>
-                  <td>{f.owner}</td>
+                  <td>{getOwnerDisplay(f.owner || "")}</td>
                   <td>{f.dateUpdated ? date(f.dateUpdated) : null}</td>
                 </tr>
               ))}

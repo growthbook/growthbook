@@ -1,8 +1,10 @@
+import { useEffect, useMemo } from "react";
 import { Text } from "@radix-ui/themes";
-import useMembers from "@/hooks/useMembers";
 import metaDataStyles from "@/ui/Metadata.module.scss";
 import UserAvatar from "@/components/Avatar/UserAvatar";
 import SelectField from "@/components/Forms/SelectField";
+import { useUser } from "@/services/UserContext";
+import { normalizeOwnerForInternalApi } from "@/services/owners";
 
 interface Props {
   value: string;
@@ -27,36 +29,42 @@ export default function SelectOwner({
   value,
   onChange,
   placeholder = "",
-  resourceType,
+  resourceType: _resourceType,
   disabled = false,
 }: Props) {
-  const { memberUsernameOptions, memberUserNameAndIdOptions } = useMembers();
+  const { users } = useUser();
 
-  // Some resources store the owner by name and some by id, so check which one it is
-  const ownerIdentifierType = [
-    "experiment",
-    "experimentTemplate",
-    "factTable",
-    "archetype",
-    "dashboard",
-  ].includes(resourceType)
-    ? "id"
-    : "name";
+  const activeUsers = useMemo(() => {
+    return Array.from(users.values());
+  }, [users]);
 
-  // if the resource stores owner by id, we need the id to be the value, rather than the name
-  const memberOptions =
-    ownerIdentifierType === "id"
-      ? memberUserNameAndIdOptions
-      : memberUsernameOptions;
+  const memberOptions = useMemo(() => {
+    return activeUsers.map((user) => ({
+      value: user.id,
+      label: user.name ? user.name : user.email,
+      name: user.name,
+      email: user.email,
+    }));
+  }, [activeUsers]);
+
+  const normalizedOwnerValue = useMemo(() => {
+    return normalizeOwnerForInternalApi({
+      owner: value,
+      users,
+    });
+  }, [users, value]);
+
+  useEffect(() => {
+    if (normalizedOwnerValue !== value) {
+      onChange(normalizedOwnerValue);
+    }
+  }, [normalizedOwnerValue, onChange, value]);
 
   return (
     <SelectField
       label="Owner"
-      options={memberOptions.map((member) => ({
-        value: member.value,
-        label: member.display,
-      }))}
-      value={value}
+      options={memberOptions.map(({ value, label }) => ({ value, label }))}
+      value={normalizedOwnerValue}
       disabled={disabled}
       placeholder={placeholder}
       onChange={(v) => onChange(v)}

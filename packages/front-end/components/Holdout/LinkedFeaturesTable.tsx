@@ -6,6 +6,7 @@ import { FeatureInterface } from "shared/types/feature";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import Link from "@/ui/Link";
 import ValueDisplay from "@/components/Features/ValueDisplay";
+import { useUser } from "@/services/UserContext";
 
 interface Props {
   holdout: HoldoutInterfaceStringDates;
@@ -13,6 +14,7 @@ interface Props {
 }
 
 const LinkedFeaturesTable = ({ holdout, features }: Props) => {
+  const { getOwnerDisplay } = useUser();
   const featureItems = useAddComputedFields(
     features,
     (f) => {
@@ -82,7 +84,7 @@ const LinkedFeaturesTable = ({ holdout, features }: Props) => {
                   />
                 </td>
                 <td data-title="Owner" className="col-2">
-                  {f.owner}
+                  {getOwnerDisplay(f.owner || "")}
                 </td>
                 <td data-title="Created">{date(f.dateCreated)}</td>
                 <td data-title="Date Added">

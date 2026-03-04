@@ -14,6 +14,7 @@ import Button from "@/ui/Button";
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useUser } from "@/services/UserContext";
 import ProjectBadges from "@/components/ProjectBadges";
 import TruncatedConditionDisplay from "./TruncatedConditionDisplay";
 import SavedGroupForm from "./SavedGroupForm";
@@ -31,6 +32,7 @@ export default function ConditionGroups({ groups, mutate }: Props) {
   const [deleteModal, setDeleteModal] =
     useState<SavedGroupWithoutValues | null>(null);
   const { project } = useDefinitions();
+  const { getOwnerDisplay } = useUser();
 
   const permissionsUtil = usePermissionsUtil();
   const canCreate = permissionsUtil.canViewSavedGroupModal(project);
@@ -174,7 +176,7 @@ export default function ConditionGroups({ groups, mutate }: Props) {
                               <ProjectBadges resourceType="saved group" />
                             )}
                           </td>
-                          <td>{s.owner}</td>
+                          <td>{getOwnerDisplay(s.owner || "")}</td>
                           <td>{ago(s.dateUpdated)}</td>
                           <td style={{ width: 30 }}>
                             <SavedGroupRowMenu

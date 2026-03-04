@@ -342,6 +342,7 @@ async function runImport(
   data: ImportData,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   apiCall: ApiCallType<any>,
+  currentUserId: string,
   callback: (data: ImportData) => void,
 ) {
   // We will mutate this shared object and sync it back to the component periodically
@@ -448,6 +449,7 @@ async function runImport(
                 body: JSON.stringify({
                   ...f.feature,
                   project: projectId,
+                  owner: currentUserId,
                 }),
               },
             );
@@ -692,7 +694,7 @@ export default function ImportFromLaunchDarkly() {
   });
   const { projects, mutateDefinitions } = useDefinitions();
   const environments = useEnvironments();
-  const { refreshOrganization } = useUser();
+  const { refreshOrganization, userId } = useUser();
 
   const existingEnvironments = useMemo(
     () => new Set(environments.map((e) => e.id)),
@@ -803,7 +805,7 @@ export default function ImportFromLaunchDarkly() {
                   step: 2,
                 });
 
-                await runImport(data, apiCall, (d) => setData(d));
+                await runImport(data, apiCall, userId || "", (d) => setData(d));
                 mutateDefinitions();
                 mutateFeatures();
                 refreshOrganization();

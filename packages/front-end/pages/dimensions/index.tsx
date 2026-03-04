@@ -22,6 +22,7 @@ import Table, { TableBody, TableCell, TableHeader, TableRow } from "@/ui/Table";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { EAQ_ANCHOR_ID } from "@/pages/datasources/[did]";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
+import { useUser } from "@/services/UserContext";
 
 type ExperimentDimensionItem = {
   id: string;
@@ -75,6 +76,7 @@ const DimensionsPage: FC = () => {
     error,
     mutateDefinitions,
   } = useDefinitions();
+  const { getOwnerDisplay } = useUser();
 
   const permissionsUtil = usePermissionsUtil();
   const hasCreateDimensionPermission = permissionsUtil.canCreateDimension();
@@ -269,7 +271,7 @@ const DimensionsPage: FC = () => {
                           ) : null}
                         </>
                       </td>
-                      <td>{s.owner}</td>
+                      <td>{getOwnerDisplay(s.owner || "")}</td>
                       <td className="d-none d-sm-table-cell">
                         {datasource && (
                           <>

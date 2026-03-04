@@ -12,12 +12,14 @@ import SelectField from "@/components/Forms/SelectField";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Code from "@/components/SyntaxHighlighting/Code";
 import SelectOwner from "@/components/Owner/SelectOwner";
+import { useUser } from "@/services/UserContext";
 
 const DimensionForm: FC<{
   close: () => void;
   current: Partial<DimensionInterface>;
 }> = ({ close, current }) => {
   const { apiCall } = useAuth();
+  const { userId } = useUser();
   const { getDatasourceById, datasources, mutateDefinitions, project } =
     useDefinitions();
 
@@ -35,7 +37,7 @@ const DimensionForm: FC<{
       datasource:
         (current.id ? current.datasource : validDatasources[0]?.id) || "",
       userIdType: current.userIdType || "user_id",
-      owner: current?.owner || "",
+      owner: current?.owner || userId || "",
     },
   });
   const [sqlOpen, setSqlOpen] = useState(false);

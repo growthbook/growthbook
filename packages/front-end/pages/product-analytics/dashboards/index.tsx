@@ -45,7 +45,7 @@ import LinkButton from "@/ui/LinkButton";
 
 export default function DashboardsPage() {
   const permissionsUtil = usePermissionsUtil();
-  const { getUserDisplay, hasCommercialFeature, userId } = useUser();
+  const { getOwnerDisplay, hasCommercialFeature, userId } = useUser();
   const { project } = useDefinitions();
   const { apiCall } = useAuth();
   const [saving, setSaving] = useState(false);
@@ -340,7 +340,7 @@ export default function DashboardsPage() {
                           const isOwner = d.userId === userId;
                           const isAdmin =
                             permissionsUtil.canManageOrgSettings();
-                          const ownerName = getUserDisplay(d.userId);
+                          const ownerName = getOwnerDisplay(d.userId || "");
                           let canEdit =
                             permissionsUtil.canUpdateGeneralDashboards(d, {});
                           let canDelete =

@@ -10,6 +10,8 @@ import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import Checkbox from "@/ui/Checkbox";
+import { useUser } from "@/services/UserContext";
+import { normalizeOwnerForInternalApi } from "@/services/owners";
 
 const ArchetypeAttributesModal: FC<{
   close: () => void;
@@ -34,6 +36,7 @@ const ArchetypeAttributesModal: FC<{
   });
 
   const { apiCall } = useAuth();
+  const { userId, users } = useUser();
   const { project, projects } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
   const hasPermissionToAddEditArchetypes =
@@ -72,15 +75,23 @@ const ArchetypeAttributesModal: FC<{
       submit={
         hasPermissionToAddEditArchetypes
           ? form.handleSubmit(async (data) => {
+              const owner =
+                normalizeOwnerForInternalApi({
+                  owner: initialValues?.owner || "",
+                  users,
+                  fallbackUserId: userId || "",
+                }) ||
+                userId ||
+                "";
               if (initialValues?.id) {
                 await apiCall(`/archetype/${initialValues.id}`, {
                   method: "PUT",
-                  body: JSON.stringify({ ...data }),
+                  body: JSON.stringify({ ...data, owner }),
                 });
               } else {
                 await apiCall("/archetype/", {
                   method: "POST",
-                  body: JSON.stringify({ ...data }),
+                  body: JSON.stringify({ ...data, owner: userId || "" }),
                 });
               }
             })

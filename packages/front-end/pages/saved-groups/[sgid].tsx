@@ -51,6 +51,7 @@ import {
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import { useSavedGroupReferences } from "@/hooks/useSavedGroupReferences";
+import { useUser } from "@/services/UserContext";
 
 const NUM_PER_PAGE = 10;
 
@@ -100,6 +101,7 @@ export default function EditSavedGroupPage() {
   );
   const { attributeSchema } = useOrgSettings();
   const { projects } = useDefinitions();
+  const { getOwnerDisplay } = useUser();
 
   const { hasLargeSavedGroupFeature, unsupportedConnections } =
     useLargeSavedGroupSupport();
@@ -420,7 +422,9 @@ export default function EditSavedGroupPage() {
             </Text>
             <Text>
               Owner:{" "}
-              <strong>{savedGroup.owner ? savedGroup.owner : "None"}</strong>
+              <strong>
+                {savedGroup.owner ? getOwnerDisplay(savedGroup.owner) : "None"}
+              </strong>
             </Text>
           </Flex>
           <Flex direction="column" align="end" gap="2">

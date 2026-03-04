@@ -40,6 +40,7 @@ import { getValidDate } from "shared/dates";
 import sha256 from "crypto-js/sha256";
 import { useFeature } from "@growthbook/growthbook-react";
 import { AgreementType } from "shared/validators";
+import { getOwnerDisplay as getOwnerDisplayName } from "@/services/owners";
 import {
   getGrowthBookBuild,
   getSuperadminDefaultRole,
@@ -105,6 +106,7 @@ export interface UserContextValue {
   user?: ExpandedMember;
   users: Map<string, ExpandedMember>;
   getUserDisplay: (id: string, fallback?: boolean) => string;
+  getOwnerDisplay: (owner: string) => string;
   updateUser: () => Promise<void>;
   refreshOrganization: () => Promise<void>;
   permissions: Record<GlobalPermission, boolean> & PermissionFunctions;
@@ -152,6 +154,7 @@ export const UserContext = createContext<UserContextValue>({
   roles: [],
   commercialFeatures: [],
   getUserDisplay: () => "",
+  getOwnerDisplay: () => "",
   updateUser: async () => {
     // Do nothing
   },
@@ -454,6 +457,13 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     [users],
   );
 
+  const getOwnerDisplay = useCallback(
+    (owner: string) => {
+      return getOwnerDisplayName({ owner, users });
+    },
+    [users],
+  );
+
   const watching = useMemo(() => {
     return {
       experiments: currentOrg?.watching?.experiments || [],
@@ -510,6 +520,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         user,
         users,
         getUserDisplay: getUserDisplay,
+        getOwnerDisplay: getOwnerDisplay,
         refreshOrganization: refreshOrganization as () => Promise<void>,
         roles: currentOrg?.roles || [],
         permissions,

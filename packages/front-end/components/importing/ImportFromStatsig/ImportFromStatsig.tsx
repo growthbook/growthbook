@@ -992,7 +992,7 @@ export default function ImportFromStatsig() {
     [dataStr],
   );
 
-  const { refreshOrganization } = useUser();
+  const { refreshOrganization, userId } = useUser();
   const { apiCall } = useAuth();
 
   const { features, mutate: mutateFeatures } = useFeaturesList({
@@ -1246,6 +1246,7 @@ export default function ImportFromStatsig() {
                   existingExperiments: experiments || [],
                   existingFactTables: factTables,
                   datasource: getDatasourceById(dataSource || ""),
+                  currentUserId: userId || "",
                 };
                 await runImport(runOptions);
                 mutateDefinitions();

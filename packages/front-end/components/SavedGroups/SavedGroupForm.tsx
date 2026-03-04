@@ -28,6 +28,8 @@ import MultiSelectField from "@/components/Forms/MultiSelectField";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Link from "@/ui/Link";
 import SelectOwner from "@/components/Owner/SelectOwner";
+import { useUser } from "@/services/UserContext";
+import { normalizeOwnerForInternalApi } from "@/services/owners";
 
 const SavedGroupForm: FC<{
   close: () => void;
@@ -35,6 +37,7 @@ const SavedGroupForm: FC<{
   type: SavedGroupType;
 }> = ({ close, current, type }) => {
   const { apiCall } = useAuth();
+  const { userId, users } = useUser();
   const { savedGroupSizeLimit } = useOrgSettings();
 
   const [conditionKey, forceConditionRender] = useIncrementer();
@@ -59,7 +62,7 @@ const SavedGroupForm: FC<{
   const form = useForm<CreateSavedGroupProps>({
     defaultValues: {
       groupName: current.groupName || "",
-      owner: current.owner || "",
+      owner: current.owner || userId || "",
       attributeKey: current.attributeKey || "",
       condition: current.condition || "",
       type,
@@ -128,7 +131,10 @@ const SavedGroupForm: FC<{
           const payload: UpdateSavedGroupProps = {
             condition: value.condition,
             groupName: value.groupName,
-            owner: value.owner,
+            owner: normalizeOwnerForInternalApi({
+              owner: value.owner,
+              users,
+            }),
             values: value.values,
             description: value.description,
             projects: value.projects,
@@ -142,6 +148,14 @@ const SavedGroupForm: FC<{
         else {
           const payload: CreateSavedGroupProps = {
             ...value,
+            owner:
+              normalizeOwnerForInternalApi({
+                owner: value.owner,
+                users,
+                fallbackUserId: userId || "",
+              }) ||
+              userId ||
+              "",
           };
           setErrorMessage("");
           await apiCall(

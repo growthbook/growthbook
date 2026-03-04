@@ -18,6 +18,7 @@ import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Badge from "@/ui/Badge";
 import { useExperiments } from "@/hooks/useExperiments";
+import { useUser } from "@/services/UserContext";
 import {
   ChangeField,
   toConditionString,
@@ -150,6 +151,12 @@ function formatValue(val: string | unknown): string {
     return val;
   }
   return JSON.stringify(val, null, 2);
+}
+
+function OwnerLabel({ owner }: { owner: string | undefined }) {
+  const { getOwnerDisplay } = useUser();
+  if (!owner) return <em>unset</em>;
+  return <>{getOwnerDisplay(owner)}</>;
 }
 
 // "Rule #3 — Force (value: xyz)" compact descriptor used as a sub-heading.
@@ -967,8 +974,8 @@ export function renderFeatureMetadataSection(
         key="owner"
         label="Owner"
         changed
-        oldNode={pre?.owner || <em>unset</em>}
-        newNode={post.owner}
+        oldNode={<OwnerLabel owner={pre?.owner} />}
+        newNode={<OwnerLabel owner={post.owner} />}
       />,
     );
   }

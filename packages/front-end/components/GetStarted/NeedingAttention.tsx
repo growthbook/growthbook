@@ -82,7 +82,8 @@ const NeedingAttention = (): React.ReactElement | null => {
     return items;
   }, []);
 
-  const { hasCommercialFeature, organization, user } = useUser();
+  const { hasCommercialFeature, organization, user, getOwnerDisplay } =
+    useUser();
   const {
     items: experimentsNeedingAttention,
     SortableTH: SortableTHExperiments,
@@ -541,7 +542,9 @@ const NeedingAttention = (): React.ReactElement | null => {
                     {getProjectById(item.featureMeta?.project || "")?.name}
                   </td>
                   <td className={styles.ownerTd}>
-                    {getAvatarAndName(item.featureMeta?.owner || "")}
+                    {getAvatarAndName(
+                      getOwnerDisplay(item.featureMeta?.owner || ""),
+                    )}
                   </td>
                   <td className="text-truncate">{renderStatusCopy(item)}</td>
                 </tr>

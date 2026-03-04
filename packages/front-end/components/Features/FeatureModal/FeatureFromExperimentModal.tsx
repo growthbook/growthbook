@@ -12,6 +12,7 @@ import Link from "next/link";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { filterEnvironmentsByExperiment } from "shared/util";
 import { useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
 import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import track from "@/services/track";
@@ -117,6 +118,7 @@ export default function FeatureFromExperimentModal({
   source,
 }: Props) {
   const { project, refreshTags } = useDefinitions();
+  const { userId } = useUser();
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByExperiment(
     allEnvironments,
@@ -236,6 +238,7 @@ export default function FeatureFromExperimentModal({
           ? existingFeature
           : {
               ...feature,
+              owner: userId || "",
               defaultValue: variations[0].value,
               holdout: experiment.holdoutId
                 ? {

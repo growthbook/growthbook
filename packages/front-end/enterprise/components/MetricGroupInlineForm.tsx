@@ -7,6 +7,7 @@ import Field from "@/components/Forms/Field";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import track from "@/services/track";
+import { useUser } from "@/services/UserContext";
 
 export default function MetricGroupInlineForm({
   selectedMetricIds,
@@ -24,6 +25,7 @@ export default function MetricGroupInlineForm({
   const [error, setError] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(false);
   const { apiCall } = useAuth();
+  const { userId } = useUser();
   const form = useForm<{ name: string; metrics: string[]; datasource: string }>(
     {
       defaultValues: {
@@ -41,6 +43,7 @@ export default function MetricGroupInlineForm({
       name: form.watch("name"),
       metrics: form.watch("metrics"),
       datasource: form.watch("datasource"),
+      owner: userId || "",
     };
     track("Create Metric Group", {
       value,

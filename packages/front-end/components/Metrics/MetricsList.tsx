@@ -257,7 +257,7 @@ const MetricsList = (): React.ReactElement => {
     metrics: legacyMetrics,
     ready,
   } = useDefinitions();
-  const { getUserDisplay } = useUser();
+  const { getOwnerDisplay } = useUser();
   const { demoDataSourceId } = useDemoDataSourceProject();
 
   const router = useRouter();
@@ -280,9 +280,9 @@ const MetricsList = (): React.ReactElement => {
       datasourceDescription: m.datasource
         ? getDatasourceById(m.datasource)?.description || undefined
         : undefined,
-      ownerName: getUserDisplay(m.owner),
+      ownerName: getOwnerDisplay(m.owner || ""),
     }),
-    [getDatasourceById],
+    [getDatasourceById, getOwnerDisplay],
   );
   const filteredMetrics = project
     ? metrics.filter((m) => isProjectListValidForProject(m.projects, project))

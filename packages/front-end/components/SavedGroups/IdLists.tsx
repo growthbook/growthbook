@@ -18,6 +18,7 @@ import LargeSavedGroupPerformanceWarning, {
 } from "@/components/SavedGroups/LargeSavedGroupSupportWarning";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useUser } from "@/services/UserContext";
 import ProjectBadges from "@/components/ProjectBadges";
 import SavedGroupForm from "./SavedGroupForm";
 import SavedGroupDeleteModal from "./SavedGroupDeleteModal";
@@ -34,6 +35,7 @@ export default function IdLists({ groups, mutate }: Props) {
   const [deleteModal, setDeleteModal] =
     useState<SavedGroupWithoutValues | null>(null);
   const { project } = useDefinitions();
+  const { getOwnerDisplay } = useUser();
 
   const permissionsUtil = usePermissionsUtil();
   const canCreate = permissionsUtil.canViewSavedGroupModal(project);
@@ -172,7 +174,7 @@ export default function IdLists({ groups, mutate }: Props) {
                           <ProjectBadges resourceType="saved group" />
                         )}
                       </td>
-                      <td>{s.owner}</td>
+                      <td>{getOwnerDisplay(s.owner || "")}</td>
                       <td>{ago(s.dateUpdated)}</td>
                       <td style={{ width: 30 }}>
                         <SavedGroupRowMenu

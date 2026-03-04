@@ -15,7 +15,7 @@ interface Props {
 }
 
 const LinkedExperimentsTable = ({ holdout, experiments }: Props) => {
-  const { getUserDisplay } = useUser();
+  const { getOwnerDisplay } = useUser();
   const getExperimentStatusIndicator = useExperimentStatusIndicator();
 
   const experimentItems = useAddComputedFields(
@@ -124,7 +124,7 @@ const LinkedExperimentsTable = ({ holdout, experiments }: Props) => {
                   )}
                 </td>
                 <td data-title="Owner" className="col-2">
-                  {getUserDisplay(exp.owner, false)}
+                  {getOwnerDisplay(exp.owner || "")}
                 </td>
                 <td data-title="Date Added">
                   {exp.dateAdded ? date(exp.dateAdded) : ""}

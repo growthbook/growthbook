@@ -183,7 +183,7 @@ const ShareModal = ({
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState<boolean>(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const { getUserDisplay } = useUser();
+  const { getOwnerDisplay } = useUser();
   const form = useForm<Partial<PresentationInterface>>({
     defaultValues: {
       title: existing?.title || "A/B Test Review",
@@ -629,7 +629,7 @@ const ShareModal = ({
                                     <SortedTags tags={Object.values(e.tags)} />
                                   </td>
                                   <td className="nowrap">
-                                    {getUserDisplay(e.owner, false)}
+                                    {getOwnerDisplay(e.owner || "")}
                                   </td>
                                   <td
                                     className="nowrap"

@@ -23,6 +23,7 @@ import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import LinkButton from "@/ui/LinkButton";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { useUser } from "@/services/UserContext";
 import { DataSourceQueryEditingModalBaseProps } from "./types";
 
 type DataSourceMetricsProps = Omit<
@@ -46,6 +47,7 @@ export default function DataSourceMetrics({
     factTables,
     metrics: legacyMetrics,
   } = useDefinitions();
+  const { getOwnerDisplay } = useUser();
 
   const combinedMetrics = useCombinedMetrics({
     setMetricModalProps: setModalData,
@@ -179,7 +181,7 @@ export default function DataSourceMetrics({
                               )}
                             >
                               <strong>Owner: </strong>
-                              {metric.owner}
+                              {getOwnerDisplay(metric.owner || "")}
                             </div>
                             <div
                               className={clsx(

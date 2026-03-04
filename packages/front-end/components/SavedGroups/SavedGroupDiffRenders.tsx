@@ -3,6 +3,7 @@ import isEqual from "lodash/isEqual";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import Text from "@/ui/Text";
+import { useUser } from "@/services/UserContext";
 import {
   ChangeField,
   toConditionString,
@@ -16,6 +17,12 @@ type Post = Partial<SavedGroupInterface>;
 
 // Max items to render inline before switching to a count-only summary.
 const INLINE_LIMIT = 200;
+
+function OwnerLabel({ owner }: { owner: string | undefined }) {
+  const { getOwnerDisplay } = useUser();
+  if (!owner) return <em>unset</em>;
+  return <>{getOwnerDisplay(owner)}</>;
+}
 
 function ValuesBox({
   values,
@@ -192,11 +199,23 @@ export function renderSavedGroupSettings(
     );
   }
 
+  if (!isEqual(pre?.owner, post.owner) && post.owner !== undefined) {
+    rows.push(
+      <ChangeField
+        key="owner"
+        label="Owner"
+        changed
+        oldNode={<OwnerLabel owner={pre?.owner} />}
+        newNode={<OwnerLabel owner={post.owner} />}
+      />,
+    );
+  }
+
   rows.push(
     ...renderFallback(
       pre as Record<string, unknown>,
       post as Record<string, unknown>,
-      new Set(["groupName"]),
+      new Set(["groupName", "owner"]),
     ),
   );
 

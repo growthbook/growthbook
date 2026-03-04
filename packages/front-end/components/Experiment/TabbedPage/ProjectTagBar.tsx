@@ -38,7 +38,7 @@ export default function ProjectTagBar({
     getProjectById,
   } = useDefinitions();
 
-  const { getUserDisplay } = useUser();
+  const { getOwnerDisplay } = useUser();
   const projectId = experiment.project;
   const project = getProjectById(experiment.project || "");
   const projectName = project?.name || null;
@@ -57,7 +57,7 @@ export default function ProjectTagBar({
 
   const createdDate = date(experiment.dateCreated);
 
-  const ownerName = getUserDisplay(experiment.owner, false) || "";
+  const ownerName = getOwnerDisplay(experiment.owner || "");
 
   const hasMultiplePhases = (experiment.phases?.length ?? 0) > 1;
 
