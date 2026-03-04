@@ -1152,9 +1152,14 @@ export async function applyRevisionChanges(
   }
 
   if (changes.environmentSettings) {
+    changes.rampStartedAt = reconcileRampStartedAt(
+      changes.environmentSettings,
+      feature.rampStartedAt,
+    );
     changes.nextScheduledUpdate = getNextScheduledUpdate(
       changes.environmentSettings,
       environments,
+      changes.rampStartedAt,
     );
   }
 

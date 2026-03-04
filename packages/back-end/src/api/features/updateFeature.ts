@@ -202,6 +202,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       updates.nextScheduledUpdate = getNextScheduledUpdate(
         updates.environmentSettings,
         orgEnvs,
+        feature.rampStartedAt,
       );
     }
 

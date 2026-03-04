@@ -72,6 +72,7 @@ const updateSingleFeature = async (job: UpdateSingleFeatureJob) => {
     const nextScheduledUpdate = getNextScheduledUpdate(
       feature.environmentSettings || {},
       context.environments,
+      feature.rampStartedAt,
     );
 
     // Update the feature in Mongo
