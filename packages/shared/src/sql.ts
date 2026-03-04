@@ -79,12 +79,12 @@ export function format(
   onError?: (error: FormatError) => void,
 ): string {
   if (!dialect) return sql;
-
   const report = formatMetricsReporter;
 
-  // 1. Try polyglot first (high length limit; fast)
-  // initPolyglotFormat() must be called before first use (back-end: at startup; front-end: when modal mounts)
+  // 1. Try polyglot first (high length limit; fast) when available
+  // initPolyglotFormat() must be called before first use on back-end; front-end falls back to sql-formatter when polyglot is missing
   if (
+    typeof polyglotFormat === "function" &&
     MAX_SQL_LENGTH_FOR_POLYGLOT &&
     sql.length <= MAX_SQL_LENGTH_FOR_POLYGLOT
   ) {

@@ -8,7 +8,7 @@ import {
 import { TemplateVariables } from "shared/types/sql";
 import { Flex, Text, Box, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { initPolyglotFormat, SQL_ROW_LIMIT } from "shared/sql";
+import { SQL_ROW_LIMIT } from "shared/sql";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { validateSQL } from "@/services/datasources";
@@ -186,11 +186,6 @@ export default function EditSqlModal({
 
   const hasEventName = usesEventName(form.watch("sql"));
   const hasValueCol = usesValueColumn(form.watch("sql"));
-
-  // Preload polyglot WASM when modal mounts so Format button works (browser build requires init)
-  useEffect(() => {
-    initPolyglotFormat();
-  }, []);
 
   // Update autocompletions when cursor or schema changes
   useEffect(() => {

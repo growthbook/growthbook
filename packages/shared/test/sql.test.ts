@@ -33,7 +33,7 @@ describe("format", () => {
     expect(result).toContain("users");
   });
 
-  skip("falls back to original when SQL has unsupported syntax", () => {
+  it.skip("falls back to original when SQL has unsupported syntax", () => {
     const sql = "SELECT x > 0 ? 1 : 0 FROM t";
     const result = format(sql, "postgresql");
     expect(result).toContain("x > 0");
