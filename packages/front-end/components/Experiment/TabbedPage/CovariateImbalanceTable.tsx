@@ -129,6 +129,18 @@ export function CovariateImbalanceMetricVariationTable({
   );
 }
 
+function formatMetricTypeSummary(
+  typeLabel: string,
+  significant: number,
+  total: number,
+): string {
+  if (total === 0) return "";
+  if (typeLabel === "Goal") {
+    return `Statistically significant differences were found in ${significant} of ${total} goal metric${total === 1 ? "" : "s"}.`;
+  }
+  return `For ${typeLabel.toLowerCase()} metrics, ${significant} of ${total} showed significant differences.`;
+}
+
 export function CovariateImbalanceMetricSummaryTable(
   covariateImbalanceResult: CovariateImbalanceResult | null,
 ) {
@@ -136,7 +148,7 @@ export function CovariateImbalanceMetricSummaryTable(
     return null;
   }
 
-  const rows = [
+  const parts = [
     {
       label: "Goal",
       total: covariateImbalanceResult.numGoalMetrics,
@@ -152,49 +164,11 @@ export function CovariateImbalanceMetricSummaryTable(
       total: covariateImbalanceResult.numSecondaryMetrics,
       significant: covariateImbalanceResult.numSecondaryMetricsImbalanced,
     },
-  ];
+  ]
+    .filter((p) => p.total > 0)
+    .map((p) => formatMetricTypeSummary(p.label, p.significant, p.total));
 
-  const totals = rows.reduce(
-    (acc, row) => {
-      acc.total += row.total;
-      acc.significant += row.significant;
-      return acc;
-    },
-    { total: 0, significant: 0 },
-  );
+  if (parts.length === 0) return null;
 
-  const data = [...rows, { label: "Total", ...totals }];
-
-  return (
-    <table className="table mx-2 mt-0 mb-2">
-      <thead>
-        <tr>
-          <th className="border-top-0 text-center">Metric Type</th>
-          <th className="border-top-0 text-center">Significant</th>
-          <th className="border-top-0 text-center">Total</th>
-          <th className="border-top-0 text-center">Percentage</th>
-        </tr>
-      </thead>
-      <tbody>
-        {data.map(({ label, significant, total }) => (
-          <tr key={label}>
-            <td className="border-right">
-              <b>{label}</b>
-            </td>
-            <td className="border-right text-right">
-              {sampleSizeFormatter.format(significant)}
-            </td>
-            <td className="border-right text-right">
-              {sampleSizeFormatter.format(total)}
-            </td>
-            <td className="text-right">
-              {total > 0
-                ? percentageFormatter.format(significant / total)
-                : "-"}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
+  return <p className="mx-2 mt-0 mb-2">{parts.join(" ")}</p>;
 }
