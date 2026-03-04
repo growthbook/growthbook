@@ -72,7 +72,7 @@ export function AttributeOptionTooltipContent({
               <SortedTags
                 tags={option.tags}
                 shouldShowEllipsis={true}
-                showEllipsisAtIndex={15}
+                showEllipsisAtIndex={20}
                 ellipsisFormat={(n) => `+${n}`}
               />
             </Box>

@@ -418,6 +418,15 @@ p.rt-TooltipText {
   .rt-TooltipArrow {
     fill: var(--surface-background-color) !important;
   }
+
+  // Links (e.g. in description Markdown): use theme accent so they match tooltip text theme
+  a {
+    color: var(--accent-11);
+    text-decoration: underline;
+    &:hover {
+      color: var(--accent-12);
+    }
+  }
 }
 
 // Links inside tooltips: ensure contrast on tooltip background (gray-12 is dark in light theme, light in dark theme)
