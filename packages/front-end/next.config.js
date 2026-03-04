@@ -55,7 +55,7 @@ const nextConfig = {
       ],
     },
   ],
-  transpilePackages: ["echarts", "zrender"],
+  transpilePackages: ["echarts", "zrender", "@polyglot-sql/sdk"],
   webpack: (config) => {
     // Ace workers: use raw-loader (same as Turbopack) so we get source and create
     // Blob URLs. asset/resource only works with webpack, not Turbopack.

@@ -1,9 +1,21 @@
-import {
-  format as polyglotFormat,
-  init as polyglotInit,
-  Dialect,
-} from "@polyglot-sql/sdk";
 import { format as sqlFormat } from "sql-formatter";
+
+// Polyglot loads WASM via top-level await; avoid importing on server (SSR) where it fails.
+// Dynamically load only in browser; back-end calls initPolyglotFormat() before use.
+let polyglotFormat: typeof import("@polyglot-sql/sdk").format | null = null;
+let polyglotInit: typeof import("@polyglot-sql/sdk").init | null = null;
+let DialectRef: typeof import("@polyglot-sql/sdk").Dialect | null = null;
+let polyglotInitPromise: Promise<void> | null = null;
+if (typeof window !== "undefined") {
+  polyglotInitPromise = import("@polyglot-sql/sdk")
+    .then(async (pg) => {
+      polyglotFormat = pg.format;
+      polyglotInit = pg.init;
+      DialectRef = pg.Dialect;
+      await pg.init();
+    })
+    .catch(() => {});
+}
 import { SqlResultChunkInterface } from "../types/query";
 import { FormatDialect } from "../types/sql";
 import { FormatError } from "../types/error";
@@ -22,12 +34,20 @@ export function setFormatMetricsReporter(
   formatMetricsReporter = reporter;
 }
 
-let polyglotInitPromise: Promise<void> | null = null;
-
 export async function initPolyglotFormat(): Promise<void> {
-  if (typeof polyglotInit !== "function") return;
+  if (typeof window !== "undefined") {
+    // Browser: wait for auto-load from side effect
+    await polyglotInitPromise;
+    return;
+  }
+  // Server (Node): load polyglot on first init call
   if (!polyglotInitPromise) {
-    polyglotInitPromise = polyglotInit().catch(() => {});
+    polyglotInitPromise = import("@polyglot-sql/sdk").then(async (pg) => {
+      polyglotFormat = pg.format;
+      polyglotInit = pg.init;
+      DialectRef = pg.Dialect;
+      await polyglotInit!();
+    });
   }
   await polyglotInitPromise;
 }
@@ -42,34 +62,38 @@ const MAX_SQL_LENGTH_FOR_POLYGLOT = parseInt(
   process.env.MAX_SQL_LENGTH_FOR_POLYGLOT || "500000",
 );
 
-function getPolyglotDialect(dialect: string): Dialect {
+function getPolyglotDialect(
+  dialect: string,
+): import("@polyglot-sql/sdk").Dialect {
+  const D = DialectRef;
+  if (!D) return 0 as unknown as import("@polyglot-sql/sdk").Dialect; // Unreachable when polyglot used
   switch (dialect) {
     case "mysql":
-      return Dialect.MySQL;
+      return D.MySQL;
     case "bigquery":
-      return Dialect.BigQuery;
+      return D.BigQuery;
     case "snowflake":
-      return Dialect.Snowflake;
+      return D.Snowflake;
     case "redshift":
-      return Dialect.Redshift;
+      return D.Redshift;
     case "presto":
-      return Dialect.Presto;
+      return D.Presto;
     case "trino":
-      return Dialect.Trino;
+      return D.Trino;
     case "clickhouse":
-      return Dialect.ClickHouse;
+      return D.ClickHouse;
     case "databricks":
-      return Dialect.Databricks;
+      return D.Databricks;
     case "athena":
-      return Dialect.Athena;
+      return D.Athena;
     case "tsql":
-      return Dialect.TSQL;
+      return D.TSQL;
     case "sqlite":
-      return Dialect.SQLite;
+      return D.SQLite;
     case "sql":
-      return Dialect.PostgreSQL;
+      return D.PostgreSQL;
     default:
-      return Dialect.PostgreSQL;
+      return D.PostgreSQL;
   }
 }
 
