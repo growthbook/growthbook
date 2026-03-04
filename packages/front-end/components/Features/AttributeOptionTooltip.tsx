@@ -57,8 +57,7 @@ export function AttributeOptionTooltipContent({
             )}
             {option.hashAttribute === true && (
               <Text size="small" as="div">
-                <strong>Identifier:</strong>{" "}
-                {option.hashAttribute ? "Yes" : "No"}
+                <strong>Identifier</strong>
               </Text>
             )}
           </Flex>
