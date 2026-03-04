@@ -1079,13 +1079,13 @@ export async function createSnapshot({
     throw new Error("Could not load data source");
   }
 
-  // TODO(incremental-refresh): use other signal other than useCache
-  // to determine full refresh
-  const fullRefresh = !useCache;
+  const incrementalRefreshModel = useCache
+    ? await context.models.incrementalRefresh.getByExperimentId(experiment.id)
+    : null;
 
-  const incrementalRefreshModel = fullRefresh
-    ? null
-    : await context.models.incrementalRefresh.getByExperimentId(experiment.id);
+  // Full refresh when explicitly requested (!useCache) or when no prior
+  // incremental state exists (e.g. newly imported experiment)
+  const fullRefresh = !useCache || !incrementalRefreshModel;
 
   const snapshotSettings = getSnapshotSettings({
     experiment,
@@ -1256,7 +1256,8 @@ export async function createSnapshot({
       queryRunner instanceof ExperimentIncrementalRefreshQueryRunner ||
       queryRunner instanceof ExperimentIncrementalRefreshExploratoryQueryRunner
     ) {
-      const fullRefresh = !useCache && snapshot.type === "standard";
+      const fullRefresh =
+        (!useCache || !incrementalRefreshModel) && snapshot.type === "standard";
 
       await queryRunner.startAnalysis({
         ...analysisProps,
