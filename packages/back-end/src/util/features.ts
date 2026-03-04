@@ -324,7 +324,7 @@ export function getHoldoutFeatureDefId(holdoutId: string) {
  * Helper function to apply namespace to a rule
  * Handles both multiRange format (with hashAttribute and multiple ranges) and legacy format
  */
-export function applyNamespaceToRule(
+export function applyNamespaceToPayload(
   rule: FeatureDefinitionRule,
   namespace: NamespaceValue,
   namespacesMap?: Map<
@@ -528,7 +528,7 @@ export function getFeatureDefinition({
             phase.namespace.enabled &&
             phase.namespace.name
           ) {
-            applyNamespaceToRule(rule, phase.namespace, namespaces);
+            applyNamespaceToPayload(rule, phase.namespace, namespaces);
           }
 
           if (phase.seed) {
@@ -629,7 +629,7 @@ export function getFeatureDefinition({
             rule.minBucketVersion = r.minBucketVersion;
           }
           if (r?.namespace && r.namespace.enabled && r.namespace.name) {
-            applyNamespaceToRule(rule, r.namespace, namespaces);
+            applyNamespaceToPayload(rule, r.namespace, namespaces);
           }
         } else if (r.type === "rollout") {
           rule.force = getJSONValue(feature.valueType, r.value);

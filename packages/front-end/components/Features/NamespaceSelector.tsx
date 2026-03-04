@@ -174,7 +174,7 @@ export default function NamespaceSelector({
               form.setValue(`${formPrefix}namespace.name`, v);
 
               // Set format from namespace definition so downstream consumers
-              // (applyNamespaceToRule, toExperimentApiInterface) can discriminate
+              // (applyNamespaceToPayload, toExperimentApiInterface) can discriminate
               // between legacy and multiRange without relying on structural checks.
               form.setValue(
                 `${formPrefix}namespace.format`,

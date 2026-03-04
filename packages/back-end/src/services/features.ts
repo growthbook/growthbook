@@ -89,7 +89,7 @@ import {
   getAllVisualExperiments,
 } from "back-end/src/models/ExperimentModel";
 import {
-  applyNamespaceToRule,
+  applyNamespaceToPayload,
   getFeatureDefinition,
   getHoldoutFeatureDefId,
   getParsedCondition,
@@ -358,7 +358,7 @@ export function generateAutoExperimentsPayload({
 
       // Handle namespace
       if (phase?.namespace?.enabled && phase.namespace.name) {
-        applyNamespaceToRule(exp, phase.namespace, namespaces);
+        applyNamespaceToPayload(exp, phase.namespace, namespaces);
       }
 
       if (prerequisites.length) {
