@@ -290,13 +290,15 @@ export default function AssignmentTester({
           <Tooltip body="Enter attributes and see how Growthbook would evaluate this feature for the different environments. Will use draft rules."></Tooltip>
         </Text>
       </Box>
-      <Flex align="end" justify="between" mb="3" mt="3">
-        <RevisionDropdown
-          feature={feature}
-          version={currentVersion}
-          setVersion={setVersion}
-          revisions={revisions || []}
-        />
+      <Flex align="end" justify="between" mb="5" mt="3">
+        <Box width={{ initial: "98%", sm: "70%", md: "60%", lg: "50%" }}>
+          <RevisionDropdown
+            feature={feature}
+            version={currentVersion}
+            setVersion={setVersion}
+            revisions={revisions || []}
+          />
+        </Box>
         <Flex align="end" justify="end">
           <Box>
             {hasPrerequisites && (

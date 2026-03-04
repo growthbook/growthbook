@@ -15,6 +15,7 @@ import {
 import { isProjectListValidForProject } from "shared/util";
 import { getScopedSettings } from "shared/settings";
 import Collapsible from "react-collapsible";
+import { Separator } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
@@ -47,6 +48,7 @@ import {
   getDefaultMetricOverridesFormValue,
 } from "./EditMetricsForm";
 import MetricSelector from "./MetricSelector";
+import BanditDecisionMetricSettings from "./BanditDecisionMetricSettings";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 
 const AnalysisForm: FC<{
@@ -193,11 +195,25 @@ const AnalysisForm: FC<{
         experiment.banditBurnInValue ?? scopedSettings.banditBurnInValue.value,
       banditBurnInUnit:
         experiment.banditBurnInUnit ?? scopedSettings.banditBurnInUnit.value,
+      banditConversionWindowValue: experiment.banditConversionWindowValue as
+        | number
+        | undefined,
+      banditConversionWindowUnit: (experiment.banditConversionWindowUnit ??
+        "hours") as "hours" | "days",
+      disableStickyBucketing: experiment.disableStickyBucketing ?? false,
     },
   });
 
   const [usingSequentialTestingDefault, setUsingSequentialTestingDefault] =
     useState(experiment.sequentialTestingEnabled === undefined);
+  const [disableBanditConversionWindow, setDisableBanditConversionWindow] =
+    useState(() => {
+      if (experiment.type !== "multi-armed-bandit") return false;
+      const hasOverride =
+        experiment.banditConversionWindowValue != null &&
+        experiment.banditConversionWindowUnit != null;
+      return !hasOverride;
+    });
   const setSequentialTestingToDefault = useCallback(
     (enable: boolean) => {
       if (enable) {
@@ -342,6 +358,17 @@ const AnalysisForm: FC<{
             (body.banditScheduleUnit === "days" ? 24 : 1);
           if (banditScheduleHours < 0.25 || (body.banditBurnInValue ?? 0) < 0) {
             throw new Error("Invalid Bandit schedule");
+          }
+          if (disableBanditConversionWindow) {
+            body.banditConversionWindowValue = null;
+            body.banditConversionWindowUnit = null;
+          } else if (
+            !body.banditConversionWindowValue ||
+            !body.banditConversionWindowUnit
+          ) {
+            throw new Error(
+              "Enter a conversion window override or disable the conversion window override",
+            );
           }
         }
 
@@ -811,6 +838,22 @@ const AnalysisForm: FC<{
           )}
         {editMetrics && (
           <>
+            {isBandit && (
+              <>
+                <FormProvider {...form}>
+                  <BanditDecisionMetricSettings
+                    disableBanditConversionWindow={
+                      disableBanditConversionWindow
+                    }
+                    setDisableBanditConversionWindow={
+                      setDisableBanditConversionWindow
+                    }
+                    project={experiment.project}
+                  />
+                </FormProvider>
+                {experiment.status !== "draft" && <Separator my="5" size="4" />}
+              </>
+            )}
             <ExperimentMetricsSelector
               noLegacyMetrics={isExperimentIncludedInIncrementalRefresh}
               excludeQuantiles={isExperimentIncludedInIncrementalRefresh}
@@ -820,8 +863,10 @@ const AnalysisForm: FC<{
               goalMetrics={form.watch("goalMetrics")}
               secondaryMetrics={form.watch("secondaryMetrics")}
               guardrailMetrics={form.watch("guardrailMetrics")}
-              setGoalMetrics={(goalMetrics) =>
-                form.setValue("goalMetrics", goalMetrics)
+              setGoalMetrics={
+                !isBandit
+                  ? (goalMetrics) => form.setValue("goalMetrics", goalMetrics)
+                  : undefined
               }
               setSecondaryMetrics={(secondaryMetrics) =>
                 form.setValue("secondaryMetrics", secondaryMetrics)

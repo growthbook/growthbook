@@ -199,11 +199,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/TabbedPage/AnalysisSettings.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/TabbedPage/AnalysisSettingsSummary.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -376,7 +371,7 @@
   },
   "packages/front-end/components/Features/RevisionDropdown.tsx": {
     "no-restricted-imports": {
-      "count": 2
+      "count": 1
     }
   },
   "packages/front-end/components/Features/RolloutSummary.tsx": {
@@ -432,11 +427,6 @@
   "packages/front-end/components/GeneralSettings/AISettings.tsx": {
     "no-restricted-imports": {
       "count": 2
-    }
-  },
-  "packages/front-end/components/GeneralSettings/BanditSettings.tsx": {
-    "no-restricted-imports": {
-      "count": 1
     }
   },
   "packages/front-end/components/GeneralSettings/DatasourceSettings.tsx": {
@@ -694,16 +684,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/SchemaBrowser/SqlExplorerModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Search/SearchFilters.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Settings/DataSourceTypeSelector.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -862,11 +842,6 @@
   "packages/front-end/enterprise/components/Dashboards/DashboardEditor/index.tsx": {
     "no-restricted-imports": {
       "count": 2
-    }
-  },
-  "packages/front-end/enterprise/components/Dashboards/DashboardModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
     }
   },
   "packages/front-end/enterprise/components/Dashboards/DashboardSelector.tsx": {

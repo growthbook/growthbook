@@ -20,8 +20,8 @@ import {
   useEnvironments,
   getDefaultVariationValue,
   validateFeatureRule,
-  useFeaturesList,
 } from "@/services/features";
+import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useWatching } from "@/services/WatchProvider";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import SelectField from "@/components/Forms/SelectField";
@@ -133,10 +133,7 @@ export default function FeatureFromExperimentModal({
   });
 
   // Scope features to the experiment's project (or all features if experiment has no project)
-  const { features, mutate: mutateFeatures } = useFeaturesList({
-    project: experiment.project,
-    useCurrentProject: false,
-  });
+  const { features } = useFeatureMetaInfo({ project: experiment.project });
 
   // TODO: include features where the only reference to this experiment is an old revision
   const validFeatures = features.filter((f) => {
@@ -221,13 +218,22 @@ export default function FeatureFromExperimentModal({
       submit={form.handleSubmit(async (values) => {
         const { variations, existing, ...feature } = values;
 
+        const existingFeature = existing
+          ? (
+              await apiCall<{ feature: FeatureInterface }>(
+                `/feature/${existing}`,
+                { method: "GET" },
+              )
+            ).feature
+          : undefined;
+
         const featureToCreate:
           | undefined
           | Omit<
               FeatureInterface,
               "organization" | "dateCreated" | "dateUpdated"
             > = existing
-          ? features.find((f) => f.id === existing)
+          ? existingFeature
           : {
               ...feature,
               defaultValue: variations[0].value,
@@ -271,9 +277,7 @@ export default function FeatureFromExperimentModal({
         }
 
         if (existing) {
-          const featureHoldoutId = validFeatures.find(
-            (f) => f.id === featureToCreate.id,
-          )?.holdout?.id;
+          const featureHoldoutId = existingFeature?.holdout?.id;
           // Require users to add the holdout to the feature if the experiment has a holdout and the feature does not
           if (experiment.holdoutId && !featureHoldoutId) {
             throw new Error(
@@ -324,7 +328,6 @@ export default function FeatureFromExperimentModal({
         }
 
         await mutate();
-        await mutateFeatures();
       })}
     >
       <SelectField

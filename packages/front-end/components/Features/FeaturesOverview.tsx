@@ -1,22 +1,10 @@
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import React, { useMemo, useState } from "react";
-import { FaExclamationTriangle, FaLink } from "react-icons/fa";
-import { FaBoltLightning } from "react-icons/fa6";
-import { ago, datetime } from "shared/dates";
+import { FaExclamationTriangle } from "react-icons/fa";
 import {
-  autoMerge,
-  checkIfRevisionNeedsReview,
-  filterEnvironmentsByFeature,
-  getDependentExperiments,
-  getDependentFeatures,
-  mergeResultHasChanges,
-} from "shared/util";
-import { MdRocketLaunch } from "react-icons/md";
-import { BiHide, BiShow } from "react-icons/bi";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { BsClock } from "react-icons/bs";
-import {
+  PiCheck,
+  PiLink,
   PiArrowsLeftRightBold,
   PiCheckCircleFill,
   PiCircleDuotone,
@@ -24,9 +12,20 @@ import {
   PiInfo,
   PiPlusCircleBold,
 } from "react-icons/pi";
+import { FaBoltLightning } from "react-icons/fa6";
+import { ago, datetime } from "shared/dates";
+import {
+  autoMerge,
+  checkIfRevisionNeedsReview,
+  filterEnvironmentsByFeature,
+  mergeResultHasChanges,
+} from "shared/util";
+import { MdRocketLaunch } from "react-icons/md";
+import { BiHide, BiShow } from "react-icons/bi";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { BsClock } from "react-icons/bs";
 import { FeatureUsageLookback } from "shared/types/integrations";
-import { Box, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
-import { RxListBullet } from "react-icons/rx";
+import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import {
   SafeRolloutInterface,
   HoldoutInterface,
@@ -46,10 +45,11 @@ import {
   useEnvironments,
   getAffectedRevisionEnvs,
   getPrerequisites,
-  useFeaturesList,
   getRules,
   isRuleInactive,
 } from "@/services/features";
+import { useFeatureDefaultValues } from "@/hooks/useFeatureDefaultValues";
+import { useFeatureDependents } from "@/hooks/useFeatureDependents";
 import Modal from "@/components/Modal";
 import DraftModal from "@/components/Features/DraftModal";
 import RevisionDropdown from "@/components/Features/RevisionDropdown";
@@ -62,7 +62,6 @@ import RevertModal from "@/components/Features/RevertModal";
 import EditRevisionCommentModal from "@/components/Features/EditRevisionCommentModal";
 import FixConflictsModal from "@/components/Features/FixConflictsModal";
 import CompareRevisionsModal from "@/components/Features/CompareRevisionsModal";
-import Revisionlog from "@/components/Features/RevisionLog";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -97,6 +96,7 @@ export default function FeaturesOverview({
   revision,
   revisionList,
   loading,
+  revisionLoading,
   revisions,
   experiments,
   mutate,
@@ -112,6 +112,7 @@ export default function FeaturesOverview({
   revision: FeatureRevisionInterface | null;
   revisionList: MinimalFeatureRevisionInterface[];
   loading: boolean;
+  revisionLoading: boolean;
   revisions: FeatureRevisionInterface[];
   experiments: ExperimentInterfaceStringDates[] | undefined;
   safeRollouts: SafeRolloutInterface[] | undefined;
@@ -132,13 +133,10 @@ export default function FeaturesOverview({
     `hide-disabled-rules`,
     false,
   );
-  const [logModal, setLogModal] = useState(false);
   const [prerequisiteModal, setPrerequisiteModal] = useState<{
     i: number;
   } | null>(null);
   const [showDependents, setShowDependents] = useState(false);
-  const [showOtherProjectDependents, setShowOtherProjectDependents] =
-    useState(false);
   const permissionsUtil = usePermissionsUtil();
 
   const [revertIndex, setRevertIndex] = useState(0);
@@ -151,33 +149,16 @@ export default function FeaturesOverview({
   const { hasCommercialFeature } = useUser();
 
   const featureProject = feature.project;
-  const { features } = useFeaturesList(
-    showOtherProjectDependents || !featureProject
-      ? { useCurrentProject: false }
-      : { project: featureProject },
-  );
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const envs = environments.map((e) => e.id);
 
-  // Calculate dependents based on project scoping
-  const dependentFeatures = useMemo(() => {
-    if (!feature || !features) return [];
-    return getDependentFeatures(feature, features, envs);
-  }, [feature, features, envs]);
-
-  const dependentExperiments = useMemo(() => {
-    if (!feature || !experiments) return [];
-    return getDependentExperiments(feature, experiments);
-  }, [feature, experiments]);
-
+  const { dependents: dependentsData } = useFeatureDependents(feature?.id);
+  const dependentFeatures = dependentsData?.features ?? [];
+  const dependentExperiments = dependentsData?.experiments ?? [];
   const dependents = dependentFeatures.length + dependentExperiments.length;
 
-  const { performCopy, copySuccess, copySupported, copyCooldown } =
-    useCopyToClipboard({
-      timeout: 800,
-      cooldown: 500,
-    });
+  const { performCopy, copySuccess } = useCopyToClipboard({ timeout: 800 });
 
   const mergeResult = useMemo(() => {
     if (!feature || !revision) return null;
@@ -196,6 +177,10 @@ export default function FeaturesOverview({
   }, [revisions, revision, feature, environments]);
 
   const prerequisites = feature?.prerequisites || [];
+
+  const { defaultValues: prereqDefaultValues } = useFeatureDefaultValues(
+    prerequisites.map((p) => p.id),
+  );
 
   // Fetch prerequisite states from backend (handles cross-project prereqs correctly)
   // skipRootConditions: true means we skip the feature's own rules and only evaluate prerequisites
@@ -289,8 +274,6 @@ export default function FeaturesOverview({
 
   const revisionHasChanges =
     !!mergeResult && mergeResultHasChanges(mergeResult);
-
-  const canManageCustomFields = permissionsUtil.canManageCustomFields();
 
   const projectId = feature.project;
 
@@ -401,26 +384,26 @@ export default function FeaturesOverview({
           </Button>,
         );
       } else if (revision.version > 1 && isLive) {
-        actions.push(
-          <Button
-            variant="ghost"
-            color="red"
-            onClick={() => {
-              const previousRevision = revisions
-                .filter(
-                  (r) =>
-                    r.status === "published" && r.version < feature.version,
-                )
-                .sort((a, b) => b.version - a.version)[0];
-              if (previousRevision) {
+        const previousRevision = revisions
+          .filter(
+            (r) => r.status === "published" && r.version < feature.version,
+          )
+          .sort((a, b) => b.version - a.version)[0];
+
+        if (previousRevision) {
+          actions.push(
+            <Button
+              variant="ghost"
+              color="red"
+              onClick={() => {
                 setRevertIndex(previousRevision.version);
-              }
-            }}
-            title="Create a new Draft based on this revision"
-          >
-            Revert to Previous
-          </Button>,
-        );
+              }}
+              title="Create a new Draft based on this revision"
+            >
+              Revert to Previous
+            </Button>,
+          );
+        }
       }
 
       if (drafts.length > 0 && isLocked && !isDraft) {
@@ -562,18 +545,7 @@ export default function FeaturesOverview({
               {ago(revision.dateUpdated)}
             </Box>
           )}
-          <Flex align="center" gap="2">
-            {renderStatusCopy()}
-            <Button
-              title="View log"
-              variant="ghost"
-              onClick={() => {
-                setLogModal(true);
-              }}
-            >
-              <RxListBullet />
-            </Button>
-          </Flex>
+          {renderStatusCopy()}
         </Flex>
       </Flex>
     );
@@ -612,7 +584,7 @@ export default function FeaturesOverview({
         <Box>
           <CustomFieldDisplay
             target={feature}
-            canEdit={canManageCustomFields}
+            canEdit={canEdit}
             mutate={mutate}
             section={"feature"}
           />
@@ -761,15 +733,12 @@ export default function FeaturesOverview({
                       <td className="w-100" />
                     </tr>
                     {prerequisites.map(({ ...item }, i) => {
-                      const parentFeature = features.find(
-                        (f) => f.id === item.id,
-                      );
                       return (
                         <PrerequisiteStatusRow
                           key={i}
                           i={i}
                           feature={feature}
-                          parentFeature={parentFeature}
+                          prereqDefaultValue={prereqDefaultValues[item.id]}
                           prerequisite={item}
                           environments={environments}
                           mutate={mutate}
@@ -899,19 +868,9 @@ export default function FeaturesOverview({
                 <Badge label={dependents + ""} color="gray" radius="medium" />
               </Flex>
               <Flex align="center" gap="4" mb="4">
-                <Text size="2" as="div" style={{ width: "240px" }}>
-                  {featureProject && !showOtherProjectDependents
-                    ? "Showing dependents in this project."
-                    : "Showing dependents in all projects."}
+                <Text size="2" as="div">
+                  Showing dependents across all projects.
                 </Text>
-                {featureProject && (
-                  <Switch
-                    value={showOtherProjectDependents}
-                    onChange={setShowOtherProjectDependents}
-                    label="Include all projects"
-                    size="1"
-                  />
-                )}
               </Flex>
               {dependents > 0 ? (
                 <>
@@ -989,13 +948,7 @@ export default function FeaturesOverview({
                 </>
               ) : (
                 <Box mb="2">
-                  <Text size="2">
-                    No dependents found
-                    {featureProject && !showOtherProjectDependents
-                      ? " in this project"
-                      : ""}
-                    .
-                  </Text>
+                  <Text size="2">No dependents found.</Text>
                 </Box>
               )}
             </Box>
@@ -1031,56 +984,55 @@ export default function FeaturesOverview({
                 gap="4"
                 align={{ initial: "center" }}
                 direction={{ initial: "column", xs: "row" }}
-                justify="between"
+                wrap="wrap"
               >
                 <Flex
                   align="center"
                   justify="between"
-                  gap="2"
+                  gapX="2"
+                  gapY="0"
+                  mr="5"
                   width={{ initial: "98%", sm: "70%", md: "60%", lg: "50%" }}
                 >
                   <Box width="100%">
                     <RevisionDropdown
                       feature={feature}
                       loading={loading}
+                      revisionLoading={revisionLoading}
                       version={currentVersion}
                       setVersion={setVersion}
                       revisions={revisionList || []}
                     />
                   </Box>
-                  <Tooltip
-                    body={
-                      copySuccess
-                        ? "Copied to clipboard!"
-                        : "Copy a link to this revision"
-                    }
-                    tipPosition="top"
-                    state={copySuccess}
-                    ignoreMouseEvents={!!copySuccess}
-                    shouldDisplay={!copyCooldown}
-                  >
-                    <IconButton
+                  {copySuccess ? (
+                    <Button
                       variant="ghost"
-                      size="3"
+                      icon={<PiCheck />}
+                      style={{ width: 100 }}
+                    >
+                      Link copied
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      icon={<PiLink />}
+                      style={{ width: 100 }}
                       onClick={() => {
-                        if (!copySupported) return;
                         const url =
                           window.location.href.replace(/[?#].*/, "") +
                           `?v=${version}`;
                         performCopy(url);
                       }}
-                      style={{ margin: 0 }}
                     >
-                      <FaLink size={14} />
-                    </IconButton>
-                  </Tooltip>
+                      Copy link
+                    </Button>
+                  )}
                 </Flex>
                 <Flex
                   align={{ initial: "center", xs: "center", sm: "start" }}
                   justify="end"
-                  flexShrink="0"
                   direction={{ initial: "row", xs: "column", sm: "row" }}
-                  style={{ whiteSpace: "nowrap" }}
+                  style={{ whiteSpace: "nowrap", marginLeft: "auto" }}
                   gap="2"
                 >
                   {(revisionList?.length ?? 0) >= 2 && (
@@ -1267,19 +1219,6 @@ export default function FeaturesOverview({
             mutate={mutate}
             setVersion={setVersion}
           />
-        )}
-        {logModal && revision && (
-          <Modal
-            trackingEventModalType=""
-            open={true}
-            close={() => setLogModal(false)}
-            header="Revision Log"
-            closeCta={"Close"}
-            size="lg"
-          >
-            <h3>Revision {revision.version}</h3>
-            <Revisionlog feature={feature} revision={revision} />
-          </Modal>
         )}
         {reviewModal && revision && (
           <RequestReviewModal

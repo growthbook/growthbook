@@ -21,6 +21,7 @@ export * from "./events";
 export * from "./experiment-decision";
 export * from "./experiment-info";
 export * from "./experiment-warnings";
+
 export * from "./features";
 export * from "./holdout";
 export * from "./projects";
@@ -35,5 +36,6 @@ export * from "./population-data";
 export * from "./url-redirects";
 export * from "./sdk-connection-cache";
 export * from "./metric-group";
+export * from "./product-analytics";
 export * from "./organization";
 export * from "./team";
