@@ -53,3 +53,24 @@ properties:
     type: number
   hashAttribute:
     type: string
+  rampSchedule:
+    type: object
+    required:
+      - steps
+    properties:
+      steps:
+        type: array
+        minItems: 1
+        items:
+          type: object
+          required:
+            - coverage
+            - holdSeconds
+          properties:
+            coverage:
+              type: number
+              minimum: 0
+              maximum: 1
+            holdSeconds:
+              type: number
+              exclusiveMinimum: 0

@@ -1936,6 +1936,7 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
       })),
       enabled: r.enabled != null ? r.enabled : true,
       ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
+      ...(r.rampSchedule && { rampSchedule: r.rampSchedule }),
     };
     return rolloutRule;
   });
