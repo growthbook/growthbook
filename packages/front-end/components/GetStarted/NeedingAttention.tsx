@@ -145,7 +145,7 @@ const NeedingAttention = (): React.ReactElement | null => {
   const draftAndReviewData = useApi<{
     status: number;
     revisions: (FeatureRevisionInterface & { featureMeta?: FeatureMetaInfo })[];
-  }>(`/revision/feature`);
+  }>(`/revision/feature?sparse=true`);
   const { data: revisionsData } = draftAndReviewData;
   const { data: historyData } = useApi<{
     status: number;

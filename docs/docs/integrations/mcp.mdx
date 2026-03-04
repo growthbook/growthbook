@@ -33,13 +33,13 @@ We cover how to connect the GrowthBook MCP server for the most popular tools bel
 
 Configuration uses the following environment variables:
 
-| Variable Name     | Status   | Description                                                                                           |
-| ----------------- | -------- | ----------------------------------------------------------------------------------------------------- |
-| GB_API_KEY        | Required | A GrowthBook API key or PAT. When using a PAT, you can only access tools that your permissions allow. |
-| GB_EMAIL          | Required | Your email address used with GrowthBook. Used when creating feature flags and experiments.            |
-| GB_API_URL        | Optional | Your GrowthBook API URL. Defaults to `https://api.growthbook.io`.                                     |
-| GB_APP_ORIGIN     | Optional | Your GrowthBook app URL Defaults to `https://app.growthbook.io`.                                      |
-| GB_HTTP_HEADER* | Optional | Custom HTTP headers included in all API requests. See [Custom Headers](#custom-headers) below.        |
+| Variable Name    | Status   | Description                                                                                           |
+| ---------------- | -------- | ----------------------------------------------------------------------------------------------------- |
+| GB_API_KEY       | Required | A GrowthBook API key or PAT. When using a PAT, you can only access tools that your permissions allow. |
+| GB_EMAIL         | Required | Your email address used with GrowthBook. Used when creating feature flags and experiments.            |
+| GB_API_URL       | Optional | Your GrowthBook API URL. Defaults to `https://api.growthbook.io`.                                     |
+| GB_APP_ORIGIN    | Optional | Your GrowthBook app URL Defaults to `https://app.growthbook.io`.                                      |
+| GB_HTTP_HEADER\* | Optional | Custom HTTP headers included in all API requests. See [Custom Headers](#custom-headers) below.        |
 
 <br />
 
@@ -49,7 +49,13 @@ You only need to configure `GB_API_KEY` and `GB_EMAIL`.
 
 ### Cursor
 
-[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en-US/install-mcp?name=growthbook&config=eyJlbnYiOnsiR0JfQVBJX0tFWSI6IllPVVJfQVBJX0tFWSIsIkdCX0VNQUlMIjoiWU9VUl9FTUFJTCIsIkdCX0FQSV9VUkwiOiJZT1VSX0FQSV9VUkwiLCJHQl9BUFBfT1JJR0lOIjoiWU9VUl9BUFBfT1JJR0lOIn0sImNvbW1hbmQiOiJucHggLXkgQGdyb3d0aGJvb2svbWNwQGxhdGVzdCJ9)
+<a href="https://cursor.com/en-US/install-mcp?name=growthbook&amp;config=eyJlbnYiOnsiR0JfQVBJX0tFWSI6IllPVVJfQVBJX0tFWSIsIkdCX0VNQUlMIjoiWU9VUl9FTUFJTCIsIkdCX0FQSV9VUkwiOiJZT1VSX0FQSV9VUkwiLCJHQl9BUFBfT1JJR0lOIjoiWU9VUl9BUFBfT1JJR0lOIn0sImNvbW1hbmQiOiJucHggLXkgQGdyb3d0aGJvb2svbWNwQGxhdGVzdCJ9">
+  <img 
+    src="https://cursor.com/deeplink/mcp-install-dark.svg" 
+    alt="Install MCP Server"
+    className="no-zoom"
+  />
+</a>
 
 1. Open **Cursor Settings** &rarr; **MCP**
 2. Click **Add new global MCP server**
