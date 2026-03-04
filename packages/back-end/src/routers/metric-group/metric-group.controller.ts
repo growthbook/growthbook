@@ -27,6 +27,7 @@ export const postMetricGroup = async (
 ) => {
   const data = req.body;
   const context = getContextFromReq(req);
+  const { userId } = context;
 
   if (!context.permissions.canCreateMetricGroup()) {
     context.permissions.throwPermissionError();
@@ -42,7 +43,7 @@ export const postMetricGroup = async (
     "id" | "organization" | "dateCreated" | "dateUpdated"
   > = {
     ...data,
-    owner: data.owner || "",
+    owner: data.owner || userId,
     description: data.description || "",
     tags: data.tags || [],
     projects: data.projects || [],
@@ -63,7 +64,7 @@ export const putMetricGroup = async (
 ) => {
   const data = req.body;
   const context = getContextFromReq(req);
-  const { org } = context;
+  const { org, userId } = context;
 
   const metricGroup = await context.models.metricGroups.getById(req.params.id);
   if (!metricGroup) {
@@ -88,7 +89,10 @@ export const putMetricGroup = async (
   if (!datasourceDoc) {
     context.throwBadRequestError("Invalid data source");
   }
-  await context.models.metricGroups.updateById(req.params.id, data);
+  await context.models.metricGroups.updateById(req.params.id, {
+    ...data,
+    owner: data.owner || userId,
+  });
 
   res.status(200).json({
     status: 200,

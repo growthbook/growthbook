@@ -157,7 +157,7 @@ export const getArchetypeAndEval = async (
 type CreateArchetypeRequest = AuthRequest<{
   name: string;
   description: string;
-  owner: string;
+  owner?: string;
   isPublic: boolean;
   attributes: string;
   projects?: string[];
@@ -217,7 +217,7 @@ type PutArchetypeRequest = AuthRequest<
   {
     name: string;
     description: string;
-    owner: string;
+    owner?: string;
     attributes: string;
     isPublic: boolean;
     projects?: string[];
@@ -236,7 +236,7 @@ export const putArchetype = async (
   >,
 ) => {
   const context = getContextFromReq(req);
-  const { org } = context;
+  const { org, userId } = context;
   const { name, description, isPublic, owner, attributes, projects } = req.body;
   const { id } = req.params;
 
@@ -256,7 +256,7 @@ export const putArchetype = async (
     name,
     description,
     isPublic,
-    owner,
+    owner: owner || userId,
     projects,
   };
 

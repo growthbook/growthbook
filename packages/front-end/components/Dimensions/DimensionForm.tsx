@@ -37,7 +37,7 @@ const DimensionForm: FC<{
       datasource:
         (current.id ? current.datasource : validDatasources[0]?.id) || "",
       userIdType: current.userIdType || "user_id",
-      owner: current?.owner || userId || "",
+      owner: current.id ? current?.owner || "" : userId || "",
     },
   });
   const [sqlOpen, setSqlOpen] = useState(false);

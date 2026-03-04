@@ -1,10 +1,9 @@
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { Text } from "@radix-ui/themes";
 import metaDataStyles from "@/ui/Metadata.module.scss";
 import UserAvatar from "@/components/Avatar/UserAvatar";
 import SelectField from "@/components/Forms/SelectField";
 import { useUser } from "@/services/UserContext";
-import { normalizeOwnerForInternalApi } from "@/services/owners";
 
 interface Props {
   value: string;
@@ -42,29 +41,23 @@ export default function SelectOwner({
     return activeUsers.map((user) => ({
       value: user.id,
       label: user.name ? user.name : user.email,
-      name: user.name,
-      email: user.email,
     }));
   }, [activeUsers]);
 
-  const normalizedOwnerValue = useMemo(() => {
-    return normalizeOwnerForInternalApi({
-      owner: value,
-      users,
-    });
-  }, [users, value]);
-
-  useEffect(() => {
-    if (normalizedOwnerValue !== value) {
-      onChange(normalizedOwnerValue);
+  const options = useMemo(() => {
+    if (!value || memberOptions.some((member) => member.value === value)) {
+      return memberOptions;
     }
-  }, [normalizedOwnerValue, onChange, value]);
+
+    // Keep showing legacy owner values (username/email) until user chooses a new owner.
+    return [{ value, label: value }, ...memberOptions];
+  }, [memberOptions, value]);
 
   return (
     <SelectField
       label="Owner"
-      options={memberOptions.map(({ value, label }) => ({ value, label }))}
-      value={normalizedOwnerValue}
+      options={options.map(({ value, label }) => ({ value, label }))}
+      value={value}
       disabled={disabled}
       placeholder={placeholder}
       onChange={(v) => onChange(v)}

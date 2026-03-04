@@ -69,7 +69,7 @@ const SegmentForm: FC<{
       datasource:
         (current.id ? current.datasource : filteredDatasources[0]?.id) || "",
       userIdType: current.userIdType || "user_id",
-      owner: current.owner || userId || "",
+      owner: current.id ? current.owner || "" : userId || "",
       description: current.description || "",
       projects: current.id
         ? current.projects || []

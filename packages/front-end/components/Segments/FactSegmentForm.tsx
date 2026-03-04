@@ -70,7 +70,7 @@ export default function FactSegmentForm({
       datasource:
         (current?.id ? current?.datasource : datasourceOptions[0]?.id) || "",
       userIdType: current?.userIdType || "user_id",
-      owner: current?.owner || userId || "",
+      owner: current?.id ? current?.owner || "" : userId || "",
       description: current?.description || "",
       factTableId: current?.factTableId || "",
       filters: current?.filters || [],

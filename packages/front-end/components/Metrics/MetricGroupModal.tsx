@@ -11,8 +11,6 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import SelectField from "@/components/Forms/SelectField";
-import { useUser } from "@/services/UserContext";
-import { normalizeOwnerForInternalApi } from "@/services/owners";
 
 const MetricGroupModal: FC<{
   existingMetricGroup?: MetricGroupInterface;
@@ -21,7 +19,6 @@ const MetricGroupModal: FC<{
 }> = ({ existingMetricGroup = null, close, mutate }) => {
   const { projects, datasources, getDatasourceById } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
-  const { userId, users } = useUser();
 
   const { apiCall } = useAuth();
   const metricGroupId = existingMetricGroup?.id || null;
@@ -48,15 +45,6 @@ const MetricGroupModal: FC<{
       header={existingMetricGroup ? "Edit Metric Group" : "Add Metric Group"}
       open={true}
       submit={form.handleSubmit(async (value) => {
-        const owner =
-          normalizeOwnerForInternalApi({
-            owner: existingMetricGroup?.owner || "",
-            users,
-            fallbackUserId: userId || "",
-          }) ||
-          userId ||
-          "";
-
         if (edit) {
           // update
           const results = await apiCall<{ metricGroup: MetricGroupInterface }>(
@@ -69,7 +57,6 @@ const MetricGroupModal: FC<{
                 datasource: value.datasource,
                 projects: value.projects,
                 metrics: value.metrics,
-                owner,
               }),
             },
           );
@@ -90,7 +77,6 @@ const MetricGroupModal: FC<{
                 datasource: value.datasource,
                 projects: value.projects,
                 metrics: value.metrics,
-                owner,
               }),
             },
           );
