@@ -409,6 +409,17 @@ p.rt-TooltipText {
   margin-bottom: 0;
 }
 
+// Attribute option tooltip: match app theme (no inversion). Radix uses --gray-12 for tooltip
+// (inverted); we force the content wrapper and arrow to match app background.
+.rt-TooltipContent:has([data-attribute-option-tooltip]) {
+  background-color: var(--surface-background-color) !important;
+  box-shadow: 0 0 1px 1px var(--gray-a5);
+
+  .rt-TooltipArrow {
+    fill: var(--surface-background-color) !important;
+  }
+}
+
 // Links inside tooltips: ensure contrast on tooltip background (gray-12 is dark in light theme, light in dark theme)
 .rt-TooltipContent a {
   color: var(--blue-4);

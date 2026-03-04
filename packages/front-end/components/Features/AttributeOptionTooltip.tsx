@@ -1,9 +1,10 @@
 import React from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, Theme } from "@radix-ui/themes";
 import Markdown from "@/components/Markdown/Markdown";
 import SortedTags from "@/components/Tags/SortedTags";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
+import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 
 export interface AttributeOptionForTooltip {
   label: string;
@@ -89,11 +90,19 @@ export function AttributeOptionWithTooltip({
   option: AttributeOptionForTooltip;
   children: React.ReactNode;
 }) {
+  const { theme } = useAppearanceUITheme();
+  // Match app theme so text/tags use the same scale as tooltip bg (--surface-background-color)
   return (
     <Tooltip
       side="right"
       disableHoverableContent={false}
-      content={<AttributeOptionTooltipContent option={option} />}
+      content={
+        <div data-attribute-option-tooltip>
+          <Theme appearance={theme} hasBackground={false}>
+            <AttributeOptionTooltipContent option={option} />
+          </Theme>
+        </div>
+      }
     >
       <Box
         as="span"
