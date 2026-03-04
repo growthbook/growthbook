@@ -128,8 +128,6 @@ export default function StaleFeatureIcon({
   const hasSomeStaleEnvs = Object.values(envResults).some((e) => e.stale);
   const mixed = !isStale && hasSomeStaleEnvs;
 
-  if (!staleData) return null;
-
   const envEntries = Object.entries(envResults);
 
   const handleRerun = fetchStaleData
