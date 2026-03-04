@@ -37,12 +37,10 @@ import CountrySelector, {
 } from "@/components/Forms/CountrySelector";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import DatePicker from "@/components/DatePicker";
-import Markdown from "@/components/Markdown/Markdown";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import useSDKConnections from "@/hooks/useSDKConnections";
-import SortedTags from "@/components/Tags/SortedTags";
 import {
   TargetingConditionsCard,
   ConditionRow,
@@ -51,6 +49,11 @@ import {
   AddOrGroupButton,
   ConditionRowLabel,
 } from "./TargetingConditionsCard";
+import {
+  AttributeOptionWithTooltip,
+  getAttributeOptionHasTooltip,
+  type AttributeOptionForTooltip,
+} from "./AttributeOptionTooltip";
 
 export function ConditionLabel({
   label,
@@ -532,6 +535,8 @@ function ConditionAndGroupInput({
                         value: s.property,
                         description: s.description,
                         tags: s.tags,
+                        datatype: s.datatype,
+                        hashAttribute: s.hashAttribute,
                       })),
                     },
                     {
@@ -553,59 +558,18 @@ function ConditionAndGroupInput({
                     value: s.property,
                     description: s.description,
                     tags: s.tags,
+                    datatype: s.datatype,
+                    hashAttribute: s.hashAttribute,
                   }))
             }
             formatOptionLabel={(o) => {
-              const opt = o as {
-                label: string;
-                value: string;
-                description?: string;
-                tags?: string[];
-              };
-              const hasTooltip =
-                !!opt.description || (opt.tags?.length ?? 0) > 0;
+              const opt = o as AttributeOptionForTooltip;
               const label = <span>{o.label}</span>;
-              if (!hasTooltip) return label;
+              if (!getAttributeOptionHasTooltip(opt)) return label;
               return (
-                <Tooltip
-                  side="right"
-                  disableHoverableContent={false}
-                  content={
-                    <Box style={{ maxWidth: 280 }}>
-                      <Flex direction="column" gap="2">
-                        {opt.description && (
-                          <Box>
-                            <Text size="1" as="div">
-                              <Markdown style={{ fontSize: 12 }}>
-                                {opt.description}
-                              </Markdown>
-                            </Text>
-                          </Box>
-                        )}
-                        {opt.tags && opt.tags.length > 0 && (
-                          <SortedTags
-                            tags={opt.tags}
-                            shouldShowEllipsis={true}
-                            showEllipsisAtIndex={5}
-                          />
-                        )}
-                      </Flex>
-                    </Box>
-                  }
-                >
-                  <Box
-                    as="span"
-                    style={{
-                      display: "block",
-                      width: "100%",
-                      margin: "-2px -8px",
-                      padding: "2px 8px",
-                      minHeight: "100%",
-                    }}
-                  >
-                    <Text size="2">{o.label}</Text>
-                  </Box>
-                </Tooltip>
+                <AttributeOptionWithTooltip option={opt}>
+                  <Text size="2">{o.label}</Text>
+                </AttributeOptionWithTooltip>
               );
             }}
             name="field"
