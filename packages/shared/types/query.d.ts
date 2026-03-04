@@ -78,6 +78,7 @@ export type QueryType =
   // ---
   // Standalone metric analysis query on legacy of fact metric page
   | "metricAnalysis"
+  // Query used by the product analytics tool
   | "productAnalyticsExploration"
 
   // ---
