@@ -1,6 +1,5 @@
 import { useRouter } from "next/router";
-import { useEffect, useState, useMemo } from "react";
-import { getDependentExperiments, getDependentFeatures } from "shared/util";
+import { useEffect, useState } from "react";
 import { FeatureEvalDiagnosticsQueryResponseRows } from "shared/types/integrations";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
@@ -9,15 +8,14 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import FeaturesOverview from "@/components/Features/FeaturesOverview";
 import FeaturesStats from "@/components/Features/FeaturesStats";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { useFeaturesList } from "@/services/features";
 import { FeatureUsageProvider } from "@/components/Features/FeatureUsageGraph";
 import FeatureTest from "@/components/Features/FeatureTest";
 import { useAuth } from "@/services/auth";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
 import EditFeatureInfoModal from "@/components/Features/EditFeatureInfoModal";
-import { useExperiments } from "@/hooks/useExperiments";
 import FeatureDiagnostics from "@/components/Features/FeatureDiagnostics";
 import { useFeaturePageData } from "@/hooks/useFeaturePageData";
+import { useFeatureDependents } from "@/hooks/useFeatureDependents";
 import Callout from "@/ui/Callout";
 
 const featureTabs = ["overview", "stats", "test", "diagnostics"] as const;
@@ -39,7 +37,6 @@ export default function FeaturePage() {
   }, [fid]);
 
   const { apiCall } = useAuth();
-  const { experiments: allExperiments } = useExperiments();
 
   const {
     data,
@@ -50,7 +47,6 @@ export default function FeaturePage() {
     feature,
     baseFeature,
     revision,
-    environments,
     version,
     setVersion,
   } = useFeaturePageData(fid, router.query.v);
@@ -59,11 +55,7 @@ export default function FeaturePage() {
   const safeRollouts = data?.safeRollouts;
   const holdout = data?.holdout;
 
-  // Scope stale detection to the current feature's project
-  const { features } = useFeaturesList({
-    project: baseFeature?.project,
-    skipFetch: !baseFeature,
-  });
+  const { dependents: dependentsData } = useFeatureDependents(baseFeature?.id);
 
   const [tab, setTab] = useLocalStorage<FeatureTab>(
     `tabbedPageTab__${fid}`,
@@ -93,20 +85,9 @@ export default function FeaturePage() {
     return () => window.removeEventListener("hashchange", handler, false);
   }, [setTab]);
 
-  const envs = environments.map((e) => e.id);
-
-  // note: project-scoped dependents by default
-  const dependentFeatures = useMemo(() => {
-    if (!feature || !features) return [];
-    return getDependentFeatures(feature, features, envs);
-  }, [feature, features, envs]);
-
-  const dependentExperiments = useMemo(() => {
-    if (!feature || !allExperiments) return [];
-    return getDependentExperiments(feature, allExperiments);
-  }, [feature, allExperiments]);
-
-  const dependents = dependentFeatures.length + dependentExperiments.length;
+  const dependents =
+    (dependentsData?.features.length ?? 0) +
+    (dependentsData?.experiments.length ?? 0);
 
   if (error) {
     return <Callout status="error">An error occurred: {error.message}</Callout>;
@@ -126,14 +107,11 @@ export default function FeaturePage() {
       />
       <FeaturesHeader
         feature={feature}
-        features={features}
-        experiments={experiments}
         mutate={refreshData}
         tab={tab}
         setTab={setTabAndScroll}
         setEditFeatureInfoModal={setEditFeatureInfoModal}
         holdout={holdout}
-        dependentExperiments={dependentExperiments}
       />
 
       {tab === "overview" && (

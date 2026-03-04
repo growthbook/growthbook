@@ -8,7 +8,11 @@ import {
 } from "shared/types/feature-revision";
 import { EventUser, EventUserLoggedIn } from "shared/types/events/event-types";
 import { OrganizationInterface } from "shared/types/organization";
-import { MinimalFeatureRevisionInterface } from "shared/validators";
+import {
+  MinimalFeatureRevisionInterface,
+  ActiveDraftStatus,
+  ACTIVE_DRAFT_STATUSES,
+} from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { applyEnvironmentInheritance } from "back-end/src/util/features";
@@ -165,15 +169,20 @@ export async function getFeatureRevisionsByStatus({
   context: ReqContext;
   organization: string;
   featureId: string;
-  status?: string;
+  status?: string | string[];
   limit?: number;
   offset?: number;
   sort?: "asc" | "desc";
 }): Promise<FeatureRevisionInterface[]> {
+  const statusFilter = Array.isArray(status)
+    ? { status: { $in: status } }
+    : status
+      ? { status }
+      : {};
   const docs = await FeatureRevisionModel.find({
     organization,
     featureId,
-    ...(status ? { status } : {}),
+    ...statusFilter,
   })
     .select("-log") // Remove the log when fetching all revisions since it can be large to send over the network
     .sort({ version: sort === "desc" ? -1 : 1 })
@@ -224,22 +233,29 @@ export async function getRevisionsByVersions({
   return docs.map((doc) => toInterface(doc, context));
 }
 
+// Fields excluded in sparse mode: large/unused payload for list-view callers.
+const SPARSE_REVISION_PROJECTION = {
+  log: 0,
+  rules: 0,
+  defaultValue: 0,
+  baseVersion: 0,
+  datePublished: 0,
+  publishedBy: 0,
+  requiresReview: 0,
+};
+
 export async function getRevisionsByStatus(
   context: ReqContext,
   statuses: string[],
+  { sparse = false }: { sparse?: boolean } = {},
 ) {
-  const revisions = await FeatureRevisionModel.find({
-    organization: context.org.id,
-    status: { $in: statuses },
-  }).select("-log"); // Remove the log when fetching all revisions since it can be large to send over the network
+  const projection = sparse ? SPARSE_REVISION_PROJECTION : { log: 0 };
+  const revisions = await FeatureRevisionModel.find(
+    { organization: context.org.id, status: { $in: statuses } },
+    projection,
+  );
 
-  const docs = revisions
-    .filter((r) => !!r)
-    .map((r) => {
-      return toInterface(r, context);
-    });
-
-  return docs;
+  return revisions.filter((r) => !!r).map((r) => toInterface(r, context));
 }
 
 export async function createInitialRevision(
@@ -695,6 +711,49 @@ export async function getFeatureRevisionsByFeatureIds(
   }
 
   return revisionsByFeatureId;
+}
+
+// Higher number = higher priority. When a feature has multiple active
+// revisions, surface the most actionable one.
+const DRAFT_STATUS_PRIORITY: Record<ActiveDraftStatus, number> = {
+  "changes-requested": 4,
+  "pending-review": 3,
+  approved: 2,
+  draft: 1,
+};
+
+export async function getActiveDraftStates(
+  orgId: string,
+  featureIds?: string[],
+): Promise<Record<string, { status: ActiveDraftStatus; version: number }>> {
+  const q: Record<string, unknown> = {
+    organization: orgId,
+    status: { $in: ACTIVE_DRAFT_STATUSES },
+  };
+  if (featureIds && featureIds.length > 0) {
+    q.featureId = { $in: featureIds };
+  }
+  const docs = await FeatureRevisionModel.find(q, {
+    featureId: 1,
+    status: 1,
+    version: 1,
+    _id: 0,
+  });
+
+  const result: Record<string, { status: ActiveDraftStatus; version: number }> =
+    {};
+  for (const doc of docs) {
+    const fid = doc.featureId;
+    const status = doc.status as ActiveDraftStatus;
+    const existing = result[fid];
+    if (
+      !existing ||
+      DRAFT_STATUS_PRIORITY[status] > DRAFT_STATUS_PRIORITY[existing.status]
+    ) {
+      result[fid] = { status, version: doc.version };
+    }
+  }
+  return result;
 }
 
 export async function deleteAllRevisionsForFeature(

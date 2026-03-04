@@ -1,6 +1,5 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import React, { useMemo, useState } from "react";
-import { Text } from "@radix-ui/themes";
+import { useMemo, useState } from "react";
 import { getScopedSettings } from "shared/settings";
 import {
   expandMetricGroups,
@@ -20,6 +19,7 @@ import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator
 import DecisionCriteriaSelectorModal from "@/components/DecisionCriteria/DecisionCriteriaSelectorModal";
 import TargetMDEModal from "@/components/Experiment/TabbedPage/TargetMDEModal";
 import { AppFeatures } from "@/types/app-features";
+import Text from "@/ui/Text";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -257,11 +257,29 @@ export default function AnalysisSettings({
                   {goalsWithTargetMDE.map((metric, i) => {
                     if (isBandit && i > 0) return null;
                     return (
-                      <li key={`goal-${i}`}>
-                        <Link href={getMetricLink(metric.id)}>
-                          {metric.name}
-                        </Link>
-                      </li>
+                      <>
+                        <li key={`goal-${i}`}>
+                          <Link href={getMetricLink(metric.id)}>
+                            {metric.name}
+                          </Link>
+                        </li>
+                        <li key={`goal-${i}-conversion-window`}>
+                          {isBandit &&
+                            experiment.banditConversionWindowValue &&
+                            experiment.banditConversionWindowUnit && (
+                              <Text size="small">
+                                Conversion Window:{" "}
+                                {experiment.banditConversionWindowValue}{" "}
+                                {experiment.banditConversionWindowValue === 1
+                                  ? experiment.banditConversionWindowUnit.slice(
+                                      0,
+                                      -1,
+                                    )
+                                  : experiment.banditConversionWindowUnit}
+                              </Text>
+                            )}
+                        </li>
+                      </>
                     );
                   })}
                 </ul>
@@ -344,7 +362,7 @@ export default function AnalysisSettings({
               <div className="h5">Decision Criteria</div>
               <div>
                 <Text weight="regular">{decisionCriteria.name}</Text>
-                <Text color="gray">{`: ${decisionCriteria.description}`}</Text>
+                <Text color="text-mid">{`: ${decisionCriteria.description}`}</Text>
               </div>
               <div className="mt-1">
                 <Link

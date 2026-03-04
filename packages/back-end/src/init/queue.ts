@@ -42,7 +42,6 @@ export async function queueInit() {
   addDashboardUpdateJob(agenda);
   addHoldoutUpdateJob(agenda);
   updateAutoSlicesJob(agenda);
-
   // Make sure we have index needed to delete efficiently
   agenda._collection
     .createIndex({ lastFinishedAt: 1, nextRunAt: 1 })
