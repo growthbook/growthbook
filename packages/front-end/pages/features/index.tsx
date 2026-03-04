@@ -123,20 +123,19 @@ export default function FeaturesPage() {
   const {
     searchInputProps,
     items,
-    SortableTH,
     SortableTableColumnHeader,
     setSearchValue,
     syntaxFilters,
   } = useFeatureSearch({
-      allFeatures: allFeatures as unknown as FeatureInterface[],
-      environments,
-      environmentStatus: statusHook.environmentStatus,
-      draftStates: draftHook.draftStates,
-      staleStates: staleHook.staleStates,
-      filterResults: !showArchived
-        ? (items) => items.filter((f) => !f.archived)
-        : undefined,
-    });
+    allFeatures: allFeatures as unknown as FeatureInterface[],
+    environments,
+    environmentStatus: statusHook.environmentStatus,
+    draftStates: draftHook.draftStates,
+    staleStates: staleHook.staleStates,
+    filterResults: !showArchived
+      ? (items) => items.filter((f) => !f.archived)
+      : undefined,
+  });
 
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
