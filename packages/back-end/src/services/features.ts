@@ -258,7 +258,7 @@ export function generateAutoExperimentsPayload({
       const { experiment: e } = data;
       if (e.status === "stopped" && e.excludeFromPayload) return null;
 
-      const phase: ExperimentPhase | null = e.phases.slice(-1)?.[0] ?? null;
+      const phase: ExperimentPhase | null = e.phases?.slice(-1)?.[0] ?? null;
       const forcedVariation =
         e.status === "stopped" && e.releasedVariationId
           ? e.variations.find((v) => v.id === e.releasedVariationId)

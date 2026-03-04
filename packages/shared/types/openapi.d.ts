@@ -53,6 +53,10 @@ export interface paths {
     /** Get all revisions for a feature */
     get: operations["getFeatureRevisions"];
   };
+  "/stale-features": {
+    /** Get stale status for one or more features */
+    get: operations["getFeatureStale"];
+  };
   "/feature-keys": {
     /** Get list of feature keys */
     get: operations["getFeatureKeys"];
@@ -8621,6 +8625,54 @@ export interface operations {
             total: number;
             hasMore: boolean;
             nextOffset: OneOf<[number, null]>;
+          };
+        };
+      };
+    };
+  };
+  getFeatureStale: {
+    /** Get stale status for one or more features */
+    parameters: {
+        /** @description Comma-separated list of feature IDs (URL-encoded if needed). Example: `my_feature,another_feature` */
+      query: {
+        ids: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            /** @description Map of feature ID to stale status. Only requested features that were found and readable are included. */
+            features: {
+              [key: string]: ({
+                /** @description The feature key */
+                featureId: string;
+                /** @description Whether the feature is considered stale overall (all enabled environments are stale). Always false when neverStale is true. */
+                isStale: boolean;
+                /**
+                 * @description Reason for the feature's stale or non-stale status. `never-stale` when stale detection is disabled. Non-stale reasons: `recently-updated`, `active-draft`, `has-dependents`. Stale reasons: `no-rules`, `rules-one-sided`, `abandoned-draft`, `toggled-off`. Null when non-stale with no single cause (see staleByEnv).
+                 *  
+                 * @enum {string|null}
+                 */
+                staleReason: "never-stale" | "recently-updated" | "active-draft" | "has-dependents" | "no-rules" | "rules-one-sided" | "abandoned-draft" | "toggled-off" | "active-experiment" | "has-rules" | null;
+                /** @description When true the feature is permanently excluded from stale detection. */
+                neverStale: boolean;
+                /** @description Per-environment staleness breakdown, keyed by environment ID. Present when environments exist and neverStale is false. */
+                staleByEnv?: {
+                  [key: string]: ({
+                    /** @description Whether this environment is stale */
+                    isStale: boolean;
+                    /**
+                     * @description Reason for the stale status in this environment 
+                     * @enum {string|null}
+                     */
+                    reason: "no-rules" | "rules-one-sided" | "abandoned-draft" | "toggled-off" | "active-experiment" | "has-rules" | "recently-updated" | "active-draft" | "has-dependents" | null;
+                    /** @description The deterministic value this feature evaluates to in this environment. Uses the same raw string encoding as `feature.defaultValue`. Only present when the value is deterministic or the environment is toggled off. */
+                    evaluatesTo?: string;
+                  }) | undefined;
+                };
+              }) | undefined;
+            };
           };
         };
       };
@@ -18405,6 +18457,7 @@ export type DeleteFeatureResponse = operations["deleteFeature"]["responses"]["20
 export type ToggleFeatureResponse = operations["toggleFeature"]["responses"]["200"]["content"]["application/json"];
 export type RevertFeatureResponse = operations["revertFeature"]["responses"]["200"]["content"]["application/json"];
 export type GetFeatureRevisionsResponse = operations["getFeatureRevisions"]["responses"]["200"]["content"]["application/json"];
+export type GetFeatureStaleResponse = operations["getFeatureStale"]["responses"]["200"]["content"]["application/json"];
 export type GetFeatureKeysResponse = operations["getFeatureKeys"]["responses"]["200"]["content"]["application/json"];
 export type ListProjectsResponse = operations["listProjects"]["responses"]["200"]["content"]["application/json"];
 export type PostProjectResponse = operations["postProject"]["responses"]["200"]["content"]["application/json"];
