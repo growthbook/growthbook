@@ -11,6 +11,7 @@ import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
+import { AttributeBadge } from "@/components/Features/AttributeBadge";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 
 type ConditionWithParentId = Condition & { parentId?: string };
@@ -352,34 +353,7 @@ function getConditionParts({
 
   return conditions.map(({ field, operator, value, parentId }, i) => {
     let fieldEl: ReactNode = isAttributeField(field) ? (
-      <Badge
-        color="gray"
-        label={
-          <Link
-            href={`/attributes/${encodeURIComponent(field)}`}
-            target="_blank"
-            title={`View attribute: ${field}`}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "4px",
-              overflow: "hidden",
-              color: "var(--accent-11)",
-            }}
-          >
-            <span
-              style={{
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-                maxWidth: "400px",
-              }}
-            >
-              {field}
-            </span>
-          </Link>
-        }
-      />
+      <AttributeBadge attributeId={field} />
     ) : (
       <Badge
         color="gray"
