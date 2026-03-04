@@ -370,7 +370,7 @@ export default function FactTablePage() {
         </div>
         {(factTable.owner || canEdit) && (
           <div className="col-auto">
-            Owner: {getOwnerDisplay(factTable.owner || "")}
+            Owner: {getOwnerDisplay(factTable.owner)}
             {canEdit && (
               <a
                 className="ml-1 cursor-pointer"

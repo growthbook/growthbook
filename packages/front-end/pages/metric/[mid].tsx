@@ -949,7 +949,7 @@ const MetricPage: FC = () => {
               canOpen={canEditMetric}
             >
               <RightRailSectionGroup type="custom">
-                {getOwnerDisplay(metric.owner || "")}
+                {getOwnerDisplay(metric.owner)}
               </RightRailSectionGroup>
             </RightRailSection>
 

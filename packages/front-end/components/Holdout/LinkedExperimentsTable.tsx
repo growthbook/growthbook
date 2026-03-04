@@ -124,7 +124,7 @@ const LinkedExperimentsTable = ({ holdout, experiments }: Props) => {
                   )}
                 </td>
                 <td data-title="Owner" className="col-2">
-                  {getOwnerDisplay(exp.owner || "")}
+                  {getOwnerDisplay(exp.owner)}
                 </td>
                 <td data-title="Date Added">
                   {exp.dateAdded ? date(exp.dateAdded) : ""}

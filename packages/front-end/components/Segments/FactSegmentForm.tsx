@@ -13,7 +13,6 @@ import { useAuth } from "@/services/auth";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import SelectOwner from "@/components/Owner/SelectOwner";
-import { useUser } from "@/services/UserContext";
 
 type Props = {
   goBack: () => void;
@@ -29,7 +28,6 @@ export default function FactSegmentForm({
   close,
 }: Props) {
   const { apiCall } = useAuth();
-  const { userId } = useUser();
   const {
     getDatasourceById,
     factTables,
@@ -70,7 +68,7 @@ export default function FactSegmentForm({
       datasource:
         (current?.id ? current?.datasource : datasourceOptions[0]?.id) || "",
       userIdType: current?.userIdType || "user_id",
-      owner: current?.id ? current?.owner || "" : userId || "",
+      owner: current?.owner || "",
       description: current?.description || "",
       factTableId: current?.factTableId || "",
       filters: current?.filters || [],

@@ -658,7 +658,7 @@ export default function FactMetricPage() {
           )}
         </div>
         <div className="col-auto">
-          Owner:{` ${getOwnerDisplay(factMetric.owner ?? "")}`}
+          Owner: {getOwnerDisplay(factMetric.owner)}
           {canEdit && (
             <a
               className="ml-1 cursor-pointer"

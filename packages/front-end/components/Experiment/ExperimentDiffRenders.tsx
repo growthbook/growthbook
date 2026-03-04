@@ -11,7 +11,6 @@ import MetricName from "@/components/Metrics/MetricName";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
-import { useUser } from "@/services/UserContext";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
 import {
   toConditionString,
@@ -42,12 +41,6 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
   maximumFractionDigits: 2,
 });
-
-function OwnerLabel({ owner }: { owner: string | undefined }) {
-  const { getOwnerDisplay } = useUser();
-  if (!owner) return <em>unset</em>;
-  return <>{getOwnerDisplay(owner)}</>;
-}
 
 function normalizePrereqs(prereqs: unknown): FeaturePrerequisite[] | undefined {
   if (!Array.isArray(prereqs) || !prereqs.length) return undefined;
@@ -729,25 +722,7 @@ export function renderMetadata(pre: Pre, post: Post): ReactNode | null {
     );
   }
 
-  if (!isEqual(pre?.owner, post.owner) && post.owner !== undefined) {
-    rows.push(
-      <ChangeField
-        key="owner"
-        label="Owner"
-        changed
-        oldNode={<OwnerLabel owner={pre?.owner} />}
-        newNode={<OwnerLabel owner={post.owner} />}
-      />,
-    );
-  }
-
-  const handled = new Set([
-    "tags",
-    "hypothesis",
-    "description",
-    "project",
-    "owner",
-  ]);
+  const handled = new Set(["tags", "hypothesis", "description", "project"]);
   rows.push(
     ...renderFallback(
       pre as Record<string, unknown>,

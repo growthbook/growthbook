@@ -273,7 +273,7 @@ const SegmentPage: FC = () => {
                           ) : null}
                         </>
                       </td>
-                      <td>{getOwnerDisplay(s.owner || "")}</td>
+                      <td>{getOwnerDisplay(s.owner)}</td>
                       <td className="col-2">
                         {s && (s.projects || []).length > 0 ? (
                           <ProjectBadges

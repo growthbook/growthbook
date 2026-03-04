@@ -6,7 +6,7 @@ export const createMetricGroupPropsValidator = z
     description: z.string().optional(),
     datasource: z.string(),
     metrics: z.array(z.string()).optional(),
-    owner: z.string().optional(),
+    owner: z.string(),
     projects: z.array(z.string()).optional(),
     tags: z.array(z.string()).optional(),
     archived: z.boolean().optional(),

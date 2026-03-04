@@ -176,7 +176,7 @@ export default function ConditionGroups({ groups, mutate }: Props) {
                               <ProjectBadges resourceType="saved group" />
                             )}
                           </td>
-                          <td>{getOwnerDisplay(s.owner || "")}</td>
+                          <td>{getOwnerDisplay(s.owner)}</td>
                           <td>{ago(s.dateUpdated)}</td>
                           <td style={{ width: 30 }}>
                             <SavedGroupRowMenu

@@ -115,7 +115,6 @@ export interface RunImportOptions {
   existingSavedGroups?: SavedGroupInterface[];
   existingExperiments?: ExperimentInterfaceStringDates[];
   existingFactTables?: FactTableInterface[];
-  currentUserId: string;
 }
 
 /**
@@ -1439,7 +1438,6 @@ export async function runImport(options: RunImportOptions) {
     existingSavedGroups,
     existingExperiments,
     existingFactTables,
-    currentUserId,
   } = options;
   // We will mutate this shared object and sync it back to the component periodically
   const data = cloneDeep(originalData);
@@ -1600,17 +1598,13 @@ export async function runImport(options: RunImportOptions) {
             skipAttributeMapping,
             savedGroupIdMap,
           );
-          const savedGroupPayload = {
-            ...savedGroupData,
-            owner: currentUserId,
-          };
 
           // Keep the transformed version on the segment for UI/debugging
-          segment.transformedSavedGroup = savedGroupPayload;
+          segment.transformedSavedGroup = savedGroupData;
 
           // Check if saved group already exists (by groupName)
           const existingSavedGroup = existingSavedGroupsMap.get(
-            savedGroupPayload.groupName,
+            savedGroupData.groupName,
           );
           const isUpdate = !!existingSavedGroup;
 
@@ -1621,7 +1615,7 @@ export async function runImport(options: RunImportOptions) {
               `/saved-groups/${existingSavedGroup.id}?skipCycleCheck=1`,
               {
                 method: "PUT",
-                body: JSON.stringify(savedGroupPayload),
+                body: JSON.stringify(savedGroupData),
               },
             );
             // PUT returns { status: 200 } or { savedGroup: ... }, handle both
@@ -1629,7 +1623,7 @@ export async function runImport(options: RunImportOptions) {
               res = putRes as { savedGroup: SavedGroupInterface };
               // Keep the in-memory map in sync with the latest saved group
               existingSavedGroupsMap.set(
-                savedGroupPayload.groupName,
+                savedGroupData.groupName,
                 res.savedGroup,
               );
             } else {
@@ -1640,11 +1634,11 @@ export async function runImport(options: RunImportOptions) {
             // Use POST to create new saved group, always skipping cycle checks
             res = await apiCall("/saved-groups?skipCycleCheck=1", {
               method: "POST",
-              body: JSON.stringify(savedGroupPayload),
+              body: JSON.stringify(savedGroupData),
             });
             // Newly created saved group should be available for subsequent passes
             existingSavedGroupsMap.set(
-              savedGroupPayload.groupName,
+              savedGroupData.groupName,
               res.savedGroup,
             );
           }
@@ -1786,17 +1780,13 @@ export async function runImport(options: RunImportOptions) {
             savedGroupIdMap,
             combinedFeaturesMap,
           );
-          const featurePayload = {
-            ...transformedFeature,
-            owner: currentUserId,
-          };
 
           const featureIsUpdate = !!featureGate.existing;
           const res: { feature: FeatureInterface } = await apiCall(
             `/feature/${featureGate.key}/sync`,
             {
               method: "POST",
-              body: JSON.stringify(featurePayload),
+              body: JSON.stringify(transformedFeature),
             },
           );
 
@@ -1848,17 +1838,13 @@ export async function runImport(options: RunImportOptions) {
             savedGroupIdMap,
             combinedFeaturesMap,
           );
-          const featurePayload = {
-            ...transformedFeature,
-            owner: currentUserId,
-          };
 
           const isUpdate = !!dynamicConfig.existing;
           const res: { feature: FeatureInterface } = await apiCall(
             `/feature/${dynamicConfig.key}/sync`,
             {
               method: "POST",
-              body: JSON.stringify(featurePayload),
+              body: JSON.stringify(transformedFeature),
             },
           );
 
@@ -1969,13 +1955,9 @@ export async function runImport(options: RunImportOptions) {
             skipAttributeMapping,
             savedGroupIdMap,
           );
-          const featurePayload = {
-            ...transformedFeature,
-            owner: currentUserId,
-          };
 
           // For updates, check if there's an existing companion feature linked to the experiment
-          let featureId = featurePayload.id;
+          let featureId = transformedFeature.id;
           let existingCompanionFeature: FeatureInterface | undefined;
 
           if (
@@ -2009,17 +1991,17 @@ export async function runImport(options: RunImportOptions) {
 
           // If no existing companion feature found, check for ID conflicts
           if (!existingCompanionFeature) {
-            const existingFeature = featuresMap.get(featurePayload.id);
+            const existingFeature = featuresMap.get(transformedFeature.id);
             featureId = existingFeature
-              ? `exp_${featurePayload.id}`
-              : featurePayload.id;
+              ? `exp_${transformedFeature.id}`
+              : transformedFeature.id;
           }
 
           const featureRes: { feature: FeatureInterface } = await apiCall(
             `/feature/${featureId}/sync`,
             {
               method: "POST",
-              body: JSON.stringify(featurePayload),
+              body: JSON.stringify(transformedFeature),
             },
           );
 

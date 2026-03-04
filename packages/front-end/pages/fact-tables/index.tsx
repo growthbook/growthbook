@@ -470,7 +470,7 @@ export default function FactTablesPage() {
                   <td>{f.numMetrics}</td>
                   <td>{f.numAutoSlices}</td>
                   <td>{f.numFilters}</td>
-                  <td>{getOwnerDisplay(f.owner || "")}</td>
+                  <td>{getOwnerDisplay(f.owner)}</td>
                   <td>{f.dateUpdated ? date(f.dateUpdated) : null}</td>
                 </tr>
               ))}

@@ -181,7 +181,7 @@ export default function DataSourceMetrics({
                               )}
                             >
                               <strong>Owner: </strong>
-                              {getOwnerDisplay(metric.owner || "")}
+                              {getOwnerDisplay(metric.owner)}
                             </div>
                             <div
                               className={clsx(

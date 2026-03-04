@@ -629,7 +629,7 @@ const ShareModal = ({
                                     <SortedTags tags={Object.values(e.tags)} />
                                   </td>
                                   <td className="nowrap">
-                                    {getOwnerDisplay(e.owner || "")}
+                                    {getOwnerDisplay(e.owner)}
                                   </td>
                                   <td
                                     className="nowrap"

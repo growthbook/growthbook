@@ -162,7 +162,7 @@ export const ArchetypeList: FC<{
                         <></>
                       )}
                     </td>
-                    <td>{getOwnerDisplay(archetype.owner || "")}</td>
+                    <td>{getOwnerDisplay(archetype.owner)}</td>
                     <td>
                       {archetype.isPublic ? (
                         <span className="text-muted">Yes</span>

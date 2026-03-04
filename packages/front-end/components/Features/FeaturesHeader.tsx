@@ -68,7 +68,7 @@ export default function FeaturesHeader({
   const [showImplementation, setShowImplementation] = useState(firstFeature);
 
   const { organization, hasCommercialFeature, getOwnerDisplay } = useUser();
-  const ownerDisplay = getOwnerDisplay(feature.owner || "");
+  const ownerDisplay = getOwnerDisplay(feature.owner);
   const permissionsUtil = usePermissionsUtil();
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);

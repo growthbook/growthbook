@@ -271,7 +271,7 @@ const DimensionsPage: FC = () => {
                           ) : null}
                         </>
                       </td>
-                      <td>{getOwnerDisplay(s.owner || "")}</td>
+                      <td>{getOwnerDisplay(s.owner)}</td>
                       <td className="d-none d-sm-table-cell">
                         {datasource && (
                           <>

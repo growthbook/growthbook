@@ -16,7 +16,6 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectOwner from "@/components/Owner/SelectOwner";
-import { useUser } from "@/services/UserContext";
 import FactSegmentForm from "./FactSegmentForm";
 
 export type CursorData = {
@@ -30,7 +29,6 @@ const SegmentForm: FC<{
   current: Partial<SegmentInterface>;
 }> = ({ close, current }) => {
   const { apiCall } = useAuth();
-  const { userId } = useUser();
   const {
     datasources,
     getDatasourceById,
@@ -69,7 +67,7 @@ const SegmentForm: FC<{
       datasource:
         (current.id ? current.datasource : filteredDatasources[0]?.id) || "",
       userIdType: current.userIdType || "user_id",
-      owner: current.id ? current.owner || "" : userId || "",
+      owner: current.owner || "",
       description: current.description || "",
       projects: current.id
         ? current.projects || []

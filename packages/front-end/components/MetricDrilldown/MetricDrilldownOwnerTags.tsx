@@ -9,7 +9,7 @@ import { useUser } from "@/services/UserContext";
 export function MetricDrilldownOwnerTags({ row }: { row: ExperimentTableRow }) {
   const { metric } = row;
   const { getOwnerDisplay } = useUser();
-  const ownerDisplay = getOwnerDisplay(metric.owner || "");
+  const ownerDisplay = getOwnerDisplay(metric.owner);
 
   return (
     <Flex gap="4">

@@ -327,7 +327,7 @@ function DashboardEditor({
   if (initialEditLevel === "private" && !isOwner && !isAdmin) {
     canEdit = false;
   }
-  const ownerName = getOwnerDisplay(dashboardOwnerId || "");
+  const ownerName = getOwnerDisplay(dashboardOwnerId);
 
   const savedQueryIds = [...savedQueriesMap.keys()];
   const queryStrings = useMemo(() => {

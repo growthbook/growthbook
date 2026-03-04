@@ -59,7 +59,7 @@ const SavedGroupForm: FC<{
   const form = useForm<CreateSavedGroupProps>({
     defaultValues: {
       groupName: current.groupName || "",
-      owner: current.id ? current.owner || "" : "",
+      owner: current.owner || "",
       attributeKey: current.attributeKey || "",
       condition: current.condition || "",
       type,

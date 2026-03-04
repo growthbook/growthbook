@@ -1,20 +1,18 @@
 import { ExpandedMember } from "shared/types/organization";
 
-const userIdPattern = /^u_[a-z0-9]+$/i;
-
-export function isLikelyUserId(value: string): boolean {
-  return userIdPattern.test(value);
+function isLikelyUserId(value: string): boolean {
+  return value.startsWith("u_");
 }
 
 export function getOwnerDisplay({
   owner,
   users,
 }: {
-  owner: string;
+  owner: string | undefined;
   users: Map<string, ExpandedMember>;
 }): string {
-  const value = owner.trim();
-  if (!value) return "";
+  const value = owner?.trim();
+  if (!value) return "None";
 
   const user = users.get(value);
   if (user) {

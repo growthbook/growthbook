@@ -101,7 +101,7 @@ const HoldoutsPage = (): React.ReactElement => {
         ? ": Analysis Phase"
         : "");
 
-    const ownerName = getOwnerDisplay(item.experiment.owner || "");
+    const ownerName = getOwnerDisplay(item.experiment.owner);
     return {
       name: item.name,
       projects: projectsComputed,
