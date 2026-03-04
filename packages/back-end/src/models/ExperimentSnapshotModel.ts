@@ -514,23 +514,23 @@ export async function getLatestSnapshot({
   ).exec();
 
   if (all[0]) {
-    const latest = all[0];
+    const mostRecentSnapshot = all[0];
 
     if (
       shouldPreferRunningOverScheduledError &&
-      latest.status === "error" &&
-      latest.triggeredBy === "schedule"
+      mostRecentSnapshot.status === "error" &&
+      mostRecentSnapshot.triggeredBy === "schedule"
     ) {
       // Avoid fetching stale snapshots
       const windowToConsider = new Date(
-        latest.dateCreated.getTime() - 5 * 60 * 60 * 1000,
+        mostRecentSnapshot.dateCreated.getTime() - 5 * 60 * 60 * 1000,
       );
       const runningSnapshot = await ExperimentSnapshotModel.findOne(
         {
           ...query,
           status: "running",
           dateCreated: {
-            $lt: latest.dateCreated,
+            $lt: mostRecentSnapshot.dateCreated,
             $gt: windowToConsider,
           },
         },
@@ -545,7 +545,7 @@ export async function getLatestSnapshot({
       }
     }
 
-    return toInterface(latest);
+    return toInterface(mostRecentSnapshot);
   }
 
   // Otherwise, try getting old snapshot records
