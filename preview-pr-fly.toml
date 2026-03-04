@@ -52,4 +52,4 @@ primary_region = 'sjc'
 [[vm]]
   memory = '1gb'
   cpu_kind = 'shared'
-  cpus = 1
+  cpus = 4
