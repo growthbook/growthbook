@@ -84,7 +84,7 @@ export const updateExperiment = createApiRequestHandler(
   if (
     req.body.trackingKey != null &&
     req.body.trackingKey !== experiment.trackingKey &&
-    !req.body.allowDuplicateTrackingKey
+    !req.body.bypassDuplicateKeyCheck
   ) {
     const existingByTrackingKey = await getExperimentByTrackingKey(
       req.context,

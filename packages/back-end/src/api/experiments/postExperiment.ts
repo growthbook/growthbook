@@ -54,7 +54,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
     }
 
     // check if tracking key is unique
-    if (!req.body.allowDuplicateTrackingKey) {
+    if (!req.body.bypassDuplicateKeyCheck) {
       const existingByTrackingKey = await getExperimentByTrackingKey(
         req.context,
         req.body.trackingKey,

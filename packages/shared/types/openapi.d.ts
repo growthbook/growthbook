@@ -9940,7 +9940,7 @@ export interface operations {
           assignmentQueryId: string;
           trackingKey: string;
           /** @description If true, allow creating an experiment even if another experiment with the same tracking key already exists */
-          allowDuplicateTrackingKey?: boolean;
+          bypassDuplicateKeyCheck?: boolean;
           /** @description Name of the experiment */
           name: string;
           /** @enum {string} */
@@ -10481,7 +10481,7 @@ export interface operations {
           assignmentQueryId?: string;
           trackingKey?: string;
           /** @description If true, allow updating the tracking key even if another experiment with the same tracking key already exists */
-          allowDuplicateTrackingKey?: boolean;
+          bypassDuplicateKeyCheck?: boolean;
           /** @description Name of the experiment */
           name?: string;
           /** @enum {string} */

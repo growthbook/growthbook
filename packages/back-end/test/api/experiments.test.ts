@@ -615,7 +615,7 @@ describe("experiments API", () => {
       expect(res.body.message).toContain("already exists");
     });
 
-    it("allows duplicate trackingKey when allowDuplicateTrackingKey is true", async () => {
+    it("allows duplicate trackingKey when bypassDuplicateKeyCheck is true", async () => {
       (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(experiment);
       (createExperiment as jest.Mock).mockResolvedValue(experiment);
 
@@ -624,7 +624,7 @@ describe("experiments API", () => {
         name: "Duplicate Experiment",
         hypothesis: "",
         assignmentQueryId: "user_id",
-        allowDuplicateTrackingKey: true,
+        bypassDuplicateKeyCheck: true,
         variations: [
           {
             key: "control",
@@ -1049,7 +1049,7 @@ describe("experiments API", () => {
       expect(res.body.message).toContain("Could not find");
     });
 
-    it("allows duplicate trackingKey on update when allowDuplicateTrackingKey is true", async () => {
+    it("allows duplicate trackingKey on update when bypassDuplicateKeyCheck is true", async () => {
       (getExperimentById as jest.Mock).mockResolvedValue(experiment);
       (updateExperiment as jest.Mock).mockResolvedValue({
         ...experiment,
@@ -1058,7 +1058,7 @@ describe("experiments API", () => {
 
       const updatePayload = {
         trackingKey: "existing_key",
-        allowDuplicateTrackingKey: true,
+        bypassDuplicateKeyCheck: true,
       };
 
       const res = await request(app)
