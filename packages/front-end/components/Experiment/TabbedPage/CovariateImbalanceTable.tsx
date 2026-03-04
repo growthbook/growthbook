@@ -1,4 +1,4 @@
-import { ExperimentReportVariation } from "back-end/types/report";
+import { ExperimentReportVariation } from "shared/types/report";
 import { CovariateImbalanceResult } from "shared/enterprise";
 import { DEFAULT_P_VALUE_THRESHOLD_FOR_COVARIATE_IMBALANCE } from "shared/constants";
 import { pValueFormatter } from "@/services/experiments";
@@ -48,6 +48,7 @@ export function CovariateImbalanceMetricVariationTable({
           <th className="border-top-0 text-center">Sample size</th>
           <th className="border-top-0 text-center">Baseline mean (std)</th>
           <th className="border-top-0 text-center">Variation mean (std)</th>
+          <th className="border-top-0 text-center">Percent change</th>
         </tr>
       </thead>
       <tbody>
@@ -101,6 +102,15 @@ export function CovariateImbalanceMetricVariationTable({
                     )})`
                   : ""}
               </td>
+              <td className="border-right text-right">
+                {row.baselineMean !== undefined &&
+                row.variationMean !== undefined &&
+                row.baselineMean !== 0
+                  ? percentageFormatter.format(
+                      (row.variationMean - row.baselineMean) / row.baselineMean,
+                    )
+                  : "-"}
+              </td>
             </tr>
           );
         })}
@@ -111,7 +121,7 @@ export function CovariateImbalanceMetricVariationTable({
                 DEFAULT_P_VALUE_THRESHOLD_FOR_COVARIATE_IMBALANCE,
               )}`}
             </td>
-            <td colSpan={3}></td>
+            <td colSpan={4}></td>
           </tr>
         }
       </tbody>

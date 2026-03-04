@@ -1,18 +1,18 @@
-import { ExperimentSnapshotTraffic } from "back-end/types/experiment-snapshot";
-import { ExperimentReportVariation } from "back-end/types/report";
+import { ExperimentSnapshotTraffic } from "shared/types/experiment-snapshot";
+import { ExperimentReportVariation } from "shared/types/report";
 import { useEffect } from "react";
 import { CovariateImbalanceResult } from "shared/enterprise";
 import {
   DataSourceInterfaceWithParams,
   ExposureQuery,
-} from "back-end/types/datasource";
+} from "shared/types/datasource";
 import {
   CovariateImbalanceMetricVariationTable,
   CovariateImbalanceMetricSummaryTable,
 } from "@/components/Experiment/TabbedPage/CovariateImbalanceTable";
 import { HealthTabConfigParams } from "@/components/Experiment/TabbedPage/HealthTabOnboardingModal";
 import Callout from "@/ui/Callout";
-import CovariateImbalanceWarning from "../Experiment/CovariateImbalanceWarning";
+import CovariateImbalanceWarning from "@/components/Experiment/CovariateImbalanceWarning";
 import { StatusBadge } from "./StatusBadge";
 import { IssueValue } from "./IssueTags";
 
@@ -50,7 +50,7 @@ export default function CovariateImbalanceCard({
   useEffect(() => {
     if (covariateImbalanceHealth === "unhealthy" && onNotify) {
       onNotify({
-        label: "Covariate Imbalance",
+        label: "Pre-Exposure Bias",
         value: "covariateBalanceCheck",
       });
     }
@@ -72,13 +72,12 @@ export default function CovariateImbalanceCard({
       }}
     >
       <div>
-        <h2 className="d-inline">Covariate Imbalance Check</h2>{" "}
+        <h2 className="d-inline">Pre-Exposure Bias Check</h2>{" "}
         {covariateImbalanceHealth !== "healthy" && (
           <StatusBadge status={covariateImbalanceHealth} />
         )}
         <p className="mt-1">
-          Detects pre-experiment metric imbalances across control and treatment
-          groups.
+          Detects differences in pre-exposure control vs treatment means.
         </p>
         <hr className="mb-0"></hr>
         <div style={{ paddingTop: "10px" }}>
