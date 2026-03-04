@@ -120,10 +120,12 @@ export default function StaleFeatureIcon({
     );
   }
 
-  const isStale = staleData?.stale ?? false;
-  const staleReason: StaleFeatureReason | undefined = staleData?.reason;
-  const envResults = staleData?.envResults ?? {};
-  const computedAt = staleData?.computedAt;
+  if (!staleData) return null;
+
+  const isStale = staleData.stale;
+  const staleReason: StaleFeatureReason | undefined = staleData.reason;
+  const envResults = staleData.envResults ?? {};
+  const computedAt = staleData.computedAt;
 
   const hasSomeStaleEnvs = Object.values(envResults).some((e) => e.stale);
   const mixed = !isStale && hasSomeStaleEnvs;
