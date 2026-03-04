@@ -1365,7 +1365,11 @@ export async function getFeatureEnvStatus(
     context.permissions.getProjectsWithPermission("readData");
   if (allowedProjects !== null) {
     if (allowedProjects.length === 0) return [];
-    q.project = { $in: allowedProjects };
+    // Also include features with no project — they're globally accessible
+    q.$or = [
+      { project: { $in: allowedProjects } },
+      { project: { $in: ["", null] } },
+    ];
   }
 
   const docs = await FeatureModel.find(q, {

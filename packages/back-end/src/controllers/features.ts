@@ -4247,7 +4247,7 @@ export async function getFeaturesDependents(
     return res.status(200).json({ status: 200, dependents: {} });
   }
 
-  const allEnvIds = (context.org.settings?.environments || []).map((e) => e.id);
+  const allEnvIds = getEnvironments(context.org).map((e) => e.id);
 
   const [allFeatures, allExperiments] = await Promise.all([
     getAllFeatures(context, { includeArchived: true }),
