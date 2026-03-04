@@ -11,6 +11,7 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   getFeature,
+  reconcileRampStartedAt,
   updateFeature as updateFeatureToDb,
 } from "back-end/src/models/FeatureModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
@@ -199,10 +200,14 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     }
 
     if (updates.environmentSettings) {
+      updates.rampStartedAt = reconcileRampStartedAt(
+        updates.environmentSettings,
+        feature.rampStartedAt,
+      );
       updates.nextScheduledUpdate = getNextScheduledUpdate(
         updates.environmentSettings,
         orgEnvs,
-        feature.rampStartedAt,
+        updates.rampStartedAt,
       );
     }
 
