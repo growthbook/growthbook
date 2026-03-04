@@ -199,7 +199,7 @@ const BigQueryForm: FC<{
       <div className="form-group col-md-12">
         <label>
           Reservation (optional){" "}
-          <Tooltip body="If set, GrowthBook will include this reservation on all BigQuery query jobs. Use the full reservation resource name." />
+          <Tooltip body="If set, GrowthBook will include this reservation on all BigQuery query jobs. Use the full reservation resource name (e.g. projects/my-project/locations/US/reservations/my-reservation)." />
         </label>
         <Field
           type="text"
@@ -207,7 +207,6 @@ const BigQueryForm: FC<{
           name="reservation"
           value={params.reservation || ""}
           onChange={onParamChange}
-          placeholder="projects/my-project/locations/US/reservations/my-reservation"
         />
       </div>
       <div className="form-group col-md-12">
