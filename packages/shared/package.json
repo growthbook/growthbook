@@ -4,13 +4,28 @@
   "private": true,
   "main": "dist/index.js",
   "types": "src/index.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./sql": {
+      "types": "./src/sql.ts",
+      "import": "./dist/esm/sql.js",
+      "require": "./dist/sql.js"
+    },
+    "./*": {
+      "types": "./*",
+      "require": "./*.js",
+      "default": "./*"
+    }
+  },
   "engines": {
     "node": ">=16"
   },
   "scripts": {
     "build:clean": "rimraf dist",
-    "build:typescript": "tsc",
-    "dev": "swc src -w --out-dir dist",
+    "build:typescript": "tsc && tsc -p tsconfig.sql.esm.json",
+    "build:sql-esm": "tsc -p tsconfig.sql.esm.json",
+    "build:sql-esm:swc": "mkdir -p dist/esm && swc src/sql.ts -o dist/esm/sql.js --config-file .swcrc.esm.json -C module.type=es6",
+    "dev": "pnpm build:sql-esm:swc && swc src -w --out-dir dist",
     "build": "pnpm build:clean && pnpm build:typescript",
     "test": "jest --forceExit --verbose --detectOpenHandles",
     "clean": "rimraf node_modules",
