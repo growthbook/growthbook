@@ -42,6 +42,37 @@ const scheduleRule = z
 
 export type ScheduleRule = z.infer<typeof scheduleRule>;
 
+const rampScheduleStep = z
+  .object({
+    coverage: z.number().min(0).max(1),
+    // How long to hold at this coverage before advancing to the next step
+    // (or to the implicit terminal 100%).
+    holdSeconds: z.number().positive(),
+  })
+  .strict();
+
+export type RampScheduleStep = z.infer<typeof rampScheduleStep>;
+
+// Timed coverage ramp for a rollout rule (blind ramp-up / scheduled rollout).
+//
+// Evaluation walks `steps` in order: effective coverage is `steps[0].coverage`
+// for the first `steps[0].holdSeconds` after `startedAt`, then
+// `steps[1].coverage` for the next `steps[1].holdSeconds`, and so on. After
+// the last step's hold period expires, coverage is implicitly 1 (full rollout)
+// and held forever.
+//
+// `startedAt` is stamped by the backend when the rule is published/enabled
+// (null while the rule is in draft). `steps` is the user-editable spec and
+// what an org-level default would provide.
+const rampSchedule = z
+  .object({
+    startedAt: z.union([z.string(), z.null()]),
+    steps: z.array(rampScheduleStep).min(1),
+  })
+  .strict();
+
+export type RampSchedule = z.infer<typeof rampSchedule>;
+
 export const baseRule = z
   .object({
     description: z.string(),
@@ -70,6 +101,11 @@ export const rolloutRule = baseRule
     coverage: z.number(),
     hashAttribute: z.string(),
     seed: z.string().optional(),
+    // Optional timed ramp. When present and `startedAt` is set, effective
+    // coverage is computed from the schedule + wall-clock and overrides the
+    // static `coverage` field. Before `startedAt` is stamped (draft state),
+    // the static `coverage` field is used.
+    rampSchedule: rampSchedule.optional(),
   })
   .strict();
 

@@ -19,6 +19,8 @@ export {
   ExperimentValue,
   ExperimentRule,
   ScheduleRule,
+  RampSchedule,
+  RampScheduleStep,
   ExperimentRefRule,
   RolloutRule,
   ExperimentRefVariation,
