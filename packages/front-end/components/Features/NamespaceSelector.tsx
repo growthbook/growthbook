@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { UseFormReturn } from "react-hook-form";
-import { Separator } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { FaPlus, FaTrash } from "react-icons/fa";
 import { Namespaces } from "shared/types/organization";
 import useApi from "@/hooks/useApi";
@@ -12,7 +12,7 @@ import SelectField, { SingleValue } from "@/components/Forms/SelectField";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
 import Badge from "@/ui/Badge";
-import Button from "@/components/Button";
+import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import NamespaceUsageGraph from "./NamespaceUsageGraph";
 
@@ -34,7 +34,6 @@ export default function NamespaceSelector({
   experimentHashAttribute,
   fallbackAttribute,
 }: Props) {
-  const separatorOptionValue = "__namespace-hash-separator__";
   const { data, error } = useApi<NamespaceApiResponse>(
     `/organization/namespaces`,
   );
@@ -91,22 +90,11 @@ export default function NamespaceSelector({
   const namespaceOptions: SingleValue[] = isFallbackMode
     ? filteredNamespaces.map((n) => ({ value: n.name, label: n.label }))
     : [
-        ...matchingNamespaces.map((n) => ({
+        ...matchingNamespaces.map((n) => ({ value: n.name, label: n.label })),
+        ...differentHashNamespaces.map((n) => ({
           value: n.name,
           label: n.label,
         })),
-        ...(differentHashNamespaces.length
-          ? [
-              {
-                value: separatorOptionValue,
-                label: "Different hash attribute",
-              },
-              ...differentHashNamespaces.map((n) => ({
-                value: n.name,
-                label: n.label,
-              })),
-            ]
-          : []),
       ];
 
   const selectedIsDifferentHash =
@@ -221,19 +209,6 @@ export default function NamespaceSelector({
             placeholder="Choose a namespace..."
             options={namespaceOptions}
             sort={false}
-            isOptionDisabled={(option) => {
-              return "value" in option && option.value === separatorOptionValue;
-            }}
-            formatOptionLabel={(option) => {
-              if (option.value !== separatorOptionValue) {
-                return option.label;
-              }
-              return (
-                <div className="py-1">
-                  <Separator size="4" />
-                </div>
-              );
-            }}
           />
           {namespace && selectedNamespace && (
             <div className="mt-3">
@@ -261,83 +236,65 @@ export default function NamespaceSelector({
                 trackingKey={trackingKey}
               />
 
-              <div className="mt-3">
-                <div className="d-flex justify-content-between align-items-center mb-2">
-                  <label className="mb-0">
-                    Selected Range{ranges.length > 1 ? "s" : ""}
-                  </label>
+              <Box mt="3">
+                <Flex justify="between" align="center" mb="2">
+                  <label>Selected Range{ranges.length > 1 ? "s" : ""}</label>
                   {totalAllocation > 0 && (
                     <Badge
                       label={`Total: ${(totalAllocation * 100).toFixed(2)}%`}
                       color="blue"
                     />
                   )}
-                </div>
+                </Flex>
 
                 {ranges.map((range, index) => (
-                  <div key={index} className="row align-items-center mb-2">
-                    <div className="col-auto">
-                      <Field
-                        type="number"
-                        min={0}
-                        max={range[1]}
-                        step=".01"
-                        value={range[0]}
-                        onChange={(e) => {
-                          updateRange(
-                            index,
-                            0,
-                            parseFloat(e.target.value) || 0,
-                          );
-                        }}
-                      />
-                    </div>
-                    <div className="col-auto">
-                      <Text>to</Text>
-                    </div>
-                    <div className="col-auto">
-                      <Field
-                        type="number"
-                        min={range[0]}
-                        max={1}
-                        step=".01"
-                        value={range[1]}
-                        onChange={(e) => {
-                          updateRange(
-                            index,
-                            1,
-                            parseFloat(e.target.value) || 0,
-                          );
-                        }}
-                      />
-                    </div>
-                    <div className="col-auto">
-                      <span className="text-muted">
-                        ({((range[1] - range[0]) * 100).toFixed(2)}%)
-                      </span>
-                    </div>
+                  <Flex key={index} align="center" gap="2" mb="2">
+                    <Field
+                      type="number"
+                      min={0}
+                      max={range[1]}
+                      step=".01"
+                      value={range[0]}
+                      onChange={(e) => {
+                        updateRange(index, 0, parseFloat(e.target.value) || 0);
+                      }}
+                    />
+                    <Text>to</Text>
+                    <Field
+                      type="number"
+                      min={range[0]}
+                      max={1}
+                      step=".01"
+                      value={range[1]}
+                      onChange={(e) => {
+                        updateRange(index, 1, parseFloat(e.target.value) || 0);
+                      }}
+                    />
+                    <Text color="text-low">
+                      ({((range[1] - range[0]) * 100).toFixed(2)}%)
+                    </Text>
                     {ranges.length > 1 && (
-                      <div className="col-auto">
-                        <Button
-                          color="red"
-                          onClick={() => removeRange(index)}
-                          className="btn-sm"
-                        >
-                          <FaTrash />
-                        </Button>
-                      </div>
+                      <Button
+                        color="red"
+                        variant="soft"
+                        size="xs"
+                        onClick={() => removeRange(index)}
+                      >
+                        <FaTrash />
+                      </Button>
                     )}
-                  </div>
+                  </Flex>
                 ))}
 
                 <Button
-                  color="outline-primary"
+                  variant="outline"
                   onClick={addRange}
-                  className="btn-sm mt-2"
+                  mt="2"
+                  icon={<FaPlus />}
                 >
-                  <FaPlus className="mr-1" /> Add Range
+                  Add Range
                 </Button>
-              </div>
+              </Box>
             </div>
           )}
         </div>
