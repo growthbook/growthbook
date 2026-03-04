@@ -38,13 +38,16 @@ export const getCurrentEnabledState = (
 };
 
 /**
- * Given a rollout ramp schedule and the current time, return the effective
- * coverage that should be emitted to the SDK payload.
+ * Given a rollout ramp schedule, its start time, and the current time, return
+ * the effective coverage that should be emitted to the SDK payload.
  *
- * Returns `null` when no schedule is present or `startedAt` has not yet been
- * stamped (rule is still in draft) — the caller should fall back to the
- * rule's static `coverage` field:
- *   `getCurrentRampCoverage(r.rampSchedule, now) ?? r.coverage`
+ * `startedAt` is read from `feature.rampStartedAt[rule.id]` (runtime state,
+ * stamped at publish), not from the rule itself.
+ *
+ * Returns `null` when no schedule is present or the ramp has not been
+ * started — the caller should fall back to the rule's static `coverage`
+ * field:
+ *   `getCurrentRampCoverage(r.rampSchedule, rampStartedAt?.[r.id], now) ?? r.coverage`
  *
  * Otherwise, walk steps in order accumulating hold durations:
  *   window[0] = [0, steps[0].holdSeconds)
@@ -55,13 +58,14 @@ export const getCurrentEnabledState = (
  */
 export const getCurrentRampCoverage = (
   rampSchedule: RampSchedule | undefined,
+  startedAt: string | undefined,
   now: Date,
 ): number | null => {
-  if (!rampSchedule || !rampSchedule.startedAt) return null;
+  if (!rampSchedule || !startedAt) return null;
 
   const elapsed = Math.max(
     0,
-    (now.getTime() - new Date(rampSchedule.startedAt).getTime()) / 1000,
+    (now.getTime() - new Date(startedAt).getTime()) / 1000,
   );
 
   let windowEnd = 0;
@@ -83,11 +87,12 @@ export const getCurrentRampCoverage = (
  */
 export const getNextRampUpdate = (
   rampSchedule: RampSchedule | undefined,
+  startedAt: string | undefined,
   now: Date,
 ): Date | null => {
-  if (!rampSchedule || !rampSchedule.startedAt) return null;
+  if (!rampSchedule || !startedAt) return null;
 
-  const startMs = new Date(rampSchedule.startedAt).getTime();
+  const startMs = new Date(startedAt).getTime();
   const elapsed = Math.max(0, (now.getTime() - startMs) / 1000);
 
   let windowEnd = 0;

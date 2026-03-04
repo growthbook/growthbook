@@ -56,17 +56,17 @@ export type RampScheduleStep = z.infer<typeof rampScheduleStep>;
 // Timed coverage ramp for a rollout rule (blind ramp-up / scheduled rollout).
 //
 // Evaluation walks `steps` in order: effective coverage is `steps[0].coverage`
-// for the first `steps[0].holdSeconds` after `startedAt`, then
+// for the first `steps[0].holdSeconds` after the ramp starts, then
 // `steps[1].coverage` for the next `steps[1].holdSeconds`, and so on. After
 // the last step's hold period expires, coverage is implicitly 1 (full rollout)
 // and held forever.
 //
-// `startedAt` is stamped by the backend when the rule is published/enabled
-// (null while the rule is in draft). `steps` is the user-editable spec and
-// what an org-level default would provide.
+// This is purely the user-authored spec (and what an org-level default would
+// provide). The ramp's start time is runtime state and lives in
+// `feature.rampStartedAt[ruleId]`, outside the revision system — see
+// `featureInterface` below.
 const rampSchedule = z
   .object({
-    startedAt: z.union([z.string(), z.null()]),
     steps: z.array(rampScheduleStep).min(1),
   })
   .strict();
@@ -101,10 +101,10 @@ export const rolloutRule = baseRule
     coverage: z.number(),
     hashAttribute: z.string(),
     seed: z.string().optional(),
-    // Optional timed ramp. When present and `startedAt` is set, effective
-    // coverage is computed from the schedule + wall-clock and overrides the
-    // static `coverage` field. Before `startedAt` is stamped (draft state),
-    // the static `coverage` field is used.
+    // Optional timed ramp. When present and `feature.rampStartedAt[rule.id]`
+    // has been stamped, effective coverage is computed from the schedule +
+    // wall-clock and overrides the static `coverage` field. Before the ramp
+    // is started (draft state), the static `coverage` field is used.
     rampSchedule: rampSchedule.optional(),
   })
   .strict();
@@ -304,6 +304,11 @@ export const featureInterface = z
     description: z.string().optional(),
     organization: z.string(),
     nextScheduledUpdate: z.union([z.date(), z.null()]).optional(),
+    // Runtime state for rollout ramp schedules. Keyed by rule.id. Stamped by
+    // the backend when a rule with a rampSchedule is published; lives outside
+    // environmentSettings so it never appears in revisions or draft diffs.
+    // Entries should be removed when the corresponding rule is deleted.
+    rampStartedAt: z.record(z.string(), z.string()).optional(),
     owner: z.string(),
     project: z.string().optional(),
     dateCreated: z.date(),
