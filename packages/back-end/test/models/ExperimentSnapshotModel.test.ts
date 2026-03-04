@@ -4,6 +4,7 @@ import {
   getLatestSnapshot,
   createExperimentSnapshotModel,
 } from "back-end/src/models/ExperimentSnapshotModel";
+import type { ExperimentSnapshotDocument } from "back-end/src/models/ExperimentSnapshotModel";
 import { snapshotFactory } from "back-end/test/factories/Snapshot.factory";
 
 describe("ExperimentSnapshotModel", () => {
@@ -71,6 +72,104 @@ describe("ExperimentSnapshotModel", () => {
       expect(result?.status).toBe("running");
     });
 
+    it("prefers an older running snapshot regardless of triggeredBy value", async () => {
+      const runningFromSchedule = snapshotFactory.build({
+        experiment,
+        phase,
+        type: "standard",
+        triggeredBy: "schedule",
+        status: "running",
+        dateCreated: new Date("2024-01-01T12:00:00Z"),
+      });
+      await createExperimentSnapshotModel({ data: runningFromSchedule });
+
+      const scheduledError = snapshotFactory.build({
+        experiment,
+        phase,
+        type: "standard",
+        triggeredBy: "schedule",
+        status: "error",
+        dateCreated: new Date("2024-01-01T12:05:00Z"),
+      });
+      await createExperimentSnapshotModel({ data: scheduledError });
+
+      const result = await getLatestSnapshot({
+        experiment,
+        phase,
+        withResults: false,
+      });
+
+      expect(result?.id).toBe(runningFromSchedule.id);
+      expect(result?.triggeredBy).toBe("schedule");
+      expect(result?.status).toBe("running");
+    });
+
+    it("returns the latest scheduled error when no older running snapshot exists", async () => {
+      const olderSuccess = snapshotFactory.build({
+        experiment,
+        phase,
+        type: "standard",
+        triggeredBy: "manual",
+        status: "success",
+        dateCreated: new Date("2024-01-01T12:00:00Z"),
+      });
+      await createExperimentSnapshotModel({ data: olderSuccess });
+
+      const scheduledError = snapshotFactory.build({
+        experiment,
+        phase,
+        type: "standard",
+        triggeredBy: "schedule",
+        status: "error",
+        dateCreated: new Date("2024-01-01T12:05:00Z"),
+      });
+      await createExperimentSnapshotModel({ data: scheduledError });
+
+      const result = await getLatestSnapshot({
+        experiment,
+        phase,
+        withResults: false,
+      });
+
+      expect(result?.id).toBe(scheduledError.id);
+      expect(result?.triggeredBy).toBe("schedule");
+      expect(result?.status).toBe("error");
+    });
+
+    it("does not apply the override when beforeSnapshot is passed", async () => {
+      const running = snapshotFactory.build({
+        experiment,
+        phase,
+        type: "standard",
+        triggeredBy: "manual",
+        status: "running",
+        dateCreated: new Date("2024-01-01T12:00:00Z"),
+      });
+      await createExperimentSnapshotModel({ data: running });
+
+      const scheduledError = snapshotFactory.build({
+        experiment,
+        phase,
+        type: "standard",
+        triggeredBy: "schedule",
+        status: "error",
+        dateCreated: new Date("2024-01-01T12:05:00Z"),
+      });
+      await createExperimentSnapshotModel({ data: scheduledError });
+
+      const result = await getLatestSnapshot({
+        experiment,
+        phase,
+        withResults: false,
+        beforeSnapshot: {
+          dateCreated: new Date("2024-01-01T12:10:00Z"),
+        } as unknown as ExperimentSnapshotDocument,
+      });
+
+      expect(result?.id).toBe(scheduledError.id);
+      expect(result?.status).toBe("error");
+    });
+
     it("still surfaces successful scheduled snapshots", async () => {
       const manual = snapshotFactory.build({
         experiment,
@@ -130,7 +229,7 @@ describe("ExperimentSnapshotModel", () => {
     it("still returns scheduled errors when type is explicitly requested", async () => {
       // If a caller explicitly asks for type="standard", they get
       // everything of that type — including scheduled errors. The
-      // exclusion only applies to the generic "latest" poll.
+      // override only applies to the generic "latest" poll.
       const scheduled = snapshotFactory.build({
         experiment,
         phase,
@@ -153,8 +252,7 @@ describe("ExperimentSnapshotModel", () => {
     });
 
     it("never returns scheduled errors from withResults=true (status filter already excludes them)", async () => {
-      // Sanity check: withResults=true already filters to status="success",
-      // so the new $nor is a no-op on this path. Verify it stays that way.
+      // Sanity check: withResults=true already filters to status="success".
       const scheduledError = snapshotFactory.build({
         experiment,
         phase,
