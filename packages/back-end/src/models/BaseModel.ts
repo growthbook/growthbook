@@ -621,9 +621,7 @@ export abstract class BaseModel<
 
     // Add default owner and createdBy if empty
     if ("owner" in props && !props.owner) {
-      props.owner = this.context.isApiRequest
-        ? this.context.userName || ""
-        : this.context.userId || this.context.userName || "";
+      props.owner = this.context.userId;
     }
     if ("createdBy" in props && !props.createdBy) {
       props.createdBy = this.context.userName || "";
