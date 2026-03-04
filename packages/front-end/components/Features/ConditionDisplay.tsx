@@ -1,5 +1,6 @@
 import stringify from "json-stringify-pretty-compact";
 import { ReactNode, useMemo } from "react";
+import { PiArrowSquareOut } from "react-icons/pi";
 import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
 import { isDefined } from "shared/util";
 import { SavedGroupWithoutValues } from "shared/types/saved-group";
@@ -540,20 +541,17 @@ function ParentIdLink({ parentId }: { parentId: string }) {
   return (
     <Badge
       color="gray"
-      className="text-ellipsis d-inline-block"
-      style={{ maxWidth: 300 }}
-      title={parentId}
       label={
         <Link
           href={`/features/${parentId}`}
           title={`Manage Feature: ${parentId}`}
           target="_blank"
+          color="violet"
           style={{
             display: "flex",
             alignItems: "center",
             gap: "4px",
             overflow: "hidden",
-            color: "var(--accent-11)",
           }}
         >
           <span
@@ -566,6 +564,7 @@ function ParentIdLink({ parentId }: { parentId: string }) {
           >
             {parentId}
           </span>
+          <PiArrowSquareOut style={{ flexShrink: 0 }} />
         </Link>
       }
     />
