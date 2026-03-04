@@ -62,6 +62,10 @@ const proxyUpdate = async (job: ProxyUpdateJob) => {
     return;
   }
 
+  if ((connection.proxy.consecutiveFailures || 0) >= 5) {
+    return;
+  }
+
   if (!useCloudProxy && !connection.proxy.host) {
     logger.error(
       {

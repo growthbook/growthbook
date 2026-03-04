@@ -77,6 +77,7 @@ const sdkConnectionSchema = new mongoose.Schema({
     version: String,
     error: String,
     lastError: Date,
+    consecutiveFailures: Number,
   },
 });
 
@@ -241,6 +242,7 @@ export async function createSDKConnection(
       lastError: null,
       version: "",
       error: "",
+      consecutiveFailures: 0,
     }),
   };
 
@@ -318,9 +320,13 @@ export async function editSDKConnection(
   };
   if (proxyEnabled !== undefined && proxyEnabled !== connection.proxy.enabled) {
     newProxy.enabled = proxyEnabled;
+    if (proxyEnabled) {
+      newProxy.consecutiveFailures = 0;
+    }
   }
   if (proxyHost !== undefined && proxyHost !== connection.proxy.host) {
     newProxy.host = proxyHost;
+    newProxy.consecutiveFailures = 0;
 
     if (addEnvProxySettings(newProxy).host) {
       const res = await testProxyConnection(
@@ -447,19 +453,40 @@ export async function setProxyError(
   connection: SDKConnectionInterface,
   error: string,
 ) {
+  const update: Record<string, unknown> = {
+    $set: {
+      "proxy.error": error,
+      "proxy.connected": false,
+      "proxy.lastError": new Date(),
+    },
+    $inc: {
+      "proxy.consecutiveFailures": 1,
+    },
+  };
+
   await SDKConnectionModel.updateOne(
     {
       organization: connection.organization,
       id: connection.id,
     },
-    {
-      $set: {
-        "proxy.error": error,
-        "proxy.connected": false,
-        "proxy.lastError": new Date(),
-      },
-    },
+    update,
   );
+
+  // Check if we've hit the threshold to auto-disable
+  const newCount = (connection.proxy.consecutiveFailures || 0) + 1;
+  if (newCount >= 5) {
+    await SDKConnectionModel.updateOne(
+      {
+        organization: connection.organization,
+        id: connection.id,
+      },
+      {
+        $set: {
+          "proxy.enabled": false,
+        },
+      },
+    );
+  }
 }
 
 export async function clearProxyError(connection: SDKConnectionInterface) {
@@ -472,6 +499,7 @@ export async function clearProxyError(connection: SDKConnectionInterface) {
       $set: {
         "proxy.error": "",
         "proxy.connected": true,
+        "proxy.consecutiveFailures": 0,
       },
     },
   );

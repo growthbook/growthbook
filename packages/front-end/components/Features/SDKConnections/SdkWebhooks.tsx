@@ -121,7 +121,31 @@ export default function SdkWebhooks({
           )}
         </td>
         <td>
-          {webhook.error ? (
+          {webhook.disabled ? (
+            <Tooltip
+              className="ml-1"
+              innerClassName="pb-3"
+              usePortal={true}
+              body={
+                <Callout key={webhook.id} status="warning">
+                  <div style={{ wordBreak: "break-all" }}>
+                    Disabled after {webhook.consecutiveFailures} consecutive
+                    failures.
+                    {webhook.error ? (
+                      <>
+                        <br />
+                        Last error: {webhook.error}
+                      </>
+                    ) : null}
+                  </div>
+                </Callout>
+              }
+            >
+              <span className="text-warning-muted">
+                <FaExclamationTriangle /> disabled
+              </span>
+            </Tooltip>
+          ) : webhook.error ? (
             <>
               <Tooltip
                 className="ml-1"
