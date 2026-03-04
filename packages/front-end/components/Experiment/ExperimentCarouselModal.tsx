@@ -1,4 +1,5 @@
 import { FC, useState, useCallback, useEffect, useMemo } from "react";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { MdArrowBackIosNew, MdArrowForwardIos } from "react-icons/md";
@@ -32,12 +33,10 @@ const ExperimentCarouselModal: FC<{
   const [zoom, setZoom] = useState(false);
 
   // loop through all experiment variations and get a map of all screenshots, with the variant id and info
+  const orderedVariants = getLatestPhaseVariations(experiment);
   const variantMap = useMemo(() => {
-    return new Map(
-      experiment.variations.map((v, i) => [v.id, { ...v, index: i }]),
-    );
-  }, [experiment.variations]);
-  const orderedVariants = experiment.variations;
+    return new Map(orderedVariants.map((v, i) => [v.id, { ...v, index: i }]));
+  }, [orderedVariants]);
   const getScreenshot = useCallback(
     (variantId: string, screenshotIndex: number) => {
       const variant = variantMap.get(variantId);

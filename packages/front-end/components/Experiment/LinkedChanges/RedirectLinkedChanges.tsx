@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { diffChars } from "diff";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import { Box, Flex, Text } from "@radix-ui/themes";
@@ -139,39 +140,42 @@ const Redirect = ({
             className="pl-1"
           />
         </h5>
-        {experiment.variations.map((v, i) => (
-          <div
-            className={
-              i === experiment.variations.length - 1
-                ? `mb-0 variation with-variation-label variation${i}`
-                : `mb-4 variation with-variation-label variation${i}`
-            }
-            key={i}
-          >
-            <div className="d-flex align-items-baseline">
-              <span
-                className="label"
-                style={{
-                  width: 18,
-                  height: 18,
-                }}
-              >
-                {i}
-              </span>
-              <div className="col pl-0">
-                <h5 className="mb-0">{v.name}</h5>
-                {urlRedirect.destinationURLs[i]?.url ? (
-                  <UrlDifferenceRenderer
-                    url1={urlRedirect.urlPattern}
-                    url2={urlRedirect.destinationURLs[i].url}
-                  />
-                ) : (
-                  <i className="text-muted">No redirect</i>
-                )}
+        {(() => {
+          const variations = getLatestPhaseVariations(experiment);
+          return variations.map((v, i) => (
+            <div
+              className={
+                i === variations.length - 1
+                  ? `mb-0 variation with-variation-label variation${i}`
+                  : `mb-4 variation with-variation-label variation${i}`
+              }
+              key={i}
+            >
+              <div className="d-flex align-items-baseline">
+                <span
+                  className="label"
+                  style={{
+                    width: 18,
+                    height: 18,
+                  }}
+                >
+                  {i}
+                </span>
+                <div className="col pl-0">
+                  <h5 className="mb-0">{v.name}</h5>
+                  {urlRedirect.destinationURLs[i]?.url ? (
+                    <UrlDifferenceRenderer
+                      url1={urlRedirect.urlPattern}
+                      url2={urlRedirect.destinationURLs[i].url}
+                    />
+                  ) : (
+                    <i className="text-muted">No redirect</i>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          ));
+        })()}
       </div>
     </>
   );

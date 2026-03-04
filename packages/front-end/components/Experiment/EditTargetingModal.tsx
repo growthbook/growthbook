@@ -8,7 +8,7 @@ import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import React, { useEffect, useState } from "react";
 import { validateAndFixCondition } from "shared/util";
-import { getEqualWeights } from "shared/experiments";
+import { getEqualWeights, getLatestPhaseVariations } from "shared/experiments";
 import { Flex, Box, Text } from "@radix-ui/themes";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useIncrementer } from "@/hooks/useIncrementer";
@@ -113,7 +113,7 @@ export default function EditTargetingModal({
     trackingKey: experiment.trackingKey || "",
     variationWeights:
       lastPhase?.variationWeights ??
-      getEqualWeights(experiment.variations.length, 4),
+      getEqualWeights(getLatestPhaseVariations(experiment).length, 4),
     newPhase: false,
     reseed: true,
   };
@@ -564,7 +564,7 @@ function TargetingForm({
           }
           valueAsId={true}
           variations={
-            experiment.variations.map((v, i) => {
+            getLatestPhaseVariations(experiment).map((v, i) => {
               return {
                 value: v.key || i + "",
                 name: v.name,

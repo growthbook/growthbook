@@ -17,6 +17,7 @@ import { FaCheck, FaRegTrashAlt } from "react-icons/fa";
 import { FiAlertTriangle } from "react-icons/fi";
 import { HexColorPicker } from "react-colorful";
 import { getValidDate, ago, datetime, date } from "shared/dates";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import { useSearch } from "@/services/search";
@@ -586,7 +587,7 @@ const ShareModal = ({
                               if (!phase) return null;
 
                               let hasScreenShots = true;
-                              e.variations.forEach((v) => {
+                              getLatestPhaseVariations(e).forEach((v) => {
                                 if (v.screenshots.length < 1) {
                                   hasScreenShots = false;
                                 }

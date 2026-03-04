@@ -1,3 +1,4 @@
+import { getLatestPhaseVariations } from "shared/experiments";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
@@ -73,7 +74,9 @@ export function getChecklistItems({
         case "hypothesis":
           return !!experiment.hypothesis;
         case "screenshots":
-          return experiment.variations.every((v) => !!v.screenshots.length);
+          return getLatestPhaseVariations(experiment).every(
+            (v) => !!v.screenshots.length,
+          );
         case "description":
           return !!experiment.description;
         case "project":

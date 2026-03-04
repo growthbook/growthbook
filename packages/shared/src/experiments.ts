@@ -31,6 +31,7 @@ import {
   ExperimentInterfaceStringDates,
   LookbackOverride,
   MetricOverride,
+  Variation,
 } from "shared/types/experiment";
 import {
   ExperimentReportResultDimension,
@@ -1928,4 +1929,19 @@ export function getEffectiveLookbackOverride(
     return lookbackOverride;
   }
   return undefined;
+}
+
+type ExperimentWithVariations = {
+  variations: Variation[];
+};
+
+/**
+ * Returns the variations for the current/latest phase of an experiment.
+ * Today this just returns experiment.variations directly. In the future,
+ * this will merge phase-level variation status with top-level metadata.
+ */
+export function getLatestPhaseVariations(
+  experiment: ExperimentWithVariations,
+): Variation[] {
+  return experiment.variations;
 }

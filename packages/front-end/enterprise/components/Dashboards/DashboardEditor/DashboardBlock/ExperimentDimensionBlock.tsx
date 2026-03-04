@@ -7,6 +7,7 @@ import {
 import { MetricSnapshotSettings } from "shared/types/report";
 import {
   getEffectiveLookbackOverride,
+  getLatestPhaseVariations,
   isPrecomputedDimension,
 } from "shared/experiments";
 import {
@@ -52,7 +53,7 @@ export default function ExperimentDimensionBlock({
   const pValueCorrection =
     ssrPolyfills?.useOrgSettings()?.pValueCorrection || hookPValueCorrection;
 
-  const variations = experiment.variations.map((v, i) => ({
+  const variations = getLatestPhaseVariations(experiment).map((v, i) => ({
     id: v.key || i + "",
     name: v.name,
     weight:

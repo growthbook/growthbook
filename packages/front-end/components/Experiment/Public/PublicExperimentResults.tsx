@@ -10,7 +10,10 @@ import {
 import {
   ExperimentInterfaceStringDates,
 } from "shared/types/experiment";
-import { getEffectiveLookbackOverride } from "shared/experiments";
+import {
+  getEffectiveLookbackOverride,
+  getLatestPhaseVariations,
+} from "shared/experiments";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -39,7 +42,7 @@ export default function PublicExperimentResults({
   const phase = phases.length - 1;
   const phaseObj = phases[phase];
 
-  const variations = experiment.variations.map((v, i) => {
+  const variations = getLatestPhaseVariations(experiment).map((v, i) => {
     return {
       id: v.key || i + "",
       name: v.name,

@@ -1,4 +1,5 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
@@ -250,7 +251,7 @@ export default function HealthTab({
 
   const phaseObj = experiment.phases?.[phase];
 
-  const variations = experiment.variations.map((v, i) => {
+  const variations = getLatestPhaseVariations(experiment).map((v, i) => {
     return {
       id: v.key || i + "",
       name: v.name,

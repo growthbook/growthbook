@@ -1,6 +1,7 @@
 import md5 from "md5";
 import {
   getAllExpandedMetricIdsFromExperiment,
+  getLatestPhaseVariations,
   isFactMetricId,
   expandAllSliceMetricsInMap,
 } from "shared/experiments";
@@ -105,8 +106,8 @@ export async function updateExperimentTimeSeries({
   const timeSeriesVariationsPerMetricId = allMetricIds.reduce(
     (acc, metricId) => {
       acc[metricId] = variations.map((_, variationIndex) => ({
-        id: experiment.variations[variationIndex].id,
-        name: experiment.variations[variationIndex].name,
+        id: getLatestPhaseVariations(experiment)[variationIndex].id,
+        name: getLatestPhaseVariations(experiment)[variationIndex].name,
         stats:
           // NB: Using relative as a base to save space because it matches relative & absolute
           relativeAnalysis?.results[0]?.variations[variationIndex]?.metrics[

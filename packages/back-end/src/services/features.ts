@@ -31,6 +31,7 @@ import {
   scrubSavedGroups,
   SDKCapability,
 } from "shared/sdk-versioning";
+import { getLatestPhaseVariations } from "shared/experiments";
 import cloneDeep from "lodash/cloneDeep";
 import pickBy from "lodash/pickBy";
 import {
@@ -261,7 +262,9 @@ export function generateAutoExperimentsPayload({
       const phase: ExperimentPhase | null = e.phases.slice(-1)?.[0] ?? null;
       const forcedVariation =
         e.status === "stopped" && e.releasedVariationId
-          ? e.variations.find((v) => v.id === e.releasedVariationId)
+          ? getLatestPhaseVariations(e).find(
+              (v) => v.id === e.releasedVariationId,
+            )
           : null;
 
       const condition = getParsedCondition(
@@ -296,7 +299,7 @@ export function generateAutoExperimentsPayload({
         ),
         status: e.status,
         project: e.project,
-        variations: e.variations.map((v) => {
+        variations: getLatestPhaseVariations(e).map((v) => {
           if (data.type === "redirect") {
             const match = data.urlRedirect.destinationURLs.find(
               (d) => d.variation === v.id,
@@ -332,7 +335,10 @@ export function generateAutoExperimentsPayload({
               ]
             : data.visualChangeset.urlPatterns,
         weights: phase.variationWeights,
-        meta: e.variations.map((v) => ({ key: v.key, name: v.name })),
+        meta: getLatestPhaseVariations(e).map((v) => ({
+          key: v.key,
+          name: v.name,
+        })),
         filters: phase?.namespace?.enabled
           ? [
               {
@@ -347,7 +353,7 @@ export function generateAutoExperimentsPayload({
         name: e.name,
         phase: `${e.phases.length - 1}`,
         force: forcedVariation
-          ? e.variations.indexOf(forcedVariation)
+          ? getLatestPhaseVariations(e).indexOf(forcedVariation)
           : undefined,
         condition,
         coverage: phase.coverage,

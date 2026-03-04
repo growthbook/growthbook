@@ -15,6 +15,7 @@ import {
 import { isProjectListValidForProject } from "shared/util";
 import { getScopedSettings } from "shared/settings";
 import Collapsible from "react-collapsible";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
@@ -145,7 +146,7 @@ const AnalysisForm: FC<{
       dateEnded: getValidDate(phaseObj?.dateEnded ?? "")
         .toISOString()
         .substr(0, 16),
-      variations: experiment.variations || [],
+      variations: getLatestPhaseVariations(experiment) || [],
       phases: experiment.phases || [],
       sequentialTestingEnabled:
         hasSequentialTestingFeature &&

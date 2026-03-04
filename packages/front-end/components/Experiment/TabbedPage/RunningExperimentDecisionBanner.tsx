@@ -1,4 +1,5 @@
 import { Text, Flex, Box } from "@radix-ui/themes";
+import { getLatestPhaseVariations } from "shared/experiments";
 import {
   DecisionCriteriaData,
   ExperimentInterfaceStringDates,
@@ -28,7 +29,7 @@ export default function RunningExperimentDecisionBanner({
 }: Props) {
   const [showDecisionCriteria, setShowDecisionCriteria] = useState(false);
 
-  const variations = experiment.variations;
+  const variations = getLatestPhaseVariations(experiment);
   const indexedVariations = variations.map<VariationWithIndex>((v, i) => ({
     ...v,
     index: i,
