@@ -148,11 +148,11 @@ export default function ProjectTagBar({
     return (
       <>
         <span>
-          {!!ownerName && (
+          {ownerName && (
             <UserAvatar name={ownerName} size="sm" variant="soft" />
           )}
           <Text weight="regular" className={metaDataStyles.valueColor}>
-            {ownerName === "" ? "None" : ownerName}
+            {ownerName || "None"}
           </Text>
         </span>
       </>

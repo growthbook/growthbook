@@ -372,7 +372,6 @@ const MetricPage: FC = () => {
       )}
       {editOwnerModal && (
         <EditOwnerModal
-          resourceType="metric"
           cancel={() => setEditOwnerModal(false)}
           owner={metric.owner}
           save={async (owner) => {
@@ -949,7 +948,7 @@ const MetricPage: FC = () => {
               canOpen={canEditMetric}
             >
               <RightRailSectionGroup type="custom">
-                {getOwnerDisplay(metric.owner)}
+                {getOwnerDisplay(metric.owner) || "None"}
               </RightRailSectionGroup>
             </RightRailSection>
 

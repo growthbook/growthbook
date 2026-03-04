@@ -170,7 +170,6 @@ export default function FactSegmentForm({
           disabled={isReadOnly}
         />
         <SelectOwner
-          resourceType="factSegment"
           value={form.watch("owner")}
           disabled={isReadOnly}
           onChange={(v) => form.setValue("owner", v)}

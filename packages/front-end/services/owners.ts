@@ -1,9 +1,5 @@
 import { ExpandedMember } from "shared/types/organization";
 
-function isLikelyUserId(value: string): boolean {
-  return value.startsWith("u_");
-}
-
 export function getOwnerDisplay({
   owner,
   users,
@@ -12,14 +8,14 @@ export function getOwnerDisplay({
   users: Map<string, ExpandedMember>;
 }): string {
   const value = owner?.trim();
-  if (!value) return "None";
+  if (!value) return "";
 
   const user = users.get(value);
   if (user) {
     return user.name || user.email || "Unknown User";
   }
 
-  if (isLikelyUserId(value)) {
+  if (value.startsWith("u_")) {
     return "Unknown User";
   }
 

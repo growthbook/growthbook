@@ -202,7 +202,6 @@ const SegmentForm: FC<{
           disabled={isReadOnly}
         />
         <SelectOwner
-          resourceType="segment"
           disabled={isReadOnly}
           value={form.watch("owner")}
           onChange={(v) => form.setValue("owner", v)}

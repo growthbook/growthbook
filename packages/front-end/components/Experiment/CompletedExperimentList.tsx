@@ -264,7 +264,7 @@ const CompletedExperimentList = ({
                           <Box>
                             <Text weight="medium">Owner:</Text>
                           </Box>
-                          <Box>{getOwnerDisplay(e.owner)}</Box>
+                          <Box>{getOwnerDisplay(e.owner) || "None"}</Box>
                         </Flex>
                         <Flex gap="2" align="center">
                           <Box>

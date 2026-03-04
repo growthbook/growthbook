@@ -280,7 +280,7 @@ const MetricsList = (): React.ReactElement => {
       datasourceDescription: m.datasource
         ? getDatasourceById(m.datasource)?.description || undefined
         : undefined,
-      ownerName: getOwnerDisplay(m.owner || ""),
+      ownerName: getOwnerDisplay(m.owner),
     }),
     [getDatasourceById, getOwnerDisplay],
   );

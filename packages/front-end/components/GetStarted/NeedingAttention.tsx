@@ -542,9 +542,7 @@ const NeedingAttention = (): React.ReactElement | null => {
                     {getProjectById(item.featureMeta?.project || "")?.name}
                   </td>
                   <td className={styles.ownerTd}>
-                    {getAvatarAndName(
-                      getOwnerDisplay(item.featureMeta?.owner || ""),
-                    )}
+                    {getAvatarAndName(getOwnerDisplay(item.featureMeta?.owner))}
                   </td>
                   <td className="text-truncate">{renderStatusCopy(item)}</td>
                 </tr>

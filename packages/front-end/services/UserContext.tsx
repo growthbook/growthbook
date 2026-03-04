@@ -106,7 +106,7 @@ export interface UserContextValue {
   user?: ExpandedMember;
   users: Map<string, ExpandedMember>;
   getUserDisplay: (id: string, fallback?: boolean) => string;
-  getOwnerDisplay: (owner: string) => string;
+  getOwnerDisplay: (owner: string | undefined) => string;
   updateUser: () => Promise<void>;
   refreshOrganization: () => Promise<void>;
   permissions: Record<GlobalPermission, boolean> & PermissionFunctions;
@@ -458,7 +458,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   );
 
   const getOwnerDisplay = useCallback(
-    (owner: string) => {
+    (owner: string | undefined) => {
       return getOwnerDisplayName({ owner, users });
     },
     [users],

@@ -248,7 +248,7 @@ export function useFeatureSearch({
       experiment: (item) => item.linkedExperiments || [],
       version: (item) => item.version,
       revision: (item) => item.version,
-      owner: (item) => getOwnerDisplay(item.owner),
+      owner: (item: ComputedFeatureInterface) => [item.owner, item.ownerName],
       tag: (item) => item.tags,
       type: (item) => item.valueType,
       on: (item) => {

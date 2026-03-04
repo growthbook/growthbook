@@ -140,7 +140,6 @@ export default function FactTablePage() {
       )}
       {editOwnerModal && (
         <EditOwnerModal
-          resourceType="factTable"
           cancel={() => setEditOwnerModal(false)}
           owner={factTable.owner}
           save={async (owner) => {
@@ -370,7 +369,7 @@ export default function FactTablePage() {
         </div>
         {(factTable.owner || canEdit) && (
           <div className="col-auto">
-            Owner: {getOwnerDisplay(factTable.owner)}
+            Owner: {getOwnerDisplay(factTable.owner) || "None"}
             {canEdit && (
               <a
                 className="ml-1 cursor-pointer"

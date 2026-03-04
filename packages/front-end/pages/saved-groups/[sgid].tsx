@@ -421,7 +421,8 @@ export default function EditSavedGroupPage() {
               Date Updated: <strong>{ago(savedGroup.dateUpdated)}</strong>
             </Text>
             <Text>
-              Owner: <strong>{getOwnerDisplay(savedGroup.owner)}</strong>
+              Owner:{" "}
+              <strong>{getOwnerDisplay(savedGroup.owner) || "None"}</strong>
             </Text>
           </Flex>
           <Flex direction="column" align="end" gap="2">
