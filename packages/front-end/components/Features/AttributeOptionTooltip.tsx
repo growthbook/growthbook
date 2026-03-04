@@ -47,16 +47,16 @@ export function AttributeOptionTooltipContent({
             </Box>
           </Flex>
         )}
-        {(option.datatype != null || option.hashAttribute !== undefined) && (
+        {(option.datatype != null || option.hashAttribute === true) && (
           <Flex direction="column" gap="1">
             {option.datatype != null && (
               <Text size="small" as="div">
                 <strong>Data type:</strong> {option.datatype}
               </Text>
             )}
-            {option.hashAttribute !== undefined && (
+            {option.hashAttribute === true && (
               <Text size="small" as="div">
-                <strong>Is identifier:</strong>{" "}
+                <strong>Identifier:</strong>{" "}
                 {option.hashAttribute ? "Yes" : "No"}
               </Text>
             )}
