@@ -46,6 +46,11 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
+import {
+  AttributeOptionWithTooltip,
+  getAttributeOptionHasTooltip,
+  type AttributeOptionForTooltip,
+} from "@/components/Features/AttributeOptionTooltip";
 import { useUser } from "@/services/UserContext";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -1253,11 +1258,24 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                         .map((s) => ({
                           label: s.property,
                           value: s.property,
+                          description: s.description,
+                          tags: s.tags,
+                          datatype: s.datatype,
+                          hashAttribute: s.hashAttribute,
                         }))}
                       sort={false}
                       value={form.watch("hashAttribute") || ""}
                       onChange={(v) => {
                         form.setValue("hashAttribute", v);
+                      }}
+                      formatOptionLabel={(o) => {
+                        const opt = o as AttributeOptionForTooltip;
+                        if (!getAttributeOptionHasTooltip(opt)) return o.label;
+                        return (
+                          <AttributeOptionWithTooltip option={opt}>
+                            <span>{o.label}</span>
+                          </AttributeOptionWithTooltip>
+                        );
                       }}
                       helpText={
                         "Will be hashed together with the seed (UUID) to determine which variation to assign"

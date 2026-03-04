@@ -12,6 +12,11 @@ import ScheduleInputs from "@/components/Features/ScheduleInputs";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
 import ConditionInput from "@/components/Features/ConditionInput";
 import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
+import {
+  AttributeOptionWithTooltip,
+  getAttributeOptionHasTooltip,
+  type AttributeOptionForTooltip,
+} from "@/components/Features/AttributeOptionTooltip";
 
 export default function RolloutFields({
   feature,
@@ -85,10 +90,26 @@ export default function RolloutFields({
             label="Sample based on attribute"
             options={attributeSchema
               .filter((s) => !hasHashAttributes || s.hashAttribute)
-              .map((s) => ({ label: s.property, value: s.property }))}
+              .map((s) => ({
+                label: s.property,
+                value: s.property,
+                description: s.description,
+                tags: s.tags,
+                datatype: s.datatype,
+                hashAttribute: s.hashAttribute,
+              }))}
             value={form.watch("hashAttribute")}
             onChange={(v) => {
               form.setValue("hashAttribute", v);
+            }}
+            formatOptionLabel={(o) => {
+              const opt = o as AttributeOptionForTooltip;
+              if (!getAttributeOptionHasTooltip(opt)) return o.label;
+              return (
+                <AttributeOptionWithTooltip option={opt}>
+                  <span>{o.label}</span>
+                </AttributeOptionWithTooltip>
+              );
             }}
           />
           <div className="mb-2">

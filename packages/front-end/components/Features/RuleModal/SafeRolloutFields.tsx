@@ -24,6 +24,11 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import HelperText from "@/ui/HelperText";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ScheduleInputs from "@/components/Features/ScheduleInputs";
+import {
+  AttributeOptionWithTooltip,
+  getAttributeOptionHasTooltip,
+  type AttributeOptionForTooltip,
+} from "@/components/Features/AttributeOptionTooltip";
 import { AppFeatures } from "@/types/app-features";
 
 export default function SafeRolloutFields({
@@ -162,10 +167,26 @@ export default function SafeRolloutFields({
           label="Sample based on attribute"
           options={attributeSchema
             .filter((s) => !hasHashAttributes || s.hashAttribute)
-            .map((s) => ({ label: s.property, value: s.property }))}
+            .map((s) => ({
+              label: s.property,
+              value: s.property,
+              description: s.description,
+              tags: s.tags,
+              datatype: s.datatype,
+              hashAttribute: s.hashAttribute,
+            }))}
           value={form.watch("hashAttribute")}
           onChange={(v) => {
             form.setValue("hashAttribute", v);
+          }}
+          formatOptionLabel={(o) => {
+            const opt = o as AttributeOptionForTooltip;
+            if (!getAttributeOptionHasTooltip(opt)) return o.label;
+            return (
+              <AttributeOptionWithTooltip option={opt}>
+                <span>{o.label}</span>
+              </AttributeOptionWithTooltip>
+            );
           }}
           className="mb-2"
           required

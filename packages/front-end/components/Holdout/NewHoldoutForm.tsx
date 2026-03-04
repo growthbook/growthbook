@@ -36,6 +36,11 @@ import SelectField, {
   SingleValue,
 } from "@/components/Forms/SelectField";
 import ConditionInput from "@/components/Features/ConditionInput";
+import {
+  AttributeOptionWithTooltip,
+  getAttributeOptionHasTooltip,
+  type AttributeOptionForTooltip,
+} from "@/components/Features/AttributeOptionTooltip";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "@/components/Features/SavedGroupTargetingField";
@@ -502,10 +507,26 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                 containerClassName="flex-1"
                 options={attributeSchema
                   .filter((s) => !hasHashAttributes || s.hashAttribute)
-                  .map((s) => ({ label: s.property, value: s.property }))}
+                  .map((s) => ({
+                    label: s.property,
+                    value: s.property,
+                    description: s.description,
+                    tags: s.tags,
+                    datatype: s.datatype,
+                    hashAttribute: s.hashAttribute,
+                  }))}
                 value={form.watch("hashAttribute") ?? ""}
                 onChange={(v) => {
                   form.setValue("hashAttribute", v);
+                }}
+                formatOptionLabel={(o) => {
+                  const opt = o as AttributeOptionForTooltip;
+                  if (!getAttributeOptionHasTooltip(opt)) return o.label;
+                  return (
+                    <AttributeOptionWithTooltip option={opt}>
+                      <span>{o.label}</span>
+                    </AttributeOptionWithTooltip>
+                  );
                 }}
                 helpText={
                   "Will be hashed together with the Tracking Key to determine which variation to assign"
