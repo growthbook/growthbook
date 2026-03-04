@@ -198,6 +198,20 @@ const BigQueryForm: FC<{
       </div>
       <div className="form-group col-md-12">
         <label>
+          Reservation (optional){" "}
+          <Tooltip body="If set, GrowthBook will include this reservation on all BigQuery query jobs. Use the full reservation resource name." />
+        </label>
+        <Field
+          type="text"
+          className="form-control"
+          name="reservation"
+          value={params.reservation || ""}
+          onChange={onParamChange}
+          placeholder="projects/my-project/locations/US/reservations/my-reservation"
+        />
+      </div>
+      <div className="form-group col-md-12">
+        <label>
           Default Dataset{" "}
           <Tooltip body="The default dataset is where your experiment assignments are stored. GrowthBook uses this to create default queries that define working assignments and metrics. This value can be edited later if needed." />
         </label>
