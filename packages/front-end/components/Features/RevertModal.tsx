@@ -84,9 +84,11 @@ export default function RevertModal({
         carefully.
       </p>
       <div className="list-group mb-4">
-        {diffs.map((diff) => (
-          <ExpandableDiff {...diff} key={diff.title} />
-        ))}
+        {diffs
+          .filter((d) => d.a !== d.b)
+          .map((diff) => (
+            <ExpandableDiff {...diff} key={diff.title} />
+          ))}
       </div>
       {hasPermission && (
         <Field

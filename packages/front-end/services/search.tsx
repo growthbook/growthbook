@@ -6,6 +6,7 @@ import {
   ReactNode,
   useCallback,
   useEffect,
+  useRef,
 } from "react";
 import { FaSort, FaSortDown, FaSortUp } from "react-icons/fa";
 import { useRouter } from "next/router";
@@ -121,6 +122,7 @@ export function useSearch<T extends { id: string }>({
   const { q } = router.query;
   const initialSearchTerm = Array.isArray(q) ? q.join(" ") : q;
   const [value, setValue] = useState(initialSearchTerm ?? "");
+  const [disableRelevanceSort, setDisableRelevanceSort] = useState(false);
 
   const [page, setPage] = useState(1);
 
@@ -163,7 +165,7 @@ export function useSearch<T extends { id: string }>({
     return { miniSearch: miniSearchInstance, itemMap };
   }, [items, JSON.stringify(searchFields)]);
 
-  const { filtered, syntaxFilters } = useMemo(() => {
+  const { filtered, syntaxFilters, searchTerm } = useMemo(() => {
     // remove any syntax filters from the search term
     const { searchTerm, syntaxFilters } = searchTermFilters
       ? transformQuery(value, Object.keys(searchTermFilters))
@@ -223,13 +225,29 @@ export function useSearch<T extends { id: string }>({
     if (filterResults) {
       filtered = filterResults(filtered);
     }
-    return { filtered, syntaxFilters };
+    return { filtered, syntaxFilters, searchTerm };
   }, [value, miniSearch, filterResults, transformQuery]);
+
+  const previousSearchTerm = useRef(searchTerm);
+  const hasSearchTerm = searchTerm.length > 0;
+  const isRelevanceSortActive = hasSearchTerm && !disableRelevanceSort;
+
+  useEffect(() => {
+    if (previousSearchTerm.current !== searchTerm) {
+      const previousHadSearchTerm = previousSearchTerm.current.length > 0;
+      const nextHasSearchTerm = searchTerm.length > 0;
+
+      if (previousHadSearchTerm || nextHasSearchTerm) {
+        setDisableRelevanceSort(false);
+      }
+      previousSearchTerm.current = searchTerm;
+    }
+  }, [searchTerm]);
 
   const isFiltered = value.length > 0;
 
   const sorted = useMemo(() => {
-    if (isFiltered) return filtered;
+    if (isRelevanceSortActive) return filtered;
 
     const sorted = [...filtered];
 
@@ -263,7 +281,7 @@ export function useSearch<T extends { id: string }>({
       return 0;
     });
     return sorted;
-  }, [sort.field, sort.dir, filtered, isFiltered]);
+  }, [sort.field, sort.dir, filtered, isRelevanceSortActive]);
 
   const paginated = useMemo(() => {
     if (!pageSize) return sorted;
@@ -285,13 +303,7 @@ export function useSearch<T extends { id: string }>({
       children: ReactNode;
       style?: React.CSSProperties;
     }> = ({ children, field, className = "", style }) => {
-      if (isFiltered) {
-        return (
-          <th className={className} style={style}>
-            {children}
-          </th>
-        );
-      }
+      const showSortDirection = !isRelevanceSortActive && sort.field === field;
 
       return (
         <th className={className} style={style}>
@@ -299,6 +311,7 @@ export function useSearch<T extends { id: string }>({
             className="cursor-pointer"
             onClick={(e) => {
               e.preventDefault();
+              setDisableRelevanceSort(true);
               setSort({
                 field,
                 dir: sort.field === field ? sort.dir * -1 : 1,
@@ -308,9 +321,9 @@ export function useSearch<T extends { id: string }>({
             {children}{" "}
             <a
               href="#"
-              className={sort.field === field ? "activesort" : "inactivesort"}
+              className={showSortDirection ? "activesort" : "inactivesort"}
             >
-              {sort.field === field ? (
+              {showSortDirection ? (
                 sort.dir < 0 ? (
                   <FaSortDown />
                 ) : (
@@ -325,7 +338,7 @@ export function useSearch<T extends { id: string }>({
       );
     };
     return th;
-  }, [sort.dir, sort.field, isFiltered]);
+  }, [sort.dir, sort.field, isRelevanceSortActive]);
 
   const SortableTableColumnHeader = useMemo(() => {
     const Header: FC<{

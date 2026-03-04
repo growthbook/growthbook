@@ -399,6 +399,7 @@ export function getSnapshotSettings({
   incrementalRefreshModel,
   reweight,
   datasource,
+  useStickyBucketing,
 }: {
   experiment: ExperimentInterface;
   phaseIndex: number;
@@ -415,6 +416,7 @@ export function getSnapshotSettings({
   incrementalRefreshModel: IncrementalRefreshInterface | null;
   reweight?: boolean;
   datasource?: DataSourceInterface;
+  useStickyBucketing?: boolean;
 }): ExperimentSnapshotSettings {
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
@@ -578,6 +580,10 @@ export function getSnapshotSettings({
         metricOverrides: experiment.metricOverrides,
         decisionFrameworkSettings: experiment.decisionFrameworkSettings,
         phaseLookbackWindow,
+        banditConversionWindowValue:
+          experiment.banditConversionWindowValue ?? undefined,
+        banditConversionWindowUnit:
+          experiment.banditConversionWindowUnit ?? undefined,
       }),
     )
     .filter(isDefined);
@@ -631,6 +637,18 @@ export function getSnapshotSettings({
                     0,
                   ) ?? 0,
               })) ?? [],
+          useFirstExposure: !useStickyBucketing,
+          windowSettings:
+            !!experiment.banditConversionWindowValue &&
+            !!experiment.banditConversionWindowUnit
+              ? {
+                  type: "conversion",
+                  delayValue: 0,
+                  delayUnit: "hours",
+                  windowValue: experiment.banditConversionWindowValue,
+                  windowUnit: experiment.banditConversionWindowUnit,
+                }
+              : undefined,
         }
       : undefined;
 
@@ -733,7 +751,7 @@ export function determineNextDate(schedule: ExperimentUpdateSchedule | null) {
 export function determineNextBanditSchedule(exp: ExperimentInterface): Date {
   const start = (
     exp?.banditStageDateStarted ??
-    exp.phases?.[exp.phases.length - 1]?.dateStarted ??
+    exp.phases?.slice(-1)?.[0]?.dateStarted ??
     new Date()
   ).getTime();
 
@@ -830,8 +848,6 @@ export function resetExperimentBanditSettings({
   changes.queryFilter = undefined;
   // metric overrides
   changes.metricOverrides = undefined;
-  // don't disable sticky bucketing
-  changes.disableStickyBucketing = false;
 
   // Reset bandit stage
   if (!preserveExistingBanditEvents) {
@@ -1063,13 +1079,13 @@ export async function createSnapshot({
     throw new Error("Could not load data source");
   }
 
-  // TODO(incremental-refresh): use other signal other than useCache
-  // to determine full refresh
-  const fullRefresh = !useCache;
+  const incrementalRefreshModel = useCache
+    ? await context.models.incrementalRefresh.getByExperimentId(experiment.id)
+    : null;
 
-  const incrementalRefreshModel = fullRefresh
-    ? null
-    : await context.models.incrementalRefresh.getByExperimentId(experiment.id);
+  // Full refresh when explicitly requested (!useCache) or when no prior
+  // incremental state exists (e.g. newly imported experiment)
+  const fullRefresh = !useCache || !incrementalRefreshModel;
 
   const snapshotSettings = getSnapshotSettings({
     experiment,
@@ -1087,6 +1103,9 @@ export async function createSnapshot({
     reweight,
     datasource,
     incrementalRefreshModel,
+    useStickyBucketing:
+      organization.settings?.useStickyBucketing &&
+      !experiment.disableStickyBucketing,
   });
 
   const data: ExperimentSnapshotInterface = {
@@ -1237,7 +1256,8 @@ export async function createSnapshot({
       queryRunner instanceof ExperimentIncrementalRefreshQueryRunner ||
       queryRunner instanceof ExperimentIncrementalRefreshExploratoryQueryRunner
     ) {
-      const fullRefresh = !useCache && snapshot.type === "standard";
+      const fullRefresh =
+        (!useCache || !incrementalRefreshModel) && snapshot.type === "standard";
 
       await queryRunner.startAnalysis({
         ...analysisProps,
@@ -1668,6 +1688,10 @@ export async function toExperimentApiInterface(
           banditScheduleUnit: experiment.banditScheduleUnit ?? "days",
           banditBurnInValue: experiment.banditBurnInValue ?? 1,
           banditBurnInUnit: experiment.banditBurnInUnit ?? "days",
+          banditConversionWindowValue:
+            experiment.banditConversionWindowValue ?? undefined,
+          banditConversionWindowUnit:
+            experiment.banditConversionWindowUnit ?? undefined,
         }
       : null),
     linkedFeatures: experiment.linkedFeatures || [],
@@ -2782,6 +2806,17 @@ export function postExperimentApiPayloadToInterface(
         settings,
       }),
     );
+    // Preserve conversion window fields from payload if provided
+    // If value is provided, unit must also be provided
+    if (payload.banditConversionWindowValue !== undefined) {
+      if (payload.banditConversionWindowUnit === undefined) {
+        throw new Error(
+          "banditConversionWindowUnit is required when banditConversionWindowValue is provided",
+        );
+      }
+      obj.banditConversionWindowValue = payload.banditConversionWindowValue;
+      obj.banditConversionWindowUnit = payload.banditConversionWindowUnit;
+    }
   }
 
   return obj;
@@ -2839,6 +2874,10 @@ export function updateExperimentApiPayloadToInterface(
     customMetricSlices,
     customFields,
     autoRefresh,
+    banditScheduleValue,
+    banditScheduleUnit,
+    banditBurnInValue,
+    banditBurnInUnit,
   } = payload;
   let changes: ExperimentInterface = {
     ...(trackingKey ? { trackingKey } : {}),
@@ -2941,6 +2980,16 @@ export function updateExperimentApiPayloadToInterface(
     ...(customMetricSlices !== undefined ? { customMetricSlices } : {}),
     ...(customFields !== undefined ? { customFields } : {}),
     ...(autoRefresh !== undefined ? { autoSnapshots: !!autoRefresh } : {}),
+    ...(banditScheduleValue !== undefined ? { banditScheduleValue } : {}),
+    ...(banditScheduleUnit !== undefined ? { banditScheduleUnit } : {}),
+    ...(banditBurnInValue !== undefined ? { banditBurnInValue } : {}),
+    ...(banditBurnInUnit !== undefined ? { banditBurnInUnit } : {}),
+    ...(payload.banditConversionWindowValue !== undefined
+      ? { banditConversionWindowValue: payload.banditConversionWindowValue }
+      : {}),
+    ...(payload.banditConversionWindowUnit !== undefined
+      ? { banditConversionWindowUnit: payload.banditConversionWindowUnit }
+      : {}),
     dateUpdated: new Date(),
   } as ExperimentInterface;
 

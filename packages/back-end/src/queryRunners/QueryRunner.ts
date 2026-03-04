@@ -427,6 +427,13 @@ export abstract class QueryRunner<
 
     if (oldStatus === "running" && newStatus === "failed") {
       error = "Failed to run a majority of the database queries";
+
+      // If there's just a single query, use the error from the query itself
+      if (queryMap.size === 1) {
+        const query = Array.from(queryMap.values())[0];
+        error = query.error || error;
+      }
+
       logger.debug(
         "Query failed for " +
           this.model.id +

@@ -28,7 +28,7 @@ export default function FeaturesDraftTable() {
   const draftAndReviewData = useApi<{
     status: number;
     revisions: FeaturesAndRevisions[];
-  }>(`/revision/feature`);
+  }>(`/revision/feature?sparse=true`);
   const [currentPage, setCurrentPage] = useState(1);
 
   const NUM_PER_PAGE = 20;
@@ -82,7 +82,10 @@ export default function FeaturesDraftTable() {
         break;
     }
     return {
-      id: revision.featureId,
+      // Composite ID so MiniSearch never sees duplicate IDs when a feature has
+      // multiple open revisions (e.g. both a draft and a pending-review).
+      id: `${revision.featureId}-v${revision.version}`,
+      featureKey: revision.featureId,
       tags: revision.featureMeta?.tags,
       status: revision?.status,
       version: revision?.version,
@@ -99,7 +102,7 @@ export default function FeaturesDraftTable() {
     items: revisions,
     defaultSortField: "dateAndStatus",
     defaultSortDir: -1,
-    searchFields: ["id^3", "comment", "tags^2", "status", "creator"],
+    searchFields: ["featureKey^3", "comment", "tags^2", "status", "creator"],
     localStorageKey: "features-drafts-table-test-1-3",
     searchTermFilters: {
       is: (item) => {
@@ -173,9 +176,9 @@ export default function FeaturesDraftTable() {
                   <TableCell className="p-0">
                     <Link
                       className="featurename d-block p-2"
-                      href={`/features/${featureAndRevision.id}?v=${featureAndRevision?.version}`}
+                      href={`/features/${featureAndRevision.featureKey}?v=${featureAndRevision?.version}`}
                     >
-                      {featureAndRevision.id}
+                      {featureAndRevision.featureKey}
                     </Link>
                   </TableCell>
                   <TableCell>
