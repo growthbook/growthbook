@@ -5,9 +5,10 @@ import stringify from "json-stringify-pretty-compact";
 import cloneDeep from "lodash/cloneDeep";
 import isEqual from "lodash/isEqual";
 import { evalCondition } from "@growthbook/growthbook";
-import { ExperimentRefRule } from "shared/validators";
+import { ExperimentRefRule, RevisionMetadata } from "shared/validators";
 import {
   FeatureInterface,
+  FeaturePrerequisite,
   FeatureRule,
   ForceRule,
   RolloutRule,
@@ -93,7 +94,32 @@ export function mergeRevision(
     envSettings[env].enabled = envSettings[env].enabled || false;
     envSettings[env].rules =
       revision.rules?.[env] || envSettings[env].rules || [];
+
+    if (revision.environmentsEnabled && env in revision.environmentsEnabled) {
+      envSettings[env].enabled = revision.environmentsEnabled[env];
+    }
+    if (revision.envPrerequisites && env in revision.envPrerequisites) {
+      envSettings[env].prerequisites = revision.envPrerequisites[env];
+    }
   });
+
+  if (revision.prerequisites !== undefined) {
+    newFeature.prerequisites = revision.prerequisites;
+  }
+
+  if (revision.metadata) {
+    const m = revision.metadata;
+    if (m.description !== undefined) newFeature.description = m.description;
+    if (m.owner !== undefined) newFeature.owner = m.owner;
+    if (m.project !== undefined) newFeature.project = m.project;
+    if (m.tags !== undefined) newFeature.tags = m.tags;
+    if (m.neverStale !== undefined) newFeature.neverStale = m.neverStale;
+    if (m.customFields !== undefined)
+      newFeature.customFields = m.customFields as Record<string, unknown>;
+    if (m.jsonSchema !== undefined) newFeature.jsonSchema = m.jsonSchema;
+    // Use draft valueType for preview so rule/defaultValue validation is accurate
+    if (m.valueType !== undefined) newFeature.valueType = m.valueType;
+  }
 
   return newFeature;
 }
@@ -587,6 +613,10 @@ export type MergeStrategy = "" | "overwrite" | "discard";
 export type MergeResultChanges = {
   defaultValue?: string;
   rules?: Record<string, FeatureRule[]>;
+  environmentsEnabled?: Record<string, boolean>;
+  envPrerequisites?: Record<string, FeaturePrerequisite[]>;
+  prerequisites?: FeaturePrerequisite[];
+  metadata?: RevisionMetadata;
 };
 export type AutoMergeResult =
   | {
@@ -601,15 +631,26 @@ export type AutoMergeResult =
 
 export type RulesAndValues = Pick<
   FeatureRevisionInterface,
-  "defaultValue" | "rules" | "version"
+  | "defaultValue"
+  | "rules"
+  | "version"
+  | "environmentsEnabled"
+  | "envPrerequisites"
+  | "prerequisites"
+  | "metadata"
 >;
 
 export function mergeResultHasChanges(mergeResult: AutoMergeResult): boolean {
   if (!mergeResult.success) return true;
 
-  if (Object.keys(mergeResult.result.rules || {}).length > 0) return true;
-
-  if (mergeResult.result.defaultValue !== undefined) return true;
+  const r = mergeResult.result;
+  if (r.defaultValue !== undefined) return true;
+  if (Object.keys(r.rules || {}).length > 0) return true;
+  if (Object.keys(r.environmentsEnabled || {}).length > 0) return true;
+  if (Object.keys(r.envPrerequisites || {}).length > 0) return true;
+  if (r.prerequisites !== undefined) return true;
+  if (r.metadata !== undefined && Object.keys(r.metadata).length > 0)
+    return true;
 
   return false;
 }
@@ -637,14 +678,11 @@ export function autoMerge(
   environments: string[],
   strategies: Record<string, MergeStrategy>,
 ): AutoMergeResult {
-  const result: {
-    defaultValue?: string;
-    rules?: Record<string, FeatureRule[]>;
-  } = {};
+  const result: MergeResultChanges = {};
+  const diverged = live.version !== base.version;
 
-  // If the base and feature have not diverged, no need to merge anything
-  if (live.version === base.version) {
-    // Only add changes to result if it's different from the base
+  // No divergence path: only include revision changes that differ from base
+  if (!diverged) {
     if (revision.defaultValue !== base.defaultValue) {
       result.defaultValue = revision.defaultValue;
     }
@@ -652,68 +690,94 @@ export function autoMerge(
     environments.forEach((env) => {
       const rules = revision.rules?.[env];
       if (!rules) return;
-      if (isEqual(rules, base.rules[env] || [])) {
-        return;
-      }
+      if (isEqual(rules, base.rules[env] || [])) return;
       result.rules = result.rules || {};
       result.rules[env] = rules;
     });
 
-    return {
-      success: true,
-      result,
-      conflicts: [],
-    };
+    // environmentsEnabled
+    if (revision.environmentsEnabled) {
+      for (const env of Object.keys(revision.environmentsEnabled)) {
+        const revVal = revision.environmentsEnabled[env];
+        if (revVal !== base.environmentsEnabled?.[env]) {
+          result.environmentsEnabled = result.environmentsEnabled || {};
+          result.environmentsEnabled[env] = revVal;
+        }
+      }
+    }
+
+    // envPrerequisites
+    if (revision.envPrerequisites) {
+      for (const env of Object.keys(revision.envPrerequisites)) {
+        const revVal = revision.envPrerequisites[env];
+        if (!isEqual(revVal, base.envPrerequisites?.[env] || [])) {
+          result.envPrerequisites = result.envPrerequisites || {};
+          result.envPrerequisites[env] = revVal;
+        }
+      }
+    }
+
+    // prerequisites
+    if (
+      revision.prerequisites !== undefined &&
+      !isEqual(revision.prerequisites, base.prerequisites || [])
+    ) {
+      result.prerequisites = revision.prerequisites;
+    }
+
+    // metadata — per-field comparison
+    if (revision.metadata) {
+      const metadataResult: RevisionMetadata = {};
+      let hasMetadataChanges = false;
+      for (const k of Object.keys(
+        revision.metadata,
+      ) as (keyof RevisionMetadata)[]) {
+        if (!isEqual(revision.metadata[k], base.metadata?.[k])) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (metadataResult as any)[k] = revision.metadata[k];
+          hasMetadataChanges = true;
+        }
+      }
+      if (hasMetadataChanges) result.metadata = metadataResult;
+    }
+
+    return { success: true, result, conflicts: [] };
   }
 
+  // Diverged path: three-way merge with conflict detection
   const conflicts: MergeConflict[] = [];
 
-  // If the revision's defaultValue has been changed
+  // defaultValue
   if (
     revision.defaultValue !== base.defaultValue &&
-    live.defaultValue !== revision.defaultValue
+    revision.defaultValue !== live.defaultValue
   ) {
-    // If there's a conflict with the live version
     if (live.defaultValue !== base.defaultValue) {
-      const conflictInfo = {
+      const conflictInfo: MergeConflict = {
         name: "Default Value",
         key: "defaultValue",
         base: base.defaultValue,
         live: live.defaultValue,
         revision: revision.defaultValue,
+        resolved: false,
       };
-      const strategy = strategies[conflictInfo.key];
-
+      const strategy = strategies["defaultValue"];
       if (strategy === "overwrite") {
-        conflicts.push({
-          ...conflictInfo,
-          resolved: true,
-        });
+        conflictInfo.resolved = true;
         result.defaultValue = revision.defaultValue;
       } else if (strategy === "discard") {
-        conflicts.push({
-          ...conflictInfo,
-          resolved: true,
-        });
-      } else {
-        conflicts.push({
-          ...conflictInfo,
-          resolved: false,
-        });
+        conflictInfo.resolved = true;
       }
-    }
-    // Otherwise, there's no conflict and it's safe to update
-    else {
+      conflicts.push(conflictInfo);
+    } else {
       result.defaultValue = revision.defaultValue;
     }
   }
 
-  // Check for conflicts in rules
+  // rules (per-env)
   environments.forEach((env) => {
     const rules = revision.rules?.[env];
     if (!rules) return;
-
-    // If the revision doesn't have changes in this environment, skip
     if (
       isEqual(rules, base.rules[env] || []) ||
       isEqual(rules, live.rules[env] || [])
@@ -723,58 +787,172 @@ export function autoMerge(
 
     result.rules = result.rules || {};
 
-    // If there's a conflict
-    // TODO: be smarter about this - it's only really a conflict if the same rule is being changed in both
     if (
       env in live.rules &&
       !isEqual(live.rules[env] || [], base.rules[env] || []) &&
       !isEqual(live.rules[env] || [], rules)
     ) {
-      const conflictInfo = {
+      const conflictInfo: MergeConflict = {
         name: `Rules - ${env}`,
         key: `rules.${env}`,
         base: JSON.stringify(base.rules[env], null, 2),
         live: JSON.stringify(live.rules[env], null, 2),
         revision: JSON.stringify(rules, null, 2),
+        resolved: false,
       };
       const strategy = strategies[conflictInfo.key];
-
       if (strategy === "overwrite") {
-        conflicts.push({
-          ...conflictInfo,
-          resolved: true,
-        });
+        conflictInfo.resolved = true;
         result.rules[env] = rules;
       } else if (strategy === "discard") {
-        conflicts.push({
-          ...conflictInfo,
-          resolved: true,
-        });
-      } else {
-        conflicts.push({
-          ...conflictInfo,
-          resolved: false,
-        });
+        conflictInfo.resolved = true;
       }
-    }
-    // No conflict
-    else {
+      conflicts.push(conflictInfo);
+    } else {
       result.rules[env] = rules;
     }
   });
 
-  if (conflicts.some((c) => !c.resolved)) {
-    return {
-      success: false,
-      conflicts,
-    };
+  // environmentsEnabled (per-env boolean)
+  if (revision.environmentsEnabled) {
+    for (const env of Object.keys(revision.environmentsEnabled)) {
+      const revVal = revision.environmentsEnabled[env];
+      const baseVal = base.environmentsEnabled?.[env];
+      const liveVal = live.environmentsEnabled?.[env];
+      if (revVal === baseVal || revVal === liveVal) continue;
+
+      if (liveVal !== baseVal && !isEqual(liveVal, revVal)) {
+        const conflictInfo: MergeConflict = {
+          name: `Env Enabled - ${env}`,
+          key: `environmentsEnabled.${env}`,
+          base: JSON.stringify(baseVal),
+          live: JSON.stringify(liveVal),
+          revision: JSON.stringify(revVal),
+          resolved: false,
+        };
+        const strategy = strategies[conflictInfo.key];
+        if (strategy === "overwrite") {
+          conflictInfo.resolved = true;
+          result.environmentsEnabled = result.environmentsEnabled || {};
+          result.environmentsEnabled[env] = revVal;
+        } else if (strategy === "discard") {
+          conflictInfo.resolved = true;
+        }
+        conflicts.push(conflictInfo);
+      } else {
+        result.environmentsEnabled = result.environmentsEnabled || {};
+        result.environmentsEnabled[env] = revVal;
+      }
+    }
   }
 
-  return {
-    success: true,
-    conflicts,
-    result,
-  };
+  // envPrerequisites (per-env array)
+  if (revision.envPrerequisites) {
+    for (const env of Object.keys(revision.envPrerequisites)) {
+      const revVal = revision.envPrerequisites[env];
+      const baseVal = base.envPrerequisites?.[env] || [];
+      const liveVal = live.envPrerequisites?.[env] || [];
+      if (isEqual(revVal, baseVal) || isEqual(revVal, liveVal)) continue;
+
+      if (!isEqual(liveVal, baseVal) && !isEqual(liveVal, revVal)) {
+        const conflictInfo: MergeConflict = {
+          name: `Env Prerequisites - ${env}`,
+          key: `envPrerequisites.${env}`,
+          base: JSON.stringify(baseVal, null, 2),
+          live: JSON.stringify(liveVal, null, 2),
+          revision: JSON.stringify(revVal, null, 2),
+          resolved: false,
+        };
+        const strategy = strategies[conflictInfo.key];
+        if (strategy === "overwrite") {
+          conflictInfo.resolved = true;
+          result.envPrerequisites = result.envPrerequisites || {};
+          result.envPrerequisites[env] = revVal;
+        } else if (strategy === "discard") {
+          conflictInfo.resolved = true;
+        }
+        conflicts.push(conflictInfo);
+      } else {
+        result.envPrerequisites = result.envPrerequisites || {};
+        result.envPrerequisites[env] = revVal;
+      }
+    }
+  }
+
+  // prerequisites (flat array)
+  if (revision.prerequisites !== undefined) {
+    const revVal = revision.prerequisites;
+    const baseVal = base.prerequisites || [];
+    const liveVal = live.prerequisites || [];
+    if (!isEqual(revVal, baseVal) && !isEqual(revVal, liveVal)) {
+      if (!isEqual(liveVal, baseVal) && !isEqual(liveVal, revVal)) {
+        const conflictInfo: MergeConflict = {
+          name: "Prerequisites",
+          key: "prerequisites",
+          base: JSON.stringify(baseVal, null, 2),
+          live: JSON.stringify(liveVal, null, 2),
+          revision: JSON.stringify(revVal, null, 2),
+          resolved: false,
+        };
+        const strategy = strategies["prerequisites"];
+        if (strategy === "overwrite") {
+          conflictInfo.resolved = true;
+          result.prerequisites = revVal;
+        } else if (strategy === "discard") {
+          conflictInfo.resolved = true;
+        }
+        conflicts.push(conflictInfo);
+      } else {
+        result.prerequisites = revVal;
+      }
+    }
+  }
+
+  // metadata (per-field)
+  if (revision.metadata) {
+    const metadataResult: RevisionMetadata = {};
+    let hasMetadataChanges = false;
+    for (const k of Object.keys(
+      revision.metadata,
+    ) as (keyof RevisionMetadata)[]) {
+      const revVal = revision.metadata[k];
+      const baseVal = base.metadata?.[k];
+      const liveVal = live.metadata?.[k];
+      if (isEqual(revVal, baseVal) || isEqual(revVal, liveVal)) continue;
+
+      if (!isEqual(liveVal, baseVal) && !isEqual(liveVal, revVal)) {
+        const conflictInfo: MergeConflict = {
+          name: `Metadata - ${k}`,
+          key: `metadata.${k}`,
+          base: JSON.stringify(baseVal),
+          live: JSON.stringify(liveVal),
+          revision: JSON.stringify(revVal),
+          resolved: false,
+        };
+        const strategy = strategies[conflictInfo.key];
+        if (strategy === "overwrite") {
+          conflictInfo.resolved = true;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (metadataResult as any)[k] = revVal;
+          hasMetadataChanges = true;
+        } else if (strategy === "discard") {
+          conflictInfo.resolved = true;
+        }
+        conflicts.push(conflictInfo);
+      } else {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (metadataResult as any)[k] = revVal;
+        hasMetadataChanges = true;
+      }
+    }
+    if (hasMetadataChanges) result.metadata = metadataResult;
+  }
+
+  if (conflicts.some((c) => !c.resolved)) {
+    return { success: false, conflicts };
+  }
+
+  return { success: true, conflicts, result };
 }
 
 export type ValidateConditionReturn = {
@@ -1162,12 +1340,68 @@ export function checkIfRevisionNeedsReview({
   const defaultValueChanged =
     baseRevision.defaultValue !== revision.defaultValue;
 
-  return featureRequiresReview(
-    feature,
-    changedEnvironments,
-    defaultValueChanged,
-    settings,
-  );
+  // Check rules/defaultValue gating (existing logic)
+  if (
+    featureRequiresReview(
+      feature,
+      changedEnvironments,
+      defaultValueChanged,
+      settings,
+    )
+  ) {
+    return true;
+  }
+
+  // Kill switch (environmentsEnabled) — global setting, only "gate" triggers a review
+  const killSwitchBehavior =
+    settings?.featureKillSwitchBehavior ??
+    (settings?.killswitchConfirmation ? "warn" : "off");
+  if (killSwitchBehavior === "gate" && revision.environmentsEnabled) {
+    const changedEnvs = Object.keys(revision.environmentsEnabled).filter(
+      (env) =>
+        revision.environmentsEnabled![env] !==
+        baseRevision.environmentsEnabled?.[env],
+    );
+    if (changedEnvs.length > 0) {
+      return true;
+    }
+  }
+
+  const requireReviews = settings?.requireReviews;
+  if (!requireReviews || typeof requireReviews !== "object") return false;
+
+  const reviewSetting = getReviewSetting(requireReviews, feature);
+  if (!reviewSetting) return false;
+
+  // Prerequisites (feature-level and per-env)
+  if (reviewSetting.featureRequirePrerequisiteReview) {
+    if (
+      revision.prerequisites !== undefined &&
+      !isEqual(revision.prerequisites, baseRevision.prerequisites || [])
+    ) {
+      return true;
+    }
+    if (revision.envPrerequisites) {
+      const changedEnvs = Object.keys(revision.envPrerequisites).filter(
+        (env) =>
+          !isEqual(
+            revision.envPrerequisites![env],
+            baseRevision.envPrerequisites?.[env] || [],
+          ),
+      );
+      if (changedEnvs.length > 0) return true;
+    }
+  }
+
+  // Metadata
+  if (reviewSetting.featureRequireMetadataReview && revision.metadata) {
+    const hasMetadataChange = (
+      Object.keys(revision.metadata) as (keyof RevisionMetadata)[]
+    ).some((k) => !isEqual(revision.metadata![k], baseRevision.metadata?.[k]));
+    if (hasMetadataChange) return true;
+  }
+
+  return false;
 }
 
 export function filterProjectsByEnvironment(

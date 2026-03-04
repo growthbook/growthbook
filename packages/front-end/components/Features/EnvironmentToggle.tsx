@@ -33,9 +33,14 @@ export default function EnvironmentToggle({
 
   const [desiredState, setDesiredState] = useState(env?.enabled ?? false);
   const [confirming, setConfirming] = useState(false);
+  const [draftCreated, setDraftCreated] = useState<number | null>(null);
 
   const settings = useOrgSettings();
-  const showConfirmation = !!settings?.killswitchConfirmation;
+
+  // Global kill switch behavior; fall back to legacy killswitchConfirmation boolean.
+  const killSwitchBehavior =
+    settings?.featureKillSwitchBehavior ??
+    (settings?.killswitchConfirmation ? "warn" : "off");
 
   const submit = async (
     feature: FeatureInterface,
@@ -44,17 +49,24 @@ export default function EnvironmentToggle({
   ) => {
     setToggling(true);
     try {
-      await apiCall(`/feature/${feature.id}/toggle`, {
-        method: "POST",
-        body: JSON.stringify({
-          environment,
-          state,
-        }),
-      });
+      const res = await apiCall<{ status: 200; draftVersion?: number }>(
+        `/feature/${feature.id}/toggle`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            environment,
+            state,
+          }),
+        },
+      );
       track("Feature Environment Toggle", {
         environment,
         enabled: state,
+        gated: killSwitchBehavior === "gate",
       });
+      if (res?.draftVersion) {
+        setDraftCreated(res.draftVersion);
+      }
     } catch (e) {
       console.error(e);
     }
@@ -75,7 +87,7 @@ export default function EnvironmentToggle({
         if (on && env?.enabled) return;
         if (!on && !env?.enabled) return;
 
-        if (showConfirmation) {
+        if (killSwitchBehavior === "warn") {
           setDesiredState(on);
           setConfirming(true);
         } else {
@@ -102,6 +114,21 @@ export default function EnvironmentToggle({
         >
           You are about to set the <strong>{environment}</strong> environment to{" "}
           <strong>{desiredState ? "enabled" : "disabled"}</strong>.
+        </Modal>
+      ) : null}
+
+      {draftCreated ? (
+        <Modal
+          trackingEventModalType=""
+          header="Draft revision created"
+          close={() => setDraftCreated(null)}
+          open={true}
+          cta="OK"
+          submit={async () => setDraftCreated(null)}
+        >
+          The environment toggle change has been saved to draft revision{" "}
+          <strong>#{draftCreated}</strong>. It requires approval before it takes
+          effect.
         </Modal>
       ) : null}
 

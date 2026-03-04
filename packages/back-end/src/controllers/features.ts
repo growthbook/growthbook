@@ -20,6 +20,7 @@ import {
   getDependentFeatures,
   isFeatureStale,
   IsFeatureStaleResult,
+  getReviewSetting,
 } from "shared/util";
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
@@ -114,6 +115,7 @@ import {
   createInitialRevision,
   createRevision,
   discardRevision,
+  getActiveDraft,
   getActiveDraftStates,
   getMinimalRevisions,
   getRevision,
@@ -164,6 +166,89 @@ import {
   shouldValidateCustomFieldsOnUpdate,
   validateCustomFieldsForSection,
 } from "back-end/src/util/custom-fields";
+
+/**
+ * Gets the matching RequireReview rule for a feature from org settings.
+ * Returns null when requireReviews is not configured as an array (legacy boolean / unset).
+ */
+function getFeatureReviewSetting(
+  context: ReqContext,
+  feature: FeatureInterface,
+) {
+  const requireReviews = context.org.settings?.requireReviews;
+  if (!Array.isArray(requireReviews)) return null;
+  return getReviewSetting(requireReviews, feature) ?? null;
+}
+
+/**
+ * Routes a gated envelope change through the revision system.
+ * Bundles into the existing active draft if one exists; otherwise creates a new draft.
+ * Returns the draft revision so callers can return its version to the client.
+ */
+async function createOrUpdateDraftWithChanges(
+  context: ReqContext,
+  feature: FeatureInterface,
+  envelopeChanges: Partial<
+    Pick<
+      FeatureRevisionInterface,
+      "environmentsEnabled" | "envPrerequisites" | "prerequisites" | "metadata"
+    >
+  >,
+  logEntry: Omit<RevisionLog, "timestamp">,
+): Promise<FeatureRevisionInterface> {
+  const { org } = context;
+  const environments = getEnvironmentIdsFromOrg(context.org);
+
+  const existingDraft = await getActiveDraft(context, feature);
+  if (existingDraft) {
+    // Bundle into the existing draft
+    const merged: typeof envelopeChanges = {};
+    if ("environmentsEnabled" in envelopeChanges) {
+      merged.environmentsEnabled = {
+        ...(existingDraft.environmentsEnabled || {}),
+        ...envelopeChanges.environmentsEnabled,
+      };
+    }
+    if ("envPrerequisites" in envelopeChanges) {
+      merged.envPrerequisites = {
+        ...(existingDraft.envPrerequisites || {}),
+        ...envelopeChanges.envPrerequisites,
+      };
+    }
+    if ("prerequisites" in envelopeChanges) {
+      merged.prerequisites = envelopeChanges.prerequisites;
+    }
+    if ("metadata" in envelopeChanges) {
+      merged.metadata = {
+        ...(existingDraft.metadata || {}),
+        ...envelopeChanges.metadata,
+      };
+    }
+    await updateRevision(
+      context,
+      feature,
+      existingDraft,
+      merged,
+      logEntry,
+      false,
+    );
+    return { ...existingDraft, ...merged };
+  }
+
+  // No existing draft — create a new one
+  const newRevision = await createRevision({
+    context,
+    feature,
+    user: context.auditUser,
+    environments,
+    baseVersion: feature.version,
+    changes: envelopeChanges as Partial<FeatureRevisionInterface>,
+    publish: false,
+    org,
+  });
+  await updateFeature(context, feature, { hasDrafts: true });
+  return newRevision;
+}
 
 export type SDKPayloadParams = Pick<
   SDKConnectionInterface,
@@ -1853,7 +1938,10 @@ export async function postFeatureDefaultValue(
 
 export async function postFeatureSchema(
   req: AuthRequest<Omit<JSONSchemaDef, "date">, { id: string }>,
-  res: Response<{ status: 200 }, EventUserForResponseLocals>,
+  res: Response<
+    { status: 200; draftVersion?: number },
+    EventUserForResponseLocals
+  >,
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
@@ -1869,6 +1957,26 @@ export async function postFeatureSchema(
     !context.permissions.canManageFeatureDrafts(feature)
   ) {
     context.permissions.throwPermissionError();
+  }
+
+  const reviewSetting = getFeatureReviewSetting(context, feature);
+  if (reviewSetting?.featureRequireMetadataReview) {
+    const jsonSchema: JSONSchemaDef = {
+      ...schemaDef,
+      date: new Date(),
+    };
+    const draft = await createOrUpdateDraftWithChanges(
+      context,
+      feature,
+      { metadata: { jsonSchema } },
+      {
+        user: context.auditUser,
+        action: "update",
+        subject: "json schema",
+        value: JSON.stringify({ schemaType: schemaDef.schemaType }),
+      },
+    );
+    return res.status(200).json({ status: 200, draftVersion: draft.version });
   }
 
   const updatedFeature = await setJsonSchema(context, feature, schemaDef);
@@ -2161,6 +2269,44 @@ export async function postFeatureToggle(
     });
   }
 
+  const killSwitchBehavior =
+    context.org.settings?.featureKillSwitchBehavior ??
+    (context.org.settings?.killswitchConfirmation ? "warn" : "off");
+
+  if (killSwitchBehavior === "gate") {
+    // Route through the revision system — create/update a draft
+    const draft = await createOrUpdateDraftWithChanges(
+      context,
+      feature,
+      { environmentsEnabled: { [environment]: state } },
+      {
+        user: context.auditUser,
+        action: "update",
+        subject: `environment toggle: ${environment}`,
+        value: JSON.stringify({ environment, state }),
+      },
+    );
+
+    await req.audit({
+      event: "feature.toggle",
+      entity: {
+        object: "feature",
+        id: feature.id,
+      },
+      details: auditDetailsUpdate(
+        { on: currentState },
+        { on: state },
+        { environment, draft: true },
+      ),
+    });
+
+    return res.status(200).json({
+      status: 200,
+      draftVersion: draft.version,
+    } as { status: 200; draftVersion?: number });
+  }
+
+  // "off" or "warn": direct write (warn confirmation is handled by the front-end before calling this endpoint)
   await toggleFeatureEnvironment(context, feature, environment, state);
 
   await req.audit({
@@ -2415,6 +2561,73 @@ export async function putFeature(
       customFieldsModel: context.models.customFields,
       section: "feature",
       project: "project" in updates ? updates.project : feature.project,
+    });
+  }
+
+  const reviewSetting = getFeatureReviewSetting(context, feature);
+  const metadataKeys: (keyof FeatureInterface)[] = [
+    "tags",
+    "description",
+    "project",
+    "owner",
+    "customFields",
+  ];
+  const metadataUpdates = Object.fromEntries(
+    Object.entries(updates).filter(([k]) =>
+      metadataKeys.includes(k as keyof FeatureInterface),
+    ),
+  ) as Partial<FeatureInterface>;
+  const nonMetadataUpdates = Object.fromEntries(
+    Object.entries(updates).filter(
+      ([k]) => !metadataKeys.includes(k as keyof FeatureInterface),
+    ),
+  ) as Partial<FeatureInterface>;
+
+  if (
+    reviewSetting?.featureRequireMetadataReview &&
+    Object.keys(metadataUpdates).length > 0
+  ) {
+    const draft = await createOrUpdateDraftWithChanges(
+      context,
+      feature,
+      {
+        metadata: {
+          description: metadataUpdates.description,
+          owner: metadataUpdates.owner,
+          project: metadataUpdates.project,
+          tags: metadataUpdates.tags,
+          customFields: metadataUpdates.customFields as
+            | Record<string, unknown>
+            | undefined,
+        },
+      },
+      {
+        user: context.auditUser,
+        action: "update",
+        subject: "metadata",
+        value: JSON.stringify(metadataUpdates),
+      },
+    );
+    // Still apply non-metadata fields (holdout) directly
+    let updatedFeature = feature;
+    if (Object.keys(nonMetadataUpdates).length > 0) {
+      updatedFeature = await updateFeature(
+        context,
+        feature,
+        nonMetadataUpdates,
+      );
+    }
+    await req.audit({
+      event: "feature.update",
+      entity: { object: "feature", id: feature.id },
+      details: auditDetailsUpdate(feature, updatedFeature, {
+        draft: true,
+        draftVersion: draft.version,
+      }),
+    });
+    return res.status(200).json({
+      status: 200,
+      feature: updatedFeature,
     });
   }
 
@@ -3228,7 +3441,10 @@ export async function getRealtimeUsage(
 
 export async function toggleStaleFFDetectionForFeature(
   req: AuthRequest<null, { id: string }>,
-  res: Response<{ status: 200 }, EventUserForResponseLocals>,
+  res: Response<
+    { status: 200; draftVersion?: number },
+    EventUserForResponseLocals
+  >,
 ) {
   const { id } = req.params;
   const context = getContextFromReq(req);
@@ -3242,8 +3458,25 @@ export async function toggleStaleFFDetectionForFeature(
     context.permissions.throwPermissionError();
   }
 
+  const newNeverStale = !feature.neverStale;
+  const reviewSetting = getFeatureReviewSetting(context, feature);
+  if (reviewSetting?.featureRequireMetadataReview) {
+    const draft = await createOrUpdateDraftWithChanges(
+      context,
+      feature,
+      { metadata: { neverStale: newNeverStale } },
+      {
+        user: context.auditUser,
+        action: "update",
+        subject: "neverStale",
+        value: JSON.stringify({ neverStale: newNeverStale }),
+      },
+    );
+    return res.status(200).json({ status: 200, draftVersion: draft.version });
+  }
+
   await updateFeature(context, feature, {
-    neverStale: !feature.neverStale,
+    neverStale: newNeverStale,
   });
 
   res.status(200).json({
@@ -3253,7 +3486,10 @@ export async function toggleStaleFFDetectionForFeature(
 
 export async function postPrerequisite(
   req: AuthRequest<{ prerequisite: FeaturePrerequisite }, { id: string }>,
-  res: Response<{ status: 200 }, EventUserForResponseLocals>,
+  res: Response<
+    { status: 200; draftVersion?: number },
+    EventUserForResponseLocals
+  >,
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
@@ -3268,12 +3504,25 @@ export async function postPrerequisite(
     context.permissions.throwPermissionError();
   }
 
-  const changes = {
-    prerequisites: feature.prerequisites || [],
-  };
-  changes.prerequisites.push(prerequisite);
+  const newPrerequisites = [...(feature.prerequisites || []), prerequisite];
+  const reviewSetting = getFeatureReviewSetting(context, feature);
 
-  await updateFeature(context, feature, changes);
+  if (reviewSetting?.featureRequirePrerequisiteReview) {
+    const draft = await createOrUpdateDraftWithChanges(
+      context,
+      feature,
+      { prerequisites: newPrerequisites },
+      {
+        user: context.auditUser,
+        action: "update",
+        subject: "add prerequisite",
+        value: JSON.stringify({ prerequisite }),
+      },
+    );
+    return res.status(200).json({ status: 200, draftVersion: draft.version });
+  }
+
+  await updateFeature(context, feature, { prerequisites: newPrerequisites });
 
   res.status(200).json({
     status: 200,
@@ -3285,7 +3534,10 @@ export async function putPrerequisite(
     { prerequisite: FeaturePrerequisite; i: number },
     { id: string }
   >,
-  res: Response<{ status: 200 }, EventUserForResponseLocals>,
+  res: Response<
+    { status: 200; draftVersion?: number },
+    EventUserForResponseLocals
+  >,
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
@@ -3300,16 +3552,29 @@ export async function putPrerequisite(
     context.permissions.throwPermissionError();
   }
 
-  const changes = {
-    prerequisites: feature.prerequisites || [],
-  };
-
-  if (!changes.prerequisites[i]) {
+  const newPrerequisites = [...(feature.prerequisites || [])];
+  if (!newPrerequisites[i]) {
     throw new Error("Unknown prerequisite");
   }
-  changes.prerequisites[i] = prerequisite;
+  newPrerequisites[i] = prerequisite;
 
-  await updateFeature(context, feature, changes);
+  const reviewSetting = getFeatureReviewSetting(context, feature);
+  if (reviewSetting?.featureRequirePrerequisiteReview) {
+    const draft = await createOrUpdateDraftWithChanges(
+      context,
+      feature,
+      { prerequisites: newPrerequisites },
+      {
+        user: context.auditUser,
+        action: "update",
+        subject: `update prerequisite ${i}`,
+        value: JSON.stringify({ prerequisite }),
+      },
+    );
+    return res.status(200).json({ status: 200, draftVersion: draft.version });
+  }
+
+  await updateFeature(context, feature, { prerequisites: newPrerequisites });
 
   res.status(200).json({
     status: 200,
@@ -3318,7 +3583,10 @@ export async function putPrerequisite(
 
 export async function deletePrerequisite(
   req: AuthRequest<{ i: number }, { id: string }>,
-  res: Response<{ status: 200 }, EventUserForResponseLocals>,
+  res: Response<
+    { status: 200; draftVersion?: number },
+    EventUserForResponseLocals
+  >,
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
@@ -3333,16 +3601,29 @@ export async function deletePrerequisite(
     context.permissions.throwPermissionError();
   }
 
-  const changes = {
-    prerequisites: feature.prerequisites || [],
-  };
-
-  if (!changes.prerequisites[i]) {
+  const newPrerequisites = [...(feature.prerequisites || [])];
+  if (!newPrerequisites[i]) {
     throw new Error("Unknown prerequisite");
   }
-  changes.prerequisites.splice(i, 1);
+  newPrerequisites.splice(i, 1);
 
-  await updateFeature(context, feature, changes);
+  const reviewSetting = getFeatureReviewSetting(context, feature);
+  if (reviewSetting?.featureRequirePrerequisiteReview) {
+    const draft = await createOrUpdateDraftWithChanges(
+      context,
+      feature,
+      { prerequisites: newPrerequisites },
+      {
+        user: context.auditUser,
+        action: "update",
+        subject: `delete prerequisite ${i}`,
+        value: JSON.stringify({ index: i }),
+      },
+    );
+    return res.status(200).json({ status: 200, draftVersion: draft.version });
+  }
+
+  await updateFeature(context, feature, { prerequisites: newPrerequisites });
 
   res.status(200).json({
     status: 200,

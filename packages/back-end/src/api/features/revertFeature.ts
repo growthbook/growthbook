@@ -83,11 +83,95 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
         changes.rules = changes.rules || {};
         changes.rules[env] = revision.rules[env];
       }
+
+      // environmentsEnabled
+      if (
+        revision.environmentsEnabled &&
+        env in revision.environmentsEnabled &&
+        revision.environmentsEnabled[env] !==
+          feature.environmentSettings?.[env]?.enabled
+      ) {
+        changes.environmentsEnabled = changes.environmentsEnabled || {};
+        changes.environmentsEnabled[env] = revision.environmentsEnabled[env];
+        if (!changedEnvs.includes(env)) changedEnvs.push(env);
+      }
+
+      // envPrerequisites
+      if (
+        revision.envPrerequisites &&
+        env in revision.envPrerequisites &&
+        !isEqual(
+          revision.envPrerequisites[env],
+          feature.environmentSettings?.[env]?.prerequisites || [],
+        )
+      ) {
+        changes.envPrerequisites = changes.envPrerequisites || {};
+        changes.envPrerequisites[env] = revision.envPrerequisites[env];
+        if (!changedEnvs.includes(env)) changedEnvs.push(env);
+      }
     });
+
     if (changedEnvs.length > 0) {
       if (!context.permissions.canPublishFeature(feature, changedEnvs)) {
         context.permissions.throwPermissionError();
       }
+    }
+
+    // prerequisites
+    if (
+      revision.prerequisites !== undefined &&
+      !isEqual(revision.prerequisites, feature.prerequisites || [])
+    ) {
+      changes.prerequisites = revision.prerequisites;
+    }
+
+    // metadata — only include fields present in the revision that differ from live
+    if (revision.metadata) {
+      const metadataChanges: typeof changes.metadata = {};
+      let hasMetaChange = false;
+      const m = revision.metadata;
+      if (
+        m.description !== undefined &&
+        m.description !== feature.description
+      ) {
+        metadataChanges.description = m.description;
+        hasMetaChange = true;
+      }
+      if (m.owner !== undefined && m.owner !== feature.owner) {
+        metadataChanges.owner = m.owner;
+        hasMetaChange = true;
+      }
+      if (m.project !== undefined && m.project !== feature.project) {
+        metadataChanges.project = m.project;
+        hasMetaChange = true;
+      }
+      if (m.tags !== undefined && !isEqual(m.tags, feature.tags)) {
+        metadataChanges.tags = m.tags;
+        hasMetaChange = true;
+      }
+      if (m.neverStale !== undefined && m.neverStale !== feature.neverStale) {
+        metadataChanges.neverStale = m.neverStale;
+        hasMetaChange = true;
+      }
+      if (
+        m.customFields !== undefined &&
+        !isEqual(m.customFields, feature.customFields)
+      ) {
+        metadataChanges.customFields = m.customFields;
+        hasMetaChange = true;
+      }
+      if (
+        m.jsonSchema !== undefined &&
+        !isEqual(m.jsonSchema, feature.jsonSchema)
+      ) {
+        metadataChanges.jsonSchema = m.jsonSchema;
+        hasMetaChange = true;
+      }
+      if (m.valueType !== undefined && m.valueType !== feature.valueType) {
+        metadataChanges.valueType = m.valueType;
+        hasMetaChange = true;
+      }
+      if (hasMetaChange) changes.metadata = metadataChanges;
     }
 
     const updatedFeature = await applyRevisionChanges(

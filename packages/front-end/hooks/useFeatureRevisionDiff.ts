@@ -2,11 +2,16 @@ import { useMemo, ReactNode } from "react";
 import isEqual from "lodash/isEqual";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { FeaturePrerequisite } from "shared/src/validators/shared";
 import {
   renderFeatureDefaultValue,
   renderFeatureRules,
   normalizeFeatureRules,
   featureRuleChangeBadges,
+  renderEnvironmentsEnabled,
+  renderEnvPrerequisites,
+  renderPrerequisites,
+  renderRevisionMetadata,
 } from "@/components/Features/FeatureDiffRenders";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
 
@@ -14,6 +19,17 @@ import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
 export const featureToFeatureRevisionDiffInput = (
   feature: FeatureInterface,
 ): FeatureRevisionDiffInput => {
+  const environmentsEnabled: Record<string, boolean> = {};
+  const envPrerequisites: Record<string, FeaturePrerequisite[]> = {};
+  for (const [envId, env] of Object.entries(
+    feature.environmentSettings || {},
+  )) {
+    environmentsEnabled[envId] = env.enabled;
+    if (env.prerequisites) {
+      envPrerequisites[envId] = env.prerequisites;
+    }
+  }
+
   return {
     defaultValue: feature.defaultValue,
     rules: Object.fromEntries(
@@ -22,6 +38,19 @@ export const featureToFeatureRevisionDiffInput = (
         env.rules,
       ]),
     ),
+    environmentsEnabled,
+    envPrerequisites,
+    prerequisites: feature.prerequisites,
+    metadata: {
+      description: feature.description,
+      owner: feature.owner,
+      project: feature.project,
+      tags: feature.tags,
+      neverStale: feature.neverStale,
+      customFields: feature.customFields,
+      jsonSchema: feature.jsonSchema,
+      valueType: feature.valueType,
+    },
   };
 };
 
@@ -44,7 +73,12 @@ function parseDefaultValue(str: string): unknown {
 
 export type FeatureRevisionDiffInput = Pick<
   FeatureRevisionInterface,
-  "defaultValue" | "rules"
+  | "defaultValue"
+  | "rules"
+  | "environmentsEnabled"
+  | "envPrerequisites"
+  | "prerequisites"
+  | "metadata"
 >;
 
 export type FeatureRevisionDiff = {
@@ -100,13 +134,88 @@ export function useFeatureRevisionDiff({
           title: `Rules - ${envId}`,
           a: JSON.stringify(normalizeFeatureRules(currentRules), null, 2),
           b: JSON.stringify(normalizeFeatureRules(draftRules), null, 2),
-          // Pass original (un-normalized) rules to the human-readable render;
-          // formatValue and toConditionString both handle raw JSON strings.
           customRender: renderFeatureRules(currentRules, draftRules),
           badges: featureRuleChangeBadges(currentRules, draftRules, envId),
         });
       }
     });
+
+    // environmentsEnabled: only check envs present in draft
+    const draftEnabledEnvs = Object.keys(draft.environmentsEnabled || {});
+    draftEnabledEnvs.forEach((envId) => {
+      const currentVal = current.environmentsEnabled?.[envId];
+      const draftVal = draft.environmentsEnabled?.[envId];
+      if (currentVal !== draftVal) {
+        diffs.push({
+          title: `Environment Toggle - ${envId}`,
+          a: currentVal !== undefined ? String(currentVal) : "",
+          b: draftVal !== undefined ? String(draftVal) : "",
+          customRender: renderEnvironmentsEnabled(envId, currentVal, draftVal),
+          badges: [
+            { label: "Toggle environment", action: "toggle environment" },
+          ],
+        });
+      }
+    });
+
+    // envPrerequisites: only check envs present in draft
+    const draftEnvPrereqEnvs = Object.keys(draft.envPrerequisites || {});
+    draftEnvPrereqEnvs.forEach((envId) => {
+      const currentPrereqs = current.envPrerequisites?.[envId] || [];
+      const draftPrereqs = draft.envPrerequisites?.[envId] || [];
+      if (!isEqual(currentPrereqs, draftPrereqs)) {
+        diffs.push({
+          title: `Prerequisites - ${envId}`,
+          a: JSON.stringify(currentPrereqs, null, 2),
+          b: JSON.stringify(draftPrereqs, null, 2),
+          customRender: renderEnvPrerequisites(
+            envId,
+            currentPrereqs,
+            draftPrereqs,
+          ),
+          badges: [
+            {
+              label: "Edit env prerequisites",
+              action: "edit env prerequisites",
+            },
+          ],
+        });
+      }
+    });
+
+    // prerequisites (feature-level)
+    if (draft.prerequisites !== undefined) {
+      const currentPrereqs = current.prerequisites || [];
+      const draftPrereqs = draft.prerequisites;
+      if (!isEqual(currentPrereqs, draftPrereqs)) {
+        diffs.push({
+          title: "Feature Prerequisites",
+          a: JSON.stringify(currentPrereqs, null, 2),
+          b: JSON.stringify(draftPrereqs, null, 2),
+          customRender: renderPrerequisites(currentPrereqs, draftPrereqs),
+          badges: [
+            { label: "Edit prerequisites", action: "edit prerequisites" },
+          ],
+        });
+      }
+    }
+
+    // metadata: compare each field present in draft.metadata
+    if (draft.metadata) {
+      const metadataRender = renderRevisionMetadata(
+        current.metadata,
+        draft.metadata,
+      );
+      if (metadataRender) {
+        diffs.push({
+          title: "Feature Settings",
+          a: JSON.stringify(current.metadata, null, 2),
+          b: JSON.stringify(draft.metadata, null, 2),
+          customRender: metadataRender,
+          badges: [{ label: "Edit settings", action: "edit settings" }],
+        });
+      }
+    }
 
     return diffs;
   }, [current, draft]);

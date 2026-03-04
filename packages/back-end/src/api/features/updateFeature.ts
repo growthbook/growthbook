@@ -1,5 +1,6 @@
 import {
   featureRequiresReview,
+  getReviewSetting,
   validateFeatureValue,
   validateScheduleRules,
 } from "shared/util";
@@ -203,6 +204,154 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         updates.environmentSettings,
         orgEnvs,
       );
+    }
+
+    const requireReviews = req.context.org.settings?.requireReviews;
+    const reviewSetting = Array.isArray(requireReviews)
+      ? getReviewSetting(requireReviews, feature)
+      : null;
+    const apiBypassesReviews =
+      req.context.org.settings?.restApiBypassesReviews !== false;
+
+    const killSwitchBehavior =
+      req.context.org.settings?.featureKillSwitchBehavior ??
+      (req.context.org.settings?.killswitchConfirmation ? "warn" : "off");
+
+    // Handle gated envelope fields via revision system
+    // environmentsEnabled (kill switch changes gated as "gate")
+    if (killSwitchBehavior === "gate" && updates.environmentSettings) {
+      const changedEnvEnabled: Record<string, boolean> = {};
+      for (const [env, settings] of Object.entries(
+        updates.environmentSettings,
+      )) {
+        if (
+          typeof settings.enabled === "boolean" &&
+          settings.enabled !== feature.environmentSettings?.[env]?.enabled
+        ) {
+          changedEnvEnabled[env] = settings.enabled;
+          // Preserve the current enabled state in the direct write — the kill
+          // switch change is captured in the revision and should not be applied
+          // until that revision is published.
+          updates.environmentSettings[env] = {
+            ...updates.environmentSettings[env],
+            enabled: feature.environmentSettings?.[env]?.enabled ?? true,
+          };
+        }
+      }
+      if (Object.keys(changedEnvEnabled).length > 0) {
+        if (
+          !apiBypassesReviews &&
+          !req.context.permissions.canBypassApprovalChecks(feature)
+        ) {
+          throw new Error(
+            "This feature requires a review for kill switch changes and the API key being used does not have permission to bypass reviews.",
+          );
+        }
+        const envEnabledRevision = await createRevision({
+          context: req.context,
+          feature,
+          user: req.eventAudit,
+          baseVersion: feature.version,
+          comment: "Created via REST API",
+          environments: orgEnvs,
+          publish: true,
+          changes: { environmentsEnabled: changedEnvEnabled },
+          org: req.organization,
+          canBypassApprovalChecks: apiBypassesReviews,
+        });
+        // Apply kill switch changes now; continue to apply remaining updates below
+        const featureWithToggle = await (
+          await import("back-end/src/models/FeatureModel")
+        ).applyRevisionChanges(req.context, feature, envEnabledRevision, {
+          environmentsEnabled: changedEnvEnabled,
+        });
+        // Merge the feature state so subsequent revision creation sees latest version
+        Object.assign(feature, featureWithToggle);
+        updates.version = envEnabledRevision.version;
+      }
+    }
+
+    // prerequisites (gated)
+    if (
+      reviewSetting?.featureRequirePrerequisiteReview &&
+      updates.prerequisites
+    ) {
+      if (
+        !apiBypassesReviews &&
+        !req.context.permissions.canBypassApprovalChecks(feature)
+      ) {
+        throw new Error(
+          "This feature requires a review for prerequisite changes and the API key being used does not have permission to bypass reviews.",
+        );
+      }
+      const prereqRevision = await createRevision({
+        context: req.context,
+        feature,
+        user: req.eventAudit,
+        baseVersion: feature.version,
+        comment: "Created via REST API",
+        environments: orgEnvs,
+        publish: true,
+        changes: { prerequisites: updates.prerequisites },
+        org: req.organization,
+        canBypassApprovalChecks: apiBypassesReviews,
+      });
+      const featureWithPrereqs = await (
+        await import("back-end/src/models/FeatureModel")
+      ).applyRevisionChanges(req.context, feature, prereqRevision, {
+        prerequisites: updates.prerequisites,
+      });
+      Object.assign(feature, featureWithPrereqs);
+      updates.version = prereqRevision.version;
+      delete updates.prerequisites;
+    }
+
+    // metadata (gated)
+    if (reviewSetting?.featureRequireMetadataReview) {
+      const metadataChanges: Record<string, unknown> = {};
+      const metadataFields = [
+        "owner",
+        "description",
+        "project",
+        "tags",
+        "customFields",
+        "jsonSchema",
+      ] as const;
+      for (const key of metadataFields) {
+        if (key in updates && updates[key] !== undefined) {
+          metadataChanges[key] = updates[key];
+          delete (updates as Record<string, unknown>)[key];
+        }
+      }
+      if (Object.keys(metadataChanges).length > 0) {
+        if (
+          !apiBypassesReviews &&
+          !req.context.permissions.canBypassApprovalChecks(feature)
+        ) {
+          throw new Error(
+            "This feature requires a review for metadata changes and the API key being used does not have permission to bypass reviews.",
+          );
+        }
+        const metaRevision = await createRevision({
+          context: req.context,
+          feature,
+          user: req.eventAudit,
+          baseVersion: feature.version,
+          comment: "Created via REST API",
+          environments: orgEnvs,
+          publish: true,
+          changes: { metadata: metadataChanges },
+          org: req.organization,
+          canBypassApprovalChecks: apiBypassesReviews,
+        });
+        const featureWithMeta = await (
+          await import("back-end/src/models/FeatureModel")
+        ).applyRevisionChanges(req.context, feature, metaRevision, {
+          metadata: metadataChanges,
+        });
+        Object.assign(feature, featureWithMeta);
+        updates.version = metaRevision.version;
+      }
     }
 
     // Create a revision for the changes and publish them immediately

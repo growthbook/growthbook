@@ -137,6 +137,24 @@ export default function DraftModal({
           defaultValue:
             mergeResult.result.defaultValue ?? currentRevisionData.defaultValue,
           rules: mergeResult.result.rules ?? currentRevisionData.rules,
+          // New envelope fields — only include them in the diff if they were
+          // explicitly part of the merge result (i.e., gated and changed).
+          environmentsEnabled:
+            mergeResult.result.environmentsEnabled !== undefined
+              ? mergeResult.result.environmentsEnabled
+              : undefined,
+          envPrerequisites:
+            mergeResult.result.envPrerequisites !== undefined
+              ? mergeResult.result.envPrerequisites
+              : undefined,
+          prerequisites:
+            mergeResult.result.prerequisites !== undefined
+              ? mergeResult.result.prerequisites
+              : undefined,
+          metadata:
+            mergeResult.result.metadata !== undefined
+              ? mergeResult.result.metadata
+              : undefined,
         }
       : currentRevisionData,
   });

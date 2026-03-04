@@ -1135,7 +1135,18 @@ export async function applyRevisionChanges(
 
   environments.forEach((env) => {
     const rules = result.rules?.[env];
-    if (!rules) return;
+    const envEnabled = result.environmentsEnabled?.[env];
+    const envPrereqs =
+      result.envPrerequisites && env in result.envPrerequisites
+        ? result.envPrerequisites[env]
+        : undefined;
+
+    if (
+      rules === undefined &&
+      envEnabled === undefined &&
+      envPrereqs === undefined
+    )
+      return;
 
     changes.environmentSettings =
       changes.environmentSettings ||
@@ -1143,9 +1154,37 @@ export async function applyRevisionChanges(
     changes.environmentSettings[env] = changes.environmentSettings[env] || {};
     changes.environmentSettings[env].enabled =
       changes.environmentSettings[env].enabled || false;
-    changes.environmentSettings[env].rules = rules;
+
+    if (rules !== undefined) {
+      changes.environmentSettings[env].rules = rules;
+    }
+    if (envEnabled !== undefined) {
+      changes.environmentSettings[env].enabled = envEnabled;
+    }
+    if (envPrereqs !== undefined) {
+      changes.environmentSettings[env].prerequisites = envPrereqs;
+    }
     hasChanges = true;
   });
+
+  if (result.prerequisites !== undefined) {
+    changes.prerequisites = result.prerequisites;
+    hasChanges = true;
+  }
+
+  if (result.metadata) {
+    const m = result.metadata;
+    if (m.description !== undefined) changes.description = m.description;
+    if (m.owner !== undefined) changes.owner = m.owner;
+    if (m.project !== undefined) changes.project = m.project;
+    if (m.tags !== undefined) changes.tags = m.tags;
+    if (m.neverStale !== undefined) changes.neverStale = m.neverStale;
+    if (m.customFields !== undefined)
+      changes.customFields = m.customFields as Record<string, unknown>;
+    if (m.jsonSchema !== undefined) changes.jsonSchema = m.jsonSchema;
+    if (m.valueType !== undefined) changes.valueType = m.valueType;
+    hasChanges = true;
+  }
 
   if (!hasChanges) {
     throw new Error("No changes to publish");

@@ -1,7 +1,11 @@
 import mongoose from "mongoose";
 import omit from "lodash/omit";
 import { checkIfRevisionNeedsReview } from "shared/util";
-import { FeatureInterface, FeatureRule } from "shared/types/feature";
+import {
+  FeatureInterface,
+  FeaturePrerequisite,
+  FeatureRule,
+} from "shared/types/feature";
 import {
   FeatureRevisionInterface,
   RevisionLog,
@@ -34,6 +38,11 @@ const featureRevisionSchema = new mongoose.Schema({
   comment: String,
   defaultValue: String,
   rules: {},
+  // New revision envelopes — only present when the change type is gated
+  environmentsEnabled: {},
+  envPrerequisites: {},
+  prerequisites: [{}],
+  metadata: {},
   status: String,
   requiresReview: Boolean,
   log: [
@@ -157,6 +166,25 @@ export async function hasDraft(
   return doc ? true : false;
 }
 
+/**
+ * Returns the most recent active draft revision for a feature, or null if none exists.
+ * Used to bundle new gated changes into an existing draft rather than creating a new one.
+ */
+export async function getActiveDraft(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+): Promise<FeatureRevisionInterface | null> {
+  const doc = await FeatureRevisionModel.findOne({
+    organization: feature.organization,
+    featureId: feature.id,
+    status: { $in: ACTIVE_DRAFT_STATUSES },
+  })
+    .select("-log")
+    .sort({ version: -1 });
+
+  return doc ? toInterface(doc, context) : null;
+}
+
 export async function getFeatureRevisionsByStatus({
   context,
   organization,
@@ -238,6 +266,10 @@ const SPARSE_REVISION_PROJECTION = {
   log: 0,
   rules: 0,
   defaultValue: 0,
+  environmentsEnabled: 0,
+  envPrerequisites: 0,
+  prerequisites: 0,
+  metadata: 0,
   baseVersion: 0,
   datePublished: 0,
   publishedBy: 0,
@@ -266,8 +298,14 @@ export async function createInitialRevision(
   date?: Date,
 ) {
   const rules: Record<string, FeatureRule[]> = {};
+  const environmentsEnabled: Record<string, boolean> = {};
+  const envPrerequisites: Record<string, FeaturePrerequisite[]> = {};
   environments.forEach((env) => {
     rules[env] = feature.environmentSettings?.[env]?.rules || [];
+    environmentsEnabled[env] =
+      feature.environmentSettings?.[env]?.enabled ?? false;
+    envPrerequisites[env] =
+      feature.environmentSettings?.[env]?.prerequisites || [];
   });
 
   date = date || new Date();
@@ -286,6 +324,19 @@ export async function createInitialRevision(
     comment: "",
     defaultValue: feature.defaultValue,
     rules,
+    environmentsEnabled,
+    envPrerequisites,
+    prerequisites: feature.prerequisites || [],
+    metadata: {
+      description: feature.description,
+      owner: feature.owner,
+      project: feature.project,
+      tags: feature.tags,
+      neverStale: feature.neverStale,
+      customFields: feature.customFields,
+      jsonSchema: feature.jsonSchema,
+      valueType: feature.valueType,
+    },
   });
 
   return toInterface(doc, context);
@@ -357,6 +408,12 @@ export async function createRevision({
     }
   });
 
+  // New envelope fields — only included in the revision when explicitly provided in changes
+  const environmentsEnabled = changes?.environmentsEnabled;
+  const envPrerequisites = changes?.envPrerequisites;
+  const prerequisites = changes?.prerequisites;
+  const metadata = changes?.metadata;
+
   if (!baseVersion) baseVersion = lastRevision?.version;
   if (!baseVersion) {
     throw new Error("can not determine base version for new revision");
@@ -390,6 +447,10 @@ export async function createRevision({
     comment: comment || "",
     defaultValue,
     rules,
+    ...(environmentsEnabled !== undefined && { environmentsEnabled }),
+    ...(envPrerequisites !== undefined && { envPrerequisites }),
+    ...(prerequisites !== undefined && { prerequisites }),
+    ...(metadata !== undefined && { metadata }),
   } as FeatureRevisionInterface;
   const requiresReview = checkIfRevisionNeedsReview({
     feature,
@@ -428,6 +489,10 @@ export async function createRevision({
         comment: comment || "",
         defaultValue,
         rules,
+        ...(environmentsEnabled !== undefined && { environmentsEnabled }),
+        ...(envPrerequisites !== undefined && { envPrerequisites }),
+        ...(prerequisites !== undefined && { prerequisites }),
+        ...(metadata !== undefined && { metadata }),
       }),
     })
     .catch((e) => {
@@ -444,7 +509,14 @@ export async function updateRevision(
   changes: Partial<
     Pick<
       FeatureRevisionInterface,
-      "comment" | "defaultValue" | "rules" | "baseVersion"
+      | "comment"
+      | "defaultValue"
+      | "rules"
+      | "baseVersion"
+      | "environmentsEnabled"
+      | "envPrerequisites"
+      | "prerequisites"
+      | "metadata"
     >
   >,
   log: Omit<RevisionLog, "timestamp">,

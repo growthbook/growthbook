@@ -68,6 +68,9 @@ export type RequireReview = {
   resetReviewOnChange: boolean;
   environments: string[];
   projects: string[];
+  // Per-change-type gating for feature revisions
+  featureRequirePrerequisiteReview?: boolean;
+  featureRequireMetadataReview?: boolean;
 };
 
 export type OwnerJobTitle = keyof typeof OWNER_JOB_TITLES;
@@ -215,8 +218,11 @@ export interface OrganizationSettings {
   sequentialTestingTuningParameter?: number;
   displayCurrency?: string;
   secureAttributeSalt?: string;
+  /** @deprecated use featureKillSwitchBehavior instead */
   killswitchConfirmation?: boolean;
+  featureKillSwitchBehavior?: "off" | "warn" | "gate";
   requireReviews?: boolean | RequireReview[];
+  restApiBypassesReviews?: boolean;
   defaultDataSource?: string;
   testQueryDays?: number;
   disableMultiMetricQueries?: boolean;

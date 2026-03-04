@@ -1,8 +1,12 @@
 import { ToggleFeatureResponse } from "shared/types/openapi";
 import { toggleFeatureValidator } from "shared/validators";
-import { getRevision } from "back-end/src/models/FeatureRevisionModel";
+import {
+  createRevision,
+  getRevision,
+} from "back-end/src/models/FeatureRevisionModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import {
+  applyRevisionChanges,
   getFeature,
   toggleMultipleEnvironments,
 } from "back-end/src/models/FeatureModel";
@@ -43,6 +47,86 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
       toggles[env] = state;
     });
 
+    // Check if kill switch gating is enabled
+    const killSwitchBehavior =
+      req.context.org.settings?.featureKillSwitchBehavior ??
+      (req.context.org.settings?.killswitchConfirmation ? "warn" : "off");
+    const apiBypassesReviews =
+      req.context.org.settings?.restApiBypassesReviews !== false;
+
+    if (killSwitchBehavior === "gate") {
+      // Determine which envs actually changed
+      const changedToggles: Record<string, boolean> = {};
+      for (const [env, state] of Object.entries(toggles)) {
+        if (feature.environmentSettings?.[env]?.enabled !== state) {
+          changedToggles[env] = state;
+        }
+      }
+
+      if (Object.keys(changedToggles).length > 0) {
+        if (
+          !apiBypassesReviews &&
+          !req.context.permissions.canBypassApprovalChecks(feature)
+        ) {
+          throw new Error(
+            "This feature requires a review for kill switch changes and the API key being used does not have permission to bypass reviews.",
+          );
+        }
+
+        const revision = await createRevision({
+          context: req.context,
+          feature,
+          user: req.eventAudit,
+          baseVersion: feature.version,
+          comment: "Created via REST API",
+          environments: environmentIds,
+          publish: true,
+          changes: { environmentsEnabled: changedToggles },
+          org: req.organization,
+          canBypassApprovalChecks: apiBypassesReviews,
+        });
+
+        const updatedFeature = await applyRevisionChanges(
+          req.context,
+          feature,
+          revision,
+          { environmentsEnabled: changedToggles },
+        );
+
+        await req.audit({
+          event: "feature.toggle",
+          entity: { object: "feature", id: feature.id },
+          details: auditDetailsUpdate(feature, updatedFeature),
+          reason: req.body.reason,
+        });
+
+        const groupMap = await getSavedGroupMap(req.context);
+        const experimentMap = await getExperimentMapForFeature(
+          req.context,
+          updatedFeature.id,
+        );
+        const latestRevision = await getRevision({
+          context: req.context,
+          organization: updatedFeature.organization,
+          featureId: updatedFeature.id,
+          version: updatedFeature.version,
+        });
+        const safeRolloutMap =
+          await req.context.models.safeRollout.getAllPayloadSafeRollouts();
+        return {
+          feature: getApiFeatureObj({
+            feature: updatedFeature,
+            organization: req.organization,
+            groupMap,
+            experimentMap,
+            revision: latestRevision,
+            safeRolloutMap,
+          }),
+        };
+      }
+    }
+
+    // "off" or "warn" behavior: direct write (same as legacy behavior)
     const updatedFeature = await toggleMultipleEnvironments(
       req.context,
       feature,
