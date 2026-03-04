@@ -7,10 +7,6 @@ interface AttributeBadgeProps {
   attributeId: string;
 }
 
-/**
- * Gray badge with a link to the attribute page. Uses theme-aware styling:
- * day theme = gray badge, violet link; dark mode uses matching tokens.
- */
 export function AttributeBadge({ attributeId }: AttributeBadgeProps) {
   const href = `/attributes/${encodeURIComponent(attributeId)}`;
 
