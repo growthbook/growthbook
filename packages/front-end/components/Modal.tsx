@@ -6,6 +6,7 @@ import {
   ReactNode,
   CSSProperties,
   useCallback,
+  useSyncExternalStore,
 } from "react";
 import clsx from "clsx";
 import { truncateString } from "shared/util";
@@ -74,8 +75,44 @@ type ModalProps = {
   borderlessHeader?: boolean;
   backgroundlessHeader?: boolean;
   borderlessFooter?: boolean;
+  closeOnEscape?: boolean;
+  closeOnBackdropClick?: boolean;
   onBackdropClick?: () => void;
 };
+
+const NORMAL_BACKDROP_Z_INDEX = 1040;
+const NORMAL_MODAL_Z_INDEX = 1050;
+const ELEVATED_BACKDROP_Z_INDEX = 1500;
+const ELEVATED_MODAL_Z_INDEX = 1510;
+const STACK_LAYER_STEP = 20;
+
+let modalStackIds: string[] = [];
+const modalStackListeners = new Set<() => void>();
+
+function emitModalStackChange() {
+  modalStackListeners.forEach((listener) => listener());
+}
+
+function addModalToStack(modalId: string) {
+  if (modalStackIds.includes(modalId)) return;
+  modalStackIds = [...modalStackIds, modalId];
+  emitModalStackChange();
+}
+
+function removeModalFromStack(modalId: string) {
+  if (!modalStackIds.includes(modalId)) return;
+  modalStackIds = modalStackIds.filter((id) => id !== modalId);
+  emitModalStackChange();
+}
+
+function subscribeToModalStack(listener: () => void) {
+  modalStackListeners.add(listener);
+  return () => modalStackListeners.delete(listener);
+}
+
+function getModalStackSnapshot() {
+  return modalStackIds;
+}
 const Modal: FC<ModalProps> = ({
   header = "logo",
   subHeader = "",
@@ -125,12 +162,19 @@ const Modal: FC<ModalProps> = ({
   borderlessHeader = false,
   backgroundlessHeader = false,
   borderlessFooter = false,
+  closeOnEscape = false,
+  closeOnBackdropClick = false,
   onBackdropClick,
 }) => {
   const [modalUuid] = useState(_modalUuid || uuidv4());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
+  const modalStack = useSyncExternalStore(
+    subscribeToModalStack,
+    getModalStackSnapshot,
+    getModalStackSnapshot,
+  );
 
   const bodyRef = useRef<HTMLDivElement>(null);
 
@@ -370,16 +414,6 @@ const Modal: FC<ModalProps> = ({
     </div>
   );
 
-  const overlayStyle: CSSProperties = solidOverlay
-    ? {
-        opacity: 1,
-      }
-    : {};
-
-  if (increasedElevation) {
-    overlayStyle.zIndex = 1500;
-  }
-
   const sendTrackingEvent = useCallback(
     (eventName: string, additionalProps?: Record<string, unknown>) => {
       if (trackingEventModalType === "") {
@@ -408,17 +442,62 @@ const Modal: FC<ModalProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  useEffect(() => {
+    if (inline || !open) return;
+    addModalToStack(modalUuid);
+    return () => removeModalFromStack(modalUuid);
+  }, [inline, modalUuid, open]);
+
+  const modalStackIndex = modalStack.indexOf(modalUuid);
+  const isTopModal =
+    modalStackIndex >= 0 && modalStackIndex === modalStack.length - 1;
+
+  useEffect(() => {
+    if (!closeOnEscape || !close || !open || inline) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || !isTopModal) return;
+      event.preventDefault();
+      close();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [closeOnEscape, close, open, inline, isTopModal]);
+
+  const backdropBaseZIndex = increasedElevation
+    ? ELEVATED_BACKDROP_Z_INDEX
+    : NORMAL_BACKDROP_Z_INDEX;
+  const modalBaseZIndex = increasedElevation
+    ? ELEVATED_MODAL_Z_INDEX
+    : NORMAL_MODAL_Z_INDEX;
+  const stackOffset =
+    modalStackIndex >= 0 ? modalStackIndex * STACK_LAYER_STEP : 0;
+  const backdropZIndex = backdropBaseZIndex + stackOffset;
+  const modalZIndex = modalBaseZIndex + stackOffset;
+
+  const overlayStyle: CSSProperties = solidOverlay
+    ? {
+        opacity: 1,
+      }
+    : {};
+
+  if (!inline) {
+    overlayStyle.zIndex = backdropZIndex;
+  }
+
   const modalHtml = (
     <div
       className={clsx("modal", { show: open })}
       style={{
         display: open ? "block" : "none",
         position: inline ? "relative" : undefined,
-        zIndex: inline ? 1 : increasedElevation ? 1550 : undefined,
+        zIndex: inline ? 1 : modalZIndex,
       }}
       onClick={(e) => {
-        if (onBackdropClick && e.target === e.currentTarget) {
-          onBackdropClick();
+        if (e.target === e.currentTarget) {
+          onBackdropClick?.();
+          if (closeOnBackdropClick && close && isTopModal) {
+            close();
+          }
         }
         e.stopPropagation();
       }}

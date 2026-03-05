@@ -1,8 +1,10 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import Frame from "@/ui/Frame";
+import Button from "@/ui/Button";
+import Modal from "@/components/Modal";
 
 import AnalysisResultSummaryStories from "@/ui/AnalysisResultSummary.stories";
 import AvatarStories from "@/ui/Avatar.stories";
@@ -36,6 +38,51 @@ type StoryEntry = {
   description?: React.ReactNode;
   Stories: () => React.ReactNode;
 };
+
+function ModalStackingStories() {
+  const [openModalIds, setOpenModalIds] = useState<number[]>([]);
+  const nextModalIdRef = React.useRef(1);
+
+  const openModal = React.useCallback(() => {
+    const newModalId = nextModalIdRef.current;
+    setOpenModalIds((modals) => [...modals, newModalId]);
+    nextModalIdRef.current += 1;
+  }, []);
+
+  const closeModal = React.useCallback((modalId: number) => {
+    setOpenModalIds((current) => current.filter((id) => id !== modalId));
+  }, []);
+
+  return (
+    <Flex direction="column" gap="3">
+      <Button onClick={openModal}>Show Modal</Button>
+      <Text color="text-mid" size="small">
+        Open multiple levels and dismiss with Escape, backdrop click, or close
+        button.
+      </Text>
+
+      {openModalIds.map((modalId) => {
+        const handleClose = () => closeModal(modalId);
+        return (
+          <Modal
+            key={modalId}
+            open={true}
+            close={handleClose}
+            closeOnEscape={true}
+            closeOnBackdropClick={true}
+            header={`Modal ${modalId}`}
+            trackingEventModalType=""
+          >
+            <Flex direction="column" gap="3">
+              <Text>Modal number {modalId}</Text>
+              <Button onClick={openModal}>Show Modal</Button>
+            </Flex>
+          </Modal>
+        );
+      })}
+    </Flex>
+  );
+}
 
 export default function DesignSystemPage() {
   const components = [
@@ -71,6 +118,16 @@ export default function DesignSystemPage() {
     { name: "HelperText", Stories: HelperTextStories },
     { name: "Link", Stories: LinkStories },
     { name: "Metadata", Stories: MetadataStories },
+    {
+      name: "Modal Stacking",
+      description: (
+        <>
+          Reproducer for nested modal/backdrop stacking and dismiss behavior.
+          Each opened modal gets an incrementing number.
+        </>
+      ),
+      Stories: ModalStackingStories,
+    },
     { name: "Popover", Stories: PopoverStories },
     { name: "PremiumCallout", Stories: PremiumCalloutStories },
     { name: "ProgressBar", Stories: ProgressBarStories },
