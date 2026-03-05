@@ -2111,6 +2111,10 @@ export async function postExperimentStatus(
         namespace: clonedPhase.namespace,
         reason: "",
         variationWeights: clonedPhase.variationWeights,
+        variations: experiment.variations.map((v) => ({
+          id: v.id,
+          status: "active" as const,
+        })),
         seed: uuidv4(),
       });
 
@@ -2571,6 +2575,10 @@ export async function postExperimentTargeting(
       namespace,
       reason: "",
       variationWeights,
+      variations: experiment.variations.map((v) => ({
+        id: v.id,
+        status: "active" as const,
+      })),
       seed: phases.length && reseed ? uuidv4() : seed,
     });
   }
@@ -2708,6 +2716,10 @@ export async function postExperimentPhase(
     dateStarted: date,
     dateEnded: undefined,
     reason: "",
+    variations: experiment.variations.map((v) => ({
+      id: v.id,
+      status: "active" as const,
+    })),
   });
 
   // TODO: validation

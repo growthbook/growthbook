@@ -31,7 +31,9 @@ import {
   ExperimentInterfaceStringDates,
   LookbackOverride,
   MetricOverride,
+  PhaseVariation,
   Variation,
+  VariationStatus,
 } from "shared/types/experiment";
 import {
   ExperimentReportResultDimension,
@@ -1931,17 +1933,30 @@ export function getEffectiveLookbackOverride(
   return undefined;
 }
 
+export type VariationWithStatus = Variation & { status: VariationStatus };
+
 type ExperimentWithVariations = {
   variations: Variation[];
+  phases: { variations?: PhaseVariation[] }[];
 };
 
 /**
- * Returns the variations for the current/latest phase of an experiment.
- * Today this just returns experiment.variations directly. In the future,
- * this will merge phase-level variation status with top-level metadata.
+ * Returns all top-level variations enriched with the status from the latest
+ * phase's variation list. Preserves original indices so they stay aligned
+ * with variationWeights. Variations missing from the phase (or when the
+ * phase has no variations field) default to "active".
  */
 export function getLatestPhaseVariations(
   experiment: ExperimentWithVariations,
-): Variation[] {
-  return experiment.variations;
+): VariationWithStatus[] {
+  const lastPhase = experiment.phases[experiment.phases.length - 1];
+  const phaseVariations = lastPhase?.variations;
+
+  return experiment.variations.map((v) => {
+    const phaseVar = phaseVariations?.find((pv) => pv.id === v.id);
+    return {
+      ...v,
+      status: (phaseVar?.status ?? "active") as VariationStatus,
+    };
+  });
 }

@@ -83,42 +83,51 @@ export const findOrCreateGeneratedHypothesis = async (
     | "trackingKey"
     | "variations"
     | "phases"
-  > = {
-    name: slug,
-    owner: userId,
-    description: oneLineSummary,
-    hypothesis,
-    hashAttribute: "id",
-    status: "draft",
-    trackingKey: slug,
-    variations: [
-      {
-        name: "Control",
-        description: control,
-        key: "0",
-        screenshots: [],
-        id: uniqid("var_"),
-      },
-      {
-        name: `Variation 1`,
-        description: variant,
-        key: "1",
-        screenshots: [],
-        id: uniqid("var_"),
-      },
-    ],
-    phases: [
-      {
-        coverage: 1,
-        dateStarted: new Date(),
-        name: "Main",
-        reason: "",
-        variationWeights: [0.5, 0.5],
-        condition: "",
-        namespace: { enabled: false, name: "", range: [0, 1] },
-      },
-    ],
-  };
+  > = (() => {
+    const controlId = uniqid("var_");
+    const treatmentId = uniqid("var_");
+    const phaseVars = [
+      { id: controlId, status: "active" as const },
+      { id: treatmentId, status: "active" as const },
+    ];
+    return {
+      name: slug,
+      owner: userId,
+      description: oneLineSummary,
+      hypothesis,
+      hashAttribute: "id",
+      status: "draft" as const,
+      trackingKey: slug,
+      variations: [
+        {
+          name: "Control",
+          description: control,
+          key: "0",
+          screenshots: [] as { path: string }[],
+          id: controlId,
+        },
+        {
+          name: `Variation 1`,
+          description: variant,
+          key: "1",
+          screenshots: [] as { path: string }[],
+          id: treatmentId,
+        },
+      ],
+      phases: [
+        {
+          coverage: 1,
+          dateStarted: new Date(),
+          name: "Main",
+          reason: "",
+          variationWeights: [0.5, 0.5],
+          variations: phaseVars,
+          condition: "",
+          namespace: { enabled: false, name: "", range: [0, 1] },
+        },
+      ],
+    };
+  })();
 
   const createdExperiment = await createExperiment({
     data: experimentToCreate,
