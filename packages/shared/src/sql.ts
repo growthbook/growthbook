@@ -8,11 +8,11 @@ import { SqlResultChunkInterface } from "../types/query";
 import { FormatDialect } from "../types/sql";
 import { FormatError } from "../types/error";
 
-export type FormatMetricsEvent =
-  | { engine: "polyglot"; success: true; timeMs: number }
-  | { engine: "polyglot"; success: false; timeMs: number }
-  | { engine: "sqlformat"; success: true; timeMs: number }
-  | { engine: "sqlformat"; success: false; timeMs: number };
+export type FormatMetricsEvent = {
+  engine: "polyglot" | "sqlformat";
+  success: boolean;
+  timeMs: number;
+};
 
 let formatMetricsReporter: ((event: FormatMetricsEvent) => void) | null = null;
 
