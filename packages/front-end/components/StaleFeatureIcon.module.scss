@@ -11,10 +11,6 @@
   &.freshDot {
     background: var(--green-9);
   }
-  // Mixed badge uses gray background but green dot
-  &.mixedDot {
-    background: var(--green-9);
-  }
   &.permanentDot {
     background: var(--gray-6);
   }
@@ -39,8 +35,7 @@
     background-color: var(--yellow-7) !important;
   }
 }
-.freshBadge,
-.mixedBadge {
+.freshBadge {
   cursor: pointer;
   &:hover {
     background-color: var(--green-6) !important;

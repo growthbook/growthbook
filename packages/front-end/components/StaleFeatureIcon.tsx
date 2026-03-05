@@ -148,7 +148,58 @@ export default function StaleFeatureIcon({
     );
   }
 
-  if (!staleData) return null;
+  if (!staleData) {
+    const loadingContent = (
+      <Box>
+        <LoadingSpinner />
+      </Box>
+    );
+    if (context === "list") {
+      return (
+        <Popover
+          open={open}
+          onOpenChange={setOpen}
+          side="bottom"
+          align="start"
+          showArrow={true}
+          contentStyle={{ maxWidth: 600, textAlign: "left" }}
+          trigger={
+            <span
+              className={styles.listTrigger}
+              style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+            >
+              <span className={`${styles.dot} ${styles.freshDot}`} />—
+            </span>
+          }
+          content={loadingContent}
+        />
+      );
+    }
+    return (
+      <>
+        <Badge
+          color="gray"
+          variant="soft"
+          radius="full"
+          size="2"
+          className={styles.permanentBadge}
+          onClick={() => setOpen(true)}
+        >
+          —
+        </Badge>
+        <Modal
+          open={open}
+          close={() => setOpen(false)}
+          header="Stale Status"
+          trackingEventModalType="stale-feature-status"
+          closeCta="Close"
+          useRadixButton={true}
+        >
+          {loadingContent}
+        </Modal>
+      </>
+    );
+  }
 
   const isStale = staleData.stale;
   const staleReason: StaleFeatureReason | undefined = staleData.reason;
@@ -369,7 +420,7 @@ export default function StaleFeatureIcon({
             style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
           >
             <span
-              className={`${styles.dot} ${isStale ? styles.staleDot : mixed ? styles.mixedDot : styles.freshDot}`}
+              className={`${styles.dot} ${isStale ? styles.staleDot : styles.freshDot}`}
             />
             {isStale ? "Stale" : mixed ? "Not Stale*" : "Not stale"}
           </span>
