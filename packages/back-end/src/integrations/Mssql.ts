@@ -1,3 +1,4 @@
+import { Dialect } from "shared/sql";
 import { DateTruncGranularity, FormatDialect } from "shared/types/sql";
 import { QueryResponse } from "shared/types/integrations";
 import { MssqlConnectionParams } from "shared/types/integrations/mssql";
@@ -13,7 +14,7 @@ export default class Mssql extends SqlIntegration {
       decryptDataSourceParams<MssqlConnectionParams>(encryptedParams);
   }
   getFormatDialect(): FormatDialect {
-    return "tsql";
+    return Dialect.TSQL;
   }
   getSensitiveParamKeys(): string[] {
     return ["password"];
