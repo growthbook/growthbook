@@ -3084,7 +3084,7 @@ html {
 
 .presentation-transition-fade {
   .presentation-slide-content {
-    animation: presentation-fade-in 0.3s ease;
+    animation: presentation-fade-in 0.6s ease;
   }
 }
 @keyframes presentation-fade-in {
@@ -3098,18 +3098,18 @@ html {
 
 .presentation-transition-slide-next {
   .presentation-slide-content {
-    animation: presentation-slide-in-from-right 0.35s ease;
+    animation: presentation-slide-in-from-right 0.6s ease;
   }
 }
 .presentation-transition-slide-prev {
   .presentation-slide-content {
-    animation: presentation-slide-in-from-left 0.35s ease;
+    animation: presentation-slide-in-from-left 0.6s ease;
   }
 }
 @keyframes presentation-slide-in-from-right {
   from {
     opacity: 0;
-    transform: translateX(24px);
+    transform: translateX(80px);
   }
   to {
     opacity: 1;
@@ -3119,7 +3119,7 @@ html {
 @keyframes presentation-slide-in-from-left {
   from {
     opacity: 0;
-    transform: translateX(-24px);
+    transform: translateX(-80px);
   }
   to {
     opacity: 1;

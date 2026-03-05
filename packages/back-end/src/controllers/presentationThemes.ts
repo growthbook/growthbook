@@ -1,18 +1,12 @@
 import { Response } from "express";
 import { PresentationThemeInterface } from "shared/types/presentation";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
-import {
-  getPresentationThemesByOrganization,
-  getPresentationThemeById,
-  createPresentationTheme,
-  updatePresentationTheme,
-  deletePresentationThemeById,
-} from "back-end/src/services/presentationThemes";
 import { getContextFromReq } from "back-end/src/services/organizations";
 
 export async function getPresentationThemes(req: AuthRequest, res: Response) {
-  const { org } = getContextFromReq(req);
-  const themes = await getPresentationThemesByOrganization(org.id);
+  const context = getContextFromReq(req);
+  const themes =
+    await context.models.presentationThemes.getAllSortedByUpdated();
 
   res.status(200).json({
     status: 200,
@@ -26,16 +20,22 @@ export async function postPresentationTheme(
 ) {
   const data = req.body;
   const context = getContextFromReq(req);
-  const { org } = context;
 
   if (!context.permissions.canCreatePresentation()) {
     context.permissions.throwPermissionError();
   }
 
-  data.organization = org.id;
-  data.userId = req.userId;
-
-  const theme = await createPresentationTheme(data);
+  const defaultCustomTheme = {
+    backgroundColor: "#3400a3",
+    textColor: "#ffffff",
+    headingFont: '"Helvetica Neue", Helvetica, Arial, sans-serif',
+    bodyFont: '"Helvetica Neue", Helvetica, Arial, sans-serif',
+  };
+  const theme = await context.models.presentationThemes.create({
+    userId: req.userId ?? "",
+    name: data.name ?? "",
+    customTheme: data.customTheme ?? defaultCustomTheme,
+  });
 
   res.status(200).json({
     status: 200,
@@ -56,7 +56,7 @@ export async function putPresentationTheme(
     context.permissions.throwPermissionError();
   }
 
-  const theme = await getPresentationThemeById(id);
+  const theme = await context.models.presentationThemes.getById(id);
 
   if (!theme) {
     return res.status(404).json({
@@ -72,7 +72,13 @@ export async function putPresentationTheme(
     });
   }
 
-  const updated = await updatePresentationTheme(id, data);
+  const updates: Partial<PresentationThemeInterface> = {};
+  if (data.name !== undefined) updates.name = data.name;
+  if (data.customTheme !== undefined) updates.customTheme = data.customTheme;
+  const updated = await context.models.presentationThemes.updateById(
+    id,
+    updates,
+  );
 
   res.status(200).json({
     status: 200,
@@ -92,7 +98,7 @@ export async function deletePresentationTheme(
     context.permissions.throwPermissionError();
   }
 
-  const theme = await getPresentationThemeById(id);
+  const theme = await context.models.presentationThemes.getById(id);
 
   if (!theme) {
     return res.status(404).json({
@@ -108,7 +114,7 @@ export async function deletePresentationTheme(
     });
   }
 
-  await deletePresentationThemeById(id);
+  await context.models.presentationThemes.deleteById(id);
 
   res.status(200).json({
     status: 200,

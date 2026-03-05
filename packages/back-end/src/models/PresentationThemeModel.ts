@@ -1,29 +1,45 @@
-import mongoose from "mongoose";
 import { PresentationThemeInterface } from "shared/types/presentation";
+import { presentationThemeValidator } from "shared/validators";
+import { MakeModelClass } from "./BaseModel";
 
-const presentationThemeSchema = new mongoose.Schema({
-  id: String,
-  organization: String,
-  userId: String,
-  name: String,
-  customTheme: {
-    backgroundColor: String,
-    textColor: String,
-    headingFont: String,
-    bodyFont: String,
-    logoUrl: String,
-    transition: String,
-    celebration: String,
+const BaseClass = MakeModelClass({
+  schema: presentationThemeValidator,
+  collectionName: "presentationthemes",
+  idPrefix: "pt_",
+  globallyUniqueIds: false,
+  additionalIndexes: [{ fields: { organization: 1, dateUpdated: -1 } }],
+  defaultValues: {
+    customTheme: {
+      backgroundColor: "#3400a3",
+      textColor: "#ffffff",
+      headingFont: '"Helvetica Neue", Helvetica, Arial, sans-serif',
+      bodyFont: '"Helvetica Neue", Helvetica, Arial, sans-serif',
+    },
   },
-  dateCreated: Date,
-  dateUpdated: Date,
 });
 
-export type PresentationThemeDocument = mongoose.Document &
-  PresentationThemeInterface;
+export class PresentationThemeModel extends BaseClass {
+  protected hasPremiumFeature(): boolean {
+    return this.context.hasPremiumFeature("adv-presentations");
+  }
 
-export const PresentationThemeModel =
-  mongoose.model<PresentationThemeInterface>(
-    "PresentationTheme",
-    presentationThemeSchema,
-  );
+  protected canRead(doc: PresentationThemeInterface): boolean {
+    return doc.organization === this.context.org.id;
+  }
+
+  protected canCreate(): boolean {
+    return this.context.permissions.canCreatePresentation();
+  }
+
+  protected canUpdate(): boolean {
+    return this.context.permissions.canUpdatePresentation();
+  }
+
+  protected canDelete(): boolean {
+    return this.context.permissions.canDeletePresentation();
+  }
+
+  async getAllSortedByUpdated(): Promise<PresentationThemeInterface[]> {
+    return this._find({}, { sort: { dateUpdated: -1 } });
+  }
+}
