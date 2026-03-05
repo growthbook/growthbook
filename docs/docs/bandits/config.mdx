@@ -28,7 +28,7 @@ Select the number of variations you want to set up. The Bandit works well in cas
 
 [Sticky Bucketing](/app/sticky-bucketing) ensures that users are consistently assigned to the same variation even if they return to the experiment later and the variation weights have changed. Variation weights change frequently in a Bandit, so Sticky Bucketing is important to ensure consistent user experiences.
 
-If you have Sticky Bucketing enabled, we generally advise using it in your Bandit.
+If you have Sticky Bucketing set up, we generally advise using it in your Bandit.
 Sticky bucketing helps keep user experiences fixed over time.
 For example, if your bandit arms represent different promotional values, it may be a bad user experience if a user returns to your website and sees a different promotional value.
 Sticky bucketing also permits you to learn from longer term outcomes, though bandits are generally not designed for this purpose. Finally, if sticky bucketing is disabled, the bandit uses only a user's first exposure and the metrics from that first exposure window.
@@ -44,7 +44,11 @@ Follow the instructions in the [Sticky Bucketing](/app/sticky-bucketing) guide t
   ![Configuring Bandit Decision Metric and Exploration Window](/images/bandits/bandit-config-2.png)
 </MaxWidthImage>
 
-### 4. Selecting a Decision Metric
+### 4. Set the exploration window and update cadence
+
+The Bandit needs to know how long it should collect data for before beginning to update variation weights. This is called the **Exploration Window**. After the Exploration Window, the bandit will begin to update variation weights at a set **Update Cadence**.
+
+### 5. Selecting a Decision Metric
 
 The Decision Metric is the metric that the Bandit will optimize towards. After each **reweighting** update, the Bandit will assign more traffic to the variations that are performing better with respect to the Decision Metric. It should be a metric that you care about improving and that you can measure quickly after the user is exposed to the experiment.
 
@@ -53,15 +57,11 @@ An ideal decision metric has the following properties:
 - It has a **short conversion window** and can be observed in a relatively short time frame. Short conversion windows allow the bandit to update with accurate information; a metric that takes longer to be observed will slow down Bandit learning. If sticky bucketing is disabled, it is important to use a short conversion window to avoid
 - If it is a proportion metric, the conversion rate should not be super low or super high. These extreme conversion rates can result in Bandits that are very slow to converge as a lot of data is needed to adequately separate the Bandit variations.
 
-### 5. Specify the conversion window length
+### 6. Specify the conversion window length
 
 Ideally your users convert in a window much shorter than your bandit's update cadence. This will help the bandit learn quickly and allocate future traffic to the best performing variations.
 
 If sticky bucketing is not enabled and your metrics are at the user level, this is extra important. If a user has multiple sessions, long conversion windows can result in double counting metric outcomes. If the user has multiple sessions across different bandit periods, then long conversion windows can attribute metric outcomes to the wrong variation.
-
-### 6. Set the exploration window and update cadence
-
-The Bandit needs to know how long it should collect data for before beginning to update variation weights. This is called the **Exploration Window**. After the Exploration Window, the bandit will begin to update variation weights at a set **Update Cadence**.
 
 #### Exploration Window
 
