@@ -8,7 +8,7 @@ import omit from "lodash/omit";
 import { z } from "zod";
 import { isEqual, pick } from "lodash";
 import { evalCondition } from "@growthbook/growthbook";
-import { baseSchema } from "shared/validators";
+import { BaseSchemaWithPrimaryKey } from "shared/validators";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { EntityType, EventType } from "shared/types/audit";
 import { ApiReqContext } from "back-end/types/api";
@@ -29,45 +29,66 @@ import { dbSafeBulkWrite } from "back-end/src/util/mongo.util";
 
 export type Context = ApiReqContext | ReqContext;
 
-export type BaseSchema = typeof baseSchema;
+type PKeyType<
+  T extends BaseSchemaWithPrimaryKey<PKey>,
+  PKey extends z.ZodRawShape,
+> = readonly [keyof z.infer<T>, ...(keyof z.infer<T>)[]];
+const DEFAULT_PKEY = ["id"] as const;
 
-export type ScopedFilterQuery<T extends BaseSchema> = FilterQuery<
-  Omit<z.infer<T>, "organization">
->;
+export type ScopedFilterQuery<
+  T extends BaseSchemaWithPrimaryKey<PKey>,
+  PKey extends z.ZodRawShape,
+> = FilterQuery<Omit<z.infer<T>, "organization">>;
 
-export type CreateZodObject<T extends BaseSchema> = z.ZodType<
-  CreateProps<z.infer<T>>
->;
+export type CreateZodObject<
+  T extends BaseSchemaWithPrimaryKey<PKey>,
+  PKey extends z.ZodRawShape,
+> = z.ZodType<CreateProps<z.infer<T>>>;
 
-export const createSchema = <T extends BaseSchema>(schema: T) =>
-  schema
-    .omit({
-      organization: true,
-      dateCreated: true,
-      dateUpdated: true,
-    })
-    .extend({ id: z.string().optional(), uid: z.string().optional() })
-    .strict() as unknown as CreateZodObject<T>;
-
-export type UpdateZodObject<T extends BaseSchema> = z.ZodType<
-  UpdateProps<z.infer<T>>
->;
-
-type Identifiers = {
-  id: string;
-  uid?: string;
+export const createSchema = <
+  T extends BaseSchemaWithPrimaryKey<PKey>,
+  PKey extends z.ZodRawShape,
+>(
+  schema: T,
+) => {
+  const omitShape: Record<string, true> = {
+    organization: true,
+    dateCreated: true,
+    dateUpdated: true,
+  };
+  if ("id" in schema.shape) omitShape.id = true;
+  if ("uid" in schema.shape) omitShape.uid = true;
+  let output = schema.omit(omitShape) as z.ZodObject<z.ZodRawShape>;
+  if ("id" in schema.shape)
+    output = output.extend({ id: z.string().optional() });
+  if ("uid" in schema.shape)
+    output = output.extend({ uid: z.string().optional() });
+  return output.strict() as unknown as CreateZodObject<T, PKey>;
 };
 
-const updateSchema = <T extends BaseSchema>(schema: T) =>
-  schema
-    .omit({
-      id: true,
-      organization: true,
-      dateCreated: true,
-      dateUpdated: true,
-    })
+export type UpdateZodObject<
+  T extends BaseSchemaWithPrimaryKey<PKey>,
+  PKey extends z.ZodRawShape,
+> = z.ZodType<UpdateProps<z.infer<T>>>;
+
+const updateSchema = <
+  T extends BaseSchemaWithPrimaryKey<PKey>,
+  PKey extends z.ZodRawShape,
+>(
+  schema: T,
+) => {
+  const omitShape: Record<string, true> = {
+    organization: true,
+    dateCreated: true,
+    dateUpdated: true,
+  };
+  if ("id" in schema.shape) omitShape.id = true;
+  if ("uid" in schema.shape) omitShape.uid = true;
+  return schema
+    .omit(omitShape)
     .partial()
-    .strict() as unknown as UpdateZodObject<T>;
+    .strict() as unknown as UpdateZodObject<T, PKey>;
+};
 
 // DeepPartial makes all properties (including nested) optional
 type DeepPartial<T> = T extends object
@@ -92,15 +113,21 @@ export type IndexableFieldPath<T> = T extends object
   : never;
 
 export interface ModelConfig<
-  T extends BaseSchema,
+  T extends BaseSchemaWithPrimaryKey<PKey>,
   Entity extends EntityType,
   ApiT extends ApiBaseSchema,
+  PKey extends z.ZodRawShape,
 > {
   schema: T;
   collectionName: string;
+  /**
+   * Primary key field names. Omit for default ["id"]. Use e.g. ["userId", "organization"]
+   * for composite keys. Used for queries, updates, deletes, and index creation.
+   */
+  pKey?: PKeyType<T, PKey>;
   idPrefix?: string;
   auditLog?: AuditLogConfig<Entity>;
-  globallyUniqueIds?: boolean;
+  globallyUniquePrimaryKeys?: boolean;
   skipDateUpdatedFields?: (keyof z.infer<T>)[];
   readonlyFields?: (keyof z.infer<T>)[];
   additionalIndexes?: {
@@ -109,7 +136,7 @@ export interface ModelConfig<
   }[];
   // NB: Names of indexes to remove
   indexesToRemove?: string[];
-  baseQuery?: ScopedFilterQuery<T>;
+  baseQuery?: ScopedFilterQuery<T, PKey>;
   apiConfig?: ApiModelConfig<ApiT>;
   defaultValues?: DeepPartial<CreateProps<z.infer<T>>>;
 }
@@ -134,17 +161,18 @@ export async function waitForIndexes(): Promise<void> {
 // Generic model class has everything but the actual data fetch implementation.
 // See BaseModel below for the class with explicit mongodb implementation.
 export abstract class BaseModel<
-  T extends BaseSchema,
+  T extends BaseSchemaWithPrimaryKey<PKey>,
   E extends EntityType,
   ApiT extends ApiBaseSchema,
+  PKey extends z.ZodRawShape,
   WriteOptions = never,
 > {
   public validator: T;
-  public createValidator: CreateZodObject<T>;
-  public updateValidator: UpdateZodObject<T>;
+  public createValidator: CreateZodObject<T, PKey>;
+  public updateValidator: UpdateZodObject<T, PKey>;
 
   protected context: Context;
-  protected config: ModelConfig<T, E, ApiT>;
+  protected config: ModelConfig<T, E, ApiT, PKey>;
   private _auditLogger: ReturnType<typeof createModelAuditLogger> | null;
 
   public constructor(context: Context) {
@@ -154,9 +182,29 @@ export abstract class BaseModel<
     this.createValidator = this.getCreateValidator();
     this.updateValidator = this.getUpdateValidator();
     this._auditLogger = this.config.auditLog
-      ? createModelAuditLogger(this.config.auditLog)
+      ? createModelAuditLogger(
+          this.config.auditLog,
+          this.getEntityId.bind(this),
+        )
       : null;
     this.updateIndexes();
+  }
+
+  protected getPKey(): PKeyType<T, PKey> {
+    return (this.config.pKey ?? DEFAULT_PKEY) as PKeyType<T, PKey>;
+  }
+
+  protected getPrimaryKeyFilter(doc: z.infer<T>) {
+    const keys = this.getPKey();
+    return pick(doc, keys);
+  }
+
+  // String id for audit log entity (single key: value; composite: JSON)
+  protected getEntityId(doc: z.infer<T>): string {
+    const filter = this.getPrimaryKeyFilter(doc);
+    const values = Object.values(filter);
+    if (values.length === 1) return String(values[0]);
+    return JSON.stringify(filter);
   }
 
   /***************
@@ -350,9 +398,9 @@ export abstract class BaseModel<
   /***************
    * These methods are implemented by the MakeModelClass helper function
    ***************/
-  protected abstract getConfig(): ModelConfig<T, E, ApiT>;
-  protected abstract getCreateValidator(): CreateZodObject<T>;
-  protected abstract getUpdateValidator(): UpdateZodObject<T>;
+  protected abstract getConfig(): ModelConfig<T, E, ApiT, PKey>;
+  protected abstract getCreateValidator(): CreateZodObject<T, PKey>;
+  protected abstract getUpdateValidator(): UpdateZodObject<T, PKey>;
   public static getModelConfig() {
     throw new Error("Method not implemented! Use derived class");
   }
@@ -506,7 +554,7 @@ export abstract class BaseModel<
   }
 
   protected async _find(
-    query: ScopedFilterQuery<T> = {},
+    query: ScopedFilterQuery<T, PKey> = {},
     {
       sort,
       limit,
@@ -576,7 +624,7 @@ export abstract class BaseModel<
     return filtered.slice(skip || 0, limit ? (skip || 0) + limit : undefined);
   }
 
-  protected async _findOne(query: ScopedFilterQuery<T>) {
+  protected async _findOne(query: ScopedFilterQuery<T, PKey>) {
     const fullQuery = this.applyBaseQuery(query);
     const doc = this.useConfigFile()
       ? this.getConfigDocuments().find((doc) => evalCondition(doc, fullQuery))
@@ -627,15 +675,16 @@ export abstract class BaseModel<
       props.createdBy = this.context.userName || "";
     }
 
-    const ids: Identifiers = {
-      id: this._generateId(),
-    };
+    const generatedIds: Record<string, string> = {};
+    if ("id" in this.config.schema.shape) {
+      generatedIds.id = this._generateId();
+    }
     if ("uid" in this.config.schema.shape) {
-      ids.uid = this._generateUid();
+      generatedIds.uid = this._generateUid();
     }
 
     const doc = {
-      ...ids,
+      ...generatedIds,
       ...props,
       organization: this.context.org.id,
       dateCreated: new Date(),
@@ -699,7 +748,7 @@ export abstract class BaseModel<
 
     // Make sure the updates don't include any fields that shouldn't be updated
     if (
-      ["id", "organization", "dateCreated", "dateUpdated"].some(
+      ["id", "uid", "organization", "dateCreated", "dateUpdated"].some(
         (k) => k in updates,
       )
     ) {
@@ -749,8 +798,8 @@ export abstract class BaseModel<
 
     await this._dangerousGetCollection().updateOne(
       {
+        ...this.getPrimaryKeyFilter(doc),
         organization: this.context.org.id,
-        id: doc.id || "",
       },
       {
         $set: allUpdates,
@@ -778,12 +827,12 @@ export abstract class BaseModel<
   }
 
   protected async _dangerousCountDocumentsCrossOrganization(
-    filter: ScopedFilterQuery<T>,
+    filter: ScopedFilterQuery<T, PKey>,
   ) {
     return this._dangerousGetCollection().countDocuments(filter);
   }
 
-  protected async _countDocuments(filter: ScopedFilterQuery<T>) {
+  protected async _countDocuments(filter: ScopedFilterQuery<T, PKey>) {
     const query = this.applyBaseQuery(filter);
     return this._dangerousGetCollection().countDocuments(query);
   }
@@ -835,8 +884,8 @@ export abstract class BaseModel<
     }
     await this.beforeDelete(doc, writeOptions);
     await this._dangerousGetCollection().deleteOne({
+      ...this.getPrimaryKeyFilter(doc),
       organization: this.context.org.id,
-      id: doc.id,
     });
 
     if (this._auditLogger) {
@@ -925,27 +974,34 @@ export abstract class BaseModel<
 
     const promises = [];
 
-    // Always create a unique index for organization and id
+    const pKey = this.getPKey();
+    const pKeyIndex = pKey.reduce(
+      (acc, k) => ({ ...acc, [k]: 1 }),
+      {} as Record<string, 1>,
+    );
+    const orgPKeyIndex = { ...pKeyIndex, organization: 1 };
+
+    // Always create a unique index for organization and primary key
     promises.push(
       this._dangerousGetCollection()
-        .createIndex({ id: 1, organization: 1 }, { unique: true })
+        .createIndex(orgPKeyIndex, { unique: true })
         .catch((err) => {
           logger.error(
             err,
-            `Error creating org/id unique index for ${this.config.collectionName}`,
+            `Error creating org/pKey unique index for ${this.config.collectionName}`,
           );
         }),
     );
 
-    // If id is globally unique, create an index for that
-    if (this.config.globallyUniqueIds) {
+    // If primary key is globally unique, create an index for that
+    if (this.config.globallyUniquePrimaryKeys) {
       promises.push(
         this._dangerousGetCollection()
-          .createIndex({ id: 1 }, { unique: true })
+          .createIndex(pKeyIndex, { unique: true })
           .catch((err) => {
             logger.error(
               err,
-              `Error creating id unique index for ${this.config.collectionName}`,
+              `Error creating unique pKey index for ${this.config.collectionName}`,
             );
           }),
       );
@@ -1038,7 +1094,7 @@ export abstract class BaseModel<
     }
   }
 
-  private getBaseQuery(): ScopedFilterQuery<T> {
+  private getBaseQuery(): ScopedFilterQuery<T, PKey> {
     return this.config.baseQuery ?? {};
   }
 
@@ -1063,25 +1119,27 @@ export abstract class BaseModel<
 }
 
 export const MakeModelClass = <
-  T extends BaseSchema,
+  T extends BaseSchemaWithPrimaryKey<PKey>,
   E extends EntityType,
   ApiT extends ApiBaseSchema,
+  PKey extends z.ZodRawShape,
 >(
-  config: ModelConfig<T, E, ApiT>,
+  config: ModelConfig<T, E, ApiT, PKey>,
 ) => {
-  const createValidator = createSchema(config.schema);
-  const updateValidator = updateSchema(config.schema);
+  const createValidator = createSchema<T, PKey>(config.schema);
+  const updateValidator = updateSchema<T, PKey>(config.schema);
 
   abstract class Model<WriteOptions = never> extends BaseModel<
     T,
     E,
     ApiT,
+    PKey,
     WriteOptions
   > {
     getConfig() {
       return config;
     }
-    static getModelConfig(): ModelConfig<T, E, ApiT> {
+    static getModelConfig(): ModelConfig<T, E, ApiT, PKey> {
       return config;
     }
     getCreateValidator() {
