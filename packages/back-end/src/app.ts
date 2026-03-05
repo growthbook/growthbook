@@ -10,6 +10,7 @@ import * as Sentry from "@sentry/node";
 import { stringToBoolean } from "shared/util";
 import { populationDataRouter } from "back-end/src/routers/population-data/population-data.router";
 import decisionCriteriaRouter from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.router";
+import { approvalFlowRouter } from "back-end/src/enterprise/routers/approval-flow/approval-flow.router";
 import { usingFileConfig } from "./init/config";
 import { AuthRequest } from "./types/AuthRequest";
 import {
@@ -60,6 +61,10 @@ const ideasController = wrapController(ideasControllerRaw);
 
 import * as presentationControllerRaw from "./controllers/presentations";
 const presentationController = wrapController(presentationControllerRaw);
+import * as presentationThemesControllerRaw from "./controllers/presentationThemes";
+const presentationThemesController = wrapController(
+  presentationThemesControllerRaw,
+);
 
 import * as discussionsControllerRaw from "./controllers/discussions";
 const discussionsController = wrapController(discussionsControllerRaw);
@@ -126,7 +131,6 @@ import { dashboardsRouter } from "./routers/dashboards/dashboards.router";
 import { customHooksRouter } from "./routers/custom-hooks/custom-hooks.router";
 import { importingRouter } from "./routers/importing/importing.router";
 import { productAnalyticsRouter } from "./routers/product-analytics/product-analytics.router";
-import { approvalFlowRouter } from "back-end/src/enterprise/routers/approval-flow/approval-flow.router";
 
 const app = express();
 
@@ -822,7 +826,11 @@ app.post(
   "/features/batch-prerequisite-states",
   featuresController.postBatchPrerequisiteStates,
 );
-app.get("/features/names", featuresController.getFeatureNames);
+app.get("/features/meta-info", featuresController.getFeatureMetaInfo);
+app.get("/features/status", featuresController.getFeaturesStatus);
+app.get("/features/draft-states", featuresController.getFeatureDraftStates);
+app.get("/features/stale", featuresController.getFeaturesStaleStates);
+app.get("/features/dependents", featuresController.getFeaturesDependents);
 app.post(
   "/feature/:id/:version/reorder",
   featuresController.postFeatureMoveRule,
@@ -930,6 +938,24 @@ app.get("/presentation/preview", presentationController.getPresentationPreview);
 app.get("/presentation/:id", presentationController.getPresentation);
 app.post("/presentation/:id", presentationController.updatePresentation);
 app.delete("/presentation/:id", presentationController.deletePresentation);
+
+// Presentation themes (saved themes for presentations)
+app.get(
+  "/presentation-themes",
+  presentationThemesController.getPresentationThemes,
+);
+app.post(
+  "/presentation-theme",
+  presentationThemesController.postPresentationTheme,
+);
+app.put(
+  "/presentation-theme/:id",
+  presentationThemesController.putPresentationTheme,
+);
+app.delete(
+  "/presentation-theme/:id",
+  presentationThemesController.deletePresentationTheme,
+);
 
 // Discussions
 app.get(

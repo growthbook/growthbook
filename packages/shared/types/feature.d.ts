@@ -90,7 +90,24 @@ export type AttributeMap = Map<string, string>;
 
 export type FeatureMetaInfo = Pick<
   FeatureInterface,
-  "id" | "project" | "archived" | "dateCreated" | "tags" | "owner" | "valueType"
+  | "id"
+  | "project"
+  | "archived"
+  | "description"
+  | "dateCreated"
+  | "dateUpdated"
+  | "tags"
+  | "owner"
+  | "valueType"
+  | "version"
+  | "linkedExperiments"
+  | "neverStale"
 > & {
   defaultValue?: string;
+  revision?: {
+    version: number;
+    comment: string;
+    date: Date;
+    publishedBy: UserRef;
+  };
 };

@@ -150,7 +150,7 @@ export default function RevisionDropdown({
         >
           {loading && <LoadingOverlay />}
           {revisionLoading && <LoadingSpinner />}
-          <Heading as="h3" size="small" mb="0">
+          <Heading as="h3" size="small" mb="0" whiteSpace="nowrap">
             Revision {version}
           </Heading>
           <Box flexGrow="1" />

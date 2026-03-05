@@ -684,11 +684,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Search/SearchFilters.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Settings/DataSourceTypeSelector.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -932,11 +927,6 @@
   "packages/front-end/pages/metric-effects.tsx": {
     "no-restricted-imports": {
       "count": 2
-    }
-  },
-  "packages/front-end/pages/presentations.tsx": {
-    "no-restricted-imports": {
-      "count": 1
     }
   },
   "packages/front-end/pages/product-analytics/dashboards/index.tsx": {

@@ -68,6 +68,7 @@ import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
 import { TeamModel } from "back-end/src/models/TeamModel";
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
 import { ApprovalFlowModel } from "back-end/src/enterprise/models/ApprovalFlowModel";
+import { PresentationThemeModel } from "back-end/src/models/PresentationThemeModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
@@ -107,6 +108,7 @@ export type ModelName =
   | "savedGroups"
   | "teams"
   | "analyticsExplorations"
+  | "presentationThemes"
   | "approvalFlows";
 
 export const modelClasses = {
@@ -140,6 +142,7 @@ export const modelClasses = {
   teams: TeamModel,
   analyticsExplorations: AnalyticsExplorationModel,
   approvalFlows: ApprovalFlowModel,
+  presentationThemes: PresentationThemeModel,
 };
 export type ModelClass = (typeof modelClasses)[ModelName];
 type ModelInstances = {
@@ -181,6 +184,7 @@ export class ReqContextClass {
       teams: new TeamModel(this),
       analyticsExplorations: new AnalyticsExplorationModel(this),
       approvalFlows: new ApprovalFlowModel(this),
+      presentationThemes: new PresentationThemeModel(this),
     };
   }
 
