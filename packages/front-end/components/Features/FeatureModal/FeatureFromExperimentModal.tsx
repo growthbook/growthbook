@@ -27,6 +27,7 @@ import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import SelectField from "@/components/Forms/SelectField";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import FeatureKeyField from "./FeatureKeyField";
 import EnvironmentSelect from "./EnvironmentSelect";
 import TagsField from "./TagsField";
@@ -124,6 +125,17 @@ export default function FeatureFromExperimentModal({
   );
   const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();
+  const settings = useOrgSettings();
+
+  const hasApprovalFlowsEnabled = (() => {
+    const requireReviews = settings?.requireReviews;
+    if (!requireReviews) return false;
+    if (requireReviews === true) return true;
+    if (Array.isArray(requireReviews)) {
+      return requireReviews.some((r) => r.requireReviewOn);
+    }
+    return false;
+  })();
 
   const defaultValues = genFormDefaultValues({
     environments,
@@ -414,14 +426,30 @@ export default function FeatureFromExperimentModal({
 
       {existing && (
         <div className="alert alert-info">
-          A rule will be added to the bottom of every environment in a new draft
-          revision. For more control over placement, you can add Experiment
-          rules directly from the{" "}
-          <Link href={`/features/${existing}`}>
-            Feature page
-            <FaExternalLinkAlt />
-          </Link>{" "}
-          instead.
+          {hasApprovalFlowsEnabled ? (
+            <>
+              A rule will be added to the bottom of every environment in a new
+              draft revision. For more control over placement, you can add
+              Experiment rules directly from the{" "}
+              <Link href={`/features/${existing}`}>
+                Feature page
+                <FaExternalLinkAlt />
+              </Link>{" "}
+              instead.
+            </>
+          ) : (
+            <>
+              A rule will be added to the bottom of every environment and the
+              revision will go live. This rule will be skipped until the
+              experiment is started. For more control over placement, you can
+              add Experiment rules directly from the{" "}
+              <Link href={`/features/${existing}`}>
+                Feature page
+                <FaExternalLinkAlt />
+              </Link>{" "}
+              instead.
+            </>
+          )}
         </div>
       )}
 
