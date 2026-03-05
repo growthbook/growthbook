@@ -492,7 +492,7 @@ export async function testProxyConnection(
   updateDB: boolean = true,
 ): Promise<ProxyTestResult | undefined> {
   const proxy = connection.proxy;
-  if (!proxy || !proxy.enabled) {
+  if (!proxy) {
     return {
       status: 0,
       body: "",
@@ -553,6 +553,9 @@ export async function testProxyConnection(
           $set: {
             "proxy.connected": true,
             "proxy.version": version,
+            "proxy.error": "",
+            "proxy.consecutiveFailures": 0,
+            "proxy.enabled": true,
           },
         },
       );
