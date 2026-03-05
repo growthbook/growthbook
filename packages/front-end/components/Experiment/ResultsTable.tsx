@@ -1140,6 +1140,9 @@ export default function ResultsTable({
                                               minSampleSize={getMinSampleSizeForMetric(
                                                 row.metric,
                                               )}
+                                              pValueAdjustmentEnabled={
+                                                !!appliedPValueCorrection
+                                              }
                                             />
                                           )
                                         ) : (
@@ -1209,6 +1212,9 @@ export default function ResultsTable({
                                             currentMetricTotal={
                                               rowResults.currentMetricTotal
                                             }
+                                            pValueAdjustmentEnabled={
+                                              !!appliedPValueCorrection
+                                            }
                                           />
                                         ) : (
                                           <AlignedGraph
@@ -1249,6 +1255,9 @@ export default function ResultsTable({
                                             minSampleSize={getMinSampleSizeForMetric(
                                               row.metric,
                                             )}
+                                            pValueAdjustmentEnabled={
+                                              !!appliedPValueCorrection
+                                            }
                                           />
                                         ) : (
                                           <td></td>
@@ -1293,8 +1302,7 @@ export default function ResultsTable({
                                           showVariations={showVariations}
                                           statsEngine={statsEngine}
                                           pValueAdjustmentEnabled={
-                                            !!appliedPValueCorrection &&
-                                            rows.length > 1
+                                            !!appliedPValueCorrection
                                           }
                                           firstDateToRender={getValidDate(
                                             startDate,
