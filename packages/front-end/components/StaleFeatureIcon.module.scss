@@ -20,38 +20,29 @@
   }
 }
 
+.listTrigger {
+  cursor: pointer;
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
 .permanentBadge {
   cursor: pointer;
-  background-color: var(--gray-3) !important;
-  &.list {
-    background-color: transparent !important;
-  }
-  color: var(--gray-10) !important;
   &:hover {
     background-color: var(--gray-5) !important;
   }
 }
 .staleBadge {
   cursor: pointer;
-  background-color: var(--yellow-3) !important;
-  color: var(--amber-11) !important;
   &:hover {
-    background-color: var(--yellow-5) !important;
+    background-color: var(--yellow-7) !important;
   }
 }
-.freshBadge {
-  cursor: pointer;
-  background-color: var(--green-3) !important;
-  color: var(--green-11) !important;
-  &:hover {
-    background-color: var(--green-5) !important;
-  }
-}
+.freshBadge,
 .mixedBadge {
   cursor: pointer;
-  background-color: var(--gray-3) !important;
-  color: var(--gray-11) !important;
   &:hover {
-    background-color: var(--gray-5) !important;
+    background-color: var(--green-6) !important;
   }
 }
