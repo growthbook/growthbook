@@ -428,7 +428,7 @@ export function convertPinnedSlicesToSliceTags(
 export function chartTypeSupportsAnchorYAxisToZero(
   chartType: DataVizConfig["chartType"],
 ): boolean {
-  return ["line", "scatter"].includes(chartType);
+  return ["line", "scatter", "bar"].includes(chartType);
 }
 
 export function chartTypeHasDisplaySettings(
