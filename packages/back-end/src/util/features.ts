@@ -2,12 +2,17 @@ import isEqual from "lodash/isEqual";
 import {
   ConditionInterface,
   FeatureRule as FeatureDefinitionRule,
+  Filter,
   ParentConditionInterface,
 } from "@growthbook/growthbook";
 import {
   includeExperimentInPayload,
   isDefined,
+  isMultiRangeNamespaceFormat,
   recursiveWalk,
+  getNamespaceRanges,
+  getNamespaceHashAttribute,
+  NamespaceValue,
 } from "shared/util";
 import { GroupMap } from "shared/types/saved-group";
 import { cloneDeep, isNil } from "lodash";
@@ -301,6 +306,55 @@ export function getHoldoutFeatureDefId(holdoutId: string) {
   return `$holdout:${holdoutId}`;
 }
 
+/**
+ * Helper function to apply namespace to a rule
+ * Handles both multiRange format (with hashAttribute and multiple ranges) and legacy format
+ */
+export function applyNamespaceToPayload(
+  rule: FeatureDefinitionRule,
+  namespace: NamespaceValue,
+  namespacesMap?: Map<
+    string,
+    { hashAttribute?: string; seed?: string; format?: "legacy" | "multiRange" }
+  >,
+): void {
+  const nsDefinition = namespacesMap?.get(namespace.name);
+
+  // When a namespace map entry is present its format is authoritative.
+  // Fall back to the utility function only when no map entry exists
+  const multiRange = nsDefinition
+    ? nsDefinition.format === "multiRange"
+    : isMultiRangeNamespaceFormat(namespace);
+  if (multiRange) {
+    const hashAttribute = getNamespaceHashAttribute(
+      namespace,
+      nsDefinition?.hashAttribute || rule.hashAttribute || "id",
+    );
+    rule.hashAttribute = hashAttribute;
+    rule.hashVersion =
+      ("hashVersion" in namespace ? namespace.hashVersion : 2) || 2;
+
+    const seed = nsDefinition?.seed || namespace.name;
+
+    rule.filters = [
+      ...(rule.filters || []),
+      {
+        attribute: hashAttribute,
+        seed: seed,
+        name: namespace.name,
+        hashVersion: 2,
+        ranges: getNamespaceRanges(namespace),
+      } as Filter & { name: string },
+    ];
+  } else {
+    // Legacy format: use tuple for backward compatibility
+    const ranges = getNamespaceRanges(namespace);
+    const range = ranges[0] || ([0, 0] as [number, number]);
+
+    rule.namespace = [namespace.name, range[0], range[1]];
+  }
+}
+
 export function getFeatureDefinition({
   feature,
   environment,
@@ -310,6 +364,7 @@ export function getFeatureDefinition({
   date,
   safeRolloutMap,
   holdoutsMap,
+  namespaces,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -321,6 +376,10 @@ export function getFeatureDefinition({
   holdoutsMap?: Map<
     string,
     { holdout: HoldoutInterface; experiment: ExperimentInterface }
+  >;
+  namespaces?: Map<
+    string,
+    { hashAttribute?: string; seed?: string; format?: "legacy" | "multiRange" }
   >;
 }): FeatureDefinitionWithProject | null {
   const settings = feature.environmentSettings?.[environment];
@@ -455,13 +514,7 @@ export function getFeatureDefinition({
             phase.namespace.enabled &&
             phase.namespace.name
           ) {
-            rule.namespace = [
-              phase.namespace.name,
-              // eslint-disable-next-line
-              parseFloat(phase.namespace.range[0] as any) || 0,
-              // eslint-disable-next-line
-              parseFloat(phase.namespace.range[1] as any) || 0,
-            ];
+            applyNamespaceToPayload(rule, phase.namespace, namespaces);
           }
 
           if (phase.seed) {
@@ -562,13 +615,7 @@ export function getFeatureDefinition({
             rule.minBucketVersion = r.minBucketVersion;
           }
           if (r?.namespace && r.namespace.enabled && r.namespace.name) {
-            rule.namespace = [
-              r.namespace.name,
-              // eslint-disable-next-line
-              parseFloat(r.namespace.range[0] as any) || 0,
-              // eslint-disable-next-line
-              parseFloat(r.namespace.range[1] as any) || 0,
-            ];
+            applyNamespaceToPayload(rule, r.namespace, namespaces);
           }
         } else if (r.type === "rollout") {
           rule.force = getJSONValue(feature.valueType, r.value);

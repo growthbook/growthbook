@@ -4,7 +4,11 @@ import {
   ExperimentPhaseStringDates,
 } from "shared/types/experiment";
 import { useForm } from "react-hook-form";
-import { validateAndFixCondition } from "shared/util";
+import {
+  getNamespaceRanges,
+  NamespaceValue,
+  validateAndFixCondition,
+} from "shared/util";
 import { getEqualWeights } from "shared/experiments";
 import { datetime } from "shared/dates";
 import { useAuth } from "@/services/auth";
@@ -48,7 +52,10 @@ const NewPhaseForm: FC<{
       namespace: {
         enabled: prevPhase.namespace?.enabled || false,
         name: prevPhase.namespace?.name || "",
-        range: prevPhase.namespace?.range || [0, 0.5],
+        // Handle both old (single range) and new (multiple ranges) formats
+        ranges: prevPhase.namespace
+          ? getNamespaceRanges(prevPhase.namespace as NamespaceValue)
+          : ([[0, 0.5]] as [number, number][]),
       },
     },
   });
@@ -177,6 +184,8 @@ const NewPhaseForm: FC<{
           form={form}
           featureId={experiment.trackingKey}
           trackingKey={experiment.trackingKey}
+          experimentHashAttribute={experiment.hashAttribute}
+          fallbackAttribute={experiment.fallbackAttribute}
         />
       )}
     </Modal>

@@ -547,6 +547,8 @@ function TargetingForm({
             form={form}
             featureId={experiment.trackingKey}
             trackingKey={experiment.trackingKey}
+            experimentHashAttribute={form.watch("hashAttribute")}
+            fallbackAttribute={form.watch("fallbackAttribute")}
           />
           {["advanced"].includes(changeType) && <hr />}
         </>

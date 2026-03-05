@@ -205,6 +205,8 @@ export default function BanditRefNewFields({
                 formPrefix={namespaceFormPrefix}
                 trackingKey={form.watch("trackingKey") || feature?.id}
                 featureId={feature?.id || ""}
+                experimentHashAttribute={form.watch("hashAttribute")}
+                fallbackAttribute={form.watch("fallbackAttribute")}
               />
             </div>
           )}
