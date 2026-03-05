@@ -36,6 +36,8 @@ import { useCombinedMetrics } from "@/components/Metrics/MetricsList";
 import { FeatureEvaluationQueries } from "@/components/Settings/EditDataSource/FeatureEvaluationQueries/FeatureEvaluationQueries";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import Modal from "@/components/Modal";
+import HistoryTable from "@/components/HistoryTable";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -50,6 +52,7 @@ const DataSourcePage: FC = () => {
   const permissionsUtil = usePermissionsUtil();
   const [editConn, setEditConn] = useState(false);
   const [viewSqlExplorer, setViewSqlExplorer] = useState(false);
+  const [auditModal, setAuditModal] = useState(false);
   const router = useRouter();
 
   const {
@@ -136,6 +139,18 @@ const DataSourcePage: FC = () => {
 
   return (
     <div className="container pagecontents">
+      {auditModal && (
+        <Modal
+          trackingEventModalType=""
+          open={true}
+          header="Audit Log"
+          close={() => setAuditModal(false)}
+          size="lg"
+          closeCta="Close"
+        >
+          <HistoryTable type="datasource" id={d.id} />
+        </Modal>
+      )}
       <PageHead
         breadcrumb={[
           { display: "Data Sources", href: "/datasources" },
@@ -228,6 +243,16 @@ const DataSourcePage: FC = () => {
               >
                 View Queries
               </Link>
+              <hr className="m-2" />
+              <button
+                className="dropdown-item"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setAuditModal(true);
+                }}
+              >
+                Audit Log
+              </button>
               {canDelete && (
                 <>
                   <hr className="m-2" />

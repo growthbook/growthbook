@@ -156,7 +156,13 @@ export function HistoryTableRow({
 }
 
 const HistoryTable: FC<{
-  type: "experiment" | "metric" | "feature" | "savedGroup";
+  type:
+    | "experiment"
+    | "metric"
+    | "feature"
+    | "savedGroup"
+    | "datasource"
+    | "factTable";
   showName?: boolean;
   showType?: boolean;
   id?: string;

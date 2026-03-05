@@ -36,6 +36,8 @@ import Frame from "@/ui/Frame";
 import { useUser } from "@/services/UserContext";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import Callout from "@/ui/Callout";
+import Modal from "@/components/Modal";
+import HistoryTable from "@/components/HistoryTable";
 
 export function getMetricsForFactTable(
   factMetrics: FactMetricInterface[],
@@ -57,6 +59,7 @@ export default function FactTablePage() {
   const [editOwnerModal, setEditOwnerModal] = useState(false);
   const [showConvertToOfficialModal, setShowConvertToOfficialModal] =
     useState(false);
+  const [auditModal, setAuditModal] = useState(false);
 
   const [editProjectsOpen, setEditProjectsOpen] = useState(false);
   const [editTagsModal, setEditTagsModal] = useState(false);
@@ -115,6 +118,18 @@ export default function FactTablePage() {
 
   return (
     <div className="pagecontents container-fluid">
+      {auditModal && (
+        <Modal
+          trackingEventModalType=""
+          open={true}
+          header="Audit Log"
+          close={() => setAuditModal(false)}
+          size="lg"
+          closeCta="Close"
+        >
+          <HistoryTable type="factTable" id={factTable.id} />
+        </Modal>
+      )}
       {editOpen && (
         <FactTableModal close={() => setEditOpen(false)} existing={factTable} />
       )}
@@ -313,6 +328,16 @@ export default function FactTablePage() {
                 {factTable.archived ? "Unarchive" : "Archive"} Fact Table
               </button>
             )}
+            <hr className="dropdown-divider" />
+            <button
+              className="dropdown-item"
+              onClick={(e) => {
+                e.preventDefault();
+                setAuditModal(true);
+              }}
+            >
+              Audit Log
+            </button>
             {canDelete && (
               <DeleteButton
                 className="dropdown-item"

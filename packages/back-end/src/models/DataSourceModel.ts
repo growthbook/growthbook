@@ -7,6 +7,7 @@ import {
   DataSourceParams,
   DataSourceSettings,
   DataSourceType,
+  ExposureQuery,
 } from "shared/types/datasource";
 import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
 import { ApiDataSource } from "shared/types/openapi";
@@ -28,7 +29,12 @@ import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { logger } from "back-end/src/util/logger";
 import { deleteClickhouseUser } from "back-end/src/services/clickhouse";
-import { createModelAuditLogger } from "back-end/src/services/audit";
+import {
+  auditDetailsCreate,
+  auditDetailsDelete,
+  auditDetailsUpdate,
+  createModelAuditLogger,
+} from "back-end/src/services/audit";
 import { deleteFactTable, getFactTable } from "./FactTableModel";
 
 const audit = createModelAuditLogger({
@@ -367,6 +373,95 @@ export function hasActualChanges(
   return updateKeys.some((key) => !isEqual(datasource[key], updates[key]));
 }
 
+function stripExposureQueryVolatileFields(
+  eq: ExposureQuery,
+): Omit<ExposureQuery, "error"> {
+  const { error: _error, ...rest } = eq;
+  return rest;
+}
+
+async function logExposureQueryChanges(
+  context: ReqContext | ApiReqContext,
+  datasource: DataSourceInterface,
+  oldQueries: ExposureQuery[],
+  newQueries: ExposureQuery[],
+) {
+  const oldMap = new Map(oldQueries.map((q) => [q.id, q]));
+  const newMap = new Map(newQueries.map((q) => [q.id, q]));
+
+  for (const [id, newQuery] of newMap) {
+    const oldQuery = oldMap.get(id);
+    if (!oldQuery) {
+      try {
+        await context.auditLog({
+          entity: {
+            object: "datasource",
+            id: datasource.id,
+            name: datasource.name,
+          },
+          event: "datasource.exposureQuery.create",
+          details: auditDetailsCreate(
+            stripExposureQueryVolatileFields(newQuery),
+          ),
+        });
+      } catch (e) {
+        context.logger.error(
+          e,
+          "Error creating audit log for datasource.exposureQuery.create",
+        );
+      }
+    } else if (
+      !isEqual(
+        stripExposureQueryVolatileFields(oldQuery),
+        stripExposureQueryVolatileFields(newQuery),
+      )
+    ) {
+      try {
+        await context.auditLog({
+          entity: {
+            object: "datasource",
+            id: datasource.id,
+            name: datasource.name,
+          },
+          event: "datasource.exposureQuery.update",
+          details: auditDetailsUpdate(
+            stripExposureQueryVolatileFields(oldQuery),
+            stripExposureQueryVolatileFields(newQuery),
+          ),
+        });
+      } catch (e) {
+        context.logger.error(
+          e,
+          "Error creating audit log for datasource.exposureQuery.update",
+        );
+      }
+    }
+  }
+
+  for (const [id, oldQuery] of oldMap) {
+    if (!newMap.has(id)) {
+      try {
+        await context.auditLog({
+          entity: {
+            object: "datasource",
+            id: datasource.id,
+            name: datasource.name,
+          },
+          event: "datasource.exposureQuery.delete",
+          details: auditDetailsDelete(
+            stripExposureQueryVolatileFields(oldQuery),
+          ),
+        });
+      } catch (e) {
+        context.logger.error(
+          e,
+          "Error creating audit log for datasource.exposureQuery.delete",
+        );
+      }
+    }
+  }
+}
+
 export async function updateDataSource(
   context: ReqContext | ApiReqContext,
   datasource: DataSourceInterface,
@@ -387,6 +482,9 @@ export async function updateDataSource(
     return;
   }
 
+  const oldExposureQueries = datasource.settings?.queries?.exposure || [];
+  const newExposureQueries = updates.settings?.queries?.exposure;
+
   await DataSourceModel.updateOne(
     {
       id: datasource.id,
@@ -398,6 +496,15 @@ export async function updateDataSource(
   );
 
   await audit.logUpdate(context, datasource, { ...datasource, ...updates });
+
+  if (newExposureQueries) {
+    await logExposureQueryChanges(
+      context,
+      datasource,
+      oldExposureQueries,
+      newExposureQueries,
+    );
+  }
 }
 
 function isLocked(datasource: DataSourceInterface): boolean {
