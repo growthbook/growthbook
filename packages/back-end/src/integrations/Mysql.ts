@@ -1,6 +1,5 @@
 import mysql, { RowDataPacket } from "mysql2/promise";
 import { ConnectionOptions } from "mysql2";
-import { Dialect } from "shared/sql";
 import { DateTruncGranularity, FormatDialect } from "shared/types/sql";
 import { QueryResponse } from "shared/types/integrations";
 import { MysqlConnectionParams } from "shared/types/integrations/mysql";
@@ -16,7 +15,7 @@ export default class Mysql extends SqlIntegration {
       decryptDataSourceParams<MysqlConnectionParams>(encryptedParams);
   }
   getFormatDialect(): FormatDialect {
-    return Dialect.MySQL;
+    return "mysql";
   }
   getSensitiveParamKeys(): string[] {
     return ["password"];

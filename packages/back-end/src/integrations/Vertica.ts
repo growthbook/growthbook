@@ -1,5 +1,5 @@
-import { Dialect, format } from "shared/sql";
 import { FormatDialect } from "shared/types/sql";
+import { format } from "shared/sql";
 import {
   InformationSchema,
   QueryResponse,
@@ -20,7 +20,7 @@ export default class Vertica extends SqlIntegration {
       decryptDataSourceParams<PostgresConnectionParams>(encryptedParams);
   }
   getFormatDialect(): FormatDialect {
-    return Dialect.PostgreSQL;
+    return "postgresql";
   }
   getSensitiveParamKeys(): string[] {
     return ["password", "caCert", "clientCert", "clientKey"];
