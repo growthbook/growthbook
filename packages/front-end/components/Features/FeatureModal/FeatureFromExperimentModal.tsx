@@ -10,7 +10,10 @@ import { ReactElement, useState } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Link from "next/link";
 import { FaExternalLinkAlt } from "react-icons/fa";
-import { filterEnvironmentsByExperiment } from "shared/util";
+import {
+  filterEnvironmentsByExperiment,
+  featureRequiresReview,
+} from "shared/util";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -127,16 +130,6 @@ export default function FeatureFromExperimentModal({
   const { refreshWatching } = useWatching();
   const settings = useOrgSettings();
 
-  const hasApprovalFlowsEnabled = (() => {
-    const requireReviews = settings?.requireReviews;
-    if (!requireReviews) return false;
-    if (requireReviews === true) return true;
-    if (Array.isArray(requireReviews)) {
-      return requireReviews.some((r) => r.requireReviewOn);
-    }
-    return false;
-  })();
-
   const defaultValues = genFormDefaultValues({
     environments,
     permissions: permissionsUtil,
@@ -183,6 +176,19 @@ export default function FeatureFromExperimentModal({
   }
 
   const existing = form.watch("existing");
+
+  const selectedFeature = existing
+    ? validFeatures.find((f) => f.id === existing)
+    : undefined;
+
+  const requiresReviewForSelectedFeature = selectedFeature
+    ? featureRequiresReview(
+        { project: selectedFeature.project } as FeatureInterface,
+        environments.map((e) => e.id),
+        false,
+        settings,
+      )
+    : false;
 
   function updateValuesOnTypeChange(val: FeatureValueType) {
     // If existing value already matches, do nothing
@@ -426,7 +432,7 @@ export default function FeatureFromExperimentModal({
 
       {existing && (
         <div className="alert alert-info">
-          {hasApprovalFlowsEnabled ? (
+          {requiresReviewForSelectedFeature ? (
             <>
               A rule will be added to the bottom of every environment in a new
               draft revision. For more control over placement, you can add
