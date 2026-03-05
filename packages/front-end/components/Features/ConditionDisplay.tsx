@@ -248,6 +248,7 @@ function MultiValueDisplay({
 function getConditionOrParts({
   conditions,
   savedGroups,
+  attributeIds,
   initialAnd = false,
   renderPrerequisite = false,
   keyPrefix = "",
@@ -255,6 +256,7 @@ function getConditionOrParts({
 }: {
   conditions: ConditionWithParentId[][];
   savedGroups?: SavedGroupWithoutValues[];
+  attributeIds: Set<string>;
   initialAnd?: boolean;
   renderPrerequisite?: boolean;
   keyPrefix?: string;
@@ -265,6 +267,7 @@ function getConditionOrParts({
     return getConditionParts({
       conditions: conditions[0],
       savedGroups,
+      attributeIds,
       initialAnd,
       renderPrerequisite,
       keyPrefix,
@@ -300,6 +303,7 @@ function getConditionOrParts({
     const groupContent = getConditionParts({
       conditions: condGroup,
       savedGroups,
+      attributeIds,
       initialAnd: false,
       renderPrerequisite,
       keyPrefix: `${keyPrefix}or-${i}-`,
@@ -334,6 +338,7 @@ function getConditionOrParts({
 function getConditionParts({
   conditions,
   savedGroups,
+  attributeIds,
   initialAnd = false,
   renderPrerequisite = false,
   keyPrefix = "",
@@ -341,19 +346,14 @@ function getConditionParts({
 }: {
   conditions: ConditionWithParentId[];
   savedGroups?: SavedGroupWithoutValues[];
+  attributeIds: Set<string>;
   initialAnd?: boolean;
   renderPrerequisite?: boolean;
   keyPrefix?: string;
   prefix?: ReactNode;
 }) {
-  const isAttributeField = (f: string) =>
-    f !== "value" &&
-    !f.startsWith("value.") &&
-    f !== "$savedGroups" &&
-    f !== "$notSavedGroups";
-
   return conditions.map(({ field, operator, value, parentId }, i) => {
-    let fieldEl: ReactNode = isAttributeField(field) ? (
+    let fieldEl: ReactNode = attributeIds.has(field) ? (
       <AttributeBadge attributeId={field} />
     ) : (
       <Badge
@@ -584,6 +584,7 @@ export default function ConditionDisplay({
 }) {
   const { savedGroups } = useDefinitions();
   const attributes = useAttributeMap();
+  const attributeIds = useMemo(() => new Set(attributes.keys()), [attributes]);
 
   const parts: ReactNode[] = [];
   let partId = 0;
@@ -657,6 +658,7 @@ export default function ConditionDisplay({
     const prereqParts = getConditionParts({
       conditions: prereqConds,
       savedGroups,
+      attributeIds,
       renderPrerequisite: true,
       initialAnd: prefixUsed,
       keyPrefix: `${partId++}-prereq-`,
@@ -681,6 +683,7 @@ export default function ConditionDisplay({
       const conditionParts = getConditionOrParts({
         conditions: conds,
         savedGroups,
+        attributeIds,
         keyPrefix: `${partId++}-condition-`,
         initialAnd: prefixUsed,
         prefix: !prefixUsed ? prefix : undefined,
