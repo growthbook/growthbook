@@ -17,7 +17,7 @@
       "tags": [],
       "description": "",
       "hypothesis": "",
-      "metrics": ["met_dd4gxd4lyelugrk", "met_dd4gxd4lyel6394"],
+      "goalMetrics": ["met_dd4gxd4lyelugrk", "met_dd4gxd4lyel6394"],
       "pastNotifications": ["srm", "multiple-exposures"],
       "metricOverrides": [],
       "guardrails": ["met_dd4gxd4lyelugrk", "met_dd4gxd4lyel6394"],
@@ -907,19 +907,29 @@
                   "users": 5000,
                   "metrics": {
                     "met_dd4gxd4lyelugrk": {
-                      "cr": 0.50,
+                      "cr": 0.5,
                       "value": 2500,
                       "users": 5000,
                       "denominator": 0,
-                      "stats": { "users": 5000, "count": 5000, "stddev": 0.5, "mean": 0.50 },
+                      "stats": {
+                        "users": 5000,
+                        "count": 5000,
+                        "stddev": 0.5,
+                        "mean": 0.5
+                      },
                       "buckets": []
                     },
                     "met_dd4gxd4lyel6394": {
-                      "cr": 0.50,
+                      "cr": 0.5,
                       "value": 2500,
                       "users": 5000,
                       "denominator": 0,
-                      "stats": { "users": 5000, "count": 5000, "stddev": 0.5, "mean": 0.50 },
+                      "stats": {
+                        "users": 5000,
+                        "count": 5000,
+                        "stddev": 0.5,
+                        "mean": 0.5
+                      },
                       "buckets": []
                     }
                   }
@@ -932,9 +942,18 @@
                       "value": 2400,
                       "users": 5000,
                       "denominator": 0,
-                      "stats": { "users": 5000, "count": 5000, "stddev": 0.5, "mean": 0.48 },
+                      "stats": {
+                        "users": 5000,
+                        "count": 5000,
+                        "stddev": 0.5,
+                        "mean": 0.48
+                      },
                       "expected": -0.04,
-                      "uplift": { "dist": "normal", "mean": -0.04, "stddev": 0.02 },
+                      "uplift": {
+                        "dist": "normal",
+                        "mean": -0.04,
+                        "stddev": 0.02
+                      },
                       "ci": [-0.08, 0.0],
                       "pValue": 0.06,
                       "buckets": []
@@ -944,10 +963,19 @@
                       "value": 2350,
                       "users": 5000,
                       "denominator": 0,
-                      "stats": { "users": 5000, "count": 5000, "stddev": 0.5, "mean": 0.47 },
+                      "stats": {
+                        "users": 5000,
+                        "count": 5000,
+                        "stddev": 0.5,
+                        "mean": 0.47
+                      },
                       "expected": -0.06,
-                      "uplift": { "dist": "normal", "mean": -0.06, "stddev": 0.02 },
-                      "ci": [-0.10, -0.02],
+                      "uplift": {
+                        "dist": "normal",
+                        "mean": -0.06,
+                        "stddev": 0.02
+                      },
+                      "ci": [-0.1, -0.02],
                       "pValue": 0.04,
                       "buckets": []
                     }
