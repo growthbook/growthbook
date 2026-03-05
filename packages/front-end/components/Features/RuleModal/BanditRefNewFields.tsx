@@ -38,7 +38,6 @@ import { SortableVariation } from "@/components/Features/SortableFeatureVariatio
 import Tooltip from "@/components/Tooltip/Tooltip";
 import {
   AttributeOptionWithTooltip,
-  getAttributeOptionHasTooltip,
   type AttributeOptionForTooltip,
 } from "@/components/Features/AttributeOptionTooltip";
 import Switch from "@/ui/Switch";
@@ -179,7 +178,6 @@ export default function BanditRefNewFields({
               }}
               formatOptionLabel={(o) => {
                 const opt = o as AttributeOptionForTooltip;
-                if (!getAttributeOptionHasTooltip(opt)) return o.label;
                 return (
                   <AttributeOptionWithTooltip option={opt}>
                     <span>{o.label}</span>

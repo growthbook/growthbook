@@ -19,7 +19,6 @@ import SelectField from "@/components/Forms/SelectField";
 import Switch from "@/ui/Switch";
 import {
   AttributeOptionWithTooltip,
-  getAttributeOptionHasTooltip,
   type AttributeOptionForTooltip,
 } from "@/components/Features/AttributeOptionTooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -119,7 +118,6 @@ export default function FallbackAttributeSelector({
           return <em className="text-muted">{o.label}</em>;
         }
         const opt = o as AttributeOptionForTooltip;
-        if (!getAttributeOptionHasTooltip(opt)) return o.label;
         return (
           <AttributeOptionWithTooltip option={opt}>
             <span>{o.label}</span>

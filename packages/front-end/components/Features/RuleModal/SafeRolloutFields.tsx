@@ -26,7 +26,6 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import ScheduleInputs from "@/components/Features/ScheduleInputs";
 import {
   AttributeOptionWithTooltip,
-  getAttributeOptionHasTooltip,
   type AttributeOptionForTooltip,
 } from "@/components/Features/AttributeOptionTooltip";
 import { AppFeatures } from "@/types/app-features";
@@ -181,7 +180,6 @@ export default function SafeRolloutFields({
           }}
           formatOptionLabel={(o) => {
             const opt = o as AttributeOptionForTooltip;
-            if (!getAttributeOptionHasTooltip(opt)) return o.label;
             return (
               <AttributeOptionWithTooltip option={opt}>
                 <span>{o.label}</span>

@@ -15,25 +15,26 @@ export interface AttributeOptionForTooltip {
   hashAttribute?: boolean;
 }
 
-export function getAttributeOptionHasTooltip(
-  opt: AttributeOptionForTooltip,
-): boolean {
-  return (
-    !!opt.description ||
-    (opt.tags?.length ?? 0) > 0 ||
-    opt.datatype != null ||
-    opt.hashAttribute !== undefined
-  );
-}
-
 export function AttributeOptionTooltipContent({
   option,
 }: {
   option: AttributeOptionForTooltip;
 }) {
   return (
-    <Box style={{ maxWidth: 280 }}>
-      <Flex direction="column" gap="2">
+    <Box style={{ maxWidth: "100%", minWidth: 0, overflow: "hidden" }}>
+      <Flex direction="column" gap="2" style={{ minWidth: 0 }}>
+        <Box
+          style={{
+            minWidth: 0,
+            overflow: "hidden",
+            wordBreak: "break-word",
+            overflowWrap: "anywhere",
+          }}
+        >
+          <Text size="small" as="div" weight="bold">
+            {option.label}
+          </Text>
+        </Box>
         {option.description && (
           <Flex direction="column" gap="1">
             <Text size="small" as="div">

@@ -31,7 +31,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
-import SavedGroupReferencesList from "@/components/SavedGroups/SavedGroupReferencesList";
+import AttributeReferencesList from "@/components/Features/AttributeReferencesList";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
 export default function AttributeDetailPage() {
@@ -188,10 +188,10 @@ export default function AttributeDetailPage() {
           closeCta="Close"
           trackingEventModalType="show-attribute-references"
         >
-          <SavedGroupReferencesList
+          <AttributeReferencesList
             features={referencingFeatures}
             experiments={referencingExperiments}
-            savedGroups={referencingSavedGroups}
+            conditionGroups={referencingSavedGroups}
           />
         </Modal>
       )}

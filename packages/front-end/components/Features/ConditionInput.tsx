@@ -51,7 +51,6 @@ import {
 } from "./TargetingConditionsCard";
 import {
   AttributeOptionWithTooltip,
-  getAttributeOptionHasTooltip,
   type AttributeOptionForTooltip,
 } from "./AttributeOptionTooltip";
 
@@ -564,8 +563,6 @@ function ConditionAndGroupInput({
             }
             formatOptionLabel={(o) => {
               const opt = o as AttributeOptionForTooltip;
-              const label = <span>{o.label}</span>;
-              if (!getAttributeOptionHasTooltip(opt)) return label;
               return (
                 <AttributeOptionWithTooltip option={opt}>
                   <Text size="2">{o.label}</Text>

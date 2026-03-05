@@ -57,7 +57,6 @@ import { getExposureQuery } from "@/services/datasources";
 import Text from "@/ui/Text";
 import {
   AttributeOptionWithTooltip,
-  getAttributeOptionHasTooltip,
   type AttributeOptionForTooltip,
 } from "@/components/Features/AttributeOptionTooltip";
 
@@ -395,7 +394,6 @@ export default function ExperimentRefNewFields({
               }}
               formatOptionLabel={(o) => {
                 const opt = o as AttributeOptionForTooltip;
-                if (!getAttributeOptionHasTooltip(opt)) return o.label;
                 return (
                   <AttributeOptionWithTooltip option={opt}>
                     <span>{o.label}</span>

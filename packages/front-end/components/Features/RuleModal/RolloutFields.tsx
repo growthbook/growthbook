@@ -14,7 +14,6 @@ import ConditionInput from "@/components/Features/ConditionInput";
 import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 import {
   AttributeOptionWithTooltip,
-  getAttributeOptionHasTooltip,
   type AttributeOptionForTooltip,
 } from "@/components/Features/AttributeOptionTooltip";
 
@@ -104,7 +103,6 @@ export default function RolloutFields({
             }}
             formatOptionLabel={(o) => {
               const opt = o as AttributeOptionForTooltip;
-              if (!getAttributeOptionHasTooltip(opt)) return o.label;
               return (
                 <AttributeOptionWithTooltip option={opt}>
                   <span>{o.label}</span>

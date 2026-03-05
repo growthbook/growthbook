@@ -38,7 +38,6 @@ import SelectField, {
 import ConditionInput from "@/components/Features/ConditionInput";
 import {
   AttributeOptionWithTooltip,
-  getAttributeOptionHasTooltip,
   type AttributeOptionForTooltip,
 } from "@/components/Features/AttributeOptionTooltip";
 import SavedGroupTargetingField, {
@@ -521,7 +520,6 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                 }}
                 formatOptionLabel={(o) => {
                   const opt = o as AttributeOptionForTooltip;
-                  if (!getAttributeOptionHasTooltip(opt)) return o.label;
                   return (
                     <AttributeOptionWithTooltip option={opt}>
                       <span>{o.label}</span>

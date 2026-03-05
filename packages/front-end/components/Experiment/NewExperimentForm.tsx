@@ -48,7 +48,6 @@ import { useIncrementer } from "@/hooks/useIncrementer";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
 import {
   AttributeOptionWithTooltip,
-  getAttributeOptionHasTooltip,
   type AttributeOptionForTooltip,
 } from "@/components/Features/AttributeOptionTooltip";
 import { useUser } from "@/services/UserContext";
@@ -1306,7 +1305,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                       }}
                       formatOptionLabel={(o) => {
                         const opt = o as AttributeOptionForTooltip;
-                        if (!getAttributeOptionHasTooltip(opt)) return o.label;
                         return (
                           <AttributeOptionWithTooltip option={opt}>
                             <span>{o.label}</span>

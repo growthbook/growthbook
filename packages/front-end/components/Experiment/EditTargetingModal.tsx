@@ -21,7 +21,6 @@ import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
 import {
   AttributeOptionWithTooltip,
-  getAttributeOptionHasTooltip,
   type AttributeOptionForTooltip,
 } from "@/components/Features/AttributeOptionTooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -489,7 +488,6 @@ function TargetingForm({
             }}
             formatOptionLabel={(o) => {
               const opt = o as AttributeOptionForTooltip;
-              if (!getAttributeOptionHasTooltip(opt)) return o.label;
               return (
                 <AttributeOptionWithTooltip option={opt}>
                   <span>{o.label}</span>
