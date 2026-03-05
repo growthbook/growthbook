@@ -300,7 +300,7 @@ type WriteOptions = {
 
 export class FactMetricModel extends BaseClass<WriteOptions> {
   // ...
-  protected async customValidation(doc, _previousDoc, writeOptions) {
+  protected async customValidation(doc, previousDoc, writeOptions) {
     if (!writeOptions.skipTestQuery) {
       // Run a test query against the data warehouse to make sure it works
     }

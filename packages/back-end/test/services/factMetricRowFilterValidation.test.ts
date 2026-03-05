@@ -94,10 +94,7 @@ describe("factMetricRowFilterValidation", () => {
 
     it("can force-validate all sql_expr filters when context changes", () => {
       const filters = getNetNewSqlExprRowFilters({
-        rowFilters: [
-          { operator: "sql_expr", values: ["amount > 100"] },
-          { operator: "sql_expr", values: ["amount > 100"] },
-        ],
+        rowFilters: [{ operator: "sql_expr", values: ["amount > 100"] }],
         previousRowFilters: [
           { operator: "sql_expr", values: ["amount > 100"] },
         ],
