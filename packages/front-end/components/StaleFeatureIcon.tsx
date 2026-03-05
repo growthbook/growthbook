@@ -8,6 +8,7 @@ import { Badge, Box, Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import { Popover } from "@/ui/Popover";
+import Modal from "@/components/Modal";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { StaleStateEntry } from "@/hooks/useFeatureStaleStates";
@@ -35,6 +36,8 @@ export default function StaleFeatureIcon({
   fetchStaleData,
   onDisable,
   context = "detail",
+  open: controlledOpen,
+  onOpenChange,
 }: {
   neverStale?: boolean;
   valueType?: FeatureValueType;
@@ -42,85 +45,161 @@ export default function StaleFeatureIcon({
   fetchStaleData?: () => Promise<void>;
   onDisable?: () => void;
   context?: "list" | "detail";
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const [rerunning, setRerunning] = useState(false);
-  const [popoverOpen, setPopoverOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
   const [, tick] = useIncrementer();
   useEffect(() => {
     const id = setInterval(tick, 60_000);
     return () => clearInterval(id);
   }, [tick]);
 
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = (v: boolean) => {
+    if (!isControlled) setInternalOpen(v);
+    onOpenChange?.(v);
+  };
+
   // neverStale can be known from the feature prop before staleData loads
   const effectiveNeverStale = neverStale ?? staleData?.neverStale ?? false;
 
+  const neverStaleContent = (
+    <Box>
+      <Flex direction="column" gap="4">
+        <Box>
+          <span style={{ color: "var(--gray-11)" }}>
+            <Text size="large" weight="semibold">
+              Detection Off
+            </Text>
+          </span>
+          <Text as="div" size="medium" color="text-low" mt="1">
+            Stale detection is disabled for this feature.
+          </Text>
+        </Box>
+      </Flex>
+      {onDisable && (
+        <Flex justify="end" mt="4">
+          <Button
+            size="xs"
+            variant="outline"
+            onClick={() => {
+              setOpen(false);
+              onDisable();
+            }}
+          >
+            Enable stale detection
+          </Button>
+        </Flex>
+      )}
+    </Box>
+  );
+
   // Show the permanent badge immediately — no staleData needed
   if (effectiveNeverStale) {
+    if (context === "list") {
+      return (
+        <Popover
+          open={open}
+          onOpenChange={setOpen}
+          side="bottom"
+          align="start"
+          showArrow={true}
+          contentStyle={{ maxWidth: 600, textAlign: "left" }}
+          trigger={
+            <span
+              className={styles.listTrigger}
+              style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+            >
+              <span className={`${styles.dot} ${styles.permanentDot}`} />
+              Off
+            </span>
+          }
+          content={neverStaleContent}
+        />
+      );
+    }
+
     return (
-      <Popover
-        open={popoverOpen}
-        onOpenChange={setPopoverOpen}
-        side="bottom"
-        align="start"
-        showArrow={true}
-        contentStyle={{ maxWidth: 600, textAlign: "left" }}
-        trigger={
-          <Badge
-            color="gray"
-            variant="soft"
-            radius="full"
-            size={context === "list" ? "1" : "2"}
-            className={`${styles.permanentBadge}${context === "list" ? ` ${styles.list}` : ""}`}
-          >
-            <span className={`${styles.dot} ${styles.permanentDot}`} />
-            {context === "list" ? "Off" : "Stale detection off"}
-          </Badge>
-        }
-        content={
-          <Box>
-            <Flex direction="column" gap="4">
-              <Box>
-                <Text
-                  as="div"
-                  size="small"
-                  weight="semibold"
-                  color="text-mid"
-                  textTransform="uppercase"
-                  mb="1"
-                >
-                  Overall Status
-                </Text>
-                <span style={{ color: "var(--green-10)" }}>
-                  <Text size="large" weight="semibold">
-                    Not Stale
-                  </Text>
-                </span>
-                <Text as="div" size="medium" color="text-low" mt="1">
-                  Stale detection is disabled for this feature.
-                </Text>
-              </Box>
-            </Flex>
-            {onDisable && (
-              <Flex justify="end" mt="4">
-                <Button
-                  size="xs"
-                  variant="outline"
-                  onClick={() => {
-                    setPopoverOpen(false);
-                    onDisable();
-                  }}
-                >
-                  Enable stale detection
-                </Button>
-              </Flex>
-            )}
-          </Box>
-        }
-      />
+      <>
+        <Badge
+          color="gray"
+          variant="soft"
+          radius="full"
+          size="2"
+          className={styles.permanentBadge}
+          onClick={() => setOpen(true)}
+        >
+          Stale detection off
+        </Badge>
+        <Modal
+          open={open}
+          close={() => setOpen(false)}
+          header="Stale Status"
+          trackingEventModalType="stale-feature-status"
+          closeCta="Close"
+          useRadixButton={true}
+        >
+          {neverStaleContent}
+        </Modal>
+      </>
     );
   }
 
-  if (!staleData) return null;
+  if (!staleData) {
+    const loadingContent = (
+      <Box>
+        <LoadingSpinner />
+      </Box>
+    );
+    if (context === "list") {
+      return (
+        <Popover
+          open={open}
+          onOpenChange={setOpen}
+          side="bottom"
+          align="start"
+          showArrow={true}
+          contentStyle={{ maxWidth: 600, textAlign: "left" }}
+          trigger={
+            <span
+              className={styles.listTrigger}
+              style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+            >
+              <span className={`${styles.dot} ${styles.freshDot}`} />—
+            </span>
+          }
+          content={loadingContent}
+        />
+      );
+    }
+    return (
+      <>
+        <Badge
+          color="gray"
+          variant="soft"
+          radius="full"
+          size="2"
+          className={styles.permanentBadge}
+          onClick={() => setOpen(true)}
+        >
+          —
+        </Badge>
+        <Modal
+          open={open}
+          close={() => setOpen(false)}
+          header="Stale Status"
+          trackingEventModalType="stale-feature-status"
+          closeCta="Close"
+          useRadixButton={true}
+        >
+          {loadingContent}
+        </Modal>
+      </>
+    );
+  }
 
   const isStale = staleData.stale;
   const staleReason: StaleFeatureReason | undefined = staleData.reason;
@@ -312,7 +391,7 @@ export default function StaleFeatureIcon({
                   color="red"
                   variant="outline"
                   onClick={() => {
-                    setPopoverOpen(false);
+                    setOpen(false);
                     onDisable();
                   }}
                 >
@@ -326,35 +405,54 @@ export default function StaleFeatureIcon({
     </Box>
   );
 
-  return (
-    <Popover
-      open={popoverOpen}
-      onOpenChange={setPopoverOpen}
-      side="bottom"
-      align="start"
-      showArrow={true}
-      contentStyle={{ maxWidth: 600, textAlign: "left" }}
-      trigger={
-        <Badge
-          color={isStale ? "yellow" : mixed ? "gray" : "green"}
-          variant="soft"
-          radius="full"
-          size={context === "list" ? "1" : "2"}
-          className={
-            isStale
-              ? styles.staleBadge
-              : mixed
-                ? styles.mixedBadge
-                : styles.freshBadge
-          }
-        >
+  if (context === "list") {
+    return (
+      <Popover
+        open={open}
+        onOpenChange={setOpen}
+        side="bottom"
+        align="start"
+        showArrow={true}
+        contentStyle={{ maxWidth: 600, textAlign: "left" }}
+        trigger={
           <span
-            className={`${styles.dot} ${isStale ? styles.staleDot : mixed ? styles.mixedDot : styles.freshDot}`}
-          />
-          {isStale ? "Stale" : context === "list" ? "OK" : "Not stale"}
-        </Badge>
-      }
-      content={body}
-    />
+            className={styles.listTrigger}
+            style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+          >
+            <span
+              className={`${styles.dot} ${isStale ? styles.staleDot : styles.freshDot}`}
+            />
+            {isStale ? "Stale" : mixed ? "Not Stale*" : "Not stale"}
+          </span>
+        }
+        content={body}
+      />
+    );
+  }
+
+  return (
+    <>
+      <Badge
+        color={isStale ? "yellow" : "green"}
+        variant="soft"
+        radius="full"
+        size="2"
+        className={isStale ? styles.staleBadge : styles.freshBadge}
+        onClick={() => setOpen(true)}
+      >
+        {isStale ? "Stale" : mixed ? "Not Stale*" : "Not stale"}
+      </Badge>
+      <Modal
+        open={open}
+        close={() => setOpen(false)}
+        header="Stale Status"
+        trackingEventModalType="stale-feature-status"
+        closeCta="Close"
+        size="lg"
+        useRadixButton={true}
+      >
+        {body}
+      </Modal>
+    </>
   );
 }
