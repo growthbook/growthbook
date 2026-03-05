@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, Popover } from "@radix-ui/themes";
 import { PiCaretDown } from "react-icons/pi";
 import { date, ago } from "shared/dates";
 import {
@@ -14,7 +14,6 @@ import { useAuth } from "@/services/auth";
 import Button from "@/ui/Button";
 import RadioGroup from "@/ui/RadioGroup";
 import Field from "@/components/Forms/Field";
-import Dropdown from "@/components/Dropdown/Dropdown";
 import Callout from "@/ui/Callout";
 import Modal from "@/components/Modal";
 import Tooltip from "@/ui/Tooltip";
@@ -70,7 +69,6 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
 }) => {
   const { getUserDisplay, userId } = useUser();
   const { apiCall } = useAuth();
-  const [comment, setComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [confirmPublish, setConfirmPublish] = useState(false);
@@ -152,11 +150,32 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
       currentState as SavedGroupInterface,
       {},
     );
+  const isFlowAuthor = !!userId && approvalFlow.authorId === userId;
+  const approveOwnChangesMessage =
+    "You cannot approve your own proposed changes.";
+  const requestOwnChangesMessage =
+    "You cannot request changes on your own proposed changes.";
+
+  useEffect(() => {
+    if (isFlowAuthor && reviewDecision !== "comment") {
+      setReviewDecision("comment");
+    }
+  }, [isFlowAuthor, reviewDecision]);
+
   // Handle submitting a review
   const handleSubmitReview = async (
     decision: "approve" | "request-changes" | "comment",
     reviewCommentText: string,
   ) => {
+    if (isFlowAuthor && decision !== "comment") {
+      setReviewError(
+        decision === "approve"
+          ? approveOwnChangesMessage
+          : requestOwnChangesMessage,
+      );
+      return;
+    }
+
     setIsSubmitting(true);
     setReviewError(null);
     try {
@@ -179,7 +198,6 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
       // Also refresh the list in the background
       mutate?.();
 
-      setComment("");
       setReviewComment("");
       setReviewDecision("comment");
       setReviewDropdownOpen(false);
@@ -211,11 +229,6 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
   const changedFields = Object.keys(flatProposed).filter(
     (key) => formatValue(flatCurrent[key]) !== formatValue(flatProposed[key]),
   );
-
-  const handleAddComment = async () => {
-    if (!comment.trim()) return;
-    await handleSubmitReview("comment", comment);
-  };
 
   const handleMerge = async () => {
     setIsSubmitting(true);
@@ -333,6 +346,7 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
           header="Discard Draft"
           close={() => setConfirmDiscard(false)}
           open={true}
+          dismissible
           cta="Discard"
           submitColor="danger"
           submit={async () => {
@@ -349,6 +363,7 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
           header="Publish Changes"
           close={() => setConfirmPublish(false)}
           open={true}
+          dismissible
           cta="Publish"
           submitColor="primary"
           submit={handleMerge}
@@ -363,6 +378,7 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
           header="Bypass Approval & Publish"
           close={() => setConfirmBypass(false)}
           open={true}
+          dismissible
           cta="Publish Anyway"
           submitColor="danger"
           submit={handleMerge}
@@ -404,11 +420,14 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
               Discard
             </Button>
           )}
-          <Dropdown
-            uuid="submit-review-dropdown"
-            toggle={
+          <Popover.Root
+            open={reviewDropdownOpen}
+            onOpenChange={setReviewDropdownOpen}
+          >
+            <Popover.Trigger>
               <Button
                 variant="solid"
+                preventDefault={false}
                 disabled={
                   approvalFlow.status === "closed" ||
                   approvalFlow.status === "merged"
@@ -416,13 +435,8 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
               >
                 Submit review <PiCaretDown style={{ marginLeft: "4px" }} />
               </Button>
-            }
-            caret={false}
-            width={320}
-            open={reviewDropdownOpen}
-            setOpen={setReviewDropdownOpen}
-          >
-            <Box p="3" onClick={(e) => e.stopPropagation()}>
+            </Popover.Trigger>
+            <Popover.Content width="320px" size="2" align="end">
               <Text size="medium" weight="medium" mb="2" as="p">
                 Leave a comment
               </Text>
@@ -446,19 +460,20 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
                       value: "comment",
                       label: "Comment",
                       description: "Leave a comment without a decision",
-                      disabled: false,
                     },
                     {
                       value: "request-changes",
                       label: "Request Changes",
                       description: "Submit feedback that must be addressed",
-                      disabled: false,
+                      disabled: isFlowAuthor,
+                      disabledReason: requestOwnChangesMessage,
                     },
                     {
                       value: "approve",
                       label: "Approve",
                       description: "Approve and allow merging",
-                      disabled: false,
+                      disabled: isFlowAuthor,
+                      disabledReason: approveOwnChangesMessage,
                     },
                   ]}
                 />
@@ -477,7 +492,6 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
                 <Button
                   variant="solid"
                   color="violet"
-                  stopPropagation
                   onClick={() => {
                     handleSubmitReview(reviewDecision, reviewComment);
                   }}
@@ -489,8 +503,8 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
                   {isSubmitting ? "Submitting..." : "Confirm"}
                 </Button>
               </Flex>
-            </Box>
-          </Dropdown>
+            </Popover.Content>
+          </Popover.Root>
           <Tooltip
             content={
               canBypass ? undefined : "Approval is required before publishing"
@@ -548,37 +562,6 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
         }}
       >
         <Box style={{ maxWidth: 720, width: "100%", margin: "0 auto" }}>
-          <Box
-            mb=""
-            p="5"
-            style={{
-              boxShadow:
-                "0 12px 32px -16px rgba(0, 0, 51, 0.06), 0 8px 40px 0 rgba(0, 0, 0, 0.05), 0 0px 0 1px rgba(0, 0, 51, 0.06)",
-              borderRadius: "var(--radius-2)",
-            }}
-          >
-            <Text size="medium" mb="2" as="p">
-              Add a comment
-            </Text>
-            <Field
-              textarea
-              minRows={1}
-              placeholder="Type to add a comment..."
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-            />
-            <Flex justify="end" mt="2">
-              <Button
-                variant="solid"
-                color="violet"
-                onClick={handleAddComment}
-                disabled={!comment.trim() || isSubmitting}
-              >
-                Add comment
-              </Button>
-            </Flex>
-          </Box>
-
           {/* Activity feed grouped by date */}
           {Object.entries(groupedActivity).map(([dateStr, items]) => (
             <Box key={dateStr} mb="4">

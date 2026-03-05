@@ -16,30 +16,9 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import useApi from "@/hooks/useApi";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
-import Tooltip from "@/ui/Tooltip";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
-import { STATUS_CONFIG } from "@/components/ApprovalFlow/approvalFlowUtils";
-
-function PendingReviewTabIndicator() {
-  const { color, label } = STATUS_CONFIG["pending-review"];
-  return (
-    <Tooltip content={label}>
-      <span
-        aria-label={label}
-        style={{
-          width: 8,
-          height: 8,
-          borderRadius: "50%",
-          backgroundColor: `var(--${color}-9)`,
-          display: "inline-block",
-          flexShrink: 0,
-        }}
-      />
-    </Tooltip>
-  );
-}
 
 export default function SavedGroupsPage() {
   const router = useRouter();
@@ -106,13 +85,6 @@ export default function SavedGroupsPage() {
     });
     return [idLists, conditionGroups];
   }, [savedGroups]);
-
-  const [hasOpenConditionGroupFlows, hasOpenIdListFlows] = useMemo(() => {
-    const hasOpenFlow = (groups: SavedGroupWithoutValues[]) =>
-      groups.some((group) => openFlowTargetIds.has(group.id));
-
-    return [hasOpenFlow(conditionGroups), hasOpenFlow(idLists)] as const;
-  }, [openFlowTargetIds, conditionGroups, idLists]);
 
   useEffect(() => {
     // Not using $groups attribute in a any saved groups
@@ -219,22 +191,12 @@ export default function SavedGroupsPage() {
                 <span className="ml-2 round-text-background text-main">
                   {conditionGroups.length}
                 </span>
-                {hasOpenConditionGroupFlows && (
-                  <span className="ml-2">
-                    <PendingReviewTabIndicator />
-                  </span>
-                )}
               </TabsTrigger>
               <TabsTrigger value="idLists">
                 ID Lists
                 <span className="ml-2 round-text-background text-main">
                   {idLists.length}
                 </span>
-                {hasOpenIdListFlows && (
-                  <span className="ml-2">
-                    <PendingReviewTabIndicator />
-                  </span>
-                )}
               </TabsTrigger>
             </TabsList>
 

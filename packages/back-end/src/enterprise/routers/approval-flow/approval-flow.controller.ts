@@ -325,12 +325,12 @@ export const postReview = async (
       .json({ message: "Cannot review a closed or merged approval flow" });
   }
 
-  // // Prevent self-review (author cannot approve or request changes on own flow)
-  // if (existingFlow.authorId === userId && decision !== "comment") {
-  //   return res.status(403).json({
-  //     message: "Cannot approve or request changes on your own approval flow",
-  //   });
-  // }
+  // Prevent self-review (author cannot approve or request changes on own flow)
+  if (existingFlow.authorId === userId && decision !== "comment") {
+    return res.status(403).json({
+      message: "Cannot approve or request changes on your own approval flow",
+    });
+  }
 
   // Must have permission to edit the underlying entity
   if (existingFlow.target.type === "saved-group") {

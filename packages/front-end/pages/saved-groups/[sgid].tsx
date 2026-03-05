@@ -388,7 +388,13 @@ export default function EditSavedGroupPage() {
               ? "Add List Items"
               : "Overwrite List Contents"
           }
-          cta={approvalFlowRequired ? "Publish" : "Save"}
+          cta={
+            approvalFlowRequired
+              ? userOpenFlow
+                ? "Update"
+                : "Propose changes"
+              : "Save"
+          }
           ctaEnabled={
             itemsToAdd.length > 0 &&
             (!listAboveSizeLimit || adminBypassSizeLimit)
@@ -494,6 +500,7 @@ export default function EditSavedGroupPage() {
           trackingEventModalType="saved-group-approval-flow-changes"
           close={() => setShowChangesModal(false)}
           open={showChangesModal}
+          dismissible
           size="max"
           hideCta={true}
           closeCta="Close"
@@ -529,6 +536,7 @@ export default function EditSavedGroupPage() {
                 allApprovalFlows={allApprovalFlows}
                 selectedFlowId={selectedApprovalFlowId}
                 onSelectFlow={selectFlow}
+                showOpenFlowIndicator={openApprovalFlows.length > 0}
               />
             )}
             <DropdownMenu
@@ -652,7 +660,8 @@ export default function EditSavedGroupPage() {
         )}
         {!selectedApprovalFlow && userOpenFlow && (
           <Callout status="info" mb="3">
-            You have an open revision for this group.{" "}
+            You are seeing the live version, but you have a revision in
+            progress.{" "}
             <Link href={`/saved-groups/${sgid}?flow=${userOpenFlow.id}`}>
               View your open revision
             </Link>
@@ -668,20 +677,16 @@ export default function EditSavedGroupPage() {
                   : "info"
             }
             mb="3"
-            contentsAs="div"
           >
             <Flex align="center" justify="between" gap="3">
-              <span>
+              <Box flexGrow="1">
                 {selectedApprovalFlow.status === "approved"
                   ? "This revision has been approved and is ready to publish."
                   : selectedApprovalFlow.status === "changes-requested"
                     ? "Changes have been requested on this revision."
                     : "This revision is pending review."}
-              </span>
-              <Button
-                variant="outline"
-                onClick={() => setShowChangesModal(true)}
-              >
+              </Box>
+              <Button onClick={() => setShowChangesModal(true)} my="-2">
                 See changes
               </Button>
             </Flex>

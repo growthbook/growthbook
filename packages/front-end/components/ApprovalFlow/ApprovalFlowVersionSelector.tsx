@@ -5,6 +5,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import SelectField from "@/components/Forms/SelectField";
 import Badge from "@/ui/Badge";
 import Text from "@/ui/Text";
+import Tooltip from "@/ui/Tooltip";
 import { useUser } from "@/services/UserContext";
 
 interface ApprovalFlowVersionSelectorProps {
@@ -12,6 +13,7 @@ interface ApprovalFlowVersionSelectorProps {
   allApprovalFlows?: ApprovalFlow[];
   selectedFlowId: string | null;
   onSelectFlow: (flow: ApprovalFlow | null) => void;
+  showOpenFlowIndicator?: boolean;
 }
 
 export default function ApprovalFlowVersionSelector({
@@ -19,6 +21,7 @@ export default function ApprovalFlowVersionSelector({
   allApprovalFlows = openApprovalFlows,
   selectedFlowId,
   onSelectFlow,
+  showOpenFlowIndicator = false,
 }: ApprovalFlowVersionSelectorProps) {
   const { getUserDisplay } = useUser();
 
@@ -56,47 +59,75 @@ export default function ApprovalFlowVersionSelector({
       : "live";
 
   return (
-    <SelectField
-      value={selectedValue}
-      options={options}
-      sort={false}
-      isSearchable={false}
-      label=""
-      style={{ width: 430, maxWidth: "min(430px, calc(100vw - 150px))" }}
-      onChange={(value) => {
-        const selectedFlow = optionFlowMap.get(value) ?? null;
-        onSelectFlow(selectedFlow);
+    <div
+      style={{
+        position: "relative",
+        width: 430,
+        maxWidth: "min(430px, calc(100vw - 150px))",
       }}
-      formatOptionLabel={({ value, label }) => {
-        const flow = optionFlowMap.get(value) ?? null;
-        return (
-          <Flex align="center" justify="between" gap="3">
-            <Text as="span" weight="semibold">
-              {label}
-            </Text>
-            <Box flexGrow="1" />
-            <Box
-              flexShrink="1"
-              overflow="hidden"
-              style={{ textOverflow: "ellipsis" }}
-            >
-              {flow && (
-                <Text as="span" size="small" color="text-low">
-                  by {getUserDisplay(flow.authorId)} on{" "}
-                  {datetime(flow.dateUpdated)}
-                </Text>
-              )}
-            </Box>
-            <Box flexShrink="0">
-              <Badge
-                label={flow ? "Draft" : "Live"}
-                color={flow ? "indigo" : "teal"}
-                radius="full"
-              />
-            </Box>
-          </Flex>
-        );
-      }}
-    />
+    >
+      {showOpenFlowIndicator && (
+        <Tooltip content="Open approval flow">
+          <span
+            aria-label="Open approval flow"
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              transform: "translate(-40%, -40%)",
+              width: 8,
+              height: 8,
+              borderRadius: "50%",
+              backgroundColor: "var(--red-9)",
+              display: "inline-block",
+              flexShrink: 0,
+              zIndex: 1,
+            }}
+          />
+        </Tooltip>
+      )}
+      <SelectField
+        value={selectedValue}
+        options={options}
+        sort={false}
+        isSearchable={false}
+        label=""
+        style={{ width: "100%", maxWidth: "100%" }}
+        onChange={(value) => {
+          const selectedFlow = optionFlowMap.get(value) ?? null;
+          onSelectFlow(selectedFlow);
+        }}
+        formatOptionLabel={({ value, label }) => {
+          const flow = optionFlowMap.get(value) ?? null;
+          return (
+            <Flex align="center" justify="between" gap="3">
+              <Text as="span" weight="semibold">
+                {label}
+              </Text>
+              <Box flexGrow="1" />
+              <Box
+                flexShrink="1"
+                overflow="hidden"
+                style={{ textOverflow: "ellipsis" }}
+              >
+                {flow && (
+                  <Text as="span" size="small" color="text-low">
+                    by {getUserDisplay(flow.authorId)} on{" "}
+                    {datetime(flow.dateUpdated)}
+                  </Text>
+                )}
+              </Box>
+              <Box flexShrink="0">
+                <Badge
+                  label={flow ? "Draft" : "Live"}
+                  color={flow ? "indigo" : "teal"}
+                  radius="full"
+                />
+              </Box>
+            </Flex>
+          );
+        }}
+      />
+    </div>
   );
 }

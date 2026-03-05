@@ -11,6 +11,7 @@ import {
   PiMoon,
   PiSunDim,
   PiBuildingFill,
+  PiClipboardText,
 } from "react-icons/pi";
 import Link from "next/link";
 import Head from "next/head";
@@ -43,6 +44,7 @@ import Checkbox from "@/ui/Checkbox";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import AccountPlanNotices from "@/components/Layout/AccountPlanNotices";
 import AccountPlanBadge from "@/components/Layout/AccountPlanBadge";
+import { useApprovalFlows } from "@/hooks/useApprovalFlows";
 import styles from "./TopNav.module.scss";
 import { usePageHead } from "./PageHead";
 
@@ -60,9 +62,18 @@ const TopNav: FC<{
 
   const { breadcrumb } = usePageHead();
 
-  const { updateUser, name, email, organization } = useUser();
+  const { updateUser, name, email, organization, hasCommercialFeature } =
+    useUser();
 
   const { apiCall, logout, organizations, orgId, setOrgId } = useAuth();
+
+  const hasApprovalFlows = hasCommercialFeature("require-approvals");
+  const { approvalFlows } = useApprovalFlows();
+  const pendingReviewCount = useMemo(() => {
+    if (!hasApprovalFlows) return 0;
+    return approvalFlows.filter((f) => !["merged", "closed"].includes(f.status))
+      .length;
+  }, [hasApprovalFlows, approvalFlows]);
 
   // The current org might not be in the organizations list if the user is a superAdmin
   // and selected the org from the /admin page. So we add it here.
@@ -219,6 +230,43 @@ const TopNav: FC<{
         <div className="align-middle">
           <PiListChecks size="16" className="mr-1" />
           Activity Feed
+        </div>
+      </DropdownMenuItem>
+    );
+  };
+  const renderPendingReviewsDropDown = () => {
+    if (!hasApprovalFlows) return null;
+    return (
+      <DropdownMenuItem
+        className={styles.dropdownItemIconColor}
+        onClick={() => {
+          setDropdownOpen(false);
+          router.push("/approval-requests");
+        }}
+      >
+        <div className="align-middle d-flex align-items-center">
+          <PiClipboardText size="16" className="mr-1" />
+          Pending Reviews
+          {pendingReviewCount > 0 && (
+            <span
+              style={{
+                backgroundColor: "var(--red-9)",
+                color: "white",
+                borderRadius: "50%",
+                minWidth: 18,
+                height: 18,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 11,
+                fontWeight: 600,
+                marginLeft: 6,
+                padding: "0 4px",
+              }}
+            >
+              {pendingReviewCount}
+            </span>
+          )}
         </div>
       </DropdownMenuItem>
     );
@@ -481,6 +529,7 @@ const TopNav: FC<{
             {renderThemeSubDropDown()}
             {renderMyActivityFeedsDropDown()}
             {renderMyReportsDropDown()}
+            {renderPendingReviewsDropDown()}
             {renderPersonalAccessTokensDropDown()}
             <DropdownMenuSeparator />
             {renderChangePassword()}
