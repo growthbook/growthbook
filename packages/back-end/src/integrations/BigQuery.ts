@@ -4,8 +4,8 @@ import {
   bigQueryCreateTableOptions,
   bigQueryCreateTablePartitions,
 } from "shared/enterprise";
+import { Dialect, format } from "shared/sql";
 import { DateTruncGranularity, FormatDialect } from "shared/types/sql";
-import { format } from "shared/sql";
 import {
   ExternalIdCallback,
   InformationSchema,
@@ -38,7 +38,7 @@ export default class BigQuery extends SqlIntegration {
     return true;
   }
   getFormatDialect(): FormatDialect {
-    return "bigquery";
+    return Dialect.BigQuery;
   }
   getSensitiveParamKeys(): string[] {
     return ["privateKey"];

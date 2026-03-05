@@ -1,3 +1,4 @@
+import { Dialect } from "shared/sql";
 import { FormatDialect } from "shared/types/sql";
 import { QueryResponse } from "shared/types/integrations";
 import { PostgresConnectionParams } from "shared/types/integrations/postgres";
@@ -12,7 +13,7 @@ export default class Redshift extends SqlIntegration {
       decryptDataSourceParams<PostgresConnectionParams>(encryptedParams);
   }
   getFormatDialect(): FormatDialect {
-    return "redshift";
+    return Dialect.Redshift;
   }
   getSensitiveParamKeys(): string[] {
     return ["password", "caCert", "clientCert", "clientKey"];
