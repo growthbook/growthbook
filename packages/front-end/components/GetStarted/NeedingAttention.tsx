@@ -18,7 +18,6 @@ import {
   getHealthSettings,
 } from "shared/enterprise";
 import { AuditInterface } from "shared/types/audit";
-import { Box } from "spectacle";
 import Link from "next/link";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import RadioCards from "@/ui/RadioCards";
@@ -583,11 +582,11 @@ const NeedingAttention = (): React.ReactElement | null => {
     featureExpUsageData?.hasFeatures || featureExpUsageData?.hasExperiments;
 
   return !orgIsUsingFeatureAndExperiment ? null : (
-    <Box>
+    <div>
       {displayRecentUsedFeatures()}
       {displayExperimentsRequiringAttention()}
       {displayFeatureFlagsRequiringAttention()}
-    </Box>
+    </div>
   );
 };
 
