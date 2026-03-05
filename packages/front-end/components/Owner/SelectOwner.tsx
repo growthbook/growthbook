@@ -22,18 +22,22 @@ export default function SelectOwner({
   const memberOptions = useMemo(() => {
     return Array.from(users.values()).map((user) => ({
       value: user.id,
-      label: user.name ? user.name : user.email,
+      label: user.name || user.email,
     }));
   }, [users]);
 
+  const memberOptionValues = useMemo(() => {
+    return new Set(memberOptions.map((member) => member.value));
+  }, [memberOptions]);
+
   const options = useMemo(() => {
-    if (!value || memberOptions.some((member) => member.value === value)) {
+    if (!value || memberOptionValues.has(value)) {
       return memberOptions;
     }
 
     // Keep showing legacy owner values (username/email) until user chooses a new owner.
     return [{ value, label: value }, ...memberOptions];
-  }, [memberOptions, value]);
+  }, [memberOptions, memberOptionValues, value]);
 
   return (
     <SelectField
