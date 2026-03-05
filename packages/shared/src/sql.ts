@@ -3,6 +3,9 @@ import {
   init as polyglotInit,
   Dialect,
 } from "@polyglot-sql/sdk";
+
+export { Dialect };
+import type { SqlLanguage } from "sql-formatter";
 import { format as sqlFormat } from "sql-formatter";
 import { SqlResultChunkInterface } from "../types/query";
 import { FormatDialect } from "../types/sql";
@@ -42,34 +45,28 @@ const MAX_SQL_LENGTH_FOR_POLYGLOT = parseInt(
   process.env.MAX_SQL_LENGTH_FOR_POLYGLOT || "500000",
 );
 
-function getPolyglotDialect(dialect: string): Dialect {
+/** Map Polyglot Dialect to sql-formatter SqlLanguage for fallback when polyglot fails */
+function polyglotToSqlFormatter(dialect: Dialect): SqlLanguage {
   switch (dialect) {
-    case "mysql":
-      return Dialect.MySQL;
-    case "bigquery":
-      return Dialect.BigQuery;
-    case "snowflake":
-      return Dialect.Snowflake;
-    case "redshift":
-      return Dialect.Redshift;
-    case "presto":
-      return Dialect.Presto;
-    case "trino":
-      return Dialect.Trino;
-    case "clickhouse":
-      return Dialect.ClickHouse;
-    case "databricks":
-      return Dialect.Databricks;
-    case "athena":
-      return Dialect.Athena;
-    case "tsql":
-      return Dialect.TSQL;
-    case "sqlite":
-      return Dialect.SQLite;
-    case "sql":
-      return Dialect.PostgreSQL;
+    case Dialect.PostgreSQL:
+    case Dialect.MySQL:
+    case Dialect.BigQuery:
+    case Dialect.Snowflake:
+    case Dialect.Redshift:
+    case Dialect.Trino:
+    case Dialect.ClickHouse:
+    case Dialect.TSQL:
+    case Dialect.SQLite:
+      return dialect as SqlLanguage;
+    case Dialect.Presto:
+      return "trino"; // sql-formatter has trino, not presto
+    case Dialect.Athena:
+      return "trino"; // sql-formatter doesn't have athena
+    case Dialect.Databricks:
+      return "spark"; // sql-formatter has spark (databricks is spark-based)
+    case Dialect.Generic:
     default:
-      return Dialect.PostgreSQL;
+      return "sql";
   }
 }
 
@@ -91,8 +88,7 @@ export function format(
     const polyglotStart = performance.now();
     let result: string | null = null;
     try {
-      const pgDialect = getPolyglotDialect(dialect);
-      const fmtResult = polyglotFormat(sql, pgDialect);
+      const fmtResult = polyglotFormat(sql, dialect);
       if (fmtResult?.success && fmtResult?.sql?.length) {
         result = fmtResult.sql[0];
       }
@@ -115,7 +111,7 @@ export function format(
   const sqlFormatStart = performance.now();
   try {
     const formatted = sqlFormat(sql, {
-      language: dialect,
+      language: polyglotToSqlFormatter(dialect),
     });
     report?.({
       engine: "sqlformat",
