@@ -30,7 +30,7 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import useURLHash from "@/hooks/useURLHash";
 
 const ExperimentsPage = (): React.ReactElement => {
-  const { ready, project } = useDefinitions();
+  const { ready, project, projects } = useDefinitions();
 
   const [urlHash, setUrlHash] = useURLHash();
   const [tab, setTab] = useLocalStorage<string>("experiments-list-tab", "all");
@@ -84,6 +84,22 @@ const ExperimentsPage = (): React.ReactElement => {
     return tab !== "all" ? items.filter((item) => item.tab === tab) : items;
   }, [tab, items]);
 
+  const canAddExperiment = useMemo(() => {
+    if (project) return permissionsUtil.canViewExperimentModal(project);
+    if (projects?.length)
+      return projects.some((p) => permissionsUtil.canViewExperimentModal(p.id));
+    return permissionsUtil.canViewExperimentModal();
+  }, [project, projects, permissionsUtil]);
+
+  const canAddTemplate = useMemo(() => {
+    if (project) return permissionsUtil.canViewExperimentTemplateModal(project);
+    if (projects?.length)
+      return projects.some((p) =>
+        permissionsUtil.canViewExperimentTemplateModal(p.id),
+      );
+    return permissionsUtil.canViewExperimentTemplateModal();
+  }, [project, projects, permissionsUtil]);
+
   if (error) {
     return (
       <div className="alert alert-danger">
@@ -99,10 +115,6 @@ const ExperimentsPage = (): React.ReactElement => {
 
   // Show the View Sample Button if none of the experiments have an attached datasource
   const showViewSampleButton = !allExperiments.some((e) => e.datasource);
-
-  const canAddExperiment = permissionsUtil.canViewExperimentModal(project);
-  const canAddTemplate =
-    permissionsUtil.canViewExperimentTemplateModal(project);
 
   const addExperimentDropdownButton = (
     <DropdownMenu

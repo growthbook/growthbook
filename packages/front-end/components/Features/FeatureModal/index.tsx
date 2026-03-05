@@ -212,7 +212,7 @@ export default function FeatureModal({
 
   if (
     !permissionsUtil.canManageFeatureDrafts({
-      project: featureToDuplicate?.project ?? project,
+      project: featureToDuplicate?.project ?? selectedProject,
     })
   ) {
     ctaEnabled = false;

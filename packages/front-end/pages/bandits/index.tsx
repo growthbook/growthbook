@@ -35,7 +35,7 @@ import { useExperimentSearch } from "@/services/experiments";
 const NUM_PER_PAGE = 20;
 
 const ExperimentsPage = (): React.ReactElement => {
-  const { ready, project } = useDefinitions();
+  const { ready, project, projects } = useDefinitions();
 
   const [tabs, setTabs] = useLocalStorage<string[]>("experiment_tabs", []);
 
@@ -104,6 +104,13 @@ const ExperimentsPage = (): React.ReactElement => {
     "multi-armed-bandits",
   );
 
+  const canAdd = useMemo(() => {
+    if (project) return permissionsUtil.canViewExperimentModal(project);
+    if (projects?.length)
+      return projects.some((p) => permissionsUtil.canViewExperimentModal(p.id));
+    return permissionsUtil.canViewExperimentModal();
+  }, [project, projects, permissionsUtil]);
+
   // Reset to page 1 when a filter is applied or tabs change
   useEffect(() => {
     setCurrentPage(1);
@@ -121,8 +128,6 @@ const ExperimentsPage = (): React.ReactElement => {
   }
 
   const hasExperiments = allExperiments.length > 0;
-
-  const canAdd = permissionsUtil.canViewExperimentModal(project);
 
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;

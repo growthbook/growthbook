@@ -147,6 +147,13 @@ const HoldoutsPage = (): React.ReactElement => {
 
   const hasHoldoutFeature = hasCommercialFeature("holdouts");
 
+  const canAdd = useMemo(() => {
+    if (project) return permissionsUtil.canViewExperimentModal(project);
+    if (projects?.length)
+      return projects.some((p) => permissionsUtil.canViewExperimentModal(p.id));
+    return permissionsUtil.canViewExperimentModal();
+  }, [project, projects, permissionsUtil]);
+
   // Reset to page 1 when a filter is applied or tabs change
   useEffect(() => {
     setCurrentPage(1);
@@ -164,8 +171,6 @@ const HoldoutsPage = (): React.ReactElement => {
   }
 
   const hasHoldoutsCreated = holdouts.length > 0 && allExperiments.length > 0;
-
-  const canAdd = permissionsUtil.canViewExperimentModal(project);
 
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;

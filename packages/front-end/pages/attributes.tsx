@@ -30,10 +30,15 @@ const HEADER_HEIGHT_PX = 55;
 const FeatureAttributesPage = (): React.ReactElement => {
   const permissionsUtil = usePermissionsUtil();
   const { apiCall } = useAuth();
-  const { project, getProjectById } = useDefinitions();
+  const { project, projects, getProjectById } = useDefinitions();
   const attributeSchema = useAttributeSchema(true, project);
 
-  const canCreateAttributes = permissionsUtil.canViewAttributeModal(project);
+  const canCreateAttributes = useMemo(() => {
+    if (project) return permissionsUtil.canViewAttributeModal(project);
+    if (projects?.length)
+      return projects.some((p) => permissionsUtil.canViewAttributeModal(p.id));
+    return permissionsUtil.canViewAttributeModal();
+  }, [project, projects, permissionsUtil]);
 
   const [modalData, setModalData] = useState<null | string>(null);
   const { refreshOrganization } = useUser();

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { isEmpty } from "lodash";
 import { ExperimentTemplateInterface } from "shared/types/experiment";
 import { Box, Flex, Heading } from "@radix-ui/themes";
@@ -10,7 +10,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
 const ExperimentTemplatesPage: React.FC = () => {
-  const { project } = useDefinitions();
+  const { project, projects } = useDefinitions();
   const [openTemplateModal, setOpenTemplateModal] = useState<
     Partial<ExperimentTemplateInterface> | undefined
   >(undefined);
@@ -20,8 +20,14 @@ const ExperimentTemplatesPage: React.FC = () => {
   const { hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const hasTemplatesFeature = hasCommercialFeature("templates");
-  const canAddTemplate =
-    permissionsUtil.canViewExperimentTemplateModal(project);
+  const canAddTemplate = useMemo(() => {
+    if (project) return permissionsUtil.canViewExperimentTemplateModal(project);
+    if (projects?.length)
+      return projects.some((p) =>
+        permissionsUtil.canViewExperimentTemplateModal(p.id),
+      );
+    return permissionsUtil.canViewExperimentTemplateModal();
+  }, [project, projects, permissionsUtil]);
 
   return (
     <>
