@@ -1,4 +1,4 @@
-import type { Dialect } from "@polyglot-sql/sdk";
+import { FormatOptions } from "sql-formatter";
 
 export type TemplateVariables = {
   eventName?: string;
@@ -18,9 +18,8 @@ export type SQLVars = {
   templateVariables?: TemplateVariables;
 };
 
-// SQL formatter dialect type - use Polyglot's Dialect (source of truth)
-// We need "" for google analytics and mixpanel
-export type FormatDialect = Dialect | "";
+// SQL formatter dialect type that automatically stays in sync with sql-formatter
+export type FormatDialect = FormatOptions["language"] | "";
 
 export type DateTruncGranularity = "hour" | "day" | "week" | "month" | "year";
 

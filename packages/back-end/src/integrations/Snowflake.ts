@@ -1,5 +1,4 @@
 import { snowflakeCreateTableOptions } from "shared/enterprise";
-import { Dialect } from "shared/sql";
 import { FormatDialect } from "shared/types/sql";
 import {
   QueryResponse,
@@ -31,7 +30,7 @@ export default class Snowflake extends SqlIntegration {
     );
   }
   getFormatDialect(): FormatDialect {
-    return Dialect.Snowflake;
+    return "snowflake";
   }
   getSensitiveParamKeys(): string[] {
     return ["password", "privateKey", "privateKeyPassword"];

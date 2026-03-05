@@ -1,5 +1,5 @@
 import { DataSourceType } from "shared/types/datasource";
-import { Dialect, format } from "shared/sql";
+import { format } from "shared/sql";
 import { FormatDialect } from "shared/types/sql";
 
 export function canFormatSql(datasourceType: DataSourceType): boolean {
@@ -8,18 +8,18 @@ export function canFormatSql(datasourceType: DataSourceType): boolean {
 
 function getSqlDialect(datasourceType: DataSourceType): FormatDialect | "" {
   const typeMap: Record<DataSourceType, FormatDialect | ""> = {
-    redshift: Dialect.Redshift,
-    snowflake: Dialect.Snowflake,
-    mysql: Dialect.MySQL,
-    bigquery: Dialect.BigQuery,
-    postgres: Dialect.PostgreSQL,
-    mssql: Dialect.TSQL,
-    clickhouse: Dialect.ClickHouse,
-    growthbook_clickhouse: Dialect.ClickHouse,
-    athena: Dialect.Athena,
-    presto: Dialect.Presto,
-    databricks: Dialect.Databricks,
-    vertica: Dialect.PostgreSQL,
+    redshift: "redshift",
+    snowflake: "snowflake",
+    mysql: "mysql",
+    bigquery: "bigquery",
+    postgres: "postgresql",
+    mssql: "tsql",
+    clickhouse: "",
+    growthbook_clickhouse: "",
+    athena: "trino",
+    presto: "trino",
+    databricks: "sql",
+    vertica: "postgresql",
     mixpanel: "",
     google_analytics: "",
   };
