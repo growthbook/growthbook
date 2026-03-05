@@ -31,14 +31,14 @@ export function AttributeOptionTooltipContent({
             overflowWrap: "anywhere",
           }}
         >
-          <Text size="small" as="div" weight="bold">
+          <Text size="small" as="div" weight="semibold">
             {option.label}
           </Text>
         </Box>
         {option.description && (
           <Flex direction="column" gap="1">
-            <Text size="small" as="div">
-              <strong>Description:</strong>
+            <Text size="small" as="div" weight="semibold">
+              Description:
             </Text>
             <Box>
               <Text size="small" as="div">
@@ -51,18 +51,21 @@ export function AttributeOptionTooltipContent({
         )}
         <Flex direction="column" gap="1">
           <Text size="small" as="div">
-            <strong>Data type:</strong> {option.datatype ?? "unknown"}
+            <Text as="span" weight="semibold">
+              Data type:{" "}
+            </Text>
+            {option.datatype ?? "unknown"}
           </Text>
           {option.hashAttribute === true && (
-            <Text size="small" as="div">
-              <strong>Identifier</strong>
+            <Text size="small" as="div" weight="semibold">
+              Identifier
             </Text>
           )}
         </Flex>
         {option.tags && option.tags.length > 0 && (
           <Flex direction="column" gap="1">
-            <Text size="small" as="div">
-              <strong>Tags:</strong>
+            <Text size="small" as="div" weight="semibold">
+              Tags:
             </Text>
             <Box>
               <SortedTags
