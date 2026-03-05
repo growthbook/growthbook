@@ -1,28 +1,28 @@
 import { DataSourceType } from "shared/types/datasource";
-import { Dialect, format } from "shared/sql";
+import { format } from "shared/sql";
 import { FormatDialect } from "shared/types/sql";
 
 export function canFormatSql(datasourceType: DataSourceType): boolean {
   return !!getSqlDialect(datasourceType);
 }
 
-function getSqlDialect(datasourceType: DataSourceType): FormatDialect | "" {
-  const typeMap: Record<DataSourceType, FormatDialect | ""> = {
-    redshift: Dialect.Redshift,
-    snowflake: Dialect.Snowflake,
-    mysql: Dialect.MySQL,
-    bigquery: Dialect.BigQuery,
-    postgres: Dialect.PostgreSQL,
-    mssql: Dialect.TSQL,
-    clickhouse: Dialect.ClickHouse,
-    growthbook_clickhouse: Dialect.ClickHouse,
-    athena: Dialect.Athena,
-    presto: Dialect.Presto,
-    databricks: Dialect.Databricks,
-    vertica: Dialect.PostgreSQL,
+function getSqlDialect(datasourceType: DataSourceType): FormatDialect {
+  const typeMap = {
+    redshift: "redshift",
+    snowflake: "snowflake",
+    mysql: "mysql",
+    bigquery: "bigquery",
+    postgres: "postgresql",
+    mssql: "tsql",
+    clickhouse: "clickhouse",
+    growthbook_clickhouse: "clickhouse",
+    athena: "athena",
+    presto: "presto",
+    databricks: "databricks",
+    vertica: "postgresql",
     mixpanel: "",
     google_analytics: "",
-  };
+  } as const as Record<DataSourceType, FormatDialect>;
 
   return typeMap[datasourceType];
 }
