@@ -66,6 +66,17 @@ export const banditEvent = z
 export type BanditResult = z.infer<typeof banditResult>;
 export type BanditEvent = z.infer<typeof banditEvent>;
 
+export const variationStatus = ["active", "disabled"] as const;
+export type VariationStatus = (typeof variationStatus)[number];
+
+export const phaseVariation = z
+  .object({
+    id: z.string(),
+    status: z.enum(variationStatus),
+  })
+  .strict();
+export type PhaseVariation = z.infer<typeof phaseVariation>;
+
 export const experimentPhase = z
   .object({
     dateStarted: z.date(),
@@ -79,6 +90,7 @@ export const experimentPhase = z
     namespace: namespaceValue.optional(),
     seed: z.string().optional(),
     variationWeights: z.array(z.number()),
+    variations: z.array(phaseVariation).optional(),
     banditEvents: z.array(banditEvent).optional(),
     lookbackStartDate: z.date().optional(),
   })

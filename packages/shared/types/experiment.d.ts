@@ -30,8 +30,10 @@ export {
   ExperimentInterface,
   ExperimentNotification,
   ExperimentResultsType,
+  PhaseVariation,
   Screenshot,
   Variation,
+  VariationStatus,
 } from "shared/validators";
 
 export {

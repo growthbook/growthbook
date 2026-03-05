@@ -1565,6 +1565,11 @@ describe("Experiment Migration", () => {
           name: "",
           range: [0, 1],
         },
+        variations: [
+          { id: "0", status: "active" },
+          { id: "1", status: "active" },
+          { id: "foo", status: "active" },
+        ],
       },
       {
         phase: "main",
@@ -1577,6 +1582,11 @@ describe("Experiment Migration", () => {
           name: "",
           range: [0, 1],
         },
+        variations: [
+          { id: "0", status: "active" },
+          { id: "1", status: "active" },
+          { id: "foo", status: "active" },
+        ],
       },
     ],
     sequentialTestingEnabled: false,
