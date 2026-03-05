@@ -11,10 +11,10 @@ const presentationThemeSchema = new mongoose.Schema({
     textColor: String,
     headingFont: String,
     bodyFont: String,
+    logoUrl: String,
+    transition: String,
+    celebration: String,
   },
-  transition: String,
-  celebration: String,
-  logoUrl: String,
   dateCreated: Date,
   dateUpdated: Date,
 });

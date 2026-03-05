@@ -103,7 +103,8 @@ export class TeamModel extends BaseClass {
     return this.context.permissions.canManageTeam();
   }
   protected canRead(): boolean {
-    return this.context.permissions.canManageTeam();
+    // Teams aren't project-scoped and they're used to build a user's permissions, so the `readData` check doesn't work
+    return true;
   }
   protected canUpdate(): boolean {
     return this.context.permissions.canManageTeam();

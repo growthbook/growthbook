@@ -3070,6 +3070,19 @@ html {
       }
     }
   }
+
+  &.presentation-deck-print {
+    .presentation-print-slide:last-child {
+      page-break-after: auto;
+    }
+  }
+}
+
+@media print {
+  .presentation-deck-print .presentation-print-slide {
+    min-height: 100vh;
+    box-sizing: border-box;
+  }
 }
 
 .presentation-transition-fade {

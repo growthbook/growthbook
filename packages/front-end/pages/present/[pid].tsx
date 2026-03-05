@@ -19,7 +19,7 @@ const DynamicPresentation = dynamic(
 
 const PresentPage = (): React.ReactElement => {
   const router = useRouter();
-  const { pid, slide: slideParam } = router.query;
+  const { pid, slide: slideParam, printMode: printModeParam } = router.query;
   const { hasCommercialFeature } = useUser();
   const hasPresentationStyling = hasCommercialFeature("adv-presentations");
 
@@ -28,6 +28,10 @@ const PresentPage = (): React.ReactElement => {
     const n = parseInt(slideParam, 10);
     return isNaN(n) || n < 0 ? 0 : n;
   }, [slideParam]);
+
+  const printMode =
+    printModeParam === "true" ||
+    (Array.isArray(printModeParam) && printModeParam.includes("true"));
 
   const { data: pdata, error } = useApi<{
     status: number;
@@ -67,8 +71,6 @@ const PresentPage = (): React.ReactElement => {
           pdata.presentation.theme === "custom"
             ? defaultTheme
             : pdata.presentation.theme,
-        transition: undefined,
-        celebration: undefined,
         customTheme: undefined,
       };
 
@@ -76,7 +78,7 @@ const PresentPage = (): React.ReactElement => {
     <div
       style={{
         minHeight: "100vh",
-        height: "100vh",
+        height: printMode ? "auto" : "100vh",
         display: "flex",
         flexDirection: "column",
       }}
@@ -86,6 +88,7 @@ const PresentPage = (): React.ReactElement => {
         experiments={pdata.experiments}
         initialSlideIndex={initialSlideIndex}
         onSlideChange={handleSlideChange}
+        printMode={printMode}
       />
     </div>
   );

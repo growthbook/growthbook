@@ -95,15 +95,6 @@ export async function createPresentation(data: Partial<PresentationInterface>) {
   if (data?.customTheme) {
     pres.customTheme = data.customTheme;
   }
-  if (data?.transition !== undefined) {
-    pres.transition = data.transition;
-  }
-  if (data?.celebration !== undefined) {
-    pres.celebration = data.celebration;
-  }
-  if (data?.logoUrl !== undefined) {
-    pres.logoUrl = data.logoUrl;
-  }
 
   return PresentationModel.create(pres);
 }

@@ -38,9 +38,6 @@ export async function createPresentationTheme(
     dateCreated: new Date(),
     dateUpdated: new Date(),
   };
-  if (data.transition !== undefined) theme.transition = data.transition;
-  if (data.celebration !== undefined) theme.celebration = data.celebration;
-  if (data.logoUrl !== undefined) theme.logoUrl = data.logoUrl;
 
   return PresentationThemeModel.create(theme);
 }
@@ -55,10 +52,6 @@ export async function updatePresentationTheme(
   if (data.name !== undefined) theme.set("name", data.name);
   if (data.customTheme !== undefined)
     theme.set("customTheme", data.customTheme);
-  if (data.transition !== undefined) theme.set("transition", data.transition);
-  if (data.celebration !== undefined)
-    theme.set("celebration", data.celebration);
-  if (data.logoUrl !== undefined) theme.set("logoUrl", data.logoUrl);
   theme.set("dateUpdated", new Date());
 
   await theme.save();

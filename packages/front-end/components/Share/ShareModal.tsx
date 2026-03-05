@@ -213,15 +213,23 @@ const ShareModal = ({
       title: existing?.title || "A/B Test Review",
       description: existing?.description || date(new Date()),
       theme: existing?.theme || defaultTheme,
-      transition: existing?.transition ?? "fade",
-      celebration: existing?.celebration ?? "none",
-      customTheme: existing?.customTheme || {
-        backgroundColor: "#3400a3",
-        textColor: "#ffffff",
-        headingFont: '"Helvetica Neue", Helvetica, Arial, sans-serif',
-        bodyFont: '"Helvetica Neue", Helvetica, Arial, sans-serif',
+      customTheme: {
+        ...(existing?.customTheme || {
+          backgroundColor: "#3400a3",
+          textColor: "#ffffff",
+          headingFont: '"Helvetica Neue", Helvetica, Arial, sans-serif',
+          bodyFont: '"Helvetica Neue", Helvetica, Arial, sans-serif',
+        }),
+        transition: (existing?.customTheme?.transition ??
+          (existing as { transition?: string })?.transition ??
+          "fade") as PresentationTransition,
+        celebration: (existing?.customTheme?.celebration ??
+          (existing as { celebration?: string })?.celebration ??
+          "none") as PresentationCelebration,
+        logoUrl:
+          existing?.customTheme?.logoUrl ??
+          (existing as { logoUrl?: string })?.logoUrl,
       },
-      logoUrl: existing?.logoUrl,
       slides: existing?.slides || [],
       sharable: existing?.sharable ?? true,
     },
@@ -234,22 +242,49 @@ const ShareModal = ({
         title: existing?.title || "A/B Test Review",
         description: existing?.description || date(new Date()),
         theme: existing?.theme || defaultTheme,
-        transition: existing?.transition ?? "fade",
-        celebration: existing?.celebration ?? "none",
-        customTheme: existing?.customTheme || {
-          backgroundColor: "#3400a3",
-          textColor: "#ffffff",
-          headingFont: '"Helvetica Neue", Helvetica, Arial, sans-serif',
-          bodyFont: '"Helvetica Neue", Helvetica, Arial, sans-serif',
+        customTheme: {
+          ...(existing?.customTheme || {
+            backgroundColor: "#3400a3",
+            textColor: "#ffffff",
+            headingFont: '"Helvetica Neue", Helvetica, Arial, sans-serif',
+            bodyFont: '"Helvetica Neue", Helvetica, Arial, sans-serif',
+          }),
+          transition: (existing?.customTheme?.transition ??
+            (existing as { transition?: string })?.transition ??
+            "fade") as PresentationTransition,
+          celebration: (existing?.customTheme?.celebration ??
+            (existing as { celebration?: string })?.celebration ??
+            "none") as PresentationCelebration,
+          logoUrl:
+            existing?.customTheme?.logoUrl ??
+            (existing as { logoUrl?: string })?.logoUrl,
         },
-        logoUrl: existing?.logoUrl,
         slides: existing?.slides || [],
         sharable: existing?.sharable ?? true,
       };
       form.reset(newVal);
-      setSelectedSavedThemeId(null);
+
+      // Try to match presentation's customTheme to a saved theme (for edit mode)
+      const ct = newVal.customTheme;
+      let matched: PresentationThemeInterface | undefined;
+      if (existing?.theme === "custom" && ct && savedThemes.length > 0) {
+        matched = savedThemes.find((t) => {
+          const st = t.customTheme;
+          return (
+            (st?.backgroundColor ?? "") === (ct?.backgroundColor ?? "") &&
+            (st?.textColor ?? "") === (ct?.textColor ?? "") &&
+            (st?.headingFont ?? "") === (ct?.headingFont ?? "") &&
+            (st?.bodyFont ?? "") === (ct?.bodyFont ?? "") &&
+            (st?.logoUrl ?? "") === (ct?.logoUrl ?? "") &&
+            (st?.transition ?? "fade") === (ct?.transition ?? "fade") &&
+            (st?.celebration ?? "none") === (ct?.celebration ?? "none")
+          );
+        });
+      }
+      setSelectedSavedThemeId(matched?.id ?? null);
+      setSaveThemeName(matched?.name ?? "");
     }
-  }, [existing?.slides]);
+  }, [existing?.slides, existing?.theme, existing?.customTheme, savedThemes]);
 
   // When opening for edit, always start on the first step (Select Experiments)
   useEffect(() => {
@@ -323,12 +358,17 @@ const ShareModal = ({
 
     const l = { ...value };
     if (!hasPresentationStyling) {
-      delete l.transition;
-      delete l.celebration;
-      delete l.logoUrl;
       if (l.theme === "custom") {
         l.theme = defaultTheme;
         delete l.customTheme;
+      } else if (l.customTheme) {
+        const {
+          logoUrl: _logoUrl,
+          transition: _transition,
+          celebration: _celebration,
+          ...rest
+        } = l.customTheme;
+        l.customTheme = Object.keys(rest).length > 0 ? rest : undefined;
       }
     }
     try {
@@ -342,9 +382,6 @@ const ShareModal = ({
         const themeBody = {
           name,
           customTheme: form.getValues("customTheme"),
-          transition: form.getValues("transition"),
-          celebration: form.getValues("celebration"),
-          logoUrl: form.getValues("logoUrl"),
         };
         if (selectedSavedThemeId) {
           await apiCall<{ status: number }>(
@@ -426,18 +463,15 @@ const ShareModal = ({
     customTheme: form.watch("customTheme"),
     title: form.watch("title"),
     description: form.watch("description"),
-    logoUrl: form.watch("logoUrl"),
-    celebration: form.watch("celebration"),
-    transition: form.watch("transition"),
   };
   value?.slides?.forEach((obj: PresentationSlide) => {
     selectedExperiments.set(obj.id, byId.get(obj.id));
   });
 
   // Ensure logo URL is loadable (API may return relative paths like /upload/xxx)
-  const loadableLogoUrl = value.logoUrl?.startsWith("/")
-    ? getApiHost() + value.logoUrl
-    : value.logoUrl;
+  const loadableLogoUrl = value.customTheme?.logoUrl?.startsWith("/")
+    ? getApiHost() + value.customTheme.logoUrl
+    : value.customTheme?.logoUrl;
 
   const setSelectedExperiments = (exp: ExperimentInterfaceStringDates) => {
     if (selectedExperiments.has(exp.id)) {
@@ -589,17 +623,18 @@ const ShareModal = ({
         setSaveThemeName(t.name);
         form.setValue("theme", "custom");
         form.setValue("customTheme", t.customTheme);
-        form.setValue("transition", t.transition ?? "fade");
-        form.setValue("celebration", t.celebration ?? "none");
-        form.setValue("logoUrl", t.logoUrl ?? undefined);
       }
     } else {
       setSelectedSavedThemeId(null);
       setSaveThemeName("");
       form.setValue("theme", v);
       // Non-custom themes don't support celebration or logo—reset to defaults
-      form.setValue("celebration", "none");
-      form.setValue("logoUrl", undefined);
+      form.setValue("customTheme", {
+        ...form.getValues("customTheme"),
+        celebration: "none",
+        logoUrl: undefined,
+        transition: "fade",
+      });
     }
   };
 
@@ -926,7 +961,7 @@ const ShareModal = ({
                         )}
                         {value.theme === "custom" && hasPresentationStyling && (
                           <>
-                            {(canUploadLogo || value.logoUrl) && (
+                            {(canUploadLogo || value.customTheme?.logoUrl) && (
                               <>
                                 <label
                                   htmlFor="presentation-logo-upload"
@@ -944,7 +979,7 @@ const ShareModal = ({
                                   </Box>
                                 </label>
                                 <Box>
-                                  {value.logoUrl ? (
+                                  {value.customTheme?.logoUrl ? (
                                     <Flex align="center" gap="2">
                                       <Box
                                         style={{
@@ -968,7 +1003,10 @@ const ShareModal = ({
                                         color="red"
                                         variant="soft"
                                         onClick={() =>
-                                          form.setValue("logoUrl", undefined)
+                                          form.setValue(
+                                            "customTheme.logoUrl",
+                                            undefined,
+                                          )
                                         }
                                       >
                                         Remove
@@ -988,7 +1026,10 @@ const ShareModal = ({
                                           try {
                                             const { fileURL } =
                                               await uploadFile(apiCall, file);
-                                            form.setValue("logoUrl", fileURL);
+                                            form.setValue(
+                                              "customTheme.logoUrl",
+                                              fileURL,
+                                            );
                                           } catch (err) {
                                             setSaveError(
                                               err?.message ?? "Upload failed",
@@ -1021,10 +1062,13 @@ const ShareModal = ({
                             </label>
                             <Box>
                               <SelectField
-                                value={form.watch("celebration") ?? "none"}
+                                value={
+                                  form.watch("customTheme.celebration") ??
+                                  "none"
+                                }
                                 onChange={(v) =>
                                   form.setValue(
-                                    "celebration",
+                                    "customTheme.celebration",
                                     v as PresentationCelebration,
                                   )
                                 }
@@ -1054,10 +1098,12 @@ const ShareModal = ({
                             </label>
                             <Box>
                               <SelectField
-                                value={form.watch("transition") ?? "fade"}
+                                value={
+                                  form.watch("customTheme.transition") ?? "fade"
+                                }
                                 onChange={(v) =>
                                   form.setValue(
-                                    "transition",
+                                    "customTheme.transition",
                                     v as PresentationTransition,
                                   )
                                 }
@@ -1073,7 +1119,9 @@ const ShareModal = ({
                             </label>
                             <Box>
                               <SelectField
-                                value={form.watch("customTheme.headingFont")}
+                                value={
+                                  form.watch("customTheme.headingFont") ?? ""
+                                }
                                 onChange={(v) =>
                                   form.setValue("customTheme.headingFont", v)
                                 }
@@ -1083,7 +1131,7 @@ const ShareModal = ({
                             <label className="text-right mb-0">Body font</label>
                             <Box>
                               <SelectField
-                                value={form.watch("customTheme.bodyFont")}
+                                value={form.watch("customTheme.bodyFont") ?? ""}
                                 onChange={(v) =>
                                   form.setValue("customTheme.bodyFont", v)
                                 }
@@ -1215,9 +1263,13 @@ const ShareModal = ({
                                 }
                                 headingFont={value.customTheme?.headingFont}
                                 bodyFont={value.customTheme?.bodyFont}
-                                logoUrl={loadableLogoUrl}
-                                celebration={value.celebration ?? "none"}
-                                transition={value.transition ?? "fade"}
+                                customTheme={{
+                                  logoUrl: loadableLogoUrl,
+                                  celebration:
+                                    value.customTheme?.celebration ?? "none",
+                                  transition:
+                                    value.customTheme?.transition ?? "fade",
+                                }}
                               />
                             </div>
                           </>

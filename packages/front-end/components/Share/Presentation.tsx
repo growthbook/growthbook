@@ -1,5 +1,8 @@
 import React, { Fragment, ReactElement, useEffect } from "react";
-import { PresentationInterface } from "shared/types/presentation";
+import {
+  PresentationInterface,
+  PresentationCustomTheme,
+} from "shared/types/presentation";
 import {
   ExperimentInterfaceStringDates,
   Variation,
@@ -28,27 +31,19 @@ export interface Props {
   theme?: string;
   title?: string;
   desc?: string;
-  customTheme?: {
-    backgroundColor: string;
-    textColor: string;
-    headingFont?: string;
-    bodyFont?: string;
-  };
+  /** Theme overrides (colors, fonts, logo, transition, celebration) for preview/form */
+  customTheme?: PresentationCustomTheme;
   experiments: {
     experiment: ExperimentInterfaceStringDates;
     snapshot?: ExperimentSnapshotInterface;
   }[];
   preview?: boolean;
-  /** Optional logo URL shown on the title slide */
-  logoUrl?: string;
-  /** Celebration when winner is revealed (preview/form override) */
-  celebration?: string;
-  /** Slide transition (preview/form override) */
-  transition?: string;
   /** Initial slide index (e.g. from URL ?slide=) */
   initialSlideIndex?: number;
   /** Called when slide changes (e.g. to update URL) */
   onSlideChange?: (slideIndex: number) => void;
+  /** Print view: show all slides at once, skip winner reveal, layout for printing */
+  printMode?: boolean;
 }
 
 const Presentation = ({
@@ -57,15 +52,15 @@ const Presentation = ({
   theme = defaultTheme,
   title,
   desc,
-  customTheme,
+  customTheme: customThemeProp,
   preview = false,
-  logoUrl: logoUrlProp,
-  celebration: celebrationProp,
-  transition: transitionProp,
   initialSlideIndex,
   onSlideChange,
+  printMode = false,
 }: Props): ReactElement => {
-  const logoUrl = presentation?.logoUrl ?? logoUrlProp;
+  const customTheme = presentation?.customTheme ?? customThemeProp;
+  const logoUrl =
+    customTheme?.logoUrl ?? (presentation as { logoUrl?: string })?.logoUrl;
   const { getExperimentMetricById, metricGroups } = useDefinitions();
   const orgSettings = useOrgSettings();
 
@@ -111,25 +106,19 @@ const Presentation = ({
     fonts: "fonts" in currentTheme ? currentTheme.fonts : undefined,
   };
 
-  if (themeName === "custom") {
-    if (presentation?.customTheme) {
-      deckTheme.colors.tertiary = presentation.customTheme.backgroundColor;
-      deckTheme.colors.primary = presentation.customTheme.textColor;
-      deckTheme.colors.secondary = presentation.customTheme.textColor;
+  if (themeName === "custom" && customTheme) {
+    if (customTheme.backgroundColor || customTheme.textColor) {
+      deckTheme.colors.tertiary =
+        customTheme.backgroundColor ?? deckTheme.colors.tertiary;
+      deckTheme.colors.primary =
+        customTheme.textColor ?? deckTheme.colors.primary;
+      deckTheme.colors.secondary =
+        customTheme.textColor ?? deckTheme.colors.secondary;
+    }
+    if (customTheme.headingFont || customTheme.bodyFont) {
       deckTheme.fonts = {
-        header: presentation.customTheme.headingFont,
-        text: presentation.customTheme.bodyFont,
-      };
-    } else if (customTheme) {
-      if (customTheme.backgroundColor)
-        deckTheme.colors.tertiary = customTheme.backgroundColor;
-      if (customTheme.textColor) {
-        deckTheme.colors.primary = customTheme.textColor;
-        deckTheme.colors.secondary = customTheme.textColor;
-      }
-      deckTheme.fonts = {
-        header: customTheme.headingFont,
-        text: customTheme.bodyFont,
+        header: customTheme.headingFont ?? "",
+        text: customTheme.bodyFont ?? "",
       };
     }
   }
@@ -216,12 +205,15 @@ const Presentation = ({
       if (e?.experiment?.results) {
         const winningVar = e?.experiment?.winner ?? 0;
         if (e.experiment.results === "won") {
-          variationExtra[winningVar] = (
-            <Appear index={0}>
-              <div className="result variation-result result-winner text-center p-2 m-0">
-                Winner!
-              </div>
-            </Appear>
+          const winnerEl = (
+            <div className="result variation-result result-winner text-center p-2 m-0">
+              Winner!
+            </div>
+          );
+          variationExtra[winningVar] = printMode ? (
+            winnerEl
+          ) : (
+            <Appear index={0}>{winnerEl}</Appear>
           );
           resultsText =
             (e?.experiment?.variations[winningVar]?.name ?? "") +
@@ -229,20 +221,26 @@ const Presentation = ({
         } else if (e.experiment.results === "lost") {
           resultsText = `The ${variationsPlural} did not improve over the control`;
           if (e.experiment.variations.length === 2) {
-            variationExtra[1] = (
-              <Appear index={0}>
-                <div className="result variation-result result-lost text-center p-2 m-0">
-                  Lost!
-                </div>
-              </Appear>
+            const lostEl = (
+              <div className="result variation-result result-lost text-center p-2 m-0">
+                Lost!
+              </div>
+            );
+            variationExtra[1] = printMode ? (
+              lostEl
+            ) : (
+              <Appear index={0}>{lostEl}</Appear>
             );
           } else {
-            variationExtra[0] = (
-              <Appear index={0}>
-                <div className="result variation-result result-winner text-center p-2 m-0">
-                  Winner!
-                </div>
-              </Appear>
+            const winnerEl = (
+              <div className="result variation-result result-winner text-center p-2 m-0">
+                Winner!
+              </div>
+            );
+            variationExtra[0] = printMode ? (
+              winnerEl
+            ) : (
+              <Appear index={0}>{winnerEl}</Appear>
             );
           }
         } else if (e.experiment.results === "dnf") {
@@ -253,12 +251,15 @@ const Presentation = ({
           );
           resultsText = `The experiment did not finish`;
         } else if (e.experiment.results === "inconclusive") {
-          sideExtra = (
-            <Appear index={0}>
-              <div className="result result-inconclusive text-center m-0 p-3">
-                Inconclusive
-              </div>
-            </Appear>
+          const inconclusiveEl = (
+            <div className="result result-inconclusive text-center m-0 p-3">
+              Inconclusive
+            </div>
+          );
+          sideExtra = printMode ? (
+            inconclusiveEl
+          ) : (
+            <Appear index={0}>{inconclusiveEl}</Appear>
           );
           resultsText = `The results were inconclusive`;
         }
@@ -266,9 +267,10 @@ const Presentation = ({
     }
 
     const hasRevealStep =
-      e?.experiment?.results === "won" ||
-      e?.experiment?.results === "lost" ||
-      e?.experiment?.results === "inconclusive";
+      !printMode &&
+      (e?.experiment?.results === "won" ||
+        e?.experiment?.results === "lost" ||
+        e?.experiment?.results === "inconclusive");
 
     slideConfigs.push({
       content: (
@@ -543,11 +545,11 @@ const Presentation = ({
     steps: 0,
   });
 
-  const transition: DeckTransition = (presentation?.transition ??
-    transitionProp ??
+  const transition: DeckTransition = (customTheme?.transition ??
+    (presentation as { transition?: string })?.transition ??
     "fade") as DeckTransition;
-  const celebration: PresentationCelebrationType = (presentation?.celebration ??
-    celebrationProp ??
+  const celebration: PresentationCelebrationType = (customTheme?.celebration ??
+    (presentation as { celebration?: string })?.celebration ??
     "none") as PresentationCelebrationType;
 
   return (
@@ -574,6 +576,7 @@ const Presentation = ({
         onSlideChange={onSlideChange}
         initialSlideIndex={initialSlideIndex}
         preview={preview}
+        printMode={printMode}
       />
     </div>
   );

@@ -213,7 +213,7 @@ const PresentationPage = (): React.ReactElement => {
                 </svg>
               </Link>
               <Link
-                href={`/present/${pres.id}?exportMode=true&printMode=true`}
+                href={`/present/${pres.id}?printMode=true`}
                 className="btn btn-outline-primary mr-3"
                 target="_blank"
                 rel="noreferrer"
@@ -294,8 +294,8 @@ const PresentationPage = (): React.ReactElement => {
           <div className="text-center">
             <div className="text-center mb-2">
               <CopyToClipboard
-                text={`${window.location.origin}${sharableLink}?exportMode=true`}
-                label="Non-slide version"
+                text={`${window.location.origin}${sharableLink}?printMode=true`}
+                label="Print view"
                 className="justify-content-center"
               />
             </div>

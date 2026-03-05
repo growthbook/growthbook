@@ -1,7 +1,11 @@
 import React, { FC } from "react";
 import dynamic from "next/dynamic";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { PresentationInterface } from "shared/types/presentation";
+import {
+  PresentationInterface,
+  PresentationCelebration,
+  PresentationTransition,
+} from "shared/types/presentation";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -24,9 +28,11 @@ const Preview: FC<{
   textColor: string;
   headingFont?: string;
   bodyFont?: string;
-  logoUrl?: string;
-  celebration?: string;
-  transition?: string;
+  customTheme?: {
+    logoUrl?: string;
+    celebration?: string;
+    transition?: string;
+  };
 }> = ({
   expIds,
   theme,
@@ -36,9 +42,7 @@ const Preview: FC<{
   textColor,
   headingFont,
   bodyFont,
-  logoUrl,
-  celebration = "none",
-  transition = "fade",
+  customTheme: customThemeOverrides,
 }) => {
   const { data: pdata, error } = useApi<{
     status: number;
@@ -64,20 +68,22 @@ const Preview: FC<{
 
   return (
     <DynamicPresentation
-      key={`preview-${expIds}-${logoUrl ?? ""}-${celebration}-${transition}`}
+      key={`preview-${expIds}-${customThemeOverrides?.logoUrl ?? ""}-${customThemeOverrides?.celebration ?? "none"}-${customThemeOverrides?.transition ?? "fade"}`}
       experiments={pdata.experiments}
       theme={theme}
       preview={true}
       title={title}
       desc={desc}
-      logoUrl={logoUrl}
-      celebration={celebration}
-      transition={transition}
       customTheme={{
         backgroundColor: "#" + backgroundColor,
         textColor: "#" + textColor,
         headingFont: headingFont,
         bodyFont: bodyFont,
+        logoUrl: customThemeOverrides?.logoUrl,
+        celebration: (customThemeOverrides?.celebration ??
+          "none") as PresentationCelebration,
+        transition: (customThemeOverrides?.transition ??
+          "fade") as PresentationTransition,
       }}
     />
   );

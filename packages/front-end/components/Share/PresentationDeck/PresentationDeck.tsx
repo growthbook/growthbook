@@ -83,6 +83,8 @@ export interface PresentationDeckProps {
   /** Initial slide index (e.g. from URL) */
   initialSlideIndex?: number;
   preview?: boolean;
+  /** Print view: show all slides vertically, no navigation, page-break for printing */
+  printMode?: boolean;
   className?: string;
 }
 
@@ -94,6 +96,7 @@ export function PresentationDeck({
   onSlideChange,
   initialSlideIndex = 0,
   preview = false,
+  printMode = false,
   className = "",
 }: PresentationDeckProps): React.ReactElement {
   const [slideIndex, setSlideIndex] = useState(() =>
@@ -298,6 +301,40 @@ export function PresentationDeck({
         style={themeStyle}
       >
         <div style={{ padding: "2rem", textAlign: "center" }}>No slides</div>
+      </div>
+    );
+  }
+
+  // Print mode: show all slides vertically, one per page when printing
+  if (printMode) {
+    return (
+      <div
+        ref={containerRef}
+        className={`presentation-deck presentation-deck-print ${className}`}
+        style={{
+          ...themeStyle,
+          height: "auto",
+          minHeight: "auto",
+          overflow: "visible",
+        }}
+      >
+        {slides.map((config, i) => (
+          <div
+            key={i}
+            className="presentation-print-slide"
+            style={{
+              minHeight: "100vh",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
+              padding: "2rem",
+              pageBreakAfter: i < slides.length - 1 ? "always" : "auto",
+              pageBreakInside: "avoid",
+            }}
+          >
+            {config.content}
+          </div>
+        ))}
       </div>
     );
   }
