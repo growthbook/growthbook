@@ -46,7 +46,7 @@ const MAX_SQL_LENGTH_FOR_POLYGLOT = parseInt(
 );
 
 /** Map Polyglot Dialect to sql-formatter SqlLanguage for fallback when polyglot fails */
-function polyglotToSqlFormatter(dialect: Dialect): SqlLanguage {
+function polyglotToSqlFormatter(dialect: FormatDialect): SqlLanguage {
   switch (dialect) {
     case Dialect.PostgreSQL:
     case Dialect.MySQL:
