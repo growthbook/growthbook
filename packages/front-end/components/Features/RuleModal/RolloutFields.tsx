@@ -6,6 +6,7 @@ import { PiCaretDownFill, PiCaretUpFill } from "react-icons/pi";
 import Field from "@/components/Forms/Field";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import RolloutPercentInput from "@/components/Features/RolloutPercentInput";
+import RampScheduleInput from "@/components/Features/RampScheduleInput";
 import SelectField from "@/components/Forms/SelectField";
 import { NewExperimentRefRule, useAttributeSchema } from "@/services/features";
 import ScheduleInputs from "@/components/Features/ScheduleInputs";
@@ -74,13 +75,31 @@ export default function RolloutFields({
         />
 
         <div className="appbox mt-4 mb-4 px-3 pt-3 bg-light">
-          <RolloutPercentInput
-            value={form.watch("coverage") || 0}
-            setValue={(coverage) => {
-              form.setValue("coverage", coverage);
-            }}
-            className="mb-3"
+          {form.watch("rampSchedule") ? (
+            <div className="form-group mb-1">
+              <label>Percent of Units</label>
+              <div className="small text-muted">
+                Controlled by ramp schedule (starts at{" "}
+                {Math.round(
+                  (form.watch("rampSchedule")?.steps?.[0]?.coverage ?? 0) * 100,
+                )}
+                %, ends at 100%)
+              </div>
+            </div>
+          ) : (
+            <RolloutPercentInput
+              value={form.watch("coverage") || 0}
+              setValue={(coverage) => {
+                form.setValue("coverage", coverage);
+              }}
+              className="mb-1"
+            />
+          )}
+          <RampScheduleInput
+            value={form.watch("rampSchedule")}
+            setValue={(v) => form.setValue("rampSchedule", v)}
           />
+          <hr />
           <SelectField
             label="Sample based on attribute"
             options={attributeSchema
