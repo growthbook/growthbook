@@ -493,6 +493,16 @@ export async function putReport(
           updates.experimentAnalysisSettings.dateEnded,
         );
       }
+      if (
+        updates.experimentAnalysisSettings.lookbackOverride?.type === "date"
+      ) {
+        updates.experimentAnalysisSettings.lookbackOverride = {
+          type: "date",
+          value: getValidDate(
+            updates.experimentAnalysisSettings.lookbackOverride.value,
+          ),
+        };
+      }
     }
 
     updates.dateUpdated = new Date();

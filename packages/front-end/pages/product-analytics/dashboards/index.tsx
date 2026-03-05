@@ -252,7 +252,6 @@ export default function DashboardsPage() {
         <Flex justify="between" align="center">
           <Flex align="center">
             <h1>Product Analytics Dashboards</h1>
-            <span className="badge badge-purple text-uppercase ml-2">Beta</span>
           </Flex>
           {filteredDashboards.length ? (
             <LinkButton

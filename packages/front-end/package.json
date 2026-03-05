@@ -24,6 +24,7 @@
     "@jitsu/sdk-js": "^2.2.0",
     "@jukben/emoji-search": "^2.0.1",
     "@next/bundle-analyzer": "^16.1.6",
+    "@nozbe/microfuzz": "^1.0.0",
     "@popperjs/core": "^2.11.5",
     "@radix-ui/colors": "^3.0.0",
     "@radix-ui/react-popover": "1.1.1",

@@ -128,6 +128,8 @@ const TemplateForm: FC<Props> = ({
     ? getDatasourceById(form.watch("datasource") ?? "")
     : null;
 
+  const selectedProject = form.watch("project");
+
   const { apiCall } = useAuth();
 
   const onSubmit = form.handleSubmit(async (rawValue) => {
@@ -326,7 +328,7 @@ const TemplateForm: FC<Props> = ({
                     }}
                     currentCustomFields={form.watch("customFields") || {}}
                     section={"experiment"}
-                    project={form.watch("project")}
+                    project={selectedProject}
                   />
                 </div>
               )}

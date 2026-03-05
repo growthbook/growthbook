@@ -1,3 +1,4 @@
+import { forwardRef } from "react";
 import { Text as RadixText } from "@radix-ui/themes";
 import type { TextProps as RadixTextProps } from "@radix-ui/themes";
 
@@ -41,6 +42,7 @@ export interface TextProps {
   truncate?: boolean;
   overflowWrap?: TextOverflowWrap;
   whiteSpace?: TextWhiteSpace;
+  textTransform?: "uppercase" | "lowercase" | "capitalize";
 
   // Margin props
   m?: RadixTextProps["m"];
@@ -52,29 +54,37 @@ export interface TextProps {
   ml?: RadixTextProps["ml"];
 }
 
-export default function Text({
-  children,
-  size = "medium",
-  weight = "regular",
-  as,
-  color,
-  align = "left",
-  title,
-  overflowWrap = "normal",
-  whiteSpace = "normal",
-  truncate = false,
-  m,
-  mx,
-  my,
-  mt,
-  mr,
-  mb,
-  ml,
-}: TextProps) {
+export default forwardRef<
+  HTMLSpanElement | HTMLDivElement | HTMLLabelElement | HTMLParagraphElement,
+  TextProps
+>(function Text(
+  {
+    children,
+    size = "medium",
+    weight = "regular",
+    as,
+    color,
+    align = "left",
+    title,
+    overflowWrap = "normal",
+    whiteSpace = "normal",
+    truncate = false,
+    textTransform,
+    m,
+    mx,
+    my,
+    mt,
+    mr,
+    mb,
+    ml,
+  },
+  ref,
+) {
   const style: React.CSSProperties = {
     overflowWrap: overflowWrap,
     whiteSpace: whiteSpace,
   };
+  if (textTransform) style.textTransform = textTransform;
 
   if (color === "text-high") {
     style.color = "var(--color-text-high)";
@@ -88,6 +98,7 @@ export default function Text({
 
   return (
     <RadixText
+      ref={ref}
       size={radixSizeMap[size]}
       weight={radixWeightMap[weight]}
       align={align}
@@ -106,4 +117,4 @@ export default function Text({
       {children}
     </RadixText>
   );
-}
+});

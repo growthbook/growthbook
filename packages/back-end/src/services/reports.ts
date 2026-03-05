@@ -6,6 +6,7 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_STATS_ENGINE,
   DEFAULT_TARGET_MDE,
+  DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
 } from "shared/constants";
 import {
   isFactMetric,
@@ -18,9 +19,11 @@ import {
   expandAllSliceMetricsInMap,
   parseSliceMetricId,
   SliceLevelsData,
+  getEffectiveLookbackOverride,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
 import uniqid from "uniqid";
+import { differenceInMinutes } from "date-fns";
 import { getScopedSettings } from "shared/settings";
 import uniq from "lodash/uniq";
 import { pick, omit } from "lodash";
@@ -221,6 +224,14 @@ export function getSnapshotSettingsFromReportArgs(
           settingsForSnapshotMetrics: args.settingsForSnapshotMetrics,
           metricOverrides: args.metricOverrides,
           decisionFrameworkSettings: args.decisionFrameworkSettings,
+          ...(experiment?.type === "multi-armed-bandit"
+            ? {
+                banditConversionWindowValue:
+                  experiment.banditConversionWindowValue ?? undefined,
+                banditConversionWindowUnit:
+                  experiment.banditConversionWindowUnit ?? undefined,
+              }
+            : {}),
         }),
       )
       .filter(isDefined),
@@ -271,7 +282,18 @@ function generateWindowSettings(
   metric: ExperimentMetricInterface,
   overrides?: MetricOverride,
   phaseLookbackWindow?: { value: number; unit: ConversionWindowUnit },
+  banditConversionWindowValue?: number,
+  banditConversionWindowUnit?: "hours" | "days",
 ): MetricWindowSettings {
+  if (banditConversionWindowValue && banditConversionWindowUnit) {
+    return {
+      type: "conversion",
+      delayValue: 0,
+      delayUnit: "hours",
+      windowValue: banditConversionWindowValue,
+      windowUnit: banditConversionWindowUnit,
+    };
+  }
   if (phaseLookbackWindow) {
     // Convert metric window value to hours if it's a lookback window. Ignore if it's a conversion window.
     const metricWindowValueInHours =
@@ -337,6 +359,8 @@ export function getMetricForSnapshot({
   metricOverrides,
   decisionFrameworkSettings,
   phaseLookbackWindow,
+  banditConversionWindowValue,
+  banditConversionWindowUnit,
 }: {
   id: string | null | undefined;
   metricMap: Map<string, ExperimentMetricInterface>;
@@ -344,15 +368,12 @@ export function getMetricForSnapshot({
   metricOverrides?: MetricOverride[];
   decisionFrameworkSettings: ExperimentDecisionFrameworkSettings;
   phaseLookbackWindow?: { value: number; unit: ConversionWindowUnit };
+  banditConversionWindowValue?: number;
+  banditConversionWindowUnit?: "hours" | "days";
 }): MetricForSnapshot | null {
   if (!id) return null;
   const metric = metricMap.get(id);
   if (!metric) return null;
-
-  // TODO: Is this the right place to ignore conversion window metrics for holdouts?
-  if (metric.windowSettings.type === "conversion" && phaseLookbackWindow) {
-    return null;
-  }
 
   // For slice metrics, use the base metric ID for lookups
   const { baseMetricId } = parseSliceMetricId(id);
@@ -382,6 +403,8 @@ export function getMetricForSnapshot({
         metric,
         overrides,
         phaseLookbackWindow,
+        banditConversionWindowValue,
+        banditConversionWindowUnit,
       ),
       properPrior: metricSnapshotSettings?.properPrior ?? false,
       properPriorMean: metricSnapshotSettings?.properPriorMean ?? 0,
@@ -668,6 +691,30 @@ export function getReportSnapshotSettings({
     }),
   );
 
+  const endDate = report.experimentAnalysisSettings.dateEnded || new Date();
+  const lookbackOverride = getEffectiveLookbackOverride(
+    report.experimentAnalysisSettings.attributionModel,
+    report.experimentAnalysisSettings.lookbackOverride,
+  );
+  const phaseLookbackWindow =
+    lookbackOverride?.type === "window"
+      ? {
+          value: lookbackOverride.value,
+          unit: (lookbackOverride.valueUnit ??
+            DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT) as ConversionWindowUnit,
+        }
+      : lookbackOverride?.type === "date"
+        ? {
+            value: Math.max(
+              0,
+              differenceInMinutes(endDate, lookbackOverride.value, {
+                roundingMethod: "ceil",
+              }),
+            ),
+            unit: "minutes" as ConversionWindowUnit,
+          }
+        : undefined;
+
   const metricSettings = getAllExpandedMetricIdsFromExperiment({
     exp: report.experimentAnalysisSettings,
     expandedMetricMap: metricMap,
@@ -682,6 +729,15 @@ export function getReportSnapshotSettings({
         metricOverrides: report.experimentAnalysisSettings.metricOverrides,
         decisionFrameworkSettings:
           report.experimentAnalysisSettings.decisionFrameworkSettings,
+        ...(experiment?.type === "multi-armed-bandit"
+          ? {
+              banditConversionWindowValue:
+                experiment.banditConversionWindowValue ?? undefined,
+              banditConversionWindowUnit:
+                experiment.banditConversionWindowUnit ?? undefined,
+            }
+          : {}),
+        phaseLookbackWindow,
       }),
     )
     .filter(isDefined);
@@ -692,6 +748,7 @@ export function getReportSnapshotSettings({
       report.experimentAnalysisSettings.activationMetric || null,
     attributionModel:
       report.experimentAnalysisSettings.attributionModel || "firstExposure",
+    lookbackOverride: lookbackOverride,
     skipPartialData: !!report.experimentAnalysisSettings.skipPartialData,
     segment: report.experimentAnalysisSettings.segment || "",
     queryFilter: report.experimentAnalysisSettings.queryFilter || "",

@@ -1,7 +1,10 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FactTableColumnType } from "shared/types/fact-table";
 import { getScopedSettings } from "shared/settings";
-import { isPrecomputedDimension } from "shared/experiments";
+import {
+  isPrecomputedDimension,
+  getEffectiveLookbackOverride,
+} from "shared/experiments";
 import React, { useState, useCallback } from "react";
 import {
   ExperimentSnapshotReportArgs,
@@ -13,6 +16,7 @@ import NextLink from "next/link";
 import { useRouter } from "next/router";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { Box, Flex, Text } from "@radix-ui/themes";
+import { date } from "shared/dates";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
@@ -168,6 +172,8 @@ export default function ResultsTab({
     }));
   }, [setAnalysisBarSettings, setAnalysisSettings]);
 
+  const endDate =
+    experiment.status !== "running" ? snapshot?.settings?.endDate : undefined;
   return (
     <div>
       {isBandit && hasResults ? (
@@ -236,6 +242,19 @@ export default function ResultsTab({
                 <Metadata
                   label="Activation Metric"
                   value={activationMetric.name}
+                />
+              ) : null}
+              {getEffectiveLookbackOverride(
+                experiment.attributionModel,
+                experiment.lookbackOverride,
+              ) && experiment.lookbackOverride ? (
+                <Metadata
+                  label="Lookback Enforced"
+                  value={
+                    experiment.lookbackOverride.type === "date"
+                      ? `${date(experiment.lookbackOverride.value, "UTC")} - ${endDate ? date(endDate, "UTC") : "now"}`
+                      : `${experiment.lookbackOverride.value} ${experiment.lookbackOverride.valueUnit}`
+                  }
                 />
               ) : null}
               {isBandit && snapshot ? (
@@ -393,7 +412,6 @@ export default function ResultsTab({
                   mutateExperiment={mutate}
                   editMetrics={editMetrics ?? undefined}
                   editResult={editResult ?? undefined}
-                  reportDetailsLink={false}
                   statsEngine={statsEngine}
                   analysisBarSettings={analysisBarSettings}
                   setAnalysisBarSettings={setAnalysisBarSettings}

@@ -129,6 +129,7 @@ import { runStatsEngine } from "./services/stats";
 import { dashboardsRouter } from "./routers/dashboards/dashboards.router";
 import { customHooksRouter } from "./routers/custom-hooks/custom-hooks.router";
 import { importingRouter } from "./routers/importing/importing.router";
+import { productAnalyticsRouter } from "./routers/product-analytics/product-analytics.router";
 
 const app = express();
 
@@ -822,7 +823,11 @@ app.post(
   "/features/batch-prerequisite-states",
   featuresController.postBatchPrerequisiteStates,
 );
-app.get("/features/names", featuresController.getFeatureNames);
+app.get("/features/meta-info", featuresController.getFeatureMetaInfo);
+app.get("/features/status", featuresController.getFeaturesStatus);
+app.get("/features/draft-states", featuresController.getFeatureDraftStates);
+app.get("/features/stale", featuresController.getFeaturesStaleStates);
+app.get("/features/dependents", featuresController.getFeaturesDependents);
 app.post(
   "/feature/:id/:version/reorder",
   featuresController.postFeatureMoveRule,
@@ -1030,6 +1035,9 @@ app.use("/custom-hooks", customHooksRouter);
 
 // 3rd party data importing proxy
 app.use("/importing", importingRouter);
+
+// Product Analytics
+app.use("/product-analytics", productAnalyticsRouter);
 
 // Meta info
 app.get("/meta/ai", (req, res) => {

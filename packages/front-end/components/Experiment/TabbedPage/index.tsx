@@ -23,7 +23,6 @@ import {
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import FeatureFromExperimentModal from "@/components/Features/FeatureModal/FeatureFromExperimentModal";
 import Modal from "@/components/Modal";
-import HistoryTable from "@/components/HistoryTable";
 import {
   getBrowserDevice,
   openVisualEditor,
@@ -47,6 +46,7 @@ import DashboardsTab from "@/enterprise/components/Dashboards/DashboardsTab";
 import { useExperimentDashboards } from "@/hooks/useDashboards";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
+import CompareExperimentEventsModal from "@/components/Experiment/CompareExperimentEventsModal";
 import ExperimentHeader from "./ExperimentHeader";
 import SetupTabOverview from "./SetupTabOverview";
 import Implementation from "./Implementation";
@@ -128,7 +128,7 @@ export default function TabbedPage({
 
   const { apiCall } = useAuth();
 
-  const [auditModal, setAuditModal] = useState(false);
+  const [compareModal, setCompareModal] = useState(false);
   const [statusModal, setStatusModal] = useState(false);
   const [watchersModal, setWatchersModal] = useState(false);
   const [visualEditorModal, setVisualEditorModal] = useState(false);
@@ -436,17 +436,11 @@ export default function TabbedPage({
 
   return (
     <>
-      {auditModal && (
-        <Modal
-          trackingEventModalType=""
-          open={true}
-          header="Audit Log"
-          close={() => setAuditModal(false)}
-          size="lg"
-          closeCta="Close"
-        >
-          <HistoryTable type="experiment" id={experiment.id} />
-        </Modal>
+      {compareModal && (
+        <CompareExperimentEventsModal
+          experiment={experiment}
+          onClose={() => setCompareModal(false)}
+        />
       )}
       {watchersModal && (
         <Modal
@@ -517,7 +511,7 @@ export default function TabbedPage({
         tab={tab}
         setTab={setTabAndScroll}
         mutate={mutate}
-        setAuditModal={setAuditModal}
+        setCompareModal={setCompareModal}
         setStatusModal={setStatusModal}
         setWatchersModal={setWatchersModal}
         duplicate={duplicate}

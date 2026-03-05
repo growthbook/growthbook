@@ -18,6 +18,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { determineColumnTypes } from "back-end/src/util/sql";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { deriveUserIdTypesFromColumns } from "back-end/src/util/factTable";
 import { logger } from "back-end/src/util/logger";
 
 const JOB_NAME = "refreshFactTableColumns";
@@ -42,7 +43,7 @@ const refreshFactTableColumns = async (job: RefreshFactTableColumnsJob) => {
   const updates: Partial<
     Pick<
       FactTableInterface,
-      "columns" | "columnsError" | "columnRefreshPending"
+      "columns" | "columnsError" | "columnRefreshPending" | "userIdTypes"
     >
   > = {};
 
@@ -54,6 +55,8 @@ const refreshFactTableColumns = async (job: RefreshFactTableColumnsJob) => {
     );
     updates.columns = columns;
     updates.columnsError = null;
+
+    updates.userIdTypes = deriveUserIdTypesFromColumns(datasource, columns);
   } catch (e) {
     updates.columnsError = e.message;
   }
@@ -328,7 +331,7 @@ export default function (ag: Agenda) {
 }
 
 export async function queueFactTableColumnsRefresh(
-  factTable: FactTableInterface,
+  factTable: Pick<FactTableInterface, "id" | "organization">,
 ) {
   const job = agenda.create(JOB_NAME, {
     organization: factTable.organization,
