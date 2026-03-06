@@ -31,11 +31,11 @@ export default function ConditionGroups({ groups, mutate }: Props) {
     useState<null | Partial<SavedGroupInterface>>(null);
   const [deleteModal, setDeleteModal] =
     useState<SavedGroupWithoutValues | null>(null);
-  const { project } = useDefinitions();
+  const { project, projects } = useDefinitions();
   const { getOwnerDisplay } = useUser();
 
   const permissionsUtil = usePermissionsUtil();
-  const canCreate = permissionsUtil.canViewSavedGroupModal(project);
+  const canCreate = permissionsUtil.canViewSavedGroupModal(project, projects);
   const canUpdate = (savedGroup: Pick<SavedGroupInterface, "projects">) =>
     permissionsUtil.canUpdateSavedGroup(savedGroup, savedGroup);
   const canDeleteSavedGroup = (

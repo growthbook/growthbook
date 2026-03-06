@@ -28,6 +28,8 @@ import MultiSelectField from "@/components/Forms/MultiSelectField";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Link from "@/ui/Link";
 import SelectOwner from "@/components/Owner/SelectOwner";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useProjectOptions from "@/hooks/useProjectOptions";
 
 const SavedGroupForm: FC<{
   close: () => void;
@@ -43,7 +45,8 @@ const SavedGroupForm: FC<{
 
   const { mutateDefinitions, savedGroups } = useDefinitions();
 
-  const { projects, project } = useDefinitions();
+  const { project } = useDefinitions();
+  const permissionsUtil = usePermissionsUtil();
 
   const [errorMessage, setErrorMessage] = useState("");
   const [showDescription, setShowDescription] = useState(false);
@@ -69,10 +72,34 @@ const SavedGroupForm: FC<{
     },
   });
 
-  const projectsOptions = projects.map((p) => ({
-    label: p.name,
-    value: p.id,
-  }));
+  const selectedProjects = form.watch("projects") || [];
+  const projectsOptions = useProjectOptions(
+    (p) =>
+      current.id
+        ? permissionsUtil.canUpdateSavedGroup(
+            { projects: current.projects || [] },
+            { projects: [p] },
+          )
+        : permissionsUtil.canCreateSavedGroup({ projects: [p] }),
+    selectedProjects,
+  );
+  const canCreateWithoutProject = current.id
+    ? permissionsUtil.canUpdateSavedGroup(
+        { projects: current.projects || [] },
+        { projects: [] },
+      )
+    : permissionsUtil.canCreateSavedGroup({ projects: [] });
+  const hasProjectPermission = current.id
+    ? permissionsUtil.canUpdateSavedGroup(
+        { projects: current.projects || [] },
+        { projects: selectedProjects },
+      )
+    : permissionsUtil.canCreateSavedGroup({ projects: selectedProjects });
+  const ctaDisabledMessage = !hasProjectPermission
+    ? !selectedProjects.length && projectsOptions.length > 0
+      ? "Select a project to continue."
+      : `You don't have permission to ${current.id ? "update" : "create"} saved groups.`
+    : undefined;
 
   const listAboveSizeLimit = savedGroupSizeLimit
     ? (form.watch("values") ?? []).length > savedGroupSizeLimit
@@ -106,7 +133,8 @@ const SavedGroupForm: FC<{
         type === "condition" ? "Condition Group" : "ID List"
       }`}
       cta={current.id ? "Save" : "Submit"}
-      ctaEnabled={isValid}
+      ctaEnabled={isValid && hasProjectPermission}
+      disabledMessage={ctaDisabledMessage}
       submit={form.handleSubmit(async (value) => {
         if (type === "condition") {
           const conditionRes = validateAndFixCondition(
@@ -205,8 +233,10 @@ const SavedGroupForm: FC<{
       <MultiSelectField
         label="Projects"
         labelClassName="font-weight-bold"
-        placeholder="All Projects"
-        value={form.watch("projects") || []}
+        placeholder={
+          canCreateWithoutProject ? "All Projects" : "Select projects..."
+        }
+        value={selectedProjects}
         onChange={(projects) => form.setValue("projects", projects)}
         options={projectsOptions}
         sort={false}
