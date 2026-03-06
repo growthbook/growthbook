@@ -141,7 +141,7 @@ export default function EditHypothesisModal({
           placeholder="e.g Making the signup button bigger will increase clicks and ultimately improve revenue"
           showButtons={false}
         />
-        <Box>
+        <Box my="4">
           {!aiResponse && (
             <Flex align="start" justify="start">
               {hasAISuggestions ? (
