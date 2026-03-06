@@ -40,3 +40,4 @@ export * from "./metric-group";
 export * from "./product-analytics";
 export * from "./organization";
 export * from "./team";
+export * from "./experiment-refresh-lock";

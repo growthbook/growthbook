@@ -258,6 +258,14 @@ const startExperimentIncrementalRefreshQueries = async (
     ? null
     : await context.models.incrementalRefresh.getByExperimentId(experimentId);
 
+  // Increment the generation counter to invalidate any stale onSuccess
+  // callbacks from previously cancelled runs. Callbacks will check this
+  // value before upserting to avoid writing stale data.
+  const myGeneration =
+    (await context.models.incrementalRefresh.incrementGeneration(
+      experimentId,
+    )) ?? 0;
+
   // When adding new metrics to a fact table, we will need to scan the whole table.
   // So to simplify things we re-create the whole metric source.
   // When removing metrics this is not needed, we just don't insert updated data.
@@ -418,11 +426,18 @@ const startExperimentIncrementalRefreshQueries = async (
     dependencies: [alterUnitsTableQuery.query],
     run: (query, setExternalId) =>
       integration.runIncrementalWithNoOutputQuery(query, setExternalId),
-    onSuccess: (rows) => {
+    onSuccess: async (rows) => {
       // TODO(incremental-refresh): Clean up metadata handling in query runner
       const maxTimestamp = new Date(rows[0].max_timestamp as string);
 
       if (maxTimestamp) {
+        // Guard against stale callbacks from cancelled runs
+        const current =
+          await context.models.incrementalRefresh.getByExperimentId(
+            experimentId,
+          );
+        if (current?.generation !== myGeneration) return;
+
         context.models.incrementalRefresh
           .upsertByExperimentId(experimentId, {
             unitsTableFullName: unitsTableFullName,
@@ -629,10 +644,13 @@ const startExperimentIncrementalRefreshQueries = async (
         run: (query, setExternalId) =>
           integration.runIncrementalWithNoOutputQuery(query, setExternalId),
         onSuccess: async () => {
+          // Guard against stale callbacks from cancelled runs
           const incrementalRefresh =
             await context.models.incrementalRefresh.getByExperimentId(
               experimentId,
             );
+          if (incrementalRefresh?.generation !== myGeneration) return;
+
           const lastSuccessfulMaxTimestamp =
             incrementalRefresh?.unitsMaxTimestamp ?? null;
           const updatedCovariateSource: IncrementalRefreshMetricCovariateSourceInterface =
@@ -677,6 +695,13 @@ const startExperimentIncrementalRefreshQueries = async (
       run: (query, setExternalId) =>
         integration.runMaxTimestampQuery(query, setExternalId),
       onFailure: async () => {
+        // Guard against stale callbacks from cancelled runs
+        const current =
+          await context.models.incrementalRefresh.getByExperimentId(
+            experimentId,
+          );
+        if (current?.generation !== myGeneration) return;
+
         // Remove the source from the running data if max timestamp fails
         runningSourceData = runningSourceData.filter(
           (s) => s.groupId !== group.groupId,
@@ -691,6 +716,13 @@ const startExperimentIncrementalRefreshQueries = async (
       onSuccess: async (rows) => {
         const maxTimestamp = new Date(rows[0].max_timestamp as string);
         if (maxTimestamp) {
+          // Guard against stale callbacks from cancelled runs
+          const current =
+            await context.models.incrementalRefresh.getByExperimentId(
+              experimentId,
+            );
+          if (current?.generation !== myGeneration) return;
+
           // TODO(incremental-refresh): Clean up metadata handling in query runner
           const updatedSource: IncrementalRefreshMetricSourceInterface =
             existingSource
@@ -802,38 +834,52 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       );
     }
 
-    const incrementalRefreshModel = params.fullRefresh
-      ? null
-      : await this.context.models.incrementalRefresh.getByExperimentId(
-          params.experimentId,
+    try {
+      const incrementalRefreshModel = params.fullRefresh
+        ? null
+        : await this.context.models.incrementalRefresh.getByExperimentId(
+            params.experimentId,
+          );
+
+      const experiment = await getExperimentById(
+        this.context,
+        params.experimentId,
+      );
+      if (!experiment) {
+        throw new Error("Experiment not found");
+      }
+
+      // Throws if any settings/experiment is not supported
+      await validateIncrementalPipeline({
+        org: this.context.org,
+        integration: this.integration,
+        snapshotSettings: params.snapshotSettings,
+        metricMap: params.metricMap,
+        factTableMap: params.factTableMap,
+        experiment,
+        incrementalRefreshModel,
+        analysisType: params.fullRefresh ? "main-fullRefresh" : "main-update",
+      });
+
+      return await startExperimentIncrementalRefreshQueries(
+        this.context,
+        params,
+        this.integration,
+        this.startQuery.bind(this),
+      );
+    } catch (e) {
+      // Release the per-experiment lock if query setup fails, since
+      // updateModel (which normally handles release) will not be called.
+      this.context.models.experimentRefreshLocks
+        .releaseLock(params.experimentId)
+        .catch((lockErr) =>
+          this.context.logger.error(
+            lockErr,
+            "Failed to release experiment refresh lock after startQueries error",
+          ),
         );
-
-    const experiment = await getExperimentById(
-      this.context,
-      params.experimentId,
-    );
-    if (!experiment) {
-      throw new Error("Experiment not found");
+      throw e;
     }
-
-    // Throws if any settings/experiment is not supported
-    await validateIncrementalPipeline({
-      org: this.context.org,
-      integration: this.integration,
-      snapshotSettings: params.snapshotSettings,
-      metricMap: params.metricMap,
-      factTableMap: params.factTableMap,
-      experiment,
-      incrementalRefreshModel,
-      analysisType: params.fullRefresh ? "main-fullRefresh" : "main-update",
-    });
-
-    return startExperimentIncrementalRefreshQueries(
-      this.context,
-      params,
-      this.integration,
-      this.startQuery.bind(this),
-    );
   }
 
   // largely copied from ExperimentResultsQueryRunner
@@ -958,6 +1004,20 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       updates,
       context: this.context,
     });
+
+    // Release the per-experiment refresh lock when the run reaches a
+    // terminal state (success, failure, or partial success).
+    if (["failed", "partially-succeeded", "succeeded"].includes(status)) {
+      this.context.models.experimentRefreshLocks
+        .releaseLock(this.model.experiment)
+        .catch((e) =>
+          this.context.logger.error(
+            e,
+            "Failed to release experiment refresh lock",
+          ),
+        );
+    }
+
     if (
       this.model.report &&
       ["failed", "partially-succeeded", "succeeded"].includes(status)
