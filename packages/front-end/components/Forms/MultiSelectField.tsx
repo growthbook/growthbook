@@ -75,6 +75,41 @@ const Input = (props: InputProps) => {
   return <components.Input onPaste={onPaste} {...props} />;
 };
 
+// Hide heading only for the first *visible* group when its label is empty.
+// If the first group has all options selected (group hidden), the second group
+// becomes the first visible one and should not show an empty heading either.
+function GroupHeading(
+  props: React.ComponentProps<typeof components.GroupHeading>,
+) {
+  const group = props.data as GroupedValue;
+  const label = group?.label;
+  const selectProps = props.selectProps as {
+    options?: GroupedValue[];
+    value?: SingleValue[];
+  };
+  const options = selectProps?.options ?? [];
+  const selectedSet = new Set(
+    (selectProps?.value ?? []).map((v) => v?.value).filter(Boolean),
+  );
+  const firstVisibleGroup = options.find((g) =>
+    (g?.options ?? []).some(
+      (opt) => opt?.value != null && !selectedSet.has(opt.value),
+    ),
+  );
+  const isFirstVisibleGroup = firstVisibleGroup === group;
+  if (isFirstVisibleGroup && (label == null || label === "")) return null;
+  const hasLabel = label != null && label !== "";
+  return (
+    <components.GroupHeading
+      {...props}
+      className={clsx(
+        props.className,
+        !hasLabel && "gb-select__group-heading--empty",
+      )}
+    />
+  );
+}
+
 function CopyButton({ value }: { value: string[] }) {
   const [copied, setCopied] = useState(false);
 
@@ -340,6 +375,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
                 Option: OptionWithTitle,
                 Input,
                 ClearIndicator: CustomClearIndicator,
+                GroupHeading,
                 ...(showCopyButton
                   ? { IndicatorsContainer: IndicatorsContainerWithCopyButton }
                   : {}),

@@ -48,6 +48,9 @@
   .gb-select__group-heading {
     margin-top: var(--space-4) !important;
     margin-bottom: var(--space-2) !important;
+    &--empty {
+      margin-top: var(--space-2) !important;
+    }
     padding-bottom: var(--space-1) !important;
     margin-left: var(--space-3) !important;
     margin-right: var(--space-3) !important;
