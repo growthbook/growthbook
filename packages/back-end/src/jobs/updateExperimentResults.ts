@@ -163,7 +163,7 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
       }
     }
 
-    const snapshot = await createOrReuseStandardSnapshotExecution({
+    const { snapshot } = await createOrReuseStandardSnapshotExecution({
       experiment,
       context,
       phaseIndex: experiment.phases.length - 1,

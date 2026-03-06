@@ -266,7 +266,7 @@ export const createHoldout = async (
       req.setTimeout(SNAPSHOT_TIMEOUT);
 
       try {
-        const snapshot = await createOrReuseStandardSnapshotExecution({
+        const { snapshot } = await createOrReuseStandardSnapshotExecution({
           context,
           experiment,
           phaseIndex: 0,
