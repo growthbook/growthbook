@@ -34,6 +34,7 @@ export interface TextProps {
   size?: TextSizes;
   weight?: TextWeights;
   as?: "span" | "div" | "label" | "p";
+  htmlFor?: string;
 
   color?: TextColors;
   align?: TextAlign;
@@ -63,6 +64,7 @@ export default forwardRef<
     size = "medium",
     weight = "regular",
     as,
+    htmlFor,
     color,
     align = "left",
     title,
@@ -106,6 +108,7 @@ export default forwardRef<
       title={title}
       style={style}
       truncate={truncate}
+      htmlFor={htmlFor}
       m={m}
       mx={mx}
       my={my}

@@ -13,6 +13,8 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "@/components/Modal";
 import HistoryTable from "@/components/HistoryTable";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import useApi from "@/hooks/useApi";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
@@ -49,6 +51,21 @@ export default function SavedGroupsPage() {
     window.addEventListener("hashchange", handleHashChange);
     return () => window.removeEventListener("hashchange", handleHashChange);
   }, []);
+
+  const settings = useOrgSettings();
+  const approvalFlowRequired =
+    settings.approvalFlows?.savedGroups?.required ?? false;
+
+  const { data: beaconData } = useApi<{
+    openFlowTargetIds: string[];
+  }>("/approval-flow/entity/saved-group/beacon", {
+    shouldRun: () => approvalFlowRequired,
+  });
+
+  const openFlowTargetIds = useMemo(
+    () => new Set(beaconData?.openFlowTargetIds ?? []),
+    [beaconData],
+  );
 
   const { refreshOrganization } = useUser();
 
@@ -187,11 +204,16 @@ export default function SavedGroupsPage() {
               <ConditionGroups
                 groups={savedGroups}
                 mutate={mutateDefinitions}
+                openFlowTargetIds={openFlowTargetIds}
               />
             </TabsContent>
 
             <TabsContent value="idLists">
-              <IdLists groups={savedGroups} mutate={mutateDefinitions} />
+              <IdLists
+                groups={savedGroups}
+                mutate={mutateDefinitions}
+                openFlowTargetIds={openFlowTargetIds}
+              />
             </TabsContent>
           </Tabs>
         </>

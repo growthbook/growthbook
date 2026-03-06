@@ -106,6 +106,7 @@ export interface ModelConfig<
   additionalIndexes?: {
     fields: Partial<Record<IndexableFieldPath<z.infer<T>>, 1 | -1>>;
     unique?: boolean;
+    partialFilterExpression?: Record<string, unknown>;
   }[];
   // NB: Names of indexes to remove
   indexesToRemove?: string[];
@@ -995,6 +996,9 @@ export abstract class BaseModel<
         this._dangerousGetCollection()
           .createIndex(index.fields as { [key: string]: number }, {
             unique: !!index.unique,
+            ...(index.partialFilterExpression
+              ? { partialFilterExpression: index.partialFilterExpression }
+              : {}),
           })
           .catch((err) => {
             logger.error(

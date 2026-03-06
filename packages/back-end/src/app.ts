@@ -10,6 +10,7 @@ import * as Sentry from "@sentry/node";
 import { stringToBoolean } from "shared/util";
 import { populationDataRouter } from "back-end/src/routers/population-data/population-data.router";
 import decisionCriteriaRouter from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.router";
+import { approvalFlowRouter } from "back-end/src/enterprise/routers/approval-flow/approval-flow.router";
 import { usingFileConfig } from "./init/config";
 import { AuthRequest } from "./types/AuthRequest";
 import {
@@ -761,6 +762,8 @@ app.use("/saved-queries", savedQueriesRouter);
 app.use("/projects", projectRouter);
 
 app.use(factTableRouter);
+
+app.use("/approval-flow", approvalFlowRouter);
 
 app.use("/demo-datasource-project", demoDatasourceProjectRouter);
 

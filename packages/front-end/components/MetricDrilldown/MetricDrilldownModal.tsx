@@ -26,7 +26,6 @@ import { ExperimentTableRow } from "@/services/experiments";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import Link from "@/ui/Link";
 import MetricName from "@/components/Metrics/MetricName";
-import { useKeydown } from "@/hooks/useKeydown";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { useAuth } from "@/services/auth";
@@ -424,7 +423,6 @@ const MetricDrilldownModal = ({
   // Report context
   isReportContext: isReportContextProp,
 }: MetricDrilldownModalProps) => {
-  useKeydown("Escape", close);
   useBodyScrollLock(true);
   const { metric } = row;
   const { hasCommercialFeature } = useUser();
@@ -500,7 +498,7 @@ const MetricDrilldownModal = ({
         backgroundlessHeader={true}
         headerClassName={styles.metricDrilldownModalHeader}
         bodyClassName={styles.metricDrilldownModalBody}
-        onBackdropClick={close}
+        dismissible
         header={
           <Flex align="center" gap="0">
             <Text size="6" weight="bold">

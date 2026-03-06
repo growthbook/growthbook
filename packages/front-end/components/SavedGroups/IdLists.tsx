@@ -19,6 +19,7 @@ import LargeSavedGroupPerformanceWarning, {
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
+import { ApprovalFlowStatusDot } from "@/components/ApprovalFlow/approvalFlowUtils";
 import SavedGroupForm from "./SavedGroupForm";
 import SavedGroupDeleteModal from "./SavedGroupDeleteModal";
 import SavedGroupRowMenu from "./SavedGroupRowMenu";
@@ -26,9 +27,10 @@ import SavedGroupRowMenu from "./SavedGroupRowMenu";
 export interface Props {
   groups: SavedGroupWithoutValues[];
   mutate: () => void;
+  openFlowTargetIds?: Set<string>;
 }
 
-export default function IdLists({ groups, mutate }: Props) {
+export default function IdLists({ groups, mutate, openFlowTargetIds }: Props) {
   const [savedGroupForm, setSavedGroupForm] =
     useState<null | Partial<SavedGroupInterface>>(null);
   const [deleteModal, setDeleteModal] =
@@ -152,13 +154,18 @@ export default function IdLists({ groups, mutate }: Props) {
                   return (
                     <tr key={s.id}>
                       <td>
-                        <Link
-                          className="link-purple"
-                          key={s.id}
-                          href={`/saved-groups/${s.id}`}
-                        >
-                          {s.groupName}
-                        </Link>
+                        <Flex align="center" gap="2">
+                          <ApprovalFlowStatusDot
+                            hasOpenFlows={openFlowTargetIds?.has(s.id)}
+                          />
+                          <Link
+                            className="link-purple"
+                            key={s.id}
+                            href={`/saved-groups/${s.id}`}
+                          >
+                            {s.groupName}
+                          </Link>
+                        </Flex>
                       </td>
                       <td>{s.attributeKey}</td>
                       <td>{truncateString(s.description || "", 40)}</td>

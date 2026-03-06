@@ -6,7 +6,7 @@ import {
   SavedGroupWithoutValues,
 } from "shared/types/saved-group";
 import { isProjectListValidForProject, truncateString } from "shared/util";
-import { Box } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useSearch } from "@/services/search";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -15,6 +15,7 @@ import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
+import { ApprovalFlowStatusDot } from "@/components/ApprovalFlow/approvalFlowUtils";
 import TruncatedConditionDisplay from "./TruncatedConditionDisplay";
 import SavedGroupForm from "./SavedGroupForm";
 import SavedGroupDeleteModal from "./SavedGroupDeleteModal";
@@ -23,9 +24,14 @@ import SavedGroupRowMenu from "./SavedGroupRowMenu";
 export interface Props {
   groups: SavedGroupWithoutValues[];
   mutate: () => void;
+  openFlowTargetIds?: Set<string>;
 }
 
-export default function ConditionGroups({ groups, mutate }: Props) {
+export default function ConditionGroups({
+  groups,
+  mutate,
+  openFlowTargetIds,
+}: Props) {
   const [savedGroupForm, setSavedGroupForm] =
     useState<null | Partial<SavedGroupInterface>>(null);
   const [deleteModal, setDeleteModal] =
@@ -136,22 +142,27 @@ export default function ConditionGroups({ groups, mutate }: Props) {
                       return (
                         <tr key={s.id}>
                           <td style={{ width: "250px" }}>
-                            <Link
-                              href={`/saved-groups/${s.id}`}
-                              className="link-purple"
-                              style={{
-                                display: "-webkit-box",
-                                WebkitLineClamp: 3,
-                                WebkitBoxOrient: "vertical",
-                                textOverflow: "ellipsis",
-                                overflow: "hidden",
-                                lineHeight: "1.2em",
-                                wordBreak: "break-word",
-                                overflowWrap: "anywhere",
-                              }}
-                            >
-                              {s.groupName}
-                            </Link>
+                            <Flex align="center" gap="2">
+                              <ApprovalFlowStatusDot
+                                hasOpenFlows={openFlowTargetIds?.has(s.id)}
+                              />
+                              <Link
+                                href={`/saved-groups/${s.id}`}
+                                className="link-purple"
+                                style={{
+                                  display: "-webkit-box",
+                                  WebkitLineClamp: 3,
+                                  WebkitBoxOrient: "vertical",
+                                  textOverflow: "ellipsis",
+                                  overflow: "hidden",
+                                  lineHeight: "1.2em",
+                                  wordBreak: "break-word",
+                                  overflowWrap: "anywhere",
+                                }}
+                              >
+                                {s.groupName}
+                              </Link>
+                            </Flex>
                           </td>
                           <td style={{ width: 400 }}>
                             <TruncatedConditionDisplay

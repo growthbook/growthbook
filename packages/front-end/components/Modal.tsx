@@ -75,6 +75,8 @@ type ModalProps = {
   backgroundlessHeader?: boolean;
   borderlessFooter?: boolean;
   onBackdropClick?: () => void;
+  // Enables closing the modal via backdrop click and Escape key.
+  dismissible?: boolean;
 };
 const Modal: FC<ModalProps> = ({
   header = "logo",
@@ -126,6 +128,7 @@ const Modal: FC<ModalProps> = ({
   backgroundlessHeader = false,
   borderlessFooter = false,
   onBackdropClick,
+  dismissible = false,
 }) => {
   const [modalUuid] = useState(_modalUuid || uuidv4());
   const [loading, setLoading] = useState(false);
@@ -133,6 +136,7 @@ const Modal: FC<ModalProps> = ({
   const [isSuccess, setIsSuccess] = useState(false);
 
   const bodyRef = useRef<HTMLDivElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
 
   const scrollToTop = () => {
     setTimeout(() => {
@@ -408,8 +412,29 @@ const Modal: FC<ModalProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  useEffect(() => {
+    if (!dismissible || !close || !open) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+
+      const openModals = Array.from(document.querySelectorAll(".modal.show"));
+      const topMostOpenModal = openModals[openModals.length - 1];
+      if (topMostOpenModal !== modalRef.current) return;
+
+      event.preventDefault();
+      close();
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [dismissible, close, open]);
+
   const modalHtml = (
     <div
+      ref={modalRef}
       className={clsx("modal", { show: open })}
       style={{
         display: open ? "block" : "none",
@@ -417,8 +442,12 @@ const Modal: FC<ModalProps> = ({
         zIndex: inline ? 1 : increasedElevation ? 1550 : undefined,
       }}
       onClick={(e) => {
-        if (onBackdropClick && e.target === e.currentTarget) {
-          onBackdropClick();
+        if (e.target === e.currentTarget) {
+          if (onBackdropClick) {
+            onBackdropClick();
+          } else if (dismissible && close) {
+            close();
+          }
         }
         e.stopPropagation();
       }}

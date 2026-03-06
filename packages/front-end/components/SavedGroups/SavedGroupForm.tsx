@@ -5,6 +5,7 @@ import {
   SavedGroupInterface,
   SavedGroupType,
 } from "shared/types/saved-group";
+import { ApprovalFlow } from "shared/enterprise";
 import { useForm } from "react-hook-form";
 import {
   isIdListSupportedAttribute,
@@ -17,6 +18,7 @@ import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
 import { useAttributeSchema } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
@@ -28,22 +30,43 @@ import MultiSelectField from "@/components/Forms/MultiSelectField";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Link from "@/ui/Link";
 import SelectOwner from "@/components/Owner/SelectOwner";
+import Checkbox from "@/ui/Checkbox";
+
+type SavedGroupFormValues = CreateSavedGroupProps;
 
 const SavedGroupForm: FC<{
   close: () => void;
   current: Partial<SavedGroupInterface>;
   type: SavedGroupType;
-}> = ({ close, current, type }) => {
+  approvalFlowRequired?: boolean;
+  hasExistingRevision?: boolean;
+  onApprovalFlowCreated?: (flow: ApprovalFlow) => void;
+}> = ({
+  close,
+  current,
+  type,
+  approvalFlowRequired,
+  hasExistingRevision,
+  onApprovalFlowCreated,
+}) => {
   const { apiCall } = useAuth();
   const { savedGroupSizeLimit } = useOrgSettings();
+  const permissionsUtil = usePermissionsUtil();
 
+  const canAdminPublish =
+    !!approvalFlowRequired &&
+    !!current.id &&
+    permissionsUtil.canBypassApprovalChecks({
+      project: current.projects?.[0] ?? "",
+    });
+
+  const [bypassApproval, setBypassApproval] = useState(false);
   const [conditionKey, forceConditionRender] = useIncrementer();
 
   const attributeSchema = useAttributeSchema();
 
-  const { mutateDefinitions, savedGroups } = useDefinitions();
-
-  const { projects, project } = useDefinitions();
+  const { mutateDefinitions, savedGroups, projects, project } =
+    useDefinitions();
 
   const [errorMessage, setErrorMessage] = useState("");
   const [showDescription, setShowDescription] = useState(false);
@@ -56,7 +79,7 @@ const SavedGroupForm: FC<{
     }
   }, [current]);
 
-  const form = useForm<CreateSavedGroupProps>({
+  const form = useForm<SavedGroupFormValues>({
     defaultValues: {
       groupName: current.groupName || "",
       owner: current.owner || "",
@@ -101,12 +124,36 @@ const SavedGroupForm: FC<{
       trackingEventModalType="saved-group-form"
       close={close}
       open={true}
+      useRadixButton={true}
       size="lg"
       header={`${current.id ? "Edit" : "Add"} ${
         type === "condition" ? "Condition Group" : "ID List"
       }`}
-      cta={current.id ? "Save" : "Submit"}
+      cta={
+        <>
+          {current.id
+            ? approvalFlowRequired
+              ? bypassApproval
+                ? "Publish"
+                : hasExistingRevision
+                  ? "Update"
+                  : "Propose changes"
+              : "Save"
+            : "Submit"}
+        </>
+      }
       ctaEnabled={isValid}
+      backCTA={
+        <div className="mt-3 mb-2">
+          <Checkbox
+            label="Bypass approval requirement to publish (optional for Admins only)"
+            value={bypassApproval}
+            setValue={(val) => setBypassApproval(!!val)}
+            disabled={!canAdminPublish}
+            disabledMessage="You don't have permission to bypass approval"
+          />
+        </div>
+      }
       submit={form.handleSubmit(async (value) => {
         if (type === "condition") {
           const conditionRes = validateAndFixCondition(
@@ -133,10 +180,25 @@ const SavedGroupForm: FC<{
             description: value.description,
             projects: value.projects,
           };
-          await apiCall(`/saved-groups/${current.id}`, {
+          const url = bypassApproval
+            ? `/saved-groups/${current.id}?bypassApproval=1`
+            : `/saved-groups/${current.id}`;
+          const res = await apiCall<{
+            status: number;
+            requiresApproval?: boolean;
+            approvalFlow?: ApprovalFlow;
+          }>(url, {
             method: "PUT",
             body: JSON.stringify(payload),
           });
+          if (res?.requiresApproval) {
+            mutateDefinitions({});
+            if (res.approvalFlow) {
+              onApprovalFlowCreated?.(res.approvalFlow);
+            }
+            close();
+            return;
+          }
         }
         // Create new saved group
         else {

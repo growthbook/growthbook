@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import { ago } from "shared/dates";
@@ -50,6 +50,9 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
+import ApprovalFlowDetail from "@/components/ApprovalFlow/ApprovalFlowDetail";
+import ApprovalFlowVersionSelector from "@/components/ApprovalFlow/ApprovalFlowVersionSelector";
+import { useSavedGroupApprovalFlow } from "@/hooks/useSavedGroupApprovalFlow";
 import { useSavedGroupReferences } from "@/hooks/useSavedGroupReferences";
 
 const NUM_PER_PAGE = 10;
@@ -69,9 +72,11 @@ export default function EditSavedGroupPage() {
     useState<boolean>(false);
   const [showDeleteModal, setShowDeleteModal] = useState<boolean>(false);
   const [showAuditModal, setShowAuditModal] = useState<boolean>(false);
+  const [showChangesModal, setShowChangesModal] = useState<boolean>(false);
   const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
   const [adminBypassSizeLimit, setAdminBypassSizeLimit] = useState(false);
-  const { savedGroupSizeLimit } = useOrgSettings();
+  const settings = useOrgSettings();
+  const { savedGroupSizeLimit, attributeSchema } = settings;
 
   const { references } = useSavedGroupReferences(savedGroup?.id);
   const referencingFeatures = references?.features ?? [];
@@ -85,21 +90,61 @@ export default function EditSavedGroupPage() {
   const values = useMemo(() => savedGroup?.values ?? [], [savedGroup]);
   const [currentPage, setCurrentPage] = useState(1);
   const [filter, setFilter] = useState("");
-  const filteredValues = values.filter((v) => v.match(filter));
+
+  const { apiCall } = useAuth();
+  const [importOperation, setImportOperation] = useState<"replace" | "append">(
+    "replace",
+  );
+  const { projects } = useDefinitions();
+
+  const approvalFlowRequired =
+    settings.approvalFlows?.savedGroups?.required ?? false;
+
+  const approvalFlowState = useSavedGroupApprovalFlow(savedGroup?.id, mutate);
+  const {
+    selectedApprovalFlow,
+    selectedApprovalFlowId,
+    openApprovalFlows,
+    allApprovalFlows,
+    selectFlow,
+    onApprovalFlowCreated,
+    handleDiscard,
+    mutateApprovalFlows,
+    userOpenFlow,
+  } = approvalFlowState;
+
+  // When the user already has an open flow, block edits to the live version
+  const editBlocked = approvalFlowRequired && !!userOpenFlow;
+
+  // Close the changes modal when the selected flow is deselected (e.g. after publish/discard)
+  useEffect(() => {
+    if (!selectedApprovalFlow) {
+      setShowChangesModal(false);
+    }
+  }, [selectedApprovalFlow]);
+
+  // When a revision is selected, show its proposed state in the overview
+  const displayedSavedGroup = useMemo(() => {
+    if (!selectedApprovalFlow) return savedGroup;
+    return {
+      ...selectedApprovalFlow.target.snapshot,
+      ...selectedApprovalFlow.target.proposedChanges,
+    } as SavedGroupInterface;
+  }, [selectedApprovalFlow, savedGroup]);
+
+  const displayedValues = useMemo(
+    () => displayedSavedGroup?.values ?? [],
+    [displayedSavedGroup],
+  );
+
+  const filteredValues = displayedValues.filter((v) => v.match(filter));
   const sortedValues = sortNewestFirst
     ? filteredValues.reverse()
     : filteredValues;
 
-  const { apiCall } = useAuth();
-
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
   const valuesPage = sortedValues.slice(start, end);
-  const [importOperation, setImportOperation] = useState<"replace" | "append">(
-    "replace",
-  );
-  const { attributeSchema } = useOrgSettings();
-  const { projects } = useDefinitions();
 
   const { hasLargeSavedGroupFeature, unsupportedConnections } =
     useLargeSavedGroupSupport();
@@ -260,31 +305,59 @@ export default function EditSavedGroupPage() {
               ? "Add List Items"
               : "Overwrite List Contents"
           }
-          cta="Save"
+          cta={
+            approvalFlowRequired
+              ? userOpenFlow
+                ? "Update"
+                : "Propose changes"
+              : "Save"
+          }
           ctaEnabled={
             itemsToAdd.length > 0 &&
             (!listAboveSizeLimit || adminBypassSizeLimit)
           }
           submit={async () => {
-            let newValues: Set<string>;
             if (importOperation === "append") {
-              await apiCall(`/saved-groups/${savedGroup.id}/add-items`, {
+              const res = await apiCall<{
+                status: number;
+                requiresApproval?: boolean;
+                approvalFlow?: import("shared/enterprise").ApprovalFlow;
+              }>(`/saved-groups/${savedGroup.id}/add-items`, {
                 method: "POST",
                 body: JSON.stringify({
                   items: itemsToAdd,
                 }),
               });
-              newValues = new Set([...values, ...itemsToAdd]);
+              if (res?.requiresApproval) {
+                if (res.approvalFlow) {
+                  onApprovalFlowCreated(res.approvalFlow);
+                }
+                setItemsToAdd([]);
+                return;
+              }
+              const newValues = new Set([...values, ...itemsToAdd]);
+              mutateValues([...newValues]);
             } else {
-              await apiCall(`/saved-groups/${savedGroup.id}`, {
+              const res = await apiCall<{
+                status: number;
+                requiresApproval?: boolean;
+                approvalFlow?: import("shared/enterprise").ApprovalFlow;
+              }>(`/saved-groups/${savedGroup.id}`, {
                 method: "PUT",
                 body: JSON.stringify({
                   values: itemsToAdd,
                 }),
               });
-              newValues = new Set(itemsToAdd);
+              if (res?.requiresApproval) {
+                if (res.approvalFlow) {
+                  onApprovalFlowCreated(res.approvalFlow);
+                }
+                setItemsToAdd([]);
+                return;
+              }
+              const newValues = new Set(itemsToAdd);
+              mutateValues([...newValues]);
             }
-            mutateValues([...newValues]);
             setItemsToAdd([]);
           }}
         >
@@ -313,6 +386,9 @@ export default function EditSavedGroupPage() {
           }}
           current={savedGroupForm}
           type={savedGroup.type}
+          approvalFlowRequired={approvalFlowRequired}
+          hasExistingRevision={!!userOpenFlow}
+          onApprovalFlowCreated={onApprovalFlowCreated}
         />
       )}
       {showReferencesModal && (
@@ -335,6 +411,30 @@ export default function EditSavedGroupPage() {
           />
         </Modal>
       )}
+      {showChangesModal && selectedApprovalFlow && (
+        <Modal
+          header="Revision Changes"
+          trackingEventModalType="saved-group-approval-flow-changes"
+          close={() => setShowChangesModal(false)}
+          open={showChangesModal}
+          dismissible
+          size="max"
+          hideCta={true}
+          closeCta="Close"
+          useRadixButton={true}
+        >
+          <ApprovalFlowDetail
+            approvalFlow={selectedApprovalFlow}
+            currentState={savedGroup}
+            mutate={mutateApprovalFlows}
+            setCurrentApprovalFlow={(f) => selectFlow(f)}
+            onDiscard={async (flowId) => {
+              await handleDiscard(flowId);
+              setShowChangesModal(false);
+            }}
+          />
+        </Modal>
+      )}
       <PageHead
         breadcrumb={[
           { display: "Saved Groups", href: "/saved-groups" },
@@ -346,53 +446,73 @@ export default function EditSavedGroupPage() {
           <Heading size="7" as="h1">
             {savedGroup.groupName}
           </Heading>
-          <DropdownMenu
-            trigger={
-              <IconButton
-                variant="ghost"
-                color="gray"
-                radius="full"
-                size="3"
-                highContrast
-              >
-                <BsThreeDotsVertical size={18} />
-              </IconButton>
-            }
-            open={dropdownOpen}
-            onOpenChange={setDropdownOpen}
-            menuPlacement="end"
-          >
-            <DropdownMenuGroup>
-              <DropdownMenuItem
-                onClick={() => {
-                  setSavedGroupForm(savedGroup);
-                  setDropdownOpen(false);
-                }}
-              >
-                Edit Information
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => {
-                  setShowAuditModal(true);
-                  setDropdownOpen(false);
-                }}
-              >
-                Audit history
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem
-                color="red"
-                onClick={() => {
-                  setShowDeleteModal(true);
-                  setDropdownOpen(false);
-                }}
-              >
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-          </DropdownMenu>
+          <Flex gap="2" align="center">
+            {approvalFlowRequired && (
+              <ApprovalFlowVersionSelector
+                openApprovalFlows={openApprovalFlows}
+                allApprovalFlows={allApprovalFlows}
+                selectedFlowId={selectedApprovalFlowId}
+                onSelectFlow={selectFlow}
+                showOpenFlowIndicator={openApprovalFlows.length > 0}
+              />
+            )}
+            <DropdownMenu
+              trigger={
+                <IconButton
+                  variant="ghost"
+                  color="gray"
+                  radius="full"
+                  size="3"
+                  highContrast
+                >
+                  <BsThreeDotsVertical size={18} />
+                </IconButton>
+              }
+              open={dropdownOpen}
+              onOpenChange={setDropdownOpen}
+              menuPlacement="end"
+            >
+              <DropdownMenuGroup>
+                <DropdownMenuItem
+                  onClick={() => {
+                    if (!selectedApprovalFlow && userOpenFlow) {
+                      // Switch to the user's open revision so edits stack on it
+                      selectFlow(userOpenFlow);
+                      setSavedGroupForm({
+                        ...userOpenFlow.target.snapshot,
+                        ...userOpenFlow.target.proposedChanges,
+                      } as SavedGroupInterface);
+                    } else {
+                      setSavedGroupForm(displayedSavedGroup ?? savedGroup);
+                    }
+                    setDropdownOpen(false);
+                  }}
+                >
+                  Edit Information
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setShowAuditModal(true);
+                    setDropdownOpen(false);
+                  }}
+                >
+                  View Audit Log
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuItem
+                  color="red"
+                  onClick={() => {
+                    setShowDeleteModal(true);
+                    setDropdownOpen(false);
+                  }}
+                >
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+            </DropdownMenu>
+          </Flex>
         </Flex>
         <Flex align="center" gap="4" mb="4" wrap="wrap" justify="between">
           <Flex align="center" gap="4" wrap="wrap">
@@ -444,7 +564,40 @@ export default function EditSavedGroupPage() {
             instead
           </Callout>
         )}
-        <hr />
+        {!selectedApprovalFlow && userOpenFlow && (
+          <Callout status="info" mb="3">
+            You are seeing the live version, but you have a revision in
+            progress.{" "}
+            <Link href={`/saved-groups/${sgid}?flow=${userOpenFlow.id}`}>
+              View your open revision
+            </Link>
+          </Callout>
+        )}
+        {selectedApprovalFlow && (
+          <Callout
+            status={
+              selectedApprovalFlow.status === "approved"
+                ? "success"
+                : selectedApprovalFlow.status === "changes-requested"
+                  ? "warning"
+                  : "info"
+            }
+            mb="3"
+          >
+            <Flex align="center" justify="between" gap="3">
+              <Box flexGrow="1">
+                {selectedApprovalFlow.status === "approved"
+                  ? "This revision has been approved and is ready to publish."
+                  : selectedApprovalFlow.status === "changes-requested"
+                    ? "Changes have been requested on this revision."
+                    : "This revision is pending review."}
+              </Box>
+              <Button onClick={() => setShowChangesModal(true)} my="-2">
+                See changes
+              </Button>
+            </Flex>
+          </Callout>
+        )}
         {savedGroup.type === "list" && (
           <LargeSavedGroupPerformanceWarning
             hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
@@ -465,7 +618,7 @@ export default function EditSavedGroupPage() {
                 <Text weight="medium">IF</Text>
                 <Box>
                   <ConditionDisplay
-                    condition={savedGroup.condition || ""}
+                    condition={displayedSavedGroup?.condition || ""}
                     savedGroups={[]}
                   />
                 </Box>
@@ -490,15 +643,24 @@ export default function EditSavedGroupPage() {
                   <DeleteButton
                     text={`Delete Selected (${selected.size})`}
                     title={`Delete selected item${selected.size > 1 ? "s" : ""}`}
+                    disabled={editBlocked}
                     getConfirmationContent={async () => ""}
                     onClick={async () => {
-                      await apiCall(
-                        `/saved-groups/${savedGroup.id}/remove-items`,
-                        {
-                          method: "POST",
-                          body: JSON.stringify({ items: [...selected] }),
-                        },
-                      );
+                      const res = await apiCall<{
+                        status: number;
+                        requiresApproval?: boolean;
+                        approvalFlow?: import("shared/enterprise").ApprovalFlow;
+                      }>(`/saved-groups/${savedGroup.id}/remove-items`, {
+                        method: "POST",
+                        body: JSON.stringify({ items: [...selected] }),
+                      });
+                      if (res?.requiresApproval) {
+                        if (res.approvalFlow) {
+                          onApprovalFlowCreated(res.approvalFlow);
+                        }
+                        setSelected(new Set());
+                        return;
+                      }
                       const newValues = values.filter(
                         (value) => !selected.has(value),
                       );
@@ -516,6 +678,9 @@ export default function EditSavedGroupPage() {
                   variant="ghost"
                   color="red"
                   onClick={() => {
+                    if (!selectedApprovalFlow && userOpenFlow) {
+                      selectFlow(userOpenFlow);
+                    }
                     setImportOperation("replace");
                     setAddItems(true);
                   }}
@@ -525,6 +690,9 @@ export default function EditSavedGroupPage() {
                 <Button
                   variant="outline"
                   onClick={() => {
+                    if (!selectedApprovalFlow && userOpenFlow) {
+                      selectFlow(userOpenFlow);
+                    }
                     setImportOperation("append");
                     setAddItems(true);
                   }}
@@ -610,14 +778,14 @@ export default function EditSavedGroupPage() {
                     </tr>
                   );
                 })}
-                {!values.length && (
+                {!displayedValues.length && (
                   <tr>
                     <td colSpan={2}>
                       This group doesn&apos;t have any items yet
                     </td>
                   </tr>
                 )}
-                {values.length && !filteredValues.length ? (
+                {displayedValues.length && !filteredValues.length ? (
                   <tr>
                     <td colSpan={2}>No matching items</td>
                   </tr>
@@ -628,7 +796,7 @@ export default function EditSavedGroupPage() {
             </table>
             {Math.ceil(filteredValues.length / NUM_PER_PAGE) > 1 && (
               <Pagination
-                numItemsTotal={values.length}
+                numItemsTotal={displayedValues.length}
                 currentPage={currentPage}
                 perPage={NUM_PER_PAGE}
                 onPageChange={(d) => {
@@ -636,13 +804,14 @@ export default function EditSavedGroupPage() {
                 }}
               />
             )}
-            {!savedGroup.values?.length && !savedGroup.useEmptyListGroup && (
-              <Callout status="info">
-                This saved group has legacy behavior when empty and will be
-                completely ignored when used for targeting.{" "}
-                <DocLink docSection="idLists">Learn More</DocLink>
-              </Callout>
-            )}
+            {!displayedValues.length &&
+              !displayedSavedGroup?.useEmptyListGroup && (
+                <Callout status="info">
+                  This saved group has legacy behavior when empty and will be
+                  completely ignored when used for targeting.{" "}
+                  <DocLink docSection="idLists">Learn More</DocLink>
+                </Callout>
+              )}
           </>
         )}
       </div>
