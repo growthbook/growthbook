@@ -1231,7 +1231,7 @@ export async function createOrReuseStandardSnapshotExecution({
   useCache?: boolean;
   triggeredBy: SnapshotTriggeredBy;
   reweight?: boolean;
-}): Promise<ExperimentSnapshotInterface> {
+}): Promise<{ snapshot: ExperimentSnapshotInterface; existing: boolean }> {
   const incomingIntent = buildSnapshotRefreshIntent({
     triggeredBy,
     useCache,
@@ -1284,11 +1284,12 @@ export async function createOrReuseStandardSnapshotExecution({
       });
       // Fall through to create a new execution
     } else {
-      return updateQueuedStandardSnapshotExecution({
+      const snapshot = await updateQueuedStandardSnapshotExecution({
         context,
         snapshot: existing,
         incomingIntent,
       });
+      return { snapshot, existing: true };
     }
   }
 
@@ -1334,7 +1335,7 @@ export async function createOrReuseStandardSnapshotExecution({
       queueStandardExecution: true,
       skipRecordingSnapshotAttempt: true,
     });
-    return queryRunner.model;
+    return { snapshot: queryRunner.model, existing: false };
   } catch (error) {
     if (!isDuplicateKeyError(error)) throw error;
 
@@ -1344,11 +1345,12 @@ export async function createOrReuseStandardSnapshotExecution({
     );
     if (!activeSnapshot) throw error;
 
-    return updateQueuedStandardSnapshotExecution({
+    const snapshot = await updateQueuedStandardSnapshotExecution({
       context,
       snapshot: activeSnapshot,
       incomingIntent,
     });
+    return { snapshot, existing: true };
   }
 }
 

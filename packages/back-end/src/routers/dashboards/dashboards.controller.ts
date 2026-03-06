@@ -184,13 +184,14 @@ export async function refreshDashboardData(
     if (!experiment)
       throw new Error("Cannot update dashboard without an attached experiment");
 
-    const mainSnapshot = await createOrReuseStandardSnapshotExecution({
-      context,
-      experiment,
-      phaseIndex: experiment.phases.length - 1,
-      useCache: false,
-      triggeredBy: "manual",
-    });
+    const { snapshot: mainSnapshot } =
+      await createOrReuseStandardSnapshotExecution({
+        context,
+        experiment,
+        phaseIndex: experiment.phases.length - 1,
+        useCache: false,
+        triggeredBy: "manual",
+      });
     await queueRunExperimentSnapshot({
       organization: context.org.id,
       snapshotId: mainSnapshot.id,

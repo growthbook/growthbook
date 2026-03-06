@@ -476,7 +476,7 @@ Treatment shows a larger 'Add to Cart' CTA, but with the same functionality.`,
 
     await createFeature(context, featureToCreate);
 
-    const snapshot = await createOrReuseStandardSnapshotExecution({
+    const { snapshot } = await createOrReuseStandardSnapshotExecution({
       experiment: createdExperiment,
       context,
       phaseIndex: 0,

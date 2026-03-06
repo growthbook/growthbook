@@ -57,7 +57,7 @@ export const postExperimentSnapshot = createApiRequestHandler(
   // Set timeout to 30 minutes
   req.setTimeout(SNAPSHOT_TIMEOUT);
 
-  const snapshot = await createOrReuseStandardSnapshotExecution({
+  const { snapshot } = await createOrReuseStandardSnapshotExecution({
     context,
     experiment,
     phaseIndex: createSnapshotPayload.phase,

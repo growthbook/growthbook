@@ -438,7 +438,7 @@ const startExperimentIncrementalRefreshQueries = async (
           );
         if (current?.generation !== myGeneration) return;
 
-        context.models.incrementalRefresh
+        await context.models.incrementalRefresh
           .upsertByExperimentId(experimentId, {
             unitsTableFullName: unitsTableFullName,
             unitsMaxTimestamp: maxTimestamp,
@@ -673,7 +673,7 @@ const startExperimentIncrementalRefreshQueries = async (
               s.groupId === group.groupId ? updatedCovariateSource : s,
             );
           }
-          context.models.incrementalRefresh
+          await context.models.incrementalRefresh
             .upsertByExperimentId(experimentId, {
               metricCovariateSources: runningCovariateSourceData,
             })
@@ -751,7 +751,7 @@ const startExperimentIncrementalRefreshQueries = async (
               s.groupId === group.groupId ? updatedSource : s,
             );
           }
-          context.models.incrementalRefresh
+          await context.models.incrementalRefresh
             .upsertByExperimentId(experimentId, {
               metricSources: runningSourceData,
             })

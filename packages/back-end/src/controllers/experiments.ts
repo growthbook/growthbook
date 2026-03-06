@@ -1295,7 +1295,7 @@ export async function postExperiments(
       req.setTimeout(SNAPSHOT_TIMEOUT);
 
       try {
-        const snapshot = await createOrReuseStandardSnapshotExecution({
+        const { snapshot } = await createOrReuseStandardSnapshotExecution({
           context,
           experiment,
           phaseIndex: 0,
@@ -3084,14 +3084,18 @@ export async function postSnapshot(
 
     let snapshot: ExperimentSnapshotInterface;
 
+    let existingExecution = false;
+
     if (snapshotType === "standard") {
-      snapshot = await createOrReuseStandardSnapshotExecution({
+      const result = await createOrReuseStandardSnapshotExecution({
         context,
         experiment,
         phaseIndex: phase,
         useCache,
         triggeredBy: "manual",
       });
+      snapshot = result.snapshot;
+      existingExecution = result.existing;
       await queueRunExperimentSnapshot({
         organization: context.org.id,
         snapshotId: snapshot.id,
@@ -3124,6 +3128,7 @@ export async function postSnapshot(
     res.status(200).json({
       status: 200,
       snapshot,
+      existingExecution,
     });
   } catch (e) {
     req.log.error(e, "Failed to create experiment snapshot");
@@ -3269,14 +3274,14 @@ export async function postBanditSnapshot(
   let snapshot: ExperimentSnapshotInterface | undefined = undefined;
 
   try {
-    snapshot = await createOrReuseStandardSnapshotExecution({
+    ({ snapshot } = await createOrReuseStandardSnapshotExecution({
       context,
       experiment,
       phaseIndex: phase,
       useCache: false,
       triggeredBy: "manual",
       reweight,
-    });
+    }));
     await queueRunExperimentSnapshot({
       organization: context.org.id,
       snapshotId: snapshot.id,
