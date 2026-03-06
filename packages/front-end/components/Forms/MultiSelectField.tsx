@@ -92,13 +92,11 @@ function GroupHeading(
     (selectProps?.value ?? []).map((v) => v?.value).filter(Boolean),
   );
   const firstVisibleGroup = options.find((g) =>
-    (g?.options ?? []).some(
-      (opt) => opt?.value != null && !selectedSet.has(opt.value),
-    ),
+    (g?.options ?? []).some((opt) => opt.value && !selectedSet.has(opt.value)),
   );
   const isFirstVisibleGroup = firstVisibleGroup === group;
-  if (isFirstVisibleGroup && (label == null || label === "")) return null;
-  const hasLabel = label != null && label !== "";
+  const hasLabel = label && label !== "";
+  if (isFirstVisibleGroup && !hasLabel) return null;
   return (
     <components.GroupHeading
       {...props}
