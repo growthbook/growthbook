@@ -1,3 +1,4 @@
+import { Dialect } from "shared/sql";
 import { FormatDialect } from "shared/types/sql";
 import { ExternalIdCallback, QueryResponse } from "shared/types/integrations";
 import { AthenaConnectionParams } from "shared/types/integrations/athena";
@@ -16,7 +17,7 @@ export default class Athena extends SqlIntegration {
       decryptDataSourceParams<AthenaConnectionParams>(encryptedParams);
   }
   getFormatDialect(): FormatDialect {
-    return "trino";
+    return Dialect.Athena;
   }
   getSensitiveParamKeys(): string[] {
     return ["accessKeyId", "secretAccessKey"];
