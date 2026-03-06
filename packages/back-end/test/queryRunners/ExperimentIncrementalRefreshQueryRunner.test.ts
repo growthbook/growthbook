@@ -113,9 +113,6 @@ function createMockContext(
     incrementGeneration?: jest.Mock;
     getByExperimentId?: jest.Mock;
     upsertByExperimentId?: jest.Mock;
-    acquireLock?: jest.Mock;
-    releaseLock?: jest.Mock;
-    getActiveLock?: jest.Mock;
   } = {},
 ): ApiReqContext {
   return {
@@ -147,15 +144,6 @@ function createMockContext(
         upsertByExperimentId:
           overrides.upsertByExperimentId ??
           jest.fn().mockResolvedValue(undefined),
-      },
-      experimentRefreshLocks: {
-        acquireLock:
-          overrides.acquireLock ??
-          jest.fn().mockResolvedValue({ acquired: true }),
-        releaseLock:
-          overrides.releaseLock ?? jest.fn().mockResolvedValue(undefined),
-        getActiveLock:
-          overrides.getActiveLock ?? jest.fn().mockResolvedValue(null),
       },
     },
   } as unknown as ApiReqContext;

@@ -834,52 +834,38 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       );
     }
 
-    try {
-      const incrementalRefreshModel = params.fullRefresh
-        ? null
-        : await this.context.models.incrementalRefresh.getByExperimentId(
-            params.experimentId,
-          );
-
-      const experiment = await getExperimentById(
-        this.context,
-        params.experimentId,
-      );
-      if (!experiment) {
-        throw new Error("Experiment not found");
-      }
-
-      // Throws if any settings/experiment is not supported
-      await validateIncrementalPipeline({
-        org: this.context.org,
-        integration: this.integration,
-        snapshotSettings: params.snapshotSettings,
-        metricMap: params.metricMap,
-        factTableMap: params.factTableMap,
-        experiment,
-        incrementalRefreshModel,
-        analysisType: params.fullRefresh ? "main-fullRefresh" : "main-update",
-      });
-
-      return await startExperimentIncrementalRefreshQueries(
-        this.context,
-        params,
-        this.integration,
-        this.startQuery.bind(this),
-      );
-    } catch (e) {
-      // Release the per-experiment lock if query setup fails, since
-      // updateModel (which normally handles release) will not be called.
-      this.context.models.experimentRefreshLocks
-        .releaseLock(params.experimentId)
-        .catch((lockErr) =>
-          this.context.logger.error(
-            lockErr,
-            "Failed to release experiment refresh lock after startQueries error",
-          ),
+    const incrementalRefreshModel = params.fullRefresh
+      ? null
+      : await this.context.models.incrementalRefresh.getByExperimentId(
+          params.experimentId,
         );
-      throw e;
+
+    const experiment = await getExperimentById(
+      this.context,
+      params.experimentId,
+    );
+    if (!experiment) {
+      throw new Error("Experiment not found");
     }
+
+    // Throws if any settings/experiment is not supported
+    await validateIncrementalPipeline({
+      org: this.context.org,
+      integration: this.integration,
+      snapshotSettings: params.snapshotSettings,
+      metricMap: params.metricMap,
+      factTableMap: params.factTableMap,
+      experiment,
+      incrementalRefreshModel,
+      analysisType: params.fullRefresh ? "main-fullRefresh" : "main-update",
+    });
+
+    return await startExperimentIncrementalRefreshQueries(
+      this.context,
+      params,
+      this.integration,
+      this.startQuery.bind(this),
+    );
   }
 
   // largely copied from ExperimentResultsQueryRunner
@@ -1004,19 +990,6 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       updates,
       context: this.context,
     });
-
-    // Release the per-experiment refresh lock when the run reaches a
-    // terminal state (success, failure, or partial success).
-    if (["failed", "partially-succeeded", "succeeded"].includes(status)) {
-      this.context.models.experimentRefreshLocks
-        .releaseLock(this.model.experiment)
-        .catch((e) =>
-          this.context.logger.error(
-            e,
-            "Failed to release experiment refresh lock",
-          ),
-        );
-    }
 
     if (
       this.model.report &&

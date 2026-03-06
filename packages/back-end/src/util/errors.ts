@@ -80,12 +80,12 @@ export class InternalServerError extends Error {
   }
 }
 
-export class ExperimentRefreshLockError extends Error {
+export class ExperimentSnapshotBusyError extends Error {
   status = 409;
-  triggeredBy: "manual" | "schedule";
-  constructor(message: string, triggeredBy: "manual" | "schedule") {
+  snapshotId?: string;
+  constructor(message: string, snapshotId?: string) {
     super(message);
-    this.name = "ExperimentRefreshLockError";
-    this.triggeredBy = triggeredBy;
+    this.name = "ExperimentSnapshotBusyError";
+    this.snapshotId = snapshotId;
   }
 }

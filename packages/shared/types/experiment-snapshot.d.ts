@@ -148,11 +148,39 @@ export type SnapshotTriggeredBy =
   | "manual-dashboard"
   | "update-dashboards";
 
+export type ExperimentSnapshotStatus =
+  | "queued"
+  | "running"
+  | "success"
+  | "error";
+
+export interface ExperimentSnapshotRefreshIntent {
+  requestedByManual?: boolean;
+  requestedBySchedule?: boolean;
+  requestedByApi?: boolean;
+  forceFullRefresh?: boolean;
+  banditReweightRequested?: boolean;
+  scheduledBanditEffectsPending?: boolean;
+  lastManualRequestDate?: Date;
+  lastScheduledRequestDate?: Date;
+}
+
+export interface ExperimentSnapshotRefreshExecution {
+  kind: "standard";
+  activeExecution: boolean;
+  activeWriter: boolean;
+  state: "queued" | "running" | "post-processing" | "finished";
+  intent: ExperimentSnapshotRefreshIntent;
+  executionIntent: ExperimentSnapshotRefreshIntent;
+  jobId?: string;
+  heartbeat?: Date;
+}
+
 export interface ExperimentSnapshotAnalysis {
   // Determines which analysis this is
   settings: ExperimentSnapshotAnalysisSettings;
   dateCreated: Date;
-  status: "running" | "success" | "error";
+  status: ExperimentSnapshotStatus;
   error?: string;
   results: ExperimentReportResultDimension[];
 }
@@ -219,11 +247,12 @@ export interface ExperimentSnapshotInterface {
   error?: string;
   dateCreated: Date;
   runStarted: Date | null;
-  status: "running" | "success" | "error";
+  status: ExperimentSnapshotStatus;
   settings: ExperimentSnapshotSettings;
   type?: SnapshotType;
   triggeredBy?: SnapshotTriggeredBy;
   report?: string;
+  refreshExecution?: ExperimentSnapshotRefreshExecution;
 
   // List of queries that were run as part of this snapshot
   queries: Queries;

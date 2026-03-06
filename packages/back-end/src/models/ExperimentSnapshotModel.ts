@@ -11,6 +11,8 @@ import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
   LegacyExperimentSnapshotInterface,
+  ExperimentSnapshotRefreshExecution,
+  ExperimentSnapshotRefreshIntent,
 } from "shared/types/experiment-snapshot";
 import { logger } from "back-end/src/util/logger";
 import { migrateSnapshot } from "back-end/src/util/migrations";
@@ -75,6 +77,16 @@ const experimentSnapshotSchema = new mongoose.Schema({
   multipleExposures: Number,
   hasCorrectedStats: Boolean,
   status: String,
+  refreshExecution: {
+    _id: false,
+    kind: String,
+    activeExecution: Boolean,
+    activeWriter: Boolean,
+    state: String,
+    intent: {},
+    executionIntent: {},
+    jobId: String,
+  },
   settings: {},
   analyses: {},
   results: [
@@ -179,6 +191,19 @@ experimentSnapshotSchema.index({
   experiment: 1,
   dateCreated: -1,
 });
+experimentSnapshotSchema.index(
+  {
+    organization: 1,
+    experiment: 1,
+  },
+  {
+    unique: true,
+    partialFilterExpression: {
+      type: "standard",
+      "refreshExecution.activeExecution": true,
+    },
+  },
+);
 
 export type ExperimentSnapshotDocument = mongoose.Document &
   LegacyExperimentSnapshotInterface;
@@ -432,7 +457,7 @@ export async function findRunningSnapshotsByQueryId(ids: string[]) {
   earliestDate.setDate(earliestDate.getDate() - 1);
 
   const docs = await ExperimentSnapshotModel.find({
-    status: "running",
+    status: { $in: ["queued", "running"] },
     dateCreated: { $gt: earliestDate },
     queries: { $elemMatch: { query: { $in: ids }, status: "running" } },
   });
@@ -452,7 +477,7 @@ export async function findLatestRunningSnapshotByReportId(
   const doc = await ExperimentSnapshotModel.findOne({
     organization,
     report,
-    status: "running",
+    status: { $in: ["queued", "running"] },
     dateCreated: { $gt: earliestDate },
     queries: { $elemMatch: { status: "running" } },
   });
@@ -500,7 +525,9 @@ export async function getLatestSnapshot({
     {
       ...query,
       status: {
-        $in: withResults ? ["success"] : ["success", "running", "error"],
+        $in: withResults
+          ? ["success"]
+          : ["success", "queued", "running", "error"],
       },
       ...(beforeSnapshot
         ? { dateCreated: { $lt: beforeSnapshot.dateCreated } }
@@ -559,6 +586,162 @@ export async function getLatestSnapshot({
   }).exec();
 
   return all[0] ? toInterface(all[0]) : null;
+}
+
+export async function findActiveStandardSnapshotExecution(
+  organization: string,
+  experiment: string,
+): Promise<ExperimentSnapshotInterface | null> {
+  const doc = await ExperimentSnapshotModel.findOne(
+    {
+      organization,
+      experiment,
+      type: "standard",
+      "refreshExecution.activeExecution": true,
+      "refreshExecution.state": {
+        $in: ["queued", "running", "post-processing"],
+      },
+    },
+    null,
+    {
+      sort: { dateCreated: -1 },
+    },
+  ).exec();
+
+  return doc ? toInterface(doc) : null;
+}
+
+export async function findActiveStandardWriterSnapshotExecution(
+  organization: string,
+  experiment: string,
+): Promise<ExperimentSnapshotInterface | null> {
+  const doc = await ExperimentSnapshotModel.findOne(
+    {
+      organization,
+      experiment,
+      type: "standard",
+      "refreshExecution.activeExecution": true,
+      "refreshExecution.activeWriter": true,
+      "refreshExecution.state": { $in: ["queued", "running"] },
+    },
+    null,
+    {
+      sort: { dateCreated: -1 },
+    },
+  ).exec();
+
+  return doc ? toInterface(doc) : null;
+}
+
+export async function mergeSnapshotRefreshExecutionIntent({
+  organization,
+  id,
+  intent,
+}: {
+  organization: string;
+  id: string;
+  intent: ExperimentSnapshotRefreshIntent;
+}): Promise<ExperimentSnapshotInterface | null> {
+  const doc = await ExperimentSnapshotModel.findOne({
+    organization,
+    id,
+  }).exec();
+
+  if (!doc) return null;
+
+  const refreshExecution =
+    (doc.refreshExecution as ExperimentSnapshotRefreshExecution | undefined) ??
+    undefined;
+  if (!refreshExecution) {
+    return toInterface(doc);
+  }
+
+  const existingIntent = refreshExecution.intent ?? {};
+  const mergedIntent: ExperimentSnapshotRefreshIntent = {
+    ...existingIntent,
+    ...intent,
+    requestedByManual:
+      existingIntent.requestedByManual || intent.requestedByManual || false,
+    requestedBySchedule:
+      existingIntent.requestedBySchedule || intent.requestedBySchedule || false,
+    requestedByApi:
+      existingIntent.requestedByApi || intent.requestedByApi || false,
+    forceFullRefresh:
+      existingIntent.forceFullRefresh || intent.forceFullRefresh || false,
+    banditReweightRequested:
+      existingIntent.banditReweightRequested ||
+      intent.banditReweightRequested ||
+      false,
+    scheduledBanditEffectsPending:
+      existingIntent.scheduledBanditEffectsPending ||
+      intent.scheduledBanditEffectsPending ||
+      false,
+    lastManualRequestDate:
+      intent.lastManualRequestDate ?? existingIntent.lastManualRequestDate,
+    lastScheduledRequestDate:
+      intent.lastScheduledRequestDate ??
+      existingIntent.lastScheduledRequestDate,
+  };
+
+  await ExperimentSnapshotModel.updateOne(
+    {
+      organization,
+      id,
+    },
+    {
+      $set: {
+        "refreshExecution.intent": mergedIntent,
+      },
+    },
+  );
+
+  const updated = await ExperimentSnapshotModel.findOne({
+    organization,
+    id,
+  }).exec();
+
+  return updated ? toInterface(updated) : null;
+}
+
+export async function updateSnapshotRefreshExecution({
+  organization,
+  id,
+  updates,
+}: {
+  organization: string;
+  id: string;
+  updates: Partial<ExperimentSnapshotRefreshExecution>;
+}): Promise<ExperimentSnapshotInterface | null> {
+  const set: Record<string, unknown> = {};
+  Object.entries(updates).forEach(([key, value]) => {
+    set[`refreshExecution.${key}`] = value;
+  });
+
+  if (!Object.keys(set).length) {
+    return findSnapshotById(organization, id);
+  }
+
+  await ExperimentSnapshotModel.updateOne(
+    {
+      organization,
+      id,
+    },
+    {
+      $set: set,
+    },
+  );
+
+  return findSnapshotById(organization, id);
+}
+
+export async function updateSnapshotHeartbeat(
+  organization: string,
+  id: string,
+): Promise<void> {
+  await ExperimentSnapshotModel.updateOne(
+    { organization, id },
+    { $set: { "refreshExecution.heartbeat": new Date() } },
+  );
 }
 
 // Gets latest snapshots per experiment-phase pair
