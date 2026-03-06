@@ -33,12 +33,10 @@ const FeatureAttributesPage = (): React.ReactElement => {
   const { project, projects, getProjectById } = useDefinitions();
   const attributeSchema = useAttributeSchema(true, project);
 
-  const canCreateAttributes = useMemo(() => {
-    if (project) return permissionsUtil.canViewAttributeModal(project);
-    if (projects?.length)
-      return projects.some((p) => permissionsUtil.canViewAttributeModal(p.id));
-    return permissionsUtil.canViewAttributeModal();
-  }, [project, projects, permissionsUtil]);
+  const canCreateAttributes = permissionsUtil.canViewAttributeModal(
+    project,
+    projects,
+  );
 
   const [modalData, setModalData] = useState<null | string>(null);
   const { refreshOrganization } = useUser();

@@ -39,6 +39,7 @@ export default function FactTablesPage() {
     _factTablesIncludingArchived: factTables,
     getDatasourceById,
     project,
+    projects,
     factMetrics,
     mutateDefinitions,
     datasources,
@@ -109,7 +110,10 @@ export default function FactTablesPage() {
 
   const hasArchivedFactTables = factTables.some((t) => t.archived);
 
-  const canCreate = permissionsUtil.canViewCreateFactTableModal(project);
+  const canCreate = permissionsUtil.canViewCreateFactTableModal(
+    project,
+    projects,
+  );
 
   const factTablesWithLabels = useAddComputedFields(
     filteredFactTables,
