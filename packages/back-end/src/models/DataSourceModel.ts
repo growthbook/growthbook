@@ -7,12 +7,12 @@ import {
   DataSourceParams,
   DataSourceSettings,
   DataSourceType,
-  ExposureQuery,
 } from "shared/types/datasource";
 import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
 import { ApiDataSource } from "shared/types/openapi";
 import { getOauth2Client } from "back-end/src/integrations/GoogleAnalytics";
 import {
+  decryptDataSourceParams,
   encryptParams,
   getSourceIntegrationObject,
   testDataSourceConnection,
@@ -33,17 +33,63 @@ import {
   auditDetailsCreate,
   auditDetailsDelete,
   auditDetailsUpdate,
-  createModelAuditLogger,
 } from "back-end/src/services/audit";
 import { deleteFactTable, getFactTable } from "./FactTableModel";
 
-const audit = createModelAuditLogger({
-  entity: "datasource",
-  createEvent: "datasource.create",
-  updateEvent: "datasource.update",
-  deleteEvent: "datasource.delete",
-  omitDetails: true,
-});
+const SENSITIVE_PARAM_KEYS = new Set([
+  "password",
+  "caCert",
+  "clientCert",
+  "clientKey",
+  "privateKey",
+  "privateKeyPassword",
+  "token",
+  "refreshToken",
+  "secret",
+  "accessKeyId",
+  "secretAccessKey",
+  "customAuth",
+]);
+
+function decryptAndRedactParams(
+  encryptedParams: string,
+  referenceParams?: Record<string, unknown>,
+): Record<string, unknown> {
+  try {
+    const params =
+      decryptDataSourceParams<Record<string, unknown>>(encryptedParams);
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(params)) {
+      if (SENSITIVE_PARAM_KEYS.has(key)) {
+        if (referenceParams !== undefined) {
+          result[key] = isEqual(value, referenceParams[key])
+            ? "unchanged"
+            : "changed";
+        } else {
+          result[key] = value ? "[REDACTED]" : "";
+        }
+      } else {
+        result[key] = value;
+      }
+    }
+    return result;
+  } catch {
+    return { _params: "[Unable to decrypt]" };
+  }
+}
+
+function redactDatasource(
+  ds: DataSourceInterface,
+  referenceParams?: Record<string, unknown>,
+): Record<string, unknown> {
+  const { params, ...rest } = ds;
+  return {
+    ...rest,
+    params: params
+      ? decryptAndRedactParams(params, referenceParams)
+      : undefined,
+  };
+}
 
 const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
   id: String,
@@ -229,7 +275,19 @@ export async function deleteDatasource(
     organization: context.org.id,
   });
 
-  await audit.logDelete(context, datasource);
+  try {
+    await context.auditLog({
+      entity: {
+        object: "datasource",
+        id: datasource.id,
+        name: datasource.name || "",
+      },
+      event: "datasource.delete",
+      details: auditDetailsDelete(redactDatasource(datasource)),
+    });
+  } catch (e) {
+    context.logger.error(e, "Error creating audit log for datasource.delete");
+  }
 }
 
 /**
@@ -316,7 +374,19 @@ export async function createDataSource(
   }
 
   const datasourceInterface = toInterface(model);
-  await audit.logCreate(context, datasourceInterface);
+  try {
+    await context.auditLog({
+      entity: {
+        object: "datasource",
+        id: datasourceInterface.id,
+        name: datasourceInterface.name || "",
+      },
+      event: "datasource.create",
+      details: auditDetailsCreate(redactDatasource(datasourceInterface)),
+    });
+  } catch (e) {
+    context.logger.error(e, "Error creating audit log for datasource.create");
+  }
   return datasourceInterface;
 }
 
@@ -373,95 +443,6 @@ export function hasActualChanges(
   return updateKeys.some((key) => !isEqual(datasource[key], updates[key]));
 }
 
-function stripExposureQueryVolatileFields(
-  eq: ExposureQuery,
-): Omit<ExposureQuery, "error"> {
-  const { error: _error, ...rest } = eq;
-  return rest;
-}
-
-async function logExposureQueryChanges(
-  context: ReqContext | ApiReqContext,
-  datasource: DataSourceInterface,
-  oldQueries: ExposureQuery[],
-  newQueries: ExposureQuery[],
-) {
-  const oldMap = new Map(oldQueries.map((q) => [q.id, q]));
-  const newMap = new Map(newQueries.map((q) => [q.id, q]));
-
-  for (const [id, newQuery] of newMap) {
-    const oldQuery = oldMap.get(id);
-    if (!oldQuery) {
-      try {
-        await context.auditLog({
-          entity: {
-            object: "datasource",
-            id: datasource.id,
-            name: datasource.name,
-          },
-          event: "datasource.exposureQuery.create",
-          details: auditDetailsCreate(
-            stripExposureQueryVolatileFields(newQuery),
-          ),
-        });
-      } catch (e) {
-        context.logger.error(
-          e,
-          "Error creating audit log for datasource.exposureQuery.create",
-        );
-      }
-    } else if (
-      !isEqual(
-        stripExposureQueryVolatileFields(oldQuery),
-        stripExposureQueryVolatileFields(newQuery),
-      )
-    ) {
-      try {
-        await context.auditLog({
-          entity: {
-            object: "datasource",
-            id: datasource.id,
-            name: datasource.name,
-          },
-          event: "datasource.exposureQuery.update",
-          details: auditDetailsUpdate(
-            stripExposureQueryVolatileFields(oldQuery),
-            stripExposureQueryVolatileFields(newQuery),
-          ),
-        });
-      } catch (e) {
-        context.logger.error(
-          e,
-          "Error creating audit log for datasource.exposureQuery.update",
-        );
-      }
-    }
-  }
-
-  for (const [id, oldQuery] of oldMap) {
-    if (!newMap.has(id)) {
-      try {
-        await context.auditLog({
-          entity: {
-            object: "datasource",
-            id: datasource.id,
-            name: datasource.name,
-          },
-          event: "datasource.exposureQuery.delete",
-          details: auditDetailsDelete(
-            stripExposureQueryVolatileFields(oldQuery),
-          ),
-        });
-      } catch (e) {
-        context.logger.error(
-          e,
-          "Error creating audit log for datasource.exposureQuery.delete",
-        );
-      }
-    }
-  }
-}
-
 export async function updateDataSource(
   context: ReqContext | ApiReqContext,
   datasource: DataSourceInterface,
@@ -482,9 +463,6 @@ export async function updateDataSource(
     return;
   }
 
-  const oldExposureQueries = datasource.settings?.queries?.exposure || [];
-  const newExposureQueries = updates.settings?.queries?.exposure;
-
   await DataSourceModel.updateOne(
     {
       id: datasource.id,
@@ -495,15 +473,31 @@ export async function updateDataSource(
     },
   );
 
-  await audit.logUpdate(context, datasource, { ...datasource, ...updates });
+  try {
+    let oldDecryptedParams: Record<string, unknown> | undefined;
+    try {
+      oldDecryptedParams = decryptDataSourceParams<Record<string, unknown>>(
+        datasource.params,
+      );
+    } catch {
+      // If decryption fails, fall back to no reference comparison
+    }
 
-  if (newExposureQueries) {
-    await logExposureQueryChanges(
-      context,
-      datasource,
-      oldExposureQueries,
-      newExposureQueries,
-    );
+    const merged = { ...datasource, ...updates };
+    const redactedOld = redactDatasource(datasource, oldDecryptedParams);
+    const redactedNew = redactDatasource(merged, oldDecryptedParams);
+
+    await context.auditLog({
+      entity: {
+        object: "datasource",
+        id: datasource.id,
+        name: merged.name || datasource.name || "",
+      },
+      event: "datasource.update",
+      details: auditDetailsUpdate(redactedOld, redactedNew),
+    });
+  } catch (e) {
+    context.logger.error(e, "Error creating audit log for datasource.update");
   }
 }
 
