@@ -9,7 +9,6 @@ import {
   BsHouse,
   BsSearch,
 } from "react-icons/bs";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Flex } from "@radix-ui/themes";
 import { getGrowthBookBuild } from "@/services/env";
 import { useUser } from "@/services/UserContext";
@@ -23,7 +22,6 @@ import {
 } from "@/components/Icons";
 import { inferDocUrl } from "@/components/DocLink";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
-import { AppFeatures } from "@/types/app-features";
 import { WhiteButton } from "@/ui/Button";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ProjectSelector from "./ProjectSelector";
@@ -337,23 +335,20 @@ const navlinks: SidebarLinkProps[] = [
         name: "Import your data",
         href: "/importing",
         path: /^importing/,
-        filter: ({ permissionsUtils, gb }) =>
+        filter: ({ permissionsUtils }) =>
           permissionsUtils.canViewFeatureModal() &&
           permissionsUtils.canCreateEnvironment({
             projects: [],
             id: "",
           }) &&
-          permissionsUtils.canCreateProjects() &&
-          !!gb?.isOn("import-from-x"),
+          permissionsUtils.canCreateProjects(),
       },
       {
         name: "Usage",
         href: "/settings/usage",
         path: /^settings\/usage/,
-        filter: ({ permissionsUtils, isCloud, gb }) =>
-          permissionsUtils.canViewUsage() &&
-          isCloud &&
-          !!gb?.isOn("cdn-usage-data"),
+        filter: ({ permissionsUtils, isCloud }) =>
+          permissionsUtils.canViewUsage() && isCloud,
       },
       {
         name: "Custom Hooks",
@@ -436,10 +431,6 @@ const Layout = (): React.ReactElement => {
   const settings = useOrgSettings();
   const permissionsUtil = usePermissionsUtil();
   const { organization, canSubscribe } = useUser();
-  const growthbook = useGrowthBook<AppFeatures>();
-
-  // holdout aa-test, dogfooding
-  growthbook?.isOn("aa-test-holdout");
 
   const { breadcrumb } = usePageHead();
 

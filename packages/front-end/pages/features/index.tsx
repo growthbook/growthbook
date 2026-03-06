@@ -1,7 +1,6 @@
 import Link from "next/link";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
-import { useFeature } from "@growthbook/growthbook-react";
 import { Box, Flex } from "@radix-ui/themes";
 import { FeatureInterface, FeatureMetaInfo } from "shared/types/feature";
 import { date, datetime } from "shared/dates";
@@ -13,12 +12,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import FeatureModal from "@/components/Features/FeatureModal";
 import track from "@/services/track";
 import Switch from "@/ui/Switch";
-import RealTimeFeatureGraph from "@/components/Features/RealTimeFeatureGraph";
-import {
-  useRealtimeData,
-  useEnvironments,
-  useFeatureSearch,
-} from "@/services/features";
+import { useEnvironments, useFeatureSearch } from "@/services/features";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Pagination from "@/components/Pagination";
@@ -72,8 +66,6 @@ export default function FeaturesPage() {
   const settings = useOrgSettings();
   const showConfirmation = !!settings?.killswitchConfirmation;
 
-  const showGraphs = useFeature("feature-list-realtime-graphs").on;
-
   const { project, projects } = useDefinitions();
   const environments = useEnvironments();
 
@@ -90,12 +82,6 @@ export default function FeaturesPage() {
   // Track whether archived features should be shown (controlled by is:archived filter).
   // useFeatureMetaInfo always returns all features; this controls client-side display.
   const [showArchived, setShowArchived] = useState(false);
-
-  const { usage, usageDomain } = useRealtimeData(
-    allFeatures as unknown as FeatureInterface[],
-    !!router?.query?.mockdata,
-    showGraphs,
-  );
 
   const statusHook = useFeaturesStatus();
   const draftHook = useFeatureDraftStates();
@@ -247,12 +233,6 @@ export default function FeaturesPage() {
                 <th>Type</th>
                 <th>Version</th>
                 <SortableTH field="dateUpdated">Last Updated</SortableTH>
-                {showGraphs && (
-                  <th>
-                    Recent Usage{" "}
-                    <Tooltip body="Client-side feature evaluations for the past 30 minutes. Blue means the feature was 'on', Gray means it was 'off'." />
-                  </th>
-                )}
                 <th>Stale</th>
                 <th style={{ width: 30 }}></th>
               </tr>
@@ -343,14 +323,6 @@ export default function FeaturesPage() {
                     <td title={datetime(feature.dateUpdated)}>
                       {date(feature.dateUpdated)}
                     </td>
-                    {showGraphs && (
-                      <td style={{ width: 170 }}>
-                        <RealTimeFeatureGraph
-                          data={usage?.[feature.id]?.realtime || []}
-                          yDomain={usageDomain}
-                        />
-                      </td>
-                    )}
                     <td>
                       <StaleFeatureIcon
                         context="list"
@@ -394,7 +366,7 @@ export default function FeaturesPage() {
               })}
               {!items.length && (
                 <tr>
-                  <td colSpan={showGraphs ? 7 : 6}>No matching features</td>
+                  <td colSpan={6}>No matching features</td>
                 </tr>
               )}
             </tbody>

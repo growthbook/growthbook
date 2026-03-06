@@ -8,7 +8,6 @@ import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 import { isCloud } from "@/services/env";
-import { growthbook } from "@/services/utils";
 import Modal from "@/components/Modal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/ui/Button";
@@ -33,10 +32,7 @@ export default function PaymentInfo() {
   const { apiCall } = useAuth();
   // TODO: Remove once all orgs have moved license info off of the org - only limit by isCloud()
   // The licenseKey is required to look up payment methods
-  const canShowPaymentInfo =
-    isCloud() &&
-    !!organization.licenseKey &&
-    growthbook.getFeatureValue("ff_payment-info", false);
+  const canShowPaymentInfo = isCloud() && !!organization.licenseKey;
 
   const fetchPaymentMethods = useCallback(async () => {
     setLoading(true);
