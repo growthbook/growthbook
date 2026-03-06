@@ -30,6 +30,7 @@ describe("ConditionInput", () => {
         {
           property: "user_id",
           datatype: "string",
+          hashAttribute: true,
           archived: false,
           projects: [],
         },
@@ -277,6 +278,50 @@ describe("ConditionInput", () => {
           $or: [{ user_id: "" }, { user_id: "" }],
         });
       }
+    });
+  });
+
+  it("shows tooltip with Data type and Is identifier when attribute dropdown is opened and option is hovered", async () => {
+    render(
+      <RadixTheme>
+        <TooltipProvider>
+          <ConditionInput
+            defaultValue="{}"
+            onChange={mockOnChange}
+            project=""
+          />
+        </TooltipProvider>
+      </RadixTheme>,
+    );
+    await waitFor(() => {
+      expect(screen.getByText("Target by Attributes")).toBeInTheDocument();
+    });
+    const addButton = screen.getByText("Add attribute targeting");
+    fireEvent.click(addButton);
+    await waitFor(() => {
+      expect(screen.getByText("INCLUDE")).toBeInTheDocument();
+    });
+
+    const comboboxes = screen.getAllByRole("combobox");
+    const attributeCombobox = comboboxes[0];
+
+    fireEvent.focus(attributeCombobox);
+    fireEvent.keyDown(attributeCombobox, {
+      key: "ArrowDown",
+      code: "ArrowDown",
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole("listbox")).toBeInTheDocument();
+    });
+
+    const userIdOption = screen.getByText("user_id");
+    fireEvent.mouseEnter(userIdOption);
+
+    await waitFor(() => {
+      expect(screen.getByText("Data type:")).toBeInTheDocument();
+      expect(screen.getByText("Is identifier:")).toBeInTheDocument();
+      expect(screen.getByText("Yes")).toBeInTheDocument();
     });
   });
 });

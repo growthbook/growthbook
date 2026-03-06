@@ -55,6 +55,10 @@ import {
 import HelperText from "@/ui/HelperText";
 import { getExposureQuery } from "@/services/datasources";
 import Text from "@/ui/Text";
+import {
+  AttributeOptionWithTooltip,
+  type AttributeOptionForTooltip,
+} from "@/components/Features/AttributeOptionTooltip";
 
 export default function ExperimentRefNewFields({
   step,
@@ -371,7 +375,14 @@ export default function ExperimentRefNewFields({
               containerClassName="flex-1"
               options={attributeSchema
                 .filter((s) => !hasHashAttributes || s.hashAttribute)
-                .map((s) => ({ label: s.property, value: s.property }))}
+                .map((s) => ({
+                  label: s.property,
+                  value: s.property,
+                  description: s.description,
+                  tags: s.tags,
+                  datatype: s.datatype,
+                  hashAttribute: s.hashAttribute,
+                }))}
               value={hashAttribute}
               onChange={(v) => {
                 form.setValue("hashAttribute", v);
@@ -380,6 +391,14 @@ export default function ExperimentRefNewFields({
                 if (exposureQueryId) {
                   form.setValue("exposureQueryId", exposureQueryId);
                 }
+              }}
+              formatOptionLabel={(o) => {
+                const opt = o as AttributeOptionForTooltip;
+                return (
+                  <AttributeOptionWithTooltip option={opt}>
+                    <span>{o.label}</span>
+                  </AttributeOptionWithTooltip>
+                );
               }}
               helpText={
                 "Will be hashed together with the Tracking Key to determine which variation to assign"

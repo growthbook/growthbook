@@ -36,6 +36,10 @@ import { GBCuped } from "@/components/Icons";
 import { useUser } from "@/services/UserContext";
 import { SortableVariation } from "@/components/Features/SortableFeatureVariationRow";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import {
+  AttributeOptionWithTooltip,
+  type AttributeOptionForTooltip,
+} from "@/components/Features/AttributeOptionTooltip";
 import Switch from "@/ui/Switch";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 
@@ -160,10 +164,25 @@ export default function BanditRefNewFields({
               containerClassName="flex-1"
               options={attributeSchema
                 .filter((s) => !hasHashAttributes || s.hashAttribute)
-                .map((s) => ({ label: s.property, value: s.property }))}
+                .map((s) => ({
+                  label: s.property,
+                  value: s.property,
+                  description: s.description,
+                  tags: s.tags,
+                  datatype: s.datatype,
+                  hashAttribute: s.hashAttribute,
+                }))}
               value={form.watch("hashAttribute")}
               onChange={(v) => {
                 form.setValue("hashAttribute", v);
+              }}
+              formatOptionLabel={(o) => {
+                const opt = o as AttributeOptionForTooltip;
+                return (
+                  <AttributeOptionWithTooltip option={opt}>
+                    <span>{o.label}</span>
+                  </AttributeOptionWithTooltip>
+                );
               }}
               helpText={
                 "Will be hashed together with the Tracking Key to determine which variation to assign"

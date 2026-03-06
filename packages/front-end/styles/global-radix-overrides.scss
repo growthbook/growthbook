@@ -395,9 +395,63 @@
   --tab-inner-border-radius: var(--radius-2);
 }
 
+// Link: when .hover-underline is applied, no underline by default—only on hover (e.g. AttributeBadge)
+.rt-Link.hover-underline,
+.hover-underline.rt-Link {
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
 // Tooltip
 p.rt-TooltipText {
   margin-bottom: 0;
+}
+
+// Attribute option tooltip: match app theme (no inversion). Radix uses --gray-12 for tooltip
+// (inverted); we force the content wrapper and arrow to match app background.
+.rt-TooltipContent:has([data-attribute-option-tooltip]) {
+  max-width: 280px;
+  overflow: hidden;
+  background-color: var(--surface-background-color) !important;
+  box-shadow: 0 0 1px 1px var(--gray-a5);
+
+  [data-attribute-option-tooltip] {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .rt-TooltipArrow {
+    fill: var(--surface-background-color) !important;
+  }
+
+  // Links (e.g. in description Markdown): use theme accent so they match tooltip text theme
+  a {
+    color: var(--accent-11);
+    text-decoration: underline;
+    &:hover {
+      color: var(--accent-12);
+    }
+  }
+}
+
+// Links inside tooltips: ensure contrast on tooltip background (gray-12 is dark in light theme, light in dark theme)
+.rt-TooltipContent a {
+  color: var(--blue-4);
+  text-decoration: underline;
+  &:hover {
+    color: var(--blue-3);
+  }
+}
+// Dark theme: tooltip background is light, use dark link color
+[data-theme="dark"] .rt-TooltipContent a,
+.dark-theme .rt-TooltipContent a {
+  color: var(--blue-11);
+  &:hover {
+    color: var(--blue-12);
+  }
 }
 
 // Table

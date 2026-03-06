@@ -17,6 +17,10 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import { DocLink } from "@/components/DocLink";
 import SelectField from "@/components/Forms/SelectField";
 import Switch from "@/ui/Switch";
+import {
+  AttributeOptionWithTooltip,
+  type AttributeOptionForTooltip,
+} from "@/components/Features/AttributeOptionTooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 
@@ -78,7 +82,14 @@ export default function FallbackAttributeSelector({
     ...attributeSchema
       .filter((s) => !hasHashAttributes || s.hashAttribute)
       .filter((s) => s.property !== form.watch("hashAttribute"))
-      .map((s) => ({ label: s.property, value: s.property })),
+      .map((s) => ({
+        label: s.property,
+        value: s.property,
+        description: s.description,
+        tags: s.tags,
+        datatype: s.datatype,
+        hashAttribute: s.hashAttribute,
+      })),
   ];
 
   // If the current fallbackAttribute isn't in the list (it was archived or has been project-scoped), add it for backwards compatibility
@@ -89,6 +100,10 @@ export default function FallbackAttributeSelector({
     fallbackAttributeOptions.push({
       label: fallbackAttribute,
       value: fallbackAttribute,
+      description: undefined,
+      tags: undefined,
+      datatype: undefined,
+      hashAttribute: undefined,
     });
   }
 
@@ -98,11 +113,16 @@ export default function FallbackAttributeSelector({
       label="Fallback Attribute"
       labelClassName="font-weight-bold"
       options={fallbackAttributeOptions}
-      formatOptionLabel={({ value, label }) => {
-        if (!value) {
-          return <em className="text-muted">{label}</em>;
+      formatOptionLabel={(o) => {
+        if (!o.value) {
+          return <em className="text-muted">{o.label}</em>;
         }
-        return label;
+        const opt = o as AttributeOptionForTooltip;
+        return (
+          <AttributeOptionWithTooltip option={opt}>
+            <span>{o.label}</span>
+          </AttributeOptionWithTooltip>
+        );
       }}
       sort={false}
       value={orgStickyBucketing ? form.watch("fallbackAttribute") || "" : ""}
