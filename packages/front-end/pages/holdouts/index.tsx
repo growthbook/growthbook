@@ -165,7 +165,7 @@ const HoldoutsPage = (): React.ReactElement => {
 
   const hasHoldoutsCreated = holdouts.length > 0 && allExperiments.length > 0;
 
-  const canAdd = permissionsUtil.canViewExperimentModal(project, projects);
+  const canAdd = permissionsUtil.canViewHoldoutModal(project, projects);
 
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;

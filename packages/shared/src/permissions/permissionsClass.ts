@@ -412,14 +412,19 @@ export class Permissions {
     );
   };
 
-  // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
-  public canViewHoldoutModal = (projects?: string[]): boolean => {
-    return this.checkProjectFilterPermission(
-      {
-        projects: projects || [],
-      },
-      "createAnalyses",
-    );
+  // Frontend helper to gate "Create Holdout" UI.
+  // Pass allProjects on list pages where "All Projects" may be selected;
+  // omit it when checking a specific resource's project or global-only access.
+  public canViewHoldoutModal = (
+    project?: string,
+    allProjects?: { id: string }[],
+  ): boolean => {
+    if (!project && allProjects?.length) {
+      return allProjects.some((p) =>
+        this.canCreateHoldout({ projects: [p.id] }),
+      );
+    }
+    return this.canCreateHoldout({ projects: project ? [project] : [] });
   };
 
   public canCreateHoldout = (
