@@ -1,4 +1,5 @@
 import {
+  buildMinimalOrCondition,
   decodeSQLResults,
   encodeSQLResults,
   ensureLimit,
@@ -424,6 +425,125 @@ describe("isMultiStatementSQL", () => {
   it("blocks all internal semicolons when there is a parse error", () => {
     const sql = `SELECT 'It\\'; DROP TABLE users`;
     expect(isMultiStatementSQL(sql)).toBe(true);
+  });
+});
+
+describe("buildMinimalOrCondition", () => {
+  it("returns empty string for empty input", () => {
+    expect(buildMinimalOrCondition([])).toBe("");
+  });
+
+  it("returns empty string when a group has no filters (matches everything)", () => {
+    expect(buildMinimalOrCondition([["A"], []])).toBe("");
+  });
+
+  it("returns empty string when a group has only null filters", () => {
+    expect(buildMinimalOrCondition([["A"], [null, null]])).toBe("");
+  });
+
+  it("returns single condition for one metric with one filter", () => {
+    expect(buildMinimalOrCondition([["color='blue'"]])).toBe("color='blue'");
+  });
+
+  it("ANDs multiple filters within a single metric", () => {
+    expect(buildMinimalOrCondition([["color='blue'", "shape='circle'"]])).toBe(
+      "(color='blue' AND shape='circle')",
+    );
+  });
+
+  it("ORs independent metric filter groups", () => {
+    expect(
+      buildMinimalOrCondition([["color='blue'"], ["shape='circle'"]]),
+    ).toBe("(color='blue'\nOR\nshape='circle')");
+  });
+
+  it("removes a metric subsumed by a less restrictive metric", () => {
+    // Metric 1: color='blue' AND shape='circle'
+    // Metric 2: color='blue'
+    // Metric 2 is less restrictive, so metric 1 is redundant
+    expect(
+      buildMinimalOrCondition([
+        ["color='blue'", "shape='circle'"],
+        ["color='blue'"],
+      ]),
+    ).toBe("color='blue'");
+  });
+
+  it("removes a metric subsumed by a less restrictive metric (reversed order)", () => {
+    expect(
+      buildMinimalOrCondition([
+        ["color='blue'"],
+        ["color='blue'", "shape='circle'"],
+      ]),
+    ).toBe("color='blue'");
+  });
+
+  it("removes multiple subsumed metrics", () => {
+    // Metric 1: A AND B
+    // Metric 2: A AND C
+    // Metric 3: A (subsumes both 1 and 2)
+    expect(buildMinimalOrCondition([["A", "B"], ["A", "C"], ["A"]])).toBe("A");
+  });
+
+  it("deduplicates identical metric groups", () => {
+    expect(
+      buildMinimalOrCondition([
+        ["color='blue'", "shape='circle'"],
+        ["color='blue'", "shape='circle'"],
+      ]),
+    ).toBe("(color='blue' AND shape='circle')");
+  });
+
+  it("deduplicates identical groups regardless of filter order", () => {
+    expect(
+      buildMinimalOrCondition([
+        ["shape='circle'", "color='blue'"],
+        ["color='blue'", "shape='circle'"],
+      ]),
+    ).toBe("(shape='circle' AND color='blue')");
+  });
+
+  it("handles mix of subsumed, independent, and null filters", () => {
+    // Metric 1: A AND B (subsumed by metric 3)
+    // Metric 2: C AND D (independent)
+    // Metric 3: A (less restrictive)
+    expect(buildMinimalOrCondition([["A", "B"], ["C", "D"], ["A"]])).toBe(
+      "((C AND D)\nOR\nA)",
+    );
+  });
+
+  it("ignores null filters within groups", () => {
+    expect(buildMinimalOrCondition([["A", null, "B"], ["A"]])).toBe("A");
+  });
+
+  it("deduplicates filters within a group", () => {
+    expect(buildMinimalOrCondition([["A", "A", "B"]])).toBe("(A AND B)");
+  });
+
+  it("handles transitive subsumption correctly", () => {
+    // Group 0: {A, B} — subsumed by group 2
+    // Group 1: {A, B, C} — subsumed by group 0, and transitively by group 2
+    // Group 2: {A}
+    expect(buildMinimalOrCondition([["A", "B"], ["A", "B", "C"], ["A"]])).toBe(
+      "A",
+    );
+  });
+
+  it("handles transitive subsumption correctly with different filters", () => {
+    // Group 0: {A, C} — subsumed by group 1
+    // Group 1: {A, B, C} — subsumed by group 0
+    expect(
+      buildMinimalOrCondition([
+        ["A", "C"],
+        ["A", "B", "C"],
+      ]),
+    ).toBe("(A AND C)");
+  });
+
+  it("keeps non-overlapping groups intact", () => {
+    expect(buildMinimalOrCondition([["A"], ["B"], ["C"]])).toBe(
+      "(A\nOR\nB\nOR\nC)",
+    );
   });
 });
 

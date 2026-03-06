@@ -357,6 +357,88 @@ export function encodeSQLResults(
   return encodedResults;
 }
 
+/**
+ * Given metric filter groups where each group's conditions are ANDed together,
+ * produces a minimal OR clause by removing groups that are subsumed by less
+ * restrictive groups.
+ *
+ * Group X is subsumed by group Y if Y's conditions are a subset of X's
+ * conditions — Y is less restrictive and matches all rows X matches (plus more).
+ *
+ * @param filterGroups - Each inner array contains SQL condition strings for one
+ *   metric (ANDed together). Null values are ignored (treated as no-op filters).
+ * @returns Minimal SQL condition string, or empty string if no filtering needed.
+ *
+ * @example
+ * // Metric 1: color='blue' AND shape='circle'
+ * // Metric 2: color='blue'
+ * buildMinimalOrCondition([
+ *   ["color='blue'", "shape='circle'"],
+ *   ["color='blue'"]
+ * ])
+ * // Returns: "color='blue'"  (metric 1 is subsumed by metric 2)
+ */
+export function buildMinimalOrCondition(
+  filterGroups: (string | null)[][],
+): string {
+  // Remove null filters and deduplicate within each group
+  const cleanGroups = filterGroups.map((group) => [
+    ...new Set(group.filter((f): f is string => f !== null)),
+  ]);
+
+  // An empty group (no conditions) matches everything — no WHERE clause needed
+  if (cleanGroups.length === 0 || cleanGroups.some((g) => g.length === 0)) {
+    return "";
+  }
+
+  // Remove groups dominated by less restrictive groups.
+  // Group i is dominated if another group j's conditions are a subset of i's
+  // (j is less restrictive, so i is redundant in the OR).
+  const groupSets = cleanGroups.map((g) => new Set(g));
+  const dominated = new Set<number>();
+
+  for (let i = 0; i < groupSets.length; i++) {
+    if (dominated.has(i)) continue;
+    for (let j = i + 1; j < groupSets.length; j++) {
+      if (dominated.has(j)) continue;
+
+      const iSubJ = isSubsetOf(groupSets[i], groupSets[j]);
+      const jSubI = isSubsetOf(groupSets[j], groupSets[i]);
+
+      if (iSubJ && jSubI) {
+        // Equal sets — deduplicate, keep i
+        dominated.add(j);
+      } else if (iSubJ) {
+        // i ⊆ j — i is less restrictive, j is dominated
+        dominated.add(j);
+      } else if (jSubI) {
+        // j ⊆ i — j is less restrictive, i is dominated
+        dominated.add(i);
+        break;
+      }
+    }
+  }
+
+  const clauses: string[] = [];
+  for (let i = 0; i < cleanGroups.length; i++) {
+    if (dominated.has(i)) continue;
+    const parts = cleanGroups[i];
+    clauses.push(parts.length === 1 ? parts[0] : `(${parts.join(" AND ")})`);
+  }
+
+  if (clauses.length === 0) return "";
+  if (clauses.length === 1) return clauses[0];
+  return `(${clauses.join("\nOR\n")})`;
+}
+
+function isSubsetOf(a: Set<string>, b: Set<string>): boolean {
+  if (a.size > b.size) return false;
+  for (const item of a) {
+    if (!b.has(item)) return false;
+  }
+  return true;
+}
+
 export function decodeSQLResults(
   chunks: SqlResultChunkData[],
 ): Record<string, unknown>[] {
