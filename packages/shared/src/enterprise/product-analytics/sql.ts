@@ -1,5 +1,5 @@
 import { getValidDate } from "shared/dates";
-import { format } from "shared/sql";
+import { buildMinimalOrCondition, format } from "shared/sql";
 import { SqlHelpers } from "shared/types/sql";
 import {
   RowFilter,
@@ -761,8 +761,7 @@ function generateFactTableCTE(
   const baseSql = factTable.sql;
 
   // Get a de-duped list of all filters across all metrics
-  let hasUnfilteredMetric = false;
-  const filters = new Set<string>();
+  const allMetricFilters: string[][] = [];
   factTableGroup.metrics.forEach((m) => {
     const columnRef = m.useDenominator
       ? m.metric.denominator
@@ -775,13 +774,8 @@ function generateFactTableCTE(
       factTable,
       helpers,
     );
-    if (!filterParts.length) {
-      hasUnfilteredMetric = true;
-      return;
-    }
 
-    filterParts.sort();
-    filters.add(`(${filterParts.join(" AND ")})`);
+    allMetricFilters.push(filterParts);
   });
 
   const whereClauses: string[] = [];
@@ -791,10 +785,9 @@ function generateFactTableCTE(
     `${timestampColumn} >= ${helpers.toTimestamp(dateRange.startDate)} AND ${timestampColumn} <= ${helpers.toTimestamp(dateRange.endDate)}`,
   );
 
-  // If all of the metrics are filtered, apply the filters to the raw fact table
-  // This is better for performance and makes dynamic dimensions more accurate
-  if (filters.size && !hasUnfilteredMetric) {
-    whereClauses.push(`(${Array.from(filters).join(" OR ")})`);
+  const metricsFilter = buildMinimalOrCondition(allMetricFilters);
+  if (metricsFilter) {
+    whereClauses.push(metricsFilter);
   }
 
   return {
