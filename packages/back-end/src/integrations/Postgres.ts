@@ -1,4 +1,3 @@
-import { Dialect } from "shared/sql";
 import { FormatDialect } from "shared/types/sql";
 import { QueryResponse } from "shared/types/integrations";
 import { PostgresConnectionParams } from "shared/types/integrations/postgres";
@@ -15,7 +14,7 @@ export default class Postgres extends SqlIntegration {
       decryptDataSourceParams<PostgresConnectionParams>(encryptedParams);
   }
   getFormatDialect(): FormatDialect {
-    return Dialect.PostgreSQL;
+    return "postgresql";
   }
   getSensitiveParamKeys(): string[] {
     return ["password", "caCert", "clientCert", "clientKey"];
