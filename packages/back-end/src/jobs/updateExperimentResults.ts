@@ -19,6 +19,7 @@ import { getMetricMap } from "back-end/src/models/MetricModel";
 import { notifyAutoUpdate } from "back-end/src/services/experimentNotifications";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
+import { ExperimentRefreshLockError } from "back-end/src/util/errors";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 
 // Time between experiment result updates (default 6 hours)
@@ -209,6 +210,32 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
       });
     }
   } catch (e) {
+    // If an incremental refresh lock prevented this scheduled run, skip
+    // gracefully without disabling auto-snapshots. The lock means another
+    // refresh is already in progress and will produce results.
+    // Reset nextSnapshotAttempt so the job is retried on the next cycle
+    // rather than waiting for the next scheduled interval.
+    if (e instanceof ExperimentRefreshLockError) {
+      logger.info(
+        `Scheduled refresh skipped for experiment ${experimentId}: ${e.message}`,
+      );
+      try {
+        await updateExperiment({
+          context,
+          experiment,
+          changes: {
+            nextSnapshotAttempt: new Date(),
+          },
+        });
+      } catch (updateErr) {
+        logger.error(
+          updateErr,
+          `Failed to reset nextSnapshotAttempt for experiment ${experimentId}`,
+        );
+      }
+      return;
+    }
+
     logger.error(e, "Failed to update experiment: " + experimentId);
     // If we failed to update the experiment, turn off auto-updating for the future (non-bandits only)
     if (experiment.type === "multi-armed-bandit") return;

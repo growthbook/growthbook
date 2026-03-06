@@ -115,6 +115,7 @@ import { ProjectInterface } from "shared/types/project";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { ExperimentQueryMetadata } from "shared/types/query";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { ExperimentRefreshLockError } from "back-end/src/util/errors";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { Context } from "back-end/src/models/BaseModel";
@@ -128,6 +129,8 @@ import { addTags } from "back-end/src/models/TagModel";
 import {
   addOrUpdateSnapshotAnalysis,
   createExperimentSnapshotModel,
+  deleteSnapshotById,
+  findSnapshotById,
   getLatestSnapshotMultipleExperiments,
   updateSnapshotAnalysis,
 } from "back-end/src/models/ExperimentSnapshotModel";
@@ -1224,6 +1227,79 @@ export async function createSnapshot({
         false, // TODO(incremental-refresh): allow cache + cache override for exploratory queries
       );
     } else {
+      // Acquire a per-experiment mutex before starting an incremental refresh.
+      // This prevents concurrent incremental refreshes from corrupting shared
+      // pipeline state (units/metrics tables).
+      const lockResult =
+        await context.models.experimentRefreshLocks.acquireLock(
+          experiment.id,
+          snapshot.id,
+          triggeredBy === "schedule" ? "schedule" : "manual",
+        );
+
+      if (!lockResult.acquired) {
+        const existingLock = lockResult.existingLock;
+        const isScheduled = triggeredBy === "schedule";
+
+        if (isScheduled) {
+          // Scheduled run: skip silently — the existing run will produce results
+          await deleteSnapshotById(context.org.id, snapshot.id);
+          throw new ExperimentRefreshLockError(
+            "Another refresh is already in progress",
+            "schedule",
+          );
+        }
+
+        // Manual run vs existing lock
+        if (existingLock?.triggeredBy === "schedule") {
+          // Manual preempts scheduled: cancel the scheduled run's queries and
+          // take over the lock
+          const existingSnapshot = await findSnapshotById(
+            context.org.id,
+            existingLock.snapshotId,
+          );
+          if (existingSnapshot && existingSnapshot.status === "running") {
+            // Cancel the running queries (uses existing cancelQueries pattern)
+            const integration2 = await getIntegrationFromDatasourceId(
+              context,
+              existingSnapshot.settings.datasourceId,
+            );
+            const tmpRunner = new ExperimentIncrementalRefreshQueryRunner(
+              context,
+              existingSnapshot,
+              integration2,
+              false,
+            );
+            await tmpRunner.cancelQueries();
+          }
+
+          // Force-acquire the lock for this manual run
+          await context.models.experimentRefreshLocks.releaseLock(
+            experiment.id,
+          );
+          const retryResult =
+            await context.models.experimentRefreshLocks.acquireLock(
+              experiment.id,
+              snapshot.id,
+              "manual",
+            );
+          if (!retryResult.acquired) {
+            await deleteSnapshotById(context.org.id, snapshot.id);
+            throw new ExperimentRefreshLockError(
+              "Unable to acquire lock after cancelling scheduled run",
+              "manual",
+            );
+          }
+        } else {
+          // Manual vs manual: reject — tell user a refresh is already running
+          await deleteSnapshotById(context.org.id, snapshot.id);
+          throw new ExperimentRefreshLockError(
+            "A manual refresh is already in progress for this experiment",
+            "manual",
+          );
+        }
+      }
+
       queryRunner = new ExperimentIncrementalRefreshQueryRunner(
         context,
         snapshot,

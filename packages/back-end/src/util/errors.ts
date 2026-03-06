@@ -79,3 +79,13 @@ export class InternalServerError extends Error {
     this.name = "InternalServerError";
   }
 }
+
+export class ExperimentRefreshLockError extends Error {
+  status = 409;
+  triggeredBy: "manual" | "schedule";
+  constructor(message: string, triggeredBy: "manual" | "schedule") {
+    super(message);
+    this.name = "ExperimentRefreshLockError";
+    this.triggeredBy = triggeredBy;
+  }
+}
