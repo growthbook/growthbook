@@ -25,6 +25,7 @@ import {
   AttributionModel,
   ExperimentInterfaceStringDates,
   LegacyBanditResult,
+  LookbackOverride,
 } from "./experiment";
 import { MetricPriorSettings, MetricWindowSettings } from "./fact-table";
 
@@ -173,6 +174,8 @@ export interface SnapshotBanditSettings {
     weights: number[];
     totalUsers: number;
   }[];
+  useFirstExposure?: boolean;
+  windowSettings?: MetricWindowSettings;
 }
 
 // Settings that control which queries are run
@@ -188,6 +191,7 @@ export interface ExperimentSnapshotSettings {
   defaultMetricPriorSettings: MetricPriorSettings;
   regressionAdjustmentEnabled: boolean;
   attributionModel: AttributionModel;
+  lookbackOverride?: LookbackOverride;
   experimentId: string;
   queryFilter: string;
   segment: string;

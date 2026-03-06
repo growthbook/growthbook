@@ -158,8 +158,9 @@ export default function FeatureModal({
   const { hasCommercialFeature } = useUser();
   const { requireProjectForFeatures } = useOrgSettings();
 
-  const customFields = filterCustomFieldsForSectionAndProject(
-    useCustomFields(),
+  const allCustomFields = useCustomFields();
+  const initialCustomFields = filterCustomFieldsForSectionAndProject(
+    allCustomFields,
     "feature",
     project,
   );
@@ -172,7 +173,7 @@ export default function FeatureModal({
     featureToDuplicate,
     project,
     customFields: hasCommercialFeature("custom-metadata")
-      ? customFields
+      ? initialCustomFields
       : undefined,
   });
 
@@ -184,7 +185,14 @@ export default function FeatureModal({
       permissionsUtil.canManageFeatureDrafts({ project }),
     project ? [project] : [],
   );
+  const canCreateWithoutProject =
+    !requireProjectForFeatures && permissionsUtil.canViewFeatureModal();
   const selectedProject = form.watch("project");
+  const customFields = filterCustomFieldsForSectionAndProject(
+    allCustomFields,
+    "feature",
+    selectedProject,
+  );
   const { projectId: demoProjectId } = useDemoDataSourceProject();
 
   const [showTags, setShowTags] = useState(!!featureToDuplicate?.tags?.length);
@@ -206,12 +214,14 @@ export default function FeatureModal({
 
   if (
     !permissionsUtil.canManageFeatureDrafts({
-      project: featureToDuplicate?.project ?? project,
+      project: featureToDuplicate?.project ?? selectedProject,
     })
   ) {
     ctaEnabled = false;
     disabledMessage =
-      "You don't have permission to create feature flag drafts.";
+      !selectedProject && projectOptions.length > 0
+        ? "Select a project to continue."
+        : "You don't have permission to create feature flag drafts.";
   }
 
   // We want to show a warning when someone tries to create a feature under the demo project
@@ -352,7 +362,7 @@ export default function FeatureModal({
               onChange={(v) => {
                 form.setValue("project", v);
               }}
-              initialOption={requireProjectForFeatures ? undefined : "None"}
+              initialOption={canCreateWithoutProject ? "None" : undefined}
               options={projectOptions}
               required={requireProjectForFeatures}
             />
@@ -381,6 +391,7 @@ export default function FeatureModal({
                 }}
                 currentCustomFields={form.watch("customFields") || {}}
                 section={"feature"}
+                project={selectedProject}
               />
             </div>
           )}

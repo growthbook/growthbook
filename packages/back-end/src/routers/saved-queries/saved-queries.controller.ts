@@ -281,10 +281,15 @@ export async function executeAndSaveQuery(
 }
 
 export async function postGenerateSQL(
-  req: AuthRequest<{ input: string; datasourceId: string }>,
+  req: AuthRequest<{
+    input: string;
+    datasourceId: string;
+    temperature?: number;
+  }>,
   res: Response,
 ) {
-  const { input, datasourceId } = req.body;
+  const { input, datasourceId, temperature: reqTemperature } = req.body;
+  const temperature = reqTemperature ?? 0.1;
   const context = getContextFromReq(req);
   const { aiEnabled } = getAISettingsForOrg(context);
 
@@ -421,7 +426,7 @@ export async function postGenerateSQL(
         overrideModel,
         isDefaultPrompt: true,
         zodObjectSchema: zodObjectSchemaTables,
-        temperature: 0.1,
+        temperature,
       });
 
       if (!aiResultsTables || typeof aiResultsTables.table_names !== "object") {
@@ -556,7 +561,7 @@ export async function postGenerateSQL(
       type: "generate-sql-query",
       isDefaultPrompt: true,
       zodObjectSchema,
-      temperature: 0.1,
+      temperature,
       overrideModel,
     });
 

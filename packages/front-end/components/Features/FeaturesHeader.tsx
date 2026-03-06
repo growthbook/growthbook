@@ -1,9 +1,8 @@
 import { useRouter } from "next/router";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Box, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
 import { FeatureInterface } from "shared/types/feature";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { filterEnvironmentsByFeature, isFeatureStale } from "shared/util";
+import { filterEnvironmentsByFeature } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { BsThreeDotsVertical } from "react-icons/bs";
@@ -18,8 +17,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SortedTags from "@/components/Tags/SortedTags";
 import WatchButton from "@/components/WatchButton";
-import Modal from "@/components/Modal";
-import HistoryTable from "@/components/HistoryTable";
+import CompareFeatureEventsModal from "@/components/Features/CompareFeatureEventsModal";
 import FeatureImplementationModal from "@/components/Features/FeatureImplementationModal";
 import FeatureModal from "@/components/Features/FeatureModal";
 import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
@@ -37,30 +35,25 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
+import { useFeatureStaleStates } from "@/hooks/useFeatureStaleStates";
 import FeatureArchiveModal from "./FeatureArchiveModal";
 import FeatureDeleteModal from "./FeatureDeleteModal";
 import AddToHoldoutModal from "./AddToHoldoutModal";
 
 export default function FeaturesHeader({
   feature,
-  features,
-  experiments,
   mutate,
   tab,
   setTab,
   setEditFeatureInfoModal,
   holdout,
-  dependentExperiments,
 }: {
   feature: FeatureInterface;
-  features: FeatureInterface[];
-  experiments: ExperimentInterfaceStringDates[] | undefined;
   mutate: () => void;
   tab: FeatureTab;
   setTab: (tab: FeatureTab) => void;
   setEditFeatureInfoModal: (open: boolean) => void;
   holdout: HoldoutInterface | undefined;
-  dependentExperiments: ExperimentInterfaceStringDates[];
 }) {
   const router = useRouter();
   const projectId = feature?.project;
@@ -72,13 +65,14 @@ export default function FeaturesHeader({
   const [archiveModal, setArchiveModal] = useState(false);
   const [deleteModal, setDeleteModal] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [staleStatusOpen, setStaleStatusOpen] = useState(false);
   const [showImplementation, setShowImplementation] = useState(firstFeature);
 
-  const { organization, hasCommercialFeature } = useUser();
+  const { organization, hasCommercialFeature, getOwnerDisplay } = useUser();
+  const ownerDisplay = getOwnerDisplay(feature.owner);
   const permissionsUtil = usePermissionsUtil();
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
-  const envs = environments.map((e) => e.id);
   const { apiCall } = useAuth();
   const {
     getProjectById,
@@ -90,16 +84,33 @@ export default function FeaturesHeader({
   const holdoutsEnabled =
     useFeatureIsOn("holdouts_feature") && hasHoldoutsFeature;
 
-  const { stale, reason } = useMemo(() => {
-    if (!feature) return { stale: false };
-    return isFeatureStale({
-      feature,
-      features,
-      experiments,
-      dependentExperiments,
-      environments: envs,
-    });
-  }, [feature, features, experiments, dependentExperiments, envs]);
+  const staleHook = useFeatureStaleStates();
+  const staleData = staleHook.getStaleState(feature.id);
+
+  // Initial fetch when navigating to a feature (uses cache if fresh).
+  useEffect(() => {
+    staleHook.fetchSome([feature.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [feature.id]);
+
+  // Re-compute whenever the feature is saved (version increments on publish).
+  const prevVersionRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (
+      prevVersionRef.current !== null &&
+      prevVersionRef.current !== feature.version
+    ) {
+      staleHook.invalidate([feature.id]);
+      staleHook.fetchSome([feature.id]);
+    }
+    prevVersionRef.current = feature.version ?? 0;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [feature.id, feature.version]);
+
+  const handleRerunStale = async () => {
+    staleHook.invalidate([feature.id]);
+    await staleHook.fetchSome([feature.id]);
+  };
 
   const project = getProjectById(projectId || "");
   const projectName = project?.name || null;
@@ -134,18 +145,19 @@ export default function FeaturesHeader({
           )}
 
           <Flex align="center" justify="between">
-            <Flex align="center" mb="2">
+            <Flex align="center" mb="2" gap="3">
               <Heading size="7" as="h1" mb="0">
                 {feature.id}
               </Heading>
-              {stale && (
-                <div className="ml-2">
-                  <StaleFeatureIcon
-                    staleReason={reason}
-                    onClick={() => setStaleFFModal(true)}
-                  />
-                </div>
-              )}
+              <StaleFeatureIcon
+                neverStale={feature.neverStale}
+                valueType={feature.valueType}
+                staleData={staleData}
+                fetchStaleData={handleRerunStale}
+                onDisable={canEdit ? () => setStaleFFModal(true) : undefined}
+                open={staleStatusOpen}
+                onOpenChange={setStaleStatusOpen}
+              />
             </Flex>
             <DropdownMenu
               trigger={
@@ -188,11 +200,36 @@ export default function FeaturesHeader({
                     setDropdownOpen(false);
                   }}
                 >
-                  View Audit Log
+                  Audit history
                 </DropdownMenuItem>
               </DropdownMenuGroup>
-              {canEdit && (
-                <DropdownMenuGroup>
+              {canEdit &&
+                canPublish &&
+                holdoutsEnabled &&
+                holdouts.length > 0 &&
+                !holdout?.id && (
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setAddToHoldoutModal(true);
+                        setDropdownOpen(false);
+                      }}
+                    >
+                      Add to holdout
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                )}
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setStaleStatusOpen(true);
+                    setDropdownOpen(false);
+                  }}
+                >
+                  Check stale status
+                </DropdownMenuItem>
+                {canEdit && canPublish && (
                   <DropdownMenuItem
                     onClick={() => {
                       setStaleFFModal(true);
@@ -203,21 +240,8 @@ export default function FeaturesHeader({
                       ? "Enable stale detection"
                       : "Disable stale detection"}
                   </DropdownMenuItem>
-                  {canPublish &&
-                    holdoutsEnabled &&
-                    holdouts.length > 0 &&
-                    !holdout?.id && (
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setAddToHoldoutModal(true);
-                          setDropdownOpen(false);
-                        }}
-                      >
-                        Add to holdout
-                      </DropdownMenuItem>
-                    )}
-                </DropdownMenuGroup>
-              )}
+                )}
+              </DropdownMenuGroup>
               {canEdit && canPublish && (
                 <>
                   <DropdownMenuSeparator />
@@ -318,10 +342,10 @@ export default function FeaturesHeader({
 
             <Box>
               <Text weight="medium">Owner: </Text>
-              {feature.owner ? (
+              {ownerDisplay ? (
                 <span>
-                  <UserAvatar name={feature.owner} size="sm" variant="soft" />{" "}
-                  {feature.owner}
+                  <UserAvatar name={ownerDisplay} size="sm" variant="soft" />{" "}
+                  {ownerDisplay}
                 </span>
               ) : (
                 <em className="text-muted">None</em>
@@ -360,16 +384,10 @@ export default function FeaturesHeader({
         </Box>
       </Box>
       {auditModal && (
-        <Modal
-          trackingEventModalType=""
-          open={true}
-          header="Audit Log"
-          close={() => setAuditModal(false)}
-          size="max"
-          closeCta="Close"
-        >
-          <HistoryTable type="feature" id={feature.id} />
-        </Modal>
+        <CompareFeatureEventsModal
+          feature={feature}
+          onClose={() => setAuditModal(false)}
+        />
       )}
       {duplicateModal && (
         <FeatureModal
@@ -387,6 +405,7 @@ export default function FeaturesHeader({
           close={() => setStaleFFModal(false)}
           feature={feature}
           mutate={mutate}
+          onEnable={handleRerunStale}
         />
       )}
       {showImplementation && (
@@ -415,7 +434,6 @@ export default function FeaturesHeader({
             });
             mutate();
           }}
-          environments={envs}
         />
       )}
       {deleteModal && (
@@ -428,7 +446,6 @@ export default function FeaturesHeader({
             });
             await router.push("/features");
           }}
-          environments={envs}
         />
       )}
     </>

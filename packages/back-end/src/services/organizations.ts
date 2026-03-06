@@ -503,6 +503,8 @@ export async function removeMembersFromTeam({
   });
 
   await updateOrganization(organization.id, { members: updatedMembers });
+  // Also update the organization reference in-memory so the team can be deleted if it's now empty
+  organization.members = updatedMembers;
 }
 
 export async function addPendingMemberToOrg({

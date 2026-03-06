@@ -31,6 +31,7 @@ import bulkImportRouter from "./bulk-import/bulk-import.router";
 import membersRouter from "./members/members.router";
 import { postCopyTransform } from "./openai/postCopyTransform";
 import { getFeatureKeys } from "./features/getFeatureKeys";
+import { getFeatureStale } from "./features/getFeatureStale";
 import ingestionRouter from "./ingestion/ingestion.router";
 import archetypesRouter from "./archetypes/archetypes.router";
 import { getExperimentNames } from "./experiments/getExperimentNames";
@@ -108,6 +109,7 @@ router.get("/", (req, res) => {
 // API endpoints
 router.use("/features", featuresRouter);
 router.get("/feature-keys", getFeatureKeys);
+router.get("/stale-features", getFeatureStale);
 router.use("/experiments", experimentsRouter);
 router.get("/experiment-names", getExperimentNames);
 router.use("/snapshots", snapshotsRouter);

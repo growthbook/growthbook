@@ -32,7 +32,13 @@ export default function ConnectionDiagram({
   showConnectionTitle?: boolean;
 }) {
   const { projects } = useDefinitions();
-  const hasProxy = connection?.proxy?.enabled;
+
+  // Either currently enabled or was enabled but had too many failures
+  const showProxy =
+    connection?.proxy?.enabled ||
+    (!!connection?.proxy?.host &&
+      !!connection?.proxy?.consecutiveFailures &&
+      !!connection?.proxy?.error);
 
   const environments = useEnvironments();
 
@@ -190,12 +196,21 @@ export default function ConnectionDiagram({
             </Button>
           }
         />
-        {hasProxy && (
+        {showProxy && (
           <>
             <ConnectionNode
               title={
                 <>
                   <BsLightningFill className="text-warning" /> GB Proxy
+                  {!connection?.proxy?.enabled && (
+                    <Badge
+                      color="red"
+                      variant="solid"
+                      label="Disabled"
+                      className="ml-2"
+                      title="Proxy was disabled for too many consecutive failures"
+                    />
+                  )}
                 </>
               }
             >

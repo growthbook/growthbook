@@ -1,11 +1,9 @@
 ARG PYTHON_MAJOR=3.11
 ARG NODE_MAJOR=24
-ARG PYPI_MIRROR_URL=""
 ARG UPGRADE_PIP="true"
 
 # Build the python gbstats package
 FROM python:${PYTHON_MAJOR}-slim AS pybuild
-ARG PYPI_MIRROR_URL
 ARG UPGRADE_PIP
 WORKDIR /usr/local/src/app
 COPY ./packages/stats .
@@ -15,39 +13,22 @@ ENV VIRTUAL_ENV=/opt/venv
 RUN python -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:${PATH}"
 
-# TODO: The preview environment is having network connectivity issues Feb 4, 2026.
-# Revert https://github.com/growthbook/growthbook/pull/5231 once the preview build works without it
-# as there is probably no need to have this conditional logic long term.
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN \
   if [ "$UPGRADE_PIP" = "true" ]; then pip install --upgrade pip; fi \
-  && if [ -n "$PYPI_MIRROR_URL" ]; then \
-    export PIP_INDEX_URL="$PYPI_MIRROR_URL" \
-    && export PIP_TRUSTED_HOST=$(echo "$PYPI_MIRROR_URL" | sed -e 's|^[^/]*//||' -e 's|/.*$||') \
-    && pip install --no-cache-dir poetry==1.8.5 \
-    && poetry source add --priority=primary mirror "$PYPI_MIRROR_URL" \
-    && poetry lock --no-update \
-    && poetry install --no-root --without dev --no-interaction --no-ansi \
-    && poetry build \
-    && poetry export -f requirements.txt --output requirements.txt \
-    && pip install --no-cache-dir -r requirements.txt \
-    && pip install --no-cache-dir dist/*.whl ddtrace==4.3.2 \
-    && pip uninstall -y poetry poetry-core poetry-plugin-export keyring jaraco.classes setuptools wheel; \
-  else \
-    pip install --no-cache-dir poetry==1.8.5 \
-    && poetry install --no-root --without dev --no-interaction --no-ansi \
-    && poetry build \
-    && poetry export -f requirements.txt --output requirements.txt \
-    && pip install --no-cache-dir -r requirements.txt \
-    && pip install --no-cache-dir dist/*.whl ddtrace==4.3.2 \
-    && pip uninstall -y poetry poetry-core poetry-plugin-export keyring jaraco.classes setuptools wheel;\
-  fi
+  && pip install --no-cache-dir poetry==1.8.5 \
+  && poetry install --no-root --without dev --no-interaction --no-ansi \
+  && poetry build \
+  && poetry export -f requirements.txt --output requirements.txt \
+  && pip install --no-cache-dir -r requirements.txt \
+  && pip install --no-cache-dir dist/*.whl ddtrace==4.3.2 \
+  && pip uninstall -y poetry poetry-core poetry-plugin-export keyring jaraco.classes setuptools wheel
 
 # Build the nodejs app
 FROM node:${NODE_MAJOR}-slim AS nodebuild
 WORKDIR /usr/local/src/app
-# Set node max memory for build
-ENV NODE_OPTIONS="--max-old-space-size=8192"
+# Set node max memory for build (can be overriden via --build-arg NODE_OPTIONS=...)
+ARG NODE_OPTIONS="--max-old-space-size=8192"
+ENV NODE_OPTIONS="${NODE_OPTIONS}"
 RUN apt-get update && \
   apt-get install -y --no-install-recommends build-essential python3 ca-certificates libkrb5-dev && \
   npm install -g pnpm@10.28.2 node-gyp && \
