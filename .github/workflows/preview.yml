@@ -24,6 +24,9 @@ jobs:
     environment:
       name: preview
       url: ${{ steps.deploy.outputs.url }}
+    env:
+      APP_NAME: pr-${{ github.event.number }}-growthbook
+      APP_URL: https://pr-${{ github.event.number }}-growthbook.fly.dev
 
     steps:
       - name: Checkout repository
@@ -42,18 +45,54 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         with:
           config: preview-pr-fly.toml
-          name: pr-${{ github.event.number }}-growthbook
+          name: ${{ env.APP_NAME }}
           org: growthbook
           region: sjc
-          secrets:
-            APP_ORIGIN=https://pr-${{ github.event.number }}-growthbook.fly.dev
-            API_HOST=https://pr-${{ github.event.number }}-growthbook.fly.dev:4433
+          secrets: APP_ORIGIN=${{ env.APP_URL }}
+            API_HOST=${{ env.APP_URL }}:4433
             MONGODB_URI=${{ secrets.MONGODB_URI_STAGING }}
             JWT_SECRET=${{ secrets.MONGODB_URI_STAGING }}
             LICENSE_KEY=${{ secrets.STAGING_LICENSE_KEY }}
 
       - name: Allocate public IP
-        run: flyctl ips allocate-v4 --shared -a pr-${{ github.event.number }}-growthbook
+        run: flyctl ips allocate-v4 --shared -a ${{ env.APP_NAME }}
         if: ${{ github.event.action != 'closed' }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Check deployment health
+        if: ${{ github.event.action != 'closed' }}
+        run: |
+          URL="${{ env.APP_URL }}:4433/healthcheck"
+          echo "Waiting for $URL to become healthy..."
+          for i in $(seq 1 12); do
+            if curl -sf "$URL" > /dev/null 2>&1; then
+              echo "Health check passed after $((i * 5))s"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::Health check failed: $URL did not respond within 60s"
+          exit 1
+
+      - name: Stop machine
+        if: ${{ github.event.action != 'closed' }}
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "Stopping machines for ${{ env.APP_NAME }} (will auto-start on first request)..."
+
+          MACHINE_IDS=$(flyctl machine list -a "${{ env.APP_NAME }}" --json | jq -r '.[].id')
+
+          if [ -z "$MACHINE_IDS" ]; then
+            echo "No machines found to stop"
+            exit 0
+          fi
+
+          echo "$MACHINE_IDS" | while read -r MACHINE_ID; do
+            echo "Stopping machine: $MACHINE_ID"
+            flyctl machine stop "$MACHINE_ID" -a "${{ env.APP_NAME }}"
+          done
+
+          echo "Machines stopped. Will restart on first visit."
