@@ -9,7 +9,6 @@ import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import { RowResults } from "@/services/experiments";
 import {
   formatPercent,
@@ -17,6 +16,7 @@ import {
   getExperimentMetricFormatter,
   getMetricFormatter,
 } from "@/services/metrics";
+import usePValueThreshold from "@/hooks/usePValueThreshold";
 import styles from "./ExperimentResultTooltipContent.module.scss";
 
 interface ExperimentResultTooltipContentProps {
@@ -34,6 +34,7 @@ interface ExperimentResultTooltipContentProps {
   minPercentChange: number;
   currentMetricTotal: number;
   timeRemainingMs?: number;
+  pValueAdjustmentEnabled?: boolean;
 }
 
 export default function ExperimentResultTooltipContent({
@@ -51,6 +52,7 @@ export default function ExperimentResultTooltipContent({
   minPercentChange,
   currentMetricTotal,
   timeRemainingMs,
+  pValueAdjustmentEnabled,
 }: ExperimentResultTooltipContentProps) {
   const _displayCurrency = useCurrency();
   const displayCurrency = ssrPolyfills?.useCurrency?.() || _displayCurrency;
@@ -58,9 +60,9 @@ export default function ExperimentResultTooltipContent({
   const { getFactTableById: _getFactTableById } = useDefinitions();
   const getFactTableById = ssrPolyfills?.getFactTableById || _getFactTableById;
 
-  const _confidenceLevels = useConfidenceLevels();
-  const { ciUpperDisplay } =
-    ssrPolyfills?.useConfidenceLevels() || _confidenceLevels;
+  const _pValueThreshold = usePValueThreshold();
+  const pValueThreshold =
+    ssrPolyfills?.usePValueThreshold() || _pValueThreshold;
 
   const ci = stats?.ciAdjusted ?? stats?.ci;
 
@@ -90,8 +92,17 @@ export default function ExperimentResultTooltipContent({
     ? getColumnRefFormatter(metric.numerator, getFactTableById)
     : getMetricFormatter(metric.type === "binomial" ? "count" : metric.type);
 
+  const numberFormatter = Intl.NumberFormat(undefined, {
+    maximumFractionDigits: 1,
+  });
+  const ciWidthDisplay =
+    numberFormatter.format(100 * (1 - pValueThreshold)) + "%";
+
+  console.log(pValueAdjustmentEnabled);
   const ciLabel =
-    statsEngine === "bayesian" ? "95% CI" : `${ciUpperDisplay} CI`;
+    statsEngine === "bayesian"
+      ? "95% CI"
+      : `${ciWidthDisplay} CI${pValueAdjustmentEnabled ? " (adj.)" : ""}`;
 
   const isWon = significant && resultsStatus === "won";
   const isLost = significant && resultsStatus === "lost";
