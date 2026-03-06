@@ -56,6 +56,7 @@ export default function AnalysisSettings({
     getExperimentMetricById,
     getMetricById,
     getSegmentById,
+    segments,
     metricGroups,
   } = useDefinitions();
   const { organization, hasCommercialFeature } = useUser();
@@ -231,7 +232,7 @@ export default function AnalysisSettings({
                 </div>
               </div>
             )}
-            {!isHoldout && (
+            {!isHoldout && (segments.length > 0 || experiment.segment) && (
               <div className="col-4 mb-4">
                 <div className="h5">Segment</div>
                 <div>
