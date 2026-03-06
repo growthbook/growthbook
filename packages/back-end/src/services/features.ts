@@ -92,6 +92,7 @@ import {
   getHoldoutFeatureDefId,
   getParsedCondition,
 } from "back-end/src/util/features";
+import { getNextRampUpdate } from "back-end/src/util/scheduleRules";
 import { ReqContext } from "back-end/types/request";
 import { updateSDKPayload } from "back-end/src/models/SdkPayloadModel";
 import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
@@ -1651,12 +1652,14 @@ export function getApiFeatureObj({
 export function getNextScheduledUpdate(
   envSettings: Record<string, FeatureEnvironment>,
   environments: string[],
+  rampStartedAt?: Record<string, string>,
 ): Date | null {
   if (!envSettings) {
     return null;
   }
 
-  const dates: string[] = [];
+  const now = new Date();
+  const dates: Date[] = [];
 
   environments.forEach((env) => {
     const rules = envSettings[env]?.rules;
@@ -1667,22 +1670,26 @@ export function getNextScheduledUpdate(
       if (rule?.scheduleRules) {
         rule.scheduleRules.forEach((scheduleRule) => {
           if (scheduleRule.timestamp !== null) {
-            dates.push(scheduleRule.timestamp);
+            dates.push(new Date(scheduleRule.timestamp));
           }
         });
+      }
+      if (rule.type === "rollout" && rule.rampSchedule) {
+        const next = getNextRampUpdate(
+          rule.rampSchedule,
+          rampStartedAt?.[rule.id],
+          now,
+        );
+        if (next) dates.push(next);
       }
     });
   });
 
   const sortedFutureDates = dates
-    .filter((date) => new Date(date) > new Date())
-    .sort();
+    .filter((date) => date > now)
+    .sort((a, b) => a.getTime() - b.getTime());
 
-  if (sortedFutureDates.length === 0) {
-    return null;
-  }
-
-  return new Date(sortedFutureDates[0]);
+  return sortedFutureDates[0] ?? null;
 }
 
 // Specific hashing entrypoint for Feature rules
@@ -1929,6 +1936,7 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
       })),
       enabled: r.enabled != null ? r.enabled : true,
       ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
+      ...(r.rampSchedule && { rampSchedule: r.rampSchedule }),
     };
     return rolloutRule;
   });

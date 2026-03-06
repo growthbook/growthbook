@@ -25,7 +25,7 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
-import { getCurrentEnabledState } from "./scheduleRules";
+import { getCurrentEnabledState, getCurrentRampCoverage } from "./scheduleRules";
 
 function getSavedGroupCondition(
   groupId: string,
@@ -152,7 +152,9 @@ export function isRuleEnabled(
   // Disable if percent rollout is 0
   // Fixes a bug in SDKs where ~1 out of 10,000 users would get a feature even if it was set to 0% rollout
   // If we ever add sticky bucketing to rollouts, we will need to remove this
-  if (rule.type === "rollout" && rule.coverage === 0) {
+  // Skip this check when a ramp schedule is present — the ramp's computed
+  // coverage governs, not the static field.
+  if (rule.type === "rollout" && rule.coverage === 0 && !rule.rampSchedule) {
     return false;
   }
 
@@ -572,7 +574,14 @@ export function getFeatureDefinition({
           }
         } else if (r.type === "rollout") {
           rule.force = getJSONValue(feature.valueType, r.value);
-          rule.coverage = r.coverage > 1 ? 1 : r.coverage < 0 ? 0 : r.coverage;
+
+          const coverage =
+            getCurrentRampCoverage(
+              r.rampSchedule,
+              feature.rampStartedAt?.[r.id],
+              date || new Date(),
+            ) ?? r.coverage;
+          rule.coverage = coverage > 1 ? 1 : coverage < 0 ? 0 : coverage;
 
           if (r.hashAttribute) {
             rule.hashAttribute = r.hashAttribute;

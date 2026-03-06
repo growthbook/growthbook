@@ -499,6 +499,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       coverage={rule.coverage ?? 1}
                       feature={feature}
                       hashAttribute={rule.hashAttribute || ""}
+                      rampSchedule={rule.rampSchedule}
+                      rampStartedAt={feature.rampStartedAt?.[rule.id]}
                     />
                   )}
                   {rule.type === "safe-rollout" &&

@@ -7,6 +7,7 @@ import {
 import { getNextScheduledUpdate } from "back-end/src/services/features";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
+import { SCHEDULED_FEATURE_UPDATE_INTERVAL } from "back-end/src/util/secrets";
 
 type UpdateSingleFeatureJob = Job<{
   featureId: string;
@@ -20,7 +21,7 @@ const UPDATE_SINGLE_FEATURE = "updateSingleFeature";
 async function fireUpdateWebhook(agenda: Agenda) {
   const updateFeatureJob = agenda.create(QUEUE_FEATURE_UPDATES, {});
   updateFeatureJob.unique({});
-  updateFeatureJob.repeatEvery("1 minute");
+  updateFeatureJob.repeatEvery(SCHEDULED_FEATURE_UPDATE_INTERVAL);
   await updateFeatureJob.save();
 }
 
@@ -72,6 +73,7 @@ const updateSingleFeature = async (job: UpdateSingleFeatureJob) => {
     const nextScheduledUpdate = getNextScheduledUpdate(
       feature.environmentSettings || {},
       context.environments,
+      feature.rampStartedAt,
     );
 
     // Update the feature in Mongo
