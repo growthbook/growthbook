@@ -68,7 +68,8 @@ export default function FeaturesHeader({
   const [staleStatusOpen, setStaleStatusOpen] = useState(false);
   const [showImplementation, setShowImplementation] = useState(firstFeature);
 
-  const { organization, hasCommercialFeature } = useUser();
+  const { organization, hasCommercialFeature, getOwnerDisplay } = useUser();
+  const ownerDisplay = getOwnerDisplay(feature.owner);
   const permissionsUtil = usePermissionsUtil();
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
@@ -341,10 +342,10 @@ export default function FeaturesHeader({
 
             <Box>
               <Text weight="medium">Owner: </Text>
-              {feature.owner ? (
+              {ownerDisplay ? (
                 <span>
-                  <UserAvatar name={feature.owner} size="sm" variant="soft" />{" "}
-                  {feature.owner}
+                  <UserAvatar name={ownerDisplay} size="sm" variant="soft" />{" "}
+                  {ownerDisplay}
                 </span>
               ) : (
                 <em className="text-muted">None</em>
