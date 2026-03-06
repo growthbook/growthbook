@@ -10,7 +10,10 @@ import { ReactElement, useState } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Link from "next/link";
 import { FaExternalLinkAlt } from "react-icons/fa";
-import { filterEnvironmentsByExperiment } from "shared/util";
+import {
+  filterEnvironmentsByExperiment,
+  featureRequiresReview,
+} from "shared/util";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -27,6 +30,7 @@ import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import SelectField from "@/components/Forms/SelectField";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import FeatureKeyField from "./FeatureKeyField";
 import EnvironmentSelect from "./EnvironmentSelect";
 import TagsField from "./TagsField";
@@ -124,6 +128,7 @@ export default function FeatureFromExperimentModal({
   );
   const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();
+  const settings = useOrgSettings();
 
   const defaultValues = genFormDefaultValues({
     environments,
@@ -171,6 +176,19 @@ export default function FeatureFromExperimentModal({
   }
 
   const existing = form.watch("existing");
+
+  const selectedFeature = existing
+    ? validFeatures.find((f) => f.id === existing)
+    : undefined;
+
+  const requiresReviewForSelectedFeature = selectedFeature
+    ? featureRequiresReview(
+        { project: selectedFeature.project } as FeatureInterface,
+        environments.map((e) => e.id),
+        false,
+        settings,
+      )
+    : false;
 
   function updateValuesOnTypeChange(val: FeatureValueType) {
     // If existing value already matches, do nothing
@@ -414,14 +432,30 @@ export default function FeatureFromExperimentModal({
 
       {existing && (
         <div className="alert alert-info">
-          A rule will be added to the bottom of every environment in a new draft
-          revision. For more control over placement, you can add Experiment
-          rules directly from the{" "}
-          <Link href={`/features/${existing}`}>
-            Feature page
-            <FaExternalLinkAlt />
-          </Link>{" "}
-          instead.
+          {requiresReviewForSelectedFeature ? (
+            <>
+              A rule will be added to the bottom of every environment in a new
+              draft revision. For more control over placement, you can add
+              Experiment rules directly from the{" "}
+              <Link href={`/features/${existing}`}>
+                Feature page
+                <FaExternalLinkAlt />
+              </Link>{" "}
+              instead.
+            </>
+          ) : (
+            <>
+              A rule will be added to the bottom of every environment and the
+              revision will go live. This rule will be skipped until the
+              experiment is started. For more control over placement, you can
+              add Experiment rules directly from the{" "}
+              <Link href={`/features/${existing}`}>
+                Feature page
+                <FaExternalLinkAlt />
+              </Link>{" "}
+              instead.
+            </>
+          )}
         </div>
       )}
 
