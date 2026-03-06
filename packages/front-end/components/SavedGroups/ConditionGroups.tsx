@@ -8,7 +8,7 @@ import {
 import { isProjectListValidForProject, truncateString } from "shared/util";
 import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
-import { useSearch } from "@/services/search";
+import { useAddComputedFields, useSearch } from "@/services/search";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/ui/Button";
 import Field from "@/components/Forms/Field";
@@ -53,13 +53,21 @@ export default function ConditionGroups({ groups, mutate }: Props) {
       )
     : conditionGroups;
 
+  const conditionGroupsWithOwners = useAddComputedFields(
+    filteredConditionGroups,
+    (group) => ({
+      ownerNameDisplay: getOwnerDisplay(group.owner),
+    }),
+    [getOwnerDisplay],
+  );
+
   const { items, searchInputProps, isFiltered, SortableTH, pagination } =
     useSearch({
-      items: filteredConditionGroups,
+      items: conditionGroupsWithOwners,
       localStorageKey: "savedGroupsRuntime",
       defaultSortField: "dateCreated",
       defaultSortDir: -1,
-      searchFields: ["groupName^3", "condition^2", "owner"],
+      searchFields: ["groupName^3", "condition^2", "ownerNameDisplay"],
       pageSize: 50,
       updateSearchQueryOnChange: true,
     });
@@ -128,7 +136,7 @@ export default function ConditionGroups({ groups, mutate }: Props) {
                       <SortableTH field="condition">Condition</SortableTH>
                       <th>Description</th>
                       <th className="col-2">Projects</th>
-                      <SortableTH field="owner">Owner</SortableTH>
+                      <SortableTH field="ownerNameDisplay">Owner</SortableTH>
                       <SortableTH field="dateUpdated">Date Updated</SortableTH>
                       <th />
                     </tr>
@@ -176,7 +184,7 @@ export default function ConditionGroups({ groups, mutate }: Props) {
                               <ProjectBadges resourceType="saved group" />
                             )}
                           </td>
-                          <td>{getOwnerDisplay(s.owner)}</td>
+                          <td>{s.ownerNameDisplay}</td>
                           <td>{ago(s.dateUpdated)}</td>
                           <td style={{ width: 30 }}>
                             <SavedGroupRowMenu
