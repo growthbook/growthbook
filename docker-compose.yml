@@ -6,17 +6,47 @@ services:
       - MONGO_INITDB_ROOT_PASSWORD=password
     volumes:
       - mongodata:/data/db
+  
   growthbook:
     image: "growthbook/growthbook:latest"
-    ports:
-      - "3000:3000"
-      - "3100:3100"
     depends_on:
       - mongo
     environment:
       - MONGODB_URI=mongodb://root:password@mongo:27017/growthbook?authSource=admin
+      - APP_ORIGIN=http://10.0.31.135
+      - API_HOST=http://10.0.31.135
+      - JWT_SECRET=your-super-secure-jwt-secret-key-that-should-be-at-least-32-characters-long-for-security
+      - ENCRYPTION_KEY=your-super-secure-encryption-key-that-should-be-at-least-32-characters-long-for-security
+      - NODE_ENV=production
+      - COOKIE_SECURE=false
+      - COOKIE_SAME_SITE=lax
+      - TRUSTED_PROXIES=172.0.0.0/8,127.0.0.1,::1
+      - CORS_ORIGIN=http://10.0.31.135
+      - DISABLE_CACHE=true
+      - CACHE_CONTROL=no-cache, no-store, must-revalidate
+      - EMAIL_HOST=smtp.gmail.com
+      - EMAIL_PORT=587
+      - EMAIL_HOST_USER=your-email@gmail.com
+      - EMAIL_HOST_PASSWORD=xxxxx
     volumes:
-      - uploads:/usr/local/src/app/packages/back-end/uploads
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - growthbook_network
+
+  nginx:
+    image: "nginx:latest"
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - growthbook
+    networks:
+      - growthbook_network
+
 volumes:
-  uploads:
   mongodata:
+
+networks:
+  growthbook_network:
+    driver: bridge
