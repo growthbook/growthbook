@@ -6,7 +6,6 @@ import {
   ReactNode,
   CSSProperties,
   useCallback,
-  useSyncExternalStore,
 } from "react";
 import clsx from "clsx";
 import { truncateString } from "shared/util";
@@ -17,7 +16,7 @@ import ConditionalWrapper from "@/components/ConditionalWrapper";
 import ErrorDisplay from "@/ui/ErrorDisplay";
 import Button from "@/ui/Button";
 import LoadingOverlay from "./LoadingOverlay";
-import Portal from "./Modal/Portal";
+import Portal, { PORTAL_CONTAINER_ID } from "./Modal/Portal";
 import Tooltip from "./Tooltip/Tooltip";
 import { DocLink, DocSection } from "./DocLink";
 import styles from "./Modal.module.scss";
@@ -80,38 +79,43 @@ type ModalProps = {
   onBackdropClick?: () => void;
 };
 
-const NORMAL_BACKDROP_Z_INDEX = 1040;
-const NORMAL_MODAL_Z_INDEX = 1050;
-const ELEVATED_BACKDROP_Z_INDEX = 1500;
-const ELEVATED_MODAL_Z_INDEX = 1510;
-const STACK_LAYER_STEP = 20;
+const NORMAL_LAYER_Z_INDEX = 1050;
+const ELEVATED_LAYER_Z_INDEX = 1550;
+const MODAL_LAYER_SELECTOR = "[data-modal-layer='true']";
 
-let modalStackIds: string[] = [];
-const modalStackListeners = new Set<() => void>();
+function isTopMostModal(modalEl: HTMLElement | null): boolean {
+  if (!modalEl) return false;
+  const portalRoot = document.getElementById(PORTAL_CONTAINER_ID);
+  if (!portalRoot) return false;
 
-function emitModalStackChange() {
-  modalStackListeners.forEach((listener) => listener());
-}
+  const visibleModals = Array.from(
+    portalRoot.querySelectorAll<HTMLElement>(MODAL_LAYER_SELECTOR),
+  ).filter((el) => {
+    const style = window.getComputedStyle(el);
+    return style.display !== "none" && style.visibility !== "hidden";
+  });
 
-function addModalToStack(modalId: string) {
-  if (modalStackIds.includes(modalId)) return;
-  modalStackIds = [...modalStackIds, modalId];
-  emitModalStackChange();
-}
+  if (visibleModals.length === 0) return false;
 
-function removeModalFromStack(modalId: string) {
-  if (!modalStackIds.includes(modalId)) return;
-  modalStackIds = modalStackIds.filter((id) => id !== modalId);
-  emitModalStackChange();
-}
+  let topModal = visibleModals[0];
+  let topZIndex = Number.parseInt(window.getComputedStyle(topModal).zIndex, 10);
+  if (Number.isNaN(topZIndex)) {
+    topZIndex = 0;
+  }
 
-function subscribeToModalStack(listener: () => void) {
-  modalStackListeners.add(listener);
-  return () => modalStackListeners.delete(listener);
-}
+  for (let i = 1; i < visibleModals.length; i++) {
+    const modal = visibleModals[i];
+    let zIndex = Number.parseInt(window.getComputedStyle(modal).zIndex, 10);
+    if (Number.isNaN(zIndex)) {
+      zIndex = 0;
+    }
+    if (zIndex > topZIndex || zIndex === topZIndex) {
+      topModal = modal;
+      topZIndex = zIndex;
+    }
+  }
 
-function getModalStackSnapshot() {
-  return modalStackIds;
+  return topModal === modalEl;
 }
 const Modal: FC<ModalProps> = ({
   header = "logo",
@@ -170,13 +174,9 @@ const Modal: FC<ModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
-  const modalStack = useSyncExternalStore(
-    subscribeToModalStack,
-    getModalStackSnapshot,
-    getModalStackSnapshot,
-  );
 
   const bodyRef = useRef<HTMLDivElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
 
   const scrollToTop = () => {
     setTimeout(() => {
@@ -443,36 +443,20 @@ const Modal: FC<ModalProps> = ({
   }, [open]);
 
   useEffect(() => {
-    if (inline || !open) return;
-    addModalToStack(modalUuid);
-    return () => removeModalFromStack(modalUuid);
-  }, [inline, modalUuid, open]);
-
-  const modalStackIndex = modalStack.indexOf(modalUuid);
-  const isTopModal =
-    modalStackIndex >= 0 && modalStackIndex === modalStack.length - 1;
-
-  useEffect(() => {
     if (!closeOnEscape || !close || !open || inline) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || !isTopModal) return;
+      if (event.key !== "Escape") return;
+      if (!isTopMostModal(modalRef.current)) return;
       event.preventDefault();
       close();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [closeOnEscape, close, open, inline, isTopModal]);
+  }, [closeOnEscape, close, open, inline]);
 
-  const backdropBaseZIndex = increasedElevation
-    ? ELEVATED_BACKDROP_Z_INDEX
-    : NORMAL_BACKDROP_Z_INDEX;
-  const modalBaseZIndex = increasedElevation
-    ? ELEVATED_MODAL_Z_INDEX
-    : NORMAL_MODAL_Z_INDEX;
-  const stackOffset =
-    modalStackIndex >= 0 ? modalStackIndex * STACK_LAYER_STEP : 0;
-  const backdropZIndex = backdropBaseZIndex + stackOffset;
-  const modalZIndex = modalBaseZIndex + stackOffset;
+  const layerZIndex = increasedElevation
+    ? ELEVATED_LAYER_Z_INDEX
+    : NORMAL_LAYER_Z_INDEX;
 
   const overlayStyle: CSSProperties = solidOverlay
     ? {
@@ -481,21 +465,27 @@ const Modal: FC<ModalProps> = ({
     : {};
 
   if (!inline) {
-    overlayStyle.zIndex = backdropZIndex;
+    overlayStyle.zIndex = layerZIndex;
   }
 
   const modalHtml = (
     <div
+      ref={modalRef}
+      data-modal-layer="true"
       className={clsx("modal", { show: open })}
       style={{
         display: open ? "block" : "none",
         position: inline ? "relative" : undefined,
-        zIndex: inline ? 1 : modalZIndex,
+        zIndex: inline ? 1 : layerZIndex,
       }}
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           onBackdropClick?.();
-          if (closeOnBackdropClick && close && isTopModal) {
+          if (
+            closeOnBackdropClick &&
+            close &&
+            isTopMostModal(modalRef.current)
+          ) {
             close();
           }
         }
