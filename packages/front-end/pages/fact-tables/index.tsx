@@ -33,6 +33,7 @@ import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { GBInfo } from "@/components/Icons";
+import { useUser } from "@/services/UserContext";
 
 export default function FactTablesPage() {
   const {
@@ -46,6 +47,7 @@ export default function FactTablesPage() {
   } = useDefinitions();
 
   const router = useRouter();
+  const { getOwnerDisplay } = useUser();
 
   const { demoDataSourceId } = useDemoDataSourceProject();
 
@@ -126,13 +128,14 @@ export default function FactTablesPage() {
       return {
         ...table,
         datasourceName: getDatasourceById(table.datasource)?.name || "Unknown",
+        ownerNameDisplay: getOwnerDisplay(table.owner),
         numMetrics: factMetricCounts[table.id] || 0,
         numFilters: table.filters.length,
         numAutoSlices,
         userIdTypes: sortedUserIdTypes,
       };
     },
-    [getDatasourceById],
+    [getDatasourceById, getOwnerDisplay],
   );
 
   const tagsFilter = useTagsFilter("facttables");
@@ -406,7 +409,7 @@ export default function FactTablesPage() {
                 <SortableTH field="numMetrics">Metrics</SortableTH>
                 <SortableTH field="numAutoSlices">Auto Slices</SortableTH>
                 <SortableTH field="numFilters">Filters</SortableTH>
-                <SortableTH field="owner">Owner</SortableTH>
+                <SortableTH field="ownerNameDisplay">Owner</SortableTH>
                 <SortableTH field="dateUpdated">Last Updated</SortableTH>
               </tr>
             </thead>
@@ -472,7 +475,7 @@ export default function FactTablesPage() {
                   <td>{f.numMetrics}</td>
                   <td>{f.numAutoSlices}</td>
                   <td>{f.numFilters}</td>
-                  <td>{f.owner}</td>
+                  <td>{f.ownerNameDisplay}</td>
                   <td>{f.dateUpdated ? date(f.dateUpdated) : null}</td>
                 </tr>
               ))}

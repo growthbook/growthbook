@@ -244,7 +244,6 @@ const SavedGroupForm: FC<{
       />
       {current.id && (
         <SelectOwner
-          resourceType="savedGroup"
           placeholder="Optional"
           value={form.watch("owner")}
           onChange={(v) => form.setValue("owner", v)}

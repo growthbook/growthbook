@@ -198,7 +198,7 @@ const ShareModal = ({
   >(null);
   const [saveThemeName, setSaveThemeName] = useState("");
   const [logoUploading, setLogoUploading] = useState(false);
-  const { getUserDisplay, hasCommercialFeature } = useUser();
+  const { getOwnerDisplay, hasCommercialFeature } = useUser();
   const { blockFileUploads } = useOrgSettings();
   const hasPresentationStyling = hasCommercialFeature("adv-presentations");
   const canUploadLogo = hasUploadSupport() && !blockFileUploads;
@@ -853,10 +853,7 @@ const ShareModal = ({
                                                     />
                                                   </td>
                                                   <td className="nowrap">
-                                                    {getUserDisplay(
-                                                      e.owner,
-                                                      false,
-                                                    )}
+                                                    {getOwnerDisplay(e.owner)}
                                                   </td>
                                                   <td
                                                     className="nowrap"
