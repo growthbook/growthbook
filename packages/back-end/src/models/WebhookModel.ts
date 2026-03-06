@@ -1,6 +1,7 @@
 import { omit } from "lodash";
 import uniqid from "uniqid";
 import md5 from "md5";
+import { WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD } from "shared/constants";
 import { WebhookInterface } from "shared/types/webhook";
 import { webhookSchema } from "shared/validators";
 import {
@@ -114,7 +115,7 @@ export class SdkWebhookModel extends BaseClass {
         error,
         consecutiveFailures,
       };
-      if (consecutiveFailures >= 5) {
+      if (consecutiveFailures >= WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD) {
         updates.disabled = true;
       }
       await this.update(webhook, updates);

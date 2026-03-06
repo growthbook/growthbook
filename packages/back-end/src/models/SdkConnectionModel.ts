@@ -12,6 +12,7 @@ import {
   SDKLanguage,
 } from "shared/types/sdk-connection";
 import { ApiSdkConnection } from "shared/types/openapi";
+import { WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD } from "shared/constants";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import {
   IS_CLOUD,
@@ -465,7 +466,9 @@ export async function setProxyError(
         "proxy.connected": false,
         "proxy.lastError": new Date(),
         "proxy.consecutiveFailures": consecutiveFailures,
-        ...(consecutiveFailures >= 5 ? { "proxy.enabled": false } : {}),
+        ...(consecutiveFailures >= WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD
+          ? { "proxy.enabled": false }
+          : {}),
       },
     },
   );
