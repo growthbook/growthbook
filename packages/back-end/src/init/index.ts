@@ -1,4 +1,5 @@
 import { logger } from "back-end/src/util/logger";
+import { initFormatMetrics } from "./formatMetrics";
 import mongoInit from "./mongo";
 import { queueInit } from "./queue";
 
@@ -8,6 +9,8 @@ export async function init() {
     initPromise = (async () => {
       await mongoInit();
       await queueInit();
+      // Set up SQL format metrics and init polyglot WASM before accepting requests
+      await initFormatMetrics();
     })();
   }
   try {
