@@ -6,23 +6,23 @@ export function canFormatSql(datasourceType: DataSourceType): boolean {
   return !!getSqlDialect(datasourceType);
 }
 
-function getSqlDialect(datasourceType: DataSourceType): FormatDialect {
-  const typeMap = {
+function getSqlDialect(datasourceType: DataSourceType): FormatDialect | "" {
+  const typeMap: Record<DataSourceType, FormatDialect | ""> = {
     redshift: "redshift",
     snowflake: "snowflake",
     mysql: "mysql",
     bigquery: "bigquery",
     postgres: "postgresql",
     mssql: "tsql",
-    clickhouse: "clickhouse",
-    growthbook_clickhouse: "clickhouse",
-    athena: "athena",
-    presto: "presto",
-    databricks: "databricks",
+    clickhouse: "",
+    growthbook_clickhouse: "",
+    athena: "trino",
+    presto: "trino",
+    databricks: "sql",
     vertica: "postgresql",
     mixpanel: "",
     google_analytics: "",
-  } as const as Record<DataSourceType, FormatDialect>;
+  };
 
   return typeMap[datasourceType];
 }

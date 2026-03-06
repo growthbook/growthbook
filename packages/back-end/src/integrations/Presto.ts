@@ -1,5 +1,5 @@
 import { Client, ClientOptions, QueryOptions } from "presto-client";
-import { format, Dialect } from "shared/sql";
+import { format } from "shared/sql";
 import { FormatDialect } from "shared/types/sql";
 import { prestoCreateTablePartitions } from "shared/enterprise";
 import {
@@ -30,7 +30,7 @@ export default class Presto extends SqlIntegration {
       decryptDataSourceParams<PrestoConnectionParams>(encryptedParams);
   }
   getFormatDialect(): FormatDialect {
-    return Dialect.Presto;
+    return "trino";
   }
   getSensitiveParamKeys(): string[] {
     return ["password"];
