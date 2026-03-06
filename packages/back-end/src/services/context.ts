@@ -51,6 +51,7 @@ import { ExperimentTemplatesModel } from "back-end/src/models/ExperimentTemplate
 import { SafeRolloutModel } from "back-end/src/models/SafeRolloutModel";
 import { SafeRolloutSnapshotModel } from "back-end/src/models/SafeRolloutSnapshotModel";
 import { IncrementalRefreshModel } from "back-end/src/models/IncrementalRefreshModel";
+import { ExperimentRefreshLockModel } from "back-end/src/models/ExperimentRefreshLockModel";
 import { DecisionCriteriaModel } from "back-end/src/enterprise/models/DecisionCriteriaModel";
 import { MetricTimeSeriesModel } from "back-end/src/models/MetricTimeSeriesModel";
 import { WebhookSecretDataModel } from "back-end/src/models/WebhookSecretModel";
@@ -102,6 +103,7 @@ export type ModelName =
   | "dashboards"
   | "customHooks"
   | "incrementalRefresh"
+  | "experimentRefreshLocks"
   | "sqlResultChunks"
   | "sdkConnectionCache"
   | "sdkWebhooks"
@@ -135,6 +137,7 @@ export const modelClasses = {
   dashboards: DashboardModel,
   customHooks: CustomHookModel,
   incrementalRefresh: IncrementalRefreshModel,
+  experimentRefreshLocks: ExperimentRefreshLockModel,
   sqlResultChunks: SqlResultChunkModel,
   sdkConnectionCache: SdkConnectionCacheModel,
   sdkWebhooks: SdkWebhookModel,
@@ -177,6 +180,7 @@ export class ReqContextClass {
       dashboards: new DashboardModel(this),
       customHooks: new CustomHookModel(this),
       incrementalRefresh: new IncrementalRefreshModel(this),
+      experimentRefreshLocks: new ExperimentRefreshLockModel(this),
       sqlResultChunks: new SqlResultChunkModel(this),
       sdkConnectionCache: new SdkConnectionCacheModel(this),
       sdkWebhooks: new SdkWebhookModel(this),
