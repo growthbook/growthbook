@@ -15,15 +15,15 @@ import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizatio
 const CREATE_INFORMATION_SCHEMA_JOB_NAME = "createInformationSchema";
 type CreateInformationSchemaJob = Job<{
   datasourceId: string;
-  organization: string;
+  organizationId: string;
 }>;
 
 const createInformationSchema = async (job: CreateInformationSchemaJob) => {
-  const { datasourceId, organization } = job.attrs.data;
+  const { datasourceId, organizationId } = job.attrs.data;
 
-  if (!datasourceId || !organization) return;
+  if (!datasourceId || !organizationId) return;
 
-  const context = await getContextForAgendaJobByOrgId(organization);
+  const context = await getContextForAgendaJobByOrgId(organizationId);
 
   const datasource = await getDataSourceById(context, datasourceId);
 
@@ -44,10 +44,10 @@ const createInformationSchema = async (job: CreateInformationSchemaJob) => {
     }
     const informationSchema = await getInformationSchemaByDatasourceId(
       datasource.id,
-      organization,
+      organizationId,
     );
     if (informationSchema) {
-      await updateInformationSchemaById(organization, informationSchema.id, {
+      await updateInformationSchemaById(organizationId, informationSchema.id, {
         ...informationSchema,
         status: "COMPLETE",
         error,
@@ -64,15 +64,15 @@ export default function (ag: Agenda) {
 
 export async function queueCreateInformationSchema(
   datasourceId: string,
-  organization: string,
+  organizationId: string,
 ) {
-  if (!datasourceId || !organization) return;
+  if (!datasourceId || !organizationId) return;
 
   const job = agenda.create(CREATE_INFORMATION_SCHEMA_JOB_NAME, {
     datasourceId,
-    organization,
+    organizationId,
   }) as CreateInformationSchemaJob;
-  job.unique({ datasource: datasourceId, organization });
+  job.unique({ datasource: datasourceId, organization: organizationId });
   job.schedule(new Date());
   await job.save();
 }
