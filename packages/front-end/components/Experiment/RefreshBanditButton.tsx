@@ -49,6 +49,9 @@ const RefreshBanditButton: FC<{
   }, [error, setOuterError]);
 
   const { apiCall } = useAuth();
+  const updateInProgress =
+    generatedSnapshot &&
+    ["queued", "running"].includes(generatedSnapshot.status);
 
   const refresh = async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -188,6 +191,8 @@ const RefreshBanditButton: FC<{
           <FaRegCircleXmark className="mr-1" />
           Update errored
         </div>
+      ) : updateInProgress ? (
+        <div className="text-muted mx-2 my-2">Update started</div>
       ) : generatedSnapshot ? (
         <div className="text-success mx-2 my-2">
           <FaRegCircleCheck className="mr-1" />

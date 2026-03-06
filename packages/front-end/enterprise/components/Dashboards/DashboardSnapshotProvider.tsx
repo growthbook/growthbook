@@ -153,7 +153,12 @@ export default function DashboardSnapshotProvider({
         allExplorations.find((exploration) => exploration.error)?.error ||
         allSavedQueries.find((q) => q.results?.error)?.results?.error) ??
       undefined;
-    const { status } = getQueryStatus(allQueries, snapshotError);
+    const { status: queryStatus } = getQueryStatus(allQueries, snapshotError);
+    const status = allSnapshots.some((snapshot) =>
+      ["running", "queued"].includes(snapshot.status),
+    )
+      ? "running"
+      : queryStatus;
 
     return {
       savedQueriesMap,
@@ -379,7 +384,7 @@ export function useDashboardSnapshot(
       !blockAnalysisSettings ||
       !snapshotSettingsMatch ||
       analysis ||
-      snapshot.status === "running" ||
+      ["running", "queued"].includes(snapshot.status) ||
       snapshotsLoading
     )
       return;
@@ -411,7 +416,7 @@ export function useDashboardSnapshot(
     loading:
       postSnapshotAnalysisLoading ||
       snapshotsLoading ||
-      snapshot?.status === "running",
+      ["running", "queued"].includes(snapshot?.status ?? ""),
     error: snapshotsError,
     mutateSnapshot,
   };

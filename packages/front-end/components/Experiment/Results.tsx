@@ -101,7 +101,10 @@ const Results: FC<{
     loading: snapshotLoading,
   } = useSnapshot();
 
-  const queryStatusData = getQueryStatus(latest?.queries || [], latest?.error);
+  const queryStatusData =
+    latest?.status === "queued"
+      ? { status: "running" as const }
+      : getQueryStatus(latest?.queries || [], latest?.error);
   const { status } = queryStatusData;
 
   const queryStrings = latest?.queries?.map((q) => q.query) || [];

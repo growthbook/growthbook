@@ -1,12 +1,11 @@
 import { postExperimentSnapshotValidator } from "shared/validators";
 import { PostExperimentSnapshotResponse } from "shared/types/openapi";
-import {
-  createExperimentSnapshot,
-  SNAPSHOT_TIMEOUT,
-} from "back-end/src/controllers/experiments";
+import { SNAPSHOT_TIMEOUT } from "back-end/src/controllers/experiments";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { auditDetailsCreate } from "back-end/src/services/audit";
+import { createOrReuseStandardSnapshotExecution } from "back-end/src/services/experiments";
+import { queueRunExperimentSnapshot } from "back-end/src/jobs/updateExperimentResults";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 // TODO update params (add phase, useCache)
@@ -58,12 +57,16 @@ export const postExperimentSnapshot = createApiRequestHandler(
   // Set timeout to 30 minutes
   req.setTimeout(SNAPSHOT_TIMEOUT);
 
-  const snapshot = await createExperimentSnapshot({
+  const snapshot = await createOrReuseStandardSnapshotExecution({
     context,
     experiment,
-    datasource,
-    triggeredBy,
-    ...createSnapshotPayload,
+    phaseIndex: createSnapshotPayload.phase,
+    useCache: createSnapshotPayload.useCache,
+    triggeredBy: triggeredBy ?? "manual",
+  });
+  await queueRunExperimentSnapshot({
+    organization: context.org.id,
+    snapshotId: snapshot.id,
   });
 
   await req.audit({
@@ -79,9 +82,9 @@ export const postExperimentSnapshot = createApiRequestHandler(
   });
   return {
     snapshot: {
-      id: snapshot.snapshot.id,
-      experiment: snapshot.snapshot.experiment,
-      status: snapshot.snapshot.status,
+      id: snapshot.id,
+      experiment: snapshot.experiment,
+      status: snapshot.status,
     },
   };
 });

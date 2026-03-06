@@ -48,6 +48,7 @@ import {
 } from "back-end/src/types/AuthRequest";
 import {
   _getSnapshots,
+  createOrReuseStandardSnapshotExecution,
   createSnapshot,
   createSnapshotAnalyses,
   createSnapshotAnalysis,
@@ -58,7 +59,6 @@ import {
   getLinkedFeatureInfo,
   resetExperimentBanditSettings,
   SnapshotAnalysisParams,
-  updateExperimentBanditSettings,
   validateExperimentData,
 } from "back-end/src/services/experiments";
 import {
@@ -123,6 +123,7 @@ import {
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
+import { ExperimentSnapshotBusyError } from "back-end/src/util/errors";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { generateExperimentReportSSRData } from "back-end/src/services/reports";
 import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
@@ -137,6 +138,7 @@ import {
   shouldValidateCustomFieldsOnUpdate,
   validateCustomFieldsForSection,
 } from "back-end/src/util/custom-fields";
+import { queueRunExperimentSnapshot } from "back-end/src/jobs/updateExperimentResults";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
 
@@ -1293,13 +1295,16 @@ export async function postExperiments(
       req.setTimeout(SNAPSHOT_TIMEOUT);
 
       try {
-        await createExperimentSnapshot({
+        const snapshot = await createOrReuseStandardSnapshotExecution({
           context,
           experiment,
-          datasource,
-          dimension: "",
-          phase: 0,
+          phaseIndex: 0,
           useCache: true,
+          triggeredBy: "manual",
+        });
+        await queueRunExperimentSnapshot({
+          organization: context.org.id,
+          snapshotId: snapshot.id,
         });
       } catch (e) {
         logger.error(e, "Failed to auto-refresh imported experiment");
@@ -3068,16 +3073,40 @@ export async function postSnapshot(
   req.setTimeout(SNAPSHOT_TIMEOUT);
 
   try {
-    const { snapshot } = await createExperimentSnapshot({
-      context,
-      experiment,
-      datasource,
-      dimension,
-      phase,
-      useCache,
-      type:
-        experiment.type === "multi-armed-bandit" ? "exploratory" : undefined,
-    });
+    const snapshotType =
+      experiment.type === "multi-armed-bandit"
+        ? "exploratory"
+        : getSnapshotType({
+            experiment,
+            dimension,
+            phaseIndex: phase,
+          });
+
+    let snapshot: ExperimentSnapshotInterface;
+
+    if (snapshotType === "standard") {
+      snapshot = await createOrReuseStandardSnapshotExecution({
+        context,
+        experiment,
+        phaseIndex: phase,
+        useCache,
+        triggeredBy: "manual",
+      });
+      await queueRunExperimentSnapshot({
+        organization: context.org.id,
+        snapshotId: snapshot.id,
+      });
+    } else {
+      ({ snapshot } = await createExperimentSnapshot({
+        context,
+        experiment,
+        datasource,
+        dimension,
+        phase,
+        useCache,
+        type: snapshotType,
+      }));
+    }
 
     await req.audit({
       event: "experiment.refresh",
@@ -3098,9 +3127,19 @@ export async function postSnapshot(
     });
   } catch (e) {
     req.log.error(e, "Failed to create experiment snapshot");
-    res.status(400).json({
-      status: 400,
+    const status =
+      typeof e === "object" && e !== null && "status" in e
+        ? Number(e.status)
+        : 400;
+    let snapshot: ExperimentSnapshotInterface | undefined = undefined;
+    if (e instanceof ExperimentSnapshotBusyError && e.snapshotId) {
+      snapshot =
+        (await findSnapshotById(context.org.id, e.snapshotId)) ?? undefined;
+    }
+    res.status(status).json({
+      status,
       message: e.message,
+      ...(snapshot ? { snapshot } : {}),
     });
   }
 }
@@ -3230,38 +3269,17 @@ export async function postBanditSnapshot(
   let snapshot: ExperimentSnapshotInterface | undefined = undefined;
 
   try {
-    const { queryRunner } = await createExperimentSnapshot({
+    snapshot = await createOrReuseStandardSnapshotExecution({
       context,
       experiment,
-      datasource,
-      dimension: "",
-      phase,
+      phaseIndex: phase,
       useCache: false,
-      type: "standard",
+      triggeredBy: "manual",
       reweight,
     });
-
-    await queryRunner.waitForResults();
-    snapshot = queryRunner.model;
-
-    if (!snapshot?.banditResult) {
-      return res.status(400).json({
-        status: 400,
-        message: "Unable to update bandit.",
-        snapshot,
-      });
-    }
-
-    const changes = updateExperimentBanditSettings({
-      experiment,
-      snapshot,
-      reweight,
-    });
-
-    await updateExperiment({
-      context,
-      experiment,
-      changes,
+    await queueRunExperimentSnapshot({
+      organization: context.org.id,
+      snapshotId: snapshot.id,
     });
 
     await req.audit({
@@ -3282,8 +3300,12 @@ export async function postBanditSnapshot(
       snapshot,
     });
   } catch (e) {
-    return res.status(400).json({
-      status: 400,
+    const status =
+      typeof e === "object" && e !== null && "status" in e
+        ? Number(e.status)
+        : 400;
+    return res.status(status).json({
+      status,
       message: e?.message || e,
       snapshot,
     });

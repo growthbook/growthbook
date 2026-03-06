@@ -7,37 +7,29 @@ import {
   DashboardBlockInterface,
 } from "shared/enterprise";
 import { isDefined, isString, stringToBoolean } from "shared/util";
-import { groupBy } from "lodash";
 import { ProductAnalyticsExploration, SavedQuery } from "shared/validators";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { MetricAnalysisInterface } from "shared/types/metric-analysis";
 import { ExperimentInterface } from "shared/types/experiment";
-import { expandAllSliceMetricsInMap } from "shared/experiments";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
 } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { createExperimentSnapshot } from "back-end/src/controllers/experiments";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
-import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import {
-  deleteSnapshotById,
-  findSnapshotsByIds,
-} from "back-end/src/models/ExperimentSnapshotModel";
-import { getMetricMap } from "back-end/src/models/MetricModel";
-import { getFactTableMap } from "back-end/src/models/FactTableModel";
+import { findSnapshotsByIds } from "back-end/src/models/ExperimentSnapshotModel";
 import {
   updateDashboardMetricAnalyses,
   updateDashboardExplorations,
   updateDashboardSavedQueries,
   updateNonExperimentDashboard,
 } from "back-end/src/enterprise/services/dashboards";
-import { getAdditionalQueryMetadataForExperiment } from "back-end/src/services/experiments";
+import { createOrReuseStandardSnapshotExecution } from "back-end/src/services/experiments";
 import {
   generateDashboardBlockIds,
   migrateBlock,
 } from "back-end/src/enterprise/models/DashboardModel";
+import { queueRunExperimentSnapshot } from "back-end/src/jobs/updateExperimentResults";
 import { createDashboardBody, updateDashboardBody } from "./dashboards.router";
 interface SingleDashboardResponse {
   status: number;
@@ -188,105 +180,29 @@ export async function refreshDashboardData(
   const dashboard = await context.models.dashboards.getById(id);
   if (!dashboard) throw new Error("Cannot find dashboard");
   if (dashboard.experimentId) {
-    // MKTODO: Validate this change doesn't have any unintended consequences
     const experiment = await getExperimentById(context, dashboard.experimentId);
     if (!experiment)
       throw new Error("Cannot update dashboard without an attached experiment");
 
-    const datasource = await getDataSourceById(context, experiment.datasource);
-    if (!datasource) throw new Error("Failed to find connected datasource");
+    const mainSnapshot = await createOrReuseStandardSnapshotExecution({
+      context,
+      experiment,
+      phaseIndex: experiment.phases.length - 1,
+      useCache: false,
+      triggeredBy: "manual",
+    });
+    await queueRunExperimentSnapshot({
+      organization: context.org.id,
+      snapshotId: mainSnapshot.id,
+    });
 
-    const { snapshot: mainSnapshot, queryRunner } =
-      await createExperimentSnapshot({
-        context,
-        experiment,
-        dimension: undefined,
-        datasource,
-        phase: experiment.phases.length - 1,
-        useCache: false,
-        triggeredBy: "manual-dashboard",
-        type: "standard",
-        preventStartingAnalysis: true,
-      });
-
-    let mainSnapshotUsed = false;
     // Copy the blocks of the dashboard to overwrite their snapshot IDs
     const newBlocks = dashboard.blocks.map((block) => {
       if (!blockHasFieldOfType(block, "snapshotId", isString))
         return { ...block };
       if (!snapshotSatisfiesBlock(mainSnapshot, block)) return { ...block };
-      mainSnapshotUsed = true;
       return { ...block, snapshotId: mainSnapshot.id };
     });
-    if (mainSnapshotUsed) {
-      const metricMap = await getMetricMap(context);
-      const factTableMap = await getFactTableMap(context);
-      const metricGroups = await context.models.metricGroups.getAll();
-
-      // Expand slice metrics in the metric map (same as in getSnapshotSettings)
-      expandAllSliceMetricsInMap({
-        metricMap,
-        factTableMap,
-        experiment,
-        metricGroups,
-      });
-
-      await queryRunner.startAnalysis({
-        snapshotType: "standard",
-        snapshotSettings: mainSnapshot.settings,
-        variationNames: experiment.variations.map((v) => v.name),
-        metricMap,
-        queryParentId: mainSnapshot.id,
-        experimentId: experiment.id,
-        factTableMap,
-        experimentQueryMetadata:
-          getAdditionalQueryMetadataForExperiment(experiment),
-        fullRefresh: false,
-        incrementalRefreshStartTime: new Date(),
-      });
-    } else {
-      await deleteSnapshotById(context.org.id, mainSnapshot.id);
-    }
-
-    const dimensionBlockPairs = dashboard.blocks
-      .map<[string, string] | undefined>((block) => {
-        if (
-          blockHasFieldOfType(block, "dimensionId", isString) &&
-          !snapshotSatisfiesBlock(mainSnapshot, block)
-        ) {
-          return [block.dimensionId, block.id];
-        }
-        return undefined;
-      })
-      .filter(isDefined);
-
-    // Create a map from dimension -> list of block IDs that use that dimension
-    const dimensionsByBlocks = Object.fromEntries(
-      Object.entries(
-        groupBy(dimensionBlockPairs, ([dimensionId, _blockId]) => dimensionId),
-      ).map(([dimensionId, dimBlockPairs]) => [
-        dimensionId,
-        dimBlockPairs.map(([_dim, blockId]) => blockId),
-      ]),
-    );
-
-    for (const [dimensionId, blockIds] of Object.entries(dimensionsByBlocks)) {
-      const { snapshot } = await createExperimentSnapshot({
-        context,
-        experiment,
-        dimension: dimensionId,
-        datasource,
-        phase: experiment.phases.length - 1,
-        useCache: false,
-        triggeredBy: "manual-dashboard",
-        type: "exploratory",
-      });
-      newBlocks.forEach((block) => {
-        if (blockIds.includes(block.id)) {
-          block.snapshotId = snapshot.id;
-        }
-      });
-    }
 
     await updateDashboardMetricAnalyses(context, newBlocks);
     await updateDashboardSavedQueries(context, newBlocks);
