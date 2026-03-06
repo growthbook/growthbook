@@ -65,14 +65,14 @@ jobs:
         run: |
           URL="${{ env.APP_URL }}:4433/healthcheck"
           echo "Waiting for $URL to become healthy..."
-          for i in $(seq 1 30); do
+          for i in $(seq 1 12); do
             if curl -sf "$URL" > /dev/null 2>&1; then
               echo "Health check passed after $((i * 5))s"
               exit 0
             fi
             sleep 5
           done
-          echo "::error::Health check failed: $URL did not respond within 150s"
+          echo "::error::Health check failed: $URL did not respond within 60s"
           exit 1
 
       - name: Stop machine
