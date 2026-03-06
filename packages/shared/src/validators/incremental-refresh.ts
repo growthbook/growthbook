@@ -39,6 +39,9 @@ const incrementalRefresh = z
     metricCovariateSources: z.array(
       incrementalRefreshMetricCovariateSourceValidator,
     ),
+
+    // Generation counter to prevent stale callbacks from writing data
+    generation: z.number().int(),
   })
   .strict();
 

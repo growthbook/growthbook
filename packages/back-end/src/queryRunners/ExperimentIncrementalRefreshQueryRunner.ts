@@ -258,6 +258,14 @@ const startExperimentIncrementalRefreshQueries = async (
     ? null
     : await context.models.incrementalRefresh.getByExperimentId(experimentId);
 
+  // Increment the generation counter to invalidate any stale onSuccess
+  // callbacks from previously cancelled runs. Callbacks will check this
+  // value before upserting to avoid writing stale data.
+  const myGeneration =
+    (await context.models.incrementalRefresh.incrementGeneration(
+      experimentId,
+    )) ?? 0;
+
   // When adding new metrics to a fact table, we will need to scan the whole table.
   // So to simplify things we re-create the whole metric source.
   // When removing metrics this is not needed, we just don't insert updated data.
@@ -418,12 +426,19 @@ const startExperimentIncrementalRefreshQueries = async (
     dependencies: [alterUnitsTableQuery.query],
     run: (query, setExternalId) =>
       integration.runIncrementalWithNoOutputQuery(query, setExternalId),
-    onSuccess: (rows) => {
+    onSuccess: async (rows) => {
       // TODO(incremental-refresh): Clean up metadata handling in query runner
       const maxTimestamp = new Date(rows[0].max_timestamp as string);
 
       if (maxTimestamp) {
-        context.models.incrementalRefresh
+        // Guard against stale callbacks from cancelled runs
+        const current =
+          await context.models.incrementalRefresh.getByExperimentId(
+            experimentId,
+          );
+        if (current?.generation !== myGeneration) return;
+
+        await context.models.incrementalRefresh
           .upsertByExperimentId(experimentId, {
             unitsTableFullName: unitsTableFullName,
             unitsMaxTimestamp: maxTimestamp,
@@ -629,10 +644,13 @@ const startExperimentIncrementalRefreshQueries = async (
         run: (query, setExternalId) =>
           integration.runIncrementalWithNoOutputQuery(query, setExternalId),
         onSuccess: async () => {
+          // Guard against stale callbacks from cancelled runs
           const incrementalRefresh =
             await context.models.incrementalRefresh.getByExperimentId(
               experimentId,
             );
+          if (incrementalRefresh?.generation !== myGeneration) return;
+
           const lastSuccessfulMaxTimestamp =
             incrementalRefresh?.unitsMaxTimestamp ?? null;
           const updatedCovariateSource: IncrementalRefreshMetricCovariateSourceInterface =
@@ -655,7 +673,7 @@ const startExperimentIncrementalRefreshQueries = async (
               s.groupId === group.groupId ? updatedCovariateSource : s,
             );
           }
-          context.models.incrementalRefresh
+          await context.models.incrementalRefresh
             .upsertByExperimentId(experimentId, {
               metricCovariateSources: runningCovariateSourceData,
             })
@@ -677,6 +695,13 @@ const startExperimentIncrementalRefreshQueries = async (
       run: (query, setExternalId) =>
         integration.runMaxTimestampQuery(query, setExternalId),
       onFailure: async () => {
+        // Guard against stale callbacks from cancelled runs
+        const current =
+          await context.models.incrementalRefresh.getByExperimentId(
+            experimentId,
+          );
+        if (current?.generation !== myGeneration) return;
+
         // Remove the source from the running data if max timestamp fails
         runningSourceData = runningSourceData.filter(
           (s) => s.groupId !== group.groupId,
@@ -691,6 +716,13 @@ const startExperimentIncrementalRefreshQueries = async (
       onSuccess: async (rows) => {
         const maxTimestamp = new Date(rows[0].max_timestamp as string);
         if (maxTimestamp) {
+          // Guard against stale callbacks from cancelled runs
+          const current =
+            await context.models.incrementalRefresh.getByExperimentId(
+              experimentId,
+            );
+          if (current?.generation !== myGeneration) return;
+
           // TODO(incremental-refresh): Clean up metadata handling in query runner
           const updatedSource: IncrementalRefreshMetricSourceInterface =
             existingSource
@@ -719,7 +751,7 @@ const startExperimentIncrementalRefreshQueries = async (
               s.groupId === group.groupId ? updatedSource : s,
             );
           }
-          context.models.incrementalRefresh
+          await context.models.incrementalRefresh
             .upsertByExperimentId(experimentId, {
               metricSources: runningSourceData,
             })
@@ -828,7 +860,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       analysisType: params.fullRefresh ? "main-fullRefresh" : "main-update",
     });
 
-    return startExperimentIncrementalRefreshQueries(
+    return await startExperimentIncrementalRefreshQueries(
       this.context,
       params,
       this.integration,
@@ -958,6 +990,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       updates,
       context: this.context,
     });
+
     if (
       this.model.report &&
       ["failed", "partially-succeeded", "succeeded"].includes(status)

@@ -1,25 +1,20 @@
 import Agenda, { Job } from "agenda";
-import { getScopedSettings } from "shared/settings";
 import {
   getExperimentById,
   getExperimentsToUpdate,
   getExperimentsToUpdateLegacy,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
-import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
-  createSnapshot,
-  getAdditionalExperimentAnalysisSettings,
-  getDefaultExperimentAnalysisSettings,
-  getSettingsForSnapshotMetrics,
+  createOrReuseStandardSnapshotExecution,
+  runStandardSnapshotExecution,
   updateExperimentBanditSettings,
 } from "back-end/src/services/experiments";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
-import { getMetricMap } from "back-end/src/models/MetricModel";
 import { notifyAutoUpdate } from "back-end/src/services/experimentNotifications";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
-import { getFactTableMap } from "back-end/src/models/FactTableModel";
+import { getAgendaInstance } from "back-end/src/services/queueing";
 
 // Time between experiment result updates (default 6 hours)
 const UPDATE_EVERY = EXPERIMENT_REFRESH_FREQUENCY * 60 * 60 * 1000;
@@ -27,10 +22,36 @@ const UPDATE_EVERY = EXPERIMENT_REFRESH_FREQUENCY * 60 * 60 * 1000;
 const QUEUE_EXPERIMENT_UPDATES = "queueExperimentUpdates";
 
 const UPDATE_SINGLE_EXP = "updateSingleExperiment";
+export const RUN_EXPERIMENT_SNAPSHOT = "runExperimentSnapshot";
 type UpdateSingleExpJob = Job<{
   organization: string;
   experimentId: string;
 }>;
+type RunExperimentSnapshotJob = Job<{
+  organization: string;
+  snapshotId: string;
+}>;
+
+export async function queueRunExperimentSnapshot({
+  organization,
+  snapshotId,
+}: {
+  organization: string;
+  snapshotId: string;
+}) {
+  const agenda = getAgendaInstance();
+  const job = agenda.create(RUN_EXPERIMENT_SNAPSHOT, {
+    organization,
+    snapshotId,
+  }) as RunExperimentSnapshotJob;
+
+  job.unique({
+    organization,
+    snapshotId,
+  });
+  job.schedule(new Date());
+  await job.save();
+}
 
 export default async function (agenda: Agenda) {
   agenda.define(QUEUE_EXPERIMENT_UPDATES, async () => {
@@ -50,6 +71,7 @@ export default async function (agenda: Agenda) {
   });
 
   agenda.define(UPDATE_SINGLE_EXP, updateSingleExperiment);
+  agenda.define(RUN_EXPERIMENT_SNAPSHOT, runExperimentSnapshot);
 
   // Update experiment results
   await startUpdateJob();
@@ -108,15 +130,6 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
   const experiment = await getExperimentById(context, experimentId);
   if (!experiment) return;
 
-  let project = null;
-  if (experiment.project) {
-    project = await context.models.projects.getById(experiment.project);
-  }
-  const { settings: scopedSettings } = getScopedSettings({
-    organization: context.org,
-    project: project ?? undefined,
-  });
-
   // Disable auto snapshots for the experiment so it doesn't keep trying to update if schedule is off (non-bandits only)
   if (
     organization?.settings?.updateSchedule?.type === "never" &&
@@ -133,28 +146,7 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
   }
 
   try {
-    logger.info("Start Refreshing Results for experiment " + experimentId);
-    const datasource = await getDataSourceById(
-      context,
-      experiment.datasource || "",
-    );
-    if (!datasource) {
-      throw new Error("Error refreshing experiment, could not find datasource");
-    }
-
-    const { regressionAdjustmentEnabled, settingsForSnapshotMetrics } =
-      await getSettingsForSnapshotMetrics(context, experiment);
-
-    const analysisSettings = getDefaultExperimentAnalysisSettings({
-      statsEngine: experiment.statsEngine || scopedSettings.statsEngine.value,
-      experiment,
-      organization,
-      regressionAdjustmentEnabled,
-      postStratificationEnabled: scopedSettings.postStratificationEnabled.value,
-    });
-
-    const metricMap = await getMetricMap(context);
-    const factTableMap = await getFactTableMap(context);
+    logger.info("Queueing Results Refresh for experiment " + experimentId);
 
     let reweight =
       experiment.type === "multi-armed-bandit" &&
@@ -171,43 +163,18 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
       }
     }
 
-    const queryRunner = await createSnapshot({
+    const { snapshot } = await createOrReuseStandardSnapshotExecution({
       experiment,
       context,
       phaseIndex: experiment.phases.length - 1,
-      defaultAnalysisSettings: analysisSettings,
-      additionalAnalysisSettings:
-        getAdditionalExperimentAnalysisSettings(analysisSettings),
-      settingsForSnapshotMetrics: settingsForSnapshotMetrics || [],
-      metricMap,
-      factTableMap,
       useCache: true,
-      type: "standard",
       triggeredBy: "schedule",
       reweight,
     });
-    await queryRunner.waitForResults();
-    const currentSnapshot = queryRunner.model;
-
-    logger.info(
-      "Successfully Refreshed Results for experiment " + experimentId,
-    );
-
-    if (experiment.type === "multi-armed-bandit") {
-      const changes = updateExperimentBanditSettings({
-        experiment,
-        snapshot: currentSnapshot,
-        reweight:
-          currentSnapshot?.banditResult?.reweight &&
-          experiment.banditStage === "exploit",
-        isScheduled: true,
-      });
-      await updateExperiment({
-        context,
-        experiment,
-        changes,
-      });
-    }
+    await queueRunExperimentSnapshot({
+      organization: orgId,
+      snapshotId: snapshot.id,
+    });
   } catch (e) {
     logger.error(e, "Failed to update experiment: " + experimentId);
     // If we failed to update the experiment, turn off auto-updating for the future (non-bandits only)
@@ -226,5 +193,48 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
       logger.error(e, "Failed to turn off autoSnapshots: " + experimentId);
       await notifyAutoUpdate({ context, experiment, success: false });
     }
+  }
+};
+
+const runExperimentSnapshot = async (job: RunExperimentSnapshotJob) => {
+  const snapshotId = job.attrs.data?.snapshotId;
+  const orgId = job.attrs.data?.organization;
+
+  if (!snapshotId || !orgId) return;
+
+  const context = await getContextForAgendaJobByOrgId(orgId);
+  const snapshot = await runStandardSnapshotExecution({
+    context,
+    snapshotId,
+    jobId: String(job.attrs._id),
+  });
+
+  if (!snapshot || snapshot.status !== "error") return;
+
+  const experiment = await getExperimentById(context, snapshot.experiment);
+  if (!experiment || experiment.type === "multi-armed-bandit") return;
+
+  const requestedBySchedule =
+    snapshot.refreshExecution?.intent?.requestedBySchedule ||
+    snapshot.refreshExecution?.executionIntent?.requestedBySchedule;
+  if (!requestedBySchedule) return;
+
+  try {
+    await updateExperiment({
+      context,
+      experiment,
+      changes: {
+        autoSnapshots: false,
+      },
+    });
+
+    await notifyAutoUpdate({ context, experiment, success: true });
+  } catch (error) {
+    logger.error(
+      error,
+      "Failed to turn off autoSnapshots after snapshot failure: " +
+        experiment.id,
+    );
+    await notifyAutoUpdate({ context, experiment, success: false });
   }
 };

@@ -79,3 +79,13 @@ export class InternalServerError extends Error {
     this.name = "InternalServerError";
   }
 }
+
+export class ExperimentSnapshotBusyError extends Error {
+  status = 409;
+  snapshotId?: string;
+  constructor(message: string, snapshotId?: string) {
+    super(message);
+    this.name = "ExperimentSnapshotBusyError";
+    this.snapshotId = snapshotId;
+  }
+}

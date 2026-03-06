@@ -12,6 +12,9 @@ const BaseClass = MakeModelClass({
   collectionName: COLLECTION_NAME,
   idPrefix: "ir_",
   globallyUniqueIds: true,
+  defaultValues: {
+    generation: 0,
+  },
   additionalIndexes: [
     {
       fields: { organization: 1, experimentId: 1 },
@@ -24,6 +27,29 @@ export class IncrementalRefreshModel extends BaseClass {
   public async getByExperimentId(experimentId: string) {
     return this._findOne({ experimentId });
   }
+
+  /**
+   * Atomically increment the generation counter for an experiment's
+   * incremental refresh record. Returns the new generation value.
+   * If no record exists yet, returns null (caller should default to 0).
+   */
+  public async incrementGeneration(
+    experimentId: string,
+  ): Promise<number | null> {
+    const collection = this._dangerousGetCollection();
+    const result = await collection.findOneAndUpdate(
+      {
+        organization: this.context.org.id,
+        experimentId,
+      },
+      { $inc: { generation: 1 } },
+      { returnDocument: "after" },
+    );
+    if (!result) return null;
+    const doc = result as unknown as IncrementalRefreshInterface;
+    return doc.generation;
+  }
+
   public async upsertByExperimentId(
     experimentId: string,
     data:
@@ -42,6 +68,7 @@ export class IncrementalRefreshModel extends BaseClass {
       metricSources: [],
       metricCovariateSources: [],
       experimentSettingsHash: null,
+      generation: 0,
       ...data,
     });
   }
