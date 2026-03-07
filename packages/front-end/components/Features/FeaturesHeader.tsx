@@ -69,9 +69,11 @@ export default function FeaturesHeader({
   const [archiveModal, setArchiveModal] = useState(false);
   const [deleteModal, setDeleteModal] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [staleStatusOpen, setStaleStatusOpen] = useState(false);
   const [showImplementation, setShowImplementation] = useState(firstFeature);
 
-  const { organization, hasCommercialFeature } = useUser();
+  const { organization, hasCommercialFeature, getOwnerDisplay } = useUser();
+  const ownerDisplay = getOwnerDisplay(feature.owner);
   const permissionsUtil = usePermissionsUtil();
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
@@ -160,7 +162,7 @@ export default function FeaturesHeader({
           )}
 
           <Flex align="center" justify="between">
-            <Flex align="center" mb="2" gap="4">
+            <Flex align="center" mb="2" gap="3">
               <Heading size="7" as="h1" mb="0">
                 {feature.id}
               </Heading>
@@ -170,6 +172,8 @@ export default function FeaturesHeader({
                 staleData={staleData}
                 fetchStaleData={handleRerunStale}
                 onDisable={canEdit ? () => setStaleFFModal(true) : undefined}
+                open={staleStatusOpen}
+                onOpenChange={setStaleStatusOpen}
               />
             </Flex>
             <DropdownMenu
@@ -232,21 +236,31 @@ export default function FeaturesHeader({
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
                 )}
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setStaleStatusOpen(true);
+                    setDropdownOpen(false);
+                  }}
+                >
+                  Check stale status
+                </DropdownMenuItem>
+                {canEdit && canPublish && (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setStaleFFModal(true);
+                      setDropdownOpen(false);
+                    }}
+                  >
+                    {feature.neverStale
+                      ? "Enable stale detection"
+                      : "Disable stale detection"}
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuGroup>
               {canEdit && canPublish && (
                 <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuGroup>
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setStaleFFModal(true);
-                        setDropdownOpen(false);
-                      }}
-                    >
-                      {feature.neverStale
-                        ? "Enable stale detection"
-                        : "Disable stale detection"}
-                    </DropdownMenuItem>
-                  </DropdownMenuGroup>
                   <DropdownMenuSeparator />
                   <DropdownMenuGroup>
                     <DropdownMenuItem
@@ -266,18 +280,22 @@ export default function FeaturesHeader({
                       {isArchived ? "Unarchive" : "Archive"}
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuGroup>
-                    <DropdownMenuItem
-                      color="red"
-                      onClick={() => {
-                        setDeleteModal(true);
-                        setDropdownOpen(false);
-                      }}
-                    >
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuGroup>
+                  {isArchived && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuGroup>
+                        <DropdownMenuItem
+                          color="red"
+                          onClick={() => {
+                            setDeleteModal(true);
+                            setDropdownOpen(false);
+                          }}
+                        >
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuGroup>
+                    </>
+                  )}
                 </>
               )}
             </DropdownMenu>
@@ -345,10 +363,10 @@ export default function FeaturesHeader({
 
             <Box>
               <Text weight="medium">Owner: </Text>
-              {feature.owner ? (
+              {ownerDisplay ? (
                 <span>
-                  <UserAvatar name={feature.owner} size="sm" variant="soft" />{" "}
-                  {feature.owner}
+                  <UserAvatar name={ownerDisplay} size="sm" variant="soft" />{" "}
+                  {ownerDisplay}
                 </span>
               ) : (
                 <em className="text-muted">None</em>

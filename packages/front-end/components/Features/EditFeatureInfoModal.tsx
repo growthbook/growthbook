@@ -24,9 +24,8 @@ const EditFeatureInfoModal: FC<{
   cancel: () => void;
   mutate: () => void;
   source?: string;
-  resourceType: React.ComponentProps<typeof SelectOwner>["resourceType"];
   dependents: number;
-}> = ({ feature, save, cancel, mutate, source, resourceType, dependents }) => {
+}> = ({ feature, save, cancel, mutate, source, dependents }) => {
   const form = useForm({
     defaultValues: {
       tags: feature.tags || [],
@@ -78,7 +77,6 @@ const EditFeatureInfoModal: FC<{
           placeholder="Short human-readable description"
         />
         <SelectOwner
-          resourceType={resourceType}
           value={form.watch("owner")}
           onChange={(v) => form.setValue("owner", v)}
         />

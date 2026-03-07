@@ -584,7 +584,7 @@ export async function postFeatures(
   >,
 ) {
   const context = getContextFromReq(req);
-  const { org, userId, userName } = context;
+  const { org, userId } = context;
   const { id, environmentSettings, holdout, customFields, ...otherProps } =
     req.body;
 
@@ -643,7 +643,7 @@ export async function postFeatures(
   const feature: FeatureInterface = {
     defaultValue: "",
     valueType: "boolean",
-    owner: userName,
+    owner: userId,
     description: "",
     project: "",
     environmentSettings: {},

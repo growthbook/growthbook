@@ -216,7 +216,6 @@ export default function DashboardModal({
         {mode === "edit" ? (
           <SelectOwner
             disabled={!canManageSharingAndEditLevels}
-            resourceType="dashboard"
             value={form.watch("userId")}
             onChange={(v) => form.setValue("userId", v)}
           />

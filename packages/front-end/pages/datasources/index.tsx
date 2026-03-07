@@ -124,7 +124,7 @@ const DataSourcesPage: FC = () => {
     currentProjectIsDemo,
   } = useDemoDataSourceProject();
   const { apiCall } = useAuth();
-  const { mutateDefinitions, setProject, project, datasources } =
+  const { mutateDefinitions, setProject, project, projects, datasources } =
     useDefinitions();
 
   const gb = useGrowthBook();
@@ -149,7 +149,7 @@ const DataSourcesPage: FC = () => {
   const showManagedWarehouse =
     isCloud() &&
     filteredDatasources.length === 0 &&
-    permissionsUtil.canViewCreateDataSourceModal(project) &&
+    permissionsUtil.canViewCreateDataSourceModal(project, projects) &&
     (effectiveAccountPlan === "starter" ||
       license?.isTrial ||
       !!license?.orbSubscription) &&
@@ -203,7 +203,7 @@ const DataSourcesPage: FC = () => {
           </LinkButton>
         ) : null}
         {!hasFileConfig() &&
-          permissionsUtil.canViewCreateDataSourceModal(project) && (
+          permissionsUtil.canViewCreateDataSourceModal(project, projects) && (
             <Button
               disabled={currentProjectIsDemo}
               title={

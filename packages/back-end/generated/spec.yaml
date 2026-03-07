@@ -2006,6 +2006,9 @@ paths:
                   description: The ID property of one of the assignment query objects associated with the datasource
                 trackingKey:
                   type: string
+                bypassDuplicateKeyCheck:
+                  type: boolean
+                  description: 'If true, allow creating an experiment even if another experiment with the same tracking key already exists'
                 name:
                   type: string
                   description: Name of the experiment
@@ -2378,6 +2381,9 @@ paths:
                   type: string
                 trackingKey:
                   type: string
+                bypassDuplicateKeyCheck:
+                  type: boolean
+                  description: 'If true, allow updating the tracking key even if another experiment with the same tracking key already exists'
                 name:
                   type: string
                   description: Name of the experiment
