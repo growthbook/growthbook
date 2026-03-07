@@ -43,6 +43,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
 import Field from "@/components/Forms/Field";
 import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor";
+import { isSubmittableConfig } from "@/enterprise/components/ProductAnalytics/util";
 import MarkdownBlock from "./MarkdownBlock";
 import ExperimentMetadataBlock from "./ExperimentMetadataBlock";
 import ExperimentMetricBlock from "./ExperimentMetricBlock";
@@ -59,6 +60,7 @@ import {
   BlockRenderError,
 } from "./BlockErrorStates";
 import MetricExplorerBlock from "./MetricExplorerBlock";
+import ProductAnalyticsExplorerBlock from "./ProductAnalyticsExplorerBlock";
 
 // Typescript helpers for passing objects to the block components based on id fields
 interface BlockIdFieldToObjectMap {
@@ -125,6 +127,9 @@ const BLOCK_COMPONENTS: {
   "experiment-traffic": ExperimentTrafficBlock,
   "sql-explorer": SqlExplorerBlock,
   "metric-explorer": MetricExplorerBlock,
+  "metric-exploration": ProductAnalyticsExplorerBlock,
+  "fact-table-exploration": ProductAnalyticsExplorerBlock,
+  "data-source-exploration": ProductAnalyticsExplorerBlock,
 };
 
 export default function DashboardBlock<T extends DashboardBlockInterface>({
@@ -354,7 +359,11 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
     (blockHasFactMetric &&
       (block.factMetricId.length === 0 || !blockFactMetric)) ||
     (blockHasMetricAnalysis &&
-      (block.metricAnalysisId.length === 0 || !metricAnalysis));
+      (block.metricAnalysisId.length === 0 || !metricAnalysis)) ||
+    ((block.type === "metric-exploration" ||
+      block.type === "fact-table-exploration" ||
+      block.type === "data-source-exploration") &&
+      !isSubmittableConfig(block.config));
 
   const blockMissingHealthCheck =
     block.type === "experiment-traffic" &&

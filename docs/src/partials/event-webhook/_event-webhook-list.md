@@ -291,6 +291,7 @@ Triggered when a feature is created
                 version: number;
                 comment: string;
                 date: string;
+                createdBy: string;
                 publishedBy: string;
             };
             customFields?: Record<string, any> | undefined;
@@ -588,6 +589,7 @@ Triggered when a feature is updated
                 version: number;
                 comment: string;
                 date: string;
+                createdBy: string;
                 publishedBy: string;
             };
             customFields?: Record<string, any> | undefined;
@@ -851,6 +853,7 @@ Triggered when a feature is updated
                 version: number;
                 comment: string;
                 date: string;
+                createdBy: string;
                 publishedBy: string;
             } | undefined;
             customFields?: Record<string, any> | undefined;
@@ -1153,6 +1156,7 @@ Triggered when a feature is deleted
                 version: number;
                 comment: string;
                 date: string;
+                createdBy: string;
                 publishedBy: string;
             };
             customFields?: Record<string, any> | undefined;
@@ -1437,6 +1441,8 @@ Triggered when an experiment is created
             banditScheduleUnit?: ("days" | "hours") | undefined;
             banditBurnInValue?: number | undefined;
             banditBurnInUnit?: ("days" | "hours") | undefined;
+            banditConversionWindowValue?: number | undefined;
+            banditConversionWindowUnit?: ("days" | "hours") | undefined;
             linkedFeatures?: string[] | undefined;
             hasVisualChangesets?: boolean | undefined;
             hasURLRedirects?: boolean | undefined;
@@ -1611,6 +1617,8 @@ Triggered when an experiment is updated
             banditScheduleUnit?: ("days" | "hours") | undefined;
             banditBurnInValue?: number | undefined;
             banditBurnInUnit?: ("days" | "hours") | undefined;
+            banditConversionWindowValue?: number | undefined;
+            banditConversionWindowUnit?: ("days" | "hours") | undefined;
             linkedFeatures?: string[] | undefined;
             hasVisualChangesets?: boolean | undefined;
             hasURLRedirects?: boolean | undefined;
@@ -1751,6 +1759,8 @@ Triggered when an experiment is updated
             banditScheduleUnit?: ("days" | "hours") | undefined;
             banditBurnInValue?: number | undefined;
             banditBurnInUnit?: ("days" | "hours") | undefined;
+            banditConversionWindowValue?: number | undefined;
+            banditConversionWindowUnit?: ("days" | "hours") | undefined;
             linkedFeatures?: string[] | undefined;
             hasVisualChangesets?: boolean | undefined;
             hasURLRedirects?: boolean | undefined;
@@ -1930,6 +1940,8 @@ Triggered when an experiment is deleted
             banditScheduleUnit?: ("days" | "hours") | undefined;
             banditBurnInValue?: number | undefined;
             banditBurnInUnit?: ("days" | "hours") | undefined;
+            banditConversionWindowValue?: number | undefined;
+            banditConversionWindowUnit?: ("days" | "hours") | undefined;
             linkedFeatures?: string[] | undefined;
             hasVisualChangesets?: boolean | undefined;
             hasURLRedirects?: boolean | undefined;

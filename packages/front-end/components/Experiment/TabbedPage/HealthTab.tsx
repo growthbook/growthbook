@@ -46,7 +46,11 @@ export default function HealthTab({
     mutateSnapshot,
     setAnalysisSettings,
   } = useSnapshot();
-  const { runHealthTrafficQuery, decisionFrameworkEnabled } = useOrgSettings();
+  const {
+    runHealthTrafficQuery,
+    decisionFrameworkEnabled,
+    useStickyBucketing,
+  } = useOrgSettings();
   const { refreshOrganization } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const { getDatasourceById } = useDefinitions();
@@ -68,6 +72,11 @@ export default function HealthTab({
 
   const isBandit = experiment.type === "multi-armed-bandit";
   const isHoldout = experiment.type === "holdout";
+  const orgStickyBucketing = !!useStickyBucketing;
+
+  const showMultipleExposures =
+    !isBandit ||
+    (isBandit && orgStickyBucketing && !experiment.disableStickyBucketing);
 
   const healthTabConfigParams: HealthTabConfigParams = {
     experiment,
@@ -288,19 +297,21 @@ export default function HealthTab({
         )}
       </div>
 
-      <div className="row">
-        <div
-          className={!isBandit ? "col-8" : "col-12"}
-          id="multipleExposures"
-          style={{ scrollMarginTop: "100px" }}
-        >
-          <MultipleExposuresCard
-            totalUsers={totalUsers}
-            onNotify={handleHealthNotification}
-            snapshot={snapshot}
-          />
+      {showMultipleExposures && (
+        <div className="row">
+          <div
+            className={!isBandit ? "col-8" : "col-12"}
+            id="multipleExposures"
+            style={{ scrollMarginTop: "100px" }}
+          >
+            <MultipleExposuresCard
+              totalUsers={totalUsers}
+              onNotify={handleHealthNotification}
+              snapshot={snapshot}
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {!isBandit &&
       !isHoldout &&

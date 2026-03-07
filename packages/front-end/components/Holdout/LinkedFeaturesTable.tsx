@@ -6,6 +6,7 @@ import { FeatureInterface } from "shared/types/feature";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import Link from "@/ui/Link";
 import ValueDisplay from "@/components/Features/ValueDisplay";
+import { useUser } from "@/services/UserContext";
 
 interface Props {
   holdout: HoldoutInterface;
@@ -13,23 +14,25 @@ interface Props {
 }
 
 const LinkedFeaturesTable = ({ holdout, features }: Props) => {
+  const { getOwnerDisplay } = useUser();
   const featureItems = useAddComputedFields(
     features,
     (f) => {
       return {
-        ...features,
+        ...f,
+        ownerNameDisplay: getOwnerDisplay(f.owner),
         dateAdded: holdout.linkedFeatures[f.id]?.dateAdded,
         holdoutValue: f.holdout?.value,
       };
     },
-    [holdout, features],
+    [getOwnerDisplay, holdout],
   );
 
   const { items, SortableTH } = useSearch({
     items: featureItems,
     defaultSortField: "dateAdded",
     localStorageKey: "holdoutLinkedFeatures",
-    searchFields: ["id", "owner", "valueType"],
+    searchFields: ["id", "ownerNameDisplay", "valueType"],
   });
 
   const router = useRouter();
@@ -54,7 +57,7 @@ const LinkedFeaturesTable = ({ holdout, features }: Props) => {
             <SortableTH field="id">Feature Name</SortableTH>
             <SortableTH field="valueType">Type</SortableTH>
             <SortableTH field="holdoutValue">Holdout Value</SortableTH>
-            <SortableTH field="owner">Owner</SortableTH>
+            <SortableTH field="ownerNameDisplay">Owner</SortableTH>
             <SortableTH field="dateCreated">Created</SortableTH>
             <SortableTH field="dateAdded">In Holdout</SortableTH>
           </tr>
@@ -82,7 +85,7 @@ const LinkedFeaturesTable = ({ holdout, features }: Props) => {
                   />
                 </td>
                 <td data-title="Owner" className="col-2">
-                  {f.owner}
+                  {f.ownerNameDisplay}
                 </td>
                 <td data-title="Created">{date(f.dateCreated)}</td>
                 <td data-title="Date Added">

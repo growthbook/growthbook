@@ -473,6 +473,7 @@ function parseStatsEngineResult({
   const experimentReportResults: ExperimentReportResults[] = [];
   // TODO fix for dimension slices and move to health query
   const multipleExposures = Math.max(
+    0,
     ...queryResults.map(
       (q) =>
         q.rows.filter((r) => r.variation === "__multiple__")?.[0]?.users || 0,

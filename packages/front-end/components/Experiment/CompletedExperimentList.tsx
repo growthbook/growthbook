@@ -42,7 +42,7 @@ const CompletedExperimentList = ({
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
 
-  const { getUserDisplay } = useUser();
+  const { getOwnerDisplay } = useUser();
   const { getMetricById, getFactMetricById } = useDefinitions();
 
   return (
@@ -264,7 +264,7 @@ const CompletedExperimentList = ({
                           <Box>
                             <Text weight="medium">Owner:</Text>
                           </Box>
-                          <Box>{getUserDisplay(e.owner, false) || ""}</Box>
+                          <Box>{getOwnerDisplay(e.owner) || "None"}</Box>
                         </Flex>
                         <Flex gap="2" align="center">
                           <Box>

@@ -1194,6 +1194,8 @@ export async function postExperiments(
     banditScheduleUnit: data.banditScheduleUnit ?? "days",
     banditBurnInValue: data.banditBurnInValue ?? 1,
     banditBurnInUnit: data.banditBurnInUnit ?? "days",
+    banditConversionWindowValue: data.banditConversionWindowValue,
+    banditConversionWindowUnit: data.banditConversionWindowUnit,
     customFields: data.customFields || undefined,
     templateId: data.templateId || undefined,
     shareLevel: data.shareLevel || "organization",
@@ -1603,6 +1605,8 @@ export async function postExperiment(
     "banditScheduleUnit",
     "banditBurnInValue",
     "banditBurnInUnit",
+    "banditConversionWindowValue",
+    "banditConversionWindowUnit",
     "customFields",
     "shareLevel",
     "uid",
@@ -2975,6 +2979,7 @@ export async function createExperimentSnapshot({
   const denominatorMetrics = denominatorMetricIds
     .map((m) => metricMap.get(m) || null)
     .filter(isDefined) as MetricInterface[];
+
   const { settingsForSnapshotMetrics, regressionAdjustmentEnabled } =
     getAllMetricSettingsForSnapshot({
       allExperimentMetrics,
@@ -2985,6 +2990,14 @@ export async function createExperimentSnapshot({
       experimentMetricOverrides: experiment.metricOverrides,
       datasourceType: datasource?.type,
       hasRegressionAdjustmentFeature: true,
+      ...(experiment.type === "multi-armed-bandit"
+        ? {
+            banditConversionWindowValue:
+              experiment.banditConversionWindowValue ?? undefined,
+            banditConversionWindowUnit:
+              experiment.banditConversionWindowUnit ?? undefined,
+          }
+        : {}),
     });
 
   const analysisSettings = getDefaultExperimentAnalysisSettings({

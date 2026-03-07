@@ -5,6 +5,7 @@ sidebar_label: Environments
 slug: /features/environments
 ---
 
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
 import CommercialFeature from '@site/src/components/CommercialFeature';
 
 # Environments
@@ -12,46 +13,56 @@ import CommercialFeature from '@site/src/components/CommercialFeature';
 GrowthBook comes with one environment by default (**production**), but you can add as many as you need on the
 [Environments page](https://app.growthbook.io/environments) located within the **SDK Configuration** menu.
 
-Feature flags can be enabled and disabled on a per-environment basis. You can also set the default feature state for any new environment. Additionally, you can scope environments to only be available in specific projects, allowing for further control and segmentation over feature delivery.
+Feature flags can be enabled and disabled on a per-environment basis. You can also set the default feature state for new environments and scope environments to specific projects.
 
-![A list of environments](/images/features/feature-environments-1.png)
+<MaxWidthImage border>
+![A list of environments](/images/features/feature-environments-2.png)
+</MaxWidthImage>
 
-When a feature is disabled in an environment, the feature will not be returned via the SDK, and that feature will always
-evaluate to `null` and ignore any other targeting or feature rules.
+When a feature is disabled for an environment, GrowthBook excludes the feature from the API response. The feature evaluates to `null` and ignores all targeting and rules.
 
-:::note
-
-It's possible for a feature to be enabled for an environment and still be considered "off". This happens when its value is set to `false`, `null`, `0`, or an empty string.
-
+:::warning When a Feature is Off
+A feature can be enabled for an environment but still act as "off" if its value is `false`, `null`, `0`, or an empty string. In these cases, even though the feature is enabled, it evaluates as "off".
 :::
 
 ## Environments and SDKs
 
-When you configure your SDK endpoint you will be asked which environment you want to use. Each SDK endpoint will have a
-unique SDK key. When this endpoint is called from the code, a JSON file containing all the features and rules by which
-they should be shown is returned. Scoping SDKs to environments allows you to easily separate, for example, your
-production and development environments.
+Each SDK Connection is tied to a specific environment and has its own unique SDK key. When the SDK fetches its configuration, it receives **only the features and rules for that environment**, keeping your production and development environments separate.
 
-To use multiple environments in the same code base, you can use environment variables to set a dynamic key,
-e.g. `GROWTHBOOK_CLIENT_KEY='sdk-abc123'` and then reference that environment variable in your code base. Depending on
-the framework you're using, some environment variables are not exposed by default on the front-end unless provided an
-appropriate prefix, e.g. `NEXT_GROWTHBOOK_CLIENT_KEY='sdk-abc123'` in order to access environment variables in Next.js
-client code.
+To use multiple environments in the same codebase, use environment variables to set a dynamic key (e.g., `GROWTHBOOK_CLIENT_KEY='sdk-abc123'`) and reference the variable in your code.
+
+## Environments vs. Projects
+
+Environments and projects are both ways to organize feature flags, but they serve different purposes.
+
+**Environments** represent _where_ your code runs — such as development, staging, and production. A single feature flag exists across all environments, but can be enabled, disabled, or configured differently in each one. Environments map to SDK connections: each SDK key is tied to one environment, so your production app only receives production rules.
+
+**Projects** represent _what_ you're working on — such as a product area, team, or application. Projects scope which flags, experiments, metrics, and data sources are visible to a given team. Items in GrowthBook can belong to multiple projects, and items with no project assigned are available globally. Projects also let you customize permissions and even statistical settings per team. Manage projects under **Settings → Projects**.
+
+In practice, you use both together: a feature flag in the "Mobile App" project might be enabled in the dev environment for testing but disabled in production until launch.
+
+|                 | Environments                                 | Projects                                                          |
+| --------------- | -------------------------------------------- | ----------------------------------------------------------------- |
+| **Purpose**     | Control _where_ a flag is active             | Organize _who_ works on what                                      |
+| **Scope**       | One flag, different settings per environment | Flags, metrics, data sources, and experiments per team            |
+| **SDK impact**  | Each SDK connection maps to one environment  | SDK connections can be scoped to a project to reduce payload size |
+| **Permissions** | N/A                                          | Users can have different permission levels per project            |
+| **Example**     | `dev`, `staging`, `production`               | "Mobile App", "Growth", "API"                                     |
+
+Learn more about [how to use projects](/using/growthbook-best-practices#projects).
 
 ## Environment Inheritance
 
-When you create an environment you can specify a parent environment to inherit from.
-The new environment initially copies all feature rules from its parent. After creation, the environments
-operate independently—changes to feature rules in one environment won't affect the other. Think of
-it like creating a fork or snapshot of the parent environment.
-
-In the UI, you can only use parent environments for the default environment names:
-`production`, `dev`, `staging`, and `test`. For arbitrary environment inheritance you can use the
-[API endpoint](/api#tag/environments/operation/postEnvironment)
-
 <CommercialFeature feature="environment-inheritance" />
 
-Common Use Cases
+When you create an environment you can specify a parent environment to inherit from.
+The new environment initially copies all feature rules from its parent. After creation, the environments
+operate independently, meaning changes to feature rules in one environment **won't** affect the other. Think of
+it like creating a fork or snapshot of the parent environment.
+
+In the GrowthBook app, you can only inherit rules from the four default environments: `production`, `dev`, `staging`, or `test`. To inherit from a custom-named environment, use the [API endpoint](/api#tag/environments/operation/postEnvironment).
+
+### Common Use Cases
 
 - Adding new environments to an existing setup (e.g., adding "staging" after having "dev" and "production")
 - Troubleshooting production issues by creating an isolated test environment to safely diagnose problems
