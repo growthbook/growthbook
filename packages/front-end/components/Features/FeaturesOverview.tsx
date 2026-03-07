@@ -725,6 +725,7 @@ export default function FeaturesOverview({
                               feature={feature}
                               environment={env}
                               mutate={mutate}
+                              setVersion={setVersion}
                               id={`${env}_toggle`}
                             />
                           </Flex>
@@ -742,6 +743,7 @@ export default function FeaturesOverview({
                           prerequisite={item}
                           environments={environments}
                           mutate={mutate}
+                          setVersion={setVersion}
                           setPrerequisiteModal={setPrerequisiteModal}
                         />
                       );
@@ -792,9 +794,8 @@ export default function FeaturesOverview({
                       <EnvironmentToggle
                         feature={feature}
                         environment={en.id}
-                        mutate={() => {
-                          mutate();
-                        }}
+                        mutate={mutate}
+                        setVersion={setVersion}
                         id={`${en.id}_toggle`}
                       />
                     </Flex>
@@ -1294,6 +1295,7 @@ export default function FeaturesOverview({
             close={() => setPrerequisiteModal(null)}
             i={prerequisiteModal.i}
             mutate={mutate}
+            setVersion={setVersion}
           />
         )}
         {compareRevisionsModalOpen && (

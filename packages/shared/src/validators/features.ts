@@ -245,6 +245,19 @@ export type MinimalFeatureRevisionInterface = z.infer<
   typeof minimalFeatureRevisionInterface
 >;
 
+const revisionMetadataSchema = z.object({
+  description: z.string().optional(),
+  owner: z.string().optional(),
+  project: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+  neverStale: z.boolean().optional(),
+  customFields: z.record(z.string(), z.any()).optional(),
+  jsonSchema: JSONSchemaDef.optional(),
+  valueType: z.enum(featureValueType).optional(),
+});
+
+export type RevisionMetadata = z.infer<typeof revisionMetadataSchema>;
+
 const featureRevisionInterface = minimalFeatureRevisionInterface
   .extend({
     featureId: z.string(),
@@ -255,6 +268,13 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
     comment: z.string(),
     defaultValue: z.string(),
     rules: revisionRulesSchema,
+    // New revision envelopes — only present when the change type is gated
+    environmentsEnabled: z.record(z.string(), z.boolean()).optional(),
+    envPrerequisites: z
+      .record(z.string(), z.array(featurePrerequisite))
+      .optional(),
+    prerequisites: z.array(featurePrerequisite).optional(),
+    metadata: revisionMetadataSchema.optional(),
     log: z.array(revisionLog).optional(), // This is deprecated in favor of using FeatureRevisionLog due to it being too large
   })
   .strict();

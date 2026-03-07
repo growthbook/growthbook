@@ -31,7 +31,8 @@ interface Props {
   feature: FeatureInterface;
   prereqDefaultValue?: string;
   environments: Environment[];
-  mutate: () => void;
+  mutate: () => Promise<unknown>;
+  setVersion: (version: number) => void;
   setPrerequisiteModal: (prerequisite: { i: number }) => void;
 }
 
@@ -42,6 +43,7 @@ export default function PrerequisiteStatusRow({
   prereqDefaultValue,
   environments,
   mutate,
+  setVersion,
   setPrerequisiteModal,
 }: Props) {
   const permissionsUtil = usePermissionsUtil();
@@ -123,14 +125,15 @@ export default function PrerequisiteStatusRow({
                         track("Delete Prerequisite", {
                           prerequisiteIndex: i,
                         });
-                        await apiCall<{ version: number }>(
+                        const res = await apiCall<{ version: number }>(
                           `/feature/${feature.id}/prerequisite`,
                           {
                             method: "DELETE",
                             body: JSON.stringify({ i }),
                           },
                         );
-                        mutate();
+                        await mutate();
+                        if (res?.version) setVersion(res.version);
                       },
                     }}
                   >

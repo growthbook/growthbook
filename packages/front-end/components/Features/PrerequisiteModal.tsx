@@ -35,7 +35,8 @@ import {
 export interface Props {
   close: () => void;
   feature: FeatureInterface;
-  mutate: () => void;
+  mutate: () => Promise<unknown>;
+  setVersion: (version: number) => void;
   i: number;
 }
 
@@ -44,6 +45,7 @@ export default function PrerequisiteModal({
   feature,
   i,
   mutate,
+  setVersion,
 }: Props) {
   const { features: featureNames } = useFeatureMetaInfo({
     includeDefaultValue: true,
@@ -247,7 +249,7 @@ export default function PrerequisiteModal({
           prerequisiteIndex: i,
         });
 
-        await apiCall<{ version: number }>(
+        const res = await apiCall<{ version: number }>(
           `/feature/${feature.id}/prerequisite`,
           {
             method: action === "add" ? "POST" : "PUT",
@@ -257,7 +259,8 @@ export default function PrerequisiteModal({
             }),
           },
         );
-        mutate();
+        await mutate();
+        if (res?.version) setVersion(res.version);
       })}
     >
       <Callout status="info" mt="2" mb="3" contentsAs="div">

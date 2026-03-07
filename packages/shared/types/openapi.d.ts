@@ -2031,6 +2031,8 @@ export interface components {
           status: string;
           createdBy?: string;
           publishedBy?: string;
+          /** @description The default value at the time this revision was created */
+          defaultValue?: string;
           rules: {
             [key: string]: ((({
                 description: string;
@@ -2239,6 +2241,47 @@ export interface components {
           };
           definitions?: {
             [key: string]: string | undefined;
+          };
+          /** @description Per-environment enabled state captured in this revision (only present when kill-switch gating is enabled) */
+          environmentsEnabled?: {
+            [key: string]: boolean | undefined;
+          };
+          /** @description Per-environment prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+          envPrerequisites?: {
+            [key: string]: ({
+                /** @description Feature ID */
+                id: string;
+                condition: string;
+              })[] | undefined;
+          };
+          /** @description Feature-level prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+          prerequisites?: ({
+              /** @description Feature ID */
+              id: string;
+              condition: string;
+            })[];
+          /** @description Metadata fields captured in this revision (only present when metadata gating is enabled) */
+          metadata?: {
+            description?: string;
+            owner?: string;
+            project?: string;
+            tags?: (string)[];
+            neverStale?: boolean;
+            valueType?: string;
+            jsonSchema?: {
+              /** @enum {string} */
+              schemaType?: "schema" | "simple";
+              schema?: string;
+              simple?: {
+                [key: string]: unknown | undefined;
+              };
+              /** Format: date-time */
+              date?: string;
+              enabled?: boolean;
+            };
+            customFields?: {
+              [key: string]: unknown | undefined;
+            };
           };
         })[];
     });
@@ -3098,6 +3141,8 @@ export interface components {
       status: string;
       createdBy?: string;
       publishedBy?: string;
+      /** @description The default value at the time this revision was created */
+      defaultValue?: string;
       rules: {
         [key: string]: ((({
             description: string;
@@ -3306,6 +3351,47 @@ export interface components {
       };
       definitions?: {
         [key: string]: string | undefined;
+      };
+      /** @description Per-environment enabled state captured in this revision (only present when kill-switch gating is enabled) */
+      environmentsEnabled?: {
+        [key: string]: boolean | undefined;
+      };
+      /** @description Per-environment prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+      envPrerequisites?: {
+        [key: string]: ({
+            /** @description Feature ID */
+            id: string;
+            condition: string;
+          })[] | undefined;
+      };
+      /** @description Feature-level prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+      prerequisites?: ({
+          /** @description Feature ID */
+          id: string;
+          condition: string;
+        })[];
+      /** @description Metadata fields captured in this revision (only present when metadata gating is enabled) */
+      metadata?: {
+        description?: string;
+        owner?: string;
+        project?: string;
+        tags?: (string)[];
+        neverStale?: boolean;
+        valueType?: string;
+        jsonSchema?: {
+          /** @enum {string} */
+          schemaType?: "schema" | "simple";
+          schema?: string;
+          simple?: {
+            [key: string]: unknown | undefined;
+          };
+          /** Format: date-time */
+          date?: string;
+          enabled?: boolean;
+        };
+        customFields?: {
+          [key: string]: unknown | undefined;
+        };
       };
     };
     SdkConnection: {
@@ -4398,12 +4484,17 @@ export interface components {
       loseRisk: number;
       secureAttributeSalt: string;
       killswitchConfirmation: boolean;
+      /** @enum {string} */
+      featureKillSwitchBehavior?: "off" | "warn" | "gate";
       requireReviews: ({
           requireReviewOn?: boolean;
           resetReviewOnChange?: boolean;
           environments?: (string)[];
           projects?: (string)[];
+          featureRequirePrerequisiteReview?: boolean;
+          featureRequireMetadataReview?: boolean;
         })[];
+      restApiBypassesReviews?: boolean;
       featureKeyExample: string;
       featureRegexValidator: string;
       banditScheduleValue: number;
@@ -6333,6 +6424,8 @@ export interface operations {
                   status: string;
                   createdBy?: string;
                   publishedBy?: string;
+                  /** @description The default value at the time this revision was created */
+                  defaultValue?: string;
                   rules: {
                     [key: string]: ((({
                         description: string;
@@ -6541,6 +6634,47 @@ export interface operations {
                   };
                   definitions?: {
                     [key: string]: string | undefined;
+                  };
+                  /** @description Per-environment enabled state captured in this revision (only present when kill-switch gating is enabled) */
+                  environmentsEnabled?: {
+                    [key: string]: boolean | undefined;
+                  };
+                  /** @description Per-environment prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+                  envPrerequisites?: {
+                    [key: string]: ({
+                        /** @description Feature ID */
+                        id: string;
+                        condition: string;
+                      })[] | undefined;
+                  };
+                  /** @description Feature-level prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+                  prerequisites?: ({
+                      /** @description Feature ID */
+                      id: string;
+                      condition: string;
+                    })[];
+                  /** @description Metadata fields captured in this revision (only present when metadata gating is enabled) */
+                  metadata?: {
+                    description?: string;
+                    owner?: string;
+                    project?: string;
+                    tags?: (string)[];
+                    neverStale?: boolean;
+                    valueType?: string;
+                    jsonSchema?: {
+                      /** @enum {string} */
+                      schemaType?: "schema" | "simple";
+                      schema?: string;
+                      simple?: {
+                        [key: string]: unknown | undefined;
+                      };
+                      /** Format: date-time */
+                      date?: string;
+                      enabled?: boolean;
+                    };
+                    customFields?: {
+                      [key: string]: unknown | undefined;
+                    };
                   };
                 })[];
             });
@@ -8408,6 +8542,8 @@ export interface operations {
                 status: string;
                 createdBy?: string;
                 publishedBy?: string;
+                /** @description The default value at the time this revision was created */
+                defaultValue?: string;
                 rules: {
                   [key: string]: ((({
                       description: string;
@@ -8616,6 +8752,47 @@ export interface operations {
                 };
                 definitions?: {
                   [key: string]: string | undefined;
+                };
+                /** @description Per-environment enabled state captured in this revision (only present when kill-switch gating is enabled) */
+                environmentsEnabled?: {
+                  [key: string]: boolean | undefined;
+                };
+                /** @description Per-environment prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+                envPrerequisites?: {
+                  [key: string]: ({
+                      /** @description Feature ID */
+                      id: string;
+                      condition: string;
+                    })[] | undefined;
+                };
+                /** @description Feature-level prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+                prerequisites?: ({
+                    /** @description Feature ID */
+                    id: string;
+                    condition: string;
+                  })[];
+                /** @description Metadata fields captured in this revision (only present when metadata gating is enabled) */
+                metadata?: {
+                  description?: string;
+                  owner?: string;
+                  project?: string;
+                  tags?: (string)[];
+                  neverStale?: boolean;
+                  valueType?: string;
+                  jsonSchema?: {
+                    /** @enum {string} */
+                    schemaType?: "schema" | "simple";
+                    schema?: string;
+                    simple?: {
+                      [key: string]: unknown | undefined;
+                    };
+                    /** Format: date-time */
+                    date?: string;
+                    enabled?: boolean;
+                  };
+                  customFields?: {
+                    [key: string]: unknown | undefined;
+                  };
                 };
               })[];
           }) & {
@@ -15021,12 +15198,17 @@ export interface operations {
               loseRisk: number;
               secureAttributeSalt: string;
               killswitchConfirmation: boolean;
+              /** @enum {string} */
+              featureKillSwitchBehavior?: "off" | "warn" | "gate";
               requireReviews: ({
                   requireReviewOn?: boolean;
                   resetReviewOnChange?: boolean;
                   environments?: (string)[];
                   projects?: (string)[];
+                  featureRequirePrerequisiteReview?: boolean;
+                  featureRequireMetadataReview?: boolean;
                 })[];
+              restApiBypassesReviews?: boolean;
               featureKeyExample: string;
               featureRegexValidator: string;
               banditScheduleValue: number;

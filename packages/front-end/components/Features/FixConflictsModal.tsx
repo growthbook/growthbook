@@ -174,10 +174,25 @@ export default function FixConflictsModal({
     current: currentRevisionData,
     draft: mergeResult?.success
       ? {
-          // Use current values as fallback when merge result doesn't have changes
           defaultValue:
             mergeResult.result.defaultValue ?? currentRevisionData.defaultValue,
           rules: mergeResult.result.rules ?? currentRevisionData.rules,
+          environmentsEnabled:
+            mergeResult.result.environmentsEnabled !== undefined
+              ? mergeResult.result.environmentsEnabled
+              : undefined,
+          envPrerequisites:
+            mergeResult.result.envPrerequisites !== undefined
+              ? mergeResult.result.envPrerequisites
+              : undefined,
+          prerequisites:
+            mergeResult.result.prerequisites !== undefined
+              ? mergeResult.result.prerequisites
+              : undefined,
+          metadata:
+            mergeResult.result.metadata !== undefined
+              ? mergeResult.result.metadata
+              : undefined,
         }
       : currentRevisionData,
   });

@@ -11,7 +11,8 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 export interface Props {
   feature: FeatureInterface;
   environment: string;
-  mutate: () => void;
+  mutate: () => Promise<unknown>;
+  setVersion: (version: number) => void;
   id?: string;
 }
 
@@ -19,6 +20,7 @@ export default function EnvironmentToggle({
   feature,
   environment,
   mutate,
+  setVersion,
   id = "",
 }: Props) {
   const [toggling, setToggling] = useState(false);
@@ -35,7 +37,11 @@ export default function EnvironmentToggle({
   const [confirming, setConfirming] = useState(false);
 
   const settings = useOrgSettings();
-  const showConfirmation = !!settings?.killswitchConfirmation;
+
+  // Global kill switch behavior; fall back to legacy killswitchConfirmation boolean.
+  const killSwitchBehavior =
+    settings?.featureKillSwitchBehavior ??
+    (settings?.killswitchConfirmation ? "warn" : "off");
 
   const submit = async (
     feature: FeatureInterface,
@@ -44,23 +50,30 @@ export default function EnvironmentToggle({
   ) => {
     setToggling(true);
     try {
-      await apiCall(`/feature/${feature.id}/toggle`, {
-        method: "POST",
-        body: JSON.stringify({
-          environment,
-          state,
-        }),
-      });
+      const res = await apiCall<{ status: 200; draftVersion?: number }>(
+        `/feature/${feature.id}/toggle`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            environment,
+            state,
+          }),
+        },
+      );
       track("Feature Environment Toggle", {
         environment,
         enabled: state,
+        gated: killSwitchBehavior === "gate",
       });
+      await mutate();
+      if (res?.draftVersion) {
+        setVersion(res.draftVersion);
+      }
     } catch (e) {
       console.error(e);
     }
 
     setToggling(false);
-    mutate();
   };
 
   const isDisabled = !permissionsUtil.canPublishFeature(feature, [environment]);
@@ -75,7 +88,7 @@ export default function EnvironmentToggle({
         if (on && env?.enabled) return;
         if (!on && !env?.enabled) return;
 
-        if (showConfirmation) {
+        if (killSwitchBehavior === "warn") {
           setDesiredState(on);
           setConfirming(true);
         } else {

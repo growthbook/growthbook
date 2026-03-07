@@ -128,14 +128,20 @@ const GeneralSettingsPage = (): React.ReactElement => {
       displayCurrency,
       secureAttributeSalt: "",
       killswitchConfirmation: false,
+      featureKillSwitchBehavior:
+        settings.featureKillSwitchBehavior ??
+        (settings.killswitchConfirmation ? "warn" : "off"),
       requireReviews: [
         {
           requireReviewOn: false,
           resetReviewOnChange: false,
           environments: [],
           projects: [],
+          featureRequirePrerequisiteReview: false,
+          featureRequireMetadataReview: false,
         },
       ],
+      restApiBypassesReviews: settings.restApiBypassesReviews ?? false,
       defaultDataSource: settings.defaultDataSource || "",
       testQueryDays: DEFAULT_TEST_QUERY_DAYS,
       disableMultiMetricQueries: false,

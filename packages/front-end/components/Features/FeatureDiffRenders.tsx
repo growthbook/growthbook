@@ -11,6 +11,7 @@ import {
   FeatureInterface,
   FeatureEnvironment,
 } from "shared/types/feature";
+import { RevisionMetadata } from "shared/types/feature-revision";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import Text from "@/ui/Text";
@@ -1098,4 +1099,169 @@ export function getFeatureRulesBadges(
     );
     return badges;
   });
+}
+
+export function renderEnvironmentsEnabled(
+  envId: string,
+  current: boolean | undefined,
+  draft: boolean | undefined,
+): ReactNode {
+  return (
+    <ValueChangedField
+      label={`${envId} enabled`}
+      pre={current !== undefined ? String(current) : null}
+      post={draft !== undefined ? String(draft) : null}
+    />
+  );
+}
+
+export function renderEnvPrerequisites(
+  envId: string,
+  current: FeaturePrerequisite[],
+  draft: FeaturePrerequisite[],
+): ReactNode {
+  const rows: ReactNode[] = [];
+  const allIds = [
+    ...new Set([...current.map((p) => p.id), ...draft.map((p) => p.id)]),
+  ];
+  allIds.forEach((id) => {
+    const pre = current.find((p) => p.id === id);
+    const post = draft.find((p) => p.id === id);
+    if (!isEqual(pre, post)) {
+      rows.push(
+        <ValueChangedField
+          key={id}
+          label={`Prerequisite: ${id} (${envId})`}
+          pre={pre ? JSON.stringify(pre, null, 2) : null}
+          post={post ? JSON.stringify(post, null, 2) : null}
+        />,
+      );
+    }
+  });
+  return rows.length ? <div>{rows}</div> : null;
+}
+
+export function renderPrerequisites(
+  current: FeaturePrerequisite[],
+  draft: FeaturePrerequisite[],
+): ReactNode {
+  const rows: ReactNode[] = [];
+  const allIds = [
+    ...new Set([...current.map((p) => p.id), ...draft.map((p) => p.id)]),
+  ];
+  allIds.forEach((id) => {
+    const pre = current.find((p) => p.id === id);
+    const post = draft.find((p) => p.id === id);
+    if (!isEqual(pre, post)) {
+      rows.push(
+        <ValueChangedField
+          key={id}
+          label={`Prerequisite: ${id}`}
+          pre={pre ? JSON.stringify(pre, null, 2) : null}
+          post={post ? JSON.stringify(post, null, 2) : null}
+        />,
+      );
+    }
+  });
+  return rows.length ? <div>{rows}</div> : null;
+}
+
+export function renderRevisionMetadata(
+  current: RevisionMetadata | undefined,
+  draft: RevisionMetadata,
+): ReactNode | null {
+  const rows: ReactNode[] = [];
+
+  const stringField = (
+    key: string,
+    label: string,
+    pre: string | undefined,
+    post: string | undefined,
+  ) => {
+    if (!isEqual(pre, post)) {
+      rows.push(
+        <ValueChangedField
+          key={key}
+          label={label}
+          pre={pre ?? null}
+          post={post ?? null}
+        />,
+      );
+    }
+  };
+
+  stringField(
+    "description",
+    "Description",
+    current?.description,
+    draft.description,
+  );
+  stringField("owner", "Owner", current?.owner, draft.owner);
+  stringField("project", "Project", current?.project, draft.project);
+  stringField("valueType", "Value Type", current?.valueType, draft.valueType);
+
+  if (!isEqual(current?.tags, draft.tags) && draft.tags !== undefined) {
+    rows.push(
+      <ValueChangedField
+        key="tags"
+        label="Tags"
+        pre={current?.tags?.join(", ") ?? null}
+        post={draft.tags?.join(", ") ?? null}
+      />,
+    );
+  }
+
+  if (
+    current?.neverStale !== draft.neverStale &&
+    draft.neverStale !== undefined
+  ) {
+    rows.push(
+      <ValueChangedField
+        key="neverStale"
+        label="Never Stale"
+        pre={
+          current?.neverStale !== undefined ? String(current.neverStale) : null
+        }
+        post={String(draft.neverStale)}
+      />,
+    );
+  }
+
+  if (
+    !isEqual(current?.jsonSchema, draft.jsonSchema) &&
+    draft.jsonSchema !== undefined
+  ) {
+    rows.push(
+      <ValueChangedField
+        key="jsonSchema"
+        label="JSON Schema"
+        pre={
+          current?.jsonSchema
+            ? JSON.stringify(current.jsonSchema, null, 2)
+            : null
+        }
+        post={JSON.stringify(draft.jsonSchema, null, 2)}
+      />,
+    );
+  }
+
+  if (
+    !isEqual(current?.customFields, draft.customFields) &&
+    draft.customFields !== undefined
+  ) {
+    rows.push(
+      <ValueChangedField
+        key="customFields"
+        label="Custom Fields"
+        pre={
+          current?.customFields
+            ? JSON.stringify(current.customFields, null, 2)
+            : null
+        }
+        post={JSON.stringify(draft.customFields, null, 2)}
+      />,
+    );
+  }
+
+  return rows.length ? <div>{rows}</div> : null;
 }
