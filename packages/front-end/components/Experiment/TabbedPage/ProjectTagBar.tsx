@@ -3,7 +3,7 @@ import { Flex, Text } from "@radix-ui/themes";
 import { date, daysBetween } from "shared/dates";
 import { PiWarning } from "react-icons/pi";
 import React from "react";
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import { HoldoutInterface } from "shared/validators";
 import SortedTags from "@/components/Tags/SortedTags";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -19,7 +19,7 @@ import { FocusSelector } from "./EditExperimentInfoModal";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
-  holdout?: HoldoutInterfaceStringDates;
+  holdout?: HoldoutInterface;
   setShowEditInfoModal: (value: boolean) => void;
   setEditInfoFocusSelector: (value: FocusSelector) => void;
   editTags?: (() => void) | null;

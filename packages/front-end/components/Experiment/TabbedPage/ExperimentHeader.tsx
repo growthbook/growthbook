@@ -18,7 +18,7 @@ import {
   ExperimentSnapshotReportInterface,
   ReportInterface,
 } from "shared/types/report";
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import { HoldoutInterface } from "shared/validators";
 import { format } from "date-fns";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
@@ -89,7 +89,7 @@ export interface Props {
   editTags?: (() => void) | null;
   healthNotificationCount: number;
   linkedFeatures: LinkedFeatureInfo[];
-  holdout?: HoldoutInterfaceStringDates;
+  holdout?: HoldoutInterface;
   showDashboardView: boolean;
   editHoldoutSchedule?: (() => void) | null;
 }

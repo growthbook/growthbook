@@ -8,7 +8,7 @@ import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import Collapsible from "react-collapsible";
 import { FaAngleRight } from "react-icons/fa";
 import { Box, Flex, ScrollArea } from "@radix-ui/themes";
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import { HoldoutInterface } from "shared/validators";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { PreLaunchChecklist } from "@/components/Experiment/PreLaunchChecklist";
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
@@ -36,7 +36,7 @@ import Heading from "@/ui/Heading";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
-  holdout?: HoldoutInterfaceStringDates;
+  holdout?: HoldoutInterface;
   holdoutExperiments?: ExperimentInterfaceStringDates[];
   visualChangesets: VisualChangesetInterface[];
   mutate: () => void;
@@ -179,7 +179,7 @@ export default function SetupTabOverview({
                       displayName="Schedule"
                       deleteMessage="Deleting the schedule will remove the automatic transition of the Holdout from start, to analysis, to stopped. Manual intervention will be required for each transition if no schedule is set."
                       onClick={async () => {
-                        await apiCall<HoldoutInterfaceStringDates>(
+                        await apiCall<HoldoutInterface>(
                           `/holdout/${holdout.id}`,
                           {
                             method: "PUT",

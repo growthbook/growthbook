@@ -1,4 +1,4 @@
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import { HoldoutInterface } from "shared/validators";
 import { Box, Text } from "@radix-ui/themes";
 import { useRouter } from "next/router";
 import { date } from "shared/dates";
@@ -9,7 +9,7 @@ import ValueDisplay from "@/components/Features/ValueDisplay";
 import { useUser } from "@/services/UserContext";
 
 interface Props {
-  holdout: HoldoutInterfaceStringDates;
+  holdout: HoldoutInterface;
   features: FeatureInterface[];
 }
 
