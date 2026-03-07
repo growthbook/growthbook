@@ -263,18 +263,22 @@ export default function FeaturesHeader({
                       {isArchived ? "Unarchive" : "Archive"}
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuGroup>
-                    <DropdownMenuItem
-                      color="red"
-                      onClick={() => {
-                        setDeleteModal(true);
-                        setDropdownOpen(false);
-                      }}
-                    >
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuGroup>
+                  {isArchived && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuGroup>
+                        <DropdownMenuItem
+                          color="red"
+                          onClick={() => {
+                            setDeleteModal(true);
+                            setDropdownOpen(false);
+                          }}
+                        >
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuGroup>
+                    </>
+                  )}
                 </>
               )}
             </DropdownMenu>
