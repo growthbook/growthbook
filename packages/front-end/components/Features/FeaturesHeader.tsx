@@ -218,7 +218,7 @@ export default function FeaturesHeader({
 
   return (
     <>
-      <Box className="features-header contents container-fluid pagecontents mt-2">
+      <Box className="features-header contents container-fluid pagecontents">
         <Box>
           {projectId ===
             getDemoDatasourceProjectIdForOrganization(organization.id) && (

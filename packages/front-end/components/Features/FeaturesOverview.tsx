@@ -528,9 +528,8 @@ export default function FeaturesOverview({
   return (
     <>
       <Box className="contents container-fluid pagecontents">
-        {/* Revision context header + action bar */}
         {revision && (
-          <div className="appbox mt-2 mb-4 px-4 pt-3 pb-3">
+          <Frame mt="2" mb="4" px="6" py="4">
             <Flex align="center" justify="between" mb="2" wrap="wrap" gap="2">
               <Flex align="center" gap="3">
                 <Flex align="center" gap="2">
@@ -585,11 +584,11 @@ export default function FeaturesOverview({
                 live and cannot be modified.
               </Callout>
             ) : null}
-          </div>
+          </Frame>
         )}
-        <div className="appbox mt-2 mb-4 px-4 pt-3 pb-3">
+        <Frame mt="2" mb="4" px="6" py="4">
           <Flex align="center" justify="between" mb="2">
-            <Heading as="h4" size="3" mb="0">
+            <Heading as="h3" size="4" mb="0">
               Description
             </Heading>
             {canEdit && (
@@ -602,7 +601,7 @@ export default function FeaturesOverview({
               </Button>
             )}
           </Flex>
-          <div className="mh-350px" style={{ overflowY: "auto" }}>
+          <Box className="mh-350px" style={{ overflowY: "auto" }}>
             {feature.description ? (
               <Markdown className="card-text">{feature.description}</Markdown>
             ) : (
@@ -610,8 +609,8 @@ export default function FeaturesOverview({
                 Add context about this feature for your team
               </Box>
             )}
-          </div>
-        </div>
+          </Box>
+        </Frame>
         <Box>
           <CustomFieldDisplay
             target={feature}
@@ -624,46 +623,44 @@ export default function FeaturesOverview({
           <CustomMarkdown page={"feature"} variables={variables} />
 
           {showFeatureUsage && (
-            <div className="appbox mt-2 mb-4 px-4 pt-3 pb-3">
-              <div className="row align-items-center">
-                <div className="col-auto">
-                  <h4 className="mb-0">Usage Analytics</h4>
-                </div>
-                <div className="col-auto ml-auto">
-                  <SelectField
-                    value={lookback}
-                    onChange={(lookback) => {
-                      setLookback(lookback as FeatureUsageLookback);
-                    }}
-                    options={[
-                      { value: "15minute", label: "Past 15 Minutes" },
-                      { value: "hour", label: "Past Hour" },
-                      { value: "day", label: "Past Day" },
-                      { value: "week", label: "Past Week" },
-                    ]}
-                    sort={false}
-                    formatOptionLabel={(o) => {
-                      if (o.value !== "15minute") return o.label;
-                      return (
-                        <div>
-                          {o.label}
-                          <Badge
-                            label={
-                              <>
-                                <FaBoltLightning /> Live
-                              </>
-                            }
-                            color="teal"
-                            variant="solid"
-                            radius="full"
-                            ml="3"
-                          />
-                        </div>
-                      );
-                    }}
-                  />
-                </div>
-              </div>
+            <Frame mt="2" mb="4" px="6" py="4">
+              <Flex align="center" justify="between" mb="2">
+                <Heading as="h3" size="4" mb="0">
+                  Usage Analytics
+                </Heading>
+                <SelectField
+                  value={lookback}
+                  onChange={(lookback) => {
+                    setLookback(lookback as FeatureUsageLookback);
+                  }}
+                  options={[
+                    { value: "15minute", label: "Past 15 Minutes" },
+                    { value: "hour", label: "Past Hour" },
+                    { value: "day", label: "Past Day" },
+                    { value: "week", label: "Past Week" },
+                  ]}
+                  sort={false}
+                  formatOptionLabel={(o) => {
+                    if (o.value !== "15minute") return o.label;
+                    return (
+                      <div>
+                        {o.label}
+                        <Badge
+                          label={
+                            <>
+                              <FaBoltLightning /> Live
+                            </>
+                          }
+                          color="teal"
+                          variant="solid"
+                          radius="full"
+                          ml="3"
+                        />
+                      </div>
+                    );
+                  }}
+                />
+              </Flex>
               {!featureUsage ? (
                 <Flex align="center" justify="center">
                   <LoadingSpinner /> <Text ml="2">Loading...</Text>
@@ -677,11 +674,14 @@ export default function FeaturesOverview({
                   valueType={feature.valueType}
                 />
               )}
-            </div>
+            </Frame>
           )}
         </Box>
-        <Frame mb="4">
+        <Frame mb="4" px="6" py="4">
           <Box>
+            <Heading as="h3" size="4" mb="2">
+              Environment Status
+            </Heading>
             <div className="mb-2">
               When disabled, this feature will evaluate to <code>null</code>.
               The default value and rules will be ignored.
@@ -891,7 +891,7 @@ export default function FeaturesOverview({
           </Box>
         </Frame>
         {(dependents > 0 || featureProject) && (
-          <Frame mb="4">
+          <Frame mb="4" px="6" py="4">
             <Box>
               <Flex mb="3" gap="3" align="center">
                 <Heading size="4" as="h4" mb="0">
@@ -1008,7 +1008,7 @@ export default function FeaturesOverview({
 
         {revision && (
           <>
-            <Box className="appbox" mt="4" p="4" pl="6" pr="5">
+            <Frame mt="4" px="6" py="4">
               <Flex align="center" justify="between">
                 <Heading as="h3" size="4" mb="3">
                   Default Value
@@ -1033,72 +1033,79 @@ export default function FeaturesOverview({
                   </Box>
                 </Flex>
               </Box>
-            </Box>
-            <Box className="appbox" mt="4" p="5" px="6">
-              <Flex align="center" justify="between" mb="2">
-                <Flex>
-                  <Heading as="h3" size="4" mb="0" mr="1">
-                    Rules
-                  </Heading>
-                  <Tooltip
-                    body="Add powerful logic on top of your feature. The first rule
-                      that matches will be applied and override the Default
-                      Value."
-                  />
-                </Flex>
-                <label className="font-weight-semibold">
-                  <Switch
-                    disabled={!hasInactiveRules}
-                    value={!hasInactiveRules ? false : !hideInactive}
-                    onChange={(state) => setHideInactive(!state)}
-                    label="Show inactive"
-                  />
-                </label>
-              </Flex>
-              {environments.length > 0 ? (
-                <>
-                  {!hasRules && (
-                    <p>
-                      Add powerful logic on top of your feature. The first rule
-                      that matches will be applied and override the Default
-                      Value.
-                    </p>
-                  )}
 
-                  <FeatureRules
-                    environments={environments}
-                    feature={feature}
-                    isLocked={isLocked}
-                    canEditDrafts={canEditDrafts}
-                    experimentsMap={experimentsMap}
-                    mutate={mutate}
-                    currentVersion={currentVersion}
-                    setVersion={setVersion}
-                    hideInactive={hideInactive}
-                    isDraft={isDraft}
-                    safeRolloutsMap={safeRolloutsMap}
-                    holdout={holdout}
-                  />
-                </>
-              ) : (
-                <p>
-                  You need at least one environment to add rules. Add powerful
-                  logic on top of your feature. The first rule that matches will
-                  be applied and override the Default Value.
-                </p>
-              )}
-            </Box>
+              <Box
+                mt="6"
+                pt="4"
+                style={{ borderTop: "1px solid var(--gray-a4)" }}
+              >
+                <Flex align="center" justify="between" mb="2">
+                  <Flex>
+                    <Heading as="h3" size="4" mb="0" mr="1">
+                      Rules
+                    </Heading>
+                    <Tooltip
+                      body="Add powerful logic on top of your feature. The first rule
+                        that matches will be applied and override the Default
+                        Value."
+                    />
+                  </Flex>
+                  <label className="font-weight-semibold">
+                    <Switch
+                      disabled={!hasInactiveRules}
+                      value={!hasInactiveRules ? false : !hideInactive}
+                      onChange={(state) => setHideInactive(!state)}
+                      label="Show inactive"
+                    />
+                  </label>
+                </Flex>
+                {environments.length > 0 ? (
+                  <>
+                    {!hasRules && (
+                      <p>
+                        Add powerful logic on top of your feature. The first
+                        rule that matches will be applied and override the
+                        Default Value.
+                      </p>
+                    )}
+
+                    <FeatureRules
+                      environments={environments}
+                      feature={feature}
+                      isLocked={isLocked}
+                      canEditDrafts={canEditDrafts}
+                      experimentsMap={experimentsMap}
+                      mutate={mutate}
+                      currentVersion={currentVersion}
+                      setVersion={setVersion}
+                      hideInactive={hideInactive}
+                      isDraft={isDraft}
+                      safeRolloutsMap={safeRolloutsMap}
+                      holdout={holdout}
+                    />
+                  </>
+                ) : (
+                  <p>
+                    You need at least one environment to add rules. Add powerful
+                    logic on top of your feature. The first rule that matches
+                    will be applied and override the Default Value.
+                  </p>
+                )}
+              </Box>
+            </Frame>
           </>
         )}
 
-        <div className="mb-4">
-          <h3>Comments</h3>
+        <Frame mb="4" px="6" py="4">
+          <Heading as="h3" size="4" mb="3">
+            Comments
+          </Heading>
           <DiscussionThread
             type="feature"
             id={feature.id}
             projects={feature.project ? [feature.project] : []}
           />
-        </div>
+        </Frame>
 
         {/* Modals */}
 
