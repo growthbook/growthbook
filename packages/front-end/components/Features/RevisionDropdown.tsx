@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
-import { datetime } from "shared/dates";
+import { datetime, date } from "shared/dates";
 
 import { DropdownMenu as RadixDropdownMenu, Box, Flex } from "@radix-ui/themes";
 import { PiCaretDownBold } from "react-icons/pi";
@@ -23,6 +23,7 @@ export interface Props {
   revisionLoading?: boolean;
   version: number;
   setVersion: (version: number) => void;
+  variant?: "slim" | "select";
 }
 
 function RevisionRow({
@@ -65,6 +66,7 @@ export default function RevisionDropdown({
   revisionLoading = false,
   version,
   setVersion,
+  variant = "slim",
 }: Props) {
   const liveVersion = feature.version;
   const initialPageSize = 10;
@@ -150,7 +152,7 @@ export default function RevisionDropdown({
         >
           {loading && <LoadingOverlay />}
           {revisionLoading && <LoadingSpinner />}
-          <Heading as="h3" size="small" mb="0" whiteSpace="nowrap">
+          <Heading as="h4" size="x-small" mb="0">
             Revision {version}
           </Heading>
           <Box flexGrow="1" />
@@ -161,8 +163,7 @@ export default function RevisionDropdown({
           >
             {triggerDate && (
               <Text size="small" color="text-low" whiteSpace="nowrap">
-                Created {datetime(triggerDate)} by{" "}
-                <EventUser user={selectedMeta?.createdBy} display="name" />
+                {date(triggerDate)}
               </Text>
             )}
           </Box>
@@ -175,7 +176,11 @@ export default function RevisionDropdown({
           <PiCaretDownBold style={{ flexShrink: 0 }} />
         </Flex>
       }
-      triggerClassName="dropdown-trigger-select-style"
+      triggerClassName={
+        variant === "select"
+          ? "dropdown-trigger-select-style"
+          : "dropdown-trigger-slim-style"
+      }
       menuWidth="full"
     >
       {discardedCount > 0 && (

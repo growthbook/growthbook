@@ -195,11 +195,25 @@ async function createOrUpdateDraftWithChanges(
     >
   >,
   logEntry: Omit<RevisionLog, "timestamp">,
+  targetDraftVersion?: number,
 ): Promise<FeatureRevisionInterface> {
   const { org } = context;
   const environments = getEnvironmentIdsFromOrg(context.org);
 
-  const existingDraft = await getActiveDraft(context, feature);
+  // If a specific target version was requested, load it; otherwise fall back to
+  // the most-recent active draft (existing auto-bundle behaviour).
+  let existingDraft: FeatureRevisionInterface | null = null;
+  if (targetDraftVersion) {
+    existingDraft = await getRevision({
+      context,
+      organization: feature.organization,
+      featureId: feature.id,
+      version: targetDraftVersion,
+    });
+  } else {
+    existingDraft = await getActiveDraft(context, feature);
+  }
+
   if (existingDraft) {
     // Bundle into the existing draft
     const merged: typeof envelopeChanges = {};
@@ -1878,7 +1892,7 @@ export async function putRevisionComment(
     context,
     feature,
     revision,
-    {},
+    { comment },
     {
       user: res.locals.eventAudit,
       action: "edit comment",
@@ -2480,7 +2494,10 @@ export async function deleteFeatureRule(
 }
 
 export async function putFeature(
-  req: AuthRequest<Partial<FeatureInterface>, { id: string }>,
+  req: AuthRequest<
+    Partial<FeatureInterface> & { targetDraftVersion?: number },
+    { id: string }
+  >,
   res: Response<
     { status: 200; feature: FeatureInterface; draftVersion?: number },
     EventUserForResponseLocals
@@ -2495,7 +2512,7 @@ export async function putFeature(
     throw new Error("Could not find feature");
   }
 
-  const updates = req.body;
+  const { targetDraftVersion, ...updates } = req.body;
   if (!context.permissions.canUpdateFeature(feature, updates)) {
     context.permissions.throwPermissionError();
   }
@@ -2607,6 +2624,7 @@ export async function putFeature(
         subject: "metadata",
         value: JSON.stringify(metadataUpdates),
       },
+      targetDraftVersion,
     );
     // Still apply non-metadata fields (holdout) directly
     let updatedFeature = feature;

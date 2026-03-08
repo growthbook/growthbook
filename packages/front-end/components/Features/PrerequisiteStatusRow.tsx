@@ -34,6 +34,8 @@ interface Props {
   mutate: () => Promise<unknown>;
   setVersion: (version: number) => void;
   setPrerequisiteModal: (prerequisite: { i: number }) => void;
+  /** When true, hides edit/delete controls (active draft required for prereq changes). */
+  isLocked?: boolean;
 }
 
 export default function PrerequisiteStatusRow({
@@ -45,6 +47,7 @@ export default function PrerequisiteStatusRow({
   mutate,
   setVersion,
   setPrerequisiteModal,
+  isLocked = false,
 }: Props) {
   const permissionsUtil = usePermissionsUtil();
   const canEdit = permissionsUtil.canViewFeatureModal(feature.project);
@@ -88,7 +91,7 @@ export default function PrerequisiteStatusRow({
             </a>
           </div>
           <div>
-            {canEdit && (
+            {canEdit && !isLocked && (
               <DropdownMenu
                 trigger={
                   <IconButton

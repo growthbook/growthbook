@@ -39,6 +39,7 @@ function toMinimalRevision(
     dateUpdated: r.dateUpdated,
     createdBy: r.createdBy,
     status: r.status,
+    comment: r.comment || "",
   };
 }
 

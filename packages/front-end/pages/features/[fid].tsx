@@ -17,6 +17,7 @@ import FeatureDiagnostics from "@/components/Features/FeatureDiagnostics";
 import { useFeaturePageData } from "@/hooks/useFeaturePageData";
 import { useFeatureDependents } from "@/hooks/useFeatureDependents";
 import Callout from "@/ui/Callout";
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 
 const featureTabs = ["overview", "stats", "test", "diagnostics"] as const;
 export type FeatureTab = (typeof featureTabs)[number];
@@ -31,6 +32,8 @@ export default function FeaturePage() {
   const [diagnosticsResults, setDiagnosticsResults] = useState<Array<
     FeatureEvalDiagnosticsQueryResponseRows[number] & { id: string }
   > | null>(null);
+
+  const { performCopy, copySuccess } = useCopyToClipboard({ timeout: 800 });
   // Clean state when feature id changes
   useEffect(() => {
     setDiagnosticsResults(null);
@@ -107,12 +110,24 @@ export default function FeaturePage() {
       />
       <FeaturesHeader
         feature={feature}
+        baseFeature={baseFeature}
         mutate={refreshData}
         setVersion={setVersion}
+        version={version}
+        revisions={data.revisionList || []}
+        loading={isValidating}
+        revisionLoading={revisionLoading}
         tab={tab}
         setTab={setTabAndScroll}
         setEditFeatureInfoModal={setEditFeatureInfoModal}
         holdout={holdout}
+        onCopyLink={() => {
+          const url =
+            window.location.href.replace(/[?#].*/, "") +
+            `?v=${version ?? feature.version}`;
+          performCopy(url);
+        }}
+        copyLinkSuccess={copySuccess}
       />
 
       {tab === "overview" && (
@@ -121,8 +136,6 @@ export default function FeaturePage() {
           feature={feature}
           revision={revision}
           revisionList={data.revisionList}
-          loading={isValidating}
-          revisionLoading={revisionLoading}
           revisions={data.revisions}
           experiments={experiments}
           safeRollouts={safeRollouts}
@@ -177,6 +190,7 @@ export default function FeaturePage() {
           source="feature-header"
           dependents={dependents}
           feature={feature}
+          revisionList={data.revisionList || []}
           save={async (updates) => {
             const res = await apiCall<{ draftVersion?: number }>(
               `/feature/${feature.id}`,

@@ -1,0 +1,11 @@
+.changeDot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: var(--amber-10);
+  margin-right: 5px;
+  vertical-align: middle;
+  position: relative;
+  top: -1px;
+}

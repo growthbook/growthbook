@@ -266,7 +266,30 @@
   }
 }
 
-// Makes a DropdownMenu.Trigger look like a Radix Select trigger (surface variant, size 2).
+// Revision dropdown trigger — slim variant (used in sticky tabs header).
+.dropdown-trigger-slim-style {
+  box-sizing: border-box;
+  width: 100%;
+  overflow: hidden;
+  padding: 2px var(--space-1);
+  color: var(--gray-12);
+  cursor: pointer;
+  text-align: start;
+  user-select: none;
+  border-bottom: 1px solid transparent;
+
+  &:where(:hover),
+  &:where([data-state="open"]) {
+    border-bottom: 1px solid var(--gray-a8);
+  }
+
+  &:where(:focus-visible) {
+    outline: 2px solid var(--focus-8);
+    outline-offset: -1px;
+  }
+}
+
+// Revision dropdown trigger — select variant (bordered box, for standalone use).
 .dropdown-trigger-select-style {
   box-sizing: border-box;
   width: 100%;
@@ -281,10 +304,7 @@
   text-align: start;
   user-select: none;
 
-  &:where(:hover) {
-    box-shadow: inset 0 0 0 1px var(--gray-a8);
-  }
-
+  &:where(:hover),
   &:where([data-state="open"]) {
     box-shadow: inset 0 0 0 1px var(--gray-a8);
   }

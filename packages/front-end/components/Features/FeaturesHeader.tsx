@@ -7,8 +7,10 @@ import { filterEnvironmentsByFeature } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { BsThreeDotsVertical } from "react-icons/bs";
+import { PiLink, PiCheck } from "react-icons/pi";
 import { HoldoutInterface } from "shared/validators";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
+import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { useUser } from "@/services/UserContext";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
@@ -26,6 +28,7 @@ import { FeatureTab } from "@/pages/features/[fid]";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import UserAvatar from "@/components/Avatar/UserAvatar";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
+import RevisionDropdown from "@/components/Features/RevisionDropdown";
 import Callout from "@/ui/Callout";
 import ProjectBadges from "@/components/ProjectBadges";
 import { useHoldouts } from "@/hooks/useHoldouts";
@@ -41,23 +44,41 @@ import { useScrollPosition } from "@/hooks/useScrollPosition";
 import FeatureArchiveModal from "./FeatureArchiveModal";
 import FeatureDeleteModal from "./FeatureDeleteModal";
 import AddToHoldoutModal from "./AddToHoldoutModal";
+import styles from "./FeaturesHeader.module.scss";
 
 export default function FeaturesHeader({
   feature,
+  baseFeature,
   mutate,
   setVersion,
+  version,
+  revisions,
+  loading,
+  revisionLoading,
   tab,
   setTab,
   setEditFeatureInfoModal,
   holdout,
+  copyLinkHref: _copyLinkHref,
+  onCopyLink,
+  copyLinkSuccess,
 }: {
   feature: FeatureInterface;
+  baseFeature: FeatureInterface;
   mutate: () => Promise<unknown>;
   setVersion: (version: number) => void;
+  version: number | null;
+  revisions: MinimalFeatureRevisionInterface[];
+  loading?: boolean;
+  revisionLoading?: boolean;
   tab: FeatureTab;
   setTab: (tab: FeatureTab) => void;
   setEditFeatureInfoModal: (open: boolean) => void;
   holdout: HoldoutInterface | undefined;
+  /** Href for copy-link button (built from current version). */
+  copyLinkHref?: string;
+  onCopyLink?: () => void;
+  copyLinkSuccess?: boolean;
 }) {
   const router = useRouter();
   const projectId = feature?.project;
@@ -74,6 +95,59 @@ export default function FeaturesHeader({
 
   const { organization, hasCommercialFeature, getOwnerDisplay } = useUser();
   const ownerDisplay = getOwnerDisplay(feature.owner);
+  const baseOwnerDisplay = getOwnerDisplay(baseFeature.owner);
+
+  // Show a changed-label indicator when the viewed revision differs from live
+  const isNonLive = feature !== baseFeature;
+  const projectChanged = isNonLive && feature.project !== baseFeature.project;
+  const ownerChanged = isNonLive && feature.owner !== baseFeature.owner;
+  const tagsChanged =
+    isNonLive &&
+    JSON.stringify([...(feature.tags || [])].sort()) !==
+      JSON.stringify([...(baseFeature.tags || [])].sort());
+
+  // Renders a field label with an orange dot + underlined text when the field
+  // has a pending draft change, wrapped in a tooltip showing the live value.
+  const ChangedLabel = ({
+    label,
+    changed,
+    liveNode,
+  }: {
+    label: string;
+    changed: boolean;
+    liveNode: React.ReactNode;
+  }) => {
+    if (!changed) {
+      return <Text weight="medium">{label}: </Text>;
+    }
+    return (
+      <Tooltip
+        body={
+          <>
+            <span className={styles.changeDot} />
+            <strong>
+              <em>{label}</em> changed in this revision
+            </strong>
+            <br />
+            Live: {liveNode}
+          </>
+        }
+      >
+        <Text weight="medium" style={{ cursor: "default" }}>
+          <span className={styles.changeDot} />
+          <span
+            style={{
+              textDecoration: "underline",
+              textDecorationColor: "var(--amber-10)",
+            }}
+          >
+            {label}
+          </span>
+          {": "}
+        </Text>
+      </Tooltip>
+    );
+  };
   const permissionsUtil = usePermissionsUtil();
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
@@ -132,6 +206,10 @@ export default function FeaturesHeader({
   const project = getProjectById(projectId || "");
   const projectName = project?.name || null;
   const projectIsDeReferenced = projectId && !projectName;
+
+  const baseProjectId = baseFeature.project;
+  const baseProject = getProjectById(baseProjectId || "");
+  const baseProjectName = baseProject?.name || baseProjectId || null;
 
   const canEdit = permissionsUtil.canViewFeatureModal(projectId);
   const enabledEnvs = getEnabledEnvironments(feature, environments);
@@ -310,7 +388,11 @@ export default function FeaturesHeader({
 
             {(projects.length > 0 || projectIsDeReferenced) && (
               <Box>
-                <Text weight="medium">Project: </Text>
+                <ChangedLabel
+                  label="Project"
+                  changed={projectChanged}
+                  liveNode={baseProjectName || <em>None</em>}
+                />
                 {projectIsDeReferenced ? (
                   <Tooltip
                     body={
@@ -362,7 +444,24 @@ export default function FeaturesHeader({
             </Box>
 
             <Box>
-              <Text weight="medium">Owner: </Text>
+              <ChangedLabel
+                label="Owner"
+                changed={ownerChanged}
+                liveNode={
+                  baseOwnerDisplay ? (
+                    <span>
+                      <UserAvatar
+                        name={baseOwnerDisplay}
+                        size="sm"
+                        variant="soft"
+                      />{" "}
+                      {baseOwnerDisplay}
+                    </span>
+                  ) : (
+                    <em>None</em>
+                  )
+                }
+              />
               {ownerDisplay ? (
                 <span>
                   <UserAvatar name={ownerDisplay} size="sm" variant="soft" />{" "}
@@ -378,7 +477,21 @@ export default function FeaturesHeader({
           </Flex>
           <Box mt="3" mb="4">
             <Box>
-              <Text weight="medium">Tags: </Text>
+              <ChangedLabel
+                label="Tags"
+                changed={tagsChanged}
+                liveNode={
+                  baseFeature.tags?.length ? (
+                    <SortedTags
+                      tags={baseFeature.tags}
+                      useFlex
+                      shouldShowEllipsis={false}
+                    />
+                  ) : (
+                    <em>None</em>
+                  )
+                }
+              />
               <SortedTags
                 tags={feature.tags || []}
                 useFlex
@@ -404,11 +517,46 @@ export default function FeaturesHeader({
         <div className="container-fluid pagecontents px-3">
           <div className="header-tabs" ref={tabsRef}>
             <Tabs value={tab} onValueChange={setTab}>
-              <TabsList size="3">
+              <TabsList size="3" style={{ width: "100%" }}>
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="test">Simulate</TabsTrigger>
                 <TabsTrigger value="stats">Code Refs</TabsTrigger>
                 <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>
+                <Box
+                  style={{
+                    marginLeft: "auto",
+                    alignSelf: "center",
+                    maxWidth: 480,
+                  }}
+                >
+                  <Flex align="center" gap="3">
+                    {onCopyLink && (
+                      <Tooltip
+                        body={copyLinkSuccess ? "Copied!" : "Copy link"}
+                        tipPosition="bottom"
+                        tipMinWidth="0"
+                        style={{ marginBottom: -4 }}
+                      >
+                        <IconButton
+                          variant="ghost"
+                          size="2"
+                          color="violet"
+                          onClick={onCopyLink}
+                        >
+                          {copyLinkSuccess ? <PiCheck /> : <PiLink />}
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                    <RevisionDropdown
+                      feature={feature}
+                      revisions={revisions}
+                      version={version ?? feature.version}
+                      setVersion={setVersion}
+                      loading={loading}
+                      revisionLoading={revisionLoading}
+                    />
+                  </Flex>
+                </Box>
               </TabsList>
             </Tabs>
           </div>

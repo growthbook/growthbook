@@ -1,7 +1,11 @@
-import { FC, useState } from "react";
+import { FC, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FeatureInterface } from "shared/types/feature";
+import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import { getReviewSetting } from "shared/util";
+import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import { Box } from "@radix-ui/themes";
+import Text from "@/ui/Text";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import TagsInput from "@/components/Tags/TagsInput";
@@ -12,9 +16,11 @@ import Callout from "@/ui/Callout";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import MarkdownInput from "@/components/Markdown/MarkdownInput";
 
 const EditFeatureInfoModal: FC<{
   feature: FeatureInterface;
+  revisionList: MinimalFeatureRevisionInterface[];
   save: (updates: {
     tags: string[];
     owner: string;
@@ -25,7 +31,36 @@ const EditFeatureInfoModal: FC<{
   mutate: () => void;
   source?: string;
   dependents: number;
-}> = ({ feature, save, cancel, mutate, source, dependents }) => {
+}> = ({ feature, revisionList, save, cancel, mutate, source, dependents }) => {
+  const settings = useOrgSettings();
+  const permissionsUtil = usePermissionsUtil();
+  const [showProjectWarningMsg, setShowProjectWarningMsg] = useState(false);
+  const { requireProjectForFeatures } = settings;
+
+  // Determine whether metadata changes require a draft/approval for this feature
+  const requireReviewSettings = settings?.requireReviews;
+  const metadataReviewRequired = useMemo(() => {
+    if (!requireReviewSettings || typeof requireReviewSettings === "boolean") {
+      return false;
+    }
+    const reviewSetting = getReviewSetting(requireReviewSettings, feature);
+    return !!(
+      reviewSetting?.requireReviewOn &&
+      reviewSetting?.featureRequireMetadataReview
+    );
+  }, [requireReviewSettings, feature]);
+
+  // Find the active draft (there can only ever be one)
+  const activeDraft = useMemo(
+    () =>
+      revisionList
+        .filter((r) =>
+          (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status),
+        )
+        .sort((a, b) => b.version - a.version)[0] ?? null,
+    [revisionList],
+  );
+
   const form = useForm({
     defaultValues: {
       tags: feature.tags || [],
@@ -34,9 +69,6 @@ const EditFeatureInfoModal: FC<{
       description: feature.description || "",
     },
   });
-  const permissionsUtil = usePermissionsUtil();
-  const [showProjectWarningMsg, setShowProjectWarningMsg] = useState(false);
-  const { requireProjectForFeatures } = useOrgSettings();
 
   const permissionRequired = (project) =>
     permissionsUtil.canUpdateFeature(feature, { project });
@@ -47,35 +79,60 @@ const EditFeatureInfoModal: FC<{
     <Modal
       trackingEventModalType="edit-feature-info"
       trackingEventModalSource={source}
-      header={"Edit Feature Information"}
+      header="Edit Feature Information"
       open={true}
       close={cancel}
       submit={form.handleSubmit(async (data) => {
         await save(data);
         mutate();
       })}
-      cta="Save"
+      cta={metadataReviewRequired ? "Save to Draft" : "Save"}
+      useRadixButton={true}
+      size="lg"
     >
       <Box>
+        {metadataReviewRequired && (
+          <Box mb="4">
+            {activeDraft ? (
+              <Callout status="info">
+                Changes will be added to{" "}
+                <strong>Revision {activeDraft.version}</strong> (
+                {activeDraft.status}).
+              </Callout>
+            ) : (
+              <Callout status="info">
+                A new draft revision will be created for these changes.
+              </Callout>
+            )}
+          </Box>
+        )}
+
         <Field
-          label={"Feature Key"}
+          label="Feature Key"
           value={feature.id}
           disabled={true}
-          helpText={"Feature keys are not editable"}
+          helpText="Feature keys are not editable"
         />
         <Field
-          label={"Feature Type"}
+          label="Feature Type"
           value={feature.valueType}
           disabled={true}
-          helpText={"Feature types cannot be changed"}
+          helpText="Feature types cannot be changed"
         />
-        <Field
-          label="Description"
-          value={form.watch("description")}
-          onChange={(e) => form.setValue("description", e.target.value)}
-          textarea
-          placeholder="Short human-readable description"
-        />
+        <Box mb="4">
+          <Text as="label" weight="medium" size="small">
+            Description
+          </Text>
+          <Box mt="1">
+            <MarkdownInput
+              value={form.watch("description")}
+              setValue={(v) => form.setValue("description", v)}
+              placeholder="Short human-readable description"
+              showButtons={false}
+              hidePreview={false}
+            />
+          </Box>
+        </Box>
         <SelectOwner
           value={form.watch("owner")}
           onChange={(v) => form.setValue("owner", v)}
@@ -116,11 +173,7 @@ const EditFeatureInfoModal: FC<{
                 <Callout status="warning">
                   Changing the project may prevent this Feature Flag and any
                   linked Experiments from being sent to users.{" "}
-                  <Tooltip
-                    body={
-                      "SDK endpoints are linked to specific environments and (optionally) projects. Changing the project of this feature may result in this feature returning in a different payload."
-                    }
-                  />
+                  <Tooltip body="SDK endpoints are linked to specific environments and (optionally) projects. Changing the project of this feature may result in this feature returning in a different payload." />
                 </Callout>
               )}
             </>

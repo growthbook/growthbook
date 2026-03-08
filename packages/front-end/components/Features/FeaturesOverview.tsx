@@ -2,22 +2,14 @@ import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import React, { useMemo, useState } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
-import {
-  PiCheck,
-  PiLink,
-  PiArrowsLeftRightBold,
-  PiCheckCircleFill,
-  PiCircleDuotone,
-  PiFileX,
-  PiInfo,
-  PiPlusCircleBold,
-} from "react-icons/pi";
+import { PiInfo, PiPlusCircleBold } from "react-icons/pi";
 import { FaBoltLightning } from "react-icons/fa6";
 import { ago, datetime } from "shared/dates";
 import {
   autoMerge,
   checkIfRevisionNeedsReview,
   filterEnvironmentsByFeature,
+  getReviewSetting,
   mergeResultHasChanges,
 } from "shared/util";
 import { MdRocketLaunch } from "react-icons/md";
@@ -25,7 +17,7 @@ import { BiHide, BiShow } from "react-icons/bi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { BsClock } from "react-icons/bs";
 import { FeatureUsageLookback } from "shared/types/integrations";
-import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { Box, Flex, Heading, Separator, Text } from "@radix-ui/themes";
 import {
   SafeRolloutInterface,
   HoldoutInterface,
@@ -52,7 +44,6 @@ import { useFeatureDefaultValues } from "@/hooks/useFeatureDefaultValues";
 import { useFeatureDependents } from "@/hooks/useFeatureDependents";
 import Modal from "@/components/Modal";
 import DraftModal from "@/components/Features/DraftModal";
-import RevisionDropdown from "@/components/Features/RevisionDropdown";
 import DiscussionThread from "@/components/DiscussionThread";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -62,11 +53,12 @@ import RevertModal from "@/components/Features/RevertModal";
 import EditRevisionCommentModal from "@/components/Features/EditRevisionCommentModal";
 import FixConflictsModal from "@/components/Features/FixConflictsModal";
 import CompareRevisionsModal from "@/components/Features/CompareRevisionsModal";
-import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import RevisionStatusBadge from "@/components/Features/RevisionStatusBadge";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
-import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
+import Markdown from "@/components/Markdown/Markdown";
+import EditFeatureDescriptionModal from "@/components/Features/EditFeatureDescriptionModal";
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import SelectField from "@/components/Forms/SelectField";
 import Callout from "@/ui/Callout";
@@ -95,8 +87,6 @@ export default function FeaturesOverview({
   feature,
   revision,
   revisionList,
-  loading,
-  revisionLoading,
   revisions,
   experiments,
   mutate,
@@ -111,8 +101,6 @@ export default function FeaturesOverview({
   feature: FeatureInterface;
   revision: FeatureRevisionInterface | null;
   revisionList: MinimalFeatureRevisionInterface[];
-  loading: boolean;
-  revisionLoading: boolean;
   revisions: FeatureRevisionInterface[];
   experiments: ExperimentInterfaceStringDates[] | undefined;
   safeRollouts: SafeRolloutInterface[] | undefined;
@@ -142,6 +130,7 @@ export default function FeaturesOverview({
   const [revertIndex, setRevertIndex] = useState(0);
 
   const [editCommentModel, setEditCommentModal] = useState(false);
+  const [showDescriptionModal, setShowDescriptionModal] = useState(false);
   const [compareRevisionsModalOpen, setCompareRevisionsModalOpen] =
     useState(false);
 
@@ -157,8 +146,6 @@ export default function FeaturesOverview({
   const dependentFeatures = dependentsData?.features ?? [];
   const dependentExperiments = dependentsData?.experiments ?? [];
   const dependents = dependentFeatures.length + dependentExperiments.length;
-
-  const { performCopy, copySuccess } = useCopyToClipboard({ timeout: 800 });
 
   const mergeResult = useMemo(() => {
     if (!feature || !revision) return null;
@@ -301,6 +288,23 @@ export default function FeaturesOverview({
     (revision.status === "published" || revision.status === "discarded") &&
     (!isLive || drafts.length > 0);
 
+  // Derive per-type gating from org settings.
+  const requireReviewSettings = Array.isArray(settings?.requireReviews)
+    ? settings.requireReviews
+    : [];
+  const reviewSetting = getReviewSetting(requireReviewSettings, feature);
+  const killSwitchGated =
+    !!reviewSetting?.requireReviewOn &&
+    (settings?.featureKillSwitchBehavior ??
+      (settings?.killswitchConfirmation ? "warn" : "off")) === "gate";
+  const prereqGated = !!(
+    reviewSetting?.requireReviewOn &&
+    reviewSetting?.featureRequirePrerequisiteReview
+  );
+  // Controls are locked when gated and we're not on the active draft.
+  const killSwitchIsLocked = killSwitchGated && isLocked;
+  const prereqIsLocked = prereqGated && isLocked;
+
   const canEdit = permissionsUtil.canViewFeatureModal(projectId);
   const canEditDrafts = permissionsUtil.canManageFeatureDrafts(feature);
 
@@ -321,31 +325,6 @@ export default function FeaturesOverview({
     tags: feature.tags || [],
   };
 
-  const renderStatusCopy = () => {
-    switch (revision.status) {
-      case "approved":
-        return (
-          <span className="mr-3">
-            <PiCheckCircleFill className="text-success  mr-1" /> Approved
-          </span>
-        );
-      case "pending-review":
-        return (
-          <span className="mr-3">
-            <PiCircleDuotone className="text-warning  mr-1" /> Pending Review
-          </span>
-        );
-      case "changes-requested":
-        return (
-          <span className="mr-3">
-            <PiFileX className="text-danger mr-1" />
-            Changes Requested
-          </span>
-        );
-      default:
-        return;
-    }
-  };
   const renderDraftBannerCopy = () => {
     if (isPendingReview) {
       return (
@@ -407,16 +386,7 @@ export default function FeaturesOverview({
       }
 
       if (drafts.length > 0 && isLocked && !isDraft) {
-        actions.push(
-          <Button
-            variant="outline"
-            onClick={() => {
-              setVersion(drafts[0].version);
-            }}
-          >
-            View active draft
-          </Button>,
-        );
+        // "Switch to active draft" is rendered inline in the context header instead.
       }
 
       if (isDraft) {
@@ -505,47 +475,51 @@ export default function FeaturesOverview({
     );
   };
 
+  // Derive action bar content directly (rendered in the overview tab).
+  const revisionCTA = renderRevisionCTA();
+  const onCompareRevisions =
+    (revisionList?.length ?? 0) >= 2
+      ? () => setCompareRevisionsModalOpen(true)
+      : undefined;
+
   const renderRevisionInfo = () => {
     return (
-      <Flex align="center" justify="between">
-        <Flex align="center" gap="3">
+      <Flex direction="column" gap="1">
+        <Flex align="center" justify="between">
           <Box>
-            <span className="text-muted">
-              {isDraft ? "Draft r" : "R"}evision created by
-            </span>{" "}
+            <span className="text-muted">Created by</span>{" "}
             <EventUser user={revision.createdBy} display="name" />{" "}
             <span className="text-muted">on</span>{" "}
             {datetime(revision.dateCreated)}
           </Box>
-          <Flex align="center" gap="2">
-            <span className="text-muted">Revision Comment:</span>{" "}
-            {revision.comment || <em>None</em>}
-            {canEditDrafts && (
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setEditCommentModal(true);
-                }}
-              >
-                <GBEdit />
-              </Button>
+          <Flex align="center" justify="between" gap="3">
+            {revision.status === "published" && revision.datePublished && (
+              <Box>
+                <span className="text-muted">Published on</span>{" "}
+                {datetime(revision.datePublished)}
+              </Box>
+            )}
+            {revision.status === "draft" && (
+              <Box>
+                <span className="text-muted">Last updated</span>{" "}
+                {ago(revision.dateUpdated)}
+              </Box>
             )}
           </Flex>
         </Flex>
-        <Flex align="center" justify="between" gap="3">
-          {revision.status === "published" && revision.datePublished && (
-            <Box>
-              <span className="text-muted">Published on</span>{" "}
-              {datetime(revision.datePublished)}
-            </Box>
+        <Flex align="center" gap="2">
+          <span className="text-muted">Comment:</span>{" "}
+          {revision.comment || <em>None</em>}
+          {canEditDrafts && (
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setEditCommentModal(true);
+              }}
+            >
+              <GBEdit />
+            </Button>
           )}
-          {revision.status === "draft" && (
-            <Box>
-              <span className="text-muted">Last updated</span>{" "}
-              {ago(revision.dateUpdated)}
-            </Box>
-          )}
-          {renderStatusCopy()}
         </Flex>
       </Flex>
     );
@@ -554,33 +528,90 @@ export default function FeaturesOverview({
   return (
     <>
       <Box className="contents container-fluid pagecontents">
-        <Heading mb="3" size="5" as="h2">
-          Overview
-        </Heading>
-
-        <Frame>
-          <div className="mh-350px" style={{ overflowY: "auto" }}>
-            <MarkdownInlineEdit
-              value={feature.description || ""}
-              save={async (description) => {
-                await apiCall(`/feature/${feature.id}`, {
-                  method: "PUT",
-                  body: JSON.stringify({
-                    description,
-                  }),
-                });
-                track("Update Feature Description");
-                mutate();
-              }}
-              canCreate={canEdit}
-              canEdit={canEdit}
-              label="description"
-              header="Description"
-              headerClassName="h4"
-              containerClassName="mb-1"
-            />
+        {/* Revision context header + action bar */}
+        {revision && (
+          <div className="appbox mt-2 mb-4 px-4 pt-3 pb-3">
+            <Flex align="center" justify="between" mb="2" wrap="wrap" gap="2">
+              <Flex align="center" gap="3">
+                <Flex align="center" gap="2">
+                  <Text weight="bold">Viewing Revision {revision.version}</Text>
+                  <RevisionStatusBadge
+                    revision={revision}
+                    liveVersion={feature.version}
+                  />
+                </Flex>
+                {drafts.length > 0 && isLocked && !isDraft && (
+                  <>
+                    <Separator orientation="vertical" />
+                    <Link onClick={() => setVersion(drafts[0].version)}>
+                      Switch to active draft
+                    </Link>
+                  </>
+                )}
+                {isDraft && !isLive && (
+                  <>
+                    <Separator orientation="vertical" />
+                    <Link onClick={() => setVersion(feature.version)}>
+                      See live revision
+                    </Link>
+                  </>
+                )}
+                {onCompareRevisions && (
+                  <>
+                    <Separator orientation="vertical" />
+                    <Link onClick={onCompareRevisions}>Compare revisions</Link>
+                  </>
+                )}
+              </Flex>
+              <Flex align="center" gap="2">
+                {revisionCTA}
+              </Flex>
+            </Flex>
+            <Separator size="4" my="3" />
+            {renderRevisionInfo()}
+            {isPendingReview ? (
+              <Callout status="warning" mt="2" mb="0">
+                You are viewing a <strong>draft</strong>. The changes below will
+                not go live until they are approved and published.
+              </Callout>
+            ) : isDraft ? (
+              <Callout status="warning" mt="2" mb="0">
+                You are viewing a <strong>draft</strong>. The changes below will
+                not go live until you review and publish them.
+              </Callout>
+            ) : isLocked && !isLive ? (
+              <Callout status="info" mt="2" mb="0">
+                This revision has been <strong>locked</strong>. It is no longer
+                live and cannot be modified.
+              </Callout>
+            ) : null}
           </div>
-        </Frame>
+        )}
+        <div className="appbox mt-2 mb-4 px-4 pt-3 pb-3">
+          <Flex align="center" justify="between" mb="2">
+            <Heading as="h4" size="3" mb="0">
+              Description
+            </Heading>
+            {canEdit && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowDescriptionModal(true)}
+              >
+                Edit
+              </Button>
+            )}
+          </Flex>
+          <div className="mh-350px" style={{ overflowY: "auto" }}>
+            {feature.description ? (
+              <Markdown className="card-text">{feature.description}</Markdown>
+            ) : (
+              <Box as="div" className="font-italic text-muted" py="2">
+                Add context about this feature for your team
+              </Box>
+            )}
+          </div>
+        </div>
         <Box>
           <CustomFieldDisplay
             target={feature}
@@ -649,9 +680,6 @@ export default function FeaturesOverview({
             </div>
           )}
         </Box>
-        <Heading size="4" as="h3" mt="4">
-          Enabled Environments
-        </Heading>
         <Frame mb="4">
           <Box>
             <div className="mb-2">
@@ -727,6 +755,7 @@ export default function FeaturesOverview({
                               mutate={mutate}
                               setVersion={setVersion}
                               id={`${env}_toggle`}
+                              isLocked={killSwitchIsLocked}
                             />
                           </Flex>
                         </td>
@@ -745,6 +774,7 @@ export default function FeaturesOverview({
                           mutate={mutate}
                           setVersion={setVersion}
                           setPrerequisiteModal={setPrerequisiteModal}
+                          isLocked={prereqIsLocked}
                         />
                       );
                     })}
@@ -797,6 +827,7 @@ export default function FeaturesOverview({
                         mutate={mutate}
                         setVersion={setVersion}
                         id={`${en.id}_toggle`}
+                        isLocked={killSwitchIsLocked}
                       />
                     </Flex>
                   ))
@@ -826,7 +857,7 @@ export default function FeaturesOverview({
               />
             )}
 
-            {canEdit && (
+            {canEdit && !prereqIsLocked && (
               <PremiumTooltip
                 commercialFeature="prerequisites"
                 className="d-inline-flex align-items-center mt-3"
@@ -977,185 +1008,85 @@ export default function FeaturesOverview({
 
         {revision && (
           <>
-            <Box>
-              <Heading as="h3" size="5" mb="3">
-                Rules &amp; Values
-              </Heading>
-              <Flex
-                gap="4"
-                align={{ initial: "center" }}
-                direction={{ initial: "column", xs: "row" }}
-                wrap="wrap"
-              >
-                <Flex
-                  align="center"
-                  justify="between"
-                  gapX="2"
-                  gapY="0"
-                  mr="5"
-                  width={{ initial: "98%", sm: "70%", md: "60%", lg: "50%" }}
-                >
-                  <Box width="100%">
-                    <RevisionDropdown
+            <Box className="appbox" mt="4" p="4" pl="6" pr="5">
+              <Flex align="center" justify="between">
+                <Heading as="h3" size="4" mb="3">
+                  Default Value
+                </Heading>
+                {canEdit && !isLocked && canEditDrafts && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEdit(true)}
+                  >
+                    Edit
+                  </Button>
+                )}
+              </Flex>
+              <Box mt="2" mb="1">
+                <Flex width="100%">
+                  <Box flexGrow="1">
+                    <ForceSummary
+                      value={getFeatureDefaultValue(feature)}
                       feature={feature}
-                      loading={loading}
-                      revisionLoading={revisionLoading}
-                      version={currentVersion}
-                      setVersion={setVersion}
-                      revisions={revisionList || []}
                     />
                   </Box>
-                  {copySuccess ? (
-                    <Button
-                      variant="ghost"
-                      icon={<PiCheck />}
-                      style={{ width: 100 }}
-                    >
-                      Link copied
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="ghost"
-                      icon={<PiLink />}
-                      style={{ width: 100 }}
-                      onClick={() => {
-                        const url =
-                          window.location.href.replace(/[?#].*/, "") +
-                          `?v=${version}`;
-                        performCopy(url);
-                      }}
-                    >
-                      Copy link
-                    </Button>
-                  )}
                 </Flex>
-                <Flex
-                  align={{ initial: "center", xs: "center", sm: "start" }}
-                  justify="end"
-                  direction={{ initial: "row", xs: "column", sm: "row" }}
-                  style={{ whiteSpace: "nowrap", marginLeft: "auto" }}
-                  gap="2"
-                >
-                  {(revisionList?.length ?? 0) >= 2 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setCompareRevisionsModalOpen(true)}
-                      icon={<PiArrowsLeftRightBold size={14} />}
-                    >
-                      Compare revisions
-                    </Button>
-                  )}
-                  {renderRevisionCTA()}
-                </Flex>
-              </Flex>
-            </Box>
-            <Box className="appbox nobg" mt="4" p="4">
-              {isPendingReview ? (
-                <Box>
-                  <Callout status="warning" mb="3">
-                    You are viewing a <strong>draft</strong>. The changes below
-                    will not go live until they are approved and published.
-                  </Callout>
-                </Box>
-              ) : isDraft ? (
-                <Box>
-                  <Callout status="warning" mb="3">
-                    You are viewing a <strong>draft</strong>. The changes below
-                    will not go live until you review and publish them.
-                  </Callout>
-                </Box>
-              ) : isLocked && !isLive ? (
-                <Box>
-                  <Callout status="info" mb="3">
-                    This revision has been <strong>locked</strong>. It is no
-                    longer live and cannot be modified.
-                  </Callout>
-                </Box>
-              ) : null}
-
-              {renderRevisionInfo()}
-
-              <Box className="appbox" mt="4" p="4" pl="6" pr="5">
-                <Flex align="center" justify="between">
-                  <Heading as="h3" size="4" mb="3">
-                    Default Value
-                  </Heading>
-                  {canEdit && !isLocked && canEditDrafts && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setEdit(true)}
-                    >
-                      Edit
-                    </Button>
-                  )}
-                </Flex>
-                <Box mt="2" mb="1">
-                  <Flex width="100%">
-                    <Box flexGrow="1">
-                      <ForceSummary
-                        value={getFeatureDefaultValue(feature)}
-                        feature={feature}
-                      />
-                    </Box>
-                  </Flex>
-                </Box>
               </Box>
-              <Box className="appbox" mt="4" p="5" px="6">
-                <Flex align="center" justify="between" mb="2">
-                  <Flex>
-                    <Heading as="h3" size="4" mb="0" mr="1">
-                      Rules
-                    </Heading>
-                    <Tooltip
-                      body="Add powerful logic on top of your feature. The first rule
+            </Box>
+            <Box className="appbox" mt="4" p="5" px="6">
+              <Flex align="center" justify="between" mb="2">
+                <Flex>
+                  <Heading as="h3" size="4" mb="0" mr="1">
+                    Rules
+                  </Heading>
+                  <Tooltip
+                    body="Add powerful logic on top of your feature. The first rule
                       that matches will be applied and override the Default
                       Value."
-                    />
-                  </Flex>
-                  <label className="font-weight-semibold">
-                    <Switch
-                      disabled={!hasInactiveRules}
-                      value={!hasInactiveRules ? false : !hideInactive}
-                      onChange={(state) => setHideInactive(!state)}
-                      label="Show inactive"
-                    />
-                  </label>
+                  />
                 </Flex>
-                {environments.length > 0 ? (
-                  <>
-                    {!hasRules && (
-                      <p>
-                        Add powerful logic on top of your feature. The first
-                        rule that matches will be applied and override the
-                        Default Value.
-                      </p>
-                    )}
+                <label className="font-weight-semibold">
+                  <Switch
+                    disabled={!hasInactiveRules}
+                    value={!hasInactiveRules ? false : !hideInactive}
+                    onChange={(state) => setHideInactive(!state)}
+                    label="Show inactive"
+                  />
+                </label>
+              </Flex>
+              {environments.length > 0 ? (
+                <>
+                  {!hasRules && (
+                    <p>
+                      Add powerful logic on top of your feature. The first rule
+                      that matches will be applied and override the Default
+                      Value.
+                    </p>
+                  )}
 
-                    <FeatureRules
-                      environments={environments}
-                      feature={feature}
-                      isLocked={isLocked}
-                      canEditDrafts={canEditDrafts}
-                      experimentsMap={experimentsMap}
-                      mutate={mutate}
-                      currentVersion={currentVersion}
-                      setVersion={setVersion}
-                      hideInactive={hideInactive}
-                      isDraft={isDraft}
-                      safeRolloutsMap={safeRolloutsMap}
-                      holdout={holdout}
-                    />
-                  </>
-                ) : (
-                  <p>
-                    You need at least one environment to add rules. Add powerful
-                    logic on top of your feature. The first rule that matches
-                    will be applied and override the Default Value.
-                  </p>
-                )}
-              </Box>
+                  <FeatureRules
+                    environments={environments}
+                    feature={feature}
+                    isLocked={isLocked}
+                    canEditDrafts={canEditDrafts}
+                    experimentsMap={experimentsMap}
+                    mutate={mutate}
+                    currentVersion={currentVersion}
+                    setVersion={setVersion}
+                    hideInactive={hideInactive}
+                    isDraft={isDraft}
+                    safeRolloutsMap={safeRolloutsMap}
+                    holdout={holdout}
+                  />
+                </>
+              ) : (
+                <p>
+                  You need at least one environment to add rules. Add powerful
+                  logic on top of your feature. The first rule that matches will
+                  be applied and override the Default Value.
+                </p>
+              )}
             </Box>
           </>
         )}
@@ -1170,6 +1101,15 @@ export default function FeaturesOverview({
         </div>
 
         {/* Modals */}
+
+        {showDescriptionModal && (
+          <EditFeatureDescriptionModal
+            close={() => setShowDescriptionModal(false)}
+            feature={feature}
+            revisionList={revisionList || []}
+            mutate={mutate}
+          />
+        )}
 
         {edit && (
           <EditDefaultValueModal

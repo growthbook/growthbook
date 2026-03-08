@@ -238,6 +238,7 @@ const minimalFeatureRevisionInterface = z
     dateUpdated: z.date(),
     createdBy: eventUser,
     status: revisionStatusSchema,
+    comment: z.string(),
   })
   .strict();
 
@@ -253,7 +254,7 @@ const revisionMetadataSchema = z.object({
   neverStale: z.boolean().optional(),
   customFields: z.record(z.string(), z.any()).optional(),
   jsonSchema: JSONSchemaDef.optional(),
-  valueType: z.enum(featureValueType).optional(),
+  // valueType is intentionally excluded: it is immutable after feature creation
 });
 
 export type RevisionMetadata = z.infer<typeof revisionMetadataSchema>;

@@ -1182,7 +1182,6 @@ export async function applyRevisionChanges(
     if (m.customFields !== undefined)
       changes.customFields = m.customFields as Record<string, unknown>;
     if (m.jsonSchema !== undefined) changes.jsonSchema = m.jsonSchema;
-    if (m.valueType !== undefined) changes.valueType = m.valueType;
     hasChanges = true;
   }
 

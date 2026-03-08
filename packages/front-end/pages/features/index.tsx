@@ -71,6 +71,11 @@ export default function FeaturesPage() {
   const { apiCall } = useAuth();
   const settings = useOrgSettings();
   const showConfirmation = !!settings?.killswitchConfirmation;
+  // When kill switches are approval-gated, disable the list toggles entirely.
+  // Users must go to the feature detail page to act on the active draft.
+  const killSwitchGatedOnList =
+    (settings?.featureKillSwitchBehavior ??
+      (settings?.killswitchConfirmation ? "warn" : "off")) === "gate";
 
   const showGraphs = useFeature("feature-list-realtime-graphs").on;
 
@@ -305,26 +310,42 @@ export default function FeaturesPage() {
                           {featureHasEnvironment(
                             feature as unknown as FeatureInterface,
                             en,
-                          ) && (
-                            <Switch
-                              id={`${feature.id}__${en.id}`}
-                              disabled={
-                                !permissionsUtil.canPublishFeature(
-                                  { project: feature.project },
-                                  [en.id],
-                                )
-                              }
-                              value={
-                                statusHook.environmentStatus[feature.id]?.[
-                                  en.id
-                                ] ?? false
-                              }
-                              onChange={(on) =>
-                                handleToggle(feature.id, en.id, on)
-                              }
-                              size="3"
-                            />
-                          )}
+                          ) && (() => {
+                            const noPermission = !permissionsUtil.canPublishFeature(
+                              { project: feature.project },
+                              [en.id],
+                            );
+                            const sw = (
+                              <Switch
+                                id={`${feature.id}__${en.id}`}
+                                disabled={noPermission || killSwitchGatedOnList}
+                                value={
+                                  statusHook.environmentStatus[feature.id]?.[
+                                    en.id
+                                  ] ?? false
+                                }
+                                onChange={(on) =>
+                                  handleToggle(feature.id, en.id, on)
+                                }
+                                size="3"
+                              />
+                            );
+                            if (killSwitchGatedOnList) {
+                              return (
+                                <Tooltip body="Open the feature to toggle this environment via a draft">
+                                  {sw}
+                                </Tooltip>
+                              );
+                            }
+                            if (noPermission) {
+                              return (
+                                <Tooltip body="You don't have permission to change features in this environment">
+                                  {sw}
+                                </Tooltip>
+                              );
+                            }
+                            return sw;
+                          })()}
                         </Flex>
                       </td>
                     ))}

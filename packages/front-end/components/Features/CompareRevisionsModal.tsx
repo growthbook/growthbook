@@ -70,7 +70,14 @@ export interface Props {
 function revisionToDiffInput(
   r: FeatureRevisionInterface,
 ): FeatureRevisionDiffInput {
-  return { defaultValue: r.defaultValue, rules: r.rules ?? {} };
+  return {
+    defaultValue: r.defaultValue,
+    rules: r.rules ?? {},
+    environmentsEnabled: r.environmentsEnabled,
+    envPrerequisites: r.envPrerequisites,
+    prerequisites: r.prerequisites,
+    metadata: r.metadata,
+  };
 }
 
 function RevisionCompareLabel({
@@ -268,105 +275,7 @@ function RevisionCommentSection({
   );
 }
 
-function RevisionLogSection({
-  featureId,
-  version,
-  fallbackBadges,
-}: {
-  featureId: string;
-  version: number;
-  fallbackBadges?: DiffBadge[];
-}) {
-  const { data } = useApi<{ log: RevisionLog[] }>(
-    `/feature/${featureId}/${version}/log`,
-  );
 
-  const dedupedEntries = useMemo(() => {
-    if (!data?.log) return null; // null = still loading
-    const filtered = data.log.filter((e) => e.action !== "new revision");
-    // Deduplicate by label — track the first representative entry per label
-    // so the badge colour reflects the action, plus a count for repeats.
-    const seen = new Map<string, { action: string; count: number }>();
-    for (const e of filtered) {
-      const label =
-        e.action.charAt(0).toUpperCase() +
-        e.action.slice(1) +
-        (e.subject ? ` ${e.subject}` : "");
-      const existing = seen.get(label);
-      if (existing) {
-        existing.count += 1;
-      } else {
-        seen.set(label, { action: e.action, count: 1 });
-      }
-    }
-    return Array.from(seen.entries()).map(([label, { action, count }]) => ({
-      label,
-      action,
-      count,
-    }));
-  }, [data]);
-
-  // Still loading
-  if (dedupedEntries === null) return null;
-
-  // Log has entries — show them
-  if (dedupedEntries.length > 0) {
-    return (
-      <Flex wrap="wrap" gap="2">
-        {dedupedEntries.map(({ label, action, count }) => (
-          <Badge
-            key={label}
-            color={logBadgeColor(action)}
-            variant="soft"
-            label={count > 1 ? `${label} ×${count}` : label}
-          />
-        ))}
-      </Flex>
-    );
-  }
-
-  // Log empty — fall back to diff-derived badges if provided
-  if (fallbackBadges?.length) {
-    return (
-      <Flex wrap="wrap" gap="2">
-        {fallbackBadges.map(({ label, action }) => (
-          <Badge
-            key={label}
-            color={logBadgeColor(action)}
-            variant="soft"
-            label={label}
-          />
-        ))}
-      </Flex>
-    );
-  }
-
-  return null;
-}
-
-function RevisionLogSummary({
-  featureId,
-  versions,
-  fallbackBadges,
-}: {
-  featureId: string;
-  versions: number[];
-  fallbackBadges?: DiffBadge[];
-}) {
-  if (versions.length === 0) return null;
-  return (
-    <Flex direction="column" gap="3" mb="3">
-      {versions.map((v) => (
-        <RevisionLogSection
-          key={v}
-          featureId={featureId}
-          version={v}
-          fallbackBadges={fallbackBadges}
-        />
-      ))}
-    </Flex>
-  );
-}
 
 export default function CompareRevisionsModal({
   feature,
@@ -1239,15 +1148,6 @@ export default function CompareRevisionsModal({
               ) : (
                 <>
                   {(() => {
-                    // Versions whose log badges describe what is currently diffed.
-                    // Steps mode: only the newer revision (B) represents the A→B delta.
-                    // Single mode: all selected revisions, newest first.
-                    const badgeVersions =
-                      diffViewMode === "steps" && currentStep
-                        ? [currentStep[1]]
-                        : diffViewMode === "single"
-                          ? [...selectedSorted].reverse()
-                          : [];
                     // Versions whose comments are surfaced. Include both fenceposts.
                     const commentVersions =
                       diffViewMode === "steps" && currentStep
@@ -1268,9 +1168,8 @@ export default function CompareRevisionsModal({
                       (d) => d.customRender,
                     );
 
-                    // Diff-derived badges used as fallback when the revision log
-                    // has no actionable entries (e.g. rules added via the
-                    // "connect experiment" flow only write a "new revision" entry).
+                    // Diff-derived badges: always reflect the actual delta between
+                    // the two selected revisions, not the full revision log history.
                     const diffFallbackBadges =
                       badgesFromDiffs(diffsWithChanges);
 
@@ -1284,7 +1183,7 @@ export default function CompareRevisionsModal({
                     };
 
                     const hasSummary =
-                      badgeVersions.length > 0 || withRender.length > 0;
+                      diffFallbackBadges.length > 0 || withRender.length > 0;
 
                     return (
                       <>
@@ -1304,15 +1203,18 @@ export default function CompareRevisionsModal({
                               Summary of changes
                             </Heading>
 
-                            {/* Log action badges (with diff-derived fallback) */}
-                            {badgeVersions.length > 0 && (
-                              <Box mt="2" mb="2">
-                                <RevisionLogSummary
-                                  featureId={feature.id}
-                                  versions={badgeVersions}
-                                  fallbackBadges={diffFallbackBadges}
-                                />
-                              </Box>
+                            {/* Diff-derived change badges */}
+                            {diffFallbackBadges.length > 0 && (
+                              <Flex wrap="wrap" gap="2" mt="2" mb="2">
+                                {diffFallbackBadges.map(({ label, action }) => (
+                                  <Badge
+                                    key={label}
+                                    color={logBadgeColor(action)}
+                                    variant="soft"
+                                    label={label}
+                                  />
+                                ))}
+                              </Flex>
                             )}
 
                             {/* Human-readable section renders */}

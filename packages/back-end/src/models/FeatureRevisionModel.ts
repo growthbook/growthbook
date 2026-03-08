@@ -122,7 +122,7 @@ export async function getMinimalRevisions(
     organization,
     featureId,
   })
-    .select("version datePublished dateUpdated createdBy status")
+    .select("version datePublished dateUpdated createdBy status comment")
     .sort({ version: -1 })
     .limit(200);
 
@@ -132,6 +132,7 @@ export async function getMinimalRevisions(
     dateUpdated: m.dateUpdated,
     createdBy: m.createdBy,
     status: m.status,
+    comment: m.comment || "",
   }));
 }
 

@@ -14,6 +14,8 @@ export interface Props {
   mutate: () => Promise<unknown>;
   setVersion: (version: number) => void;
   id?: string;
+  /** When true and kill switches are gated, the toggle is disabled with a tooltip. */
+  isLocked?: boolean;
 }
 
 export default function EnvironmentToggle({
@@ -22,6 +24,7 @@ export default function EnvironmentToggle({
   mutate,
   setVersion,
   id = "",
+  isLocked = false,
 }: Props) {
   const [toggling, setToggling] = useState(false);
 
@@ -77,11 +80,14 @@ export default function EnvironmentToggle({
   };
 
   const isDisabled = !permissionsUtil.canPublishFeature(feature, [environment]);
+  // When kill switches are gated and we're viewing a locked (non-active-draft)
+  // revision, the toggle must be made on the active draft instead.
+  const isGatedAndLocked = killSwitchBehavior === "gate" && isLocked;
 
   const switchElement = (
     <Switch
       id={id}
-      disabled={isDisabled}
+      disabled={isDisabled || isGatedAndLocked}
       value={env?.enabled ?? false}
       onChange={async (on) => {
         if (toggling) return;
@@ -118,7 +124,11 @@ export default function EnvironmentToggle({
         </Modal>
       ) : null}
 
-      {isDisabled ? (
+      {isGatedAndLocked ? (
+        <Tooltip content="Switch to the active draft to toggle this environment">
+          {switchElement}
+        </Tooltip>
+      ) : isDisabled ? (
         <Tooltip content="You don't have permission to change features in this environment">
           {switchElement}
         </Tooltip>

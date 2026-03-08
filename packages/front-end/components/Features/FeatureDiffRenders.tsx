@@ -25,10 +25,12 @@ import {
   GenericFieldChange,
   renderFallback,
   ProjectName,
+  OwnerName,
 } from "@/components/AuditHistoryExplorer/DiffRenderUtils";
 import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
 import styles from "./FeatureDiffRenders.module.scss";
+import SortedTags from "@/components/Tags/SortedTags";
 
 // Resolves an experiment ID to its display name and renders it as a link.
 // Falls back to the raw ID if not found in the local SWR cache.
@@ -1101,6 +1103,144 @@ export function getFeatureRulesBadges(
   });
 }
 
+// ─── Prerequisite diff helpers ───────────────────────────────────────────────
+
+function analyzePrerequisiteChanges(
+  pre: FeaturePrerequisite[],
+  post: FeaturePrerequisite[],
+) {
+  const preById = new Map(pre.map((p) => [p.id, p]));
+  const postById = new Map(post.map((p) => [p.id, p]));
+  const added = post.filter((p) => !preById.has(p.id));
+  const removed = pre.filter((p) => !postById.has(p.id));
+  const modified = post.filter(
+    (p) => preById.has(p.id) && !isEqual(preById.get(p.id), p),
+  );
+  return { added, removed, modified };
+}
+
+function normPrereqsForDisplay(arr: FeaturePrerequisite[]) {
+  return arr.map((p) => ({
+    id: p.id,
+    condition: toConditionString(p.condition) ?? "{}",
+  }));
+}
+
+export function prerequisiteChangeBadges(
+  pre: FeaturePrerequisite[],
+  post: FeaturePrerequisite[],
+  label = "prerequisite",
+): DiffBadge[] {
+  const { added, removed, modified } = analyzePrerequisiteChanges(pre, post);
+  const badges: DiffBadge[] = [];
+  if (added.length)
+    badges.push({
+      label: `Add ${label}${added.length > 1 ? ` ×${added.length}` : ""}`,
+      action: "add prerequisite",
+    });
+  if (removed.length)
+    badges.push({
+      label: `Remove ${label}${removed.length > 1 ? ` ×${removed.length}` : ""}`,
+      action: "delete prerequisite",
+    });
+  if (modified.length)
+    badges.push({
+      label: `Edit ${label}${modified.length > 1 ? ` ×${modified.length}` : ""}`,
+      action: "edit prerequisite",
+    });
+  return badges;
+}
+
+function renderPrerequisiteList(
+  pre: FeaturePrerequisite[],
+  post: FeaturePrerequisite[],
+): ReactNode {
+  const { added, removed, modified } = analyzePrerequisiteChanges(pre, post);
+  const preById = new Map(pre.map((p) => [p.id, p]));
+
+  if (!added.length && !removed.length && !modified.length) return null;
+
+  const sections: ReactNode[] = [];
+
+  if (added.length > 0) {
+    sections.push(
+      <div key="added" className="mb-3">
+        {added.map((p) => (
+          <div key={p.id} className="mb-2">
+            <Text size="medium" weight="medium" color="text-mid" as="div" mb="1">
+              Added <Text weight="semibold" color="text-high">{p.id}</Text>
+            </Text>
+            <ConditionDisplay prerequisites={normPrereqsForDisplay([p])} />
+          </div>
+        ))}
+      </div>,
+    );
+  }
+
+  if (removed.length > 0) {
+    sections.push(
+      <div key="removed" className="mb-3">
+        {removed.map((p) => (
+          <div key={p.id} className="mb-1">
+            <Text size="medium" weight="medium" color="text-mid" as="div">
+              Removed <Text weight="semibold" color="text-high">{p.id}</Text>
+            </Text>
+          </div>
+        ))}
+      </div>,
+    );
+  }
+
+  if (modified.length > 0) {
+    sections.push(
+      <div key="modified" className="mb-2">
+        {modified.map((p) => {
+          const prev = preById.get(p.id)!;
+          return (
+            <div key={p.id} className="mb-3">
+              <Text size="medium" weight="medium" color="text-mid" as="div" mb="1">
+                Modified <Text weight="semibold" color="text-high">{p.id}</Text>
+              </Text>
+              <ChangeField
+                label="Condition"
+                changed
+                oldNode={<ConditionDisplay prerequisites={normPrereqsForDisplay([prev])} />}
+                newNode={<ConditionDisplay prerequisites={normPrereqsForDisplay([p])} />}
+              />
+            </div>
+          );
+        })}
+      </div>,
+    );
+  }
+
+  return sections.length ? <div className="mt-1">{sections}</div> : null;
+}
+
+export function renderEnvPrerequisites(
+  envId: string,
+  current: FeaturePrerequisite[],
+  draft: FeaturePrerequisite[],
+): ReactNode {
+  const result = renderPrerequisiteList(current, draft);
+  if (!result) return null;
+  return (
+    <div>
+      <Text size="small" color="text-low" as="div" mb="2">
+        {envId}
+      </Text>
+      {result}
+    </div>
+  );
+}
+
+export function renderPrerequisites(
+  current: FeaturePrerequisite[],
+  draft: FeaturePrerequisite[],
+): ReactNode {
+  return renderPrerequisiteList(current, draft);
+}
+
 export function renderEnvironmentsEnabled(
   envId: string,
   current: boolean | undefined,
@@ -1113,57 +1253,6 @@ export function renderEnvironmentsEnabled(
       post={draft !== undefined ? String(draft) : null}
     />
   );
-}
-
-export function renderEnvPrerequisites(
-  envId: string,
-  current: FeaturePrerequisite[],
-  draft: FeaturePrerequisite[],
-): ReactNode {
-  const rows: ReactNode[] = [];
-  const allIds = [
-    ...new Set([...current.map((p) => p.id), ...draft.map((p) => p.id)]),
-  ];
-  allIds.forEach((id) => {
-    const pre = current.find((p) => p.id === id);
-    const post = draft.find((p) => p.id === id);
-    if (!isEqual(pre, post)) {
-      rows.push(
-        <ValueChangedField
-          key={id}
-          label={`Prerequisite: ${id} (${envId})`}
-          pre={pre ? JSON.stringify(pre, null, 2) : null}
-          post={post ? JSON.stringify(post, null, 2) : null}
-        />,
-      );
-    }
-  });
-  return rows.length ? <div>{rows}</div> : null;
-}
-
-export function renderPrerequisites(
-  current: FeaturePrerequisite[],
-  draft: FeaturePrerequisite[],
-): ReactNode {
-  const rows: ReactNode[] = [];
-  const allIds = [
-    ...new Set([...current.map((p) => p.id), ...draft.map((p) => p.id)]),
-  ];
-  allIds.forEach((id) => {
-    const pre = current.find((p) => p.id === id);
-    const post = draft.find((p) => p.id === id);
-    if (!isEqual(pre, post)) {
-      rows.push(
-        <ValueChangedField
-          key={id}
-          label={`Prerequisite: ${id}`}
-          pre={pre ? JSON.stringify(pre, null, 2) : null}
-          post={post ? JSON.stringify(post, null, 2) : null}
-        />,
-      );
-    }
-  });
-  return rows.length ? <div>{rows}</div> : null;
 }
 
 export function renderRevisionMetadata(
@@ -1196,17 +1285,51 @@ export function renderRevisionMetadata(
     current?.description,
     draft.description,
   );
-  stringField("owner", "Owner", current?.owner, draft.owner);
-  stringField("project", "Project", current?.project, draft.project);
-  stringField("valueType", "Value Type", current?.valueType, draft.valueType);
+
+  if (!isEqual(current?.owner, draft.owner) && draft.owner !== undefined) {
+    rows.push(
+      <ChangeField
+        key="owner"
+        label="Owner"
+        changed
+        oldNode={current?.owner ? <OwnerName id={current.owner} /> : <em>unset</em>}
+        newNode={draft.owner ? <OwnerName id={draft.owner} /> : <em>unset</em>}
+      />,
+    );
+  }
+
+  if (!isEqual(current?.project, draft.project) && draft.project !== undefined) {
+    rows.push(
+      <ChangeField
+        key="project"
+        label="Project"
+        changed
+        oldNode={current?.project ? <ProjectName id={current.project} /> : <em>unset</em>}
+        newNode={draft.project ? <ProjectName id={draft.project} /> : <em>unset</em>}
+      />,
+    );
+  }
 
   if (!isEqual(current?.tags, draft.tags) && draft.tags !== undefined) {
     rows.push(
-      <ValueChangedField
+      <ChangeField
         key="tags"
         label="Tags"
-        pre={current?.tags?.join(", ") ?? null}
-        post={draft.tags?.join(", ") ?? null}
+        changed
+        oldNode={
+          current?.tags?.length ? (
+            <SortedTags tags={current.tags} useFlex shouldShowEllipsis={false} />
+          ) : (
+            <em>unset</em>
+          )
+        }
+        newNode={
+          draft.tags?.length ? (
+            <SortedTags tags={draft.tags} useFlex shouldShowEllipsis={false} />
+          ) : (
+            <em>unset</em>
+          )
+        }
       />,
     );
   }

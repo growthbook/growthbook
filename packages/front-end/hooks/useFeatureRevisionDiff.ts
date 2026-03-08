@@ -12,6 +12,7 @@ import {
   renderEnvPrerequisites,
   renderPrerequisites,
   renderRevisionMetadata,
+  prerequisiteChangeBadges,
 } from "@/components/Features/FeatureDiffRenders";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
 
@@ -49,7 +50,8 @@ export const featureToFeatureRevisionDiffInput = (
       neverStale: feature.neverStale,
       customFields: feature.customFields,
       jsonSchema: feature.jsonSchema,
-      valueType: feature.valueType,
+      // valueType is intentionally excluded: it is immutable after feature creation
+      // and is never written into a revision metadata envelope.
     },
   };
 };
@@ -99,8 +101,93 @@ export function useFeatureRevisionDiff({
   return useMemo(() => {
     const diffs: FeatureRevisionDiff[] = [];
 
-    // Compare default values using semantic equality (parsed) so we don't show
-    // a diff when only formatting/whitespace differs (e.g. "true" vs "true ").
+    // 1. Settings (metadata)
+    if (draft.metadata) {
+      const metadataRender = renderRevisionMetadata(
+        current.metadata,
+        draft.metadata,
+      );
+      if (metadataRender) {
+        const metaBadges: DiffBadge[] = [];
+        const pre = current.metadata;
+        const post = draft.metadata;
+        if (!isEqual(pre?.description, post.description) && post.description !== undefined)
+          metaBadges.push({ label: "Edit description", action: "edit description" });
+        if (!isEqual(pre?.owner, post.owner) && post.owner !== undefined)
+          metaBadges.push({ label: "Edit owner", action: "edit owner" });
+        if (!isEqual(pre?.project, post.project) && post.project !== undefined)
+          metaBadges.push({ label: "Edit project", action: "edit project" });
+        if (!isEqual(pre?.tags, post.tags) && post.tags !== undefined)
+          metaBadges.push({ label: "Edit tags", action: "edit tags" });
+        if (!isEqual(pre?.neverStale, post.neverStale) && post.neverStale !== undefined)
+          metaBadges.push({ label: "Edit stale setting", action: "edit stale setting" });
+        if (!isEqual(pre?.customFields, post.customFields) && post.customFields !== undefined)
+          metaBadges.push({ label: "Edit custom fields", action: "edit custom fields" });
+        if (!isEqual(pre?.jsonSchema, post.jsonSchema) && post.jsonSchema !== undefined)
+          metaBadges.push({ label: "Edit JSON schema", action: "edit json schema" });
+        diffs.push({
+          title: "Feature Settings",
+          a: JSON.stringify(current.metadata, null, 2),
+          b: JSON.stringify(draft.metadata, null, 2),
+          customRender: metadataRender,
+          badges: metaBadges.length > 0 ? metaBadges : [{ label: "Edit settings", action: "edit settings" }],
+        });
+      }
+    }
+
+    // 2. Environment toggles (kill switches)
+    const draftEnabledEnvs = Object.keys(draft.environmentsEnabled || {});
+    draftEnabledEnvs.forEach((envId) => {
+      const currentVal = current.environmentsEnabled?.[envId];
+      const draftVal = draft.environmentsEnabled?.[envId];
+      if (currentVal !== draftVal) {
+        diffs.push({
+          title: `Environment Toggle - ${envId}`,
+          a: currentVal !== undefined ? String(currentVal) : "",
+          b: draftVal !== undefined ? String(draftVal) : "",
+          customRender: renderEnvironmentsEnabled(envId, currentVal, draftVal),
+          badges: [
+            { label: "Toggle environment", action: "toggle environment" },
+          ],
+        });
+      }
+    });
+
+    // 3. Prerequisites (env-level then feature-level)
+    const draftEnvPrereqEnvs = Object.keys(draft.envPrerequisites || {});
+    draftEnvPrereqEnvs.forEach((envId) => {
+      const currentPrereqs = current.envPrerequisites?.[envId] || [];
+      const draftPrereqs = draft.envPrerequisites?.[envId] || [];
+      if (!isEqual(currentPrereqs, draftPrereqs)) {
+        diffs.push({
+          title: `Prerequisites - ${envId}`,
+          a: JSON.stringify(currentPrereqs, null, 2),
+          b: JSON.stringify(draftPrereqs, null, 2),
+          customRender: renderEnvPrerequisites(
+            envId,
+            currentPrereqs,
+            draftPrereqs,
+          ),
+          badges: prerequisiteChangeBadges(currentPrereqs, draftPrereqs, "env prerequisite"),
+        });
+      }
+    });
+
+    if (draft.prerequisites !== undefined) {
+      const currentPrereqs = current.prerequisites || [];
+      const draftPrereqs = draft.prerequisites;
+      if (!isEqual(currentPrereqs, draftPrereqs)) {
+        diffs.push({
+          title: "Feature Prerequisites",
+          a: JSON.stringify(currentPrereqs, null, 2),
+          b: JSON.stringify(draftPrereqs, null, 2),
+          customRender: renderPrerequisites(currentPrereqs, draftPrereqs),
+          badges: prerequisiteChangeBadges(currentPrereqs, draftPrereqs, "prerequisite"),
+        });
+      }
+    }
+
+    // 4. Default value
     const currentDefault = current.defaultValue ?? "";
     const draftDefault = draft.defaultValue ?? "";
     const aValue = parseDefaultValue(currentDefault);
@@ -120,11 +207,8 @@ export function useFeatureRevisionDiff({
       });
     }
 
-    // Only iterate over environments present in draft
-    // (environments not in draft weren't modified and shouldn't show a diff)
+    // 5. Rules (per environment)
     const draftEnvironments = Object.keys(draft.rules || {});
-
-    // Compare rules per environment
     draftEnvironments.forEach((envId) => {
       const currentRules = current.rules?.[envId] || [];
       const draftRules = draft.rules?.[envId] || [];
@@ -139,83 +223,6 @@ export function useFeatureRevisionDiff({
         });
       }
     });
-
-    // environmentsEnabled: only check envs present in draft
-    const draftEnabledEnvs = Object.keys(draft.environmentsEnabled || {});
-    draftEnabledEnvs.forEach((envId) => {
-      const currentVal = current.environmentsEnabled?.[envId];
-      const draftVal = draft.environmentsEnabled?.[envId];
-      if (currentVal !== draftVal) {
-        diffs.push({
-          title: `Environment Toggle - ${envId}`,
-          a: currentVal !== undefined ? String(currentVal) : "",
-          b: draftVal !== undefined ? String(draftVal) : "",
-          customRender: renderEnvironmentsEnabled(envId, currentVal, draftVal),
-          badges: [
-            { label: "Toggle environment", action: "toggle environment" },
-          ],
-        });
-      }
-    });
-
-    // envPrerequisites: only check envs present in draft
-    const draftEnvPrereqEnvs = Object.keys(draft.envPrerequisites || {});
-    draftEnvPrereqEnvs.forEach((envId) => {
-      const currentPrereqs = current.envPrerequisites?.[envId] || [];
-      const draftPrereqs = draft.envPrerequisites?.[envId] || [];
-      if (!isEqual(currentPrereqs, draftPrereqs)) {
-        diffs.push({
-          title: `Prerequisites - ${envId}`,
-          a: JSON.stringify(currentPrereqs, null, 2),
-          b: JSON.stringify(draftPrereqs, null, 2),
-          customRender: renderEnvPrerequisites(
-            envId,
-            currentPrereqs,
-            draftPrereqs,
-          ),
-          badges: [
-            {
-              label: "Edit env prerequisites",
-              action: "edit env prerequisites",
-            },
-          ],
-        });
-      }
-    });
-
-    // prerequisites (feature-level)
-    if (draft.prerequisites !== undefined) {
-      const currentPrereqs = current.prerequisites || [];
-      const draftPrereqs = draft.prerequisites;
-      if (!isEqual(currentPrereqs, draftPrereqs)) {
-        diffs.push({
-          title: "Feature Prerequisites",
-          a: JSON.stringify(currentPrereqs, null, 2),
-          b: JSON.stringify(draftPrereqs, null, 2),
-          customRender: renderPrerequisites(currentPrereqs, draftPrereqs),
-          badges: [
-            { label: "Edit prerequisites", action: "edit prerequisites" },
-          ],
-        });
-      }
-    }
-
-    // metadata: compare each field present in draft.metadata
-    if (draft.metadata) {
-      const metadataRender = renderRevisionMetadata(
-        current.metadata,
-        draft.metadata,
-      );
-      if (metadataRender) {
-        diffs.push({
-          title: "Feature Settings",
-          a: JSON.stringify(current.metadata, null, 2),
-          b: JSON.stringify(draft.metadata, null, 2),
-          customRender: metadataRender,
-          badges: [{ label: "Edit settings", action: "edit settings" }],
-        });
-      }
-    }
 
     return diffs;
   }, [current, draft]);
