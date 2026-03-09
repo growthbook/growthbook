@@ -11,14 +11,15 @@ import { useAuth } from "@/services/auth";
 import Link from "@/ui/Link";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import Modal from "@/components/Modal";
-import Callout from "@/ui/Callout";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import DraftRevisionCallout from "@/components/Features/DraftRevisionCallout";
 
 interface Props {
   close: () => void;
   feature: FeatureInterface;
   revisionList: MinimalFeatureRevisionInterface[];
   mutate: () => void;
+  setVersion?: (v: number) => void;
 }
 
 export default function EditFeatureDescriptionModal({
@@ -26,6 +27,7 @@ export default function EditFeatureDescriptionModal({
   feature,
   revisionList,
   mutate,
+  setVersion,
 }: Props) {
   const { apiCall } = useAuth();
   const settings = useOrgSettings();
@@ -66,29 +68,23 @@ export default function EditFeatureDescriptionModal({
       size="lg"
       close={close}
       submit={form.handleSubmit(async ({ description }) => {
-        await apiCall(`/feature/${feature.id}`, {
-          method: "PUT",
-          body: JSON.stringify({ description }),
-        });
+        const res = await apiCall<{ draftVersion?: number }>(
+          `/feature/${feature.id}`,
+          {
+            method: "PUT",
+            body: JSON.stringify({ description }),
+          },
+        );
         mutate();
+        if (res?.draftVersion && setVersion) {
+          setVersion(res.draftVersion);
+        }
       })}
       cta={metadataReviewRequired ? "Save to Draft" : "Save"}
       useRadixButton={true}
     >
       {metadataReviewRequired && (
-        <Box mb="4">
-          {activeDraft ? (
-            <Callout status="info">
-              Changes will be added to{" "}
-              <strong>Revision {activeDraft.version}</strong> (
-              {activeDraft.status}).
-            </Callout>
-          ) : (
-            <Callout status="info">
-              A new draft revision will be created for these changes.
-            </Callout>
-          )}
-        </Box>
+        <DraftRevisionCallout activeDraft={activeDraft} />
       )}
       <Flex align="center" wrap="wrap" width="auto" mb="2">
         <Box as="div">

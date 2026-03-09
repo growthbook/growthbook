@@ -6,6 +6,7 @@ import {
   SafeRolloutInterface,
   HoldoutInterface,
 } from "shared/validators";
+import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
 import { Box, Container, Flex, Text } from "@radix-ui/themes";
 import clsx from "clsx";
@@ -40,6 +41,7 @@ export default function FeatureRules({
   isDraft,
   safeRolloutsMap,
   holdout,
+  revisionList,
 }: {
   environments: Environment[];
   feature: FeatureInterface;
@@ -53,6 +55,7 @@ export default function FeatureRules({
   isDraft: boolean;
   safeRolloutsMap: Map<string, SafeRolloutInterface>;
   holdout: HoldoutInterface | undefined;
+  revisionList: MinimalFeatureRevisionInterface[];
 }) {
   const { hasCommercialFeature } = useUser();
   const envs = environments.map((e) => e.id);
@@ -304,6 +307,7 @@ export default function FeatureRules({
           version={currentVersion}
           setVersion={setVersion}
           mode={ruleModal.mode}
+          revisionList={revisionList}
         />
       )}
       {copyRuleModal !== null && (

@@ -12,6 +12,7 @@ import {
   filterEnvironmentsByFeature,
   generateVariationId,
   isProjectListValidForProject,
+  getReviewSetting,
 } from "shared/util";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { PiCaretRight } from "react-icons/pi";
@@ -23,11 +24,13 @@ import {
   CreateSafeRolloutInterface,
   SafeRolloutInterface,
   SafeRolloutRule,
+  ACTIVE_DRAFT_STATUSES,
 } from "shared/validators";
 import {
   PostFeatureRuleBody,
   PutFeatureRuleBody,
 } from "shared/types/feature-rule";
+import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   NewExperimentRefRule,
   getDefaultRuleValue,
@@ -61,6 +64,7 @@ import BanditRefFields from "@/components/Features/RuleModal/BanditRefFields";
 import BanditRefNewFields from "@/components/Features/RuleModal/BanditRefNewFields";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import HelperText from "@/ui/HelperText";
+import DraftRevisionCallout from "@/components/Features/DraftRevisionCallout";
 import { useTemplates } from "@/hooks/useTemplates";
 import { useBatchPrerequisiteStates } from "@/hooks/usePrerequisiteStates";
 import SafeRolloutFields from "@/components/Features/RuleModal/SafeRolloutFields";
@@ -77,6 +81,7 @@ export interface Props {
   defaultType?: string;
   mode: "create" | "edit" | "duplicate";
   safeRolloutsMap?: Map<string, SafeRolloutInterface>;
+  revisionList?: MinimalFeatureRevisionInterface[];
 }
 
 type RadioSelectorRuleType =
@@ -109,6 +114,7 @@ export default function RuleModal({
   setVersion,
   mode,
   safeRolloutsMap,
+  revisionList = [],
 }: Props) {
   const growthbook = useGrowthBook<AppFeatures>();
   const { hasCommercialFeature, organization } = useUser();
@@ -135,6 +141,25 @@ export default function RuleModal({
 
   const settings = useOrgSettings();
   const { settings: scopedSettings } = getScopedSettings({ organization });
+
+  const activeDraft = useMemo(
+    () =>
+      revisionList
+        .filter((r) =>
+          (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status),
+        )
+        .sort((a, b) => b.version - a.version)[0] ?? null,
+    [revisionList],
+  );
+
+  const requiresApproval = useMemo(() => {
+    const requireReviewSettings = settings?.requireReviews;
+    if (!requireReviewSettings || typeof requireReviewSettings === "boolean") {
+      return !!requireReviewSettings;
+    }
+    const reviewSetting = getReviewSetting(requireReviewSettings, feature);
+    return !!reviewSetting?.requireReviewOn;
+  }, [settings?.requireReviews, feature]);
 
   const isSafeRolloutRampUpEnabled = growthbook.isOn("safe-rollout-ramp-up");
   const isSafeRolloutAutoRollbackEnabled = growthbook.isOn(
@@ -747,10 +772,13 @@ export default function RuleModal({
         }
         ctaEnabled={!!overviewRuleType && selectedEnvironments.length > 0}
         header={`New Rule`}
-        subHeader="You will have a chance to review new rules as a draft before publishing changes."
         submit={submitOverview}
         autoCloseOnSubmit={false}
       >
+        <DraftRevisionCallout
+          activeDraft={activeDraft}
+          requiresApproval={requiresApproval}
+        />
         <div className="bg-highlight rounded p-3 mb-3">
           <Text size="4" weight="bold" as="div" mb="4">
             Select Implementation
@@ -977,7 +1005,7 @@ export default function RuleModal({
         trackingEventModalType={trackingEventModalType}
         close={close}
         size="lg"
-        cta="Save"
+        cta="Save to Draft"
         ctaEnabled={newRuleOverviewPage ? ruleType !== undefined : canSubmit}
         header={headerText}
         docSection={
@@ -993,6 +1021,12 @@ export default function RuleModal({
           mode === "create" ? () => setNewRuleOverviewPage(true) : undefined
         }
         submit={submit}
+        bodyPrefix={
+          <DraftRevisionCallout
+            activeDraft={activeDraft}
+            requiresApproval={requiresApproval}
+          />
+        }
       >
         {ruleType === "force" && (
           <ForceValueFields

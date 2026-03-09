@@ -1373,7 +1373,7 @@ export function checkIfRevisionNeedsReview({
   if (!requireReviews || typeof requireReviews !== "object") return false;
 
   const reviewSetting = getReviewSetting(requireReviews, feature);
-  if (!reviewSetting) return false;
+  if (!reviewSetting || !reviewSetting.requireReviewOn) return false;
 
   // Kill switches (environmentsEnabled) and prerequisites share a single gate
   if (reviewSetting.featureRequireEnvironmentReview) {

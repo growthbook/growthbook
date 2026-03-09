@@ -1,9 +1,11 @@
 import React, { FC, useState } from "react";
+import { PiShieldCheckBold } from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useForm } from "react-hook-form";
 import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
 import { FeatureInterface } from "shared/types/feature";
 import { Box, Flex, Heading } from "@radix-ui/themes";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -16,7 +18,7 @@ import Modal from "@/components/Modal";
 import DataList, { DataListItem } from "@/ui/DataList";
 import Button from "@/ui/Button";
 import Frame from "@/ui/Frame";
-import Callout from "@/ui/Callout";
+import DraftRevisionCallout from "@/components/Features/DraftRevisionCallout";
 import CustomFieldInput from "./CustomFieldInput";
 
 /** Optional draft-mode context for feature metadata approval flows. */
@@ -170,19 +172,7 @@ const CustomFieldDisplay: FC<{
           useRadixButton={!!draftInfo}
         >
           {draftInfo && (
-            <Box mb="4">
-              {draftInfo.activeDraft ? (
-                <Callout status="info">
-                  Changes will be added to{" "}
-                  <strong>Revision {draftInfo.activeDraft.version}</strong> (
-                  {draftInfo.activeDraft.status}).
-                </Callout>
-              ) : (
-                <Callout status="info">
-                  A new draft revision will be created for these changes.
-                </Callout>
-              )}
-            </Box>
+            <DraftRevisionCallout activeDraft={draftInfo.activeDraft} />
           )}
           {hasCustomFieldAccess ? (
             <CustomFieldInput
@@ -207,9 +197,27 @@ const CustomFieldDisplay: FC<{
         (section === "feature" ? (
           <>
             <Flex justify="between" align="center" mt={mt}>
-              <Heading as="h3" size="4">
-                {label ? label : ""}
-              </Heading>
+              <Flex align="center" gap="1">
+                <Heading as="h3" size="4" mb="0">
+                  {label ? label : ""}
+                </Heading>
+                {draftInfo && (
+                  <Tooltip
+                    body="Changes to this section create a draft revision that requires approval before going live."
+                    tipMinWidth="180px"
+                  >
+                    <span
+                      style={{
+                        color: "var(--violet-9)",
+                        lineHeight: 1,
+                        display: "flex",
+                      }}
+                    >
+                      <PiShieldCheckBold size={16} />
+                    </span>
+                  </Tooltip>
+                )}
+              </Flex>
               <div className="flex-1" />
               {canEdit && hasCustomFieldAccess && (
                 <Button variant="ghost" onClick={() => setEditModal(true)}>

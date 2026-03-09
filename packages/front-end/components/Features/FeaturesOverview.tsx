@@ -99,13 +99,11 @@ function DraftControlBadge() {
       body="Changes to this section create a draft revision that requires approval before going live."
       tipMinWidth="180px"
     >
-      <Text
-        as="span"
-        color="violet"
-        style={{ cursor: "default", verticalAlign: "middle", lineHeight: 1 }}
+      <span
+        style={{ color: "var(--violet-9)", lineHeight: 1, display: "flex" }}
       >
         <PiShieldCheckBold size={16} />
-      </Text>
+      </span>
     </Tooltip>
   );
 }
@@ -636,7 +634,7 @@ export default function FeaturesOverview({
 
         <Frame mt="2" mb="4" px="6" py="4">
           <Flex align="center" justify="between" mb="2">
-            <Flex align="center" gap="2">
+            <Flex align="center" gap="1">
               <Heading as="h3" size="4" mb="0">
                 Description
               </Heading>
@@ -740,7 +738,7 @@ export default function FeaturesOverview({
         </Box>
         <Frame mb="4" px="6" py="4">
           <Box>
-            <Flex align="center" gap="2" mb="2">
+            <Flex align="center" gap="1" mb="2">
               <Heading as="h3" size="4" mb="0">
                 Environment Status
               </Heading>
@@ -1074,7 +1072,7 @@ export default function FeaturesOverview({
           <>
             <Frame mt="4" px="6" py="4">
               <Flex align="center" justify="between">
-                <Flex align="center" gap="2" mb="3">
+                <Flex align="center" gap="1" mb="3">
                   <Heading as="h3" size="4" mb="0">
                     Default Value
                   </Heading>
@@ -1107,7 +1105,7 @@ export default function FeaturesOverview({
                 style={{ borderTop: "1px solid var(--gray-a4)" }}
               >
                 <Flex align="center" justify="between" mb="2">
-                  <Flex align="center" gap="2">
+                  <Flex align="center" gap="1">
                     <Heading as="h3" size="4" mb="0">
                       Rules
                     </Heading>
@@ -1145,6 +1143,7 @@ export default function FeaturesOverview({
                       isDraft={isDraft}
                       safeRolloutsMap={safeRolloutsMap}
                       holdout={holdout}
+                      revisionList={revisionList || []}
                     />
                   </>
                 ) : (
@@ -1178,6 +1177,7 @@ export default function FeaturesOverview({
             feature={feature}
             revisionList={revisionList || []}
             mutate={mutate}
+            setVersion={setVersion}
           />
         )}
 
@@ -1185,6 +1185,7 @@ export default function FeaturesOverview({
           <EditDefaultValueModal
             close={() => setEdit(false)}
             feature={feature}
+            revisionList={revisionList || []}
             mutate={mutate}
             version={currentVersion}
             setVersion={setVersion}

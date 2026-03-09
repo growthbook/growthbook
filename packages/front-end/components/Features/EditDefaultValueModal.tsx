@@ -1,16 +1,20 @@
+import { useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { FeatureInterface } from "shared/types/feature";
-import { validateFeatureValue } from "shared/util";
-import { Box } from "@radix-ui/themes";
+import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import { validateFeatureValue, getReviewSetting } from "shared/util";
+import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import { getFeatureDefaultValue } from "@/services/features";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "@/components/Modal";
-import HelperText from "@/ui/HelperText";
+import DraftRevisionCallout from "@/components/Features/DraftRevisionCallout";
 import FeatureValueField from "./FeatureValueField";
 
 export interface Props {
   feature: FeatureInterface;
   version: number;
+  revisionList: MinimalFeatureRevisionInterface[];
   close: () => void;
   mutate: () => void;
   setVersion: (version: number) => void;
@@ -19,6 +23,7 @@ export interface Props {
 export default function EditDefaultValueModal({
   feature,
   version,
+  revisionList,
   close,
   mutate,
   setVersion,
@@ -29,11 +34,33 @@ export default function EditDefaultValueModal({
     },
   });
   const { apiCall } = useAuth();
+  const settings = useOrgSettings();
+
+  const activeDraft = useMemo(
+    () =>
+      revisionList
+        .filter((r) =>
+          (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status),
+        )
+        .sort((a, b) => b.version - a.version)[0] ?? null,
+    [revisionList],
+  );
+
+  const requiresApproval = useMemo(() => {
+    const requireReviewSettings = settings?.requireReviews;
+    if (!requireReviewSettings || typeof requireReviewSettings === "boolean") {
+      return !!requireReviewSettings;
+    }
+    const reviewSetting = getReviewSetting(requireReviewSettings, feature);
+    return !!(reviewSetting?.requireReviewOn);
+  }, [settings?.requireReviews, feature]);
 
   return (
     <Modal
       trackingEventModalType=""
       header="Edit Default Value"
+      cta="Save to Draft"
+      useRadixButton={true}
       submit={form.handleSubmit(async (value) => {
         const newDefaultValue = validateFeatureValue(
           feature,
@@ -61,12 +88,7 @@ export default function EditDefaultValueModal({
       open={true}
       size={feature.valueType === "json" ? "lg" : "md"}
     >
-      <Box mb="4">
-        <HelperText status="info">
-          Changes here will be added to a draft revision. You will have a chance
-          to review it before making it live.
-        </HelperText>
-      </Box>
+      <DraftRevisionCallout activeDraft={activeDraft} requiresApproval={requiresApproval} />
       <FeatureValueField
         label="Value When Enabled"
         id="defaultValue"

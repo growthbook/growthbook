@@ -14,6 +14,7 @@ import useProjectOptions from "@/hooks/useProjectOptions";
 import SelectField from "@/components/Forms/SelectField";
 import Callout from "@/ui/Callout";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import DraftRevisionCallout from "@/components/Features/DraftRevisionCallout";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
@@ -92,19 +93,7 @@ const EditFeatureInfoModal: FC<{
     >
       <Box>
         {metadataReviewRequired && (
-          <Box mb="4">
-            {activeDraft ? (
-              <Callout status="info">
-                Changes will be added to{" "}
-                <strong>Revision {activeDraft.version}</strong> (
-                {activeDraft.status}).
-              </Callout>
-            ) : (
-              <Callout status="info">
-                A new draft revision will be created for these changes.
-              </Callout>
-            )}
-          </Box>
+          <DraftRevisionCallout activeDraft={activeDraft} />
         )}
 
         <Field
