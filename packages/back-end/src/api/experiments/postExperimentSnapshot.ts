@@ -1,10 +1,9 @@
 import { postExperimentSnapshotValidator } from "shared/validators";
 import { PostExperimentSnapshotResponse } from "shared/types/openapi";
-import { SNAPSHOT_TIMEOUT } from "back-end/src/controllers/experiments";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { auditDetailsCreate } from "back-end/src/services/audit";
-import { requestStandardSnapshotRefresh } from "back-end/src/jobs/updateExperimentResults";
+import { requestSnapshotRefresh } from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 // TODO update params (add phase, useCache)
@@ -52,11 +51,9 @@ export const postExperimentSnapshot = createApiRequestHandler(
     useCache: true,
   };
 
-  // This is doing an expensive analytics SQL query, so may take a long time
-  // Set timeout to 30 minutes
-  req.setTimeout(SNAPSHOT_TIMEOUT);
-
-  const { snapshot } = await requestStandardSnapshotRefresh({
+  // This endpoint starts the refresh and returns the current snapshot state
+  // immediately (`queued`, `running`, etc.) without waiting for completion.
+  const { snapshot } = await requestSnapshotRefresh({
     context,
     experiment,
     phaseIndex: createSnapshotPayload.phase,

@@ -13,15 +13,13 @@ import {
   expandAllSliceMetricsInMap,
   expandMetricGroups,
   getAllMetricIdsFromExperiment,
-  getAllMetricSettingsForSnapshot,
 } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
-import uniq from "lodash/uniq";
 import { IdeaInterface } from "shared/types/idea";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { DataSourceInterface } from "shared/types/datasource";
-import { MetricInterface, MetricStats } from "shared/types/metric";
+import { MetricStats } from "shared/types/metric";
 import {
   Changeset,
   ExperimentInterface,
@@ -35,11 +33,9 @@ import {
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
-  SnapshotTriggeredBy,
   SnapshotType,
 } from "shared/types/experiment-snapshot";
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
-import { OrganizationSettings } from "shared/types/organization";
 import { CreateURLRedirectProps } from "shared/types/url-redirect";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
@@ -48,14 +44,12 @@ import {
 } from "back-end/src/types/AuthRequest";
 import {
   _getSnapshots,
-  createSnapshot,
   createSnapshotAnalyses,
   createSnapshotAnalysis,
   determineNextBanditSchedule,
-  getAdditionalExperimentAnalysisSettings,
   getChangesToStartExperiment,
-  getDefaultExperimentAnalysisSettings,
   getLinkedFeatureInfo,
+  requestSnapshotRefresh,
   resetExperimentBanditSettings,
   SnapshotAnalysisParams,
   validateExperimentData,
@@ -129,21 +123,16 @@ import { logger } from "back-end/src/util/logger";
 import { ExperimentSnapshotBusyError } from "back-end/src/util/errors";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { generateExperimentReportSSRData } from "back-end/src/services/reports";
-import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 import {
   cosineSimilarity,
   generateEmbeddings,
   secondsUntilAICanBeUsedAgain,
   simpleCompletion,
 } from "back-end/src/enterprise/services/ai";
-import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
 import {
   shouldValidateCustomFieldsOnUpdate,
   validateCustomFieldsForSection,
 } from "back-end/src/util/custom-fields";
-import { requestStandardSnapshotRefresh } from "back-end/src/jobs/updateExperimentResults";
-
-export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
 
 export async function getExperiments(
   req: AuthRequest<
@@ -1293,12 +1282,8 @@ export async function postExperiments(
     }
 
     if (datasource && req.query.autoRefreshResults && metricIds.length > 0) {
-      // This is doing an expensive analytics SQL query, so may take a long time
-      // Set timeout to 30 minutes
-      req.setTimeout(SNAPSHOT_TIMEOUT);
-
       try {
-        await requestStandardSnapshotRefresh({
+        await requestSnapshotRefresh({
           context,
           experiment,
           phaseIndex: 0,
@@ -2885,151 +2870,6 @@ export async function cancelSnapshot(
   res.status(200).json({ status: 200 });
 }
 
-function getSnapshotType({
-  experiment,
-  dimension,
-  phaseIndex,
-}: {
-  experiment: ExperimentInterface;
-  dimension: string | undefined;
-  phaseIndex: number;
-}): SnapshotType {
-  // dimension analyses are ad-hoc
-  if (dimension) {
-    return "exploratory";
-  }
-
-  // analyses of old phases are ad-hoc
-  if (phaseIndex !== experiment.phases.length - 1) {
-    return "exploratory";
-  }
-
-  return "standard";
-}
-
-export async function createExperimentSnapshot({
-  context,
-  experiment,
-  datasource,
-  dimension,
-  phase,
-  useCache = true,
-  triggeredBy,
-  type,
-  reweight,
-  preventStartingAnalysis,
-}: {
-  context: ReqContext;
-  experiment: ExperimentInterface;
-  datasource: DataSourceInterface;
-  dimension: string | undefined;
-  phase: number;
-  useCache?: boolean;
-  triggeredBy?: SnapshotTriggeredBy;
-  type?: SnapshotType;
-  reweight?: boolean;
-  preventStartingAnalysis?: boolean;
-}): Promise<{
-  snapshot: ExperimentSnapshotInterface;
-  queryRunner:
-    | ExperimentResultsQueryRunner
-    | ExperimentIncrementalRefreshQueryRunner
-    | ExperimentIncrementalRefreshExploratoryQueryRunner;
-}> {
-  const snapshotType =
-    type ??
-    getSnapshotType({
-      experiment,
-      dimension,
-      phaseIndex: phase,
-    });
-
-  let project = null;
-  if (experiment.project) {
-    project = await context.models.projects.getById(experiment.project);
-  }
-
-  const { org } = context;
-  const orgSettings: OrganizationSettings =
-    org.settings as OrganizationSettings;
-  const { settings } = getScopedSettings({
-    organization: org,
-    project: project ?? undefined,
-    experiment,
-  });
-  const statsEngine = settings.statsEngine.value;
-  const postStratificationEnabled = settings.postStratificationEnabled.value;
-  const metricMap = await getMetricMap(context);
-  const factTableMap = await getFactTableMap(context);
-
-  const metricGroups = await context.models.metricGroups.getAll();
-  const metricIds = getAllMetricIdsFromExperiment(
-    experiment,
-    false,
-    metricGroups,
-  );
-
-  const allExperimentMetrics = metricIds.map((m) => metricMap.get(m) || null);
-
-  const denominatorMetricIds = uniq<string>(
-    allExperimentMetrics
-      .map((m) => m?.denominator)
-      .filter((d) => d && typeof d === "string") as string[],
-  );
-  const denominatorMetrics = denominatorMetricIds
-    .map((m) => metricMap.get(m) || null)
-    .filter(isDefined) as MetricInterface[];
-
-  const { settingsForSnapshotMetrics, regressionAdjustmentEnabled } =
-    getAllMetricSettingsForSnapshot({
-      allExperimentMetrics,
-      denominatorMetrics,
-      orgSettings,
-      experimentRegressionAdjustmentEnabled:
-        experiment.regressionAdjustmentEnabled,
-      experimentMetricOverrides: experiment.metricOverrides,
-      datasourceType: datasource?.type,
-      hasRegressionAdjustmentFeature: true,
-      ...(experiment.type === "multi-armed-bandit"
-        ? {
-            banditConversionWindowValue:
-              experiment.banditConversionWindowValue ?? undefined,
-            banditConversionWindowUnit:
-              experiment.banditConversionWindowUnit ?? undefined,
-          }
-        : {}),
-    });
-
-  const analysisSettings = getDefaultExperimentAnalysisSettings({
-    statsEngine,
-    experiment,
-    organization: org,
-    regressionAdjustmentEnabled,
-    postStratificationEnabled,
-    dimension,
-  });
-
-  const queryRunner = await createSnapshot({
-    experiment,
-    context,
-    phaseIndex: phase,
-    useCache,
-    defaultAnalysisSettings: analysisSettings,
-    additionalAnalysisSettings:
-      getAdditionalExperimentAnalysisSettings(analysisSettings),
-    settingsForSnapshotMetrics,
-    metricMap,
-    factTableMap,
-    reweight,
-    type: snapshotType,
-    triggeredBy: triggeredBy ?? "manual",
-    preventStartingAnalysis,
-  });
-  const snapshot = queryRunner.model;
-
-  return { snapshot, queryRunner };
-}
-
 export async function postSnapshot(
   req: AuthRequest<
     {
@@ -3071,45 +2911,19 @@ export async function postSnapshot(
 
   const useCache = !req.query["force"];
 
-  // This is doing an expensive analytics SQL query, so may take a long time
-  // Set timeout to 30 minutes
-  req.setTimeout(SNAPSHOT_TIMEOUT);
-
   try {
-    const snapshotType =
-      experiment.type === "multi-armed-bandit"
-        ? "exploratory"
-        : getSnapshotType({
-            experiment,
-            dimension,
-            phaseIndex: phase,
-          });
-
-    let snapshot: ExperimentSnapshotInterface;
-
-    let existingExecution = false;
-
-    if (snapshotType === "standard") {
-      const result = await requestStandardSnapshotRefresh({
-        context,
-        experiment,
-        phaseIndex: phase,
-        useCache,
-        triggeredBy: "manual",
-      });
-      snapshot = result.snapshot;
-      existingExecution = result.existing;
-    } else {
-      ({ snapshot } = await createExperimentSnapshot({
-        context,
-        experiment,
-        datasource,
-        dimension,
-        phase,
-        useCache,
-        type: snapshotType,
-      }));
-    }
+    // Snapshot refresh requests are async. We return the snapshot immediately
+    // in its current state (`queued`, `running`, etc.) and do not wait for completion.
+    const { snapshot, existingExecution } = await requestSnapshotRefresh({
+      context,
+      experiment,
+      phaseIndex: phase,
+      dimension,
+      useCache,
+      triggeredBy: "manual",
+      type:
+        experiment.type === "multi-armed-bandit" ? "exploratory" : undefined,
+    });
 
     await req.audit({
       event: "experiment.refresh",
@@ -3136,7 +2950,7 @@ export async function postSnapshot(
         ? Number(e.status)
         : 400;
     let snapshotSummary: { id: string; status: string } | undefined = undefined;
-    if (e instanceof ExperimentSnapshotBusyError && e.snapshotId) {
+    if (e instanceof ExperimentSnapshotBusyError) {
       const activeSnapshot = await findSnapshotById(
         context.org.id,
         e.snapshotId,
@@ -3275,19 +3089,17 @@ export async function postBanditSnapshot(
     throw new Error("Could not find datasource for this experiment");
   }
 
-  // This is doing an expensive analytics SQL query, so may take a long time
-  // Set timeout to 30 minutes
-  req.setTimeout(30 * 60 * 1000);
   let snapshot: ExperimentSnapshotInterface | undefined = undefined;
 
   try {
-    ({ snapshot } = await requestStandardSnapshotRefresh({
+    ({ snapshot } = await requestSnapshotRefresh({
       context,
       experiment,
       phaseIndex: phase,
       useCache: false,
       triggeredBy: "manual",
       reweight,
+      type: "standard",
     }));
 
     await req.audit({

@@ -78,8 +78,8 @@ const experimentSnapshotSchema = new mongoose.Schema({
   status: String,
   refreshExecution: {
     _id: false,
-    activeExecution: Boolean,
-    activeWriter: Boolean,
+    executionMode: String,
+    executionId: String,
     intent: {},
     heartbeat: Date,
   },
@@ -196,7 +196,9 @@ experimentSnapshotSchema.index(
     unique: true,
     partialFilterExpression: {
       type: "standard",
-      "refreshExecution.activeExecution": true,
+      "refreshExecution.executionMode": {
+        $exists: true,
+      },
     },
   },
 );
@@ -593,7 +595,9 @@ export async function findActiveStandardSnapshotExecution(
       organization,
       experiment,
       type: "standard",
-      "refreshExecution.activeExecution": true,
+      "refreshExecution.executionMode": {
+        $exists: true,
+      },
     },
     null,
     {
@@ -613,8 +617,9 @@ export async function findActiveStandardWriterSnapshotExecution(
       organization,
       experiment,
       type: "standard",
-      "refreshExecution.activeExecution": true,
-      "refreshExecution.activeWriter": true,
+      "refreshExecution.executionMode": {
+        $in: ["queued-writer", "running-writer"],
+      },
     },
     null,
     {
@@ -635,11 +640,16 @@ export async function updateSnapshotRefreshExecution({
   updates: Partial<ExperimentSnapshotRefreshExecution>;
 }): Promise<ExperimentSnapshotInterface | null> {
   const set: Record<string, unknown> = {};
+  const unset: Record<string, unknown> = {};
   Object.entries(updates).forEach(([key, value]) => {
-    set[`refreshExecution.${key}`] = value;
+    if (typeof value === "undefined") {
+      unset[`refreshExecution.${key}`] = 1;
+    } else {
+      set[`refreshExecution.${key}`] = value;
+    }
   });
 
-  if (!Object.keys(set).length) {
+  if (!Object.keys(set).length && !Object.keys(unset).length) {
     return findSnapshotById(organization, id);
   }
 
@@ -649,7 +659,8 @@ export async function updateSnapshotRefreshExecution({
       id,
     },
     {
-      $set: set,
+      ...(Object.keys(set).length ? { $set: set } : {}),
+      ...(Object.keys(unset).length ? { $unset: unset } : {}),
     },
   );
 

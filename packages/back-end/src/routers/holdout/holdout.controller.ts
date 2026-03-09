@@ -37,19 +37,16 @@ import {
   removeHoldoutFromFeature,
 } from "back-end/src/models/FeatureModel";
 import { logger } from "back-end/src/util/logger";
-import {
-  SNAPSHOT_TIMEOUT,
-  validateVariationIds,
-} from "back-end/src/controllers/experiments";
+import { validateVariationIds } from "back-end/src/controllers/experiments";
 import {
   getChangesToStartExperiment,
+  requestSnapshotRefresh,
   validateExperimentData,
 } from "back-end/src/services/experiments";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/holdouts";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
-import { requestStandardSnapshotRefresh } from "back-end/src/jobs/updateExperimentResults";
 
 /**
  * GET /holdout/:id
@@ -260,12 +257,8 @@ export const createHoldout = async (
     }
 
     if (datasource && req.query.autoRefreshResults && metricIds.length > 0) {
-      // This is doing an expensive analytics SQL query, so may take a long time
-      // Set timeout to 30 minutes
-      req.setTimeout(SNAPSHOT_TIMEOUT);
-
       try {
-        await requestStandardSnapshotRefresh({
+        await requestSnapshotRefresh({
           context,
           experiment,
           phaseIndex: 0,

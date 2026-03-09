@@ -21,7 +21,7 @@ import {
   createExperiment,
   getAllExperiments,
 } from "back-end/src/models/ExperimentModel";
-import { requestStandardSnapshotRefresh } from "back-end/src/jobs/updateExperimentResults";
+import { requestSnapshotRefresh } from "back-end/src/services/experiments";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 import { createFeature } from "back-end/src/models/FeatureModel";
 import { createFactTable } from "back-end/src/models/FactTableModel";
@@ -475,7 +475,7 @@ Treatment shows a larger 'Add to Cart' CTA, but with the same functionality.`,
 
     await createFeature(context, featureToCreate);
 
-    await requestStandardSnapshotRefresh({
+    await requestSnapshotRefresh({
       experiment: createdExperiment,
       context,
       phaseIndex: 0,

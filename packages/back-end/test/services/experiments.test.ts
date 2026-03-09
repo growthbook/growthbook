@@ -10,6 +10,7 @@ import {
   putMetricApiPayloadToMetricInterface,
   mergeSnapshotRefreshIntent,
   buildSnapshotRefreshIntent,
+  getSnapshotType,
 } from "back-end/src/services/experiments";
 
 describe("experiments utils", () => {
@@ -1292,5 +1293,41 @@ describe("incremental refresh mutex", () => {
       expect(merged.banditReweightRequested).toBe(false);
       expect(merged.triggeredBySchedule).toBe(false);
     });
+  });
+});
+
+describe("snapshot request routing", () => {
+  const experiment = {
+    phases: [{ name: "Phase 1" }, { name: "Phase 2" }],
+  } as never;
+
+  it("routes latest phase without a dimension to standard", () => {
+    expect(
+      getSnapshotType({
+        experiment,
+        phaseIndex: 1,
+        dimension: undefined,
+      }),
+    ).toBe("standard");
+  });
+
+  it("routes older phases to exploratory", () => {
+    expect(
+      getSnapshotType({
+        experiment,
+        phaseIndex: 0,
+        dimension: undefined,
+      }),
+    ).toBe("exploratory");
+  });
+
+  it("routes dimension requests to exploratory", () => {
+    expect(
+      getSnapshotType({
+        experiment,
+        phaseIndex: 1,
+        dimension: "exp:country",
+      }),
+    ).toBe("exploratory");
   });
 });
