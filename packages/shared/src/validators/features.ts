@@ -254,7 +254,7 @@ const revisionMetadataSchema = z.object({
   neverStale: z.boolean().optional(),
   customFields: z.record(z.string(), z.any()).optional(),
   jsonSchema: JSONSchemaDef.optional(),
-  // valueType is intentionally excluded: it is immutable after feature creation
+  valueType: z.enum(featureValueType).optional(),
 });
 
 export type RevisionMetadata = z.infer<typeof revisionMetadataSchema>;

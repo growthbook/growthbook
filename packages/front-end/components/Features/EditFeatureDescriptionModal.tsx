@@ -92,9 +92,9 @@ export default function EditFeatureDescriptionModal({
       )}
       <Flex align="center" wrap="wrap" width="auto" mb="2">
         <Box as="div">
-          <Text className="pr-1" as="span">
-            Use markdown to format your content.
-          </Text>
+          <span className="pr-1">
+            <Text as="span">Use markdown to format your content.</Text>
+          </span>
           <Link
             rel="noreferrer"
             target="_blank"

@@ -63,7 +63,9 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import Markdown from "@/components/Markdown/Markdown";
 import EditFeatureDescriptionModal from "@/components/Features/EditFeatureDescriptionModal";
-import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
+import CustomFieldDisplay, {
+  CustomFieldDraftInfo,
+} from "@/components/CustomFields/CustomFieldDisplay";
 import SelectField from "@/components/Forms/SelectField";
 import Callout from "@/ui/Callout";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
@@ -304,6 +306,10 @@ export default function FeaturesOverview({
   const prereqGated = !!(
     reviewSetting?.requireReviewOn &&
     reviewSetting?.featureRequirePrerequisiteReview
+  );
+  const metadataReviewRequired = !!(
+    reviewSetting?.requireReviewOn &&
+    reviewSetting?.featureRequireMetadataReview
   );
   // Controls are locked when gated and we're not on the active draft.
   const killSwitchIsLocked = killSwitchGated && isLocked;
@@ -627,6 +633,15 @@ export default function FeaturesOverview({
             mutate={mutate}
             section={"feature"}
             mt="6"
+            draftInfo={
+              metadataReviewRequired
+                ? ({
+                    activeDraft: drafts[0] ?? null,
+                    targetDraftVersion: drafts[0]?.version,
+                    onDraftCreated: (v) => setVersion(v),
+                  } satisfies CustomFieldDraftInfo)
+                : undefined
+            }
           />
         </Frame>
 

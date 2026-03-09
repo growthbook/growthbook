@@ -16,7 +16,18 @@ import Modal from "@/components/Modal";
 import DataList, { DataListItem } from "@/ui/DataList";
 import Button from "@/ui/Button";
 import Frame from "@/ui/Frame";
+import Callout from "@/ui/Callout";
 import CustomFieldInput from "./CustomFieldInput";
+
+/** Optional draft-mode context for feature metadata approval flows. */
+export interface CustomFieldDraftInfo {
+  /** Version of the existing active draft to bundle changes into, or undefined to create new. */
+  targetDraftVersion: number | undefined;
+  /** Active draft revision, if any, for the callout message. */
+  activeDraft: { version: number; status: string } | null;
+  /** Called with the new/updated draft version after save so the UI can switch to it. */
+  onDraftCreated: (version: number) => void;
+}
 
 const CustomFieldDisplay: FC<{
   label?: string;
@@ -26,6 +37,8 @@ const CustomFieldDisplay: FC<{
   section: CustomFieldSection;
   target: ExperimentInterfaceStringDates | FeatureInterface;
   mt?: "1" | "2" | "3" | "4" | "5" | "6";
+  /** When provided, the edit modal shows a draft callout and "Save to Draft" CTA. */
+  draftInfo?: CustomFieldDraftInfo;
 }> = ({
   label = "Additional Fields",
   canEdit = true,
@@ -34,6 +47,7 @@ const CustomFieldDisplay: FC<{
   section,
   target,
   mt,
+  draftInfo,
 }) => {
   const [editModal, setEditModal] = useState(false);
   const customFields = filterCustomFieldsForSectionAndProject(
@@ -73,10 +87,20 @@ const CustomFieldDisplay: FC<{
         body: JSON.stringify({ ...value }),
       });
     } else if (section === "feature") {
-      await apiCall(`/feature/${target.id}`, {
-        method: "PUT",
-        body: JSON.stringify({ ...value }),
-      });
+      const body: Record<string, unknown> = { ...value };
+      if (draftInfo?.targetDraftVersion !== undefined) {
+        body.targetDraftVersion = draftInfo.targetDraftVersion;
+      }
+      const res = await apiCall<{ draftVersion?: number }>(
+        `/feature/${target.id}`,
+        {
+          method: "PUT",
+          body: JSON.stringify(body),
+        },
+      );
+      if (res?.draftVersion !== undefined && draftInfo) {
+        draftInfo.onDraftCreated(res.draftVersion);
+      }
     }
     if (mutate) mutate();
   };
@@ -142,8 +166,24 @@ const CustomFieldDisplay: FC<{
           submit={form.handleSubmit(async (value) => {
             await submitForm(value);
           })}
-          cta="Save"
+          cta={draftInfo ? "Save to Draft" : "Save"}
+          useRadixButton={!!draftInfo}
         >
+          {draftInfo && (
+            <Box mb="4">
+              {draftInfo.activeDraft ? (
+                <Callout status="info">
+                  Changes will be added to{" "}
+                  <strong>Revision {draftInfo.activeDraft.version}</strong> (
+                  {draftInfo.activeDraft.status}).
+                </Callout>
+              ) : (
+                <Callout status="info">
+                  A new draft revision will be created for these changes.
+                </Callout>
+              )}
+            </Box>
+          )}
           {hasCustomFieldAccess ? (
             <CustomFieldInput
               customFields={customFields}

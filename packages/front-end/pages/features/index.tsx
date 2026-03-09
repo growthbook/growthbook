@@ -310,42 +310,46 @@ export default function FeaturesPage() {
                           {featureHasEnvironment(
                             feature as unknown as FeatureInterface,
                             en,
-                          ) && (() => {
-                            const noPermission = !permissionsUtil.canPublishFeature(
-                              { project: feature.project },
-                              [en.id],
-                            );
-                            const sw = (
-                              <Switch
-                                id={`${feature.id}__${en.id}`}
-                                disabled={noPermission || killSwitchGatedOnList}
-                                value={
-                                  statusHook.environmentStatus[feature.id]?.[
-                                    en.id
-                                  ] ?? false
-                                }
-                                onChange={(on) =>
-                                  handleToggle(feature.id, en.id, on)
-                                }
-                                size="3"
-                              />
-                            );
-                            if (killSwitchGatedOnList) {
-                              return (
-                                <Tooltip body="Open the feature to toggle this environment via a draft">
-                                  {sw}
-                                </Tooltip>
+                          ) &&
+                            (() => {
+                              const noPermission =
+                                !permissionsUtil.canPublishFeature(
+                                  { project: feature.project },
+                                  [en.id],
+                                );
+                              const sw = (
+                                <Switch
+                                  id={`${feature.id}__${en.id}`}
+                                  disabled={
+                                    noPermission || killSwitchGatedOnList
+                                  }
+                                  value={
+                                    statusHook.environmentStatus[feature.id]?.[
+                                      en.id
+                                    ] ?? false
+                                  }
+                                  onChange={(on) =>
+                                    handleToggle(feature.id, en.id, on)
+                                  }
+                                  size="3"
+                                />
                               );
-                            }
-                            if (noPermission) {
-                              return (
-                                <Tooltip body="You don't have permission to change features in this environment">
-                                  {sw}
-                                </Tooltip>
-                              );
-                            }
-                            return sw;
-                          })()}
+                              if (killSwitchGatedOnList) {
+                                return (
+                                  <Tooltip body="Open the feature to toggle this environment via a draft">
+                                    {sw}
+                                  </Tooltip>
+                                );
+                              }
+                              if (noPermission) {
+                                return (
+                                  <Tooltip body="You don't have permission to change features in this environment">
+                                    {sw}
+                                  </Tooltip>
+                                );
+                              }
+                              return sw;
+                            })()}
                         </Flex>
                       </td>
                     ))}
@@ -546,7 +550,8 @@ export default function FeaturesPage() {
         <StaleDetectionModal
           close={() => setFeatureToToggleStaleDetection(null)}
           feature={featureToToggleStaleDetection}
-          mutate={mutate}
+          mutate={async () => mutate()}
+          setVersion={() => undefined}
           onEnable={async () => {
             const id = featureToToggleStaleDetection.id;
             staleHook.invalidate([id]);
