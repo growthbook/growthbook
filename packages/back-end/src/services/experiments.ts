@@ -133,7 +133,6 @@ import { addTags } from "back-end/src/models/TagModel";
 import {
   addOrUpdateSnapshotAnalysis,
   createExperimentSnapshotModel,
-  findActiveStandardSnapshotExecution,
   findActiveStandardWriterSnapshotExecution,
   findSnapshotById,
   getLatestSnapshotMultipleExperiments,
@@ -189,12 +188,8 @@ import {
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
-const WRITER_EXECUTION_MODE: ExperimentSnapshotExecutionMode = "running-writer";
-
-function getRunningExecutionMode(
-  isWriter: boolean,
-): ExperimentSnapshotExecutionMode {
-  return isWriter ? WRITER_EXECUTION_MODE : "running";
+function getExecutionMode(isWriter: boolean): ExperimentSnapshotExecutionMode {
+  return isWriter ? "writer" : "reader";
 }
 
 export async function createMetric(
@@ -1373,35 +1368,35 @@ export async function createOrReuseStandardSnapshotExecution({
     type: "standard",
   });
 
-  const existing = await findActiveStandardSnapshotExecution(
+  const existingWriter = await findActiveStandardWriterSnapshotExecution(
     context.org.id,
     experiment.id,
   );
-  if (existing) {
+  if (existingWriter) {
     // Stale execution check: if the heartbeat (or dateCreated as fallback)
     // is older than the threshold, force-finish and create a new execution.
     const STALE_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
     const heartbeat =
-      existing.executionMetadata?.heartbeat ?? existing.dateCreated;
+      existingWriter.executionMetadata?.heartbeat ?? existingWriter.dateCreated;
     const staleThreshold = new Date(Date.now() - STALE_THRESHOLD_MS);
     if (new Date(heartbeat) < staleThreshold) {
       logger.warn(
         "Force-finishing stale snapshot execution: " +
-          existing.id +
+          existingWriter.id +
           " (last heartbeat: " +
           new Date(heartbeat).toISOString() +
           ")",
       );
       await updateSnapshotRefreshExecution({
         organization: context.org.id,
-        id: existing.id,
+        id: existingWriter.id,
         updates: {
           executionMode: undefined,
         },
       });
       await updateSnapshot({
         organization: context.org.id,
-        id: existing.id,
+        id: existingWriter.id,
         updates: {
           status: "error",
           error: "Execution timed out (no heartbeat)",
@@ -1409,10 +1404,14 @@ export async function createOrReuseStandardSnapshotExecution({
         context,
       });
       // Fall through to create a new execution
+    } else if (incomingIntent.forceFullRefresh) {
+      throw new Error(
+        `Results are currently being refreshed (${existingWriter.id}). Cancel the current update to request a full refresh.`,
+      );
     } else {
       const snapshot = await updateActiveStandardSnapshotExecution({
         context,
-        snapshot: existing,
+        snapshot: existingWriter,
         incomingIntent,
       });
       return { snapshot, existing: true };
@@ -1472,11 +1471,17 @@ export async function createOrReuseStandardSnapshotExecution({
   } catch (error) {
     if (!isDuplicateKeyError(error)) throw error;
 
-    const activeSnapshot = await findActiveStandardSnapshotExecution(
+    const activeSnapshot = await findActiveStandardWriterSnapshotExecution(
       context.org.id,
       experiment.id,
     );
     if (!activeSnapshot) throw error;
+
+    if (incomingIntent.forceFullRefresh) {
+      throw new Error(
+        `Results are currently being refreshed (${activeSnapshot.id}). Cancel the current update to request a full refresh.`,
+      );
+    }
 
     const snapshot = await updateActiveStandardSnapshotExecution({
       context,
@@ -1614,7 +1619,7 @@ export async function createSnapshot({
     | undefined =
     type === "standard"
       ? {
-          executionMode: getRunningExecutionMode(isStandardIncrementalWriter),
+          executionMode: getExecutionMode(isStandardIncrementalWriter),
           executionId: snapshotId,
           intent: refreshIntent,
           heartbeat: new Date(),

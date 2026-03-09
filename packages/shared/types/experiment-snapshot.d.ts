@@ -160,7 +160,7 @@ export interface ExperimentSnapshotRefreshIntent {
   triggeredBySchedule?: boolean;
 }
 
-export type ExperimentSnapshotExecutionMode = "running" | "running-writer";
+export type ExperimentSnapshotExecutionMode = "reader" | "writer";
 
 export interface ExperimentSnapshotRefreshExecutionMetadata {
   executionId: string;
