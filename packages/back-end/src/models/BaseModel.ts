@@ -753,7 +753,7 @@ export abstract class BaseModel<
       )
     ) {
       throw new Error(
-        "Cannot update id, organization, dateCreated, or dateUpdated",
+        "Cannot update id, uid, organization, dateCreated, or dateUpdated",
       );
     }
 
