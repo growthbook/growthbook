@@ -155,22 +155,18 @@ export type ExperimentSnapshotStatus =
   | "error";
 
 export interface ExperimentSnapshotRefreshIntent {
-  forceFullRefresh?: boolean;
   banditReweightRequested?: boolean;
+  forceFullRefresh?: boolean;
   triggeredBySchedule?: boolean;
 }
 
-export type ExperimentSnapshotExecutionMode =
-  | "queued"
-  | "queued-writer"
-  | "running"
-  | "running-writer";
+export type ExperimentSnapshotExecutionMode = "running" | "running-writer";
 
-export interface ExperimentSnapshotRefreshExecution {
-  executionMode?: ExperimentSnapshotExecutionMode;
+export interface ExperimentSnapshotRefreshExecutionMetadata {
   executionId: string;
+  executionMode: ExperimentSnapshotExecutionMode;
   intent: ExperimentSnapshotRefreshIntent;
-  heartbeat?: Date;
+  heartbeat: Date;
 }
 
 export interface ExperimentSnapshotAnalysis {
@@ -249,7 +245,7 @@ export interface ExperimentSnapshotInterface {
   type?: SnapshotType;
   triggeredBy?: SnapshotTriggeredBy;
   report?: string;
-  refreshExecution?: ExperimentSnapshotRefreshExecution;
+  executionMetadata?: ExperimentSnapshotRefreshExecutionMetadata;
 
   // List of queries that were run as part of this snapshot
   queries: Queries;

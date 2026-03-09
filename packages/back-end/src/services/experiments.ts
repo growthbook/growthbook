@@ -11,7 +11,6 @@ import {
   DEFAULT_METRIC_WINDOW,
   DEFAULT_METRIC_WINDOW_DELAY_HOURS,
   DEFAULT_P_VALUE_THRESHOLD,
-  DEFAULT_POST_STRATIFICATION_ENABLED,
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
@@ -86,7 +85,7 @@ import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotExecutionMode,
-  ExperimentSnapshotRefreshExecution,
+  ExperimentSnapshotRefreshExecutionMetadata,
   ExperimentSnapshotRefreshIntent,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
@@ -121,10 +120,7 @@ import { ProjectInterface } from "shared/types/project";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { ExperimentQueryMetadata } from "shared/types/query";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import {
-  getExperimentById,
-  updateExperiment,
-} from "back-end/src/models/ExperimentModel";
+import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { Context } from "back-end/src/models/BaseModel";
 import {
@@ -170,7 +166,7 @@ import { getSignedImageUrl } from "back-end/src/services/files";
 import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
 import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
 import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
-import { getAgendaInstance } from "back-end/src/services/queueing";
+import { notifyAutoUpdate } from "back-end/src/services/experimentNotifications";
 import { getMetricForSnapshot } from "./reports";
 import { validateIncrementalPipeline } from "./dataPipeline";
 import {
@@ -192,35 +188,13 @@ import {
 } from "./organizations";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
-export const RUN_EXPERIMENT_SNAPSHOT = "runExperimentSnapshot";
 
-const WRITER_EXECUTION_MODES: ExperimentSnapshotExecutionMode[] = [
-  "queued-writer",
-  "running-writer",
-];
-
-function isWriterExecutionMode(
-  executionMode?: ExperimentSnapshotExecutionMode,
-): boolean {
-  return !!executionMode && WRITER_EXECUTION_MODES.includes(executionMode);
-}
-
-function getQueuedExecutionMode(
-  isWriter: boolean,
-): ExperimentSnapshotExecutionMode {
-  return isWriter ? "queued-writer" : "queued";
-}
+const WRITER_EXECUTION_MODE: ExperimentSnapshotExecutionMode = "running-writer";
 
 function getRunningExecutionMode(
-  executionMode?: ExperimentSnapshotExecutionMode,
+  isWriter: boolean,
 ): ExperimentSnapshotExecutionMode {
-  return isWriterExecutionMode(executionMode) ? "running-writer" : "running";
-}
-
-function getPostWriteExecutionMode(
-  executionMode?: ExperimentSnapshotExecutionMode,
-): ExperimentSnapshotExecutionMode {
-  return isWriterExecutionMode(executionMode) ? "running" : "running";
+  return isWriter ? WRITER_EXECUTION_MODE : "running";
 }
 
 export async function createMetric(
@@ -1187,7 +1161,7 @@ async function updateActiveStandardSnapshotExecution({
   snapshot: ExperimentSnapshotInterface;
   incomingIntent: ExperimentSnapshotRefreshIntent;
 }): Promise<ExperimentSnapshotInterface> {
-  const refreshExecution = snapshot.refreshExecution;
+  const refreshExecution = snapshot.executionMetadata;
   if (!refreshExecution) return snapshot;
 
   const mergedIntent = mergeSnapshotRefreshIntent(
@@ -1231,27 +1205,6 @@ async function updateActiveStandardSnapshotExecution({
   return updatedSnapshot ?? snapshot;
 }
 
-async function queueRunExperimentSnapshot({
-  organization,
-  snapshotId,
-}: {
-  organization: string;
-  snapshotId: string;
-}) {
-  const agenda = getAgendaInstance();
-  const job = agenda.create(RUN_EXPERIMENT_SNAPSHOT, {
-    organization,
-    snapshotId,
-  });
-
-  job.unique({
-    organization,
-    snapshotId,
-  });
-  job.schedule(new Date());
-  await job.save();
-}
-
 export async function requestExperimentSnapshot({
   context,
   experiment,
@@ -1285,10 +1238,6 @@ export async function requestExperimentSnapshot({
       useCache,
       triggeredBy,
       reweight,
-    });
-    await queueRunExperimentSnapshot({
-      organization: context.org.id,
-      snapshotId: result.snapshot.id,
     });
     return {
       snapshot: result.snapshot,
@@ -1433,7 +1382,7 @@ export async function createOrReuseStandardSnapshotExecution({
     // is older than the threshold, force-finish and create a new execution.
     const STALE_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
     const heartbeat =
-      existing.refreshExecution?.heartbeat ?? existing.dateCreated;
+      existing.executionMetadata?.heartbeat ?? existing.dateCreated;
     const staleThreshold = new Date(Date.now() - STALE_THRESHOLD_MS);
     if (new Date(heartbeat) < staleThreshold) {
       logger.warn(
@@ -1494,7 +1443,7 @@ export async function createOrReuseStandardSnapshotExecution({
   const factTableMap = await getFactTableMap(context);
 
   try {
-    const queryRunner = await createSnapshot({
+    const queryRunner = (await createSnapshot({
       experiment,
       context,
       phaseIndex,
@@ -1508,9 +1457,16 @@ export async function createOrReuseStandardSnapshotExecution({
       reweight,
       type: "standard",
       triggeredBy,
-      preventStartingAnalysis: true,
-      queueStandardExecution: true,
       skipRecordingSnapshotAttempt: true,
+    })) as
+      | ExperimentResultsQueryRunner
+      | ExperimentIncrementalRefreshQueryRunner;
+    monitorStandardSnapshotExecution({
+      context,
+      experiment,
+      queryRunner,
+      metricMap,
+      factTableMap,
     });
     return { snapshot: queryRunner.model, existing: false };
   } catch (error) {
@@ -1544,8 +1500,6 @@ export async function createSnapshot({
   metricMap,
   factTableMap,
   reweight,
-  preventStartingAnalysis,
-  queueStandardExecution,
   skipRecordingSnapshotAttempt,
 }: {
   experiment: ExperimentInterface;
@@ -1560,8 +1514,6 @@ export async function createSnapshot({
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
   reweight?: boolean;
-  preventStartingAnalysis?: boolean;
-  queueStandardExecution?: boolean;
   skipRecordingSnapshotAttempt?: boolean;
 }): Promise<
   | ExperimentResultsQueryRunner
@@ -1639,7 +1591,9 @@ export async function createSnapshot({
   } catch (error) {
     isExperimentCompatibleWithIncrementalRefresh = false;
     logger.info(
-      `Experiment ${experiment.id} does not support incremental refresh: ${"message" in error ? error.message : error}`,
+      `Experiment ${experiment.id} does not support incremental refresh: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
     );
   }
 
@@ -1649,19 +1603,21 @@ export async function createSnapshot({
     (experiment.type === undefined || experiment.type === "standard") &&
     isExperimentCompatibleWithIncrementalRefresh;
 
-  const queueExecution = !!queueStandardExecution && type === "standard";
   const refreshIntent = buildSnapshotRefreshIntent({
     triggeredBy,
     useCache,
     reweight,
   });
   const snapshotId = uniqid("snp_");
-  const refreshExecution: ExperimentSnapshotRefreshExecution | undefined =
-    queueExecution
+  const refreshExecution:
+    | ExperimentSnapshotRefreshExecutionMetadata
+    | undefined =
+    type === "standard"
       ? {
-          executionMode: getQueuedExecutionMode(isStandardIncrementalWriter),
+          executionMode: getRunningExecutionMode(isStandardIncrementalWriter),
           executionId: snapshotId,
           intent: refreshIntent,
+          heartbeat: new Date(),
         }
       : undefined;
 
@@ -1669,7 +1625,7 @@ export async function createSnapshot({
     id: snapshotId,
     organization: experiment.organization,
     experiment: experiment.id,
-    runStarted: queueExecution ? null : new Date(),
+    runStarted: new Date(),
     error: "",
     dateCreated: new Date(),
     phase: phaseIndex,
@@ -1685,7 +1641,7 @@ export async function createSnapshot({
         dateCreated: new Date(),
         results: [],
         settings: defaultAnalysisSettings,
-        status: queueExecution ? "queued" : "running",
+        status: "running",
       },
       ...additionalAnalysisSettings
         .filter((a) => isAnalysisAllowed(snapshotSettings, a))
@@ -1694,13 +1650,13 @@ export async function createSnapshot({
             dateCreated: new Date(),
             results: [],
             settings: a,
-            status: queueExecution ? "queued" : "running",
+            status: "running",
           };
           return analysis;
         }),
     ],
-    status: queueExecution ? "queued" : "running",
-    ...(refreshExecution ? { refreshExecution } : {}),
+    status: "running",
+    ...(refreshExecution ? { executionMetadata: refreshExecution } : {}),
   };
 
   if (!skipRecordingSnapshotAttempt) {
@@ -1747,18 +1703,18 @@ export async function createSnapshot({
     );
   }
 
-  if (!preventStartingAnalysis) {
-    const analysisProps = {
-      snapshotType: type,
-      snapshotSettings: data.settings,
-      variationNames: experiment.variations.map((v) => v.name),
-      metricMap,
-      queryParentId: snapshot.id,
-      factTableMap,
-      experimentQueryMetadata:
-        getAdditionalQueryMetadataForExperiment(experiment),
-    };
+  const analysisProps = {
+    snapshotType: type,
+    snapshotSettings: data.settings,
+    variationNames: experiment.variations.map((v) => v.name),
+    metricMap,
+    queryParentId: snapshot.id,
+    factTableMap,
+    experimentQueryMetadata:
+      getAdditionalQueryMetadataForExperiment(experiment),
+  };
 
+  try {
     if (
       queryRunner instanceof ExperimentIncrementalRefreshQueryRunner ||
       queryRunner instanceof ExperimentIncrementalRefreshExploratoryQueryRunner
@@ -1775,30 +1731,32 @@ export async function createSnapshot({
     } else {
       await queryRunner.startAnalysis(analysisProps);
     }
-  }
-
-  const runningSnapshot = queryRunner.model;
-  // Whenever the standard snapshot for an experiment is refreshed, also refresh the associated dashboards in the background
-  if (
-    !preventStartingAnalysis &&
-    runningSnapshot.type === "standard" &&
-    runningSnapshot.triggeredBy !== "manual-dashboard"
-  ) {
-    updateExperimentDashboards({
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    await updateSnapshot({
+      organization: snapshot.organization,
+      id: snapshot.id,
+      updates: {
+        status: "error",
+        error: errorMessage,
+        analyses: snapshot.analyses.map((analysis) => ({
+          ...analysis,
+          status: "error",
+          error: errorMessage,
+        })),
+      },
       context,
-      experiment,
-      mainSnapshot: runningSnapshot,
-      statsEngine: defaultAnalysisSettings.statsEngine,
-      regressionAdjustmentEnabled:
-        defaultAnalysisSettings.regressionAdjusted ??
-        DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-      postStratificationEnabled:
-        defaultAnalysisSettings.postStratificationEnabled ??
-        DEFAULT_POST_STRATIFICATION_ENABLED,
-      settingsForSnapshotMetrics,
-      metricMap,
-      factTableMap,
     });
+    if (snapshot.type === "standard") {
+      await updateSnapshotRefreshExecution({
+        organization: snapshot.organization,
+        id: snapshot.id,
+        updates: {
+          executionMode: undefined,
+        },
+      });
+    }
+    throw error;
   }
 
   return queryRunner;
@@ -1846,230 +1804,138 @@ async function updateStandardSnapshotDashboardConsumers({
   });
 }
 
-export async function runStandardSnapshotExecution({
+async function handleFailedScheduledSnapshotExecution({
   context,
-  snapshotId,
+  experiment,
+  snapshot,
 }: {
   context: ReqContext | ApiReqContext;
-  snapshotId: string;
-}): Promise<ExperimentSnapshotInterface | null> {
-  let snapshot = await findSnapshotById(context.org.id, snapshotId);
-  if (!snapshot || snapshot.type !== "standard") {
-    return snapshot;
-  }
-
-  const refreshExecution = snapshot.refreshExecution;
-  if (!refreshExecution?.executionMode) {
-    return snapshot;
-  }
-
-  const experiment = await getExperimentById(context, snapshot.experiment);
-  if (!experiment) {
-    await updateSnapshotRefreshExecution({
-      organization: context.org.id,
-      id: snapshot.id,
-      updates: {
-        executionMode: undefined,
+  experiment: ExperimentInterface;
+  snapshot: ExperimentSnapshotInterface;
+}) {
+  if (snapshot.status !== "error") return;
+  if (experiment.type === "multi-armed-bandit") return;
+  if (!snapshot.executionMetadata?.intent?.triggeredBySchedule) return;
+  try {
+    await updateExperiment({
+      context,
+      experiment,
+      changes: {
+        autoSnapshots: false,
       },
     });
-    return snapshot;
-  }
 
-  const HEARTBEAT_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
-  const snapshotIdForHeartbeat = snapshot.id;
-  const heartbeatTimer = setInterval(async () => {
-    try {
-      await updateSnapshotHeartbeat(context.org.id, snapshotIdForHeartbeat);
-    } catch (e) {
-      logger.warn(
-        e,
-        "Failed to update snapshot heartbeat: " + snapshotIdForHeartbeat,
-      );
-    }
-  }, HEARTBEAT_INTERVAL_MS);
-
-  try {
-    // Set initial heartbeat
-    await updateSnapshotHeartbeat(context.org.id, snapshot.id);
-    snapshot =
-      (await updateSnapshotRefreshExecution({
-        organization: context.org.id,
-        id: snapshot.id,
-        updates: {
-          executionMode: getRunningExecutionMode(
-            snapshot.refreshExecution?.executionMode,
-          ),
-        },
-      })) ?? snapshot;
-
-    const intent = snapshot.refreshExecution?.intent ?? {};
-    const useCache = !intent.forceFullRefresh;
-
-    if (
-      intent.banditReweightRequested &&
-      snapshot.settings.banditSettings &&
-      !snapshot.settings.banditSettings.reweight
-    ) {
-      await updateSnapshot({
-        organization: snapshot.organization,
-        id: snapshot.id,
-        updates: {
-          settings: {
-            ...snapshot.settings,
-            banditSettings: {
-              ...snapshot.settings.banditSettings,
-              reweight: true,
-            },
-          },
-        },
-        context,
-      });
-
-      snapshot =
-        (await findSnapshotById(context.org.id, snapshot.id)) ?? snapshot;
-    }
-
-    const datasource = await getDataSourceById(
-      context,
-      snapshot.settings.datasourceId,
-    );
-    if (!datasource) {
-      throw new Error("Could not find datasource for this experiment");
-    }
-
-    const integration = getSourceIntegrationObject(
-      context,
-      datasource,
-      useCache,
-    );
-    const metricMap = await getMetricMap(context);
-    const factTableMap = await getFactTableMap(context);
-
-    const analysisProps = {
-      snapshotType: "standard" as const,
-      snapshotSettings: snapshot.settings,
-      variationNames: experiment.variations.map(
-        (v: ExperimentInterface["variations"][number]) => v.name,
-      ),
-      metricMap,
-      queryParentId: snapshot.id,
-      factTableMap,
-      experimentQueryMetadata:
-        getAdditionalQueryMetadataForExperiment(experiment),
-    };
-
-    let queryRunner:
-      | ExperimentResultsQueryRunner
-      | ExperimentIncrementalRefreshQueryRunner;
-
-    if (isWriterExecutionMode(snapshot.refreshExecution?.executionMode)) {
-      await context.models.incrementalRefresh.setCurrentExecutionId(
-        experiment.id,
-        snapshot.refreshExecution?.executionId ?? snapshot.id,
-      );
-      queryRunner = new ExperimentIncrementalRefreshQueryRunner(
-        context,
-        snapshot,
-        integration,
-        false,
-      );
-
-      const incrementalRefreshModel = useCache
-        ? await context.models.incrementalRefresh.getByExperimentId(
-            experiment.id,
-          )
-        : null;
-
-      await queryRunner.startAnalysis({
-        ...analysisProps,
-        experimentId: experiment.id,
-        incrementalRefreshStartTime: new Date(),
-        fullRefresh: !useCache || !incrementalRefreshModel,
-      });
-    } else {
-      queryRunner = new ExperimentResultsQueryRunner(
-        context,
-        snapshot,
-        integration,
-        useCache,
-      );
-      await queryRunner.startAnalysis(analysisProps);
-    }
-
-    await queryRunner.waitForResults();
-    snapshot = queryRunner.model;
-
-    snapshot =
-      (await updateSnapshotRefreshExecution({
-        organization: context.org.id,
-        id: snapshot.id,
-        updates: {
-          executionMode: getPostWriteExecutionMode(
-            snapshot.refreshExecution?.executionMode,
-          ),
-        },
-      })) ?? snapshot;
-
-    if (snapshot.status === "success") {
-      try {
-        const currentIntent = snapshot.refreshExecution?.intent ?? {};
-
-        if (experiment.type === "multi-armed-bandit") {
-          const changes = updateExperimentBanditSettings({
-            experiment,
-            snapshot,
-            reweight: !!currentIntent.banditReweightRequested,
-            isScheduled: !!currentIntent.triggeredBySchedule,
-          });
-          await updateExperiment({
-            context,
-            experiment,
-            changes,
-          });
-        }
-
-        await updateStandardSnapshotDashboardConsumers({
-          context,
-          experiment,
-          snapshot,
-          metricMap,
-          factTableMap,
-        });
-      } catch (postProcessingError) {
-        logger.error(
-          postProcessingError,
-          "Failed to run standard snapshot post-processing: " + snapshot.id,
-        );
-      }
-    }
+    await notifyAutoUpdate({ context, experiment, success: true });
   } catch (error) {
     logger.error(
       error,
-      "Failed to run queued experiment snapshot execution: " + snapshot.id,
+      "Failed to turn off autoSnapshots after snapshot failure: " +
+        experiment.id,
     );
-
-    await updateSnapshot({
-      organization: context.org.id,
-      id: snapshot.id,
-      updates: {
-        status: "error",
-        error: error instanceof Error ? error.message : String(error),
-      },
-      context,
-    });
-  } finally {
-    clearInterval(heartbeatTimer);
-    snapshot =
-      (await updateSnapshotRefreshExecution({
-        organization: context.org.id,
-        id: snapshot.id,
-        updates: {
-          executionMode: undefined,
-        },
-      })) ?? snapshot;
+    await notifyAutoUpdate({ context, experiment, success: false });
   }
+}
 
-  return (await findSnapshotById(context.org.id, snapshot.id)) ?? snapshot;
+function monitorStandardSnapshotExecution({
+  context,
+  experiment,
+  queryRunner,
+  metricMap,
+  factTableMap,
+}: {
+  context: ReqContext | ApiReqContext;
+  experiment: ExperimentInterface;
+  queryRunner:
+    | ExperimentResultsQueryRunner
+    | ExperimentIncrementalRefreshQueryRunner;
+  metricMap: Map<string, ExperimentMetricInterface>;
+  factTableMap: FactTableMap;
+}) {
+  const HEARTBEAT_INTERVAL_MS = 2 * 60 * 1000;
+  const snapshotId = queryRunner.model.id;
+  const heartbeatTimer = setInterval(async () => {
+    try {
+      await updateSnapshotHeartbeat(context.org.id, snapshotId);
+    } catch (e) {
+      logger.warn(e, "Failed to update snapshot heartbeat: " + snapshotId);
+    }
+  }, HEARTBEAT_INTERVAL_MS);
+
+  void (async () => {
+    let snapshot = queryRunner.model;
+    try {
+      await queryRunner.waitForResults();
+      snapshot =
+        (await findSnapshotById(context.org.id, snapshotId)) ?? snapshot;
+
+      if (snapshot.status === "success") {
+        try {
+          const currentIntent = snapshot.executionMetadata?.intent ?? {};
+
+          if (experiment.type === "multi-armed-bandit") {
+            const changes = updateExperimentBanditSettings({
+              experiment,
+              snapshot,
+              reweight: !!currentIntent.banditReweightRequested,
+              isScheduled: !!currentIntent.triggeredBySchedule,
+            });
+            await updateExperiment({
+              context,
+              experiment,
+              changes,
+            });
+          }
+
+          await updateStandardSnapshotDashboardConsumers({
+            context,
+            experiment,
+            snapshot,
+            metricMap,
+            factTableMap,
+          });
+        } catch (postProcessingError) {
+          logger.error(
+            postProcessingError,
+            "Failed to run standard snapshot post-processing: " + snapshot.id,
+          );
+        }
+      } else {
+        await handleFailedScheduledSnapshotExecution({
+          context,
+          experiment,
+          snapshot,
+        });
+      }
+    } catch (error) {
+      logger.error(
+        error,
+        "Failed to monitor standard snapshot execution: " + snapshotId,
+      );
+      snapshot =
+        (await findSnapshotById(context.org.id, snapshotId)) ?? snapshot;
+      await handleFailedScheduledSnapshotExecution({
+        context,
+        experiment,
+        snapshot,
+      });
+    } finally {
+      clearInterval(heartbeatTimer);
+      try {
+        await updateSnapshotRefreshExecution({
+          organization: context.org.id,
+          id: snapshotId,
+          updates: {
+            executionMode: undefined,
+          },
+        });
+      } catch (cleanupError) {
+        logger.error(
+          cleanupError,
+          "Failed to clear standard snapshot execution mode: " + snapshotId,
+        );
+      }
+    }
+  })();
 }
 
 export type SnapshotAnalysisParams = {

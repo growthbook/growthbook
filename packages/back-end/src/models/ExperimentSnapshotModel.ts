@@ -11,7 +11,7 @@ import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
   LegacyExperimentSnapshotInterface,
-  ExperimentSnapshotRefreshExecution,
+  ExperimentSnapshotRefreshExecutionMetadata,
 } from "shared/types/experiment-snapshot";
 import { logger } from "back-end/src/util/logger";
 import { migrateSnapshot } from "back-end/src/util/migrations";
@@ -618,7 +618,7 @@ export async function findActiveStandardWriterSnapshotExecution(
       experiment,
       type: "standard",
       "refreshExecution.executionMode": {
-        $in: ["queued-writer", "running-writer"],
+        $in: ["running-writer"],
       },
     },
     null,
@@ -637,7 +637,7 @@ export async function updateSnapshotRefreshExecution({
 }: {
   organization: string;
   id: string;
-  updates: Partial<ExperimentSnapshotRefreshExecution>;
+  updates: Partial<ExperimentSnapshotRefreshExecutionMetadata>;
 }): Promise<ExperimentSnapshotInterface | null> {
   const set: Record<string, unknown> = {};
   const unset: Record<string, unknown> = {};

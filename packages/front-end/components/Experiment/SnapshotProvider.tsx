@@ -1,10 +1,4 @@
-import React, {
-  useState,
-  ReactNode,
-  useContext,
-  useCallback,
-  useEffect,
-} from "react";
+import React, { useState, ReactNode, useContext, useCallback } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   SnapshotType,
@@ -94,19 +88,6 @@ export default function SnapshotProvider({
       (dimension ? "/" + dimension : "") +
       (snapshotType ? `?type=${snapshotType}` : ""),
   );
-
-  const activeStatus = data?.latest?.status ?? data?.snapshot?.status;
-  useEffect(() => {
-    if (!["queued", "running"].includes(activeStatus ?? "")) return;
-
-    const timer = window.setTimeout(() => {
-      mutate();
-    }, 2000);
-
-    return () => {
-      window.clearTimeout(timer);
-    };
-  }, [activeStatus, mutate]);
 
   const defaultAnalysisSettings = data?.snapshot
     ? getSnapshotAnalysis(data?.snapshot)?.settings

@@ -7,8 +7,6 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import {
   requestExperimentSnapshot,
-  RUN_EXPERIMENT_SNAPSHOT,
-  runStandardSnapshotExecution,
   updateExperimentBanditSettings,
 } from "back-end/src/services/experiments";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
@@ -25,10 +23,6 @@ const UPDATE_SINGLE_EXP = "updateSingleExperiment";
 type UpdateSingleExpJob = Job<{
   organization: string;
   experimentId: string;
-}>;
-type RunExperimentSnapshotJob = Job<{
-  organization: string;
-  snapshotId: string;
 }>;
 
 export default async function (agenda: Agenda) {
@@ -49,7 +43,6 @@ export default async function (agenda: Agenda) {
   });
 
   agenda.define(UPDATE_SINGLE_EXP, updateSingleExperiment);
-  agenda.define(RUN_EXPERIMENT_SNAPSHOT, runExperimentSnapshot);
 
   // Update experiment results
   await startUpdateJob();
@@ -167,44 +160,5 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
       logger.error(e, "Failed to turn off autoSnapshots: " + experimentId);
       await notifyAutoUpdate({ context, experiment, success: false });
     }
-  }
-};
-
-const runExperimentSnapshot = async (job: RunExperimentSnapshotJob) => {
-  const snapshotId = job.attrs.data?.snapshotId;
-  const orgId = job.attrs.data?.organization;
-
-  if (!snapshotId || !orgId) return;
-
-  const context = await getContextForAgendaJobByOrgId(orgId);
-  const snapshot = await runStandardSnapshotExecution({
-    context,
-    snapshotId,
-  });
-
-  if (!snapshot || snapshot.status !== "error") return;
-
-  const experiment = await getExperimentById(context, snapshot.experiment);
-  if (!experiment || experiment.type === "multi-armed-bandit") return;
-
-  if (!snapshot.refreshExecution?.intent?.triggeredBySchedule) return;
-
-  try {
-    await updateExperiment({
-      context,
-      experiment,
-      changes: {
-        autoSnapshots: false,
-      },
-    });
-
-    await notifyAutoUpdate({ context, experiment, success: true });
-  } catch (error) {
-    logger.error(
-      error,
-      "Failed to turn off autoSnapshots after snapshot failure: " +
-        experiment.id,
-    );
-    await notifyAutoUpdate({ context, experiment, success: false });
   }
 };
