@@ -93,12 +93,12 @@ import FeatureRules from "./FeatureRules";
  * revision / approval control. `gated` = requires org approval; otherwise
  * it's just always tracked in revision history (rules/default value).
  */
-function DraftControlBadge({ gated }: { gated?: boolean }) {
-  const tip = gated
-    ? "Changes to this section create a draft revision that requires approval before going live."
-    : "Changes to this section are tracked in draft revisions.";
+function DraftControlBadge() {
   return (
-    <Tooltip body={tip} tipMinWidth="180px">
+    <Tooltip
+      body="Changes to this section create a draft revision that requires approval before going live."
+      tipMinWidth="180px"
+    >
       <Text
         as="span"
         color="violet"
@@ -640,7 +640,7 @@ export default function FeaturesOverview({
               <Heading as="h3" size="4" mb="0">
                 Description
               </Heading>
-              {metadataReviewRequired && <DraftControlBadge gated />}
+              {metadataReviewRequired && <DraftControlBadge />}
             </Flex>
             {canEdit && (
               <Button
@@ -744,7 +744,7 @@ export default function FeaturesOverview({
               <Heading as="h3" size="4" mb="0">
                 Environment Status
               </Heading>
-              {envGated && <DraftControlBadge gated />}
+              {envGated && <DraftControlBadge />}
             </Flex>
             <div className="mb-4">
               When disabled, this feature will evaluate to <code>null</code>.
@@ -1078,7 +1078,7 @@ export default function FeaturesOverview({
                   <Heading as="h3" size="4" mb="0">
                     Default Value
                   </Heading>
-                  <DraftControlBadge gated={requireReviews} />
+                  {!!reviewSetting?.requireReviewOn && <DraftControlBadge />}
                 </Flex>
                 {canEdit && !isLocked && canEditDrafts && (
                   <Button
@@ -1108,15 +1108,10 @@ export default function FeaturesOverview({
               >
                 <Flex align="center" justify="between" mb="2">
                   <Flex align="center" gap="2">
-                    <Heading as="h3" size="4" mb="0" mr="1">
+                    <Heading as="h3" size="4" mb="0">
                       Rules
                     </Heading>
-                    <Tooltip
-                      body="Add powerful logic on top of your feature. The first rule
-                        that matches will be applied and override the Default
-                        Value."
-                    />
-                    <DraftControlBadge gated={requireReviews} />
+                    {!!reviewSetting?.requireReviewOn && <DraftControlBadge />}
                   </Flex>
                   <label className="font-weight-semibold">
                     <Switch

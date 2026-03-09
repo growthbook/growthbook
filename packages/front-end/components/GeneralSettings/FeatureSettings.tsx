@@ -33,6 +33,7 @@ function EnvironmentReviewCheckbox({ i }: { i: number }) {
     <Checkbox
       id={`toggle-env-review-${i}`}
       label="Environment toggle and prerequisite changes"
+      description="Supercedes kill switch warnings"
       value={checked}
       setValue={(v) => {
         form.setValue(`requireReviews.${i}.featureRequireEnvironmentReview`, v);
@@ -78,15 +79,6 @@ export default function FeatureSettings() {
     "hash-secure-attributes",
   );
   const hasRequireApprovals = hasCommercialFeature("require-approvals");
-  // Disable the kill switch radio when any approval rule gates env changes —
-  // a confirmation dialog is redundant when changes go into a draft.
-  const envReviewActive = !!(
-    form.watch("requireReviews") as
-      | Array<{
-          featureRequireEnvironmentReview?: boolean;
-        }>
-      | undefined
-  )?.some((r) => r.featureRequireEnvironmentReview);
 
   const hasCodeReferencesFeature = hasCommercialFeature("code-references");
 
@@ -272,14 +264,12 @@ export default function FeatureSettings() {
               {/* Kill switch behavior — available to all orgs */}
               <Box mb="5">
                 <Text as="label" size="2" weight="bold" mb="3">
-                  Environment kill switch behavior
+                  Warn on kill switch change
                 </Text>
                 <RadioGroup
                   value={
-                    envReviewActive
-                      ? ""
-                      : (form.watch("featureKillSwitchBehavior") ??
-                        (form.watch("killswitchConfirmation") ? "warn" : "off"))
+                    form.watch("featureKillSwitchBehavior") ??
+                    (form.watch("killswitchConfirmation") ? "warn" : "off")
                   }
                   setValue={(v) => {
                     form.setValue(
@@ -291,14 +281,11 @@ export default function FeatureSettings() {
                   options={[
                     {
                       value: "off",
-                      label: "Off - toggle immediately with no confirmation",
-                      disabled: envReviewActive,
+                      label: "Off",
                     },
                     {
                       value: "warn",
-                      label:
-                        "Warn - show a confirmation dialog before toggling",
-                      disabled: envReviewActive,
+                      label: "Show a confirmation dialog before toggling",
                     },
                   ]}
                 />
@@ -414,7 +401,15 @@ export default function FeatureSettings() {
                             <Text as="label" size="2" weight="bold" mb="3">
                               Require approvals for
                             </Text>
-                            <Flex direction="column" gap="2">
+                            <Flex direction="column" gap="2" align="start">
+                              <Checkbox
+                                id={`toggle-rules-values-${i}`}
+                                label="Rules and values"
+                                value={true}
+                                disabled={true}
+                                disabledMessage="Rules and values always require approval"
+                                setValue={() => undefined}
+                              />
                               <EnvironmentReviewCheckbox i={i} />
                               <Checkbox
                                 id={`toggle-metadata-review-${i}`}
