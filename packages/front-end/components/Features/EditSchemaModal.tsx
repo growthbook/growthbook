@@ -5,16 +5,20 @@ import {
   SchemaField,
   SimpleSchema,
 } from "shared/types/feature";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import dJSON from "dirty-json";
 import stringify from "json-stringify-pretty-compact";
 import {
   getJSONValidator,
   inferSimpleSchemaFromValue,
   simpleToJSONSchema,
+  getReviewSetting,
 } from "shared/util";
 import { FaAngleDown, FaAngleRight, FaRegTrashAlt } from "react-icons/fa";
+import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import { useAuth } from "@/services/auth";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import Field from "@/components/Forms/Field";
 import Switch from "@/ui/Switch";
 import Modal from "@/components/Modal";
@@ -24,11 +28,14 @@ import { GBAddCircle } from "@/components/Icons";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import Checkbox from "@/ui/Checkbox";
+import DraftRevisionCallout from "@/components/Features/DraftRevisionCallout";
 
 export interface Props {
   feature: FeatureInterface;
   close: () => void;
   mutate: () => void;
+  setVersion?: (version: number) => void;
+  revisionList?: MinimalFeatureRevisionInterface[];
   defaultEnable?: boolean;
   onEnable?: () => void;
 }
@@ -426,6 +433,8 @@ export default function EditSchemaModal({
   feature,
   close,
   mutate,
+  setVersion,
+  revisionList = [],
   defaultEnable,
   onEnable,
 }: Props) {
@@ -450,12 +459,32 @@ export default function EditSchemaModal({
     },
   });
   const { apiCall } = useAuth();
+  const settings = useOrgSettings();
+
+  const activeDraft = useMemo(
+    () =>
+      revisionList
+        .filter((r) =>
+          (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status),
+        )
+        .sort((a, b) => b.version - a.version)[0] ?? null,
+    [revisionList],
+  );
+
+  const requiresApproval = useMemo(() => {
+    const requireReviewSettings = settings?.requireReviews;
+    if (!requireReviewSettings || typeof requireReviewSettings === "boolean") {
+      return !!requireReviewSettings;
+    }
+    const reviewSetting = getReviewSetting(requireReviewSettings, feature);
+    return !!reviewSetting?.requireReviewOn;
+  }, [settings?.requireReviews, feature]);
 
   return (
     <Modal
       trackingEventModalType=""
       header="Edit Feature Validation"
-      cta="Save"
+      cta="Save to Draft"
       size="lg"
       submit={form.handleSubmit(async (value) => {
         if (value.enabled && value.schemaType === "schema") {
@@ -502,16 +531,26 @@ export default function EditSchemaModal({
           }
         }
 
-        await apiCall(`/feature/${feature.id}/schema`, {
-          method: "POST",
-          body: JSON.stringify(value),
-        });
+        const res = await apiCall<{ draftVersion?: number }>(
+          `/feature/${feature.id}/schema`,
+          {
+            method: "POST",
+            body: JSON.stringify(value),
+          },
+        );
         mutate();
+        if (res?.draftVersion && setVersion) {
+          setVersion(res.draftVersion);
+        }
         onEnable && value.enabled && onEnable();
       })}
       close={close}
       open={true}
     >
+      <DraftRevisionCallout
+        activeDraft={activeDraft}
+        requiresApproval={requiresApproval}
+      />
       <Switch
         id={"schemaEnabled"}
         label="Enable Validation"

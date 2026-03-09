@@ -3,7 +3,6 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import React, { useMemo, useState } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import {
-  PiInfo,
   PiPlusCircleBold,
   PiArrowsLeftRightBold,
   PiShieldCheckBold,
@@ -962,118 +961,101 @@ export default function FeaturesOverview({
         </Frame>
         {(dependents > 0 || featureProject) && (
           <Frame mb="4" px="6" py="4">
-            <Box>
-              <Flex mb="3" gap="3" align="center">
-                <Heading size="4" as="h4" mb="0">
-                  Dependents
-                </Heading>
-                <Badge label={dependents + ""} color="gray" radius="medium" />
-              </Flex>
-              <Flex align="center" gap="4" mb="4">
-                <Text size="2" as="div">
-                  Showing dependents across all projects.
+            <Flex mb="2" gap="2" align="center">
+              <Heading size="4" as="h3" mb="0">
+                Dependents
+              </Heading>
+              <Badge label={dependents + ""} color="gray" />
+            </Flex>
+            {dependents > 0 ? (
+              <>
+                <Text as="p" size="2" mb="2">
+                  {dependents === 1
+                    ? `Another ${
+                        dependentFeatures.length ? "feature" : "experiment"
+                      } depends on this feature as a prerequisite. Modifying the current feature may affect its behavior.`
+                    : `Other ${
+                        dependentFeatures.length
+                          ? dependentExperiments.length
+                            ? "features and experiments"
+                            : "features"
+                          : "experiments"
+                      } depend on this feature as a prerequisite. Modifying the current feature may affect their behavior.`}
                 </Text>
-              </Flex>
-              {dependents > 0 ? (
-                <>
-                  <Box mb="2">
-                    {dependents === 1
-                      ? `Another ${
-                          dependentFeatures.length ? "feature" : "experiment"
-                        } depends on this feature as a prerequisite. Modifying the current feature may affect its behavior.`
-                      : `Other ${
-                          dependentFeatures.length
-                            ? dependentExperiments.length
-                              ? "features and experiments"
-                              : "features"
-                            : "experiments"
-                        } depend on this feature as a prerequisite. Modifying the current feature may affect their behavior.`}
-                  </Box>
-                  <hr className="mb-2" />
-                  {showDependents ? (
-                    <div className="mt-3">
-                      {dependentFeatures.length > 0 && (
-                        <>
-                          <label>Dependent Features</label>
-                          <ul className="pl-4">
-                            {dependentFeatures.map((fid, i) => (
-                              <li className="my-1" key={i}>
-                                <a
-                                  href={`/features/${fid}`}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                >
-                                  {fid}
-                                </a>
-                              </li>
-                            ))}
-                          </ul>
-                        </>
-                      )}
-                      {dependentExperiments.length > 0 && (
-                        <>
-                          <label>Dependent Experiments</label>
-                          <ul className="pl-4">
-                            {dependentExperiments.map((exp, i) => (
-                              <li className="my-1" key={i}>
-                                <a
-                                  href={`/experiment/${exp.id}`}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                >
-                                  {exp.name}
-                                </a>
-                              </li>
-                            ))}
-                          </ul>
-                        </>
-                      )}
-                      <a
-                        role="button"
-                        className="d-inline-block a link-purple mt-1"
-                        onClick={() => setShowDependents(false)}
-                      >
-                        <BiHide /> Hide details
-                      </a>
-                    </div>
-                  ) : (
-                    <>
-                      <a
-                        role="button"
-                        className="d-inline-block a link-purple"
-                        onClick={() => setShowDependents(true)}
-                      >
-                        <BiShow /> Show details
-                      </a>
-                    </>
-                  )}
-                </>
-              ) : (
-                <Box mb="2">
-                  <Text size="2">No dependents found.</Text>
-                </Box>
-              )}
-            </Box>
+                <hr className="mb-2" />
+                {showDependents ? (
+                  <div className="mt-3">
+                    {dependentFeatures.length > 0 && (
+                      <>
+                        <label>Dependent Features</label>
+                        <ul className="pl-4">
+                          {dependentFeatures.map((fid, i) => (
+                            <li className="my-1" key={i}>
+                              <a
+                                href={`/features/${fid}`}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                {fid}
+                              </a>
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    )}
+                    {dependentExperiments.length > 0 && (
+                      <>
+                        <label>Dependent Experiments</label>
+                        <ul className="pl-4">
+                          {dependentExperiments.map((exp, i) => (
+                            <li className="my-1" key={i}>
+                              <a
+                                href={`/experiment/${exp.id}`}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                {exp.name}
+                              </a>
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    )}
+                    <a
+                      role="button"
+                      className="d-inline-block a link-purple mt-1"
+                      onClick={() => setShowDependents(false)}
+                    >
+                      <BiHide /> Hide details
+                    </a>
+                  </div>
+                ) : (
+                  <>
+                    <a
+                      role="button"
+                      className="d-inline-block a link-purple"
+                      onClick={() => setShowDependents(true)}
+                    >
+                      <BiShow /> Show details
+                    </a>
+                  </>
+                )}
+              </>
+            ) : (
+              <Text size="2">No dependents found.</Text>
+            )}
           </Frame>
         )}
 
         {feature.valueType === "json" && (
-          <Box mb="4">
-            <Flex>
-              <Heading as="h3" size="4">
-                <PremiumTooltip
-                  commercialFeature="json-validation"
-                  body="Prevent typos and mistakes by specifying validation rules using JSON Schema or our Simple Validation Builder"
-                >
-                  JSON Validation{" "}
-                  <PiInfo style={{ color: "var(--violet-11)" }} />
-                </PremiumTooltip>
-              </Heading>
-            </Flex>
-            <Frame>
-              <JSONValidation feature={feature} mutate={mutate} />
-            </Frame>
-          </Box>
+          <Frame mb="4" px="6" py="4">
+            <JSONValidation
+              feature={feature}
+              mutate={mutate}
+              setVersion={setVersion}
+              revisionList={revisionList || []}
+            />
+          </Frame>
         )}
 
         {revision && (
