@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import isEqual from "lodash/isEqual";
-import { Box } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
 import {
   FeatureRule,
@@ -652,11 +652,15 @@ export function analyzeRuleChanges(
     const prev = preById.get(r.id);
     return prev !== undefined && !isEqual(prev, r);
   });
-  const reordered =
-    added.length === 0 &&
-    removed.length === 0 &&
-    modified.length === 0 &&
-    !isEqual(preRules, postRules);
+  // Detect reordering independently of adds/removes/modifications:
+  // compare the relative order of rules that exist in both pre and post (unchanged).
+  const commonPreIds = preRules
+    .filter((r) => postById.has(r.id))
+    .map((r) => r.id);
+  const commonPostIds = postRules
+    .filter((r) => preById.has(r.id))
+    .map((r) => r.id);
+  const reordered = !isEqual(commonPreIds, commonPostIds);
 
   return { added, removed, modified, reordered };
 }
@@ -675,7 +679,10 @@ export function featureRuleChangeBadges(
   postRules: FeatureRule[],
   env: string,
 ): DiffBadge[] {
-  const { added, removed, modified } = analyzeRuleChanges(preRules, postRules);
+  const { added, removed, modified, reordered } = analyzeRuleChanges(
+    preRules,
+    postRules,
+  );
   const badges: DiffBadge[] = [];
   if (added.length)
     badges.push({
@@ -691,6 +698,11 @@ export function featureRuleChangeBadges(
     badges.push({
       label: `Edit rule in ${env}${modified.length > 1 ? ` ×${modified.length}` : ""}`,
       action: "edit rule",
+    });
+  if (reordered)
+    badges.push({
+      label: `Reorder rules in ${env}`,
+      action: "reorder rules",
     });
   return badges;
 }
@@ -708,19 +720,41 @@ export function renderFeatureRules(
   const preIndexById = new Map(preRules.map((r, i) => [r.id, i + 1]));
   const preById = new Map(preRules.map((r) => [r.id, r]));
 
-  if (reordered) {
-    return (
-      <div className="mt-1">
-        <Text size="medium" color="text-mid">
-          Rules reordered
-        </Text>
-      </div>
-    );
-  }
-
-  if (!added.length && !removed.length && !modified.length) return null;
+  if (!added.length && !removed.length && !modified.length && !reordered)
+    return null;
 
   const sections: ReactNode[] = [];
+
+  if (reordered) {
+    const movedRules = postRules
+      .map((r, newIdx) => ({
+        r,
+        newPos: newIdx + 1,
+        oldPos: preIndexById.get(r.id),
+      }))
+      .filter(
+        ({ oldPos, newPos }) => oldPos !== undefined && oldPos !== newPos,
+      );
+    if (movedRules.length > 0) {
+      sections.push(
+        <div key="reordered" className="mb-3">
+          <Text size="medium" weight="medium" color="text-mid" as="div" mb="2">
+            Reordered
+          </Text>
+          {movedRules.map(({ r, newPos, oldPos }) => (
+            <Box key={r.id} mb="2" className={styles.ruleSummaryBox}>
+              <Flex align="start" justify="between" gap="2">
+                <div style={{ flex: 1 }}>
+                  <RuleHeading rule={r} index={newPos} />
+                </div>
+                <Badge label={`was #${oldPos}`} color="amber" variant="soft" />
+              </Flex>
+            </Box>
+          ))}
+        </div>,
+      );
+    }
+  }
 
   if (added.length > 0) {
     sections.push(
