@@ -252,6 +252,7 @@ const revisionMetadataSchema = z.object({
   project: z.string().optional(),
   tags: z.array(z.string()).optional(),
   neverStale: z.boolean().optional(),
+  archived: z.boolean().optional(),
   customFields: z.record(z.string(), z.any()).optional(),
   jsonSchema: JSONSchemaDef.optional(),
   valueType: z.enum(featureValueType).optional(),

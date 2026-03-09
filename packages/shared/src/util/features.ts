@@ -680,6 +680,7 @@ function normalizeMetadataValue(
   if (k === "tags") return (v as string[] | null | undefined) ?? [];
   if (k === "description" || k === "owner" || k === "project")
     return (v as string | null | undefined) ?? "";
+  if (k === "archived") return (v as boolean | null | undefined) ?? false;
   return v;
 }
 

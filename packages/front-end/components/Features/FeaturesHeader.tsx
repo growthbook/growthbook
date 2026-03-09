@@ -603,10 +603,14 @@ export default function FeaturesHeader({
           feature={feature}
           close={() => setArchiveModal(false)}
           onArchive={async () => {
-            await apiCall(`/feature/${feature.id}/archive`, {
-              method: "POST",
-            });
+            const res = await apiCall<{ draftVersion?: number }>(
+              `/feature/${feature.id}/archive`,
+              { method: "POST" },
+            );
             mutate();
+            if (res?.draftVersion) {
+              setVersion(res.draftVersion);
+            }
           }}
         />
       )}
