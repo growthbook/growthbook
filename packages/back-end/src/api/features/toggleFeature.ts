@@ -1,5 +1,6 @@
 import { ToggleFeatureResponse } from "shared/types/openapi";
 import { toggleFeatureValidator } from "shared/validators";
+import { getReviewSetting } from "shared/util";
 import {
   createRevision,
   getRevision,
@@ -47,14 +48,22 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
       toggles[env] = state;
     });
 
-    // Check if kill switch gating is enabled
-    const killSwitchBehavior =
-      req.context.org.settings?.featureKillSwitchBehavior ??
-      (req.context.org.settings?.killswitchConfirmation ? "warn" : "off");
+    const requireReviewsSettings = Array.isArray(
+      req.context.org.settings?.requireReviews,
+    )
+      ? req.context.org.settings.requireReviews
+      : [];
+    const reviewSettingForToggle = getReviewSetting(
+      requireReviewsSettings,
+      feature,
+    );
+    const envReviewRequired =
+      !!reviewSettingForToggle?.requireReviewOn &&
+      !!reviewSettingForToggle?.featureRequireEnvironmentReview;
     const apiBypassesReviews =
       req.context.org.settings?.restApiBypassesReviews !== false;
 
-    if (killSwitchBehavior === "gate") {
+    if (envReviewRequired) {
       // Determine which envs actually changed
       const changedToggles: Record<string, boolean> = {};
       for (const [env, state] of Object.entries(toggles)) {

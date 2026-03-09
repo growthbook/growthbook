@@ -4485,13 +4485,13 @@ export interface components {
       secureAttributeSalt: string;
       killswitchConfirmation: boolean;
       /** @enum {string} */
-      featureKillSwitchBehavior?: "off" | "warn" | "gate";
+      featureKillSwitchBehavior?: "off" | "warn";
       requireReviews: ({
           requireReviewOn?: boolean;
           resetReviewOnChange?: boolean;
           environments?: (string)[];
           projects?: (string)[];
-          featureRequirePrerequisiteReview?: boolean;
+          featureRequireEnvironmentReview?: boolean;
           featureRequireMetadataReview?: boolean;
         })[];
       restApiBypassesReviews?: boolean;
@@ -15199,13 +15199,13 @@ export interface operations {
               secureAttributeSalt: string;
               killswitchConfirmation: boolean;
               /** @enum {string} */
-              featureKillSwitchBehavior?: "off" | "warn" | "gate";
+              featureKillSwitchBehavior?: "off" | "warn";
               requireReviews: ({
                   requireReviewOn?: boolean;
                   resetReviewOnChange?: boolean;
                   environments?: (string)[];
                   projects?: (string)[];
-                  featureRequirePrerequisiteReview?: boolean;
+                  featureRequireEnvironmentReview?: boolean;
                   featureRequireMetadataReview?: boolean;
                 })[];
               restApiBypassesReviews?: boolean;

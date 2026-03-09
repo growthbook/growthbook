@@ -137,7 +137,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
           resetReviewOnChange: false,
           environments: [],
           projects: [],
-          featureRequirePrerequisiteReview: false,
+          featureRequireEnvironmentReview: false,
           featureRequireMetadataReview: false,
         },
       ],

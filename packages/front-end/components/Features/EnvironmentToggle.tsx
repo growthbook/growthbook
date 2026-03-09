@@ -41,9 +41,9 @@ export default function EnvironmentToggle({
 
   const settings = useOrgSettings();
 
-  // Global kill switch behavior; fall back to legacy killswitchConfirmation boolean.
-  const killSwitchBehavior =
-    settings?.featureKillSwitchBehavior ??
+  // Kill switch behavior (off | warn); fall back to legacy killswitchConfirmation boolean.
+  const killSwitchBehavior: "off" | "warn" =
+    (settings?.featureKillSwitchBehavior as "off" | "warn" | undefined) ??
     (settings?.killswitchConfirmation ? "warn" : "off");
 
   const submit = async (
@@ -66,7 +66,6 @@ export default function EnvironmentToggle({
       track("Feature Environment Toggle", {
         environment,
         enabled: state,
-        gated: killSwitchBehavior === "gate",
       });
       await mutate();
       if (res?.draftVersion) {
@@ -80,9 +79,9 @@ export default function EnvironmentToggle({
   };
 
   const isDisabled = !permissionsUtil.canPublishFeature(feature, [environment]);
-  // When kill switches are gated and we're viewing a locked (non-active-draft)
-  // revision, the toggle must be made on the active draft instead.
-  const isGatedAndLocked = killSwitchBehavior === "gate" && isLocked;
+  // When kill switches are gated (env review required) and we're viewing a
+  // locked revision, callers pass isLocked=true to disable the toggle.
+  const isGatedAndLocked = isLocked;
 
   const switchElement = (
     <Switch

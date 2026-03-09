@@ -71,11 +71,14 @@ export default function FeaturesPage() {
   const { apiCall } = useAuth();
   const settings = useOrgSettings();
   const showConfirmation = !!settings?.killswitchConfirmation;
-  // When kill switches are approval-gated, disable the list toggles entirely.
+  // When environment toggles are approval-gated, disable list toggles entirely.
   // Users must go to the feature detail page to act on the active draft.
-  const killSwitchGatedOnList =
-    (settings?.featureKillSwitchBehavior ??
-      (settings?.killswitchConfirmation ? "warn" : "off")) === "gate";
+  const killSwitchGatedOnList = !!(
+    Array.isArray(settings?.requireReviews) &&
+    settings.requireReviews.some(
+      (r) => r.requireReviewOn && r.featureRequireEnvironmentReview,
+    )
+  );
 
   const showGraphs = useFeature("feature-list-realtime-graphs").on;
 

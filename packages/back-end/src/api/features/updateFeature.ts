@@ -213,13 +213,13 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     const apiBypassesReviews =
       req.context.org.settings?.restApiBypassesReviews !== false;
 
-    const killSwitchBehavior =
-      req.context.org.settings?.featureKillSwitchBehavior ??
-      (req.context.org.settings?.killswitchConfirmation ? "warn" : "off");
+    const envReviewRequired =
+      !!reviewSetting?.requireReviewOn &&
+      !!reviewSetting?.featureRequireEnvironmentReview;
 
     // Handle gated envelope fields via revision system
-    // environmentsEnabled (kill switch changes gated as "gate")
-    if (killSwitchBehavior === "gate" && updates.environmentSettings) {
+    // environmentsEnabled (kill switch changes gated by featureRequireEnvironmentReview)
+    if (envReviewRequired && updates.environmentSettings) {
       const changedEnvEnabled: Record<string, boolean> = {};
       for (const [env, settings] of Object.entries(
         updates.environmentSettings,
@@ -272,10 +272,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     }
 
     // prerequisites (gated)
-    if (
-      reviewSetting?.featureRequirePrerequisiteReview &&
-      updates.prerequisites
-    ) {
+    if (envReviewRequired && updates.prerequisites) {
       if (
         !apiBypassesReviews &&
         !req.context.permissions.canBypassApprovalChecks(feature)

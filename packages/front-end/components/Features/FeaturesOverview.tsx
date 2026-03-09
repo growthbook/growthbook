@@ -6,6 +6,7 @@ import {
   PiInfo,
   PiPlusCircleBold,
   PiArrowsLeftRightBold,
+  PiShieldCheckBold,
 } from "react-icons/pi";
 import { FaBoltLightning } from "react-icons/fa6";
 import { ago, datetime } from "shared/dates";
@@ -86,6 +87,28 @@ import PrerequisiteModal from "./PrerequisiteModal";
 import RequestReviewModal from "./RequestReviewModal";
 import { FeatureUsageContainer, useFeatureUsage } from "./FeatureUsageGraph";
 import FeatureRules from "./FeatureRules";
+
+/**
+ * Small inline indicator shown next to section headings that are under
+ * revision / approval control. `gated` = requires org approval; otherwise
+ * it's just always tracked in revision history (rules/default value).
+ */
+function DraftControlBadge({ gated }: { gated?: boolean }) {
+  const tip = gated
+    ? "Changes to this section create a draft revision that requires approval before going live."
+    : "Changes to this section are tracked in draft revisions.";
+  return (
+    <Tooltip body={tip} tipMinWidth="180px">
+      <Text
+        as="span"
+        color="violet"
+        style={{ cursor: "default", verticalAlign: "middle", lineHeight: 1 }}
+      >
+        <PiShieldCheckBold size={16} />
+      </Text>
+    </Tooltip>
+  );
+}
 
 export default function FeaturesOverview({
   baseFeature,
@@ -298,14 +321,13 @@ export default function FeaturesOverview({
     ? settings.requireReviews
     : [];
   const reviewSetting = getReviewSetting(requireReviewSettings, feature);
-  const killSwitchGated =
-    !!reviewSetting?.requireReviewOn &&
-    (settings?.featureKillSwitchBehavior ??
-      (settings?.killswitchConfirmation ? "warn" : "off")) === "gate";
-  const prereqGated = !!(
+  const envGated = !!(
     reviewSetting?.requireReviewOn &&
-    reviewSetting?.featureRequirePrerequisiteReview
+    reviewSetting?.featureRequireEnvironmentReview
   );
+  // Keep these aliases for the rest of the component
+  const killSwitchGated = envGated;
+  const prereqGated = envGated;
   const metadataReviewRequired = !!(
     reviewSetting?.requireReviewOn &&
     reviewSetting?.featureRequireMetadataReview
@@ -598,14 +620,28 @@ export default function FeaturesOverview({
                 live and cannot be modified.
               </Callout>
             ) : null}
+            {(killSwitchGated || prereqGated || metadataReviewRequired) && (
+              <Callout
+                status="wizard"
+                icon={<PiShieldCheckBold size={16} />}
+                mt="2"
+                mb="0"
+              >
+                Changes to feature rules, values, kill switches, prerequisites,
+                and metadata are gated by draft approvals.
+              </Callout>
+            )}
           </Frame>
         )}
 
         <Frame mt="2" mb="4" px="6" py="4">
           <Flex align="center" justify="between" mb="2">
-            <Heading as="h3" size="4" mb="0">
-              Description
-            </Heading>
+            <Flex align="center" gap="2">
+              <Heading as="h3" size="4" mb="0">
+                Description
+              </Heading>
+              {metadataReviewRequired && <DraftControlBadge gated />}
+            </Flex>
             {canEdit && (
               <Button
                 variant="ghost"
@@ -704,9 +740,12 @@ export default function FeaturesOverview({
         </Box>
         <Frame mb="4" px="6" py="4">
           <Box>
-            <Heading as="h3" size="4" mb="2">
-              Environment Status
-            </Heading>
+            <Flex align="center" gap="2" mb="2">
+              <Heading as="h3" size="4" mb="0">
+                Environment Status
+              </Heading>
+              {envGated && <DraftControlBadge gated />}
+            </Flex>
             <div className="mb-4">
               When disabled, this feature will evaluate to <code>null</code>.
               The default value and rules will be ignored.
@@ -1035,9 +1074,12 @@ export default function FeaturesOverview({
           <>
             <Frame mt="4" px="6" py="4">
               <Flex align="center" justify="between">
-                <Heading as="h3" size="4" mb="3">
-                  Default Value
-                </Heading>
+                <Flex align="center" gap="2" mb="3">
+                  <Heading as="h3" size="4" mb="0">
+                    Default Value
+                  </Heading>
+                  <DraftControlBadge gated={requireReviews} />
+                </Flex>
                 {canEdit && !isLocked && canEditDrafts && (
                   <Button
                     variant="ghost"
@@ -1065,7 +1107,7 @@ export default function FeaturesOverview({
                 style={{ borderTop: "1px solid var(--gray-a4)" }}
               >
                 <Flex align="center" justify="between" mb="2">
-                  <Flex>
+                  <Flex align="center" gap="2">
                     <Heading as="h3" size="4" mb="0" mr="1">
                       Rules
                     </Heading>
@@ -1074,6 +1116,7 @@ export default function FeaturesOverview({
                         that matches will be applied and override the Default
                         Value."
                     />
+                    <DraftControlBadge gated={requireReviews} />
                   </Flex>
                   <label className="font-weight-semibold">
                     <Switch

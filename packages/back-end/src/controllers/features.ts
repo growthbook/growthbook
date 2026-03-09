@@ -2276,11 +2276,20 @@ export async function postFeatureToggle(
   const liveState =
     feature.environmentSettings?.[environment]?.enabled || false;
 
-  const killSwitchBehavior =
-    context.org.settings?.featureKillSwitchBehavior ??
-    (context.org.settings?.killswitchConfirmation ? "warn" : "off");
+  const requireReviewSettings = Array.isArray(
+    context.org.settings?.requireReviews,
+  )
+    ? context.org.settings.requireReviews
+    : [];
+  const reviewSettingForToggle = getReviewSetting(
+    requireReviewSettings,
+    feature,
+  );
+  const envReviewRequired =
+    !!reviewSettingForToggle?.requireReviewOn &&
+    !!reviewSettingForToggle?.featureRequireEnvironmentReview;
 
-  if (killSwitchBehavior === "gate") {
+  if (envReviewRequired) {
     // For gated toggles the effective current state is whatever the active
     // draft already has recorded, falling back to the live feature state.
     // We must look this up before the early-return guard so we don't
@@ -3547,7 +3556,7 @@ export async function postPrerequisite(
 
   const reviewSetting = getFeatureReviewSetting(context, feature);
 
-  if (reviewSetting?.featureRequirePrerequisiteReview) {
+  if (reviewSetting?.featureRequireEnvironmentReview) {
     // Use the active draft's prerequisite list as the base so that consecutive
     // gated edits don't overwrite each other with stale live-feature data.
     const existingDraft = await getActiveDraft(context, feature);
@@ -3602,7 +3611,7 @@ export async function putPrerequisite(
 
   const reviewSetting = getFeatureReviewSetting(context, feature);
 
-  if (reviewSetting?.featureRequirePrerequisiteReview) {
+  if (reviewSetting?.featureRequireEnvironmentReview) {
     const existingDraft = await getActiveDraft(context, feature);
     const basePrerequisites =
       existingDraft?.prerequisites ?? feature.prerequisites ?? [];
@@ -3660,7 +3669,7 @@ export async function deletePrerequisite(
 
   const reviewSetting = getFeatureReviewSetting(context, feature);
 
-  if (reviewSetting?.featureRequirePrerequisiteReview) {
+  if (reviewSetting?.featureRequireEnvironmentReview) {
     const existingDraft = await getActiveDraft(context, feature);
     const basePrerequisites =
       existingDraft?.prerequisites ?? feature.prerequisites ?? [];

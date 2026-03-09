@@ -92,12 +92,14 @@ describe("checkIfRevisionNeedsReview", () => {
     ).toBe(false);
   });
 
-  describe("kill switch (featureKillSwitchBehavior)", () => {
-    // featureKillSwitchBehavior is a global org setting, not per-rule.
-    it('does NOT require review when killSwitchBehavior is "off"', () => {
-      const settings: OrganizationSettings = {
-        featureKillSwitchBehavior: "off",
-      };
+  describe("environment review (featureRequireEnvironmentReview — kill switches + prerequisites)", () => {
+    it("does NOT require review when featureRequireEnvironmentReview is false and env changed", () => {
+      const settings = makeSettings(
+        makeReviewSetting({
+          requireReviewOn: false,
+          featureRequireEnvironmentReview: false,
+        }),
+      );
       const base = makeRevision({
         version: 3,
         environmentsEnabled: { production: true },
@@ -116,32 +118,13 @@ describe("checkIfRevisionNeedsReview", () => {
       ).toBe(false);
     });
 
-    it('does NOT require review when killSwitchBehavior is "warn"', () => {
-      const settings: OrganizationSettings = {
-        featureKillSwitchBehavior: "warn",
-      };
-      const base = makeRevision({
-        version: 3,
-        environmentsEnabled: { production: true },
-      });
-      const revision = makeRevision({
-        environmentsEnabled: { production: false },
-      });
-      expect(
-        checkIfRevisionNeedsReview({
-          feature: baseFeature,
-          baseRevision: base,
-          revision,
-          allEnvironments,
-          settings,
+    it("DOES require review when featureRequireEnvironmentReview is true and env changed", () => {
+      const settings = makeSettings(
+        makeReviewSetting({
+          requireReviewOn: true,
+          featureRequireEnvironmentReview: true,
         }),
-      ).toBe(false);
-    });
-
-    it('DOES require review when killSwitchBehavior is "gate" and env changed', () => {
-      const settings: OrganizationSettings = {
-        featureKillSwitchBehavior: "gate",
-      };
+      );
       const base = makeRevision({
         version: 3,
         environmentsEnabled: { production: true },
@@ -160,55 +143,36 @@ describe("checkIfRevisionNeedsReview", () => {
       ).toBe(true);
     });
 
-    it('does NOT require review when killSwitchBehavior is "gate" but env did NOT change', () => {
-      const settings: OrganizationSettings = {
-        featureKillSwitchBehavior: "gate",
-      };
-      const base = makeRevision({
-        version: 3,
-        environmentsEnabled: { production: true },
-      });
-      const revision = makeRevision({
-        environmentsEnabled: { production: true }, // same value as base
-      });
-      expect(
-        checkIfRevisionNeedsReview({
-          feature: baseFeature,
-          baseRevision: base,
-          revision,
-          allEnvironments,
-          settings,
-        }),
-      ).toBe(false);
-    });
-
-    it("respects legacy killswitchConfirmation=true as warn (no review)", () => {
-      const settings: OrganizationSettings = { killswitchConfirmation: true };
-      const base = makeRevision({
-        version: 3,
-        environmentsEnabled: { production: true },
-      });
-      const revision = makeRevision({
-        environmentsEnabled: { production: false },
-      });
-      expect(
-        checkIfRevisionNeedsReview({
-          feature: baseFeature,
-          baseRevision: base,
-          revision,
-          allEnvironments,
-          settings,
-        }),
-      ).toBe(false);
-    });
-  });
-
-  describe("prerequisites (featureRequirePrerequisiteReview)", () => {
-    it("requires review when featureRequirePrerequisiteReview is true and prerequisites changed", () => {
+    it("does NOT require review when featureRequireEnvironmentReview is true but env did NOT change", () => {
       const settings = makeSettings(
         makeReviewSetting({
           requireReviewOn: false,
-          featureRequirePrerequisiteReview: true,
+          featureRequireEnvironmentReview: true,
+        }),
+      );
+      const base = makeRevision({
+        version: 3,
+        environmentsEnabled: { production: true },
+      });
+      const revision = makeRevision({
+        environmentsEnabled: { production: true },
+      });
+      expect(
+        checkIfRevisionNeedsReview({
+          feature: baseFeature,
+          baseRevision: base,
+          revision,
+          allEnvironments,
+          settings,
+        }),
+      ).toBe(false);
+    });
+
+    it("DOES require review when featureRequireEnvironmentReview is true and prerequisites changed", () => {
+      const settings = makeSettings(
+        makeReviewSetting({
+          requireReviewOn: true,
+          featureRequireEnvironmentReview: true,
         }),
       );
       const base = makeRevision({ version: 3, prerequisites: [] });
@@ -226,11 +190,11 @@ describe("checkIfRevisionNeedsReview", () => {
       ).toBe(true);
     });
 
-    it("does NOT require review when featureRequirePrerequisiteReview is false", () => {
+    it("does NOT require review when featureRequireEnvironmentReview is false and prerequisites changed", () => {
       const settings = makeSettings(
         makeReviewSetting({
           requireReviewOn: false,
-          featureRequirePrerequisiteReview: false,
+          featureRequireEnvironmentReview: false,
         }),
       );
       const base = makeRevision({ version: 3, prerequisites: [] });
@@ -248,11 +212,11 @@ describe("checkIfRevisionNeedsReview", () => {
       ).toBe(false);
     });
 
-    it("requires review when envPrerequisites changed", () => {
+    it("DOES require review when featureRequireEnvironmentReview is true and envPrerequisites changed", () => {
       const settings = makeSettings(
         makeReviewSetting({
-          requireReviewOn: false,
-          featureRequirePrerequisiteReview: true,
+          requireReviewOn: true,
+          featureRequireEnvironmentReview: true,
         }),
       );
       const base = makeRevision({ version: 3, envPrerequisites: {} });
@@ -687,11 +651,10 @@ describe("backward compatibility — old revisions without envelopes", () => {
 
   it("checkIfRevisionNeedsReview handles missing envelopes gracefully", () => {
     const settings: OrganizationSettings = {
-      featureKillSwitchBehavior: "gate",
       requireReviews: [
         makeReviewSetting({
           requireReviewOn: false,
-          featureRequirePrerequisiteReview: true,
+          featureRequireEnvironmentReview: true,
           featureRequireMetadataReview: true,
         }),
       ],

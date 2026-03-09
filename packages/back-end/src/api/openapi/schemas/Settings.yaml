@@ -143,7 +143,6 @@ properties:
     enum:
       - "off"
       - "warn"
-      - "gate"
   requireReviews:
     type: array
     items:
@@ -161,7 +160,7 @@ properties:
           type: array
           items:
             type: string
-        featureRequirePrerequisiteReview:
+        featureRequireEnvironmentReview:
           type: boolean
         featureRequireMetadataReview:
           type: boolean

@@ -18,6 +18,33 @@ import Button from "@/ui/Button";
 import { GBInfo } from "@/components/Icons";
 import Frame from "@/ui/Frame";
 
+/**
+ * Single checkbox that gates both environment kill switches and prerequisites.
+ * When checked, the kill switch behavior radio is cleared (direct-write
+ * confirmation is irrelevant when changes go into a draft anyway).
+ */
+function EnvironmentReviewCheckbox({ i }: { i: number }) {
+  const form = useFormContext();
+  const checked = !!form.watch(
+    `requireReviews.${i}.featureRequireEnvironmentReview`,
+  );
+
+  return (
+    <Checkbox
+      id={`toggle-env-review-${i}`}
+      label="Environment toggle and prerequisite changes"
+      value={checked}
+      setValue={(v) => {
+        form.setValue(`requireReviews.${i}.featureRequireEnvironmentReview`, v);
+        if (v) {
+          form.setValue("featureKillSwitchBehavior", "off");
+          form.setValue("killswitchConfirmation", false);
+        }
+      }}
+    />
+  );
+}
+
 export default function FeatureSettings() {
   const [codeRefsBranchesToFilterStr, setCodeRefsBranchesToFilterStr] =
     useState<string>("");
@@ -51,6 +78,15 @@ export default function FeatureSettings() {
     "hash-secure-attributes",
   );
   const hasRequireApprovals = hasCommercialFeature("require-approvals");
+  // Disable the kill switch radio when any approval rule gates env changes —
+  // a confirmation dialog is redundant when changes go into a draft.
+  const envReviewActive = !!(
+    form.watch("requireReviews") as
+      | Array<{
+          featureRequireEnvironmentReview?: boolean;
+        }>
+      | undefined
+  )?.some((r) => r.featureRequireEnvironmentReview);
 
   const hasCodeReferencesFeature = hasCommercialFeature("code-references");
 
@@ -240,35 +276,30 @@ export default function FeatureSettings() {
                 </Text>
                 <RadioGroup
                   value={
-                    form.watch("featureKillSwitchBehavior") ??
-                    (form.watch("killswitchConfirmation") ? "warn" : "off")
+                    envReviewActive
+                      ? ""
+                      : (form.watch("featureKillSwitchBehavior") ??
+                        (form.watch("killswitchConfirmation") ? "warn" : "off"))
                   }
                   setValue={(v) => {
                     form.setValue(
                       "featureKillSwitchBehavior",
-                      v as "off" | "warn" | "gate",
+                      v as "off" | "warn",
                     );
-                    // Keep legacy field in sync for backward compat
                     form.setValue("killswitchConfirmation", v !== "off");
                   }}
                   options={[
                     {
                       value: "off",
                       label: "Off - toggle immediately with no confirmation",
+                      disabled: envReviewActive,
                     },
                     {
                       value: "warn",
                       label:
                         "Warn - show a confirmation dialog before toggling",
+                      disabled: envReviewActive,
                     },
-                    ...(hasRequireApprovals
-                      ? [
-                          {
-                            value: "gate",
-                            label: "Require approval to toggle kill switches",
-                          },
-                        ]
-                      : []),
                   ]}
                 />
               </Box>
@@ -384,36 +415,7 @@ export default function FeatureSettings() {
                               Require approvals for
                             </Text>
                             <Flex direction="column" gap="2">
-                              <Checkbox
-                                id={`toggle-killswitch-gate-${i}`}
-                                label="Toggling kill switches"
-                                value={
-                                  form.watch("featureKillSwitchBehavior") ===
-                                  "gate"
-                                }
-                                setValue={(v) => {
-                                  form.setValue(
-                                    "featureKillSwitchBehavior",
-                                    v ? "gate" : "warn",
-                                  );
-                                  form.setValue("killswitchConfirmation", true);
-                                }}
-                              />
-                              <Checkbox
-                                id={`toggle-prereq-review-${i}`}
-                                label="Prerequisite changes"
-                                value={
-                                  !!form.watch(
-                                    `requireReviews.${i}.featureRequirePrerequisiteReview`,
-                                  )
-                                }
-                                setValue={(v) =>
-                                  form.setValue(
-                                    `requireReviews.${i}.featureRequirePrerequisiteReview`,
-                                    v,
-                                  )
-                                }
-                              />
+                              <EnvironmentReviewCheckbox i={i} />
                               <Checkbox
                                 id={`toggle-metadata-review-${i}`}
                                 label="Metadata changes (description, owner, project, tags, etc.)"

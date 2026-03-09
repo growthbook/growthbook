@@ -69,7 +69,7 @@ export type RequireReview = {
   environments: string[];
   projects: string[];
   // Per-change-type gating for feature revisions
-  featureRequirePrerequisiteReview?: boolean;
+  featureRequireEnvironmentReview?: boolean; // gates kill switches + prerequisites
   featureRequireMetadataReview?: boolean;
 };
 
@@ -220,7 +220,7 @@ export interface OrganizationSettings {
   secureAttributeSalt?: string;
   /** @deprecated use featureKillSwitchBehavior instead */
   killswitchConfirmation?: boolean;
-  featureKillSwitchBehavior?: "off" | "warn" | "gate";
+  featureKillSwitchBehavior?: "off" | "warn";
   requireReviews?: boolean | RequireReview[];
   restApiBypassesReviews?: boolean;
   defaultDataSource?: string;

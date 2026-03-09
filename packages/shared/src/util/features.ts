@@ -1352,29 +1352,26 @@ export function checkIfRevisionNeedsReview({
     return true;
   }
 
-  // Kill switch (environmentsEnabled) — global setting, only "gate" triggers a review
-  const killSwitchBehavior =
-    settings?.featureKillSwitchBehavior ??
-    (settings?.killswitchConfirmation ? "warn" : "off");
-  if (killSwitchBehavior === "gate" && revision.environmentsEnabled) {
-    const changedEnvs = Object.keys(revision.environmentsEnabled).filter(
-      (env) =>
-        revision.environmentsEnabled![env] !==
-        baseRevision.environmentsEnabled?.[env],
-    );
-    if (changedEnvs.length > 0) {
-      return true;
-    }
-  }
-
   const requireReviews = settings?.requireReviews;
   if (!requireReviews || typeof requireReviews !== "object") return false;
 
   const reviewSetting = getReviewSetting(requireReviews, feature);
   if (!reviewSetting) return false;
 
+  // Kill switches (environmentsEnabled) and prerequisites share a single gate
+  if (reviewSetting.featureRequireEnvironmentReview) {
+    if (revision.environmentsEnabled) {
+      const changedEnvs = Object.keys(revision.environmentsEnabled).filter(
+        (env) =>
+          revision.environmentsEnabled![env] !==
+          baseRevision.environmentsEnabled?.[env],
+      );
+      if (changedEnvs.length > 0) return true;
+    }
+  }
+
   // Prerequisites (feature-level and per-env)
-  if (reviewSetting.featureRequirePrerequisiteReview) {
+  if (reviewSetting.featureRequireEnvironmentReview) {
     if (
       revision.prerequisites !== undefined &&
       !isEqual(revision.prerequisites, baseRevision.prerequisites || [])

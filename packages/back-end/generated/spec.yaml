@@ -22237,7 +22237,6 @@ components:
           enum:
             - 'off'
             - warn
-            - gate
         requireReviews:
           type: array
           items:
@@ -22255,7 +22254,7 @@ components:
                 type: array
                 items:
                   type: string
-              featureRequirePrerequisiteReview:
+              featureRequireEnvironmentReview:
                 type: boolean
               featureRequireMetadataReview:
                 type: boolean
