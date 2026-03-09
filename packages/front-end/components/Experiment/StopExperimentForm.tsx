@@ -1,5 +1,5 @@
 import { FC, useRef, useState } from "react";
-import { getLatestPhaseVariations } from "shared/experiments";
+import { getAllVariations } from "shared/experiments";
 import {
   DecisionCriteriaData,
   ExperimentInterfaceStringDates,
@@ -119,7 +119,7 @@ const StopExperimentForm: FC<{
     return {};
   };
 
-  const variations = getLatestPhaseVariations(experiment);
+  const variations = getAllVariations(experiment);
   const {
     result: recommendedResult,
     releasedVariationId: recommendedReleaseVariationId,

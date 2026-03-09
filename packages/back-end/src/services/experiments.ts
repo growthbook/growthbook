@@ -37,6 +37,7 @@ import {
   expandAllSliceMetricsInMap,
   getEqualWeights,
   getEffectiveLookbackOverride,
+  getAllVariations,
   getLatestPhaseVariations,
   getMetricResultStatus,
   getMetricSnapshotSettings,
@@ -1676,8 +1677,7 @@ export async function toExperimentApiInterface(
           resultSummary: {
             status: experiment.results,
             winner:
-              getLatestPhaseVariations(experiment)[experiment.winner ?? 0]
-                ?.id || "",
+              getAllVariations(experiment)[experiment.winner ?? 0]?.id || "",
             conclusions: experiment.analysis || "",
             releasedVariationId: experiment.releasedVariationId || "",
             excludeFromPayload: !!experiment.excludeFromPayload,
@@ -3394,7 +3394,7 @@ export async function updateExperimentAnalysisSummary({
   });
 }
 
-function getVariationId(
+function getLatestPhaseVariationId(
   experiment: ExperimentInterface | SafeRolloutInterface,
   i: number,
 ): string {
@@ -3446,7 +3446,7 @@ export async function computeResultsStatus({
 
   for (let i = 1; i < variations.length; i++) {
     // try to get id from experiment object
-    const variationId = getVariationId(experiment, i);
+    const variationId = getLatestPhaseVariationId(experiment, i);
     const currentVariation = variations[i];
     const variationStatus: ExperimentAnalysisSummaryVariationStatus = {
       variationId,

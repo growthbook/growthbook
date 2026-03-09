@@ -1945,3 +1945,17 @@ export function getLatestPhaseVariations(
 ): Variation[] {
   return experiment.variations;
 }
+
+/**
+ * Returns all variations defined on an experiment, regardless of phase.
+ * Use this when you need to look up a variation by index or ID outside
+ * the scope of a specific phase (e.g. winner, releasedVariationId).
+ * Sometimes we do look up via index within a phase, such as around results
+ * computation from the stats engine, and in those cases, please use
+ * getLatestPhaseVariations.
+ */
+export function getAllVariations(
+  experiment: ExperimentWithVariations,
+): Variation[] {
+  return experiment.variations;
+}

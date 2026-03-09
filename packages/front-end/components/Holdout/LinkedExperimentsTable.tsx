@@ -1,5 +1,5 @@
 import { HoldoutInterfaceStringDates } from "shared/validators";
-import { getLatestPhaseVariations } from "shared/experiments";
+import { getAllVariations } from "shared/experiments";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Box, Text } from "@radix-ui/themes";
 import { useRouter } from "next/router";
@@ -73,7 +73,7 @@ const LinkedExperimentsTable = ({ holdout, experiments }: Props) => {
         </thead>
         <tbody>
           {items.map((exp) => {
-            const variations = getLatestPhaseVariations(exp);
+            const variations = getAllVariations(exp);
             const variationIndex = variations.findIndex(
               (v) => v.id === exp.releasedVariationId,
             );

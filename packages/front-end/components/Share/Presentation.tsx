@@ -11,6 +11,7 @@ import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import clsx from "clsx";
 import {
   expandMetricGroups,
+  getAllVariations,
   getLatestPhaseVariations,
 } from "shared/experiments";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
@@ -191,7 +192,7 @@ const Presentation = ({
     const variationExtra: JSX.Element[] = [];
     let sideExtra = <></>;
     const expVariations = e?.experiment
-      ? getLatestPhaseVariations(e.experiment)
+      ? getAllVariations(e.experiment)
       : [];
     const variationsPlural =
       (expVariations?.length || 0) !== 1 ? "variations" : "variation";

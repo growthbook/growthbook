@@ -1,4 +1,4 @@
-import { getLatestPhaseVariations } from "shared/experiments";
+import { getAllVariations } from "shared/experiments";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
@@ -39,7 +39,7 @@ export default function StoppedExperimentBanner({
   if (experiment.status !== "stopped") return null;
 
   const result = experiment.results;
-  const variations = getLatestPhaseVariations(experiment);
+  const variations = getAllVariations(experiment);
 
   const winningVariation =
     (result === "lost"

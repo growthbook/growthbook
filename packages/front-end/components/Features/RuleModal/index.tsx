@@ -17,7 +17,7 @@ import { useGrowthBook } from "@growthbook/growthbook-react";
 import { PiCaretRight } from "react-icons/pi";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
-import { getLatestPhaseVariations } from "shared/experiments";
+import { getAllVariations, getLatestPhaseVariations } from "shared/experiments";
 import { kebabCase } from "lodash";
 import { Text } from "@radix-ui/themes";
 import {
@@ -581,7 +581,7 @@ export default function RuleModal({
           enabled: values.enabled ?? true,
           variations: values.values.map((v, i) => ({
             value: v.value,
-            variationId: getLatestPhaseVariations(res.experiment)[i]?.id || "",
+            variationId: getAllVariations(res.experiment)[i]?.id || "",
           })),
           scheduleRules: values.scheduleRules || [],
         };

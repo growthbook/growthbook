@@ -31,7 +31,7 @@ import {
   scrubSavedGroups,
   SDKCapability,
 } from "shared/sdk-versioning";
-import { getLatestPhaseVariations } from "shared/experiments";
+import { getAllVariations, getLatestPhaseVariations } from "shared/experiments";
 import cloneDeep from "lodash/cloneDeep";
 import pickBy from "lodash/pickBy";
 import {
@@ -262,7 +262,7 @@ export function generateAutoExperimentsPayload({
       const phase: ExperimentPhase | null = e.phases?.slice(-1)?.[0] ?? null;
       const forcedVariation =
         e.status === "stopped" && e.releasedVariationId
-          ? getLatestPhaseVariations(e).find(
+          ? getAllVariations(e).find(
               (v) => v.id === e.releasedVariationId,
             )
           : null;
@@ -353,7 +353,7 @@ export function generateAutoExperimentsPayload({
         name: e.name,
         phase: `${e.phases.length - 1}`,
         force: forcedVariation
-          ? getLatestPhaseVariations(e).indexOf(forcedVariation)
+          ? getAllVariations(e).indexOf(forcedVariation)
           : undefined,
         condition,
         coverage: phase.coverage,
