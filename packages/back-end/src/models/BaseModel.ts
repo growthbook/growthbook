@@ -409,6 +409,7 @@ export abstract class BaseModel<
    * Built-in public methods
    ***************/
   public getById(id: string) {
+    this._assertHasIdField();
     if (typeof id !== "string") {
       throw new Error("Invalid id");
     }
@@ -417,6 +418,7 @@ export abstract class BaseModel<
     return this._findOne({ id });
   }
   public getByIds(ids: string[]) {
+    this._assertHasIdField();
     // Make sure ids is an array of strings
     if (!Array.isArray(ids) || !ids.every((id) => typeof id === "string")) {
       throw new Error("Invalid ids");
@@ -472,6 +474,7 @@ export abstract class BaseModel<
     updates: UpdateProps<z.infer<T>>,
     writeOptions?: WriteOptions,
   ): Promise<z.infer<T>> {
+    this._assertHasIdField();
     const existing = await this.getById(id);
     if (!existing) {
       throw new Error("Could not find resource to update");
@@ -486,6 +489,7 @@ export abstract class BaseModel<
     updates: UpdateProps<z.infer<T>>,
     writeOptions?: WriteOptions,
   ): Promise<z.infer<T>> {
+    this._assertHasIdField();
     const existing = await this.getById(id);
     if (!existing) {
       throw new Error("Could not find resource to update");
@@ -503,6 +507,7 @@ export abstract class BaseModel<
     id: string,
     writeOptions?: WriteOptions,
   ): Promise<z.infer<T> | undefined> {
+    this._assertHasIdField();
     const existing = await this.getById(id);
     if (!existing) {
       // If it doesn't exist, maybe it was deleted already. No need to throw an error.
@@ -1070,6 +1075,15 @@ export abstract class BaseModel<
   /***************
    * Private methods
    ***************/
+
+  private _assertHasIdField(): void {
+    if (!("id" in this.config.schema.shape)) {
+      throw new Error(
+        `getById/getByIds is not supported on "${this.config.collectionName}": schema has no "id" field. ` +
+          `Use a model-specific accessor instead.`,
+      );
+    }
+  }
 
   // Make sure any project ids in this model point to actual projects
   // This is only called when creating/updating to avoid breaking on read
