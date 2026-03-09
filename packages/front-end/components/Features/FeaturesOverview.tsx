@@ -6,6 +6,7 @@ import {
   PiPlusCircleBold,
   PiArrowsLeftRightBold,
   PiShieldCheckBold,
+  PiShieldSlashBold,
   PiPencilSimpleFill,
 } from "react-icons/pi";
 import { FaBoltLightning } from "react-icons/fa6";
@@ -99,16 +100,37 @@ import FeatureRules from "./FeatureRules";
  * revision / approval control. `gated` = requires org approval; otherwise
  * it's just always tracked in revision history (rules/default value).
  */
-function DraftControlBadge() {
+function DraftControlBadge({
+  gated,
+  alwaysDrafted = false,
+}: {
+  gated: boolean;
+  alwaysDrafted?: boolean;
+}) {
+  const notGatedTooltip = alwaysDrafted
+    ? "Changes to this section always create a draft revision, but no approval is required to publish."
+    : "Changes to this section are published directly — no draft or approval required.";
   return (
     <Tooltip
-      body="Changes to this section create a draft revision that requires approval before going live."
+      body={
+        gated
+          ? "Changes to this section create a draft revision that requires approval before going live."
+          : notGatedTooltip
+      }
       tipMinWidth="180px"
     >
       <span
-        style={{ color: "var(--violet-9)", lineHeight: 1, display: "flex" }}
+        style={{
+          color: gated ? "var(--violet-9)" : "var(--gray-8)",
+          lineHeight: 1,
+          display: "flex",
+        }}
       >
-        <PiShieldCheckBold size={16} />
+        {gated ? (
+          <PiShieldCheckBold size={16} />
+        ) : (
+          <PiShieldSlashBold size={16} />
+        )}
       </span>
     </Tooltip>
   );
@@ -645,7 +667,7 @@ export default function FeaturesOverview({
               <Heading as="h3" size="4" mb="0">
                 Description
               </Heading>
-              {metadataReviewRequired && <DraftControlBadge />}
+              <DraftControlBadge gated={metadataReviewRequired} />
             </Flex>
             {canEdit && (
               <Button
@@ -673,6 +695,7 @@ export default function FeaturesOverview({
             mutate={mutate}
             section={"feature"}
             mt="6"
+            showApprovalBadge
             draftInfo={
               metadataReviewRequired
                 ? ({
@@ -749,7 +772,7 @@ export default function FeaturesOverview({
               <Heading as="h3" size="4" mb="0">
                 Environment Status
               </Heading>
-              {envGated && <DraftControlBadge />}
+              <DraftControlBadge gated={envGated} />
             </Flex>
             <div className="mb-4">
               When disabled, this feature will evaluate to <code>null</code>.
@@ -1066,7 +1089,10 @@ export default function FeaturesOverview({
                   <Heading as="h3" size="4" mb="0">
                     Default Value
                   </Heading>
-                  {!!reviewSetting?.requireReviewOn && <DraftControlBadge />}
+                  <DraftControlBadge
+                    gated={!!reviewSetting?.requireReviewOn}
+                    alwaysDrafted
+                  />
                 </Flex>
                 {canEdit && !isLocked && canEditDrafts && (
                   <Button
@@ -1099,7 +1125,10 @@ export default function FeaturesOverview({
                     <Heading as="h3" size="4" mb="0">
                       Rules
                     </Heading>
-                    {!!reviewSetting?.requireReviewOn && <DraftControlBadge />}
+                    <DraftControlBadge
+                      gated={!!reviewSetting?.requireReviewOn}
+                      alwaysDrafted
+                    />
                   </Flex>
                   <label className="font-weight-semibold">
                     <Switch

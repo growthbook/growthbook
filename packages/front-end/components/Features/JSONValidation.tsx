@@ -1,20 +1,26 @@
 import { FeatureInterface } from "shared/types/feature";
-import { getValidation } from "shared/util";
-import { useState } from "react";
+import { getValidation, getReviewSetting } from "shared/util";
+import { useMemo, useState } from "react";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiCaretDown, PiCaretRight, PiInfo } from "react-icons/pi";
+import {
+  PiCaretDown,
+  PiCaretRight,
+  PiShieldCheckBold,
+  PiShieldSlashBold,
+} from "react-icons/pi";
 import { ago, datetime } from "shared/dates";
 import { useRouter } from "next/router";
 import { useUser } from "@/services/UserContext";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
 import Badge from "@/ui/Badge";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import JSONSchemaDescription from "@/components/Features/JSONSchemaDescription";
 import Code from "@/components/SyntaxHighlighting/Code";
 import EditSchemaModal from "@/components/Features/EditSchemaModal";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 
 export interface Props {
   feature: FeatureInterface;
@@ -30,6 +36,16 @@ export default function JSONValidation({
   revisionList,
 }: Props) {
   const { hasCommercialFeature } = useUser();
+  const settings = useOrgSettings();
+
+  const requiresApproval = useMemo(() => {
+    const requireReviewSettings = settings?.requireReviews;
+    if (!requireReviewSettings || typeof requireReviewSettings === "boolean") {
+      return !!requireReviewSettings;
+    }
+    const reviewSetting = getReviewSetting(requireReviewSettings, feature);
+    return !!reviewSetting?.requireReviewOn;
+  }, [settings?.requireReviews, feature]);
 
   const router = useRouter();
   const isNew = router?.query && "new" in router.query;
@@ -73,18 +89,32 @@ export default function JSONValidation({
           commercialFeature="json-validation"
         />
       )}
-      <Flex align="center" gap="1" mb="2">
+      <Flex align="center" gap="1" mb="1">
         <Heading as="h3" size="medium" mb="0">
           JSON Validation
         </Heading>
-        <PremiumTooltip
-          commercialFeature="json-validation"
-          body="Prevent typos and mistakes by specifying validation rules using JSON Schema or our Simple Validation Builder"
+        <Tooltip
+          body={
+            requiresApproval
+              ? "Changes to this section create a draft revision that requires approval before going live."
+              : "Changes to this section are published directly — no draft or approval required."
+          }
+          tipMinWidth="180px"
         >
-          <PiInfo
-            style={{ color: "var(--violet-11)", verticalAlign: "middle" }}
-          />
-        </PremiumTooltip>
+          <span
+            style={{
+              color: requiresApproval ? "var(--violet-9)" : "var(--gray-8)",
+              lineHeight: 1,
+              display: "flex",
+            }}
+          >
+            {requiresApproval ? (
+              <PiShieldCheckBold size={16} />
+            ) : (
+              <PiShieldSlashBold size={16} />
+            )}
+          </span>
+        </Tooltip>
         {hasJsonValidator && (
           <Badge
             label={validationEnabled ? "Enabled" : "Not enabled"}
@@ -113,6 +143,12 @@ export default function JSONValidation({
           </Button>
         </div>
       </Flex>
+      {!validationEnabled && (
+        <em className="text-muted">
+          Prevent typos and mistakes by specifying validation rules using JSON
+          Schema or our Simple Validation Builder
+        </em>
+      )}
       {validationEnabled && (
         <Flex pt="2" align="center">
           <JSONSchemaDescription jsonSchema={jsonSchema} />

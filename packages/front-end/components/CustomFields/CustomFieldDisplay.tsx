@@ -1,5 +1,5 @@
 import React, { FC, useState } from "react";
-import { PiShieldCheckBold } from "react-icons/pi";
+import { PiShieldCheckBold, PiShieldSlashBold } from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useForm } from "react-hook-form";
 import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
@@ -41,6 +41,8 @@ const CustomFieldDisplay: FC<{
   mt?: "1" | "2" | "3" | "4" | "5" | "6";
   /** When provided, the edit modal shows a draft callout and "Save to Draft" CTA. */
   draftInfo?: CustomFieldDraftInfo;
+  /** When true, always show the approval shield badge (gated or not). */
+  showApprovalBadge?: boolean;
 }> = ({
   label = "Additional Fields",
   canEdit = true,
@@ -50,6 +52,7 @@ const CustomFieldDisplay: FC<{
   target,
   mt,
   draftInfo,
+  showApprovalBadge = false,
 }) => {
   const [editModal, setEditModal] = useState(false);
   const customFields = filterCustomFieldsForSectionAndProject(
@@ -201,19 +204,27 @@ const CustomFieldDisplay: FC<{
                 <Heading as="h3" size="4" mb="0">
                   {label ? label : ""}
                 </Heading>
-                {draftInfo && (
+                {showApprovalBadge && (
                   <Tooltip
-                    body="Changes to this section create a draft revision that requires approval before going live."
+                    body={
+                      draftInfo
+                        ? "Changes to this section create a draft revision that requires approval before going live."
+                        : "Changes to this section are published directly — no draft or approval required."
+                    }
                     tipMinWidth="180px"
                   >
                     <span
                       style={{
-                        color: "var(--violet-9)",
+                        color: draftInfo ? "var(--violet-9)" : "var(--gray-8)",
                         lineHeight: 1,
                         display: "flex",
                       }}
                     >
-                      <PiShieldCheckBold size={16} />
+                      {draftInfo ? (
+                        <PiShieldCheckBold size={16} />
+                      ) : (
+                        <PiShieldSlashBold size={16} />
+                      )}
                     </span>
                   </Tooltip>
                 )}
