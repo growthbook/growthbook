@@ -4,8 +4,7 @@ import { SNAPSHOT_TIMEOUT } from "back-end/src/controllers/experiments";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { auditDetailsCreate } from "back-end/src/services/audit";
-import { createOrReuseStandardSnapshotExecution } from "back-end/src/services/experiments";
-import { queueRunExperimentSnapshot } from "back-end/src/jobs/updateExperimentResults";
+import { requestStandardSnapshotRefresh } from "back-end/src/jobs/updateExperimentResults";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 // TODO update params (add phase, useCache)
@@ -57,16 +56,12 @@ export const postExperimentSnapshot = createApiRequestHandler(
   // Set timeout to 30 minutes
   req.setTimeout(SNAPSHOT_TIMEOUT);
 
-  const { snapshot } = await createOrReuseStandardSnapshotExecution({
+  const { snapshot } = await requestStandardSnapshotRefresh({
     context,
     experiment,
     phaseIndex: createSnapshotPayload.phase,
     useCache: createSnapshotPayload.useCache,
     triggeredBy: triggeredBy ?? "manual",
-  });
-  await queueRunExperimentSnapshot({
-    organization: context.org.id,
-    snapshotId: snapshot.id,
   });
 
   await req.audit({

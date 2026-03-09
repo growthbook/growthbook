@@ -26,12 +26,11 @@ import {
   updateDashboardSavedQueries,
   updateNonExperimentDashboard,
 } from "back-end/src/enterprise/services/dashboards";
-import { createOrReuseStandardSnapshotExecution } from "back-end/src/services/experiments";
+import { requestStandardSnapshotRefresh } from "back-end/src/jobs/updateExperimentResults";
 import {
   generateDashboardBlockIds,
   migrateBlock,
 } from "back-end/src/enterprise/models/DashboardModel";
-import { queueRunExperimentSnapshot } from "back-end/src/jobs/updateExperimentResults";
 import { createDashboardBody, updateDashboardBody } from "./dashboards.router";
 interface SingleDashboardResponse {
   status: number;
@@ -186,17 +185,12 @@ export async function refreshDashboardData(
     if (!experiment)
       throw new Error("Cannot update dashboard without an attached experiment");
 
-    const { snapshot: mainSnapshot } =
-      await createOrReuseStandardSnapshotExecution({
-        context,
-        experiment,
-        phaseIndex: experiment.phases.length - 1,
-        useCache: false,
-        triggeredBy: "manual-dashboard",
-      });
-    await queueRunExperimentSnapshot({
-      organization: context.org.id,
-      snapshotId: mainSnapshot.id,
+    const { snapshot: mainSnapshot } = await requestStandardSnapshotRefresh({
+      context,
+      experiment,
+      phaseIndex: experiment.phases.length - 1,
+      useCache: false,
+      triggeredBy: "manual-dashboard",
     });
 
     const datasource = await getDataSourceById(context, experiment.datasource);

@@ -48,7 +48,6 @@ import {
 } from "back-end/src/types/AuthRequest";
 import {
   _getSnapshots,
-  createOrReuseStandardSnapshotExecution,
   createSnapshot,
   createSnapshotAnalyses,
   createSnapshotAnalysis,
@@ -142,7 +141,7 @@ import {
   shouldValidateCustomFieldsOnUpdate,
   validateCustomFieldsForSection,
 } from "back-end/src/util/custom-fields";
-import { queueRunExperimentSnapshot } from "back-end/src/jobs/updateExperimentResults";
+import { requestStandardSnapshotRefresh } from "back-end/src/jobs/updateExperimentResults";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
 
@@ -1299,16 +1298,12 @@ export async function postExperiments(
       req.setTimeout(SNAPSHOT_TIMEOUT);
 
       try {
-        const { snapshot } = await createOrReuseStandardSnapshotExecution({
+        await requestStandardSnapshotRefresh({
           context,
           experiment,
           phaseIndex: 0,
           useCache: true,
           triggeredBy: "manual",
-        });
-        await queueRunExperimentSnapshot({
-          organization: context.org.id,
-          snapshotId: snapshot.id,
         });
       } catch (e) {
         logger.error(e, "Failed to auto-refresh imported experiment");
@@ -3095,7 +3090,7 @@ export async function postSnapshot(
     let existingExecution = false;
 
     if (snapshotType === "standard") {
-      const result = await createOrReuseStandardSnapshotExecution({
+      const result = await requestStandardSnapshotRefresh({
         context,
         experiment,
         phaseIndex: phase,
@@ -3104,10 +3099,6 @@ export async function postSnapshot(
       });
       snapshot = result.snapshot;
       existingExecution = result.existing;
-      await queueRunExperimentSnapshot({
-        organization: context.org.id,
-        snapshotId: snapshot.id,
-      });
     } else {
       ({ snapshot } = await createExperimentSnapshot({
         context,
@@ -3290,7 +3281,7 @@ export async function postBanditSnapshot(
   let snapshot: ExperimentSnapshotInterface | undefined = undefined;
 
   try {
-    ({ snapshot } = await createOrReuseStandardSnapshotExecution({
+    ({ snapshot } = await requestStandardSnapshotRefresh({
       context,
       experiment,
       phaseIndex: phase,
@@ -3298,10 +3289,6 @@ export async function postBanditSnapshot(
       triggeredBy: "manual",
       reweight,
     }));
-    await queueRunExperimentSnapshot({
-      organization: context.org.id,
-      snapshotId: snapshot.id,
-    });
 
     await req.audit({
       event: "experiment.refresh",

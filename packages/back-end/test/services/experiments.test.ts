@@ -10,7 +10,6 @@ import {
   putMetricApiPayloadToMetricInterface,
   mergeSnapshotRefreshIntent,
   buildSnapshotRefreshIntent,
-  getFollowupStandardSnapshotExecution,
 } from "back-end/src/services/experiments";
 
 describe("experiments utils", () => {
@@ -1235,246 +1234,63 @@ describe("incremental refresh mutex", () => {
       const intent = buildSnapshotRefreshIntent({
         triggeredBy: "manual",
         useCache: true,
-        isApiRequest: false,
         reweight: false,
       });
 
-      expect(intent.requestedByManual).toBe(true);
-      expect(intent.requestedBySchedule).toBe(false);
-      expect(intent.requestedByApi).toBe(false);
       expect(intent.forceFullRefresh).toBe(false);
       expect(intent.banditReweightRequested).toBe(false);
-      expect(intent.scheduledBanditEffectsPending).toBe(false);
-      expect(intent.lastManualRequestDate).toBeInstanceOf(Date);
-      expect(intent.lastScheduledRequestDate).toBeUndefined();
     });
 
-    it("should preserve dashboard refresh requests separately", () => {
+    it("should treat dashboard refresh like a manual non-scheduled request", () => {
       const intent = buildSnapshotRefreshIntent({
         triggeredBy: "manual-dashboard",
         useCache: false,
-        isApiRequest: false,
         reweight: false,
       });
 
-      expect(intent.requestedByManual).toBe(true);
-      expect(intent.requestedByDashboard).toBe(true);
       expect(intent.forceFullRefresh).toBe(true);
+      expect(intent.triggeredBySchedule).toBe(false);
     });
 
     it("should build intent for scheduled trigger", () => {
       const intent = buildSnapshotRefreshIntent({
         triggeredBy: "schedule",
         useCache: true,
-        isApiRequest: false,
         reweight: true,
       });
 
-      expect(intent.requestedByManual).toBe(false);
-      expect(intent.requestedBySchedule).toBe(true);
-      expect(intent.requestedByApi).toBe(false);
       expect(intent.forceFullRefresh).toBe(false);
       expect(intent.banditReweightRequested).toBe(true);
-      expect(intent.scheduledBanditEffectsPending).toBe(true);
-      expect(intent.lastManualRequestDate).toBeUndefined();
-      expect(intent.lastScheduledRequestDate).toBeInstanceOf(Date);
-    });
-
-    it("should build intent for API request with force refresh", () => {
-      const intent = buildSnapshotRefreshIntent({
-        triggeredBy: "manual",
-        useCache: false,
-        isApiRequest: true,
-        reweight: undefined,
-      });
-
-      expect(intent.requestedByManual).toBe(true);
-      expect(intent.requestedByApi).toBe(true);
-      expect(intent.forceFullRefresh).toBe(true);
-      expect(intent.banditReweightRequested).toBe(false);
+      expect(intent.triggeredBySchedule).toBe(true);
     });
   });
 
   describe("mergeSnapshotRefreshIntent", () => {
     it("should OR boolean flags from existing and incoming", () => {
       const existing: ExperimentSnapshotRefreshIntent = {
-        requestedByManual: true,
-        requestedBySchedule: false,
-        requestedByApi: false,
-        requestedByDashboard: false,
         forceFullRefresh: false,
         banditReweightRequested: false,
-        scheduledBanditEffectsPending: false,
+        triggeredBySchedule: false,
       };
       const incoming: ExperimentSnapshotRefreshIntent = {
-        requestedByManual: false,
-        requestedBySchedule: true,
-        requestedByApi: false,
-        requestedByDashboard: true,
-        forceFullRefresh: false,
-        banditReweightRequested: true,
-        scheduledBanditEffectsPending: true,
-      };
-
-      const merged = mergeSnapshotRefreshIntent(existing, incoming);
-
-      expect(merged.requestedByManual).toBe(true);
-      expect(merged.requestedBySchedule).toBe(true);
-      expect(merged.requestedByApi).toBe(false);
-      expect(merged.requestedByDashboard).toBe(true);
-      expect(merged.forceFullRefresh).toBe(false);
-      expect(merged.banditReweightRequested).toBe(true);
-      expect(merged.scheduledBanditEffectsPending).toBe(true);
-    });
-
-    it("should use incoming date fields when present", () => {
-      const existingDate = new Date("2024-01-01");
-      const incomingDate = new Date("2024-06-15");
-
-      const existing: ExperimentSnapshotRefreshIntent = {
-        lastManualRequestDate: existingDate,
-        lastScheduledRequestDate: existingDate,
-      };
-      const incoming: ExperimentSnapshotRefreshIntent = {
-        lastManualRequestDate: incomingDate,
-      };
-
-      const merged = mergeSnapshotRefreshIntent(existing, incoming);
-
-      expect(merged.lastManualRequestDate).toBe(incomingDate);
-      expect(merged.lastScheduledRequestDate).toBe(existingDate);
-    });
-
-    it("should fall back to existing date fields when incoming is undefined", () => {
-      const existingDate = new Date("2024-01-01");
-
-      const existing: ExperimentSnapshotRefreshIntent = {
-        lastManualRequestDate: existingDate,
-        lastScheduledRequestDate: existingDate,
-      };
-      const incoming: ExperimentSnapshotRefreshIntent = {};
-
-      const merged = mergeSnapshotRefreshIntent(existing, incoming);
-
-      expect(merged.lastManualRequestDate).toBe(existingDate);
-      expect(merged.lastScheduledRequestDate).toBe(existingDate);
-    });
-
-    it("should handle both intents having all fields set", () => {
-      const date1 = new Date("2024-01-01");
-      const date2 = new Date("2024-06-15");
-
-      const existing: ExperimentSnapshotRefreshIntent = {
-        requestedByManual: true,
-        requestedBySchedule: true,
-        requestedByApi: true,
-        requestedByDashboard: true,
         forceFullRefresh: true,
         banditReweightRequested: true,
-        scheduledBanditEffectsPending: true,
-        lastManualRequestDate: date1,
-        lastScheduledRequestDate: date1,
-      };
-      const incoming: ExperimentSnapshotRefreshIntent = {
-        requestedByManual: true,
-        requestedBySchedule: true,
-        requestedByApi: true,
-        requestedByDashboard: true,
-        forceFullRefresh: true,
-        banditReweightRequested: true,
-        scheduledBanditEffectsPending: true,
-        lastManualRequestDate: date2,
-        lastScheduledRequestDate: date2,
+        triggeredBySchedule: true,
       };
 
       const merged = mergeSnapshotRefreshIntent(existing, incoming);
 
-      expect(merged.requestedByManual).toBe(true);
-      expect(merged.requestedBySchedule).toBe(true);
-      expect(merged.requestedByApi).toBe(true);
-      expect(merged.requestedByDashboard).toBe(true);
       expect(merged.forceFullRefresh).toBe(true);
       expect(merged.banditReweightRequested).toBe(true);
-      expect(merged.scheduledBanditEffectsPending).toBe(true);
-      expect(merged.lastManualRequestDate).toBe(date2);
-      expect(merged.lastScheduledRequestDate).toBe(date2);
+      expect(merged.triggeredBySchedule).toBe(true);
     });
 
     it("should handle empty intents", () => {
       const merged = mergeSnapshotRefreshIntent({}, {});
 
-      expect(merged.requestedByManual).toBe(false);
-      expect(merged.requestedBySchedule).toBe(false);
-      expect(merged.requestedByApi).toBe(false);
-      expect(merged.requestedByDashboard).toBe(false);
       expect(merged.forceFullRefresh).toBe(false);
       expect(merged.banditReweightRequested).toBe(false);
-      expect(merged.scheduledBanditEffectsPending).toBe(false);
-      expect(merged.lastManualRequestDate).toBeUndefined();
-      expect(merged.lastScheduledRequestDate).toBeUndefined();
-    });
-  });
-
-  describe("getFollowupStandardSnapshotExecution", () => {
-    it("should not replay when the running execution already covers the request", () => {
-      const followup = getFollowupStandardSnapshotExecution({
-        executionIntent: {
-          forceFullRefresh: true,
-          banditReweightRequested: true,
-          requestedByManual: true,
-        },
-        mergedIntent: {
-          forceFullRefresh: true,
-          banditReweightRequested: true,
-          requestedByManual: true,
-        },
-      });
-
-      expect(followup).toBeNull();
-    });
-
-    it("should request a manual full-refresh replay when force refresh arrives mid-run", () => {
-      const followup = getFollowupStandardSnapshotExecution({
-        executionIntent: {
-          forceFullRefresh: false,
-          banditReweightRequested: false,
-          requestedBySchedule: true,
-        },
-        mergedIntent: {
-          forceFullRefresh: true,
-          banditReweightRequested: false,
-          requestedByManual: true,
-          requestedBySchedule: true,
-        },
-      });
-
-      expect(followup).toEqual({
-        triggeredBy: "manual",
-        useCache: false,
-        reweight: false,
-      });
-    });
-
-    it("should keep dashboard follow-up executions scoped to dashboards", () => {
-      const followup = getFollowupStandardSnapshotExecution({
-        executionIntent: {
-          forceFullRefresh: false,
-          banditReweightRequested: false,
-          requestedByDashboard: false,
-        },
-        mergedIntent: {
-          forceFullRefresh: true,
-          banditReweightRequested: false,
-          requestedByManual: true,
-          requestedByDashboard: true,
-        },
-      });
-
-      expect(followup).toEqual({
-        triggeredBy: "manual-dashboard",
-        useCache: false,
-        reweight: false,
-      });
+      expect(merged.triggeredBySchedule).toBe(false);
     });
   });
 });
