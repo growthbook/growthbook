@@ -1,4 +1,8 @@
 import Agenda, { Job } from "agenda";
+import { ExperimentInterface } from "shared/types/experiment";
+import { SnapshotTriggeredBy } from "shared/types/experiment-snapshot";
+import { ReqContext } from "back-end/types/request";
+import { ApiReqContext } from "back-end/types/api";
 import {
   getExperimentById,
   getExperimentsToUpdate,
@@ -31,6 +35,36 @@ type RunExperimentSnapshotJob = Job<{
   organization: string;
   snapshotId: string;
 }>;
+
+export async function requestStandardSnapshotRefresh({
+  context,
+  experiment,
+  phaseIndex,
+  useCache = true,
+  triggeredBy,
+  reweight,
+}: {
+  context: ReqContext | ApiReqContext;
+  experiment: ExperimentInterface;
+  phaseIndex: number;
+  useCache?: boolean;
+  triggeredBy: SnapshotTriggeredBy;
+  reweight?: boolean;
+}) {
+  const result = await createOrReuseStandardSnapshotExecution({
+    context,
+    experiment,
+    phaseIndex,
+    useCache,
+    triggeredBy,
+    reweight,
+  });
+  await queueRunExperimentSnapshot({
+    organization: context.org.id,
+    snapshotId: result.snapshot.id,
+  });
+  return result;
+}
 
 export async function queueRunExperimentSnapshot({
   organization,
@@ -163,17 +197,13 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
       }
     }
 
-    const { snapshot } = await createOrReuseStandardSnapshotExecution({
+    await requestStandardSnapshotRefresh({
       experiment,
       context,
       phaseIndex: experiment.phases.length - 1,
       useCache: true,
       triggeredBy: "schedule",
       reweight,
-    });
-    await queueRunExperimentSnapshot({
-      organization: orgId,
-      snapshotId: snapshot.id,
     });
   } catch (e) {
     logger.error(e, "Failed to update experiment: " + experimentId);
@@ -203,45 +233,17 @@ const runExperimentSnapshot = async (job: RunExperimentSnapshotJob) => {
   if (!snapshotId || !orgId) return;
 
   const context = await getContextForAgendaJobByOrgId(orgId);
-  const { snapshot, followupExecution } = await runStandardSnapshotExecution({
+  const snapshot = await runStandardSnapshotExecution({
     context,
     snapshotId,
-    jobId: String(job.attrs._id),
   });
-
-  if (followupExecution && snapshot) {
-    try {
-      const experiment = await getExperimentById(context, snapshot.experiment);
-      if (experiment) {
-        const { snapshot: followupSnapshot } =
-          await createOrReuseStandardSnapshotExecution({
-            context,
-            experiment,
-            phaseIndex: experiment.phases.length - 1,
-            ...followupExecution,
-          });
-        await queueRunExperimentSnapshot({
-          organization: orgId,
-          snapshotId: followupSnapshot.id,
-        });
-      }
-    } catch (error) {
-      logger.error(
-        error,
-        "Failed to queue follow-up experiment snapshot: " + snapshot.id,
-      );
-    }
-  }
 
   if (!snapshot || snapshot.status !== "error") return;
 
   const experiment = await getExperimentById(context, snapshot.experiment);
   if (!experiment || experiment.type === "multi-armed-bandit") return;
 
-  const requestedBySchedule =
-    snapshot.refreshExecution?.intent?.requestedBySchedule ||
-    snapshot.refreshExecution?.executionIntent?.requestedBySchedule;
-  if (!requestedBySchedule) return;
+  if (!snapshot.refreshExecution?.intent?.triggeredBySchedule) return;
 
   try {
     await updateExperiment({

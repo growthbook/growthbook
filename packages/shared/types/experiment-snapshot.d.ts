@@ -155,25 +155,15 @@ export type ExperimentSnapshotStatus =
   | "error";
 
 export interface ExperimentSnapshotRefreshIntent {
-  requestedByManual?: boolean;
-  requestedBySchedule?: boolean;
-  requestedByApi?: boolean;
-  requestedByDashboard?: boolean;
   forceFullRefresh?: boolean;
   banditReweightRequested?: boolean;
-  scheduledBanditEffectsPending?: boolean;
-  lastManualRequestDate?: Date;
-  lastScheduledRequestDate?: Date;
+  triggeredBySchedule?: boolean;
 }
 
 export interface ExperimentSnapshotRefreshExecution {
-  kind: "standard";
   activeExecution: boolean;
   activeWriter: boolean;
-  state: "queued" | "running" | "post-processing" | "finished";
   intent: ExperimentSnapshotRefreshIntent;
-  executionIntent: ExperimentSnapshotRefreshIntent;
-  jobId?: string;
   heartbeat?: Date;
 }
 

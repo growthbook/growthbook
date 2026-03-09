@@ -42,7 +42,6 @@ import {
   validateVariationIds,
 } from "back-end/src/controllers/experiments";
 import {
-  createOrReuseStandardSnapshotExecution,
   getChangesToStartExperiment,
   validateExperimentData,
 } from "back-end/src/services/experiments";
@@ -50,7 +49,7 @@ import { auditDetailsCreate } from "back-end/src/services/audit";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/holdouts";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
-import { queueRunExperimentSnapshot } from "back-end/src/jobs/updateExperimentResults";
+import { requestStandardSnapshotRefresh } from "back-end/src/jobs/updateExperimentResults";
 
 /**
  * GET /holdout/:id
@@ -266,16 +265,12 @@ export const createHoldout = async (
       req.setTimeout(SNAPSHOT_TIMEOUT);
 
       try {
-        const { snapshot } = await createOrReuseStandardSnapshotExecution({
+        await requestStandardSnapshotRefresh({
           context,
           experiment,
           phaseIndex: 0,
           useCache: true,
           triggeredBy: "manual",
-        });
-        await queueRunExperimentSnapshot({
-          organization: context.org.id,
-          snapshotId: snapshot.id,
         });
       } catch (e) {
         logger.error(e, "Failed to auto-refresh imported experiment");

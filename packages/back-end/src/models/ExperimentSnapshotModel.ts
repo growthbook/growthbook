@@ -78,13 +78,9 @@ const experimentSnapshotSchema = new mongoose.Schema({
   status: String,
   refreshExecution: {
     _id: false,
-    kind: String,
     activeExecution: Boolean,
     activeWriter: Boolean,
-    state: String,
     intent: {},
-    executionIntent: {},
-    jobId: String,
     heartbeat: Date,
   },
   settings: {},
@@ -598,9 +594,6 @@ export async function findActiveStandardSnapshotExecution(
       experiment,
       type: "standard",
       "refreshExecution.activeExecution": true,
-      "refreshExecution.state": {
-        $in: ["queued", "running", "post-processing"],
-      },
     },
     null,
     {
@@ -622,7 +615,6 @@ export async function findActiveStandardWriterSnapshotExecution(
       type: "standard",
       "refreshExecution.activeExecution": true,
       "refreshExecution.activeWriter": true,
-      "refreshExecution.state": { $in: ["queued", "running"] },
     },
     null,
     {
