@@ -136,7 +136,7 @@ describe("ConditionInput", () => {
     fireEvent.focus(comboboxes[0]);
     fireEvent.keyDown(comboboxes[0], { key: "ArrowDown", code: "ArrowDown" });
     await waitFor(() => {
-      const option = screen.getByText("user_id");
+      const option = screen.getAllByText("user_id")[0];
       fireEvent.click(option);
     });
 
@@ -224,7 +224,7 @@ describe("ConditionInput", () => {
     fireEvent.focus(comboboxes[0]);
     fireEvent.keyDown(comboboxes[0], { key: "ArrowDown", code: "ArrowDown" });
     await waitFor(() => {
-      const option = screen.getByText("user_id");
+      const option = screen.getAllByText("user_id")[0];
       fireEvent.click(option);
     });
 
@@ -281,7 +281,7 @@ describe("ConditionInput", () => {
     });
   });
 
-  it("shows tooltip with Data type and Is identifier when attribute dropdown is opened and option is hovered", async () => {
+  it("shows tooltip with Data type and Identifier when attribute dropdown is opened and option is hovered", async () => {
     render(
       <RadixTheme>
         <TooltipProvider>
@@ -315,13 +315,13 @@ describe("ConditionInput", () => {
       expect(screen.getByRole("listbox")).toBeInTheDocument();
     });
 
-    const userIdOption = screen.getByText("user_id");
-    fireEvent.mouseEnter(userIdOption);
+    // "user_id" appears in both the option label and the tooltip title; target the option
+    const userIdOptions = screen.getAllByText("user_id");
+    fireEvent.mouseEnter(userIdOptions[0]);
 
     await waitFor(() => {
       expect(screen.getByText("Data type:")).toBeInTheDocument();
-      expect(screen.getByText("Is identifier:")).toBeInTheDocument();
-      expect(screen.getByText("Yes")).toBeInTheDocument();
+      expect(screen.getByText("Identifier")).toBeInTheDocument();
     });
   });
 });
