@@ -2,6 +2,7 @@ import { useMemo, ReactNode } from "react";
 import isEqual from "lodash/isEqual";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { RevisionMetadata } from "shared/src/validators/features";
 import { FeaturePrerequisite } from "shared/src/validators/shared";
 import {
   renderFeatureDefaultValue,
@@ -17,6 +18,21 @@ import {
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
 
 // Helper
+// Normalize nullable metadata fields to canonical empty values so that
+// null vs "" (strings) and null vs [] (tags) don't produce false diffs.
+export function normalizeRevisionMetadata(
+  m: RevisionMetadata | null | undefined,
+): RevisionMetadata | undefined {
+  if (!m) return undefined;
+  return {
+    ...m,
+    description: m.description ?? "",
+    owner: m.owner ?? "",
+    project: m.project ?? "",
+    tags: m.tags ?? [],
+  };
+}
+
 export const featureToFeatureRevisionDiffInput = (
   feature: FeatureInterface,
 ): FeatureRevisionDiffInput => {
@@ -42,7 +58,7 @@ export const featureToFeatureRevisionDiffInput = (
     environmentsEnabled,
     envPrerequisites,
     prerequisites: feature.prerequisites,
-    metadata: {
+    metadata: normalizeRevisionMetadata({
       description: feature.description,
       owner: feature.owner,
       project: feature.project,
@@ -52,7 +68,7 @@ export const featureToFeatureRevisionDiffInput = (
       jsonSchema: feature.jsonSchema,
       // valueType is intentionally excluded: it is immutable after feature creation
       // and is never written into a revision metadata envelope.
-    },
+    }),
   };
 };
 
@@ -111,26 +127,53 @@ export function useFeatureRevisionDiff({
         const metaBadges: DiffBadge[] = [];
         const pre = current.metadata;
         const post = draft.metadata;
-        if (!isEqual(pre?.description, post.description) && post.description !== undefined)
-          metaBadges.push({ label: "Edit description", action: "edit description" });
+        if (
+          !isEqual(pre?.description, post.description) &&
+          post.description !== undefined
+        )
+          metaBadges.push({
+            label: "Edit description",
+            action: "edit description",
+          });
         if (!isEqual(pre?.owner, post.owner) && post.owner !== undefined)
           metaBadges.push({ label: "Edit owner", action: "edit owner" });
         if (!isEqual(pre?.project, post.project) && post.project !== undefined)
           metaBadges.push({ label: "Edit project", action: "edit project" });
         if (!isEqual(pre?.tags, post.tags) && post.tags !== undefined)
           metaBadges.push({ label: "Edit tags", action: "edit tags" });
-        if (!isEqual(pre?.neverStale, post.neverStale) && post.neverStale !== undefined)
-          metaBadges.push({ label: "Edit stale setting", action: "edit stale setting" });
-        if (!isEqual(pre?.customFields, post.customFields) && post.customFields !== undefined)
-          metaBadges.push({ label: "Edit custom fields", action: "edit custom fields" });
-        if (!isEqual(pre?.jsonSchema, post.jsonSchema) && post.jsonSchema !== undefined)
-          metaBadges.push({ label: "Edit JSON schema", action: "edit json schema" });
+        if (
+          !isEqual(pre?.neverStale, post.neverStale) &&
+          post.neverStale !== undefined
+        )
+          metaBadges.push({
+            label: "Edit stale setting",
+            action: "edit stale setting",
+          });
+        if (
+          !isEqual(pre?.customFields, post.customFields) &&
+          post.customFields !== undefined
+        )
+          metaBadges.push({
+            label: "Edit custom fields",
+            action: "edit custom fields",
+          });
+        if (
+          !isEqual(pre?.jsonSchema, post.jsonSchema) &&
+          post.jsonSchema !== undefined
+        )
+          metaBadges.push({
+            label: "Edit JSON schema",
+            action: "edit json schema",
+          });
         diffs.push({
           title: "Feature Settings",
           a: JSON.stringify(current.metadata, null, 2),
           b: JSON.stringify(draft.metadata, null, 2),
           customRender: metadataRender,
-          badges: metaBadges.length > 0 ? metaBadges : [{ label: "Edit settings", action: "edit settings" }],
+          badges:
+            metaBadges.length > 0
+              ? metaBadges
+              : [{ label: "Edit settings", action: "edit settings" }],
         });
       }
     }
@@ -168,7 +211,11 @@ export function useFeatureRevisionDiff({
             currentPrereqs,
             draftPrereqs,
           ),
-          badges: prerequisiteChangeBadges(currentPrereqs, draftPrereqs, "env prerequisite"),
+          badges: prerequisiteChangeBadges(
+            currentPrereqs,
+            draftPrereqs,
+            "env prerequisite",
+          ),
         });
       }
     });
@@ -182,7 +229,11 @@ export function useFeatureRevisionDiff({
           a: JSON.stringify(currentPrereqs, null, 2),
           b: JSON.stringify(draftPrereqs, null, 2),
           customRender: renderPrerequisites(currentPrereqs, draftPrereqs),
-          badges: prerequisiteChangeBadges(currentPrereqs, draftPrereqs, "prerequisite"),
+          badges: prerequisiteChangeBadges(
+            currentPrereqs,
+            draftPrereqs,
+            "prerequisite",
+          ),
         });
       }
     }

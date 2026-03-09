@@ -29,8 +29,8 @@ import {
 } from "@/components/AuditHistoryExplorer/DiffRenderUtils";
 import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
-import styles from "./FeatureDiffRenders.module.scss";
 import SortedTags from "@/components/Tags/SortedTags";
+import styles from "./FeatureDiffRenders.module.scss";
 
 // Resolves an experiment ID to its display name and renders it as a link.
 // Falls back to the raw ID if not found in the local SWR cache.
@@ -1167,8 +1167,17 @@ function renderPrerequisiteList(
       <div key="added" className="mb-3">
         {added.map((p) => (
           <div key={p.id} className="mb-2">
-            <Text size="medium" weight="medium" color="text-mid" as="div" mb="1">
-              Added <Text weight="semibold" color="text-high">{p.id}</Text>
+            <Text
+              size="medium"
+              weight="medium"
+              color="text-mid"
+              as="div"
+              mb="1"
+            >
+              Added{" "}
+              <Text weight="semibold" color="text-high">
+                {p.id}
+              </Text>
             </Text>
             <ConditionDisplay prerequisites={normPrereqsForDisplay([p])} />
           </div>
@@ -1183,7 +1192,10 @@ function renderPrerequisiteList(
         {removed.map((p) => (
           <div key={p.id} className="mb-1">
             <Text size="medium" weight="medium" color="text-mid" as="div">
-              Removed <Text weight="semibold" color="text-high">{p.id}</Text>
+              Removed{" "}
+              <Text weight="semibold" color="text-high">
+                {p.id}
+              </Text>
             </Text>
           </div>
         ))}
@@ -1198,14 +1210,31 @@ function renderPrerequisiteList(
           const prev = preById.get(p.id)!;
           return (
             <div key={p.id} className="mb-3">
-              <Text size="medium" weight="medium" color="text-mid" as="div" mb="1">
-                Modified <Text weight="semibold" color="text-high">{p.id}</Text>
+              <Text
+                size="medium"
+                weight="medium"
+                color="text-mid"
+                as="div"
+                mb="1"
+              >
+                Modified{" "}
+                <Text weight="semibold" color="text-high">
+                  {p.id}
+                </Text>
               </Text>
               <ChangeField
                 label="Condition"
                 changed
-                oldNode={<ConditionDisplay prerequisites={normPrereqsForDisplay([prev])} />}
-                newNode={<ConditionDisplay prerequisites={normPrereqsForDisplay([p])} />}
+                oldNode={
+                  <ConditionDisplay
+                    prerequisites={normPrereqsForDisplay([prev])}
+                  />
+                }
+                newNode={
+                  <ConditionDisplay
+                    prerequisites={normPrereqsForDisplay([p])}
+                  />
+                }
               />
             </div>
           );
@@ -1279,12 +1308,14 @@ export function renderRevisionMetadata(
     }
   };
 
-  stringField(
-    "description",
-    "Description",
-    current?.description,
-    draft.description,
-  );
+  if (draft.description !== undefined) {
+    stringField(
+      "description",
+      "Description",
+      current?.description,
+      draft.description,
+    );
+  }
 
   if (!isEqual(current?.owner, draft.owner) && draft.owner !== undefined) {
     rows.push(
@@ -1292,20 +1323,33 @@ export function renderRevisionMetadata(
         key="owner"
         label="Owner"
         changed
-        oldNode={current?.owner ? <OwnerName id={current.owner} /> : <em>unset</em>}
+        oldNode={
+          current?.owner ? <OwnerName id={current.owner} /> : <em>unset</em>
+        }
         newNode={draft.owner ? <OwnerName id={draft.owner} /> : <em>unset</em>}
       />,
     );
   }
 
-  if (!isEqual(current?.project, draft.project) && draft.project !== undefined) {
+  if (
+    !isEqual(current?.project, draft.project) &&
+    draft.project !== undefined
+  ) {
     rows.push(
       <ChangeField
         key="project"
         label="Project"
         changed
-        oldNode={current?.project ? <ProjectName id={current.project} /> : <em>unset</em>}
-        newNode={draft.project ? <ProjectName id={draft.project} /> : <em>unset</em>}
+        oldNode={
+          current?.project ? (
+            <ProjectName id={current.project} />
+          ) : (
+            <em>unset</em>
+          )
+        }
+        newNode={
+          draft.project ? <ProjectName id={draft.project} /> : <em>unset</em>
+        }
       />,
     );
   }
@@ -1318,7 +1362,11 @@ export function renderRevisionMetadata(
         changed
         oldNode={
           current?.tags?.length ? (
-            <SortedTags tags={current.tags} useFlex shouldShowEllipsis={false} />
+            <SortedTags
+              tags={current.tags}
+              useFlex
+              shouldShowEllipsis={false}
+            />
           ) : (
             <em>unset</em>
           )

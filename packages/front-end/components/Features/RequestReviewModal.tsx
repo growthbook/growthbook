@@ -126,7 +126,10 @@ export default function RequestReviewModal({
               : undefined,
           metadata:
             mergeResult.result.metadata !== undefined
-              ? mergeResult.result.metadata
+              ? {
+                  ...currentRevisionData.metadata,
+                  ...mergeResult.result.metadata,
+                }
               : undefined,
         }
       : currentRevisionData,

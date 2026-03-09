@@ -671,6 +671,18 @@ export function listChangedEnvironments(
   return environmentsList;
 }
 
+// Normalize a metadata field value for comparison so that semantic equivalents
+// (null vs "" for strings, null vs [] for tags) don't produce false-positive deltas.
+function normalizeMetadataValue(
+  k: keyof RevisionMetadata,
+  v: RevisionMetadata[keyof RevisionMetadata],
+): unknown {
+  if (k === "tags") return (v as string[] | null | undefined) ?? [];
+  if (k === "description" || k === "owner" || k === "project")
+    return (v as string | null | undefined) ?? "";
+  return v;
+}
+
 export function autoMerge(
   live: RulesAndValues,
   base: RulesAndValues,
@@ -732,7 +744,9 @@ export function autoMerge(
       for (const k of Object.keys(
         revision.metadata,
       ) as (keyof RevisionMetadata)[]) {
-        if (!isEqual(revision.metadata[k], base.metadata?.[k])) {
+        const revNorm = normalizeMetadataValue(k, revision.metadata[k]);
+        const baseNorm = normalizeMetadataValue(k, base.metadata?.[k]);
+        if (!isEqual(revNorm, baseNorm)) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (metadataResult as any)[k] = revision.metadata[k];
           hasMetadataChanges = true;
@@ -918,9 +932,12 @@ export function autoMerge(
       const revVal = revision.metadata[k];
       const baseVal = base.metadata?.[k];
       const liveVal = live.metadata?.[k];
-      if (isEqual(revVal, baseVal) || isEqual(revVal, liveVal)) continue;
+      const revNorm = normalizeMetadataValue(k, revVal);
+      const baseNorm = normalizeMetadataValue(k, baseVal);
+      const liveNorm = normalizeMetadataValue(k, liveVal);
+      if (isEqual(revNorm, baseNorm) || isEqual(revNorm, liveNorm)) continue;
 
-      if (!isEqual(liveVal, baseVal) && !isEqual(liveVal, revVal)) {
+      if (!isEqual(liveNorm, baseNorm) && !isEqual(liveNorm, revNorm)) {
         const conflictInfo: MergeConflict = {
           name: `Metadata - ${k}`,
           key: `metadata.${k}`,

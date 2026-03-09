@@ -2640,13 +2640,24 @@ export async function putFeature(
       feature,
       {
         metadata: {
-          description: metadataUpdates.description,
-          owner: metadataUpdates.owner,
-          project: metadataUpdates.project,
-          tags: metadataUpdates.tags,
-          customFields: metadataUpdates.customFields as
-            | Record<string, unknown>
-            | undefined,
+          ...(metadataUpdates.description !== undefined && {
+            description: metadataUpdates.description,
+          }),
+          ...(metadataUpdates.owner !== undefined && {
+            owner: metadataUpdates.owner,
+          }),
+          ...(metadataUpdates.project !== undefined && {
+            project: metadataUpdates.project,
+          }),
+          ...(metadataUpdates.tags !== undefined && {
+            tags: metadataUpdates.tags,
+          }),
+          ...(metadataUpdates.customFields !== undefined && {
+            customFields: metadataUpdates.customFields as Record<
+              string,
+              unknown
+            >,
+          }),
         },
       },
       {

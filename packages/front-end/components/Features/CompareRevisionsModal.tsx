@@ -44,6 +44,7 @@ import {
   useFeatureRevisionDiff,
   FeatureRevisionDiffInput,
   FeatureRevisionDiff,
+  normalizeRevisionMetadata,
 } from "@/hooks/useFeatureRevisionDiff";
 import { logBadgeColor } from "@/components/Features/FeatureDiffRenders";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
@@ -76,7 +77,7 @@ function revisionToDiffInput(
     environmentsEnabled: r.environmentsEnabled,
     envPrerequisites: r.envPrerequisites,
     prerequisites: r.prerequisites,
-    metadata: r.metadata,
+    metadata: normalizeRevisionMetadata(r.metadata),
   };
 }
 
@@ -274,8 +275,6 @@ function RevisionCommentSection({
     </Flex>
   );
 }
-
-
 
 export default function CompareRevisionsModal({
   feature,
