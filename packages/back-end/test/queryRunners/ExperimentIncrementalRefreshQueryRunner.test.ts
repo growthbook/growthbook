@@ -519,6 +519,57 @@ describe("ExperimentIncrementalRefreshQueryRunner", () => {
       );
     });
 
+    it("seeds incremental refresh state on the first run before writing metadata", async () => {
+      const incrementGeneration = jest.fn().mockResolvedValue(null);
+      const upsertByExperimentId = jest.fn().mockResolvedValue(undefined);
+      const getByExperimentId = jest.fn().mockResolvedValue({
+        generation: 0,
+        experimentId: "exp_123",
+        unitsMaxTimestamp: null,
+        metricSources: [],
+        metricCovariateSources: [],
+      } as unknown as IncrementalRefreshInterface);
+
+      const context = createMockContext({
+        incrementGeneration,
+        getByExperimentId,
+        upsertByExperimentId,
+      });
+      const integration = createMockIntegration();
+      const params = createDefaultParams({ fullRefresh: true });
+      const { startQuery, getOnSuccessCallbacks } = createStartQueryMock();
+
+      const runner = new ExperimentIncrementalRefreshQueryRunner(
+        context,
+        createSnapshotStub(params.snapshotSettings),
+        integration,
+        false,
+      );
+      runner.startQuery = startQuery;
+
+      await runner.startQueries(params);
+
+      expect(upsertByExperimentId).toHaveBeenNthCalledWith(1, "exp_123", {
+        generation: 0,
+      });
+
+      const callbacks = getOnSuccessCallbacks();
+      const maxTimestampCb = callbacks.get("max_timestamp_snap_123");
+      expect(maxTimestampCb).toBeDefined();
+
+      await maxTimestampCb!([{ max_timestamp: "2025-01-20T00:00:00Z" }]);
+
+      expect(upsertByExperimentId).toHaveBeenNthCalledWith(
+        2,
+        "exp_123",
+        expect.objectContaining({
+          unitsTableFullName: expect.any(String),
+          unitsMaxTimestamp: expect.any(Date),
+          experimentSettingsHash: expect.any(String),
+        }),
+      );
+    });
+
     it("skips upsert in metric-source max-timestamp onSuccess when generation does not match", async () => {
       const incrementGeneration = jest.fn().mockResolvedValue(3);
       const upsertByExperimentId = jest.fn().mockResolvedValue(undefined);

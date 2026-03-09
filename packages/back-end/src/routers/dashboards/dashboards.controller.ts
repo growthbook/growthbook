@@ -16,6 +16,8 @@ import {
   ResponseWithStatusAndError,
 } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
+import { createExperimentSnapshot } from "back-end/src/controllers/experiments";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { findSnapshotsByIds } from "back-end/src/models/ExperimentSnapshotModel";
 import {
@@ -190,12 +192,15 @@ export async function refreshDashboardData(
         experiment,
         phaseIndex: experiment.phases.length - 1,
         useCache: false,
-        triggeredBy: "manual",
+        triggeredBy: "manual-dashboard",
       });
     await queueRunExperimentSnapshot({
       organization: context.org.id,
       snapshotId: mainSnapshot.id,
     });
+
+    const datasource = await getDataSourceById(context, experiment.datasource);
+    if (!datasource) throw new Error("Failed to find connected datasource");
 
     // Copy the blocks of the dashboard to overwrite their snapshot IDs
     const newBlocks = dashboard.blocks.map((block) => {
@@ -204,6 +209,37 @@ export async function refreshDashboardData(
       if (!snapshotSatisfiesBlock(mainSnapshot, block)) return { ...block };
       return { ...block, snapshotId: mainSnapshot.id };
     });
+
+    const dimensionBlocks = new Map<string, string[]>();
+    dashboard.blocks.forEach((block) => {
+      if (
+        blockHasFieldOfType(block, "snapshotId", isString) &&
+        blockHasFieldOfType(block, "dimensionId", isString) &&
+        !snapshotSatisfiesBlock(mainSnapshot, block)
+      ) {
+        const blockIds = dimensionBlocks.get(block.dimensionId) ?? [];
+        blockIds.push(block.id);
+        dimensionBlocks.set(block.dimensionId, blockIds);
+      }
+    });
+
+    for (const [dimensionId, blockIds] of dimensionBlocks.entries()) {
+      const { snapshot } = await createExperimentSnapshot({
+        context,
+        experiment,
+        datasource,
+        dimension: dimensionId,
+        phase: experiment.phases.length - 1,
+        useCache: false,
+        triggeredBy: "manual-dashboard",
+        type: "exploratory",
+      });
+      newBlocks.forEach((block) => {
+        if (blockIds.includes(block.id)) {
+          block.snapshotId = snapshot.id;
+        }
+      });
+    }
 
     await updateDashboardMetricAnalyses(context, newBlocks);
     await updateDashboardSavedQueries(context, newBlocks);

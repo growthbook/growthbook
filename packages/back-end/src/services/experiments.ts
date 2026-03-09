@@ -1066,6 +1066,7 @@ export function buildSnapshotRefreshIntent({
     requestedByManual: triggeredBy !== "schedule",
     requestedBySchedule: triggeredBy === "schedule",
     requestedByApi: isApiRequest,
+    requestedByDashboard: triggeredBy === "manual-dashboard",
     forceFullRefresh: !useCache,
     banditReweightRequested: !!reweight,
     scheduledBanditEffectsPending: triggeredBy === "schedule",
@@ -1086,6 +1087,8 @@ export function mergeSnapshotRefreshIntent(
     requestedBySchedule:
       existing.requestedBySchedule || incoming.requestedBySchedule || false,
     requestedByApi: existing.requestedByApi || incoming.requestedByApi || false,
+    requestedByDashboard:
+      existing.requestedByDashboard || incoming.requestedByDashboard || false,
     forceFullRefresh:
       existing.forceFullRefresh || incoming.forceFullRefresh || false,
     banditReweightRequested:
@@ -1100,6 +1103,42 @@ export function mergeSnapshotRefreshIntent(
       incoming.lastManualRequestDate ?? existing.lastManualRequestDate,
     lastScheduledRequestDate:
       incoming.lastScheduledRequestDate ?? existing.lastScheduledRequestDate,
+  };
+}
+
+export type FollowupStandardSnapshotExecution = {
+  triggeredBy: SnapshotTriggeredBy;
+  useCache: boolean;
+  reweight?: boolean;
+};
+
+export function getFollowupStandardSnapshotExecution({
+  executionIntent,
+  mergedIntent,
+}: {
+  executionIntent: ExperimentSnapshotRefreshIntent;
+  mergedIntent: ExperimentSnapshotRefreshIntent;
+}): FollowupStandardSnapshotExecution | null {
+  const needsFullRefreshReplay =
+    !!mergedIntent.forceFullRefresh && !executionIntent.forceFullRefresh;
+  const needsBanditReplay =
+    !!mergedIntent.banditReweightRequested &&
+    !executionIntent.banditReweightRequested;
+
+  if (!needsFullRefreshReplay && !needsBanditReplay) {
+    return null;
+  }
+
+  const triggeredBy: SnapshotTriggeredBy = mergedIntent.requestedByDashboard
+    ? "manual-dashboard"
+    : mergedIntent.requestedBySchedule && !mergedIntent.requestedByManual
+      ? "schedule"
+      : "manual";
+
+  return {
+    triggeredBy,
+    useCache: !mergedIntent.forceFullRefresh,
+    reweight: !!mergedIntent.banditReweightRequested,
   };
 }
 
@@ -1235,7 +1274,7 @@ export async function createOrReuseStandardSnapshotExecution({
   const incomingIntent = buildSnapshotRefreshIntent({
     triggeredBy,
     useCache,
-    isApiRequest: !("attrs" in context),
+    isApiRequest: context.isApiRequest,
     reweight,
   });
 
@@ -1489,7 +1528,7 @@ export async function createSnapshot({
   const refreshIntent = buildSnapshotRefreshIntent({
     triggeredBy,
     useCache,
-    isApiRequest: !("attrs" in context),
+    isApiRequest: context.isApiRequest,
     reweight,
   });
   const refreshExecution: ExperimentSnapshotRefreshExecution | undefined =
@@ -1685,6 +1724,11 @@ async function updateStandardSnapshotDashboardConsumers({
   });
 }
 
+export type RunStandardSnapshotExecutionResult = {
+  snapshot: ExperimentSnapshotInterface | null;
+  followupExecution: FollowupStandardSnapshotExecution | null;
+};
+
 export async function runStandardSnapshotExecution({
   context,
   snapshotId,
@@ -1693,12 +1737,20 @@ export async function runStandardSnapshotExecution({
   context: ReqContext | ApiReqContext;
   snapshotId: string;
   jobId?: string;
-}): Promise<ExperimentSnapshotInterface | null> {
+}): Promise<RunStandardSnapshotExecutionResult> {
   let snapshot = await findSnapshotById(context.org.id, snapshotId);
-  if (!snapshot || snapshot.type !== "standard") return snapshot;
+  if (!snapshot || snapshot.type !== "standard") {
+    return { snapshot, followupExecution: null };
+  }
 
   const refreshExecution = snapshot.refreshExecution;
-  if (!refreshExecution?.activeExecution) return snapshot;
+  if (!refreshExecution?.activeExecution) {
+    return { snapshot, followupExecution: null };
+  }
+
+  let followupExecution: FollowupStandardSnapshotExecution | null = null;
+  let executionIntent: ExperimentSnapshotRefreshIntent =
+    refreshExecution.executionIntent ?? refreshExecution.intent ?? {};
 
   const experiment = await getExperimentById(context, snapshot.experiment);
   if (!experiment) {
@@ -1712,7 +1764,7 @@ export async function runStandardSnapshotExecution({
         ...(jobId ? { jobId } : {}),
       },
     });
-    return snapshot;
+    return { snapshot, followupExecution: null };
   }
 
   const HEARTBEAT_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
@@ -1742,7 +1794,7 @@ export async function runStandardSnapshotExecution({
         },
       })) ?? snapshot;
 
-    const executionIntent =
+    executionIntent =
       snapshot.refreshExecution?.executionIntent ??
       snapshot.refreshExecution?.intent ??
       {};
@@ -1855,6 +1907,10 @@ export async function runStandardSnapshotExecution({
           snapshot.refreshExecution?.intent ??
           snapshot.refreshExecution?.executionIntent ??
           {};
+        followupExecution = getFollowupStandardSnapshotExecution({
+          executionIntent,
+          mergedIntent,
+        });
 
         if (experiment.type === "multi-armed-bandit") {
           const changes = updateExperimentBanditSettings({
@@ -1916,7 +1972,10 @@ export async function runStandardSnapshotExecution({
       })) ?? snapshot;
   }
 
-  return (await findSnapshotById(context.org.id, snapshot.id)) ?? snapshot;
+  return {
+    snapshot: (await findSnapshotById(context.org.id, snapshot.id)) ?? snapshot,
+    followupExecution,
+  };
 }
 
 export type SnapshotAnalysisParams = {

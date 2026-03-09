@@ -158,6 +158,7 @@ export interface ExperimentSnapshotRefreshIntent {
   requestedByManual?: boolean;
   requestedBySchedule?: boolean;
   requestedByApi?: boolean;
+  requestedByDashboard?: boolean;
   forceFullRefresh?: boolean;
   banditReweightRequested?: boolean;
   scheduledBanditEffectsPending?: boolean;
