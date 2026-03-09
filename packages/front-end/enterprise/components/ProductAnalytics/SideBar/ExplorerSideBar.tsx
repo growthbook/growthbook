@@ -142,7 +142,7 @@ export default function ExplorerSideBar({
                   !draftExploreState?.dataset?.values?.length ||
                   !isSubmittable
                 }
-                onClick={() => handleSubmit({ force: true })}
+                onClick={() => handleSubmit({ force: isStale })}
               >
                 <Flex align="center" gap="2">
                   <PiArrowsClockwise />
