@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
+import { sortExplorationRows } from "@/enterprise/components/ProductAnalytics/util";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 
 type ColumnSlot =
@@ -219,14 +220,7 @@ export default function ExplorerDataTable({ hasChart }: { hasChart: boolean }) {
     const isTimeseries =
       submittedExploreState?.dimensions?.[0]?.dimensionType === "date";
 
-    const rowsToProcess = isTimeseries
-      ? [...rawRows].sort((a, b) => {
-          const dateA = a.dimensions[0] || "";
-          const dateB = b.dimensions[0] || "";
-          if (!dateA || !dateB) return 0;
-          return new Date(dateA).getTime() - new Date(dateB).getTime();
-        })
-      : rawRows;
+    const rowsToProcess = sortExplorationRows(rawRows, isTimeseries);
 
     const context = {
       dimensionColumnHeaders,

@@ -697,7 +697,7 @@ export async function getFeatureRevisionsByFeatureIds(
   if (featureIds.length) {
     const revisions = await FeatureRevisionModel.find({
       organization,
-      status: "draft",
+      status: { $in: ACTIVE_DRAFT_STATUSES },
       featureId: { $in: featureIds },
     })
       .select("-log") // Remove the log when fetching all revisions since it can be large to send over the network

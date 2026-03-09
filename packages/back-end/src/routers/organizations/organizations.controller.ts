@@ -1921,10 +1921,18 @@ export async function putSDKWebhook(
     context.permissions.throwPermissionError();
   }
 
-  const updatedWebhook = await context.models.sdkWebhooks.update(
-    webhook,
-    updateSdkWebhookValidator.parse(req.body),
-  );
+  const parsedUpdates = updateSdkWebhookValidator.parse(req.body);
+
+  // Reset failure state when endpoint changes
+  const resetFields =
+    parsedUpdates.endpoint && parsedUpdates.endpoint !== webhook.endpoint
+      ? { consecutiveFailures: 0, disabled: false }
+      : {};
+
+  const updatedWebhook = await context.models.sdkWebhooks.update(webhook, {
+    ...parsedUpdates,
+    ...resetFields,
+  });
 
   // Fire the webhook now that it has changed
   fireSdkWebhook(context, updatedWebhook).catch(() => {

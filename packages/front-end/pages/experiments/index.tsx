@@ -30,7 +30,7 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import useURLHash from "@/hooks/useURLHash";
 
 const ExperimentsPage = (): React.ReactElement => {
-  const { ready, project } = useDefinitions();
+  const { ready, project, projects } = useDefinitions();
 
   const [urlHash, setUrlHash] = useURLHash();
   const [tab, setTab] = useLocalStorage<string>("experiments-list-tab", "all");
@@ -100,9 +100,14 @@ const ExperimentsPage = (): React.ReactElement => {
   // Show the View Sample Button if none of the experiments have an attached datasource
   const showViewSampleButton = !allExperiments.some((e) => e.datasource);
 
-  const canAddExperiment = permissionsUtil.canViewExperimentModal(project);
-  const canAddTemplate =
-    permissionsUtil.canViewExperimentTemplateModal(project);
+  const canAddExperiment = permissionsUtil.canViewExperimentModal(
+    project,
+    projects,
+  );
+  const canAddTemplate = permissionsUtil.canViewExperimentTemplateModal(
+    project,
+    projects,
+  );
 
   const addExperimentDropdownButton = (
     <DropdownMenu
