@@ -13,7 +13,7 @@ const BaseClass = MakeModelClass({
   idPrefix: "ir_",
   globallyUniquePrimaryKeys: true,
   defaultValues: {
-    generation: 0,
+    currentExecutionId: null,
   },
   additionalIndexes: [
     {
@@ -28,30 +28,13 @@ export class IncrementalRefreshModel extends BaseClass {
     return this._findOne({ experimentId });
   }
 
-  /**
-   * Atomically increment the generation counter for an experiment's
-   * incremental refresh record. Returns the new generation value.
-   * If no record exists yet, returns null (caller should default to 0).
-   *
-   * Uses `_dangerousGetCollection()` because BaseModel does not expose
-   * atomic `$inc` operations. This is safe because the operation is
-   * org-scoped and only modifies an internal counter, not user-facing data.
-   */
-  public async incrementGeneration(
+  public async setCurrentExecutionId(
     experimentId: string,
-  ): Promise<number | null> {
-    const collection = this._dangerousGetCollection();
-    const result = await collection.findOneAndUpdate(
-      {
-        organization: this.context.org.id,
-        experimentId,
-      },
-      { $inc: { generation: 1 } },
-      { returnDocument: "after" },
-    );
-    if (!result) return null;
-    const doc = result as unknown as IncrementalRefreshInterface;
-    return doc.generation;
+    executionId: string,
+  ) {
+    return this.upsertByExperimentId(experimentId, {
+      currentExecutionId: executionId,
+    });
   }
 
   public async upsertByExperimentId(
@@ -72,7 +55,7 @@ export class IncrementalRefreshModel extends BaseClass {
       metricSources: [],
       metricCovariateSources: [],
       experimentSettingsHash: null,
-      generation: 0,
+      currentExecutionId: null,
       ...data,
     });
   }

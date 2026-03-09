@@ -258,17 +258,11 @@ const startExperimentIncrementalRefreshQueries = async (
     ? null
     : await context.models.incrementalRefresh.getByExperimentId(experimentId);
 
-  // Increment the generation counter to invalidate any stale onSuccess
-  // callbacks from previously cancelled runs. Callbacks will check this
-  // value before upserting to avoid writing stale data.
-  const incrementedGeneration =
-    await context.models.incrementalRefresh.incrementGeneration(experimentId);
-  const myGeneration = incrementedGeneration ?? 0;
-  if (incrementedGeneration === null) {
-    await context.models.incrementalRefresh.upsertByExperimentId(experimentId, {
-      generation: myGeneration,
-    });
-  }
+  const executionId = params.queryParentId;
+  await context.models.incrementalRefresh.setCurrentExecutionId(
+    experimentId,
+    executionId,
+  );
 
   // When adding new metrics to a fact table, we will need to scan the whole table.
   // So to simplify things we re-create the whole metric source.
@@ -440,7 +434,7 @@ const startExperimentIncrementalRefreshQueries = async (
           await context.models.incrementalRefresh.getByExperimentId(
             experimentId,
           );
-        if (current?.generation !== myGeneration) return;
+        if (current?.currentExecutionId !== executionId) return;
 
         await context.models.incrementalRefresh
           .upsertByExperimentId(experimentId, {
@@ -653,7 +647,7 @@ const startExperimentIncrementalRefreshQueries = async (
             await context.models.incrementalRefresh.getByExperimentId(
               experimentId,
             );
-          if (incrementalRefresh?.generation !== myGeneration) return;
+          if (incrementalRefresh?.currentExecutionId !== executionId) return;
 
           const lastSuccessfulMaxTimestamp =
             incrementalRefresh?.unitsMaxTimestamp ?? null;
@@ -704,7 +698,7 @@ const startExperimentIncrementalRefreshQueries = async (
           await context.models.incrementalRefresh.getByExperimentId(
             experimentId,
           );
-        if (current?.generation !== myGeneration) return;
+        if (current?.currentExecutionId !== executionId) return;
 
         // Remove the source from the running data if max timestamp fails
         runningSourceData = runningSourceData.filter(
@@ -725,7 +719,7 @@ const startExperimentIncrementalRefreshQueries = async (
             await context.models.incrementalRefresh.getByExperimentId(
               experimentId,
             );
-          if (current?.generation !== myGeneration) return;
+          if (current?.currentExecutionId !== executionId) return;
 
           // TODO(incremental-refresh): Clean up metadata handling in query runner
           const updatedSource: IncrementalRefreshMetricSourceInterface =

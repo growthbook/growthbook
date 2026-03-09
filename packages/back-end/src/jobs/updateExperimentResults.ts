@@ -1,8 +1,4 @@
 import Agenda, { Job } from "agenda";
-import { ExperimentInterface } from "shared/types/experiment";
-import { SnapshotTriggeredBy } from "shared/types/experiment-snapshot";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
 import {
   getExperimentById,
   getExperimentsToUpdate,
@@ -10,7 +6,8 @@ import {
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
 import {
-  createOrReuseStandardSnapshotExecution,
+  requestSnapshotRefresh,
+  RUN_EXPERIMENT_SNAPSHOT,
   runStandardSnapshotExecution,
   updateExperimentBanditSettings,
 } from "back-end/src/services/experiments";
@@ -18,7 +15,6 @@ import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizatio
 import { notifyAutoUpdate } from "back-end/src/services/experimentNotifications";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
-import { getAgendaInstance } from "back-end/src/services/queueing";
 
 // Time between experiment result updates (default 6 hours)
 const UPDATE_EVERY = EXPERIMENT_REFRESH_FREQUENCY * 60 * 60 * 1000;
@@ -26,7 +22,6 @@ const UPDATE_EVERY = EXPERIMENT_REFRESH_FREQUENCY * 60 * 60 * 1000;
 const QUEUE_EXPERIMENT_UPDATES = "queueExperimentUpdates";
 
 const UPDATE_SINGLE_EXP = "updateSingleExperiment";
-export const RUN_EXPERIMENT_SNAPSHOT = "runExperimentSnapshot";
 type UpdateSingleExpJob = Job<{
   organization: string;
   experimentId: string;
@@ -35,57 +30,6 @@ type RunExperimentSnapshotJob = Job<{
   organization: string;
   snapshotId: string;
 }>;
-
-export async function requestStandardSnapshotRefresh({
-  context,
-  experiment,
-  phaseIndex,
-  useCache = true,
-  triggeredBy,
-  reweight,
-}: {
-  context: ReqContext | ApiReqContext;
-  experiment: ExperimentInterface;
-  phaseIndex: number;
-  useCache?: boolean;
-  triggeredBy: SnapshotTriggeredBy;
-  reweight?: boolean;
-}) {
-  const result = await createOrReuseStandardSnapshotExecution({
-    context,
-    experiment,
-    phaseIndex,
-    useCache,
-    triggeredBy,
-    reweight,
-  });
-  await queueRunExperimentSnapshot({
-    organization: context.org.id,
-    snapshotId: result.snapshot.id,
-  });
-  return result;
-}
-
-export async function queueRunExperimentSnapshot({
-  organization,
-  snapshotId,
-}: {
-  organization: string;
-  snapshotId: string;
-}) {
-  const agenda = getAgendaInstance();
-  const job = agenda.create(RUN_EXPERIMENT_SNAPSHOT, {
-    organization,
-    snapshotId,
-  }) as RunExperimentSnapshotJob;
-
-  job.unique({
-    organization,
-    snapshotId,
-  });
-  job.schedule(new Date());
-  await job.save();
-}
 
 export default async function (agenda: Agenda) {
   agenda.define(QUEUE_EXPERIMENT_UPDATES, async () => {
@@ -197,7 +141,7 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
       }
     }
 
-    await requestStandardSnapshotRefresh({
+    await requestSnapshotRefresh({
       experiment,
       context,
       phaseIndex: experiment.phases.length - 1,

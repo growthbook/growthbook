@@ -160,9 +160,15 @@ export interface ExperimentSnapshotRefreshIntent {
   triggeredBySchedule?: boolean;
 }
 
+export type ExperimentSnapshotExecutionMode =
+  | "queued"
+  | "queued-writer"
+  | "running"
+  | "running-writer";
+
 export interface ExperimentSnapshotRefreshExecution {
-  activeExecution: boolean;
-  activeWriter: boolean;
+  executionMode?: ExperimentSnapshotExecutionMode;
+  executionId: string;
   intent: ExperimentSnapshotRefreshIntent;
   heartbeat?: Date;
 }

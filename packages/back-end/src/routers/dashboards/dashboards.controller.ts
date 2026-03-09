@@ -16,7 +16,6 @@ import {
   ResponseWithStatusAndError,
 } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { createExperimentSnapshot } from "back-end/src/controllers/experiments";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { findSnapshotsByIds } from "back-end/src/models/ExperimentSnapshotModel";
@@ -26,7 +25,7 @@ import {
   updateDashboardSavedQueries,
   updateNonExperimentDashboard,
 } from "back-end/src/enterprise/services/dashboards";
-import { requestStandardSnapshotRefresh } from "back-end/src/jobs/updateExperimentResults";
+import { requestSnapshotRefresh } from "back-end/src/services/experiments";
 import {
   generateDashboardBlockIds,
   migrateBlock,
@@ -185,7 +184,7 @@ export async function refreshDashboardData(
     if (!experiment)
       throw new Error("Cannot update dashboard without an attached experiment");
 
-    const { snapshot: mainSnapshot } = await requestStandardSnapshotRefresh({
+    const { snapshot: mainSnapshot } = await requestSnapshotRefresh({
       context,
       experiment,
       phaseIndex: experiment.phases.length - 1,
@@ -218,12 +217,11 @@ export async function refreshDashboardData(
     });
 
     for (const [dimensionId, blockIds] of dimensionBlocks.entries()) {
-      const { snapshot } = await createExperimentSnapshot({
+      const { snapshot } = await requestSnapshotRefresh({
         context,
         experiment,
-        datasource,
         dimension: dimensionId,
-        phase: experiment.phases.length - 1,
+        phaseIndex: experiment.phases.length - 1,
         useCache: false,
         triggeredBy: "manual-dashboard",
         type: "exploratory",

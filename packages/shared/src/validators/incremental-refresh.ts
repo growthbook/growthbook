@@ -40,8 +40,8 @@ const incrementalRefresh = z
       incrementalRefreshMetricCovariateSourceValidator,
     ),
 
-    // Generation counter to prevent stale callbacks from writing data
-    generation: z.number().int(),
+    // Execution token to prevent stale callbacks from writing data
+    currentExecutionId: z.string().nullable(),
   })
   .strict();
 

@@ -110,7 +110,7 @@ import { FactTableMap } from "back-end/src/models/FactTableModel";
  */
 function createMockContext(
   overrides: {
-    incrementGeneration?: jest.Mock;
+    setCurrentExecutionId?: jest.Mock;
     getByExperimentId?: jest.Mock;
     upsertByExperimentId?: jest.Mock;
   } = {},
@@ -139,8 +139,9 @@ function createMockContext(
       incrementalRefresh: {
         getByExperimentId:
           overrides.getByExperimentId ?? jest.fn().mockResolvedValue(null),
-        incrementGeneration:
-          overrides.incrementGeneration ?? jest.fn().mockResolvedValue(1),
+        setCurrentExecutionId:
+          overrides.setCurrentExecutionId ??
+          jest.fn().mockResolvedValue(undefined),
         upsertByExperimentId:
           overrides.upsertByExperimentId ??
           jest.fn().mockResolvedValue(undefined),
@@ -394,14 +395,14 @@ describe("ExperimentIncrementalRefreshQueryRunner", () => {
   });
 
   // -----------------------------------------------------------------
-  // Generation fence
+  // Execution fence
   // -----------------------------------------------------------------
-  describe("generation fence", () => {
-    it("calls incrementGeneration at the start of query setup", async () => {
-      const incrementGeneration = jest.fn().mockResolvedValue(5);
+  describe("execution fence", () => {
+    it("records the current execution id at the start of query setup", async () => {
+      const setCurrentExecutionId = jest.fn().mockResolvedValue(undefined);
       const getByExperimentId = jest.fn().mockResolvedValue(null);
       const context = createMockContext({
-        incrementGeneration,
+        setCurrentExecutionId,
         getByExperimentId,
       });
       const integration = createMockIntegration();
@@ -418,19 +419,15 @@ describe("ExperimentIncrementalRefreshQueryRunner", () => {
 
       await runner.startQueries(params);
 
-      expect(incrementGeneration).toHaveBeenCalledWith("exp_123");
-      expect(incrementGeneration).toHaveBeenCalledTimes(1);
+      expect(setCurrentExecutionId).toHaveBeenCalledWith("exp_123", "snap_123");
+      expect(setCurrentExecutionId).toHaveBeenCalledTimes(1);
     });
 
-    it("skips upsert in units max-timestamp onSuccess when generation does not match", async () => {
-      const incrementGeneration = jest.fn().mockResolvedValue(5);
+    it("skips upsert in units max-timestamp onSuccess when execution id does not match", async () => {
+      const setCurrentExecutionId = jest.fn().mockResolvedValue(undefined);
       const upsertByExperimentId = jest.fn().mockResolvedValue(undefined);
-
-      // With fullRefresh: true, getByExperimentId is NOT called during
-      // startQueries. The first call happens inside the onSuccess
-      // callback, so return a mismatched generation.
       const getByExperimentId = jest.fn().mockResolvedValue({
-        generation: 999, // Does NOT match myGeneration (5)
+        currentExecutionId: "snap_other",
         experimentId: "exp_123",
         unitsMaxTimestamp: null,
         metricSources: [],
@@ -438,7 +435,7 @@ describe("ExperimentIncrementalRefreshQueryRunner", () => {
       } as unknown as IncrementalRefreshInterface);
 
       const context = createMockContext({
-        incrementGeneration,
+        setCurrentExecutionId,
         getByExperimentId,
         upsertByExperimentId,
       });
@@ -456,27 +453,20 @@ describe("ExperimentIncrementalRefreshQueryRunner", () => {
 
       await runner.startQueries(params);
 
-      // Locate the units max-timestamp onSuccess callback
       const callbacks = getOnSuccessCallbacks();
       const maxTimestampCb = callbacks.get("max_timestamp_snap_123");
       expect(maxTimestampCb).toBeDefined();
 
-      // Invoke it with a valid row
       await maxTimestampCb!([{ max_timestamp: "2025-01-20T00:00:00Z" }]);
 
-      // Generation mismatch (999 !== 5): upsert must NOT be called
       expect(upsertByExperimentId).not.toHaveBeenCalled();
     });
 
-    it("proceeds with upsert in units max-timestamp onSuccess when generation matches", async () => {
-      const incrementGeneration = jest.fn().mockResolvedValue(5);
+    it("proceeds with upsert in units max-timestamp onSuccess when execution id matches", async () => {
+      const setCurrentExecutionId = jest.fn().mockResolvedValue(undefined);
       const upsertByExperimentId = jest.fn().mockResolvedValue(undefined);
-
-      // With fullRefresh: true, getByExperimentId is NOT called during
-      // startQueries. The first call happens inside the onSuccess
-      // callback, so every call should return matching generation.
       const getByExperimentId = jest.fn().mockResolvedValue({
-        generation: 5, // Matches myGeneration
+        currentExecutionId: "snap_123",
         experimentId: "exp_123",
         unitsMaxTimestamp: new Date("2025-01-10"),
         metricSources: [],
@@ -484,7 +474,7 @@ describe("ExperimentIncrementalRefreshQueryRunner", () => {
       } as unknown as IncrementalRefreshInterface);
 
       const context = createMockContext({
-        incrementGeneration,
+        setCurrentExecutionId,
         getByExperimentId,
         upsertByExperimentId,
       });
@@ -508,7 +498,6 @@ describe("ExperimentIncrementalRefreshQueryRunner", () => {
 
       await maxTimestampCb!([{ max_timestamp: "2025-01-20T00:00:00Z" }]);
 
-      // Generation matches (5 === 5): upsert SHOULD be called
       expect(upsertByExperimentId).toHaveBeenCalledWith(
         "exp_123",
         expect.objectContaining({
@@ -519,11 +508,11 @@ describe("ExperimentIncrementalRefreshQueryRunner", () => {
       );
     });
 
-    it("seeds incremental refresh state on the first run before writing metadata", async () => {
-      const incrementGeneration = jest.fn().mockResolvedValue(null);
+    it("skips upsert in metric-source max-timestamp onSuccess when execution id does not match", async () => {
+      const setCurrentExecutionId = jest.fn().mockResolvedValue(undefined);
       const upsertByExperimentId = jest.fn().mockResolvedValue(undefined);
       const getByExperimentId = jest.fn().mockResolvedValue({
-        generation: 0,
+        currentExecutionId: "snap_other",
         experimentId: "exp_123",
         unitsMaxTimestamp: null,
         metricSources: [],
@@ -531,7 +520,7 @@ describe("ExperimentIncrementalRefreshQueryRunner", () => {
       } as unknown as IncrementalRefreshInterface);
 
       const context = createMockContext({
-        incrementGeneration,
+        setCurrentExecutionId,
         getByExperimentId,
         upsertByExperimentId,
       });
@@ -549,59 +538,6 @@ describe("ExperimentIncrementalRefreshQueryRunner", () => {
 
       await runner.startQueries(params);
 
-      expect(upsertByExperimentId).toHaveBeenNthCalledWith(1, "exp_123", {
-        generation: 0,
-      });
-
-      const callbacks = getOnSuccessCallbacks();
-      const maxTimestampCb = callbacks.get("max_timestamp_snap_123");
-      expect(maxTimestampCb).toBeDefined();
-
-      await maxTimestampCb!([{ max_timestamp: "2025-01-20T00:00:00Z" }]);
-
-      expect(upsertByExperimentId).toHaveBeenNthCalledWith(
-        2,
-        "exp_123",
-        expect.objectContaining({
-          unitsTableFullName: expect.any(String),
-          unitsMaxTimestamp: expect.any(Date),
-          experimentSettingsHash: expect.any(String),
-        }),
-      );
-    });
-
-    it("skips upsert in metric-source max-timestamp onSuccess when generation does not match", async () => {
-      const incrementGeneration = jest.fn().mockResolvedValue(3);
-      const upsertByExperimentId = jest.fn().mockResolvedValue(undefined);
-
-      const getByExperimentId = jest.fn().mockResolvedValue({
-        generation: 99, // Different from myGeneration (3)
-        experimentId: "exp_123",
-        unitsMaxTimestamp: null,
-        metricSources: [],
-        metricCovariateSources: [],
-      } as unknown as IncrementalRefreshInterface);
-
-      const context = createMockContext({
-        incrementGeneration,
-        getByExperimentId,
-        upsertByExperimentId,
-      });
-      const integration = createMockIntegration();
-      const params = createDefaultParams({ fullRefresh: true });
-      const { startQuery, getOnSuccessCallbacks } = createStartQueryMock();
-
-      const runner = new ExperimentIncrementalRefreshQueryRunner(
-        context,
-        createSnapshotStub(params.snapshotSettings),
-        integration,
-        false,
-      );
-      runner.startQuery = startQuery;
-
-      await runner.startQueries(params);
-
-      // Locate the metric-source max-timestamp callback by prefix
       const callbacks = getOnSuccessCallbacks();
       let metricCb: ((rows: RowsType) => void | Promise<void>) | undefined;
       for (const [name, cb] of callbacks) {
@@ -614,16 +550,14 @@ describe("ExperimentIncrementalRefreshQueryRunner", () => {
 
       await metricCb!([{ max_timestamp: "2025-01-20T00:00:00Z" }]);
 
-      // Generation mismatch: upsert must NOT be called
       expect(upsertByExperimentId).not.toHaveBeenCalled();
     });
 
-    it("proceeds with upsert in metric-source max-timestamp onSuccess when generation matches", async () => {
-      const incrementGeneration = jest.fn().mockResolvedValue(3);
+    it("proceeds with upsert in metric-source max-timestamp onSuccess when execution id matches", async () => {
+      const setCurrentExecutionId = jest.fn().mockResolvedValue(undefined);
       const upsertByExperimentId = jest.fn().mockResolvedValue(undefined);
-
       const getByExperimentId = jest.fn().mockResolvedValue({
-        generation: 3, // Matches
+        currentExecutionId: "snap_123",
         experimentId: "exp_123",
         unitsMaxTimestamp: new Date("2025-01-10"),
         metricSources: [],
@@ -631,7 +565,7 @@ describe("ExperimentIncrementalRefreshQueryRunner", () => {
       } as unknown as IncrementalRefreshInterface);
 
       const context = createMockContext({
-        incrementGeneration,
+        setCurrentExecutionId,
         getByExperimentId,
         upsertByExperimentId,
       });
@@ -661,7 +595,6 @@ describe("ExperimentIncrementalRefreshQueryRunner", () => {
 
       await metricCb!([{ max_timestamp: "2025-01-20T00:00:00Z" }]);
 
-      // Generation matches: upsert SHOULD be called
       expect(upsertByExperimentId).toHaveBeenCalledWith(
         "exp_123",
         expect.objectContaining({
@@ -670,12 +603,11 @@ describe("ExperimentIncrementalRefreshQueryRunner", () => {
       );
     });
 
-    it("skips upsert in metric-source onFailure when generation does not match", async () => {
-      const incrementGeneration = jest.fn().mockResolvedValue(7);
+    it("skips upsert in metric-source onFailure when execution id does not match", async () => {
+      const setCurrentExecutionId = jest.fn().mockResolvedValue(undefined);
       const upsertByExperimentId = jest.fn().mockResolvedValue(undefined);
-
       const getByExperimentId = jest.fn().mockResolvedValue({
-        generation: 42,
+        currentExecutionId: "snap_other",
         experimentId: "exp_123",
         unitsMaxTimestamp: null,
         metricSources: [],
@@ -683,7 +615,7 @@ describe("ExperimentIncrementalRefreshQueryRunner", () => {
       } as unknown as IncrementalRefreshInterface);
 
       const context = createMockContext({
-        incrementGeneration,
+        setCurrentExecutionId,
         getByExperimentId,
         upsertByExperimentId,
       });
@@ -713,7 +645,6 @@ describe("ExperimentIncrementalRefreshQueryRunner", () => {
 
       await failureCb!();
 
-      // Generation mismatch: upsert must NOT be called
       expect(upsertByExperimentId).not.toHaveBeenCalled();
     });
   });
@@ -824,7 +755,7 @@ describe("ExperimentIncrementalRefreshQueryRunner", () => {
 
     it("omits drop + create queries on incremental (non-full) refresh", async () => {
       const getByExperimentId = jest.fn().mockResolvedValue({
-        generation: 1,
+        currentExecutionId: "snap_123",
         experimentId: "exp_123",
         unitsMaxTimestamp: new Date("2025-01-10"),
         experimentSettingsHash: "hash_experiment",

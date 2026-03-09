@@ -3,6 +3,7 @@ import cronParser from "cron-parser";
 import { z } from "zod";
 import { isEqual } from "lodash";
 import cloneDeep from "lodash/cloneDeep";
+import uniq from "lodash/uniq";
 import {
   DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
   DEFAULT_METRIC_CAPPING,
@@ -33,6 +34,7 @@ import {
   expandMetricGroups,
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
+  getAllMetricSettingsForSnapshot,
   getAllExpandedMetricIdsFromExperiment,
   expandAllSliceMetricsInMap,
   getEqualWeights,
@@ -83,6 +85,7 @@ import {
   ExperimentAnalysisParamsContextData,
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotExecutionMode,
   ExperimentSnapshotRefreshExecution,
   ExperimentSnapshotRefreshIntent,
   ExperimentSnapshotInterface,
@@ -105,6 +108,7 @@ import {
 import {
   ExperimentUpdateSchedule,
   OrganizationInterface,
+  OrganizationSettings,
 } from "shared/types/organization";
 import { DataSourceInterface, ExposureQuery } from "shared/types/datasource";
 import {
@@ -167,6 +171,7 @@ import { getSignedImageUrl } from "back-end/src/services/files";
 import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
 import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
 import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
+import { getAgendaInstance } from "back-end/src/services/queueing";
 import { getMetricForSnapshot } from "./reports";
 import { validateIncrementalPipeline } from "./dataPipeline";
 import {
@@ -188,6 +193,36 @@ import {
 } from "./organizations";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
+export const RUN_EXPERIMENT_SNAPSHOT = "runExperimentSnapshot";
+
+const WRITER_EXECUTION_MODES: ExperimentSnapshotExecutionMode[] = [
+  "queued-writer",
+  "running-writer",
+];
+
+function isWriterExecutionMode(
+  executionMode?: ExperimentSnapshotExecutionMode,
+): boolean {
+  return !!executionMode && WRITER_EXECUTION_MODES.includes(executionMode);
+}
+
+function getQueuedExecutionMode(
+  isWriter: boolean,
+): ExperimentSnapshotExecutionMode {
+  return isWriter ? "queued-writer" : "queued";
+}
+
+function getRunningExecutionMode(
+  executionMode?: ExperimentSnapshotExecutionMode,
+): ExperimentSnapshotExecutionMode {
+  return isWriterExecutionMode(executionMode) ? "running-writer" : "running";
+}
+
+function getPostWriteExecutionMode(
+  executionMode?: ExperimentSnapshotExecutionMode,
+): ExperimentSnapshotExecutionMode {
+  return isWriterExecutionMode(executionMode) ? "running" : "running";
+}
 
 export async function createMetric(
   context: Context,
@@ -1081,6 +1116,28 @@ export function mergeSnapshotRefreshIntent(
   };
 }
 
+export function getSnapshotType({
+  experiment,
+  dimension,
+  phaseIndex,
+}: {
+  experiment: ExperimentInterface;
+  dimension: string | undefined;
+  phaseIndex: number;
+}): SnapshotType {
+  // dimension analyses are ad-hoc
+  if (dimension) {
+    return "exploratory";
+  }
+
+  // analyses of old phases are ad-hoc
+  if (phaseIndex !== experiment.phases.length - 1) {
+    return "exploratory";
+  }
+
+  return "standard";
+}
+
 async function recordExperimentSnapshotAttempt({
   context,
   experiment,
@@ -1175,6 +1232,161 @@ async function updateActiveStandardSnapshotExecution({
   return updatedSnapshot ?? snapshot;
 }
 
+async function queueRunExperimentSnapshot({
+  organization,
+  snapshotId,
+}: {
+  organization: string;
+  snapshotId: string;
+}) {
+  const agenda = getAgendaInstance();
+  const job = agenda.create(RUN_EXPERIMENT_SNAPSHOT, {
+    organization,
+    snapshotId,
+  });
+
+  job.unique({
+    organization,
+    snapshotId,
+  });
+  job.schedule(new Date());
+  await job.save();
+}
+
+export async function requestSnapshotRefresh({
+  context,
+  experiment,
+  phaseIndex,
+  dimension,
+  useCache = true,
+  triggeredBy = "manual",
+  reweight,
+  type,
+}: {
+  context: ReqContext | ApiReqContext;
+  experiment: ExperimentInterface;
+  phaseIndex: number;
+  dimension?: string;
+  useCache?: boolean;
+  triggeredBy?: SnapshotTriggeredBy;
+  reweight?: boolean;
+  type?: SnapshotType;
+}): Promise<{
+  snapshot: ExperimentSnapshotInterface;
+  existingExecution: boolean;
+}> {
+  const snapshotType =
+    type ?? getSnapshotType({ experiment, dimension, phaseIndex });
+
+  if (snapshotType === "standard") {
+    const result = await createOrReuseStandardSnapshotExecution({
+      context,
+      experiment,
+      phaseIndex,
+      useCache,
+      triggeredBy,
+      reweight,
+    });
+    await queueRunExperimentSnapshot({
+      organization: context.org.id,
+      snapshotId: result.snapshot.id,
+    });
+    return {
+      snapshot: result.snapshot,
+      existingExecution: result.existing,
+    };
+  }
+
+  const datasource = await getDataSourceById(context, experiment.datasource);
+  if (!datasource) {
+    throw new Error("Could not find datasource for this experiment");
+  }
+
+  let project = null;
+  if (experiment.project) {
+    project = await context.models.projects.getById(experiment.project);
+  }
+
+  const { org } = context;
+  const orgSettings = org.settings as OrganizationSettings;
+  const { settings } = getScopedSettings({
+    organization: org,
+    project: project ?? undefined,
+    experiment,
+  });
+  const statsEngine = settings.statsEngine.value;
+  const postStratificationEnabled = settings.postStratificationEnabled.value;
+  const metricMap = await getMetricMap(context);
+  const factTableMap = await getFactTableMap(context);
+
+  const metricGroups = await context.models.metricGroups.getAll();
+  const metricIds = getAllMetricIdsFromExperiment(
+    experiment,
+    false,
+    metricGroups,
+  );
+
+  const allExperimentMetrics = metricIds.map((m) => metricMap.get(m) || null);
+  const denominatorMetricIds = uniq<string>(
+    allExperimentMetrics
+      .map((m) => m?.denominator)
+      .filter((d) => d && typeof d === "string") as string[],
+  );
+  const denominatorMetrics = denominatorMetricIds
+    .map((m) => metricMap.get(m) || null)
+    .filter(isDefined) as MetricInterface[];
+
+  const { settingsForSnapshotMetrics, regressionAdjustmentEnabled } =
+    getAllMetricSettingsForSnapshot({
+      allExperimentMetrics,
+      denominatorMetrics,
+      orgSettings,
+      experimentRegressionAdjustmentEnabled:
+        experiment.regressionAdjustmentEnabled,
+      experimentMetricOverrides: experiment.metricOverrides,
+      datasourceType: datasource?.type,
+      hasRegressionAdjustmentFeature: true,
+      ...(experiment.type === "multi-armed-bandit"
+        ? {
+            banditConversionWindowValue:
+              experiment.banditConversionWindowValue ?? undefined,
+            banditConversionWindowUnit:
+              experiment.banditConversionWindowUnit ?? undefined,
+          }
+        : {}),
+    });
+
+  const analysisSettings = getDefaultExperimentAnalysisSettings({
+    statsEngine,
+    experiment,
+    organization: org,
+    regressionAdjustmentEnabled,
+    postStratificationEnabled,
+    dimension,
+  });
+
+  const queryRunner = await createSnapshot({
+    experiment,
+    context,
+    phaseIndex,
+    useCache,
+    defaultAnalysisSettings: analysisSettings,
+    additionalAnalysisSettings:
+      getAdditionalExperimentAnalysisSettings(analysisSettings),
+    settingsForSnapshotMetrics,
+    metricMap,
+    factTableMap,
+    reweight,
+    type: snapshotType,
+    triggeredBy,
+  });
+
+  return {
+    snapshot: queryRunner.model,
+    existingExecution: false,
+  };
+}
+
 export async function createOrReuseStandardSnapshotExecution({
   context,
   experiment,
@@ -1225,8 +1437,7 @@ export async function createOrReuseStandardSnapshotExecution({
         organization: context.org.id,
         id: existing.id,
         updates: {
-          activeExecution: false,
-          activeWriter: false,
+          executionMode: undefined,
         },
       });
       await updateSnapshot({
@@ -1447,17 +1658,18 @@ export async function createSnapshot({
     useCache,
     reweight,
   });
+  const snapshotId = uniqid("snp_");
   const refreshExecution: ExperimentSnapshotRefreshExecution | undefined =
     queueExecution
       ? {
-          activeExecution: true,
-          activeWriter: isStandardIncrementalWriter,
+          executionMode: getQueuedExecutionMode(isStandardIncrementalWriter),
+          executionId: snapshotId,
           intent: refreshIntent,
         }
       : undefined;
 
   const data: ExperimentSnapshotInterface = {
-    id: uniqid("snp_"),
+    id: snapshotId,
     organization: experiment.organization,
     experiment: experiment.id,
     runStarted: queueExecution ? null : new Date(),
@@ -1650,7 +1862,7 @@ export async function runStandardSnapshotExecution({
   }
 
   const refreshExecution = snapshot.refreshExecution;
-  if (!refreshExecution?.activeExecution) {
+  if (!refreshExecution?.executionMode) {
     return snapshot;
   }
 
@@ -1660,8 +1872,7 @@ export async function runStandardSnapshotExecution({
       organization: context.org.id,
       id: snapshot.id,
       updates: {
-        activeExecution: false,
-        activeWriter: false,
+        executionMode: undefined,
       },
     });
     return snapshot;
@@ -1683,6 +1894,16 @@ export async function runStandardSnapshotExecution({
   try {
     // Set initial heartbeat
     await updateSnapshotHeartbeat(context.org.id, snapshot.id);
+    snapshot =
+      (await updateSnapshotRefreshExecution({
+        organization: context.org.id,
+        id: snapshot.id,
+        updates: {
+          executionMode: getRunningExecutionMode(
+            snapshot.refreshExecution?.executionMode,
+          ),
+        },
+      })) ?? snapshot;
 
     const intent = snapshot.refreshExecution?.intent ?? {};
     const useCache = !intent.forceFullRefresh;
@@ -1744,7 +1965,11 @@ export async function runStandardSnapshotExecution({
       | ExperimentResultsQueryRunner
       | ExperimentIncrementalRefreshQueryRunner;
 
-    if (snapshot.refreshExecution?.activeWriter) {
+    if (isWriterExecutionMode(snapshot.refreshExecution?.executionMode)) {
+      await context.models.incrementalRefresh.setCurrentExecutionId(
+        experiment.id,
+        snapshot.refreshExecution?.executionId ?? snapshot.id,
+      );
       queryRunner = new ExperimentIncrementalRefreshQueryRunner(
         context,
         snapshot,
@@ -1782,7 +2007,9 @@ export async function runStandardSnapshotExecution({
         organization: context.org.id,
         id: snapshot.id,
         updates: {
-          activeWriter: false,
+          executionMode: getPostWriteExecutionMode(
+            snapshot.refreshExecution?.executionMode,
+          ),
         },
       })) ?? snapshot;
 
@@ -1840,8 +2067,7 @@ export async function runStandardSnapshotExecution({
         organization: context.org.id,
         id: snapshot.id,
         updates: {
-          activeExecution: false,
-          activeWriter: false,
+          executionMode: undefined,
         },
       })) ?? snapshot;
   }
