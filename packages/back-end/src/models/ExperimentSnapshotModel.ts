@@ -196,9 +196,8 @@ experimentSnapshotSchema.index(
     unique: true,
     partialFilterExpression: {
       type: "standard",
-      "refreshExecution.executionMode": {
-        $exists: true,
-      },
+      status: "running",
+      "refreshExecution.executionMode": "writer",
     },
   },
 );
@@ -595,6 +594,7 @@ export async function findActiveStandardSnapshotExecution(
       organization,
       experiment,
       type: "standard",
+      status: "running",
       "refreshExecution.executionMode": {
         $exists: true,
       },
@@ -617,9 +617,8 @@ export async function findActiveStandardWriterSnapshotExecution(
       organization,
       experiment,
       type: "standard",
-      "refreshExecution.executionMode": {
-        $in: ["running-writer"],
-      },
+      status: "running",
+      "refreshExecution.executionMode": "writer",
     },
     null,
     {
