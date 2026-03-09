@@ -3,7 +3,7 @@ import { PostExperimentSnapshotResponse } from "shared/types/openapi";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { auditDetailsCreate } from "back-end/src/services/audit";
-import { requestSnapshotRefresh } from "back-end/src/services/experiments";
+import { requestExperimentSnapshot } from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 // TODO update params (add phase, useCache)
@@ -53,12 +53,12 @@ export const postExperimentSnapshot = createApiRequestHandler(
 
   // This endpoint starts the refresh and returns the current snapshot state
   // immediately (`queued`, `running`, etc.) without waiting for completion.
-  const { snapshot } = await requestSnapshotRefresh({
+  const { snapshot } = await requestExperimentSnapshot({
     context,
     experiment,
     phaseIndex: createSnapshotPayload.phase,
     useCache: createSnapshotPayload.useCache,
-    triggeredBy: triggeredBy ?? "manual",
+    triggeredBy,
   });
 
   await req.audit({

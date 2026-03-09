@@ -49,7 +49,7 @@ import {
   determineNextBanditSchedule,
   getChangesToStartExperiment,
   getLinkedFeatureInfo,
-  requestSnapshotRefresh,
+  requestExperimentSnapshot,
   resetExperimentBanditSettings,
   SnapshotAnalysisParams,
   validateExperimentData,
@@ -120,7 +120,6 @@ import {
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
-import { ExperimentSnapshotBusyError } from "back-end/src/util/errors";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { generateExperimentReportSSRData } from "back-end/src/services/reports";
 import {
@@ -1283,12 +1282,11 @@ export async function postExperiments(
 
     if (datasource && req.query.autoRefreshResults && metricIds.length > 0) {
       try {
-        await requestSnapshotRefresh({
+        await requestExperimentSnapshot({
           context,
           experiment,
           phaseIndex: 0,
           useCache: true,
-          triggeredBy: "manual",
         });
       } catch (e) {
         logger.error(e, "Failed to auto-refresh imported experiment");
@@ -2911,63 +2909,35 @@ export async function postSnapshot(
 
   const useCache = !req.query["force"];
 
-  try {
-    // Snapshot refresh requests are async. We return the snapshot immediately
-    // in its current state (`queued`, `running`, etc.) and do not wait for completion.
-    const { snapshot, existingExecution } = await requestSnapshotRefresh({
-      context,
-      experiment,
-      phaseIndex: phase,
+  // Snapshot refresh requests are async. We return the snapshot immediately
+  // in its current state (`queued`, `running`, etc.) and do not wait for completion.
+  const { snapshot, existingExecution } = await requestExperimentSnapshot({
+    context,
+    experiment,
+    dimension,
+    phaseIndex: phase,
+    useCache,
+    type: experiment.type === "multi-armed-bandit" ? "exploratory" : undefined,
+  });
+
+  await req.audit({
+    event: "experiment.refresh",
+    entity: {
+      object: "experiment",
+      id: experiment.id,
+    },
+    details: auditDetailsCreate({
+      phase,
       dimension,
       useCache,
-      triggeredBy: "manual",
-      type:
-        experiment.type === "multi-armed-bandit" ? "exploratory" : undefined,
-    });
-
-    await req.audit({
-      event: "experiment.refresh",
-      entity: {
-        object: "experiment",
-        id: experiment.id,
-      },
-      details: auditDetailsCreate({
-        phase,
-        dimension,
-        useCache,
-        manual: false,
-      }),
-    });
-    res.status(200).json({
-      status: 200,
-      snapshot,
-      existingExecution,
-    });
-  } catch (e) {
-    req.log.error(e, "Failed to create experiment snapshot");
-    const status =
-      typeof e === "object" && e !== null && "status" in e
-        ? Number(e.status)
-        : 400;
-    let snapshotSummary: { id: string; status: string } | undefined = undefined;
-    if (e instanceof ExperimentSnapshotBusyError) {
-      const activeSnapshot = await findSnapshotById(
-        context.org.id,
-        e.snapshotId,
-      );
-      if (activeSnapshot) {
-        snapshotSummary = {
-          id: activeSnapshot.id,
-          status: activeSnapshot.status,
-        };
-      }
-    }
-    res.status(status).json({
-      status,
-      message: e.message,
-      ...(snapshotSummary ? { snapshot: snapshotSummary } : {}),
-    });
-  }
+      manual: false,
+    }),
+  });
+  res.status(200).json({
+    status: 200,
+    snapshot,
+    existingExecution,
+  });
 }
 export async function postSnapshotAnalysis(
   req: AuthRequest<
@@ -3092,7 +3062,7 @@ export async function postBanditSnapshot(
   let snapshot: ExperimentSnapshotInterface | undefined = undefined;
 
   try {
-    ({ snapshot } = await requestSnapshotRefresh({
+    ({ snapshot } = await requestExperimentSnapshot({
       context,
       experiment,
       phaseIndex: phase,

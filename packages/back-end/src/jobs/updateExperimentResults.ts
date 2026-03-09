@@ -6,7 +6,7 @@ import {
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
 import {
-  requestSnapshotRefresh,
+  requestExperimentSnapshot,
   RUN_EXPERIMENT_SNAPSHOT,
   runStandardSnapshotExecution,
   updateExperimentBanditSettings,
@@ -141,7 +141,7 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
       }
     }
 
-    await requestSnapshotRefresh({
+    await requestExperimentSnapshot({
       experiment,
       context,
       phaseIndex: experiment.phases.length - 1,
