@@ -147,7 +147,7 @@ export default function FeaturesDraftTable() {
         <Table variant="list" stickyHeader roundedCorners>
           <TableHeader>
             <TableRow>
-              <SortableTableColumnHeader field="id">
+              <SortableTableColumnHeader field="featureKey">
                 Feature Key
               </SortableTableColumnHeader>
               <TableColumnHeader>Comment</TableColumnHeader>
