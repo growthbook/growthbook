@@ -6,12 +6,10 @@ import { Box, Flex } from "@radix-ui/themes";
 import { FeatureInterface, FeatureMetaInfo } from "shared/types/feature";
 import { date, datetime } from "shared/dates";
 import { featureHasEnvironment } from "shared/util";
-import { FaTriangleExclamation } from "react-icons/fa6";
 import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import FeatureModal from "@/components/Features/FeatureModal";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
 import track from "@/services/track";
 import Switch from "@/ui/Switch";
 import RealTimeFeatureGraph from "@/components/Features/RealTimeFeatureGraph";
@@ -87,7 +85,7 @@ export default function FeaturesPage() {
     state: boolean;
   } | null>(null);
 
-  const { apiCall } = useAuth();
+  useAuth();
   const settings = useOrgSettings();
   const showConfirmation = !!settings?.killswitchConfirmation;
 
@@ -289,12 +287,10 @@ export default function FeaturesPage() {
                   </TableColumnHeader>
                 )}
                 <TableColumnHeader>Stale</TableColumnHeader>
-                <TableColumnHeader style={{ width: 30 }} />
               </TableRow>
             </TableHeader>
             <TableBody>
               {featureItems.map((feature) => {
-                const version = feature.version;
                 const draftEntry = draftHook.draftStates[feature.id];
 
                 return (
@@ -375,16 +371,26 @@ export default function FeaturesPage() {
                     <TableCell style={{ minWidth: 80 }}>
                       {valueTypeLabel(feature.valueType)}
                     </TableCell>
-                    <TableCell style={{ textAlign: "center" }}>
-                      {version}
-                      {draftEntry ? (
-                        <Tooltip body="This feature has an active draft that has not been published yet">
-                          <FaTriangleExclamation
-                            className="text-warning ml-1"
-                            style={{ marginTop: -3 }}
-                          />
-                        </Tooltip>
-                      ) : null}
+                    <TableCell
+                      style={{ textAlign: "center", verticalAlign: "middle" }}
+                    >
+                      <div>
+                        {draftEntry ? (
+                          <Tooltip body="This feature has an active draft that has not been published yet">
+                            <span
+                              style={{
+                                display: "inline-block",
+                                width: 8,
+                                height: 8,
+                                borderRadius: "50%",
+                                background: "var(--red-9)",
+                                flexShrink: 0,
+                              }}
+                              aria-hidden
+                            />
+                          </Tooltip>
+                        ) : null}
+                      </div>
                     </TableCell>
                     <TableCell title={datetime(feature.dateUpdated)}>
                       {date(feature.dateUpdated)}
@@ -414,29 +420,6 @@ export default function FeaturesPage() {
                         }
                       />
                     </TableCell>
-                    <TableCell>
-                      <MoreMenu>
-                        {permissionsUtil.canCreateFeature({
-                          project: feature.project,
-                        }) &&
-                        permissionsUtil.canManageFeatureDrafts({
-                          project: feature.project,
-                        }) ? (
-                          <button
-                            className="dropdown-item"
-                            onClick={async () => {
-                              const res = await apiCall<{
-                                feature: FeatureInterface;
-                              }>(`/feature/${feature.id}`);
-                              setFeatureToDuplicate(res.feature);
-                              setModalOpen(true);
-                            }}
-                          >
-                            Duplicate
-                          </button>
-                        ) : null}
-                      </MoreMenu>
-                    </TableCell>
                   </TableRow>
                 );
               })}
@@ -444,7 +427,7 @@ export default function FeaturesPage() {
                 <TableRow>
                   <TableCell
                     colSpan={
-                      7 +
+                      6 +
                       (showProjectColumn ? 1 : 0) +
                       toggleEnvs.length +
                       (showGraphs ? 1 : 0)
