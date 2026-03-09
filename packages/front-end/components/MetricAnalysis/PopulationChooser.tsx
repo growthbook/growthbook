@@ -96,6 +96,14 @@ export default function PopulationChooser({
                 },
               ]
             : []),
+          ...(availableExposureQueries.length > 0
+            ? [
+                {
+                  label: `Units in Exposure Table`,
+                  options: availableExposureQueries,
+                },
+              ]
+            : []),
         ]}
         formatOptionLabel={(option) => {
           return option.value === "factTable" ? (
