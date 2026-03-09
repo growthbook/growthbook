@@ -25,7 +25,7 @@ import {
   updateDashboardSavedQueries,
   updateNonExperimentDashboard,
 } from "back-end/src/enterprise/services/dashboards";
-import { requestSnapshotRefresh } from "back-end/src/services/experiments";
+import { requestExperimentSnapshot } from "back-end/src/services/experiments";
 import {
   generateDashboardBlockIds,
   migrateBlock,
@@ -184,7 +184,7 @@ export async function refreshDashboardData(
     if (!experiment)
       throw new Error("Cannot update dashboard without an attached experiment");
 
-    const { snapshot: mainSnapshot } = await requestSnapshotRefresh({
+    const { snapshot: mainSnapshot } = await requestExperimentSnapshot({
       context,
       experiment,
       phaseIndex: experiment.phases.length - 1,
@@ -217,7 +217,7 @@ export async function refreshDashboardData(
     });
 
     for (const [dimensionId, blockIds] of dimensionBlocks.entries()) {
-      const { snapshot } = await requestSnapshotRefresh({
+      const { snapshot } = await requestExperimentSnapshot({
         context,
         experiment,
         dimension: dimensionId,

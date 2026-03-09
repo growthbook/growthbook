@@ -154,7 +154,6 @@ import {
 } from "back-end/src/util/secrets";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
-import { ExperimentSnapshotBusyError } from "back-end/src/util/errors";
 import { LegacyMetricAnalysisQueryRunner } from "back-end/src/queryRunners/LegacyMetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { QueryMap, getQueryMap } from "back-end/src/queryRunners/QueryRunner";
@@ -1253,7 +1252,7 @@ async function queueRunExperimentSnapshot({
   await job.save();
 }
 
-export async function requestSnapshotRefresh({
+export async function requestExperimentSnapshot({
   context,
   experiment,
   phaseIndex,
@@ -1295,6 +1294,17 @@ export async function requestSnapshotRefresh({
       snapshot: result.snapshot,
       existingExecution: result.existing,
     };
+  }
+
+  // If a standard writer is actively running, the exploratory snapshot can't
+  // proceed (it builds on top of the standard data). Return the in-progress
+  // standard snapshot so the front-end polls until it completes.
+  const activeWriter = await findActiveStandardWriterSnapshotExecution(
+    context.org.id,
+    experiment.id,
+  );
+  if (activeWriter) {
+    return { snapshot: activeWriter, existingExecution: true };
   }
 
   const datasource = await getDataSourceById(context, experiment.datasource);
@@ -1565,19 +1575,6 @@ export async function createSnapshot({
   const datasource = await getDataSourceById(context, experiment.datasource);
   if (!datasource) {
     throw new Error("Could not load data source");
-  }
-
-  if (type === "exploratory") {
-    const activeWriter = await findActiveStandardWriterSnapshotExecution(
-      organization.id,
-      experiment.id,
-    );
-    if (activeWriter) {
-      throw new ExperimentSnapshotBusyError(
-        "The base experiment results are being updated. Please try again when the update is complete.",
-        activeWriter.id,
-      );
-    }
   }
 
   const integration = getSourceIntegrationObject(context, datasource, true);

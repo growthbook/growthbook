@@ -1090,6 +1090,7 @@ const errorHandler: ErrorRequestHandler = (
     status: status,
     message: err.message || "An error occurred",
     errorId: SENTRY_DSN ? res.sentry : undefined,
+    ...(typeof err.toResponseBody === "function" ? err.toResponseBody() : {}),
   });
 };
 app.use(errorHandler);
