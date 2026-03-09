@@ -186,10 +186,14 @@ export default function ExplorerSideBar({
               <Text weight="medium">Date Range</Text>
               <DateRangePicker shouldWrap />
             </Flex>
-            <Flex direction="column" gap="2">
-              <Text weight="medium">Date Granularity</Text>
-              <GranularitySelector />
-            </Flex>
+            {["line", "area", "timeseries-table"].includes(
+              draftExploreState.chartType,
+            ) && (
+              <Flex direction="column" gap="2">
+                <Text weight="medium">Date Granularity</Text>
+                <GranularitySelector />
+              </Flex>
+            )}
           </Flex>
         </Flex>
       )}
