@@ -10,12 +10,12 @@ import { useAuth } from "@/services/auth";
 import Button from "@/ui/Button";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import Markdown from "@/components/Markdown/Markdown";
+import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import OptInModal from "@/components/License/OptInModal";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import Modal from "@/components/Modal";
-import Field from "@/components/Forms/Field";
 import track from "@/services/track";
 import { AppFeatures } from "@/types/app-features";
 
@@ -135,17 +135,13 @@ export default function EditHypothesisModal({
         cta="Save"
         ctaEnabled={initialValue !== form.watch("hypothesis")}
       >
-        <div style={{ paddingBottom: "4px" }}>
-          <Field
-            label="Hypothesis"
-            textarea
-            minRows={3}
-            placeholder="e.g Making the signup button bigger will increase clicks and ultimately improve revenue"
-            {...form.register("hypothesis")}
-            name="hypothesis"
-          />
-        </div>
-        <Box>
+        <MarkdownInput
+          value={form.watch("hypothesis")}
+          setValue={(value) => form.setValue("hypothesis", value)}
+          placeholder="e.g Making the signup button bigger will increase clicks and ultimately improve revenue"
+          showButtons={false}
+        />
+        <Box my="4">
           {!aiResponse && (
             <Flex align="start" justify="start">
               {hasAISuggestions ? (

@@ -78,7 +78,7 @@ const MetricPage: FC = () => {
     segments,
   } = useDefinitions();
   const settings = useOrgSettings();
-  const { organization } = useUser();
+  const { organization, getOwnerDisplay } = useUser();
   const gb = useGrowthBook<AppFeatures>();
 
   const [editModalOpen, setEditModalOpen] = useState<boolean | number>(false);
@@ -372,7 +372,6 @@ const MetricPage: FC = () => {
       )}
       {editOwnerModal && (
         <EditOwnerModal
-          resourceType="metric"
           cancel={() => setEditOwnerModal(false)}
           owner={metric.owner}
           save={async (owner) => {
@@ -949,7 +948,7 @@ const MetricPage: FC = () => {
               canOpen={canEditMetric}
             >
               <RightRailSectionGroup type="custom">
-                {metric.owner}
+                {getOwnerDisplay(metric.owner) || "None"}
               </RightRailSectionGroup>
             </RightRailSection>
 

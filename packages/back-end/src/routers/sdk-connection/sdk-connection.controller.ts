@@ -224,6 +224,8 @@ export const getSDKConnectionsWebhooks = async (
       "lastSuccess",
       "error",
       "dateCreated",
+      "disabled",
+      "consecutiveFailures",
     ]);
     webhook.sdks.forEach((sdkId) => {
       if (!webhooksByConnection[sdkId]) {
