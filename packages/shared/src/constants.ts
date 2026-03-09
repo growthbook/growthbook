@@ -228,3 +228,5 @@ export const entityEvents = {
 } as const;
 
 export const entityTypes = Object.keys(entityEvents) as [keyof EntityEvents];
+
+export const WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD = 10;

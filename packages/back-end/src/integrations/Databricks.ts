@@ -29,8 +29,7 @@ export default class Databricks extends SqlIntegration {
     );
   }
   getFormatDialect(): FormatDialect {
-    // sql-formatter doesn't support databricks explicitly yet, so using their generic formatter instead
-    return "sql";
+    return "spark";
   }
   getSensitiveParamKeys(): string[] {
     const sensitiveKeys: (keyof DatabricksConnectionParams)[] = ["token"];

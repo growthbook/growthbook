@@ -30,7 +30,7 @@ const HoldoutsPage = (): React.ReactElement => {
   const { ready, project, projects } = useDefinitions();
 
   const [tabs, setTabs] = useLocalStorage<string[]>("holdout_tabs", []);
-  const { getUserDisplay } = useUser();
+  const { getOwnerDisplay } = useUser();
   const router = useRouter();
   const holdoutsEnabled = useFeatureIsOn("holdouts_feature");
 
@@ -102,7 +102,7 @@ const HoldoutsPage = (): React.ReactElement => {
         ? ": Analysis Phase"
         : "");
 
-    const ownerName = getUserDisplay(item.experiment.owner, false) || "";
+    const ownerName = getOwnerDisplay(item.experiment.owner);
     return {
       name: item.name,
       projects: projectsComputed,
@@ -166,7 +166,7 @@ const HoldoutsPage = (): React.ReactElement => {
 
   const hasHoldoutsCreated = holdouts.length > 0 && allExperiments.length > 0;
 
-  const canAdd = permissionsUtil.canViewExperimentModal(project);
+  const canAdd = permissionsUtil.canViewHoldoutModal(project, projects);
 
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;

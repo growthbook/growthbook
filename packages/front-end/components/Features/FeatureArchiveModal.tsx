@@ -1,6 +1,7 @@
 import { FeatureInterface } from "shared/types/feature";
 import { Text } from "@radix-ui/themes";
 import { useFeatureDependents } from "@/hooks/useFeatureDependents";
+import { getEnabledEnvironments, useEnvironments } from "@/services/features";
 import Callout from "@/ui/Callout";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Modal from "@/components/Modal";
@@ -22,6 +23,12 @@ export default function FeatureArchiveModal({
     (dependents?.features.length ?? 0) + (dependents?.experiments.length ?? 0);
   const isArchived = feature.archived;
 
+  const environments = useEnvironments();
+  const enabledEnvs = isArchived
+    ? []
+    : getEnabledEnvironments(feature, environments);
+  const hasActiveEnvs = enabledEnvs.length > 0;
+
   return (
     <Modal
       trackingEventModalType=""
@@ -34,13 +41,21 @@ export default function FeatureArchiveModal({
         await onArchive();
         close();
       }}
-      ctaEnabled={!loading && totalDependents === 0}
+      ctaEnabled={!loading && totalDependents === 0 && !hasActiveEnvs}
       useRadixButton={true}
     >
       {loading ? (
         <Text color="gray">
           <LoadingSpinner /> Checking feature dependencies...
         </Text>
+      ) : hasActiveEnvs ? (
+        <Callout status="warning" mb="4">
+          <Text as="p" mb="0">
+            This feature is still active in the following environments:{" "}
+            <strong>{enabledEnvs.join(", ")}</strong>. Please disable those
+            environments first before archiving.
+          </Text>
+        </Callout>
       ) : totalDependents > 0 ? (
         <>
           <Callout status="error" mb="4">
