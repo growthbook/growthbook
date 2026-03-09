@@ -79,17 +79,18 @@ const resource = req.context.myResources.getById("abc123");
 
 ### MakeModelClass Config
 
-| Option                      | Type       | Required | Description                                                |
-| --------------------------- | ---------- | -------- | ---------------------------------------------------------- |
-| `schema`                    | Zod schema | Yes      | Validator from `shared/validators`                         |
-| `collectionName`            | string     | Yes      | MongoDB collection name                                    |
-| `idPrefix`                  | string     | No       | Prefix for auto-generated IDs (e.g., "prj\_")              |
-| `auditLog`                  | object     | No       | Audit event configuration                                  |
-| `globallyUniquePrimaryKeys` | boolean    | No       | Create unique index on `id` only (not `id + organization`) |
-| `defaultValues`             | object     | No       | Default values applied on creation                         |
-| `readonlyFields`            | string[]   | No       | Fields that cannot be updated after creation               |
-| `skipDateUpdatedFields`     | string[]   | No       | Fields that don't trigger `dateUpdated` when changed       |
-| `additionalIndexes`         | array      | No       | Extra MongoDB indexes to create                            |
+| Option                      | Type       | Required | Description                                                                                         |
+| --------------------------- | ---------- | -------- | --------------------------------------------------------------------------------------------------- |
+| `schema`                    | Zod schema | Yes      | Validator from `shared/validators`                                                                  |
+| `collectionName`            | string     | Yes      | MongoDB collection name                                                                             |
+| `pKey`                      | string[]   | No       | Primary key fields. Defaults to `["id"]`. Use e.g. `["userId", "organization"]` for composite keys. |
+| `idPrefix`                  | string     | No       | Prefix for auto-generated IDs (e.g., "prj\_"). Only applies when schema has an `id` field.          |
+| `auditLog`                  | object     | No       | Audit event configuration                                                                           |
+| `globallyUniquePrimaryKeys` | boolean    | No       | Create an additional unique index on the primary key alone (without `organization`)                 |
+| `defaultValues`             | object     | No       | Default values applied on creation                                                                  |
+| `readonlyFields`            | string[]   | No       | Fields that cannot be updated after creation                                                        |
+| `skipDateUpdatedFields`     | string[]   | No       | Fields that don't trigger `dateUpdated` when changed                                                |
+| `additionalIndexes`         | array      | No       | Extra MongoDB indexes to create                                                                     |
 
 ### Audit Log Config
 
@@ -216,16 +217,18 @@ Migration runs automatically when documents are read, transforming legacy data t
 ```typescript
 const model = new MyResourceModel(context);
 
-// Get by ID
+// Get by ID (only valid when schema has an "id" field)
 const doc = await model.getById("res_abc123");
 
-// Get multiple by IDs
+// Get multiple by IDs (only valid when schema has an "id" field)
 const docs = await model.getByIds(["res_abc123", "res_def456"]);
 
 // Get all (with optional filter)
 const allDocs = await model.getAll();
 const filtered = await model.getAll({ status: "active" });
 ```
+
+`getById` and `getByIds` will throw at runtime if the schema has no `id` field. Models with composite or non-standard primary keys must expose their own accessor methods instead (see "Alternate Primary Keys" below).
 
 ### Write Operations
 
@@ -241,12 +244,12 @@ const newDoc = await model.create({
 // Update by document
 const updated = await model.update(existingDoc, { name: "New Name" });
 
-// Update by ID
+// Update by ID (only valid when schema has an "id" field)
 const updated = await model.updateById("res_abc123", { name: "New Name" });
 
 // Delete
 await model.delete(existingDoc);
-await model.deleteById("res_abc123");
+await model.deleteById("res_abc123"); // only valid when schema has an "id" field
 ```
 
 ### Bypass Permission (Use Sparingly)
@@ -276,6 +279,46 @@ export class FooDataModel extends BaseClass {
 ```
 
 Note: Permission checks, migrations, etc. are all done automatically within the `_find` method, so you don't need to repeat any of that in your custom methods. Also, the `organization` field is automatically added to every query, so it will always be multi-tenant safe.
+
+## Alternate Primary Keys
+
+For models where the unique primary key isn't `id`, use the `pKey` config option. This can be a single field like `uid`, or a composite key like `organization` + `userId`. The schema should be built with `createBaseSchemaWithPrimaryKey` from `shared/validators`.
+
+```typescript
+import { createBaseSchemaWithPrimaryKey } from "shared/validators";
+
+// Schema: userId + organization together form the primary key
+const mySchema = createBaseSchemaWithPrimaryKey({
+  userId: z.string(),
+  organization: z.string(),
+}).extend({ name: z.string() });
+
+const BaseClass = MakeModelClass({
+  schema: mySchema,
+  collectionName: "myresources",
+  pKey: ["userId", "organization"],
+  // No idPrefix — id is not auto-generated for composite-key models
+});
+```
+
+**Important differences from standard `id`-based models:**
+
+- `getById`, `getByIds`, `updateById`, `deleteById`, and `dangerousUpdateByIdBypassPermission` will throw — do not call them.
+- During creation `id` and `uid` will still be auto-generated if present in the schema. Any other primary key fields (e.g. `userId`) must be supplied by the caller.
+- MongoDB update and delete filters use all pKey fields instead of `{ id }`.
+- Audit log entity IDs are serialized as a JSON object string, e.g. `{"userId":"u1","organization":"org1"}`.
+
+Expose semantic accessor methods that delegate to the protected `_findOne`/`_find`:
+
+```typescript
+export class MyResourceModel extends BaseClass {
+  // ...permissions...
+
+  public getByUserId(userId: string) {
+    return this._findOne({ userId });
+  }
+}
+```
 
 ## Complete Example
 
@@ -345,5 +388,6 @@ export class WidgetModel extends BaseClass {
 2. **Implement all four permission methods** - canRead, canCreate, canUpdate, canDelete
 3. **Use hooks for side effects** - afterUpdate for cache invalidation, beforeDelete for dependency checks
 4. **Use migrate() for schema evolution** - handles legacy documents gracefully
-5. **Choose appropriate ID prefix** - follow existing conventions
+5. **Choose appropriate ID prefix** - follow existing conventions (only for `id`-based models)
 6. **Enable audit logging** - for user-facing entities that need tracking
+7. **Alternate primary key models must not use `getById`/`getByIds` etc** - expose semantic accessors via `_findOne`/`_find` instead
