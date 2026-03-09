@@ -7,6 +7,7 @@ import {
   PiPlusCircleBold,
   PiArrowsLeftRightBold,
   PiShieldCheckBold,
+  PiPencilSimpleFill,
 } from "react-icons/pi";
 import { FaBoltLightning } from "react-icons/fa6";
 import { ago, datetime } from "shared/dates";
@@ -22,14 +23,20 @@ import { BiHide, BiShow } from "react-icons/bi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { BsClock } from "react-icons/bs";
 import { FeatureUsageLookback } from "shared/types/integrations";
-import { Box, Flex, Heading, Separator, Text } from "@radix-ui/themes";
+import {
+  Box,
+  Flex,
+  Heading,
+  IconButton,
+  Separator,
+  Text,
+} from "@radix-ui/themes";
 import {
   SafeRolloutInterface,
   HoldoutInterface,
   MinimalFeatureRevisionInterface,
 } from "shared/validators";
 import Button from "@/ui/Button";
-import { GBEdit } from "@/components/Icons";
 import { useAuth } from "@/services/auth";
 import ForceSummary from "@/components/Features/ForceSummary";
 import track from "@/services/track";
@@ -540,14 +547,15 @@ export default function FeaturesOverview({
           <span className="text-muted">Comment:</span>{" "}
           {revision.comment || <em>None</em>}
           {canEditDrafts && (
-            <Button
+            <IconButton
               variant="ghost"
-              onClick={() => {
-                setEditCommentModal(true);
-              }}
+              color="violet"
+              size="2"
+              onClick={() => setEditCommentModal(true)}
+              ml="1"
             >
-              <GBEdit />
-            </Button>
+              <PiPencilSimpleFill size={14} />
+            </IconButton>
           )}
         </Flex>
       </Flex>
