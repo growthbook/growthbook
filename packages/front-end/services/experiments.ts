@@ -344,7 +344,7 @@ export function useExperimentSearch({
     getSavedGroupById,
     metricGroups,
   } = useDefinitions();
-  const { getUserDisplay } = useUser();
+  const { getOwnerDisplay } = useUser();
   const getExperimentStatusIndicator = useExperimentStatusIndicator();
 
   const experiments: ComputedExperimentInterface[] = useAddComputedFields(
@@ -361,7 +361,7 @@ export function useExperimentSearch({
       const isWatched = watchedExperimentIds?.includes(exp.id) ?? false;
 
       return {
-        ownerName: getUserDisplay(exp.owner, false) || "",
+        ownerName: getOwnerDisplay(exp.owner),
         metricNames: exp.goalMetrics
           .map((m) => getExperimentMetricById(m)?.name)
           .filter(Boolean),
@@ -383,7 +383,7 @@ export function useExperimentSearch({
         isWatched,
       };
     },
-    [getExperimentMetricById, getProjectById, getUserDisplay],
+    [getExperimentMetricById, getOwnerDisplay, getProjectById],
   );
 
   return useSearch({

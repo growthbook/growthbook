@@ -2,6 +2,7 @@ import React, { FC, useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
 import { MetricTableItem } from "@/components/Metrics/MetricsList";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useUser } from "@/services/UserContext";
 import Tag from "@/components/Tags/Tag";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import {
@@ -27,6 +28,7 @@ const MetricSearchFilters: FC<
     setSearchValue,
   });
   const { datasources } = useDefinitions();
+  const { getOwnerDisplay } = useUser();
 
   // Metric specific state
   const availableTags = useMemo(() => {
@@ -47,11 +49,11 @@ const MetricSearchFilters: FC<
     const owners = new Set<string>();
     combinedMetrics.forEach((m) => {
       if (m.owner) {
-        owners.add(m.owner);
+        owners.add(getOwnerDisplay(m.owner));
       }
     });
     return Array.from(owners);
-  }, [combinedMetrics]);
+  }, [combinedMetrics, getOwnerDisplay]);
 
   const hasArchivedMetrics = combinedMetrics.some((m) => m.archived);
   const metricTypes = [

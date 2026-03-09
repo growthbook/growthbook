@@ -223,6 +223,15 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   const [prerequisiteTargetingSdkIssues, setPrerequisiteTargetingSdkIssues] =
     useState(false);
+  const [disableBanditConversionWindow, setDisableBanditConversionWindow] =
+    useState(() => {
+      if (initialValue?.type !== "multi-armed-bandit" || isNewExperiment)
+        return false;
+      const hasOverride =
+        initialValue?.banditConversionWindowValue != null &&
+        initialValue?.banditConversionWindowUnit != null;
+      return !hasOverride;
+    });
   const canSubmit = !prerequisiteTargetingSdkIssues;
   const minWordsForSimilarityCheck = 4;
 
@@ -341,6 +350,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       banditScheduleUnit: scopedSettings.banditScheduleUnit.value,
       banditBurnInValue: scopedSettings.banditBurnInValue.value,
       banditBurnInUnit: scopedSettings.banditScheduleUnit.value,
+      banditConversionWindowValue: initialValue?.banditConversionWindowValue,
+      banditConversionWindowUnit:
+        initialValue?.banditConversionWindowUnit ?? "hours",
       templateId: initialValue?.templateId || "",
       holdoutId: initialValue?.holdoutId || undefined,
       customMetricSlices: initialValue?.customMetricSlices || [],
@@ -425,6 +437,21 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         if ((data.goalMetrics?.length ?? 0) !== 1) {
           throw new Error("You must select 1 decision metric");
         }
+        const shouldIncludeConversionWindow =
+          !disableBanditConversionWindow &&
+          (!settings.useStickyBucketing || data.disableStickyBucketing);
+
+        if (!shouldIncludeConversionWindow) {
+          delete data.banditConversionWindowValue;
+          delete data.banditConversionWindowUnit;
+        } else if (
+          !data.banditConversionWindowValue ||
+          !data.banditConversionWindowUnit
+        ) {
+          throw new Error(
+            "Enter a conversion window override or disable the conversion window override",
+          );
+        }
       }
     }
 
@@ -495,6 +522,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     .map((t) => ({ value: t.id, label: t.templateMetadata.name }));
 
   const allowAllProjects = permissionsUtils.canViewExperimentModal();
+  const hasProjectPermission = selectedProject
+    ? permissionsUtils.canViewExperimentModal(selectedProject)
+    : allowAllProjects;
 
   const exposureQueries = datasource?.settings?.queries?.exposure || [];
   const exposureQueryId = form.getValues("exposureQueryId");
@@ -555,8 +585,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const [linkNameWithTrackingKey, setLinkNameWithTrackingKey] = useState(true);
 
   let header = isNewExperiment
-    ? `Add new ${isBandit ? "Bandit" : "Experiment"}`
-    : "Add new Experiment Analysis";
+    ? `Add New ${isBandit ? "Bandit" : "Experiment"}`
+    : "Add New Experiment Analysis";
   if (duplicate) {
     header = `Duplicate ${isBandit ? "Bandit" : "Experiment"}`;
   }
@@ -682,7 +712,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         docSection="experimentConfiguration"
         submit={onSubmit}
         cta={"Save"}
-        ctaEnabled={canSubmit}
+        ctaEnabled={canSubmit && hasProjectPermission}
+        disabledMessage={
+          !hasProjectPermission
+            ? !selectedProject && availableProjects.length > 0
+              ? "Select a project to continue."
+              : "You don't have permission to create experiments."
+            : undefined
+        }
         closeCta="Cancel"
         size="lg"
         step={step}
@@ -1079,6 +1116,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           </div>
         </Page>
 
+        {/* Standard Experiments */}
         {!isBandit && (isNewExperiment || duplicate)
           ? ["Overview", "Traffic", "Targeting", "Metrics"].map((p, i) => {
               // skip, custom overview page above
@@ -1161,6 +1199,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             })
           : null}
 
+        {/* Bandit Experiments */}
         {isBandit && (isNewExperiment || duplicate)
           ? ["Overview", "Traffic", "Targeting", "Metrics"].map((p, i) => {
               // skip, custom overview page above
@@ -1231,6 +1270,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                           v.map((v) => v.weight),
                         );
                       }}
+                      disableBanditConversionWindow={
+                        disableBanditConversionWindow
+                      }
+                      setDisableBanditConversionWindow={
+                        setDisableBanditConversionWindow
+                      }
                     />
                   </div>
                 </Page>
@@ -1238,6 +1283,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             })
           : null}
 
+        {/* Imported Experiments */}
         {!(isNewExperiment || duplicate) ? (
           <Page display="Targeting">
             <div>

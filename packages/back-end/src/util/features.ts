@@ -15,11 +15,10 @@ import { cloneDeep, isNil } from "lodash";
 import md5 from "md5";
 import { FeatureDefinitionWithProject } from "shared/types/sdk";
 import { HoldoutInterface } from "shared/validators";
-import { expandNestedSavedGroups } from "shared/sdk-versioning";
+import { expandNestedSavedGroups, getJSONValue } from "shared/sdk-versioning";
 import {
   FeatureInterface,
   FeatureRule,
-  FeatureValueType,
   SavedGroupTargeting,
 } from "shared/types/feature";
 import { ExperimentInterface } from "shared/types/experiment";
@@ -293,20 +292,7 @@ export function getAffectedSDKPayloadKeys(
   });
 }
 
-// eslint-disable-next-line
-export function getJSONValue(type: FeatureValueType, value: string): any {
-  if (type === "json") {
-    try {
-      return JSON.parse(value);
-    } catch (e) {
-      return null;
-    }
-  }
-  if (type === "number") return parseFloat(value) || 0;
-  if (type === "string") return value;
-  if (type === "boolean") return value === "false" ? false : true;
-  return null;
-}
+export { getJSONValue };
 
 export function roundVariationWeight(num: number): number {
   return Math.round(num * 10000) / 10000;

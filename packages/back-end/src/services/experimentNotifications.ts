@@ -4,9 +4,13 @@ import {
   ensureAndReturn,
 } from "shared/util";
 import {
+  expandMetricGroups,
   getLatestPhaseVariations,
   getMetricResultStatus,
+  setAdjustedCIs,
+  setAdjustedPValuesOnResults,
 } from "shared/experiments";
+import cloneDeep from "lodash/cloneDeep";
 import {
   PRESET_DECISION_CRITERIA,
   PRESET_DECISION_CRITERIAS,
@@ -37,6 +41,7 @@ import {
   getConfidenceLevelsForOrg,
   getEnvironmentIdsFromOrg,
   getMetricDefaultsForOrg,
+  getPValueCorrectionForOrg,
   getPValueThresholdForOrg,
 } from "./organizations";
 import { isEmailEnabled, sendExperimentChangesEmail } from "./email";
@@ -275,8 +280,7 @@ export const computeExperimentChanges = async ({
   snapshot: ExperimentSnapshotDocument;
 }): Promise<ExperimentSignificanceChange[]> => {
   const currentAnalysis = getSnapshotAnalysis(currentSnapshot);
-  const currentVariations = currentAnalysis?.results?.[0]?.variations;
-  if (!currentAnalysis || !currentVariations) {
+  if (!currentAnalysis?.results?.[0]?.variations) {
     return [];
   }
 
@@ -288,7 +292,6 @@ export const computeExperimentChanges = async ({
   const lastAnalysis = lastSnapshot
     ? getSnapshotAnalysis(lastSnapshot)
     : undefined;
-  const lastVariations = lastAnalysis?.results?.[0]?.variations;
 
   // TODO refactor to only do once per update
   // get the org level settings for significance:
@@ -296,6 +299,36 @@ export const computeExperimentChanges = async ({
   const { ciUpper, ciLower } = getConfidenceLevelsForOrg(context);
   const metricDefaults = getMetricDefaultsForOrg(context);
   const pValueThreshold = getPValueThresholdForOrg(context);
+  const pValueCorrection = getPValueCorrectionForOrg(context);
+
+  // Apply p-value correction to match what the UI and analysisSummary use,
+  // so notifications don't fire for metrics that appear non-significant to users
+  const metricGroups = await context.models.metricGroups.getAll();
+  const expandedGoalMetrics = expandMetricGroups(
+    experiment.goalMetrics,
+    metricGroups,
+  );
+
+  const currentResults = cloneDeep(currentAnalysis.results);
+  setAdjustedPValuesOnResults(
+    currentResults,
+    expandedGoalMetrics,
+    pValueCorrection,
+  );
+  setAdjustedCIs(currentResults, pValueThreshold);
+  const currentVariations = currentResults[0]?.variations;
+
+  let lastVariations = lastAnalysis?.results?.[0]?.variations;
+  if (lastAnalysis) {
+    const lastResults = cloneDeep(lastAnalysis.results);
+    setAdjustedPValuesOnResults(
+      lastResults,
+      expandedGoalMetrics,
+      pValueCorrection,
+    );
+    setAdjustedCIs(lastResults, pValueThreshold);
+    lastVariations = lastResults[0]?.variations;
+  }
 
   const experimentChanges: ExperimentSignificanceChange[] = [];
 
