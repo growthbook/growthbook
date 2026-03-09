@@ -337,6 +337,7 @@ export default function FeaturesPage() {
                         tags={feature?.tags || []}
                         useFlex={true}
                         showEllipsisAtIndex={2}
+                        truncateTagChars={20}
                       />
                     </TableCell>
                     {toggleEnvs.map((en) => (

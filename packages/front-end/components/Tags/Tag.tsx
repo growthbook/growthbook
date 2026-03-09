@@ -4,6 +4,7 @@ import { Flex } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Badge from "@/ui/Badge";
 import { RadixColor } from "@/ui/HelperText";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 export const TAG_COLORS = [
   "blue",
@@ -21,6 +22,7 @@ type Props = {
   description?: string;
   skipMargin?: boolean;
   variant?: "badge" | "dot";
+  maxChars?: number;
 } & MarginProps;
 
 export default function Tag({
@@ -29,6 +31,7 @@ export default function Tag({
   description,
   skipMargin,
   variant = "badge",
+  maxChars,
 }: Props) {
   const { getTagById } = useDefinitions();
   const fullTag = getTagById(tag);
@@ -37,14 +40,27 @@ export default function Tag({
 
   const tagColor = color ?? fullTag?.color ?? "blue";
 
+  const truncate = maxChars != null && tag.length > maxChars;
+  const displayLabel = truncate ? `${tag.slice(0, maxChars)}…` : tag;
+  const badgeStyle =
+    truncate || maxChars != null
+      ? {
+          maxWidth: "100%",
+          minWidth: 0,
+          overflow: "hidden" as const,
+          textOverflow: "ellipsis" as const,
+        }
+      : undefined;
+
   if (variant === "dot") {
-    return (
+    const content = (
       <Flex
         gap="2"
         align="center"
-        title={displayTitle}
+        title={truncate ? tag : displayTitle}
         mr={skipMargin ? undefined : "2"}
         mb={skipMargin ? undefined : "1"}
+        style={badgeStyle}
       >
         <div
           style={{
@@ -52,21 +68,40 @@ export default function Tag({
             height: 10,
             borderRadius: 10,
             background: `var(--${tagColor}-10)`,
+            flexShrink: 0,
           }}
-        ></div>
-        <div>{tag}</div>
+        />
+        <div style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+          {displayLabel}
+        </div>
       </Flex>
     );
+    return truncate ? (
+      <Tooltip body={tag} flipTheme={false}>
+        {content}
+      </Tooltip>
+    ) : (
+      content
+    );
   }
-  return (
+
+  const badge = (
     <Badge
-      title={displayTitle}
-      label={tag}
+      title={truncate ? undefined : displayTitle}
+      label={displayLabel}
       color={tagColor as RadixColor}
       variant="soft"
       mr={skipMargin ? undefined : "2"}
       mb={skipMargin ? undefined : "1"}
+      style={badgeStyle}
     />
+  );
+  return truncate ? (
+    <Tooltip body={tag} flipTheme={false}>
+      {badge}
+    </Tooltip>
+  ) : (
+    badge
   );
 }
 

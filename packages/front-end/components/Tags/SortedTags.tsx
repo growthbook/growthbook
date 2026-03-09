@@ -9,6 +9,7 @@ export interface Props {
   skipFirstMargin?: boolean;
   useFlex?: boolean;
   showEllipsisAtIndex?: number;
+  truncateTagChars?: number;
 }
 
 export default function SortedTags({
@@ -17,6 +18,7 @@ export default function SortedTags({
   skipFirstMargin = false,
   useFlex = false,
   showEllipsisAtIndex = 5,
+  truncateTagChars,
 }: Props) {
   const { tags: all } = useDefinitions();
   //index starting at 0
@@ -44,10 +46,17 @@ export default function SortedTags({
     );
   };
 
-  const renderTags = (tags: string[]) => {
-    return tags.map((tag, i) => {
+  const renderTags = (tagsToRender: string[]) => {
+    return tagsToRender.map((tag, i) => {
       const skipMargin = useFlex || (skipFirstMargin && i === 0);
-      return <Tag tag={tag} key={tag} skipMargin={skipMargin} />;
+      return (
+        <Tag
+          tag={tag}
+          key={tag}
+          skipMargin={skipMargin}
+          maxChars={truncateTagChars}
+        />
+      );
     });
   };
   const renderFlexContainer = (
