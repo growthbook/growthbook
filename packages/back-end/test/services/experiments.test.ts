@@ -10,6 +10,7 @@ import {
   putMetricApiPayloadToMetricInterface,
   mergeSnapshotRefreshIntent,
   buildSnapshotRefreshIntent,
+  getFollowupStandardSnapshotExecution,
 } from "back-end/src/services/experiments";
 
 describe("experiments utils", () => {
@@ -1248,6 +1249,19 @@ describe("incremental refresh mutex", () => {
       expect(intent.lastScheduledRequestDate).toBeUndefined();
     });
 
+    it("should preserve dashboard refresh requests separately", () => {
+      const intent = buildSnapshotRefreshIntent({
+        triggeredBy: "manual-dashboard",
+        useCache: false,
+        isApiRequest: false,
+        reweight: false,
+      });
+
+      expect(intent.requestedByManual).toBe(true);
+      expect(intent.requestedByDashboard).toBe(true);
+      expect(intent.forceFullRefresh).toBe(true);
+    });
+
     it("should build intent for scheduled trigger", () => {
       const intent = buildSnapshotRefreshIntent({
         triggeredBy: "schedule",
@@ -1287,6 +1301,7 @@ describe("incremental refresh mutex", () => {
         requestedByManual: true,
         requestedBySchedule: false,
         requestedByApi: false,
+        requestedByDashboard: false,
         forceFullRefresh: false,
         banditReweightRequested: false,
         scheduledBanditEffectsPending: false,
@@ -1295,6 +1310,7 @@ describe("incremental refresh mutex", () => {
         requestedByManual: false,
         requestedBySchedule: true,
         requestedByApi: false,
+        requestedByDashboard: true,
         forceFullRefresh: false,
         banditReweightRequested: true,
         scheduledBanditEffectsPending: true,
@@ -1305,6 +1321,7 @@ describe("incremental refresh mutex", () => {
       expect(merged.requestedByManual).toBe(true);
       expect(merged.requestedBySchedule).toBe(true);
       expect(merged.requestedByApi).toBe(false);
+      expect(merged.requestedByDashboard).toBe(true);
       expect(merged.forceFullRefresh).toBe(false);
       expect(merged.banditReweightRequested).toBe(true);
       expect(merged.scheduledBanditEffectsPending).toBe(true);
@@ -1351,6 +1368,7 @@ describe("incremental refresh mutex", () => {
         requestedByManual: true,
         requestedBySchedule: true,
         requestedByApi: true,
+        requestedByDashboard: true,
         forceFullRefresh: true,
         banditReweightRequested: true,
         scheduledBanditEffectsPending: true,
@@ -1361,6 +1379,7 @@ describe("incremental refresh mutex", () => {
         requestedByManual: true,
         requestedBySchedule: true,
         requestedByApi: true,
+        requestedByDashboard: true,
         forceFullRefresh: true,
         banditReweightRequested: true,
         scheduledBanditEffectsPending: true,
@@ -1373,6 +1392,7 @@ describe("incremental refresh mutex", () => {
       expect(merged.requestedByManual).toBe(true);
       expect(merged.requestedBySchedule).toBe(true);
       expect(merged.requestedByApi).toBe(true);
+      expect(merged.requestedByDashboard).toBe(true);
       expect(merged.forceFullRefresh).toBe(true);
       expect(merged.banditReweightRequested).toBe(true);
       expect(merged.scheduledBanditEffectsPending).toBe(true);
@@ -1386,11 +1406,75 @@ describe("incremental refresh mutex", () => {
       expect(merged.requestedByManual).toBe(false);
       expect(merged.requestedBySchedule).toBe(false);
       expect(merged.requestedByApi).toBe(false);
+      expect(merged.requestedByDashboard).toBe(false);
       expect(merged.forceFullRefresh).toBe(false);
       expect(merged.banditReweightRequested).toBe(false);
       expect(merged.scheduledBanditEffectsPending).toBe(false);
       expect(merged.lastManualRequestDate).toBeUndefined();
       expect(merged.lastScheduledRequestDate).toBeUndefined();
+    });
+  });
+
+  describe("getFollowupStandardSnapshotExecution", () => {
+    it("should not replay when the running execution already covers the request", () => {
+      const followup = getFollowupStandardSnapshotExecution({
+        executionIntent: {
+          forceFullRefresh: true,
+          banditReweightRequested: true,
+          requestedByManual: true,
+        },
+        mergedIntent: {
+          forceFullRefresh: true,
+          banditReweightRequested: true,
+          requestedByManual: true,
+        },
+      });
+
+      expect(followup).toBeNull();
+    });
+
+    it("should request a manual full-refresh replay when force refresh arrives mid-run", () => {
+      const followup = getFollowupStandardSnapshotExecution({
+        executionIntent: {
+          forceFullRefresh: false,
+          banditReweightRequested: false,
+          requestedBySchedule: true,
+        },
+        mergedIntent: {
+          forceFullRefresh: true,
+          banditReweightRequested: false,
+          requestedByManual: true,
+          requestedBySchedule: true,
+        },
+      });
+
+      expect(followup).toEqual({
+        triggeredBy: "manual",
+        useCache: false,
+        reweight: false,
+      });
+    });
+
+    it("should keep dashboard follow-up executions scoped to dashboards", () => {
+      const followup = getFollowupStandardSnapshotExecution({
+        executionIntent: {
+          forceFullRefresh: false,
+          banditReweightRequested: false,
+          requestedByDashboard: false,
+        },
+        mergedIntent: {
+          forceFullRefresh: true,
+          banditReweightRequested: false,
+          requestedByManual: true,
+          requestedByDashboard: true,
+        },
+      });
+
+      expect(followup).toEqual({
+        triggeredBy: "manual-dashboard",
+        useCache: false,
+        reweight: false,
+      });
     });
   });
 });

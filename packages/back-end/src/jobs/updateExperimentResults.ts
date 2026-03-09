@@ -203,11 +203,35 @@ const runExperimentSnapshot = async (job: RunExperimentSnapshotJob) => {
   if (!snapshotId || !orgId) return;
 
   const context = await getContextForAgendaJobByOrgId(orgId);
-  const snapshot = await runStandardSnapshotExecution({
+  const { snapshot, followupExecution } = await runStandardSnapshotExecution({
     context,
     snapshotId,
     jobId: String(job.attrs._id),
   });
+
+  if (followupExecution && snapshot) {
+    try {
+      const experiment = await getExperimentById(context, snapshot.experiment);
+      if (experiment) {
+        const { snapshot: followupSnapshot } =
+          await createOrReuseStandardSnapshotExecution({
+            context,
+            experiment,
+            phaseIndex: experiment.phases.length - 1,
+            ...followupExecution,
+          });
+        await queueRunExperimentSnapshot({
+          organization: orgId,
+          snapshotId: followupSnapshot.id,
+        });
+      }
+    } catch (error) {
+      logger.error(
+        error,
+        "Failed to queue follow-up experiment snapshot: " + snapshot.id,
+      );
+    }
+  }
 
   if (!snapshot || snapshot.status !== "error") return;
 

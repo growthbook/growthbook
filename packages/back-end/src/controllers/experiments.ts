@@ -3136,15 +3136,23 @@ export async function postSnapshot(
       typeof e === "object" && e !== null && "status" in e
         ? Number(e.status)
         : 400;
-    let snapshot: ExperimentSnapshotInterface | undefined = undefined;
+    let snapshotSummary: { id: string; status: string } | undefined = undefined;
     if (e instanceof ExperimentSnapshotBusyError && e.snapshotId) {
-      snapshot =
-        (await findSnapshotById(context.org.id, e.snapshotId)) ?? undefined;
+      const activeSnapshot = await findSnapshotById(
+        context.org.id,
+        e.snapshotId,
+      );
+      if (activeSnapshot) {
+        snapshotSummary = {
+          id: activeSnapshot.id,
+          status: activeSnapshot.status,
+        };
+      }
     }
     res.status(status).json({
       status,
       message: e.message,
-      ...(snapshot ? { snapshot } : {}),
+      ...(snapshotSummary ? { snapshot: snapshotSummary } : {}),
     });
   }
 }

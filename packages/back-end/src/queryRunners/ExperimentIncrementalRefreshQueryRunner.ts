@@ -261,10 +261,14 @@ const startExperimentIncrementalRefreshQueries = async (
   // Increment the generation counter to invalidate any stale onSuccess
   // callbacks from previously cancelled runs. Callbacks will check this
   // value before upserting to avoid writing stale data.
-  const myGeneration =
-    (await context.models.incrementalRefresh.incrementGeneration(
-      experimentId,
-    )) ?? 0;
+  const incrementedGeneration =
+    await context.models.incrementalRefresh.incrementGeneration(experimentId);
+  const myGeneration = incrementedGeneration ?? 0;
+  if (incrementedGeneration === null) {
+    await context.models.incrementalRefresh.upsertByExperimentId(experimentId, {
+      generation: myGeneration,
+    });
+  }
 
   // When adding new metrics to a fact table, we will need to scan the whole table.
   // So to simplify things we re-create the whole metric source.

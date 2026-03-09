@@ -32,6 +32,10 @@ export class IncrementalRefreshModel extends BaseClass {
    * Atomically increment the generation counter for an experiment's
    * incremental refresh record. Returns the new generation value.
    * If no record exists yet, returns null (caller should default to 0).
+   *
+   * Uses `_dangerousGetCollection()` because BaseModel does not expose
+   * atomic `$inc` operations. This is safe because the operation is
+   * org-scoped and only modifies an internal counter, not user-facing data.
    */
   public async incrementGeneration(
     experimentId: string,

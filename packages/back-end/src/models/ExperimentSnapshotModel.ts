@@ -12,7 +12,6 @@ import {
   ExperimentSnapshotInterface,
   LegacyExperimentSnapshotInterface,
   ExperimentSnapshotRefreshExecution,
-  ExperimentSnapshotRefreshIntent,
 } from "shared/types/experiment-snapshot";
 import { logger } from "back-end/src/util/logger";
 import { migrateSnapshot } from "back-end/src/util/migrations";
@@ -86,6 +85,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
     intent: {},
     executionIntent: {},
     jobId: String,
+    heartbeat: Date,
   },
   settings: {},
   analyses: {},
@@ -631,76 +631,6 @@ export async function findActiveStandardWriterSnapshotExecution(
   ).exec();
 
   return doc ? toInterface(doc) : null;
-}
-
-export async function mergeSnapshotRefreshExecutionIntent({
-  organization,
-  id,
-  intent,
-}: {
-  organization: string;
-  id: string;
-  intent: ExperimentSnapshotRefreshIntent;
-}): Promise<ExperimentSnapshotInterface | null> {
-  const doc = await ExperimentSnapshotModel.findOne({
-    organization,
-    id,
-  }).exec();
-
-  if (!doc) return null;
-
-  const refreshExecution =
-    (doc.refreshExecution as ExperimentSnapshotRefreshExecution | undefined) ??
-    undefined;
-  if (!refreshExecution) {
-    return toInterface(doc);
-  }
-
-  const existingIntent = refreshExecution.intent ?? {};
-  const mergedIntent: ExperimentSnapshotRefreshIntent = {
-    ...existingIntent,
-    ...intent,
-    requestedByManual:
-      existingIntent.requestedByManual || intent.requestedByManual || false,
-    requestedBySchedule:
-      existingIntent.requestedBySchedule || intent.requestedBySchedule || false,
-    requestedByApi:
-      existingIntent.requestedByApi || intent.requestedByApi || false,
-    forceFullRefresh:
-      existingIntent.forceFullRefresh || intent.forceFullRefresh || false,
-    banditReweightRequested:
-      existingIntent.banditReweightRequested ||
-      intent.banditReweightRequested ||
-      false,
-    scheduledBanditEffectsPending:
-      existingIntent.scheduledBanditEffectsPending ||
-      intent.scheduledBanditEffectsPending ||
-      false,
-    lastManualRequestDate:
-      intent.lastManualRequestDate ?? existingIntent.lastManualRequestDate,
-    lastScheduledRequestDate:
-      intent.lastScheduledRequestDate ??
-      existingIntent.lastScheduledRequestDate,
-  };
-
-  await ExperimentSnapshotModel.updateOne(
-    {
-      organization,
-      id,
-    },
-    {
-      $set: {
-        "refreshExecution.intent": mergedIntent,
-      },
-    },
-  );
-
-  const updated = await ExperimentSnapshotModel.findOne({
-    organization,
-    id,
-  }).exec();
-
-  return updated ? toInterface(updated) : null;
 }
 
 export async function updateSnapshotRefreshExecution({
