@@ -417,6 +417,10 @@ Treatment shows a larger 'Add to Cart' CTA, but with the same functionality.`,
           condition: "",
           namespace: { enabled: false, name: "", range: [0, 1] },
           variationWeights: [0.5, 0.5],
+          variations: [
+            { id: "v0", status: "active" as const },
+            { id: "v1", status: "active" as const },
+          ],
         },
       ],
     };

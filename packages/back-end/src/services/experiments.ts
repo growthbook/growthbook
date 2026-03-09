@@ -2706,6 +2706,12 @@ export function postExperimentApiPayloadToInterface(
       variationWeights:
         p.variationWeights ||
         payload.variations.map(() => 1 / payload.variations.length),
+      variations: payload.variations
+        .filter((v): v is typeof v & { id: string } => !!v.id)
+        .map((v) => ({
+          id: v.id,
+          status: "active" as const,
+        })),
     };
   }) || [
     {
@@ -2716,6 +2722,12 @@ export function postExperimentApiPayloadToInterface(
       variationWeights: payload.variations.map(
         () => 1 / payload.variations.length,
       ),
+      variations: payload.variations
+        .filter((v): v is typeof v & { id: string } => !!v.id)
+        .map((v) => ({
+          id: v.id,
+          status: "active" as const,
+        })),
       condition: "",
       savedGroups: [],
       namespace: {
