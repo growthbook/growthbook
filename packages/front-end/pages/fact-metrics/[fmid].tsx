@@ -50,7 +50,6 @@ import MetricExperiments from "@/components/MetricExperiments/MetricExperiments"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import DataList, { DataListItem } from "@/ui/DataList";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { AppFeatures } from "@/types/app-features";
 import FactTableAutoSliceSelector from "@/components/FactTables/FactTableAutoSliceSelector";
 import { useCurrency } from "@/hooks/useCurrency";
 import HistoryTable from "@/components/HistoryTable";
@@ -218,10 +217,7 @@ export default function FactMetricPage() {
     projects,
     getDatasourceById,
   } = useDefinitions();
-  const growthbook = useGrowthBook<AppFeatures>();
-
-  const isMetricSlicesFeatureEnabled =
-    growthbook?.isOn("metric-slices") || false;
+  const growthbook = useGrowthBook();
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
 
   if (!ready) return <LoadingOverlay />;
@@ -768,52 +764,50 @@ export default function FactMetricPage() {
               </div>
             ) : null}
 
-            {isMetricSlicesFeatureEnabled && (
-              <div className="appbox p-3 mb-3">
-                <h4>
-                  Auto Slices
-                  <PaidFeatureBadge
-                    commercialFeature="metric-slices"
-                    premiumText="This is an Enterprise feature"
-                    variant="outline"
-                    ml="2"
-                  />
-                </h4>
-                <Text
-                  as="p"
-                  className="mb-2"
-                  style={{ color: "var(--color-text-mid)" }}
-                >
-                  Choose metric breakdowns to automatically analyze in your
-                  experiments.{" "}
-                  <DocLink docSection="autoSlices">
-                    Learn More <PiArrowSquareOut />
-                  </DocLink>
-                </Text>
-                <div className="mt-2">
-                  <FactTableAutoSliceSelector
-                    factMetric={factMetric}
-                    factTableId={factMetric.numerator.factTableId}
-                    canEdit={
-                      permissionsUtil.canUpdateFactMetric(factMetric, {}) &&
-                      !factMetric.managedBy &&
-                      hasMetricSlicesFeature
-                    }
-                    onUpdate={async (metricAutoSlices) => {
-                      await apiCall(`/fact-metrics/${factMetric.id}`, {
-                        method: "PUT",
-                        body: JSON.stringify({
-                          metricAutoSlices,
-                        }),
-                      });
-                      mutateDefinitions();
-                    }}
-                    compactButtons={false}
-                    containerWidth="auto"
-                  />
-                </div>
+            <div className="appbox p-3 mb-3">
+              <h4>
+                Auto Slices
+                <PaidFeatureBadge
+                  commercialFeature="metric-slices"
+                  premiumText="This is an Enterprise feature"
+                  variant="outline"
+                  ml="2"
+                />
+              </h4>
+              <Text
+                as="p"
+                className="mb-2"
+                style={{ color: "var(--color-text-mid)" }}
+              >
+                Choose metric breakdowns to automatically analyze in your
+                experiments.{" "}
+                <DocLink docSection="autoSlices">
+                  Learn More <PiArrowSquareOut />
+                </DocLink>
+              </Text>
+              <div className="mt-2">
+                <FactTableAutoSliceSelector
+                  factMetric={factMetric}
+                  factTableId={factMetric.numerator.factTableId}
+                  canEdit={
+                    permissionsUtil.canUpdateFactMetric(factMetric, {}) &&
+                    !factMetric.managedBy &&
+                    hasMetricSlicesFeature
+                  }
+                  onUpdate={async (metricAutoSlices) => {
+                    await apiCall(`/fact-metrics/${factMetric.id}`, {
+                      method: "PUT",
+                      body: JSON.stringify({
+                        metricAutoSlices,
+                      }),
+                    });
+                    mutateDefinitions();
+                  }}
+                  compactButtons={false}
+                  containerWidth="auto"
+                />
               </div>
-            )}
+            </div>
           </div>
 
           <div className="mb-4">

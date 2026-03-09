@@ -38,7 +38,6 @@ import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
 import { Permissions, userHasPermission } from "shared/permissions";
 import { getValidDate } from "shared/dates";
 import sha256 from "crypto-js/sha256";
-import { useFeature } from "@growthbook/growthbook-react";
 import { AgreementType } from "shared/validators";
 import { getOwnerDisplay as getOwnerDisplayName } from "@/services/owners";
 import {
@@ -202,8 +201,6 @@ export function getCurrentUser() {
 
 export function UserContextProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated, orgId, setOrganizations } = useAuth();
-
-  const selfServePricingEnabled = useFeature("self-serve-billing").on;
 
   const {
     data,
@@ -499,13 +496,11 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     )
       return false;
 
-    if (!selfServePricingEnabled) return false;
-
     if (["active", "trialing", "past_due"].includes(subscription?.status || ""))
       return false;
 
     return true;
-  }, [organization, license, subscription, selfServePricingEnabled]);
+  }, [organization, license, subscription]);
 
   return (
     <UserContext.Provider

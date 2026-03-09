@@ -1,7 +1,6 @@
 import Link from "next/link";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
-import { useFeature } from "@growthbook/growthbook-react";
 import { Box, Flex } from "@radix-ui/themes";
 import { FeatureInterface, FeatureMetaInfo } from "shared/types/feature";
 import { date, datetime } from "shared/dates";
@@ -72,7 +71,7 @@ export default function FeaturesPage() {
   const settings = useOrgSettings();
   const showConfirmation = !!settings?.killswitchConfirmation;
 
-  const showGraphs = useFeature("feature-list-realtime-graphs").on;
+  const showGraphs = false;
 
   const { project, projects } = useDefinitions();
   const environments = useEnvironments();

@@ -6,7 +6,6 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { date } from "shared/dates";
 import { Text } from "@radix-ui/themes";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useSearch } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -22,7 +21,6 @@ import Switch from "@/ui/Switch";
 import RecommendedFactMetricsModal, {
   getRecommendedFactMetrics,
 } from "@/components/FactTables/RecommendedFactMetricsModal";
-import { AppFeatures } from "@/types/app-features";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
@@ -47,7 +45,6 @@ export default function FactMetricList({
     useDefinitions();
 
   const permissionsUtil = usePermissionsUtil();
-  const growthbook = useGrowthBook<AppFeatures>();
 
   const metrics =
     providedMetrics ||
@@ -58,10 +55,9 @@ export default function FactMetricList({
     );
   const hasArchivedMetrics = factMetrics.some((m) => m.archived);
 
-  const isMetricSlicesFeatureEnabled = growthbook?.isOn("metric-slices");
-  const shouldShowSliceAnalysisColumn =
-    isMetricSlicesFeatureEnabled &&
-    factTable.columns.some((col) => col.isAutoSliceColumn && !col.deleted);
+  const shouldShowSliceAnalysisColumn = factTable.columns.some(
+    (col) => col.isAutoSliceColumn && !col.deleted,
+  );
 
   const [editMetric, setEditMetric] = useState<
     FactMetricInterface | undefined

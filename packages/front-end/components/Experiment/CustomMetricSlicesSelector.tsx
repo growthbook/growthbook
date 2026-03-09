@@ -13,7 +13,6 @@ import {
   SliceLevelsData,
 } from "shared/experiments";
 import { FactMetricInterface } from "shared/types/fact-table";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { CustomMetricSlice } from "shared/validators";
 import Badge from "@/ui/Badge";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -49,9 +48,6 @@ export default function CustomMetricSlicesSelector({
   customMetricSlices,
   setCustomMetricSlices,
 }: CustomMetricSlicesSelectorProps) {
-  const growthbook = useGrowthBook();
-  const hasMetricSlicesFeature = growthbook?.isOn("metric-slices");
-
   const { hasCommercialFeature } = useUser();
 
   const [editState, setEditState] = useState<"adding" | "editing" | null>(null);
@@ -229,10 +225,6 @@ export default function CustomMetricSlicesSelector({
     }
     setEditingSliceLevels(newLevels);
   };
-
-  if (!hasMetricSlicesFeature) {
-    return null;
-  }
 
   if (!allMetricIds.length) {
     return null;

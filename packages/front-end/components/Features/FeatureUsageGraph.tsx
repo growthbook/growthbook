@@ -170,9 +170,7 @@ export function FeatureUsageProvider({
     ? true
     : false;
 
-  const showFeatureUsage =
-    useDummyData ||
-    (growthbook.isOn("feature-usage") && hasGrowthbookClickhouseDatasource);
+  const showFeatureUsage = useDummyData || hasGrowthbookClickhouseDatasource;
 
   const { data, mutate: mutateFeatureUsage } = useApi<{
     usage: FeatureUsageData;
