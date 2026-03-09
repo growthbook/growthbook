@@ -347,13 +347,7 @@ export function useSearch<T extends { id: string }>({
       children: ReactNode;
       style?: React.CSSProperties;
     }> = ({ children, field, className, style }) => {
-      if (isFiltered) {
-        return (
-          <TableColumnHeader className={className} style={style}>
-            {children}
-          </TableColumnHeader>
-        );
-      }
+      const showSortDirection = !isRelevanceSortActive && sort.field === field;
 
       return (
         <TableColumnHeader className={className} style={style}>
@@ -361,6 +355,7 @@ export function useSearch<T extends { id: string }>({
             className="cursor-pointer"
             onClick={(e) => {
               e.preventDefault();
+              setDisableRelevanceSort(true);
               setSort({
                 field,
                 dir: sort.field === field ? sort.dir * -1 : 1,
@@ -370,9 +365,9 @@ export function useSearch<T extends { id: string }>({
             {children}{" "}
             <a
               href="#"
-              className={sort.field === field ? "activesort" : "inactivesort"}
+              className={showSortDirection ? "activesort" : "inactivesort"}
             >
-              {sort.field === field ? (
+              {showSortDirection ? (
                 sort.dir < 0 ? (
                   <FaSortDown />
                 ) : (
@@ -387,7 +382,7 @@ export function useSearch<T extends { id: string }>({
       );
     };
     return Header;
-  }, [sort.dir, sort.field, isFiltered]);
+  }, [sort.dir, sort.field, isRelevanceSortActive]);
 
   const clear = useCallback(() => {
     setValue("");
