@@ -271,16 +271,14 @@
   box-sizing: border-box;
   width: 100%;
   overflow: hidden;
-  padding: 2px var(--space-1);
   color: var(--gray-12);
   cursor: pointer;
   text-align: start;
   user-select: none;
-  border-bottom: 1px solid transparent;
+  padding: var(--space-1) var(--space-2);
 
-  &:where(:hover),
-  &:where([data-state="open"]) {
-    border-bottom: 1px solid var(--gray-a8);
+  &:where(:hover) {
+    background-color: var(--gray-a3);
   }
 
   &:where(:focus-visible) {

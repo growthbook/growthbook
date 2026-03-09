@@ -2,7 +2,11 @@ import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import React, { useMemo, useState } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { PiInfo, PiPlusCircleBold } from "react-icons/pi";
+import {
+  PiInfo,
+  PiPlusCircleBold,
+  PiArrowsLeftRightBold,
+} from "react-icons/pi";
 import { FaBoltLightning } from "react-icons/fa6";
 import { ago, datetime } from "shared/dates";
 import {
@@ -558,7 +562,12 @@ export default function FeaturesOverview({
                 {onCompareRevisions && (
                   <>
                     <Separator orientation="vertical" />
-                    <Link onClick={onCompareRevisions}>Compare revisions</Link>
+                    <Link onClick={onCompareRevisions}>
+                      <PiArrowsLeftRightBold
+                        style={{ marginRight: 4, verticalAlign: "middle" }}
+                      />
+                      Compare revisions
+                    </Link>
                   </>
                 )}
               </Flex>
@@ -586,6 +595,7 @@ export default function FeaturesOverview({
             ) : null}
           </Frame>
         )}
+
         <Frame mt="2" mb="4" px="6" py="4">
           <Flex align="center" justify="between" mb="2">
             <Heading as="h3" size="4" mb="0">
@@ -605,20 +615,21 @@ export default function FeaturesOverview({
             {feature.description ? (
               <Markdown className="card-text">{feature.description}</Markdown>
             ) : (
-              <Box as="div" className="font-italic text-muted" py="2">
+              <Box as="div" className="font-italic text-muted">
                 Add context about this feature for your team
               </Box>
             )}
           </Box>
-        </Frame>
-        <Box>
+
           <CustomFieldDisplay
             target={feature}
             canEdit={canEdit}
             mutate={mutate}
             section={"feature"}
+            mt="6"
           />
-        </Box>
+        </Frame>
+
         <Box mt="3">
           <CustomMarkdown page={"feature"} variables={variables} />
 
@@ -682,7 +693,7 @@ export default function FeaturesOverview({
             <Heading as="h3" size="4" mb="2">
               Environment Status
             </Heading>
-            <div className="mb-2">
+            <div className="mb-4">
               When disabled, this feature will evaluate to <code>null</code>.
               The default value and rules will be ignored.
             </div>

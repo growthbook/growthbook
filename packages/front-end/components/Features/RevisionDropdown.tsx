@@ -24,6 +24,7 @@ export interface Props {
   version: number;
   setVersion: (version: number) => void;
   variant?: "slim" | "select";
+  menuPlacement?: "start" | "center" | "end";
 }
 
 function RevisionRow({
@@ -67,6 +68,7 @@ export default function RevisionDropdown({
   version,
   setVersion,
   variant = "slim",
+  menuPlacement = "end",
 }: Props) {
   const liveVersion = feature.version;
   const initialPageSize = 10;
@@ -182,6 +184,7 @@ export default function RevisionDropdown({
           : "dropdown-trigger-slim-style"
       }
       menuWidth="full"
+      menuPlacement={menuPlacement}
     >
       {discardedCount > 0 && (
         <RadixDropdownMenu.Label>

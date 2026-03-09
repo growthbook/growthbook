@@ -87,7 +87,8 @@ export class CustomFieldModel extends BaseClass {
 
   /**
    * JIT readonly migration: normalize projects so [""] from legacy data
-   * is never returned. Does not persist.
+   * is never returned, and default section to "feature" for legacy fields
+   * that predate the section field. Does not persist.
    */
   protected migrate(legacyDoc: unknown): z.infer<typeof customFieldsValidator> {
     const doc = legacyDoc as z.infer<typeof customFieldsValidator>;
@@ -95,6 +96,7 @@ export class CustomFieldModel extends BaseClass {
       ...doc,
       fields: doc.fields.map((f) => ({
         ...f,
+        section: f.section ?? "feature",
         projects: (f.projects ?? []).filter((p) => p !== ""),
       })),
     };

@@ -25,6 +25,7 @@ const CustomFieldDisplay: FC<{
   className?: string;
   section: CustomFieldSection;
   target: ExperimentInterfaceStringDates | FeatureInterface;
+  mt?: "1" | "2" | "3" | "4" | "5" | "6";
 }> = ({
   label = "Additional Fields",
   canEdit = true,
@@ -32,6 +33,7 @@ const CustomFieldDisplay: FC<{
   className = "",
   section,
   target,
+  mt,
 }) => {
   const [editModal, setEditModal] = useState(false);
   const customFields = filterCustomFieldsForSectionAndProject(
@@ -79,7 +81,7 @@ const CustomFieldDisplay: FC<{
     if (mutate) mutate();
   };
   if (!customFields || customFields?.length === 0) {
-    return <></>;
+    return null;
   }
 
   const displayFieldsObj: DataListItem[] = [];
@@ -127,7 +129,7 @@ const CustomFieldDisplay: FC<{
   if (!hasCustomFieldAccess) return null;
 
   return (
-    <Box>
+    <>
       {editModal && (
         <Modal
           trackingEventModalType="edit-custom-fields"
@@ -161,34 +163,41 @@ const CustomFieldDisplay: FC<{
           )}
         </Modal>
       )}
-      {displayFieldsObj && (
-        <Frame className={className} my="3">
-          <Box>
-            <Flex justify="between" align="center">
-              <Heading as="h4" size="3">
+      {displayFieldsObj &&
+        (section === "feature" ? (
+          <>
+            <Flex justify="between" align="center" mt={mt}>
+              <Heading as="h3" size="4">
                 {label ? label : ""}
               </Heading>
               <div className="flex-1" />
-              {canEdit && hasCustomFieldAccess ? (
-                <>
-                  <Button
-                    variant="ghost"
-                    onClick={() => {
-                      setEditModal(true);
-                    }}
-                  >
-                    Edit
-                  </Button>
-                </>
-              ) : (
-                <></>
+              {canEdit && hasCustomFieldAccess && (
+                <Button variant="ghost" onClick={() => setEditModal(true)}>
+                  Edit
+                </Button>
               )}
             </Flex>
             <DataList data={displayFieldsObj} maxColumns={3} />
-          </Box>
-        </Frame>
-      )}
-    </Box>
+          </>
+        ) : (
+          <Frame className={className} my="3">
+            <Box>
+              <Flex justify="between" align="center">
+                <Heading as="h4" size="3">
+                  {label ? label : ""}
+                </Heading>
+                <div className="flex-1" />
+                {canEdit && hasCustomFieldAccess && (
+                  <Button variant="ghost" onClick={() => setEditModal(true)}>
+                    Edit
+                  </Button>
+                )}
+              </Flex>
+              <DataList data={displayFieldsObj} maxColumns={3} />
+            </Box>
+          </Frame>
+        ))}
+    </>
   );
 };
 
