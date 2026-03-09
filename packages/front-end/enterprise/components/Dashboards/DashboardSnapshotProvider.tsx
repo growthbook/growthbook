@@ -153,12 +153,7 @@ export default function DashboardSnapshotProvider({
         allExplorations.find((exploration) => exploration.error)?.error ||
         allSavedQueries.find((q) => q.results?.error)?.results?.error) ??
       undefined;
-    const { status: queryStatus } = getQueryStatus(allQueries, snapshotError);
-    const status = allSnapshots.some((snapshot) =>
-      ["running", "queued"].includes(snapshot.status),
-    )
-      ? "running"
-      : queryStatus;
+    const { status } = getQueryStatus(allQueries, snapshotError);
 
     return {
       savedQueriesMap,

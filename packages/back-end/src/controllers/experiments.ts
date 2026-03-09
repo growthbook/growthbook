@@ -3052,46 +3052,32 @@ export async function postBanditSnapshot(
   }
 
   let snapshot: ExperimentSnapshotInterface | undefined = undefined;
+  ({ snapshot } = await requestExperimentSnapshot({
+    context,
+    experiment,
+    phaseIndex: phase,
+    useCache: false,
+    type: "standard",
+    reweight,
+  }));
 
-  try {
-    ({ snapshot } = await requestExperimentSnapshot({
-      context,
-      experiment,
-      phaseIndex: phase,
+  await req.audit({
+    event: "experiment.refresh",
+    entity: {
+      object: "experiment",
+      id: experiment.id,
+    },
+    details: auditDetailsCreate({
+      phase,
+      dimension: "",
       useCache: false,
-      triggeredBy: "manual",
-      reweight,
-      type: "standard",
-    }));
-
-    await req.audit({
-      event: "experiment.refresh",
-      entity: {
-        object: "experiment",
-        id: experiment.id,
-      },
-      details: auditDetailsCreate({
-        phase,
-        dimension: "",
-        useCache: false,
-        manual: false,
-      }),
-    });
-    return res.status(200).json({
-      status: 200,
-      snapshot,
-    });
-  } catch (e) {
-    const status =
-      typeof e === "object" && e !== null && "status" in e
-        ? Number(e.status)
-        : 400;
-    return res.status(status).json({
-      status,
-      message: e?.message || e,
-      snapshot,
-    });
-  }
+      manual: false,
+    }),
+  });
+  return res.status(200).json({
+    status: 200,
+    snapshot,
+  });
 }
 
 function addCoverageToSnapshotIfMissing(
