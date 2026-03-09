@@ -12,15 +12,11 @@ import Text from "@/ui/Text";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Link from "@/ui/Link";
 import EventUser from "@/components/Avatar/EventUser";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import LoadingSpinner from "@/components/LoadingSpinner";
 import RevisionStatusBadge from "@/components/Features/RevisionStatusBadge";
 
 export interface Props {
   feature: FeatureInterface;
   revisions: MinimalFeatureRevisionInterface[];
-  loading?: boolean;
-  revisionLoading?: boolean;
   version: number;
   setVersion: (version: number) => void;
   variant?: "slim" | "select";
@@ -63,8 +59,6 @@ function RevisionRow({
 export default function RevisionDropdown({
   feature,
   revisions,
-  loading = false,
-  revisionLoading = false,
   version,
   setVersion,
   variant = "slim",
@@ -152,8 +146,6 @@ export default function RevisionDropdown({
           gap="3"
           style={{ width: "100%", overflow: "hidden" }}
         >
-          {loading && <LoadingOverlay />}
-          {revisionLoading && <LoadingSpinner />}
           <Heading as="h4" size="x-small" mb="0">
             Revision {version}
           </Heading>

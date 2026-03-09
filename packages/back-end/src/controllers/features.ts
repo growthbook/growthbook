@@ -21,6 +21,7 @@ import {
   isFeatureStale,
   IsFeatureStaleResult,
   getReviewSetting,
+  mergeRevision,
 } from "shared/util";
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
@@ -2272,23 +2273,34 @@ export async function postFeatureToggle(
     context.permissions.throwPermissionError();
   }
 
-  const currentState =
+  const liveState =
     feature.environmentSettings?.[environment]?.enabled || false;
-
-  // If we're already in the desired state, no need to update
-  // This can be caused by race conditions (e.g. two people with the feature open, both toggling at the same time)
-  if (currentState === state) {
-    return res.status(200).json({
-      status: 200,
-    });
-  }
 
   const killSwitchBehavior =
     context.org.settings?.featureKillSwitchBehavior ??
     (context.org.settings?.killswitchConfirmation ? "warn" : "off");
 
   if (killSwitchBehavior === "gate") {
-    // Route through the revision system — create/update a draft
+    // For gated toggles the effective current state is whatever the active
+    // draft already has recorded, falling back to the live feature state.
+    // We must look this up before the early-return guard so we don't
+    // incorrectly short-circuit when the live and draft states differ.
+    const existingDraft = await getActiveDraft(context, feature);
+    const currentState =
+      existingDraft?.environmentsEnabled != null &&
+      environment in existingDraft.environmentsEnabled
+        ? existingDraft.environmentsEnabled[environment]
+        : liveState;
+
+    // If we're already in the desired state (in the draft), no need to update.
+    if (currentState === state) {
+      return res.status(200).json({
+        status: 200,
+      });
+    }
+
+    // Route through the revision system — create/update the existing draft
+    // (pass version so createOrUpdateDraftWithChanges skips a second DB lookup)
     const draft = await createOrUpdateDraftWithChanges(
       context,
       feature,
@@ -2299,6 +2311,7 @@ export async function postFeatureToggle(
         subject: `environment toggle: ${environment}`,
         value: JSON.stringify({ environment, state }),
       },
+      existingDraft?.version,
     );
 
     await req.audit({
@@ -2321,6 +2334,15 @@ export async function postFeatureToggle(
   }
 
   // "off" or "warn": direct write (warn confirmation is handled by the front-end before calling this endpoint)
+
+  // If we're already in the desired state, no need to update.
+  // This can be caused by race conditions (e.g. two people with the feature open at the same time).
+  if (liveState === state) {
+    return res.status(200).json({
+      status: 200,
+    });
+  }
+
   await toggleFeatureEnvironment(context, feature, environment, state);
 
   await req.audit({
@@ -2330,7 +2352,7 @@ export async function postFeatureToggle(
       id: feature.id,
     },
     details: auditDetailsUpdate(
-      { on: currentState },
+      { on: liveState },
       { on: state },
       { environment },
     ),
@@ -3523,10 +3545,15 @@ export async function postPrerequisite(
     context.permissions.throwPermissionError();
   }
 
-  const newPrerequisites = [...(feature.prerequisites || []), prerequisite];
   const reviewSetting = getFeatureReviewSetting(context, feature);
 
   if (reviewSetting?.featureRequirePrerequisiteReview) {
+    // Use the active draft's prerequisite list as the base so that consecutive
+    // gated edits don't overwrite each other with stale live-feature data.
+    const existingDraft = await getActiveDraft(context, feature);
+    const basePrerequisites =
+      existingDraft?.prerequisites ?? feature.prerequisites ?? [];
+    const newPrerequisites = [...basePrerequisites, prerequisite];
     const draft = await createOrUpdateDraftWithChanges(
       context,
       feature,
@@ -3537,10 +3564,12 @@ export async function postPrerequisite(
         subject: "add prerequisite",
         value: JSON.stringify({ prerequisite }),
       },
+      existingDraft?.version,
     );
     return res.status(200).json({ status: 200, draftVersion: draft.version });
   }
 
+  const newPrerequisites = [...(feature.prerequisites || []), prerequisite];
   await updateFeature(context, feature, { prerequisites: newPrerequisites });
 
   res.status(200).json({
@@ -3571,14 +3600,17 @@ export async function putPrerequisite(
     context.permissions.throwPermissionError();
   }
 
-  const newPrerequisites = [...(feature.prerequisites || [])];
-  if (!newPrerequisites[i]) {
-    throw new Error("Unknown prerequisite");
-  }
-  newPrerequisites[i] = prerequisite;
-
   const reviewSetting = getFeatureReviewSetting(context, feature);
+
   if (reviewSetting?.featureRequirePrerequisiteReview) {
+    const existingDraft = await getActiveDraft(context, feature);
+    const basePrerequisites =
+      existingDraft?.prerequisites ?? feature.prerequisites ?? [];
+    const newPrerequisites = [...basePrerequisites];
+    if (!newPrerequisites[i]) {
+      throw new Error("Unknown prerequisite");
+    }
+    newPrerequisites[i] = prerequisite;
     const draft = await createOrUpdateDraftWithChanges(
       context,
       feature,
@@ -3589,10 +3621,16 @@ export async function putPrerequisite(
         subject: `update prerequisite ${i}`,
         value: JSON.stringify({ prerequisite }),
       },
+      existingDraft?.version,
     );
     return res.status(200).json({ status: 200, draftVersion: draft.version });
   }
 
+  const newPrerequisites = [...(feature.prerequisites || [])];
+  if (!newPrerequisites[i]) {
+    throw new Error("Unknown prerequisite");
+  }
+  newPrerequisites[i] = prerequisite;
   await updateFeature(context, feature, { prerequisites: newPrerequisites });
 
   res.status(200).json({
@@ -3620,14 +3658,17 @@ export async function deletePrerequisite(
     context.permissions.throwPermissionError();
   }
 
-  const newPrerequisites = [...(feature.prerequisites || [])];
-  if (!newPrerequisites[i]) {
-    throw new Error("Unknown prerequisite");
-  }
-  newPrerequisites.splice(i, 1);
-
   const reviewSetting = getFeatureReviewSetting(context, feature);
+
   if (reviewSetting?.featureRequirePrerequisiteReview) {
+    const existingDraft = await getActiveDraft(context, feature);
+    const basePrerequisites =
+      existingDraft?.prerequisites ?? feature.prerequisites ?? [];
+    const newPrerequisites = [...basePrerequisites];
+    if (!newPrerequisites[i]) {
+      throw new Error("Unknown prerequisite");
+    }
+    newPrerequisites.splice(i, 1);
     const draft = await createOrUpdateDraftWithChanges(
       context,
       feature,
@@ -3638,10 +3679,16 @@ export async function deletePrerequisite(
         subject: `delete prerequisite ${i}`,
         value: JSON.stringify({ index: i }),
       },
+      existingDraft?.version,
     );
     return res.status(200).json({ status: 200, draftVersion: draft.version });
   }
 
+  const newPrerequisites = [...(feature.prerequisites || [])];
+  if (!newPrerequisites[i]) {
+    throw new Error("Unknown prerequisite");
+  }
+  newPrerequisites.splice(i, 1);
   await updateFeature(context, feature, { prerequisites: newPrerequisites });
 
   res.status(200).json({
@@ -3717,7 +3764,7 @@ export async function getPrerequisiteStates(
   req: AuthRequest<
     null,
     { id: string },
-    { environments?: string; skipRootConditions?: string }
+    { environments?: string; skipRootConditions?: string; version?: string }
   >,
   res: Response<
     {
@@ -3731,8 +3778,8 @@ export async function getPrerequisiteStates(
   const { org } = context;
   const { id } = req.params;
 
-  const feature = await getFeature(context, id);
-  if (!feature) {
+  const baseFeature = await getFeature(context, id);
+  if (!baseFeature) {
     throw new Error("Could not find feature");
   }
 
@@ -3743,9 +3790,27 @@ export async function getPrerequisiteStates(
     const allEnvironments = getEnvironments(org);
     const featureEnvironments = filterEnvironmentsByFeature(
       allEnvironments,
-      feature,
+      baseFeature,
     );
     envIds = featureEnvironments.map((e) => e.id);
+  }
+
+  // If a revision version is provided, merge it onto the base feature so that
+  // draft prerequisites and kill-switch states are reflected in the evaluation.
+  let feature = baseFeature;
+  if (req.query.version) {
+    const versionNum = parseInt(req.query.version, 10);
+    if (!Number.isNaN(versionNum) && versionNum !== baseFeature.version) {
+      const revision = await getRevision({
+        context,
+        organization: baseFeature.organization,
+        featureId: baseFeature.id,
+        version: versionNum,
+      });
+      if (revision) {
+        feature = mergeRevision(baseFeature, revision, envIds);
+      }
+    }
   }
 
   const skipRootConditions = req.query.skipRootConditions === "true";

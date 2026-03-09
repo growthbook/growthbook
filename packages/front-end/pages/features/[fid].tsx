@@ -44,8 +44,6 @@ export default function FeaturePage() {
   const {
     data,
     error,
-    isValidating,
-    revisionLoading,
     refreshData,
     feature,
     baseFeature,
@@ -115,8 +113,6 @@ export default function FeaturePage() {
         setVersion={setVersion}
         version={version}
         revisions={data.revisionList || []}
-        loading={isValidating}
-        revisionLoading={revisionLoading}
         tab={tab}
         setTab={setTabAndScroll}
         setEditFeatureInfoModal={setEditFeatureInfoModal}

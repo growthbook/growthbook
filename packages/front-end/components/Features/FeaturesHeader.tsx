@@ -53,8 +53,6 @@ export default function FeaturesHeader({
   setVersion,
   version,
   revisions,
-  loading,
-  revisionLoading,
   tab,
   setTab,
   setEditFeatureInfoModal,
@@ -69,8 +67,6 @@ export default function FeaturesHeader({
   setVersion: (version: number) => void;
   version: number | null;
   revisions: MinimalFeatureRevisionInterface[];
-  loading?: boolean;
-  revisionLoading?: boolean;
   tab: FeatureTab;
   setTab: (tab: FeatureTab) => void;
   setEditFeatureInfoModal: (open: boolean) => void;
@@ -552,8 +548,6 @@ export default function FeaturesHeader({
                       revisions={revisions}
                       version={version ?? feature.version}
                       setVersion={setVersion}
-                      loading={loading}
-                      revisionLoading={revisionLoading}
                     />
                   </Flex>
                 </Box>

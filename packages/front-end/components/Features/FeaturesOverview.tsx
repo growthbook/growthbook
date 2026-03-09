@@ -29,7 +29,6 @@ import {
 } from "shared/validators";
 import Button from "@/ui/Button";
 import { GBEdit } from "@/components/Icons";
-import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAuth } from "@/services/auth";
 import ForceSummary from "@/components/Features/ForceSummary";
 import track from "@/services/track";
@@ -177,12 +176,14 @@ export default function FeaturesOverview({
 
   // Fetch prerequisite states from backend (handles cross-project prereqs correctly)
   // skipRootConditions: true means we skip the feature's own rules and only evaluate prerequisites
+  // Pass version so the backend merges draft prerequisites/kill-switch states before evaluating
   const { states: prereqStatesRaw, loading: prereqStatesLoading } =
     usePrerequisiteStates({
       featureId: feature?.id || "",
       environments: envs,
       enabled: !!feature,
       skipRootConditions: true,
+      version,
     });
 
   // Create a stable serialized key for kill switch states to ensure useMemo recomputes
@@ -231,9 +232,7 @@ export default function FeaturesOverview({
   const { showFeatureUsage, featureUsage, lookback, setLookback } =
     useFeatureUsage();
 
-  if (!baseFeature || !feature || !revision) {
-    return <LoadingOverlay />;
-  }
+  if (!baseFeature || !feature || !revision) return null;
 
   const hasConditionalState =
     prereqStates &&
