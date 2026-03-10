@@ -5771,16 +5771,16 @@ ORDER BY column_name, count DESC
       // If exclusive, we need to be more precise with the timestamp
       const operator = exclusiveStartDateFilter ? ">" : ">=";
       const timestampFn = exclusiveStartDateFilter
-        ? this.toTimestampWithMs
-        : this.toTimestamp;
+        ? (d: Date) => this.toTimestampWithMs(d)
+        : (d: Date) => this.toTimestamp(d);
       where.push(`m.timestamp ${operator} ${timestampFn(startDate)}`);
     }
     if (endDate) {
       // If exclusive, we need to be more precise with the timestamp
       const operator = exclusiveEndDateFilter ? "<" : "<=";
       const timestampFn = exclusiveEndDateFilter
-        ? this.toTimestampWithMs
-        : this.toTimestamp;
+        ? (d: Date) => this.toTimestampWithMs(d)
+        : (d: Date) => this.toTimestamp(d);
       where.push(`m.timestamp ${operator} ${timestampFn(endDate)}`);
     }
     if (additionalWhere?.length) {
