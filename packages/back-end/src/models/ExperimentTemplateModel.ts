@@ -2,6 +2,7 @@ import {
   experimentTemplateInterface,
   ExperimentTemplateInterface,
 } from "shared/validators";
+import { ApiTemplate } from "shared/types/openapi";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -47,11 +48,41 @@ export class ExperimentTemplatesModel extends BaseClass {
     return this.context.hasPremiumFeature("templates");
   }
 
-  // TODO: Implement this for OpenAPI
-  //   public toApiInterface(project: ProjectInterface): ApiProject {
-  //     return {
-  //       id: project.id,
-  //       name: project.name,
-  //     };
-  //   }
+  public toApiInterface(template: ExperimentTemplateInterface): ApiTemplate {
+    return {
+      id: template.id,
+      dateCreated: template.dateCreated.toISOString(),
+      dateUpdated: template.dateUpdated.toISOString(),
+      project: template.project,
+      owner: template.owner,
+      templateMetadata: {
+        name: template.templateMetadata.name,
+        description: template.templateMetadata.description,
+      },
+      type: template.type,
+      hypothesis: template.hypothesis,
+      description: template.description,
+      tags: template.tags,
+      customFields: template.customFields,
+      datasource: template.datasource,
+      exposureQueryId: template.exposureQueryId,
+      hashAttribute: template.hashAttribute,
+      fallbackAttribute: template.fallbackAttribute,
+      disableStickyBucketing: template.disableStickyBucketing,
+      goalMetrics: template.goalMetrics,
+      secondaryMetrics: template.secondaryMetrics,
+      guardrailMetrics: template.guardrailMetrics,
+      activationMetric: template.activationMetric,
+      statsEngine: template.statsEngine,
+      segment: template.segment,
+      skipPartialData: template.skipPartialData,
+      targeting: {
+        coverage: template.targeting.coverage,
+        condition: template.targeting.condition,
+        savedGroups: template.targeting.savedGroups,
+        prerequisites: template.targeting.prerequisites,
+      },
+      customMetricSlices: template.customMetricSlices,
+    };
+  }
 }

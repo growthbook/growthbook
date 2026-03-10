@@ -1,0 +1,143 @@
+type: object
+required:
+  - id
+  - dateCreated
+  - dateUpdated
+  - templateMetadata
+  - type
+  - datasource
+  - exposureQueryId
+  - statsEngine
+  - targeting
+properties:
+  id:
+    type: string
+  dateCreated:
+    type: string
+    format: date-time
+  dateUpdated:
+    type: string
+    format: date-time
+  project:
+    type: string
+  owner:
+    type: string
+  templateMetadata:
+    type: object
+    required:
+      - name
+    properties:
+      name:
+        type: string
+      description:
+        type: string
+  type:
+    type: string
+    enum:
+      - standard
+  hypothesis:
+    type: string
+  description:
+    type: string
+  tags:
+    type: array
+    items:
+      type: string
+  customFields:
+    type: object
+    additionalProperties:
+      type: string
+  datasource:
+    type: string
+  exposureQueryId:
+    type: string
+  hashAttribute:
+    type: string
+  fallbackAttribute:
+    type: string
+  disableStickyBucketing:
+    type: boolean
+  goalMetrics:
+    type: array
+    items:
+      type: string
+  secondaryMetrics:
+    type: array
+    items:
+      type: string
+  guardrailMetrics:
+    type: array
+    items:
+      type: string
+  activationMetric:
+    type: string
+  statsEngine:
+    type: string
+    enum:
+      - bayesian
+      - frequentist
+  segment:
+    type: string
+  skipPartialData:
+    type: boolean
+  targeting:
+    type: object
+    required:
+      - coverage
+      - condition
+    properties:
+      coverage:
+        type: number
+      condition:
+        type: string
+      savedGroups:
+        type: array
+        items:
+          type: object
+          required:
+            - match
+            - ids
+          properties:
+            match:
+              type: string
+              enum:
+                - all
+                - none
+                - any
+            ids:
+              type: array
+              items:
+                type: string
+      prerequisites:
+        type: array
+        items:
+          type: object
+          required:
+            - id
+            - condition
+          properties:
+            id:
+              type: string
+            condition:
+              type: string
+  customMetricSlices:
+    type: array
+    items:
+      type: object
+      required:
+        - slices
+      properties:
+        slices:
+          type: array
+          items:
+            type: object
+            required:
+              - column
+              - levels
+            properties:
+              column:
+                type: string
+              levels:
+                type: array
+                items:
+                  type: string

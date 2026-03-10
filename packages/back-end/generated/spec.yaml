@@ -123,6 +123,9 @@ tags:
   - name: usage
     x-displayName: Usage
     description: Usage information for metrics in experiments.
+  - name: templates
+    x-displayName: Experiment Templates
+    description: Templates for creating experiments with pre-defined settings
   - name: Archetype_model
     x-displayName: Archetype
     description: <SchemaDefinition schemaRef="#/components/schemas/Archetype" />
@@ -246,6 +249,9 @@ tags:
   - name: Settings_model
     x-displayName: Settings
     description: <SchemaDefinition schemaRef="#/components/schemas/Settings" />
+  - name: Template_model
+    x-displayName: Template
+    description: <SchemaDefinition schemaRef="#/components/schemas/Template" />
   - name: VisualChange_model
     x-displayName: VisualChange
     description: <SchemaDefinition schemaRef="#/components/schemas/VisualChange" />
@@ -6218,6 +6224,36 @@ paths:
                 properties:
                   settings:
                     $ref: '#/components/schemas/Settings'
+  /templates:
+    get:
+      summary: Get all experiment templates
+      tags:
+        - templates
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/projectId'
+      operationId: listTemplates
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/templates \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - templates
+                    properties:
+                      templates:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Template'
+                  - $ref: '#/components/schemas/PaginationFields'
   '/dashboards/{id}':
     get:
       $skipValidatorGeneration: true
@@ -22361,6 +22397,150 @@ components:
               flagKey:
                 type: string
                 description: The feature flag key referenced
+    Template:
+      type: object
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - templateMetadata
+        - type
+        - datasource
+        - exposureQueryId
+        - statsEngine
+        - targeting
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+        project:
+          type: string
+        owner:
+          type: string
+        templateMetadata:
+          type: object
+          required:
+            - name
+          properties:
+            name:
+              type: string
+            description:
+              type: string
+        type:
+          type: string
+          enum:
+            - standard
+        hypothesis:
+          type: string
+        description:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        customFields:
+          type: object
+          additionalProperties:
+            type: string
+        datasource:
+          type: string
+        exposureQueryId:
+          type: string
+        hashAttribute:
+          type: string
+        fallbackAttribute:
+          type: string
+        disableStickyBucketing:
+          type: boolean
+        goalMetrics:
+          type: array
+          items:
+            type: string
+        secondaryMetrics:
+          type: array
+          items:
+            type: string
+        guardrailMetrics:
+          type: array
+          items:
+            type: string
+        activationMetric:
+          type: string
+        statsEngine:
+          type: string
+          enum:
+            - bayesian
+            - frequentist
+        segment:
+          type: string
+        skipPartialData:
+          type: boolean
+        targeting:
+          type: object
+          required:
+            - coverage
+            - condition
+          properties:
+            coverage:
+              type: number
+            condition:
+              type: string
+            savedGroups:
+              type: array
+              items:
+                type: object
+                required:
+                  - match
+                  - ids
+                properties:
+                  match:
+                    type: string
+                    enum:
+                      - all
+                      - none
+                      - any
+                  ids:
+                    type: array
+                    items:
+                      type: string
+            prerequisites:
+              type: array
+              items:
+                type: object
+                required:
+                  - id
+                  - condition
+                properties:
+                  id:
+                    type: string
+                  condition:
+                    type: string
+        customMetricSlices:
+          type: array
+          items:
+            type: object
+            required:
+              - slices
+            properties:
+              slices:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - column
+                    - levels
+                  properties:
+                    column:
+                      type: string
+                    levels:
+                      type: array
+                      items:
+                        type: string
   securitySchemes:
     bearerAuth:
       type: http
@@ -22419,6 +22599,7 @@ x-tagGroups:
       - settings
       - attributes
       - usage
+      - templates
       - Dashboards
       - CustomFields
       - MetricGroups
@@ -22466,6 +22647,7 @@ x-tagGroups:
       - SdkConnection_model
       - Segment_model
       - Settings_model
+      - Template_model
       - VisualChange_model
       - VisualChangeset_model
       - Dashboard_model

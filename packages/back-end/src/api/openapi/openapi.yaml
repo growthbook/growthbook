@@ -126,6 +126,9 @@ tags:
   - name: usage
     x-displayName: Usage
     description: Usage information for metrics in experiments.
+  - name: templates
+    x-displayName: Experiment Templates
+    description: Templates for creating experiments with pre-defined settings
 paths:
   /features:
     get:
@@ -373,6 +376,9 @@ paths:
   /settings:
     get:
       $ref: "./paths/getSettings.yaml"
+  /templates:
+    get:
+      $ref: "./paths/listTemplates.yaml"
   # PLOP_INSERT_PATHS_HERE
 components:
   parameters:
