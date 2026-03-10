@@ -74,7 +74,7 @@ export default function Table({
   return (
     <div
       ref={wrapperRef}
-      className="table-list-wrapper appbox"
+      className="table-list-wrapper"
       style={
         {
           "--table-sticky-top": `${stickyTopOffset}px`,
