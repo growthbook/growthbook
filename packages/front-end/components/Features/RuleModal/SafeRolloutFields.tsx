@@ -162,6 +162,7 @@ export default function SafeRolloutFields({
     return (
       <>
         <SelectField
+          withRadixThemedPortal
           disabled={disableFields}
           label="Sample based on attribute"
           options={attributeSchema

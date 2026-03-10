@@ -86,6 +86,7 @@ export default function RolloutFields({
             className="mb-3"
           />
           <SelectField
+            withRadixThemedPortal
             label="Sample based on attribute"
             options={attributeSchema
               .filter((s) => !hasHashAttributes || s.hashAttribute)

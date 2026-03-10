@@ -1295,6 +1295,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 <>
                   <div className="d-flex" style={{ gap: "2rem" }}>
                     <SelectField
+                      withRadixThemedPortal
                       containerClassName="flex-1"
                       label="Assign variation based on attribute"
                       labelClassName="font-weight-bold"

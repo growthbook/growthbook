@@ -519,6 +519,7 @@ function ConditionAndGroupInput({
 
         const fieldSelector = (
           <SelectField
+            withRadixThemedPortal
             useMultilineLabels={true}
             value={field}
             containerStyles={{

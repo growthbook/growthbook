@@ -1,10 +1,9 @@
 import React from "react";
-import { Box, Flex, Theme } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import Markdown from "@/components/Markdown/Markdown";
 import SortedTags from "@/components/Tags/SortedTags";
 import Text from "@/ui/Text";
-import Tooltip from "@/ui/Tooltip";
-import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 export interface AttributeOptionForTooltip {
   label: string;
@@ -89,20 +88,14 @@ export function AttributeOptionWithTooltip({
   option: AttributeOptionForTooltip;
   children: React.ReactNode;
 }) {
-  const { theme } = useAppearanceUITheme();
-  // Match app theme so text/tags use the same scale as tooltip bg (--surface-background-color)
   return (
     <Tooltip
-      side="right"
-      disableHoverableContent={false}
-      content={
-        <div data-attribute-option-tooltip>
-          <Theme appearance={theme} hasBackground={false}>
-            <AttributeOptionTooltipContent option={option} />
-          </Theme>
-        </div>
-      }
+      body={<AttributeOptionTooltipContent option={option} />}
+      tipPosition="right"
+      usePortal
+      flipTheme={false}
     >
+      {/* Expand hit area to fill the full option row (bleeds into RS padding, restores with positive padding) */}
       <Box
         as="span"
         style={{

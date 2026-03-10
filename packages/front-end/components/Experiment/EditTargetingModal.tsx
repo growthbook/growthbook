@@ -477,6 +477,7 @@ function TargetingForm({
             }
           />
           <SelectField
+            withRadixThemedPortal
             containerClassName="flex-1"
             label="Assign variation based on attribute"
             labelClassName="font-weight-bold"

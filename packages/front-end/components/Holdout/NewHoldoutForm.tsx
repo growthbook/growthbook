@@ -521,6 +521,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
 
             <div className="mb-4">
               <SelectField
+                withRadixThemedPortal
                 label="Assign Variation by Attribute"
                 containerClassName="flex-1"
                 options={attributeSchema
