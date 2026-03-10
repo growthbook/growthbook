@@ -35,7 +35,7 @@ const ExperimentCarouselModal: FC<{
   // loop through all experiment variations and get a map of all screenshots, with the variant id and info
   const orderedVariants = getLatestPhaseVariations(experiment);
   const variantMap = useMemo(() => {
-    return new Map(orderedVariants.map((v, i) => [v.id, { ...v, index: i }]));
+    return new Map(orderedVariants.map((v) => [v.id, v]));
   }, [orderedVariants]);
   const getScreenshot = useCallback(
     (variantId: string, screenshotIndex: number) => {

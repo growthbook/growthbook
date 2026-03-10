@@ -47,7 +47,7 @@ export default function ExperimentImpactTab({
         variations.push(
           <div
             key={`var-experiment${ei}-variation${i}`}
-            className={`variation variation${i} with-variation-label d-flex my-1`}
+            className={`variation variation${v.index} with-variation-label d-flex my-1`}
           >
             <span className="label" style={{ width: 20, height: 20 }}>
               {i}

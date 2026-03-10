@@ -216,6 +216,7 @@ export async function generateNotebook({
         analysisSettings,
         snapshotSettings.variations.map((v, i) => ({
           ...v,
+          index: i,
           name: variationNames[i] || v.id,
         })),
         snapshotSettings.coverage ?? 1,

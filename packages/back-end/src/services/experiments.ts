@@ -1414,6 +1414,7 @@ async function getSnapshotAnalyses(
           ),
           variations: snapshot.settings.variations.map((v, i) => ({
             ...v,
+            index: i,
             name: variationNames[i] || v.id,
           })),
           analyses: [analysisSettings],
@@ -1586,7 +1587,7 @@ export async function toExperimentApiInterface(
     bucketVersion: experiment.bucketVersion,
     minBucketVersion: experiment.minBucketVersion,
     variations: await Promise.all(
-      getLatestPhaseVariations(experiment).map(async (v) => ({
+      getAllVariations(experiment).map(async (v) => ({
         variationId: v.id,
         key: v.key,
         name: v.name || "",

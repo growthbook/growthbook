@@ -50,17 +50,17 @@ export default function RunningExperimentDecisionBanner({
       .filter((v) => v !== undefined);
 
   const variationNames: Record<string, JSX.Element> = {};
-  variations.forEach((v, i) => {
+  variations.forEach((v) => {
     variationNames[v.id] = (
       <Flex
         direction="row"
-        className={`variation variation${i} with-variation-label d-flex align-items-center`}
+        className={`variation variation${v.index} with-variation-label d-flex align-items-center`}
       >
         <span
           className="label"
           style={{ width: 20, height: 20, flex: "none", marginRight: 4 }}
         >
-          {i}
+          {v.index}
         </span>
         <span className="d-inline-block">{v.name}</span>
       </Flex>

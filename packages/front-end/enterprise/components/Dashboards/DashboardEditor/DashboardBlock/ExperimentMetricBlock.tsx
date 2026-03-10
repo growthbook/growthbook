@@ -83,7 +83,8 @@ export default function ExperimentMetricBlock({
     })) || [];
 
   const variations = getLatestPhaseVariations(experiment).map((v, i) => ({
-    id: v.key || i + "",
+    id: v.key || v.index + "",
+    index: v.index,
     name: v.name,
     weight:
       experiment.phases[experiment.phases.length - 1]?.variationWeights?.[i] ||

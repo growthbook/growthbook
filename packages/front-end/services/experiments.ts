@@ -1,7 +1,7 @@
 import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
 import {
-  ExperimentReportVariationWithIndex,
+  ExperimentReportVariation,
   MetricSnapshotSettings,
 } from "shared/types/report";
 import { MetricDefaults, SDKAttributeSchema } from "shared/types/organization";
@@ -189,7 +189,7 @@ export type ExperimentTableRow = {
 };
 
 export function useDomain(
-  variations: ExperimentReportVariationWithIndex[], // must be ordered, baseline first
+  variations: ExperimentReportVariation[], // must be ordered, baseline first
   rows: ExperimentTableRow[],
   differenceType: DifferenceType,
 ): [number, number] {
@@ -205,7 +205,7 @@ export function useDomain(
 
     const baseline = row.variations[variations[0].index];
     if (!baseline) return;
-    variations?.forEach((v: ExperimentReportVariationWithIndex, i) => {
+    variations?.forEach((v: ExperimentReportVariation, i) => {
       // Skip for baseline
       if (!i) return;
 

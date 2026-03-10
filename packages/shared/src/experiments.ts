@@ -1935,6 +1935,10 @@ type ExperimentWithVariations = {
   variations: Variation[];
 };
 
+type VariationWithIndex = Variation & {
+  index: number;
+};
+
 /**
  * Returns the variations for the current/latest phase of an experiment.
  * Today this just returns experiment.variations directly. In the future,
@@ -1942,8 +1946,14 @@ type ExperimentWithVariations = {
  */
 export function getLatestPhaseVariations(
   experiment: ExperimentWithVariations,
-): Variation[] {
-  return experiment.variations;
+): VariationWithIndex[] {
+  const allVariations = getAllVariations(experiment);
+  // TODO change to come from phase
+  const phaseVariations = experiment.variations;
+  return phaseVariations.map((v, i) => ({
+    ...v,
+    index: allVariations.findIndex((allV) => allV.id === v.id) ?? i,
+  }));
 }
 
 /**

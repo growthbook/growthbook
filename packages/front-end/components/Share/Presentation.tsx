@@ -460,7 +460,8 @@ const Presentation = ({
                 experimentId={experiment.id}
                 variations={getLatestPhaseVariations(experiment).map(
                   (v, i) => ({
-                    id: v.key || i + "",
+                    id: v.key || v.index + "",
+                    index: v.index,
                     name: v.name,
                     weight: phase?.variationWeights?.[i] || 0,
                   }),

@@ -262,7 +262,8 @@ export default function HealthTab({
 
   const variations = getLatestPhaseVariations(experiment).map((v, i) => {
     return {
-      id: v.key || i + "",
+      id: v.key || v.index + "",
+      index: v.index,
       name: v.name,
       weight: phaseObj?.variationWeights?.[i] || 0,
     };

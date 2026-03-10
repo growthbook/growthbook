@@ -9,10 +9,7 @@ import React, {
   useState,
 } from "react";
 import { FaSortUp, FaSortDown, FaSort } from "react-icons/fa";
-import {
-  ExperimentReportVariation,
-  ExperimentReportVariationWithIndex,
-} from "shared/types/report";
+import { ExperimentReportVariation } from "shared/types/report";
 import { ExperimentStatus } from "shared/types/experiment";
 import {
   ExperimentSnapshotAnalysis,
@@ -391,11 +388,9 @@ export default function ResultsTable({
   useLayoutEffect(onResize, []);
   useEffect(onResize, [isTabActive, columnsFilter]);
 
-  const orderedVariations: ExperimentReportVariationWithIndex[] =
+  const orderedVariations: ExperimentReportVariation[] =
     useMemo(() => {
-      const sorted = variations
-        .map<ExperimentReportVariationWithIndex>((v, i) => ({ ...v, index: i }))
-        .sort((a, b) => {
+      const sorted = [...variations].sort((a, b) => {
           if (a.index === baselineRow) return -1;
           return a.index - b.index;
         });

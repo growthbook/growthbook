@@ -31,7 +31,7 @@ import {
   scrubSavedGroups,
   SDKCapability,
 } from "shared/sdk-versioning";
-import { getAllVariations, getLatestPhaseVariations } from "shared/experiments";
+import { getLatestPhaseVariations } from "shared/experiments";
 import cloneDeep from "lodash/cloneDeep";
 import pickBy from "lodash/pickBy";
 import {
@@ -260,12 +260,15 @@ export function generateAutoExperimentsPayload({
       if (e.status === "stopped" && e.excludeFromPayload) return null;
 
       const phase: ExperimentPhase | null = e.phases?.slice(-1)?.[0] ?? null;
-      const forcedVariation =
-        e.status === "stopped" && e.releasedVariationId
-          ? getAllVariations(e).find(
-              (v) => v.id === e.releasedVariationId,
-            )
-          : null;
+
+      const variations = getLatestPhaseVariations(e);
+
+      const hasForcedVariation =
+        e.status === "stopped" && e.releasedVariationId;
+
+      let forcedVariation = hasForcedVariation
+        ? variations.find((v) => v.id === e.releasedVariationId)
+        : null;
 
       const condition = getParsedCondition(
         groupMap,
@@ -299,7 +302,7 @@ export function generateAutoExperimentsPayload({
         ),
         status: e.status,
         project: e.project,
-        variations: getLatestPhaseVariations(e).map((v) => {
+        variations: variations.map((v) => {
           if (data.type === "redirect") {
             const match = data.urlRedirect.destinationURLs.find(
               (d) => d.variation === v.id,
@@ -335,7 +338,7 @@ export function generateAutoExperimentsPayload({
               ]
             : data.visualChangeset.urlPatterns,
         weights: phase.variationWeights,
-        meta: getLatestPhaseVariations(e).map((v) => ({
+        meta: variations.map((v) => ({
           key: v.key,
           name: v.name,
         })),
@@ -353,7 +356,7 @@ export function generateAutoExperimentsPayload({
         name: e.name,
         phase: `${e.phases.length - 1}`,
         force: forcedVariation
-          ? getAllVariations(e).indexOf(forcedVariation)
+          ? variations.indexOf(forcedVariation)
           : undefined,
         condition,
         coverage: phase.coverage,

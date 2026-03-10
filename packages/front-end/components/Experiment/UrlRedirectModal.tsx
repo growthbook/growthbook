@@ -253,7 +253,7 @@ const UrlRedirectModal: FC<{
 
             return (
               <div
-                className={`mb-4 variation with-variation-label variation${i}`}
+                className={`mb-4 variation with-variation-label variation${v.index}`}
                 key={v.key}
               >
                 <div className="d-flex align-items-baseline">

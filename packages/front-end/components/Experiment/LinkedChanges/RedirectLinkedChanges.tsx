@@ -146,10 +146,10 @@ const Redirect = ({
             <div
               className={
                 i === variations.length - 1
-                  ? `mb-0 variation with-variation-label variation${i}`
-                  : `mb-4 variation with-variation-label variation${i}`
+                  ? `mb-0 variation with-variation-label variation${v.index}`
+                  : `mb-4 variation with-variation-label variation${v.index}`
               }
-              key={i}
+              key={v.id}
             >
               <div className="d-flex align-items-baseline">
                 <span
