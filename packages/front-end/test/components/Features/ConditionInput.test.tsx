@@ -281,7 +281,7 @@ describe("ConditionInput", () => {
     });
   });
 
-  it("shows tooltip with Data type and Identifier when attribute dropdown is opened and option is hovered", async () => {
+  it("shows tooltip with 'Type' and 'Identifier' when attribute dropdown is opened and option is hovered", async () => {
     render(
       <RadixTheme>
         <TooltipProvider>
@@ -320,7 +320,7 @@ describe("ConditionInput", () => {
     fireEvent.mouseEnter(userIdOptions[0]);
 
     await waitFor(() => {
-      expect(screen.getByText("Data type:")).toBeInTheDocument();
+      expect(screen.getByText("Type:")).toBeInTheDocument();
       expect(screen.getByText("Identifier")).toBeInTheDocument();
     });
   });

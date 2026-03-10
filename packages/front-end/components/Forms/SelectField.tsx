@@ -1,10 +1,16 @@
-import { FC, useMemo, useRef, ReactNode, useState } from "react";
+import {
+  FC,
+  useMemo,
+  useRef,
+  ReactNode,
+  useState,
+  ComponentProps,
+} from "react";
 import ReactSelect, {
   components,
   InputProps,
   FormatOptionLabelMeta,
   StylesConfig,
-  MenuPortalProps,
 } from "react-select";
 import cloneDeep from "lodash/cloneDeep";
 import clsx from "clsx";
@@ -13,7 +19,7 @@ import { RadixTheme } from "@/services/RadixTheme";
 import Field, { FieldProps } from "./Field";
 
 export const RadixThemeMenuPortal = (
-  props: MenuPortalProps<unknown, boolean, never>,
+  props: ComponentProps<typeof components.MenuPortal>,
 ) => (
   <RadixTheme>
     <components.MenuPortal {...props} />
