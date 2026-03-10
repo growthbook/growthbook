@@ -51,7 +51,7 @@ jobs:
           secrets: APP_ORIGIN=${{ env.APP_URL }}
             API_HOST=${{ env.APP_URL }}:4433
             MONGODB_URI=${{ secrets.MONGODB_URI_STAGING }}
-            JWT_SECRET=${{ secrets.MONGODB_URI_STAGING }}
+            JWT_SECRET=${{ secrets.JWT_SECRET_STAGING }}
             LICENSE_KEY=${{ secrets.STAGING_LICENSE_KEY }}
 
       - name: Allocate public IP
