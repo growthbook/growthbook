@@ -184,7 +184,6 @@ export default function AttributeDetailPage() {
           open={true}
           header={`References: ${attribute.property}`}
           close={() => setShowReferencesModal(false)}
-          size="max"
           closeCta="Close"
           trackingEventModalType="show-attribute-references"
         >

@@ -74,27 +74,28 @@ export function AttributeOptionTooltipContent({
 
 export function AttributeOptionWithTooltip({
   option,
+  context = "menu",
   children,
 }: {
   option: AttributeOptionForTooltip;
+  context?: "menu" | "value";
   children: React.ReactNode;
 }) {
+  const isValue = context === "value";
   return (
     <Tooltip
       body={<AttributeOptionTooltipContent option={option} />}
-      tipPosition="right"
+      tipPosition={isValue ? "top" : "right"}
       usePortal
       flipTheme={false}
     >
-      {/* Expand hit area to fill the full option row (bleeds into RS padding, restores with positive padding) */}
       <Box
         as="span"
         style={{
-          display: "block",
-          width: "100%",
-          margin: "-2px -8px",
-          padding: "2px 8px",
-          minHeight: "100%",
+          display: "inline-block",
+          position: "relative",
+          minWidth: 100,
+          ...(isValue && { zIndex: 1000 }),
         }}
       >
         {children}

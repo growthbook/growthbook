@@ -102,10 +102,10 @@ export default function RolloutFields({
             onChange={(v) => {
               form.setValue("hashAttribute", v);
             }}
-            formatOptionLabel={(o) => {
+            formatOptionLabel={(o, meta) => {
               const opt = o as AttributeOptionForTooltip;
               return (
-                <AttributeOptionWithTooltip option={opt}>
+                <AttributeOptionWithTooltip option={opt} context={meta.context}>
                   <span>{o.label}</span>
                 </AttributeOptionWithTooltip>
               );

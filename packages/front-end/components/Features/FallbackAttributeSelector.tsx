@@ -114,13 +114,13 @@ export default function FallbackAttributeSelector({
       label="Fallback Attribute"
       labelClassName="font-weight-bold"
       options={fallbackAttributeOptions}
-      formatOptionLabel={(o) => {
+      formatOptionLabel={(o, meta) => {
         if (!o.value) {
           return <em className="text-muted">{o.label}</em>;
         }
         const opt = o as AttributeOptionForTooltip;
         return (
-          <AttributeOptionWithTooltip option={opt}>
+          <AttributeOptionWithTooltip option={opt} context={meta.context}>
             <span>{o.label}</span>
           </AttributeOptionWithTooltip>
         );

@@ -562,10 +562,10 @@ function ConditionAndGroupInput({
                     hashAttribute: s.hashAttribute,
                   }))
             }
-            formatOptionLabel={(o) => {
+            formatOptionLabel={(o, meta) => {
               const opt = o as AttributeOptionForTooltip;
               return (
-                <AttributeOptionWithTooltip option={opt}>
+                <AttributeOptionWithTooltip option={opt} context={meta.context}>
                   <Text size="2">{o.label}</Text>
                 </AttributeOptionWithTooltip>
               );
