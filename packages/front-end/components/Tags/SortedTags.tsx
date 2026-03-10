@@ -34,7 +34,7 @@ export default function SortedTags({
   const renderEllipsis = () => {
     const tags = sorted.slice(showEllipsisAtIndex);
     const moreTagsCopy = `+${tags.length}`;
-    const tagElements = renderTags(tags);
+    const tagElements = renderTags(tags, false);
     return (
       <Tooltip
         flipTheme={false}
@@ -46,7 +46,7 @@ export default function SortedTags({
     );
   };
 
-  const renderTags = (tagsToRender: string[]) => {
+  const renderTags = (tagsToRender: string[], truncateInTable = true) => {
     return tagsToRender.map((tag, i) => {
       const skipMargin = useFlex || (skipFirstMargin && i === 0);
       return (
@@ -54,7 +54,7 @@ export default function SortedTags({
           tag={tag}
           key={tag}
           skipMargin={skipMargin}
-          maxChars={truncateTagChars}
+          maxChars={truncateInTable ? truncateTagChars : undefined}
         />
       );
     });

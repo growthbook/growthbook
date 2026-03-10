@@ -3460,6 +3460,10 @@ input:disabled {
   align-items: flex-start;
   gap: 7px;
 }
+.tags-cell-content .tags-container {
+  min-width: 0;
+  flex-wrap: nowrap;
+}
 .feature-draft-copy {
   font-size: 14px;
   font-style: italic;

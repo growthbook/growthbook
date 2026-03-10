@@ -261,7 +261,7 @@ export default function FeaturesPage() {
                 {showProjectColumn && (
                   <TableColumnHeader>Project</TableColumnHeader>
                 )}
-                <TableColumnHeader style={{ maxWidth: 180 }}>
+                <TableColumnHeader style={{ maxWidth: 120 }}>
                   Tags
                 </TableColumnHeader>
                 {toggleEnvs.map((en) => (
@@ -332,13 +332,27 @@ export default function FeaturesPage() {
                         ) : null}
                       </TableCell>
                     )}
-                    <TableCell style={{ maxWidth: 180 }}>
-                      <SortedTags
-                        tags={feature?.tags || []}
-                        useFlex={true}
-                        showEllipsisAtIndex={2}
-                        truncateTagChars={20}
-                      />
+                    <TableCell
+                      style={{
+                        width: 160,
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div
+                        className="tags-cell-content"
+                        style={{
+                          minWidth: 0,
+                          maxWidth: "100%",
+                          overflow: "hidden",
+                        }}
+                      >
+                        <SortedTags
+                          tags={feature?.tags || []}
+                          useFlex={true}
+                          showEllipsisAtIndex={1}
+                          truncateTagChars={15}
+                        />
+                      </div>
                     </TableCell>
                     {toggleEnvs.map((en) => (
                       <TableCell key={en.id}>
