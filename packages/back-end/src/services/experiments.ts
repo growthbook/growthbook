@@ -1049,14 +1049,14 @@ export function getAdditionalQueryMetadataForExperiment(
 
 function buildSnapshotRefreshIntent({
   triggeredBy,
-  banditReweightRequested,
+  reweight,
 }: {
   triggeredBy: SnapshotTriggeredBy;
-  banditReweightRequested: boolean;
+  reweight: boolean;
 }): ExperimentSnapshotRefreshIntent {
   return {
     triggeredBySchedule: triggeredBy === "schedule",
-    banditReweightRequested,
+    banditReweightRequested: reweight,
   };
 }
 
@@ -1073,6 +1073,24 @@ function mergeSnapshotRefreshIntent(
       existing.triggeredBySchedule || incoming.triggeredBySchedule || false,
   };
 }
+
+function isDuplicateKeyError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+
+  const mongoError = error as {
+    code?: unknown;
+    message?: unknown;
+  };
+
+  return (
+    mongoError.code === 11000 ||
+    (typeof mongoError.message === "string" &&
+      mongoError.message.includes("E11000"))
+  );
+}
+
+const SNAPSHOT_UPDATE_IN_PROGRESS_ERROR =
+  "There's already an update in progress.";
 
 function getSnapshotType({
   experiment,
@@ -1243,7 +1261,7 @@ export async function requestExperimentSnapshot({
   }
 
   const { org } = context;
-  const orgSettings = org.settings;
+  const orgSettings: OrganizationSettings = org.settings ?? {};
   const { settings } = getScopedSettings({
     organization: org,
     project: project ?? undefined,
@@ -1337,10 +1355,7 @@ export async function createOrReuseStandardSnapshotExecution({
   triggeredBy: SnapshotTriggeredBy;
   reweight?: boolean;
 }): Promise<{ snapshot: ExperimentSnapshotInterface; existing: boolean }> {
-  const incomingIntent = buildSnapshotRefreshIntent({
-    triggeredBy,
-    banditReweightRequested: !!reweight,
-  });
+  const forceFullRefresh = !useCache;
 
   await recordExperimentSnapshotAttempt({
     context,
@@ -1368,10 +1383,10 @@ export async function createOrReuseStandardSnapshotExecution({
           ")",
       );
       await updateExecutionMetadata({
-        organization: context.org.id,
-        id: existingWriter.id,
+        organizationId: context.org.id,
+        snapshotId: existingWriter.id,
         updates: {
-          executionMode: undefined,
+          mode: undefined,
         },
       });
       await updateSnapshot({
@@ -1384,11 +1399,13 @@ export async function createOrReuseStandardSnapshotExecution({
         context,
       });
       // Fall through to create a new execution
-    } else if (incomingIntent.forceFullRefresh) {
-      throw new Error(
-        `Results are currently being refreshed (${existingWriter.id}). Cancel the current update to request a full refresh.`,
-      );
+    } else if (forceFullRefresh) {
+      throw new Error(SNAPSHOT_UPDATE_IN_PROGRESS_ERROR);
     } else {
+      const incomingIntent = buildSnapshotRefreshIntent({
+        triggeredBy,
+        reweight: !!reweight,
+      });
       const snapshot = await updateActiveStandardSnapshotExecution({
         context,
         snapshot: existingWriter,
@@ -1457,12 +1474,14 @@ export async function createOrReuseStandardSnapshotExecution({
     );
     if (!activeSnapshot) throw error;
 
-    if (incomingIntent.forceFullRefresh) {
-      throw new Error(
-        `Results are currently being refreshed (${activeSnapshot.id}). Cancel the current update to request a full refresh.`,
-      );
+    if (forceFullRefresh) {
+      throw new Error(SNAPSHOT_UPDATE_IN_PROGRESS_ERROR);
     }
 
+    const incomingIntent = buildSnapshotRefreshIntent({
+      triggeredBy,
+      reweight: !!reweight,
+    });
     const snapshot = await updateActiveStandardSnapshotExecution({
       context,
       snapshot: activeSnapshot,
@@ -1485,7 +1504,7 @@ export async function createSnapshot({
   metricMap,
   factTableMap,
   reweight,
-  preventStartingAnalysis,
+  skipRecordingSnapshotAttempt,
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
@@ -1499,7 +1518,7 @@ export async function createSnapshot({
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
   reweight?: boolean;
-  preventStartingAnalysis?: boolean;
+  skipRecordingSnapshotAttempt?: boolean;
 }): Promise<
   | ExperimentResultsQueryRunner
   | ExperimentIncrementalRefreshQueryRunner
@@ -1590,7 +1609,7 @@ export async function createSnapshot({
 
   const refreshIntent = buildSnapshotRefreshIntent({
     triggeredBy,
-    banditReweightRequested: !!reweight,
+    reweight: !!reweight,
   });
   const snapshotId = uniqid("snp_");
   const refreshExecution:
@@ -1643,7 +1662,7 @@ export async function createSnapshot({
     ...(refreshExecution ? { executionMetadata: refreshExecution } : {}),
   };
 
-  if (!preventStartingAnalysis) {
+  if (!skipRecordingSnapshotAttempt) {
     await recordExperimentSnapshotAttempt({
       context,
       experiment,
@@ -1733,10 +1752,10 @@ export async function createSnapshot({
     });
     if (snapshot.type === "standard") {
       await updateExecutionMetadata({
-        organization: snapshot.organization,
-        id: snapshot.id,
+        organizationId: snapshot.organization,
+        snapshotId: snapshot.id,
         updates: {
-          executionMode: undefined,
+          mode: undefined,
         },
       });
     }
@@ -1906,10 +1925,10 @@ function monitorStandardSnapshotExecution({
       clearInterval(heartbeatTimer);
       try {
         await updateExecutionMetadata({
-          organization: context.org.id,
-          id: snapshotId,
+          organizationId: context.org.id,
+          snapshotId,
           updates: {
-            executionMode: undefined,
+            mode: undefined,
           },
         });
       } catch (cleanupError) {
