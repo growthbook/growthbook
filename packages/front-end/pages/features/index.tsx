@@ -377,7 +377,10 @@ export default function FeaturesPage() {
                     >
                       <div>
                         {draftEntry ? (
-                          <Tooltip body="This feature has an active draft that has not been published yet">
+                          <Tooltip
+                            flipTheme={false}
+                            body="This feature has an active draft that has not been published yet"
+                          >
                             <span
                               style={{
                                 display: "inline-block",
