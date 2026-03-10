@@ -363,7 +363,7 @@ export default function FeaturesPage() {
                               onChange={(on) =>
                                 handleToggle(feature.id, en.id, on)
                               }
-                              size="3"
+                              size="2"
                             />
                           )}
                         </Flex>
