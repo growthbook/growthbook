@@ -1,8 +1,10 @@
 import React from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import { PiArrowSquareOut } from "react-icons/pi";
 import Markdown from "@/components/Markdown/Markdown";
 import SortedTags from "@/components/Tags/SortedTags";
 import Text from "@/ui/Text";
+import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
 export interface AttributeOptionForTooltip {
@@ -20,64 +22,53 @@ export function AttributeOptionTooltipContent({
   option: AttributeOptionForTooltip;
 }) {
   return (
-    <Box style={{ maxWidth: "100%", minWidth: 0, overflow: "hidden" }}>
-      <Flex direction="column" gap="2" style={{ minWidth: 0 }}>
-        <Box
-          style={{
-            minWidth: 0,
-            overflow: "hidden",
-            wordBreak: "break-word",
-            overflowWrap: "anywhere",
-          }}
-        >
+    <Flex direction="column" gap="2" style={{ minWidth: 0, maxWidth: 280 }}>
+      <Link
+        href={`/attributes/${option.value}`}
+        target="_blank"
+        weight="bold"
+        size="2"
+      >
+        <span style={{ overflowWrap: "anywhere" }} className="mr-1">
+          {option.label}
+        </span>
+        <PiArrowSquareOut />
+      </Link>
+      <Text size="small" as="div">
+        <Text size="small" as="span" weight="semibold">
+          Type:{" "}
+        </Text>
+        {option.datatype ?? "unknown"}
+      </Text>
+      {option.hashAttribute === true && (
+        <Text size="small" as="div" weight="semibold">
+          Identifier
+        </Text>
+      )}
+      {option.tags && option.tags.length > 0 && (
+        <div>
           <Text size="small" as="div" weight="semibold">
-            {option.label}
+            Tags:
           </Text>
-        </Box>
-        {option.description && (
-          <Flex direction="column" gap="1">
-            <Text size="small" as="div" weight="semibold">
-              Description:
-            </Text>
-            <Box>
-              <Text size="small" as="div">
-                <Markdown style={{ fontSize: 12 }}>
-                  {option.description}
-                </Markdown>
-              </Text>
-            </Box>
-          </Flex>
-        )}
+          <SortedTags
+            tags={option.tags}
+            shouldShowEllipsis={true}
+            showEllipsisAtIndex={20}
+            ellipsisFormat={(n) => `+${n}`}
+          />
+        </div>
+      )}
+      {option.description && (
         <Flex direction="column" gap="1">
-          <Text size="small" as="div">
-            <Text as="span" weight="semibold">
-              Data type:{" "}
-            </Text>
-            {option.datatype ?? "unknown"}
+          <Text size="small" as="div" weight="semibold">
+            Description:
           </Text>
-          {option.hashAttribute === true && (
-            <Text size="small" as="div" weight="semibold">
-              Identifier
-            </Text>
-          )}
+          <Text size="small" as="div">
+            <Markdown style={{ fontSize: 12 }}>{option.description}</Markdown>
+          </Text>
         </Flex>
-        {option.tags && option.tags.length > 0 && (
-          <Flex direction="column" gap="1">
-            <Text size="small" as="div" weight="semibold">
-              Tags:
-            </Text>
-            <Box>
-              <SortedTags
-                tags={option.tags}
-                shouldShowEllipsis={true}
-                showEllipsisAtIndex={20}
-                ellipsisFormat={(n) => `+${n}`}
-              />
-            </Box>
-          </Flex>
-        )}
-      </Flex>
-    </Box>
+      )}
+    </Flex>
   );
 }
 
