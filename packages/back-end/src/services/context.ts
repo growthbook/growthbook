@@ -68,6 +68,7 @@ import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
 import { TeamModel } from "back-end/src/models/TeamModel";
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
 import { PresentationThemeModel } from "back-end/src/models/PresentationThemeModel";
+import { WatchModel } from "back-end/src/models/WatchModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
@@ -107,7 +108,8 @@ export type ModelName =
   | "savedGroups"
   | "teams"
   | "analyticsExplorations"
-  | "presentationThemes";
+  | "presentationThemes"
+  | "watch";
 
 export const modelClasses = {
   agreements: AgreementModel,
@@ -140,6 +142,7 @@ export const modelClasses = {
   teams: TeamModel,
   analyticsExplorations: AnalyticsExplorationModel,
   presentationThemes: PresentationThemeModel,
+  watch: WatchModel,
 };
 export type ModelClass = (typeof modelClasses)[ModelName];
 type ModelInstances = {
@@ -181,6 +184,7 @@ export class ReqContextClass {
       teams: new TeamModel(this),
       analyticsExplorations: new AnalyticsExplorationModel(this),
       presentationThemes: new PresentationThemeModel(this),
+      watch: new WatchModel(this),
     };
   }
 
