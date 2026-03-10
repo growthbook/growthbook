@@ -118,10 +118,12 @@ export default function FallbackAttributeSelector({
         if (!o.value) {
           return <em className="text-muted">{o.label}</em>;
         }
-        const opt = o as AttributeOptionForTooltip;
         return (
-          <AttributeOptionWithTooltip option={opt} context={meta.context}>
-            <span>{o.label}</span>
+          <AttributeOptionWithTooltip
+            option={o as AttributeOptionForTooltip}
+            context={meta.context}
+          >
+            {o.label}
           </AttributeOptionWithTooltip>
         );
       }}

@@ -394,13 +394,12 @@ export default function ExperimentRefNewFields({
                 }
               }}
               formatOptionLabel={(o, meta) => {
-                const opt = o as AttributeOptionForTooltip;
                 return (
                   <AttributeOptionWithTooltip
-                    option={opt}
+                    option={o as AttributeOptionForTooltip}
                     context={meta.context}
                   >
-                    <span>{o.label}</span>
+                    {o.label}
                   </AttributeOptionWithTooltip>
                 );
               }}
