@@ -135,10 +135,7 @@ function formatMetricTypeSummary(
   total: number,
 ): string {
   if (total === 0) return "";
-  if (typeLabel === "Goal") {
-    return `Statistically significant differences were found in ${significant} of ${total} goal metric${total === 1 ? "" : "s"}.`;
-  }
-  return `For ${typeLabel.toLowerCase()} metrics, ${significant} of ${total} showed significant differences.`;
+  return `For ${typeLabel.toLowerCase()} metrics, ${significant} of ${total} showed statistically significant differences.`;
 }
 
 export function CovariateImbalanceMetricSummaryTable(
@@ -170,5 +167,13 @@ export function CovariateImbalanceMetricSummaryTable(
 
   if (parts.length === 0) return null;
 
-  return <p className="mx-2 mt-0 mb-2">{parts.join(" ")}</p>;
+  return (
+    <div className="mx-2 mt-0 mb-2">
+      {parts.map((part, i) => (
+        <p key={i} className="mb-1">
+          {part}
+        </p>
+      ))}
+    </div>
+  );
 }
