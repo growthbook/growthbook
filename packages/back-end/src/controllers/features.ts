@@ -192,7 +192,7 @@ async function createOrUpdateDraftWithChanges(
   envelopeChanges: Partial<
     Pick<
       FeatureRevisionInterface,
-      "environmentsEnabled" | "envPrerequisites" | "prerequisites" | "metadata"
+      "environmentsEnabled" | "prerequisites" | "metadata"
     >
   >,
   logEntry: Omit<RevisionLog, "timestamp">,
@@ -222,12 +222,6 @@ async function createOrUpdateDraftWithChanges(
       merged.environmentsEnabled = {
         ...(existingDraft.environmentsEnabled || {}),
         ...envelopeChanges.environmentsEnabled,
-      };
-    }
-    if ("envPrerequisites" in envelopeChanges) {
-      merged.envPrerequisites = {
-        ...(existingDraft.envPrerequisites || {}),
-        ...envelopeChanges.envPrerequisites,
       };
     }
     if ("prerequisites" in envelopeChanges) {
@@ -2966,10 +2960,7 @@ export async function postFeaturesEvaluate(
 
 export async function postFeatureArchive(
   req: AuthRequest<null, { id: string }>,
-  res: Response<
-    { status: 200; draftVersion?: number },
-    EventUserForResponseLocals
-  >,
+  res: Response<{ status: 200 }, EventUserForResponseLocals>,
 ) {
   const { id } = req.params;
   const context = getContextFromReq(req);
@@ -2993,27 +2984,11 @@ export async function postFeatureArchive(
     context.permissions.throwPermissionError();
   }
 
-  const newArchived = !feature.archived;
-  const reviewSetting = getFeatureReviewSetting(context, feature);
-
-  if (reviewSetting !== null) {
-    // Approval flows are active — always route through the revision system
-    const draft = await createOrUpdateDraftWithChanges(
-      context,
-      feature,
-      { metadata: { archived: newArchived } },
-      {
-        user: context.auditUser,
-        action: "update",
-        subject: "archived",
-        value: JSON.stringify({ archived: newArchived }),
-      },
-    );
-    return res.status(200).json({ status: 200, draftVersion: draft.version });
-  }
-
-  // Approval flows off entirely — direct write, no revision
-  const updatedFeature = await archiveFeature(context, feature, newArchived);
+  const updatedFeature = await archiveFeature(
+    context,
+    feature,
+    !feature.archived,
+  );
 
   await req.audit({
     event: "feature.archive",
@@ -3022,8 +2997,8 @@ export async function postFeatureArchive(
       id: feature.id,
     },
     details: auditDetailsUpdate(
-      { archived: feature.archived },
-      { archived: updatedFeature.archived },
+      { archived: feature.archived }, // Old state
+      { archived: updatedFeature.archived }, // New state
     ),
   });
 

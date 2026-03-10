@@ -272,9 +272,6 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
     rules: revisionRulesSchema,
     // New revision envelopes — only present when the change type is gated
     environmentsEnabled: z.record(z.string(), z.boolean()).optional(),
-    envPrerequisites: z
-      .record(z.string(), z.array(featurePrerequisite))
-      .optional(),
     prerequisites: z.array(featurePrerequisite).optional(),
     metadata: revisionMetadataSchema.optional(),
     log: z.array(revisionLog).optional(), // This is deprecated in favor of using FeatureRevisionLog due to it being too large

@@ -3,14 +3,12 @@ import isEqual from "lodash/isEqual";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { RevisionMetadata } from "shared/src/validators/features";
-import { FeaturePrerequisite } from "shared/src/validators/shared";
 import {
   renderFeatureDefaultValue,
   renderFeatureRules,
   normalizeFeatureRules,
   featureRuleChangeBadges,
   renderEnvironmentsEnabled,
-  renderEnvPrerequisites,
   renderPrerequisites,
   renderRevisionMetadata,
   prerequisiteChangeBadges,
@@ -37,14 +35,10 @@ export const featureToFeatureRevisionDiffInput = (
   feature: FeatureInterface,
 ): FeatureRevisionDiffInput => {
   const environmentsEnabled: Record<string, boolean> = {};
-  const envPrerequisites: Record<string, FeaturePrerequisite[]> = {};
   for (const [envId, env] of Object.entries(
     feature.environmentSettings || {},
   )) {
     environmentsEnabled[envId] = env.enabled;
-    if (env.prerequisites) {
-      envPrerequisites[envId] = env.prerequisites;
-    }
   }
 
   return {
@@ -56,7 +50,6 @@ export const featureToFeatureRevisionDiffInput = (
       ]),
     ),
     environmentsEnabled,
-    envPrerequisites,
     prerequisites: feature.prerequisites,
     metadata: normalizeRevisionMetadata({
       description: feature.description,
@@ -94,7 +87,6 @@ export type FeatureRevisionDiffInput = Pick<
   | "defaultValue"
   | "rules"
   | "environmentsEnabled"
-  | "envPrerequisites"
   | "prerequisites"
   | "metadata"
 >;
@@ -196,30 +188,7 @@ export function useFeatureRevisionDiff({
       }
     });
 
-    // 3. Prerequisites (env-level then feature-level)
-    const draftEnvPrereqEnvs = Object.keys(draft.envPrerequisites || {});
-    draftEnvPrereqEnvs.forEach((envId) => {
-      const currentPrereqs = current.envPrerequisites?.[envId] || [];
-      const draftPrereqs = draft.envPrerequisites?.[envId] || [];
-      if (!isEqual(currentPrereqs, draftPrereqs)) {
-        diffs.push({
-          title: `Prerequisites - ${envId}`,
-          a: JSON.stringify(currentPrereqs, null, 2),
-          b: JSON.stringify(draftPrereqs, null, 2),
-          customRender: renderEnvPrerequisites(
-            envId,
-            currentPrereqs,
-            draftPrereqs,
-          ),
-          badges: prerequisiteChangeBadges(
-            currentPrereqs,
-            draftPrereqs,
-            "env prerequisite",
-          ),
-        });
-      }
-    });
-
+    // 3. Prerequisites (feature-level)
     if (draft.prerequisites !== undefined) {
       const currentPrereqs = current.prerequisites || [];
       const draftPrereqs = draft.prerequisites;

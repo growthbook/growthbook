@@ -181,10 +181,6 @@ export default function FixConflictsModal({
             mergeResult.result.environmentsEnabled !== undefined
               ? mergeResult.result.environmentsEnabled
               : undefined,
-          envPrerequisites:
-            mergeResult.result.envPrerequisites !== undefined
-              ? mergeResult.result.envPrerequisites
-              : undefined,
           prerequisites:
             mergeResult.result.prerequisites !== undefined
               ? mergeResult.result.prerequisites

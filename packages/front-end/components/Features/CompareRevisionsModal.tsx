@@ -75,7 +75,6 @@ function revisionToDiffInput(
     defaultValue: r.defaultValue,
     rules: r.rules ?? {},
     environmentsEnabled: r.environmentsEnabled,
-    envPrerequisites: r.envPrerequisites,
     prerequisites: r.prerequisites,
     metadata: normalizeRevisionMetadata(r.metadata),
   };

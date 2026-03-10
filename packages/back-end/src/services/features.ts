@@ -1622,9 +1622,6 @@ export function getApiFeatureObj({
       ...(rev.environmentsEnabled !== undefined && {
         environmentsEnabled: rev.environmentsEnabled,
       }),
-      ...(rev.envPrerequisites !== undefined && {
-        envPrerequisites: rev.envPrerequisites,
-      }),
       ...(rev.prerequisites !== undefined && {
         prerequisites: rev.prerequisites,
       }),

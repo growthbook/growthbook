@@ -1136,17 +1136,8 @@ export async function applyRevisionChanges(
   environments.forEach((env) => {
     const rules = result.rules?.[env];
     const envEnabled = result.environmentsEnabled?.[env];
-    const envPrereqs =
-      result.envPrerequisites && env in result.envPrerequisites
-        ? result.envPrerequisites[env]
-        : undefined;
 
-    if (
-      rules === undefined &&
-      envEnabled === undefined &&
-      envPrereqs === undefined
-    )
-      return;
+    if (rules === undefined && envEnabled === undefined) return;
 
     changes.environmentSettings =
       changes.environmentSettings ||
@@ -1160,9 +1151,6 @@ export async function applyRevisionChanges(
     }
     if (envEnabled !== undefined) {
       changes.environmentSettings[env].enabled = envEnabled;
-    }
-    if (envPrereqs !== undefined) {
-      changes.environmentSettings[env].prerequisites = envPrereqs;
     }
     hasChanges = true;
   });

@@ -211,30 +211,6 @@ describe("checkIfRevisionNeedsReview", () => {
         }),
       ).toBe(false);
     });
-
-    it("DOES require review when featureRequireEnvironmentReview is true and envPrerequisites changed", () => {
-      const settings = makeSettings(
-        makeReviewSetting({
-          requireReviewOn: true,
-          featureRequireEnvironmentReview: true,
-        }),
-      );
-      const base = makeRevision({ version: 3, envPrerequisites: {} });
-      const revision = makeRevision({
-        envPrerequisites: {
-          production: [{ id: "feat-dep", condition: '{"value": true}' }],
-        },
-      });
-      expect(
-        checkIfRevisionNeedsReview({
-          feature: baseFeature,
-          baseRevision: base,
-          revision,
-          allEnvironments,
-          settings,
-        }),
-      ).toBe(true);
-    });
   });
 
   describe("metadata (featureRequireMetadataReview)", () => {
@@ -321,22 +297,6 @@ describe("autoMerge with new envelopes", () => {
         expect(result.result.environmentsEnabled).toEqual({
           production: false,
         });
-      }
-    });
-
-    it("includes envPrerequisites changes", () => {
-      const revision: RulesAndValues = {
-        version: 4,
-        defaultValue: "false",
-        rules: {},
-        envPrerequisites: {
-          production: [{ id: "dep", condition: '{"value":true}' }],
-        },
-      };
-      const result = autoMerge(live, base, revision, ["production"], {});
-      expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.result.envPrerequisites?.production).toHaveLength(1);
       }
     });
 
@@ -482,20 +442,6 @@ describe("mergeResultHasChanges with new envelopes", () => {
     ).toBe(true);
   });
 
-  it("returns true when envPrerequisites has entries", () => {
-    expect(
-      mergeResultHasChanges({
-        success: true,
-        result: {
-          envPrerequisites: {
-            production: [{ id: "dep", condition: '{"value":true}' }],
-          },
-        },
-        conflicts: [],
-      }),
-    ).toBe(true);
-  });
-
   it("returns true when prerequisites is present", () => {
     expect(
       mergeResultHasChanges({
@@ -544,16 +490,6 @@ describe("mergeRevision with new envelopes", () => {
     ]);
     expect(merged.environmentSettings.production.enabled).toBe(false);
     expect(merged.environmentSettings.staging.enabled).toBe(true);
-  });
-
-  it("applies envPrerequisites from revision", () => {
-    const revision = makeRevision({
-      envPrerequisites: {
-        production: [{ id: "dep", condition: '{"value":true}' }],
-      },
-    });
-    const merged = mergeRevision(baseFeature, revision, ["production"]);
-    expect(merged.environmentSettings.production.prerequisites).toHaveLength(1);
   });
 
   it("applies prerequisites from revision", () => {

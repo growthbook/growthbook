@@ -95,20 +95,6 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
         changes.environmentsEnabled[env] = revision.environmentsEnabled[env];
         if (!changedEnvs.includes(env)) changedEnvs.push(env);
       }
-
-      // envPrerequisites
-      if (
-        revision.envPrerequisites &&
-        env in revision.envPrerequisites &&
-        !isEqual(
-          revision.envPrerequisites[env],
-          feature.environmentSettings?.[env]?.prerequisites || [],
-        )
-      ) {
-        changes.envPrerequisites = changes.envPrerequisites || {};
-        changes.envPrerequisites[env] = revision.envPrerequisites[env];
-        if (!changedEnvs.includes(env)) changedEnvs.push(env);
-      }
     });
 
     if (changedEnvs.length > 0) {

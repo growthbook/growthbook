@@ -98,9 +98,6 @@ export function mergeRevision(
     if (revision.environmentsEnabled && env in revision.environmentsEnabled) {
       envSettings[env].enabled = revision.environmentsEnabled[env];
     }
-    if (revision.envPrerequisites && env in revision.envPrerequisites) {
-      envSettings[env].prerequisites = revision.envPrerequisites[env];
-    }
   });
 
   if (revision.prerequisites !== undefined) {
@@ -614,7 +611,6 @@ export type MergeResultChanges = {
   defaultValue?: string;
   rules?: Record<string, FeatureRule[]>;
   environmentsEnabled?: Record<string, boolean>;
-  envPrerequisites?: Record<string, FeaturePrerequisite[]>;
   prerequisites?: FeaturePrerequisite[];
   metadata?: RevisionMetadata;
 };
@@ -635,7 +631,6 @@ export type RulesAndValues = Pick<
   | "rules"
   | "version"
   | "environmentsEnabled"
-  | "envPrerequisites"
   | "prerequisites"
   | "metadata"
 >;
@@ -647,7 +642,6 @@ export function mergeResultHasChanges(mergeResult: AutoMergeResult): boolean {
   if (r.defaultValue !== undefined) return true;
   if (Object.keys(r.rules || {}).length > 0) return true;
   if (Object.keys(r.environmentsEnabled || {}).length > 0) return true;
-  if (Object.keys(r.envPrerequisites || {}).length > 0) return true;
   if (r.prerequisites !== undefined) return true;
   if (r.metadata !== undefined && Object.keys(r.metadata).length > 0)
     return true;
@@ -715,17 +709,6 @@ export function autoMerge(
         if (revVal !== base.environmentsEnabled?.[env]) {
           result.environmentsEnabled = result.environmentsEnabled || {};
           result.environmentsEnabled[env] = revVal;
-        }
-      }
-    }
-
-    // envPrerequisites
-    if (revision.envPrerequisites) {
-      for (const env of Object.keys(revision.envPrerequisites)) {
-        const revVal = revision.envPrerequisites[env];
-        if (!isEqual(revVal, base.envPrerequisites?.[env] || [])) {
-          result.envPrerequisites = result.envPrerequisites || {};
-          result.envPrerequisites[env] = revVal;
         }
       }
     }
@@ -857,39 +840,6 @@ export function autoMerge(
       } else {
         result.environmentsEnabled = result.environmentsEnabled || {};
         result.environmentsEnabled[env] = revVal;
-      }
-    }
-  }
-
-  // envPrerequisites (per-env array)
-  if (revision.envPrerequisites) {
-    for (const env of Object.keys(revision.envPrerequisites)) {
-      const revVal = revision.envPrerequisites[env];
-      const baseVal = base.envPrerequisites?.[env] || [];
-      const liveVal = live.envPrerequisites?.[env] || [];
-      if (isEqual(revVal, baseVal) || isEqual(revVal, liveVal)) continue;
-
-      if (!isEqual(liveVal, baseVal) && !isEqual(liveVal, revVal)) {
-        const conflictInfo: MergeConflict = {
-          name: `Env Prerequisites - ${env}`,
-          key: `envPrerequisites.${env}`,
-          base: JSON.stringify(baseVal, null, 2),
-          live: JSON.stringify(liveVal, null, 2),
-          revision: JSON.stringify(revVal, null, 2),
-          resolved: false,
-        };
-        const strategy = strategies[conflictInfo.key];
-        if (strategy === "overwrite") {
-          conflictInfo.resolved = true;
-          result.envPrerequisites = result.envPrerequisites || {};
-          result.envPrerequisites[env] = revVal;
-        } else if (strategy === "discard") {
-          conflictInfo.resolved = true;
-        }
-        conflicts.push(conflictInfo);
-      } else {
-        result.envPrerequisites = result.envPrerequisites || {};
-        result.envPrerequisites[env] = revVal;
       }
     }
   }
@@ -1388,23 +1338,13 @@ export function checkIfRevisionNeedsReview({
     }
   }
 
-  // Prerequisites (feature-level and per-env)
+  // Prerequisites (feature-level)
   if (reviewSetting.featureRequireEnvironmentReview) {
     if (
       revision.prerequisites !== undefined &&
       !isEqual(revision.prerequisites, baseRevision.prerequisites || [])
     ) {
       return true;
-    }
-    if (revision.envPrerequisites) {
-      const changedEnvs = Object.keys(revision.envPrerequisites).filter(
-        (env) =>
-          !isEqual(
-            revision.envPrerequisites![env],
-            baseRevision.envPrerequisites?.[env] || [],
-          ),
-      );
-      if (changedEnvs.length > 0) return true;
     }
   }
 

@@ -1,11 +1,7 @@
 import mongoose from "mongoose";
 import omit from "lodash/omit";
 import { checkIfRevisionNeedsReview } from "shared/util";
-import {
-  FeatureInterface,
-  FeaturePrerequisite,
-  FeatureRule,
-} from "shared/types/feature";
+import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import {
   FeatureRevisionInterface,
   RevisionLog,
@@ -40,7 +36,6 @@ const featureRevisionSchema = new mongoose.Schema({
   rules: {},
   // New revision envelopes — only present when the change type is gated
   environmentsEnabled: {},
-  envPrerequisites: {},
   prerequisites: [{}],
   metadata: {},
   status: String,
@@ -268,7 +263,6 @@ const SPARSE_REVISION_PROJECTION = {
   rules: 0,
   defaultValue: 0,
   environmentsEnabled: 0,
-  envPrerequisites: 0,
   prerequisites: 0,
   metadata: 0,
   baseVersion: 0,
@@ -300,13 +294,10 @@ export async function createInitialRevision(
 ) {
   const rules: Record<string, FeatureRule[]> = {};
   const environmentsEnabled: Record<string, boolean> = {};
-  const envPrerequisites: Record<string, FeaturePrerequisite[]> = {};
   environments.forEach((env) => {
     rules[env] = feature.environmentSettings?.[env]?.rules || [];
     environmentsEnabled[env] =
       feature.environmentSettings?.[env]?.enabled ?? false;
-    envPrerequisites[env] =
-      feature.environmentSettings?.[env]?.prerequisites || [];
   });
 
   date = date || new Date();
@@ -326,7 +317,6 @@ export async function createInitialRevision(
     defaultValue: feature.defaultValue,
     rules,
     environmentsEnabled,
-    envPrerequisites,
     prerequisites: feature.prerequisites || [],
     metadata: {
       description: feature.description,
@@ -411,7 +401,6 @@ export async function createRevision({
 
   // New envelope fields — only included in the revision when explicitly provided in changes
   const environmentsEnabled = changes?.environmentsEnabled;
-  const envPrerequisites = changes?.envPrerequisites;
   const prerequisites = changes?.prerequisites;
   const metadata = changes?.metadata;
 
@@ -449,7 +438,6 @@ export async function createRevision({
     defaultValue,
     rules,
     ...(environmentsEnabled !== undefined && { environmentsEnabled }),
-    ...(envPrerequisites !== undefined && { envPrerequisites }),
     ...(prerequisites !== undefined && { prerequisites }),
     ...(metadata !== undefined && { metadata }),
   } as FeatureRevisionInterface;
@@ -491,7 +479,6 @@ export async function createRevision({
         defaultValue,
         rules,
         ...(environmentsEnabled !== undefined && { environmentsEnabled }),
-        ...(envPrerequisites !== undefined && { envPrerequisites }),
         ...(prerequisites !== undefined && { prerequisites }),
         ...(metadata !== undefined && { metadata }),
       }),
@@ -515,7 +502,6 @@ export async function updateRevision(
       | "rules"
       | "baseVersion"
       | "environmentsEnabled"
-      | "envPrerequisites"
       | "prerequisites"
       | "metadata"
     >
