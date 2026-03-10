@@ -8,7 +8,6 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import { uploadFile } from "back-end/src/services/files";
 import { auditDetailsCreate } from "back-end/src/services/audit";
-import { upsertWatch } from "back-end/src/models/WatchModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 const MIMETYPES: Record<string, string> = {
@@ -127,9 +126,8 @@ export const postVariationImageUpload = createApiRequestHandler(
   });
 
   if (context.userId) {
-    await upsertWatch({
+    await context.models.watch.upsertWatch({
       userId: context.userId,
-      organization: context.org.id,
       item: experiment.id,
       type: "experiments",
     });
