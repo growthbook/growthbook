@@ -1,7 +1,13 @@
 import { useMemo } from "react";
-import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
+import { Flex } from "@radix-ui/themes";
+import type {
+  ExplorationConfig,
+  ProductAnalyticsExploration,
+} from "shared/validators";
+import type { QueryInterface } from "shared/types/query";
 import { sortExplorationRows } from "@/enterprise/components/ProductAnalytics/util";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
+import Text from "@/ui/Text";
 
 type ColumnSlot =
   | { type: "dimension"; key: string; dimIndex: number }
@@ -106,10 +112,23 @@ function getSlotValue(
   return getMetricCellValue(row, slot.metricIndex, slot.sub);
 }
 
-export default function ExplorerDataTable({ hasChart }: { hasChart: boolean }) {
-  const { exploration, submittedExploreState, loading, error, isStale, query } =
-    useExplorerContext();
-
+export default function ExplorerDataTable({
+  exploration,
+  error,
+  submittedExploreState,
+  loading,
+  hasChart = false,
+  isStale = false,
+  query = null,
+}: {
+  exploration: ProductAnalyticsExploration | null;
+  error: string | null;
+  submittedExploreState: ExplorationConfig | null;
+  loading: boolean;
+  hasChart?: boolean;
+  isStale?: boolean;
+  query?: QueryInterface | null;
+}) {
   const dimensionColumnHeaders = useMemo(() => {
     const headers: string[] = [];
     for (const dimension of submittedExploreState?.dimensions || []) {
@@ -241,6 +260,26 @@ export default function ExplorerDataTable({ hasChart }: { hasChart: boolean }) {
     columnSchema,
     submittedExploreState,
   ]);
+
+  const hasEmptyData = useMemo(() => {
+    if (!exploration?.result?.rows?.length) return true;
+    return exploration.result.rows.every((r) => r.values.length === 0);
+  }, [exploration?.result?.rows]);
+
+  if (hasEmptyData && !hasChart) {
+    return (
+      <Flex
+        p="4"
+        style={{ textAlign: "center", flex: 1, minHeight: 0 }}
+        align="center"
+        justify="center"
+      >
+        <Text color="text-mid" weight="medium">
+          The query ran successfully, but no data was returned.
+        </Text>
+      </Flex>
+    );
+  }
 
   return (
     <DisplayTestQueryResults

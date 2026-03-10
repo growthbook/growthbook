@@ -7,8 +7,10 @@ import {
 import { ProductAnalyticsExploration } from "shared/validators";
 import useApi from "@/hooks/useApi";
 import ExplorerChart from "@/enterprise/components/ProductAnalytics/MainSection/ExplorerChart";
+import ExplorerDataTable from "@/enterprise/components/ProductAnalytics/MainSection/ExplorerDataTable";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Callout from "@/ui/Callout";
+import { shouldChartSectionShow } from "@/enterprise/components/ProductAnalytics/util";
 import { BlockProps } from ".";
 
 export default function ProductAnalyticsExplorerBlock({
@@ -40,14 +42,30 @@ export default function ProductAnalyticsExplorerBlock({
     );
   }
 
+  const shouldShowChart = shouldChartSectionShow({
+    loading: isLoading,
+    error: data?.exploration.error || error?.message || null,
+    submittedExploreState: block.config ?? data?.exploration.config,
+  });
+
   return (
     <Flex direction="column" style={{ height: 500 }} gap="2">
-      <ExplorerChart
-        exploration={data?.exploration}
-        error={data?.exploration.error || error?.message || null}
-        loading={isLoading}
-        submittedExploreState={block.config ?? data?.exploration.config}
-      />
+      {shouldShowChart ? (
+        <ExplorerChart
+          exploration={data?.exploration}
+          error={data?.exploration.error || error?.message || null}
+          loading={isLoading}
+          submittedExploreState={block.config ?? data?.exploration.config}
+        />
+      ) : (
+        <ExplorerDataTable
+          exploration={data.exploration}
+          error={data.exploration.error ?? error?.message ?? null}
+          submittedExploreState={block.config ?? data.exploration.config}
+          loading={isLoading}
+          hasChart={false}
+        />
+      )}
     </Flex>
   );
 }
