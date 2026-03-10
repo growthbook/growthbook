@@ -1082,17 +1082,17 @@ export function getSnapshotQueryRunnerKind({
   snapshotType: SnapshotType;
 }): SnapshotQueryRunnerKind {
   if (
-    !allowIncrementalRefresh ||
-    !isIncrementalRefreshEnabledForSnapshot({ datasource, experiment }) ||
-    (experiment.type !== undefined && experiment.type !== "standard") ||
-    !isExperimentCompatibleWithIncrementalRefresh
+    allowIncrementalRefresh &&
+    isIncrementalRefreshEnabledForSnapshot({ datasource, experiment }) &&
+    (experiment.type === undefined || experiment.type === "standard") &&
+    isExperimentCompatibleWithIncrementalRefresh
   ) {
-    return "results";
+    return snapshotType === "exploratory"
+      ? "incremental-exploratory"
+      : "incremental";
   }
 
-  return snapshotType === "exploratory"
-    ? "incremental-exploratory"
-    : "incremental";
+  return "results";
 }
 
 async function planSnapshotQueryRunner({
@@ -1160,7 +1160,6 @@ export type PlannedExperimentSnapshot = {
   useCache: boolean;
   fullRefresh: boolean;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
-  defaultAnalysisSettings: ExperimentSnapshotAnalysisSettings;
 };
 
 export async function planSnapshot({
@@ -1288,7 +1287,6 @@ export async function planSnapshot({
     useCache,
     fullRefresh,
     settingsForSnapshotMetrics,
-    defaultAnalysisSettings,
   };
 }
 
@@ -1415,16 +1413,21 @@ export async function createSnapshotFromPlan({
     runningSnapshot.type === "standard" &&
     runningSnapshot.triggeredBy !== "manual-dashboard"
   ) {
+    const defaultAnalysisSettings = runningSnapshot.analyses[0]?.settings;
+    if (!defaultAnalysisSettings) {
+      throw new Error("Snapshot is missing its default analysis settings");
+    }
+
     updateExperimentDashboards({
       context,
       experiment,
       mainSnapshot: runningSnapshot,
-      statsEngine: plan.defaultAnalysisSettings.statsEngine,
+      statsEngine: defaultAnalysisSettings.statsEngine,
       regressionAdjustmentEnabled:
-        plan.defaultAnalysisSettings.regressionAdjusted ??
+        defaultAnalysisSettings.regressionAdjusted ??
         DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
       postStratificationEnabled:
-        plan.defaultAnalysisSettings.postStratificationEnabled ??
+        defaultAnalysisSettings.postStratificationEnabled ??
         DEFAULT_POST_STRATIFICATION_ENABLED,
       settingsForSnapshotMetrics: plan.settingsForSnapshotMetrics,
       metricMap,

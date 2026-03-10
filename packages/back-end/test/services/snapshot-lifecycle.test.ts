@@ -169,6 +169,7 @@ function makeAnalysisSettings(
 function makePlan(
   overrides: Partial<PlannedExperimentSnapshot> = {},
 ): PlannedExperimentSnapshot {
+  const defaultAnalysisSettings = makeAnalysisSettings();
   return {
     snapshot: {
       id: "snp_123",
@@ -185,14 +186,20 @@ function makePlan(
       triggeredBy: "manual",
       unknownVariations: [],
       multipleExposures: 0,
-      analyses: [],
+      analyses: [
+        {
+          dateCreated: new Date("2025-02-01T00:00:00.000Z"),
+          results: [],
+          settings: defaultAnalysisSettings,
+          status: "running",
+        },
+      ],
       status: "running",
     } as ExperimentSnapshotInterface,
     runnerKind: "results",
     useCache: true,
     fullRefresh: false,
     settingsForSnapshotMetrics: [] as MetricSnapshotSettings[],
-    defaultAnalysisSettings: makeAnalysisSettings(),
     ...overrides,
   };
 }
