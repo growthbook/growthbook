@@ -12,6 +12,7 @@ import {
   SDKLanguage,
 } from "shared/types/sdk-connection";
 import { ApiSdkConnection } from "shared/types/openapi";
+import { WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD } from "shared/constants";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import {
   IS_CLOUD,
@@ -77,6 +78,7 @@ const sdkConnectionSchema = new mongoose.Schema({
     version: String,
     error: String,
     lastError: Date,
+    consecutiveFailures: Number,
   },
 });
 
@@ -241,6 +243,7 @@ export async function createSDKConnection(
       lastError: null,
       version: "",
       error: "",
+      consecutiveFailures: 0,
     }),
   };
 
@@ -318,9 +321,13 @@ export async function editSDKConnection(
   };
   if (proxyEnabled !== undefined && proxyEnabled !== connection.proxy.enabled) {
     newProxy.enabled = proxyEnabled;
+    if (proxyEnabled) {
+      newProxy.consecutiveFailures = 0;
+    }
   }
   if (proxyHost !== undefined && proxyHost !== connection.proxy.host) {
     newProxy.host = proxyHost;
+    newProxy.consecutiveFailures = 0;
 
     if (addEnvProxySettings(newProxy).host) {
       const res = await testProxyConnection(
@@ -447,6 +454,7 @@ export async function setProxyError(
   connection: SDKConnectionInterface,
   error: string,
 ) {
+  const consecutiveFailures = (connection.proxy.consecutiveFailures || 0) + 1;
   await SDKConnectionModel.updateOne(
     {
       organization: connection.organization,
@@ -457,6 +465,10 @@ export async function setProxyError(
         "proxy.error": error,
         "proxy.connected": false,
         "proxy.lastError": new Date(),
+        "proxy.consecutiveFailures": consecutiveFailures,
+        ...(consecutiveFailures >= WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD
+          ? { "proxy.enabled": false }
+          : {}),
       },
     },
   );
@@ -472,6 +484,7 @@ export async function clearProxyError(connection: SDKConnectionInterface) {
       $set: {
         "proxy.error": "",
         "proxy.connected": true,
+        "proxy.consecutiveFailures": 0,
       },
     },
   );
@@ -482,7 +495,7 @@ export async function testProxyConnection(
   updateDB: boolean = true,
 ): Promise<ProxyTestResult | undefined> {
   const proxy = connection.proxy;
-  if (!proxy || !proxy.enabled) {
+  if (!proxy) {
     return {
       status: 0,
       body: "",
@@ -543,6 +556,9 @@ export async function testProxyConnection(
           $set: {
             "proxy.connected": true,
             "proxy.version": version,
+            "proxy.error": "",
+            "proxy.consecutiveFailures": 0,
+            "proxy.enabled": true,
           },
         },
       );

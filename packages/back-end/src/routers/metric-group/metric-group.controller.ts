@@ -42,7 +42,7 @@ export const postMetricGroup = async (
     "id" | "organization" | "dateCreated" | "dateUpdated"
   > = {
     ...data,
-    owner: data.owner || "",
+    owner: data.owner || context.userId || "",
     description: data.description || "",
     tags: data.tags || [],
     projects: data.projects || [],

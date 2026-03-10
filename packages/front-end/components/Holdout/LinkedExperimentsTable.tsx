@@ -15,7 +15,7 @@ interface Props {
 }
 
 const LinkedExperimentsTable = ({ holdout, experiments }: Props) => {
-  const { getUserDisplay } = useUser();
+  const { getOwnerDisplay } = useUser();
   const getExperimentStatusIndicator = useExperimentStatusIndicator();
 
   const experimentItems = useAddComputedFields(
@@ -23,20 +23,21 @@ const LinkedExperimentsTable = ({ holdout, experiments }: Props) => {
     (exp) => {
       const statusIndicator = getExperimentStatusIndicator(exp);
       return {
-        ...experiments,
+        ...exp,
+        ownerNameDisplay: getOwnerDisplay(exp.owner),
         dateAdded: holdout.linkedExperiments[exp.id]?.dateAdded,
         dateEnded: exp.phases[exp.phases.length - 1]?.dateEnded,
         statusIndicator,
       };
     },
-    [holdout, experiments],
+    [getExperimentStatusIndicator, getOwnerDisplay, holdout],
   );
 
   const { items, SortableTH } = useSearch({
     items: experimentItems,
     defaultSortField: "dateAdded",
     localStorageKey: "holdoutLinkedExperiments",
-    searchFields: ["name", "status", "owner"],
+    searchFields: ["name", "status", "ownerNameDisplay"],
   });
 
   const router = useRouter();
@@ -64,7 +65,7 @@ const LinkedExperimentsTable = ({ holdout, experiments }: Props) => {
             <SortableTH field="releasedVariationId">
               Shipped Variation
             </SortableTH>
-            <SortableTH field="owner">Owner</SortableTH>
+            <SortableTH field="ownerNameDisplay">Owner</SortableTH>
             <SortableTH field="dateAdded">In Holdout</SortableTH>
             <SortableTH field="dateEnded">Date Ended</SortableTH>
           </tr>
@@ -124,7 +125,7 @@ const LinkedExperimentsTable = ({ holdout, experiments }: Props) => {
                   )}
                 </td>
                 <td data-title="Owner" className="col-2">
-                  {getUserDisplay(exp.owner, false)}
+                  {exp.ownerNameDisplay}
                 </td>
                 <td data-title="Date Added">
                   {exp.dateAdded ? date(exp.dateAdded) : ""}

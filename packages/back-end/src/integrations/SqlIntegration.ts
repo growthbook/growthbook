@@ -7891,7 +7891,7 @@ ORDER BY column_name, count DESC
               (
                 d,
               ) => `LEFT JOIN __dim_unit_${d.dimension.id} __dim_unit_${d.dimension.id} ON (
-            __dim_unit_${d.dimension.id}.${baseIdType} = e.${baseIdType}
+            ${this.castToString(`__dim_unit_${d.dimension.id}.${baseIdType}`)} = e.${baseIdType}
           )`,
             )
             .join("\n")}

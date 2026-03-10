@@ -13,7 +13,7 @@ const BaseClass = MakeModelClass({
     updateEvent: "savedQuery.update",
     deleteEvent: "savedQuery.delete",
   },
-  globallyUniqueIds: false,
+  globallyUniquePrimaryKeys: false,
   additionalIndexes: [
     {
       fields: {

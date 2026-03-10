@@ -3,7 +3,13 @@ import {
   getSnapshotAnalysis,
   ensureAndReturn,
 } from "shared/util";
-import { getMetricResultStatus } from "shared/experiments";
+import {
+  expandMetricGroups,
+  getMetricResultStatus,
+  setAdjustedCIs,
+  setAdjustedPValuesOnResults,
+} from "shared/experiments";
+import cloneDeep from "lodash/cloneDeep";
 import {
   PRESET_DECISION_CRITERIA,
   PRESET_DECISION_CRITERIAS,
@@ -23,7 +29,6 @@ import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { Context } from "back-end/src/models/BaseModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
-import { getExperimentWatchers } from "back-end/src/models/WatchModel";
 import { logger } from "back-end/src/util/logger";
 import {
   ExperimentSnapshotDocument,
@@ -34,6 +39,7 @@ import {
   getConfidenceLevelsForOrg,
   getEnvironmentIdsFromOrg,
   getMetricDefaultsForOrg,
+  getPValueCorrectionForOrg,
   getPValueThresholdForOrg,
 } from "./organizations";
 import { isEmailEnabled, sendExperimentChangesEmail } from "./email";
@@ -226,6 +232,7 @@ type ExperimentSignificanceChange = {
 };
 
 const sendSignificanceEmail = async (
+  context: Context,
   experiment: ExperimentInterface,
   experimentChanges: ExperimentSignificanceChange[],
 ) => {
@@ -246,9 +253,8 @@ const sendSignificanceEmail = async (
 
   try {
     // send an email to any subscribers on this test:
-    const watchers = await getExperimentWatchers(
+    const watchers = await context.models.watch.getExperimentWatchers(
       experiment.id,
-      experiment.organization,
     );
 
     await sendExperimentChangesEmail(
@@ -272,8 +278,7 @@ export const computeExperimentChanges = async ({
   snapshot: ExperimentSnapshotDocument;
 }): Promise<ExperimentSignificanceChange[]> => {
   const currentAnalysis = getSnapshotAnalysis(currentSnapshot);
-  const currentVariations = currentAnalysis?.results?.[0]?.variations;
-  if (!currentAnalysis || !currentVariations) {
+  if (!currentAnalysis?.results?.[0]?.variations) {
     return [];
   }
 
@@ -285,7 +290,6 @@ export const computeExperimentChanges = async ({
   const lastAnalysis = lastSnapshot
     ? getSnapshotAnalysis(lastSnapshot)
     : undefined;
-  const lastVariations = lastAnalysis?.results?.[0]?.variations;
 
   // TODO refactor to only do once per update
   // get the org level settings for significance:
@@ -293,6 +297,36 @@ export const computeExperimentChanges = async ({
   const { ciUpper, ciLower } = getConfidenceLevelsForOrg(context);
   const metricDefaults = getMetricDefaultsForOrg(context);
   const pValueThreshold = getPValueThresholdForOrg(context);
+  const pValueCorrection = getPValueCorrectionForOrg(context);
+
+  // Apply p-value correction to match what the UI and analysisSummary use,
+  // so notifications don't fire for metrics that appear non-significant to users
+  const metricGroups = await context.models.metricGroups.getAll();
+  const expandedGoalMetrics = expandMetricGroups(
+    experiment.goalMetrics,
+    metricGroups,
+  );
+
+  const currentResults = cloneDeep(currentAnalysis.results);
+  setAdjustedPValuesOnResults(
+    currentResults,
+    expandedGoalMetrics,
+    pValueCorrection,
+  );
+  setAdjustedCIs(currentResults, pValueThreshold);
+  const currentVariations = currentResults[0]?.variations;
+
+  let lastVariations = lastAnalysis?.results?.[0]?.variations;
+  if (lastAnalysis) {
+    const lastResults = cloneDeep(lastAnalysis.results);
+    setAdjustedPValuesOnResults(
+      lastResults,
+      expandedGoalMetrics,
+      pValueCorrection,
+    );
+    setAdjustedCIs(lastResults, pValueThreshold);
+    lastVariations = lastResults[0]?.variations;
+  }
 
   const experimentChanges: ExperimentSignificanceChange[] = [];
 
@@ -402,7 +436,7 @@ export const notifySignificance = async ({
     snapshot.triggeredBy === "schedule" &&
     snapshot.type === "standard"
   ) {
-    await sendSignificanceEmail(experiment, experimentChanges);
+    await sendSignificanceEmail(context, experiment, experimentChanges);
   }
 
   await Promise.all(
