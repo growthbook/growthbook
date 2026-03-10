@@ -128,7 +128,7 @@
     }
     .rdp-day_button {
       position: relative;
-      border-radius: 8px;
+      border-radius: var(--radius-4);
     }
     &:not(.rdp-disabled) .rdp-day_button {
       &::after {
@@ -182,7 +182,7 @@
       display: block;
       width: 28px;
       height: 28px;
-      border-radius: 8px;
+      border-radius: var(--radius-4);
     }
     &.originalDate,
     &.originalDate2 {
@@ -407,16 +407,14 @@ p.rt-TooltipText {
   }
 }
 
-// List table variant: sticky header, row hover
+// List table variant: sticky header, row hover (use same solid surface as surface variant)
 .table-list-wrapper {
   &[data-table-list] {
-    // Contain table to viewport: horizontal (and vertical) scroll inside wrapper so table doesn't expand the page.
-    // Sticky header sticks to the top of this wrapper when scrolling inside it.
     max-width: 100%;
     overflow: visible;
-    // Override .appbox: no border, no background; border is on the table
     background-color: transparent;
-    border: none;
+    border: none !important;
+    border-radius: 0;
     .rt-TableRoot.table-list {
       border: none;
       background-color: transparent;
@@ -425,19 +423,18 @@ p.rt-TooltipText {
     .rt-ScrollAreaViewport {
       overflow: visible !important;
     }
-    // Background on table; cells inherit (row hover overrides)
     .rt-TableBody .rt-TableRow .rt-TableCell {
       box-sizing: border-box;
     }
     .rt-TableBody .rt-TableRow:hover .rt-TableCell {
-      background-color: var(--table-row-highlight-background-color);
+      background-color: var(--gray-a2);
     }
     .rt-TableHeader {
       position: sticky;
       top: var(--table-sticky-top, var(--sticky-header-top));
       z-index: 900;
       width: 100%;
-      background-color: var(--table-list-background-color);
+      background-color: var(--color-panel-solid);
       box-shadow: 0 4px 6px -2px rgba(0, 0, 0, 0.1);
       overflow: visible;
       box-sizing: border-box;
@@ -454,7 +451,7 @@ p.rt-TooltipText {
       border-spacing: 0;
       border: 1px solid var(--slate-a5, rgba(0, 9, 50, 0.12));
       border-radius: var(--radius-4);
-      background-color: var(--table-list-background-color);
+      background-color: var(--color-panel-solid);
       box-sizing: border-box;
       // Size to content so wrapper scroll matches table width; header row is part of same table so it aligns
       width: max-content;
