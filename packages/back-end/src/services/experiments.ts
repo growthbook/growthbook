@@ -133,7 +133,7 @@ import {
   addOrUpdateSnapshotAnalysis,
   clearExecutionMetadata,
   createExperimentSnapshotModel,
-  findActiveStandardWriterSnapshotExecution,
+  findActiveStandardWriterSnapshot,
   findSnapshotById,
   getLatestSnapshotMultipleExperiments,
   updateSnapshot,
@@ -1244,7 +1244,7 @@ export async function requestExperimentSnapshot({
   // If a standard writer is actively running, the exploratory snapshot can't
   // proceed (it builds on top of the standard data). Return the in-progress
   // standard snapshot so the front-end polls until it completes.
-  const activeWriter = await findActiveStandardWriterSnapshotExecution(
+  const activeWriter = await findActiveStandardWriterSnapshot(
     context.org.id,
     experiment.id,
   );
@@ -1459,7 +1459,7 @@ export async function createOrReuseStandardSnapshotExecution({
     type: "standard",
   });
 
-  const existingWriter = await findActiveStandardWriterSnapshotExecution(
+  const existingWriter = await findActiveStandardWriterSnapshot(
     context.org.id,
     experiment.id,
   );
@@ -1546,7 +1546,7 @@ export async function createOrReuseStandardSnapshotExecution({
   } catch (error) {
     if (!isDuplicateKeyError(error)) throw error;
 
-    const activeSnapshot = await findActiveStandardWriterSnapshotExecution(
+    const activeSnapshot = await findActiveStandardWriterSnapshot(
       context.org.id,
       experiment.id,
     );
@@ -1696,7 +1696,6 @@ export async function createSnapshot({
     type === "standard"
       ? {
           mode: isStandardIncrementalWriter ? "writer" : "reader",
-          id: snapshotId,
           intent: refreshIntent,
           heartbeat: new Date(),
         }

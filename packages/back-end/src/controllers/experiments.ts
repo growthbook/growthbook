@@ -134,7 +134,7 @@ import {
   validateCustomFieldsForSection,
 } from "back-end/src/util/custom-fields";
 
-const SNAPSHOT_WAIT_TIMEOUT_MS = 30 * 60 * 1000;
+export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
 
 export async function getExperiments(
   req: AuthRequest<
@@ -1288,6 +1288,7 @@ export async function postExperiments(
         await requestExperimentSnapshot({
           context,
           experiment,
+          dimension: "",
           phaseIndex: 0,
           useCache: true,
         });
@@ -2912,8 +2913,6 @@ export async function postSnapshot(
 
   const useCache = !req.query["force"];
 
-  // Snapshot refresh requests are async. We return the snapshot immediately
-  // in its current state and do not wait for completion.
   const { snapshot, existingExecution } = await requestExperimentSnapshot({
     context,
     experiment,
@@ -3062,27 +3061,31 @@ export async function postBanditSnapshot(
     throw new Error("Could not find datasource for this experiment");
   }
 
-  req.setTimeout(SNAPSHOT_WAIT_TIMEOUT_MS);
-
+  // We wait until the snapshot is fully updated, which can
+  // take some time, so we use increased timeout.
+  req.setTimeout(SNAPSHOT_TIMEOUT);
   let snapshot: ExperimentSnapshotInterface | undefined = undefined;
+
   ({ snapshot } = await requestExperimentSnapshot({
     context,
     experiment,
+    dimension: "",
     phaseIndex: phase,
     useCache: false,
     type: "standard",
     reweight,
   }));
+
   snapshot = await waitForSnapshotExecution({
     context,
     snapshotId: snapshot.id,
-    timeoutMs: SNAPSHOT_WAIT_TIMEOUT_MS,
+    timeoutMs: SNAPSHOT_TIMEOUT,
   });
 
   if (!snapshot.banditResult) {
     return res.status(400).json({
       status: 400,
-      message: snapshot.error || "Unable to update bandit.",
+      message: "Unable to update bandit.",
       snapshot,
     });
   }

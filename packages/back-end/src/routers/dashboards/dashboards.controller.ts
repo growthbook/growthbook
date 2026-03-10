@@ -184,23 +184,30 @@ export async function refreshDashboardData(
     if (!experiment)
       throw new Error("Cannot update dashboard without an attached experiment");
 
-    const { snapshot: mainSnapshot } = await requestExperimentSnapshot({
-      context,
-      experiment,
-      phaseIndex: experiment.phases.length - 1,
-      useCache: false,
-      type: "standard",
-      triggeredBy: "manual-dashboard",
-    });
-
     const datasource = await getDataSourceById(context, experiment.datasource);
     if (!datasource) throw new Error("Failed to find connected datasource");
 
+    const { snapshot: mainSnapshot } = await requestExperimentSnapshot({
+      context,
+      experiment,
+      dimension: undefined,
+      phaseIndex: experiment.phases.length - 1,
+      useCache: false,
+      triggeredBy: "manual-dashboard",
+      type: "standard",
+      // TODO: Missing `preventStartingAnalysis` ?
+    });
+
     // Copy the blocks of the dashboard to overwrite their snapshot IDs
     const newBlocks = dashboard.blocks.map((block) => {
-      if (!blockHasFieldOfType(block, "snapshotId", isString))
+      if (!blockHasFieldOfType(block, "snapshotId", isString)) {
         return { ...block };
-      if (!snapshotSatisfiesBlock(mainSnapshot, block)) return { ...block };
+      }
+
+      if (!snapshotSatisfiesBlock(mainSnapshot, block)) {
+        return { ...block };
+      }
+
       return { ...block, snapshotId: mainSnapshot.id };
     });
 

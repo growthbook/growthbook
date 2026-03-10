@@ -78,9 +78,12 @@ const experimentSnapshotSchema = new mongoose.Schema({
   status: String,
   executionMetadata: {
     _id: false,
-    id: String,
     mode: String,
-    intent: {},
+    intent: {
+      _id: false,
+      banditReweightRequested: Boolean,
+      triggeredBySchedule: Boolean,
+    },
     heartbeat: Date,
   },
   settings: {},
@@ -584,7 +587,7 @@ export async function getLatestSnapshot({
   return all[0] ? toInterface(all[0]) : null;
 }
 
-export async function findActiveStandardWriterSnapshotExecution(
+export async function findActiveStandardWriterSnapshot(
   organizationId: string,
   experimentId: string,
 ): Promise<ExperimentSnapshotInterface | null> {
@@ -593,9 +596,10 @@ export async function findActiveStandardWriterSnapshotExecution(
       organization: organizationId,
       experiment: experimentId,
       // TODO: Is standard the only one that needs this?
+      // TODO: How can we make sure this is kept in sync with the index? Do we need?
       type: "standard",
       status: "running",
-      // TODO: Make this write a const somewhere
+      // TODO: Make this writer a const somewhere
       "executionMetadata.mode": "writer",
     },
     null,
@@ -607,6 +611,11 @@ export async function findActiveStandardWriterSnapshotExecution(
   return doc ? toInterface(doc) : null;
 }
 
+// TODO(adriel): Why is this function so complex looking?
+// Do we need fancy $set vs $unset? Is it just heartbeat?
+// But we have updateExecutionHeartbeat function
+// How can we simplify things?
+// Can we merge with clearExecutionMetadata?
 export async function updateExecutionMetadata({
   organizationId,
   snapshotId,
@@ -640,6 +649,7 @@ export async function updateExecutionMetadata({
       id: snapshotId,
     },
     mongoUpdate,
+    // TODO(adriel): Why do we need new: true?
     { new: true },
   );
 

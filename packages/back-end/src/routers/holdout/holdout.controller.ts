@@ -261,6 +261,7 @@ export const createHoldout = async (
         await requestExperimentSnapshot({
           context,
           experiment,
+          dimension: "",
           phaseIndex: 0,
           useCache: true,
         });
