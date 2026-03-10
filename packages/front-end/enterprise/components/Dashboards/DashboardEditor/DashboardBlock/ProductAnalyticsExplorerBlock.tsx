@@ -10,7 +10,6 @@ import ExplorerChart from "@/enterprise/components/ProductAnalytics/MainSection/
 import ExplorerDataTable from "@/enterprise/components/ProductAnalytics/MainSection/ExplorerDataTable";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Callout from "@/ui/Callout";
-import { shouldChartSectionShow } from "@/enterprise/components/ProductAnalytics/util";
 import { BlockProps } from ".";
 
 export default function ProductAnalyticsExplorerBlock({
@@ -42,15 +41,13 @@ export default function ProductAnalyticsExplorerBlock({
     );
   }
 
-  const shouldShowChart = shouldChartSectionShow({
-    loading: isLoading,
-    error: data?.exploration.error || error?.message || null,
-    submittedExploreState: block.config ?? data?.exploration.config,
-  });
+  const shouldShowTable = ["table", "timeseries-table"].includes(
+    block.config?.chartType ?? "",
+  );
 
   return (
     <Flex direction="column" style={{ height: 500 }} gap="2">
-      {shouldShowChart ? (
+      {!shouldShowTable ? (
         <ExplorerChart
           exploration={data?.exploration}
           error={data?.exploration.error || error?.message || null}
