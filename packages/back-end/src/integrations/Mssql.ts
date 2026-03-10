@@ -1,17 +1,16 @@
-import { MssqlConnectionParams } from "back-end/types/integrations/mssql";
+import { DateTruncGranularity, FormatDialect } from "shared/types/sql";
+import { QueryResponse } from "shared/types/integrations";
+import { MssqlConnectionParams } from "shared/types/integrations/mssql";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
-import { FormatDialect } from "back-end/src/util/sql";
 import { findOrCreateConnection } from "back-end/src/util/mssqlPoolManager";
-import { QueryResponse } from "back-end/src/types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Mssql extends SqlIntegration {
   params!: MssqlConnectionParams;
   requiresSchema = false;
   setParams(encryptedParams: string) {
-    this.params = decryptDataSourceParams<MssqlConnectionParams>(
-      encryptedParams
-    );
+    this.params =
+      decryptDataSourceParams<MssqlConnectionParams>(encryptedParams);
   }
   getFormatDialect(): FormatDialect {
     return "tsql";
@@ -40,17 +39,26 @@ export default class Mssql extends SqlIntegration {
     return `SELECT TOP ${limit} * FROM ${table}`;
   }
 
+  ensureMaxLimit(sql: string, limit: number): string {
+    return `WITH __table AS (\n${sql}\n) SELECT TOP ${limit} * FROM __table`;
+  }
+
   addTime(
     col: string,
     unit: "hour" | "minute",
     sign: "+" | "-",
-    amount: number
+    amount: number,
   ): string {
     return `DATEADD(${unit}, ${sign === "-" ? "-" : ""}${amount}, ${col})`;
   }
-  dateTrunc(col: string) {
-    //return `DATETRUNC(day, ${col})`; <- this is only supported in SQL Server 2022 preview.
-    return `cast(${col} as DATE)`;
+  dateTrunc(col: string, granularity: DateTruncGranularity = "day") {
+    // Widely supported shortcut for day granularity (most commonly used)
+    if (granularity === "day") {
+      return `cast(${col} as DATE)`;
+    }
+
+    // DATETRUNC is only supported in SQL Server 2022 preview.
+    return `DATETRUNC(${granularity}, ${col})`;
   }
   ensureFloat(col: string): string {
     return `CAST(${col} as FLOAT)`;
@@ -70,6 +78,10 @@ export default class Mssql extends SqlIntegration {
   extractJSONField(jsonCol: string, path: string, isNumeric: boolean): string {
     const raw = `JSON_VALUE(${jsonCol}, '$.${path}')`;
     return isNumeric ? this.ensureFloat(raw) : raw;
+  }
+  evalBoolean(col: string, value: boolean): string {
+    // MS SQL does not support `IS TRUE` / `IS FALSE`
+    return `${col} = ${value ? "1" : "0"}`;
   }
   getDefaultDatabase() {
     return this.params.database;

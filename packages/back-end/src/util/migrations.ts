@@ -6,43 +6,39 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
-import { omit } from "lodash";
-import { SavedGroupInterface } from "shared/src/types";
 import { v4 as uuidv4 } from "uuid";
 import { accountFeatures } from "shared/enterprise";
 import {
-  ExperimentReportArgs,
+  LegacyExperimentReportArgs,
   ExperimentReportInterface,
   LegacyReportInterface,
-} from "back-end/types/report";
-import { WebhookInterface } from "back-end/types/webhook";
-import { SdkWebHookLogDocument } from "back-end/src/models/SdkWebhookLogModel";
-import { LegacyMetricInterface, MetricInterface } from "back-end/types/metric";
+} from "shared/types/report";
+import { LegacyMetricInterface, MetricInterface } from "shared/types/metric";
 import {
   DataSourceInterface,
   DataSourceSettings,
-} from "back-end/types/datasource";
-import { decryptDataSourceParams } from "back-end/src/services/datasource";
+} from "shared/types/datasource";
 import {
   FeatureDraftChanges,
   FeatureEnvironment,
   FeatureInterface,
   FeatureRule,
   LegacyFeatureInterface,
-} from "back-end/types/feature";
-import { OrganizationInterface } from "back-end/types/organization";
-import { getConfigOrganizationSettings } from "back-end/src/init/config";
+} from "shared/types/feature";
+import { OrganizationInterface } from "shared/types/organization";
 import {
   ExperimentInterface,
   LegacyExperimentInterface,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import {
   LegacyExperimentSnapshotInterface,
   ExperimentSnapshotInterface,
   MetricForSnapshot,
-} from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment-snapshot";
 import { getEnvironments } from "back-end/src/services/organizations";
-import { LegacySavedGroupInterface } from "back-end/types/saved-group";
+import { getConfigOrganizationSettings } from "back-end/src/init/config";
+import { decryptDataSourceParams } from "back-end/src/services/datasource";
+import { SdkWebHookLogDocument } from "back-end/src/models/SdkWebhookLogModel";
 import { getAccountPlan } from "back-end/src/enterprise";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets";
 
@@ -160,7 +156,7 @@ export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
 export function getDefaultExperimentQuery(
   settings: DataSourceSettings,
   userIdType = "user_id",
-  schema?: string
+  schema?: string,
 ): string {
   let column = userIdType;
 
@@ -194,7 +190,7 @@ FROM
 }
 
 export function upgradeDatasourceObject(
-  datasource: DataSourceInterface
+  datasource: DataSourceInterface,
 ): DataSourceInterface {
   datasource.settings = datasource.settings || {};
 
@@ -206,6 +202,11 @@ export function upgradeDatasourceObject(
       { userIdType: "user_id", description: "Logged-in user id" },
       { userIdType: "anonymous_id", description: "Anonymous visitor id" },
     ];
+  }
+
+  // Sanity check as somehow this ended up with null value in the array
+  if (settings.userIdTypes) {
+    settings.userIdTypes = settings.userIdTypes?.filter((it) => !!it);
   }
 
   // Upgrade old docs to the new exposure queries format
@@ -251,6 +252,15 @@ export function upgradeDatasourceObject(
     }
   }
 
+  // mode field was added later -- default to ephemeral if missing
+  if (
+    settings &&
+    settings.pipelineSettings &&
+    !settings.pipelineSettings.mode
+  ) {
+    settings.pipelineSettings.mode = "ephemeral";
+  }
+
   return datasource;
 }
 
@@ -258,7 +268,7 @@ function updateEnvironmentSettings(
   rules: FeatureRule[],
   environments: string[],
   environment: string,
-  feature: FeatureInterface
+  feature: FeatureInterface,
 ) {
   const settings: Partial<FeatureEnvironment> =
     feature.environmentSettings?.[environment] || {};
@@ -281,7 +291,7 @@ function updateEnvironmentSettings(
 
 function draftHasChanges(
   feature: FeatureInterface,
-  draft: FeatureDraftChanges
+  draft: FeatureDraftChanges,
 ) {
   if (!draft?.active) return false;
 
@@ -320,7 +330,7 @@ export function upgradeFeatureRule(rule: FeatureRule): FeatureRule {
 
     const multiplier = totalWeight > 0 ? 1 / totalWeight : 0;
     const adjustedWeights = adjustWeights(
-      weights.map((w) => roundVariationWeight(w * multiplier))
+      weights.map((w) => roundVariationWeight(w * multiplier)),
     );
 
     rule.values = rule.values.map((v, j) => {
@@ -332,7 +342,7 @@ export function upgradeFeatureRule(rule: FeatureRule): FeatureRule {
 }
 
 export function upgradeFeatureInterface(
-  feature: LegacyFeatureInterface
+  feature: LegacyFeatureInterface,
 ): FeatureInterface {
   const { environments, rules, revision, draft, ...newFeature } = feature;
 
@@ -342,7 +352,7 @@ export function upgradeFeatureInterface(
     rules || [],
     environments || [],
     "production",
-    newFeature
+    newFeature,
   );
 
   newFeature.version = feature.version || revision?.version || 1;
@@ -377,7 +387,7 @@ export function upgradeFeatureInterface(
           if (draft.rules && draft.rules[env]) {
             revisionRules[env] = draft.rules[env];
           }
-        }
+        },
       );
 
       newFeature.legacyDraft = {
@@ -415,7 +425,7 @@ export function upgradeFeatureInterface(
 }
 
 export function upgradeOrganizationDoc(
-  doc: OrganizationInterface
+  doc: OrganizationInterface,
 ): OrganizationInterface {
   const org = cloneDeep(doc);
   const commercialFeatures = [...accountFeatures[getAccountPlan(org)]];
@@ -430,9 +440,8 @@ export function upgradeOrganizationDoc(
   // Change old `implementationTypes` field to new `visualEditorEnabled` field
   if (org.settings.implementationTypes) {
     if (!("visualEditorEnabled" in org.settings)) {
-      org.settings.visualEditorEnabled = org.settings.implementationTypes.includes(
-        "visual"
-      );
+      org.settings.visualEditorEnabled =
+        org.settings.implementationTypes.includes("visual");
     }
     delete org.settings.implementationTypes;
   }
@@ -506,11 +515,23 @@ export function upgradeOrganizationDoc(
     }));
   }
 
+  // Migrate postStratificationDisabled to postStratificationEnabled
+  // If postStratificationEnabled is undefined OR true, it means ON
+  // Only if postStratificationEnabled is explicitly false should it be OFF
+  if (org.settings?.postStratificationDisabled !== undefined) {
+    // Convert from inverted logic: disabled=true -> enabled=false
+    if (org.settings.postStratificationEnabled === undefined) {
+      org.settings.postStratificationEnabled =
+        !org.settings.postStratificationDisabled;
+    }
+    delete org.settings.postStratificationDisabled;
+  }
+
   return org;
 }
 
 export function upgradeExperimentDoc(
-  orig: LegacyExperimentInterface
+  orig: LegacyExperimentInterface,
 ): ExperimentInterface {
   const experiment = cloneDeep(orig);
 
@@ -609,6 +630,10 @@ export function upgradeExperimentDoc(
     });
   }
 
+  if (experiment.decisionFrameworkSettings === undefined) {
+    experiment.decisionFrameworkSettings = {};
+  }
+
   // releasedVariationId
   if (!("releasedVariationId" in experiment)) {
     if (experiment.status === "stopped") {
@@ -629,7 +654,8 @@ export function upgradeExperimentDoc(
     experiment.sequentialTestingEnabled = false;
   }
   if (!("sequentialTestingTuningParameter" in experiment)) {
-    experiment.sequentialTestingTuningParameter = DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
+    experiment.sequentialTestingTuningParameter =
+      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
   }
 
   if (!("shareLevel" in experiment)) {
@@ -643,7 +669,7 @@ export function upgradeExperimentDoc(
 }
 
 export function migrateExperimentReport(
-  orig: LegacyReportInterface
+  orig: LegacyReportInterface,
 ): ExperimentReportInterface {
   const { args, ...report } = orig;
 
@@ -655,7 +681,7 @@ export function migrateExperimentReport(
     ...otherArgs
   } = args || {};
 
-  const newArgs: ExperimentReportArgs = {
+  const newArgs: LegacyExperimentReportArgs = {
     secondaryMetrics: [],
     ...otherArgs,
     attributionModel:
@@ -664,6 +690,7 @@ export function migrateExperimentReport(
         : attributionModel,
     goalMetrics: otherArgs.goalMetrics || metrics || [],
     guardrailMetrics: otherArgs.guardrailMetrics || guardrails || [],
+    decisionFrameworkSettings: otherArgs.decisionFrameworkSettings || {},
   };
 
   if (
@@ -680,7 +707,7 @@ export function migrateExperimentReport(
         regressionAdjustmentDays: m.regressionAdjustmentDays,
         regressionAdjustmentEnabled: m.regressionAdjustmentEnabled,
         regressionAdjustmentAvailable: m.regressionAdjustmentAvailable,
-      })
+      }),
     );
   }
 
@@ -691,7 +718,7 @@ export function migrateExperimentReport(
 }
 
 export function migrateSnapshot(
-  orig: LegacyExperimentSnapshotInterface
+  orig: LegacyExperimentSnapshotInterface,
 ): ExperimentSnapshotInterface {
   const {
     activationMetric,
@@ -731,7 +758,7 @@ export function migrateSnapshot(
       const regressionAdjusted =
         regressionAdjustmentEnabled &&
         metricRegressionAdjustmentStatuses?.some(
-          (s) => s.regressionAdjustmentEnabled
+          (s) => s.regressionAdjustmentEnabled,
         )
           ? true
           : false;
@@ -768,8 +795,8 @@ export function migrateSnapshot(
     snapshot.status = snapshot.error
       ? "error"
       : snapshot.analyses.length > 0
-      ? "success"
-      : "running";
+        ? "success"
+        : "running";
   }
 
   const defaultMetricPriorSettings = {
@@ -788,7 +815,7 @@ export function migrateSnapshot(
 
     const metricSettings: MetricForSnapshot[] = metricIds.map((id) => {
       const regressionSettings = metricRegressionAdjustmentStatuses?.find(
-        (s) => s.metric === id
+        (s) => s.metric === id,
       );
 
       return {
@@ -810,14 +837,15 @@ export function migrateSnapshot(
             regressionAdjustmentEnabled &&
             regressionSettings?.regressionAdjustmentEnabled
           ),
-          regressionAdjustmentAvailable: !!regressionSettings?.regressionAdjustmentAvailable,
+          regressionAdjustmentAvailable:
+            !!regressionSettings?.regressionAdjustmentAvailable,
           regressionAdjustmentReason: regressionSettings?.reason || "",
+          targetMDE: undefined,
         },
       };
     });
 
     snapshot.settings = {
-      manual: !!manual,
       dimensions: snapshot.dimension
         ? [
             {
@@ -842,6 +870,8 @@ export function migrateSnapshot(
       skipPartialData: !!skipPartialData,
       attributionModel: "firstExposure",
       variations,
+      // Deprecated manual setting
+      ...(manual !== undefined ? { manual: !!manual } : {}),
     };
   } else {
     // Add new settings field in case it is missing
@@ -874,7 +904,7 @@ export function migrateSnapshot(
           }
         }
         return m;
-      }
+      },
     );
   }
 
@@ -898,55 +928,12 @@ export function migrateSnapshot(
   return snapshot;
 }
 
-export function migrateSavedGroup(
-  legacy: LegacySavedGroupInterface
-): SavedGroupInterface {
-  // Add `type` field to legacy groups
-  const { source, type, ...otherFields } = legacy;
-  const group: SavedGroupInterface = {
-    ...otherFields,
-    type: type || (source === "runtime" ? "condition" : "list"),
-  };
-
-  // Migrate legacy runtime groups to use a condition
-  if (
-    group.type === "condition" &&
-    !group.condition &&
-    source === "runtime" &&
-    group.attributeKey
-  ) {
-    group.condition = JSON.stringify({
-      $groups: {
-        $elemMatch: {
-          $eq: group.attributeKey,
-        },
-      },
-    });
-  }
-
-  return group;
-}
-
 export function migrateSdkWebhookLogModel(
-  doc: SdkWebHookLogDocument
+  doc: SdkWebHookLogDocument,
 ): SdkWebHookLogDocument {
   if (doc?.webhookReduestId) {
     doc.webhookRequestId = doc.webhookReduestId;
     delete doc.webhookReduestId;
   }
   return doc;
-}
-
-export function migrateWebhookModel(doc: WebhookInterface): WebhookInterface {
-  const newDoc = omit(doc, ["sendPayload"]) as WebhookInterface;
-  if (!doc.payloadFormat) {
-    if (doc.httpMethod === "GET") {
-      newDoc.payloadFormat = "none";
-    } else if (doc.sendPayload) {
-      newDoc.payloadFormat = "standard";
-    } else {
-      newDoc.payloadFormat = "standard-no-payload";
-    }
-  }
-  return newDoc;
 }

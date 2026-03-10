@@ -15,7 +15,7 @@ const getValueFromSessionStorage = (key: string, defaultValue) => {
 
 export const useSessionStorage = <T>(
   key: string,
-  defaultValue: T
+  defaultValue: T,
 ): [T, Dispatch<SetStateAction<T>>] => {
   const [value, setValue] = useState(() => {
     return getValueFromSessionStorage(key, defaultValue);

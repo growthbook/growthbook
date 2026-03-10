@@ -1,34 +1,38 @@
-import { useRouter } from "next/router";
-import { FeatureInterface } from "back-end/types/feature";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { FeatureInterface } from "shared/types/feature";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import React, { useMemo, useState } from "react";
-import { FaExclamationTriangle, FaLink } from "react-icons/fa";
+import { FaExclamationTriangle } from "react-icons/fa";
+import {
+  PiCheck,
+  PiLink,
+  PiArrowsLeftRightBold,
+  PiCheckCircleFill,
+  PiCircleDuotone,
+  PiFileX,
+  PiInfo,
+  PiPlusCircleBold,
+} from "react-icons/pi";
 import { FaBoltLightning } from "react-icons/fa6";
 import { ago, datetime } from "shared/dates";
 import {
   autoMerge,
   checkIfRevisionNeedsReview,
-  evaluatePrerequisiteState,
   filterEnvironmentsByFeature,
   mergeResultHasChanges,
-  PrerequisiteStateResult,
 } from "shared/util";
 import { MdRocketLaunch } from "react-icons/md";
 import { BiHide, BiShow } from "react-icons/bi";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import Link from "next/link";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { BsClock } from "react-icons/bs";
+import { FeatureUsageLookback } from "shared/types/integrations";
+import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import {
-  PiCheckCircleFill,
-  PiCircleDuotone,
-  PiFileX,
-  PiInfo,
-} from "react-icons/pi";
-import { FeatureUsageLookback } from "back-end/src/types/Integration";
-import { Box, Flex, Heading, Switch, Text } from "@radix-ui/themes";
-import { RxListBullet } from "react-icons/rx";
-import Button from "@/components/Radix/Button";
-import { GBAddCircle, GBEdit } from "@/components/Icons";
+  SafeRolloutInterface,
+  HoldoutInterface,
+  MinimalFeatureRevisionInterface,
+} from "shared/validators";
+import Button from "@/ui/Button";
+import { GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAuth } from "@/services/auth";
 import ForceSummary from "@/components/Features/ForceSummary";
@@ -41,10 +45,11 @@ import {
   useEnvironments,
   getAffectedRevisionEnvs,
   getPrerequisites,
-  useFeaturesList,
   getRules,
   isRuleInactive,
 } from "@/services/features";
+import { useFeatureDefaultValues } from "@/hooks/useFeatureDefaultValues";
+import { useFeatureDependents } from "@/hooks/useFeatureDependents";
 import Modal from "@/components/Modal";
 import DraftModal from "@/components/Features/DraftModal";
 import RevisionDropdown from "@/components/Features/RevisionDropdown";
@@ -56,35 +61,42 @@ import EventUser from "@/components/Avatar/EventUser";
 import RevertModal from "@/components/Features/RevertModal";
 import EditRevisionCommentModal from "@/components/Features/EditRevisionCommentModal";
 import FixConflictsModal from "@/components/Features/FixConflictsModal";
-import Revisionlog from "@/components/Features/RevisionLog";
+import CompareRevisionsModal from "@/components/Features/CompareRevisionsModal";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
-import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import SelectField from "@/components/Forms/SelectField";
-import BarChart100 from "@/components/Features/BarChart100";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
-import Badge from "@/components/Radix/Badge";
-import Frame from "@/components/Radix/Frame";
+import Badge from "@/ui/Badge";
+import Frame from "@/ui/Frame";
+import Switch from "@/ui/Switch";
+import Link from "@/ui/Link";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import JSONValidation from "@/components/Features/JSONValidation";
+import {
+  PrerequisiteStateResult,
+  usePrerequisiteStates,
+} from "@/hooks/usePrerequisiteStates";
 import PrerequisiteStatusRow, {
   PrerequisiteStatesCols,
 } from "./PrerequisiteStatusRow";
-import { PrerequisiteAlerts } from "./PrerequisiteTargetingField";
+import PrerequisiteAlerts from "./PrerequisiteAlerts";
 import PrerequisiteModal from "./PrerequisiteModal";
 import RequestReviewModal from "./RequestReviewModal";
-import FeatureUsageGraph, { useFeatureUsage } from "./FeatureUsageGraph";
+import { FeatureUsageContainer, useFeatureUsage } from "./FeatureUsageGraph";
 import FeatureRules from "./FeatureRules";
 
 export default function FeaturesOverview({
   baseFeature,
   feature,
   revision,
+  revisionList,
+  loading,
+  revisionLoading,
   revisions,
   experiments,
   mutate,
@@ -92,27 +104,25 @@ export default function FeaturesOverview({
   setEditProjectModal,
   version,
   setVersion,
-  dependents,
-  dependentFeatures,
-  dependentExperiments,
+  safeRollouts,
+  holdout,
 }: {
   baseFeature: FeatureInterface;
   feature: FeatureInterface;
   revision: FeatureRevisionInterface | null;
+  revisionList: MinimalFeatureRevisionInterface[];
+  loading: boolean;
+  revisionLoading: boolean;
   revisions: FeatureRevisionInterface[];
   experiments: ExperimentInterfaceStringDates[] | undefined;
+  safeRollouts: SafeRolloutInterface[] | undefined;
+  holdout: HoldoutInterface | undefined;
   mutate: () => Promise<unknown>;
   editProjectModal: boolean;
   setEditProjectModal: (b: boolean) => void;
   version: number | null;
   setVersion: (v: number) => void;
-  dependents: number;
-  dependentFeatures: string[];
-  dependentExperiments: ExperimentInterfaceStringDates[];
 }) {
-  const router = useRouter();
-  const { fid } = router.query;
-
   const settings = useOrgSettings();
   const [edit, setEdit] = useState(false);
   const [draftModal, setDraftModal] = useState(false);
@@ -121,9 +131,8 @@ export default function FeaturesOverview({
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [hideInactive, setHideInactive] = useLocalStorage(
     `hide-disabled-rules`,
-    false
+    false,
   );
-  const [logModal, setLogModal] = useState(false);
   const [prerequisiteModal, setPrerequisiteModal] = useState<{
     i: number;
   } | null>(null);
@@ -133,23 +142,28 @@ export default function FeaturesOverview({
   const [revertIndex, setRevertIndex] = useState(0);
 
   const [editCommentModel, setEditCommentModal] = useState(false);
+  const [compareRevisionsModalOpen, setCompareRevisionsModalOpen] =
+    useState(false);
 
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
 
-  const { features } = useFeaturesList(false);
+  const featureProject = feature.project;
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const envs = environments.map((e) => e.id);
 
-  const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
-    timeout: 800,
-  });
+  const { dependents: dependentsData } = useFeatureDependents(feature?.id);
+  const dependentFeatures = dependentsData?.features ?? [];
+  const dependentExperiments = dependentsData?.experiments ?? [];
+  const dependents = dependentFeatures.length + dependentExperiments.length;
+
+  const { performCopy, copySuccess } = useCopyToClipboard({ timeout: 800 });
 
   const mergeResult = useMemo(() => {
     if (!feature || !revision) return null;
     const baseRevision = revisions.find(
-      (r) => r.version === revision?.baseVersion
+      (r) => r.version === revision?.baseVersion,
     );
     const liveRevision = revisions.find((r) => r.version === feature.version);
     if (!revision || !baseRevision || !liveRevision) return null;
@@ -158,31 +172,56 @@ export default function FeaturesOverview({
       baseRevision,
       revision,
       environments.map((e) => e.id),
-      {}
+      {},
     );
   }, [revisions, revision, feature, environments]);
 
   const prerequisites = feature?.prerequisites || [];
-  const envsStr = JSON.stringify(envs);
 
-  const prereqStates = useMemo(
-    () => {
-      if (!feature) return null;
-      const states: Record<string, PrerequisiteStateResult> = {};
-      const featuresMap = new Map(features.map((f) => [f.id, f]));
-      envs.forEach((env) => {
-        states[env] = evaluatePrerequisiteState(
-          feature,
-          featuresMap,
-          env,
-          true
-        );
-      });
-      return states;
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [feature, features, envsStr]
+  const { defaultValues: prereqDefaultValues } = useFeatureDefaultValues(
+    prerequisites.map((p) => p.id),
   );
+
+  // Fetch prerequisite states from backend (handles cross-project prereqs correctly)
+  // skipRootConditions: true means we skip the feature's own rules and only evaluate prerequisites
+  const { states: prereqStatesRaw, loading: prereqStatesLoading } =
+    usePrerequisiteStates({
+      featureId: feature?.id || "",
+      environments: envs,
+      enabled: !!feature,
+      skipRootConditions: true,
+    });
+
+  // Create a stable serialized key for kill switch states to ensure useMemo recomputes
+  const killSwitchKey = envs
+    .map(
+      (env) =>
+        `${env}:${feature?.environmentSettings?.[env]?.enabled ?? false}`,
+    )
+    .join(",");
+
+  // Compute final summary states by combining prerequisite states with kill switch state
+  // This allows the summary to update immediately when toggling kill switches without refetching
+  const prereqStates = useMemo(() => {
+    if (!prereqStatesRaw || !feature) return prereqStatesRaw;
+
+    const finalStates: Record<string, PrerequisiteStateResult> = {};
+    for (const env of envs) {
+      // Check kill switch first (same logic as backend)
+      if (!feature.environmentSettings?.[env]?.enabled) {
+        // Kill switch is OFF - feature is not live regardless of prerequisites
+        finalStates[env] = { state: "deterministic", value: null };
+      } else {
+        // Kill switch is ON - use prerequisite state
+        finalStates[env] = prereqStatesRaw[env] || {
+          state: "deterministic",
+          value: null,
+        };
+      }
+    }
+    return finalStates;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prereqStatesRaw, feature, envs, killSwitchKey]);
 
   const experimentsMap = useMemo<
     Map<string, ExperimentInterfaceStringDates>
@@ -191,12 +230,13 @@ export default function FeaturesOverview({
     return new Map(experiments.map((exp) => [exp.id, exp]));
   }, [experiments]);
 
-  const {
-    showFeatureUsage,
-    featureUsage,
-    lookback,
-    setLookback,
-  } = useFeatureUsage();
+  const safeRolloutsMap = useMemo<Map<string, SafeRolloutInterface>>(() => {
+    if (!safeRollouts) return new Map();
+    return new Map(safeRollouts.map((rollout) => [rollout.id, rollout]));
+  }, [safeRollouts]);
+
+  const { showFeatureUsage, featureUsage, lookback, setLookback } =
+    useFeatureUsage();
 
   if (!baseFeature || !feature || !revision) {
     return <LoadingOverlay />;
@@ -206,9 +246,8 @@ export default function FeaturesOverview({
     prereqStates &&
     Object.values(prereqStates).some((s) => s.state === "conditional");
 
-  const hasPrerequisitesCommercialFeature = hasCommercialFeature(
-    "prerequisites"
-  );
+  const hasPrerequisitesCommercialFeature =
+    hasCommercialFeature("prerequisites");
 
   const currentVersion = version || baseFeature.version;
 
@@ -236,21 +275,19 @@ export default function FeaturesOverview({
   const revisionHasChanges =
     !!mergeResult && mergeResultHasChanges(mergeResult);
 
-  const canManageCustomFields = permissionsUtil.canManageCustomFields();
-
   const projectId = feature.project;
 
   const hasDraftPublishPermission =
     (approved &&
       permissionsUtil.canPublishFeature(
         feature,
-        getAffectedRevisionEnvs(feature, revision, environments)
+        getAffectedRevisionEnvs(feature, revision, environments),
       )) ||
     (isDraft &&
       !requireReviews &&
       permissionsUtil.canPublishFeature(
         feature,
-        getAffectedRevisionEnvs(feature, revision, environments)
+        getAffectedRevisionEnvs(feature, revision, environments),
       ));
 
   const drafts = revisions.filter(
@@ -258,7 +295,7 @@ export default function FeaturesOverview({
       r.status === "draft" ||
       r.status === "pending-review" ||
       r.status === "changes-requested" ||
-      r.status === "approved"
+      r.status === "approved",
   );
   const isLocked =
     (revision.status === "published" || revision.status === "discarded") &&
@@ -344,28 +381,29 @@ export default function FeaturesOverview({
             title="Create a new Draft based on this revision"
           >
             Revert to this version
-          </Button>
+          </Button>,
         );
       } else if (revision.version > 1 && isLive) {
-        actions.push(
-          <Button
-            variant="ghost"
-            color="red"
-            onClick={() => {
-              const previousRevision = revisions
-                .filter(
-                  (r) => r.status === "published" && r.version < feature.version
-                )
-                .sort((a, b) => b.version - a.version)[0];
-              if (previousRevision) {
+        const previousRevision = revisions
+          .filter(
+            (r) => r.status === "published" && r.version < feature.version,
+          )
+          .sort((a, b) => b.version - a.version)[0];
+
+        if (previousRevision) {
+          actions.push(
+            <Button
+              variant="ghost"
+              color="red"
+              onClick={() => {
                 setRevertIndex(previousRevision.version);
-              }
-            }}
-            title="Create a new Draft based on this revision"
-          >
-            Revert to Previous
-          </Button>
-        );
+              }}
+              title="Create a new Draft based on this revision"
+            >
+              Revert to Previous
+            </Button>,
+          );
+        }
       }
 
       if (drafts.length > 0 && isLocked && !isDraft) {
@@ -377,7 +415,7 @@ export default function FeaturesOverview({
             }}
           >
             View active draft
-          </Button>
+          </Button>,
         );
       }
 
@@ -391,7 +429,7 @@ export default function FeaturesOverview({
             }}
           >
             Discard draft
-          </Button>
+          </Button>,
         );
 
         if (mergeResult?.success) {
@@ -413,7 +451,7 @@ export default function FeaturesOverview({
                 >
                   {renderDraftBannerCopy()}
                 </Button>
-              </Tooltip>
+              </Tooltip>,
             );
           } else {
             // no review is required
@@ -423,8 +461,8 @@ export default function FeaturesOverview({
                   !revisionHasChanges
                     ? "Draft is identical to the live version. Make changes first before publishing"
                     : !hasDraftPublishPermission
-                    ? "You do not have permission to publish this draft."
-                    : ""
+                      ? "You do not have permission to publish this draft."
+                      : ""
                 }
               >
                 <Button
@@ -435,7 +473,7 @@ export default function FeaturesOverview({
                 >
                   Review &amp; Publish
                 </Button>
-              </Tooltip>
+              </Tooltip>,
             );
           }
         } else {
@@ -451,7 +489,7 @@ export default function FeaturesOverview({
                 >
                   Fix conflicts
                 </Button>
-              </Tooltip>
+              </Tooltip>,
             );
           }
         }
@@ -507,18 +545,7 @@ export default function FeaturesOverview({
               {ago(revision.dateUpdated)}
             </Box>
           )}
-          <Box>
-            {renderStatusCopy()}
-            <Button
-              title="View log"
-              variant="ghost"
-              onClick={() => {
-                setLogModal(true);
-              }}
-            >
-              <RxListBullet />
-            </Button>
-          </Box>
+          {renderStatusCopy()}
         </Flex>
       </Flex>
     );
@@ -557,7 +584,7 @@ export default function FeaturesOverview({
         <Box>
           <CustomFieldDisplay
             target={feature}
-            canEdit={canManageCustomFields}
+            canEdit={canEdit}
             mutate={mutate}
             section={"feature"}
           />
@@ -566,12 +593,12 @@ export default function FeaturesOverview({
           <CustomMarkdown page={"feature"} variables={variables} />
 
           {showFeatureUsage && (
-            <div>
+            <div className="appbox mt-2 mb-4 px-4 pt-3 pb-3">
               <div className="row align-items-center">
                 <div className="col-auto">
-                  <h3 className="mb-0">Usage Analytics</h3>
+                  <h4 className="mb-0">Usage Analytics</h4>
                 </div>
-                <div className="col-auto">
+                <div className="col-auto ml-auto">
                   <SelectField
                     value={lookback}
                     onChange={(lookback) => {
@@ -588,46 +615,37 @@ export default function FeaturesOverview({
                       if (o.value !== "15minute") return o.label;
                       return (
                         <div>
-                          <span className="badge badge-success mr-1">
-                            <FaBoltLightning /> Live
-                          </span>
                           {o.label}
+                          <Badge
+                            label={
+                              <>
+                                <FaBoltLightning /> Live
+                              </>
+                            }
+                            color="teal"
+                            variant="solid"
+                            radius="full"
+                            ml="3"
+                          />
                         </div>
                       );
                     }}
                   />
                 </div>
               </div>
-              <div className="appbox mt-2 mb-4 px-4 pt-3 pb-3">
-                {!featureUsage ? (
-                  <Flex align="center" justify="center">
-                    <LoadingSpinner /> <Text ml="2">Loading...</Text>
-                  </Flex>
-                ) : featureUsage.overall.total === 0 ? (
-                  <em>No usage detected in the selected time frame</em>
-                ) : (
-                  <div className="row">
-                    <div className="col-12 col-md-4">
-                      <strong>Assigned Values</strong>
-                      <BarChart100 data={featureUsage.values} max={3} />
-                    </div>
-                    <div className="col-12 col-md-4">
-                      <strong>Sources</strong>
-                      <BarChart100 data={featureUsage.sources} max={3} />
-                    </div>
-                    <div className="col-12 col-md-4">
-                      <div className="mb-1">
-                        <strong>Usage Over Time</strong>
-                      </div>
-                      <FeatureUsageGraph
-                        data={featureUsage.overall}
-                        width="auto"
-                        height={80}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
+              {!featureUsage ? (
+                <Flex align="center" justify="center">
+                  <LoadingSpinner /> <Text ml="2">Loading...</Text>
+                </Flex>
+              ) : featureUsage.total === 0 ? (
+                <em>No usage detected in the selected time frame</em>
+              ) : (
+                <FeatureUsageContainer
+                  revision={revision}
+                  environments={envs}
+                  valueType={feature.valueType}
+                />
+              )}
             </div>
           )}
         </Box>
@@ -641,122 +659,132 @@ export default function FeaturesOverview({
               The default value and rules will be ignored.
             </div>
             {prerequisites.length > 0 ? (
-              <table className="table border mb-2 w-100">
-                <thead>
-                  <tr className="bg-light">
-                    <th
-                      className="pl-3 align-bottom font-weight-bold border-right"
-                      style={{ minWidth: 350 }}
-                    />
-                    {envs.map((env) => (
+              <div style={{ overflowX: "auto" }}>
+                <table className="table border mb-2 w-100">
+                  <thead>
+                    <tr className="bg-light">
                       <th
-                        key={env}
-                        className="text-center align-bottom font-weight-bolder"
-                        style={{ minWidth: 120 }}
-                      >
-                        {env}
-                      </th>
-                    ))}
-                    {envs.length === 0 ? (
-                      <th className="text-center align-bottom">
-                        <span className="font-italic">No environments</span>
-                        <Tooltip
-                          className="ml-1"
-                          popperClassName="text-left font-weight-normal"
-                          body={
-                            <>
-                              <div className="text-warning-orange mb-2">
-                                <FaExclamationTriangle /> This feature has no
-                                associated environments
-                              </div>
-                              <div>
-                                Ensure that this feature&apos;s project is
-                                included in at least one environment to use it.
-                              </div>
-                            </>
-                          }
-                        />
-                        <div
-                          className="float-right small position-relative"
-                          style={{ top: 5 }}
+                        className="pl-3 align-bottom font-weight-bold border-right"
+                        style={{ minWidth: 350 }}
+                      />
+                      {envs.map((env) => (
+                        <th
+                          key={env}
+                          className="text-center align-bottom font-weight-bolder"
+                          style={{ minWidth: 120 }}
                         >
-                          <Link href="/environments">Manage Environments</Link>
-                        </div>
-                      </th>
-                    ) : (
-                      <th className="w-100" />
-                    )}
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td
-                      className="pl-3 align-bottom font-weight-bold border-right"
-                      style={{ minWidth: 350 }}
-                    >
-                      Kill Switch
-                    </td>
-                    {envs.map((env) => (
+                          {env}
+                        </th>
+                      ))}
+                      {envs.length === 0 ? (
+                        <th className="text-center align-bottom">
+                          <span className="font-italic">No environments</span>
+                          <Tooltip
+                            className="ml-1"
+                            popperClassName="text-left font-weight-normal"
+                            body={
+                              <>
+                                <div className="text-warning-orange mb-2">
+                                  <FaExclamationTriangle /> This feature has no
+                                  associated environments
+                                </div>
+                                <div>
+                                  Ensure that this feature&apos;s project is
+                                  included in at least one environment to use
+                                  it.
+                                </div>
+                              </>
+                            }
+                          />
+                          <div
+                            className="float-right small position-relative"
+                            style={{ top: 5 }}
+                          >
+                            <Link href="/environments">
+                              Manage Environments
+                            </Link>
+                          </div>
+                        </th>
+                      ) : (
+                        <th className="w-100" />
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
                       <td
-                        key={env}
-                        className="text-center align-bottom pb-2"
-                        style={{ minWidth: 120 }}
+                        className="pl-3 align-bottom font-weight-bold border-right"
+                        style={{ minWidth: 350 }}
                       >
-                        <EnvironmentToggle
-                          feature={feature}
-                          environment={env}
-                          mutate={() => {
-                            mutate();
-                          }}
-                          id={`${env}_toggle`}
-                          className="mr-0"
-                        />
+                        Kill Switch
                       </td>
-                    ))}
-                    <td className="w-100" />
-                  </tr>
-                  {prerequisites.map(({ ...item }, i) => {
-                    const parentFeature = features.find(
-                      (f) => f.id === item.id
-                    );
-                    return (
-                      <PrerequisiteStatusRow
-                        key={i}
-                        i={i}
-                        feature={feature}
-                        features={features}
-                        parentFeature={parentFeature}
-                        prerequisite={item}
-                        environments={environments}
-                        mutate={mutate}
-                        setPrerequisiteModal={setPrerequisiteModal}
-                      />
-                    );
-                  })}
-                </tbody>
-                <tbody>
-                  <tr className="bg-light">
-                    <td className="pl-3 font-weight-bold border-right">
-                      Summary
-                    </td>
-                    {envs.length > 0 && (
-                      <PrerequisiteStatesCols
-                        prereqStates={prereqStates ?? undefined}
-                        envs={envs}
-                        isSummaryRow={true}
-                      />
-                    )}
-                    <td />
-                  </tr>
-                </tbody>
-              </table>
+                      {envs.map((env) => (
+                        <td key={env} style={{ minWidth: 120 }}>
+                          <Flex align="center" justify="center">
+                            <EnvironmentToggle
+                              feature={feature}
+                              environment={env}
+                              mutate={mutate}
+                              id={`${env}_toggle`}
+                            />
+                          </Flex>
+                        </td>
+                      ))}
+                      <td className="w-100" />
+                    </tr>
+                    {prerequisites.map(({ ...item }, i) => {
+                      return (
+                        <PrerequisiteStatusRow
+                          key={i}
+                          i={i}
+                          feature={feature}
+                          prereqDefaultValue={prereqDefaultValues[item.id]}
+                          prerequisite={item}
+                          environments={environments}
+                          mutate={mutate}
+                          setPrerequisiteModal={setPrerequisiteModal}
+                        />
+                      );
+                    })}
+                  </tbody>
+                  <tbody>
+                    <tr className="bg-light">
+                      <td className="pl-3 font-weight-bold border-right">
+                        Summary
+                      </td>
+                      {envs.length > 0 && (
+                        <PrerequisiteStatesCols
+                          prereqStates={prereqStates ?? undefined}
+                          envs={envs}
+                          isSummaryRow={true}
+                          loading={prereqStatesLoading}
+                        />
+                      )}
+                      <td />
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             ) : (
-              <div className="row mt-3">
+              <Flex
+                mt="4"
+                justify="start"
+                align="center"
+                gapX="4"
+                gapY="3"
+                wrap="wrap"
+              >
                 {environments.length > 0 ? (
                   environments.map((en) => (
-                    <div className="col-auto" key={en.id}>
+                    <Flex
+                      wrap="nowrap"
+                      direction="row"
+                      gap="2"
+                      key={en.id}
+                      mr="4"
+                    >
                       <label
-                        className="font-weight-bold mr-2 mb-0"
+                        className="font-weight-bold mb-0"
                         htmlFor={`${en.id}_toggle`}
                       >
                         {en.id}:{" "}
@@ -769,7 +797,7 @@ export default function FeaturesOverview({
                         }}
                         id={`${en.id}_toggle`}
                       />
-                    </div>
+                    </Flex>
                   ))
                 ) : (
                   <div className="alert alert-warning pt-3 pb-2 w-100">
@@ -784,7 +812,7 @@ export default function FeaturesOverview({
                     </div>
                   </div>
                 )}
-              </div>
+              </Flex>
             )}
 
             {hasConditionalState && (
@@ -792,6 +820,8 @@ export default function FeaturesOverview({
                 environments={envs}
                 type="feature"
                 project={projectId ?? ""}
+                mt="4"
+                mb="0"
               />
             )}
 
@@ -800,10 +830,11 @@ export default function FeaturesOverview({
                 commercialFeature="prerequisites"
                 className="d-inline-flex align-items-center mt-3"
               >
-                <Button
-                  variant="ghost"
-                  disabled={!hasPrerequisitesCommercialFeature}
+                <Link
                   onClick={() => {
+                    if (!hasPrerequisitesCommercialFeature) {
+                      return;
+                    }
                     setPrerequisiteModal({
                       i: getPrerequisites(feature).length,
                     });
@@ -811,17 +842,23 @@ export default function FeaturesOverview({
                       source: "add-prerequisite",
                     });
                   }}
+                  style={{
+                    opacity: !hasPrerequisitesCommercialFeature ? 0.5 : 1,
+                    cursor: !hasPrerequisitesCommercialFeature
+                      ? "not-allowed"
+                      : "pointer",
+                  }}
                 >
-                  <span className="h4 pr-2 m-0 d-inline-block align-top">
-                    <GBAddCircle />
-                  </span>
-                  Add Prerequisite Feature
-                </Button>
+                  <Text weight="bold">
+                    <PiPlusCircleBold className="mr-1" />
+                    Add prerequisite targeting
+                  </Text>
+                </Link>
               </PremiumTooltip>
             )}
           </Box>
         </Frame>
-        {dependents > 0 && (
+        {(dependents > 0 || featureProject) && (
           <Frame mb="4">
             <Box>
               <Flex mb="3" gap="3" align="center">
@@ -830,76 +867,89 @@ export default function FeaturesOverview({
                 </Heading>
                 <Badge label={dependents + ""} color="gray" radius="medium" />
               </Flex>
-              <Box mb="2">
-                {dependents === 1
-                  ? `Another ${
-                      dependentFeatures.length ? "feature" : "experiment"
-                    } depends on this feature as a prerequisite. Modifying the current feature may affect its behavior.`
-                  : `Other ${
-                      dependentFeatures.length
-                        ? dependentExperiments.length
-                          ? "features and experiments"
-                          : "features"
-                        : "experiments"
-                    } depend on this feature as a prerequisite. Modifying the current feature may affect their behavior.`}
-              </Box>
-              <hr className="mb-2" />
-              {showDependents ? (
-                <div className="mt-3">
-                  {dependentFeatures.length > 0 && (
-                    <>
-                      <label>Dependent Features</label>
-                      <ul className="pl-4">
-                        {dependentFeatures.map((fid, i) => (
-                          <li className="my-1" key={i}>
-                            <a
-                              href={`/features/${fid}`}
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              {fid}
-                            </a>
-                          </li>
-                        ))}
-                      </ul>
-                    </>
-                  )}
-                  {dependentExperiments.length > 0 && (
-                    <>
-                      <label>Dependent Experiments</label>
-                      <ul className="pl-4">
-                        {dependentExperiments.map((exp, i) => (
-                          <li className="my-1" key={i}>
-                            <a
-                              href={`/experiment/${exp.id}`}
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              {exp.name}
-                            </a>
-                          </li>
-                        ))}
-                      </ul>
-                    </>
-                  )}
-                  <a
-                    role="button"
-                    className="d-inline-block a link-purple mt-1"
-                    onClick={() => setShowDependents(false)}
-                  >
-                    <BiHide /> Hide details
-                  </a>
-                </div>
-              ) : (
+              <Flex align="center" gap="4" mb="4">
+                <Text size="2" as="div">
+                  Showing dependents across all projects.
+                </Text>
+              </Flex>
+              {dependents > 0 ? (
                 <>
-                  <a
-                    role="button"
-                    className="d-inline-block a link-purple"
-                    onClick={() => setShowDependents(true)}
-                  >
-                    <BiShow /> Show details
-                  </a>
+                  <Box mb="2">
+                    {dependents === 1
+                      ? `Another ${
+                          dependentFeatures.length ? "feature" : "experiment"
+                        } depends on this feature as a prerequisite. Modifying the current feature may affect its behavior.`
+                      : `Other ${
+                          dependentFeatures.length
+                            ? dependentExperiments.length
+                              ? "features and experiments"
+                              : "features"
+                            : "experiments"
+                        } depend on this feature as a prerequisite. Modifying the current feature may affect their behavior.`}
+                  </Box>
+                  <hr className="mb-2" />
+                  {showDependents ? (
+                    <div className="mt-3">
+                      {dependentFeatures.length > 0 && (
+                        <>
+                          <label>Dependent Features</label>
+                          <ul className="pl-4">
+                            {dependentFeatures.map((fid, i) => (
+                              <li className="my-1" key={i}>
+                                <a
+                                  href={`/features/${fid}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  {fid}
+                                </a>
+                              </li>
+                            ))}
+                          </ul>
+                        </>
+                      )}
+                      {dependentExperiments.length > 0 && (
+                        <>
+                          <label>Dependent Experiments</label>
+                          <ul className="pl-4">
+                            {dependentExperiments.map((exp, i) => (
+                              <li className="my-1" key={i}>
+                                <a
+                                  href={`/experiment/${exp.id}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  {exp.name}
+                                </a>
+                              </li>
+                            ))}
+                          </ul>
+                        </>
+                      )}
+                      <a
+                        role="button"
+                        className="d-inline-block a link-purple mt-1"
+                        onClick={() => setShowDependents(false)}
+                      >
+                        <BiHide /> Hide details
+                      </a>
+                    </div>
+                  ) : (
+                    <>
+                      <a
+                        role="button"
+                        className="d-inline-block a link-purple"
+                        onClick={() => setShowDependents(true)}
+                      >
+                        <BiShow /> Show details
+                      </a>
+                    </>
+                  )}
                 </>
+              ) : (
+                <Box mb="2">
+                  <Text size="2">No dependents found.</Text>
+                </Box>
               )}
             </Box>
           </Frame>
@@ -934,53 +984,67 @@ export default function FeaturesOverview({
                 gap="4"
                 align={{ initial: "center" }}
                 direction={{ initial: "column", xs: "row" }}
-                justify="between"
+                wrap="wrap"
               >
                 <Flex
                   align="center"
                   justify="between"
+                  gapX="2"
+                  gapY="0"
+                  mr="5"
                   width={{ initial: "98%", sm: "70%", md: "60%", lg: "50%" }}
                 >
                   <Box width="100%">
                     <RevisionDropdown
                       feature={feature}
+                      loading={loading}
+                      revisionLoading={revisionLoading}
                       version={currentVersion}
                       setVersion={setVersion}
-                      revisions={revisions || []}
+                      revisions={revisionList || []}
                     />
                   </Box>
-                  <Box mx="6">
-                    <a
-                      title="Copy a link to this revision"
-                      href={`/features/${fid}?v=${version}`}
-                      className="position-relative"
-                      onClick={(e) => {
-                        if (!copySupported) return;
-
-                        e.preventDefault();
+                  {copySuccess ? (
+                    <Button
+                      variant="ghost"
+                      icon={<PiCheck />}
+                      style={{ width: 100 }}
+                    >
+                      Link copied
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      icon={<PiLink />}
+                      style={{ width: 100 }}
+                      onClick={() => {
                         const url =
                           window.location.href.replace(/[?#].*/, "") +
                           `?v=${version}`;
                         performCopy(url);
                       }}
                     >
-                      <FaLink />
-                      {copySuccess ? (
-                        <SimpleTooltip position="right">
-                          Copied to clipboard!
-                        </SimpleTooltip>
-                      ) : null}
-                    </a>
-                  </Box>
+                      Copy link
+                    </Button>
+                  )}
                 </Flex>
                 <Flex
                   align={{ initial: "center", xs: "center", sm: "start" }}
                   justify="end"
-                  flexShrink="0"
                   direction={{ initial: "row", xs: "column", sm: "row" }}
-                  style={{ whiteSpace: "nowrap" }}
-                  gap="4"
+                  style={{ whiteSpace: "nowrap", marginLeft: "auto" }}
+                  gap="2"
                 >
+                  {(revisionList?.length ?? 0) >= 2 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setCompareRevisionsModalOpen(true)}
+                      icon={<PiArrowsLeftRightBold size={14} />}
+                    >
+                      Compare revisions
+                    </Button>
+                  )}
                   {renderRevisionCTA()}
                 </Flex>
               </Flex>
@@ -1011,9 +1075,9 @@ export default function FeaturesOverview({
 
               {renderRevisionInfo()}
 
-              <Box className="appbox" mt="4" p="5" pl="6" pr="5">
+              <Box className="appbox" mt="4" p="4" pl="6" pr="5">
                 <Flex align="center" justify="between">
-                  <Heading as="h3" size="4" mb="0">
+                  <Heading as="h3" size="4" mb="3">
                     Default Value
                   </Heading>
                   {canEdit && !isLocked && canEditDrafts && (
@@ -1034,11 +1098,6 @@ export default function FeaturesOverview({
                         feature={feature}
                       />
                     </Box>
-                    {featureUsage && (
-                      <Box className="ml-auto">
-                        <FeatureUsageGraph data={featureUsage?.defaultValue} />
-                      </Box>
-                    )}
                   </Flex>
                 </Box>
               </Box>
@@ -1056,12 +1115,11 @@ export default function FeaturesOverview({
                   </Flex>
                   <label className="font-weight-semibold">
                     <Switch
-                      mr="1"
                       disabled={!hasInactiveRules}
-                      checked={!hideInactive}
-                      onCheckedChange={(state) => setHideInactive(!state)}
-                    />{" "}
-                    Show inactive
+                      value={!hasInactiveRules ? false : !hideInactive}
+                      onChange={(state) => setHideInactive(!state)}
+                      label="Show inactive"
+                    />
                   </label>
                 </Flex>
                 {environments.length > 0 ? (
@@ -1079,13 +1137,14 @@ export default function FeaturesOverview({
                       feature={feature}
                       isLocked={isLocked}
                       canEditDrafts={canEditDrafts}
-                      revisions={revisions}
                       experimentsMap={experimentsMap}
                       mutate={mutate}
                       currentVersion={currentVersion}
                       setVersion={setVersion}
                       hideInactive={hideInactive}
                       isDraft={isDraft}
+                      safeRolloutsMap={safeRolloutsMap}
+                      holdout={holdout}
                     />
                   </>
                 ) : (
@@ -1154,25 +1213,12 @@ export default function FeaturesOverview({
             feature={baseFeature}
             revision={
               revisions.find(
-                (r) => r.version === revertIndex
+                (r) => r.version === revertIndex,
               ) as FeatureRevisionInterface
             }
             mutate={mutate}
             setVersion={setVersion}
           />
-        )}
-        {logModal && revision && (
-          <Modal
-            trackingEventModalType=""
-            open={true}
-            close={() => setLogModal(false)}
-            header="Revision Log"
-            closeCta={"Close"}
-            size="lg"
-          >
-            <h3>Revision {revision.version}</h3>
-            <Revisionlog feature={feature} revision={revision} />
-          </Modal>
         )}
         {reviewModal && revision && (
           <RequestReviewModal
@@ -1218,7 +1264,7 @@ export default function FeaturesOverview({
                   `/feature/${feature.id}/${revision.version}/discard`,
                   {
                     method: "POST",
-                  }
+                  },
                 );
               } catch (e) {
                 await mutate();
@@ -1248,8 +1294,15 @@ export default function FeaturesOverview({
             close={() => setPrerequisiteModal(null)}
             i={prerequisiteModal.i}
             mutate={mutate}
+          />
+        )}
+        {compareRevisionsModalOpen && (
+          <CompareRevisionsModal
+            feature={feature}
+            revisionList={revisionList || []}
             revisions={revisions}
-            version={currentVersion}
+            currentVersion={version ?? feature.version}
+            onClose={() => setCompareRevisionsModalOpen(false)}
           />
         )}
       </Box>

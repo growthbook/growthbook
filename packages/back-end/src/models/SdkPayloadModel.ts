@@ -1,13 +1,19 @@
+/**
+ * @deprecated Legacy cache (org + environment level)
+ * Use SdkConnectionCacheModel instead (connection-specific, fully-processed).
+ */
 import mongoose from "mongoose";
 import {
   AutoExperimentWithProject,
   FeatureDefinitionWithProject,
-} from "back-end/types/api";
+  FeatureDefinitionWithProjects,
+} from "shared/types/sdk";
 import {
   SDKPayloadContents,
   SDKPayloadInterface,
   SDKStringifiedPayloadInterface,
 } from "back-end/types/sdk-payload";
+import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
 
 // Increment this if we change the payload contents in a backwards-incompatible way
 export const LATEST_SDK_PAYLOAD_SCHEMA_VERSION = 1;
@@ -22,13 +28,13 @@ const sdkPayloadSchema = new mongoose.Schema({
 });
 sdkPayloadSchema.index(
   { organization: 1, environment: 1, schemaVersion: 1 },
-  { unique: true }
+  { unique: true },
 );
 type SDKPayloadDocument = mongoose.Document & SDKStringifiedPayloadInterface;
 
 const SDKPayloadModel = mongoose.model<SDKStringifiedPayloadInterface>(
   "SdkPayloadCache",
-  sdkPayloadSchema
+  sdkPayloadSchema,
 );
 
 function toInterface(doc: SDKPayloadDocument): SDKPayloadInterface | null {
@@ -48,6 +54,9 @@ function toInterface(doc: SDKPayloadDocument): SDKPayloadInterface | null {
   }
 }
 
+/**
+ * @deprecated Use sdkConnectionCache.getById() instead.
+ */
 export async function getSDKPayload({
   organization,
   environment,
@@ -55,6 +64,11 @@ export async function getSDKPayload({
   organization: string;
   environment: string;
 }): Promise<SDKPayloadInterface | null> {
+  const storageLocation = getSDKPayloadCacheLocation();
+  if (storageLocation === "none") {
+    return null;
+  }
+
   const doc = await SDKPayloadModel.findOne({
     organization,
     environment,
@@ -64,23 +78,32 @@ export async function getSDKPayload({
   return doc ? toInterface(doc) : null;
 }
 
+/** @deprecated Use sdkConnectionCache.upsert() instead. */
 export async function updateSDKPayload({
   organization,
   environment,
   featureDefinitions,
   experimentsDefinitions,
   savedGroupsInUse,
+  holdoutFeatureDefinitions,
 }: {
   organization: string;
   environment: string;
   featureDefinitions: Record<string, FeatureDefinitionWithProject>;
   experimentsDefinitions: AutoExperimentWithProject[];
   savedGroupsInUse: string[];
+  holdoutFeatureDefinitions: Record<string, FeatureDefinitionWithProjects>;
 }) {
+  const storageLocation = getSDKPayloadCacheLocation();
+  if (storageLocation === "none") {
+    return;
+  }
+
   const contents: SDKPayloadContents = {
     features: featureDefinitions,
     experiments: experimentsDefinitions,
     savedGroupsInUse: savedGroupsInUse,
+    holdouts: holdoutFeatureDefinitions,
   };
 
   await SDKPayloadModel.updateOne(
@@ -99,6 +122,6 @@ export async function updateSDKPayload({
     },
     {
       upsert: true,
-    }
+    },
   );
 }

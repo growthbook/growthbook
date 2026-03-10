@@ -1,13 +1,18 @@
 import { useState } from "react";
 import { FaCheckCircle, FaExclamationTriangle } from "react-icons/fa";
+import { Box, Text } from "@radix-ui/themes";
 import { redirectWithTimeout, useAuth } from "@/services/auth";
 import Button from "@/components/Button";
 import { isCloud } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import { planNameFromAccountPlan } from "@/services/utils";
-import Modal from "../Modal";
-import Callout from "../Radix/Callout";
+import { StripeProvider } from "@/enterprise/components/Billing/StripeProvider";
+import Callout from "@/ui/Callout";
+import Modal from "@/components/Modal";
 import UpgradeModal from "./UpgradeModal";
+import UpdateOrbSubscriptionModal from "./UpdateOrbSubscriptionModal";
+
+const CANCELLATION_SURVEY_URL = "https://form.typeform.com/to/kL75SA6F";
 
 export default function SubscriptionInfo() {
   const { apiCall } = useAuth();
@@ -18,10 +23,15 @@ export default function SubscriptionInfo() {
     accountPlan,
     users,
     refreshOrganization,
+    organization,
   } = useUser();
 
   const [upgradeModal, setUpgradeModal] = useState(false);
   const [cancelSubscriptionModal, setCancelSubscriptionModal] = useState(false);
+  const [showCancellationSurveyModal, setShowCancellationSurveyModal] =
+    useState(false);
+  const [updateOrbSubscriptionModal, setUpdateOrbSubscriptionModal] =
+    useState(false);
 
   // Orb subscriptions only count members, not members + invites like Stripe Subscriptions
   const subscriptionSeats =
@@ -42,6 +52,36 @@ export default function SubscriptionInfo() {
           commercialFeature={null}
         />
       )}
+      {showCancellationSurveyModal && (
+        <Modal
+          open={true}
+          header={null}
+          trackingEventModalType="cancellation-survey"
+          close={() => setShowCancellationSurveyModal(false)}
+          submit={async () => {
+            const surveyUrl = new URL(CANCELLATION_SURVEY_URL);
+
+            if (organization.id) {
+              surveyUrl.searchParams.set("org_id", organization.id);
+            }
+
+            window.open(surveyUrl.toString(), "_blank");
+            setShowCancellationSurveyModal(false);
+          }}
+          cta="Share Feedback"
+          closeCta="No thanks"
+          showHeaderCloseButton={false}
+        >
+          <Box mr="5">
+            <Text as="p" size="3" weight="medium">
+              How can we improve?
+            </Text>
+            <Text as="span">
+              Can you spare 30 seconds to let us know what we can do better?
+            </Text>
+          </Box>
+        </Modal>
+      )}
       {cancelSubscriptionModal && (
         <Modal
           open={true}
@@ -54,6 +94,8 @@ export default function SubscriptionInfo() {
           submit={async () => {
             await apiCall("/subscription/cancel", { method: "POST" });
             refreshOrganization();
+            setCancelSubscriptionModal(false);
+            setShowCancellationSurveyModal(true);
           }}
         >
           <>
@@ -70,6 +112,14 @@ export default function SubscriptionInfo() {
             </Callout>
           </>
         </Modal>
+      )}
+      {updateOrbSubscriptionModal && (
+        <StripeProvider>
+          <UpdateOrbSubscriptionModal
+            subscription={subscription || undefined}
+            close={() => setUpdateOrbSubscriptionModal(false)}
+          />
+        </StripeProvider>
       )}
       <div className="col-auto mb-3">
         <strong>Current Plan:</strong> {isCloud() ? "Cloud" : "Self-Hosted"} Pro
@@ -148,7 +198,7 @@ export default function SubscriptionInfo() {
                   `/subscription/manage`,
                   {
                     method: "POST",
-                  }
+                  },
                 );
                 if (res && res.url) {
                   await redirectWithTimeout(res.url);
@@ -160,6 +210,17 @@ export default function SubscriptionInfo() {
               {subscription?.status !== "canceled"
                 ? "View Plan Details"
                 : "View Previous Invoices"}
+            </Button>
+          </div>
+        ) : null}
+        {subscription?.billingPlatform === "orb" &&
+        subscription?.status === "active" ? (
+          <div className="col-auto">
+            <Button
+              color="primary"
+              onClick={() => setUpdateOrbSubscriptionModal(true)}
+            >
+              Update Invoice Details
             </Button>
           </div>
         ) : null}

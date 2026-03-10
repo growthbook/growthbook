@@ -1,6 +1,7 @@
 import React from "react";
+import { Text } from "@radix-ui/themes";
 import { FaQuestionCircle } from "react-icons/fa";
-import { MetricAnalysisPopulationType } from "back-end/types/metric-analysis";
+import { MetricAnalysisPopulationType } from "shared/types/metric-analysis";
 import SelectField from "@/components/Forms/SelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -9,19 +10,21 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 
 export interface Props {
   value: string;
-  setValue: (value: MetricAnalysisPopulationType) => void;
-  setPopulationValue: (value: string | null) => void;
-
+  setValue: (
+    value: MetricAnalysisPopulationType,
+    populationId: string | null,
+  ) => void;
   userIdType: string;
   datasourceId: string;
+  newStyle?: boolean;
 }
 
 export default function PopulationChooser({
   value,
   setValue,
-  setPopulationValue,
   userIdType,
   datasourceId,
+  newStyle,
 }: Props) {
   const { getDatasourceById, segments } = useDefinitions();
   const { hasCommercialFeature } = useUser();
@@ -53,18 +56,28 @@ export default function PopulationChooser({
 
   return (
     <div>
-      <div className="uppercase-title text-muted">
-        Population{" "}
-        <Tooltip
-          body={`The metric values will only come from units in this population. 
+      {!newStyle && (
+        <div className="uppercase-title text-muted">
+          Population{" "}
+          <Tooltip
+            body={`The metric values will only come from units in this population.
             For experiment assignment tables, any unit exposed to an
             experiment in the selected date window is in the population.`}
-        >
-          <FaQuestionCircle />
-        </Tooltip>
-      </div>
+          >
+            <FaQuestionCircle />
+          </Tooltip>
+        </div>
+      )}
       <SelectField
-        containerClassName={"select-dropdown-underline"}
+        label={
+          newStyle ? (
+            <Text as="label" size="3" weight="medium">
+              Population
+            </Text>
+          ) : undefined
+        }
+        labelClassName={newStyle ? "mb-0" : undefined}
+        containerClassName={newStyle ? "mb-0" : "select-dropdown-underline"}
         options={[
           {
             label: "Fact Table",
@@ -100,16 +113,13 @@ export default function PopulationChooser({
         onChange={(v) => {
           if (v === value) return;
           if (v.startsWith("experiment")) {
-            setValue("exposureQuery");
             const exposureQueryId = v.match(/experiment_(.*)/)?.[1];
-            setPopulationValue(exposureQueryId ?? null);
+            setValue("exposureQuery", exposureQueryId ?? null);
           } else if (v.startsWith("segment")) {
-            setValue("segment");
             const segmentId = v.match(/segment_(.*)/)?.[1];
-            setPopulationValue(segmentId ?? null);
+            setValue("segment", segmentId ?? null);
           } else {
-            setValue(v as MetricAnalysisPopulationType);
-            setPopulationValue(null);
+            setValue(v as MetricAnalysisPopulationType, null);
           }
         }}
       />

@@ -1,20 +1,14 @@
 ---
 title: Setting up Mixpanel as a data source
-description: This document outlines the steps needed to add your Mixpanel database to GrowthBook.
+description: This document outlines the steps needed to use Mixpanel with GrowthBook.
 sidebar_label: Mixpanel
 slug: mixpanel
 ---
 
-:::tip
+:::caution Deprecation notice
 
-You can find a more detailed walk through for setting up Mixpanel [here](/guide/mixpanel)
+Using Mixpanel as a direct datasource is no longer supported. This is because because Mixpanel has placed JQL, their query language, in [maintenance mode](https://docs.mixpanel.com/docs/reports/apps/jql).
+
+In order to use Mixpanel with GrowthBook, we suggest you set up an export to a data warehouse following [Mixpanel's documentation](https://docs.mixpanel.com/docs/data-pipelines) and then use that separate data warehouse (e.g. Snowflake, BigQuery) as your Data Source in GrowthBook.
 
 :::
-
-You must first create a Service Account in Mixpanel under your [Project Settings](https://mixpanel.com/settings/project#serviceaccounts).
-
-To add the datasource in GrowthBook, you will need:
-
-1.  The service account username
-2.  The service account secret
-3.  Your project id (found on the Project Settings Overview page)

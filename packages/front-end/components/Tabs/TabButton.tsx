@@ -41,7 +41,7 @@ export default function TabButton({
           last,
           "nav-button-item": newStyle,
         },
-        activeClassName && active ? activeClassName : null
+        activeClassName && active ? activeClassName : null,
       )}
       role="tab"
       href={anchor ? `#${anchor}` : "#"}

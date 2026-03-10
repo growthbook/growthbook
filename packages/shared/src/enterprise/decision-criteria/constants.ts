@@ -1,7 +1,7 @@
-import { DecisionCriteriaData } from "back-end/types/experiment";
+import { DecisionCriteriaData } from "shared/types/experiment";
 
 // Default decision criteria for new users
-export const DEFAULT_DECISION_CRITERIA: DecisionCriteriaData = {
+export const PRESET_DECISION_CRITERIA: DecisionCriteriaData = {
   id: "gbdeccrit_strictrollout",
   name: "Clear Signals",
   description:
@@ -51,7 +51,7 @@ export const DEFAULT_DECISION_CRITERIA: DecisionCriteriaData = {
   defaultAction: "review",
 };
 
-const secondaryDecisionCriteria: DecisionCriteriaData = {
+export const DO_NO_HARM_DECISION_CRITERIA: DecisionCriteriaData = {
   id: "gbdeccrit_donoharm",
   name: "Do No Harm",
   description:
@@ -76,7 +76,7 @@ const secondaryDecisionCriteria: DecisionCriteriaData = {
   defaultAction: "rollback",
 };
 
-export const DEFAULT_DECISION_CRITERIAS: DecisionCriteriaData[] = [
-  DEFAULT_DECISION_CRITERIA,
-  secondaryDecisionCriteria,
+export const PRESET_DECISION_CRITERIAS: DecisionCriteriaData[] = [
+  PRESET_DECISION_CRITERIA,
+  DO_NO_HARM_DECISION_CRITERIA,
 ];

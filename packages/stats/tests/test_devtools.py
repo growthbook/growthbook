@@ -7,7 +7,6 @@ from scipy.stats import norm
 import copy
 
 from gbstats.frequentist.tests import FrequentistConfig, TwoSidedTTest
-
 from gbstats.models.settings import (
     MetricSettingsForStatsEngine,
     AnalysisSettingsForStatsEngine,
@@ -15,9 +14,6 @@ from gbstats.models.settings import (
 
 from gbstats.devtools.simulation import CreateStatistic, CreateRow
 from gbstats.gbstats import process_single_metric
-
-DECIMALS = 5
-round_ = partial(np.round, decimals=DECIMALS)
 
 
 class TestCreateRows(TestCase):
@@ -48,7 +44,6 @@ class TestCreateRows(TestCase):
             difference_type="absolute",
             phase_length_days=7,
             # phase_length_days=41,
-            new_users_per_day=None,
         )
 
         rng_a_1 = np.random.default_rng(seed=int(20241213))
@@ -94,33 +89,39 @@ class TestCreateRows(TestCase):
 
         row_a_1 = CreateRow(
             stat_a_1,
-            self.analysis_settings_abs.dimension,
-            self.analysis_settings_abs.var_names[0],
+            dimension_name="dimension",
+            dimension_value=self.analysis_settings_abs.dimension,
+            variation=self.analysis_settings_abs.var_names[0],
         ).create_row()
         row_b_1 = CreateRow(
             stat_b_1,
-            self.analysis_settings_abs.dimension,
-            self.analysis_settings_abs.var_names[1],
+            dimension_name="dimension",
+            dimension_value=self.analysis_settings_abs.dimension,
+            variation=self.analysis_settings_abs.var_names[1],
         ).create_row()
         row_a_2 = CreateRow(
             stat_a_2,
-            self.analysis_settings_abs.dimension,
-            self.analysis_settings_abs.var_names[0],
+            dimension_name="dimension",
+            dimension_value=self.analysis_settings_abs.dimension,
+            variation=self.analysis_settings_abs.var_names[0],
         ).create_row()
         row_b_2 = CreateRow(
             stat_b_2,
-            self.analysis_settings_abs.dimension,
-            self.analysis_settings_abs.var_names[1],
+            dimension_name="dimension",
+            dimension_value=self.analysis_settings_abs.dimension,
+            variation=self.analysis_settings_abs.var_names[1],
         ).create_row()
         row_a_3 = CreateRow(
             stat_a_3,
-            self.analysis_settings_abs.dimension,
-            self.analysis_settings_abs.var_names[0],
+            dimension_name="dimension",
+            dimension_value=self.analysis_settings_abs.dimension,
+            variation=self.analysis_settings_abs.var_names[0],
         ).create_row()
         row_b_3 = CreateRow(
             stat_b_3,
-            self.analysis_settings_abs.dimension,
-            self.analysis_settings_abs.var_names[1],
+            dimension_name="dimension",
+            dimension_value=self.analysis_settings_abs.dimension,
+            variation=self.analysis_settings_abs.var_names[1],
         ).create_row()
 
         query_output_1 = [row_a_1, row_b_1]
@@ -128,16 +129,12 @@ class TestCreateRows(TestCase):
         query_output_3 = [row_a_3, row_b_3]
 
         difference_type = "absolute"
+
         config = FrequentistConfig(difference_type=difference_type)
-        self.res_1 = TwoSidedTTest(
-            stat_a=stat_a_1, stat_b=stat_b_1, config=config
-        ).compute_result()
-        self.res_2 = TwoSidedTTest(
-            stat_a=stat_a_2, stat_b=stat_b_2, config=config
-        ).compute_result()
-        self.res_3 = TwoSidedTTest(
-            stat_a=stat_a_3, stat_b=stat_b_3, config=config
-        ).compute_result()
+
+        self.res_1 = TwoSidedTTest([(stat_a_1, stat_b_1)], config).compute_result()
+        self.res_2 = TwoSidedTTest([(stat_a_2, stat_b_2)], config).compute_result()
+        self.res_3 = TwoSidedTTest([(stat_a_3, stat_b_3)], config).compute_result()
 
         query_output = [query_output_1, query_output_3]
         metric_settings = [metric_settings_1, metric_settings_2]
@@ -151,29 +148,15 @@ class TestCreateRows(TestCase):
                 analyses=analyses,
             )
             self.results_gbstats.append(a)
-            print(
-                [
-                    metric_iter,
-                    list(
-                        self.results_gbstats[metric_iter]
-                        .analyses[0]
-                        .dimensions[0]
-                        .variations[1]
-                        .ci
-                    ),
-                    self.res_1.ci,
-                    self.res_2.ci,
-                ]
-            )
 
     def test_count_metric(self):
         self.assertEqual(
-            list(self.results_gbstats[0].analyses[0].dimensions[0].variations[1].ci),
+            self.results_gbstats[0].analyses[0].dimensions[0].variations[1].ci,
             self.res_1.ci,
         )
 
     def test_ratio_adjusted_regression_metric(self):
         self.assertEqual(
-            list(self.results_gbstats[1].analyses[0].dimensions[0].variations[1].ci),
+            self.results_gbstats[1].analyses[0].dimensions[0].variations[1].ci,
             self.res_3.ci,
         )

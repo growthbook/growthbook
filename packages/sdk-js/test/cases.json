@@ -482,6 +482,18 @@
       false
     ],
     [
+      "$in - fail (case sensitive mismatch)",
+      {
+        "country": {
+          "$in": ["us", "uk"]
+        }
+      },
+      {
+        "country": "US"
+      },
+      false
+    ],
+    [
       "$nin - pass",
       {
         "num": {
@@ -576,6 +588,198 @@
         "tags": []
       },
       true
+    ],
+    [
+      "$nin - pass (case sensitive mismatch)",
+      {
+        "country": {
+          "$nin": ["us", "uk"]
+        }
+      },
+      {
+        "country": "US"
+      },
+      true
+    ],
+    [
+      "$ini - pass (case insensitive match)",
+      {
+        "country": {
+          "$ini": ["us", "uk"]
+        }
+      },
+      {
+        "country": "US"
+      },
+      true
+    ],
+    [
+      "$ini - pass (uppercase pattern, lowercase value)",
+      {
+        "country": {
+          "$ini": ["US", "UK"]
+        }
+      },
+      {
+        "country": "us"
+      },
+      true
+    ],
+    [
+      "$ini - pass (mixed case)",
+      {
+        "country": {
+          "$ini": ["Us", "Uk"]
+        }
+      },
+      {
+        "country": "US"
+      },
+      true
+    ],
+    [
+      "$ini - fail (no match)",
+      {
+        "country": {
+          "$ini": ["us", "uk"]
+        }
+      },
+      {
+        "country": "CA"
+      },
+      false
+    ],
+    [
+      "$ini - array pass 1",
+      {
+        "tags": {
+          "$ini": ["a", "b"]
+        }
+      },
+      {
+        "tags": ["d", "e", "A"]
+      },
+      true
+    ],
+    [
+      "$ini - array pass 2",
+      {
+        "tags": {
+          "$ini": ["A", "B"]
+        }
+      },
+      {
+        "tags": ["d", "b", "f"]
+      },
+      true
+    ],
+    [
+      "$ini - array fail",
+      {
+        "tags": {
+          "$ini": ["a", "b"]
+        }
+      },
+      {
+        "tags": ["d", "e", "f"]
+      },
+      false
+    ],
+    [
+      "$ini - not array",
+      {
+        "num": {
+          "$ini": 1
+        }
+      },
+      {
+        "num": 1
+      },
+      false
+    ],
+    [
+      "$nini - pass (case insensitive match)",
+      {
+        "country": {
+          "$nini": ["us", "uk"]
+        }
+      },
+      {
+        "country": "CA"
+      },
+      true
+    ],
+    [
+      "$nini - fail (case insensitive match)",
+      {
+        "country": {
+          "$nini": ["us", "uk"]
+        }
+      },
+      {
+        "country": "US"
+      },
+      false
+    ],
+    [
+      "$nini - fail (uppercase pattern, lowercase value)",
+      {
+        "country": {
+          "$nini": ["US", "UK"]
+        }
+      },
+      {
+        "country": "us"
+      },
+      false
+    ],
+    [
+      "$nini - array pass",
+      {
+        "tags": {
+          "$nini": ["a", "b"]
+        }
+      },
+      {
+        "tags": ["d", "e", "f"]
+      },
+      true
+    ],
+    [
+      "$nini - array fail 1",
+      {
+        "tags": {
+          "$nini": ["a", "b"]
+        }
+      },
+      {
+        "tags": ["d", "e", "A"]
+      },
+      false
+    ],
+    [
+      "$nini - array fail 2",
+      {
+        "tags": {
+          "$nini": ["A", "B"]
+        }
+      },
+      {
+        "tags": ["d", "b", "f"]
+      },
+      false
+    ],
+    [
+      "$nini - not array",
+      {
+        "num": {
+          "$nini": 1
+        }
+      },
+      {
+        "num": 1
+      },
+      false
     ],
     [
       "$elemMatch - pass - flat arrays",
@@ -750,6 +954,54 @@
       {
         "userAgent": {
           "$regex": "(Mobile|Tablet)"
+        }
+      },
+      {
+        "userAgent": "Chrome Desktop Browser"
+      },
+      false
+    ],
+    [
+      "$regex - fail (case sensitive mismatch)",
+      {
+        "userAgent": {
+          "$regex": "(mobile|tablet)"
+        }
+      },
+      {
+        "userAgent": "Android Mobile Browser"
+      },
+      false
+    ],
+    [
+      "$regexi - pass (case insensitive match)",
+      {
+        "userAgent": {
+          "$regexi": "(mobile|tablet)"
+        }
+      },
+      {
+        "userAgent": "Android Mobile Browser"
+      },
+      true
+    ],
+    [
+      "$regexi - pass (uppercase pattern, lowercase value)",
+      {
+        "userAgent": {
+          "$regexi": "(MOBILE|TABLET)"
+        }
+      },
+      {
+        "userAgent": "android mobile browser"
+      },
+      true
+    ],
+    [
+      "$regexi - fail",
+      {
+        "userAgent": {
+          "$regexi": "(mobile|tablet)"
         }
       },
       {
@@ -1435,6 +1687,78 @@
       {
         "tags": {
           "$all": ["one", "three"]
+        }
+      },
+      {
+        "tags": "hello"
+      },
+      false
+    ],
+    [
+      "$all - fail (case sensitive mismatch)",
+      {
+        "tags": {
+          "$all": ["one", "three"]
+        }
+      },
+      {
+        "tags": ["ONE", "two", "THREE"]
+      },
+      false
+    ],
+    [
+      "$alli - pass (case insensitive match)",
+      {
+        "tags": {
+          "$alli": ["one", "three"]
+        }
+      },
+      {
+        "tags": ["ONE", "two", "THREE"]
+      },
+      true
+    ],
+    [
+      "$alli - pass (uppercase pattern, lowercase value)",
+      {
+        "tags": {
+          "$alli": ["ONE", "THREE"]
+        }
+      },
+      {
+        "tags": ["one", "two", "three"]
+      },
+      true
+    ],
+    [
+      "$alli - pass (mixed case)",
+      {
+        "tags": {
+          "$alli": ["One", "Three"]
+        }
+      },
+      {
+        "tags": ["ONE", "two", "three"]
+      },
+      true
+    ],
+    [
+      "$alli - fail (case insensitive, missing value)",
+      {
+        "tags": {
+          "$alli": ["one", "three"]
+        }
+      },
+      {
+        "tags": ["ONE", "two", "four"]
+      },
+      false
+    ],
+    [
+      "$alli - fail not array",
+      {
+        "tags": {
+          "$alli": ["one", "three"]
         }
       },
       {
@@ -6407,6 +6731,249 @@
           },
           "attributeName": "id",
           "attributeValue": "i123"
+        }
+      }
+    ],
+    [
+      "uses a sticky bucket when sticky bucket version == experiment.minBucketVersion === experiment.bucketVersion",
+      {
+        "attributes": {
+          "deviceId": "d123",
+          "anonymousId": "ses123",
+          "foo": "bar",
+          "country": "USA"
+        },
+        "features": {
+          "exp1": {
+            "defaultValue": "control",
+            "rules": [
+              {
+                "key": "feature-exp",
+                "seed": "feature-exp",
+                "hashAttribute": "id",
+                "fallbackAttribute": "deviceId",
+                "hashVersion": 2,
+                "bucketVersion": 3,
+                "minBucketVersion": 3,
+                "condition": { "country": "USA" },
+                "variations": ["control", "red", "blue"],
+                "meta": [{ "key": "0" }, { "key": "1" }, { "key": "2" }],
+                "coverage": 1,
+                "weights": [0.3334, 0.3333, 0.3333],
+                "phase": "0"
+              }
+            ]
+          }
+        }
+      },
+      [
+        {
+          "attributeName": "deviceId",
+          "attributeValue": "d123",
+          "assignments": {
+            "feature-exp__3": "2"
+          }
+        }
+      ],
+      "exp1",
+      {
+        "bucket": 0.6468,
+        "featureId": "exp1",
+        "hashAttribute": "deviceId",
+        "hashUsed": true,
+        "hashValue": "d123",
+        "inExperiment": true,
+        "key": "2",
+        "stickyBucketUsed": true,
+        "value": "blue",
+        "variationId": 2
+      },
+      {
+        "deviceId||d123": {
+          "assignments": { "feature-exp__3": "2" },
+          "attributeName": "deviceId",
+          "attributeValue": "d123"
+        }
+      }
+    ],
+    [
+      "skips assignment when sticky bucket version < experiment.minBucketVersion",
+      {
+        "attributes": {
+          "deviceId": "d123",
+          "anonymousId": "ses123",
+          "foo": "bar",
+          "country": "USA"
+        },
+        "features": {
+          "exp1": {
+            "defaultValue": "control",
+            "rules": [
+              {
+                "key": "feature-exp",
+                "seed": "feature-exp",
+                "hashAttribute": "id",
+                "fallbackAttribute": "deviceId",
+                "hashVersion": 2,
+                "bucketVersion": 3,
+                "minBucketVersion": 3,
+                "condition": { "country": "USA" },
+                "variations": ["control", "red", "blue"],
+                "meta": [{ "key": "0" }, { "key": "1" }, { "key": "2" }],
+                "coverage": 1,
+                "weights": [0.3334, 0.3333, 0.3333],
+                "phase": "0"
+              }
+            ]
+          }
+        }
+      },
+      [
+        {
+          "attributeName": "deviceId",
+          "attributeValue": "d123",
+          "assignments": {
+            "feature-exp__2": "2"
+          }
+        }
+      ],
+      "exp1",
+      null,
+      {
+        "deviceId||d123": {
+          "assignments": { "feature-exp__2": "2" },
+          "attributeName": "deviceId",
+          "attributeValue": "d123"
+        }
+      }
+    ],
+    [
+      "resets sticky bucketing when bucket version > experiment.bucketVersion (invalid version)",
+      {
+        "attributes": {
+          "deviceId": "d123",
+          "anonymousId": "ses123",
+          "foo": "bar",
+          "country": "USA"
+        },
+        "features": {
+          "exp1": {
+            "defaultValue": "control",
+            "rules": [
+              {
+                "key": "feature-exp",
+                "seed": "feature-exp",
+                "hashAttribute": "id",
+                "fallbackAttribute": "deviceId",
+                "hashVersion": 2,
+                "bucketVersion": 3,
+                "minBucketVersion": 3,
+                "condition": { "country": "USA" },
+                "variations": ["control", "red", "blue"],
+                "meta": [{ "key": "0" }, { "key": "1" }, { "key": "2" }],
+                "coverage": 1,
+                "weights": [0.3334, 0.3333, 0.3333],
+                "phase": "0"
+              }
+            ]
+          }
+        }
+      },
+      [
+        {
+          "attributeName": "deviceId",
+          "attributeValue": "d123",
+          "assignments": {
+            "feature-exp__4": "2"
+          }
+        }
+      ],
+      "exp1",
+      {
+        "bucket": 0.6468,
+        "featureId": "exp1",
+        "hashAttribute": "deviceId",
+        "hashUsed": true,
+        "hashValue": "d123",
+        "inExperiment": true,
+        "key": "1",
+        "stickyBucketUsed": false,
+        "value": "red",
+        "variationId": 1
+      },
+      {
+        "deviceId||d123": {
+          "assignments": {
+            "feature-exp__3": "1",
+            "feature-exp__4": "2"
+          },
+          "attributeName": "deviceId",
+          "attributeValue": "d123"
+        }
+      }
+    ],
+    [
+      "resets sticky bucketing when bucket version < experiment.bucketVersion (invalid version)",
+      {
+        "attributes": {
+          "deviceId": "d123",
+          "anonymousId": "ses123",
+          "foo": "bar",
+          "country": "USA"
+        },
+        "features": {
+          "exp1": {
+            "defaultValue": "control",
+            "rules": [
+              {
+                "key": "feature-exp",
+                "seed": "feature-exp",
+                "hashAttribute": "id",
+                "fallbackAttribute": "deviceId",
+                "hashVersion": 2,
+                "bucketVersion": 4,
+                "minBucketVersion": 3,
+                "condition": { "country": "USA" },
+                "variations": ["control", "red", "blue"],
+                "meta": [{ "key": "0" }, { "key": "1" }, { "key": "2" }],
+                "coverage": 1,
+                "weights": [0.3334, 0.3333, 0.3333],
+                "phase": "0"
+              }
+            ]
+          }
+        }
+      },
+      [
+        {
+          "attributeName": "deviceId",
+          "attributeValue": "d123",
+          "assignments": {
+            "feature-exp__3": "2"
+          }
+        }
+      ],
+      "exp1",
+      {
+        "bucket": 0.6468,
+        "featureId": "exp1",
+        "hashAttribute": "deviceId",
+        "hashUsed": true,
+        "hashValue": "d123",
+        "inExperiment": true,
+        "key": "1",
+        "stickyBucketUsed": false,
+        "value": "red",
+        "variationId": 1
+      },
+      {
+        "deviceId||d123": {
+          "assignments": {
+            "feature-exp__3": "2",
+            "feature-exp__4": "1"
+          },
+          "attributeName": "deviceId",
+          "attributeValue": "d123"
         }
       }
     ],

@@ -1,5 +1,5 @@
 import React from "react";
-import Badge from "@/components/Radix/Badge";
+import Badge from "@/ui/Badge";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
 export default function ShareStatusBadge({
@@ -39,11 +39,15 @@ export function getShareStatusTooltip({
           isOwner ? "you" : "the owner"
         } can view it`
       : shareLevel === "organization"
-      ? "This report is discoverable within your organization"
-      : "This report is viewable by anybody with a shared link";
+        ? "This report is discoverable within your organization"
+        : "This report is viewable by anybody with a shared link";
 
   if (editLevel === "organization") {
-    message += ". Anybody in your organization with permissions can edit it.";
+    if (shareLevel === "private") {
+      message += " and edit it.";
+    } else {
+      message += ". Anybody in your organization with permissions can edit it.";
+    }
   } else if (editLevel === "private") {
     if (shareLevel === "private") {
       message = `This report is unlisted — only ${

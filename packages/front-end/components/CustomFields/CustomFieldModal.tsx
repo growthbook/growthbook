@@ -3,21 +3,21 @@ import {
   CustomField,
   CustomFieldSection,
   CustomFieldTypes,
-} from "back-end/types/custom-fields";
+} from "shared/types/custom-fields";
 import React from "react";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import track from "@/services/track";
 import { useCustomFields } from "@/hooks/useCustomFields";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
-import Toggle from "@/components/Forms/Toggle";
 import SelectField, {
   GroupedValue,
   SingleValue,
 } from "@/components/Forms/SelectField";
+import Checkbox from "@/ui/Checkbox";
+import RadioGroup from "@/ui/RadioGroup";
 
 export default function CustomFieldModal({
   existing,
@@ -33,8 +33,9 @@ export default function CustomFieldModal({
   const { project, projects } = useDefinitions();
   const { apiCall } = useAuth();
 
-  const form = useForm<Partial<CustomField>>({
+  const form = useForm<CustomField>({
     defaultValues: {
+      id: existing.id || "",
       name: existing.name || "",
       description: existing.description || "",
       values: existing.values || "",
@@ -43,10 +44,10 @@ export default function CustomFieldModal({
       defaultValue: existing.defaultValue
         ? existing.defaultValue
         : existing.type === "boolean"
-        ? existing.defaultValue ?? false
-        : "",
+          ? (existing.defaultValue ?? false)
+          : "",
       section: existing.section || section,
-      projects: existing.projects || [project] || [],
+      projects: existing.projects || (project ? [project] : []),
       required: existing.required ?? false,
       index: true,
     },
@@ -72,11 +73,12 @@ export default function CustomFieldModal({
   const showSearchableToggle = false;
   return (
     <Modal
-      trackingEventModalType={"custom-field"}
+      trackingEventModalType="custom-field"
       open={true}
       close={close}
       header={existing.id ? `Edit Custom Field` : "Create New Custom Field"}
-      cta={"Save"}
+      cta="Save"
+      useRadixButton={true}
       submit={form.handleSubmit(async (value) => {
         if (value.type === "boolean") {
           // make sure the default value is a boolean
@@ -112,7 +114,7 @@ export default function CustomFieldModal({
           edit.description = value?.description ?? "";
           edit.placeholder = value?.placeholder ?? "";
           edit.projects = value.projects;
-          edit.section = section;
+          edit.section = value.section;
 
           await apiCall(`/custom-fields/${existing.id}`, {
             method: "PUT",
@@ -124,6 +126,7 @@ export default function CustomFieldModal({
           });
         } else {
           const newCustomFields: Partial<CustomField> = {
+            id: value.id ?? "",
             name: value.name ?? "",
             values: value.values,
             description: value.description ?? "",
@@ -132,7 +135,7 @@ export default function CustomFieldModal({
             projects: value.projects,
             type: value.type ?? "text",
             required: value.required ?? false,
-            section: section,
+            section: value.section,
           };
 
           await apiCall(`/custom-fields`, {
@@ -151,11 +154,37 @@ export default function CustomFieldModal({
       })}
     >
       <Field
+        label="Key"
+        {...form.register("id")}
+        pattern="^[a-z0-9_-]+$"
+        placeholder=""
+        required={true}
+        title="Only lowercase letters, digits, underscores, and hyphens allowed. No spaces."
+        helpText={
+          <>
+            Only lowercase letters, digits, underscores, and hyphens allowed. No
+            spaces. <strong>Cannot be changed later!</strong>
+          </>
+        }
+        disabled={!!existing.id}
+      />
+      <Field
         label="Name"
         {...form.register("name")}
         placeholder=""
         required={true}
       />
+      <div className="mb-3">
+        <label className="form-label">Applies to</label>
+        <RadioGroup
+          value={form.watch("section") ?? section}
+          setValue={(v) => form.setValue("section", v as CustomFieldSection)}
+          options={[
+            { value: "feature", label: "Feature" },
+            { value: "experiment", label: "Experiment" },
+          ]}
+        />
+      </div>
       <Field
         label="Description"
         {...form.register("description")}
@@ -163,7 +192,7 @@ export default function CustomFieldModal({
       />
       <div className="mb-3">
         <SelectField
-          label="Type"
+          label="Value type"
           value={form.watch("type") ?? "text"}
           options={fieldOptions.map((o) => ({ label: o, value: o }))}
           onChange={(v: CustomFieldTypes) => {
@@ -207,17 +236,15 @@ export default function CustomFieldModal({
             )}
         </>
       ) : (
-        <>
-          <label className="mr-2">Default value</label>
-          <Toggle
-            id={"defaultValue"}
-            label="Default value"
-            value={!!form.watch("defaultValue")}
-            setValue={(value) => {
-              form.setValue("defaultValue", value);
-            }}
-          />
-        </>
+        <Checkbox
+          id={"defaultValue"}
+          label="Default value"
+          description="If checked, it defaults to true. Otherwise, it defaults to false."
+          value={!!form.watch("defaultValue")}
+          setValue={(value) => {
+            form.setValue("defaultValue", value);
+          }}
+        />
       )}
       <div className="form-group mb-3 mt-3">
         {projects?.length > 0 && (
@@ -237,34 +264,27 @@ export default function CustomFieldModal({
         )}
       </div>
       <div className="mb-3 mt-3">
-        <Toggle
+        <Checkbox
           id={"required"}
           label="Required"
+          description="Make the custom field required when creating or editing features or experiments."
           value={!!form.watch("required")}
           setValue={(value) => {
             form.setValue("required", value);
           }}
-        />{" "}
-        <label htmlFor="required">
-          Field is required on new {section}s{" "}
-          <Tooltip
-            body={
-              "This will make the custom field required when creating or editing experiments. You can also make this field required before starting an experiment from launch checklists."
-            }
-          ></Tooltip>
-        </label>
+        />
       </div>
       {showSearchableToggle && (
         <>
-          <Toggle
-            id={"index"}
-            label="Index"
+          <Checkbox
+            id="index"
+            label="Searchable"
+            description="Make the custom field searchable."
             value={!!form.watch("index")}
             setValue={(value) => {
               form.setValue("index", value);
             }}
-          />{" "}
-          <label htmlFor="index">Make this field searchable</label>
+          />
         </>
       )}
     </Modal>

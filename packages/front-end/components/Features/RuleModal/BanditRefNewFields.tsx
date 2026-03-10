@@ -3,12 +3,12 @@ import {
   FeatureInterface,
   FeaturePrerequisite,
   SavedGroupTargeting,
-} from "back-end/types/feature";
-import React, { useEffect } from "react";
+} from "shared/types/feature";
+import { useEffect } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import Collapsible from "react-collapsible";
 import { PiCaretRightFill } from "react-icons/pi";
+import { Box, Separator } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import SelectField from "@/components/Forms/SelectField";
@@ -23,28 +23,28 @@ import {
 import useSDKConnections from "@/hooks/useSDKConnections";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
 import ConditionInput from "@/components/Features/ConditionInput";
-import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
+import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
-import BanditSettings from "@/components/GeneralSettings/BanditSettings";
+import BanditDecisionMetricSettings from "@/components/Experiment/BanditDecisionMetricSettings";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
+import CustomMetricSlicesSelector from "@/components/Experiment/CustomMetricSlicesSelector";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { GBCuped } from "@/components/Icons";
 import { useUser } from "@/services/UserContext";
 import { SortableVariation } from "@/components/Features/SortableFeatureVariationRow";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Switch from "@/ui/Switch";
+import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 
 export default function BanditRefNewFields({
   step,
   source,
   feature,
   project,
-  environment,
   environments,
-  revisions,
-  version,
   prerequisiteValue,
   setPrerequisiteValue,
   setPrerequisiteTargetingSdkIssues,
@@ -62,15 +62,14 @@ export default function BanditRefNewFields({
   setWeight,
   variations,
   setVariations,
+  disableBanditConversionWindow,
+  setDisableBanditConversionWindow,
 }: {
   step: number;
   source: "rule" | "experiment";
   feature?: FeatureInterface;
   project?: string;
-  environment?: string;
-  environments?: string[];
-  revisions?: FeatureRevisionInterface[];
-  version?: number;
+  environments: string[];
   prerequisiteValue: FeaturePrerequisite[];
   setPrerequisiteValue: (prerequisites: FeaturePrerequisite[]) => void;
   setPrerequisiteTargetingSdkIssues: (b: boolean) => void;
@@ -87,12 +86,14 @@ export default function BanditRefNewFields({
   setWeight: (i: number, w: number) => void;
   variations: SortableVariation[];
   setVariations: (v: SortableVariation[]) => void;
+  disableBanditConversionWindow: boolean;
+  setDisableBanditConversionWindow: (v: boolean) => void;
 }) {
   const form = useFormContext();
 
   const { hasCommercialFeature } = useUser();
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
-    "regression-adjustment"
+    "regression-adjustment",
   );
 
   const { datasources, getDatasourceById } = useDefinitions();
@@ -117,7 +118,7 @@ export default function BanditRefNewFields({
   const { data: sdkConnectionsData } = useSDKConnections();
   const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
     sdkConnectionsData?.connections,
-    project
+    project,
   );
 
   const settings = useOrgSettings();
@@ -231,17 +232,11 @@ export default function BanditRefNewFields({
             project={project || ""}
           />
           <hr />
-          <PrerequisiteTargetingField
+          <PrerequisiteInput
             value={prerequisiteValue}
             setValue={setPrerequisiteValue}
-            // value={form.watch("prerequisites") || []}
-            // setValue={(prerequisites) =>
-            //   form.setValue("prerequisites", prerequisites)
-            // }
             feature={feature}
-            revisions={revisions}
-            version={version}
-            environments={environment ? [environment] : environments ?? []}
+            environments={environments ?? []}
             setPrerequisiteTargetingSdkIssues={
               setPrerequisiteTargetingSdkIssues
             }
@@ -298,7 +293,7 @@ export default function BanditRefNewFields({
                 })}
                 formatOptionLabel={({ label, value }) => {
                   const userIdType = exposureQueries?.find(
-                    (e) => e.id === value
+                    (e) => e.id === value,
                   )?.userIdType;
                   return (
                     <>
@@ -318,23 +313,30 @@ export default function BanditRefNewFields({
             ) : null}
           </div>
 
-          <ExperimentMetricsSelector
-            datasource={datasource?.id}
-            exposureQueryId={exposureQueryId}
-            project={project}
-            forceSingleGoalMetric={true}
-            noPercentileGoalMetrics={true}
-            goalMetrics={form.watch("goalMetrics") ?? []}
-            secondaryMetrics={form.watch("secondaryMetrics") ?? []}
-            guardrailMetrics={form.watch("guardrailMetrics") ?? []}
-            setGoalMetrics={(goalMetrics) =>
-              form.setValue("goalMetrics", goalMetrics)
-            }
-          />
-
-          <div className="mt-2 mb-3">
+          <Box my="4">
             <BanditSettings page="experiment-settings" />
-          </div>
+          </Box>
+
+          {settings?.useStickyBucketing && (
+            <Switch
+              label="Disable Sticky Bucketing"
+              description={`Permit users in low-performing variations to switch variations in future update periods.`}
+              value={!!form.watch("disableStickyBucketing")}
+              onChange={(v) => {
+                form.setValue("disableStickyBucketing", v);
+              }}
+              mb="5"
+              mt="5"
+            />
+          )}
+
+          <Separator my="5" size="4" />
+
+          <BanditDecisionMetricSettings
+            disableBanditConversionWindow={disableBanditConversionWindow}
+            setDisableBanditConversionWindow={setDisableBanditConversionWindow}
+            project={project}
+          />
 
           <ExperimentMetricsSelector
             datasource={datasource?.id}
@@ -351,6 +353,16 @@ export default function BanditRefNewFields({
             }
             collapseSecondary={true}
             collapseGuardrail={true}
+          />
+
+          <CustomMetricSlicesSelector
+            goalMetrics={form.watch("goalMetrics") ?? []}
+            secondaryMetrics={form.watch("secondaryMetrics") ?? []}
+            guardrailMetrics={form.watch("guardrailMetrics") ?? []}
+            customMetricSlices={form.watch("customMetricSlices") ?? []}
+            setCustomMetricSlices={(slices) =>
+              form.setValue("customMetricSlices", slices)
+            }
           />
 
           <hr className="mt-4" />

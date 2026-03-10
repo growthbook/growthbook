@@ -1,5 +1,6 @@
-import { FeatureInterface } from "back-end/types/feature";
-import { MetricInterface } from "back-end/types/metric";
+import { DashboardInterface } from "shared/enterprise";
+import { FeatureInterface } from "shared/types/feature";
+import { MetricInterface } from "shared/types/metric";
 import {
   EnvScopedPermission,
   Environment,
@@ -8,31 +9,29 @@ import {
   ProjectScopedPermission,
   SDKAttribute,
   UserPermissions,
-} from "back-end/types/organization";
-import { IdeaInterface } from "back-end/types/idea";
+} from "shared/types/organization";
 import {
   FactMetricInterface,
   FactTableInterface,
   UpdateFactTableProps,
-} from "back-end/types/fact-table";
+} from "shared/types/fact-table";
+import { ExecReportInterface } from "shared/types/exec-report";
 import {
   ExperimentInterface,
   ExperimentTemplateInterface,
   UpdateTemplateProps,
-} from "back-end/types/experiment";
-import { DataSourceInterface } from "back-end/types/datasource";
-import { UpdateProps } from "back-end/types/models";
-import { SDKConnectionInterface } from "back-end/types/sdk-connection";
-import { ArchetypeInterface } from "back-end/types/archetype";
-import { SegmentInterface } from "back-end/types/segment";
-import { SavedGroupInterface } from "../types";
+} from "shared/types/experiment";
+import { DataSourceInterface } from "shared/types/datasource";
+import { UpdateProps } from "shared/types/base-model";
+import { SegmentInterface } from "shared/types/segment";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import { IdeaInterface } from "shared/types/idea";
+import { ArchetypeInterface } from "shared/types/archetype";
+import { SavedGroupInterface } from "shared/types/saved-group";
+import { CustomHookInterface } from "../validators/custom-hooks";
+import { HoldoutInterface } from "../validators/holdout";
+import { PermissionError } from "../util/";
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
-class PermissionError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "PermissionError";
-  }
-}
 
 type NotificationEvent = {
   containsSecrets: boolean;
@@ -169,205 +168,345 @@ export class Permissions {
   };
 
   //Project Permissions
+  public canCreateOfficialResources = (
+    resource: Pick<
+      | SegmentInterface
+      | FactTableInterface
+      | FactMetricInterface
+      | MetricInterface,
+      "projects"
+    >,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      resource,
+      "manageOfficialResources",
+    );
+  };
+
+  public canUpdateOfficialResources = (
+    existing: Pick<
+      | SegmentInterface
+      | FactTableInterface
+      | FactMetricInterface
+      | MetricInterface,
+      "projects"
+    >,
+    updates: Pick<
+      | SegmentInterface
+      | FactTableInterface
+      | FactMetricInterface
+      | MetricInterface,
+      "projects"
+    >,
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      existing,
+      updates,
+      "manageOfficialResources",
+    );
+  };
+
+  public canDeleteOfficialResources = (
+    resource: Pick<
+      | SegmentInterface
+      | FactTableInterface
+      | FactMetricInterface
+      | MetricInterface,
+      "projects"
+    >,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      resource,
+      "manageOfficialResources",
+    );
+  };
+
   public canCreateSegment = (
-    segment: Pick<SegmentInterface, "projects">
+    segment: Pick<SegmentInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(segment, "createSegments");
   };
 
   public canUpdateSegment = (
     existing: Pick<SegmentInterface, "projects">,
-    updates: Pick<SegmentInterface, "projects">
+    updates: Pick<SegmentInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterUpdatePermission(
       existing,
       updates,
-      "createSegments"
+      "createSegments",
     );
   };
 
   public canDeleteSegment = (
-    segment: Pick<SegmentInterface, "projects">
+    segment: Pick<SegmentInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(segment, "createSegments");
   };
 
   public canCreateVisualChange = (
-    experiment: Pick<ExperimentInterface, "project">
+    experiment: Pick<ExperimentInterface, "project">,
   ): boolean => {
     return this.checkProjectFilterPermission(
       { projects: experiment.project ? [experiment.project] : [] },
-      "manageVisualChanges"
+      "manageVisualChanges",
     );
   };
 
   public canUpdateVisualChange = (
-    experiment: Pick<ExperimentInterface, "project">
+    experiment: Pick<ExperimentInterface, "project">,
   ): boolean => {
     return this.checkProjectFilterPermission(
       { projects: experiment.project ? [experiment.project] : [] },
-      "manageVisualChanges"
+      "manageVisualChanges",
     );
   };
 
-  // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
-  public canViewAttributeModal = (project?: string): boolean => {
+  // Frontend helper to gate "Add Attribute" UI.
+  // Pass allProjects on list pages where "All Projects" may be selected;
+  // omit it when checking a specific resource's project or global-only access.
+  public canViewAttributeModal = (
+    project?: string,
+    allProjects?: { id: string }[],
+  ): boolean => {
+    if (!project && allProjects?.length) {
+      return allProjects.some((p) =>
+        this.canCreateAttribute({ projects: [p.id] }),
+      );
+    }
     return this.canCreateAttribute({ projects: project ? [project] : [] });
   };
 
   public canCreateAttribute = (
-    attribute: Pick<SDKAttribute, "projects">
+    attribute: Pick<SDKAttribute, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(
       attribute,
-      "manageTargetingAttributes"
+      "manageTargetingAttributes",
     );
   };
 
   public canUpdateAttribute = (
     existing: Pick<SDKAttribute, "projects">,
-    updates: Pick<SDKAttribute, "projects">
+    updates: Pick<SDKAttribute, "projects">,
   ): boolean => {
     return this.checkProjectFilterUpdatePermission(
       existing,
       updates,
-      "manageTargetingAttributes"
+      "manageTargetingAttributes",
     );
   };
 
   public canDeleteAttribute = (
-    attribute: Pick<SDKAttribute, "projects">
+    attribute: Pick<SDKAttribute, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(
       attribute,
-      "manageTargetingAttributes"
+      "manageTargetingAttributes",
     );
   };
 
-  // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
-  public canViewFeatureModal = (project?: string): boolean => {
+  // Frontend helper to gate "Create Feature" UI.
+  // Pass allProjects on list pages where "All Projects" may be selected;
+  // omit it when checking a specific resource's project or global-only access.
+  public canViewFeatureModal = (
+    project?: string,
+    allProjects?: { id: string }[],
+  ): boolean => {
+    if (!project && allProjects?.length) {
+      return allProjects.some((p) =>
+        this.checkProjectFilterPermission(
+          { projects: [p.id] },
+          "manageFeatures",
+        ),
+      );
+    }
     return this.checkProjectFilterPermission(
-      {
-        projects: project ? [project] : [],
-      },
-      "manageFeatures"
+      { projects: project ? [project] : [] },
+      "manageFeatures",
     );
   };
 
   public canCreateFeature = (
-    feature: Pick<FeatureInterface, "project">
+    feature: Pick<FeatureInterface, "project">,
   ): boolean => {
     return this.checkProjectFilterPermission(
       {
         projects: feature.project ? [feature.project] : [],
       },
-      "manageFeatures"
+      "manageFeatures",
     );
   };
 
   public canUpdateFeature = (
     existing: Pick<FeatureInterface, "project">,
-    updated: Pick<FeatureInterface, "project">
+    updated: Pick<FeatureInterface, "project">,
   ): boolean => {
     return this.checkProjectFilterUpdatePermission(
       { projects: existing.project ? [existing.project] : [] },
       "project" in updated ? { projects: [updated.project || ""] } : {},
-      "manageFeatures"
+      "manageFeatures",
     );
   };
 
   public canDeleteFeature = (
-    feature: Pick<FeatureInterface, "project">
+    feature: Pick<FeatureInterface, "project">,
   ): boolean => {
     return this.checkProjectFilterPermission(
       {
         projects: feature.project ? [feature.project] : [],
       },
-      "manageFeatures"
+      "manageFeatures",
     );
   };
 
-  // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
-  public canViewExperimentModal = (project?: string): boolean => {
+  // Frontend helper to gate "Create Experiment" UI.
+  // Pass allProjects on list pages where "All Projects" may be selected;
+  // omit it when checking a specific resource's project or global-only access.
+  public canViewExperimentModal = (
+    project?: string,
+    allProjects?: { id: string }[],
+  ): boolean => {
+    if (!project && allProjects?.length) {
+      return allProjects.some((p) =>
+        this.checkProjectFilterPermission(
+          { projects: [p.id] },
+          "createAnalyses",
+        ),
+      );
+    }
     return this.checkProjectFilterPermission(
-      {
-        projects: project ? [project] : [],
-      },
-      "createAnalyses"
+      { projects: project ? [project] : [] },
+      "createAnalyses",
     );
   };
 
   public canCreateExperiment = (
-    experiment: Pick<ExperimentInterface, "project">
+    experiment: Pick<ExperimentInterface, "project">,
   ): boolean => {
     return this.checkProjectFilterPermission(
       {
         projects: experiment.project ? [experiment.project] : [],
       },
-      "createAnalyses"
+      "createAnalyses",
     );
   };
 
   public canUpdateExperiment = (
     existing: Pick<ExperimentInterface, "project">,
-    updated: Pick<ExperimentInterface, "project">
+    updated: Pick<ExperimentInterface, "project">,
   ): boolean => {
     return this.checkProjectFilterUpdatePermission(
       { projects: existing.project ? [existing.project] : [] },
       "project" in updated ? { projects: [updated.project || ""] } : {},
-      "createAnalyses"
+      "createAnalyses",
     );
   };
 
   public canDeleteExperiment = (
-    experiment: Pick<ExperimentInterface, "project">
+    experiment: Pick<ExperimentInterface, "project">,
   ): boolean => {
     return this.checkProjectFilterPermission(
       { projects: experiment.project ? [experiment.project] : [] },
-      "createAnalyses"
+      "createAnalyses",
     );
   };
 
-  // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
-  public canViewExperimentTemplateModal = (project?: string): boolean => {
+  // Frontend helper to gate "Create Holdout" UI.
+  // Pass allProjects on list pages where "All Projects" may be selected;
+  // omit it when checking a specific resource's project or global-only access.
+  public canViewHoldoutModal = (
+    project?: string,
+    allProjects?: { id: string }[],
+  ): boolean => {
+    if (!project && allProjects?.length) {
+      return allProjects.some((p) =>
+        this.canCreateHoldout({ projects: [p.id] }),
+      );
+    }
+    return this.canCreateHoldout({ projects: project ? [project] : [] });
+  };
+
+  public canCreateHoldout = (
+    holdout: Pick<HoldoutInterface, "projects">,
+  ): boolean => {
     return this.checkProjectFilterPermission(
-      {
-        projects: project ? [project] : [],
-      },
-      "manageTemplates"
+      { projects: holdout.projects || [] },
+      "createAnalyses",
+    );
+  };
+
+  public canUpdateHoldout = (
+    existing: Pick<HoldoutInterface, "projects">,
+    updated: Pick<HoldoutInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      { projects: existing.projects || [] },
+      "projects" in updated ? { projects: updated.projects } : {},
+      "createAnalyses",
+    );
+  };
+
+  public canDeleteHoldout = (
+    holdout: Pick<HoldoutInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: holdout.projects || [] },
+      "createAnalyses",
+    );
+  };
+
+  // Frontend helper to gate "Create Experiment Template" UI.
+  // Pass allProjects on list pages where "All Projects" may be selected;
+  // omit it when checking a specific resource's project or global-only access.
+  public canViewExperimentTemplateModal = (
+    project?: string,
+    allProjects?: { id: string }[],
+  ): boolean => {
+    if (!project && allProjects?.length) {
+      return allProjects.some((p) =>
+        this.checkProjectFilterPermission(
+          { projects: [p.id] },
+          "manageTemplates",
+        ),
+      );
+    }
+    return this.checkProjectFilterPermission(
+      { projects: project ? [project] : [] },
+      "manageTemplates",
     );
   };
 
   public canCreateExperimentTemplate = (
-    template: Pick<ExperimentTemplateInterface, "project">
+    template: Pick<ExperimentTemplateInterface, "project">,
   ): boolean => {
     return this.checkProjectFilterPermission(
       {
         projects: template.project ? [template.project] : [],
       },
-      "manageTemplates"
+      "manageTemplates",
     );
   };
 
   public canUpdateExperimentTemplate = (
     existing: Pick<ExperimentTemplateInterface, "project">,
-    updated: UpdateTemplateProps
+    updated: UpdateTemplateProps,
   ): boolean => {
     return this.checkProjectFilterUpdatePermission(
       { projects: existing.project ? [existing.project] : [] },
       "project" in updated ? { projects: [updated.project || ""] } : {},
-      "manageTemplates"
+      "manageTemplates",
     );
   };
 
   public canDeleteExperimentTemplate = (
-    template: Pick<ExperimentTemplateInterface, "project">
+    template: Pick<ExperimentTemplateInterface, "project">,
   ): boolean => {
     return this.checkProjectFilterPermission(
       {
         projects: template.project ? [template.project] : [],
       },
-      "manageTemplates"
+      "manageTemplates",
     );
   };
 
@@ -389,12 +528,12 @@ export class Permissions {
       {
         projects: project ? [project] : [],
       },
-      "createAnalyses"
+      "createAnalyses",
     );
   };
   // reports don't have projects, but their connected experiments do
   public canCreateReport = (
-    connectedExperiment: Pick<ExperimentInterface, "project">
+    connectedExperiment: Pick<ExperimentInterface, "project">,
   ): boolean => {
     return this.checkProjectFilterPermission(
       {
@@ -402,13 +541,13 @@ export class Permissions {
           ? [connectedExperiment.project]
           : [],
       },
-      "createAnalyses"
+      "createAnalyses",
     );
   };
 
   // reports don't have projects, but their connected experiments do
   public canUpdateReport = (
-    connectedExperiment: Pick<ExperimentInterface, "project">
+    connectedExperiment: Pick<ExperimentInterface, "project">,
   ): boolean => {
     return this.checkProjectFilterPermission(
       {
@@ -416,13 +555,13 @@ export class Permissions {
           ? [connectedExperiment.project]
           : [],
       },
-      "createAnalyses"
+      "createAnalyses",
     );
   };
 
   // reports don't have projects, but their connected experiments do
   public canDeleteReport = (
-    connectedExperiment: Pick<ExperimentInterface, "project">
+    connectedExperiment: Pick<ExperimentInterface, "project">,
   ): boolean => {
     return this.checkProjectFilterPermission(
       {
@@ -430,12 +569,30 @@ export class Permissions {
           ? [connectedExperiment.project]
           : [],
       },
-      "createAnalyses"
+      "createAnalyses",
+    );
+  };
+
+  public canCreateAnalyses = (projects?: string[]): boolean => {
+    return this.checkProjectFilterPermission(
+      {
+        projects: projects ? projects : [],
+      },
+      "createAnalyses",
     );
   };
 
   // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
-  public canViewIdeaModal = (project?: string): boolean => {
+  // Frontend helper to gate "Create Idea" UI.
+  // Pass allProjects on list pages where "All Projects" may be selected;
+  // omit it when checking a specific resource's project or global-only access.
+  public canViewIdeaModal = (
+    project?: string,
+    allProjects?: { id: string }[],
+  ): boolean => {
+    if (!project && allProjects?.length) {
+      return allProjects.some((p) => this.canCreateIdea({ project: p.id }));
+    }
     return this.canCreateIdea({ project });
   };
 
@@ -444,179 +601,256 @@ export class Permissions {
       {
         projects: idea.project ? [idea.project] : [],
       },
-      "createIdeas"
+      "createIdeas",
     );
   };
 
   public canUpdateIdea = (
     existing: Pick<IdeaInterface, "project">,
-    updated: Pick<IdeaInterface, "project">
+    updated: Pick<IdeaInterface, "project">,
   ): boolean => {
     return this.checkProjectFilterUpdatePermission(
       { projects: existing.project ? [existing.project] : [] },
       "project" in updated ? { projects: [updated.project || ""] } : {},
-      "createIdeas"
+      "createIdeas",
     );
   };
 
   public canDeleteIdea = (idea: Pick<IdeaInterface, "project">): boolean => {
     return this.checkProjectFilterPermission(
       { projects: idea.project ? [idea.project] : [] },
-      "createIdeas"
+      "createIdeas",
     );
   };
 
   public canCreateArchetype = (
-    archetype: Pick<ArchetypeInterface, "projects">
+    archetype: Pick<ArchetypeInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(
       { projects: archetype?.projects ? archetype.projects : [] },
-      "manageArchetype"
+      "manageArchetype",
     );
   };
 
   public canUpdateArchetype = (
     archetype: Pick<ArchetypeInterface, "projects">,
-    updates: Pick<ArchetypeInterface, "projects">
+    updates: Pick<ArchetypeInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterUpdatePermission(
       { projects: archetype?.projects ? archetype.projects : [] },
       "projects" in updates ? { projects: updates.projects } : {},
-      "manageArchetype"
+      "manageArchetype",
     );
   };
 
   public canDeleteArchetype = (
-    archetype: Pick<ArchetypeInterface, "projects">
+    archetype: Pick<ArchetypeInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(
       { projects: archetype?.projects ? archetype.projects : [] },
-      "manageArchetype"
+      "manageArchetype",
     );
   };
 
   // Helper methods for the front-end
-  public canViewCreateFactTableModal = (project?: string): boolean => {
-    return this.canCreateFactTable({ projects: project ? [project] : [] });
-  };
-  public canViewEditFactTableModal = (
-    factTable: Pick<FactTableInterface, "projects">
+  // Frontend helper to gate "Create Fact Table" UI.
+  // Pass allProjects on list pages where "All Projects" may be selected;
+  // omit it when checking a specific resource's project or global-only access.
+  public canViewCreateFactTableModal = (
+    project?: string,
+    allProjects?: { id: string }[],
   ): boolean => {
-    return this.canUpdateFactTable(factTable, {});
+    if (!project && allProjects?.length) {
+      return allProjects.some((p) =>
+        this.canCreateFactTable({ projects: [p.id] }),
+      );
+    }
+    return this.canCreateFactTable({ projects: project ? [project] : [] });
   };
 
   public canCreateFactTable = (
-    factTable: Pick<FactTableInterface, "projects">
+    factTable: Pick<FactTableInterface, "projects" | "managedBy">,
   ): boolean => {
+    if (factTable.managedBy && ["admin", "api"].includes(factTable.managedBy)) {
+      if (!this.canCreateOfficialResources(factTable)) {
+        return false;
+      }
+    }
     return this.checkProjectFilterPermission(factTable, "manageFactTables");
   };
 
   public canUpdateFactTable = (
-    existing: Pick<FactTableInterface, "projects">,
-    updates: UpdateFactTableProps
+    existing: Pick<FactTableInterface, "projects" | "managedBy">,
+    updates: UpdateFactTableProps,
   ): boolean => {
+    // We allow changing columns even for managed fact tables
+    const changedKeys = Object.keys(updates);
+    const requireManagedByCheck = changedKeys.some((k) => k !== "columns");
+
+    if (requireManagedByCheck && (existing.managedBy || updates.managedBy)) {
+      if (!this.canUpdateOfficialResources(existing, updates)) {
+        return false;
+      }
+    }
+
     return this.checkProjectFilterUpdatePermission(
       existing,
       updates,
-      "manageFactTables"
+      "manageFactTables",
     );
   };
 
   public canDeleteFactTable = (
-    factTable: Pick<FactTableInterface, "projects">
+    factTable: Pick<FactTableInterface, "projects" | "managedBy">,
   ): boolean => {
+    if (factTable.managedBy && ["admin", "api"].includes(factTable.managedBy)) {
+      if (!this.canDeleteOfficialResources(factTable)) {
+        return false;
+      }
+    }
+
     return this.checkProjectFilterPermission(factTable, "manageFactTables");
   };
 
   public canCreateAndUpdateFactFilter = (
-    factTable: Pick<FactTableInterface, "projects">
+    factTable: Pick<FactTableInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(factTable, "manageFactFilters");
   };
 
   public canDeleteFactFilter = (
-    factTable: Pick<FactTableInterface, "projects">
+    factTable: Pick<FactTableInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(factTable, "manageFactFilters");
   };
 
   public canCreateFactMetric = (
-    metric: Pick<FactMetricInterface, "projects">
+    metric: Pick<FactMetricInterface, "projects" | "managedBy">,
   ): boolean => {
+    if (metric.managedBy && ["admin", "api"].includes(metric.managedBy)) {
+      if (!this.canCreateOfficialResources(metric)) {
+        return false;
+      }
+    }
     return this.checkProjectFilterPermission(metric, "manageFactMetrics");
   };
 
   public canUpdateFactMetric = (
-    existing: Pick<FactMetricInterface, "projects">,
-    updates: UpdateProps<FactMetricInterface>
+    existing: Pick<FactMetricInterface, "projects" | "managedBy">,
+    updates: UpdateProps<FactMetricInterface>,
   ): boolean => {
+    if (
+      (existing.managedBy && ["admin", "api"].includes(existing.managedBy)) ||
+      (updates.managedBy && ["admin", "api"].includes(updates.managedBy))
+    ) {
+      if (!this.canUpdateOfficialResources(existing, updates)) {
+        return false;
+      }
+    }
+
     return this.checkProjectFilterUpdatePermission(
       existing,
       updates,
-      "manageFactMetrics"
+      "manageFactMetrics",
     );
   };
 
   public canDeleteFactMetric = (
-    metric: Pick<FactMetricInterface, "projects">
+    metric: Pick<FactMetricInterface, "projects" | "managedBy">,
   ): boolean => {
+    if (metric.managedBy && ["admin", "api"].includes(metric.managedBy)) {
+      if (!this.canCreateOfficialResources(metric)) {
+        return false;
+      }
+    }
+
     return this.checkProjectFilterPermission(metric, "manageFactMetrics");
   };
 
   public canCreateMetric = (
-    metric: Pick<MetricInterface, "projects">
+    metric: Pick<MetricInterface, "projects" | "managedBy">,
   ): boolean => {
+    if (metric.managedBy && ["admin", "api"].includes(metric.managedBy)) {
+      if (!this.canCreateOfficialResources(metric)) {
+        return false;
+      }
+    }
+
     return this.checkProjectFilterPermission(metric, "createMetrics");
   };
 
   public canUpdateMetric = (
-    existing: Pick<MetricInterface, "projects">,
-    updates: Pick<MetricInterface, "projects">
+    existing: Pick<MetricInterface, "projects" | "managedBy">,
+    updates: Pick<MetricInterface, "projects" | "managedBy">,
   ): boolean => {
+    if (
+      (existing.managedBy && ["admin", "api"].includes(existing.managedBy)) ||
+      (updates.managedBy && ["admin", "api"].includes(updates.managedBy))
+    ) {
+      if (!this.canUpdateOfficialResources(existing, updates)) {
+        return false;
+      }
+    }
+
     return this.checkProjectFilterUpdatePermission(
       existing,
       updates,
-      "createMetrics"
+      "createMetrics",
     );
   };
 
   public canDeleteMetric = (
-    metric: Pick<MetricInterface, "projects">
+    metric: Pick<MetricInterface, "projects" | "managedBy">,
   ): boolean => {
+    if (metric.managedBy && ["admin", "api"].includes(metric.managedBy)) {
+      if (!this.canDeleteOfficialResources(metric)) {
+        return false;
+      }
+    }
+
     return this.checkProjectFilterPermission(metric, "createMetrics");
   };
 
   public canManageFeatureDrafts = (
-    feature: Pick<FeatureInterface, "project">
+    feature: Pick<FeatureInterface, "project">,
   ) => {
     return this.checkProjectFilterPermission(
       { projects: feature.project ? [feature.project] : [] },
-      "manageFeatureDrafts"
+      "manageFeatureDrafts",
     );
   };
 
   public canReviewFeatureDrafts = (
-    feature: Pick<FeatureInterface, "project">
+    feature: Pick<FeatureInterface, "project">,
   ): boolean => {
     return this.checkProjectFilterPermission(
       { projects: feature.project ? [feature.project] : [] },
-      "canReview"
+      "canReview",
     );
   };
 
   public canBypassApprovalChecks = (
-    feature: Pick<FeatureInterface, "project">
+    feature: Pick<FeatureInterface, "project">,
   ): boolean => {
     return this.checkProjectFilterPermission(
       { projects: feature.project ? [feature.project] : [] },
-      "bypassApprovalChecks"
+      "bypassApprovalChecks",
     );
   };
 
   public canManageCustomFields = (): boolean => {
     return this.checkProjectFilterPermission(
       { projects: [] },
-      "manageCustomFields"
+      "manageCustomFields",
+    );
+  };
+
+  public canManageExecReports = (
+    report: Pick<ExecReportInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: report.projects || [] },
+      "manageExecReports",
     );
   };
 
@@ -627,7 +861,7 @@ export class Permissions {
   public canCreateProjects = (): boolean => {
     return this.checkProjectFilterPermission(
       { projects: [] },
-      "manageProjects"
+      "createProjects",
     );
   };
 
@@ -636,32 +870,43 @@ export class Permissions {
     const projects: string[] = [""];
 
     Object.keys(this.userPermissions.projects).forEach((key) =>
-      projects.push(key)
+      projects.push(key),
     );
 
     return projects.some((project) =>
       this.checkProjectFilterPermission(
         { projects: [project] },
-        "manageProjects"
-      )
+        "manageProjects",
+      ),
     );
   };
 
   public canUpdateProject = (project: string): boolean => {
     return this.checkProjectFilterPermission(
       { projects: [project] },
-      "manageProjects"
+      "manageProjects",
     );
   };
 
   public canDeleteProject = (project: string): boolean => {
     return this.checkProjectFilterPermission(
       { projects: [project] },
-      "manageProjects"
+      "deleteProjects",
     );
   };
 
-  public canViewCreateDataSourceModal = (project?: string): boolean => {
+  // Frontend helper to gate "Create Data Source" UI.
+  // Pass allProjects on list pages where "All Projects" may be selected;
+  // omit it when checking a specific resource's project or global-only access.
+  public canViewCreateDataSourceModal = (
+    project?: string,
+    allProjects?: { id: string }[],
+  ): boolean => {
+    if (!project && allProjects?.length) {
+      return allProjects.some((p) =>
+        this.canCreateDataSource({ projects: [p.id], type: undefined }),
+      );
+    }
     return this.canCreateDataSource({
       projects: project ? [project] : [],
       type: undefined,
@@ -672,8 +917,6 @@ export class Permissions {
     projects?: DataSourceInterface["projects"];
     type: DataSourceInterface["type"] | undefined;
   }): boolean => {
-    if (datasource?.type === "growthbook_clickhouse") return false;
-
     return this.checkProjectFilterPermission(datasource, "createDatasources");
   };
 
@@ -687,128 +930,226 @@ export class Permissions {
   };
 
   public canUpdateDataSourceSettings = (
-    datasource: Pick<DataSourceInterface, "projects">
+    datasource: Pick<DataSourceInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(
       datasource,
-      "editDatasourceSettings"
+      "editDatasourceSettings",
     );
   };
 
   public canDeleteDataSource = (
-    datasource: Pick<DataSourceInterface, "projects">
+    datasource: Pick<DataSourceInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(datasource, "createDatasources");
   };
 
   public canRunExperimentQueries = (
-    datasource: Pick<DataSourceInterface, "projects">
+    datasource: Pick<DataSourceInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(datasource, "runQueries");
   };
 
   public canRunPastExperimentQueries = (
-    datasource: Pick<DataSourceInterface, "projects">
+    datasource: Pick<DataSourceInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(datasource, "runQueries");
   };
 
   public canRunFactQueries = (
-    datasource: Pick<DataSourceInterface, "projects">
+    datasource: Pick<DataSourceInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(datasource, "runQueries");
   };
 
   public canRunTestQueries = (
-    datasource: Pick<DataSourceInterface, "projects">
+    datasource: Pick<DataSourceInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(datasource, "runQueries");
   };
 
   public canRunSchemaQueries = (
-    datasource: Pick<DataSourceInterface, "projects">
+    datasource: Pick<DataSourceInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(datasource, "runQueries");
   };
 
   public canRunHealthQueries = (
-    datasource: Pick<DataSourceInterface, "projects">
+    datasource: Pick<DataSourceInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(datasource, "runQueries");
   };
 
   public canCreateExperimentSnapshot = (
-    datasource: Pick<DataSourceInterface, "projects">
+    datasource: Pick<DataSourceInterface, "projects">,
   ): boolean => {
     return this.canRunExperimentQueries(datasource);
   };
 
   public canRunMetricQueries = (
-    datasource: Pick<DataSourceInterface, "projects">
+    datasource: Pick<DataSourceInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(datasource, "runQueries");
   };
 
   public canCreateMetricAnalysis = (
-    datasource: Pick<DataSourceInterface, "projects">
+    datasource: Pick<DataSourceInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(datasource, "runQueries");
   };
 
   public canRunMetricAnalysisQueries = (
-    datasource: Pick<DataSourceInterface, "projects">
+    datasource: Pick<DataSourceInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(datasource, "runQueries");
   };
 
   public canRunPopulationDataQueries = (
-    datasource: Pick<DataSourceInterface, "projects">
+    datasource: Pick<DataSourceInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(datasource, "runQueries");
+  };
+
+  public canRunPipelineValidationQueries = (
+    datasource: Pick<DataSourceInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(datasource, "runQueries");
+  };
+
+  public canRunFeatureDiagnosticsQueries = (
+    datasource: Pick<DataSourceInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(datasource, "runQueries");
+  };
+
+  public canViewSqlExplorerQueries = (
+    datasource: Pick<DataSourceInterface, "projects">,
+  ): boolean => {
+    return this.canReadMultiProjectResource(datasource.projects);
+  };
+
+  public canCreateSqlExplorerQueries = (
+    datasource: Pick<DataSourceInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      datasource,
+      "runSqlExplorerQueries",
+    );
+  };
+
+  public canUpdateSqlExplorerQueries = (
+    existing: Pick<DataSourceInterface, "projects">,
+    updates: Pick<DataSourceInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      existing,
+      updates,
+      "runSqlExplorerQueries",
+    );
+  };
+
+  public canDeleteSqlExplorerQueries = (
+    datasource: Pick<DataSourceInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      datasource,
+      "runSqlExplorerQueries",
+    );
+  };
+
+  public canRunSqlExplorerQueries = (
+    datasource: Pick<DataSourceInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      datasource,
+      "runSqlExplorerQueries",
+    );
+  };
+
+  public canCreateGeneralDashboards = (
+    dashboard: Pick<DashboardInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      dashboard,
+      "manageGeneralDashboards",
+    );
+  };
+
+  public canUpdateGeneralDashboards = (
+    existing: Pick<DashboardInterface, "projects">,
+    updates: Pick<DashboardInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      existing,
+      updates,
+      "manageGeneralDashboards",
+    );
+  };
+
+  public canDeleteGeneralDashboards = (
+    dashboard: Pick<DashboardInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      dashboard,
+      "manageGeneralDashboards",
+    );
   };
 
   // ENV_SCOPED_PERMISSIONS
   public canPublishFeature = (
     feature: Pick<FeatureInterface, "project">,
-    environments: string[]
+    environments: string[],
   ): boolean => {
     return this.checkEnvFilterPermission(
       {
         projects: feature.project ? [feature.project] : [],
       },
       environments,
-      "publishFeatures"
+      "publishFeatures",
     );
   };
 
   public canRunExperiment = (
     experiment: Pick<ExperimentInterface, "project">,
-    environments: string[]
+    environments: string[],
   ): boolean => {
     return this.checkEnvFilterPermission(
       {
         projects: experiment.project ? [experiment.project] : [],
       },
       environments,
-      "runExperiments"
+      "runExperiments",
+    );
+  };
+
+  public canRunHoldout = (
+    holdout: Pick<HoldoutInterface, "projects">,
+    environments: string[],
+  ): boolean => {
+    return this.checkEnvFilterPermission(
+      {
+        projects: holdout.projects || [],
+      },
+      environments,
+      "runExperiments",
     );
   };
 
   public canCreateEnvironment = (
-    environment: Pick<Environment, "projects" | "id">
+    environment: Pick<Environment, "projects" | "id">,
   ): boolean => {
     return this.checkEnvFilterPermission(
       {
         projects: environment.projects || [],
       },
       [environment.id],
-      "manageEnvironments"
+      "manageEnvironments",
     );
   };
 
   public canUpdateEnvironment = (
     existing: Pick<Environment, "projects" | "id">,
-    updates: Pick<Environment, "projects">
+    updates: Pick<Environment, "projects">,
   ): boolean => {
     const updateObj: { projects?: string[]; environment?: string } = {};
 
@@ -819,48 +1160,66 @@ export class Permissions {
     return this.checkEnvFilterUpdatePermission(
       { projects: existing.projects || [], environment: existing.id },
       updateObj,
-      "manageEnvironments"
+      "manageEnvironments",
     );
   };
 
   public canDeleteEnvironment = (
-    environment: Pick<Environment, "projects" | "id">
+    environment: Pick<Environment, "projects" | "id">,
   ): boolean => {
     return this.checkEnvFilterPermission(
       {
         projects: environment.projects || [],
       },
       [environment.id],
-      "manageEnvironments"
+      "manageEnvironments",
     );
   };
 
   // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
-  public canViewSavedGroupModal = (project?: string): boolean => {
+  // Frontend helper to gate "Create Saved Group" UI.
+  // Pass allProjects on list pages where "All Projects" may be selected;
+  // omit it when checking a specific resource's project or global-only access.
+  public canViewSavedGroupModal = (
+    project?: string,
+    allProjects?: { id: string }[],
+  ): boolean => {
+    if (!project && allProjects?.length) {
+      return allProjects.some((p) =>
+        this.canCreateSavedGroup({ projects: [p.id] }),
+      );
+    }
     return this.canCreateSavedGroup({ projects: project ? [project] : [] });
   };
 
   public canCreateSavedGroup = (
-    savedGroup: Pick<SavedGroupInterface, "projects">
+    savedGroup: Pick<SavedGroupInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(savedGroup, "manageSavedGroups");
   };
 
   public canUpdateSavedGroup = (
     existing: Pick<SavedGroupInterface, "projects">,
-    updates: Pick<SavedGroupInterface, "projects">
+    updates: Pick<SavedGroupInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterUpdatePermission(
       existing,
       updates,
-      "manageSavedGroups"
+      "manageSavedGroups",
     );
   };
 
   public canDeleteSavedGroup = (
-    savedGroup: Pick<SavedGroupInterface, "projects">
+    savedGroup: Pick<SavedGroupInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(savedGroup, "manageSavedGroups");
+  };
+
+  public canBypassSavedGroupSizeLimit = (projects?: string[]): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects },
+      "bypassSavedGroupSizeLimit",
+    );
   };
 
   // UI helper - when determining if we can show the `Create SDK Connection` button, this ignores any env level restrictions
@@ -870,33 +1229,33 @@ export class Permissions {
   };
 
   public canCreateSDKConnection = (
-    sdkConnection: Pick<SDKConnectionInterface, "projects" | "environment">
+    sdkConnection: Pick<SDKConnectionInterface, "projects" | "environment">,
   ): boolean => {
     return this.checkEnvFilterPermission(
       sdkConnection,
       [sdkConnection.environment],
-      "manageSDKConnections"
+      "manageSDKConnections",
     );
   };
 
   public canUpdateSDKConnection = (
     existing: { projects?: string[]; environment?: string },
-    updates: { projects?: string[]; environment?: string }
+    updates: { projects?: string[]; environment?: string },
   ): boolean => {
     return this.checkEnvFilterUpdatePermission(
       existing,
       updates,
-      "manageSDKConnections"
+      "manageSDKConnections",
     );
   };
 
   public canDeleteSDKConnection = (
-    sdkConnection: Pick<SDKConnectionInterface, "projects" | "environment">
+    sdkConnection: Pick<SDKConnectionInterface, "projects" | "environment">,
   ): boolean => {
     return this.checkEnvFilterPermission(
       sdkConnection,
       [sdkConnection.environment],
-      "manageSDKConnections"
+      "manageSDKConnections",
     );
   };
 
@@ -907,49 +1266,86 @@ export class Permissions {
   };
 
   public canCreateSDKWebhook = (
-    sdkConnection: Pick<SDKConnectionInterface, "projects" | "environment">
+    sdkConnection: Pick<SDKConnectionInterface, "projects" | "environment">,
   ): boolean => {
     return this.checkEnvFilterPermission(
       sdkConnection,
       [sdkConnection.environment],
-      "manageSDKWebhooks"
+      "manageSDKWebhooks",
     );
   };
 
   public canUpdateSDKWebhook = (
-    sdkConnection: Pick<SDKConnectionInterface, "projects" | "environment">
+    sdkConnection: Pick<SDKConnectionInterface, "projects" | "environment">,
   ): boolean => {
     return this.checkEnvFilterPermission(
       sdkConnection,
       [sdkConnection.environment],
-      "manageSDKWebhooks"
+      "manageSDKWebhooks",
     );
   };
 
   public canDeleteSDKWebhook = (
-    sdkConnection: Pick<SDKConnectionInterface, "projects" | "environment">
+    sdkConnection: Pick<SDKConnectionInterface, "projects" | "environment">,
   ): boolean => {
     return this.checkEnvFilterPermission(
       sdkConnection,
       [sdkConnection.environment],
-      "manageSDKWebhooks"
+      "manageSDKWebhooks",
     );
   };
 
-  public throwPermissionError(): void {
+  public canCreateCustomHook = (
+    customHook: Pick<CustomHookInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(customHook, "manageCustomHooks");
+  };
+
+  public canUpdateCustomHook = (
+    existing: Pick<CustomHookInterface, "projects">,
+    updates: Pick<CustomHookInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      existing,
+      updates,
+      "manageCustomHooks",
+    );
+  };
+
+  public canDeleteCustomHook = (
+    customHook: Pick<CustomHookInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(customHook, "manageCustomHooks");
+  };
+
+  public throwPermissionError(message?: string): void {
     throw new PermissionError(
-      "You do not have permission to perform this action"
+      message ?? "You do not have permission to perform this action",
     );
   }
 
   public canReadSingleProjectResource = (
-    project: string | undefined
+    project: string | undefined,
   ): boolean => {
     return this.hasPermission("readData", project || "");
   };
 
+  // Project IDs where the user has the given permission
+  // Return value:
+  //   string[] = specific projects
+  //   [] = no projects
+  //   null = global (all projects)
+  public getProjectsWithPermission = (
+    permission: Permission,
+  ): string[] | null => {
+    if (this.hasPermission(permission, "")) return null;
+    return Object.keys(this.userPermissions.projects).filter((p) =>
+      this.hasPermission(permission, p),
+    );
+  };
+
   public canReadMultiProjectResource = (
-    projects: string[] | undefined
+    projects: string[] | undefined,
   ): boolean => {
     // If the resource doesn't have a projects property or it's an empty array
     // that means it's in all projects
@@ -976,7 +1372,7 @@ export class Permissions {
 
   private checkProjectFilterPermission(
     obj: { projects?: string[] },
-    permission: ProjectScopedPermission
+    permission: ProjectScopedPermission,
   ): boolean {
     const projects = obj.projects?.length ? obj.projects : [""];
 
@@ -989,7 +1385,7 @@ export class Permissions {
         projects.push(...Object.keys(this.userPermissions.projects));
       }
       return projects.some((project) =>
-        this.hasPermission(permission, project)
+        this.hasPermission(permission, project),
       );
     }
     return projects.every((project) => this.hasPermission(permission, project));
@@ -997,8 +1393,8 @@ export class Permissions {
 
   private checkProjectFilterUpdatePermission(
     existing: { projects?: string[] },
-    updates: { projects?: string[] },
-    permission: ProjectScopedPermission
+    updates: { projects?: string[] } | undefined,
+    permission: ProjectScopedPermission,
   ): boolean {
     // check if the user has permission to update based on the existing projects
     if (!this.checkProjectFilterPermission(existing, permission)) {
@@ -1007,6 +1403,7 @@ export class Permissions {
 
     // if the updates include projects, check if the user has permission to update based on the new projects
     if (
+      updates &&
       "projects" in updates &&
       !this.checkProjectFilterPermission(updates, permission)
     ) {
@@ -1018,25 +1415,25 @@ export class Permissions {
   public checkEnvFilterPermission(
     obj: { projects?: string[] },
     envs: string[],
-    permission: EnvScopedPermission
+    permission: EnvScopedPermission,
   ): boolean {
     const projects = obj.projects?.length ? obj.projects : [""];
 
     return projects.every((project) =>
-      this.hasPermission(permission, project, envs)
+      this.hasPermission(permission, project, envs),
     );
   }
 
   private checkEnvFilterUpdatePermission(
     existing: { projects?: string[]; environment?: string },
     updates: { projects?: string[]; environment?: string },
-    permission: EnvScopedPermission
+    permission: EnvScopedPermission,
   ): boolean {
     if (
       !this.checkEnvFilterPermission(
         existing,
         existing.environment ? [existing.environment] : [],
-        permission
+        permission,
       )
     ) {
       return false;
@@ -1047,14 +1444,14 @@ export class Permissions {
     return this.checkEnvFilterPermission(
       updatedObj,
       updatedObj.environment ? [updatedObj.environment] : [],
-      permission
+      permission,
     );
   }
 
   private hasPermission(
     permissionToCheck: Permission,
     project: string,
-    envs?: string[]
+    envs?: string[],
   ) {
     const usersPermissionsToCheck =
       this.userPermissions.projects[project] || this.userPermissions.global;
@@ -1067,7 +1464,7 @@ export class Permissions {
       return true;
     }
     return envs.every((env) =>
-      usersPermissionsToCheck.environments.includes(env)
+      usersPermissionsToCheck.environments.includes(env),
     );
   }
 }

@@ -1,14 +1,14 @@
 import uniqid from "uniqid";
-import { PresentationModel } from "back-end/src/models/PresentationModel";
 import {
   PresentationInterface,
   PresentationSlide,
-} from "back-end/types/presentation";
+} from "shared/types/presentation";
+import { ExperimentInterface } from "shared/types/experiment";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import { PresentationModel } from "back-end/src/models/PresentationModel";
 import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
-import { ExperimentInterface } from "back-end/types/experiment";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { getLatestSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 
 //import {query} from "back-end/src/config/postgres";
@@ -27,7 +27,7 @@ export function getPresentationById(id: string) {
 
 export async function getPresentationSnapshots(
   context: ReqContext | ApiReqContext,
-  expIds: string[]
+  expIds: string[],
 ) {
   const experiments = await getExperimentsByIds(context, expIds);
 
@@ -63,11 +63,11 @@ export async function removeExperimentFromPresentations(experiment: string) {
   await Promise.all(
     presentations.map(async (presentation) => {
       presentation.slides = presentation.slides.filter(
-        (obj) => obj.id !== experiment || obj.type !== "experiment"
+        (obj) => obj.id !== experiment || obj.type !== "experiment",
       );
       presentation.markModified("slides");
       await presentation.save();
-    })
+    }),
   );
 }
 

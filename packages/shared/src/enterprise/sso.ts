@@ -1,6 +1,6 @@
 import type { IssuerMetadata } from "openid-client";
-import { stringToBoolean } from "shared/util";
-import type { SSOConnectionInterface } from "back-end/types/sso-connection";
+import type { SSOConnectionInterface } from "shared/types/sso-connection";
+import { stringToBoolean } from "../util";
 
 // Self-hosted SSO
 function getSSOConfig() {
@@ -20,12 +20,12 @@ function getSSOConfig() {
   }
 
   const missingMetadata = requiredMetadataKeys.filter(
-    (k) => !(k in config.metadata)
+    (k) => !(k in config.metadata),
   );
   if (missingMetadata.length > 0) {
     throw new Error(
       "SSO_CONFIG missing required metadata fields: " +
-        missingMetadata.join(", ")
+        missingMetadata.join(", "),
     );
   }
 

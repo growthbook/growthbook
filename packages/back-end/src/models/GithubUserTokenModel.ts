@@ -5,7 +5,7 @@ import { refreshToken } from "@octokit/oauth-methods";
 import {
   GithubUserTokenInterface,
   CreateGithubUserTokenInput,
-} from "back-end/types/github";
+} from "shared/types/github";
 
 type GithubUserTokenDocument = mongoose.Document & GithubUserTokenInterface;
 
@@ -22,14 +22,14 @@ const githubUserTokenSchema = new mongoose.Schema({
 
 const GithubUserTokenModel = mongoose.model<GithubUserTokenDocument>(
   "GithubUserToken",
-  githubUserTokenSchema
+  githubUserTokenSchema,
 );
 
 const toInterface = (doc: GithubUserTokenDocument): GithubUserTokenInterface =>
   omit(doc.toJSON<GithubUserTokenDocument>(), ["__v", "_id"]);
 
 export const createGithubUserToken = async (
-  token: CreateGithubUserTokenInput
+  token: CreateGithubUserTokenInput,
 ) => {
   const doc = await GithubUserTokenModel.create({
     ...token,
@@ -63,7 +63,7 @@ const refreshGithubUserToken = async (token: GithubUserTokenDocument) => {
       refreshToken: authentication.refreshToken,
       refreshTokenExpiresAt: authentication.refreshTokenExpiresAt,
       updatedAt: new Date(),
-    }
+    },
   );
   const updated = await GithubUserTokenModel.findOne({ id: token.id });
   if (!updated) throw new Error("Github integration - Token refresh failed");

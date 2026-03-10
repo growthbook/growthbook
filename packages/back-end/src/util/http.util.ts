@@ -1,7 +1,7 @@
-import fetch, { RequestInit, Response } from "node-fetch";
+import nodeFetch, { RequestInit, Response } from "node-fetch";
 import { ProxyAgent } from "proxy-agent";
 import { logger } from "./logger";
-import { USE_PROXY, WEBHOOK_PROXY } from "./secrets";
+import { API_USER_AGENT, USE_PROXY, WEBHOOK_PROXY } from "./secrets";
 
 let useWebhookProxy = true;
 
@@ -15,6 +15,13 @@ export type CancellableFetchReturn = {
   responseWithoutBody: Response;
   stringBody: string;
 };
+
+export function fetch(url: string, init?: RequestInit) {
+  return nodeFetch(url, {
+    ...init,
+    headers: { ...init?.headers, "User-Agent": API_USER_AGENT },
+  });
+}
 
 export function getHttpOptions(url?: string) {
   // if there is a ?proxy argument in the url, use that as the proxy
@@ -47,11 +54,10 @@ export function getHttpOptions(url?: string) {
   }
   return {};
 }
-
 export const cancellableFetch = async (
   url: string,
   fetchOptions: RequestInit,
-  abortOptions: CancellableFetchCriteria
+  abortOptions: CancellableFetchCriteria,
 ): Promise<CancellableFetchReturn> => {
   const abortController: AbortController = new AbortController();
 
@@ -111,7 +117,7 @@ export const cancellableFetch = async (
       e.name === "FetchError" &&
       e.code === "ECONNREFUSED"
     ) {
-      logger.error("Disabling webhook proxy");
+      logger.error("Proxy connection refused. Disabling webhook proxy");
       useWebhookProxy = false;
     }
 

@@ -19,8 +19,7 @@ specifically for Matomo. For this guide, we'll use Javascript (Next.js).
 Matomo lets you track custom events, and you can adjust the `Event Category`, `Event Action`, `Event Name`, and
 `Event Value`. You can read more about the custom tracking call at [Matomo's documentation site](https://matomo.org/faq/reports/implement-event-tracking-with-matomo/).
 
-:::note
-There are a few caveats with Matomo's event schema that it is important to be aware of.
+:::caution Caveats with Matomo's event schema
 
   <ul>
     <li>
@@ -57,7 +56,7 @@ const growthbook = new GrowthBook({
 });
 ```
 
-:::note
+:::info Event Name prefix for Matomo
 We use the string prefix on the Event Name so that it is saved correctly, as `0`
 saves as `null`, but `v0` works correctly. This prefix is stripped with the SQL
 exposure query in step two.

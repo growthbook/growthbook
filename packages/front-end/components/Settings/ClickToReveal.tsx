@@ -27,7 +27,7 @@ export default function ClickToReveal({ getValue, valueWhenHidden }: Props) {
           "btn btn-sm btn-outline-secondary",
           styles.button,
           value && "ml-2",
-          !value && styles.buttonLeft
+          !value && styles.buttonLeft,
         )}
         onClick={async () => {
           if (!value) {

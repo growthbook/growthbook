@@ -1,17 +1,25 @@
-import React, { FC, ReactNode } from "react";
+import React, { FC, ReactNode, useState } from "react";
 import { isProjectListValidForProject } from "shared/util";
 import {
   isFactMetric,
+  isMetricGroupId,
   isMetricJoinable,
   quantileMetricType,
 } from "shared/experiments";
+import { Flex, Text } from "@radix-ui/themes";
+import { PiInfoFill } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
-import SelectField from "@/components/Forms/SelectField";
+import SelectField, {
+  GroupedValue,
+  SingleValue,
+} from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricName from "@/components/Metrics/MetricName";
-import ClickToCopy from "@/components/Settings/ClickToCopy";
 import { GBInfo } from "@/components/Icons";
+import { useUser } from "@/services/UserContext";
+import MetricGroupInlineForm from "@/enterprise/components/MetricGroupInlineForm";
+import Link from "@/ui/Link";
 
 type MetricOption = {
   id: string;
@@ -24,17 +32,20 @@ type MetricOption = {
   userIdTypes: string[];
   isGroup: boolean;
   metrics?: string[];
+  managedBy?: string;
+  disabled?: boolean;
+  disabledReason?: string;
 };
 
 type MetricsSelectorTooltipProps = {
   onlyBinomial?: boolean;
-  noPercentileGoalMetrics?: boolean;
+  noQuantileGoalMetrics?: boolean;
   isSingular?: boolean;
 };
 
 export const MetricsSelectorTooltip = ({
   onlyBinomial = false,
-  noPercentileGoalMetrics = false,
+  noQuantileGoalMetrics = false,
   isSingular = false,
 }: MetricsSelectorTooltipProps) => {
   return (
@@ -53,10 +64,16 @@ export const MetricsSelectorTooltip = ({
               Experiment Assignment Table or can be joined to it by a Join Table
             </li>
             {onlyBinomial ? (
-              <li>{isSingular ? "is" : "are"} a binomial metric</li>
+              <li>
+                {isSingular ? "is" : "are"} a proportion (or binomial) metric
+              </li>
             ) : null}
-            {noPercentileGoalMetrics ? (
-              <li>{isSingular ? "does" : "do"} not use percentile capping</li>
+            {noQuantileGoalMetrics ? (
+              <li>
+                {isSingular
+                  ? "is not a quantile metric"
+                  : "are not quantile metrics"}
+              </li>
             ) : null}
           </ul>
         </>
@@ -76,10 +93,19 @@ const MetricsSelector: FC<{
   includeGroups?: boolean;
   excludeQuantiles?: boolean;
   forceSingleMetric?: boolean;
-  noPercentile?: boolean;
   noManual?: boolean;
+  noLegacyMetrics?: boolean;
+  filterConversionWindowMetrics?: boolean;
   disabled?: boolean;
   helpText?: ReactNode;
+  groupOptions?: boolean;
+  getMetricDisabledInfo?: (
+    metricId: string,
+    isGroup: boolean,
+  ) => {
+    disabled: boolean;
+    reason?: string;
+  };
 }> = ({
   datasource,
   project,
@@ -91,11 +117,15 @@ const MetricsSelector: FC<{
   includeGroups = true,
   excludeQuantiles,
   forceSingleMetric = false,
-  noPercentile = false,
   noManual = false,
+  noLegacyMetrics = false,
+  filterConversionWindowMetrics,
   disabled,
   helpText,
+  groupOptions = true,
+  getMetricDisabledInfo,
 }) => {
+  const [createMetricGroup, setCreateMetricGroup] = useState(false);
   const {
     metrics,
     metricGroups,
@@ -103,71 +133,103 @@ const MetricsSelector: FC<{
     factTables,
     getExperimentMetricById,
     getDatasourceById,
+    mutateDefinitions,
   } = useDefinitions();
+  const { hasCommercialFeature } = useUser();
+
+  const metricListContainsGroup = selected.some((metric) =>
+    isMetricGroupId(metric),
+  );
 
   const options: MetricOption[] = [
-    ...metrics
-      .filter((m) =>
-        noPercentile ? m.cappingSettings.type !== "percentile" : true
-      )
+    ...(noLegacyMetrics ? [] : metrics)
+      .filter((m) => {
+        if (filterConversionWindowMetrics) {
+          return m?.windowSettings?.type !== "conversion";
+        }
+        return true;
+      })
       .filter((m) => (noManual ? m.datasource : true))
-      .map((m) => ({
-        id: m.id,
-        name: m.name,
-        description: m.description || "",
-        datasource: m.datasource || "",
-        tags: m.tags || [],
-        projects: m.projects || [],
-        factTables: [],
-        userIdTypes: m.userIdTypes || [],
-        isGroup: false,
-      })),
+      .map((m) => {
+        const disabledInfo = getMetricDisabledInfo?.(m.id, false) || {
+          disabled: false,
+        };
+        return {
+          id: m.id,
+          name: m.name,
+          description: m.description || "",
+          datasource: m.datasource || "",
+          tags: m.tags || [],
+          projects: m.projects || [],
+          factTables: [],
+          userIdTypes: m.userIdTypes || [],
+          isGroup: false,
+          managedBy: m.managedBy,
+          disabled: disabledInfo.disabled,
+          disabledReason: disabledInfo.reason,
+        };
+      }),
     ...(includeFacts
       ? factMetrics
           .filter((m) => {
             if (quantileMetricType(m) && excludeQuantiles) {
               return false;
             }
-            if (noPercentile) {
-              return m.cappingSettings.type !== "percentile";
+            if (filterConversionWindowMetrics) {
+              return m?.windowSettings?.type !== "conversion";
             }
             return true;
           })
-          .map((m) => ({
-            id: m.id,
-            name: m.name,
-            description: m.description || "",
-            datasource: m.datasource,
-            tags: m.tags || [],
-            projects: m.projects || [],
-            factTables: [
-              m.numerator.factTableId,
-              (m.metricType === "ratio" && m.denominator
-                ? m.denominator.factTableId
-                : "") || "",
-            ],
-            // only focus on numerator user id types
-            userIdTypes:
-              factTables.find((f) => f.id === m.numerator.factTableId)
-                ?.userIdTypes || [],
-            isGroup: false,
-          }))
+          .map((m) => {
+            const disabledInfo = getMetricDisabledInfo?.(m.id, false) || {
+              disabled: false,
+            };
+            return {
+              id: m.id,
+              name: m.name,
+              description: m.description || "",
+              datasource: m.datasource,
+              tags: m.tags || [],
+              projects: m.projects || [],
+              managedBy: m.managedBy,
+              factTables: [
+                m.numerator.factTableId,
+                (m.metricType === "ratio" && m.denominator
+                  ? m.denominator.factTableId
+                  : "") || "",
+              ],
+              // only focus on numerator user id types
+              userIdTypes:
+                factTables.find((f) => f.id === m.numerator.factTableId)
+                  ?.userIdTypes || [],
+              isGroup: false,
+              disabled: disabledInfo.disabled,
+              disabledReason: disabledInfo.reason,
+            };
+          })
       : []),
     ...(includeGroups
       ? metricGroups
           .filter((mg) => !mg.archived)
-          .map((mg) => ({
-            id: mg.id,
-            name: mg.name + " (" + mg.metrics.length + " metrics)",
-            description: mg.description || "",
-            datasource: mg.datasource,
-            tags: mg.tags || [],
-            projects: mg.projects || [],
-            factTables: [],
-            userIdTypes: [],
-            isGroup: true,
-            metrics: mg.metrics,
-          }))
+          .map((mg) => {
+            const disabledInfo = getMetricDisabledInfo?.(mg.id, true) || {
+              disabled: false,
+            };
+            return {
+              id: mg.id,
+              name: mg.name + " (" + mg.metrics.length + " metrics)",
+              description: mg.description || "",
+              datasource: mg.datasource,
+              tags: mg.tags || [],
+              projects: mg.projects || [],
+              factTables: [],
+              userIdTypes: [],
+              isGroup: true,
+              metrics: mg.metrics,
+              disabled: disabledInfo.disabled,
+              disabledReason: disabledInfo.reason,
+            };
+          })
       : []),
   ];
 
@@ -178,7 +240,7 @@ const MetricsSelector: FC<{
     : undefined;
   // todo: get specific exposure query from experiment?
   const userIdType = datasourceSettings?.queries?.exposure?.find(
-    (e) => e.id === exposureQueryId
+    (e) => e.id === exposureQueryId,
   )?.userIdType;
 
   const filteredOptions = options
@@ -186,9 +248,18 @@ const MetricsSelector: FC<{
     .filter((m) =>
       datasourceSettings && userIdType && m.userIdTypes.length
         ? isMetricJoinable(m.userIdTypes, userIdType, datasourceSettings)
-        : true
+        : true,
     )
     .filter((m) => isProjectListValidForProject(m.projects, project));
+
+  const isOptionDisabled = (option: SingleValue | GroupedValue): boolean => {
+    if ("options" in option) {
+      return false;
+    }
+
+    const metricOption = filteredOptions.find((m) => m.id === option.value);
+    return metricOption?.disabled ?? false;
+  };
 
   const tagCounts: Record<string, number> = {};
   filteredOptions.forEach((m) => {
@@ -200,19 +271,83 @@ const MetricsSelector: FC<{
     }
   });
 
+  let showMetricGroupHelper =
+    hasCommercialFeature("metric-groups") &&
+    selected.length >= 2 &&
+    !metricListContainsGroup &&
+    datasource;
+
+  // Disable this for now since it is making the UI too cluttered
+  // We will revisit when we re-design the metric selector
+  showMetricGroupHelper = false;
+
   const selector = !forceSingleMetric ? (
     <MultiSelectField
       value={selected}
       onChange={onChange}
-      options={filteredOptions.map((m) => {
-        return {
-          value: m.id,
-          label: m.name,
-          tooltip: m.description,
-        };
-      })}
+      options={
+        groupOptions
+          ? (() => {
+              const groupedOptions: GroupedValue[] = [];
+              const managedMetrics: SingleValue[] = [];
+              const unManagedMetrics: SingleValue[] = [];
+
+              filteredOptions.forEach((option) => {
+                const tooltipText =
+                  option.disabled && option.disabledReason
+                    ? option.disabledReason
+                    : option.description;
+
+                const singleValue: SingleValue = {
+                  value: option.id,
+                  label: option.name,
+                  tooltip: tooltipText,
+                };
+
+                if (option.managedBy) {
+                  managedMetrics.push(singleValue);
+                } else {
+                  unManagedMetrics.push(singleValue);
+                }
+              });
+
+              if (managedMetrics.length > 0) {
+                groupedOptions.push({
+                  label: "",
+                  options: managedMetrics,
+                });
+              }
+
+              if (unManagedMetrics.length > 0) {
+                groupedOptions.push({
+                  label: "",
+                  options: unManagedMetrics,
+                });
+              }
+
+              // If there is only one group, return the options as SingleValue[] instead of GroupedValue[]
+              if (groupedOptions.length === 1) {
+                return groupedOptions[0].options;
+              }
+
+              return groupedOptions;
+            })()
+          : filteredOptions.map((m) => {
+              const tooltipText =
+                m.disabled && m.disabledReason
+                  ? `${m.description || ""}\n\n${m.disabledReason}`.trim()
+                  : m.description;
+
+              return {
+                value: m.id,
+                label: m.name,
+                tooltip: tooltipText,
+              };
+            })
+      }
       placeholder="Select metrics..."
       autoFocus={autoFocus}
+      isOptionDisabled={isOptionDisabled}
       formatOptionLabel={({ value, label }, { context }) => {
         const option = filteredOptions.find((o) => o.id === value);
         const isGroup = option?.isGroup;
@@ -231,7 +366,7 @@ const MetricsSelector: FC<{
                     ? isMetricJoinable(
                         userIdTypes,
                         userIdType,
-                        datasourceSettings
+                        datasourceSettings,
                       )
                     : true,
               };
@@ -243,74 +378,95 @@ const MetricsSelector: FC<{
             showDescription={context !== "value"}
             isGroup={isGroup}
             metrics={metricsWithJoinableStatus}
+            filterConversionWindowMetrics={filterConversionWindowMetrics}
+            badgeColor={
+              context !== "value" ? "var(--blue-11)" : "var(--violet-11)"
+            }
+            officialBadgePosition="left"
           />
         ) : (
           label
         );
       }}
-      onPaste={(e) => {
-        try {
-          const clipboard = e.clipboardData;
-          const data = JSON.parse(clipboard.getData("Text"));
-          if (
-            data.every(
-              (d) =>
-                d.startsWith("met_") ||
-                d.startsWith("mg_") ||
-                d.startsWith("fact__")
-            )
-          ) {
-            e.preventDefault();
-            e.stopPropagation();
-            onChange(data);
-          }
-        } catch (e) {
-          // fail silently
-        }
-      }}
       disabled={disabled}
       helpText={
         <>
           {helpText}
-          <div className="d-flex align-items-center justify-content-end mt-1 mb-2">
-            <div>
-              {!forceSingleMetric && filteredOptions.length > 0 && !disabled && (
-                <div className="metric-from-tag text-muted form-inline">
-                  <span>
-                    Select metric by tag:{" "}
-                    <Tooltip body="Metrics can be tagged for grouping. Select any tag to add all metrics associated with that tag.">
-                      <GBInfo />
-                    </Tooltip>
-                  </span>
-                  <SelectField
-                    value="choose"
-                    placeholder="choose"
-                    className="ml-3"
-                    containerClassName="select-dropdown-underline"
-                    style={{ minWidth: 100 }}
-                    onChange={(v) => {
-                      const newValue = new Set(selected);
-                      const tag = v;
-                      filteredOptions.forEach((m) => {
-                        if (m.tags && m.tags.includes(tag)) {
-                          newValue.add(m.id);
-                        }
-                      });
-                      onChange(Array.from(newValue));
-                    }}
-                    options={[
-                      {
-                        value: "...",
-                        label: "...",
-                      },
-                      ...Object.keys(tagCounts).map((k) => ({
-                        value: k,
-                        label: `${k} (${tagCounts[k]})`,
-                      })),
-                    ]}
-                  />
-                </div>
+          {showMetricGroupHelper && datasource ? (
+            <Flex align="center">
+              {createMetricGroup ? (
+                <MetricGroupInlineForm
+                  selectedMetricIds={selected}
+                  datasource={datasource}
+                  mutateDefinitions={mutateDefinitions}
+                  onChange={onChange}
+                  cancel={() => setCreateMetricGroup(false)}
+                />
+              ) : (
+                <>
+                  <PiInfoFill size="13" style={{ color: "var(--violet-11)" }} />
+                  <Text className="px-1" style={{ color: "var(--violet-11)" }}>
+                    Create a Metric Group so you can easily re-use this set of
+                    metrics in other experiments.
+                  </Text>
+                  <Link
+                    role="button"
+                    onClick={() => setCreateMetricGroup(true)}
+                  >
+                    <strong style={{ textDecoration: "underline" }}>
+                      Convert now
+                    </strong>
+                  </Link>
+                </>
               )}
+            </Flex>
+          ) : null}
+          <div className="d-flex align-items-center justify-content-start mt-2 mb-2">
+            <div>
+              {!forceSingleMetric &&
+                filteredOptions.length > 0 &&
+                !disabled && (
+                  <div className="metric-from-tag text-muted form-inline">
+                    <span
+                      style={{
+                        color: "var(--violet-11)",
+                        fontWeight: 600,
+                      }}
+                    >
+                      Select metric by tag:{" "}
+                      <Tooltip body="Metrics can be tagged for grouping. Select any tag to add all metrics associated with that tag.">
+                        <GBInfo />
+                      </Tooltip>
+                    </span>
+                    <SelectField
+                      value="choose"
+                      placeholder="choose"
+                      className="ml-3"
+                      containerClassName="select-dropdown-underline"
+                      style={{ minWidth: 200 }}
+                      onChange={(v) => {
+                        const newValue = new Set(selected);
+                        const tag = v;
+                        filteredOptions.forEach((m) => {
+                          if (m.tags && m.tags.includes(tag)) {
+                            newValue.add(m.id);
+                          }
+                        });
+                        onChange(Array.from(newValue));
+                      }}
+                      options={[
+                        {
+                          value: "...",
+                          label: "...",
+                        },
+                        ...Object.keys(tagCounts).map((k) => ({
+                          value: k,
+                          label: `${k} (${tagCounts[k]})`,
+                        })),
+                      ]}
+                    />
+                  </div>
+                )}
             </div>
           </div>
         </>
@@ -330,9 +486,16 @@ const MetricsSelector: FC<{
       })}
       placeholder="Select metric..."
       autoFocus={autoFocus}
+      isOptionDisabled={isOptionDisabled}
       formatOptionLabel={({ value, label }, { context }) => {
         return value ? (
-          <MetricName id={value} showDescription={context !== "value"} />
+          <MetricName
+            id={value}
+            showDescription={context !== "value"}
+            badgeColor={
+              context !== "value" ? "var(--blue-11)" : "var(--violet-11)"
+            }
+          />
         ) : (
           label
         );
@@ -342,18 +505,7 @@ const MetricsSelector: FC<{
     />
   );
 
-  return (
-    <div className="position-relative">
-      {!forceSingleMetric && selected.length > 0 && (
-        <div className="position-absolute" style={{ right: 0, top: -25 }}>
-          <Tooltip body="Copy metrics" tipPosition="top" tipMinWidth="90">
-            <ClickToCopy compact valueToCopy={JSON.stringify(selected)} />
-          </Tooltip>
-        </div>
-      )}
-      {selector}
-    </div>
-  );
+  return selector;
 };
 
 export default MetricsSelector;

@@ -7,9 +7,8 @@ export default function JSONSchemaDescription({
 }: {
   jsonSchema: unknown;
 }) {
-  const { jsonSchemaDescription, jsonSchemaFields } = getJSONSchemaSummary(
-    jsonSchema
-  );
+  const { jsonSchemaDescription, jsonSchemaFields } =
+    getJSONSchemaSummary(jsonSchema);
 
   return (
     <div className="d-flex align-items-center">
@@ -168,7 +167,7 @@ function getJSONSchemaSummary(jsonSchema: unknown) {
       const required = new Set(
         "required" in jsonSchema && Array.isArray(jsonSchema.required)
           ? jsonSchema.required
-          : []
+          : [],
       );
       Object.entries(jsonSchema.properties).forEach(([key, value]) => {
         jsonSchemaFields.push({
@@ -193,7 +192,7 @@ function getJSONSchemaSummary(jsonSchema: unknown) {
           "required" in jsonSchema.items &&
           Array.isArray(jsonSchema.items.required)
             ? jsonSchema.items.required
-            : []
+            : [],
         );
         Object.entries(jsonSchema.items.properties).forEach(([key, value]) => {
           jsonSchemaFields.push({

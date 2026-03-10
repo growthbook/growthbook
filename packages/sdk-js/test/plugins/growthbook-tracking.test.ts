@@ -83,7 +83,7 @@ describe("growthbookTrackingPlugin", () => {
           },
         ]),
         credentials: "omit",
-      }
+      },
     );
 
     gb.destroy();
@@ -301,7 +301,7 @@ describe("growthbookTrackingPlugin", () => {
     await sleep(150);
 
     expect(fetchMock.mock.calls[2][0]).toBe(
-      "https://us1.gb-ingest.com/track?client_key=test2"
+      "https://us1.gb-ingest.com/track?client_key=test2",
     );
     const body3 = JSON.parse(fetchMock.mock.calls[2][1].body);
     expect(body3.length).toBe(1);

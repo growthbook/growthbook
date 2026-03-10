@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import Link from "next/link";
-import { PresentationInterface } from "back-end/types/presentation";
-import { FaPlus } from "react-icons/fa";
+import { PresentationInterface } from "shared/types/presentation";
 import { date } from "shared/dates";
-import { Box, Card, Flex, Heading } from "@radix-ui/themes";
+import { Box, Card, Flex } from "@radix-ui/themes";
+import Heading from "@/ui/Heading";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import ShareModal from "@/components/Share/ShareModal";
@@ -13,19 +13,17 @@ import Modal from "@/components/Modal";
 import CopyToClipboard from "@/components/CopyToClipboard";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
+import LinkButton from "@/ui/LinkButton";
+import EmptyState from "@/components/EmptyState";
 
 const PresentationPage = (): React.ReactElement => {
-  const [openNewPresentationModal, setOpenNewPresentationModal] = useState(
-    false
-  );
-  const [
-    specificPresentation,
-    setSpecificPresentation,
-  ] = useState<PresentationInterface | null>(null);
-  const [openEditPresentationModal, setOpenEditPresentationModal] = useState(
-    false
-  );
+  const [openNewPresentationModal, setOpenNewPresentationModal] =
+    useState(false);
+  const [specificPresentation, setSpecificPresentation] =
+    useState<PresentationInterface | null>(null);
+  const [openEditPresentationModal, setOpenEditPresentationModal] =
+    useState(false);
   const [sharableLinkModal, setSharableLinkModal] = useState(false);
   const [sharableLink, setSharableLink] = useState("");
   const [deleteConfirmModal, setDeleteConfirmModal] = useState<boolean>(false);
@@ -40,7 +38,11 @@ const PresentationPage = (): React.ReactElement => {
   const canDeletePresentation = permissionsUtil.canDeletePresentation();
   const canEditPresentation = permissionsUtil.canUpdatePresentation();
 
-  const { data: p, error: error, mutate } = useApi<{
+  const {
+    data: p,
+    error: error,
+    mutate,
+  } = useApi<{
     presentations: PresentationInterface[];
     numExperiments: number;
   }>("/presentations");
@@ -57,48 +59,44 @@ const PresentationPage = (): React.ReactElement => {
   }
   if (!p.presentations.length) {
     return (
-      <Box className="container p-4">
-        <h1>Presentations</h1>
-        <p>Auto-generate slide decks to present experiment results.</p>
-        <p>
-          Present these at all-hands meetings to get the entire company excited
-          about experimentation.
-        </p>
-        <p>
-          These are also a great way to generate new experiment ideas as people
-          suggest tweaks and follow-up variations.
-        </p>
-
-        {canCreatePresentation && (
-          <Button
-            mt="3"
-            onClick={() => {
-              setOpenNewPresentationModal(true);
-            }}
-          >
-            <FaPlus /> Add a presentation
-          </Button>
-        )}
+      <>
+        <EmptyState
+          title="Present Experiment Results"
+          description="Generate presentation to share with the team. Experiment review meetings are a great way to challenge assumptions and generate new ideas. Review meetings get everyone excited about experimentation."
+          leftButton={
+            <LinkButton
+              href="https://docs.growthbook.io/using/programs#sharing"
+              variant="outline"
+              external
+            >
+              View docs
+            </LinkButton>
+          }
+          rightButton={
+            canCreatePresentation && (
+              <Button onClick={() => setOpenNewPresentationModal(true)}>
+                Create a presentation
+              </Button>
+            )
+          }
+        />
         <ShareModal
           title="New Presentation"
           modalState={openNewPresentationModal}
           setModalState={setOpenNewPresentationModal}
           refreshList={mutate}
         />
-      </Box>
+      </>
     );
   }
 
   const deleteConfirm = (id: string) => {
-    //console.log(id);
     setDeleteId(id);
     setDeleteConfirmModal(true);
   };
 
   const confirmDelete = async () => {
     if (deleteLoading) return;
-    //console.log("lets delete ", deleteId);
-
     setDeleteLoading(true);
     setDeleteError(null);
 
@@ -108,7 +106,7 @@ const PresentationPage = (): React.ReactElement => {
         {
           method: "DELETE",
           body: JSON.stringify({ id: deleteId }),
-        }
+        },
       );
       if (res.status === 200) {
         setDeleteLoading(false);
@@ -118,7 +116,7 @@ const PresentationPage = (): React.ReactElement => {
         console.error(res);
         setDeleteError(
           res.message ||
-            "There was an error submitting the form. Please try again."
+            "There was an error submitting the form. Please try again.",
         );
         setDeleteLoading(false);
         setDeleteConfirmModal(false);
@@ -140,7 +138,7 @@ const PresentationPage = (): React.ReactElement => {
     presList = [];
     p.presentations.map((pres, i) => {
       presList.push(
-        <Card className="card" key={`pres-exp-${i}`} mb="3">
+        <Card key={`pres-exp-${i}`} mb="3">
           <Flex p="2" gap="2">
             <div className="col flex-grow-1">
               <h4 className="mb-0">{pres.title}</h4>
@@ -215,7 +213,7 @@ const PresentationPage = (): React.ReactElement => {
                 </svg>
               </Link>
               <Link
-                href={`/present/${pres.id}?exportMode=true&printMode=true`}
+                href={`/present/${pres.id}?printMode=true`}
                 className="btn btn-outline-primary mr-3"
                 target="_blank"
                 rel="noreferrer"
@@ -234,7 +232,7 @@ const PresentationPage = (): React.ReactElement => {
               </a>
             </div>
           </Flex>
-        </Card>
+        </Card>,
       );
     });
   }
@@ -244,7 +242,7 @@ const PresentationPage = (): React.ReactElement => {
       <Box className="container-fluid pagecontents pt-4 shares learnings">
         <Box mb="4" mt="3">
           <Flex justify="between" mb="3">
-            <Heading as="h1" size="6">
+            <Heading as="h1" size="large">
               Presentations
             </Heading>
             {canCreatePresentation && (
@@ -296,8 +294,8 @@ const PresentationPage = (): React.ReactElement => {
           <div className="text-center">
             <div className="text-center mb-2">
               <CopyToClipboard
-                text={`${window.location.origin}${sharableLink}?exportMode=true`}
-                label="Non-slide version"
+                text={`${window.location.origin}${sharableLink}?printMode=true`}
+                label="Print view"
                 className="justify-content-center"
               />
             </div>

@@ -1,36 +1,32 @@
-import { ExperimentSnapshotReportInterface } from "back-end/types/report";
+import { ExperimentSnapshotReportInterface } from "shared/types/report";
 import React, { RefObject, useState } from "react";
 import { useForm } from "react-hook-form";
-import {
-  AttributionModel,
-  ExperimentInterfaceStringDates,
-} from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { getValidDate } from "shared/dates";
-import { DifferenceType } from "back-end/types/stats";
-import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
-import Button from "@/components/Radix/Button";
+import { DifferenceType } from "shared/types/stats";
+import {
+  DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+} from "shared/constants";
+import Button from "@/ui/Button";
 import DatePicker from "@/components/DatePicker";
 import useApi from "@/hooks/useApi";
 import Field from "@/components/Forms/Field";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/Radix/Tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import SelectField from "@/components/Forms/SelectField";
-import Checkbox from "@/components/Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import { MetricsSelectorTooltip } from "@/components/Experiment/MetricsSelector";
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
+import CustomMetricSlicesSelector from "@/components/Experiment/CustomMetricSlicesSelector";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { AttributionModelTooltip } from "@/components/Experiment/AttributionModelTooltip";
+import MetricAnalysisWindowSelector from "@/components/Experiment/MetricAnalysisWindowSelector";
 import MetricsOverridesSelector from "@/components/Experiment/MetricsOverridesSelector";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import { GBCuped, GBInfo, GBSequential } from "@/components/Icons";
+import { GBCuped, GBSequential } from "@/components/Icons";
 import { hasFileConfig } from "@/services/env";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
@@ -69,15 +65,30 @@ export default function ConfigureReport({
         dateStarted: new Date(
           getValidDate(report.experimentAnalysisSettings?.dateStarted ?? "")
             .toISOString()
-            .substr(0, 16)
+            .substr(0, 16),
         ),
         dateEnded: report.experimentAnalysisSettings?.dateEnded
           ? new Date(
               getValidDate(report.experimentAnalysisSettings.dateEnded)
                 .toISOString()
-                .substr(0, 16)
+                .substr(0, 16),
             )
           : null,
+        lookbackOverride: report.experimentAnalysisSettings?.lookbackOverride
+          ? report.experimentAnalysisSettings.lookbackOverride.type === "date"
+            ? {
+                type: "date" as const,
+                value: getValidDate(
+                  report.experimentAnalysisSettings.lookbackOverride.value,
+                ),
+              }
+            : {
+                ...report.experimentAnalysisSettings.lookbackOverride,
+                valueUnit:
+                  report.experimentAnalysisSettings.lookbackOverride
+                    .valueUnit ?? DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
+              }
+          : undefined,
       },
     },
   });
@@ -93,14 +104,14 @@ export default function ConfigureReport({
       ...value.experimentAnalysisSettings,
       dateStarted: new Date(
         getValidDate(
-          value.experimentAnalysisSettings?.dateStarted ?? ""
+          value.experimentAnalysisSettings?.dateStarted ?? "",
         ).getTime() -
-          d.getTimezoneOffset() * 60 * 1000
+          d.getTimezoneOffset() * 60 * 1000,
       ),
       dateEnded: value.experimentAnalysisSettings?.dateEnded
         ? new Date(
             getValidDate(value.experimentAnalysisSettings.dateEnded).getTime() -
-              d.getTimezoneOffset() * 60 * 1000
+              d.getTimezoneOffset() * 60 * 1000,
           )
         : null,
     };
@@ -120,12 +131,9 @@ export default function ConfigureReport({
 
   const [tab, setTab] = useState<TabOptions>("overview");
   const [useToday, setUseToday] = useState(
-    !form.watch("experimentAnalysisSettings.dateEnded")
+    !form.watch("experimentAnalysisSettings.dateEnded"),
   );
   const [upgradeModal, setUpgradeModal] = useState(false);
-  const [hasMetricOverrideRiskError, setHasMetricOverrideRiskError] = useState(
-    false
-  );
 
   const { data: experimentData } = useApi<{
     experiment: ExperimentInterfaceStringDates;
@@ -138,21 +146,20 @@ export default function ConfigureReport({
     ? getDatasourceById(experiment.datasource)
     : null;
   const filteredSegments = segments.filter(
-    (s) => s.datasource === experiment?.datasource
+    (s) => s.datasource === experiment?.datasource,
   );
   const datasourceProperties = datasource?.properties;
   const exposureQueries = datasource?.settings?.queries?.exposure;
   const exposureQueryId = form.watch(
-    "experimentAnalysisSettings.exposureQueryId"
+    "experimentAnalysisSettings.exposureQueryId",
   );
   const exposureQuery = exposureQueries?.find((e) => e.id === exposureQueryId);
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
-    "regression-adjustment"
+    "regression-adjustment",
   );
-  const hasSequentialTestingFeature = hasCommercialFeature(
-    "sequential-testing"
-  );
+  const hasSequentialTestingFeature =
+    hasCommercialFeature("sequential-testing");
   const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
 
   const isBandit = experiment?.type === "multi-armed-bandit";
@@ -179,7 +186,6 @@ export default function ConfigureReport({
       header={`Edit Analysis`}
       useRadixButton={true}
       cta="Save and refresh"
-      ctaEnabled={!hasMetricOverrideRiskError}
       submit={submit}
       size="lg"
       bodyClassName="px-0 pt-0"
@@ -207,12 +213,15 @@ export default function ConfigureReport({
           <TabsContent value="overview">
             <DimensionChooser
               value={form.watch("experimentAnalysisSettings.dimension") || ""}
-              setValue={(v) =>
+              setValue={(v: string) =>
+                form.setValue("experimentAnalysisSettings.dimension", v)
+              }
+              setSnapshotDimension={(v: string) =>
                 form.setValue("experimentAnalysisSettings.dimension", v)
               }
               datasourceId={experiment?.datasource}
               exposureQueryId={form.watch(
-                "experimentAnalysisSettings.exposureQueryId"
+                "experimentAnalysisSettings.exposureQueryId",
               )}
               userIdType={form.watch("experimentAnalysisSettings.userIdType")}
               newUi={false}
@@ -226,7 +235,7 @@ export default function ConfigureReport({
               onChange={(v) =>
                 form.setValue(
                   "experimentAnalysisSettings.differenceType",
-                  v as DifferenceType
+                  v as DifferenceType,
                 )
               }
               sort={false}
@@ -271,8 +280,8 @@ export default function ConfigureReport({
                       new Date(
                         getValidDate(experiment?.phases?.[0]?.dateStarted)
                           .toISOString()
-                          .substr(0, 16)
-                      )
+                          .substr(0, 16),
+                      ),
                     );
                     incrementDatePickerKey();
                   }}
@@ -284,7 +293,7 @@ export default function ConfigureReport({
                       {new Date(
                         getValidDate(experiment?.phases?.[0]?.dateStarted)
                           .toISOString()
-                          .substr(0, 16)
+                          .substr(0, 16),
                       ).toLocaleDateString()}
                     </small>
                   </div>
@@ -302,11 +311,11 @@ export default function ConfigureReport({
                           new Date(
                             getValidDate(
                               experiment?.phases?.[latestPhaseIndex]
-                                ?.dateStarted ?? ""
+                                ?.dateStarted ?? "",
                             )
                               .toISOString()
-                              .substr(0, 16)
-                          )
+                              .substr(0, 16),
+                          ),
                         );
                         incrementDatePickerKey();
                       }}
@@ -318,10 +327,10 @@ export default function ConfigureReport({
                           {new Date(
                             getValidDate(
                               experiment?.phases?.[latestPhaseIndex]
-                                ?.dateStarted
+                                ?.dateStarted,
                             )
                               .toISOString()
-                              .substr(0, 16)
+                              .substr(0, 16),
                           ).toLocaleDateString()}
                         </small>
                       </div>
@@ -351,7 +360,7 @@ export default function ConfigureReport({
                       form.setValue("experimentAnalysisSettings.dateEnded", d)
                     }
                     disableBefore={form.watch(
-                      "experimentAnalysisSettings.dateStarted"
+                      "experimentAnalysisSettings.dateStarted",
                     )}
                   />
                 )}
@@ -370,11 +379,11 @@ export default function ConfigureReport({
                             new Date(
                               getValidDate(
                                 experiment?.phases?.[latestPhaseIndex]
-                                  ?.dateEnded
+                                  ?.dateEnded,
                               )
                                 .toISOString()
-                                .substr(0, 16)
-                            )
+                                .substr(0, 16),
+                            ),
                           );
                           incrementDatePickerKey();
                           setUseToday(false);
@@ -387,10 +396,10 @@ export default function ConfigureReport({
                             {new Date(
                               getValidDate(
                                 experiment?.phases?.[latestPhaseIndex]
-                                  ?.dateEnded
+                                  ?.dateEnded,
                               )
                                 .toISOString()
-                                .substr(0, 16)
+                                .substr(0, 16),
                             ).toLocaleDateString()}
                           </small>
                         </div>
@@ -414,13 +423,11 @@ export default function ConfigureReport({
             <ExperimentMetricsSelector
               datasource={form.watch("experimentAnalysisSettings.datasource")}
               exposureQueryId={form.watch(
-                "experimentAnalysisSettings.exposureQueryId"
+                "experimentAnalysisSettings.exposureQueryId",
               )}
               project={experiment?.project}
               forceSingleGoalMetric={experiment?.type === "multi-armed-bandit"}
-              noPercentileGoalMetrics={
-                experiment?.type === "multi-armed-bandit"
-              }
+              noQuantileGoalMetrics={experiment?.type === "multi-armed-bandit"}
               goalMetrics={
                 form.watch("experimentAnalysisSettings.goalMetrics") ?? []
               }
@@ -433,91 +440,117 @@ export default function ConfigureReport({
               setGoalMetrics={(goalMetrics) =>
                 form.setValue(
                   "experimentAnalysisSettings.goalMetrics",
-                  goalMetrics
+                  goalMetrics,
                 )
               }
               setSecondaryMetrics={(secondaryMetrics) =>
                 form.setValue(
                   "experimentAnalysisSettings.secondaryMetrics",
-                  secondaryMetrics
+                  secondaryMetrics,
                 )
               }
               setGuardrailMetrics={(guardrailMetrics) =>
                 form.setValue(
                   "experimentAnalysisSettings.guardrailMetrics",
-                  guardrailMetrics
+                  guardrailMetrics,
                 )
               }
             />
-            <hr className="my-4" />
-            {datasourceProperties?.separateExperimentResultQueries && (
-              <SelectField
-                label={
-                  <AttributionModelTooltip>
-                    Conversion Window Override <GBInfo />
-                  </AttributionModelTooltip>
+
+            <div className="mt-4">
+              <CustomMetricSlicesSelector
+                goalMetrics={
+                  form.watch("experimentAnalysisSettings.goalMetrics") ?? []
                 }
-                value={
-                  form.watch("experimentAnalysisSettings.attributionModel") ||
-                  "firstExposure"
+                secondaryMetrics={
+                  form.watch("experimentAnalysisSettings.secondaryMetrics") ??
+                  []
                 }
-                onChange={(value) => {
-                  const model = value as AttributionModel;
+                guardrailMetrics={
+                  form.watch("experimentAnalysisSettings.guardrailMetrics") ??
+                  []
+                }
+                customMetricSlices={
+                  form.watch("experimentAnalysisSettings.customMetricSlices") ??
+                  []
+                }
+                setCustomMetricSlices={(slices) =>
                   form.setValue(
-                    "experimentAnalysisSettings.attributionModel",
-                    model
-                  );
-                }}
-                options={[
-                  {
-                    label: "Respect Conversion Windows",
-                    value: "firstExposure",
-                  },
-                  {
-                    label: "Ignore Conversion Windows",
-                    value: "experimentDuration",
-                  },
-                ]}
+                    "experimentAnalysisSettings.customMetricSlices",
+                    slices,
+                  )
+                }
               />
-            )}
-            {hasMetrics && experiment && (
-              <div className="form-group mt-4 mb-2">
-                <PremiumTooltip commercialFeature="override-metrics">
-                  <label className="font-weight-bold mb-0">
-                    Metric Overrides
-                  </label>
-                </PremiumTooltip>
-                <small className="form-text text-muted mb-2">
-                  Override metric behaviors within this experiment. Leave any
-                  fields empty that you do not want to override.
-                </small>
-                <MetricsOverridesSelector
-                  experiment={experiment}
-                  form={form}
-                  fieldMap={{
-                    goalMetrics: "experimentAnalysisSettings.goalMetrics",
-                    guardrailMetrics:
-                      "experimentAnalysisSettings.guardrailMetrics",
-                    secondaryMetrics:
-                      "experimentAnalysisSettings.secondaryMetrics",
-                    activationMetric:
-                      "experimentAnalysisSettings.activationMetric",
-                    metricOverrides:
-                      "experimentAnalysisSettings.metricOverrides",
-                  }}
-                  disabled={!hasOverrideMetricsFeature}
-                  setHasMetricOverrideRiskError={(v: boolean) =>
-                    setHasMetricOverrideRiskError(v)
+            </div>
+
+            <hr className="my-4" />
+            {datasourceProperties?.separateExperimentResultQueries &&
+              experiment && (
+                <MetricAnalysisWindowSelector
+                  attributionModel={
+                    form.watch("experimentAnalysisSettings.attributionModel") ||
+                    "firstExposure"
                   }
+                  lookbackOverride={
+                    form.watch("experimentAnalysisSettings.lookbackOverride") ??
+                    undefined
+                  }
+                  onAttributionModelChange={(v) =>
+                    form.setValue(
+                      "experimentAnalysisSettings.attributionModel",
+                      v,
+                    )
+                  }
+                  onLookbackOverrideChange={(v) =>
+                    form.setValue(
+                      "experimentAnalysisSettings.lookbackOverride",
+                      v,
+                    )
+                  }
+                  analysisEndDate={
+                    form.watch("experimentAnalysisSettings.dateEnded") ??
+                    new Date()
+                  }
+                  disabled={false}
                 />
-                {!hasOverrideMetricsFeature && (
-                  <UpgradeMessage
-                    showUpgradeModal={() => setUpgradeModal(true)}
-                    commercialFeature="override-metrics"
-                    upgradeMessage="override metrics"
+              )}
+            {hasMetrics && experiment && (
+              <>
+                <div className="form-group mt-4 mb-2">
+                  <PremiumTooltip commercialFeature="override-metrics">
+                    <label className="font-weight-bold mb-0">
+                      Metric Overrides
+                    </label>
+                  </PremiumTooltip>
+                  <small className="form-text text-muted mb-2">
+                    Override metric behaviors within this experiment. Leave any
+                    fields empty that you do not want to override.
+                  </small>
+                  <MetricsOverridesSelector
+                    experiment={experiment}
+                    form={form}
+                    fieldMap={{
+                      goalMetrics: "experimentAnalysisSettings.goalMetrics",
+                      guardrailMetrics:
+                        "experimentAnalysisSettings.guardrailMetrics",
+                      secondaryMetrics:
+                        "experimentAnalysisSettings.secondaryMetrics",
+                      activationMetric:
+                        "experimentAnalysisSettings.activationMetric",
+                      metricOverrides:
+                        "experimentAnalysisSettings.metricOverrides",
+                    }}
+                    disabled={!hasOverrideMetricsFeature}
                   />
-                )}
-              </div>
+                  {!hasOverrideMetricsFeature && (
+                    <UpgradeMessage
+                      showUpgradeModal={() => setUpgradeModal(true)}
+                      commercialFeature="override-metrics"
+                      upgradeMessage="override metrics"
+                    />
+                  )}
+                </div>
+              </>
             )}
           </TabsContent>
 
@@ -545,7 +578,7 @@ export default function ConfigureReport({
                 })}
                 formatOptionLabel={({ label, value }) => {
                   const userIdType = exposureQueries?.find(
-                    (e) => e.id === value
+                    (e) => e.id === value,
                   )?.userIdType;
                   return (
                     <>
@@ -571,14 +604,17 @@ export default function ConfigureReport({
             <MetricSelector
               datasource={form.watch("experimentAnalysisSettings.datasource")}
               exposureQueryId={form.watch(
-                "experimentAnalysisSettings.exposureQueryId"
+                "experimentAnalysisSettings.exposureQueryId",
               )}
               project={experiment?.project}
               includeFacts={true}
               label={
                 <>
                   Activation Metric{" "}
-                  <MetricsSelectorTooltip onlyBinomial={true} />
+                  <MetricsSelectorTooltip
+                    onlyBinomial={true}
+                    isSingular={true}
+                  />
                 </>
               }
               initialOption="None"
@@ -589,7 +625,7 @@ export default function ConfigureReport({
               onChange={(value) =>
                 form.setValue(
                   "experimentAnalysisSettings.activationMetric",
-                  value || ""
+                  value || "",
                 )
               }
               helpText="Users must convert on this metric before being included"
@@ -601,7 +637,7 @@ export default function ConfigureReport({
                 onChange={(value) =>
                   form.setValue(
                     "experimentAnalysisSettings.segment",
-                    value || ""
+                    value || "",
                   )
                 }
                 initialOption="None (All Users)"
@@ -625,7 +661,7 @@ export default function ConfigureReport({
                 onChange={(v) => {
                   form.setValue(
                     "experimentAnalysisSettings.skipPartialData",
-                    v === "strict"
+                    v === "strict",
                   );
                 }}
                 options={[
@@ -661,7 +697,7 @@ export default function ConfigureReport({
               }
               value={
                 form.watch(
-                  "experimentAnalysisSettings.regressionAdjustmentEnabled"
+                  "experimentAnalysisSettings.regressionAdjustmentEnabled",
                 )
                   ? "on"
                   : "off"
@@ -669,7 +705,7 @@ export default function ConfigureReport({
               onChange={(v) => {
                 form.setValue(
                   "experimentAnalysisSettings.regressionAdjustmentEnabled",
-                  v === "on"
+                  v === "on",
                 );
               }}
               options={[
@@ -697,7 +733,7 @@ export default function ConfigureReport({
                     }
                     value={
                       form.watch(
-                        "experimentAnalysisSettings.sequentialTestingEnabled"
+                        "experimentAnalysisSettings.sequentialTestingEnabled",
                       )
                         ? "on"
                         : "off"
@@ -705,7 +741,7 @@ export default function ConfigureReport({
                     onChange={(v) => {
                       form.setValue(
                         "experimentAnalysisSettings.sequentialTestingEnabled",
-                        v === "on"
+                        v === "on",
                       );
                     }}
                     options={[
@@ -723,7 +759,7 @@ export default function ConfigureReport({
                   />
                 </div>
                 {form.watch(
-                  "experimentAnalysisSettings.sequentialTestingEnabled"
+                  "experimentAnalysisSettings.sequentialTestingEnabled",
                 ) ? (
                   <div style={{ width: 250 }}>
                     <Field
@@ -749,7 +785,7 @@ export default function ConfigureReport({
                             // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                             return !(v <= 0);
                           },
-                        }
+                        },
                       )}
                     />
                   </div>
@@ -802,7 +838,7 @@ export default function ConfigureReport({
               setWeight={(i, weight) => {
                 form.setValue(
                   `experimentMetadata.phases.${latestPhaseIndex}.variationWeights.${i}`,
-                  weight
+                  weight,
                 );
               }}
               variations={
@@ -811,7 +847,7 @@ export default function ConfigureReport({
                     value: v.key || "",
                     name: v.name,
                     weight: form.watch(
-                      `experimentMetadata.phases.${latestPhaseIndex}.variationWeights.${i}`
+                      `experimentMetadata.phases.${latestPhaseIndex}.variationWeights.${i}`,
                     ),
                     id: v.id,
                   };
@@ -830,20 +866,20 @@ export default function ConfigureReport({
                       ...newData,
                       key: value,
                     };
-                  })
+                  }),
                 );
                 form.setValue(
                   `experimentMetadata.phases.${latestPhaseIndex}.variationWeights`,
-                  v.map((v) => v.weight)
+                  v.map((v) => v.weight),
                 );
               }}
               coverage={form.watch(
-                `experimentMetadata.phases.${latestPhaseIndex}.coverage`
+                `experimentMetadata.phases.${latestPhaseIndex}.coverage`,
               )}
               setCoverage={(c) =>
                 form.setValue(
                   `experimentMetadata.phases.${latestPhaseIndex}.coverage`,
-                  c
+                  c,
                 )
               }
               showPreview={false}

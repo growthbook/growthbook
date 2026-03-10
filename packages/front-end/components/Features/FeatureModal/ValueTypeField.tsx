@@ -1,5 +1,5 @@
 import { FC } from "react";
-import { FeatureValueType } from "back-end/types/feature";
+import { FeatureValueType } from "shared/types/feature";
 import SelectField from "@/components/Forms/SelectField";
 
 const ValueTypeField: FC<{

@@ -23,6 +23,7 @@ const licenseSchema = new mongoose.Schema({
     tooltipText: String, // The text to show in the tooltip
     showAllUsers: Boolean, // True if all users should see the notice rather than just the admins
   },
+  vercelInstallationId: String, // The Vercel installation ID
   orbSubscription: {},
   stripeSubscription: {},
   price: Number, // The price of the license
@@ -33,6 +34,7 @@ const licenseSchema = new mongoose.Schema({
     of: {
       _id: false,
       date: Date,
+      installationName: String,
       userHashes: [String],
       licenseUserCodes: {
         invites: [String],
@@ -63,7 +65,7 @@ export function toInterface(doc: LicenseDocument): LicenseInterface {
 }
 
 export async function getLicenseByKey(
-  key: string
+  key: string,
 ): Promise<LicenseInterface | null> {
   const doc = await LicenseModel.findOne({ id: key });
   return doc ? toInterface(doc) : null;

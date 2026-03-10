@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { NamespaceUsage } from "back-end/types/organization";
+import { NamespaceUsage } from "shared/types/organization";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { findGaps } from "@/services/features";
 import styles from "./NamespaceUsageGraph.module.scss";
@@ -46,7 +46,7 @@ export default function NamespaceUsageGraph({
             className={clsx(
               styles.legend_box,
               styles.used,
-              "progress-bar-striped"
+              "progress-bar-striped",
             )}
           />{" "}
           In-use

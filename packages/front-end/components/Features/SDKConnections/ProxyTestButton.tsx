@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ProxyTestResult } from "back-end/types/sdk-connection";
+import { ProxyTestResult } from "shared/types/sdk-connection";
 import { BsArrowRepeat } from "react-icons/bs";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
@@ -17,10 +17,8 @@ export default function ProxyTestButton({
   showButton: boolean;
   mutate: () => void;
 }) {
-  const [
-    proxyTestResult,
-    setProxyTestResult,
-  ] = useState<null | ProxyTestResult>(null);
+  const [proxyTestResult, setProxyTestResult] =
+    useState<null | ProxyTestResult>(null);
 
   const { apiCall } = useAuth();
 
@@ -56,8 +54,8 @@ export default function ProxyTestButton({
                     proxyTestResult.body.trim().substring(0, 1) === "<"
                       ? "html"
                       : proxyTestResult.body.trim().substring(0, 1) === "{"
-                      ? "json"
-                      : "none"
+                        ? "json"
+                        : "none"
                   }
                   code={proxyTestResult.body}
                   filename="response.body"

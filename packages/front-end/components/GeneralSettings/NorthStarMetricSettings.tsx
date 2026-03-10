@@ -2,7 +2,7 @@ import { Box, Flex, Heading } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
 import { ConnectSettingsForm } from "@/pages/settings";
-import Frame from "@/components/Radix/Frame";
+import Frame from "@/ui/Frame";
 
 export default function NorthStarMetricSettings() {
   return (
@@ -16,7 +16,7 @@ export default function NorthStarMetricSettings() {
               </Heading>
             </Box>
 
-            <Flex align="start" direction="column" flexGrow="1" pt="2">
+            <Flex align="start" direction="column" flexGrow="1" pt="6">
               <p>
                 North stars are metrics your team is focused on improving. These
                 metrics are shown on the home page with the experiments that

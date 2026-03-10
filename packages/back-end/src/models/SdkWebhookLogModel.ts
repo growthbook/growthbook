@@ -61,7 +61,7 @@ const toInterface = (doc: SdkWebHookLogDocument): SdkWebHookLogDocument => {
 
 const SdkWebHookLogModel = mongoose.model<SdkWebHookLogInterface>(
   "SdkWebHookLog",
-  sdkWebHookLogSchema
+  sdkWebHookLogSchema,
 );
 
 type CreateSdkWebHookLogOptions = {
@@ -121,7 +121,7 @@ export const createSdkWebhookLog = async ({
 export const getLatestRunsForWebHook = async (
   organizationId: string,
   sdkWebHookId: string,
-  limit: number = 10
+  limit: number = 10,
 ): Promise<SdkWebHookLogInterface[]> => {
   const docs = await SdkWebHookLogModel.find({
     sdkWebHookId,

@@ -1,4 +1,4 @@
-import * as Sentry from "@sentry/react";
+import * as Sentry from "@sentry/nextjs";
 import { EnvironmentInitValue } from "@/./pages/api/init";
 
 const env: EnvironmentInitValue = {
@@ -9,6 +9,7 @@ const env: EnvironmentInitValue = {
   showMultiOrgSelfSelector: true,
   appOrigin: "",
   apiHost: "",
+  environment: "",
   s3domain: "",
   gcsDomain: "",
   cdnHost: "",
@@ -18,10 +19,18 @@ const env: EnvironmentInitValue = {
   usingSSO: false,
   storeSegmentsInMongo: false,
   allowCreateMetrics: true,
-  usingFileProxy: false,
+  allowCreateDimensions: true,
   superadminDefaultRole: "readonly",
   ingestorOverride: "",
   stripePublishableKey: "",
+  experimentRefreshFrequency: 6,
+  autoSliceUpdateFrequencyHours: 168, // Default: 7 days
+  hasOpenAIKey: false,
+  hasAnthropicKey: false,
+  hasXaiKey: false,
+  hasMistralKey: false,
+  hasGoogleAIKey: false,
+  uploadMethod: "local",
 };
 
 export async function initEnv() {
@@ -32,6 +41,9 @@ export async function initEnv() {
   if (env.sentryDSN) {
     Sentry.init({
       dsn: env.sentryDSN,
+      sendDefaultPii: true,
+      environment: env.environment,
+      release: env.build?.sha,
     });
   }
 }
@@ -76,6 +88,9 @@ export function hasFileConfig() {
 export function envAllowsCreatingMetrics() {
   return env.allowCreateMetrics;
 }
+export function envAllowsCreatingDimensions() {
+  return env.allowCreateDimensions;
+}
 export function getDefaultConversionWindowHours() {
   return env.defaultConversionWindowHours;
 }
@@ -95,9 +110,6 @@ export function isSentryEnabled() {
 export function storeSegmentsInMongo() {
   return env.storeSegmentsInMongo;
 }
-export function usingFileProxy() {
-  return env.usingFileProxy;
-}
 export function getSuperadminDefaultRole() {
   return env.superadminDefaultRole;
 }
@@ -107,4 +119,44 @@ export function getIngestorHost() {
 
 export function getStripePublishableKey() {
   return env.stripePublishableKey;
+}
+export function hasOpenAIKey() {
+  return env.hasOpenAIKey || false;
+}
+
+export function hasAnthropicKey() {
+  return env.hasAnthropicKey || false;
+}
+
+export function hasXaiKey() {
+  return env.hasXaiKey || false;
+}
+
+export function hasMistralKey() {
+  return env.hasMistralKey || false;
+}
+
+export function hasGoogleAIKey() {
+  return env.hasGoogleAIKey || false;
+}
+
+export function getExperimentRefreshFrequency() {
+  return env.experimentRefreshFrequency;
+}
+
+export function getAutoSliceUpdateFrequencyHours() {
+  return env.autoSliceUpdateFrequencyHours;
+}
+
+export function getUploadMethod(): "local" | "s3" | "google-cloud" {
+  return env.uploadMethod;
+}
+
+/** True when file uploads are configured (local storage, or S3/GCS with domain set) */
+export function hasUploadSupport(): boolean {
+  const method = env.uploadMethod;
+  if (method === "local") return true;
+  if (method === "s3") return !!env.s3domain;
+  if (method === "google-cloud") return !!env.gcsDomain;
+  return false;
 }

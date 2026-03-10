@@ -1,3 +1,4 @@
+import { isFactMetric } from "../../experiments";
 import genDefaultResolver from "./resolvers/genDefaultResolver";
 import genMetricOverrideResolver from "./resolvers/genMetricOverrideResolver";
 import genDefaultSettings from "./resolvers/genDefaultSettings";
@@ -12,6 +13,10 @@ import {
   ScopedSettingsReturn,
 } from "./types";
 import regressionAdjustmentResolver from "./resolvers/regressionAdjustmentEnabledResolver";
+import metricTargetMDEResolver from "./resolvers/metricTargetMDEResolver";
+import postStratificationEnabledResolver from "./resolvers/postStratificationEnabledResolver";
+export * from "./types";
+export { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "../../constants";
 
 export const resolvers: Record<
   keyof Settings,
@@ -50,7 +55,7 @@ export const resolvers: Record<
       project: "settings.multipleExposureMinPercent",
       experiment: true,
       report: true,
-    }
+    },
   ),
   defaultRole: genDefaultResolver("defaultRole"),
   statsEngine: genDefaultResolver(
@@ -62,10 +67,16 @@ export const resolvers: Record<
     },
     {
       bypassEmpty: true,
-    }
+    },
   ),
   pValueThreshold: genDefaultResolver("pValueThreshold", {
     project: "settings.pValueThreshold",
+    experiment: true,
+    metric: true,
+    report: true,
+  }),
+  pValueCorrection: genDefaultResolver("pValueCorrection", {
+    project: "settings.pValueCorrection",
     experiment: true,
     metric: true,
     report: true,
@@ -81,13 +92,16 @@ export const resolvers: Record<
     {
       experiment: true,
       report: true,
-    }
+    },
   ),
+  postStratificationEnabled: postStratificationEnabledResolver(),
   attributionModel: genDefaultResolver("attributionModel", {
     project: "settings.attributionModel",
     experiment: true,
     report: true,
   }),
+  srmThreshold: genDefaultResolver("srmThreshold"),
+  targetMDE: metricTargetMDEResolver(),
   delayHours: genMetricOverrideResolver("delayHours"),
   windowType: genMetricOverrideResolver("windowType"),
   windowHours: genMetricOverrideResolver("windowHours"),
@@ -104,12 +118,14 @@ export const resolvers: Record<
   banditBurnInUnit: genDefaultResolver("banditBurnInUnit"),
   experimentMinLengthDays: genDefaultResolver("experimentMinLengthDays"),
   experimentMaxLengthDays: genDefaultResolver("experimentMaxLengthDays"),
+  maxMetricSliceLevels: genDefaultResolver("maxMetricSliceLevels"),
+  useStickyBucketing: genDefaultResolver("useStickyBucketing"),
   // TODO prior resolvers
 };
 
 const scopeSettings = (
   baseSettings: ScopedSettings,
-  scopes: ScopeDefinition
+  scopes: ScopeDefinition,
 ): {
   settings: ScopedSettings;
   scopeSettings: ScopeSettingsFn;
@@ -122,12 +138,11 @@ const scopeSettings = (
   // iterate over resolvers and apply them to the base settings
   const settings = Object.entries(resolvers).reduce(
     (acc, [fieldName, resolver]) => {
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-expect-error - todo: we need to figure out how to resolve the type
       acc[fieldName as keyof Settings] = resolver(ctx);
       return acc;
     },
-    {} as ScopedSettings
+    {} as ScopedSettings,
   );
 
   return {
@@ -139,7 +154,7 @@ const scopeSettings = (
 // todo: currently for org-level interface
 // turns an InputSettings into ScopedSettings
 const normalizeInputSettings = (
-  inputSettings: InputSettings
+  inputSettings: InputSettings,
 ): ScopedSettings => {
   const scopedSettings: ScopedSettings = {} as ScopedSettings;
   const baseSettings = genDefaultSettings();
@@ -161,11 +176,14 @@ const normalizeInputSettings = (
 };
 
 export const getScopedSettings = (
-  scopes: ScopeDefinition
+  scopes: ScopeDefinition,
 ): ScopedSettingsReturn => {
   const settings = normalizeInputSettings(scopes.organization.settings || {});
+  // Only warn for legacy metrics with a denominator (string metric ID reference).
+  // FactMetrics have denominator as a ColumnRef object, not a separate metric.
   if (
     scopes?.metric &&
+    !isFactMetric(scopes.metric) &&
     scopes.metric.denominator &&
     !scopes.denominatorMetric
   ) {
@@ -175,5 +193,3 @@ export const getScopedSettings = (
 
   return scopeSettings(settings, scopes);
 };
-
-export type { ScopedSettings } from "./types";

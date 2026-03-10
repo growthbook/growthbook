@@ -1,16 +1,16 @@
 import type { Response } from "express";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   CreateMetricGroupProps,
   MetricGroupInterface,
-} from "back-end/types/metric-groups";
+} from "shared/types/metric-groups";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { getContextFromReq } from "back-end/src/services/organizations";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { removeMetricFromExperiments } from "back-end/src/models/ExperimentModel";
 
 export const getMetricGroups = async (
   req: AuthRequest,
-  res: Response<{ status: 200; metricGroups: MetricGroupInterface[] }>
+  res: Response<{ status: 200; metricGroups: MetricGroupInterface[] }>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -23,7 +23,7 @@ export const getMetricGroups = async (
 
 export const postMetricGroup = async (
   req: AuthRequest<CreateMetricGroupProps>,
-  res: Response<{ status: 200; metricGroup: MetricGroupInterface }>
+  res: Response<{ status: 200; metricGroup: MetricGroupInterface }>,
 ) => {
   const data = req.body;
   const context = getContextFromReq(req);
@@ -34,7 +34,7 @@ export const postMetricGroup = async (
 
   const datasourceDoc = await getDataSourceById(context, data.datasource);
   if (!datasourceDoc) {
-    throw new Error("Invalid data source");
+    context.throwBadRequestError("Invalid data source");
   }
 
   const baseMetricGroup: Omit<
@@ -42,7 +42,7 @@ export const postMetricGroup = async (
     "id" | "organization" | "dateCreated" | "dateUpdated"
   > = {
     ...data,
-    owner: data.owner || "",
+    owner: data.owner || context.userId || "",
     description: data.description || "",
     tags: data.tags || [],
     projects: data.projects || [],
@@ -59,7 +59,7 @@ export const postMetricGroup = async (
 
 export const putMetricGroup = async (
   req: AuthRequest<CreateMetricGroupProps, { id: string }>,
-  res: Response<{ status: 200 }>
+  res: Response<{ status: 200 }>,
 ) => {
   const data = req.body;
   const context = getContextFromReq(req);
@@ -67,10 +67,14 @@ export const putMetricGroup = async (
 
   const metricGroup = await context.models.metricGroups.getById(req.params.id);
   if (!metricGroup) {
-    throw new Error("Could not find metric group with that id");
+    return context.throwNotFoundError(
+      "Could not find metric group with that id",
+    );
   }
   if (org.id !== metricGroup.organization) {
-    throw new Error("You don't have access to that metric group");
+    context.permissions.throwPermissionError(
+      "You don't have access to that metric group",
+    );
   }
 
   if (!context.permissions.canUpdateMetricGroup()) {
@@ -79,10 +83,10 @@ export const putMetricGroup = async (
 
   const datasourceDoc = await getDataSourceById(
     context,
-    data?.datasource || metricGroup.datasource
+    data?.datasource || metricGroup.datasource,
   );
   if (!datasourceDoc) {
-    throw new Error("Invalid data source");
+    context.throwBadRequestError("Invalid data source");
   }
   await context.models.metricGroups.updateById(req.params.id, data);
 
@@ -93,7 +97,7 @@ export const putMetricGroup = async (
 
 export const deleteMetricGroup = async (
   req: AuthRequest<null, { id: string }>,
-  res: Response<{ status: 200 }>
+  res: Response<{ status: 200 }>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -104,7 +108,7 @@ export const deleteMetricGroup = async (
   const metricGroup = await context.models.metricGroups.getById(req.params.id);
 
   if (!metricGroup) {
-    throw new Error("Could not find the metric group");
+    return context.throwNotFoundError("Could not find the metric group");
   }
 
   // should we delete all references to this metric group in the experiments?
@@ -120,20 +124,24 @@ export const deleteMetricGroup = async (
 // reorder metrics within a group
 export const putMetricGroupReorder = async (
   req: AuthRequest<{ from: number; to: number }, { id: string }>,
-  res: Response<{ status: 200 }>
+  res: Response<{ status: 200 }>,
 ) => {
   const context = getContextFromReq(req);
 
   const { id } = req.params;
   const metricGroup = await context.models.metricGroups.getById(req.params.id);
   if (!metricGroup) {
-    throw new Error("Could not find metric group with that id");
+    return context.throwNotFoundError(
+      "Could not find metric group with that id",
+    );
   }
   if (!context.permissions.canUpdateMetricGroup()) {
     context.permissions.throwPermissionError();
   }
   if (metricGroup.organization !== context.org.id) {
-    throw new Error("You don't have access to that metric group");
+    context.permissions.throwPermissionError(
+      "You don't have access to that metric group",
+    );
   }
 
   const { from, to } = req.body;
@@ -154,26 +162,30 @@ export const putMetricGroupReorder = async (
 // remove a metric from a group
 export const removeMetricFromGroup = async (
   req: AuthRequest<null, { id: string; metricId: string }>,
-  res: Response<{ status: 200 }>
+  res: Response<{ status: 200 }>,
 ) => {
   const context = getContextFromReq(req);
 
   const { id, metricId } = req.params;
   const metricGroup = await context.models.metricGroups.getById(req.params.id);
   if (!metricGroup) {
-    throw new Error("Could not find metric group with that id");
+    return context.throwNotFoundError(
+      "Could not find metric group with that id",
+    );
   }
   if (!context.permissions.canUpdateMetricGroup()) {
     context.permissions.throwPermissionError();
   }
   if (metricGroup.organization !== context.org.id) {
-    throw new Error("You don't have access to that metric group");
+    context.permissions.throwPermissionError(
+      "You don't have access to that metric group",
+    );
   }
 
   const existingMetrics = metricGroup.metrics;
   const index = existingMetrics.indexOf(metricId);
   if (index === -1) {
-    throw new Error("Could not find metric in group");
+    context.throwBadRequestError("Could not find metric in group");
   }
   existingMetrics.splice(index, 1);
 

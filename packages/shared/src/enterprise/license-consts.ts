@@ -1,4 +1,5 @@
 import type Stripe from "stripe";
+import { stringToBoolean } from "../util";
 
 export type AccountPlan = "oss" | "starter" | "pro" | "pro_sso" | "enterprise";
 export const accountPlans: Set<AccountPlan> = new Set([
@@ -10,6 +11,7 @@ export const accountPlans: Set<AccountPlan> = new Set([
 ]);
 
 export type CommercialFeature =
+  | "ai-suggestions"
   | "scim"
   | "sso"
   | "advanced-permissions"
@@ -18,6 +20,7 @@ export type CommercialFeature =
   | "custom-metadata"
   | "override-metrics"
   | "regression-adjustment"
+  | "post-stratification"
   | "sequential-testing"
   | "pipeline-mode"
   | "audit-logging"
@@ -33,6 +36,7 @@ export type CommercialFeature =
   | "custom-launch-checklist"
   | "multi-metric-queries"
   | "no-access-role"
+  | "project-admin-role"
   | "teams"
   | "sticky-bucketing"
   | "require-approvals"
@@ -53,7 +57,24 @@ export type CommercialFeature =
   | "environment-inheritance"
   | "templates"
   | "historical-power"
-  | "decision-framework";
+  | "decision-framework"
+  | "unlimited-cdn-usage"
+  | "unlimited-managed-warehouse-usage"
+  | "safe-rollout"
+  | "require-project-for-features-setting"
+  | "holdouts"
+  | "saveSqlExplorerQueries"
+  | "metric-effects"
+  | "metric-correlations"
+  | "dashboards"
+  | "product-analytics-dashboards"
+  | "share-product-analytics-dashboards"
+  | "precomputed-dimensions"
+  | "custom-hooks"
+  | "metric-slices"
+  | "manage-official-resources"
+  | "incremental-refresh"
+  | "adv-presentations";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
@@ -67,6 +88,7 @@ export type SubscriptionInfo = {
   dateToBeCanceled: string;
   cancelationDate: string;
   pendingCancelation: boolean;
+  isVercelIntegration: boolean;
 };
 
 export interface LicenseInterface {
@@ -90,6 +112,7 @@ export interface LicenseInterface {
     tooltipText: string; // The text to show in the tooltip
     showAllUsers: boolean; // True if all users should see the notice rather than just the admins
   };
+  vercelInstallationId?: string;
   stripeSubscription?: {
     id: string;
     qty: number;
@@ -123,6 +146,7 @@ export interface LicenseInterface {
   installationUsers: {
     [installationId: string]: {
       date: string;
+      installationName?: string;
       userHashes: string[];
       licenseUserCodes?: LicenseUserCodes;
     };
@@ -191,6 +215,11 @@ export const accountFeatures: CommercialFeaturesMap = {
     "multi-armed-bandits",
     "historical-power",
     "decision-framework",
+    "safe-rollout",
+    "unlimited-managed-warehouse-usage",
+    "saveSqlExplorerQueries",
+    "precomputed-dimensions",
+    "product-analytics-dashboards",
   ]),
   pro_sso: new Set<CommercialFeature>([
     "sso",
@@ -218,8 +247,14 @@ export const accountFeatures: CommercialFeaturesMap = {
     "multi-armed-bandits",
     "historical-power",
     "decision-framework",
+    "safe-rollout",
+    "unlimited-managed-warehouse-usage",
+    "saveSqlExplorerQueries",
+    "precomputed-dimensions",
+    "product-analytics-dashboards",
   ]),
   enterprise: new Set<CommercialFeature>([
+    "ai-suggestions",
     "scim",
     "sso",
     "advanced-permissions",
@@ -229,6 +264,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "custom-metadata",
     "override-metrics",
     "regression-adjustment",
+    "post-stratification",
     "sequential-testing",
     "pipeline-mode",
     "multi-metric-queries",
@@ -254,6 +290,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "quantile-metrics",
     "retention-metrics",
     "custom-roles",
+    "project-admin-role",
     "custom-markdown",
     "experiment-impact",
     "metric-populations",
@@ -264,8 +301,30 @@ export const accountFeatures: CommercialFeaturesMap = {
     "templates",
     "historical-power",
     "decision-framework",
+    "safe-rollout",
+    "unlimited-managed-warehouse-usage",
+    "require-project-for-features-setting",
+    "holdouts",
+    "saveSqlExplorerQueries",
+    "metric-effects",
+    "metric-correlations",
+    "dashboards",
+    "precomputed-dimensions",
+    "custom-hooks",
+    "metric-slices",
+    "manage-official-resources",
+    "product-analytics-dashboards",
+    "share-product-analytics-dashboards",
+    "incremental-refresh",
+    "adv-presentations",
   ]),
 };
+
+if (stringToBoolean(process.env.IS_CLOUD)) {
+  Object.values(accountFeatures).forEach((features) => {
+    features.add("ai-suggestions"); // All plans on cloud have ai-suggestions, though the usage limits vary
+  });
+}
 
 export interface LicenseUserCodes {
   invites: string[];
@@ -275,6 +334,7 @@ export interface LicenseUserCodes {
 
 export interface LicenseMetaData {
   installationId: string;
+  installationName?: string;
   gitSha: string;
   gitCommitDate: string;
   sdkLanguages: string[];

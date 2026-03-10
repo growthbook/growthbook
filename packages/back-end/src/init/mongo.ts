@@ -25,7 +25,7 @@ export default async (): Promise<void> => {
   } catch (e) {
     logger.warn(
       e,
-      "Failed to connect to MongoDB. Retrying with field remapping for mongodb v3 to v4"
+      "Failed to connect to MongoDB. Retrying with field remapping for mongodb v3 to v4",
     );
 
     try {
@@ -45,7 +45,7 @@ export default async (): Promise<void> => {
       }
       if (remapped.length) {
         logger.warn(
-          `mongodb deprecated fields remapped: ${remapped.join(", ")}`
+          `mongodb deprecated fields remapped: ${remapped.join(", ")}`,
         );
       }
 

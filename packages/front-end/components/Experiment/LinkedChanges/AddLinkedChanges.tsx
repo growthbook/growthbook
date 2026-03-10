@@ -1,4 +1,4 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { CommercialFeature } from "shared/enterprise";
 import {
   SDKCapability,
@@ -56,13 +56,8 @@ const AddLinkedChangeRow = ({
   setModal: (boolean) => void;
   experiment: ExperimentInterfaceStringDates;
 }) => {
-  const {
-    header,
-    cta,
-    description,
-    commercialFeature,
-    sdkCapabilityKey,
-  } = LINKED_CHANGES[type];
+  const { header, cta, description, commercialFeature, sdkCapabilityKey } =
+    LINKED_CHANGES[type];
   const { component: Icon, color } = ICON_PROPERTIES[type];
   const { data: sdkConnectionsData } = useSDKConnections();
 

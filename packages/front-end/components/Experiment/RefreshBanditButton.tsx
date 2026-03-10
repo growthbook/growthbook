@@ -1,7 +1,7 @@
 import React, { FC, useEffect, useMemo, useState } from "react";
 import { BsArrowRepeat } from "react-icons/bs";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { FaCaretDown, FaExclamationCircle } from "react-icons/fa";
 import { FaRegCircleCheck, FaRegCircleXmark } from "react-icons/fa6";
 import { useAuth } from "@/services/auth";
@@ -68,13 +68,13 @@ const RefreshBanditButton: FC<{
         },
         (responseData) => {
           res = responseData;
-        }
+        },
       );
       trackSnapshot(
         "create",
         "RefreshBanditButton",
         getDatasourceById(experiment.datasource)?.type || null,
-        res.snapshot
+        res.snapshot,
       );
       await mutate();
     } catch (e) {
@@ -106,10 +106,10 @@ const RefreshBanditButton: FC<{
               try {
                 const res = await refresh();
                 setGeneratedSnapshot(
-                  res?.snapshot as ExperimentSnapshotInterface | undefined
+                  res?.snapshot as ExperimentSnapshotInterface | undefined,
                 );
                 setOuterGeneratedSnapshot(
-                  res?.snapshot as ExperimentSnapshotInterface | undefined
+                  res?.snapshot as ExperimentSnapshotInterface | undefined,
                 );
                 const banditError = res?.snapshot?.banditResult?.error;
                 if (res.status >= 400) {

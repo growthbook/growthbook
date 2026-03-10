@@ -14,6 +14,7 @@ export type {
   FeatureApiResponse,
   LoadFeaturesOptions,
   RefreshFeaturesOptions,
+  DestroyOptions,
   FeatureDefinitions,
   FeatureDefinition,
   FeatureRule,
@@ -82,6 +83,7 @@ export {
 
 export {
   StickyBucketService,
+  StickyBucketServiceSync,
   LocalStorageStickyBucketService,
   ExpressCookieStickyBucketService,
   BrowserCookieStickyBucketService,

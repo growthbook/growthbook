@@ -7,6 +7,9 @@ properties:
     type: string
   trackingKey:
     type: string
+  bypassDuplicateKeyCheck:
+    type: boolean
+    description: If true, allow updating the tracking key even if another experiment with the same tracking key already exists
   name:
     type: string
     description: Name of the experiment
@@ -89,7 +92,10 @@ properties:
     enum:
       - firstExposure
       - experimentDuration
-    description: Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override.
+      - lookbackOverride
+    description: Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided.
+  lookbackOverride:
+    $ref: "../schemas/LookbackOverride.yaml"
   statsEngine:
     type: string
     enum:
@@ -245,3 +251,37 @@ properties:
     enum:
       - "days"
       - "hours"
+  banditConversionWindowValue:
+    type: number
+  banditConversionWindowUnit:
+    type: string
+    enum:
+      - "days"
+      - "hours"
+  customFields:
+    type: object
+    additionalProperties:
+      type: string
+  customMetricSlices:
+    type: array
+    items:
+      type: object
+      properties:
+        slices:
+          type: array
+          items:
+            type: object
+            properties:
+              column:
+                type: string
+              levels:
+                type: array
+                items:
+                  type: string
+            required:
+              - column
+              - levels
+
+      required:
+        - slices
+    description: "Custom slices that apply to ALL applicable metrics in the experiment"

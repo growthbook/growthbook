@@ -12,7 +12,7 @@ import {
   useTooltipInPortal,
 } from "@visx/tooltip";
 import { date, getValidDate } from "shared/dates";
-import { StatsEngine } from "back-end/types/stats";
+import { StatsEngine } from "shared/types/stats";
 import cloneDeep from "lodash/cloneDeep";
 import { ScaleLinear } from "d3-scale";
 import { BiCheckbox, BiCheckboxSquare } from "react-icons/bi";
@@ -70,7 +70,7 @@ const getTooltipContents = (
   statsEngine: StatsEngine,
   formatter: (value: number, options?: Intl.NumberFormatOptions) => string,
   formatterOptions?: Intl.NumberFormatOptions,
-  hasStats: boolean = true
+  hasStats: boolean = true,
 ) => {
   const { d, yaxis } = data;
   return (
@@ -83,7 +83,7 @@ const getTooltipContents = (
         <thead>
           <tr>
             <td></td>
-            <td>Users</td>
+            <td>Units</td>
 
             {yaxis === "effect" && (
               <>
@@ -137,12 +137,12 @@ const getTooltipContents = (
                               [
                               {formatter(
                                 variation?.ci?.[0] ?? 0,
-                                formatterOptions
+                                formatterOptions,
                               )}
                               ,{" "}
                               {formatter(
                                 variation?.ci?.[1] ?? 0,
-                                formatterOptions
+                                formatterOptions,
                               )}
                               ]
                             </>
@@ -180,7 +180,7 @@ const getTooltipData = (
   datapoints: ExperimentDateGraphDataPoint[],
   yScale: ScaleLinear<number, number, never>,
   xScale,
-  yaxis: "users" | "effect"
+  yaxis: "users" | "effect",
 ): TooltipData => {
   // Calculate x-coordinates for all data points
   const xCoords = datapoints.map((d) => xScale(d.d));
@@ -199,9 +199,9 @@ const getTooltipData = (
 
   const d = datapoints[closestIndex];
   const x = xCoords[closestIndex];
-  const y = d.variations
+  const y = d?.variations
     ? d.variations.map(
-        (variation) => yScale(getYVal(variation, yaxis) ?? 0) ?? 0
+        (variation) => yScale(getYVal(variation, yaxis) ?? 0) ?? 0,
       )
     : undefined;
   return { x, y, d, yaxis };
@@ -209,7 +209,7 @@ const getTooltipData = (
 
 const getYVal = (
   variation?: DataPointVariation,
-  yaxis?: "users" | "effect"
+  yaxis?: "users" | "effect",
 ) => {
   if (!variation) return undefined;
   switch (yaxis) {
@@ -241,7 +241,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
   });
 
   const [showVariations, setShowVariations] = useState<boolean[]>(
-    variationNames.map(() => true)
+    variationNames.map(() => true),
   );
 
   const {
@@ -255,7 +255,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
 
   const datapoints = useMemo(() => {
     const sortedDates = cloneDeep(_datapoints).sort(
-      (a, b) => getValidDate(a.d).getTime() - getValidDate(b.d).getTime()
+      (a, b) => getValidDate(a.d).getTime() - getValidDate(b.d).getTime(),
     );
 
     const filledDates: ExperimentDateGraphDataPoint[] = [];
@@ -265,7 +265,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
         const currentDate = getValidDate(sortedDates[i].d);
         const nextDate = getValidDate(sortedDates[i + 1].d);
         let expectedDate = new Date(
-          currentDate.getTime() + maxGapHours * 60 * 60 * 1000
+          currentDate.getTime() + maxGapHours * 60 * 60 * 1000,
         );
 
         while (expectedDate < nextDate) {
@@ -280,7 +280,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
             });
           }
           expectedDate = new Date(
-            expectedDate.getTime() + maxGapHours * 60 * 60 * 1000
+            expectedDate.getTime() + maxGapHours * 60 * 60 * 1000,
           );
         }
       }
@@ -296,10 +296,10 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
           ? Math.min(
               ...d.variations
                 .filter((_, i) => showVariations[i])
-                .map((variation) => getYVal(variation, yaxis) ?? 0)
+                .map((variation) => getYVal(variation, yaxis) ?? 0),
             )
-          : 0
-      )
+          : 0,
+      ),
     );
     const maxValue = Math.max(
       ...datapoints.map((d) =>
@@ -307,10 +307,10 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
           ? Math.max(
               ...d.variations
                 .filter((_, i) => showVariations[i])
-                .map((variation) => getYVal(variation, yaxis) ?? 0)
+                .map((variation) => getYVal(variation, yaxis) ?? 0),
             )
-          : 0
-      )
+          : 0,
+      ),
     );
     const minError = Math.min(
       ...datapoints.map((d) =>
@@ -321,11 +321,11 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                 .map((variation) =>
                   variation.ci?.[0]
                     ? variation.ci[0]
-                    : getYVal(variation, yaxis) ?? 0
-                )
+                    : (getYVal(variation, yaxis) ?? 0),
+                ),
             )
-          : 0
-      )
+          : 0,
+      ),
     );
     const maxError = Math.max(
       ...datapoints.map((d) =>
@@ -336,11 +336,11 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                 .map((variation) =>
                   variation.ci?.[1]
                     ? variation.ci[1]
-                    : getYVal(variation, yaxis) ?? 0
-                )
+                    : (getYVal(variation, yaxis) ?? 0),
+                ),
             )
-          : 0
-      )
+          : 0,
+      ),
     );
 
     // The error bars can be huge sometimes, so limit the domain to at most twice the min/max value
@@ -385,7 +385,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
             datapoints,
             yScale,
             xScale,
-            yaxis
+            yaxis,
           );
           if (!data?.y || data.y.every((v) => v === undefined)) {
             hideTooltip();
@@ -414,7 +414,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                   statsEngine,
                   formatter,
                   formatterOptions,
-                  hasStats
+                  hasStats,
                 )}
               </TooltipWithBounds>
             )}
@@ -431,7 +431,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                       setShowVariations(variationNames.map(() => true));
                     } else {
                       setShowVariations(
-                        variationNames.map((_, i) => (i === 0 ? true : false))
+                        variationNames.map((_, i) => (i === 0 ? true : false)),
                       );
                     }
                   }}
@@ -519,8 +519,8 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                   <rect
                     x={0}
                     y={0}
-                    width={width - margin[1] - margin[3]}
-                    height={height - margin[0] - margin[2]}
+                    width={Math.max(0, width - margin[1] - margin[3])}
+                    height={Math.max(0, height - margin[0] - margin[2])}
                   />
                 </clipPath>
               </defs>

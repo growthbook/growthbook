@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import {
   DefaultMemberRole,
   MemberRoleWithProjects,
-} from "back-end/types/organization";
+} from "shared/types/organization";
 import { getDefaultRole } from "shared/permissions";
 import track from "@/services/track";
 import Modal from "@/components/Modal";
@@ -49,19 +49,19 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
     },
   });
   const [successfulInvites, setSuccessfulInvites] = useState<InviteResult[]>(
-    []
+    [],
   );
   const [failedInvites, setFailedInvites] = useState<InviteResult[]>([]);
   const { apiCall } = useAuth();
   const [showUpgradeModal, setShowUpgradeModal] = useState(
-    isCloud() && canSubscribe && seatsInUse >= freeSeats
+    isCloud() && canSubscribe && seatsInUse >= freeSeats,
   );
 
   const [showContactSupport, setShowContactSupport] = useState(
     ["pro", "pro_sso", "enterprise"].includes(effectiveAccountPlan || "") &&
       license &&
       license.hardCap &&
-      (license.seats || 0) <= seatsInUse
+      (license.seats || 0) <= seatsInUse,
   );
 
   // Hit their free limit and needs to upgrade to invite more team members
@@ -246,7 +246,7 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
               const parsedEmails: string[] = [];
               emails.forEach((em) => {
                 parsedEmails.push(
-                  ...em.split(/[\s,]/g).filter((e) => e.trim().length > 0)
+                  ...em.split(/[\s,]/g).filter((e) => e.trim().length > 0),
                 );
               });
               // dedup:

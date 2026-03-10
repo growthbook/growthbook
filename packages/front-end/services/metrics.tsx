@@ -1,11 +1,12 @@
-import { MetricType } from "back-end/types/metric";
+import { MetricType } from "shared/types/metric";
 import {
   ColumnInterface,
   ColumnRef,
   FactTableInterface,
   CreateFactMetricProps,
   FactMetricInterface,
-} from "back-end/types/fact-table";
+  RowFilter,
+} from "shared/types/fact-table";
 import {
   canInlineFilterColumn,
   ExperimentMetricInterface,
@@ -26,26 +27,31 @@ import {
 import {
   MetricDefaults,
   OrganizationSettings,
-} from "back-end/types/organization";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+} from "shared/types/organization";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { formatByteSizeString, getNumberFormatDigits } from "shared/util";
 import { decimalToPercent } from "@/services/utils";
 import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
 
 export function getInitialInlineFilters(
   factTable: FactTableInterface,
-  existingInlineFilters?: Record<string, string[]>
-) {
-  const inlineFilters = { ...existingInlineFilters };
+  existingRowFilters?: RowFilter[],
+): RowFilter[] {
+  const rowFilters = [...(existingRowFilters || [])];
   factTable.columns
     .filter(
-      (c) => c.alwaysInlineFilter && canInlineFilterColumn(factTable, c.column)
+      (c) => c.alwaysInlineFilter && canInlineFilterColumn(factTable, c.column),
     )
     .forEach((c) => {
-      if (!inlineFilters[c.column] || !inlineFilters[c.column].length) {
-        inlineFilters[c.column] = [""];
+      if (!rowFilters.some((rf) => rf.column === c.column)) {
+        rowFilters.push({
+          column: c.column,
+          operator: "=",
+          values: [""],
+        });
       }
     });
-  return inlineFilters;
+  return rowFilters;
 }
 
 export function getDefaultFactMetricProps({
@@ -55,6 +61,7 @@ export function getDefaultFactMetricProps({
   project,
   datasources,
   initialFactTable,
+  managedBy,
 }: {
   metricDefaults: MetricDefaults;
   settings: OrganizationSettings;
@@ -62,7 +69,8 @@ export function getDefaultFactMetricProps({
   datasources: DataSourceInterfaceWithParams[];
   existing?: Partial<FactMetricInterface>;
   initialFactTable?: FactTableInterface;
-}): CreateFactMetricProps {
+  managedBy?: "" | "api" | "admin";
+}): CreateFactMetricProps & { targetMDE: number } {
   return {
     name: existing?.name || "",
     owner: existing?.owner || "",
@@ -72,26 +80,28 @@ export function getDefaultFactMetricProps({
     numerator: existing?.numerator || {
       factTableId: initialFactTable?.id || "",
       column: "$$count",
-      filters: [],
-      inlineFilters: initialFactTable
+      rowFilters: initialFactTable
         ? getInitialInlineFilters(initialFactTable)
-        : {},
+        : [],
     },
     projects: existing?.projects || [],
     denominator: existing?.denominator || null,
     datasource:
       existing?.datasource ||
-      getNewExperimentDatasourceDefaults(
+      getNewExperimentDatasourceDefaults({
         datasources,
         settings,
         project,
-        initialFactTable ? { datasource: initialFactTable?.datasource } : {}
-      ).datasource,
+        initialValue: initialFactTable
+          ? { datasource: initialFactTable?.datasource }
+          : {},
+      }).datasource,
     inverse: existing?.inverse || false,
     cappingSettings: existing?.cappingSettings || {
       type: "",
       value: 0,
     },
+    managedBy: managedBy || "",
     quantileSettings: existing?.quantileSettings || null,
     windowSettings: existing?.windowSettings || {
       type: DEFAULT_FACT_METRIC_WINDOW,
@@ -108,6 +118,7 @@ export function getDefaultFactMetricProps({
       DEFAULT_MIN_PERCENT_CHANGE,
     targetMDE:
       existing?.targetMDE ?? metricDefaults.targetMDE ?? DEFAULT_TARGET_MDE,
+    displayAsPercentage: existing?.displayAsPercentage,
     maxPercentChange:
       existing?.maxPercentChange ??
       metricDefaults.maxPercentageChange ??
@@ -133,6 +144,7 @@ export function getDefaultFactMetricProps({
         mean: 0,
         stddev: DEFAULT_PROPER_PRIOR_STDDEV,
       }),
+    metricAutoSlices: existing?.metricAutoSlices || [],
   };
 }
 
@@ -159,7 +171,7 @@ export function getPercentileLabel(quantile: number): string {
 
 export function formatCurrency(
   value: number,
-  options: Intl.NumberFormatOptions
+  options: Intl.NumberFormatOptions,
 ) {
   const cleanedOptions = {
     ...options,
@@ -225,13 +237,13 @@ export function formatDurationSeconds(value: number) {
 
   return f;
 }
+
 export function formatNumber(
   value: number,
-  options?: Intl.NumberFormatOptions
+  options?: Intl.NumberFormatOptions,
 ) {
-  const absValue = Math.abs(value);
-  const digits =
-    absValue > 1000 ? 0 : absValue > 100 ? 1 : absValue > 10 ? 2 : 3;
+  const digits = getNumberFormatDigits(value, true);
+
   // Show fewer fractional digits for bigger numbers
   const formatter = new Intl.NumberFormat(undefined, {
     maximumFractionDigits: digits,
@@ -242,7 +254,7 @@ export function formatNumber(
 }
 export function formatPercent(
   value: number,
-  options?: Intl.NumberFormatOptions
+  options?: Intl.NumberFormatOptions,
 ) {
   const percentFormatter = new Intl.NumberFormat(undefined, {
     style: "percent",
@@ -265,8 +277,16 @@ export function formatPercentagePoints(value: number) {
   return `${number} pp`;
 }
 
+export function formatBytes(value: number) {
+  return formatByteSizeString(value, true);
+}
+
+export function formatKilobytes(value: number) {
+  return formatByteSizeString(value * 1024, true);
+}
+
 export function getColumnFormatter(
-  column: ColumnInterface
+  column: ColumnInterface,
 ): (value: number, options?: Intl.NumberFormatOptions) => string {
   switch (column.numberFormat) {
     case "":
@@ -275,22 +295,29 @@ export function getColumnFormatter(
       return formatCurrency;
     case "time:seconds":
       return formatDurationSeconds;
+    case "memory:bytes":
+      return formatBytes;
+    case "memory:kilobytes":
+      return formatKilobytes;
+    default:
+      return formatNumber;
   }
 }
 
 export function getColumnRefFormatter(
   columnRef: ColumnRef,
-  getFactTableById: (id: string) => FactTableInterface | null
+  getFactTableById: (id: string) => FactTableInterface | null,
 ): (value: number, options?: Intl.NumberFormatOptions) => string {
   if (
     columnRef.column === "$$count" ||
-    columnRef.column === "$$distinctUsers"
+    columnRef.column === "$$distinctUsers" ||
+    columnRef.column === "$$distinctDates"
   ) {
     return formatNumber;
   }
 
   const fact = getFactTableById(columnRef.factTableId)?.columns?.find(
-    (c) => c.column === columnRef.column
+    (c) => c.column === columnRef.column,
   );
   if (!fact) return formatNumber;
 
@@ -300,7 +327,7 @@ export function getColumnRefFormatter(
 export function getExperimentMetricFormatter(
   metric: ExperimentMetricInterface,
   getFactTableById: (id: string) => FactTableInterface | null,
-  proportionFormat: "number" | "percentagePoints" | "percentage" = "percentage"
+  proportionFormat: "number" | "percentagePoints" | "percentage" = "percentage",
 ): (value: number, options?: Intl.NumberFormatOptions) => string {
   // Old metric
   if ("type" in metric) {
@@ -315,6 +342,13 @@ export function getExperimentMetricFormatter(
 
   // Fact metric
   switch (metric.metricType) {
+    case "dailyParticipation":
+      if (metric.displayAsPercentage) {
+        return proportionFormat === "percentagePoints"
+          ? formatPercentagePoints
+          : formatPercent;
+      }
+      return formatNumber;
     case "proportion":
     case "retention":
       if (proportionFormat === "number") {
@@ -326,15 +360,20 @@ export function getExperimentMetricFormatter(
       return formatPercent;
     case "ratio":
       return (() => {
+        // If user has set displayAsPercentage to true, format as a percentage
+        if (metric.displayAsPercentage) {
+          return formatPercent;
+        }
+
         // If the metric is ratio of the same unit, they cancel out
         // For example: profit/revenue = $/$ = plain number
         const numerator = getFactTableById(
-          metric.numerator.factTableId
+          metric.numerator.factTableId,
         )?.columns?.find((c) => c.column === metric.numerator.column);
         const denominator =
           metric.denominator &&
           getFactTableById(metric.denominator.factTableId)?.columns?.find(
-            (c) => c.column === metric.denominator?.column
+            (c) => c.column === metric.denominator?.column,
           );
         if (
           numerator &&
@@ -356,7 +395,7 @@ export function getExperimentMetricFormatter(
 }
 
 export function getMetricFormatter(
-  type: MetricType
+  type: MetricType,
 ): (value: number, options?: Intl.NumberFormatOptions) => string {
   if (type === "count") {
     return formatNumber;

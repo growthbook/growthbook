@@ -25,7 +25,7 @@ const ImportedExperimentGuide = (): React.ReactElement => {
   const { setStep, clearStep } = useGetStarted();
 
   const demoProjectId = getDemoDatasourceProjectIdForOrganization(
-    organization.id || ""
+    organization.id || "",
   );
 
   // If they view the guide, clear the current step
@@ -46,14 +46,14 @@ const ImportedExperimentGuide = (): React.ReactElement => {
   // Ignore the demo datasource
   const hasExperiments = project
     ? experiments.some(
-        (e) => e.project !== demoProjectId && e.project === project
+        (e) => e.project !== demoProjectId && e.project === project,
       )
     : experiments.some((e) => e.project !== demoProjectId);
 
   const hasFactTables = factTables.length > 0;
   // Ignore the demo datasource
   const hasDatasource = datasources.some(
-    (d) => !d.projects?.includes(demoProjectId)
+    (d) => !d.projects?.includes(demoProjectId),
   );
 
   return (
@@ -118,7 +118,7 @@ const ImportedExperimentGuide = (): React.ReactElement => {
                   onClick={() =>
                     setStep({
                       step: "Connect to Your Data Warehouse",
-                      source: "importedExperiments",
+                      source: "importedExperimentGuide",
                       stepKey: "connectDataWarehouse",
                     })
                   }
@@ -170,7 +170,7 @@ const ImportedExperimentGuide = (): React.ReactElement => {
                   onClick={() =>
                     setStep({
                       step: "Define Fact Tables and Metrics",
-                      source: "importedExperiments",
+                      source: "importedExperimentGuide",
                       stepKey: "createFactTables",
                     })
                   }
@@ -224,7 +224,7 @@ const ImportedExperimentGuide = (): React.ReactElement => {
                         project && " in this Project"
                       } &
                       View Results`,
-                      source: "importedExperiments",
+                      source: "importedExperimentGuide",
                       stepKey: "importExperiment",
                     })
                   }

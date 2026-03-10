@@ -1,6 +1,10 @@
 // @ts-check
 // Note: type annotations allow type checking and IDEs autocompletion
 
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import { themes } from "prism-react-renderer";
+
 /** @type {import('@docusaurus/types').Config} */
 const config = {
   title: "GrowthBook Docs",
@@ -9,7 +13,6 @@ const config = {
   baseUrl: "/",
   onBrokenLinks: "throw",
   onBrokenAnchors: "warn",
-  onBrokenMarkdownLinks: "warn",
   favicon: "img/favicon.ico",
 
   // GitHub pages deployment config.
@@ -20,9 +23,17 @@ const config = {
   // Even if you don't use internalization, you can use this field to set useful
   // metadata like html lang. For example, if your site is Chinese, you may want
   // to replace "en" with "zh-Hans".
+  // Example to check in docusaurus.config.js
   i18n: {
     defaultLocale: "en",
-    locales: ["en"],
+    locales: ["en"], // Ensure only 'en' is listed if it's single-language
+  },
+
+  // Markdown
+  markdown: {
+    hooks: {
+      onBrokenMarkdownLinks: "warn",
+    },
   },
 
   // Kapa.ai chat bot on Docs page
@@ -30,8 +41,9 @@ const config = {
     {
       src: "https://widget.kapa.ai/kapa-widget.bundle.js",
       "data-website-id": "c4406b9f-35c5-43ca-b0c1-e7c0e261831f", // Safe to expose publicly
+      "data-user-analytics-cookie-enabled": "false",
       "data-project-name": "GrowthBook",
-      "data-project-color": "#7817d3",
+      "data-project-color": "#6550b9",
       "data-modal-example-questions":
         "How do I create a feature flag?, How do I run an experiment?",
       "data-project-logo": "/img/gb-logo-white.svg",
@@ -44,6 +56,10 @@ const config = {
       src: "https://w.appzi.io/w.js?token=jZ31J",
       async: true,
     },
+    {
+      src: "/scripts/reo.js",
+      async: true,
+    },
   ],
   presets: [
     [
@@ -54,9 +70,9 @@ const config = {
           breadcrumbs: true,
           remarkPlugins: [
             [require("@docusaurus/remark-plugin-npm2yarn"), { sync: true }],
-            require("remark-math"),
+            remarkMath,
           ],
-          rehypePlugins: [require("rehype-katex")],
+          rehypePlugins: [rehypeKatex],
           sidebarPath: require.resolve("./sidebars.js"),
           routeBasePath: "/", // Serve the docs at the site's root
           // Please change this to your repo.
@@ -70,9 +86,12 @@ const config = {
             require.resolve("modern-normalize/modern-normalize.css"),
           ],
         },
-        gtag: {
-          trackingID: "G-3W683MDLMQ",
-        },
+        gtag:
+          process.env.NODE_ENV === "production"
+            ? {
+                trackingID: "G-3W683MDLMQ",
+              }
+            : undefined,
       }),
     ],
     [
@@ -92,6 +111,13 @@ const config = {
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     {
+      // announcementBar: {
+      //   id: "announcement-bar",
+      //   content: `<p style="margin: 0;">Webinar: Ronny Kohavi on Designing Experiments for Long-Term Growth. <a href="https://us06web.zoom.us/webinar/register/5017695505972/WN_1jSNg4gBS8i8XfyflDbe5w" target="_blank">Register Now →</a></p>`,
+      //   backgroundColor: "var(--violet-a3)",
+      //   textColor: "var(--violet-a11)",
+      //   isCloseable: true,
+      // },
       navbar: {
         //hideOnScroll: true,
         //title: 'GrowthBook Docs',
@@ -104,7 +130,12 @@ const config = {
           {
             to: "/",
             label: "Docs",
-            activeBaseRegex: "/(?!api)",
+            position: "left",
+            activeBaseRegex: "^/(?!(lib|api)(/|$))",
+          },
+          {
+            to: "/lib",
+            label: "SDKs",
             position: "left",
           },
           {
@@ -119,7 +150,7 @@ const config = {
           },
           {
             href: "https://app.growthbook.io",
-            label: "Log in / sign up",
+            label: "Log in",
             position: "right",
           },
           {
@@ -138,8 +169,7 @@ const config = {
                 rel: null,
               },
               {
-                href:
-                  "https://github.com/growthbook/growthbook/issues/new/choose",
+                href: "https://github.com/growthbook/growthbook/issues/new/choose",
                 label: "Open an issue",
                 target: "_blank",
                 rel: null,
@@ -184,8 +214,8 @@ const config = {
         },
       ],
       prism: {
-        theme: require("prism-react-renderer").themes.github,
-        darkTheme: require("prism-react-renderer").themes.dracula,
+        theme: themes.github,
+        darkTheme: themes.dracula,
         additionalLanguages: [
           "csharp",
           "ruby",
@@ -221,15 +251,36 @@ const config = {
         //externalUrlRegex: "external\\.com|domain\\.com",
 
         // Optional: Algolia search parameters
-        searchParameters: {},
+        searchParameters: {
+          optionalFilters: [],
+        },
 
         // Optional: path for search page that enabled by default (`false` to disable it)
         searchPagePath: "search",
 
         //... other Algolia params
       },
+      zoom: {
+        selector: ".markdown img:not(.no-zoom)",
+        background: {
+          light: "hsl(0 0% 100% / 0.75)",
+          dark: "hsl(0 0% 0% / 0.75)",
+        },
+      },
     },
-  plugins: ["docusaurus-plugin-sass"],
+  plugins: [
+    "docusaurus-plugin-sass",
+    [
+      "docusaurus-plugin-llms",
+      {
+        excludeImports: true,
+        pathTransformation: {
+          ignorePaths: ["docs"],
+        },
+      },
+    ],
+    "docusaurus-plugin-image-zoom",
+  ],
 
   stylesheets: [
     {

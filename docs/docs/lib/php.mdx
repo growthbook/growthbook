@@ -6,6 +6,7 @@ slug: php
 ---
 
 import SdkResources from '@site/src/components/SdkResources';
+import SdkSupportedFeatures from '@site/src/components/SdkSupportedFeatures';
 
 # PHP
 
@@ -448,3 +449,7 @@ echo($result->hashValue); // e.g. "123"
 The `inExperiment` flag will be false if the user was excluded from being part of the experiment for any reason (e.g. failed targeting conditions).
 
 The `hashUsed` flag will only be true if the user was randomly assigned a variation. If the user was forced into a specific variation instead, this flag will be false.
+
+## Supported Features
+
+<SdkSupportedFeatures sdk="php" />

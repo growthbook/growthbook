@@ -1,23 +1,21 @@
 import { randomUUID } from "crypto";
-import z from "zod";
+import { z } from "zod";
 import omit from "lodash/omit";
 import md5 from "md5";
 import mongoose from "mongoose";
 import intersection from "lodash/intersection";
+import { NotificationEventName } from "shared/types/events/base-types";
 import {
-  NotificationEventName,
   zodNotificationEventNamesEnum,
-} from "back-end/src/events/base-types";
-import { errorStringFromZodResult } from "back-end/src/util/validation";
-import { EventWebHookInterface } from "back-end/types/event-webhook";
-import { logger } from "back-end/src/util/logger";
-import {
   eventWebHookPayloadTypes,
   EventWebHookPayloadType,
   eventWebHookMethods,
   EventWebHookMethod,
-} from "back-end/src/validators/event-webhook";
-import { ReqContext } from "back-end/types/organization";
+} from "shared/validators";
+import { EventWebHookInterface } from "shared/types/event-webhook";
+import { errorStringFromZodResult } from "back-end/src/util/validation";
+import { logger } from "back-end/src/util/logger";
+import { ReqContext } from "back-end/types/request";
 import { createEvent } from "./EventModel";
 
 const eventWebHookSchema = new mongoose.Schema({
@@ -55,7 +53,7 @@ const eventWebHookSchema = new mongoose.Schema({
               error: JSON.stringify(errorString, null, 2),
               result: JSON.stringify(result, null, 2),
             },
-            "Invalid Method"
+            "Invalid Method",
           );
         }
 
@@ -79,7 +77,7 @@ const eventWebHookSchema = new mongoose.Schema({
               error: JSON.stringify(errorString, null, 2),
               result: JSON.stringify(result, null, 2),
             },
-            "Invalid Payload Type"
+            "Invalid Payload Type",
           );
         }
 
@@ -127,7 +125,7 @@ const eventWebHookSchema = new mongoose.Schema({
               error: JSON.stringify(errorString, null, 2),
               result: JSON.stringify(result, null, 2),
             },
-            "Invalid Event name"
+            "Invalid Event name",
           );
         }
 
@@ -189,7 +187,7 @@ const toInterface = (doc: EventWebHookDocument): EventWebHookInterface => {
           { id: doc.id },
           {
             $set: defaults,
-          }
+          },
         );
       } catch (_) {
         return;
@@ -204,7 +202,7 @@ const toInterface = (doc: EventWebHookDocument): EventWebHookInterface => {
 
 export const EventWebHookModel = mongoose.model<EventWebHookInterface>(
   "EventWebHook",
-  eventWebHookSchema
+  eventWebHookSchema,
 );
 
 type CreateEventWebHookOptions = {
@@ -273,7 +271,7 @@ export const createEventWebHook = async ({
  */
 export const getEventWebHookById = async (
   eventWebHookId: string,
-  organizationId: string
+  organizationId: string,
 ): Promise<EventWebHookInterface | null> => {
   try {
     const doc = await EventWebHookModel.findOne({
@@ -312,7 +310,7 @@ export const deleteEventWebHookById = async ({
  * @param organizationId organization ID
  */
 export const deleteOrganizationventWebHook = async (
-  organizationId: string
+  organizationId: string,
 ): Promise<boolean> => {
   const result = await EventWebHookModel.deleteMany({
     organizationId,
@@ -345,7 +343,7 @@ type UpdateEventWebHookQueryOptions = {
 };
 export const updateEventWebHook = async (
   { eventWebHookId, organizationId }: UpdateEventWebHookQueryOptions,
-  updates: UpdateEventWebHookAttributes
+  updates: UpdateEventWebHookAttributes,
 ): Promise<boolean> => {
   const result = await EventWebHookModel.updateOne(
     { id: eventWebHookId, organizationId },
@@ -354,7 +352,7 @@ export const updateEventWebHook = async (
         ...updates,
         dateUpdated: new Date(),
       },
-    }
+    },
   );
 
   return result.modifiedCount === 1;
@@ -372,7 +370,7 @@ type EventWebHookStatusUpdate =
 
 export const updateEventWebHookStatus = async (
   eventWebHookId: string,
-  status: EventWebHookStatusUpdate
+  status: EventWebHookStatusUpdate,
 ) => {
   const lastResponseBody =
     status.state === "success" ? status.responseBody : status.error;
@@ -384,7 +382,7 @@ export const updateEventWebHookStatus = async (
         lastState: status.state,
         lastResponseBody,
       },
-    }
+    },
   );
 };
 
@@ -394,7 +392,7 @@ export const updateEventWebHookStatus = async (
  * @returns
  */
 export const getAllEventWebHooks = async (
-  organizationId: string
+  organizationId: string,
 ): Promise<EventWebHookInterface[]> => {
   const docs = await EventWebHookModel.find({ organizationId }).sort([
     ["dateCreated", -1],
@@ -445,7 +443,7 @@ export const getAllEventWebHooksForEvent = async ({
 
 export const sendEventWebhookTestEvent = async (
   context: ReqContext,
-  webhookId: string
+  webhookId: string,
 ) => {
   if (!context.permissions.canCreateEventWebhook()) {
     context.permissions.throwPermissionError();

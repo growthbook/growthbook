@@ -5,7 +5,7 @@ import {
   useStripe,
 } from "@stripe/react-stripe-js";
 import { Flex } from "@radix-ui/themes";
-import Checkbox from "@/components/Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useStripeContext } from "@/hooks/useStripeContext";
@@ -34,7 +34,7 @@ export default function AddPaymentMethodModal({
       const { error: submitError } = await elements.submit();
       if (submitError) {
         throw new Error(
-          submitError.message || "Unable to validate payment method inputs"
+          submitError.message || "Unable to validate payment method inputs",
         );
       }
 

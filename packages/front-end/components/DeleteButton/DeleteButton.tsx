@@ -8,8 +8,10 @@ import {
 } from "react";
 import clsx from "clsx";
 import { PiTrashFill } from "react-icons/pi";
+import { Box } from "@radix-ui/themes";
 import Modal from "@/components/Modal";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
+import Text from "@/ui/Text";
 
 const DeleteButton: FC<{
   onClick: () => void | Promise<void>;
@@ -74,19 +76,25 @@ const DeleteButton: FC<{
           ctaEnabled={canDelete}
           increasedElevation={true}
         >
-          {dynamicContent ? (
-            dynamicContent
-          ) : isValidElement(deleteMessage) ? (
-            deleteMessage
-          ) : (
-            <p>{deleteMessage}</p>
-          )}
-          {additionalMessage &&
-            (isValidElement(additionalMessage) ? (
-              additionalMessage
+          <Box px="4">
+            {dynamicContent ? (
+              dynamicContent
+            ) : isValidElement(deleteMessage) ? (
+              deleteMessage
             ) : (
-              <p>{additionalMessage}</p>
-            ))}
+              <Text as="p" color="text-mid">
+                {deleteMessage}
+              </Text>
+            )}
+            {additionalMessage &&
+              (isValidElement(additionalMessage) ? (
+                additionalMessage
+              ) : (
+                <Text as="p" color="text-mid">
+                  {additionalMessage}
+                </Text>
+              ))}
+          </Box>
         </Modal>
       ) : (
         ""
@@ -107,7 +115,7 @@ const DeleteButton: FC<{
             link
               ? "text-danger"
               : ["btn", outline ? "btn-outline-danger" : "btn-danger"],
-            className
+            className,
           )}
           title={title}
           href="#"

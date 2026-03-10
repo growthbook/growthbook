@@ -5,7 +5,7 @@ tags:
   - experiments
 operationId: getExperiment
 x-codeSamples:
-  - lang: 'cURL'
+  - lang: "cURL"
     source: |
       curl https://api.growthbook.io/api/v1/experiments/exp_123abc \
         -u secret_abc123DEF456:
@@ -19,4 +19,4 @@ responses:
             - experiment
           properties:
             experiment:
-              $ref: "../schemas/Experiment.yaml"
+              $ref: "../schemas/ExperimentWithEnhancedStatus.yaml"

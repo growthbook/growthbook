@@ -1,4 +1,5 @@
-import { ListOrganizationsResponse } from "back-end/types/openapi";
+import { ListOrganizationsResponse } from "shared/types/openapi";
+import { listOrganizationsValidator } from "shared/validators";
 import {
   findAllOrganizations,
   toOrganizationApiInterface,
@@ -8,29 +9,26 @@ import {
   getPaginationReturnFields,
   validateIsSuperUserRequest,
 } from "back-end/src/util/handler";
-import { listOrganizationsValidator } from "back-end/src/validators/openapi";
 
 export const listOrganizations = createApiRequestHandler(
-  listOrganizationsValidator
-)(
-  async (req): Promise<ListOrganizationsResponse> => {
-    await validateIsSuperUserRequest(req);
+  listOrganizationsValidator,
+)(async (req): Promise<ListOrganizationsResponse> => {
+  await validateIsSuperUserRequest(req);
 
-    const organizations = await findAllOrganizations(
-      1 + req.query.offset / req.query.limit,
-      req.query.search || "",
-      req.query.limit
-    );
+  const organizations = await findAllOrganizations(
+    1 + req.query.offset / req.query.limit,
+    req.query.search || "",
+    req.query.limit,
+  );
 
-    return {
-      organizations: organizations.organizations.map((organization) =>
-        toOrganizationApiInterface(organization)
-      ),
-      ...getPaginationReturnFields(
-        organizations.organizations,
-        organizations.total,
-        req.query
-      ),
-    };
-  }
-);
+  return {
+    organizations: organizations.organizations.map((organization) =>
+      toOrganizationApiInterface(organization),
+    ),
+    ...getPaginationReturnFields(
+      organizations.organizations,
+      organizations.total,
+      req.query,
+    ),
+  };
+});

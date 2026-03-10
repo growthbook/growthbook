@@ -31,7 +31,7 @@ async function sleep(ms: number) {
 function mockApi(
   data: FeatureApiResponse | null,
   supportSSE: boolean = false,
-  delay: number = 50
+  delay: number = 50,
 ) {
   const f = jest.fn((url: string) => {
     return new Promise((resolve) => {
@@ -71,7 +71,7 @@ async function seedLocalStorage(
   clientKey: ClientKey = "qwerty1234",
   feature: string = "foo",
   value: string = "localstorage",
-  staleAt: number = 50
+  staleAt: number = 50,
 ) {
   await clearCache();
   localStorage.setItem(
@@ -91,7 +91,7 @@ async function seedLocalStorage(
           sse,
         },
       ],
-    ])
+    ]),
   );
 }
 
@@ -322,8 +322,8 @@ describe("feature-repo", () => {
     expect(growthbook.evalFeature("foo").value).toEqual("api");
     const staleAt = new Date(
       JSON.parse(
-        localStorage.getItem(localStorageCacheKey) || "[]"
-      )[0][1].staleAt
+        localStorage.getItem(localStorageCacheKey) || "[]",
+      )[0][1].staleAt,
     ).getTime();
 
     // Wait for localStorage entry to expire again
@@ -334,8 +334,8 @@ describe("feature-repo", () => {
     expect(growthbook.evalFeature("foo").value).toEqual("api");
     const newStaleAt = new Date(
       JSON.parse(
-        localStorage.getItem(localStorageCacheKey) || "[]"
-      )[0][1].staleAt
+        localStorage.getItem(localStorageCacheKey) || "[]",
+      )[0][1].staleAt,
     ).getTime();
     expect(newStaleAt).toBeGreaterThan(staleAt);
 
@@ -348,7 +348,7 @@ describe("feature-repo", () => {
     expect(growthbook.evalFeature("foo").value).toEqual("new");
 
     const lsValue = JSON.parse(
-      localStorage.getItem(localStorageCacheKey) || "[]"
+      localStorage.getItem(localStorageCacheKey) || "[]",
     );
     expect(lsValue.length).toEqual(1);
     expect(lsValue[0][0]).toEqual("https://fakeapi.sample.io||qwerty1234");
@@ -374,7 +374,7 @@ describe("feature-repo", () => {
           },
         },
       },
-      true
+      true,
     );
 
     // Simulate SSE data
@@ -505,7 +505,7 @@ describe("feature-repo", () => {
 
     // Make sure the cache was updated
     const lsValue = JSON.parse(
-      localStorage.getItem(localStorageCacheKey) || "[]"
+      localStorage.getItem(localStorageCacheKey) || "[]",
     );
     expect(lsValue.length).toEqual(1);
     expect(lsValue[0][0]).toEqual("https://fakeapi.sample.io||sdk-abc123");
@@ -595,7 +595,7 @@ describe("feature-repo", () => {
           },
         },
       },
-      true
+      true,
     );
 
     // Simulate SSE data
@@ -648,7 +648,7 @@ describe("feature-repo", () => {
 
     // Cache SSE value
     const lsValue = JSON.parse(
-      localStorage.getItem(localStorageCacheKey) || "[]"
+      localStorage.getItem(localStorageCacheKey) || "[]",
     );
     expect(lsValue.length).toEqual(1);
     expect(lsValue[0][0]).toEqual("https://fakeapi.sample.io||qwerty1234");
@@ -667,7 +667,7 @@ describe("feature-repo", () => {
       "qwerty1234",
       "foo",
       "localstorage",
-      -1000
+      -1000,
     );
 
     const apiVersion = "2025-01-01T00:00:00Z";
@@ -709,7 +709,7 @@ describe("feature-repo", () => {
       "qwerty1234",
       "foo",
       "localstorage",
-      -3000
+      -3000,
     );
 
     const apiVersion = "2025-01-01T00:00:00Z";
@@ -736,7 +736,7 @@ describe("feature-repo", () => {
 
     // Still should update localStorage cache, just not read from it
     const lsValue = JSON.parse(
-      localStorage.getItem(localStorageCacheKey) || "[]"
+      localStorage.getItem(localStorageCacheKey) || "[]",
     );
     expect(lsValue.length).toEqual(1);
     expect(lsValue[0][0]).toEqual("https://fakeapi.sample.io||qwerty1234");
@@ -779,7 +779,7 @@ describe("feature-repo", () => {
 
     // Still should update localStorage cache, just not read from it
     const lsValue = JSON.parse(
-      localStorage.getItem(localStorageCacheKey) || "[]"
+      localStorage.getItem(localStorageCacheKey) || "[]",
     );
     expect(lsValue.length).toEqual(1);
     expect(lsValue[0][0]).toEqual("https://fakeapi.sample.io||qwerty1234");
@@ -875,7 +875,7 @@ describe("feature-repo", () => {
         },
       },
       false,
-      100
+      100,
     );
 
     const growthbook = new GrowthBook({
@@ -1024,7 +1024,7 @@ describe("feature-repo", () => {
           },
         },
       },
-      true
+      true,
     );
 
     // Simulate SSE data
@@ -1125,7 +1125,7 @@ describe("feature-repo", () => {
           },
         },
       },
-      true
+      true,
     );
 
     // Simulate SSE data
@@ -1191,7 +1191,7 @@ describe("feature-repo", () => {
           },
         },
       },
-      true
+      true,
     );
 
     // Simulate SSE data

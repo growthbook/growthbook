@@ -43,7 +43,7 @@ describe("experiments events", () => {
         email: "user@mail.com",
         userName: "User Name",
       },
-      experimentSnapshot
+      experimentSnapshot,
     );
 
     expect(rawPayload).toEqual(
@@ -135,7 +135,7 @@ describe("experiments events", () => {
         object: "experiment",
         projects: [""],
         tags: [],
-      })
+      }),
     );
 
     expect(getLegacyMessageForNotificationEvent(rawPayload)).toEqual(
@@ -231,7 +231,7 @@ describe("experiments events", () => {
           name: "User Name",
           type: "dashboard",
         },
-      })
+      }),
     );
   });
 
@@ -350,7 +350,7 @@ describe("experiments events", () => {
           name: "User Name",
           type: "dashboard",
         },
-      })
+      }),
     );
 
     expect(getLegacyMessageForNotificationEvent(rawPayload)).toEqual(
@@ -523,7 +523,7 @@ describe("experiments events", () => {
           name: "User Name",
           type: "dashboard",
         },
-      })
+      }),
     );
   });
 
@@ -542,7 +542,7 @@ describe("experiments events", () => {
         email: "user@mail.com",
         userName: "User Name",
       },
-      experimentSnapshot
+      experimentSnapshot,
     );
 
     expect(rawPayload).toEqual(
@@ -634,7 +634,7 @@ describe("experiments events", () => {
         object: "experiment",
         projects: [""],
         tags: [],
-      })
+      }),
     );
 
     expect(getLegacyMessageForNotificationEvent(rawPayload)).toEqual(
@@ -730,7 +730,7 @@ describe("experiments events", () => {
           name: "User Name",
           type: "dashboard",
         },
-      })
+      }),
     );
   });
 
@@ -794,7 +794,7 @@ describe("experiments events", () => {
           name: "User Name",
           type: "dashboard",
         },
-      })
+      }),
     );
 
     expect(getLegacyMessageForNotificationEvent(rawPayload)).toEqual({
@@ -875,7 +875,7 @@ describe("experiments events", () => {
           name: "User Name",
           type: "dashboard",
         },
-      })
+      }),
     );
 
     expect(getLegacyMessageForNotificationEvent(rawPayload)).toEqual({
@@ -952,7 +952,7 @@ describe("experiments events", () => {
           name: "User Name",
           type: "dashboard",
         },
-      })
+      }),
     );
   });
 
@@ -1008,7 +1008,7 @@ describe("experiments events", () => {
           name: "User Name",
           type: "dashboard",
         },
-      })
+      }),
     );
   });
 
@@ -1064,7 +1064,7 @@ describe("experiments events", () => {
           name: "User Name",
           type: "dashboard",
         },
-      })
+      }),
     );
   });
 
@@ -1141,7 +1141,7 @@ describe("experiments events", () => {
           name: "User Name",
           type: "dashboard",
         },
-      })
+      }),
     );
   });
 });

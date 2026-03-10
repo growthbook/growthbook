@@ -9,6 +9,7 @@ import clsx from "clsx";
 import { debounce } from "lodash";
 import Field from "@/components/Forms/Field";
 import { RadixTheme } from "@/services/RadixTheme";
+import Button from "@/ui/Button";
 import styles from "./DatePicker.module.scss";
 
 type Props = {
@@ -28,6 +29,9 @@ type Props = {
   scheduleStartDate?: Date | string;
   scheduleEndDate?: Date | string;
   containerClassName?: string;
+  clearButton?: boolean;
+  wrapRangeInputs?: boolean;
+  compact?: boolean;
 };
 
 const modifiersClassNames = {
@@ -55,21 +59,34 @@ export default function DatePicker({
   scheduleStartDate,
   scheduleEndDate,
   containerClassName = "form-group",
+  clearButton = false,
+  wrapRangeInputs = false,
+  compact = false,
 }: Props) {
+  const inputHeight = compact ? 32 : 38;
+  const compactFieldStyle: React.CSSProperties = compact
+    ? {
+        height: 32,
+        minHeight: 32,
+        boxSizing: "border-box",
+        padding: "0 8px",
+        lineHeight: 1.25,
+      }
+    : {};
   const dateFormat =
     precision === "datetime" ? "yyyy-MM-dd'T'HH:mm" : "yyyy-MM-dd";
   const [bufferedDate, setBufferedDate] = useState(
-    date ? format(getValidDate(date), dateFormat) : ""
+    date ? format(getValidDate(date), dateFormat) : "",
   );
   const [bufferedDate2, setBufferedDate2] = useState(
-    date2 ? format(getValidDate(date2), dateFormat) : ""
+    date2 ? format(getValidDate(date2), dateFormat) : "",
   );
 
   const [calendarMonth, setCalendarMonth] = useState(
     new Date(
       getValidDate(date ?? new Date()).getUTCFullYear(),
-      getValidDate(date ?? new Date()).getUTCMonth()
-    )
+      getValidDate(date ?? new Date()).getUTCMonth(),
+    ),
   );
   const [open, setOpen] = useState(false);
   const fieldClickedTime = useRef(new Date());
@@ -118,7 +135,7 @@ export default function DatePicker({
         setBufferedDate2(format(finalDate, dateFormat));
       }
       setCalendarMonth(
-        new Date(finalDate.getUTCFullYear(), finalDate.getUTCMonth())
+        new Date(finalDate.getUTCFullYear(), finalDate.getUTCMonth()),
       );
     }, 500);
   }, [
@@ -145,56 +162,121 @@ export default function DatePicker({
         }}
       >
         <Popover.Trigger asChild>
-          <Flex gap="1rem" display={inputWidth ? "inline-flex" : "flex"}>
-            <div style={{ width: inputWidth || "100%", minHeight: 38 }}>
+          <Flex
+            gap="1rem"
+            display={inputWidth ? "inline-flex" : "flex"}
+            wrap={wrapRangeInputs && isRange ? "wrap" : undefined}
+            style={
+              wrapRangeInputs && isRange
+                ? { width: "100%", minWidth: 0 }
+                : undefined
+            }
+          >
+            <div
+              style={{
+                width:
+                  inputWidth ||
+                  (wrapRangeInputs && isRange ? undefined : "100%"),
+                minWidth: wrapRangeInputs && isRange ? 140 : undefined,
+                height: compact ? inputHeight : undefined,
+                minHeight: inputHeight,
+                flex: wrapRangeInputs && isRange ? "1 1 140px" : undefined,
+              }}
+            >
               {label ? <label>{label}</label> : null}
               <div
-                className="form-control p-0"
-                style={{
-                  width: inputWidth || "100%",
-                  minHeight: 38,
-                  overflow: "clip",
-                }}
+                style={
+                  clearButton && !isRange
+                    ? {
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.5rem",
+                      }
+                    : {}
+                }
               >
-                <Field
-                  id={id ?? ""}
+                <div
+                  className="form-control p-0"
                   style={{
-                    border: 0,
-                    marginRight: -20,
-                    width: "calc(100% + 30px)",
-                    minHeight: 38,
-                    cursor: "pointer",
+                    flex: 1,
+                    minWidth: 0,
+                    height: compact ? inputHeight : undefined,
+                    minHeight: inputHeight,
+                    overflow: "clip",
                   }}
-                  className={clsx("date-picker-field", { "text-muted": !date })}
-                  type={precision === "datetime" ? "datetime-local" : "date"}
-                  value={bufferedDate}
-                  onChange={(e) => {
-                    setBufferedDate(e.target.value);
-                    debouncedSetDate(e.target.value);
-                  }}
-                  onBlur={() => debouncedSetDate.flush()} // Ensure immediate validation on blur
-                  onClick={(e) => {
-                    e.preventDefault();
-                    fieldClickedTime.current = new Date();
-                    setOpen(true);
-                  }}
-                />
+                >
+                  <Field
+                    id={id ?? ""}
+                    style={{
+                      border: 0,
+                      marginRight: -20,
+                      width: "calc(100% + 30px)",
+                      minHeight: inputHeight,
+                      cursor: "pointer",
+                      ...compactFieldStyle,
+                    }}
+                    className={clsx("date-picker-field", {
+                      "text-muted": !date,
+                    })}
+                    type={precision === "datetime" ? "datetime-local" : "date"}
+                    value={bufferedDate}
+                    onChange={(e) => {
+                      setBufferedDate(e.target.value);
+                      debouncedSetDate(e.target.value);
+                    }}
+                    onBlur={() => debouncedSetDate.flush()}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      fieldClickedTime.current = new Date();
+                      setOpen(true);
+                    }}
+                  />
+                </div>
+                {/* TODO: Support clearing date ranges as well. Clear button is meant to be a stop gap until we can add a clear button within the field itself */}
+                {clearButton && !isRange && (
+                  <Button
+                    color="red"
+                    disabled={!bufferedDate}
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setBufferedDate("");
+                      setDate(undefined);
+                    }}
+                  >
+                    Clear
+                  </Button>
+                )}
               </div>
             </div>
             {isRange && (
-              <div style={{ width: inputWidth || "100%", minHeight: 38 }}>
+              <div
+                style={{
+                  width: inputWidth || (wrapRangeInputs ? undefined : "100%"),
+                  minWidth: wrapRangeInputs ? 140 : undefined,
+                  height: compact ? inputHeight : undefined,
+                  minHeight: inputHeight,
+                  flex: wrapRangeInputs ? "1 1 140px" : undefined,
+                }}
+              >
                 {label2 ? <label>{label2}</label> : null}
                 <div
                   className="form-control p-0"
-                  style={{ width: inputWidth, minHeight: 38, overflow: "clip" }}
+                  style={{
+                    width: inputWidth,
+                    height: compact ? inputHeight : undefined,
+                    minHeight: inputHeight,
+                    overflow: "clip",
+                  }}
                 >
                   <Field
                     style={{
                       border: 0,
                       marginRight: -20,
                       width: "calc(100% + 30px)",
-                      minHeight: 38,
+                      minHeight: inputHeight,
                       cursor: "pointer",
+                      ...compactFieldStyle,
                     }}
                     className={clsx("date-picker-field", {
                       "text-muted": !date2,

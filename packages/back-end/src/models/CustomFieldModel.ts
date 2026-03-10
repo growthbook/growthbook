@@ -1,9 +1,14 @@
 import { z } from "zod";
-import uniqid from "uniqid";
 import {
   customFieldsPropsValidator,
   customFieldsValidator,
-} from "back-end/src/routers/custom-fields/custom-fields.validators";
+  apiCustomFieldInterface,
+  apiCreateCustomFieldBody,
+  apiUpdateCustomFieldBody,
+  ApiCustomField,
+} from "shared/validators";
+import { ApiRequest } from "back-end/src/util/handler";
+import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -16,7 +21,45 @@ const BaseClass = MakeModelClass({
     updateEvent: "customField.update",
     deleteEvent: "customField.delete",
   },
-  globallyUniqueIds: false,
+  globallyUniquePrimaryKeys: false,
+  apiConfig: {
+    modelKey: "customFields",
+    modelSingular: "customField",
+    modelPlural: "customFields",
+    apiInterface: apiCustomFieldInterface,
+    schemas: {
+      createBody: apiCreateCustomFieldBody,
+      updateBody: apiUpdateCustomFieldBody,
+    },
+    pathBase: "/custom-fields",
+    includeDefaultCrud: false,
+    crudActions: ["create", "delete", "get", "update"],
+    customHandlers: [
+      defineCustomApiHandler({
+        pathFragment: "",
+        verb: "get",
+        operationId: "listCustomFields",
+        validator: {
+          bodySchema: z.never(),
+          querySchema: z.strictObject({ projectId: z.string().optional() }),
+          paramsSchema: z.never(),
+        },
+        zodReturnObject: z.array(apiCustomFieldInterface),
+        summary: "Get all custom fields",
+        reqHandler: async (req): Promise<ApiCustomField[]> => {
+          const projectId = req.query.projectId;
+          const fields = projectId
+            ? await req.context.models.customFields.getCustomFieldsByProject(
+                projectId,
+              )
+            : (await req.context.models.customFields.getCustomFields())?.fields;
+          return (fields ?? []).map(
+            req.context.models.customFields.singleFieldToApiInterface,
+          );
+        },
+      }),
+    ],
+  },
 });
 
 export type CustomField = z.infer<typeof customFieldsPropsValidator>;
@@ -38,6 +81,25 @@ export class CustomFieldModel extends BaseClass {
     return this.context.permissions.canManageCustomFields();
   }
 
+  protected hasPremiumFeature(): boolean {
+    return this.context.hasPremiumFeature("custom-metadata");
+  }
+
+  /**
+   * JIT readonly migration: normalize projects so [""] from legacy data
+   * is never returned. Does not persist.
+   */
+  protected migrate(legacyDoc: unknown): z.infer<typeof customFieldsValidator> {
+    const doc = legacyDoc as z.infer<typeof customFieldsValidator>;
+    return {
+      ...doc,
+      fields: doc.fields.map((f) => ({
+        ...f,
+        projects: (f.projects ?? []).filter((p) => p !== ""),
+      })),
+    };
+  }
+
   public async getCustomFields() {
     const customFieldsArr = await this.getAll();
     if (customFieldsArr && customFieldsArr.length > 0) {
@@ -51,12 +113,52 @@ export class CustomFieldModel extends BaseClass {
     if (!customFields) {
       return null;
     }
-    customFields.fields.forEach((field) => {
-      if (field.id === customFieldId) {
-        return field;
+    return (
+      customFields.fields.find((field) => {
+        if (field.id === customFieldId) {
+          return field;
+        }
+      }) || null
+    );
+  }
+
+  public async getCustomFieldsByProject(projectId: string) {
+    const customFields = await this.getCustomFields();
+    if (!customFields) {
+      return null;
+    }
+    return customFields.fields.filter(
+      (field) =>
+        field.projects?.includes(projectId) || field.projects?.length === 0,
+    );
+  }
+
+  public async getCustomFieldsBySectionAndProject({
+    section,
+    project,
+  }: {
+    section: string;
+    project?: string;
+  }) {
+    const customFields = await this.getCustomFields();
+    const filteredCustomFields = customFields?.fields.filter(
+      (v) => v.section === section,
+    );
+    if (!filteredCustomFields || filteredCustomFields.length === 0) {
+      return filteredCustomFields;
+    }
+    return filteredCustomFields.filter((v) => {
+      if (v.projects && v.projects.length && v.projects[0] !== "") {
+        let matched = false;
+        v.projects.forEach((p) => {
+          if (p === project) {
+            matched = true;
+          }
+        });
+        return matched;
       }
+      return true;
     });
-    return null;
   }
 
   /**
@@ -69,20 +171,27 @@ export class CustomFieldModel extends BaseClass {
   public async addCustomField(
     customField: Omit<
       CustomField,
-      "id" | "dateCreated" | "dateUpdated" | "creator" | "active"
-    >
+      "dateCreated" | "dateUpdated" | "creator" | "active"
+    >,
   ) {
-    const customFieldId = uniqid("cfl_");
     const newCustomField = {
       active: true,
       ...customField,
-      id: customFieldId,
+      projects: (customField.projects ?? []).filter((p) => p !== ""),
       creator: this.context.userId,
       dateCreated: new Date(),
       dateUpdated: new Date(),
     };
     const existing = await this.getCustomFields();
     if (existing) {
+      const idMatch = existing.fields.find(
+        ({ id }) => id === newCustomField.id,
+      );
+      if (idMatch) {
+        this.context.throwBadRequestError(
+          "Failed to add custom field. Key not unique!",
+        );
+      }
       const newFields = [...existing.fields, newCustomField];
       const updated = await this.update(existing, { fields: newFields });
       if (!updated) {
@@ -100,7 +209,7 @@ export class CustomFieldModel extends BaseClass {
 
   public async updateCustomField(
     customFieldId: string,
-    customFieldUpdates: Partial<CustomField>
+    customFieldUpdates: Partial<CustomField>,
   ) {
     const existing = await this.getCustomFields();
     if (!existing) {
@@ -108,13 +217,15 @@ export class CustomFieldModel extends BaseClass {
     }
     const newFields = existing.fields.map((field) => {
       if (field.id === customFieldId) {
-        return {
-          field,
+        const merged = {
+          ...field,
           ...customFieldUpdates,
           id: customFieldId,
           dateCreated: field.dateCreated,
           dateUpdated: new Date(),
-        } as CustomField;
+        };
+        merged.projects = (merged.projects ?? []).filter((p) => p !== "");
+        return merged as CustomField;
       }
       return field;
     });
@@ -127,7 +238,7 @@ export class CustomFieldModel extends BaseClass {
       return null;
     }
     const newFields = existing.fields.filter(
-      (field) => field.id !== customFieldId
+      (field) => field.id !== customFieldId,
     );
     return await this.update(existing, { fields: newFields });
   }
@@ -151,5 +262,75 @@ export class CustomFieldModel extends BaseClass {
     const newFields = [...existing.fields];
     newFields.splice(newIndex, 0, newFields.splice(oldIndex, 1)[0]);
     return await this._updateOne(existing, { fields: newFields });
+  }
+
+  public async handleApiGet(
+    req: ApiRequest<
+      unknown,
+      z.ZodType<{ id: string }>,
+      z.ZodTypeAny,
+      z.ZodTypeAny
+    >,
+  ): Promise<ApiCustomField> {
+    const id = req.params.id;
+    const doc = await this.getCustomFieldByFieldId(id);
+    if (!doc) req.context.throwNotFoundError();
+    return this.singleFieldToApiInterface(doc);
+  }
+  public async handleApiCreate(
+    req: ApiRequest<unknown, z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>,
+  ): Promise<ApiCustomField> {
+    const parsedBody = apiCreateCustomFieldBody.parse(req.body);
+    const containerObject = await this.addCustomField(parsedBody);
+    const created = containerObject.fields.find(
+      ({ id }) => id === parsedBody.id,
+    );
+    if (!created)
+      this.context.throwInternalServerError("Failed to create custom field");
+    return this.singleFieldToApiInterface(created);
+  }
+
+  public async handleApiDelete(
+    req: ApiRequest<
+      unknown,
+      z.ZodType<{ id: string }>,
+      z.ZodTypeAny,
+      z.ZodTypeAny
+    >,
+  ): Promise<string> {
+    const id = req.params.id;
+    await this.deleteCustomField(id);
+    return id;
+  }
+
+  public async handleApiUpdate(
+    req: ApiRequest<
+      unknown,
+      z.ZodType<{ id: string }>,
+      z.ZodTypeAny,
+      z.ZodTypeAny
+    >,
+  ): Promise<ApiCustomField> {
+    const id = req.params.id;
+    const parsedBody = apiUpdateCustomFieldBody.parse(req.body);
+    const containerObject = await this.updateCustomField(id, parsedBody);
+    if (!containerObject)
+      this.context.throwInternalServerError("Failed to update custom field");
+    const updated = containerObject.fields.find(
+      ({ id: fieldId }) => fieldId === id,
+    );
+    if (!updated)
+      this.context.throwInternalServerError("Failed to update custom field");
+    return this.singleFieldToApiInterface(updated);
+  }
+
+  public singleFieldToApiInterface(f: CustomField): ApiCustomField {
+    return {
+      ...f,
+      dateCreated: f.dateCreated.toISOString(),
+      dateUpdated: f.dateUpdated.toISOString(),
+      active: f.active ?? true,
+      projects: f.projects?.filter((p) => p !== ""),
+    };
   }
 }

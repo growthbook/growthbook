@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import React, { useMemo, useState } from "react";
+import { Flex } from "@radix-ui/themes";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useFieldArray, UseFormReturn } from "react-hook-form";
 import { FaTimes } from "react-icons/fa";
 import {
@@ -8,7 +9,8 @@ import {
 } from "shared/constants";
 import { isUndefined } from "lodash";
 import {
-  getConversionWindowHours,
+  expandMetricGroups,
+  getMetricWindowHours,
   getDelayWindowHours,
   isBinomialMetric,
   isFactMetric,
@@ -16,7 +18,7 @@ import {
 } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/ui/Switch";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { GBCuped } from "@/components/Icons";
@@ -39,20 +41,19 @@ export default function MetricsOverridesSelector({
   experiment,
   form,
   disabled,
-  setHasMetricOverrideRiskError,
   fieldMap = defaultFieldMap,
 }: {
   experiment: ExperimentInterfaceStringDates;
   // eslint-disable-next-line
   form: UseFormReturn<any>;
   disabled: boolean;
-  setHasMetricOverrideRiskError: (boolean) => void;
   fieldMap?: typeof defaultFieldMap;
 }) {
   const [selectedMetricId, setSelectedMetricId] = useState<string>("");
   const {
     metrics: metricDefinitions,
     factMetrics: factMetricDefinitions,
+    metricGroups,
     getExperimentMetricById,
   } = useDefinitions();
   const settings = useOrgSettings();
@@ -60,19 +61,26 @@ export default function MetricsOverridesSelector({
 
   const allMetricDefinitions = useMemo(
     () => [...metricDefinitions, ...factMetricDefinitions],
-    [metricDefinitions, factMetricDefinitions]
+    [metricDefinitions, factMetricDefinitions],
   );
 
-  const metrics = new Set<string>(
+  const unexpandedMetrics = new Set<string>(
     form
       .watch(fieldMap["goalMetrics"])
       .concat(form.watch(fieldMap["guardrailMetrics"]))
-      .concat(form.watch(fieldMap["secondaryMetrics"]))
+      .concat(form.watch(fieldMap["secondaryMetrics"])),
   );
+
+  // expand metric groups
   const activationMetric = form.watch(fieldMap["activationMetric"]);
   if (activationMetric) {
-    metrics.add(activationMetric);
+    unexpandedMetrics.add(activationMetric);
   }
+
+  const expandedMetrics = expandMetricGroups(
+    Array.from(unexpandedMetrics),
+    metricGroups,
+  );
 
   const metricOverrides = useFieldArray({
     control: form.control,
@@ -80,46 +88,11 @@ export default function MetricsOverridesSelector({
   });
 
   const usedMetrics: Set<string> = new Set(
-    form.watch(fieldMap["metricOverrides"]).map((m) => m.id)
+    form.watch(fieldMap["metricOverrides"]).map((m) => m.id),
   );
-  const unusedMetrics: string[] = [...metrics].filter(
-    (m) => !usedMetrics.has(m)
+  const unusedMetrics: string[] = [...expandedMetrics].filter(
+    (m) => !usedMetrics.has(m),
   );
-
-  useEffect(() => {
-    let hasRiskError = false;
-    !disabled &&
-      metricOverrides.fields.map((v, i) => {
-        const mo = form.watch(`${fieldMap["metricOverrides"]}.${i}`);
-        const metricDefinition = allMetricDefinitions.find(
-          (md) => md.id === mo.id
-        );
-
-        const loseRisk =
-          isUndefined(mo.loseRisk) || isNaN(mo.loseRisk)
-            ? metricDefinition?.loseRisk
-            : mo.loseRisk / 100;
-        const winRisk =
-          isUndefined(mo.winRisk) || isNaN(mo.winRisk)
-            ? metricDefinition?.winRisk
-            : mo.winRisk / 100;
-        if (
-          !isUndefined(loseRisk) &&
-          !isUndefined(winRisk) &&
-          loseRisk < winRisk
-        ) {
-          hasRiskError = true;
-        }
-      });
-    setHasMetricOverrideRiskError(hasRiskError);
-  }, [
-    disabled,
-    allMetricDefinitions,
-    metricOverrides,
-    form,
-    setHasMetricOverrideRiskError,
-    fieldMap,
-  ]);
 
   return (
     <div className="mb-3">
@@ -127,7 +100,7 @@ export default function MetricsOverridesSelector({
         metricOverrides.fields.map((v, i) => {
           const mo = form.watch(`${fieldMap["metricOverrides"]}.${i}`);
           const metricDefinition = allMetricDefinitions.find(
-            (md) => md.id === mo.id
+            (md) => md.id === mo.id,
           );
 
           const defaultPriorSource = metricDefinition?.priorSettings.override
@@ -135,21 +108,21 @@ export default function MetricsOverridesSelector({
             : "organization";
           const defaultPriorSettings = metricDefinition?.priorSettings.override
             ? metricDefinition.priorSettings
-            : settings.metricDefaults?.priorSettings ?? {
+            : (settings.metricDefaults?.priorSettings ?? {
                 override: false,
                 proper: false,
                 mean: 0,
                 stddev: DEFAULT_PROPER_PRIOR_STDDEV,
-              };
+              });
 
           const hasRegressionAdjustmentFeature = hasCommercialFeature(
-            "regression-adjustment"
+            "regression-adjustment",
           );
           let regressionAdjustmentAvailableForMetric = true;
           let regressionAdjustmentAvailableForMetricReason = <></>;
           if (metricDefinition?.denominator) {
             const denominator = allMetricDefinitions.find(
-              (m) => m.id === metricDefinition.denominator
+              (m) => m.id === metricDefinition.denominator,
             );
             if (
               denominator &&
@@ -176,24 +149,6 @@ export default function MetricsOverridesSelector({
             );
           }
 
-          const loseRisk =
-            isUndefined(mo.loseRisk) || isNaN(mo.loseRisk)
-              ? metricDefinition?.loseRisk
-              : mo.loseRisk / 100;
-          const winRisk =
-            isUndefined(mo.winRisk) || isNaN(mo.winRisk)
-              ? metricDefinition?.winRisk
-              : mo.winRisk / 100;
-          let riskError = "";
-          if (
-            !isUndefined(loseRisk) &&
-            !isUndefined(winRisk) &&
-            loseRisk < winRisk
-          ) {
-            riskError =
-              "The acceptable risk percentage cannot be higher than the too risky percentage";
-          }
-
           const regressionAdjustmentDaysHighlightColor =
             !isUndefined(mo.regressionAdjustmentDays) &&
             (mo.regressionAdjustmentDays > 28 ||
@@ -205,9 +160,9 @@ export default function MetricsOverridesSelector({
             mo.regressionAdjustmentDays > 28
               ? "Longer lookback periods can sometimes be useful, but also will reduce query performance and may incorporate less useful data"
               : !isUndefined(mo.regressionAdjustmentDays) &&
-                mo.regressionAdjustmentDays < 7
-              ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
-              : "";
+                  mo.regressionAdjustmentDays < 7
+                ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
+                : "";
 
           return (
             <div className="appbox px-3 pt-1 bg-light" key={i}>
@@ -237,10 +192,6 @@ export default function MetricsOverridesSelector({
                       Conversion/Lookback Window
                     </span>
                   </div>
-                  <div className="col ml-1">
-                    <span className="uppercase-title">Risk Thresholds</span>{" "}
-                    <span className="small text-muted">(Bayesian only)</span>
-                  </div>
                 </div>
                 <div className="row">
                   <div className="col border m-1 mr-2 px-2 py-1 rounded">
@@ -250,13 +201,14 @@ export default function MetricsOverridesSelector({
                           placeholder={`${
                             metricDefinition?.windowSettings?.type !== undefined
                               ? capitalizeFirstLetter(
-                                  metricDefinition.windowSettings.type || "none"
+                                  metricDefinition.windowSettings.type ||
+                                    "none",
                                 )
                               : ""
                           } (default)`}
                           value={
                             form.watch(
-                              `${fieldMap["metricOverrides"]}.${i}.windowType`
+                              `${fieldMap["metricOverrides"]}.${i}.windowType`,
                             ) ??
                             metricDefinition?.windowSettings?.type ??
                             ""
@@ -264,7 +216,7 @@ export default function MetricsOverridesSelector({
                           onChange={(value) => {
                             form.setValue(
                               `${fieldMap["metricOverrides"]}.${i}.windowType`,
-                              value as "conversion" | "lookback" | ""
+                              value as "conversion" | "lookback" | "",
                             );
                           }}
                           sort={false}
@@ -277,10 +229,15 @@ export default function MetricsOverridesSelector({
                               label: "Conversion",
                               value: "conversion",
                             },
-                            {
-                              label: "Lookback",
-                              value: "lookback",
-                            },
+                            ...(metricDefinition &&
+                            !isRetentionMetric(metricDefinition)
+                              ? [
+                                  {
+                                    label: "Lookback",
+                                    value: "lookback",
+                                  },
+                                ]
+                              : []),
                           ].map((v) => {
                             if (
                               v.value === metricDefinition?.windowSettings?.type
@@ -293,222 +250,163 @@ export default function MetricsOverridesSelector({
                             return v;
                           })}
                         />
-                      </div>
-                      {(form.watch(
-                        `${fieldMap["metricOverrides"]}.${i}.windowType`
-                      ) ?? metricDefinition?.windowSettings?.type) ===
-                        "conversion" ||
-                      (metricDefinition &&
-                        isRetentionMetric(metricDefinition)) ? (
-                        <div className="row m-1 mr-1 px-1">
-                          <div className="col">
-                            <Field
-                              label={
-                                metricDefinition &&
-                                isRetentionMetric(metricDefinition)
-                                  ? "Retention Window (hours)"
-                                  : "Metric Delay (hours)"
-                              }
-                              placeholder="default"
-                              helpText={
-                                <div className="text-right">
-                                  default:{" "}
-                                  {metricDefinition?.windowSettings
-                                    ? getDelayWindowHours(
-                                        metricDefinition.windowSettings
-                                      )
-                                    : 0}
-                                </div>
-                              }
-                              labelClassName="small mb-1"
-                              type="number"
-                              containerClassName="mb-0 metric-override"
-                              step="any"
-                              {...form.register(
-                                `${fieldMap["metricOverrides"]}.${i}.delayHours`,
-                                { valueAsNumber: true }
-                              )}
-                            />
-                          </div>
-                          <div className="col">
-                            <Field
-                              label="Conversion Window (hours)"
-                              placeholder="default"
-                              disabled={
-                                (form.watch(
-                                  `${fieldMap["metricOverrides"]}.${i}.windowType`
-                                ) ?? metricDefinition?.windowSettings?.type) !==
-                                "conversion"
-                              }
-                              helpText={
-                                <div className="text-right">
-                                  default:{" "}
-                                  {metricDefinition?.windowSettings?.type !==
+                        {(form.watch(
+                          `${fieldMap["metricOverrides"]}.${i}.windowType`,
+                        ) ?? metricDefinition?.windowSettings?.type) ===
+                          "conversion" ||
+                        (metricDefinition &&
+                          isRetentionMetric(metricDefinition)) ? (
+                          <div className="row mt-2">
+                            <div className="col">
+                              <Field
+                                label={
+                                  metricDefinition &&
+                                  isRetentionMetric(metricDefinition)
+                                    ? "Retention Starts After (hours)"
+                                    : "Metric Delay (hours)"
+                                }
+                                placeholder="default"
+                                helpText={
+                                  <>
+                                    default:{" "}
+                                    {metricDefinition?.windowSettings
+                                      ? getDelayWindowHours(
+                                          metricDefinition.windowSettings,
+                                        )
+                                      : 0}
+                                  </>
+                                }
+                                labelClassName="small mb-1"
+                                type="number"
+                                containerClassName="mb-0 metric-override"
+                                step="any"
+                                {...form.register(
+                                  `${fieldMap["metricOverrides"]}.${i}.delayHours`,
+                                  { valueAsNumber: true },
+                                )}
+                              />
+                            </div>
+                            <div className="col">
+                              <Field
+                                label="Conversion Window (hours)"
+                                placeholder="default"
+                                disabled={
+                                  (form.watch(
+                                    `${fieldMap["metricOverrides"]}.${i}.windowType`,
+                                  ) ??
+                                    metricDefinition?.windowSettings?.type) !==
                                   "conversion"
-                                    ? "No conversion window "
-                                    : metricDefinition?.windowSettings
-                                    ? getConversionWindowHours(
-                                        metricDefinition.windowSettings
-                                      )
-                                    : null}{" "}
-                                </div>
-                              }
-                              labelClassName="small mb-1"
-                              type="number"
-                              containerClassName="mb-0 metric-override"
-                              required={
-                                metricDefinition?.windowSettings?.type !==
-                                "conversion"
-                              }
-                              min={
-                                metricDefinition &&
-                                isFactMetric(metricDefinition)
-                                  ? 0
-                                  : 0.125
-                              }
-                              step="any"
-                              {...form.register(
-                                `${fieldMap["metricOverrides"]}.${i}.windowHours`,
-                                { valueAsNumber: true }
-                              )}
-                            />
+                                }
+                                helpText={
+                                  <>
+                                    default:{" "}
+                                    {metricDefinition?.windowSettings?.type !==
+                                    "conversion"
+                                      ? "No conversion window "
+                                      : metricDefinition?.windowSettings
+                                        ? getMetricWindowHours(
+                                            metricDefinition.windowSettings,
+                                          )
+                                        : null}{" "}
+                                  </>
+                                }
+                                labelClassName="small mb-1"
+                                type="number"
+                                containerClassName="mb-0 metric-override"
+                                required={
+                                  metricDefinition?.windowSettings?.type !==
+                                  "conversion"
+                                }
+                                min={
+                                  metricDefinition &&
+                                  isFactMetric(metricDefinition)
+                                    ? 0
+                                    : 0.125
+                                }
+                                step="any"
+                                {...form.register(
+                                  `${fieldMap["metricOverrides"]}.${i}.windowHours`,
+                                  { valueAsNumber: true },
+                                )}
+                              />
+                            </div>
                           </div>
-                        </div>
-                      ) : null}
-                      {(form.watch(
-                        `${fieldMap["metricOverrides"]}.${i}.windowType`
-                      ) ?? metricDefinition?.windowSettings?.type) ===
-                      "lookback" ? (
-                        <div className="row m-1 mr-1 px-1">
-                          <div className="col">
-                            <Field
-                              label={
-                                metricDefinition &&
-                                isRetentionMetric(metricDefinition)
-                                  ? "Retention Window (hours)"
-                                  : "Metric Delay (hours)"
-                              }
-                              placeholder="default"
-                              helpText={
-                                <div className="text-right">
-                                  default:{" "}
-                                  {["conversion", "lookback"].includes(
-                                    metricDefinition?.windowSettings?.type ?? ""
-                                  )
-                                    ? "No delay"
-                                    : metricDefinition
-                                    ? getConversionWindowHours(
-                                        metricDefinition.windowSettings
-                                      )
-                                    : 0}
-                                </div>
-                              }
-                              labelClassName="small mb-1"
-                              type="number"
-                              containerClassName="mb-0 metric-override"
-                              step="any"
-                              {...form.register(
-                                `${fieldMap["metricOverrides"]}.${i}.delayHours`,
-                                { valueAsNumber: true }
-                              )}
-                            />
-                          </div>
-                          <div className="col">
-                            <Field
-                              label="Lookback Window (hours)"
-                              placeholder="default"
-                              helpText={
-                                <div className="text-right">
-                                  default:{" "}
-                                  {metricDefinition?.windowSettings?.type !==
+                        ) : null}
+                        {(form.watch(
+                          `${fieldMap["metricOverrides"]}.${i}.windowType`,
+                        ) ?? metricDefinition?.windowSettings?.type) ===
+                        "lookback" ? (
+                          <div className="row mt-2">
+                            <div className="col">
+                              <Field
+                                label={
+                                  metricDefinition &&
+                                  isRetentionMetric(metricDefinition)
+                                    ? "Retention Window (hours)"
+                                    : "Metric Delay (hours)"
+                                }
+                                placeholder="default"
+                                helpText={
+                                  <>
+                                    default:{" "}
+                                    {metricDefinition?.windowSettings
+                                      ? getDelayWindowHours(
+                                          metricDefinition.windowSettings,
+                                        )
+                                      : 0}
+                                  </>
+                                }
+                                labelClassName="small mb-1"
+                                type="number"
+                                containerClassName="mb-0 metric-override"
+                                step="any"
+                                {...form.register(
+                                  `${fieldMap["metricOverrides"]}.${i}.delayHours`,
+                                  { valueAsNumber: true },
+                                )}
+                              />
+                            </div>
+                            <div className="col">
+                              <Field
+                                label="Lookback Window (hours)"
+                                placeholder="default"
+                                helpText={
+                                  <>
+                                    default:{" "}
+                                    {metricDefinition?.windowSettings?.type !==
+                                    "lookback"
+                                      ? "No lookback window "
+                                      : metricDefinition?.windowSettings
+                                        ? getMetricWindowHours(
+                                            metricDefinition.windowSettings,
+                                          )
+                                        : null}{" "}
+                                  </>
+                                }
+                                labelClassName="small mb-1"
+                                type="number"
+                                containerClassName="mb-0 metric-override"
+                                min={
+                                  metricDefinition &&
+                                  isFactMetric(metricDefinition)
+                                    ? 0
+                                    : 0.125
+                                }
+                                required={
+                                  metricDefinition?.windowSettings?.type !==
                                   "lookback"
-                                    ? "No lookback window "
-                                    : metricDefinition?.windowSettings
-                                    ? getConversionWindowHours(
-                                        metricDefinition.windowSettings
-                                      )
-                                    : null}{" "}
-                                </div>
-                              }
-                              labelClassName="small mb-1"
-                              type="number"
-                              containerClassName="mb-0 metric-override"
-                              min={
-                                metricDefinition &&
-                                isFactMetric(metricDefinition)
-                                  ? 0
-                                  : 0.125
-                              }
-                              required={
-                                metricDefinition?.windowSettings?.type !==
-                                "lookback"
-                              }
-                              step="any"
-                              {...form.register(
-                                `${fieldMap["metricOverrides"]}.${i}.windowHours`,
-                                { valueAsNumber: true }
-                              )}
-                            />
+                                }
+                                step="any"
+                                {...form.register(
+                                  `${fieldMap["metricOverrides"]}.${i}.windowHours`,
+                                  { valueAsNumber: true },
+                                )}
+                              />
+                            </div>
                           </div>
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                  <div className="col border m-1 ml-2 px-2 py-1 rounded">
-                    <div className="row">
-                      <div className="col">
-                        <Field
-                          label="Acceptable risk under..."
-                          placeholder="default"
-                          helpText={
-                            <div className="text-right">
-                              default: {(metricDefinition?.winRisk ?? 0) * 100}%
-                            </div>
-                          }
-                          append="%"
-                          labelClassName="small mb-1"
-                          type="number"
-                          containerClassName="mb-0 metric-override"
-                          min={0}
-                          step="any"
-                          {...form.register(
-                            `${fieldMap["metricOverrides"]}.${i}.winRisk`,
-                            {
-                              valueAsNumber: true,
-                            }
-                          )}
-                        />
-                      </div>
-                      <div className="col">
-                        <Field
-                          label="Too much risk over..."
-                          placeholder="default"
-                          helpText={
-                            <div className="text-right">
-                              default: {(metricDefinition?.loseRisk ?? 0) * 100}
-                              %
-                            </div>
-                          }
-                          append="%"
-                          labelClassName="small mb-1"
-                          type="number"
-                          containerClassName="mb-0 metric-override"
-                          min={0}
-                          step="any"
-                          {...form.register(
-                            `${fieldMap["metricOverrides"]}.${i}.loseRisk`,
-                            {
-                              valueAsNumber: true,
-                            }
-                          )}
-                        />
+                        ) : null}
                       </div>
                     </div>
-                    {riskError && (
-                      <div className="row">
-                        <div className="col text-danger small">{riskError}</div>
-                      </div>
-                    )}
                   </div>
                 </div>
 
@@ -526,7 +424,7 @@ export default function MetricsOverridesSelector({
                         type="checkbox"
                         className="form-check-input"
                         {...form.register(
-                          `${fieldMap["metricOverrides"]}.${i}.properPriorOverride`
+                          `${fieldMap["metricOverrides"]}.${i}.properPriorOverride`,
                         )}
                         id={`toggle-priorOverride_${i}`}
                         disabled={!hasRegressionAdjustmentFeature}
@@ -541,50 +439,46 @@ export default function MetricsOverridesSelector({
                     <div
                       style={{
                         display: form.watch(
-                          `${fieldMap["metricOverrides"]}.${i}.properPriorOverride`
+                          `${fieldMap["metricOverrides"]}.${i}.properPriorOverride`,
                         )
                           ? "block"
                           : "none",
                       }}
                     >
                       <div className="d-flex my-2 border-bottom"></div>
-                      <div className="form-group mt-1 mb-2 mr-2 form-inline">
-                        <label
-                          className="mr-1 small"
-                          htmlFor={`toggle-properPrior_${i}`}
-                        >
-                          Use proper prior for this metric
-                        </label>
-                        <Toggle
+                      <Flex direction="column" mb="2">
+                        <Switch
                           id={`toggle-properPrior_${i}`}
+                          size="1"
+                          label="Use proper prior for this metric"
                           value={
                             !!form.watch(
-                              `${fieldMap["metricOverrides"]}.${i}.properPriorEnabled`
+                              `${fieldMap["metricOverrides"]}.${i}.properPriorEnabled`,
                             )
                           }
-                          setValue={(v) =>
+                          onChange={(v) =>
                             form.setValue(
                               `${fieldMap["metricOverrides"]}.${i}.properPriorEnabled`,
-                              v
+                              v,
                             )
                           }
                         />
                         <div className="small">
                           <small className="form-text text-muted">
                             <>
-                              {`(${defaultPriorSource} default: `}
+                              {` (${defaultPriorSource} default: `}
                               {defaultPriorSettings.proper ? "On" : "Off"}
                               {")"}
                             </>
                           </small>
                         </div>
-                      </div>
+                      </Flex>
                       {(defaultPriorSettings.proper &&
                         !form.watch(
-                          `${fieldMap["metricOverrides"]}.${i}.properPriorOverride`
+                          `${fieldMap["metricOverrides"]}.${i}.properPriorOverride`,
                         )) ||
                       !!form.watch(
-                        `${fieldMap["metricOverrides"]}.${i}.properPriorEnabled`
+                        `${fieldMap["metricOverrides"]}.${i}.properPriorEnabled`,
                       ) ? (
                         <>
                           <div className="row">
@@ -602,7 +496,7 @@ export default function MetricsOverridesSelector({
                                   `${fieldMap["metricOverrides"]}.${i}.properPriorMean`,
                                   {
                                     valueAsNumber: true,
-                                  }
+                                  },
                                 )}
                               />
                             </div>
@@ -623,7 +517,7 @@ export default function MetricsOverridesSelector({
                                     validate: (v) => {
                                       return !((v ?? 0) <= 0);
                                     },
-                                  }
+                                  },
                                 )}
                               />
                             </div>
@@ -653,7 +547,7 @@ export default function MetricsOverridesSelector({
                             type="checkbox"
                             className="form-check-input"
                             {...form.register(
-                              `${fieldMap["metricOverrides"]}.${i}.regressionAdjustmentOverride`
+                              `${fieldMap["metricOverrides"]}.${i}.regressionAdjustmentOverride`,
                             )}
                             id={`toggle-regressionAdjustmentOverride_${i}`}
                             disabled={!hasRegressionAdjustmentFeature}
@@ -668,37 +562,33 @@ export default function MetricsOverridesSelector({
                         <div
                           style={{
                             display: form.watch(
-                              `${fieldMap["metricOverrides"]}.${i}.regressionAdjustmentOverride`
+                              `${fieldMap["metricOverrides"]}.${i}.regressionAdjustmentOverride`,
                             )
                               ? "block"
                               : "none",
                           }}
                         >
                           <div className="d-flex my-2 border-bottom"></div>
-                          <div className="form-group mt-1 mb-2 mr-2 form-inline">
-                            <label
-                              className="small mr-1"
-                              htmlFor={`toggle-regressionAdjustmentEnabled_${i}`}
-                            >
-                              Apply regression adjustment for this metric
-                            </label>
-                            <Toggle
+                          <Flex direction="column" mb="2">
+                            <Switch
                               id={`toggle-regressionAdjustmentEnabled_${i}`}
+                              size="1"
+                              label="Apply regression adjustment for this metric"
                               value={
                                 !!form.watch(
-                                  `${fieldMap["metricOverrides"]}.${i}.regressionAdjustmentEnabled`
+                                  `${fieldMap["metricOverrides"]}.${i}.regressionAdjustmentEnabled`,
                                 )
                               }
-                              setValue={(value) => {
+                              onChange={(value) => {
                                 form.setValue(
                                   `${fieldMap["metricOverrides"]}.${i}.regressionAdjustmentEnabled`,
-                                  value
+                                  value,
                                 );
                               }}
                               disabled={!hasRegressionAdjustmentFeature}
                             />
                             <div className="small">
-                              <small className="form-text text-muted">
+                              <small className="text-muted">
                                 {metricDefinition?.regressionAdjustmentOverride ? (
                                   <>
                                     (metric default:{" "}
@@ -718,12 +608,12 @@ export default function MetricsOverridesSelector({
                                 )}
                               </small>
                             </div>
-                          </div>
+                          </Flex>
                           <div
                             className="form-group mt-1 mb-1 mr-2"
                             style={{
                               opacity: form.watch(
-                                `${fieldMap["metricOverrides"]}.${i}.regressionAdjustmentEnabled`
+                                `${fieldMap["metricOverrides"]}.${i}.regressionAdjustmentEnabled`,
                               )
                                 ? "1"
                                 : "0.5",
@@ -733,11 +623,13 @@ export default function MetricsOverridesSelector({
                               label="Pre-exposure lookback period (days)"
                               type="number"
                               style={{
-                                borderColor: regressionAdjustmentDaysHighlightColor,
-                                backgroundColor: regressionAdjustmentDaysHighlightColor
-                                  ? regressionAdjustmentDaysHighlightColor +
-                                    "15"
-                                  : "",
+                                borderColor:
+                                  regressionAdjustmentDaysHighlightColor,
+                                backgroundColor:
+                                  regressionAdjustmentDaysHighlightColor
+                                    ? regressionAdjustmentDaysHighlightColor +
+                                      "15"
+                                    : "",
                               }}
                               className="ml-2"
                               containerClassName="mb-0 small form-inline"
@@ -775,7 +667,7 @@ export default function MetricsOverridesSelector({
                                   validate: (v) => {
                                     return !((v ?? 0) <= 0 || (v ?? 0) > 100);
                                   },
-                                }
+                                },
                               )}
                             />
                             {regressionAdjustmentDaysWarningMsg && (
@@ -842,7 +734,7 @@ export default function MetricsOverridesSelector({
                 const metricOverride = getDefaultMetricOverridesFormValue(
                   [{ id: selectedMetricId }],
                   getExperimentMetricById,
-                  settings
+                  settings,
                 )?.[0];
                 if (metricOverride) {
                   metricOverrides.append(metricOverride);

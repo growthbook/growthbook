@@ -49,7 +49,7 @@ like to your experiment, but we suggest each experiment have only a few primary 
 making the shipping decision. Adding all your metrics is not recommended, as this can lead to false
 positives caused by random variations (see [Multiple testing problem](/using/experimentation-problems#multiple-testing-problem))
 
-Before you being a test, you should have selected a primary metric or set of metrics that you are
+Before running a test, select a primary metric or set of metrics that you're
 trying to improve. These metrics are often called the OEC for Overall Evaluation Criterion. It is
 important to have this decided ahead of time so when you look at your experiment results you're not just shopping for metrics that confirm
 your bias (see [confirmation bias](/using/experimentation-problems#confirmation-bias)).
@@ -111,15 +111,9 @@ In GrowthBook the experiment results will look like this.
 ![GrowthBook Results](/images/using/experiment-results-bayesian.png)
 
 Each row of this table is a different metric. This is a simplified overview of the data. If you want to
-see the full data, including 'risk', mouse over any of the results.
+see the full data, mouse over any of the results.
 
 ![GrowthBook Results](/images/using/experiment-results-bayesian-details2.png)
-
-**Risk** tells you how much you are predicted to lose if you choose the selected variation as the winner and you are wrong.
-You can specify upper risk thresholds (designed to flag high-risk outcomes) and lower risk thresholds (designed to flag low-risk outcomes) for each Metric in the Metric's Advanced Settings.
-There are defaults used for new metrics in the general settings page under General > Settings > Metrics & Data.
-Red indicates that the treatment variation has risk above the high-risk threshold.
-Yellow indicates that your risk is between the two thresholds. You can use the dropdown to see the risk of choosing a different winner if you have multiple variations.
 
 Value is the conversion rate or average value per user. In small print you can see the raw numbers
 used to calculate this.
@@ -145,9 +139,8 @@ results, you will see the following results:
 
 ![GrowthBook Results - Frequentist](/images/using/experiment-results-frequentist.png)
 
-Everything is the same as above except for three key changes:
+Everything is the same as above except for two key changes:
 
-- There is no longer a risk value, as the concept is not easily replicated in frequentist statistics.
 - The Chance to Beat Control column has been replaced with the P-value column. The p-value
   is the probability that the percent change for a variant would have been observed if the true
   percent change were zero. When the p-value is less than the threshold (default to 0.05) and the
@@ -159,12 +152,12 @@ Everything is the same as above except for three key changes:
 ## Data quality checks
 
 GrowthBook performs automatic data quality checks to ensure the statistical inferences are valid and
-ready for interpretation. You can see all check and monitor the health of your experiments on the
+ready for interpretation. You can check and monitor the health of your experiments on the
 experiment **health page**.
 
 ### Health Page
 
-GrowthBook automatically does data quality checks on all experiments and shows the results on the our _Health Page_.
+GrowthBook automatically does data quality checks on all experiments and shows the results on the **Health Page**.
 
 <MaxWidthImage maxWidth={600}>
   ![Experiment Health Page](/images/using/health-page.png)
@@ -247,7 +240,7 @@ can be created with SQL from the "Data and Metrics → Segments" page.
 
 ![Segments](/images/using/segments-page.png)
 
-There are two ways you can use segments in your experiment results. The first is to use edit the
+There are two ways you can use segments in your experiment results. The first is to use the
 experiment's 'analytics settings' and add one of the segments. The other way is to create a custom
 report, and then click on 'customize' and select a segment to apply to the results.
 
@@ -292,16 +285,16 @@ to stop, and how to interpret results may not be straight forward.
 
 ### When to stop an experiment
 
-When using the Bayesian statistic engine, there are a few methods you can use when stopping a test.
+When using the Bayesian statistics engine, there are a few methods you can use when stopping a test.
 
 - significance reached on your primary metrics
-- metric risk drop below your risk thresholds
+- confidence intervals do not include harmful outcomes
 - guardrail metrics are not affected
 - test duration reached
 
 It all depends on what you’re trying to do with the experiment. For example, if you’d like to know what
 impact your change has, you should use the first method. If you’re doing a design change, and want to
-make sure you haven’t broken anything on your product, you can use the risk or guard rail approach.
+make sure you haven’t broken anything on your product, you can use the guard rail approach.
 You should also make sure that the experiment has run for your minimum test duration (typically 1 or 2
 weeks), so that you’re not looking at highly skewed sampling.
 

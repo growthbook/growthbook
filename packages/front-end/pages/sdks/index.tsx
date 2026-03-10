@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { ApiKeyInterface } from "back-end/types/apikey";
-import { WebhookInterface } from "back-end/types/webhook";
+import { ApiKeyInterface } from "shared/types/apikey";
+import { WebhookInterface } from "shared/types/webhook";
 import SDKConnectionsList from "@/components/Features/SDKConnections/SDKConnectionsList";
 import SDKEndpoints, {
   getPublishableKeys,
@@ -20,7 +20,7 @@ export default function SDKsPage() {
     getPublishableKeys(data?.keys || [], project).length > 0;
 
   const { data: legacyWebhookData } = useApi<{ webhooks: WebhookInterface[] }>(
-    "/legacy-sdk-webhooks"
+    "/legacy-sdk-webhooks",
   );
   const hasLegacyWebhooks = !!legacyWebhookData?.webhooks?.length;
   const legacyEnabled = hasLegacyEndpoints || hasLegacyWebhooks;

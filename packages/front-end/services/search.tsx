@@ -6,17 +6,18 @@ import {
   ReactNode,
   useCallback,
   useEffect,
+  useRef,
 } from "react";
 import { FaSort, FaSortDown, FaSortUp } from "react-icons/fa";
 import { useRouter } from "next/router";
-import Fuse from "fuse.js";
+import MiniSearch from "minisearch";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Pagination from "@/components/Pagination";
 
 export function useAddComputedFields<T, ExtraFields>(
   items: T[] | undefined,
   add: (item: T) => ExtraFields,
-  dependencies: unknown[] = []
+  dependencies: unknown[] = [],
 ): (T & ExtraFields)[] {
   return useMemo(() => {
     return (items || []).map((item) => ({
@@ -33,18 +34,26 @@ export type SearchFields<T> = (
 
 const searchTermOperators = [">", "<", "^", "=", "~", ""] as const;
 
-export type SearchTermFilterOperator = typeof searchTermOperators[number];
+export type SyntaxFilter = {
+  field: string;
+  values: string[];
+  operator: SearchTermFilterOperator;
+  negated: boolean;
+};
 
-export interface SearchProps<T> {
+export type SearchTermFilterOperator = (typeof searchTermOperators)[number];
+
+export interface SearchProps<T extends { id: string }> {
   items: T[];
   searchFields: SearchFields<T>;
   localStorageKey: string;
   defaultSortField: keyof T;
   defaultSortDir?: number;
   undefinedLast?: boolean;
+  defaultMappings?: Partial<Record<keyof T, unknown>>;
   searchTermFilters?: {
     [key: string]: (
-      item: T
+      item: T,
     ) =>
       | number
       | string
@@ -64,11 +73,14 @@ export interface SearchReturn<T> {
   items: T[];
   unpaginatedItems: T[];
   isFiltered: boolean;
+  filteredItems: T[];
   clear: () => void;
+  syntaxFilters: SyntaxFilter[];
   searchInputProps: {
     value: string;
     onChange: (e: ChangeEvent<HTMLInputElement>) => void;
   };
+  setSearchValue: (value: string) => void;
   SortableTH: FC<{
     field: keyof T;
     className?: string;
@@ -80,7 +92,7 @@ export interface SearchReturn<T> {
   pagination: ReactNode;
 }
 
-export function useSearch<T>({
+export function useSearch<T extends { id: string }>({
   items,
   searchFields,
   filterResults,
@@ -88,6 +100,7 @@ export function useSearch<T>({
   defaultSortField,
   defaultSortDir,
   undefinedLast,
+  defaultMappings = {},
   searchTermFilters,
   updateSearchQueryOnChange,
   pageSize,
@@ -101,27 +114,50 @@ export function useSearch<T>({
   const { q } = router.query;
   const initialSearchTerm = Array.isArray(q) ? q.join(" ") : q;
   const [value, setValue] = useState(initialSearchTerm ?? "");
+  const [disableRelevanceSort, setDisableRelevanceSort] = useState(false);
 
   const [page, setPage] = useState(1);
 
-  // We only want to re-create the Fuse instance if the fields actually changed
+  // We only want to re-create the MiniSearch instance if the fields actually changed
   // It's really easy to forget to add `useMemo` around the fields declaration
   // So, we turn it into a string here to use in the dependency array
-  const fuse = useMemo(() => {
-    const keys: Fuse.FuseOptionKey<T>[] = searchFields.map((f) => {
-      const [key, weight] = (f as string).split("^");
-      return { name: key, weight: weight ? parseFloat(weight) : 1 };
+  const { miniSearch, itemMap } = useMemo(() => {
+    const keys: Record<string, number> = Object.fromEntries(
+      searchFields.map((f) => {
+        const [key, weight] = (f as string).split("^");
+        const weightNum = weight ? parseFloat(weight) : 1;
+        return [key, weightNum];
+      }),
+    );
+    const fields = Object.keys(keys);
+
+    // Create a Map of item ID to item to use for lookups
+    // after a search is performed
+    const itemMap = new Map<string, T>();
+    items.forEach((item) => {
+      itemMap.set(item.id, item);
     });
-    return new Fuse(items, {
-      includeScore: true,
-      useExtendedSearch: true,
-      findAllMatches: true,
-      ignoreLocation: true,
-      keys,
+
+    const miniSearchInstance = new MiniSearch({
+      fields,
+      searchOptions: {
+        boost: keys,
+        fuzzy: true,
+        prefix: true,
+      },
     });
+
+    // Add items to the index
+    try {
+      miniSearchInstance.addAll(items);
+    } catch (error) {
+      console.error("Error adding items to search index:", error);
+    }
+
+    return { miniSearch: miniSearchInstance, itemMap };
   }, [items, JSON.stringify(searchFields)]);
 
-  const filtered = useMemo(() => {
+  const { filtered, syntaxFilters, searchTerm } = useMemo(() => {
     // remove any syntax filters from the search term
     const { searchTerm, syntaxFilters } = searchTermFilters
       ? transformQuery(value, Object.keys(searchTermFilters))
@@ -129,7 +165,8 @@ export function useSearch<T>({
 
     let filtered = items;
     if (searchTerm.length > 0) {
-      filtered = fuse.search(searchTerm).map((item) => item.item);
+      const searchResults = miniSearch.search(searchTerm);
+      filtered = searchResults.map((result) => itemMap.get(result.id) as T);
     }
     if (updateSearchQueryOnChange) {
       const searchParams = new URLSearchParams(window.location.search);
@@ -154,7 +191,7 @@ export function useSearch<T>({
             undefined,
             {
               shallow: true,
-            }
+            },
           )
           .then();
       }
@@ -172,7 +209,7 @@ export function useSearch<T>({
           });
 
           return filter.negated ? !res : res;
-        })
+        }),
       );
     }
 
@@ -180,19 +217,35 @@ export function useSearch<T>({
     if (filterResults) {
       filtered = filterResults(filtered);
     }
-    return filtered;
-  }, [value, fuse, filterResults, transformQuery]);
+    return { filtered, syntaxFilters, searchTerm };
+  }, [value, miniSearch, filterResults, transformQuery]);
+
+  const previousSearchTerm = useRef(searchTerm);
+  const hasSearchTerm = searchTerm.length > 0;
+  const isRelevanceSortActive = hasSearchTerm && !disableRelevanceSort;
+
+  useEffect(() => {
+    if (previousSearchTerm.current !== searchTerm) {
+      const previousHadSearchTerm = previousSearchTerm.current.length > 0;
+      const nextHasSearchTerm = searchTerm.length > 0;
+
+      if (previousHadSearchTerm || nextHasSearchTerm) {
+        setDisableRelevanceSort(false);
+      }
+      previousSearchTerm.current = searchTerm;
+    }
+  }, [searchTerm]);
 
   const isFiltered = value.length > 0;
 
   const sorted = useMemo(() => {
-    if (isFiltered) return filtered;
+    if (isRelevanceSortActive) return filtered;
 
     const sorted = [...filtered];
 
     sorted.sort((a, b) => {
-      const comp1 = a[sort.field];
-      const comp2 = b[sort.field];
+      const comp1 = a[sort.field] || defaultMappings[sort.field];
+      const comp2 = b[sort.field] || defaultMappings[sort.field];
       if (undefinedLast) {
         if (comp1 === undefined && comp2 !== undefined) return 1;
         if (comp2 === undefined && comp1 !== undefined) return -1;
@@ -220,7 +273,7 @@ export function useSearch<T>({
       return 0;
     });
     return sorted;
-  }, [sort.field, sort.dir, filtered, isFiltered]);
+  }, [sort.field, sort.dir, filtered, isRelevanceSortActive]);
 
   const paginated = useMemo(() => {
     if (!pageSize) return sorted;
@@ -242,13 +295,7 @@ export function useSearch<T>({
       children: ReactNode;
       style?: React.CSSProperties;
     }> = ({ children, field, className = "", style }) => {
-      if (isFiltered) {
-        return (
-          <th className={className} style={style}>
-            {children}
-          </th>
-        );
-      }
+      const showSortDirection = !isRelevanceSortActive && sort.field === field;
 
       return (
         <th className={className} style={style}>
@@ -256,6 +303,7 @@ export function useSearch<T>({
             className="cursor-pointer"
             onClick={(e) => {
               e.preventDefault();
+              setDisableRelevanceSort(true);
               setSort({
                 field,
                 dir: sort.field === field ? sort.dir * -1 : 1,
@@ -265,9 +313,9 @@ export function useSearch<T>({
             {children}{" "}
             <a
               href="#"
-              className={sort.field === field ? "activesort" : "inactivesort"}
+              className={showSortDirection ? "activesort" : "inactivesort"}
             >
-              {sort.field === field ? (
+              {showSortDirection ? (
                 sort.dir < 0 ? (
                   <FaSortDown />
                 ) : (
@@ -282,7 +330,7 @@ export function useSearch<T>({
       );
     };
     return th;
-  }, [sort.dir, sort.field, isFiltered]);
+  }, [sort.dir, sort.field, isRelevanceSortActive]);
 
   const clear = useCallback(() => {
     setValue("");
@@ -296,11 +344,14 @@ export function useSearch<T>({
     items: paginated,
     unpaginatedItems: sorted,
     isFiltered,
+    filteredItems: filtered,
     clear,
+    syntaxFilters,
     searchInputProps: {
       value,
       onChange,
     },
+    setSearchValue: setValue,
     SortableTH,
     page,
     resetPage: () => setPage(1),
@@ -319,7 +370,7 @@ export function useSearch<T>({
 export function filterSearchTerm(
   itemValue: unknown,
   op: SearchTermFilterOperator,
-  searchValue: string
+  searchValue: string,
 ): boolean {
   if ((!itemValue && itemValue !== 0) || !searchValue) {
     return false;
@@ -338,8 +389,8 @@ export function filterSearchTerm(
     typeof itemValue === "number"
       ? [itemValue, parseFloat(searchValue)]
       : (op === ">" || op === "<") && itemValue instanceof Date
-      ? [itemValue, new Date(Date.parse(searchValue))]
-      : [strVal, searchValue];
+        ? [itemValue, new Date(Date.parse(searchValue))]
+        : [strVal, searchValue];
 
   switch (op) {
     case ">":
@@ -366,25 +417,23 @@ export function filterSearchTerm(
 
 export function transformQuery(
   searchTerm: string,
-  searchTermFilterKeys: string[]
+  searchTermFilterKeys: string[],
 ) {
-  // TODO: Support comma-separated quoted values (e.g. `foo:"bar","baz"`)
+  // split up the string into the search term and the filters, and support OR'ing
+  // multiple search terms, even if they are in quotes
   const regex = new RegExp(
     `(^|\\s)(${searchTermFilterKeys.join(
-      "|"
-    )}):(\\!?)([${searchTermOperators.join("")}]?)([^\\s"]+|"[^"]*"?)`,
-    "gi"
+      "|",
+    )}):(\\!?)([${searchTermOperators.join(
+      "",
+    )}]?)((?:"[^"]*"|[^\\s,]+)(?:,(?:"[^"]*"|[^\\s,]+))*)`,
+    "gi",
   );
   return parseQuery(searchTerm, regex);
 }
 
 export function parseQuery(query: string, regex: RegExp) {
-  const syntaxFilters: {
-    field: string;
-    values: string[];
-    operator: SearchTermFilterOperator;
-    negated: boolean;
-  }[] = [];
+  const syntaxFilters: SyntaxFilter[] = [];
 
   const matches = query.matchAll(regex);
   for (const match of matches) {

@@ -14,7 +14,7 @@ export const RadixTheme: FC<RadixThemeProps> = ({ children, flip }) => {
     <Theme
       accentColor="violet"
       panelBackground="solid"
-      appearance={computedTheme}
+      {...(flip ? { appearance: computedTheme } : {})}
     >
       {children}
     </Theme>

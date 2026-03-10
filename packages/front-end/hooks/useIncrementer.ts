@@ -12,7 +12,7 @@ export function useArrayIncrementer(): [number[], (i: number) => void] {
   const increment = useCallback(
     (i: number) =>
       setCounts((c) => [...c.slice(0, i), (c[i] || 0) + 1, ...c.slice(i + 1)]),
-    []
+    [],
   );
 
   return [counts, increment];

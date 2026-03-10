@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { DiscussionInterface } from "back-end/types/discussion";
+import { DiscussionInterface } from "shared/types/discussion";
 
 const discussionSchema = new mongoose.Schema({
   id: String,
@@ -24,5 +24,5 @@ export type DiscussionDocument = mongoose.Document & DiscussionInterface;
 
 export const DiscussionModel = mongoose.model<DiscussionInterface>(
   "Discussion",
-  discussionSchema
+  discussionSchema,
 );

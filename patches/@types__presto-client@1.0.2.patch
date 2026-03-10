@@ -1,0 +1,13 @@
+diff --git a/index.d.ts b/index.d.ts
+index b0f2f87f9edaddbaa1db3d29734c67452f22cb60..827d572223d22a3d354869748a5310c93ae34f28 100644
+--- a/index.d.ts
++++ b/index.d.ts
+@@ -78,7 +78,7 @@ export interface ClientOptions {
+     /**
+      * Sets HTTP `Authorization` header with the provided string.
+      */
+-    custom_auth?: string;
++    custom_auth?: string | (() => Promise<string> | string);
+     /**
+      * Default catalog name
+      */

@@ -5,11 +5,17 @@ export interface UseApiOptions {
   autoRevalidate?: boolean;
   shouldRun?: () => boolean;
   orgScoped?: boolean;
+  refreshInterval?: number;
 }
 
 export default function useApi<Response = unknown>(
   path: string,
-  { shouldRun, autoRevalidate = true, orgScoped = true }: UseApiOptions = {}
+  {
+    shouldRun,
+    autoRevalidate = true,
+    orgScoped = true,
+    refreshInterval,
+  }: UseApiOptions = {},
 ) {
   const { apiCall, orgId } = useAuth();
 
@@ -25,9 +31,13 @@ export default function useApi<Response = unknown>(
     config.revalidateOnReconnect = false;
   }
 
+  if (refreshInterval !== undefined) {
+    config.refreshInterval = refreshInterval;
+  }
+
   return useSWR<Response, Error>(
     allowed ? key : null,
     async () => apiCall<Response>(path, { method: "GET" }),
-    config
+    config,
   );
 }

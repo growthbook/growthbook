@@ -1,6 +1,6 @@
-import { GetArchetypeResponse } from "back-end/types/openapi";
+import { GetArchetypeResponse } from "shared/types/openapi";
+import { getArchetypeValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { getArchetypeValidator } from "back-end/src/validators/openapi";
 import {
   getArchetypeById,
   toArchetypeApiInterface,
@@ -23,5 +23,5 @@ export const getArchetype = createApiRequestHandler(getArchetypeValidator)(
     return {
       archetype: toArchetypeApiInterface(archetype),
     };
-  }
+  },
 );

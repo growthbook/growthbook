@@ -1,36 +1,44 @@
-import { ScheduleRule } from "back-end/types/feature";
+import { ScheduleRule } from "shared/types/feature";
 import { format as formatTimeZone } from "date-fns-tz";
 import React, { useEffect, useState } from "react";
 import { getValidDate } from "shared/dates";
 import { useUser } from "@/services/UserContext";
 import SelectField from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import Checkbox from "@/components/Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
 import DatePicker from "@/components/DatePicker";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 
 interface Props {
   defaultValue: ScheduleRule[];
   onChange: (value: ScheduleRule[]) => void;
   scheduleToggleEnabled: boolean;
   setScheduleToggleEnabled: (value: boolean) => void;
+  disabled?: boolean;
 }
 
 export default function ScheduleInputs(props: Props) {
-  const [rules, setRules] = useState(props.defaultValue);
+  const {
+    defaultValue,
+    onChange: onRulesChange,
+    scheduleToggleEnabled,
+    setScheduleToggleEnabled,
+    disabled,
+  } = props;
+  const [rules, setRules] = useState(defaultValue);
   const { hasCommercialFeature } = useUser();
 
   const canScheduleFeatureFlags = hasCommercialFeature("schedule-feature-flag");
 
   useEffect(() => {
-    props.onChange(rules);
-  }, [props, props.defaultValue, rules]);
+    onRulesChange(rules);
+  }, [onRulesChange, defaultValue, rules]);
 
   const [date0, setDate0] = useState<Date | undefined>(
-    rules?.[0]?.timestamp ? getValidDate(rules[0].timestamp) : undefined
+    rules?.[0]?.timestamp ? getValidDate(rules[0].timestamp) : undefined,
   );
   const [date1, setDate1] = useState<Date | undefined>(
-    rules?.[1]?.timestamp ? getValidDate(rules[1].timestamp) : undefined
+    rules?.[1]?.timestamp ? getValidDate(rules[1].timestamp) : undefined,
   );
 
   function dateIsValid(date: Date) {
@@ -59,9 +67,9 @@ export default function ScheduleInputs(props: Props) {
           </PremiumTooltip>
         }
         description="Schedule this rule to be automatically enabled or disabled in the future"
-        value={props.scheduleToggleEnabled}
+        value={scheduleToggleEnabled}
         setValue={(v) => {
-          props.setScheduleToggleEnabled(v === true);
+          setScheduleToggleEnabled(v === true);
 
           if (!rules.length) {
             setRules([
@@ -76,9 +84,9 @@ export default function ScheduleInputs(props: Props) {
             ]);
           }
         }}
-        disabled={!canScheduleFeatureFlags}
+        disabled={!canScheduleFeatureFlags || disabled}
       />
-      {rules.length > 0 && props.scheduleToggleEnabled && (
+      {rules.length > 0 && scheduleToggleEnabled && (
         <div className="box mb-3 bg-light pt-2 px-3">
           <div className="row align-items-center py-2">
             <div className="ml-2 mb-2" style={{ width: 100 }}>

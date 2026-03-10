@@ -15,11 +15,7 @@ Bandits are run similarly to Experiments in GrowthBook. There are three key diff
 
 All GrowthBook Bandits (at least while in Beta) require you to enable [Sticky Bucketing](/app/sticky-bucketing). This ensures that users are consistently assigned to the same variation even if they return to the experiment later and the variation weights have changed. Variation weights change frequently in a Bandit, so Sticky Bucketing is important to ensure consistent user experiences.
 
-:::note
-
 Furthermore, you should set up your Sticky Bucketing service to store variations in the same place that you store and track your user identities. For example, if you plan on running a bandit using cookie-based identifiers, we strongly recommend using a cookie-based Sticky Bucketing approach to ensure that both the hash attribute and the sticky bucketing identifiers are kept in sync.
-
-:::
 
 Follow the instructions in the [Sticky Bucketing](/app/sticky-bucketing) guide to set up Sticky Bucketing in your SDK and enable it in GrowthBook.
 
@@ -29,7 +25,7 @@ Bandits optimize towards winning variations by making frequent changes to variat
 
 While each SDK's default cache settings, namely the `maxAge` or `TTL` fields, are generally compatible with most bandit configurations, you should double-check your own configuration. If variation weights do not update in the SDK significantly more quickly than your bandit's [update cadence](#update-cadence), then you may experience slower bandit performance and even [Sample Ratio Mismatch (SRM)](/using/experimenting#sample-ratio-mismatch-srm).
 
-:::tip
+:::tip Cache max-age recommendations
 
 As a rule of thumb, try to aim for a cache `maxAge` or `TTL` that is at least _5 times faster_ than your **update cadence**.
 

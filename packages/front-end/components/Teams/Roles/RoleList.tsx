@@ -1,4 +1,4 @@
-import { RESERVED_ROLE_IDS } from "shared/permissions";
+import { RESERVED_ROLE_IDS, getRoleDisplayName } from "shared/permissions";
 import router from "next/router";
 import Link from "next/link";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -9,7 +9,7 @@ import { useAuth } from "@/services/auth";
 import Button from "@/components/Button";
 import ConfirmButton from "@/components/Modal/ConfirmButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Badge from "@/components/Radix/Badge";
+import Badge from "@/ui/Badge";
 
 export default function RoleList() {
   const { roles, refreshOrganization, organization } = useUser();
@@ -43,7 +43,7 @@ export default function RoleList() {
                       className={`font-weight-bold`}
                       href={`/settings/role/${r.id}`}
                     >
-                      {r.id}
+                      {getRoleDisplayName(r.id, organization)}
                     </Link>{" "}
                     <div className="tags-container">
                       {isCustom ? (
@@ -78,7 +78,7 @@ export default function RoleList() {
                             className="dropdown-item"
                             onClick={async () => {
                               await router.push(
-                                `/settings/role/${r.id}?edit=true`
+                                `/settings/role/${r.id}?edit=true`,
                               );
                             }}
                           >
@@ -128,7 +128,7 @@ export default function RoleList() {
                             }`,
                             {
                               method: "POST",
-                            }
+                            },
                           );
                           refreshOrganization();
                         }}

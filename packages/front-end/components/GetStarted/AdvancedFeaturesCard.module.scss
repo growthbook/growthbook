@@ -1,0 +1,129 @@
+.card {
+  border-radius: 6px;
+  height: 100%;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: var(--bg-advanced-features-card-image);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    transition: transform 0.3s ease-in-out;
+    z-index: 1;
+  }
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: hsla(226, 50%, 24%, 0.6);
+    transition: background 0.2s ease-in-out;
+    z-index: 2;
+  }
+
+  &:hover {
+    &::after {
+      transform: scale(1.05);
+    }
+
+    &::before {
+      background: hsla(226, 50%, 24%, 0.8);
+    }
+  }
+}
+
+.cardContent {
+  position: absolute;
+  z-index: 2;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 32px 24px;
+  @media (max-width: 1300px) {
+    padding: 24px 16px;
+  }
+  @media (max-width: 950px) {
+    padding: 16px 12px;
+  }
+  @media (max-width: 767) {
+    padding: 24px 16px;
+  }
+}
+
+.cardTitle {
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  transition: transform 0.3s ease-in-out;
+  transform-origin: bottom left;
+
+  @media (max-width: 1300px) and (min-width: 950px) {
+    font-size: 12px;
+  }
+
+  @media (max-width: 950px) and (min-width: 767px) {
+    font-size: 8px;
+  }
+  @media (max-width: 767) {
+    font-size: 14px;
+  }
+}
+
+.cardSubtitle {
+  color: #fff;
+  font-size: 12px;
+  font-weight: 400;
+  transition: transform 0.3s ease-in-out;
+  transform-origin: bottom left;
+
+  @media (max-width: 1300px) {
+    font-size: 10px;
+  }
+
+  @media (max-width: 950px) {
+    font-size: 6px;
+  }
+  @media (max-width: 767) {
+    font-size: 12px;
+  }
+}
+
+.cardLink {
+  height: 100%;
+  width: 100%;
+
+  // Prevent bootstrap link styles from applying
+  &:hover {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  &[aria-disabled="true"] {
+    pointer-events: none;
+  }
+}
+
+.badgeContainer {
+  position: absolute;
+  top: 20px;
+  left: 24px;
+  @media (max-width: 1300px) and (min-width: 950px) {
+    left: 16px;
+  }
+  @media (max-width: 950px) and (min-width: 767px) {
+    top: 12px;
+    left: 12px;
+  }
+  @media (max-width: 767px) {
+    left: 16px;
+  }
+}

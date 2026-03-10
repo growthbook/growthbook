@@ -1,4 +1,5 @@
 import { useFeature } from "@growthbook/growthbook-react";
+import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { BsQuestionLg, BsXLg } from "react-icons/bs";
 import { FaArrowRight } from "react-icons/fa";
@@ -8,10 +9,17 @@ import { GBPremiumBadge } from "@/components/Icons";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 
 export default function InAppHelp() {
+  const router = useRouter();
   const config = useFeature("pylon-config").value;
   const [showFreeHelpWidget, setShowFreeHelpWidget] = useState(false);
   const [upgradeModal, setUpgradeModal] = useState(false);
-  const { name, email, hasCommercialFeature, commercialFeatures } = useUser();
+  const {
+    name,
+    email,
+    pylonHmacHash,
+    hasCommercialFeature,
+    commercialFeatures,
+  } = useUser();
   const showUpgradeModal = !hasCommercialFeature("livechat") && isCloud();
 
   useEffect(() => {
@@ -25,12 +33,16 @@ export default function InAppHelp() {
       window["pylon"] = {
         chat_settings: {
           app_id: config.app_id,
+          email_hash: pylonHmacHash,
           email,
           name,
         },
       };
     }
   }, [config, commercialFeatures]);
+
+  // Hide on presentation view (fullscreen present mode)
+  if (router.pathname.startsWith("/present/")) return null;
 
   // If the Pylon key exists on the window, we're showing the Pylon widget, so don't show the freeHelpModal
   if (window["pylon"]) return null;

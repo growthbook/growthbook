@@ -1,9 +1,9 @@
 import mysql, { RowDataPacket } from "mysql2/promise";
 import { ConnectionOptions } from "mysql2";
-import { MysqlConnectionParams } from "back-end/types/integrations/mysql";
+import { DateTruncGranularity, FormatDialect } from "shared/types/sql";
+import { QueryResponse } from "shared/types/integrations";
+import { MysqlConnectionParams } from "shared/types/integrations/mysql";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
-import { FormatDialect } from "back-end/src/util/sql";
-import { QueryResponse } from "back-end/src/types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Mysql extends SqlIntegration {
@@ -11,9 +11,8 @@ export default class Mysql extends SqlIntegration {
   requiresDatabase = false;
   requiresSchema = false;
   setParams(encryptedParams: string) {
-    this.params = decryptDataSourceParams<MysqlConnectionParams>(
-      encryptedParams
-    );
+    this.params =
+      decryptDataSourceParams<MysqlConnectionParams>(encryptedParams);
   }
   getFormatDialect(): FormatDialect {
     return "mysql";
@@ -39,6 +38,7 @@ export default class Mysql extends SqlIntegration {
     const conn = await mysql.createConnection(config);
 
     const [rows] = await conn.query(sql);
+    conn.end();
     return { rows: rows as RowDataPacket[] };
   }
   dateDiff(startCol: string, endCol: string) {
@@ -48,14 +48,23 @@ export default class Mysql extends SqlIntegration {
     col: string,
     unit: "hour" | "minute",
     sign: "+" | "-",
-    amount: number
+    amount: number,
   ): string {
     return `DATE_${
       sign === "+" ? "ADD" : "SUB"
     }(${col}, INTERVAL ${amount} ${unit.toUpperCase()})`;
   }
-  dateTrunc(col: string) {
-    return `DATE(${col})`;
+  dateTrunc(col: string, granularity: DateTruncGranularity = "day") {
+    const formatMap: Record<DateTruncGranularity, string> = {
+      hour: `DATE_FORMAT(${col}, '%Y-%m-%d %H:00:00')`,
+      day: `DATE(${col})`,
+      // Hack required for MySQL to calculate the start of the week
+      week: `DATE(DATE_SUB(${col}, INTERVAL WEEKDAY(${col}) DAY))`,
+      month: `DATE_FORMAT(${col}, '%Y-%m-01')`,
+      year: `DATE_FORMAT(${col}, '%Y-01-01')`,
+    };
+
+    return formatMap[granularity];
   }
   formatDate(col: string): string {
     return `DATE_FORMAT(${col}, "%Y-%m-%d")`;
@@ -77,11 +86,11 @@ export default class Mysql extends SqlIntegration {
       ignoreZeros: boolean;
     }[],
     metricTable: string,
-    where: string = ""
+    where: string = "",
   ): string {
     if (values.length > 1) {
       throw new Error(
-        "MySQL only supports one percentile capped metric at a time"
+        "MySQL only supports one percentile capped metric at a time",
       );
     }
 
@@ -114,10 +123,13 @@ export default class Mysql extends SqlIntegration {
   hasEfficientPercentile(): boolean {
     return false;
   }
+  canGroupPercentileCappedMetrics(): boolean {
+    return false;
+  }
   getInformationSchemaWhereClause(): string {
     if (!this.params.database)
       throw new Error(
-        `No database name provided in MySql connection. Please add a database by editing the connection settings.`
+        `No database name provided in MySql connection. Please add a database by editing the connection settings.`,
       );
     return `table_schema IN ('${this.params.database}')`;
   }

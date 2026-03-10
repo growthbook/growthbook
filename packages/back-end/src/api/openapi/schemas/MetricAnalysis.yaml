@@ -1,0 +1,13 @@
+type: object
+required:
+  - id
+  - status
+properties:
+  id:
+    type: string
+    description: The ID of the created metric analysis
+  status:
+    type: string
+    description: The status of the analysis (e.g., "running", "completed", "error")
+  settings:
+    type: object

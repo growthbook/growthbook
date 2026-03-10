@@ -169,41 +169,41 @@ export interface TrackingDataWithUser {
 
 export type TrackingCallback = (
   experiment: Experiment<any>,
-  result: Result<any>
+  result: Result<any>,
 ) => Promise<void> | void;
 
 export type TrackingCallbackWithUser = (
   experiment: Experiment<any>,
   result: Result<any>,
-  user: UserContext
+  user: UserContext,
 ) => Promise<void> | void;
 
 export type FeatureUsageCallback = (
   key: string,
-  result: FeatureResult<any>
+  result: FeatureResult<any>,
 ) => void;
 
 export type FeatureUsageCallbackWithUser = (
   key: string,
   result: FeatureResult<any>,
-  user: UserContext
+  user: UserContext,
 ) => void;
 
 export type Plugin = (
-  gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient
+  gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient,
 ) => void;
 
 export type EventProperties = Record<string, unknown>;
 export type EventLogger = (
   eventName: string,
   properties: EventProperties,
-  userContext: UserContext
+  userContext: UserContext,
 ) => void | Promise<void>;
 
 export type NavigateCallback = (url: string) => void | Promise<void>;
 
 export type ApplyDomChangesCallback = (
-  changes: AutoExperimentVariation
+  changes: AutoExperimentVariation,
 ) => () => void;
 
 export type RenderFunction = () => void;
@@ -216,6 +216,8 @@ export type Options = {
   features?: Record<string, FeatureDefinition>;
   experiments?: AutoExperiment[];
   forcedVariations?: Record<string, number>;
+  forcedFeatureValues?: Map<string, any>;
+  attributeOverrides?: Attributes;
   blockedChangeIds?: string[];
   disableVisualExperiments?: boolean;
   disableJsInjection?: boolean;
@@ -286,7 +288,7 @@ export type ClientOptions = {
   onFeatureUsage?: (
     key: string,
     result: FeatureResult<any>,
-    user: UserContext
+    user: UserContext,
   ) => void;
   eventLogger?: EventLogger;
   apiHost?: string;
@@ -332,6 +334,7 @@ export type GlobalContext = {
 export type UserContext = {
   enabled?: boolean;
   qaMode?: boolean;
+  enableDevMode?: boolean;
   attributes?: Attributes;
   url?: string;
   blockedChangeIds?: string[];
@@ -340,12 +343,16 @@ export type UserContext = {
     StickyAssignmentsDocument
   >;
   saveStickyBucketAssignmentDoc?: (
-    doc: StickyAssignmentsDocument
+    doc: StickyAssignmentsDocument,
   ) => Promise<unknown>;
   forcedVariations?: Record<string, number>;
   forcedFeatureValues?: Map<string, any>;
+  attributeOverrides?: Attributes;
   trackingCallback?: TrackingCallback;
   onFeatureUsage?: FeatureUsageCallback;
+  trackedExperiments?: Set<string>;
+  trackedFeatureUsage?: Record<string, string>;
+  devLogs?: LogUnion[];
 };
 
 export type StackContext = {
@@ -374,7 +381,7 @@ export type PrefetchOptions = Pick<
 
 export type SubscriptionFunction = (
   experiment: Experiment<any>,
-  result: Result<any>
+  result: Result<any>,
 ) => void;
 
 export type VariationRange = [number, number];
@@ -407,10 +414,10 @@ export type JSONValue =
 export type WidenPrimitives<T> = T extends string
   ? string
   : T extends number
-  ? number
-  : T extends boolean
-  ? boolean
-  : T;
+    ? number
+    : T extends boolean
+      ? boolean
+      : T;
 
 export type DOMMutation = {
   selector: string;
@@ -446,11 +453,10 @@ export type GrowthBookPayload = FeatureApiResponse;
 // Polyfills required for non-standard browser environments (ReactNative, Node, etc.)
 // These are typed as `any` since polyfills like `node-fetch` are not 100% compatible with native types
 export type Polyfills = {
-  // eslint-disable-next-line
   fetch: any;
-  // eslint-disable-next-line
+
   SubtleCrypto: any;
-  // eslint-disable-next-line
+
   EventSource: any;
   localStorage?: LocalStorageCompat;
 };
@@ -473,7 +479,7 @@ export type Helpers = {
   }: {
     host: string;
     clientKey: string;
-    // eslint-disable-next-line
+
     payload: any;
     headers?: Record<string, string>;
   }) => Promise<Response>;
@@ -532,6 +538,10 @@ export type LoadFeaturesOptions = {
 export type RefreshFeaturesOptions = {
   timeout?: number;
   skipCache?: boolean;
+};
+
+export type DestroyOptions = {
+  destroyAllStreams?: boolean;
 };
 
 export interface Filter {

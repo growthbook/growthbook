@@ -11,7 +11,7 @@ describe("feature utils", () => {
           { id: "parent", description: "" },
           { id: "child", parent: "parent", description: "" },
         ],
-        envRecord
+        envRecord,
       );
       expect(result).toEqual({
         parent: "value",
@@ -29,7 +29,7 @@ describe("feature utils", () => {
           { id: "parent", description: "", parent: "grandparent" },
           { id: "child", parent: "parent", description: "" },
         ],
-        envRecord
+        envRecord,
       );
       expect(result).toEqual({
         grandparent: "value",
@@ -48,7 +48,7 @@ describe("feature utils", () => {
           { id: "parent", description: "" },
           { id: "child", parent: "parent", description: "" },
         ],
-        envRecord
+        envRecord,
       );
       expect(envRecord.child).toBeUndefined();
     });
@@ -62,13 +62,36 @@ describe("feature utils", () => {
           { id: "parent", description: "" },
           { id: "child", parent: "parent", description: "" },
         ],
-        envRecord
+        envRecord,
       );
       result.child.push("new entry");
       expect(result).toEqual({
         parent: ["nested object"],
         child: ["nested object", "new entry"],
       });
+    });
+
+    it("handles undefined environmentRecord with parent environments", () => {
+      const result = applyEnvironmentInheritance(
+        [
+          { id: "parent", description: "" },
+          { id: "child", parent: "parent", description: "" },
+        ],
+        undefined as unknown as Record<string, unknown>,
+      );
+      expect(result).toEqual({});
+    });
+
+    it("handles empty environmentRecord with parent environments", () => {
+      const result = applyEnvironmentInheritance(
+        [
+          { id: "dev", description: "" },
+          { id: "staging", parent: "dev", description: "" },
+          { id: "production", parent: "staging", description: "" },
+        ],
+        {},
+      );
+      expect(result).toEqual({});
     });
   });
 });

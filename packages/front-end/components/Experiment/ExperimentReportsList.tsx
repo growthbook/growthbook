@@ -1,7 +1,7 @@
-import { ReportInterface } from "back-end/types/report";
+import { ReportInterface } from "shared/types/report";
 import Link from "next/link";
 import React from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useRouter } from "next/router";
 import { ago, datetime } from "shared/dates";
 import { FaExclamationTriangle } from "react-icons/fa";
@@ -46,9 +46,9 @@ export default function ExperimentReportsList({
       const show = isOwner
         ? true
         : report.type === "experiment"
-        ? report.status === "published"
-        : report.shareLevel === "public" ||
-          report.shareLevel === "organization";
+          ? report.status === "published"
+          : report.shareLevel === "public" ||
+            report.shareLevel === "organization";
       const showDelete = report.type === "experiment" ? isAdmin : canDelete;
       return { report, show, showDelete, isOwner };
     })
@@ -82,10 +82,10 @@ export default function ExperimentReportsList({
                   ? "private"
                   : "organization"
                 : report.shareLevel === "public"
-                ? "public"
-                : report.shareLevel === "private"
-                ? "private"
-                : "organization";
+                  ? "public"
+                  : report.shareLevel === "private"
+                    ? "private"
+                    : "organization";
             return (
               <tr key={report.id} className="">
                 <td
@@ -155,7 +155,7 @@ export default function ExperimentReportsList({
                           `/report/${report.id}`,
                           {
                             method: "DELETE",
-                          }
+                          },
                         );
                         mutate();
                       }}

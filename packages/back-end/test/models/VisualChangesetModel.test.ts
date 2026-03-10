@@ -1,9 +1,9 @@
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import { ReqContext } from "shared/types/organization";
 import {
   VisualChangesetModel,
   updateVisualChangeset,
 } from "back-end/src/models/VisualChangesetModel";
-import { ReqContext } from "back-end/types/organization";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { getCollection } from "back-end/src/util/mongo.util";
 
 jest.mock("back-end/src/util/mongo.util");
@@ -79,7 +79,7 @@ describe("updateVisualChangeset", () => {
               ...updates,
               visualChanges: visualChangeset.visualChanges,
             },
-          }
+          },
         );
       });
     });
@@ -135,7 +135,7 @@ describe("updateVisualChangeset", () => {
             $set: {
               ...updates,
             },
-          }
+          },
         );
       });
     });

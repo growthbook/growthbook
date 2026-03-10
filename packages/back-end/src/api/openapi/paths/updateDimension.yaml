@@ -1,0 +1,29 @@
+parameters:
+  - $ref: "../parameters.yaml#/id"
+tags:
+  - dimensions
+summary: Update a single dimension
+operationId: updateDimension
+x-codeSamples:
+  - lang: "cURL"
+    source: |
+      curl -X POST https://api.growthbook.io/api/v1/dimensions/dim_123abc \
+        -d '{"name":"User Region"}' \
+        -u secret_abc123DEF456:
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "../payload-schemas/UpdateDimensionPayload.yaml"
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - dimension
+          properties:
+            dimension:
+              $ref: "../schemas/Dimension.yaml"

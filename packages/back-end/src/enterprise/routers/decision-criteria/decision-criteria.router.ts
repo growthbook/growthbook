@@ -5,7 +5,7 @@ import * as rawDecisionCriteriaController from "./decision-criteria.controller";
 const router = express.Router();
 
 const decisionCriteriaController = wrapController(
-  rawDecisionCriteriaController
+  rawDecisionCriteriaController,
 );
 
 // GET /decision-criteria

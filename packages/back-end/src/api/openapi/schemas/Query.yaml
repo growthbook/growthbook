@@ -1,0 +1,47 @@
+type: object
+required:
+  - id
+  - organization
+  - datasource
+  - language
+  - query
+  - queryType
+  - createdAt
+  - startedAt
+  - status
+  - externalId
+  - dependencies
+  - runAtEnd
+properties:
+  id:
+    type: string
+  organization:
+    type: string
+  datasource:
+    type: string
+  language:
+    type: string
+  query:
+    type: string
+  queryType:
+    type: string
+  createdAt:
+    type: string
+  startedAt:
+    type: string
+  status:
+    type: string
+    enum:
+      - running
+      - queued
+      - failed
+      - partially-succeeded
+      - succeeded
+  externalId:
+    type: string
+  dependencies:
+    type: array
+    items:
+      type: string
+  runAtEnd:
+    type: boolean

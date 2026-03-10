@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { DailyUsage, UsageLimits } from "back-end/types/organization";
+import { DailyUsage, UsageLimits } from "shared/types/organization";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { AreaClosed } from "@visx/shape";
@@ -8,15 +8,16 @@ import { scaleLinear, scaleTime } from "@visx/scale";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import { useRouter } from "next/router";
 import { curveLinear } from "@visx/curve";
-import { PiCaretLeft, PiCaretRight } from "react-icons/pi";
+import { PiArrowSquareOut, PiCaretLeft, PiCaretRight } from "react-icons/pi";
 import useApi from "@/hooks/useApi";
-import Callout from "@/components/Radix/Callout";
-import Frame from "@/components/Radix/Frame";
+import Callout from "@/ui/Callout";
+import Frame from "@/ui/Frame";
 import SelectField from "@/components/Forms/SelectField";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { isCloud } from "@/services/env";
-import Badge from "@/components/Radix/Badge";
-import Button from "@/components/Radix/Button";
+import Badge from "@/ui/Badge";
+import Button from "@/ui/Button";
+import track from "@/services/track";
 
 // Formatter for numbers
 const requestsFormatter = new Intl.NumberFormat("en-US", {
@@ -44,7 +45,7 @@ export default function CloudUsage() {
   const useDummyData = !isCloud() && !!router.query.dummy;
 
   const { data, error } = useApi<{
-    cdnUsage: DailyUsage[];
+    usage: DailyUsage[];
     limits: UsageLimits;
   }>(`/billing/usage?monthsAgo=${monthsAgo}`, {
     shouldRun: () => !useDummyData,
@@ -66,10 +67,11 @@ export default function CloudUsage() {
     );
   }
 
-  const usage = data?.cdnUsage || [];
+  const usage = data?.usage || [];
   const limits: UsageLimits = data?.limits || {
     cdnRequests: "unlimited",
     cdnBandwidth: "unlimited",
+    managedClickhouseEvents: "unlimited",
   };
 
   const startDate = new Date();
@@ -95,6 +97,7 @@ export default function CloudUsage() {
         date: new Date(current).toISOString(),
         requests: Math.floor(Math.random() * 1000000),
         bandwidth: Math.floor(Math.random() * 2000000000),
+        managedClickhouseEvents: Math.floor(Math.random() * 1000000),
       });
       current.setUTCDate(current.getUTCDate() + 1);
     }
@@ -105,6 +108,10 @@ export default function CloudUsage() {
 
   const totalRequests = usage.reduce((sum, u) => sum + u.requests, 0);
   const totalBandwidth = usage.reduce((sum, u) => sum + u.bandwidth, 0);
+  const totalManagedClickhouseEvents = usage.reduce(
+    (sum, u) => sum + u.managedClickhouseEvents,
+    0,
+  );
 
   const monthOptions: { value: string; label: string }[] = [];
   for (let i = 0; i < 12; i++) {
@@ -149,6 +156,10 @@ export default function CloudUsage() {
         <div>
           <strong>Total bandwidth: </strong>
           <span>{formatBytes(totalBandwidth)}</span>
+        </div>
+        <div>
+          <strong>Total managed Clickhouse events: </strong>
+          <span>{requestsFormatter.format(totalManagedClickhouseEvents)}</span>
         </div>
         {useDummyData && <Badge label="Dummy Data" color="amber" />}
         <Flex className="ml-auto" gap="2">
@@ -209,6 +220,41 @@ export default function CloudUsage() {
           />
         </Box>
       )}
+      {totalManagedClickhouseEvents > 0 && (
+        <Box>
+          <h3>Managed Clickhouse Events</h3>
+          <DailyGraph
+            data={usage.map((u) => ({
+              ts: new Date(u.date),
+              v: u.managedClickhouseEvents,
+            }))}
+            formatValue={(v) => requestsFormatter.format(v)}
+            start={startDate}
+            end={endDate}
+            limitLine={
+              limits.managedClickhouseEvents === "unlimited"
+                ? null
+                : limits.managedClickhouseEvents
+            }
+          />
+        </Box>
+      )}
+      <Box mt="5">
+        <a
+          href="https://docs.growthbook.io/faq#what-are-the-growthbook-cloud-cdn-usage-limits"
+          className="text-decoration-none"
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => {
+            track("Clicked Read About CDN Limits Link");
+          }}
+        >
+          <strong className="a link-purple">
+            Read about CDN limits and techniques to reduce usage{" "}
+            <PiArrowSquareOut style={{ position: "relative", top: "-2px" }} />
+          </strong>
+        </a>
+      </Box>
     </Frame>
   );
 }

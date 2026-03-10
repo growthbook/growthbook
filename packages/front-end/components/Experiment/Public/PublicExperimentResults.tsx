@@ -1,21 +1,25 @@
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import {
   MetricSnapshotSettings,
-} from "back-end/types/report";
+} from "shared/types/report";
 import { getSnapshotAnalysis } from "shared/util";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-import {ExperimentInterfaceStringDates} from "back-end/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+} from "shared/types/experiment";
+import { getEffectiveLookbackOverride } from "shared/experiments";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import DateResults from "@/components/Experiment/DateResults";
 import BreakDownResults from "@/components/Experiment/BreakDownResults";
 import CompactResults from "@/components/Experiment/CompactResults";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { MetricDrilldownProvider } from "@/components/MetricDrilldown/MetricDrilldownContext";
 import PublicExperimentAnalysisSettingsBar from "@/components/Experiment/Public/PublicExperimentAnalysisSettingsBar";
 
 export default function PublicExperimentResults({
@@ -74,8 +78,6 @@ export default function PublicExperimentResults({
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
 
-  const isBandit = experiment?.type === "multi-armed-bandit";
-
   const showBreakDownResults =
     hasData &&
     !!snapshot?.dimension &&
@@ -119,7 +121,32 @@ export default function PublicExperimentResults({
             <LoadingSpinner />
           </div>
         ) : (
-          <>
+          <MetricDrilldownProvider
+            experimentId={experiment.id}
+            phase={phase}
+            experimentStatus={experiment.status}
+            analysis={analysis ?? null}
+            variations={variations}
+            goalMetrics={experiment.goalMetrics}
+            secondaryMetrics={experiment.secondaryMetrics}
+            guardrailMetrics={experiment.guardrailMetrics}
+            metricOverrides={experiment.metricOverrides ?? []}
+            settingsForSnapshotMetrics={settingsForSnapshotMetrics}
+            customMetricSlices={experiment.customMetricSlices}
+            statsEngine={analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE}
+            pValueCorrection={pValueCorrection}
+            startDate={phaseObj?.dateStarted ?? ""}
+            endDate={phaseObj?.dateEnded ?? ""}
+            reportDate={snapshot.dateCreated}
+            isLatestPhase={phase === experiment.phases.length - 1}
+            sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
+            lookbackOverride={getEffectiveLookbackOverride(
+              snapshot?.settings?.attributionModel,
+              snapshot?.settings?.lookbackOverride,
+            )}
+            differenceType={analysis?.settings?.differenceType || "relative"}
+            ssrPolyfills={ssrPolyfills}
+          >
             {showDateResults ? (
               <DateResults
                 goalMetrics={experiment.goalMetrics}
@@ -134,6 +161,7 @@ export default function PublicExperimentResults({
               />
             ) : showBreakDownResults ? (
               <BreakDownResults
+                experimentId={experiment.id}
                 key={snapshot.dimension}
                 results={analysis?.results ?? []}
                 queryStatusData={queryStatusData}
@@ -144,6 +172,7 @@ export default function PublicExperimentResults({
                 metricOverrides={experiment.metricOverrides ?? []}
                 dimensionId={snapshot.dimension ?? ""}
                 isLatestPhase={phase === experiment.phases.length - 1}
+                phase={phase}
                 startDate={phaseObj?.dateStarted ?? ""}
                 endDate={phaseObj?.dateEnded ?? ""}
                 reportDate={snapshot.dateCreated}
@@ -151,16 +180,15 @@ export default function PublicExperimentResults({
                 status={experiment.status}
                 statsEngine={analysis.settings.statsEngine}
                 pValueCorrection={pValueCorrection}
-                regressionAdjustmentEnabled={analysis?.settings?.regressionAdjusted}
                 settingsForSnapshotMetrics={settingsForSnapshotMetrics}
                 sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
                 differenceType={analysis.settings?.differenceType}
-                isBandit={isBandit}
+                experimentType={experiment.type}
                 ssrPolyfills={ssrPolyfills}
-                hideDetails={true}
               />
             ) : showCompactResults ? (
               <CompactResults
+                experimentId={experiment.id}
                 variations={variations}
                 multipleExposures={snapshot.multipleExposures || 0}
                 results={analysis.results[0]}
@@ -169,6 +197,7 @@ export default function PublicExperimentResults({
                 startDate={phaseObj?.dateStarted ?? ""}
                 endDate={phaseObj?.dateEnded ?? ""}
                 isLatestPhase={phase === experiment.phases.length - 1}
+                phase={phase}
                 status={experiment.status}
                 goalMetrics={experiment.goalMetrics}
                 secondaryMetrics={experiment.secondaryMetrics}
@@ -177,17 +206,15 @@ export default function PublicExperimentResults({
                 id={experiment.id}
                 statsEngine={analysis.settings.statsEngine}
                 pValueCorrection={pValueCorrection}
-                regressionAdjustmentEnabled={analysis.settings?.regressionAdjusted}
                 settingsForSnapshotMetrics={settingsForSnapshotMetrics}
                 sequentialTestingEnabled={analysis.settings?.sequentialTesting}
                 differenceType={analysis.settings?.differenceType}
                 isTabActive={isTabActive}
                 experimentType={experiment.type}
                 ssrPolyfills={ssrPolyfills}
-                hideDetails={true}
               />
             ) : null}
-          </>
+          </MetricDrilldownProvider>
         )}
       </div>
     </>

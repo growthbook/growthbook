@@ -1,5 +1,5 @@
 import { FC, ChangeEventHandler } from "react";
-import { AthenaConnectionParams } from "back-end/types/integrations/athena";
+import { AthenaConnectionParams } from "shared/types/integrations/athena";
 import { isCloud } from "@/services/env";
 import Field from "@/components/Forms/Field";
 
@@ -149,7 +149,7 @@ const AthenaForm: FC<{
           type="text"
           className="form-control"
           name="catalog"
-          value={params.catalog || "AwsDataCatalog"}
+          value={params.catalog || ""}
           onChange={onParamChange}
         />
       </div>

@@ -3,10 +3,10 @@ import {
   CreateSDKConnectionParams,
   SDKConnectionInterface,
   SDKLanguage,
-} from "back-end/types/sdk-connection";
+} from "shared/types/sdk-connection";
 import { getLatestSDKVersion, getSDKCapabilities } from "shared/sdk-versioning";
-import { ProjectInterface } from "back-end/types/project";
-import { Environment } from "back-end/types/organization";
+import { ProjectInterface } from "shared/types/project";
+import { Environment } from "shared/types/organization";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
 import PagedModal from "@/components/Modal/PagedModal";
@@ -56,7 +56,7 @@ export default function SetupFlow() {
   const { datasources, mutateDefinitions, project } = useDefinitions();
   const environments = useEnvironments();
   const [languageFilter, setLanguageFilter] = useState<LanguageFilter>(
-    getConnectionLanguageFilter([])
+    getConnectionLanguageFilter([]),
   );
 
   const sdkConnectionForm = useForm<SdkFormValues>({
@@ -181,9 +181,8 @@ export default function SetupFlow() {
 
             const sdkCapabilities = getSDKCapabilities(value.languages[0]);
 
-            const canUseVisualEditor = sdkCapabilities.includes(
-              "visualEditorJS"
-            );
+            const canUseVisualEditor =
+              sdkCapabilities.includes("visualEditorJS");
 
             const canUseUrlRedirects = sdkCapabilities.includes("redirects");
 
@@ -213,7 +212,7 @@ export default function SetupFlow() {
               {
                 method: "POST",
                 body: JSON.stringify(body),
-              }
+              },
             );
             setConnection(res.connection.id);
             track("Create SDK Connection", {

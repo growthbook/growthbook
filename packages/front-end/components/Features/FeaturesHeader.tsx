@@ -1,54 +1,59 @@
 import { useRouter } from "next/router";
-import React, { useMemo, useState } from "react";
-import { Box, Flex, Heading, Text } from "@radix-ui/themes";
-import { FeatureInterface } from "back-end/types/feature";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { filterEnvironmentsByFeature, isFeatureStale } from "shared/util";
+import React, { useEffect, useRef, useState } from "react";
+import { Box, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
+import { FeatureInterface } from "shared/types/feature";
+import { filterEnvironmentsByFeature } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { ImBlocked } from "react-icons/im";
+import { BsThreeDotsVertical } from "react-icons/bs";
+import { HoldoutInterface } from "shared/validators";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useUser } from "@/services/UserContext";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import ConfirmButton from "@/components/Modal/ConfirmButton";
 import { getEnabledEnvironments, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SortedTags from "@/components/Tags/SortedTags";
 import WatchButton from "@/components/WatchButton";
-import Modal from "@/components/Modal";
-import HistoryTable from "@/components/HistoryTable";
+import CompareFeatureEventsModal from "@/components/Features/CompareFeatureEventsModal";
 import FeatureImplementationModal from "@/components/Features/FeatureImplementationModal";
 import FeatureModal from "@/components/Features/FeatureModal";
 import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
 import { FeatureTab } from "@/pages/features/[fid]";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import UserAvatar from "@/components/Avatar/UserAvatar";
-import { Tabs, TabsList, TabsTrigger } from "@/components/Radix/Tabs";
-import Callout from "@/components/Radix/Callout";
+import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
+import Callout from "@/ui/Callout";
 import ProjectBadges from "@/components/ProjectBadges";
+import { useHoldouts } from "@/hooks/useHoldouts";
+import Link from "@/ui/Link";
+import {
+  DropdownMenu,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/ui/DropdownMenu";
+import { useFeatureStaleStates } from "@/hooks/useFeatureStaleStates";
+import FeatureArchiveModal from "./FeatureArchiveModal";
+import FeatureDeleteModal from "./FeatureDeleteModal";
+import AddToHoldoutModal from "./AddToHoldoutModal";
 
 export default function FeaturesHeader({
   feature,
-  features,
-  experiments,
   mutate,
   tab,
   setTab,
   setEditFeatureInfoModal,
-  dependents,
+  holdout,
 }: {
   feature: FeatureInterface;
-  features: FeatureInterface[];
-  experiments: ExperimentInterfaceStringDates[] | undefined;
   mutate: () => void;
   tab: FeatureTab;
   setTab: (tab: FeatureTab) => void;
   setEditFeatureInfoModal: (open: boolean) => void;
-  dependents: number;
+  holdout: HoldoutInterface | undefined;
 }) {
   const router = useRouter();
   const projectId = feature?.project;
@@ -56,29 +61,56 @@ export default function FeaturesHeader({
   const [auditModal, setAuditModal] = useState(false);
   const [duplicateModal, setDuplicateModal] = useState(false);
   const [staleFFModal, setStaleFFModal] = useState(false);
+  const [addToHoldoutModal, setAddToHoldoutModal] = useState(false);
+  const [archiveModal, setArchiveModal] = useState(false);
+  const [deleteModal, setDeleteModal] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [staleStatusOpen, setStaleStatusOpen] = useState(false);
   const [showImplementation, setShowImplementation] = useState(firstFeature);
 
-  const { organization } = useUser();
+  const { organization, hasCommercialFeature, getOwnerDisplay } = useUser();
+  const ownerDisplay = getOwnerDisplay(feature.owner);
   const permissionsUtil = usePermissionsUtil();
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
-  const envs = environments.map((e) => e.id);
   const { apiCall } = useAuth();
   const {
     getProjectById,
     project: currentProject,
     projects,
   } = useDefinitions();
+  const { holdouts } = useHoldouts(feature.project);
+  const hasHoldoutsFeature = hasCommercialFeature("holdouts");
+  const holdoutsEnabled =
+    useFeatureIsOn("holdouts_feature") && hasHoldoutsFeature;
 
-  const { stale, reason } = useMemo(() => {
-    if (!feature) return { stale: false };
-    return isFeatureStale({
-      feature,
-      features,
-      experiments,
-      environments: envs,
-    });
-  }, [feature, features, experiments, envs]);
+  const staleHook = useFeatureStaleStates();
+  const staleData = staleHook.getStaleState(feature.id);
+
+  // Initial fetch when navigating to a feature (uses cache if fresh).
+  useEffect(() => {
+    staleHook.fetchSome([feature.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [feature.id]);
+
+  // Re-compute whenever the feature is saved (version increments on publish).
+  const prevVersionRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (
+      prevVersionRef.current !== null &&
+      prevVersionRef.current !== feature.version
+    ) {
+      staleHook.invalidate([feature.id]);
+      staleHook.fetchSome([feature.id]);
+    }
+    prevVersionRef.current = feature.version ?? 0;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [feature.id, feature.version]);
+
+  const handleRerunStale = async () => {
+    staleHook.invalidate([feature.id]);
+    await staleHook.fetchSome([feature.id]);
+  };
 
   const project = getProjectById(projectId || "");
   const projectName = project?.name || null;
@@ -113,171 +145,152 @@ export default function FeaturesHeader({
           )}
 
           <Flex align="center" justify="between">
-            <Flex align="center">
-              <Heading size="7" as="h1">
+            <Flex align="center" mb="2" gap="3">
+              <Heading size="7" as="h1" mb="0">
                 {feature.id}
               </Heading>
-              {stale && (
-                <div className="ml-2">
-                  <StaleFeatureIcon
-                    staleReason={reason}
-                    onClick={() => setStaleFFModal(true)}
-                  />
-                </div>
-              )}
+              <StaleFeatureIcon
+                neverStale={feature.neverStale}
+                valueType={feature.valueType}
+                staleData={staleData}
+                fetchStaleData={handleRerunStale}
+                onDisable={canEdit ? () => setStaleFFModal(true) : undefined}
+                open={staleStatusOpen}
+                onOpenChange={setStaleStatusOpen}
+              />
             </Flex>
-            <Box>
-              <MoreMenu useRadix={true}>
+            <DropdownMenu
+              trigger={
+                <IconButton
+                  variant="ghost"
+                  color="gray"
+                  radius="full"
+                  size="3"
+                  highContrast
+                >
+                  <BsThreeDotsVertical size={18} />
+                </IconButton>
+              }
+              open={dropdownOpen}
+              onOpenChange={setDropdownOpen}
+              menuPlacement="end"
+            >
+              <DropdownMenuGroup>
                 {canEdit && canPublish && (
-                  <a
-                    className="dropdown-item"
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
+                  <DropdownMenuItem
+                    onClick={() => {
                       setEditFeatureInfoModal(true);
+                      setDropdownOpen(false);
                     }}
                   >
                     Edit information
-                  </a>
+                  </DropdownMenuItem>
                 )}
-                <a
-                  className="dropdown-item"
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
+                <DropdownMenuItem
+                  onClick={() => {
                     setShowImplementation(true);
+                    setDropdownOpen(false);
                   }}
                 >
                   Show implementation
-                </a>
-                <a
-                  className="dropdown-item"
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
                     setAuditModal(true);
+                    setDropdownOpen(false);
                   }}
                 >
-                  View Audit Log
-                </a>
-                {canEdit && (
-                  <>
-                    <a
-                      className="dropdown-item"
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setStaleFFModal(true);
+                  Audit history
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+              {canEdit &&
+                canPublish &&
+                holdoutsEnabled &&
+                holdouts.length > 0 &&
+                !holdout?.id && (
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setAddToHoldoutModal(true);
+                        setDropdownOpen(false);
                       }}
                     >
-                      {feature.neverStale
-                        ? "Enable stale detection"
-                        : "Disable stale detection"}
-                    </a>
-                  </>
+                      Add to holdout
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
                 )}
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setStaleStatusOpen(true);
+                    setDropdownOpen(false);
+                  }}
+                >
+                  Check stale status
+                </DropdownMenuItem>
                 {canEdit && canPublish && (
-                  <a
-                    className="dropdown-item"
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setDuplicateModal(true);
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setStaleFFModal(true);
+                      setDropdownOpen(false);
                     }}
                   >
-                    Duplicate
-                  </a>
+                    {feature.neverStale
+                      ? "Enable stale detection"
+                      : "Disable stale detection"}
+                  </DropdownMenuItem>
                 )}
-                {canEdit && canPublish && (
-                  <Tooltip
-                    shouldDisplay={dependents > 0}
-                    usePortal={true}
-                    body={
-                      <div style={{ zIndex: 1050 }}>
-                        <ImBlocked className="text-danger" /> This feature has{" "}
-                        <strong>
-                          {dependents} dependent{dependents !== 1 && "s"}
-                        </strong>
-                        . This feature cannot be archived until{" "}
-                        {dependents === 1 ? "it has" : "they have"} been
-                        removed.
-                      </div>
-                    }
-                  >
-                    <ConfirmButton
-                      onClick={async () => {
-                        await apiCall(`/feature/${feature.id}/archive`, {
-                          method: "POST",
-                        });
-                        mutate();
+              </DropdownMenuGroup>
+              {canEdit && canPublish && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setDuplicateModal(true);
+                        setDropdownOpen(false);
                       }}
-                      modalHeader={
-                        isArchived ? "Unarchive Feature" : "Archive Feature"
-                      }
-                      confirmationText={
-                        isArchived ? (
-                          <>
-                            <p>
-                              Are you sure you want to continue? This will make
-                              the current feature active again.
-                            </p>
-                          </>
-                        ) : (
-                          <>
-                            <p>
-                              Are you sure you want to continue? This will make
-                              the current feature inactive. It will not be
-                              included in API responses or Webhook payloads.
-                            </p>
-                          </>
-                        )
-                      }
-                      cta={isArchived ? "Unarchive" : "Archive"}
-                      ctaColor="danger"
-                      disabled={dependents > 0}
                     >
-                      <button className="dropdown-item">
-                        {isArchived ? "Unarchive" : "Archive"}
-                      </button>
-                    </ConfirmButton>
-                  </Tooltip>
-                )}
-                {canEdit && canPublish && (
-                  <Tooltip
-                    shouldDisplay={dependents > 0}
-                    usePortal={true}
-                    body={
-                      <div style={{ zIndex: 1090, position: "relative" }}>
-                        <ImBlocked className="text-danger" /> This feature has{" "}
-                        <strong>
-                          {dependents} dependent{dependents !== 1 && "s"}
-                        </strong>
-                        . This feature cannot be deleted until{" "}
-                        {dependents === 1 ? "it has" : "they have"} been
-                        removed.
-                      </div>
-                    }
-                  >
-                    <hr className="my-2" />
-                    <DeleteButton
-                      useIcon={false}
-                      displayName="Feature"
-                      onClick={async () => {
-                        await apiCall(`/feature/${feature.id}`, {
-                          method: "DELETE",
-                        });
-                        await router.push("/features");
+                      Duplicate
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setArchiveModal(true);
+                        setDropdownOpen(false);
                       }}
-                      className="dropdown-item text-danger"
-                      text="Delete"
-                      disabled={dependents > 0}
-                    />
-                  </Tooltip>
-                )}
-              </MoreMenu>
-            </Box>
+                    >
+                      {isArchived ? "Unarchive" : "Archive"}
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                  {isArchived && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuGroup>
+                        <DropdownMenuItem
+                          color="red"
+                          onClick={() => {
+                            setDeleteModal(true);
+                            setDropdownOpen(false);
+                          }}
+                        >
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuGroup>
+                    </>
+                  )}
+                </>
+              )}
+            </DropdownMenu>
           </Flex>
           <Flex gap="4">
+            {holdout?.id && (
+              <Box>
+                <Text weight="medium">Holdout: </Text>
+                <Link href={`/holdout/${holdout.id}`}>{holdout.name}</Link>
+              </Box>
+            )}
+
             {(projects.length > 0 || projectIsDeReferenced) && (
               <Box>
                 <Text weight="medium">Project: </Text>
@@ -333,10 +346,10 @@ export default function FeaturesHeader({
 
             <Box>
               <Text weight="medium">Owner: </Text>
-              {feature.owner ? (
+              {ownerDisplay ? (
                 <span>
-                  <UserAvatar name={feature.owner} size="sm" variant="soft" />{" "}
-                  {feature.owner}
+                  <UserAvatar name={ownerDisplay} size="sm" variant="soft" />{" "}
+                  {ownerDisplay}
                 </span>
               ) : (
                 <em className="text-muted">None</em>
@@ -369,21 +382,16 @@ export default function FeaturesHeader({
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="test">Simulate</TabsTrigger>
               <TabsTrigger value="stats">Code Refs</TabsTrigger>
+              <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>
             </TabsList>
           </Tabs>
         </Box>
       </Box>
       {auditModal && (
-        <Modal
-          trackingEventModalType=""
-          open={true}
-          header="Audit Log"
-          close={() => setAuditModal(false)}
-          size="max"
-          closeCta="Close"
-        >
-          <HistoryTable type="feature" id={feature.id} />
-        </Modal>
+        <CompareFeatureEventsModal
+          feature={feature}
+          onClose={() => setAuditModal(false)}
+        />
       )}
       {duplicateModal && (
         <FeatureModal
@@ -401,6 +409,7 @@ export default function FeaturesHeader({
           close={() => setStaleFFModal(false)}
           feature={feature}
           mutate={mutate}
+          onEnable={handleRerunStale}
         />
       )}
       {showImplementation && (
@@ -409,6 +418,37 @@ export default function FeaturesHeader({
           first={firstFeature}
           close={() => {
             setShowImplementation(false);
+          }}
+        />
+      )}
+      {addToHoldoutModal && (
+        <AddToHoldoutModal
+          close={() => setAddToHoldoutModal(false)}
+          feature={feature}
+          mutate={mutate}
+        />
+      )}
+      {archiveModal && (
+        <FeatureArchiveModal
+          feature={feature}
+          close={() => setArchiveModal(false)}
+          onArchive={async () => {
+            await apiCall(`/feature/${feature.id}/archive`, {
+              method: "POST",
+            });
+            mutate();
+          }}
+        />
+      )}
+      {deleteModal && (
+        <FeatureDeleteModal
+          feature={feature}
+          close={() => setDeleteModal(false)}
+          onDelete={async () => {
+            await apiCall(`/feature/${feature.id}`, {
+              method: "DELETE",
+            });
+            await router.push("/features");
           }}
         />
       )}

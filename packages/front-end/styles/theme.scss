@@ -26,8 +26,8 @@
 
   --form-input-group-background: #e9ecef;
   --form-input-group-color: #{colors.$gray-700};
-  --form-multivalue-background-color: #f2ecfd;
-  --form-multivalue-text-color: #7c45ea;
+  --form-multivalue-background-color: var(--slate-a3);
+  --form-multivalue-text-color: var(--slate-12);
   --form-switch-background: #{colors.$gray-300};
   --form-switch-background-active: #{colors.$purple};
 
@@ -129,7 +129,10 @@
   --text-color-enterprise: #{colors.$white};
   --background-color: #{colors.$main-background-dark};
   --surface-background-color: #{colors.$surface-background-dark}; //rgba(0, 0, 0, 0.25);
-  --surface-background-color-alt: #{lighten(colors.$surface-background-dark, 4%)};
+  --surface-background-color-alt: #{lighten(
+      colors.$surface-background-dark,
+      4%
+    )};
   --table-row-hover-background-color: #{rgba(colors.$gray2, 0.15)};
   --table-row-highlight-background-color: #{lighten(
       colors.$surface-background-dark,
@@ -153,8 +156,8 @@
 
   --form-input-group-background: #{colors.$gray-800};
   --form-input-group-color: #{colors.$gray6};
-  --form-multivalue-background-color: #{darken(colors.$highlight-purple, 30%)};
-  --form-multivalue-text-color: #{colors.$gray4};
+  --form-multivalue-background-color: var(--slate-a3);
+  --form-multivalue-text-color: var(--slate-12);
   --form-switch-background: #{colors.$gray-800};
   --form-switch-background-active: #{colors.$highlight-purple};
 
@@ -251,20 +254,16 @@
   --step-color: #baa7ff;
 }
 
-.theme--light,
 .light-theme {
   @include light-theme();
 }
 
-.theme--dark,
 .dark-theme {
   @include dark-theme();
 }
 
 // OS default
-:root:not(.theme--light):not(.theme--dark):not(.dark-theme):not(.light-theme) {
-  @include light-theme();
-
+:root:not(.dark-theme):not(.light-theme) {
   @media (prefers-color-scheme: light) {
     @include light-theme();
   }

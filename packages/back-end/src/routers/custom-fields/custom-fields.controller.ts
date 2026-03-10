@@ -1,12 +1,12 @@
 import type { Response } from "express";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   CustomFieldSection,
   CustomFieldsInterface,
   CustomFieldTypes,
   CreateCustomFieldProps,
-} from "back-end/types/custom-fields";
+} from "shared/types/custom-fields";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { getContextFromReq } from "back-end/src/services/organizations";
 
 // region POST /custom-fields
 
@@ -30,9 +30,10 @@ type CreateCustomFieldResponse =
  */
 export const postCustomField = async (
   req: CreateCustomFieldRequest,
-  res: Response<CreateCustomFieldResponse>
+  res: Response<CreateCustomFieldResponse>,
 ) => {
   const {
+    id,
     name,
     description,
     placeholder,
@@ -49,19 +50,32 @@ export const postCustomField = async (
   if (!context.permissions.canManageCustomFields()) {
     context.permissions.throwPermissionError();
   }
+
+  if (!id) {
+    return context.throwBadRequestError("Must specify field key");
+  }
+
+  if (!id.match(/^[a-z0-9_-]+$/)) {
+    return context.throwBadRequestError(
+      "Custom field keys can only include lowercase letters, numbers, hyphens, and underscores.",
+    );
+  }
   const existingFields = await context.models.customFields.getCustomFields();
 
   // check if this name already exists:
   if (existingFields) {
     const existingCustomField = existingFields.fields.find(
-      (field) => field.name === name && field.section === section
+      (field) => field.name === name && field.section === section,
     );
     if (existingCustomField) {
-      throw new Error("Custom field name already exists for this section");
+      return context.throwBadRequestError(
+        "Custom field name already exists for this section",
+      );
     }
   }
 
   const updated = await context.models.customFields.addCustomField({
+    id,
     name,
     description,
     placeholder,
@@ -75,7 +89,7 @@ export const postCustomField = async (
   });
 
   if (!updated) {
-    throw new Error("Custom field not created");
+    context.throwInternalServerError("Custom field not created");
   }
 
   return res.status(200).json({
@@ -111,7 +125,7 @@ type ReorderCustomFieldsResponse =
  */
 export const postReorderCustomFields = async (
   req: ReorderCustomFieldsRequest,
-  res: Response<ReorderCustomFieldsResponse>
+  res: Response<ReorderCustomFieldsResponse>,
 ) => {
   const { oldId, newId } = req.body;
 
@@ -130,7 +144,7 @@ export const postReorderCustomFields = async (
 
   const customField = await context.models.customFields.reorderCustomFields(
     oldId,
-    newId
+    newId,
   );
 
   if (!customField) {
@@ -178,8 +192,10 @@ type PutCustomFieldResponse = {
  */
 export const putCustomField = async (
   req: PutCustomFieldRequest,
-  res: Response<PutCustomFieldResponse>
+  res: Response<PutCustomFieldResponse>,
 ) => {
+  const context = getContextFromReq(req);
+
   const {
     name,
     description,
@@ -195,12 +211,10 @@ export const putCustomField = async (
   const { id } = req.params;
 
   if (!id) {
-    throw new Error("Must specify custom field id");
+    return context.throwBadRequestError("Must specify custom field id");
   }
 
   req.checkPermissions("manageCustomFields");
-
-  const context = getContextFromReq(req);
 
   const newCustomFields = await context.models.customFields.updateCustomField(
     id,
@@ -215,11 +229,11 @@ export const putCustomField = async (
       index: !!index,
       projects,
       section,
-    }
+    },
   );
 
   if (!newCustomFields) {
-    throw new Error("Custom field not updated");
+    context.throwInternalServerError("Custom field not updated");
   }
 
   return res.status(200).json({
@@ -245,7 +259,7 @@ type DeleteCustomFieldRequest = AuthRequest<
  */
 export const deleteCustomField = async (
   req: DeleteCustomFieldRequest,
-  res: Response<{ status: 200 }>
+  res: Response<{ status: 200 }>,
 ) => {
   req.checkPermissions("manageCustomFields");
 
@@ -255,7 +269,7 @@ export const deleteCustomField = async (
   const customFields = await context.models.customFields.deleteCustomField(id);
 
   if (!customFields) {
-    throw new Error("Custom field not found");
+    return context.throwNotFoundError("Custom field not found");
   }
 
   res.status(200).json({

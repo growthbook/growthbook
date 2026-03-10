@@ -1,16 +1,24 @@
 import mongoose, { FilterQuery, PipelineStage } from "mongoose";
 import omit from "lodash/omit";
 import {
+  snapshotSatisfiesBlock,
+  blockHasFieldOfType,
+  DashboardInterface,
+} from "shared/enterprise";
+import { isString } from "shared/util";
+import {
   SnapshotType,
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
   LegacyExperimentSnapshotInterface,
-} from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment-snapshot";
 import { logger } from "back-end/src/util/logger";
 import { migrateSnapshot } from "back-end/src/util/migrations";
 import { notifyExperimentChange } from "back-end/src/services/experimentNotifications";
 import { updateExperimentAnalysisSummary } from "back-end/src/services/experiments";
 import { updateExperimentTimeSeries } from "back-end/src/services/experimentTimeSeries";
+import { ReqContext } from "back-end/types/request";
+import { ApiReqContext } from "back-end/types/api";
 import { queriesSchema } from "./QueryModel";
 import { Context } from "./BaseModel";
 import { getExperimentById } from "./ExperimentModel";
@@ -109,6 +117,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
               ],
               chanceToWin: Number,
               pValue: Number,
+              supplementalResults: {},
             },
           },
         },
@@ -174,22 +183,23 @@ experimentSnapshotSchema.index({
 export type ExperimentSnapshotDocument = mongoose.Document &
   LegacyExperimentSnapshotInterface;
 
-const ExperimentSnapshotModel = mongoose.model<LegacyExperimentSnapshotInterface>(
-  "ExperimentSnapshot",
-  experimentSnapshotSchema
-);
+const ExperimentSnapshotModel =
+  mongoose.model<LegacyExperimentSnapshotInterface>(
+    "ExperimentSnapshot",
+    experimentSnapshotSchema,
+  );
 
 const toInterface = (
-  doc: ExperimentSnapshotDocument
+  doc: ExperimentSnapshotDocument,
 ): ExperimentSnapshotInterface =>
   migrateSnapshot(
-    omit(doc.toJSON<ExperimentSnapshotDocument>(), ["__v", "_id"])
+    omit(doc.toJSON<ExperimentSnapshotDocument>(), ["__v", "_id"]),
   );
 
 export async function updateSnapshotsOnPhaseDelete(
   organization: string,
   experiment: string,
-  phase: number
+  phase: number,
 ) {
   // Delete all snapshots for the phase
   await ExperimentSnapshotModel.deleteMany({
@@ -211,7 +221,7 @@ export async function updateSnapshotsOnPhaseDelete(
       $inc: {
         phase: -1,
       },
-    }
+    },
   );
 }
 
@@ -233,7 +243,7 @@ export async function updateSnapshot({
     },
     {
       $set: updates,
-    }
+    },
   );
 
   const experimentSnapshotModel = await ExperimentSnapshotModel.findOne({
@@ -249,7 +259,7 @@ export async function updateSnapshot({
   if (shouldUpdateExperimentAnalysisSummary) {
     const currentExperimentModel = await getExperimentById(
       context,
-      experimentSnapshotModel.experiment
+      experimentSnapshotModel.experiment,
     );
 
     const isLatestPhase = currentExperimentModel
@@ -286,9 +296,46 @@ export async function updateSnapshot({
             experimentId: currentExperimentModel.id,
             snapshotId: experimentSnapshotModel.id,
           },
-          "Unable to update experiment time series"
+          "Unable to update experiment time series",
         );
       }
+    }
+  }
+
+  const updateDashboardWithSnapshot = async (dashboard: DashboardInterface) => {
+    let updatedBlock = false;
+    const blocks = dashboard.blocks.map((block) => {
+      if (
+        !blockHasFieldOfType(block, "snapshotId", isString) ||
+        !snapshotSatisfiesBlock(experimentSnapshotModel, block)
+      )
+        return block;
+      updatedBlock = true;
+      return { ...block, snapshotId: experimentSnapshotModel.id };
+    });
+    if (updatedBlock) {
+      await context.models.dashboards.dangerousUpdateBypassPermission(
+        dashboard,
+        {
+          blocks,
+        },
+      );
+    }
+  };
+
+  if (
+    experimentSnapshotModel.status === "success" &&
+    // Only use main snapshots or those triggered automatically for dashboards
+    experimentSnapshotModel.triggeredBy !== "manual-dashboard" &&
+    (experimentSnapshotModel.triggeredBy === "update-dashboards" ||
+      experimentSnapshotModel.type === "standard")
+  ) {
+    const dashboards = await context.models.dashboards.findByExperiment(
+      experimentSnapshotModel.experiment,
+      { enableAutoUpdates: true },
+    );
+    for (const dashboard of dashboards) {
+      await updateDashboardWithSnapshot(dashboard);
     }
   }
 }
@@ -300,7 +347,7 @@ export type AddOrUpdateSnapshotAnalysisParams = {
 };
 
 export async function addOrUpdateSnapshotAnalysis(
-  params: AddOrUpdateSnapshotAnalysisParams
+  params: AddOrUpdateSnapshotAnalysisParams,
 ) {
   const { organization, id, analysis } = params;
   // looks for snapshots with this ID but WITHOUT these analysis settings
@@ -312,7 +359,7 @@ export async function addOrUpdateSnapshotAnalysis(
     },
     {
       $push: { analyses: analysis },
-    }
+    },
   );
   // if analysis already exist, no documents will be returned by above query
   // so instead find and update existing analysis in DB
@@ -338,7 +385,7 @@ export async function updateSnapshotAnalysis({
     },
     {
       $set: { "analyses.$": analysis },
-    }
+    },
   );
 
   const experimentSnapshotModel = await ExperimentSnapshotModel.findOne({
@@ -361,10 +408,21 @@ export async function deleteSnapshotById(organization: string, id: string) {
 
 export async function findSnapshotById(
   organization: string,
-  id: string
+  id: string,
 ): Promise<ExperimentSnapshotInterface | null> {
   const doc = await ExperimentSnapshotModel.findOne({ organization, id });
   return doc ? toInterface(doc) : null;
+}
+
+export async function findSnapshotsByIds(
+  context: ReqContext | ApiReqContext,
+  ids: string[],
+): Promise<ExperimentSnapshotInterface[]> {
+  const docs = await ExperimentSnapshotModel.find({
+    organization: context.org.id,
+    id: { $in: ids },
+  });
+  return docs.map(toInterface);
 }
 
 export async function findRunningSnapshotsByQueryId(ids: string[]) {
@@ -384,7 +442,7 @@ export async function findRunningSnapshotsByQueryId(ids: string[]) {
 
 export async function findLatestRunningSnapshotByReportId(
   organization: string,
-  report: string
+  report: string,
 ) {
   // Only look for match in the past 24 hours to make the query more efficient
   // Older snapshots should not still be running anyway
@@ -429,6 +487,14 @@ export async function getLatestSnapshot({
     query.type = { $ne: "report" };
   }
 
+  // FIXME: This is a hack to prefer running snapshots over schedules failed ones
+  // We need to have a more robust solution for this and be opinionated on how we surface
+  // different results that are generated by different systems (manual vs scheduled)
+  //
+  // This avoids showing errors from a scheduled run over an in-progress run in the UI.
+  const shouldPreferRunningOverScheduledError =
+    !type && !withResults && !beforeSnapshot;
+
   // First try getting new snapshots that have a `status` field
   let all = await ExperimentSnapshotModel.find(
     {
@@ -444,11 +510,42 @@ export async function getLatestSnapshot({
     {
       sort: { dateCreated: -1 },
       limit: 1,
-    }
+    },
   ).exec();
 
   if (all[0]) {
-    return toInterface(all[0]);
+    const mostRecentSnapshot = all[0];
+
+    if (
+      shouldPreferRunningOverScheduledError &&
+      mostRecentSnapshot.status === "error" &&
+      mostRecentSnapshot.triggeredBy === "schedule"
+    ) {
+      // Avoid fetching stale snapshots
+      const windowToConsider = new Date(
+        mostRecentSnapshot.dateCreated.getTime() - 5 * 60 * 60 * 1000,
+      );
+      const runningSnapshot = await ExperimentSnapshotModel.findOne(
+        {
+          ...query,
+          status: "running",
+          dateCreated: {
+            $lt: mostRecentSnapshot.dateCreated,
+            $gt: windowToConsider,
+          },
+        },
+        null,
+        {
+          sort: { dateCreated: -1 },
+        },
+      ).exec();
+
+      if (runningSnapshot) {
+        return toInterface(runningSnapshot);
+      }
+    }
+
+    return toInterface(mostRecentSnapshot);
   }
 
   // Otherwise, try getting old snapshot records
@@ -468,7 +565,7 @@ export async function getLatestSnapshot({
 export async function getLatestSnapshotMultipleExperiments(
   experimentPhaseMap: Map<string, number>,
   dimension?: string,
-  withResults: boolean = true
+  withResults: boolean = true,
 ): Promise<ExperimentSnapshotInterface[]> {
   const experimentPhasesToGet = new Map(experimentPhaseMap);
   const query: FilterQuery<ExperimentSnapshotDocument> = {
@@ -503,9 +600,10 @@ export async function getLatestSnapshotMultipleExperiments(
     },
   ];
 
-  const all = await ExperimentSnapshotModel.aggregate<ExperimentSnapshotDocument>(
-    aggregatePipeline
-  ).exec();
+  const all =
+    await ExperimentSnapshotModel.aggregate<ExperimentSnapshotDocument>(
+      aggregatePipeline,
+    ).exec();
 
   const snapshots: ExperimentSnapshotInterface[] = [];
   if (all[0]) {
@@ -534,5 +632,5 @@ export async function createExperimentSnapshotModel({
 }
 
 export const getDefaultAnalysisResults = (
-  snapshot: ExperimentSnapshotDocument
+  snapshot: ExperimentSnapshotDocument,
 ) => snapshot.analyses?.[0]?.results?.[0];

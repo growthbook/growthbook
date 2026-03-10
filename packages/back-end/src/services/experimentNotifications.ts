@@ -1,36 +1,45 @@
-import { includeExperimentInPayload, getSnapshotAnalysis } from "shared/util";
-import { getMetricResultStatus } from "shared/experiments";
 import {
-  DEFAULT_DECISION_CRITERIA,
-  DEFAULT_DECISION_CRITERIAS,
+  includeExperimentInPayload,
+  getSnapshotAnalysis,
+  ensureAndReturn,
+} from "shared/util";
+import {
+  expandMetricGroups,
+  getMetricResultStatus,
+  setAdjustedCIs,
+  setAdjustedPValuesOnResults,
+} from "shared/experiments";
+import cloneDeep from "lodash/cloneDeep";
+import {
+  PRESET_DECISION_CRITERIA,
+  PRESET_DECISION_CRITERIAS,
   getExperimentResultStatus,
   getHealthSettings,
 } from "shared/enterprise";
-import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { StatsEngine } from "back-end/types/stats";
-import { Context } from "back-end/src/models/BaseModel";
-import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
-import { updateExperiment } from "back-end/src/models/ExperimentModel";
-import { getExperimentWatchers } from "back-end/src/models/WatchModel";
-import { logger } from "back-end/src/util/logger";
-import {
-  ExperimentSnapshotDocument,
-  getLatestSnapshot,
-} from "back-end/src/models/ExperimentSnapshotModel";
+import { ExperimentAnalysisSummary } from "shared/validators";
+import { StatsEngine } from "shared/types/stats";
 import {
   ExperimentHealthSettings,
   ExperimentInterface,
   ExperimentNotification,
   ExperimentResultStatusData,
-} from "back-end/types/experiment";
-import { ResourceEvents } from "back-end/src/events/base-types";
-import { ensureAndReturn } from "back-end/src/util/types";
+} from "shared/types/experiment";
+import { ResourceEvents } from "shared/types/events/base-types";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { Context } from "back-end/src/models/BaseModel";
+import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
+import { updateExperiment } from "back-end/src/models/ExperimentModel";
+import { logger } from "back-end/src/util/logger";
+import {
+  ExperimentSnapshotDocument,
+  getLatestSnapshot,
+} from "back-end/src/models/ExperimentSnapshotModel";
 import { getExperimentMetricById } from "back-end/src/services/experiments";
-import { ExperimentAnalysisSummary } from "back-end/src/validators/experiments";
 import {
   getConfidenceLevelsForOrg,
   getEnvironmentIdsFromOrg,
   getMetricDefaultsForOrg,
+  getPValueCorrectionForOrg,
   getPValueThresholdForOrg,
 } from "./organizations";
 import { isEmailEnabled, sendExperimentChangesEmail } from "./email";
@@ -223,8 +232,9 @@ type ExperimentSignificanceChange = {
 };
 
 const sendSignificanceEmail = async (
+  context: Context,
   experiment: ExperimentInterface,
-  experimentChanges: ExperimentSignificanceChange[]
+  experimentChanges: ExperimentSignificanceChange[],
 ) => {
   const messages = experimentChanges.map(
     ({ metricName, variationName, winning, statsEngine, criticalValue }) => {
@@ -232,27 +242,26 @@ const sendSignificanceEmail = async (
         return `The metric ${metricName} for variation ${variationName} is
          ${winning ? "beating" : "losing to"} the baseline and has
          reached statistical significance (p-value = ${criticalValue.toFixed(
-           3
+           3,
          )}).`;
       }
       return `The metric ${metricName} for variation ${variationName} has ${
         winning ? "reached a" : "dropped to a"
       } ${(criticalValue * 100).toFixed(1)} chance to beat the baseline.`;
-    }
+    },
   );
 
   try {
     // send an email to any subscribers on this test:
-    const watchers = await getExperimentWatchers(
+    const watchers = await context.models.watch.getExperimentWatchers(
       experiment.id,
-      experiment.organization
     );
 
     await sendExperimentChangesEmail(
       watchers,
       experiment.id,
       experiment.name,
-      messages
+      messages,
     );
   } catch (e) {
     logger.error(e, "Failed to send significance email");
@@ -269,8 +278,7 @@ export const computeExperimentChanges = async ({
   snapshot: ExperimentSnapshotDocument;
 }): Promise<ExperimentSignificanceChange[]> => {
   const currentAnalysis = getSnapshotAnalysis(currentSnapshot);
-  const currentVariations = currentAnalysis?.results?.[0]?.variations;
-  if (!currentAnalysis || !currentVariations) {
+  if (!currentAnalysis?.results?.[0]?.variations) {
     return [];
   }
 
@@ -282,7 +290,6 @@ export const computeExperimentChanges = async ({
   const lastAnalysis = lastSnapshot
     ? getSnapshotAnalysis(lastSnapshot)
     : undefined;
-  const lastVariations = lastAnalysis?.results?.[0]?.variations;
 
   // TODO refactor to only do once per update
   // get the org level settings for significance:
@@ -290,6 +297,36 @@ export const computeExperimentChanges = async ({
   const { ciUpper, ciLower } = getConfidenceLevelsForOrg(context);
   const metricDefaults = getMetricDefaultsForOrg(context);
   const pValueThreshold = getPValueThresholdForOrg(context);
+  const pValueCorrection = getPValueCorrectionForOrg(context);
+
+  // Apply p-value correction to match what the UI and analysisSummary use,
+  // so notifications don't fire for metrics that appear non-significant to users
+  const metricGroups = await context.models.metricGroups.getAll();
+  const expandedGoalMetrics = expandMetricGroups(
+    experiment.goalMetrics,
+    metricGroups,
+  );
+
+  const currentResults = cloneDeep(currentAnalysis.results);
+  setAdjustedPValuesOnResults(
+    currentResults,
+    expandedGoalMetrics,
+    pValueCorrection,
+  );
+  setAdjustedCIs(currentResults, pValueThreshold);
+  const currentVariations = currentResults[0]?.variations;
+
+  let lastVariations = lastAnalysis?.results?.[0]?.variations;
+  if (lastAnalysis) {
+    const lastResults = cloneDeep(lastAnalysis.results);
+    setAdjustedPValuesOnResults(
+      lastResults,
+      expandedGoalMetrics,
+      pValueCorrection,
+    );
+    setAdjustedCIs(lastResults, pValueThreshold);
+    lastVariations = lastResults[0]?.variations;
+  }
 
   const experimentChanges: ExperimentSignificanceChange[] = [];
 
@@ -324,6 +361,7 @@ export const computeExperimentChanges = async ({
         ciUpper,
         pValueThreshold,
         statsEngine: statsEngine,
+        differenceType: currentAnalysis.settings.differenceType,
       });
 
       const { resultsStatus: lastResultsStatus } =
@@ -337,6 +375,7 @@ export const computeExperimentChanges = async ({
               ciUpper,
               pValueThreshold,
               statsEngine: lastAnalysis.settings.statsEngine,
+              differenceType: lastAnalysis.settings.differenceType,
             })
           : { resultsStatus: "" };
 
@@ -397,7 +436,7 @@ export const notifySignificance = async ({
     snapshot.triggeredBy === "schedule" &&
     snapshot.type === "standard"
   ) {
-    await sendSignificanceEmail(experiment, experimentChanges);
+    await sendSignificanceEmail(context, experiment, experimentChanges);
   }
 
   await Promise.all(
@@ -409,8 +448,8 @@ export const notifySignificance = async ({
         data: {
           object: change,
         },
-      })
-    )
+      }),
+    ),
   );
 };
 
@@ -464,25 +503,24 @@ export const notifyDecision = async ({
 
 async function getDecisionCriteria(
   context: Context,
-  decisionCriteriaId?: string
+  decisionCriteriaId?: string,
 ) {
   if (!decisionCriteriaId) {
-    return DEFAULT_DECISION_CRITERIA;
+    return PRESET_DECISION_CRITERIA;
   }
 
-  const usedPresetCriteria = DEFAULT_DECISION_CRITERIAS.find(
-    (dc) => dc.id === decisionCriteriaId
+  const usedPresetCriteria = PRESET_DECISION_CRITERIAS.find(
+    (dc) => dc.id === decisionCriteriaId,
   );
   if (usedPresetCriteria) {
     return usedPresetCriteria;
   }
 
-  const decisionCriteria = await context.models.decisionCriteria.getById(
-    decisionCriteriaId
-  );
+  const decisionCriteria =
+    await context.models.decisionCriteria.getById(decisionCriteriaId);
 
   if (!decisionCriteria) {
-    return DEFAULT_DECISION_CRITERIA;
+    return PRESET_DECISION_CRITERIA;
   }
 
   return decisionCriteria;
@@ -509,12 +547,13 @@ export const notifyExperimentChange = async ({
 
   const healthSettings = getHealthSettings(
     context.org.settings,
-    orgHasPremiumFeature(context.org, "decision-framework")
+    orgHasPremiumFeature(context.org, "decision-framework"),
   );
 
   const decisionCriteria = await getDecisionCriteria(
     context,
-    context.org.settings?.defaultDecisionCriteriaId
+    experiment.decisionFrameworkSettings?.decisionCriteriaId ??
+      context.org.settings?.defaultDecisionCriteriaId,
   );
 
   const currentStatus = getExperimentResultStatus({

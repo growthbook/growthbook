@@ -1,8 +1,8 @@
 import express from "express";
 import { z } from "zod";
+import { createPopulationDataPropsValidator } from "shared/validators";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
-import { createPopulationDataPropsValidator } from "./population-data.validators";
 import * as rawPopulationDataController from "./population-data.controller";
 
 const router = express.Router();
@@ -14,7 +14,7 @@ router.post(
   validateRequestMiddleware({
     body: createPopulationDataPropsValidator,
   }),
-  populationDataController.postPopulationData
+  populationDataController.postPopulationData,
 );
 
 router.post(
@@ -22,7 +22,7 @@ router.post(
   validateRequestMiddleware({
     params: z.object({ id: z.string() }).strict(),
   }),
-  populationDataController.cancelPopulationData
+  populationDataController.cancelPopulationData,
 );
 
 router.get(
@@ -30,7 +30,7 @@ router.get(
   validateRequestMiddleware({
     params: z.object({ id: z.string() }).strict(),
   }),
-  populationDataController.getPopulationData
+  populationDataController.getPopulationData,
 );
 
 export { router as populationDataRouter };

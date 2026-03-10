@@ -1,16 +1,13 @@
 import { z } from "zod";
+import { postMetricValidator, putMetricValidator } from "shared/validators";
+import { DataSourceInterface } from "shared/types/datasource";
+import { OrganizationInterface } from "shared/types/organization";
 import {
   postMetricApiPayloadIsValid,
   postMetricApiPayloadToMetricInterface,
   putMetricApiPayloadIsValid,
   putMetricApiPayloadToMetricInterface,
 } from "back-end/src/services/experiments";
-import {
-  postMetricValidator,
-  putMetricValidator,
-} from "back-end/src/validators/openapi";
-import { DataSourceInterface } from "back-end/types/datasource";
-import { OrganizationInterface } from "back-end/types/organization";
 
 describe("experiments utils", () => {
   describe("postMetricApiPayloadIsValid", () => {
@@ -61,7 +58,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "Can only specify one of: sql, sqlBuilder, mixpanel"
+        "Can only specify one of: sql, sqlBuilder, mixpanel",
       );
     });
 
@@ -87,7 +84,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "Binomial metrics cannot have userAggregationSQL"
+        "Binomial metrics cannot have userAggregationSQL",
       );
     });
 
@@ -116,7 +113,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither"
+        "Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither",
       );
     });
 
@@ -146,7 +143,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "`behavior.conversionWindowEnd` must be greater than `behavior.conversionWindowStart`"
+        "`behavior.conversionWindowEnd` must be greater than `behavior.conversionWindowStart`",
       );
     });
 
@@ -175,7 +172,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither"
+        "Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither",
       );
     });
 
@@ -204,7 +201,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "Must specify both `behavior.maxPercentChange` and `behavior.minPercentChange` or neither"
+        "Must specify both `behavior.maxPercentChange` and `behavior.minPercentChange` or neither",
       );
     });
 
@@ -233,7 +230,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "Must specify both `behavior.maxPercentChange` and `behavior.minPercentChange` or neither"
+        "Must specify both `behavior.maxPercentChange` and `behavior.minPercentChange` or neither",
       );
     });
 
@@ -263,7 +260,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "`behavior.maxPercentChange` must be greater than `behavior.minPercentChange`"
+        "`behavior.maxPercentChange` must be greater than `behavior.minPercentChange`",
       );
     });
 
@@ -292,7 +289,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "Must provide both riskThresholdDanger and riskThresholdSuccess or neither."
+        "Must provide both riskThresholdDanger and riskThresholdSuccess or neither.",
       );
     });
 
@@ -322,7 +319,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "riskThresholdDanger must be higher than riskThresholdSuccess"
+        "riskThresholdDanger must be higher than riskThresholdSuccess",
       );
     });
 
@@ -374,7 +371,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toBe(
-        "Can only specify one of: sql, sqlBuilder, mixpanel"
+        "Can only specify one of: sql, sqlBuilder, mixpanel",
       );
     });
   });
@@ -418,7 +415,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "Can only specify one of: sql, sqlBuilder, mixpanel"
+        "Can only specify one of: sql, sqlBuilder, mixpanel",
       );
     });
 
@@ -440,7 +437,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "Binomial metrics cannot have userAggregationSQL"
+        "Binomial metrics cannot have userAggregationSQL",
       );
     });
 
@@ -465,7 +462,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither"
+        "Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither",
       );
     });
 
@@ -491,7 +488,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "`behavior.conversionWindowEnd` must be greater than `behavior.conversionWindowStart`"
+        "`behavior.conversionWindowEnd` must be greater than `behavior.conversionWindowStart`",
       );
     });
 
@@ -516,7 +513,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither"
+        "Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither",
       );
     });
 
@@ -541,7 +538,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "Must specify both `behavior.maxPercentChange` and `behavior.minPercentChange` or neither"
+        "Must specify both `behavior.maxPercentChange` and `behavior.minPercentChange` or neither",
       );
     });
 
@@ -566,7 +563,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "Must specify both `behavior.maxPercentChange` and `behavior.minPercentChange` or neither"
+        "Must specify both `behavior.maxPercentChange` and `behavior.minPercentChange` or neither",
       );
     });
 
@@ -592,7 +589,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "`behavior.maxPercentChange` must be greater than `behavior.minPercentChange`"
+        "`behavior.maxPercentChange` must be greater than `behavior.minPercentChange`",
       );
     });
 
@@ -617,7 +614,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "Must provide both riskThresholdDanger and riskThresholdSuccess or neither."
+        "Must provide both riskThresholdDanger and riskThresholdSuccess or neither.",
       );
     });
 
@@ -643,7 +640,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "riskThresholdDanger must be higher than riskThresholdSuccess"
+        "riskThresholdDanger must be higher than riskThresholdSuccess",
       );
     });
 
@@ -715,7 +712,7 @@ describe("experiments utils", () => {
         const result = postMetricApiPayloadToMetricInterface(
           input,
           organization,
-          datasource
+          datasource,
         );
 
         expect(result.aggregation).toEqual("sum(values)");
@@ -784,7 +781,7 @@ describe("experiments utils", () => {
         const result = postMetricApiPayloadToMetricInterface(
           input,
           organization,
-          datasource
+          datasource,
         );
 
         expect(result.aggregation).toEqual(undefined);
@@ -798,7 +795,7 @@ describe("experiments utils", () => {
         expect(result.datasource).toEqual("ds_abc123");
         expect(result.denominator).toBe(undefined);
         expect(result.description).toEqual(
-          "This is a metric with lots of fields"
+          "This is a metric with lots of fields",
         );
         expect(result.ignoreNulls).toEqual(false);
         expect(result.inverse).toEqual(true);
@@ -871,7 +868,7 @@ describe("experiments utils", () => {
         const result = postMetricApiPayloadToMetricInterface(
           input,
           organization,
-          datasource
+          datasource,
         );
 
         expect(result.cappingSettings.type).toEqual("absolute");
@@ -927,7 +924,7 @@ describe("experiments utils", () => {
         const result = postMetricApiPayloadToMetricInterface(
           input,
           organization,
-          datasource
+          datasource,
         );
 
         expect(result.windowSettings.delayValue).toEqual(5);
@@ -979,7 +976,7 @@ describe("experiments utils", () => {
         const result = postMetricApiPayloadToMetricInterface(
           input,
           organization,
-          datasource
+          datasource,
         );
 
         expect(result.windowSettings.delayValue).toEqual(10);
@@ -1018,7 +1015,7 @@ describe("experiments utils", () => {
       const result = postMetricApiPayloadToMetricInterface(
         input,
         organization,
-        datasource
+        datasource,
       );
 
       expect(result.aggregation).toEqual("sum(values)");
@@ -1130,7 +1127,7 @@ describe("putMetricApiPayloadToMetricInterface", () => {
       expect(result.datasource).toBe(undefined);
       expect(result.denominator).toBe(undefined);
       expect(result.description).toEqual(
-        "This is a metric with lots of fields"
+        "This is a metric with lots of fields",
       );
       expect(result.ignoreNulls).toBe(undefined);
       expect(result.inverse).toEqual(true);

@@ -1,10 +1,10 @@
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import {
   LDListFeatureFlagsResponse,
   transformLDEnvironmentsToGBEnvironment,
   transformLDFeatureFlagToGBFeature,
   transformLDProjectsToGBProject,
-} from "@/services/importing";
+} from "@/services/importing/launchdarkly/launchdarkly-importing";
 
 describe("importing utils", () => {
   describe("transformLDEnvironmentsToGBEnvironment", () => {
@@ -29,13 +29,11 @@ describe("importing utils", () => {
                 type: "text/html",
               },
               apiKey: {
-                href:
-                  "/api/v2/projects/default/environments/development/apiKey",
+                href: "/api/v2/projects/default/environments/development/apiKey",
                 type: "application/json",
               },
               mobileKey: {
-                href:
-                  "/api/v2/projects/default/environments/development/mobileKey",
+                href: "/api/v2/projects/default/environments/development/mobileKey",
                 type: "application/json",
               },
               self: {
@@ -68,8 +66,7 @@ describe("importing utils", () => {
                 type: "application/json",
               },
               mobileKey: {
-                href:
-                  "/api/v2/projects/default/environments/production/mobileKey",
+                href: "/api/v2/projects/default/environments/production/mobileKey",
                 type: "application/json",
               },
               self: {
@@ -362,7 +359,7 @@ describe("importing utils", () => {
 
       const result = transformLDFeatureFlagToGBFeature(
         booleanTypeInput,
-        "prj_abc1234"
+        "prj_abc1234",
       );
 
       expect(result).toEqual(expected);
@@ -370,7 +367,7 @@ describe("importing utils", () => {
 
     it("should transform complex feature with multiple rules, targets, and prerequisites", () => {
       const result = transformLDFeatureFlagToGBFeature(
-        ({
+        {
           _links: {
             self: {
               href: "/api/v2/flags/my-first-project?summary=true",
@@ -420,8 +417,7 @@ describe("importing utils", () => {
                   type: "application/json",
                 },
                 self: {
-                  href:
-                    "/api/v2/flags/ld-to-gb-migration-testing/ff-test-multiple-targets",
+                  href: "/api/v2/flags/ld-to-gb-migration-testing/ff-test-multiple-targets",
                   type: "application/json",
                 },
               },
@@ -516,8 +512,7 @@ describe("importing utils", () => {
                     },
                   ],
                   _site: {
-                    href:
-                      "/ld-to-gb-migration-testing/production/features/ff-test-multiple-targets",
+                    href: "/ld-to-gb-migration-testing/production/features/ff-test-multiple-targets",
                     type: "text/html",
                   },
                   _environmentName: "Production",
@@ -565,8 +560,7 @@ describe("importing utils", () => {
                   offVariation: 1,
                   prerequisites: [],
                   _site: {
-                    href:
-                      "/ld-to-gb-migration-testing/test/features/ff-test-multiple-targets",
+                    href: "/ld-to-gb-migration-testing/test/features/ff-test-multiple-targets",
                     type: "text/html",
                   },
                   _environmentName: "Test",
@@ -632,8 +626,7 @@ describe("importing utils", () => {
                   type: "application/json",
                 },
                 self: {
-                  href:
-                    "/api/v2/flags/ld-to-gb-migration-testing/ff-test-multiple-rules",
+                  href: "/api/v2/flags/ld-to-gb-migration-testing/ff-test-multiple-rules",
                   type: "application/json",
                 },
               },
@@ -728,8 +721,7 @@ describe("importing utils", () => {
                   offVariation: 1,
                   prerequisites: [],
                   _site: {
-                    href:
-                      "/ld-to-gb-migration-testing/production/features/ff-test-multiple-rules",
+                    href: "/ld-to-gb-migration-testing/production/features/ff-test-multiple-rules",
                     type: "text/html",
                   },
                   _environmentName: "Production",
@@ -764,8 +756,8 @@ describe("importing utils", () => {
               },
             },
           ],
-        } as unknown) as LDListFeatureFlagsResponse,
-        "prj_xyz987"
+        } as unknown as LDListFeatureFlagsResponse,
+        "prj_xyz987",
       );
 
       const ruleIds0 = result?.[0]?.environmentSettings?.[
@@ -962,8 +954,7 @@ describe("importing utils", () => {
               development: {
                 _environmentName: "Development",
                 _site: {
-                  href:
-                    "/my-first-project/development/features/custom_banner_html",
+                  href: "/my-first-project/development/features/custom_banner_html",
                   type: "text/html",
                 },
                 _summary: {
@@ -995,8 +986,7 @@ describe("importing utils", () => {
               production: {
                 _environmentName: "Production",
                 _site: {
-                  href:
-                    "/my-first-project/production/features/custom_banner_html",
+                  href: "/my-first-project/production/features/custom_banner_html",
                   type: "text/html",
                 },
                 _summary: {
@@ -1125,7 +1115,7 @@ describe("importing utils", () => {
 
       const result = transformLDFeatureFlagToGBFeature(
         stringTypeInput,
-        "prj_xyz987"
+        "prj_xyz987",
       );
 
       expect(result).toEqual(expected);

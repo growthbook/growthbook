@@ -1,5 +1,5 @@
 import { ReactElement } from "react";
-import Avatar, { Props as AvatarProps } from "@/components/Radix/Avatar";
+import Avatar, { Props as AvatarProps } from "@/ui/Avatar";
 
 type Props = {
   name: string;
@@ -8,12 +8,13 @@ type Props = {
 
 const getUserAvatar = (
   name: string,
-  icon?: ReactElement
+  icon?: ReactElement,
 ): string | ReactElement => {
   if (icon) return icon;
+  if (!name) return "";
 
-  const firstNameLetter = name?.charAt(0);
-  const lastNameLetter = name?.split(" ")[1]?.charAt(0) || "";
+  const firstNameLetter = name.charAt(0);
+  const lastNameLetter = name.split(" ")[1]?.charAt(0) || "";
   const userInitials =
     name.toLowerCase() === "api"
       ? name.toUpperCase()

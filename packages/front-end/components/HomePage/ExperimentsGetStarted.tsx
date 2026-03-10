@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/router";
 import { FaArrowLeft } from "react-icons/fa";
-import { ProjectInterface } from "back-end/types/project";
+import { ProjectInterface } from "shared/types/project";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { envAllowsCreatingMetrics, hasFileConfig } from "@/services/env";
@@ -20,7 +20,8 @@ import Button from "@/components/Button";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const ExperimentsGetStarted = (): React.ReactElement => {
-  const { metrics, datasources, mutateDefinitions, project } = useDefinitions();
+  const { metrics, datasources, mutateDefinitions, project, projects } =
+    useDefinitions();
 
   const permissionsUtil = usePermissionsUtil();
 
@@ -36,21 +37,19 @@ const ExperimentsGetStarted = (): React.ReactElement => {
   const { organization } = useUser();
 
   const demoProjectId = getDemoDatasourceProjectIdForOrganization(
-    organization?.id || ""
+    organization?.id || "",
   );
 
   const hasDataSource = datasources.some(
-    (d) => !d.projects?.includes(demoProjectId)
+    (d) => !d.projects?.includes(demoProjectId),
   );
   const hasMetrics = metrics.some(
-    (m) => !m.id.match(/^met_sample/) && !m.projects?.includes(demoProjectId)
+    (m) => !m.id.match(/^met_sample/) && !m.projects?.includes(demoProjectId),
   );
   const currentStep = hasMetrics ? 3 : hasDataSource ? 2 : 1;
 
-  const {
-    projectId: demoDataSourceProjectId,
-    demoExperimentId,
-  } = useDemoDataSourceProject();
+  const { projectId: demoDataSourceProjectId, demoExperimentId } =
+    useDemoDataSourceProject();
 
   const { apiCall } = useAuth();
 
@@ -58,14 +57,14 @@ const ExperimentsGetStarted = (): React.ReactElement => {
     if (demoDataSourceProjectId && demoExperimentId) {
       router.push(`/experiment/${demoExperimentId}`);
     } else {
-      track("Create Sample Project", {
-        source: "experiments-get-started",
-      });
       const res = await apiCall<{
         project: ProjectInterface;
         experimentId: string;
       }>("/demo-datasource-project", {
         method: "POST",
+      });
+      track("Create Sample Project", {
+        source: "experiments-get-started",
       });
       await mutateDefinitions();
       if (res.experimentId) {
@@ -183,10 +182,13 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                       !(hasDataSource
                         ? datasources.some((datasource) =>
                             permissionsUtil.canUpdateDataSourceSettings(
-                              datasource
-                            )
+                              datasource,
+                            ),
                           )
-                        : permissionsUtil.canViewCreateDataSourceModal(project))
+                        : permissionsUtil.canViewCreateDataSourceModal(
+                            project,
+                            projects,
+                          ))
                     }
                     cta="Add data source"
                     finishedCTA="View data sources"
@@ -249,7 +251,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     cta={"Import Experiment"}
                     finishedCTA="Import Experiment"
                     permissionsError={
-                      !permissionsUtil.canViewExperimentModal(project)
+                      !permissionsUtil.canViewExperimentModal(project, projects)
                     }
                     imageLeft={true}
                     onClick={() => {
@@ -301,7 +303,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     cta="View Sample Experiment"
                     finishedCTA="View Sample Experiment"
                     permissionsError={
-                      !permissionsUtil.canViewExperimentModal(project)
+                      !permissionsUtil.canViewExperimentModal(project, projects)
                     }
                     imageLeft={false}
                     onClick={openSampleExperiment}
@@ -331,7 +333,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     cta="Design New Experiment"
                     finishedCTA="Design New Experiment"
                     permissionsError={
-                      !permissionsUtil.canViewExperimentModal(project)
+                      !permissionsUtil.canViewExperimentModal(project, projects)
                     }
                     imageLeft={false}
                     onClick={() => {
@@ -357,7 +359,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     cta="Analyze Existing Experiment"
                     finishedCTA="Analyze Existing Experiment"
                     permissionsError={
-                      !permissionsUtil.canViewExperimentModal(project)
+                      !permissionsUtil.canViewExperimentModal(project, projects)
                     }
                     imageLeft={false}
                     onClick={() => {

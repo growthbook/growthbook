@@ -17,6 +17,18 @@ export default function UsagePage() {
     );
   }
 
+  if (subscription?.isVercelIntegration) {
+    return (
+      <div className="container pagecontents">
+        <div className="alert alert-info">
+          This page is not available for organizations whose plan is managed by
+          Vercel. Please go to your Vercel Integration Dashboard to view your
+          usage and billing information.
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container-fluid pagecontents">
       {subscription?.billingPlatform === "orb" ? <OrbPortal /> : <CloudUsage />}

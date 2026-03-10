@@ -1,5 +1,10 @@
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
-import { PostExperimentResponse } from "back-end/types/openapi";
+import {
+  ExperimentInterfaceExcludingHoldouts,
+  Variation,
+  postExperimentValidator,
+} from "shared/validators";
+import { PostExperimentResponse } from "shared/types/openapi";
 import {
   createExperiment,
   getExperimentByTrackingKey,
@@ -10,16 +15,14 @@ import {
   toExperimentApiInterface,
 } from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { postExperimentValidator } from "back-end/src/validators/openapi";
 import { getUserByEmail } from "back-end/src/models/UserModel";
-import { upsertWatch } from "back-end/src/models/WatchModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { validateVariationIds } from "back-end/src/controllers/experiments";
-import { Variation } from "back-end/src/validators/experiments";
+import { validateCustomFields } from "./validations";
 
 export const postExperiment = createApiRequestHandler(postExperimentValidator)(
   async (req): Promise<PostExperimentResponse> => {
-    const { datasourceId, owner: ownerEmail, project } = req.body;
+    const { datasourceId, owner: ownerEmail, project, customFields } = req.body;
 
     // Validate projects - We can remove this validation when FeatureModel is migrated to BaseModel
     if (project) {
@@ -41,31 +44,35 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
     if (
       datasource &&
       !datasource.settings.queries?.exposure?.some(
-        (q) => q.id === req.body.assignmentQueryId
+        (q) => q.id === req.body.assignmentQueryId,
       )
     ) {
       throw new Error(
-        `Unrecognized assignment query ID: ${req.body.assignmentQueryId}`
+        `Unrecognized assignment query ID: ${req.body.assignmentQueryId}`,
       );
     }
 
     // check if tracking key is unique
-    const existingByTrackingKey = await getExperimentByTrackingKey(
-      req.context,
-      req.body.trackingKey
-    );
-    if (existingByTrackingKey) {
-      throw new Error(
-        `Experiment with tracking key already exists: ${req.body.trackingKey}`
+    if (!req.body.bypassDuplicateKeyCheck) {
+      const existingByTrackingKey = await getExperimentByTrackingKey(
+        req.context,
+        req.body.trackingKey,
       );
+      if (existingByTrackingKey) {
+        throw new Error(
+          `Experiment with tracking key already exists: ${req.body.trackingKey}`,
+        );
+      }
     }
+
+    await validateCustomFields(customFields, req.context, project);
 
     const ownerId = await (async () => {
       if (!ownerEmail) return req.context.userId;
       const user = await getUserByEmail(ownerEmail);
       // check if the user is a member of the organization
       const isMember = req.organization.members.some(
-        (member) => member.id === user?.id
+        (member) => member.id === user?.id,
       );
       if (!isMember || !user) {
         throw new Error(`Unable to find user: ${ownerEmail}.`);
@@ -74,12 +81,17 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
     })();
 
     // Validate that specified metrics exist and belong to the organization
-    const metricIds = getAllMetricIdsFromExperiment({
-      goalMetrics: req.body.metrics,
-      secondaryMetrics: req.body.secondaryMetrics,
-      guardrailMetrics: req.body.guardrailMetrics,
-      activationMetric: req.body.activationMetric,
-    });
+    const metricGroups = await req.context.models.metricGroups.getAll();
+    const metricIds = getAllMetricIdsFromExperiment(
+      {
+        goalMetrics: req.body.metrics,
+        secondaryMetrics: req.body.secondaryMetrics,
+        guardrailMetrics: req.body.guardrailMetrics,
+        activationMetric: req.body.activationMetric,
+      },
+      true,
+      metricGroups,
+    );
     if (metricIds.length) {
       if (!datasource) {
         throw new Error("Must provide a datasource when including metrics");
@@ -92,20 +104,20 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
           if (datasource.id && metric.datasource !== datasource.id) {
             throw new Error(
               "Metrics must be tied to the same datasource as the experiment: " +
-                metricIds[i]
+                metricIds[i],
             );
           }
         } else {
           // check to see if this metric is actually a metric group
           const metricGroup = await req.context.models.metricGroups.getById(
-            metricIds[i]
+            metricIds[i],
           );
           if (metricGroup) {
             // Make sure it is tied to the same datasource as the experiment
             if (datasource.id && metricGroup.datasource !== datasource.id) {
               throw new Error(
                 "Metrics must be tied to the same datasource as the experiment: " +
-                  metricIds[i]
+                  metricIds[i],
               );
             }
           } else {
@@ -115,9 +127,29 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
         }
       }
     }
-
     if (req.body.variations) {
       validateVariationIds(req.body.variations as Variation[]);
+    }
+
+    // Validate attributionModel + lookbackOverride consistency
+    if (
+      req.body.attributionModel === "lookbackOverride" &&
+      !req.body.lookbackOverride
+    ) {
+      throw new Error(
+        "lookbackOverride is required when attributionModel is 'lookbackOverride'",
+      );
+    }
+
+    // If lookbackOverride is provided in the payload, it must have the right
+    // attribution model
+    if (
+      (req.body.attributionModel ?? "firstExposure") !== "lookbackOverride" &&
+      req.body.lookbackOverride !== undefined
+    ) {
+      throw new Error(
+        "lookbackOverride is only allowed when attributionModel is 'lookbackOverride'",
+      );
     }
 
     // transform into exp interface; set sane defaults
@@ -127,7 +159,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
         ...(ownerId ? { owner: ownerId } : {}),
       },
       req.organization,
-      datasource
+      datasource,
     );
 
     const experiment = await createExperiment({
@@ -137,9 +169,8 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
 
     if (ownerId) {
       // add owner as watcher
-      await upsertWatch({
+      await req.context.models.watch.upsertWatch({
         userId: ownerId,
-        organization: req.organization.id,
         item: experiment.id,
         type: "experiments",
       });
@@ -147,10 +178,10 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
 
     const apiExperiment = await toExperimentApiInterface(
       req.context,
-      experiment
+      experiment as ExperimentInterfaceExcludingHoldouts,
     );
     return {
       experiment: apiExperiment,
     };
-  }
+  },
 );

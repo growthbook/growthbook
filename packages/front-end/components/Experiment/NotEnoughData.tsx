@@ -1,6 +1,6 @@
+import { Flex } from "@radix-ui/themes";
 import { formatDistance } from "date-fns";
-import { CSSProperties } from "react";
-import clsx from "clsx";
+import { PiWarningCircle } from "react-icons/pi";
 import { RowResults } from "@/services/experiments";
 
 const numberFormatter = Intl.NumberFormat("en-US", {
@@ -17,63 +17,56 @@ export default function NotEnoughData({
   rowResults,
   showTimeRemaining = false,
   showPercentComplete = false,
-  noStyle = false,
-  style,
 }: {
   rowResults: RowResults;
   showTimeRemaining?: boolean;
   showPercentComplete?: boolean;
-  noStyle?: boolean;
-  style?: CSSProperties;
 }) {
-  const numerator = rowResults.enoughDataMeta.percentCompleteNumerator;
-  const denominator = rowResults.enoughDataMeta.percentCompleteDenominator;
-
+  const enoughDataMeta = rowResults.enoughDataMeta;
   return (
-    <div className="not-enough-data" style={style}>
-      <div>
-        <div
-          className="font-weight-normal main-text"
-          style={noStyle ? {} : { fontSize: "10.5px", lineHeight: "14px" }}
+    <div className="not-enough-data">
+      <Flex direction="row" align="center" gap="1">
+        <em
+          className="text-muted font-weight-normal"
+          style={{ fontSize: "10.5px", lineHeight: "14px" }}
         >
-          not enough data
-        </div>
-      </div>
-      {showTimeRemaining && rowResults.enoughDataMeta.showTimeRemaining && (
-        <div
-          className={clsx("text-muted time-remaining", { small: !noStyle })}
-          style={noStyle ? {} : { fontSize: "10.5px", lineHeight: "12px" }}
-        >
-          {(rowResults.enoughDataMeta.timeRemainingMs ?? 0) > 0 ? (
-            <>
-              <span className="nowrap">
-                {formatDistance(
-                  0,
-                  rowResults.enoughDataMeta.timeRemainingMs ?? 0
-                )}
-              </span>{" "}
-              left
-            </>
-          ) : (
-            "try updating now"
-          )}
-        </div>
-      )}
-      {showPercentComplete ? (
-        <div
-          className={clsx("text-muted percent-complete", { small: !noStyle })}
-        >
+          Not enough data
+        </em>
+        <PiWarningCircle
+          size={15}
+          style={{ color: "var(--color-text-high)" }}
+        />
+      </Flex>
+      {showTimeRemaining &&
+        enoughDataMeta.reason === "notEnoughData" &&
+        enoughDataMeta.showTimeRemaining && (
+          <div
+            className="text-muted time-remaining"
+            style={{ fontSize: "10.5px", lineHeight: "18px" }}
+          >
+            {(enoughDataMeta.timeRemainingMs ?? 0) > 0 ? (
+              <>
+                <span className="nowrap">
+                  {formatDistance(0, enoughDataMeta.timeRemainingMs ?? 0)}
+                </span>{" "}
+                left
+              </>
+            ) : (
+              "try updating now"
+            )}
+          </div>
+        )}
+      {showPercentComplete && enoughDataMeta.reason === "notEnoughData" ? (
+        <div className="text-muted percent-complete small">
           <span className="percent-complete-numerator">
-            {numberFormatter.format(numerator)}
+            {numberFormatter.format(enoughDataMeta.percentCompleteNumerator)}
           </span>{" "}
           /&nbsp;
           <span className="percent-complete-denominator">
-            {numberFormatter.format(denominator)}
+            {numberFormatter.format(enoughDataMeta.percentCompleteDenominator)}
           </span>
           <span className="percent-complete-percent ml-1">
-            (
-            {percentFormatter.format(rowResults.enoughDataMeta.percentComplete)}
-            )
+            ({percentFormatter.format(enoughDataMeta.percentComplete)})
           </span>
         </div>
       ) : null}

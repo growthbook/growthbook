@@ -1,4 +1,4 @@
-import { ReactNode, FC, useState, ReactElement } from "react";
+import { ReactNode, FC, useState, ReactElement, isValidElement } from "react";
 import Modal from "@/components/Modal";
 
 const ConfirmButton: FC<{
@@ -10,6 +10,7 @@ const ConfirmButton: FC<{
   ctaEnabled?: boolean;
   size?: "md" | "lg" | "max" | "fill";
   children: ReactNode;
+  additionalMessage?: ReactElement | null | string;
   disabled?: boolean;
 }> = ({
   onClick,
@@ -20,6 +21,7 @@ const ConfirmButton: FC<{
   size = "md",
   ctaColor = "primary",
   children,
+  additionalMessage = "",
   disabled = false,
 }) => {
   const [confirming, setConfirming] = useState(false);
@@ -38,6 +40,12 @@ const ConfirmButton: FC<{
           size={size}
         >
           <div>{confirmationText}</div>
+          {additionalMessage &&
+            (isValidElement(additionalMessage) ? (
+              additionalMessage
+            ) : (
+              <p>{additionalMessage}</p>
+            ))}
         </Modal>
       ) : (
         ""

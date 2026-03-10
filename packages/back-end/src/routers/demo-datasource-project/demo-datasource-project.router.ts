@@ -1,5 +1,5 @@
 import express from "express";
-import z from "zod";
+import { z } from "zod";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawDemoDatasourceProjectController from "./demo-datasource-project.controller";
@@ -7,7 +7,7 @@ import * as rawDemoDatasourceProjectController from "./demo-datasource-project.c
 const router = express.Router();
 
 const demoDatasourceProjectController = wrapController(
-  rawDemoDatasourceProjectController
+  rawDemoDatasourceProjectController,
 );
 
 router.post(
@@ -15,7 +15,7 @@ router.post(
   validateRequestMiddleware({
     body: z.object({}).strict(),
   }),
-  demoDatasourceProjectController.postDemoDatasourceProject
+  demoDatasourceProjectController.postDemoDatasourceProject,
 );
 
 export { router as demoDatasourceProjectRouter };

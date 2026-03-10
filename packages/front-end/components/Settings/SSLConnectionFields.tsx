@@ -1,7 +1,7 @@
 import { ChangeEventHandler, useState } from "react";
 import { FaCaretDown, FaCaretRight } from "react-icons/fa";
 import Field from "@/components/Forms/Field";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/ui/Switch";
 
 export interface Props {
   value: {
@@ -25,14 +25,11 @@ export default function SSLConnectionFields({
     <>
       <div className="col-md-12">
         <div className="form-group">
-          <label htmlFor="require-ssl" className="mr-2">
-            Require SSL
-          </label>
-          <Toggle
+          <Switch
             id="require-ssl"
             label="Require SSL"
             value={value.ssl}
-            setValue={(ssl) => {
+            onChange={(ssl) => {
               setSSL(ssl);
             }}
           />

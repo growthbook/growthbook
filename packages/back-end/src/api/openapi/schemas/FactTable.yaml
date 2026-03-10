@@ -37,12 +37,27 @@ properties:
       type: string
   sql:
     type: string
+  eventName:
+    type: string
+    description: "The event name used in SQL template variables"
+  columns:
+    type: array
+    items:
+      $ref: "./FactTableColumn.yaml"
+    description: "Array of column definitions for this fact table"
+  columnsError:
+    type: string
+    nullable: true
+    description: "Error message if there was an issue parsing the SQL schema"
+  archived:
+    type: boolean
   managedBy:
     type: string
     description: Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere.
     enum:
       - ""
       - api
+      - admin
   dateCreated:
     type: string
     format: date-time

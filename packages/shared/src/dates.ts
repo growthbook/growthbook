@@ -5,14 +5,23 @@ import differenceInHours from "date-fns/differenceInHours";
 import addMonths from "date-fns/addMonths";
 import formatRelative from "date-fns/formatRelative";
 import previousMonday from "date-fns/previousMonday";
+import { formatInTimeZone } from "date-fns-tz";
 
-export function date(date: string | Date): string {
+export function date(date: string | Date, inTimezone?: string): string {
   if (!date) return "";
-  return format(getValidDate(date), "PP");
+  const d = getValidDate(date);
+  const formatStr = "PP";
+  return inTimezone
+    ? formatInTimeZone(d, inTimezone, formatStr)
+    : format(d, formatStr);
 }
-export function datetime(date: string | Date): string {
+export function datetime(date: string | Date, inTimezone?: string): string {
   if (!date) return "";
-  return format(getValidDate(date), "PPp");
+  const d = getValidDate(date);
+  const formatStr = "PPp";
+  return inTimezone
+    ? formatInTimeZone(d, inTimezone, formatStr)
+    : format(d, formatStr);
 }
 export function relativeDate(date: string | Date): string {
   if (!date) return "";
@@ -51,7 +60,7 @@ export function dateStringArrayBetweenDates(
   start: Date,
   end: Date,
   truncate: boolean = true,
-  dayInterval: number = 1
+  dayInterval: number = 1,
 ): string[] {
   const dateArray: string[] = [];
   let startTruncate = new Date(start);
@@ -66,7 +75,7 @@ export function dateStringArrayBetweenDates(
 
 export function getValidDate(
   dateStr: string | Date | null | number | undefined,
-  fallback?: Date
+  fallback?: Date,
 ): Date {
   fallback = fallback || new Date();
 
@@ -90,4 +99,14 @@ export function getValidDateOffsetByUTC(
 ): Date {
   const date = getValidDate(...params);
   return new Date(date.getTime() + date.getTimezoneOffset() * 60000);
+}
+
+// returns an abbreviated version of the "ago" string.
+// ex: "about 5 minutes ago" -> "5 min ago"
+export function abbreviateAgo(date: string | Date | null | undefined): string {
+  return ago(date ?? "")
+    .replace("about ", "")
+    .replace("less than a", "<1")
+    .replace(/second(s)?/g, "sec$1")
+    .replace(/minute(s)?/g, "min$1");
 }

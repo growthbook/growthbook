@@ -38,7 +38,7 @@ You will need a GrowthBook account. You can either run GrowthBook locally or usi
 ```bash
 git clone https://github.com/growthbook/growthbook.git
 cd growthbook
-docker-compose up -d
+docker compose up -d
 ```
 
 After that, visit `http://localhost:3000` and create your first user account.
@@ -62,7 +62,7 @@ NEXT_PUBLIC_GROWTHBOOK_DECRYPTION_KEY=
 
 ## 4. Create a Feature Flag
 
-Back in the GrowthBook application, let's create our first feature flag. Make a simple ON/OFF feature flag with the the key `welcome-message`. Leave the default value set to OFF. We will turn it on in a future step.
+Back in the GrowthBook application, let's create our first feature flag. Make a simple ON/OFF feature flag with the key `welcome-message`. Leave the default value set to OFF. We will turn it on in a future step.
 
 <MaxWidthImage maxWidth={500}>
   ![GrowthBook Create Feature](/images/guides/nextjs-3-create-feature.png)

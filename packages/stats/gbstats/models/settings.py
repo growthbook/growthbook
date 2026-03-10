@@ -28,6 +28,8 @@ class AnalysisSettingsForStatsEngine:
     max_dimensions: int = 20
     traffic_percentage: float = 1
     num_goal_metrics: int = 1
+    one_sided_intervals: bool = False
+    post_stratification_enabled: bool = False
 
 
 @dataclass
@@ -77,6 +79,7 @@ class MetricSettingsForStatsEngine:
     quantile_value: Optional[float] = None
     business_metric_type: Optional[List[BusinessMetricType]] = None
     target_mde: float = 0.01
+    compute_uncapped_metric: bool = False
 
 
 @dataclass

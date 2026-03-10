@@ -1,13 +1,13 @@
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
-} from "back-end/types/experiment";
-import { SDKConnectionInterface } from "back-end/types/sdk-connection";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
-import React, { ReactElement, useEffect, useMemo, useState } from "react";
+} from "shared/types/experiment";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import { ReactElement, useEffect, useMemo, useState } from "react";
 import { FaAngleRight, FaCheck } from "react-icons/fa";
 import { experimentHasLiveLinkedChanges, hasVisualChanges } from "shared/util";
-import { ExperimentLaunchChecklistInterface } from "back-end/types/experimentLaunchChecklist";
+import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
 import Link from "next/link";
 import Collapsible from "react-collapsible";
 import track from "@/services/track";
@@ -17,11 +17,10 @@ import { useUser } from "@/services/UserContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import InitialSDKConnectionForm from "@/components/Features/SDKConnections/InitialSDKConnectionForm";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
-import Callout from "@/components/Radix/Callout";
-import Checkbox from "@/components/Radix/Checkbox";
-import Frame from "@/components/Radix/Frame";
+import Callout from "@/ui/Callout";
+import Checkbox from "@/ui/Checkbox";
+import Frame from "@/ui/Frame";
 
 export type CheckListItem = {
   display: string | ReactElement;
@@ -42,7 +41,6 @@ export function getChecklistItems({
   openSetupTab,
   setAnalysisModal,
   setShowSdkForm,
-  usingStickyBucketing,
   checklist,
   checkLinkedChanges,
 }: {
@@ -55,7 +53,6 @@ export function getChecklistItems({
   className?: string;
   setAnalysisModal?: (value: boolean) => void;
   setShowSdkForm?: (value: boolean) => void;
-  usingStickyBucketing?: boolean;
   checklist?: ExperimentLaunchChecklistInterface;
   checkLinkedChanges: boolean;
 }) {
@@ -65,7 +62,7 @@ export function getChecklistItems({
     // Some items we check completion for automatically, others require users to manually check an item as complete
     type: "auto" | "manual",
     key: string,
-    customFieldId?: string
+    customFieldId?: string,
   ): boolean {
     if (type === "auto") {
       if (!key) return false;
@@ -109,7 +106,7 @@ export function getChecklistItems({
   if (checkLinkedChanges) {
     const hasLiveLinkedChanges = experimentHasLiveLinkedChanges(
       experiment,
-      linkedFeatures
+      linkedFeatures,
     );
     const hasLinkedChanges =
       linkedFeatures.some((f) => f.state === "live" || f.state === "draft") ||
@@ -170,8 +167,8 @@ export function getChecklistItems({
           f.state === "draft" ||
           (f.state === "live" &&
             !Object.values(f.environmentStates || {}).some(
-              (s) => s === "active"
-            ))
+              (s) => s === "active",
+            )),
       );
       items.push({
         status: hasFeatureFlagsErrors ? "incomplete" : "complete",
@@ -196,7 +193,7 @@ export function getChecklistItems({
     // No empty visual changesets
     if (visualChangesets.length > 0) {
       const hasSomeVisualChanges = visualChangesets.some((vc) =>
-        hasVisualChanges(vc.visualChanges)
+        hasVisualChanges(vc.visualChanges),
       );
       items.push({
         display: (
@@ -275,50 +272,6 @@ export function getChecklistItems({
         : undefined,
   });
 
-  if (isBandit) {
-    items.push({
-      type: "auto",
-      status: usingStickyBucketing ? "complete" : "incomplete",
-      display: (
-        <>
-          <Link href="/settings">Enable Sticky Bucketing</Link> for your
-          organization and verify it is implemented properly in your codebase.
-        </>
-      ),
-      required: true,
-    });
-  }
-
-  /*
-    items.push({
-      type: "manual",
-      key: "sdk-connection",
-      status: isChecklistItemComplete("manual", "sdk-connection")
-        ? "complete"
-        : "incomplete",
-      display: (
-        <>
-          Verify your app is passing both
-          <strong> attributes </strong>
-          and a <strong> trackingCallback </strong>into the GrowthBook SDK.
-        </>
-      ),
-    });
-    items.push({
-      type: "manual",
-      key: "metrics-tracked",
-      status: isChecklistItemComplete("manual", "metrics-tracked")
-        ? "complete"
-        : "incomplete",
-      display: (
-        <>
-          Verify your app is tracking events for all of the metrics that you
-          plan to include in the analysis.
-        </>
-      ),
-    });
-    */
-
   if (checklist?.tasks?.length) {
     checklist.tasks.forEach((item) => {
       if (item.completionType === "manual") {
@@ -348,7 +301,7 @@ export function getChecklistItems({
           status: isChecklistItemComplete(
             "auto",
             item.propertyKey,
-            item.customFieldId
+            item.customFieldId,
           )
             ? "complete"
             : "incomplete",
@@ -399,20 +352,20 @@ export function PreLaunchChecklistUI({
     !experiment.archived && permissionsUtil.canUpdateExperiment(experiment, {});
 
   const { data } = useApi<{ checklist: ExperimentLaunchChecklistInterface }>(
-    "/experiments/launch-checklist"
+    `/experiment/${experiment.id}/launch-checklist`,
   );
 
   async function updateTaskStatus(checked: boolean, key: string | undefined) {
     if (!key) return;
     setUpdatingChecklist(true);
     const updatedManualChecklistStatus = Array.isArray(
-      experiment.manualLaunchChecklist
+      experiment.manualLaunchChecklist,
     )
       ? [...experiment.manualLaunchChecklist]
       : [];
 
     const index = updatedManualChecklistStatus.findIndex(
-      (task) => task.key === key
+      (task) => task.key === key,
     );
     if (index === -1) {
       updatedManualChecklistStatus.push({
@@ -443,7 +396,7 @@ export function PreLaunchChecklistUI({
   useEffect(() => {
     if (data && checklist.length > 0) {
       setChecklistItemsRemaining(
-        checklist.filter((item) => item.status === "incomplete").length
+        checklist.filter((item) => item.status === "incomplete").length,
       );
     }
   }, [checklist, data, setChecklistItemsRemaining]);
@@ -486,8 +439,8 @@ export function PreLaunchChecklistUI({
               item.status === "incomplete" && item.type === "auto"
                 ? "GrowthBook will mark this as completed automatically when you finish the task."
                 : item.status === "incomplete"
-                ? "You must manually mark this as complete. GrowthBook is unable to detect this automatically."
-                : undefined
+                  ? "You must manually mark this as complete. GrowthBook is unable to detect this automatically."
+                  : undefined
             }
             error={item.warning}
             errorLevel="warning"
@@ -548,7 +501,7 @@ export function PreLaunchChecklistUI({
       {collapsible ? (
         <Frame>
           <Collapsible
-            open={true}
+            open={!!checklistItemsRemaining}
             transitionTime={100}
             trigger={<div className="">{header}</div>}
           >
@@ -577,7 +530,7 @@ export function PreLaunchChecklistFeatureExpRule({
   envs: string[];
 }) {
   const failedRequired = checklist.some(
-    (item) => item.status === "incomplete" && item.required
+    (item) => item.status === "incomplete" && item.required,
   );
 
   return (
@@ -636,15 +589,10 @@ export function PreLaunchChecklist({
     !experiment.archived && permissionsUtil.canUpdateExperiment(experiment, {});
 
   const { data } = useApi<{ checklist: ExperimentLaunchChecklistInterface }>(
-    "/experiments/launch-checklist"
+    `/experiment/${experiment.id}/launch-checklist`,
   );
 
   const [showSdkForm, setShowSdkForm] = useState(false);
-
-  const settings = useOrgSettings();
-  const orgStickyBucketing = !!settings.useStickyBucketing;
-  const usingStickyBucketing =
-    orgStickyBucketing && !experiment.disableStickyBucketing;
 
   const [analysisModal, setAnalysisModal] = useState(false);
 
@@ -654,7 +602,6 @@ export function PreLaunchChecklist({
       experiment,
       linkedFeatures,
       visualChangesets,
-      usingStickyBucketing,
       checklist: data?.checklist,
       setAnalysisModal: canEditExperiment ? setAnalysisModal : undefined,
       editTargeting,
@@ -670,7 +617,6 @@ export function PreLaunchChecklist({
     linkedFeatures,
     openSetupTab,
     visualChangesets,
-    usingStickyBucketing,
     canEditExperiment,
     connections,
   ]);

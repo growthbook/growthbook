@@ -5,7 +5,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { findGaps } from "@/services/features";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import Checkbox from "@/components/Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
 import NamespaceUsageGraph from "./NamespaceUsageGraph";
 
 export interface Props {
@@ -23,7 +23,7 @@ export default function NamespaceSelector({
   trackingKey = "",
 }: Props) {
   const { data, error } = useApi<NamespaceApiResponse>(
-    `/organization/namespaces`
+    `/organization/namespaces`,
   );
   const { namespaces } = useOrgSettings();
 
@@ -61,16 +61,16 @@ export default function NamespaceSelector({
                 data?.namespaces || {},
                 v,
                 featureId,
-                trackingKey
+                trackingKey,
               ).sort((a, b) => b.end - b.start - (a.end - a.start))[0];
 
               form.setValue(
                 `${formPrefix}namespace.range.0`,
-                largestGap?.start || 0
+                largestGap?.start || 0,
               );
               form.setValue(
                 `${formPrefix}namespace.range.1`,
-                largestGap?.end || 0
+                largestGap?.end || 0,
               );
             }}
             placeholder="Choose a namespace..."

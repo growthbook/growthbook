@@ -1,6 +1,0 @@
-# build artifacts
-dist
-coverage
-docs/docusaurus.config.js
-docs/build/
-packages/sdk-js/scripts

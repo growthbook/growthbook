@@ -1,5 +1,5 @@
 import React, { FC, useState } from "react";
-import { ArchetypeInterface } from "back-end/types/archetype";
+import { ArchetypeInterface } from "shared/types/archetype";
 import Link from "next/link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
@@ -10,7 +10,7 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import ArchetypeAttributesModal from "@/components/Archetype/ArchetypeAttributesModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import { useUser } from "@/services/UserContext";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 
@@ -19,13 +19,11 @@ export const ArchetypeList: FC<{
   archetypeErrors: Error | undefined;
   mutate: () => void;
 }> = ({ archetypes, archetypeErrors, mutate }) => {
-  const [
-    editArchetype,
-    setEditArchetype,
-  ] = useState<Partial<ArchetypeInterface> | null>(null);
+  const [editArchetype, setEditArchetype] =
+    useState<Partial<ArchetypeInterface> | null>(null);
   const permissionsUtil = usePermissionsUtil();
   const { project, getProjectById } = useDefinitions();
-  const { getUserDisplay, hasCommercialFeature } = useUser();
+  const { getOwnerDisplay, hasCommercialFeature } = useUser();
 
   const hasArchetypeFeature = hasCommercialFeature("archetypes");
   const canCreateGlobal = permissionsUtil.canCreateArchetype({
@@ -109,7 +107,7 @@ export const ArchetypeList: FC<{
               {archetypes.map((archetype: ArchetypeInterface) => {
                 const canEdit = permissionsUtil.canUpdateArchetype(
                   archetype,
-                  {}
+                  {},
                 );
                 let parsedAttributes = {};
                 try {
@@ -117,7 +115,7 @@ export const ArchetypeList: FC<{
                 } catch {
                   console.error(
                     "Failed to parse attributes. Invalid JSON string: " +
-                      archetype.attributes
+                      archetype.attributes,
                   );
                 }
                 const canDelete = permissionsUtil.canDeleteArchetype(archetype);
@@ -164,7 +162,7 @@ export const ArchetypeList: FC<{
                         <></>
                       )}
                     </td>
-                    <td>{getUserDisplay(archetype.owner)}</td>
+                    <td>{getOwnerDisplay(archetype.owner)}</td>
                     <td>
                       {archetype.isPublic ? (
                         <span className="text-muted">Yes</span>

@@ -1,10 +1,9 @@
 import omit from "lodash/omit";
-import z from "zod";
+import { z } from "zod";
 import mongoose from "mongoose";
+import { InformationSchemaTablesInterface } from "shared/types/integrations";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { logger } from "back-end/src/util/logger";
-import { usingFileConfig } from "back-end/src/init/config";
-import { InformationSchemaTablesInterface } from "back-end/src/types/Integration";
 
 const informationSchemaTablesSchema = new mongoose.Schema({
   id: String,
@@ -22,9 +21,8 @@ const informationSchemaTablesSchema = new mongoose.Schema({
         const zodSchema = z.array(
           z.object({
             columnName: z.string(),
-            path: z.string(),
             dataType: z.string(),
-          })
+          }),
         );
 
         const result = zodSchema.safeParse(value);
@@ -36,7 +34,7 @@ const informationSchemaTablesSchema = new mongoose.Schema({
               error: JSON.stringify(errorString, null, 2),
               result: JSON.stringify(result, null, 2),
             },
-            "Invalid Columns name"
+            "Invalid Columns name",
           );
         }
 
@@ -51,23 +49,24 @@ const informationSchemaTablesSchema = new mongoose.Schema({
 
 informationSchemaTablesSchema.index(
   { id: 1, organization: 1 },
-  { unique: true }
+  { unique: true },
 );
 
 type InformationSchemaTablesDocument = mongoose.Document &
   InformationSchemaTablesInterface;
 
-const InformationSchemaTablesModel = mongoose.model<InformationSchemaTablesInterface>(
-  "InformationSchemaTables",
-  informationSchemaTablesSchema
-);
+const InformationSchemaTablesModel =
+  mongoose.model<InformationSchemaTablesInterface>(
+    "InformationSchemaTables",
+    informationSchemaTablesSchema,
+  );
 
 /**
  * Convert the Mongo document to an InformationSourceInterface, omitting Mongo default fields __v, _id
  * @param doc
  */
 const toInterface = (
-  doc: InformationSchemaTablesDocument
+  doc: InformationSchemaTablesDocument,
 ): InformationSchemaTablesInterface =>
   omit(doc.toJSON<InformationSchemaTablesDocument>(), ["__v", "_id"]);
 
@@ -75,13 +74,8 @@ export async function createInformationSchemaTable(
   tableData: Omit<
     InformationSchemaTablesInterface,
     "dateCreated" | "dateUpdated"
-  >
+  >,
 ): Promise<InformationSchemaTablesInterface> {
-  //TODO: GB-82 Remove this check and orgs usingFileConfig to create informationSchemas
-  if (usingFileConfig()) {
-    throw new Error("Cannot add. Data sources managed by config.yml");
-  }
-
   const result = await InformationSchemaTablesModel.create({
     ...tableData,
     dateCreated: new Date(),
@@ -93,7 +87,7 @@ export async function createInformationSchemaTable(
 
 export async function getInformationSchemaTableById(
   organization: string,
-  id: string
+  id: string,
 ): Promise<InformationSchemaTablesInterface | null> {
   const table = await InformationSchemaTablesModel.findOne({
     organization,
@@ -106,7 +100,7 @@ export async function getInformationSchemaTableById(
 export async function updateInformationSchemaTableById(
   organization: string,
   id: string,
-  updates: Partial<InformationSchemaTablesInterface>
+  updates: Partial<InformationSchemaTablesInterface>,
 ): Promise<void> {
   await InformationSchemaTablesModel.updateOne(
     {
@@ -115,14 +109,14 @@ export async function updateInformationSchemaTableById(
     },
     {
       $set: updates,
-    }
+    },
   );
 }
 
 export async function removeDeletedInformationSchemaTables(
   organization: string,
   informationSchemaId: string,
-  tableIds: string[]
+  tableIds: string[],
 ): Promise<void> {
   await InformationSchemaTablesModel.deleteMany({
     organization,
@@ -133,7 +127,7 @@ export async function removeDeletedInformationSchemaTables(
 
 export async function deleteInformationSchemaTablesByInformationSchemaId(
   organization: string,
-  informationSchemaId: string
+  informationSchemaId: string,
 ): Promise<void> {
   await InformationSchemaTablesModel.deleteMany({
     organization,

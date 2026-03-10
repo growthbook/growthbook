@@ -18,7 +18,7 @@ from gbstats.models.statistics import (
     SampleMeanStatistic,
     QuantileStatistic,
 )
-from gbstats.models.tests import Uplift
+from gbstats.models.results import Uplift
 
 DECIMALS = 5
 round_ = partial(np.round, decimals=DECIMALS)
@@ -26,12 +26,14 @@ round_ = partial(np.round, decimals=DECIMALS)
 
 def round_results_dict(result_dict):
     for k, v in result_dict.items():
-        if k in ["error_message", "risk_type"]:
+        if k in ["errorMessage", "riskType"]:
             pass
         elif k == "uplift":
             v = {
                 kk: round_(vv) if isinstance(vv, float) else vv for kk, vv in v.items()
             }
+        elif k == "ci":
+            v = (round_(v[0]), round_(v[1]))
         else:
             v = [round_(x) for x in v] if isinstance(v, list) else round_(v)
         result_dict[k] = v
@@ -42,16 +44,16 @@ class TestBinom(TestCase):
     def test_bayesian_binomial_ab_test(self):
         stat_a = ProportionStatistic(sum=49, n=100)
         stat_b = ProportionStatistic(sum=51, n=100)
-        result = EffectBayesianABTest(stat_a, stat_b).compute_result()
+        result = EffectBayesianABTest([(stat_a, stat_b)]).compute_result()
         expected_rounded_dict = asdict(
             BayesianTestResult(
                 expected=0.04082,
-                ci=[-0.24779, 0.32943],
+                ci=(-0.24779, 0.32943),
                 uplift=Uplift(dist="normal", mean=0.04082, stddev=0.14725),
-                chance_to_win=0.60918,
+                chanceToWin=0.60918,
                 risk=[0.0814, 0.04058],
-                risk_type="relative",
-                error_message=None,
+                riskType="relative",
+                errorMessage=None,
             )
         )
         result_rounded_dict = round_results_dict(asdict(result))
@@ -59,28 +61,28 @@ class TestBinom(TestCase):
 
     def test_missing_data(self):
         result = EffectBayesianABTest(
-            ProportionStatistic(0, 0),
-            ProportionStatistic(0, 0),
+            [(ProportionStatistic(0, 0), ProportionStatistic(0, 0))]
         ).compute_result()
-        self.assertEqual(result.chance_to_win, 0.5)
+        self.assertEqual(result.chanceToWin, 0.5)
         self.assertEqual(result.expected, 0)
 
 
 class TestNorm(TestCase):
+    def setUp(self):
+        self.stat_a = SampleMeanStatistic(sum=100, sum_squares=1002.25, n=10)
+        self.stat_b = SampleMeanStatistic(sum=105, sum_squares=1111.5, n=10)
+
     def test_bayesian_gaussian_ab_test(self):
-        result = EffectBayesianABTest(
-            SampleMeanStatistic(sum=100, sum_squares=1002.25, n=10),
-            SampleMeanStatistic(sum=105, sum_squares=1111.5, n=10),
-        ).compute_result()
+        result = EffectBayesianABTest([(self.stat_a, self.stat_b)]).compute_result()
         expected_rounded_dict = asdict(
             BayesianTestResult(
                 expected=0.05,
-                ci=[-0.02, 0.12],
+                ci=(-0.02, 0.12),
                 uplift=Uplift(dist="normal", mean=0.05, stddev=0.03572),
-                chance_to_win=0.91923,
+                chanceToWin=0.91923,
                 risk=[0.05131, 0.00131],
-                risk_type="relative",
-                error_message=None,
+                riskType="relative",
+                errorMessage=None,
             )
         )
 
@@ -89,8 +91,7 @@ class TestNorm(TestCase):
 
     def test_bayesian_gaussian_ab_test_informative(self):
         result = EffectBayesianABTest(
-            SampleMeanStatistic(sum=100, sum_squares=1002.25, n=10),
-            SampleMeanStatistic(sum=105, sum_squares=1111.5, n=10),
+            [(self.stat_a, self.stat_b)],
             EffectBayesianConfig(
                 prior_effect=GaussianPrior(mean=0.1, variance=0.1, proper=True)
             ),
@@ -98,12 +99,12 @@ class TestNorm(TestCase):
         expected_rounded_dict = asdict(
             BayesianTestResult(
                 expected=0.05063,
-                ci=[-0.01893, 0.12019],
+                ci=(-0.01893, 0.12019),
                 uplift=Uplift(dist="normal", mean=0.05063, stddev=0.03549),
-                chance_to_win=0.92315,
+                chanceToWin=0.92315,
                 risk=[0.05186, 0.00123],
-                risk_type="relative",
-                error_message=None,
+                riskType="relative",
+                errorMessage=None,
             )
         )
 
@@ -112,10 +113,9 @@ class TestNorm(TestCase):
 
     def test_missing_data(self):
         result = EffectBayesianABTest(
-            SampleMeanStatistic(sum=0, sum_squares=0, n=0),
-            SampleMeanStatistic(sum=0, sum_squares=0, n=0),
+            [(SampleMeanStatistic(0, 0, 0), SampleMeanStatistic(0, 0, 0))]
         ).compute_result()
-        self.assertEqual(result.chance_to_win, 0.5)
+        self.assertEqual(result.chanceToWin, 0.5)
         self.assertEqual(result.expected, 0)
 
 
@@ -168,19 +168,19 @@ class TestEffectBayesianABTest(TestCase):
         )
 
         b_improper_flat = EffectBayesianABTest(
-            q_stat_c, q_stat_t, config=effect_config_improper_flat
+            [(q_stat_c, q_stat_t)], config=effect_config_improper_flat
         ).compute_result()
         b_flat = EffectBayesianABTest(
-            q_stat_c, q_stat_t, config=effect_config_flat
+            [(q_stat_c, q_stat_t)], config=effect_config_flat
         ).compute_result()
         b_relative_flat = EffectBayesianABTest(
-            q_stat_c, q_stat_t, config=effect_config_flat_rel
+            [(q_stat_c, q_stat_t)], config=effect_config_flat_rel
         ).compute_result()
         b_informative = EffectBayesianABTest(
-            q_stat_c, q_stat_t, config=effect_config_inf
+            [(q_stat_c, q_stat_t)], config=effect_config_inf
         ).compute_result()
         b_relative_informative = EffectBayesianABTest(
-            q_stat_c, q_stat_t, config=effect_config_inf_rel
+            [(q_stat_c, q_stat_t)], config=effect_config_inf_rel
         ).compute_result()
 
         self.assertEqual(b_improper_flat.expected, 0.5365124375579775)
@@ -188,12 +188,12 @@ class TestEffectBayesianABTest(TestCase):
         self.assertEqual(b_relative_flat.expected, 0.07495297222736319)
         self.assertEqual(b_informative.expected, 0.536495315442269)
         self.assertEqual(b_relative_informative.expected, 0.07495037261804469)
-        self.assertEqual(b_improper_flat.ci, [0.45725595891154214, 0.6157689162044129])
-        self.assertEqual(b_flat.ci, [0.4572559588956844, 0.6157689161860256])
-        self.assertEqual(b_relative_flat.ci, [0.06341005842481906, 0.08649588602990732])
-        self.assertEqual(b_informative.ci, [0.4572401014910488, 0.6157505293934893])
+        self.assertEqual(b_improper_flat.ci, (0.4572559589115422, 0.6157689162044128))
+        self.assertEqual(b_flat.ci, (0.4572559588956844, 0.6157689161860256))
+        self.assertEqual(b_relative_flat.ci, (0.06341005842481906, 0.08649588602990732))
+        self.assertEqual(b_informative.ci, (0.4572401014910488, 0.6157505293934892))
         self.assertEqual(
-            b_relative_informative.ci, [0.06340765898986044, 0.08649308624622894]
+            b_relative_informative.ci, (0.06340765898986044, 0.08649308624622894)
         )
 
         # adding another test for risk
@@ -218,10 +218,15 @@ class TestEffectBayesianABTest(TestCase):
             quantile_lower=quantile_lower_t,
             quantile_upper=quantile_upper_t,
         )
+
         b_flat = EffectBayesianABTest(
-            q_stat_c, q_stat_t, config=effect_config_flat
+            [(q_stat_c, q_stat_t)], config=effect_config_flat
         ).compute_result()
-        m, s = b_flat.expected, (b_flat.ci[1] - b_flat.ci[0]) / (2 * norm.ppf(0.975))
+        m, s = b_flat.expected, (
+            (b_flat.ci[1] - b_flat.ci[0]) / (2 * norm.ppf(0.975))
+            if b_flat.ci[0] is not None and b_flat.ci[1] is not None
+            else 0
+        )
 
         np.random.seed(20240329)
         y = s * np.random.normal(size=int(1e7)) + m
@@ -244,13 +249,13 @@ class TestGaussianEffectRelativeAbsolutePriors(TestCase):
             difference_type="relative", prior_effect=gaussian_inf_prior
         )
 
-        abs_test = EffectBayesianABTest(stat_c, stat_t, abs_config_inf)
-        rel_test = EffectBayesianABTest(stat_c, stat_t, rel_config_inf)
+        abs_test = EffectBayesianABTest([(stat_c, stat_t)], abs_config_inf)
+        rel_test = EffectBayesianABTest([(stat_c, stat_t)], rel_config_inf)
         abs_res = abs_test.compute_result()
         rel_res = rel_test.compute_result()
 
         # rescaling keeps CTW pretty close
-        self.assertAlmostEqual(abs_res.chance_to_win, rel_res.chance_to_win, places=2)
+        self.assertAlmostEqual(abs_res.chanceToWin, rel_res.chanceToWin, places=2)
 
 
 if __name__ == "__main__":

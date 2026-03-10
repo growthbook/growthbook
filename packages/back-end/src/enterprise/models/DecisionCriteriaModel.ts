@@ -1,8 +1,8 @@
-import { MakeModelClass } from "back-end/src/models/BaseModel";
 import {
   DecisionCriteriaInterface,
   decisionCriteriaInterface,
-} from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.validators";
+} from "shared/enterprise";
+import { MakeModelClass } from "back-end/src/models/BaseModel";
 
 const BaseClass = MakeModelClass({
   schema: decisionCriteriaInterface,
@@ -14,7 +14,7 @@ const BaseClass = MakeModelClass({
     updateEvent: "decisionCriteria.update",
     deleteEvent: "decisionCriteria.delete",
   },
-  globallyUniqueIds: false,
+  globallyUniquePrimaryKeys: false,
 });
 
 // TODO: project scoping or make more permissive
@@ -30,8 +30,8 @@ export class DecisionCriteriaModel extends BaseClass {
     return this.context.permissions.canUpdateDecisionCriteria();
   }
   protected async beforeDelete(existing: DecisionCriteriaInterface) {
-    const defaultDecisionCriteriaId = this.context.org.settings
-      ?.defaultDecisionCriteriaId;
+    const defaultDecisionCriteriaId =
+      this.context.org.settings?.defaultDecisionCriteriaId;
     if (existing.id === defaultDecisionCriteriaId) {
       throw new Error("Cannot delete organization default decision criteria");
     }

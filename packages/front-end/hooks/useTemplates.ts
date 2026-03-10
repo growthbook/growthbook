@@ -1,7 +1,7 @@
 import {
   ExperimentInterfaceStringDates,
   ExperimentTemplateInterface,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import { useMemo } from "react";
 import useApi from "./useApi";
 import { useExperiments } from "./useExperiments";
@@ -14,9 +14,10 @@ export function useTemplates() {
   const { experiments, loading: experimentsLoading } = useExperiments();
   const templates = useMemo(() => data?.templates || [], [data]);
 
-  const templatesMap = useMemo(() => new Map(templates.map((t) => [t.id, t])), [
-    templates,
-  ]);
+  const templatesMap = useMemo(
+    () => new Map(templates.map((t) => [t.id, t])),
+    [templates],
+  );
 
   const templateExperimentMap = useMemo(() => {
     const map: Record<string, ExperimentInterfaceStringDates[]> = {};

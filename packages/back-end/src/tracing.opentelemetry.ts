@@ -31,17 +31,16 @@ import { Resource } from "@opentelemetry/resources";
 import { SemanticResourceAttributes } from "@opentelemetry/semantic-conventions";
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-proto";
 import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
-import { getBuild } from "./util/handler";
-import { setMetrics } from "./util/metrics";
+import { getBuild } from "./util/build";
+import { setMetrics, Attributes } from "./util/metrics";
 
 diag.setLogger(
   new DiagConsoleLogger(),
-  opentelemetry.core.getEnv().OTEL_LOG_LEVEL
+  opentelemetry.core.getEnv().OTEL_LOG_LEVEL,
 );
 
 const metricReader = new PeriodicExportingMetricReader({
   exporter: new OTLPMetricExporter(),
-  exportIntervalMillis: 1000,
 });
 
 const sdk = new opentelemetry.NodeSDK({
@@ -67,7 +66,7 @@ try {
 } catch (error) {
   diag.error(
     "Error initializing OpenTelemetry SDK. Your application is not instrumented and will not produce telemetry",
-    error
+    error,
   );
 }
 
@@ -78,9 +77,30 @@ process.on("SIGTERM", () => {
     .catch((error) => diag.error("Error terminating OpenTelemetry SDK", error));
 });
 
+const getCounter = (name: string) => {
+  const counter = otlMetrics.getMeter(name).createUpDownCounter(name);
+
+  return {
+    increment: (attributes?: Attributes) => counter.add(1, attributes),
+    decrement: (attributes?: Attributes) => counter.add(-1, attributes),
+  };
+};
+
+const getGauge = (name: string) => {
+  const gauge = otlMetrics.getMeter(name).createObservableGauge(name);
+
+  return {
+    record: (value: number, attributes?: Attributes) => {
+      gauge.addCallback((observableResult) => {
+        observableResult.observe(value, attributes);
+      });
+    },
+  };
+};
+
 setMetrics({
-  getCounter: (name: string) =>
-    otlMetrics.getMeter(name).createUpDownCounter(name),
+  getCounter,
   getHistogram: (name: string) =>
     otlMetrics.getMeter(name).createHistogram(name),
+  getGauge,
 });

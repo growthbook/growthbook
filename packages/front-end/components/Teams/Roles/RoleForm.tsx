@@ -5,7 +5,7 @@ import {
   RESERVED_ROLE_IDS,
 } from "shared/permissions";
 import { FormProvider, useForm } from "react-hook-form";
-import { Role } from "back-end/types/organization";
+import { Role } from "shared/types/organization";
 import router from "next/router";
 import { useState } from "react";
 import Field from "@/components/Forms/Field";
@@ -26,13 +26,14 @@ export default function RoleForm({
   const [error, setError] = useState<string | null>(null);
   const { refreshOrganization } = useUser();
   const [status, setStatus] = useState<"editing" | "viewing" | "creating">(
-    action
+    action,
   );
 
   const validateInputs = (input: {
     id: string;
     description: string;
     policies: Policy[];
+    displayName?: string;
   }): boolean => {
     if (!input.id.length) {
       setError("Name field is required");
@@ -44,10 +45,23 @@ export default function RoleForm({
       return false;
     }
 
+    if (input.id.startsWith("gbDefault_")) {
+      setError(
+        "Role id cannot start with 'gbDefault_' as this prefix is reserved for default roles",
+      );
+      return false;
+    }
+
     if (!/^[a-zA-Z0-9_]+$/.test(input.id)) {
       setError("Name can only contain letters, numbers, and underscores.");
       return false;
     }
+
+    if (input.displayName && input.displayName.length > 64) {
+      setError("Display name must be 64 characters or less.");
+      return false;
+    }
+
     return true;
   };
 
@@ -55,6 +69,7 @@ export default function RoleForm({
     id: string;
     description: string;
     policies: Policy[];
+    displayName?: string;
   }>({
     defaultValues: role,
   });
@@ -63,6 +78,7 @@ export default function RoleForm({
     id: form.watch("id"),
     description: form.watch("description"),
     policies: form.watch("policies"),
+    displayName: form.watch("displayName"),
   };
 
   const isReservedRole = RESERVED_ROLE_IDS.includes(role.id);
@@ -98,6 +114,7 @@ export default function RoleForm({
           body: JSON.stringify({
             description: currentValue.description,
             policies: currentValue.policies,
+            displayName: currentValue.displayName,
           }),
         });
       }
@@ -142,6 +159,16 @@ export default function RoleForm({
           labelClassName="font-weight-bold"
           {...form.register("description")}
         />
+        <Field
+          label="Display Name"
+          disabled={status === "viewing"}
+          currentLength={currentValue.displayName?.length || 0}
+          placeholder="Optional: User-friendly name to display in the UI (e.g., 'Project Admin')"
+          maxLength={64}
+          labelClassName="font-weight-bold"
+          {...form.register("displayName")}
+          helpText="Optional. If not provided, the role ID will be used for display."
+        />
       </div>
       <div className="pt-4">
         <h2 className="py-2">Select Permissions</h2>
@@ -173,9 +200,8 @@ export default function RoleForm({
                               if (!checked) {
                                 currentPolicies.push(policy);
                               } else {
-                                const indexToRemove = currentPolicies.indexOf(
-                                  policy
-                                );
+                                const indexToRemove =
+                                  currentPolicies.indexOf(policy);
                                 currentPolicies.splice(indexToRemove, 1);
                               }
                               form.setValue("policies", currentPolicies);

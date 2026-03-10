@@ -1,0 +1,26 @@
+type: object
+properties:
+  name:
+    type: string
+    description: Name of the dimension
+  description:
+    type: string
+    description: Description of the dimension
+  owner:
+    type: string
+    description: Owner of the dimension
+  datasourceId:
+    type: string
+    description: ID of the datasource this dimension belongs to
+  identifierType:
+    type: string
+    description: Type of identifier (user, anonymous, etc.)
+  query:
+    type: string
+    description: SQL query or equivalent for the dimension
+  managedBy:
+    type: string
+    description: Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere.
+    enum:
+      - ""
+      - api

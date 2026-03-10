@@ -1,32 +1,25 @@
 import { useRouter } from "next/router";
-import React, { useEffect, useState, useMemo } from "react";
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
-import { FeatureCodeRefsInterface } from "back-end/types/code-refs";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import {
-  filterEnvironmentsByFeature,
-  getDependentExperiments,
-  getDependentFeatures,
-  mergeRevision,
-} from "shared/util";
+import { useEffect, useState } from "react";
+import { FeatureEvalDiagnosticsQueryResponseRows } from "shared/types/integrations";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import useApi from "@/hooks/useApi";
 import PageHead from "@/components/Layout/PageHead";
 import FeaturesHeader from "@/components/Features/FeaturesHeader";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import FeaturesOverview from "@/components/Features/FeaturesOverview";
 import FeaturesStats from "@/components/Features/FeaturesStats";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { useEnvironments, useFeaturesList } from "@/services/features";
 import { FeatureUsageProvider } from "@/components/Features/FeatureUsageGraph";
 import FeatureTest from "@/components/Features/FeatureTest";
 import { useAuth } from "@/services/auth";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
 import EditFeatureInfoModal from "@/components/Features/EditFeatureInfoModal";
+import FeatureDiagnostics from "@/components/Features/FeatureDiagnostics";
+import { useFeaturePageData } from "@/hooks/useFeaturePageData";
+import { useFeatureDependents } from "@/hooks/useFeatureDependents";
+import Callout from "@/ui/Callout";
 
-const featureTabs = ["overview", "stats", "test"] as const;
-export type FeatureTab = typeof featureTabs[number];
+const featureTabs = ["overview", "stats", "test", "diagnostics"] as const;
+export type FeatureTab = (typeof featureTabs)[number];
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -35,42 +28,45 @@ export default function FeaturePage() {
   const [editProjectModal, setEditProjectModal] = useState(false);
   const [editTagsModal, setEditTagsModal] = useState(false);
   const [editFeatureInfoModal, setEditFeatureInfoModal] = useState(false);
-  const [version, setVersion] = useState<number | null>(null);
+  const [diagnosticsResults, setDiagnosticsResults] = useState<Array<
+    FeatureEvalDiagnosticsQueryResponseRows[number] & { id: string }
+  > | null>(null);
+  // Clean state when feature id changes
+  useEffect(() => {
+    setDiagnosticsResults(null);
+  }, [fid]);
+
   const { apiCall } = useAuth();
 
-  const { features } = useFeaturesList(false);
-  const allEnvironments = useEnvironments();
+  const {
+    data,
+    error,
+    isValidating,
+    revisionLoading,
+    refreshData,
+    feature,
+    baseFeature,
+    revision,
+    version,
+    setVersion,
+  } = useFeaturePageData(fid, router.query.v);
 
-  let extraQueryString = "";
-  // Version being forced via querystring
-  if ("v" in router.query) {
-    const v = parseInt(router.query.v as string);
-    if (v) {
-      extraQueryString = `?v=${v}`;
-    }
-  }
-
-  const { data, error, mutate } = useApi<{
-    feature: FeatureInterface;
-    revisions: FeatureRevisionInterface[];
-    experiments: ExperimentInterfaceStringDates[];
-    codeRefs: FeatureCodeRefsInterface[];
-  }>(`/feature/${fid}${extraQueryString}`);
-  const baseFeature = data?.feature;
-  const baseFeatureVersion = baseFeature?.version;
-  const revisions = data?.revisions;
   const experiments = data?.experiments;
+  const safeRollouts = data?.safeRollouts;
+  const holdout = data?.holdout;
+
+  const { dependents: dependentsData } = useFeatureDependents(baseFeature?.id);
 
   const [tab, setTab] = useLocalStorage<FeatureTab>(
     `tabbedPageTab__${fid}`,
-    "overview"
+    "overview",
   );
 
   const setTabAndScroll = (tab: FeatureTab) => {
     setTab(tab);
     const newUrl = window.location.href.replace(/#.*/, "") + "#" + tab;
     if (newUrl === window.location.href) return;
-    window.history.pushState("", "", newUrl);
+    router.push(newUrl, undefined, { shallow: true });
     window.scrollTo({
       top: 0,
       behavior: "smooth",
@@ -89,106 +85,20 @@ export default function FeaturePage() {
     return () => window.removeEventListener("hashchange", handler, false);
   }, [setTab]);
 
-  useEffect(() => {
-    if (!revisions || !baseFeatureVersion) return;
-    if (version) return;
-
-    // Version being forced via querystring
-    if ("v" in router.query) {
-      const v = parseInt(router.query.v as string);
-      if (v && revisions.some((r) => r.version === v)) {
-        setVersion(v);
-        return;
-      }
-    }
-
-    // If there's an active draft, show that by default, otherwise show the live version
-    const draft = revisions.find(
-      (r) =>
-        r.status === "draft" ||
-        r.status === "approved" ||
-        r.status === "changes-requested" ||
-        r.status === "pending-review"
-    );
-    setVersion(draft ? draft.version : baseFeatureVersion);
-  }, [revisions, version, router.query, baseFeatureVersion]);
-
-  const environments = useMemo(
-    () =>
-      baseFeature
-        ? filterEnvironmentsByFeature(allEnvironments, baseFeature)
-        : [],
-    [allEnvironments, baseFeature]
-  );
-  const envs = environments.map((e) => e.id);
-
-  const revision = useMemo<FeatureRevisionInterface | null>(() => {
-    if (!revisions || !version || !baseFeature) return null;
-    const match = revisions.find((r) => r.version === version);
-    if (match) return match;
-
-    // If we can't find the revision, create a dummy revision just so the page can render
-    // This is for old features that don't have any revision history saved
-    const rules: Record<string, FeatureRule[]> = {};
-    environments.forEach((env) => {
-      rules[env.id] = baseFeature.environmentSettings?.[env.id]?.rules || [];
-    });
-
-    return {
-      baseVersion: baseFeature.version,
-      comment: "",
-      createdBy: null,
-      dateCreated: baseFeature.dateCreated,
-      datePublished: baseFeature.dateCreated,
-      dateUpdated: baseFeature.dateUpdated,
-      defaultValue: baseFeature.defaultValue,
-      featureId: baseFeature.id,
-      organization: baseFeature.organization,
-      publishedBy: null,
-      rules: rules,
-      status: "published",
-      version: baseFeature.version,
-      prerequisites: baseFeature.prerequisites || [],
-    };
-  }, [revisions, version, environments, baseFeature]);
-
-  const feature = useMemo(() => {
-    if (!revision || !baseFeature) return null;
-    return revision.version !== baseFeature.version
-      ? mergeRevision(
-          baseFeature,
-          revision,
-          environments.map((e) => e.id)
-        )
-      : baseFeature;
-  }, [baseFeature, revision, environments]);
-
-  const dependentFeatures = useMemo(() => {
-    if (!feature || !features) return [];
-    return getDependentFeatures(feature, features, envs);
-  }, [feature, features, envs]);
-
-  const dependentExperiments = useMemo(() => {
-    if (!feature || !experiments) return [];
-    return getDependentExperiments(feature, experiments);
-  }, [feature, experiments]);
-
-  const dependents = dependentFeatures.length + dependentExperiments.length;
+  const dependents =
+    (dependentsData?.features.length ?? 0) +
+    (dependentsData?.experiments.length ?? 0);
 
   if (error) {
-    return (
-      <div className="alert alert-danger">
-        An error occurred: {error.message}
-      </div>
-    );
+    return <Callout status="error">An error occurred: {error.message}</Callout>;
   }
 
-  if (!data || !feature || !revision) {
+  if (!data || !feature || !revision || !baseFeature) {
     return <LoadingOverlay />;
   }
 
   return (
-    <FeatureUsageProvider featureId={feature.id}>
+    <FeatureUsageProvider feature={feature}>
       <PageHead
         breadcrumb={[
           { display: "Features", href: "/features" },
@@ -197,39 +107,39 @@ export default function FeaturePage() {
       />
       <FeaturesHeader
         feature={feature}
-        features={features}
-        experiments={experiments}
-        mutate={mutate}
+        mutate={refreshData}
         tab={tab}
         setTab={setTabAndScroll}
         setEditFeatureInfoModal={setEditFeatureInfoModal}
-        dependents={dependents}
+        holdout={holdout}
       />
 
       {tab === "overview" && (
         <FeaturesOverview
-          baseFeature={data.feature}
+          baseFeature={baseFeature}
           feature={feature}
           revision={revision}
+          revisionList={data.revisionList}
+          loading={isValidating}
+          revisionLoading={revisionLoading}
           revisions={data.revisions}
           experiments={experiments}
-          mutate={mutate}
+          safeRollouts={safeRollouts}
+          holdout={holdout}
+          mutate={refreshData}
           editProjectModal={editProjectModal}
           setEditProjectModal={setEditProjectModal}
           version={version}
           setVersion={setVersion}
-          dependents={dependents}
-          dependentFeatures={dependentFeatures}
-          dependentExperiments={dependentExperiments}
         />
       )}
 
       {tab === "test" && (
         <FeatureTest
-          baseFeature={data.feature}
+          baseFeature={baseFeature}
           feature={feature}
           revision={revision}
-          revisions={data.revisions}
+          revisions={data.revisionList}
           version={version}
           setVersion={setVersion}
         />
@@ -237,6 +147,14 @@ export default function FeaturePage() {
 
       {tab === "stats" && (
         <FeaturesStats orgSettings={orgSettings} codeRefs={data.codeRefs} />
+      )}
+
+      {tab === "diagnostics" && (
+        <FeatureDiagnostics
+          feature={feature}
+          results={diagnosticsResults}
+          setResults={setDiagnosticsResults}
+        />
       )}
 
       {editTagsModal && (
@@ -249,13 +167,12 @@ export default function FeaturePage() {
             });
           }}
           cancel={() => setEditTagsModal(false)}
-          mutate={mutate}
+          mutate={refreshData}
         />
       )}
 
       {editFeatureInfoModal && (
         <EditFeatureInfoModal
-          resourceType="feature"
           source="feature-header"
           dependents={dependents}
           feature={feature}
@@ -266,7 +183,7 @@ export default function FeaturePage() {
             });
           }}
           cancel={() => setEditFeatureInfoModal(false)}
-          mutate={mutate}
+          mutate={refreshData}
         />
       )}
     </FeatureUsageProvider>

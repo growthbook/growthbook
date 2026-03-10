@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MetricType } from "back-end/types/metric";
+import { MetricType } from "shared/types/metric";
 import { FC, Fragment, useEffect, useMemo, useState } from "react";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
@@ -14,7 +14,7 @@ import {
   useTooltip,
   useTooltipInPortal,
 } from "@visx/tooltip";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { date, getValidDate, getValidDateOffsetByUTC } from "shared/dates";
 import { addDays, setHours, setMinutes } from "date-fns";
 import cloneDeep from "lodash/cloneDeep";
@@ -53,7 +53,7 @@ function getTooltipDataFromDatapoint(
   datapoint: Datapoint,
   data: Datapoint[],
   innerWidth: number,
-  yScale: ScaleLinear<unknown, unknown, never>
+  yScale: ScaleLinear<unknown, unknown, never>,
 ) {
   const index = data.indexOf(datapoint);
   if (index === -1) {
@@ -69,13 +69,13 @@ function getDateFromX(
   data: Datapoint[],
   width: number,
   marginLeft: number,
-  marginRight: number
+  marginRight: number,
 ) {
   const innerWidth = width - marginRight - marginLeft + width / data.length - 1;
   const px = x / innerWidth;
   const index = Math.max(
     Math.min(Math.round(px * data.length), data.length - 1),
-    0
+    0,
   );
   const datapoint = data[index];
   return getValidDate(datapoint.d).getTime();
@@ -87,7 +87,7 @@ function getTooltipContents(
   method: "sum" | "avg",
   smoothBy: "day" | "week",
   formatter: (value: number, options?: Intl.NumberFormatOptions) => string,
-  displayCurrency?: string
+  displayCurrency?: string,
 ) {
   if (!d || d.oor) return null;
   const formatterOptions = { currency: displayCurrency };
@@ -131,7 +131,7 @@ function addStddev(
   value?: number,
   stddev?: number,
   num: number = 1,
-  add: boolean = true
+  add: boolean = true,
 ) {
   value = value ?? 0;
   stddev = stddev ?? 0;
@@ -190,14 +190,12 @@ const DateGraph: FC<DateGraphProps> = ({
   const metricFormatter = formatter ?? getMetricFormatter(type);
   const formatterOptions = { currency: displayCurrency };
 
-  const [
-    highlightExp,
-    setHighlightExp,
-  ] = useState<null | ExperimentDisplayData>(null);
+  const [highlightExp, setHighlightExp] =
+    useState<null | ExperimentDisplayData>(null);
 
   const data = useMemo(() => {
     let sortedDates = cloneDeep(dates).sort(
-      (a, b) => getValidDate(a.d).getTime() - getValidDate(b.d).getTime()
+      (a, b) => getValidDate(a.d).getTime() - getValidDate(b.d).getTime(),
     );
 
     // Force a common date format using the last date
@@ -238,14 +236,14 @@ const DateGraph: FC<DateGraphProps> = ({
       let value =
         row.v === null ? null : method === "avg" ? row.v : row.v * (row.c ?? 1);
       let stddev = row.s === null ? null : method === "avg" ? row.s : 0;
-      const count = row.c === null ? null : row.c ?? 1;
+      const count = row.c === null ? null : (row.c ?? 1);
       const oor = row.oor;
 
       if (smoothBy === "week") {
         // get 7 day average (or < 7 days if at beginning of data)
         const windowedDates = filledDates.slice(Math.max(i - 6, 0), i + 1);
         const filteredWindowedDates = windowedDates.filter(
-          (d) => d.v !== null && d.s !== null
+          (d) => d.v !== null && d.s !== null,
         );
         const days = filteredWindowedDates.length;
         const sumValue = filteredWindowedDates.reduce((acc, cur) => {
@@ -254,7 +252,7 @@ const DateGraph: FC<DateGraphProps> = ({
         }, 0);
         const sumStddev = filteredWindowedDates.reduce((acc, cur) => {
           if (cur.s === null) return null;
-          return acc + (method === "avg" ? cur.s ?? 0 : 0);
+          return acc + (method === "avg" ? (cur.s ?? 0) : 0);
         }, 0);
         if (sumValue !== null && sumStddev !== null) {
           value = days ? sumValue / days : 0;
@@ -405,7 +403,7 @@ const DateGraph: FC<DateGraphProps> = ({
         range: [0, xMax],
         round: true,
       }),
-    [min, max, xMax]
+    [min, max, xMax],
   );
 
   const yScale = useMemo(
@@ -415,14 +413,14 @@ const DateGraph: FC<DateGraphProps> = ({
           0,
           Math.max(
             ...data.map((d) =>
-              Math.min((d.v ?? 0) * 2, (d.v ?? 0) + (d.s ?? 0) * 2)
-            )
+              Math.min((d.v ?? 0) * 2, (d.v ?? 0) + (d.s ?? 0) * 2),
+            ),
           ),
         ],
         range: [graphHeight, 0],
         round: true,
       }),
-    [data, graphHeight]
+    [data, graphHeight],
   );
 
   const {
@@ -454,7 +452,7 @@ const DateGraph: FC<DateGraphProps> = ({
       datapoint,
       data,
       innerWidth,
-      yScale
+      yScale,
     );
     if (!tooltipData) {
       hideTooltip();
@@ -482,7 +480,7 @@ const DateGraph: FC<DateGraphProps> = ({
         const xMax = width - marginRight - marginLeft;
 
         const handlePointerMove = (
-          event: React.PointerEvent<HTMLDivElement>
+          event: React.PointerEvent<HTMLDivElement>,
         ) => {
           // coordinates should be relative to the container in which Tooltip is rendered
           const containerX =
@@ -492,7 +490,7 @@ const DateGraph: FC<DateGraphProps> = ({
             data,
             width,
             marginLeft,
-            marginRight
+            marginRight,
           );
           if (onHover) {
             onHover({ d: date });
@@ -545,7 +543,7 @@ const DateGraph: FC<DateGraphProps> = ({
                         method,
                         smoothBy,
                         metricFormatter,
-                        displayCurrency
+                        displayCurrency,
                       )}
                   </TooltipWithBounds>
                 </>
@@ -567,8 +565,8 @@ const DateGraph: FC<DateGraphProps> = ({
                   <rect
                     x={0}
                     y={0}
-                    width={width - margin[1] - margin[3]}
-                    height={height - margin[0] - margin[2]}
+                    width={Math.max(0, width - margin[1] - margin[3])}
+                    height={Math.max(0, height - margin[0] - margin[2])}
                   />
                 </clipPath>
               </defs>
@@ -613,7 +611,7 @@ const DateGraph: FC<DateGraphProps> = ({
                             onMouseLeave={() => {
                               clearTimeout(toolTipTimer);
                               setToolTipTimer(
-                                setTimeout(setHighlightExp, toolTipDelay, null)
+                                setTimeout(setHighlightExp, toolTipDelay, null),
                               );
                             }}
                           />
@@ -802,7 +800,7 @@ const DateGraph: FC<DateGraphProps> = ({
                         onMouseLeave={() => {
                           clearTimeout(toolTipTimer);
                           setToolTipTimer(
-                            setTimeout(setHighlightExp, toolTipDelay, null)
+                            setTimeout(setHighlightExp, toolTipDelay, null),
                           );
                         }}
                       />
@@ -827,7 +825,7 @@ const DateGraph: FC<DateGraphProps> = ({
                 onMouseLeave={() => {
                   clearTimeout(toolTipTimer);
                   setToolTipTimer(
-                    setTimeout(setHighlightExp, toolTipDelay, null)
+                    setTimeout(setHighlightExp, toolTipDelay, null),
                   );
                 }}
               >

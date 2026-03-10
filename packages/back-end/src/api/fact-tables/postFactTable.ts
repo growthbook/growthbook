@@ -1,5 +1,6 @@
-import { CreateFactTableProps } from "back-end/types/fact-table";
-import { PostFactTableResponse } from "back-end/types/openapi";
+import { PostFactTableResponse } from "shared/types/openapi";
+import { postFactTableValidator } from "shared/validators";
+import { CreateFactTableProps } from "shared/types/fact-table";
 import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTableColumns";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
@@ -8,12 +9,10 @@ import {
 } from "back-end/src/models/FactTableModel";
 import { addTags } from "back-end/src/models/TagModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { postFactTableValidator } from "back-end/src/validators/openapi";
 
 export const postFactTable = createApiRequestHandler(postFactTableValidator)(
   async (req): Promise<PostFactTableResponse> => {
     const data: CreateFactTableProps = {
-      columns: [],
       eventName: "",
       id: "",
       description: "",
@@ -23,12 +22,9 @@ export const postFactTable = createApiRequestHandler(postFactTableValidator)(
       ...req.body,
     };
 
-    if (!req.context.permissions.canCreateFactTable(data)) {
-      req.context.permissions.throwPermissionError();
-    }
     const datasource = await getDataSourceById(
       req.context,
-      req.body.datasource
+      req.body.datasource,
     );
     if (!datasource) {
       throw new Error("Could not find datasource");
@@ -50,7 +46,7 @@ export const postFactTable = createApiRequestHandler(postFactTableValidator)(
       for (const userIdType of req.body.userIdTypes) {
         if (
           !datasource.settings?.userIdTypes?.some(
-            (t) => t.userIdType === userIdType
+            (t) => t.userIdType === userIdType,
           )
         ) {
           throw new Error(`Invalid userIdType: ${userIdType}`);
@@ -68,5 +64,5 @@ export const postFactTable = createApiRequestHandler(postFactTableValidator)(
     return {
       factTable: toFactTableApiInterface(factTable),
     };
-  }
+  },
 );

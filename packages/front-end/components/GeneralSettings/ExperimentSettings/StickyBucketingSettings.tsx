@@ -1,6 +1,5 @@
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
-import React from "react";
 import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -10,8 +9,8 @@ import {
 } from "@/components/Features/FallbackAttributeSelector";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { ConnectSettingsForm } from "@/pages/settings";
-import Callout from "@/components/Radix/Callout";
-import Checkbox from "@/components/Radix/Checkbox";
+import Callout from "@/ui/Callout";
+import Checkbox from "@/ui/Checkbox";
 import { GBInfo } from "@/components/Icons";
 
 export default function StickyBucketingSettings() {
@@ -40,7 +39,7 @@ export default function StickyBucketingSettings() {
               setValue={(v) =>
                 setValue(
                   "useStickyBucketing",
-                  hasCommercialFeature("sticky-bucketing") ? v : false
+                  hasCommercialFeature("sticky-bucketing") ? v : false,
                 )
               }
               id="toggle-useStickyBucketing"
@@ -100,7 +99,7 @@ export default function StickyBucketingSettings() {
               </Box>
             </Flex>
           )}
-          <Callout status="info" mt="3">
+          <Callout status="info" mt="3" contentsAs="div">
             <Text size="2">
               <StickyBucketingToggleWarning
                 showIcon={false}
