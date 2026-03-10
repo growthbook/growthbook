@@ -222,6 +222,11 @@ paths:
       $ref: "./paths/updateExperiment.yaml"
   /experiments/{id}/snapshot:
     $ref: "./paths/postExperimentSnapshot.yaml"
+  /experiments/{id}/variation/{variationId}/screenshot/upload:
+    $ref: "./paths/postVariationImageUpload.yaml"
+  /experiments/{id}/variation/{variationId}/screenshot:
+    delete:
+      $ref: "./paths/deleteVariationScreenshot.yaml"
   /experiments/{id}/results:
     $ref: "./paths/getExperimentResults.yaml"
   /experiments/{id}/visual-changesets:

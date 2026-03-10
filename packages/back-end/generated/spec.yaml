@@ -2715,6 +2715,112 @@ paths:
                 properties:
                   snapshot:
                     $ref: '#/components/schemas/ExperimentSnapshot'
+  '/experiments/{id}/variation/{variationId}/screenshot/upload':
+    parameters:
+      - $ref: '#/components/parameters/id'
+      - name: variationId
+        in: path
+        required: true
+        description: The variation ID (e.g. var_abc123) from the experiment's variations
+        schema:
+          type: string
+    post:
+      tags:
+        - experiments
+      summary: Upload a variation screenshot
+      operationId: postVariationImageUpload
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/experiments/exp_1234/variation/var_abc123/screenshot/upload \
+              -H "Content-Type: application/json" \
+              -d '{"screenshot":"<base64-encoded-screenshot>","contentType":"image/png"}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - screenshot
+                - contentType
+              properties:
+                screenshot:
+                  type: string
+                  description: Base64-encoded screenshot data
+                  contentEncoding: base64
+                contentType:
+                  type: string
+                  description: MIME type of the screenshot
+                  enum:
+                    - image/png
+                    - image/jpeg
+                    - image/gif
+                description:
+                  type: string
+                  description: Optional description for the screenshot
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - screenshot
+                properties:
+                  screenshot:
+                    type: object
+                    required:
+                      - path
+                      - description
+                    properties:
+                      path:
+                        type: string
+                        description: URL or path to the uploaded screenshot
+                      description:
+                        type: string
+                        description: Description of the screenshot
+  '/experiments/{id}/variation/{variationId}/screenshot':
+    delete:
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - name: variationId
+          in: path
+          required: true
+          description: The variation ID (e.g. var_abc123) from the experiment's variations
+          schema:
+            type: string
+      tags:
+        - experiments
+      summary: Delete a variation screenshot
+      operationId: deleteVariationScreenshot
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X DELETE https://api.growthbook.io/api/v1/experiments/exp_1234/variation/var_abc123/screenshot \
+              -H "Content-Type: application/json" \
+              -d '{"path":"/upload/org_xxx/2025-03/img_uuid.png"}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - path
+              properties:
+                path:
+                  type: string
+                  description: The screenshot path/URL to delete (from upload response)
+      responses:
+        '200':
+          description: Screenshot deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
   '/experiments/{id}/results':
     parameters:
       - $ref: '#/components/parameters/id'
