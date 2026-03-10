@@ -117,7 +117,7 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
   }
 
   try {
-    logger.info("Queueing Results Refresh for experiment " + experimentId);
+    logger.info("Requesting Results Refresh for experiment " + experimentId);
 
     let reweight =
       experiment.type === "multi-armed-bandit" &&
@@ -139,6 +139,7 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
       context,
       phaseIndex: experiment.phases.length - 1,
       useCache: true,
+      type: "standard",
       triggeredBy: "schedule",
       reweight,
     });

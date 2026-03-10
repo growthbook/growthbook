@@ -84,7 +84,6 @@ import {
   ExperimentAnalysisParamsContextData,
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
-  ExperimentSnapshotExecutionMode,
   ExperimentSnapshotRefreshExecutionMetadata,
   ExperimentSnapshotRefreshIntent,
   ExperimentSnapshotInterface,
@@ -137,9 +136,9 @@ import {
   findSnapshotById,
   getLatestSnapshotMultipleExperiments,
   updateSnapshot,
-  updateSnapshotRefreshExecution,
+  updateExecutionMetadata,
   updateSnapshotAnalysis,
-  updateSnapshotHeartbeat,
+  updateExecutionHeartbeat,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { findDimensionById } from "back-end/src/models/DimensionModel";
 import {
@@ -187,10 +186,6 @@ import {
 } from "./organizations";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
-
-function getExecutionMode(isWriter: boolean): ExperimentSnapshotExecutionMode {
-  return isWriter ? "writer" : "reader";
-}
 
 export async function createMetric(
   context: Context,
@@ -1052,29 +1047,24 @@ export function getAdditionalQueryMetadataForExperiment(
   };
 }
 
-export function buildSnapshotRefreshIntent({
+function buildSnapshotRefreshIntent({
   triggeredBy,
-  useCache,
-  reweight,
+  banditReweightRequested,
 }: {
   triggeredBy: SnapshotTriggeredBy;
-  useCache: boolean;
-  reweight?: boolean;
+  banditReweightRequested: boolean;
 }): ExperimentSnapshotRefreshIntent {
   return {
-    forceFullRefresh: !useCache,
-    banditReweightRequested: !!reweight,
     triggeredBySchedule: triggeredBy === "schedule",
+    banditReweightRequested,
   };
 }
 
-export function mergeSnapshotRefreshIntent(
+function mergeSnapshotRefreshIntent(
   existing: ExperimentSnapshotRefreshIntent,
   incoming: ExperimentSnapshotRefreshIntent,
 ): ExperimentSnapshotRefreshIntent {
   return {
-    forceFullRefresh:
-      existing.forceFullRefresh || incoming.forceFullRefresh || false,
     banditReweightRequested:
       existing.banditReweightRequested ||
       incoming.banditReweightRequested ||
@@ -1084,7 +1074,7 @@ export function mergeSnapshotRefreshIntent(
   };
 }
 
-export function getSnapshotType({
+function getSnapshotType({
   experiment,
   dimension,
   phaseIndex,
@@ -1138,15 +1128,6 @@ async function recordExperimentSnapshotAttempt({
   });
 }
 
-function isDuplicateKeyError(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    error.code === 11000
-  );
-}
-
 async function updateActiveStandardSnapshotExecution({
   context,
   snapshot,
@@ -1156,42 +1137,40 @@ async function updateActiveStandardSnapshotExecution({
   snapshot: ExperimentSnapshotInterface;
   incomingIntent: ExperimentSnapshotRefreshIntent;
 }): Promise<ExperimentSnapshotInterface> {
-  const refreshExecution = snapshot.executionMetadata;
-  if (!refreshExecution) return snapshot;
+  const { executionMetadata } = snapshot;
+  if (!executionMetadata) return snapshot;
 
   const mergedIntent = mergeSnapshotRefreshIntent(
-    refreshExecution.intent ?? {},
+    executionMetadata.intent,
     incomingIntent,
   );
 
-  const updates: Partial<ExperimentSnapshotInterface> = {};
+  const banditSettings = snapshot.settings.banditSettings;
+  const shouldEnableBanditReweight =
+    !!mergedIntent.banditReweightRequested &&
+    !!banditSettings &&
+    !banditSettings.reweight;
 
-  if (
-    mergedIntent.banditReweightRequested &&
-    snapshot.settings.banditSettings &&
-    !snapshot.settings.banditSettings.reweight
-  ) {
-    updates.settings = {
-      ...snapshot.settings,
-      banditSettings: {
-        ...snapshot.settings.banditSettings,
-        reweight: true,
-      },
-    };
-  }
-
-  if (Object.keys(updates).length > 0) {
+  if (shouldEnableBanditReweight) {
     await updateSnapshot({
       organization: snapshot.organization,
       id: snapshot.id,
-      updates,
+      updates: {
+        settings: {
+          ...snapshot.settings,
+          banditSettings: {
+            ...banditSettings,
+            reweight: true,
+          },
+        },
+      },
       context,
     });
   }
 
-  const updatedSnapshot = await updateSnapshotRefreshExecution({
-    organization: snapshot.organization,
-    id: snapshot.id,
+  const updatedSnapshot = await updateExecutionMetadata({
+    organizationId: snapshot.organization,
+    snapshotId: snapshot.id,
     updates: {
       intent: mergedIntent,
     },
@@ -1248,6 +1227,8 @@ export async function requestExperimentSnapshot({
     experiment.id,
   );
   if (activeWriter) {
+    // TODO: Does this conflict how we handle an existing main request?
+    // Meaning that the returned id here is not the requested exploratory
     return { snapshot: activeWriter, existingExecution: true };
   }
 
@@ -1262,7 +1243,7 @@ export async function requestExperimentSnapshot({
   }
 
   const { org } = context;
-  const orgSettings = org.settings as OrganizationSettings;
+  const orgSettings = org.settings;
   const { settings } = getScopedSettings({
     organization: org,
     project: project ?? undefined,
@@ -1358,8 +1339,7 @@ export async function createOrReuseStandardSnapshotExecution({
 }): Promise<{ snapshot: ExperimentSnapshotInterface; existing: boolean }> {
   const incomingIntent = buildSnapshotRefreshIntent({
     triggeredBy,
-    useCache,
-    reweight,
+    banditReweightRequested: !!reweight,
   });
 
   await recordExperimentSnapshotAttempt({
@@ -1387,7 +1367,7 @@ export async function createOrReuseStandardSnapshotExecution({
           new Date(heartbeat).toISOString() +
           ")",
       );
-      await updateSnapshotRefreshExecution({
+      await updateExecutionMetadata({
         organization: context.org.id,
         id: existingWriter.id,
         updates: {
@@ -1505,7 +1485,7 @@ export async function createSnapshot({
   metricMap,
   factTableMap,
   reweight,
-  skipRecordingSnapshotAttempt,
+  preventStartingAnalysis,
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
@@ -1519,7 +1499,7 @@ export async function createSnapshot({
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
   reweight?: boolean;
-  skipRecordingSnapshotAttempt?: boolean;
+  preventStartingAnalysis?: boolean;
 }): Promise<
   | ExperimentResultsQueryRunner
   | ExperimentIncrementalRefreshQueryRunner
@@ -1533,8 +1513,6 @@ export async function createSnapshot({
   if (!datasource) {
     throw new Error("Could not load data source");
   }
-
-  const integration = getSourceIntegrationObject(context, datasource, true);
 
   const incrementalRefreshModel = useCache
     ? await context.models.incrementalRefresh.getByExperimentId(experiment.id)
@@ -1564,6 +1542,8 @@ export async function createSnapshot({
       organization.settings?.useStickyBucketing &&
       !experiment.disableStickyBucketing,
   });
+
+  const integration = getSourceIntegrationObject(context, datasource, true);
 
   const isIncrementalRefreshEnabledForExperiment =
     datasource.settings.pipelineSettings?.mode === "incremental" &&
@@ -1610,8 +1590,7 @@ export async function createSnapshot({
 
   const refreshIntent = buildSnapshotRefreshIntent({
     triggeredBy,
-    useCache,
-    reweight,
+    banditReweightRequested: !!reweight,
   });
   const snapshotId = uniqid("snp_");
   const refreshExecution:
@@ -1619,8 +1598,8 @@ export async function createSnapshot({
     | undefined =
     type === "standard"
       ? {
-          executionMode: getExecutionMode(isStandardIncrementalWriter),
-          executionId: snapshotId,
+          mode: isStandardIncrementalWriter ? "writer" : "reader",
+          id: snapshotId,
           intent: refreshIntent,
           heartbeat: new Date(),
         }
@@ -1664,7 +1643,7 @@ export async function createSnapshot({
     ...(refreshExecution ? { executionMetadata: refreshExecution } : {}),
   };
 
-  if (!skipRecordingSnapshotAttempt) {
+  if (!preventStartingAnalysis) {
     await recordExperimentSnapshotAttempt({
       context,
       experiment,
@@ -1753,7 +1732,7 @@ export async function createSnapshot({
       context,
     });
     if (snapshot.type === "standard") {
-      await updateSnapshotRefreshExecution({
+      await updateExecutionMetadata({
         organization: snapshot.organization,
         id: snapshot.id,
         updates: {
@@ -1860,7 +1839,7 @@ function monitorStandardSnapshotExecution({
   const snapshotId = queryRunner.model.id;
   const heartbeatTimer = setInterval(async () => {
     try {
-      await updateSnapshotHeartbeat(context.org.id, snapshotId);
+      await updateExecutionHeartbeat(context.org.id, snapshotId);
     } catch (e) {
       logger.warn(e, "Failed to update snapshot heartbeat: " + snapshotId);
     }
@@ -1926,7 +1905,7 @@ function monitorStandardSnapshotExecution({
     } finally {
       clearInterval(heartbeatTimer);
       try {
-        await updateSnapshotRefreshExecution({
+        await updateExecutionMetadata({
           organization: context.org.id,
           id: snapshotId,
           updates: {

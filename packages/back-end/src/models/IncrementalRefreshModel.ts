@@ -13,7 +13,7 @@ const BaseClass = MakeModelClass({
   idPrefix: "ir_",
   globallyUniqueIds: true,
   defaultValues: {
-    currentExecutionId: null,
+    currentExecutionSnapshotId: null,
   },
   additionalIndexes: [
     {
@@ -28,12 +28,12 @@ export class IncrementalRefreshModel extends BaseClass {
     return this._findOne({ experimentId });
   }
 
-  public async setCurrentExecutionId(
+  public async setCurrentExecutionSnapshotId(
     experimentId: string,
-    executionId: string,
+    snapshotId: string,
   ) {
     return this.upsertByExperimentId(experimentId, {
-      currentExecutionId: executionId,
+      currentExecutionSnapshotId: snapshotId,
     });
   }
 
@@ -55,7 +55,7 @@ export class IncrementalRefreshModel extends BaseClass {
       metricSources: [],
       metricCovariateSources: [],
       experimentSettingsHash: null,
-      currentExecutionId: null,
+      currentExecutionSnapshotId: null,
       ...data,
     });
   }

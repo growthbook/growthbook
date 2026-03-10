@@ -259,7 +259,7 @@ const startExperimentIncrementalRefreshQueries = async (
     : await context.models.incrementalRefresh.getByExperimentId(experimentId);
 
   const executionId = params.queryParentId;
-  await context.models.incrementalRefresh.setCurrentExecutionId(
+  await context.models.incrementalRefresh.setCurrentExecutionSnapshotId(
     experimentId,
     executionId,
   );
@@ -429,12 +429,12 @@ const startExperimentIncrementalRefreshQueries = async (
       const maxTimestamp = new Date(rows[0].max_timestamp as string);
 
       if (maxTimestamp) {
-        // Guard against stale callbacks from cancelled runs
+        // Ensure we don't override data from a different execution
         const current =
           await context.models.incrementalRefresh.getByExperimentId(
             experimentId,
           );
-        if (current?.currentExecutionId !== executionId) return;
+        if (current?.currentExecutionSnapshotId !== executionId) return;
 
         await context.models.incrementalRefresh
           .upsertByExperimentId(experimentId, {
@@ -642,12 +642,12 @@ const startExperimentIncrementalRefreshQueries = async (
         run: (query, setExternalId) =>
           integration.runIncrementalWithNoOutputQuery(query, setExternalId),
         onSuccess: async () => {
-          // Guard against stale callbacks from cancelled runs
           const incrementalRefresh =
             await context.models.incrementalRefresh.getByExperimentId(
               experimentId,
             );
-          if (incrementalRefresh?.currentExecutionId !== executionId) return;
+          if (incrementalRefresh?.currentExecutionSnapshotId !== executionId)
+            return;
 
           const lastSuccessfulMaxTimestamp =
             incrementalRefresh?.unitsMaxTimestamp ?? null;
@@ -693,12 +693,11 @@ const startExperimentIncrementalRefreshQueries = async (
       run: (query, setExternalId) =>
         integration.runMaxTimestampQuery(query, setExternalId),
       onFailure: async () => {
-        // Guard against stale callbacks from cancelled runs
         const current =
           await context.models.incrementalRefresh.getByExperimentId(
             experimentId,
           );
-        if (current?.currentExecutionId !== executionId) return;
+        if (current?.currentExecutionSnapshotId !== executionId) return;
 
         // Remove the source from the running data if max timestamp fails
         runningSourceData = runningSourceData.filter(
@@ -719,7 +718,7 @@ const startExperimentIncrementalRefreshQueries = async (
             await context.models.incrementalRefresh.getByExperimentId(
               experimentId,
             );
-          if (current?.currentExecutionId !== executionId) return;
+          if (current?.currentExecutionSnapshotId !== executionId) return;
 
           // TODO(incremental-refresh): Clean up metadata handling in query runner
           const updatedSource: IncrementalRefreshMetricSourceInterface =
@@ -988,7 +987,6 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       updates,
       context: this.context,
     });
-
     if (
       this.model.report &&
       ["failed", "partially-succeeded", "succeeded"].includes(status)
