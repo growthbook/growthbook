@@ -1217,6 +1217,12 @@ export interface components {
               value: string;
               coverage: number;
               hashAttribute: string;
+              rampSchedule?: {
+                steps: ({
+                    coverage: number;
+                    holdSeconds: number;
+                  })[];
+              };
             }) | ({
               description: string;
               condition: string;
@@ -1426,6 +1432,12 @@ export interface components {
                 value: string;
                 coverage: number;
                 hashAttribute: string;
+                rampSchedule?: {
+                  steps: ({
+                      coverage: number;
+                      holdSeconds: number;
+                    })[];
+                };
               }) | ({
                 description: string;
                 condition: string;
@@ -1667,6 +1679,12 @@ export interface components {
               value: string;
               coverage: number;
               hashAttribute: string;
+              rampSchedule?: {
+                steps: ({
+                    coverage: number;
+                    holdSeconds: number;
+                  })[];
+              };
             }) | ({
               description: string;
               condition: string;
@@ -1876,6 +1894,12 @@ export interface components {
                 value: string;
                 coverage: number;
                 hashAttribute: string;
+                rampSchedule?: {
+                  steps: ({
+                      coverage: number;
+                      holdSeconds: number;
+                    })[];
+                };
               }) | ({
                 description: string;
                 condition: string;
@@ -2109,6 +2133,12 @@ export interface components {
                 value: string;
                 coverage: number;
                 hashAttribute: string;
+                rampSchedule?: {
+                  steps: ({
+                      coverage: number;
+                      holdSeconds: number;
+                    })[];
+                };
               }) | ({
                 description: string;
                 condition: string;
@@ -2322,6 +2352,12 @@ export interface components {
           value: string;
           coverage: number;
           hashAttribute: string;
+          rampSchedule?: {
+            steps: ({
+                coverage: number;
+                holdSeconds: number;
+              })[];
+          };
         }) | ({
           description: string;
           condition: string;
@@ -2531,6 +2567,12 @@ export interface components {
             value: string;
             coverage: number;
             hashAttribute: string;
+            rampSchedule?: {
+              steps: ({
+                  coverage: number;
+                  holdSeconds: number;
+                })[];
+            };
           }) | ({
             description: string;
             condition: string;
@@ -2739,6 +2781,12 @@ export interface components {
       value: string;
       coverage: number;
       hashAttribute: string;
+      rampSchedule?: {
+        steps: ({
+            coverage: number;
+            holdSeconds: number;
+          })[];
+      };
     }) | ({
       description: string;
       condition: string;
@@ -2959,6 +3007,12 @@ export interface components {
       value: string;
       coverage: number;
       hashAttribute: string;
+      rampSchedule?: {
+        steps: ({
+            coverage: number;
+            holdSeconds: number;
+          })[];
+      };
     };
     FeatureSafeRolloutRule: {
       condition: string;
@@ -3176,6 +3230,12 @@ export interface components {
             value: string;
             coverage: number;
             hashAttribute: string;
+            rampSchedule?: {
+              steps: ({
+                  coverage: number;
+                  holdSeconds: number;
+                })[];
+            };
           }) | ({
             description: string;
             condition: string;
@@ -4617,6 +4677,12 @@ export interface operations {
                         value: string;
                         coverage: number;
                         hashAttribute: string;
+                        rampSchedule?: {
+                          steps: ({
+                              coverage: number;
+                              holdSeconds: number;
+                            })[];
+                        };
                       }) | ({
                         description: string;
                         condition: string;
@@ -4826,6 +4892,12 @@ export interface operations {
                           value: string;
                           coverage: number;
                           hashAttribute: string;
+                          rampSchedule?: {
+                            steps: ({
+                                coverage: number;
+                                holdSeconds: number;
+                              })[];
+                          };
                         }) | ({
                           description: string;
                           condition: string;
@@ -5093,6 +5165,32 @@ export interface operations {
                   /** @description Percent of traffic included in this experiment. Users not included in the experiment will skip this rule. */
                   coverage: number;
                   hashAttribute: string;
+                  /**
+                   * @description Optional timed coverage ramp. When present, the rule's effective coverage advances through `steps` in order, holding each for `holdSeconds`, then graduates to 100%. The ramp starts when the rule is first published. Overrides the static `coverage` field while active. 
+                   * @example {
+                   *   "steps": [
+                   *     {
+                   *       "coverage": 0.01,
+                   *       "holdSeconds": 600
+                   *     },
+                   *     {
+                   *       "coverage": 0.1,
+                   *       "holdSeconds": 600
+                   *     },
+                   *     {
+                   *       "coverage": 0.5,
+                   *       "holdSeconds": 1800
+                   *     }
+                   *   ]
+                   * }
+                   */
+                  rampSchedule?: {
+                    steps: ({
+                        coverage: number;
+                        /** @description How long to hold at this coverage before advancing. */
+                        holdSeconds: number;
+                      })[];
+                  };
                 }) | ({
                   description?: string;
                   id?: string;
@@ -5282,6 +5380,32 @@ export interface operations {
                     /** @description Percent of traffic included in this experiment. Users not included in the experiment will skip this rule. */
                     coverage: number;
                     hashAttribute: string;
+                    /**
+                     * @description Optional timed coverage ramp. When present, the rule's effective coverage advances through `steps` in order, holding each for `holdSeconds`, then graduates to 100%. The ramp starts when the rule is first published. Overrides the static `coverage` field while active. 
+                     * @example {
+                     *   "steps": [
+                     *     {
+                     *       "coverage": 0.01,
+                     *       "holdSeconds": 600
+                     *     },
+                     *     {
+                     *       "coverage": 0.1,
+                     *       "holdSeconds": 600
+                     *     },
+                     *     {
+                     *       "coverage": 0.5,
+                     *       "holdSeconds": 1800
+                     *     }
+                     *   ]
+                     * }
+                     */
+                    rampSchedule?: {
+                      steps: ({
+                          coverage: number;
+                          /** @description How long to hold at this coverage before advancing. */
+                          holdSeconds: number;
+                        })[];
+                    };
                   }) | ({
                     description?: string;
                     id?: string;
@@ -5498,6 +5622,12 @@ export interface operations {
                       value: string;
                       coverage: number;
                       hashAttribute: string;
+                      rampSchedule?: {
+                        steps: ({
+                            coverage: number;
+                            holdSeconds: number;
+                          })[];
+                      };
                     }) | ({
                       description: string;
                       condition: string;
@@ -5707,6 +5837,12 @@ export interface operations {
                         value: string;
                         coverage: number;
                         hashAttribute: string;
+                        rampSchedule?: {
+                          steps: ({
+                              coverage: number;
+                              holdSeconds: number;
+                            })[];
+                        };
                       }) | ({
                         description: string;
                         condition: string;
@@ -5969,6 +6105,12 @@ export interface operations {
                       value: string;
                       coverage: number;
                       hashAttribute: string;
+                      rampSchedule?: {
+                        steps: ({
+                            coverage: number;
+                            holdSeconds: number;
+                          })[];
+                      };
                     }) | ({
                       description: string;
                       condition: string;
@@ -6178,6 +6320,12 @@ export interface operations {
                         value: string;
                         coverage: number;
                         hashAttribute: string;
+                        rampSchedule?: {
+                          steps: ({
+                              coverage: number;
+                              holdSeconds: number;
+                            })[];
+                        };
                       }) | ({
                         description: string;
                         condition: string;
@@ -6411,6 +6559,12 @@ export interface operations {
                         value: string;
                         coverage: number;
                         hashAttribute: string;
+                        rampSchedule?: {
+                          steps: ({
+                              coverage: number;
+                              holdSeconds: number;
+                            })[];
+                        };
                       }) | ({
                         description: string;
                         condition: string;
@@ -6654,6 +6808,32 @@ export interface operations {
                   /** @description Percent of traffic included in this experiment. Users not included in the experiment will skip this rule. */
                   coverage: number;
                   hashAttribute: string;
+                  /**
+                   * @description Optional timed coverage ramp. When present, the rule's effective coverage advances through `steps` in order, holding each for `holdSeconds`, then graduates to 100%. The ramp starts when the rule is first published. Overrides the static `coverage` field while active. 
+                   * @example {
+                   *   "steps": [
+                   *     {
+                   *       "coverage": 0.01,
+                   *       "holdSeconds": 600
+                   *     },
+                   *     {
+                   *       "coverage": 0.1,
+                   *       "holdSeconds": 600
+                   *     },
+                   *     {
+                   *       "coverage": 0.5,
+                   *       "holdSeconds": 1800
+                   *     }
+                   *   ]
+                   * }
+                   */
+                  rampSchedule?: {
+                    steps: ({
+                        coverage: number;
+                        /** @description How long to hold at this coverage before advancing. */
+                        holdSeconds: number;
+                      })[];
+                  };
                 }) | ({
                   description?: string;
                   id?: string;
@@ -6843,6 +7023,32 @@ export interface operations {
                     /** @description Percent of traffic included in this experiment. Users not included in the experiment will skip this rule. */
                     coverage: number;
                     hashAttribute: string;
+                    /**
+                     * @description Optional timed coverage ramp. When present, the rule's effective coverage advances through `steps` in order, holding each for `holdSeconds`, then graduates to 100%. The ramp starts when the rule is first published. Overrides the static `coverage` field while active. 
+                     * @example {
+                     *   "steps": [
+                     *     {
+                     *       "coverage": 0.01,
+                     *       "holdSeconds": 600
+                     *     },
+                     *     {
+                     *       "coverage": 0.1,
+                     *       "holdSeconds": 600
+                     *     },
+                     *     {
+                     *       "coverage": 0.5,
+                     *       "holdSeconds": 1800
+                     *     }
+                     *   ]
+                     * }
+                     */
+                    rampSchedule?: {
+                      steps: ({
+                          coverage: number;
+                          /** @description How long to hold at this coverage before advancing. */
+                          holdSeconds: number;
+                        })[];
+                    };
                   }) | ({
                     description?: string;
                     id?: string;
@@ -7059,6 +7265,12 @@ export interface operations {
                       value: string;
                       coverage: number;
                       hashAttribute: string;
+                      rampSchedule?: {
+                        steps: ({
+                            coverage: number;
+                            holdSeconds: number;
+                          })[];
+                      };
                     }) | ({
                       description: string;
                       condition: string;
@@ -7268,6 +7480,12 @@ export interface operations {
                         value: string;
                         coverage: number;
                         hashAttribute: string;
+                        rampSchedule?: {
+                          steps: ({
+                              coverage: number;
+                              holdSeconds: number;
+                            })[];
+                        };
                       }) | ({
                         description: string;
                         condition: string;
@@ -7552,6 +7770,12 @@ export interface operations {
                       value: string;
                       coverage: number;
                       hashAttribute: string;
+                      rampSchedule?: {
+                        steps: ({
+                            coverage: number;
+                            holdSeconds: number;
+                          })[];
+                      };
                     }) | ({
                       description: string;
                       condition: string;
@@ -7761,6 +7985,12 @@ export interface operations {
                         value: string;
                         coverage: number;
                         hashAttribute: string;
+                        rampSchedule?: {
+                          steps: ({
+                              coverage: number;
+                              holdSeconds: number;
+                            })[];
+                        };
                       }) | ({
                         description: string;
                         condition: string;
@@ -8021,6 +8251,12 @@ export interface operations {
                       value: string;
                       coverage: number;
                       hashAttribute: string;
+                      rampSchedule?: {
+                        steps: ({
+                            coverage: number;
+                            holdSeconds: number;
+                          })[];
+                      };
                     }) | ({
                       description: string;
                       condition: string;
@@ -8230,6 +8466,12 @@ export interface operations {
                         value: string;
                         coverage: number;
                         hashAttribute: string;
+                        rampSchedule?: {
+                          steps: ({
+                              coverage: number;
+                              holdSeconds: number;
+                            })[];
+                        };
                       }) | ({
                         description: string;
                         condition: string;
@@ -8486,6 +8728,12 @@ export interface operations {
                       value: string;
                       coverage: number;
                       hashAttribute: string;
+                      rampSchedule?: {
+                        steps: ({
+                            coverage: number;
+                            holdSeconds: number;
+                          })[];
+                      };
                     }) | ({
                       description: string;
                       condition: string;

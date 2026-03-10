@@ -488,6 +488,37 @@ paths:
                                   description: Percent of traffic included in this experiment. Users not included in the experiment will skip this rule.
                                 hashAttribute:
                                   type: string
+                                rampSchedule:
+                                  type: object
+                                  description: 'Optional timed coverage ramp. When present, the rule''s effective coverage advances through `steps` in order, holding each for `holdSeconds`, then graduates to 100%. The ramp starts when the rule is first published. Overrides the static `coverage` field while active.'
+                                  required:
+                                    - steps
+                                  properties:
+                                    steps:
+                                      type: array
+                                      minItems: 1
+                                      items:
+                                        type: object
+                                        required:
+                                          - coverage
+                                          - holdSeconds
+                                        properties:
+                                          coverage:
+                                            type: number
+                                            minimum: 0
+                                            maximum: 1
+                                          holdSeconds:
+                                            type: number
+                                            exclusiveMinimum: 0
+                                            description: How long to hold at this coverage before advancing.
+                                  example:
+                                    steps:
+                                      - coverage: 0.01
+                                        holdSeconds: 600
+                                      - coverage: 0.1
+                                        holdSeconds: 600
+                                      - coverage: 0.5
+                                        holdSeconds: 1800
                             - title: Experiment Rule
                               type: object
                               required:
@@ -20200,6 +20231,27 @@ components:
           type: number
         hashAttribute:
           type: string
+        rampSchedule:
+          type: object
+          required:
+            - steps
+          properties:
+            steps:
+              type: array
+              minItems: 1
+              items:
+                type: object
+                required:
+                  - coverage
+                  - holdSeconds
+                properties:
+                  coverage:
+                    type: number
+                    minimum: 0
+                    maximum: 1
+                  holdSeconds:
+                    type: number
+                    exclusiveMinimum: 0
     FeatureSafeRolloutRule:
       type: object
       required:

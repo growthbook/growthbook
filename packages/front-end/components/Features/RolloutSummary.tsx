@@ -1,7 +1,10 @@
-import { FeatureInterface } from "shared/types/feature";
+import { useEffect, useState } from "react";
+import { FeatureInterface, RampSchedule } from "shared/types/feature";
+import { getCurrentRampCoverage } from "shared/util";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import ValidateValue from "@/components/Features/ValidateValue";
 import Badge from "@/ui/Badge";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import ValueDisplay from "./ValueDisplay";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -14,13 +17,32 @@ export default function RolloutSummary({
   coverage,
   feature,
   hashAttribute,
+  rampSchedule,
+  rampStartedAt,
 }: {
   value: string;
   coverage: number;
   feature: FeatureInterface;
   hashAttribute: string;
+  rampSchedule?: RampSchedule;
+  rampStartedAt?: string;
 }) {
   const type = feature.valueType;
+
+  // When a ramp is active, compute expected coverage client-side from
+  // wall-clock. Re-evaluate periodically so the bar advances live.
+  // This is *expected* progress — actual SDK payload lags by up to one cron
+  // tick + cache TTL.
+  const [now, setNow] = useState(() => new Date());
+  const rampCoverage = getCurrentRampCoverage(rampSchedule, rampStartedAt, now);
+  const ramping = rampCoverage !== null;
+  const effectiveCoverage = rampCoverage ?? coverage;
+
+  useEffect(() => {
+    if (!ramping || rampCoverage === 1) return;
+    const id = setInterval(() => setNow(new Date()), 5000);
+    return () => clearInterval(id);
+  }, [ramping, rampCoverage]);
   return (
     <Box>
       <Flex direction="row" gap="2" mb="3">
@@ -57,13 +79,14 @@ export default function RolloutSummary({
               <Box
                 className="progress-bar"
                 style={{
-                  width: coverage * 100 + "%",
+                  width: effectiveCoverage * 100 + "%",
                   top: "0",
                   left: "0",
                   position: "absolute",
                   borderRadius: "10px 0 0 10px",
                   height: "10px",
                   backgroundColor: "var(--accent-9)",
+                  transition: ramping ? "width 300ms ease-out" : undefined,
                 }}
               />
             </Box>
@@ -74,11 +97,23 @@ export default function RolloutSummary({
               mr="2"
               label={
                 <Text style={{ color: "var(--slate-12)" }}>
-                  {percentFormatter.format(coverage)}
+                  {percentFormatter.format(effectiveCoverage)}
                 </Text>
               }
             />
             of units
+            {ramping && (
+              <Tooltip
+                body="Expected coverage based on the ramp schedule and wall-clock time. Actual SDK payload may lag by up to one cron tick + cache TTL."
+                tipMinWidth="240px"
+              >
+                <Badge
+                  color={rampCoverage === 1 ? "green" : "violet"}
+                  ml="2"
+                  label={rampCoverage === 1 ? "ramp complete" : "ramping"}
+                />
+              </Tooltip>
+            )}
           </Box>
         </Flex>
       </Box>

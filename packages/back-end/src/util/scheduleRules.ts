@@ -1,4 +1,4 @@
-import { ScheduleRule } from "shared/types/feature";
+import { ScheduleRule, RampSchedule } from "shared/types/feature";
 
 // Type after the filter is applied
 type ScheduleRuleNoNulls = Omit<ScheduleRule, "timestamp"> & {
@@ -35,4 +35,35 @@ export const getCurrentEnabledState = (
   }
 
   return currentState;
+};
+
+// Re-exported from shared so the front-end can compute the same expected
+// coverage client-side for display.
+export { getCurrentRampCoverage } from "shared/util";
+
+/**
+ * Returns the wall-clock time at which the next ramp step boundary occurs,
+ * or `null` if the schedule is absent, not started, or already at the
+ * implicit terminal 100%. Used by `getNextScheduledUpdate` to schedule the
+ * next SDK payload rebuild.
+ *
+ * Boundaries are at startedAt + sum(hold[0..n]) for n in [0, steps.length).
+ * The final boundary is the transition into the implicit 100% state.
+ */
+export const getNextRampUpdate = (
+  rampSchedule: RampSchedule | undefined,
+  startedAt: string | undefined,
+  now: Date,
+): Date | null => {
+  if (!rampSchedule || !startedAt) return null;
+
+  const startMs = new Date(startedAt).getTime();
+  const elapsed = Math.max(0, (now.getTime() - startMs) / 1000);
+
+  let windowEnd = 0;
+  for (const step of rampSchedule.steps) {
+    windowEnd += step.holdSeconds;
+    if (elapsed < windowEnd) return new Date(startMs + windowEnd * 1000);
+  }
+  return null;
 };

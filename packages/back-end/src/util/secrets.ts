@@ -152,7 +152,10 @@ export const REMOTE_EVAL_EDGE_HOST = process.env.REMOTE_EVAL_EDGE_HOST;
 export const REMOTE_EVAL_EDGE_API_TOKEN =
   process.env.REMOTE_EVAL_EDGE_API_TOKEN;
 
-// update Feature every
+// Agenda interval string (e.g. "5 seconds") for the scheduled-feature cron.
+// Useful for speeding up local testing of scheduleRules / rampSchedule.
+export const SCHEDULED_FEATURE_UPDATE_INTERVAL =
+  process.env.SCHEDULED_FEATURE_UPDATE_INTERVAL || "1 minute";
 
 export const CRON_ENABLED = !stringToBoolean(process.env.CRON_DISABLED);
 

@@ -10,6 +10,7 @@ import {
   FeatureInterface,
   FeatureRule,
   ForceRule,
+  RampSchedule,
   RolloutRule,
   SchemaField,
   SimpleSchema,
@@ -1580,4 +1581,44 @@ export function getApiFeatureEnabledEnvs(feature: ApiFeature) {
 
 export function getApiFeatureAllEnvs(feature: ApiFeature) {
   return Object.keys(feature.environments);
+}
+
+/**
+ * Given a rollout ramp schedule, its start time, and the current time, return
+ * the effective coverage that should be emitted to the SDK payload (backend)
+ * or displayed as expected progress (front-end).
+ *
+ * `startedAt` is read from `feature.rampStartedAt[rule.id]` (runtime state,
+ * stamped at publish), not from the rule itself.
+ *
+ * Returns `null` when no schedule is present or the ramp has not been
+ * started — the caller should fall back to the rule's static `coverage`
+ * field:
+ *   `getCurrentRampCoverage(r.rampSchedule, rampStartedAt?.[r.id], now) ?? r.coverage`
+ *
+ * Otherwise, walk steps in order accumulating hold durations:
+ *   window[0] = [0, steps[0].holdSeconds)
+ *   window[n] = [sum(hold[0..n-1]), sum(hold[0..n]))
+ * elapsed = max(0, now - startedAt); return coverage of the window containing
+ * elapsed. Once elapsed >= sum(all holds), return 1 — the implicit terminal
+ * state, held forever.
+ */
+export function getCurrentRampCoverage(
+  rampSchedule: RampSchedule | undefined,
+  startedAt: string | undefined,
+  now: Date,
+): number | null {
+  if (!rampSchedule || !startedAt) return null;
+
+  const elapsed = Math.max(
+    0,
+    (now.getTime() - new Date(startedAt).getTime()) / 1000,
+  );
+
+  let windowEnd = 0;
+  for (const step of rampSchedule.steps) {
+    windowEnd += step.holdSeconds;
+    if (elapsed < windowEnd) return step.coverage;
+  }
+  return 1;
 }

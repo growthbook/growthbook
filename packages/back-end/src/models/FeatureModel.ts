@@ -81,6 +81,7 @@ const featureSchema = new mongoose.Schema({
   description: String,
   organization: String,
   nextScheduledUpdate: Date,
+  rampStartedAt: {},
   owner: String,
   project: String,
   dateCreated: Date,
@@ -1118,6 +1119,32 @@ const updateSafeRolloutStatuses = async (
   });
 };
 
+// Stamp start times for rollout ramps being published for the first time,
+// and garbage-collect entries whose rules no longer exist. Runs before
+// getNextScheduledUpdate so the first ramp boundary is scheduled immediately.
+export function reconcileRampStartedAt(
+  envSettings: Record<string, FeatureEnvironment>,
+  existing: Record<string, string> | undefined,
+): Record<string, string> | undefined {
+  const rampRuleIds = new Set<string>();
+  Object.values(envSettings).forEach((env) => {
+    env.rules.forEach((rule) => {
+      if (rule.type === "rollout" && rule.rampSchedule) {
+        rampRuleIds.add(rule.id);
+      }
+    });
+  });
+
+  if (rampRuleIds.size === 0 && !existing) return undefined;
+
+  const now = new Date().toISOString();
+  const next: Record<string, string> = {};
+  rampRuleIds.forEach((id) => {
+    next[id] = existing?.[id] ?? now;
+  });
+  return next;
+}
+
 export async function applyRevisionChanges(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -1152,9 +1179,14 @@ export async function applyRevisionChanges(
   }
 
   if (changes.environmentSettings) {
+    changes.rampStartedAt = reconcileRampStartedAt(
+      changes.environmentSettings,
+      feature.rampStartedAt,
+    );
     changes.nextScheduledUpdate = getNextScheduledUpdate(
       changes.environmentSettings,
       environments,
+      changes.rampStartedAt,
     );
   }
 
