@@ -24,7 +24,7 @@ import { StatsEngine } from "shared/types/stats";
 import { MetricAnalysisSettings } from "shared/types/metric-analysis";
 import {
   findSnapshotsByIds,
-  findActiveStandardWriterSnapshotExecution,
+  findActiveStandardWriterSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
 
 import { ReqContext } from "back-end/types/request";
@@ -184,7 +184,7 @@ export async function updateExperimentDashboards({
 
     // Skip exploratory snapshot when a standard writer is active — it
     // builds on standard data and can't run concurrently.
-    const activeWriter = await findActiveStandardWriterSnapshotExecution(
+    const activeWriter = await findActiveStandardWriterSnapshot(
       context.org.id,
       experiment.id,
     );

@@ -155,10 +155,10 @@ export interface ExperimentSnapshotRefreshIntent {
   triggeredBySchedule?: boolean;
 }
 
+// We only allow 1 writer at a time for a given experiment
 export type ExperimentSnapshotExecutionMode = "reader" | "writer";
 
 export interface ExperimentSnapshotRefreshExecutionMetadata {
-  id: string;
   mode: ExperimentSnapshotExecutionMode;
   intent: ExperimentSnapshotRefreshIntent;
   heartbeat: Date;

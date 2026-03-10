@@ -12,9 +12,6 @@ const BaseClass = MakeModelClass({
   collectionName: COLLECTION_NAME,
   idPrefix: "ir_",
   globallyUniquePrimaryKeys: true,
-  defaultValues: {
-    currentExecutionSnapshotId: null,
-  },
   additionalIndexes: [
     {
       fields: { organization: 1, experimentId: 1 },
@@ -62,7 +59,7 @@ export class IncrementalRefreshModel extends BaseClass {
 
   /**
    * Atomically upserts only if the current execution still owns the lock.
-   * Returns true if the write matched, false if the execution was superseded.
+   * Returns true if it worked, false otherwise.
    */
   public async upsertByExperimentIdIfCurrentExecution(
     experimentId: string,

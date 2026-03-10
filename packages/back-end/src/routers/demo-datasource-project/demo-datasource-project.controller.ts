@@ -480,6 +480,7 @@ Treatment shows a larger 'Add to Cart' CTA, but with the same functionality.`,
       context,
       phaseIndex: 0,
       useCache: true,
+      type: "standard",
       triggeredBy: "manual",
     });
 
