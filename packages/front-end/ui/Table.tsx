@@ -1,9 +1,9 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { Table as RadixTable } from "@radix-ui/themes";
 import clsx from "clsx";
 
-/** Standard top offset (px) for sticky table headers. Use when aligning with Table. */
-export const DEFAULT_STICKY_TOP_OFFSET_PX = 55;
+/** Standard top offset (px) for sticky table headers. Must be >= top nav height (56px) so the header's top border isn't covered. */
+export const DEFAULT_STICKY_TOP_OFFSET_PX = 56;
 
 export type TableProps = Omit<
   React.ComponentProps<typeof RadixTable.Root>,
@@ -31,6 +31,30 @@ export default function Table({
   const isListVariant =
     variant === "list" || stickyHeader === true || roundedCorners === true;
 
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isListVariant) return;
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return;
+    const header = wrapper.querySelector(".rt-TableHeader");
+    if (!header) return;
+
+    const check = () => {
+      const top = (header as HTMLElement).getBoundingClientRect().top;
+      const isSticky = Math.abs(top - stickyTopOffset) < 2;
+      if (isSticky) {
+        wrapper.setAttribute("data-sticky-active", "true");
+      } else {
+        wrapper.removeAttribute("data-sticky-active");
+      }
+    };
+
+    check();
+    window.addEventListener("scroll", check, { passive: true });
+    return () => window.removeEventListener("scroll", check);
+  }, [isListVariant, stickyTopOffset]);
+
   const radixVariant = variant === "list" ? "surface" : variant;
 
   const tableElement = (
@@ -49,6 +73,7 @@ export default function Table({
 
   return (
     <div
+      ref={wrapperRef}
       className="table-list-wrapper appbox"
       style={
         {

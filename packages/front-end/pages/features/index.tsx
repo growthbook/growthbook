@@ -255,7 +255,7 @@ export default function FeaturesPage() {
             <TableHeader>
               <TableRow>
                 <TableColumnHeader style={{ width: 40 }} />
-                <SortableTableColumnHeader field="id">
+                <SortableTableColumnHeader field="id" style={{ maxWidth: 200 }}>
                   Feature Key
                 </SortableTableColumnHeader>
                 {showProjectColumn && (
@@ -307,7 +307,7 @@ export default function FeaturesPage() {
                         type="icon"
                       />
                     </TableCell>
-                    <TableCell className="p-0">
+                    <TableCell className="p-0" style={{ maxWidth: 200 }}>
                       <Link
                         href={`/features/${feature.id}`}
                         className={clsx("featurename d-block p-2", {
@@ -316,8 +316,8 @@ export default function FeaturesPage() {
                       >
                         <TruncateMiddleWithTooltip
                           text={feature.id}
-                          maxChars={36}
-                          maxWidth={270}
+                          maxChars={23}
+                          maxWidth={200}
                           flipTheme={false}
                         />
                       </Link>
