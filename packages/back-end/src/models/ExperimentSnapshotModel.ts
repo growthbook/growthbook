@@ -634,15 +634,36 @@ export async function updateExecutionMetadata({
     return findSnapshotById(organizationId, snapshotId);
   }
 
-  await ExperimentSnapshotModel.updateOne(
+  const doc = await ExperimentSnapshotModel.findOneAndUpdate(
     {
       organization: organizationId,
       id: snapshotId,
     },
     mongoUpdate,
+    { new: true },
   );
 
-  return findSnapshotById(organizationId, snapshotId);
+  return doc ? toInterface(doc) : null;
+}
+
+export async function clearExecutionMetadata(
+  organizationId: string,
+  snapshotId: string,
+): Promise<ExperimentSnapshotInterface | null> {
+  const doc = await ExperimentSnapshotModel.findOneAndUpdate(
+    {
+      organization: organizationId,
+      id: snapshotId,
+    },
+    {
+      $unset: {
+        executionMetadata: 1,
+      },
+    },
+    { new: true },
+  );
+
+  return doc ? toInterface(doc) : null;
 }
 
 export async function updateExecutionHeartbeat(

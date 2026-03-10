@@ -259,6 +259,7 @@ const startExperimentIncrementalRefreshQueries = async (
     : await context.models.incrementalRefresh.getByExperimentId(experimentId);
 
   const executionId = params.queryParentId;
+  let capturedUnitsMaxTimestamp: Date | null = null;
   await context.models.incrementalRefresh.setCurrentExecutionSnapshotId(
     experimentId,
     executionId,
@@ -427,17 +428,11 @@ const startExperimentIncrementalRefreshQueries = async (
     onSuccess: async (rows) => {
       // TODO(incremental-refresh): Clean up metadata handling in query runner
       const maxTimestamp = new Date(rows[0].max_timestamp as string);
+      capturedUnitsMaxTimestamp = maxTimestamp;
 
       if (maxTimestamp) {
-        // Ensure we don't override data from a different execution
-        const current =
-          await context.models.incrementalRefresh.getByExperimentId(
-            experimentId,
-          );
-        if (current?.currentExecutionSnapshotId !== executionId) return;
-
         await context.models.incrementalRefresh
-          .upsertByExperimentId(experimentId, {
+          .upsertByExperimentIdIfCurrentExecution(experimentId, executionId, {
             unitsTableFullName: unitsTableFullName,
             unitsMaxTimestamp: maxTimestamp,
             experimentSettingsHash:
@@ -642,15 +637,7 @@ const startExperimentIncrementalRefreshQueries = async (
         run: (query, setExternalId) =>
           integration.runIncrementalWithNoOutputQuery(query, setExternalId),
         onSuccess: async () => {
-          const incrementalRefresh =
-            await context.models.incrementalRefresh.getByExperimentId(
-              experimentId,
-            );
-          if (incrementalRefresh?.currentExecutionSnapshotId !== executionId)
-            return;
-
-          const lastSuccessfulMaxTimestamp =
-            incrementalRefresh?.unitsMaxTimestamp ?? null;
+          const lastSuccessfulMaxTimestamp = capturedUnitsMaxTimestamp;
           const updatedCovariateSource: IncrementalRefreshMetricCovariateSourceInterface =
             existingCovariateSource
               ? {
@@ -672,7 +659,7 @@ const startExperimentIncrementalRefreshQueries = async (
             );
           }
           await context.models.incrementalRefresh
-            .upsertByExperimentId(experimentId, {
+            .upsertByExperimentIdIfCurrentExecution(experimentId, executionId, {
               metricCovariateSources: runningCovariateSourceData,
             })
             .catch((e) => context.logger.error(e));
@@ -693,18 +680,13 @@ const startExperimentIncrementalRefreshQueries = async (
       run: (query, setExternalId) =>
         integration.runMaxTimestampQuery(query, setExternalId),
       onFailure: async () => {
-        const current =
-          await context.models.incrementalRefresh.getByExperimentId(
-            experimentId,
-          );
-        if (current?.currentExecutionSnapshotId !== executionId) return;
-
         // Remove the source from the running data if max timestamp fails
         runningSourceData = runningSourceData.filter(
           (s) => s.groupId !== group.groupId,
         );
-        await context.models.incrementalRefresh.upsertByExperimentId(
+        await context.models.incrementalRefresh.upsertByExperimentIdIfCurrentExecution(
           experimentId,
+          executionId,
           {
             metricSources: runningSourceData,
           },
@@ -713,13 +695,6 @@ const startExperimentIncrementalRefreshQueries = async (
       onSuccess: async (rows) => {
         const maxTimestamp = new Date(rows[0].max_timestamp as string);
         if (maxTimestamp) {
-          // Guard against stale callbacks from cancelled runs
-          const current =
-            await context.models.incrementalRefresh.getByExperimentId(
-              experimentId,
-            );
-          if (current?.currentExecutionSnapshotId !== executionId) return;
-
           // TODO(incremental-refresh): Clean up metadata handling in query runner
           const updatedSource: IncrementalRefreshMetricSourceInterface =
             existingSource
@@ -749,7 +724,7 @@ const startExperimentIncrementalRefreshQueries = async (
             );
           }
           await context.models.incrementalRefresh
-            .upsertByExperimentId(experimentId, {
+            .upsertByExperimentIdIfCurrentExecution(experimentId, executionId, {
               metricSources: runningSourceData,
             })
             .catch((e) => context.logger.error(e));
