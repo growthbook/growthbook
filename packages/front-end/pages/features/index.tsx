@@ -75,8 +75,6 @@ export default function FeaturesPage() {
   const permissionsUtil = usePermissionsUtil();
   const [modalOpen, setModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [featureToDuplicate, setFeatureToDuplicate] =
-    useState<FeatureInterface | null>(null);
   const [featureToToggleStaleDetection, setFeatureToToggleStaleDetection] =
     useState<FeatureMetaInfo | null>(null);
   const [confirmToggle, setConfirmToggle] = useState<{
@@ -206,12 +204,6 @@ export default function FeaturesPage() {
     if (!hasStaleFilter) staleHook.fetchSome(ids);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visibleIdsKey]);
-
-  // Reset featureToDuplicate when modal closes
-  useEffect(() => {
-    if (modalOpen) return;
-    setFeatureToDuplicate(null);
-  }, [modalOpen]);
 
   const handleToggle = useCallback(
     async (featureId: string, envId: string, state: boolean) => {
@@ -550,9 +542,7 @@ export default function FeaturesPage() {
       )}
       {modalOpen && (
         <FeatureModal
-          cta={featureToDuplicate ? "Duplicate" : "Create"}
           close={() => setModalOpen(false)}
-          featureToDuplicate={featureToDuplicate || undefined}
           onSuccess={async (feature) => {
             const url = `/features/${feature.id}${
               hasFeatures ? "?new" : "?first&new"
