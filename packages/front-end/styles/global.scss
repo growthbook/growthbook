@@ -3771,8 +3771,13 @@ input:disabled {
   background: var(--table-row-highlight-background-color);
 }
 
+.pagination-ds .pagination-disabled .pagination-link-arrow {
+  color: var(--slate-a5, rgba(0, 9, 50, 0.12));
+}
+
 .pagination-ds .pagination-disabled .pagination-link-arrow:hover {
   background: var(--color-surface, rgba(255, 255, 255, 0.85));
+  color: var(--slate-a5, rgba(0, 9, 50, 0.12));
 }
 
 .pagination-ds .pagination-active .pagination-link {
