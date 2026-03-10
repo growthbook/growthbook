@@ -36,6 +36,10 @@ import SelectField, {
   SingleValue,
 } from "@/components/Forms/SelectField";
 import ConditionInput from "@/components/Features/ConditionInput";
+import {
+  AttributeOptionWithTooltip,
+  type AttributeOptionForTooltip,
+} from "@/components/Features/AttributeOptionTooltip";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "@/components/Features/SavedGroupTargetingField";
@@ -517,14 +521,32 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
 
             <div className="mb-4">
               <SelectField
+                withRadixThemedPortal
                 label="Assign Variation by Attribute"
                 containerClassName="flex-1"
                 options={attributeSchema
                   .filter((s) => !hasHashAttributes || s.hashAttribute)
-                  .map((s) => ({ label: s.property, value: s.property }))}
+                  .map((s) => ({
+                    label: s.property,
+                    value: s.property,
+                    description: s.description,
+                    tags: s.tags,
+                    datatype: s.datatype,
+                    hashAttribute: s.hashAttribute,
+                  }))}
                 value={form.watch("hashAttribute") ?? ""}
                 onChange={(v) => {
                   form.setValue("hashAttribute", v);
+                }}
+                formatOptionLabel={(o, meta) => {
+                  return (
+                    <AttributeOptionWithTooltip
+                      option={o as AttributeOptionForTooltip}
+                      context={meta.context}
+                    >
+                      {o.label}
+                    </AttributeOptionWithTooltip>
+                  );
                 }}
                 helpText={
                   "Will be hashed together with the Tracking Key to determine which variation to assign"
