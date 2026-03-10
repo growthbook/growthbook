@@ -1,4 +1,4 @@
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import { HoldoutInterface } from "shared/validators";
 import { useForm } from "react-hook-form";
 import { Box } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -13,16 +13,14 @@ const EditScheduleModal = ({
   close,
   mutate,
 }: {
-  holdout: HoldoutInterfaceStringDates;
+  holdout: HoldoutInterface;
   experiment: ExperimentInterfaceStringDates;
   close: () => void;
   mutate: () => void;
 }) => {
   const { apiCall } = useAuth();
 
-  const form = useForm<
-    Pick<HoldoutInterfaceStringDates, "statusUpdateSchedule">
-  >({
+  const form = useForm<Pick<HoldoutInterface, "statusUpdateSchedule">>({
     defaultValues: {
       statusUpdateSchedule: {
         startAt: holdout.statusUpdateSchedule?.startAt,
@@ -59,7 +57,7 @@ const EditScheduleModal = ({
       : undefined;
 
     await apiCall<{
-      holdout: HoldoutInterfaceStringDates;
+      holdout: HoldoutInterface;
     }>(`/holdout/${holdout.id}`, {
       method: "PUT",
       body: JSON.stringify({

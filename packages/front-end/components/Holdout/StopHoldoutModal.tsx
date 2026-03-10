@@ -1,6 +1,6 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useState } from "react";
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import { HoldoutInterface } from "shared/validators";
 import Modal from "@/components/Modal";
 import Callout from "@/ui/Callout";
 import { useAuth } from "@/services/auth";
@@ -8,7 +8,7 @@ import track from "@/services/track";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
-  holdout: HoldoutInterfaceStringDates;
+  holdout: HoldoutInterface;
   close: () => void;
   mutate: () => void;
 }

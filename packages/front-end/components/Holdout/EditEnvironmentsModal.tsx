@@ -1,4 +1,4 @@
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import { HoldoutInterface } from "shared/validators";
 import { useForm } from "react-hook-form";
 import { Box, Text } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -16,7 +16,7 @@ const EditEnvironmentsModal = ({
   handleCloseModal,
   mutate,
 }: {
-  holdout: HoldoutInterfaceStringDates;
+  holdout: HoldoutInterface;
   experiment: ExperimentInterfaceStringDates;
   handleCloseModal: () => void;
   mutate: () => void;
@@ -25,7 +25,7 @@ const EditEnvironmentsModal = ({
   const permissionsUtils = usePermissionsUtil();
   const { apiCall } = useAuth();
 
-  const form = useForm<Partial<HoldoutInterfaceStringDates>>({
+  const form = useForm<Partial<HoldoutInterface>>({
     defaultValues: {
       environmentSettings:
         holdout.environmentSettings ||
@@ -39,7 +39,7 @@ const EditEnvironmentsModal = ({
 
   const onSubmit = form.handleSubmit(async (rawValue) => {
     await apiCall<{
-      holdout: HoldoutInterfaceStringDates;
+      holdout: HoldoutInterface;
     }>(`/holdout/${holdout.id}`, {
       method: "PUT",
       body: JSON.stringify({

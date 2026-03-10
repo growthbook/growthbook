@@ -1,5 +1,5 @@
 import { Flex, Box } from "@radix-ui/themes";
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import { HoldoutInterface } from "shared/validators";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { format, differenceInMinutes } from "date-fns";
 import { ProgressBar, Segment } from "@/ui/ProgressBar";
@@ -21,18 +21,15 @@ const ANALYSIS_SEGMENT_WEIGHT = 32;
 const UNSCHEDULED_SEGMENT_WEIGHT = 0;
 
 function pickEarlierDate(
-  date1: string | undefined,
-  date2: string | undefined,
+  date1: Date | undefined,
+  date2: Date | undefined,
 ): Date | null {
-  const date1Object = date1 ? new Date(date1) : null;
-  const date2Object = date2 ? new Date(date2) : null;
+  if (!date1 && date2) return date2;
+  if (date1 && !date2) return date1;
 
-  if (!date1Object && date2Object) return date2Object;
-  if (date1Object && !date2Object) return date1Object;
+  if (!date1 || !date2) return null;
 
-  if (!date1Object || !date2Object) return null;
-
-  return date1Object < date2Object ? date1Object : date2Object;
+  return date1 < date2 ? date1 : date2;
 }
 
 function getCompletionPercentage(
@@ -56,14 +53,16 @@ export const HoldoutSchedule = ({
   holdout,
   experiment,
 }: {
-  holdout: HoldoutInterfaceStringDates;
+  holdout: HoldoutInterface;
   experiment: ExperimentInterfaceStringDates;
 }) => {
   const startDate =
     experiment.status !== "draft"
       ? pickEarlierDate(
           holdout.statusUpdateSchedule?.startAt,
-          experiment.phases[0]?.dateStarted,
+          experiment.phases[0]?.dateStarted
+            ? new Date(experiment.phases[0]?.dateStarted)
+            : undefined,
         )
       : holdout.statusUpdateSchedule?.startAt
         ? new Date(holdout.statusUpdateSchedule?.startAt)
@@ -74,7 +73,9 @@ export const HoldoutSchedule = ({
   );
   const stopDate = pickEarlierDate(
     holdout.statusUpdateSchedule?.stopAt,
-    experiment.phases[1]?.dateEnded,
+    experiment.phases[1]?.dateEnded
+      ? new Date(experiment.phases[1]?.dateEnded)
+      : undefined,
   );
 
   const isDraft = experiment.status === "draft";
