@@ -263,7 +263,6 @@ export const createHoldout = async (
           experiment,
           phaseIndex: 0,
           useCache: true,
-          triggeredBy: "manual",
         });
       } catch (e) {
         logger.error(e, "Failed to auto-refresh imported experiment");

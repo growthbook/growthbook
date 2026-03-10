@@ -12,7 +12,7 @@ import Button from "@/components/Button";
 import RadixButton from "@/ui/Button";
 
 const RefreshSnapshotButton: FC<{
-  mutate: () => void | Promise<unknown>;
+  mutate: () => void;
   experiment: ExperimentInterfaceStringDates;
   phase: number;
   dimension?: string;
@@ -57,7 +57,7 @@ const RefreshSnapshotButton: FC<{
       getDatasourceById(experiment.datasource)?.type || null,
       res.snapshot,
     );
-    await mutate();
+    mutate();
   };
 
   return (

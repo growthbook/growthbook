@@ -41,7 +41,7 @@ const incrementalRefresh = z
     ),
 
     // Execution token to prevent stale callbacks from writing data
-    currentExecutionId: z.string().nullable(),
+    currentExecutionSnapshotId: z.string().nullable(),
   })
   .strict();
 

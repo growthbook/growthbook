@@ -148,23 +148,18 @@ export type SnapshotTriggeredBy =
   | "manual-dashboard"
   | "update-dashboards";
 
-export type ExperimentSnapshotStatus =
-  | "queued"
-  | "running"
-  | "success"
-  | "error";
+export type ExperimentSnapshotStatus = "running" | "success" | "error";
 
 export interface ExperimentSnapshotRefreshIntent {
   banditReweightRequested?: boolean;
-  forceFullRefresh?: boolean;
   triggeredBySchedule?: boolean;
 }
 
 export type ExperimentSnapshotExecutionMode = "reader" | "writer";
 
 export interface ExperimentSnapshotRefreshExecutionMetadata {
-  executionId: string;
-  executionMode: ExperimentSnapshotExecutionMode;
+  id: string;
+  mode: ExperimentSnapshotExecutionMode;
   intent: ExperimentSnapshotRefreshIntent;
   heartbeat: Date;
 }

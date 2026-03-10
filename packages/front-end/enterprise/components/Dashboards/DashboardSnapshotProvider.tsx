@@ -379,7 +379,7 @@ export function useDashboardSnapshot(
       !blockAnalysisSettings ||
       !snapshotSettingsMatch ||
       analysis ||
-      ["running", "queued"].includes(snapshot.status) ||
+      snapshot.status === "running" ||
       snapshotsLoading
     )
       return;
@@ -411,7 +411,7 @@ export function useDashboardSnapshot(
     loading:
       postSnapshotAnalysisLoading ||
       snapshotsLoading ||
-      ["running", "queued"].includes(snapshot?.status ?? ""),
+      snapshot?.status === "running",
     error: snapshotsError,
     mutateSnapshot,
   };

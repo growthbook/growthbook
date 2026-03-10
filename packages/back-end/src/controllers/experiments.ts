@@ -2902,7 +2902,7 @@ export async function postSnapshot(
   const useCache = !req.query["force"];
 
   // Snapshot refresh requests are async. We return the snapshot immediately
-  // in its current state (`queued`, `running`, etc.) and do not wait for completion.
+  // in its current state and do not wait for completion.
   const { snapshot, existingExecution } = await requestExperimentSnapshot({
     context,
     experiment,

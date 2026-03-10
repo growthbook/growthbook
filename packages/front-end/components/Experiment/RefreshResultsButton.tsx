@@ -135,8 +135,8 @@ export default function RefreshResultsButton<
         />
       ) : shouldRenderExperimentButton ? (
         <ExperimentRefreshSnapshotButton
-          mutate={async () => {
-            await mutate();
+          mutate={() => {
+            mutate();
             mutateAdditional?.();
           }}
           phase={phase}

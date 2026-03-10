@@ -76,10 +76,10 @@ const experimentSnapshotSchema = new mongoose.Schema({
   multipleExposures: Number,
   hasCorrectedStats: Boolean,
   status: String,
-  refreshExecution: {
+  executionMetadata: {
     _id: false,
-    executionMode: String,
-    executionId: String,
+    id: String,
+    mode: String,
     intent: {},
     heartbeat: Date,
   },
@@ -187,6 +187,7 @@ experimentSnapshotSchema.index({
   experiment: 1,
   dateCreated: -1,
 });
+// Ensure only one writer snapshot is running at a time
 experimentSnapshotSchema.index(
   {
     organization: 1,
@@ -197,7 +198,7 @@ experimentSnapshotSchema.index(
     partialFilterExpression: {
       type: "standard",
       status: "running",
-      "refreshExecution.executionMode": "writer",
+      "executionMetadata.mode": "writer",
     },
   },
 );
@@ -454,7 +455,7 @@ export async function findRunningSnapshotsByQueryId(ids: string[]) {
   earliestDate.setDate(earliestDate.getDate() - 1);
 
   const docs = await ExperimentSnapshotModel.find({
-    status: { $in: ["queued", "running"] },
+    status: "running",
     dateCreated: { $gt: earliestDate },
     queries: { $elemMatch: { query: { $in: ids }, status: "running" } },
   });
@@ -474,7 +475,7 @@ export async function findLatestRunningSnapshotByReportId(
   const doc = await ExperimentSnapshotModel.findOne({
     organization,
     report,
-    status: { $in: ["queued", "running"] },
+    status: "running",
     dateCreated: { $gt: earliestDate },
     queries: { $elemMatch: { status: "running" } },
   });
@@ -522,9 +523,7 @@ export async function getLatestSnapshot({
     {
       ...query,
       status: {
-        $in: withResults
-          ? ["success"]
-          : ["success", "queued", "running", "error"],
+        $in: withResults ? ["success"] : ["success", "running", "error"],
       },
       ...(beforeSnapshot
         ? { dateCreated: { $lt: beforeSnapshot.dateCreated } }
@@ -585,40 +584,19 @@ export async function getLatestSnapshot({
   return all[0] ? toInterface(all[0]) : null;
 }
 
-export async function findActiveStandardSnapshotExecution(
-  organization: string,
-  experiment: string,
-): Promise<ExperimentSnapshotInterface | null> {
-  const doc = await ExperimentSnapshotModel.findOne(
-    {
-      organization,
-      experiment,
-      type: "standard",
-      status: "running",
-      "refreshExecution.executionMode": {
-        $exists: true,
-      },
-    },
-    null,
-    {
-      sort: { dateCreated: -1 },
-    },
-  ).exec();
-
-  return doc ? toInterface(doc) : null;
-}
-
 export async function findActiveStandardWriterSnapshotExecution(
-  organization: string,
-  experiment: string,
+  organizationId: string,
+  experimentId: string,
 ): Promise<ExperimentSnapshotInterface | null> {
   const doc = await ExperimentSnapshotModel.findOne(
     {
-      organization,
-      experiment,
+      organization: organizationId,
+      experiment: experimentId,
+      // TODO: Is standard the only one that needs this?
       type: "standard",
       status: "running",
-      "refreshExecution.executionMode": "writer",
+      // TODO: Make this write a const somewhere
+      "executionMetadata.mode": "writer",
     },
     null,
     {
@@ -629,51 +607,54 @@ export async function findActiveStandardWriterSnapshotExecution(
   return doc ? toInterface(doc) : null;
 }
 
-export async function updateSnapshotRefreshExecution({
-  organization,
-  id,
+export async function updateExecutionMetadata({
+  organizationId,
+  snapshotId,
   updates,
 }: {
-  organization: string;
-  id: string;
+  organizationId: string;
+  snapshotId: string;
   updates: Partial<ExperimentSnapshotRefreshExecutionMetadata>;
 }): Promise<ExperimentSnapshotInterface | null> {
-  const set: Record<string, unknown> = {};
-  const unset: Record<string, unknown> = {};
-  Object.entries(updates).forEach(([key, value]) => {
-    if (typeof value === "undefined") {
-      unset[`refreshExecution.${key}`] = 1;
-    } else {
-      set[`refreshExecution.${key}`] = value;
-    }
-  });
+  const mongoUpdate: {
+    $set?: Record<string, unknown>;
+    $unset?: Record<string, 1>;
+  } = {};
 
-  if (!Object.keys(set).length && !Object.keys(unset).length) {
-    return findSnapshotById(organization, id);
+  for (const [key, value] of Object.entries(updates)) {
+    if (typeof value === "undefined") {
+      (mongoUpdate.$unset ??= {})[`executionMetadata.${key}`] = 1;
+      continue;
+    }
+
+    (mongoUpdate.$set ??= {})[`executionMetadata.${key}`] = value;
+  }
+
+  if (!mongoUpdate.$set && !mongoUpdate.$unset) {
+    return findSnapshotById(organizationId, snapshotId);
   }
 
   await ExperimentSnapshotModel.updateOne(
     {
-      organization,
-      id,
+      organization: organizationId,
+      id: snapshotId,
     },
-    {
-      ...(Object.keys(set).length ? { $set: set } : {}),
-      ...(Object.keys(unset).length ? { $unset: unset } : {}),
-    },
+    mongoUpdate,
   );
 
-  return findSnapshotById(organization, id);
+  return findSnapshotById(organizationId, snapshotId);
 }
 
-export async function updateSnapshotHeartbeat(
-  organization: string,
-  id: string,
-): Promise<void> {
+export async function updateExecutionHeartbeat(
+  organizationId: string,
+  snapshotId: string,
+): Promise<Date> {
+  const newHeartbeat = new Date();
   await ExperimentSnapshotModel.updateOne(
-    { organization, id },
-    { $set: { "refreshExecution.heartbeat": new Date() } },
+    { organization: organizationId, id: snapshotId },
+    { $set: { "executionMetadata.heartbeat": newHeartbeat } },
   );
+  return newHeartbeat;
 }
 
 // Gets latest snapshots per experiment-phase pair

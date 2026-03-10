@@ -189,6 +189,7 @@ export async function refreshDashboardData(
       experiment,
       phaseIndex: experiment.phases.length - 1,
       useCache: false,
+      type: "standard",
       triggeredBy: "manual-dashboard",
     });
 
