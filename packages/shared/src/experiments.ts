@@ -1966,6 +1966,9 @@ export function getLatestPhaseVariations(
  */
 export function getAllVariations(
   experiment: ExperimentWithVariations,
-): Variation[] {
-  return experiment.variations;
+): VariationWithIndex[] {
+  return experiment.variations.map((v, i) => ({
+    ...v,
+    index: i,
+  }));
 }
