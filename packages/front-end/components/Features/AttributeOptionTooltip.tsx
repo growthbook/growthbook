@@ -1,5 +1,5 @@
 import React from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
 import Markdown from "@/components/Markdown/Markdown";
 import SortedTags from "@/components/Tags/SortedTags";
@@ -59,14 +59,12 @@ export function AttributeOptionTooltipContent({
         </div>
       )}
       {option.description && (
-        <Flex direction="column" gap="1">
+        <div>
           <Text size="small" as="div" weight="semibold">
             Description:
           </Text>
-          <Text size="small" as="div">
-            <Markdown style={{ fontSize: 12 }}>{option.description}</Markdown>
-          </Text>
-        </Flex>
+          <Markdown style={{ fontSize: 12 }}>{option.description}</Markdown>
+        </div>
       )}
     </Flex>
   );
@@ -85,21 +83,18 @@ export function AttributeOptionWithTooltip({
   return (
     <Tooltip
       body={<AttributeOptionTooltipContent option={option} />}
+      popperClassName={isValue ? "my-3" : "mx-2"}
       tipPosition={isValue ? "top" : "right"}
       usePortal
       flipTheme={false}
+      style={{
+        position: "relative",
+        display: context === "value" ? "inline-block" : "block",
+        minWidth: 80,
+        maxWidth: 400,
+      }}
     >
-      <Box
-        as="span"
-        style={{
-          display: "inline-block",
-          position: "relative",
-          minWidth: 100,
-          ...(isValue && { zIndex: 1000 }),
-        }}
-      >
-        {children}
-      </Box>
+      {children}
     </Tooltip>
   );
 }
