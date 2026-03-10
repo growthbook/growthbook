@@ -59,6 +59,26 @@ export class IncrementalRefreshModel extends BaseClass {
       ...data,
     });
   }
+
+  /**
+   * Atomically upserts only if the current execution still owns the lock.
+   * Returns true if the write matched, false if the execution was superseded.
+   */
+  public async upsertByExperimentIdIfCurrentExecution(
+    experimentId: string,
+    executionId: string,
+    data: UpdateProps<IncrementalRefreshInterface>,
+  ): Promise<boolean> {
+    const result = await this._dangerousGetCollection().updateOne(
+      {
+        organization: this.context.org.id,
+        experimentId,
+        currentExecutionSnapshotId: executionId,
+      },
+      { $set: { ...data, dateUpdated: new Date() } },
+    );
+    return result.matchedCount > 0;
+  }
   protected canRead(_doc: IncrementalRefreshInterface) {
     return true;
   }

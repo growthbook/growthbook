@@ -52,6 +52,7 @@ import {
   requestExperimentSnapshot,
   resetExperimentBanditSettings,
   SnapshotAnalysisParams,
+  waitForSnapshotExecution,
   validateExperimentData,
 } from "back-end/src/services/experiments";
 import {
@@ -132,6 +133,8 @@ import {
   shouldValidateCustomFieldsOnUpdate,
   validateCustomFieldsForSection,
 } from "back-end/src/util/custom-fields";
+
+const SNAPSHOT_WAIT_TIMEOUT_MS = 30 * 60 * 1000;
 
 export async function getExperiments(
   req: AuthRequest<
@@ -3059,6 +3062,8 @@ export async function postBanditSnapshot(
     throw new Error("Could not find datasource for this experiment");
   }
 
+  req.setTimeout(SNAPSHOT_WAIT_TIMEOUT_MS);
+
   let snapshot: ExperimentSnapshotInterface | undefined = undefined;
   ({ snapshot } = await requestExperimentSnapshot({
     context,
@@ -3068,6 +3073,19 @@ export async function postBanditSnapshot(
     type: "standard",
     reweight,
   }));
+  snapshot = await waitForSnapshotExecution({
+    context,
+    snapshotId: snapshot.id,
+    timeoutMs: SNAPSHOT_WAIT_TIMEOUT_MS,
+  });
+
+  if (!snapshot.banditResult) {
+    return res.status(400).json({
+      status: 400,
+      message: snapshot.error || "Unable to update bandit.",
+      snapshot,
+    });
+  }
 
   await req.audit({
     event: "experiment.refresh",

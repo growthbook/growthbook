@@ -3,8 +3,13 @@ import { PostExperimentSnapshotResponse } from "shared/types/openapi";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { auditDetailsCreate } from "back-end/src/services/audit";
-import { requestExperimentSnapshot } from "back-end/src/services/experiments";
+import {
+  requestExperimentSnapshot,
+  waitForSnapshotExecution,
+} from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+
+const SNAPSHOT_WAIT_TIMEOUT_MS = 30 * 60 * 1000;
 
 // TODO update params (add phase, useCache)
 export const postExperimentSnapshot = createApiRequestHandler(
@@ -12,6 +17,8 @@ export const postExperimentSnapshot = createApiRequestHandler(
 )(async (req): Promise<PostExperimentSnapshotResponse> => {
   const context = req.context;
   const id = req.params.id;
+
+  req.setTimeout(SNAPSHOT_WAIT_TIMEOUT_MS);
 
   const { triggeredBy } = req.body;
   const experiment = await getExperimentById(context, id);
@@ -51,14 +58,18 @@ export const postExperimentSnapshot = createApiRequestHandler(
     useCache: true,
   };
 
-  // This endpoint starts the refresh and returns the current snapshot state
-  // immediately (`queued`, `running`, etc.) without waiting for completion.
+  // Wait for terminal execution to preserve historical endpoint behavior.
   const { snapshot } = await requestExperimentSnapshot({
     context,
     experiment,
     phaseIndex: createSnapshotPayload.phase,
     useCache: createSnapshotPayload.useCache,
     triggeredBy,
+  });
+  const finalSnapshot = await waitForSnapshotExecution({
+    context,
+    snapshotId: snapshot.id,
+    timeoutMs: SNAPSHOT_WAIT_TIMEOUT_MS,
   });
 
   await req.audit({
@@ -74,9 +85,9 @@ export const postExperimentSnapshot = createApiRequestHandler(
   });
   return {
     snapshot: {
-      id: snapshot.id,
-      experiment: snapshot.experiment,
-      status: snapshot.status,
+      id: finalSnapshot.id,
+      experiment: finalSnapshot.experiment,
+      status: finalSnapshot.status,
     },
   };
 });

@@ -131,6 +131,7 @@ import {
 import { addTags } from "back-end/src/models/TagModel";
 import {
   addOrUpdateSnapshotAnalysis,
+  clearExecutionMetadata,
   createExperimentSnapshotModel,
   findActiveStandardWriterSnapshotExecution,
   findSnapshotById,
@@ -1091,6 +1092,9 @@ function isDuplicateKeyError(error: unknown): boolean {
 
 const SNAPSHOT_UPDATE_IN_PROGRESS_ERROR =
   "There's already an update in progress.";
+const SNAPSHOT_EXECUTION_STALE_THRESHOLD_MS = 10 * 60 * 1000;
+const SNAPSHOT_EXECUTION_POLL_INTERVAL_MS = 1000;
+const SNAPSHOT_EXECUTION_TIMEOUT_MS = 30 * 60 * 1000;
 
 function getSnapshotType({
   experiment,
@@ -1340,6 +1344,98 @@ export async function requestExperimentSnapshot({
   };
 }
 
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+async function forceFinishStaleSnapshotExecution({
+  context,
+  snapshot,
+}: {
+  context: ReqContext | ApiReqContext;
+  snapshot: ExperimentSnapshotInterface;
+}): Promise<ExperimentSnapshotInterface> {
+  const heartbeat =
+    snapshot.executionMetadata?.heartbeat ?? snapshot.dateCreated;
+
+  logger.warn(
+    "Force-finishing stale snapshot execution: " +
+      snapshot.id +
+      " (last heartbeat: " +
+      new Date(heartbeat).toISOString() +
+      ")",
+  );
+
+  await clearExecutionMetadata(context.org.id, snapshot.id);
+  await updateSnapshot({
+    organization: context.org.id,
+    id: snapshot.id,
+    updates: {
+      status: "error",
+      error: "Execution timed out (no heartbeat)",
+    },
+    context,
+  });
+
+  return (
+    (await findSnapshotById(context.org.id, snapshot.id)) ?? {
+      ...snapshot,
+      status: "error",
+      error: "Execution timed out (no heartbeat)",
+      executionMetadata: undefined,
+    }
+  );
+}
+
+export async function waitForSnapshotExecution({
+  context,
+  snapshotId,
+  timeoutMs = SNAPSHOT_EXECUTION_TIMEOUT_MS,
+  pollIntervalMs = SNAPSHOT_EXECUTION_POLL_INTERVAL_MS,
+}: {
+  context: ReqContext | ApiReqContext;
+  snapshotId: string;
+  timeoutMs?: number;
+  pollIntervalMs?: number;
+}): Promise<ExperimentSnapshotInterface> {
+  const start = Date.now();
+
+  while (true) {
+    const snapshot = await findSnapshotById(context.org.id, snapshotId);
+    if (!snapshot) {
+      throw new Error("Snapshot not found");
+    }
+
+    const isTerminal =
+      snapshot.status === "success" || snapshot.status === "error";
+    const heartbeat =
+      snapshot.executionMetadata?.heartbeat ?? snapshot.dateCreated;
+    const isStale =
+      !!snapshot.executionMetadata &&
+      new Date(heartbeat) <
+        new Date(Date.now() - SNAPSHOT_EXECUTION_STALE_THRESHOLD_MS);
+
+    if (isTerminal && !snapshot.executionMetadata) {
+      return snapshot;
+    }
+
+    if (isStale) {
+      return forceFinishStaleSnapshotExecution({
+        context,
+        snapshot,
+      });
+    }
+
+    if (Date.now() - start >= timeoutMs) {
+      throw new Error("Timed out waiting for snapshot execution");
+    }
+
+    await delay(pollIntervalMs);
+  }
+}
+
 export async function createOrReuseStandardSnapshotExecution({
   context,
   experiment,
@@ -1370,33 +1466,15 @@ export async function createOrReuseStandardSnapshotExecution({
   if (existingWriter) {
     // Stale execution check: if the heartbeat (or dateCreated as fallback)
     // is older than the threshold, force-finish and create a new execution.
-    const STALE_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
     const heartbeat =
       existingWriter.executionMetadata?.heartbeat ?? existingWriter.dateCreated;
-    const staleThreshold = new Date(Date.now() - STALE_THRESHOLD_MS);
+    const staleThreshold = new Date(
+      Date.now() - SNAPSHOT_EXECUTION_STALE_THRESHOLD_MS,
+    );
     if (new Date(heartbeat) < staleThreshold) {
-      logger.warn(
-        "Force-finishing stale snapshot execution: " +
-          existingWriter.id +
-          " (last heartbeat: " +
-          new Date(heartbeat).toISOString() +
-          ")",
-      );
-      await updateExecutionMetadata({
-        organizationId: context.org.id,
-        snapshotId: existingWriter.id,
-        updates: {
-          mode: undefined,
-        },
-      });
-      await updateSnapshot({
-        organization: context.org.id,
-        id: existingWriter.id,
-        updates: {
-          status: "error",
-          error: "Execution timed out (no heartbeat)",
-        },
+      await forceFinishStaleSnapshotExecution({
         context,
+        snapshot: existingWriter,
       });
       // Fall through to create a new execution
     } else if (forceFullRefresh) {
@@ -1751,13 +1829,7 @@ export async function createSnapshot({
       context,
     });
     if (snapshot.type === "standard") {
-      await updateExecutionMetadata({
-        organizationId: snapshot.organization,
-        snapshotId: snapshot.id,
-        updates: {
-          mode: undefined,
-        },
-      });
+      await clearExecutionMetadata(snapshot.organization, snapshot.id);
     }
     throw error;
   }
@@ -1924,17 +1996,11 @@ function monitorStandardSnapshotExecution({
     } finally {
       clearInterval(heartbeatTimer);
       try {
-        await updateExecutionMetadata({
-          organizationId: context.org.id,
-          snapshotId,
-          updates: {
-            mode: undefined,
-          },
-        });
+        await clearExecutionMetadata(context.org.id, snapshotId);
       } catch (cleanupError) {
         logger.error(
           cleanupError,
-          "Failed to clear standard snapshot execution mode: " + snapshotId,
+          "Failed to clear standard snapshot execution metadata: " + snapshotId,
         );
       }
     }
