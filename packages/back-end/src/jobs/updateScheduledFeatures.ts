@@ -78,8 +78,10 @@ export const updateSingleFeature = async (job: UpdateSingleFeatureJob) => {
     getEnvironmentIdsFromOrg(context.org),
   );
 
-  // Advance nextScheduledUpdate only after a successful cache refresh so failed
-  // refreshes are retried on the next cron tick.
+  // Intentionally fire-and-forget: releasing the Agenda job quickly lets a
+  // replacement worker pick this feature up on the next 1-minute queue tick if
+  // this pod dies mid-refresh. We only advance nextScheduledUpdate after a
+  // successful refresh so failures remain eligible for retry.
   refreshSDKPayloadCache({
     context,
     payloadKeys,
