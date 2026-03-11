@@ -426,12 +426,11 @@ const startExperimentIncrementalRefreshQueries = async (
     run: (query, setExternalId) =>
       integration.runIncrementalWithNoOutputQuery(query, setExternalId),
     onSuccess: async (rows) => {
-      // TODO(incremental-refresh): Clean up metadata handling in query runner
       const maxTimestamp = new Date(rows[0].max_timestamp as string);
       capturedUnitsMaxTimestamp = maxTimestamp;
 
       if (maxTimestamp) {
-        await context.models.incrementalRefresh
+        const lockHeld = await context.models.incrementalRefresh
           .upsertByExperimentIdIfCurrentExecution(experimentId, executionId, {
             unitsTableFullName: unitsTableFullName,
             unitsMaxTimestamp: maxTimestamp,
@@ -439,7 +438,16 @@ const startExperimentIncrementalRefreshQueries = async (
               getExperimentSettingsHashForIncrementalRefresh(snapshotSettings),
             unitsDimensions: eligibleDimensions.map((d) => d.id),
           })
-          .catch((e) => context.logger.error(e));
+          .catch((e) => {
+            context.logger.error(e);
+            return false;
+          });
+        if (!lockHeld) {
+          context.logger.warn(
+            "Incremental refresh execution lock lost for experiment: " +
+              experimentId,
+          );
+        }
       }
     },
     queryType: "experimentIncrementalRefreshMaxTimestampUnitsTable",
@@ -658,11 +666,20 @@ const startExperimentIncrementalRefreshQueries = async (
               s.groupId === group.groupId ? updatedCovariateSource : s,
             );
           }
-          await context.models.incrementalRefresh
+          const lockHeld = await context.models.incrementalRefresh
             .upsertByExperimentIdIfCurrentExecution(experimentId, executionId, {
               metricCovariateSources: runningCovariateSourceData,
             })
-            .catch((e) => context.logger.error(e));
+            .catch((e) => {
+              context.logger.error(e);
+              return false;
+            });
+          if (!lockHeld) {
+            context.logger.warn(
+              "Incremental refresh execution lock lost for experiment: " +
+                experimentId,
+            );
+          }
         },
         queryType: "experimentIncrementalRefreshInsertMetricsCovariateData",
       });
@@ -723,11 +740,20 @@ const startExperimentIncrementalRefreshQueries = async (
               s.groupId === group.groupId ? updatedSource : s,
             );
           }
-          await context.models.incrementalRefresh
+          const lockHeld = await context.models.incrementalRefresh
             .upsertByExperimentIdIfCurrentExecution(experimentId, executionId, {
               metricSources: runningSourceData,
             })
-            .catch((e) => context.logger.error(e));
+            .catch((e) => {
+              context.logger.error(e);
+              return false;
+            });
+          if (!lockHeld) {
+            context.logger.warn(
+              "Incremental refresh execution lock lost for experiment: " +
+                experimentId,
+            );
+          }
         }
       },
       queryType: "experimentIncrementalRefreshMaxTimestampMetricsSource",
