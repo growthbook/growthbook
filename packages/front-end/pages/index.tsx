@@ -16,7 +16,6 @@ export default function Home(): React.ReactElement {
   }>("/organization/feature-exp-usage");
 
   const { organization } = useUser();
-
   const gb = useGrowthBook<AppFeatures>();
 
   useEffect(() => {
