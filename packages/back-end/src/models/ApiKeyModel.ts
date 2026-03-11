@@ -1,16 +1,17 @@
 import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
 import { apiKeySchema } from "shared/validators";
 import {
-  API_KEY_COLLECTION,
   generateEncryptionKey,
   generateSigningKey,
   migrateApiKey,
 } from "back-end/src/util/api-key.util";
 import { MakeModelClass } from "./BaseModel";
 
+export const COLLECTION_NAME = "apikeys";
+
 const BaseClass = MakeModelClass({
   schema: apiKeySchema,
-  collectionName: API_KEY_COLLECTION,
+  collectionName: COLLECTION_NAME,
   pKey: ["key"],
   globallyUniquePrimaryKeys: true,
   idPrefix: "key_",

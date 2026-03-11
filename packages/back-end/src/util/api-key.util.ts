@@ -12,8 +12,7 @@ import {
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
 import { findAllOrganizations } from "back-end/src/models/OrganizationModel";
-
-export const API_KEY_COLLECTION = "apikeys";
+import { COLLECTION_NAME as API_KEY_COLLECTION } from "back-end/src/models/ApiKeyModel";
 
 /**
  * Verifies if the provided API key is for a user in the organization.
