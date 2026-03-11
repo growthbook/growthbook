@@ -445,7 +445,7 @@ export default function FeaturesPage() {
                         />
                       </TableCell>
                     )}
-                    <TableCell style={{ textAlign: "center" }}>
+                    <TableCell style={{ textAlign: "left" }}>
                       <StaleFeatureIcon
                         context="list"
                         neverStale={feature.neverStale}
