@@ -12,14 +12,19 @@ import {
   startSnapshotFromPlan,
   PlannedExperimentSnapshot,
 } from "back-end/src/services/experiments";
+import { requestExperimentSnapshotFromPlan } from "back-end/src/controllers/experiments";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { createExperimentSnapshotModel } from "back-end/src/models/ExperimentSnapshotModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
+import { getMetricMap } from "back-end/src/models/MetricModel";
+import {
+  getFactTableMap,
+  FactTableMap,
+} from "back-end/src/models/FactTableModel";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
-import { FactTableMap } from "back-end/src/models/FactTableModel";
 
 jest.mock("back-end/src/models/ExperimentModel", () => ({
   updateExperiment: jest.fn(),
@@ -35,9 +40,22 @@ jest.mock("back-end/src/models/DataSourceModel", () => ({
   getDataSourceById: jest.fn(),
 }));
 
+jest.mock("back-end/src/models/MetricModel", () => ({
+  getMetricMap: jest.fn(),
+}));
+
+jest.mock("back-end/src/models/FactTableModel", () => ({
+  getFactTableMap: jest.fn(),
+}));
+
 jest.mock("back-end/src/services/datasource", () => ({
   getIntegrationFromDatasourceId: jest.fn(),
   getSourceIntegrationObject: jest.fn(),
+}));
+
+jest.mock("shared/experiments", () => ({
+  ...jest.requireActual("shared/experiments"),
+  expandAllSliceMetricsInMap: jest.fn(),
 }));
 
 jest.mock("back-end/src/queryRunners/ExperimentResultsQueryRunner", () => ({
@@ -87,6 +105,12 @@ const getSourceIntegrationObjectMock =
   getSourceIntegrationObject as jest.MockedFunction<
     typeof getSourceIntegrationObject
   >;
+const getMetricMapMock = getMetricMap as jest.MockedFunction<
+  typeof getMetricMap
+>;
+const getFactTableMapMock = getFactTableMap as jest.MockedFunction<
+  typeof getFactTableMap
+>;
 
 const resultsQueryRunnerMock =
   ExperimentResultsQueryRunner as unknown as jest.Mock;
@@ -210,6 +234,10 @@ describe("snapshot lifecycle", () => {
     createExperimentSnapshotModelMock.mockImplementation(
       async ({ data }) => data as ExperimentSnapshotInterface,
     );
+    getMetricMapMock.mockResolvedValue(
+      new Map<string, ExperimentMetricInterface>(),
+    );
+    getFactTableMapMock.mockResolvedValue(new Map() as FactTableMap);
   });
 
   it("creates a standard snapshot, persists it, and starts analysis", async () => {
@@ -376,6 +404,46 @@ describe("snapshot lifecycle", () => {
         factTableMap: new Map() as FactTableMap,
       }),
     ).rejects.toThrow("Query failed");
+
+    expect(context.models.incrementalRefresh.releaseLock).toHaveBeenCalledWith(
+      experiment.id,
+      "snp_123",
+    );
+  });
+
+  it("releases incremental lock after runner completes via requestExperimentSnapshotFromPlan", async () => {
+    const context = makeContext();
+    const experiment = makeExperiment();
+    const plan = makePlan({ runnerKind: "incremental" });
+
+    // waitForResults resolves immediately (simulates successful completion)
+    const waitForResults = jest.fn().mockResolvedValue(undefined);
+    incrementalQueryRunnerMock.mockImplementationOnce(
+      (_context: unknown, snapshot: ExperimentSnapshotInterface) => ({
+        model: snapshot,
+        startAnalysis: jest.fn(),
+        waitForResults,
+      }),
+    );
+
+    const { queryRunner } = await requestExperimentSnapshotFromPlan({
+      plan,
+      context: context as unknown as Parameters<
+        typeof requestExperimentSnapshotFromPlan
+      >[0]["context"],
+      experiment,
+    });
+
+    expect(queryRunner).toBeDefined();
+    expect(context.models.incrementalRefresh.acquireLock).toHaveBeenCalledWith(
+      experiment.id,
+      "snp_123",
+    );
+
+    // Wait for the fire-and-forget finally to complete
+    await waitForResults();
+    // Flush microtask queue so the .finally() handler runs
+    await new Promise((r) => setImmediate(r));
 
     expect(context.models.incrementalRefresh.releaseLock).toHaveBeenCalledWith(
       experiment.id,

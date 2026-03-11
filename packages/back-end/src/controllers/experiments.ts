@@ -2982,6 +2982,23 @@ export async function requestExperimentSnapshotFromPlan({
     throw e;
   }
 
+  // Release the incremental lock when the runner finishes (success or failure).
+  // This mirrors the finally block in monitorStandardSnapshotExecution.
+  if (plan.runnerKind === "incremental") {
+    void queryRunner
+      .waitForResults()
+      .finally(() =>
+        context.models.incrementalRefresh
+          .releaseLock(experiment.id, plan.snapshot.id)
+          .catch((e) =>
+            logger.warn(
+              e,
+              "Failed to release incremental lock: " + experiment.id,
+            ),
+          ),
+      );
+  }
+
   return { snapshot: queryRunner.model, queryRunner };
 }
 
