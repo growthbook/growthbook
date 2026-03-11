@@ -1,5 +1,6 @@
 import { FeatureInterface } from "shared/types/feature";
 import { useState } from "react";
+import { filterEnvironmentsByFeature } from "shared/util";
 import Text from "@/ui/Text";
 import { useFeatureDependents } from "@/hooks/useFeatureDependents";
 import { getEnabledEnvironments, useEnvironments } from "@/services/features";
@@ -25,7 +26,8 @@ export default function FeatureArchiveModal({
     (dependents?.features.length ?? 0) + (dependents?.experiments.length ?? 0);
   const isArchived = feature.archived;
 
-  const environments = useEnvironments();
+  const allEnvironments = useEnvironments();
+  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const enabledEnvs = isArchived
     ? []
     : getEnabledEnvironments(feature, environments);
