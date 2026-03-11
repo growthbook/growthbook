@@ -523,11 +523,7 @@ export default function FeaturesPage() {
   }, [project, projects, permissionsUtil]);
 
   if (error) {
-    return (
-      <div className="alert alert-danger">
-        An error occurred: {error.message}
-      </div>
-    );
+    return <Callout status="error">An error occurred: {error.message}</Callout>;
   }
   if (loading) {
     return <LoadingOverlay />;
