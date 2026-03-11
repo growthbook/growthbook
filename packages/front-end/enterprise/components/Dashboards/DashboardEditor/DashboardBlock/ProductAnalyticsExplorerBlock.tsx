@@ -5,6 +5,7 @@ import {
   DataSourceExplorationBlockInterface,
 } from "shared/enterprise";
 import { ProductAnalyticsExploration } from "shared/validators";
+import { QueryInterface } from "shared/types/query";
 import useApi from "@/hooks/useApi";
 import ExplorerChart from "@/enterprise/components/ProductAnalytics/MainSection/ExplorerChart";
 import ExplorerDataTable from "@/enterprise/components/ProductAnalytics/MainSection/ExplorerDataTable";
@@ -22,6 +23,7 @@ export default function ProductAnalyticsExplorerBlock({
   const { data, error, isLoading } = useApi<{
     status: number;
     exploration: ProductAnalyticsExploration;
+    query: QueryInterface | null;
   }>(`/product-analytics/exploration/${block.explorerAnalysisId}`, {
     shouldRun: () => !!block.explorerAnalysisId,
   });
@@ -61,6 +63,7 @@ export default function ProductAnalyticsExplorerBlock({
           submittedExploreState={block.config ?? data.exploration.config}
           loading={isLoading}
           hasChart={false}
+          query={data?.query ?? null}
         />
       )}
     </Flex>

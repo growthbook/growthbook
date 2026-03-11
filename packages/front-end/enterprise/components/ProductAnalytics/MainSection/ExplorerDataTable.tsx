@@ -261,12 +261,14 @@ export default function ExplorerDataTable({
     submittedExploreState,
   ]);
 
-  const hasEmptyData = useMemo(() => {
+  const explorationReturnedNoData = useMemo(() => {
     if (!exploration?.result?.rows?.length) return true;
     return exploration.result.rows.every((r) => r.values.length === 0);
-  }, [exploration?.result?.rows]);
+  }, [exploration?.result.rows]);
 
-  if (hasEmptyData && !hasChart) {
+  const showEmptyDataMessage = explorationReturnedNoData && !hasChart && !error;
+
+  if (showEmptyDataMessage) {
     return (
       <Flex
         p="4"
