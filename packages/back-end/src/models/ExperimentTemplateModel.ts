@@ -1,9 +1,28 @@
+import { z } from "zod";
 import {
+  apiExperimentTemplateValidator,
+  ApiExperimentTemplateInterface,
   experimentTemplateInterface,
   ExperimentTemplateInterface,
 } from "shared/validators";
-import { ApiTemplate } from "shared/types/openapi";
+import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
+import { applyFilter } from "back-end/src/util/handler";
 import { MakeModelClass } from "./BaseModel";
+
+const listExperimentTemplatesValidator = {
+  bodySchema: z.never(),
+  querySchema: z.strictObject({
+    projectId: z.string().optional().describe("Filter by project id"),
+  }),
+  paramsSchema: z.never(),
+};
+
+const listExperimentTemplatesReturn = z.strictObject({
+  experimentTemplates: z.array(apiExperimentTemplateValidator),
+});
+type ListExperimentTemplatesReturn = z.infer<
+  typeof listExperimentTemplatesReturn
+>;
 
 const BaseClass = MakeModelClass({
   schema: experimentTemplateInterface,
@@ -20,6 +39,36 @@ const BaseClass = MakeModelClass({
     targeting: {
       condition: "{}",
     },
+  },
+  apiConfig: {
+    modelKey: "experimentTemplates",
+    modelSingular: "experimentTemplate",
+    modelPlural: "experimentTemplates",
+    apiInterface: apiExperimentTemplateValidator,
+    schemas: {
+      createBody: z.never(),
+      updateBody: z.never(),
+    },
+    pathBase: "/experiment-templates",
+    customHandlers: [
+      defineCustomApiHandler({
+        pathFragment: "",
+        verb: "get",
+        operationId: "listExperimentTemplates",
+        summary: "Get all experiment templates",
+        validator: listExperimentTemplatesValidator,
+        zodReturnObject: listExperimentTemplatesReturn,
+        reqHandler: async (req): Promise<ListExperimentTemplatesReturn> => {
+          const templates =
+            await req.context.models.experimentTemplates.getAllAsApiInterface();
+          return {
+            experimentTemplates: templates.filter((t) =>
+              applyFilter(req.query.projectId, t.project),
+            ),
+          };
+        },
+      }),
+    ],
   },
 });
 
@@ -48,41 +97,10 @@ export class ExperimentTemplatesModel extends BaseClass {
     return this.context.hasPremiumFeature("templates");
   }
 
-  public toApiInterface(template: ExperimentTemplateInterface): ApiTemplate {
-    return {
-      id: template.id,
-      dateCreated: template.dateCreated.toISOString(),
-      dateUpdated: template.dateUpdated.toISOString(),
-      project: template.project,
-      owner: template.owner,
-      templateMetadata: {
-        name: template.templateMetadata.name,
-        description: template.templateMetadata.description,
-      },
-      type: template.type,
-      hypothesis: template.hypothesis,
-      description: template.description,
-      tags: template.tags,
-      customFields: template.customFields,
-      datasource: template.datasource,
-      exposureQueryId: template.exposureQueryId,
-      hashAttribute: template.hashAttribute,
-      fallbackAttribute: template.fallbackAttribute,
-      disableStickyBucketing: template.disableStickyBucketing,
-      goalMetrics: template.goalMetrics,
-      secondaryMetrics: template.secondaryMetrics,
-      guardrailMetrics: template.guardrailMetrics,
-      activationMetric: template.activationMetric,
-      statsEngine: template.statsEngine,
-      segment: template.segment,
-      skipPartialData: template.skipPartialData,
-      targeting: {
-        coverage: template.targeting.coverage,
-        condition: template.targeting.condition,
-        savedGroups: template.targeting.savedGroups,
-        prerequisites: template.targeting.prerequisites,
-      },
-      customMetricSlices: template.customMetricSlices,
-    };
+  public async getAllAsApiInterface(): Promise<
+    ApiExperimentTemplateInterface[]
+  > {
+    const templates = await this.getAll();
+    return templates.map((t) => this.toApiInterface(t));
   }
 }

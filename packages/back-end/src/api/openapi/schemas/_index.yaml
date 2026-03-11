@@ -84,5 +84,3 @@ Settings:
   $ref: "./Settings.yaml"
 CodeRef:
   $ref: "./CodeRef.yaml"
-Template:
-  $ref: "./Template.yaml"

@@ -92,8 +92,6 @@ export const apiSettingsValidator = z.object({ "confidenceLevel": z.coerce.numbe
 
 export const apiCodeRefValidator = z.object({ "organization": z.string().describe("The organization name"), "dateUpdated": z.string().describe("When the code references were last updated"), "feature": z.string().describe("Feature identifier"), "repo": z.string().describe("Repository name"), "branch": z.string().describe("Branch name"), "platform": z.enum(["github","gitlab","bitbucket"]).describe("Source control platform").optional(), "refs": z.array(z.object({ "filePath": z.string().describe("Path to the file containing the reference"), "startingLineNumber": z.coerce.number().int().describe("Line number where the reference starts"), "lines": z.string().describe("The code lines containing the reference"), "flagKey": z.string().describe("The feature flag key referenced") })) }).strict()
 
-export const apiTemplateValidator = z.object({ "id": z.string(), "dateCreated": z.string(), "dateUpdated": z.string(), "project": z.string().optional(), "owner": z.string().optional(), "templateMetadata": z.object({ "name": z.string(), "description": z.string().optional() }), "type": z.literal("standard"), "hypothesis": z.string().optional(), "description": z.string().optional(), "tags": z.array(z.string()).optional(), "customFields": z.record(z.string(), z.string()).optional(), "datasource": z.string(), "exposureQueryId": z.string(), "hashAttribute": z.string().optional(), "fallbackAttribute": z.string().optional(), "disableStickyBucketing": z.boolean().optional(), "goalMetrics": z.array(z.string()).optional(), "secondaryMetrics": z.array(z.string()).optional(), "guardrailMetrics": z.array(z.string()).optional(), "activationMetric": z.string().optional(), "statsEngine": z.enum(["bayesian","frequentist"]), "segment": z.string().optional(), "skipPartialData": z.boolean().optional(), "targeting": z.object({ "coverage": z.coerce.number(), "condition": z.string(), "savedGroups": z.array(z.object({ "match": z.enum(["all","none","any"]), "ids": z.array(z.string()) })).optional(), "prerequisites": z.array(z.object({ "id": z.string(), "condition": z.string() })).optional() }), "customMetricSlices": z.array(z.object({ "slices": z.array(z.object({ "column": z.string(), "levels": z.array(z.string()) })) })).optional() }).strict()
-
 export const listFeaturesValidator = {
   bodySchema: z.never(),
   querySchema: z.object({ "limit": z.coerce.number().int().default(10), "offset": z.coerce.number().int().default(0), "projectId": z.string().optional(), "clientKey": z.string().optional(), "skipPagination": z.union([z.literal("true"), z.literal("false"), z.literal("0"), z.literal("1"), z.boolean()]).optional().default(false).transform((v) => v === true || v === "true" || v === "1") }).strict(),
@@ -691,11 +689,5 @@ export const getQueryValidator = {
 export const getSettingsValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
-  paramsSchema: z.never(),
-};
-
-export const listTemplatesValidator = {
-  bodySchema: z.never(),
-  querySchema: z.object({ "limit": z.coerce.number().int().default(10), "offset": z.coerce.number().int().default(0), "projectId": z.string().optional() }).strict(),
   paramsSchema: z.never(),
 };
