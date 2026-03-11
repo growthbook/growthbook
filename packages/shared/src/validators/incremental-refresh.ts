@@ -40,7 +40,7 @@ const incrementalRefresh = z
       incrementalRefreshMetricCovariateSourceValidator,
     ),
 
-    // Execution token to prevent stale callbacks from writing data
+    // Incremental refresh lock
     currentExecutionSnapshotId: z.string().nullable(),
   })
   .strict();

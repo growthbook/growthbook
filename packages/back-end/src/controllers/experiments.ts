@@ -2,7 +2,6 @@ import { Response } from "express";
 import uniqid from "uniqid";
 import format from "date-fns/format";
 import cloneDeep from "lodash/cloneDeep";
-import uniq from "lodash/uniq";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import {
@@ -18,6 +17,7 @@ import {
 } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
+import uniq from "lodash/uniq";
 import { IdeaInterface } from "shared/types/idea";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { DataSourceInterface } from "shared/types/datasource";
@@ -59,10 +59,10 @@ import {
   PlannedExperimentSnapshot,
   planSnapshot,
   requestExperimentSnapshot,
-  SnapshotAnalysisParams,
-  validateExperimentData,
   resetExperimentBanditSettings,
+  SnapshotAnalysisParams,
   updateExperimentBanditSettings,
+  validateExperimentData,
   waitForSnapshotExecution,
 } from "back-end/src/services/experiments";
 import {

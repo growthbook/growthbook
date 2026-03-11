@@ -8,6 +8,7 @@ import {
 import {
   requestExperimentSnapshot,
   updateExperimentBanditSettings,
+  waitForSnapshotExecution,
 } from "back-end/src/services/experiments";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { notifyAutoUpdate } from "back-end/src/services/experimentNotifications";
@@ -134,7 +135,7 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
       }
     }
 
-    await requestExperimentSnapshot({
+    const { snapshot } = await requestExperimentSnapshot({
       experiment,
       context,
       phaseIndex: experiment.phases.length - 1,
@@ -144,9 +145,31 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
       reweight,
     });
 
-    // TODO: The job does not waitForResults anymore.
-    // What is the impact of this change?
-    // We also had updateExperimentBanditSettings here -- similar to the controller
+    // TODO(adriel): Can we remove this wait since this is a background job?
+    const finalSnapshot = await waitForSnapshotExecution({
+      context,
+      snapshotId: snapshot.id,
+    });
+
+    logger.info(
+      "Successfully Refreshed Results for experiment " + experimentId,
+    );
+
+    if (experiment.type === "multi-armed-bandit") {
+      const changes = updateExperimentBanditSettings({
+        experiment,
+        snapshot: finalSnapshot,
+        reweight:
+          finalSnapshot?.banditResult?.reweight &&
+          experiment.banditStage === "exploit",
+        isScheduled: true,
+      });
+      await updateExperiment({
+        context,
+        experiment,
+        changes,
+      });
+    }
   } catch (e) {
     logger.error(e, "Failed to update experiment: " + experimentId);
     // If we failed to update the experiment, turn off auto-updating for the future (non-bandits only)

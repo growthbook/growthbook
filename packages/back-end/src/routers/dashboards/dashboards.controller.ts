@@ -214,9 +214,6 @@ export async function refreshDashboardData(
       return { ...block, snapshotId: mainSnapshot.id };
     });
     if (mainSnapshotUsed) {
-      // TODO: Ensure this throws if there is already an active writer
-      // and this request is also an active writer. Basically it should follow the same
-      // logic as the other places we have where we are creating experimentSnapshots.
       await requestExperimentSnapshotFromPlan({
         plan: plannedExperimentMainSnapshot,
         context,

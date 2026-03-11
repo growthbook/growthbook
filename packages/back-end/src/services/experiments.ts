@@ -1043,8 +1043,6 @@ export function getAdditionalQueryMetadataForExperiment(
 
 export const SNAPSHOT_UPDATE_IN_PROGRESS_ERROR =
   "There's already an update in progress.";
-export const STANDARD_UPDATE_IN_PROGRESS_ERROR =
-  "Standard update in progress. Try again later.";
 
 const SNAPSHOT_EXECUTION_TIMEOUT_MS = 30 * 60 * 1000;
 const SNAPSHOT_EXECUTION_POLL_INTERVAL_MS = 1500;
@@ -1272,7 +1270,6 @@ export async function requestExperimentSnapshotFromPlan({
 
   const snapshotType = plan.snapshot.type;
 
-  // --- Incremental (standard) snapshots: lock + reuse logic ---
   if (plan.runnerKind === "incremental" && snapshotType === "standard") {
     // Check if there's an active incremental execution
     const activeSnapshotId =
@@ -1379,7 +1376,6 @@ export async function requestExperimentSnapshotFromPlan({
     return { snapshot: queryRunner.model, queryRunner };
   }
 
-  // --- Incremental-exploratory: block if incremental writer is active ---
   if (plan.runnerKind === "incremental-exploratory") {
     const activeSnapshotId =
       await context.models.incrementalRefresh.getCurrentExecutionSnapshotId(
@@ -1391,7 +1387,7 @@ export async function requestExperimentSnapshotFromPlan({
         activeSnapshotId,
       );
       if (activeSnapshot && activeSnapshot.status === "running") {
-        throw new Error(STANDARD_UPDATE_IN_PROGRESS_ERROR);
+        throw new Error(SNAPSHOT_UPDATE_IN_PROGRESS_ERROR);
       }
     }
 
@@ -1406,7 +1402,6 @@ export async function requestExperimentSnapshotFromPlan({
     return { snapshot: queryRunner.model, queryRunner };
   }
 
-  // --- Results runner (standard or exploratory): no locking ---
   const queryRunner = await startSnapshotFromPlan({
     plan,
     context,
@@ -1862,7 +1857,6 @@ async function updateStandardSnapshotDashboardConsumers({
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
 }) {
-  // TODO: Why do we have this check here?
   if (snapshot.triggeredBy === "manual-dashboard") return;
 
   let project = null;
@@ -1953,23 +1947,6 @@ function monitorStandardSnapshotExecution({
 
       if (snapshot.status === "success") {
         try {
-          if (
-            experiment.type === "multi-armed-bandit" &&
-            snapshot.refreshIntent?.triggeredBySchedule
-          ) {
-            const changes = updateExperimentBanditSettings({
-              experiment,
-              snapshot,
-              reweight: !!snapshot.refreshIntent?.banditReweightRequested,
-              isScheduled: true,
-            });
-            await updateExperiment({
-              context,
-              experiment,
-              changes,
-            });
-          }
-
           await updateStandardSnapshotDashboardConsumers({
             context,
             experiment,

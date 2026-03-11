@@ -427,7 +427,7 @@ const startExperimentIncrementalRefreshQueries = async (
 
       if (maxTimestamp) {
         const lockHeld = await context.models.incrementalRefresh
-          .upsertByExperimentIdIfCurrentExecution(experimentId, executionId, {
+          .updateByExperimentIdIfCurrentExecution(experimentId, executionId, {
             unitsTableFullName: unitsTableFullName,
             unitsMaxTimestamp: maxTimestamp,
             experimentSettingsHash:
@@ -663,7 +663,7 @@ const startExperimentIncrementalRefreshQueries = async (
             );
           }
           const lockHeld = await context.models.incrementalRefresh
-            .upsertByExperimentIdIfCurrentExecution(experimentId, executionId, {
+            .updateByExperimentIdIfCurrentExecution(experimentId, executionId, {
               metricCovariateSources: runningCovariateSourceData,
             })
             .catch((e) => {
@@ -697,7 +697,7 @@ const startExperimentIncrementalRefreshQueries = async (
         runningSourceData = runningSourceData.filter(
           (s) => s.groupId !== group.groupId,
         );
-        await context.models.incrementalRefresh.upsertByExperimentIdIfCurrentExecution(
+        await context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
           experimentId,
           executionId,
           {
@@ -737,7 +737,7 @@ const startExperimentIncrementalRefreshQueries = async (
             );
           }
           const lockHeld = await context.models.incrementalRefresh
-            .upsertByExperimentIdIfCurrentExecution(experimentId, executionId, {
+            .updateByExperimentIdIfCurrentExecution(experimentId, executionId, {
               metricSources: runningSourceData,
             })
             .catch((e) => {

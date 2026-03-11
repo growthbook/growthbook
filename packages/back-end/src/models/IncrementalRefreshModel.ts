@@ -25,7 +25,6 @@ export class IncrementalRefreshModel extends BaseClass {
   public async getByExperimentId(experimentId: string) {
     return this._findOne({ experimentId });
   }
-
   public async upsertByExperimentId(
     experimentId: string,
     data:
@@ -49,31 +48,6 @@ export class IncrementalRefreshModel extends BaseClass {
     });
   }
 
-  public async releaseLock(experimentId: string, snapshotId: string) {
-    await this._dangerousGetCollection().updateOne(
-      {
-        organization: this.context.org.id,
-        experimentId,
-        currentExecutionSnapshotId: snapshotId,
-      },
-      {
-        $set: { currentExecutionSnapshotId: null, dateUpdated: new Date() },
-      },
-    );
-  }
-
-  public async getCurrentExecutionSnapshotId(
-    experimentId: string,
-  ): Promise<string | null> {
-    const doc = await this._findOne({ experimentId });
-    return doc?.currentExecutionSnapshotId ?? null;
-  }
-
-  /**
-   * Atomically acquires the incremental refresh lock via CAS.
-   * Uses upsert so it works even if no document exists yet (first-ever refresh).
-   * Returns true if the lock was acquired, false if another process holds it.
-   */
   public async acquireLock(
     experimentId: string,
     snapshotId: string,
@@ -113,8 +87,10 @@ export class IncrementalRefreshModel extends BaseClass {
       if (
         error &&
         typeof error === "object" &&
-        "code" in error &&
-        error.code === 11000
+        (("code" in error && error.code === 11000) ||
+          ("message" in error &&
+            typeof error.message === "string" &&
+            error.message.includes("11000")))
       ) {
         return false;
       }
@@ -122,11 +98,27 @@ export class IncrementalRefreshModel extends BaseClass {
     }
   }
 
-  /**
-   * Atomically upserts only if the current execution still owns the lock.
-   * Returns true if it worked, false otherwise.
-   */
-  public async upsertByExperimentIdIfCurrentExecution(
+  public async releaseLock(experimentId: string, snapshotId: string) {
+    await this._dangerousGetCollection().updateOne(
+      {
+        organization: this.context.org.id,
+        experimentId,
+        currentExecutionSnapshotId: snapshotId,
+      },
+      {
+        $set: { currentExecutionSnapshotId: null, dateUpdated: new Date() },
+      },
+    );
+  }
+
+  public async getCurrentExecutionSnapshotId(
+    experimentId: string,
+  ): Promise<string | null> {
+    const doc = await this._findOne({ experimentId });
+    return doc?.currentExecutionSnapshotId ?? null;
+  }
+
+  public async updateByExperimentIdIfCurrentExecution(
     experimentId: string,
     executionId: string,
     data: UpdateProps<IncrementalRefreshInterface>,

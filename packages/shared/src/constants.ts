@@ -2,7 +2,6 @@ import { FactMetricType } from "shared/types/fact-table";
 import { EntityEvents } from "shared/types/audit";
 
 export const DEFAULT_STATS_ENGINE = "bayesian" as const;
-
 export const DEFAULT_METRIC_HISTOGRAM_BINS = 25;
 export const DEFAULT_P_VALUE_THRESHOLD = 0.05;
 export const DEFAULT_P_VALUE_CORRECTION = null;
