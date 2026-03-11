@@ -2,6 +2,18 @@ import { webcrypto } from "node:crypto";
 import crypto from "crypto";
 import { OrganizationInterface } from "shared/types/organization";
 import { ApiKeyInterface } from "shared/types/apikey";
+import {
+  IS_MULTI_ORG,
+  SECRET_API_KEY,
+  SECRET_API_KEY_ROLE,
+} from "back-end/src/util/secrets";
+import {
+  getCollection,
+  removeMongooseFields,
+} from "back-end/src/util/mongo.util";
+import { findAllOrganizations } from "back-end/src/models/OrganizationModel";
+
+export const API_KEY_COLLECTION = "apikeys";
 
 /**
  * Verifies if the provided API key is for a user in the organization.
@@ -54,4 +66,39 @@ export function generateSigningKey(prefix: string = "", bytes = 32): string {
   return (
     prefix + crypto.randomBytes(bytes).toString("base64").replace(/[=/+]/g, "")
   );
+}
+
+export function migrateApiKey(legacyDoc: unknown) {
+  const obj = legacyDoc as ApiKeyInterface;
+  return {
+    ...obj,
+    role: roleForApiKey(obj) || undefined,
+    dateUpdated: obj.dateUpdated ?? obj.dateCreated,
+  };
+}
+
+export async function lookupOrganizationByApiKey(
+  key: string,
+): Promise<Partial<ApiKeyInterface>> {
+  // If self-hosting on a single org and using a hardcoded secret key
+  if (!IS_MULTI_ORG && SECRET_API_KEY && key === SECRET_API_KEY) {
+    const { organizations: orgs } = await findAllOrganizations(1, "");
+    if (orgs.length === 1) {
+      return {
+        id: "SECRET_API_KEY",
+        key: SECRET_API_KEY,
+        secret: true,
+        organization: orgs[0].id,
+        role: SECRET_API_KEY_ROLE,
+      };
+    }
+  }
+
+  const doc = await getCollection<ApiKeyInterface>(API_KEY_COLLECTION).findOne({
+    key,
+  });
+
+  if (!doc || !doc.organization) return {};
+
+  return migrateApiKey(removeMongooseFields(doc));
 }

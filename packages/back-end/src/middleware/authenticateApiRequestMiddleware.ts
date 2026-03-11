@@ -6,10 +6,12 @@ import { ApiKeyInterface } from "shared/types/apikey";
 import { TeamInterface } from "shared/types/team";
 import { licenseInit } from "back-end/src/enterprise";
 import { ApiRequestLocals } from "back-end/types/api";
-import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { getOrganizationById } from "back-end/src/services/organizations";
 import { getCustomLogProps } from "back-end/src/util/logger";
-import { isApiKeyForUserInOrganization } from "back-end/src/util/api-key.util";
+import {
+  isApiKeyForUserInOrganization,
+  lookupOrganizationByApiKey,
+} from "back-end/src/util/api-key.util";
 import { getUserPermissions } from "back-end/src/util/organization.util";
 import { getUserById } from "back-end/src/models/UserModel";
 import {
@@ -54,7 +56,7 @@ export default function authenticateApiRequestMiddleware(
       : value.trim();
 
   // Lookup organization by secret key and store in req
-  ApiKeyModel.lookupOrganizationByApiKey(secretKey)
+  lookupOrganizationByApiKey(secretKey)
     .then(async (apiKeyPartial) => {
       const { organization, secret, id, userId, role } = apiKeyPartial;
       if (!organization) {

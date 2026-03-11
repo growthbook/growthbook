@@ -1,27 +1,16 @@
 import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
 import { apiKeySchema } from "shared/validators";
 import {
-  IS_MULTI_ORG,
-  SECRET_API_KEY,
-  SECRET_API_KEY_ROLE,
-} from "back-end/src/util/secrets";
-import {
+  API_KEY_COLLECTION,
   generateEncryptionKey,
   generateSigningKey,
-  roleForApiKey,
+  migrateApiKey,
 } from "back-end/src/util/api-key.util";
-import {
-  getCollection,
-  removeMongooseFields,
-} from "back-end/src/util/mongo.util";
-import { findAllOrganizations } from "./OrganizationModel";
 import { MakeModelClass } from "./BaseModel";
-
-const COLLECTION_NAME = "apikeys";
 
 const BaseClass = MakeModelClass({
   schema: apiKeySchema,
-  collectionName: COLLECTION_NAME,
+  collectionName: API_KEY_COLLECTION,
   pKey: ["key"],
   globallyUniquePrimaryKeys: true,
   idPrefix: "key_",
@@ -66,16 +55,8 @@ export class ApiKeyModel extends BaseClass {
     }
   }
 
-  protected static migrate(legacyDoc: unknown): ApiKeyInterface {
-    const obj = legacyDoc as ApiKeyInterface;
-    return {
-      ...obj,
-      role: roleForApiKey(obj) || undefined,
-      dateUpdated: obj.dateUpdated ?? new Date(),
-    };
-  }
   protected migrate(legacyDoc: unknown): ApiKeyInterface {
-    return ApiKeyModel.migrate(legacyDoc);
+    return migrateApiKey(legacyDoc);
   }
 
   protected sanitize(doc: ApiKeyInterface): ApiKeyInterface {
@@ -136,15 +117,6 @@ export class ApiKeyModel extends BaseClass {
     });
   }
 
-  public async getApiKeyByIdOrKey(
-    id: string | undefined,
-    key: string | undefined,
-  ): Promise<ApiKeyInterface | null> {
-    if (!id && !key) return null;
-
-    return await this._findOne(id ? { id } : { key });
-  }
-
   public async deleteByIdOrKey(
     id: string | undefined,
     key: string | undefined,
@@ -162,35 +134,15 @@ export class ApiKeyModel extends BaseClass {
   public async getVisualEditorApiKey(
     userId: string,
   ): Promise<ApiKeyInterface | null> {
-    return await this._findOne({
-      userId,
-      role: "visualEditor",
-    });
-  }
-
-  public static async lookupOrganizationByApiKey(
-    key: string,
-  ): Promise<Partial<ApiKeyInterface>> {
-    // If self-hosting on a single org and using a hardcoded secret key
-    if (!IS_MULTI_ORG && SECRET_API_KEY && key === SECRET_API_KEY) {
-      const { organizations: orgs } = await findAllOrganizations(1, "");
-      if (orgs.length === 1) {
-        return {
-          id: "SECRET_API_KEY",
-          key: SECRET_API_KEY,
-          secret: true,
-          organization: orgs[0].id,
-          role: SECRET_API_KEY_ROLE,
-        };
-      }
-    }
-
-    const doc = await getCollection<ApiKeyInterface>(COLLECTION_NAME).findOne({
-      key,
-    });
-
-    if (!doc || !doc.organization) return {};
-    return ApiKeyModel.migrate(removeMongooseFields(doc));
+    return await this._findOne(
+      {
+        userId,
+        role: "visualEditor",
+      },
+      {
+        bypassSanitization: true,
+      },
+    );
   }
 
   public async getUnredactedSecretKey(
