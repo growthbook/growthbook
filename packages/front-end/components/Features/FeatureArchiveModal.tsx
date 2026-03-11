@@ -1,10 +1,12 @@
 import { FeatureInterface } from "shared/types/feature";
-import { Text } from "@radix-ui/themes";
+import { useState } from "react";
+import Text from "@/ui/Text";
 import { useFeatureDependents } from "@/hooks/useFeatureDependents";
 import { getEnabledEnvironments, useEnvironments } from "@/services/features";
 import Callout from "@/ui/Callout";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Modal from "@/components/Modal";
+import Checkbox from "@/ui/Checkbox";
 import FeatureReferencesList from "./FeatureReferencesList";
 
 interface FeatureArchiveModalProps {
@@ -29,6 +31,9 @@ export default function FeatureArchiveModal({
     : getEnabledEnvironments(feature, environments);
   const hasActiveEnvs = enabledEnvs.length > 0;
 
+  // If there are active environments, must explicitly confirm with a checkbox to enable the CTA
+  const [confirmEnvBypass, setConfirmEnvBypass] = useState(!hasActiveEnvs);
+
   return (
     <Modal
       trackingEventModalType=""
@@ -41,25 +46,37 @@ export default function FeatureArchiveModal({
         await onArchive();
         close();
       }}
-      ctaEnabled={!loading && totalDependents === 0 && !hasActiveEnvs}
+      ctaEnabled={
+        !loading &&
+        totalDependents === 0 &&
+        (confirmEnvBypass || !hasActiveEnvs)
+      }
       useRadixButton={true}
     >
       {loading ? (
-        <Text color="gray">
+        <Text color="text-disabled">
           <LoadingSpinner /> Checking feature dependencies...
         </Text>
       ) : hasActiveEnvs ? (
-        <Callout status="warning" mb="4">
-          <Text as="p" mb="0">
-            This feature is still active in the following environments:{" "}
-            <strong>{enabledEnvs.join(", ")}</strong>. Please disable those
-            environments first before archiving.
+        <>
+          <Text as="p" mb="4">
+            Are you sure you want to continue? This will completely remove the
+            feature from all SDKs and webhooks.
           </Text>
-        </Callout>
+          <Callout status="warning" mb="4">
+            This feature is still active in the following environments:{" "}
+            <strong>{enabledEnvs.join(", ")}</strong>.
+          </Callout>
+          <Checkbox
+            value={confirmEnvBypass}
+            setValue={setConfirmEnvBypass}
+            label="I understand that all environments will be immediately disabled after archiving."
+          />
+        </>
       ) : totalDependents > 0 ? (
         <>
           <Callout status="error" mb="4">
-            <Text as="p" weight="bold" mb="2">
+            <Text as="p" weight="semibold" mb="2">
               Cannot {isArchived ? "unarchive" : "archive"} feature
             </Text>
             <Text as="p" mb="0">
