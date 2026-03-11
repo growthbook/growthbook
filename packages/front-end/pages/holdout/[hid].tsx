@@ -27,15 +27,7 @@ import useValidatedApi from "@/hooks/useValidatedApi";
 import ErrorDisplay from "@/ui/ErrorDisplay";
 
 const HOLDOUT_API_RESPONSE_SCHEMA = z.object({
-  holdout: holdoutValidator
-    .omit({
-      dateCreated: true,
-      dateUpdated: true,
-    })
-    .extend({
-      dateCreated: z.coerce.date(),
-      dateUpdated: z.coerce.date(),
-    }),
+  holdout: holdoutValidator,
   // TODO: Use validators for these fields. Will require some refactor since components expect ExperimentInterfaceStringDates
   experiment: z.unknown(),
   linkedFeatures: z.unknown(),

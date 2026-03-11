@@ -1,11 +1,12 @@
 import { z } from "zod";
+import { isoDatetimeToDate } from "./codecs";
 
 export const baseSchema = z
   .object({
     id: z.string(),
     organization: z.string(),
-    dateCreated: z.date(),
-    dateUpdated: z.date(),
+    dateCreated: isoDatetimeToDate,
+    dateUpdated: isoDatetimeToDate,
   })
   .strict();
 

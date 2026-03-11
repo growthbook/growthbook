@@ -379,7 +379,6 @@ export const updateHoldout = async (
     });
   }
 
-  // Convert string dates to Date objects for statusUpdateSchedule
   // Only add keys that are present in the request so partial updates preserve existing values
   const updates = { ...req.body };
 
