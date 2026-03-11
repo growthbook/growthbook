@@ -6,6 +6,7 @@ import {
   DashboardInterface,
 } from "shared/enterprise";
 import { isString } from "shared/util";
+import { SNAPSHOT_EXECUTION_MODE_WRITER } from "shared/constants";
 import {
   SnapshotType,
   ExperimentSnapshotAnalysis,
@@ -201,7 +202,7 @@ experimentSnapshotSchema.index(
     partialFilterExpression: {
       type: "standard",
       status: "running",
-      "executionMetadata.mode": "writer",
+      "executionMetadata.mode": SNAPSHOT_EXECUTION_MODE_WRITER,
     },
   },
 );
@@ -595,12 +596,9 @@ export async function findActiveStandardWriterSnapshot(
     {
       organization: organizationId,
       experiment: experimentId,
-      // TODO: Is standard the only one that needs this?
-      // TODO: How can we make sure this is kept in sync with the index? Do we need?
       type: "standard",
       status: "running",
-      // TODO: Make this writer a const somewhere
-      "executionMetadata.mode": "writer",
+      "executionMetadata.mode": SNAPSHOT_EXECUTION_MODE_WRITER,
     },
     null,
     {
@@ -650,6 +648,26 @@ export async function updateExecutionMetadata({
     },
     mongoUpdate,
     // TODO(adriel): Why do we need new: true?
+    { new: true },
+  );
+
+  return doc ? toInterface(doc) : null;
+}
+
+export async function finishSnapshotExecution(
+  organizationId: string,
+  snapshotId: string,
+  updates: { status: "success" | "error"; error?: string },
+): Promise<ExperimentSnapshotInterface | null> {
+  const doc = await ExperimentSnapshotModel.findOneAndUpdate(
+    {
+      organization: organizationId,
+      id: snapshotId,
+    },
+    {
+      $set: updates,
+      $unset: { executionMetadata: 1 },
+    },
     { new: true },
   );
 

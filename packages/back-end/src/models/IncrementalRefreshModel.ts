@@ -57,6 +57,12 @@ export class IncrementalRefreshModel extends BaseClass {
     });
   }
 
+  public async clearCurrentExecutionSnapshotId(experimentId: string) {
+    return this.upsertByExperimentId(experimentId, {
+      currentExecutionSnapshotId: null,
+    });
+  }
+
   /**
    * Atomically upserts only if the current execution still owns the lock.
    * Returns true if it worked, false otherwise.

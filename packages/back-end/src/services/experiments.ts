@@ -16,6 +16,8 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
   PRECOMPUTED_DIMENSION_PREFIX,
+  SNAPSHOT_EXECUTION_MODE_WRITER,
+  SNAPSHOT_EXECUTION_MODE_READER,
 } from "shared/constants";
 import { getScopedSettings, ScopedSettings } from "shared/settings";
 import {
@@ -135,6 +137,7 @@ import {
   createExperimentSnapshotModel,
   findActiveStandardWriterSnapshot,
   findSnapshotById,
+  finishSnapshotExecution,
   getLatestSnapshotMultipleExperiments,
   updateSnapshot,
   updateExecutionMetadata,
@@ -1369,22 +1372,13 @@ async function forceFinishStaleSnapshotExecution({
       ")",
   );
 
-  // TODO: Why do we have these separately? should we merge them?
-  // what is pro/cons?
-  await clearExecutionMetadata(context.org.id, snapshot.id);
-  await updateSnapshot({
-    organization: context.org.id,
-    id: snapshot.id,
-    updates: {
-      status: "error",
-      error: "Execution timed out (no heartbeat)",
-    },
-    context,
+  const result = await finishSnapshotExecution(context.org.id, snapshot.id, {
+    status: "error",
+    error: "Execution timed out (no heartbeat)",
   });
 
-  // TODO: question, wny do we have to fetch it again?
   return (
-    (await findSnapshotById(context.org.id, snapshot.id)) ?? {
+    result ?? {
       ...snapshot,
       status: "error",
       error: "Execution timed out (no heartbeat)",
@@ -1791,7 +1785,10 @@ export async function planSnapshot({
     | undefined =
     type === "standard"
       ? {
-          mode: runnerKind === "incremental" ? "writer" : "reader",
+          mode:
+            runnerKind === "incremental"
+              ? SNAPSHOT_EXECUTION_MODE_WRITER
+              : SNAPSHOT_EXECUTION_MODE_READER,
           intent: refreshIntent,
           heartbeat: new Date(),
         }
@@ -2068,6 +2065,9 @@ function monitorStandardSnapshotExecution({
 }) {
   const HEARTBEAT_INTERVAL_MS = 2 * 60 * 1000;
   const snapshotId = queryRunner.model.id;
+  const isWriterMode =
+    queryRunner.model.executionMetadata?.mode ===
+    SNAPSHOT_EXECUTION_MODE_WRITER;
   const heartbeatTimer = setInterval(async () => {
     try {
       await updateExecutionHeartbeat(context.org.id, snapshotId);
@@ -2137,11 +2137,37 @@ function monitorStandardSnapshotExecution({
     } finally {
       clearInterval(heartbeatTimer);
       try {
-        await clearExecutionMetadata(context.org.id, snapshotId);
+        // Ensure the snapshot has reached a terminal status before clearing
+        // metadata. Without this, a snapshot stuck in "running" with no
+        // executionMetadata becomes unresolvable by waitForSnapshotExecution.
+        const current = await findSnapshotById(context.org.id, snapshotId);
+        if (current && current.status === "running") {
+          await finishSnapshotExecution(context.org.id, snapshotId, {
+            status: "error",
+            error:
+              "Snapshot execution ended without reaching a terminal status",
+          });
+        } else {
+          await clearExecutionMetadata(context.org.id, snapshotId);
+        }
+
+        // Release the incremental refresh execution lock if this was a writer
+        if (isWriterMode) {
+          await context.models.incrementalRefresh
+            .clearCurrentExecutionSnapshotId(experiment.id)
+            .catch((e) =>
+              logger.warn(
+                e,
+                "Failed to clear incremental refresh execution lock: " +
+                  experiment.id,
+              ),
+            );
+        }
       } catch (cleanupError) {
         logger.error(
           cleanupError,
-          "Failed to clear standard snapshot execution metadata: " + snapshotId,
+          "Failed to clean up standard snapshot execution metadata: " +
+            snapshotId,
         );
       }
     }
