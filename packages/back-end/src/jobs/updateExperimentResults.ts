@@ -143,6 +143,10 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
       triggeredBy: "schedule",
       reweight,
     });
+
+    // TODO: The job does not waitForResults anymore.
+    // What is the impact of this change?
+    // We also had updateExperimentBanditSettings here -- similar to the controller
   } catch (e) {
     logger.error(e, "Failed to update experiment: " + experimentId);
     // If we failed to update the experiment, turn off auto-updating for the future (non-bandits only)

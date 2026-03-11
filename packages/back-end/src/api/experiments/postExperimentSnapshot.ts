@@ -56,7 +56,7 @@ export const postExperimentSnapshot = createApiRequestHandler(
   };
 
   // Wait until the snapshot is in a final state, which can
-  // take some time, so we use increased timeout.
+  // take some time, so we use a longer timeout.
   req.setTimeout(SNAPSHOT_TIMEOUT);
 
   const { snapshot } = await requestExperimentSnapshot({

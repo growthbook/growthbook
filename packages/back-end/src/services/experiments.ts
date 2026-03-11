@@ -1057,6 +1057,8 @@ function buildSnapshotRefreshIntent({
   reweight: boolean;
 }): ExperimentSnapshotRefreshIntent {
   return {
+    // TODO: Why do we have this triggeredBy as a boolean? why not use "schedule" directly?
+    // Also how is this being used / why do we need this in the intent?
     triggeredBySchedule: triggeredBy === "schedule",
     banditReweightRequested: reweight,
   };
@@ -1076,26 +1078,24 @@ function mergeSnapshotRefreshIntent(
   };
 }
 
+// True if an index already exists. Being used to enable lock for 'writer' mode for query runners.
 function isDuplicateKeyError(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
 
-  const mongoError = error as {
-    code?: unknown;
-    message?: unknown;
-  };
-
   return (
-    mongoError.code === 11000 ||
-    (typeof mongoError.message === "string" &&
-      mongoError.message.includes("E11000"))
+    ("code" in error && error.code === 11000) ||
+    ("message" in error &&
+      typeof error.message === "string" &&
+      error.message.includes("E11000"))
   );
 }
 
 export const SNAPSHOT_UPDATE_IN_PROGRESS_ERROR =
   "There's already an update in progress.";
-const SNAPSHOT_EXECUTION_STALE_THRESHOLD_MS = 10 * 60 * 1000;
-const SNAPSHOT_EXECUTION_POLL_INTERVAL_MS = 1000;
+
 const SNAPSHOT_EXECUTION_TIMEOUT_MS = 30 * 60 * 1000;
+const SNAPSHOT_EXECUTION_STALE_THRESHOLD_MS = 10 * 60 * 1000;
+const SNAPSHOT_EXECUTION_POLL_INTERVAL_MS = 1500;
 
 export function getSnapshotType({
   experiment,
@@ -1175,6 +1175,9 @@ async function updateActiveStandardSnapshotExecution({
     !banditSettings.reweight;
 
   if (shouldEnableBanditReweight) {
+    // TODO: Is this safe? When do we read this reweight flag?
+    // And should we merge this flag with `intent`? because now we are having to
+    // keep 2 states in sync.
     await updateSnapshot({
       organization: snapshot.organization,
       id: snapshot.id,
@@ -1252,6 +1255,7 @@ export async function requestExperimentSnapshot({
   if (activeWriter) {
     // TODO: Does this conflict how we handle an existing main request?
     // Meaning that the returned id here is not the requested exploratory
+    // Maybe we should throw an error?
     return { snapshot: activeWriter, existingExecution: true };
   }
 
@@ -1323,6 +1327,8 @@ export async function requestExperimentSnapshot({
     dimension,
   });
 
+  // TODO: Where do we return the already existing one in the createSnapshot?
+  // should we rename it to requestSnapshot?
   const queryRunner = await createSnapshot({
     experiment,
     context,
@@ -1345,12 +1351,6 @@ export async function requestExperimentSnapshot({
   };
 }
 
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-}
-
 async function forceFinishStaleSnapshotExecution({
   context,
   snapshot,
@@ -1369,6 +1369,8 @@ async function forceFinishStaleSnapshotExecution({
       ")",
   );
 
+  // TODO: Why do we have these separately? should we merge them?
+  // what is pro/cons?
   await clearExecutionMetadata(context.org.id, snapshot.id);
   await updateSnapshot({
     organization: context.org.id,
@@ -1380,6 +1382,7 @@ async function forceFinishStaleSnapshotExecution({
     context,
   });
 
+  // TODO: question, wny do we have to fetch it again?
   return (
     (await findSnapshotById(context.org.id, snapshot.id)) ?? {
       ...snapshot,
@@ -1403,6 +1406,7 @@ export async function waitForSnapshotExecution({
 }): Promise<ExperimentSnapshotInterface> {
   const start = Date.now();
 
+  // TODO: This feels risky for a server -- how do we ensure we exit in a safe way?
   while (true) {
     const snapshot = await findSnapshotById(context.org.id, snapshotId);
     if (!snapshot) {
@@ -1433,7 +1437,9 @@ export async function waitForSnapshotExecution({
       throw new Error("Timed out waiting for snapshot execution");
     }
 
-    await delay(pollIntervalMs);
+    await new Promise((resolve) => {
+      setTimeout(resolve, pollIntervalMs);
+    });
   }
 }
 
@@ -1488,6 +1494,8 @@ export async function createOrReuseStandardSnapshotExecution({
     }
   }
 
+  // TODO: A lot of these gatherings functions and stuff feel similar
+  // to other functions we have -- any way we can consolidate them?
   const { regressionAdjustmentEnabled, settingsForSnapshotMetrics } =
     await getSettingsForSnapshotMetrics(context, experiment);
 
@@ -1529,6 +1537,9 @@ export async function createOrReuseStandardSnapshotExecution({
     })) as
       | ExperimentResultsQueryRunner
       | ExperimentIncrementalRefreshQueryRunner;
+
+    // TODO: Question -- should the QueryRunner be monitoring it?
+    // or is it better to keep them separate?
     monitorStandardSnapshotExecution({
       context,
       experiment,
@@ -1546,6 +1557,8 @@ export async function createOrReuseStandardSnapshotExecution({
     );
     if (!activeSnapshot) throw error;
 
+    // TODO: Should we check the mode requested or something?
+    // why are we also using implicit checks here?
     if (forceFullRefresh) {
       throw new Error(SNAPSHOT_UPDATE_IN_PROGRESS_ERROR);
     }
@@ -1773,7 +1786,7 @@ export async function planSnapshot({
     triggeredBy,
     reweight: !!reweight,
   });
-  const refreshExecution:
+  const executionMetadata:
     | ExperimentSnapshotRefreshExecutionMetadata
     | undefined =
     type === "standard"
@@ -1807,21 +1820,19 @@ export async function planSnapshot({
         status: "running",
       },
       ...additionalAnalysisSettings
-        .filter((analysisSettings) =>
-          isAnalysisAllowed(snapshotSettings, analysisSettings),
-        )
-        .map((analysisSettings) => {
+        .filter((a) => isAnalysisAllowed(snapshotSettings, a))
+        .map((a) => {
           const analysis: ExperimentSnapshotAnalysis = {
             dateCreated: new Date(),
             results: [],
-            settings: analysisSettings,
+            settings: a,
             status: "running",
           };
           return analysis;
         }),
     ],
     status: "running",
-    ...(refreshExecution ? { executionMetadata: refreshExecution } : {}),
+    ...(executionMetadata ? { executionMetadata } : {}),
   };
 
   return {
@@ -1833,7 +1844,7 @@ export async function planSnapshot({
   };
 }
 
-export async function createSnapshotFromPlan({
+export async function requestSnapshotFromPlan({
   plan,
   context,
   experiment,
@@ -1863,6 +1874,8 @@ export async function createSnapshotFromPlan({
     type: snapshotType,
   });
 
+  // TODO: So what happens here if we have an active writer?
+  // Does this snapshot become an orphan? Or will this creation of snapshot fail because of the partial index for it?
   const snapshot = await createExperimentSnapshotModel({ data: plan.snapshot });
 
   let queryRunner: ExperimentSnapshotQueryRunner;
@@ -1907,6 +1920,8 @@ export async function createSnapshotFromPlan({
       getAdditionalQueryMetadataForExperiment(experiment),
   };
 
+  // TODO: Why do we have this try/catch here now?
+  // Why do we have to handle the error like we are handling?
   try {
     if (plan.runnerKind === "incremental") {
       await (
@@ -1953,6 +1968,10 @@ export async function createSnapshotFromPlan({
     throw error;
   }
 
+  // TODO: Before we called updateExperimentDashboards here
+  // but we are not doing that anymore. Is this a bug?
+  // It looks like we have updateStandardSnapshotDashboardConsumers now ?
+
   return queryRunner;
 }
 
@@ -1969,6 +1988,7 @@ async function updateStandardSnapshotDashboardConsumers({
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
 }) {
+  // TODO: Why do we have this check here?
   if (snapshot.triggeredBy === "manual-dashboard") return;
 
   let project = null;
@@ -2021,6 +2041,7 @@ async function handleFailedScheduledSnapshotExecution({
 
     await notifyAutoUpdate({ context, experiment, success: true });
   } catch (error) {
+    // TODO: Is this new or already existing behavior?
     logger.error(
       error,
       "Failed to turn off autoSnapshots after snapshot failure: " +
@@ -2055,6 +2076,7 @@ function monitorStandardSnapshotExecution({
     }
   }, HEARTBEAT_INTERVAL_MS);
 
+  // TODO: Why do we need void here?
   void (async () => {
     let snapshot = queryRunner.model;
     try {
@@ -2171,7 +2193,7 @@ export async function createSnapshot({
     allowIncrementalRefresh,
   });
 
-  return createSnapshotFromPlan({
+  return requestSnapshotFromPlan({
     plan,
     context,
     experiment,

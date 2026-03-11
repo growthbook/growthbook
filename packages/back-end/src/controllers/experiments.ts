@@ -50,7 +50,7 @@ import {
   _getSnapshots,
   createSnapshotAnalyses,
   createSnapshotAnalysis,
-  createSnapshotFromPlan,
+  requestSnapshotFromPlan,
   determineNextBanditSchedule,
   ExperimentSnapshotQueryRunner,
   getAdditionalExperimentAnalysisSettings,
@@ -142,10 +142,6 @@ import {
 } from "back-end/src/util/custom-fields";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
-
-function getErrorMessage(error: unknown, fallback = "Unknown error") {
-  return error instanceof Error ? error.message : fallback;
-}
 
 export async function getExperiments(
   req: AuthRequest<
@@ -1100,7 +1096,7 @@ export async function postExperiments(
   } catch (e) {
     res.status(400).json({
       status: 400,
-      message: getErrorMessage(e),
+      message: e.message,
     });
     return;
   }
@@ -1330,7 +1326,7 @@ export async function postExperiments(
   } catch (e) {
     res.status(400).json({
       status: 400,
-      message: getErrorMessage(e),
+      message: e.message,
     });
   }
 }
@@ -1923,7 +1919,7 @@ export async function postExperimentArchive(
   } catch (e) {
     res.status(400).json({
       status: 400,
-      message: getErrorMessage(e, "Failed to archive experiment"),
+      message: e.message || "Failed to archive experiment",
     });
   }
 }
@@ -1983,7 +1979,7 @@ export async function postExperimentUnarchive(
   } catch (e) {
     res.status(400).json({
       status: 400,
-      message: getErrorMessage(e, "Failed to unarchive experiment"),
+      message: e.message || "Failed to unarchive experiment",
     });
   }
 }
@@ -2270,7 +2266,7 @@ export async function postExperimentStop(
   } catch (e) {
     res.status(400).json({
       status: 400,
-      message: getErrorMessage(e, "Failed to stop experiment"),
+      message: e.message || "Failed to stop experiment",
     });
   }
 }
@@ -2623,7 +2619,7 @@ export async function postExperimentTargeting(
   } catch (e) {
     res.status(400).json({
       status: 400,
-      message: getErrorMessage(e, "Failed to edit experiment targeting"),
+      message: e.message || "Failed to edit experiment targeting",
     });
   }
 }
@@ -2736,7 +2732,7 @@ export async function postExperimentPhase(
   } catch (e) {
     res.status(400).json({
       status: 400,
-      message: getErrorMessage(e, "Failed to start new experiment phase"),
+      message: e.message || "Failed to start new experiment phase",
     });
   }
 }
@@ -2918,14 +2914,14 @@ export async function createExperimentSnapshot({
     allowIncrementalRefresh,
   });
 
-  return createExperimentSnapshotFromPlan({
+  return requestExperimentSnapshotFromPlan({
     plan,
     context,
     experiment,
   });
 }
 
-export async function createExperimentSnapshotFromPlan({
+export async function requestExperimentSnapshotFromPlan({
   plan,
   context,
   experiment,
@@ -2939,7 +2935,7 @@ export async function createExperimentSnapshotFromPlan({
 }> {
   const metricMap = await getMetricMap(context);
   const factTableMap = await getFactTableMap(context);
-  const queryRunner = await createSnapshotFromPlan({
+  const queryRunner = await requestSnapshotFromPlan({
     plan,
     context,
     experiment,
@@ -3208,7 +3204,7 @@ export async function postSnapshotAnalysis(
     req.log.error(e, "Failed to create experiment snapshot analysis");
     res.status(400).json({
       status: 400,
-      message: getErrorMessage(e),
+      message: e.message,
     });
   }
 }
@@ -3254,7 +3250,7 @@ export async function postBanditSnapshot(
   }
 
   // We wait until the snapshot is fully updated, which can
-  // take some time, so we use increased timeout.
+  // take some time, so we increase the timeout.
   req.setTimeout(SNAPSHOT_TIMEOUT);
   let snapshot: ExperimentSnapshotInterface | undefined = undefined;
 
@@ -3281,6 +3277,9 @@ export async function postBanditSnapshot(
       snapshot,
     });
   }
+
+  // TODO: We moved `updateExperimentBanditSettings` from here
+  // is this safe?
 
   await req.audit({
     event: "experiment.refresh",

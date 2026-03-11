@@ -7,6 +7,7 @@ import {
   DashboardBlockInterface,
 } from "shared/enterprise";
 import { isDefined, isString, stringToBoolean } from "shared/util";
+import { groupBy } from "lodash";
 import { ProductAnalyticsExploration, SavedQuery } from "shared/validators";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { MetricAnalysisInterface } from "shared/types/metric-analysis";
@@ -17,26 +18,19 @@ import {
 } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
-  createExperimentSnapshot,
   planExperimentSnapshot,
+  requestExperimentSnapshotFromPlan,
 } from "back-end/src/controllers/experiments";
+import { requestExperimentSnapshot } from "back-end/src/services/experiments";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import {
-  findActiveStandardWriterSnapshot,
-  findSnapshotsByIds,
-} from "back-end/src/models/ExperimentSnapshotModel";
+import { findSnapshotsByIds } from "back-end/src/models/ExperimentSnapshotModel";
 import {
   updateDashboardMetricAnalyses,
   updateDashboardExplorations,
   updateDashboardSavedQueries,
   updateNonExperimentDashboard,
 } from "back-end/src/enterprise/services/dashboards";
-import {
-  requestExperimentSnapshot,
-  SNAPSHOT_UPDATE_IN_PROGRESS_ERROR,
-  waitForSnapshotExecution,
-} from "back-end/src/services/experiments";
 import {
   generateDashboardBlockIds,
   migrateBlock,
@@ -209,84 +203,55 @@ export async function refreshDashboardData(
       type: "standard",
     });
 
-    const plannedMainSnapshot = plannedExperimentMainSnapshot.snapshot;
-    const mainBlockIds = new Set<string>();
-    const dimensionBlocks = new Map<string, string[]>();
-
+    const mainSnapshot = plannedExperimentMainSnapshot.snapshot;
+    let mainSnapshotUsed = false;
     // Copy the blocks of the dashboard to overwrite their snapshot IDs
     const newBlocks = dashboard.blocks.map((block) => {
-      const nextBlock = { ...block };
-      if (!blockHasFieldOfType(block, "snapshotId", isString)) {
-        return nextBlock;
-      }
-
-      if (snapshotSatisfiesBlock(plannedMainSnapshot, block)) {
-        mainBlockIds.add(block.id);
-      } else if (blockHasFieldOfType(block, "dimensionId", isString)) {
-        const blockIds = dimensionBlocks.get(block.dimensionId) ?? [];
-        blockIds.push(block.id);
-        dimensionBlocks.set(block.dimensionId, blockIds);
-      }
-
-      return nextBlock;
+      if (!blockHasFieldOfType(block, "snapshotId", isString))
+        return { ...block };
+      if (!snapshotSatisfiesBlock(mainSnapshot, block)) return { ...block };
+      mainSnapshotUsed = true;
+      return { ...block, snapshotId: mainSnapshot.id };
     });
-    let requestedMainSnapshot:
-      | Awaited<ReturnType<typeof requestExperimentSnapshot>>["snapshot"]
-      | undefined;
-
-    if (mainBlockIds.size > 0) {
-      ({ snapshot: requestedMainSnapshot } = await requestExperimentSnapshot({
+    if (mainSnapshotUsed) {
+      // TODO: Ensure this throws if there is already an active writer
+      // and this request is also an active writer. Basically it should follow the same
+      // logic as the other places we have where we are creating experimentSnapshots.
+      await requestExperimentSnapshotFromPlan({
+        plan: plannedExperimentMainSnapshot,
         context,
         experiment,
-        dimension: undefined,
-        phaseIndex: experiment.phases.length - 1,
-        useCache: false,
-        triggeredBy: "manual-dashboard",
-        type: "standard",
-      }));
-
-      newBlocks.forEach((block) => {
-        if (
-          requestedMainSnapshot &&
-          mainBlockIds.has(block.id) &&
-          blockHasFieldOfType(block, "snapshotId", isString)
-        ) {
-          block.snapshotId = requestedMainSnapshot.id;
-        }
       });
     }
 
-    if (dimensionBlocks.size > 0) {
-      const writerSnapshot =
-        requestedMainSnapshot?.executionMetadata?.mode === "writer"
-          ? requestedMainSnapshot
-          : await findActiveStandardWriterSnapshot(
-              context.org.id,
-              experiment.id,
-            );
-
-      if (writerSnapshot) {
+    const dimensionBlockPairs = dashboard.blocks
+      .map<[string, string] | undefined>((block) => {
         if (
-          requestedMainSnapshot &&
-          writerSnapshot.id === requestedMainSnapshot.id
+          blockHasFieldOfType(block, "dimensionId", isString) &&
+          !snapshotSatisfiesBlock(mainSnapshot, block)
         ) {
-          await waitForSnapshotExecution({
-            context,
-            snapshotId: writerSnapshot.id,
-          });
-        } else {
-          context.throwBadRequestError(SNAPSHOT_UPDATE_IN_PROGRESS_ERROR);
+          return [block.dimensionId, block.id];
         }
-      }
-    }
+        return undefined;
+      })
+      .filter(isDefined);
 
-    for (const [dimensionId, blockIds] of dimensionBlocks.entries()) {
-      const { snapshot } = await createExperimentSnapshot({
+    // Create a map from dimension -> list of block IDs that use that dimension
+    const dimensionsByBlocks = Object.fromEntries(
+      Object.entries(
+        groupBy(dimensionBlockPairs, ([dimensionId, _blockId]) => dimensionId),
+      ).map(([dimensionId, dimBlockPairs]) => [
+        dimensionId,
+        dimBlockPairs.map(([_dim, blockId]) => blockId),
+      ]),
+    );
+
+    for (const [dimensionId, blockIds] of Object.entries(dimensionsByBlocks)) {
+      const { snapshot } = await requestExperimentSnapshot({
         context,
         experiment,
         dimension: dimensionId,
-        datasource,
-        phase: experiment.phases.length - 1,
+        phaseIndex: experiment.phases.length - 1,
         useCache: false,
         triggeredBy: "manual-dashboard",
         type: "exploratory",

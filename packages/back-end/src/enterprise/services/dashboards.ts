@@ -22,10 +22,7 @@ import { ExperimentInterface } from "shared/types/experiment";
 import { MetricSnapshotSettings } from "shared/types/report";
 import { StatsEngine } from "shared/types/stats";
 import { MetricAnalysisSettings } from "shared/types/metric-analysis";
-import {
-  findSnapshotsByIds,
-  findActiveStandardWriterSnapshot,
-} from "back-end/src/models/ExperimentSnapshotModel";
+import { findSnapshotsByIds } from "back-end/src/models/ExperimentSnapshotModel";
 
 import { ReqContext } from "back-end/types/request";
 
@@ -181,14 +178,6 @@ export async function updateExperimentDashboards({
       postStratificationEnabled,
       dimension: snapshotSettings.dimensionId,
     });
-
-    // Skip exploratory snapshot when a standard writer is active — it
-    // builds on standard data and can't run concurrently.
-    const activeWriter = await findActiveStandardWriterSnapshot(
-      context.org.id,
-      experiment.id,
-    );
-    if (activeWriter) continue;
 
     const queryRunner = await createSnapshot({
       experiment,
