@@ -1095,6 +1095,8 @@ function isDuplicateKeyError(error: unknown): boolean {
 
 export const SNAPSHOT_UPDATE_IN_PROGRESS_ERROR =
   "There's already an update in progress.";
+export const STANDARD_UPDATE_IN_PROGRESS_ERROR =
+  "Standard update in progress. Try again later.";
 
 const SNAPSHOT_EXECUTION_TIMEOUT_MS = 30 * 60 * 1000;
 const SNAPSHOT_EXECUTION_STALE_THRESHOLD_MS = 10 * 60 * 1000;
@@ -1246,20 +1248,6 @@ export async function requestExperimentSnapshot({
       snapshot: result.snapshot,
       existingExecution: result.existing,
     };
-  }
-
-  // If a standard writer is actively running, the exploratory snapshot can't
-  // proceed (it builds on top of the standard data). Return the in-progress
-  // standard snapshot so the front-end polls until it completes.
-  const activeWriter = await findActiveStandardWriterSnapshot(
-    context.org.id,
-    experiment.id,
-  );
-  if (activeWriter) {
-    // TODO: Does this conflict how we handle an existing main request?
-    // Meaning that the returned id here is not the requested exploratory
-    // Maybe we should throw an error?
-    return { snapshot: activeWriter, existingExecution: true };
   }
 
   const datasource = await getDataSourceById(context, experiment.datasource);
@@ -1580,6 +1568,40 @@ export type SnapshotQueryRunnerKind =
   | "incremental"
   | "incremental-exploratory";
 
+async function ensureSnapshotCanStart({
+  context,
+  experiment,
+  runnerKind,
+}: {
+  context: ReqContext | ApiReqContext;
+  experiment: ExperimentInterface;
+  runnerKind: SnapshotQueryRunnerKind;
+}): Promise<void> {
+  if (runnerKind !== "incremental-exploratory") return;
+
+  const activeWriter = await findActiveStandardWriterSnapshot(
+    context.org.id,
+    experiment.id,
+  );
+  if (!activeWriter) return;
+
+  const heartbeat =
+    activeWriter.executionMetadata?.heartbeat ?? activeWriter.dateCreated;
+  const staleThreshold = new Date(
+    Date.now() - SNAPSHOT_EXECUTION_STALE_THRESHOLD_MS,
+  );
+
+  if (new Date(heartbeat) < staleThreshold) {
+    await forceFinishStaleSnapshotExecution({
+      context,
+      snapshot: activeWriter,
+    });
+    return;
+  }
+
+  throw new Error(STANDARD_UPDATE_IN_PROGRESS_ERROR);
+}
+
 function isIncrementalRefreshEnabledForSnapshot({
   datasource,
   experiment,
@@ -1864,6 +1886,12 @@ export async function requestSnapshotFromPlan({
   if (!snapshotType) {
     throw new Error("Snapshot plan is missing a snapshot type");
   }
+
+  await ensureSnapshotCanStart({
+    context,
+    experiment,
+    runnerKind: plan.runnerKind,
+  });
 
   await recordExperimentSnapshotAttempt({
     context,
