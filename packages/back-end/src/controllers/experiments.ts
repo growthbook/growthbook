@@ -61,9 +61,9 @@ import {
   PlannedExperimentSnapshot,
   planSnapshot,
   requestExperimentSnapshot,
-  resetExperimentBanditSettings,
   SnapshotAnalysisParams,
   validateExperimentData,
+  resetExperimentBanditSettings,
   waitForSnapshotExecution,
 } from "back-end/src/services/experiments";
 import {
@@ -2935,6 +2935,15 @@ export async function requestExperimentSnapshotFromPlan({
 }> {
   const metricMap = await getMetricMap(context);
   const factTableMap = await getFactTableMap(context);
+  const metricGroups = await context.models.metricGroups.getAll();
+
+  expandAllSliceMetricsInMap({
+    metricMap,
+    factTableMap,
+    experiment,
+    metricGroups,
+  });
+
   const queryRunner = await requestSnapshotFromPlan({
     plan,
     context,
