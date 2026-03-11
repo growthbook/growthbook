@@ -202,7 +202,6 @@ export async function refreshDashboardData(
       useCache: false,
       triggeredBy: "manual-dashboard",
       type: "standard",
-      allowIncrementalRefresh: false,
     });
 
     const mainSnapshot = plannedExperimentMainSnapshot.snapshot;
