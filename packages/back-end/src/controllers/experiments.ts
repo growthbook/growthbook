@@ -50,7 +50,8 @@ import {
   _getSnapshots,
   createSnapshotAnalyses,
   createSnapshotAnalysis,
-  requestSnapshotFromPlan,
+  startSnapshotFromPlan,
+  SNAPSHOT_UPDATE_IN_PROGRESS_ERROR,
   determineNextBanditSchedule,
   ExperimentSnapshotQueryRunner,
   getAdditionalExperimentAnalysisSettings,
@@ -2944,13 +2945,36 @@ export async function requestExperimentSnapshotFromPlan({
     metricGroups,
   });
 
-  const queryRunner = await requestSnapshotFromPlan({
-    plan,
-    context,
-    experiment,
-    metricMap,
-    factTableMap,
-  });
+  // Acquire incremental lock before starting, if this plan uses the
+  // incremental runner (which writes to shared warehouse tables).
+  if (plan.runnerKind === "incremental") {
+    const acquired = await context.models.incrementalRefresh.acquireLock(
+      experiment.id,
+      plan.snapshot.id,
+    );
+    if (!acquired) {
+      throw new Error(SNAPSHOT_UPDATE_IN_PROGRESS_ERROR);
+    }
+  }
+
+  let queryRunner: ExperimentSnapshotQueryRunner;
+  try {
+    queryRunner = await startSnapshotFromPlan({
+      plan,
+      context,
+      experiment,
+      metricMap,
+      factTableMap,
+    });
+  } catch (e) {
+    if (plan.runnerKind === "incremental") {
+      await context.models.incrementalRefresh
+        .clearCurrentExecutionSnapshotId(experiment.id)
+        .catch(() => {});
+    }
+    throw e;
+  }
+
   return { snapshot: queryRunner.model, queryRunner };
 }
 
@@ -3110,7 +3134,7 @@ export async function postSnapshot(
 
   const useCache = !req.query["force"];
 
-  const { snapshot, existingExecution } = await requestExperimentSnapshot({
+  const { snapshot } = await requestExperimentSnapshot({
     context,
     experiment,
     dimension,
@@ -3135,7 +3159,6 @@ export async function postSnapshot(
   res.status(200).json({
     status: 200,
     snapshot,
-    existingExecution,
   });
 }
 export async function postSnapshotAnalysis(

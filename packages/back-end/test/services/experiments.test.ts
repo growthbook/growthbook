@@ -1,15 +1,12 @@
 import { z } from "zod";
 import { postMetricValidator, putMetricValidator } from "shared/validators";
 import { DataSourceInterface } from "shared/types/datasource";
-import { ExperimentSnapshotRefreshIntent } from "shared/types/experiment-snapshot";
 import { OrganizationInterface } from "shared/types/organization";
 import {
   postMetricApiPayloadIsValid,
   postMetricApiPayloadToMetricInterface,
   putMetricApiPayloadIsValid,
   putMetricApiPayloadToMetricInterface,
-  mergeSnapshotRefreshIntent,
-  buildSnapshotRefreshIntent,
   getSnapshotType,
 } from "back-end/src/services/experiments";
 
@@ -1225,73 +1222,6 @@ describe("putMetricApiPayloadToMetricInterface", () => {
       expect(result.sql).toBe(undefined);
       expect(result.type).toEqual("count");
       expect(result.userIdTypes).toEqual(undefined);
-    });
-  });
-});
-
-describe("incremental refresh mutex", () => {
-  describe("buildSnapshotRefreshIntent", () => {
-    it("should build intent for manual trigger", () => {
-      const intent = buildSnapshotRefreshIntent({
-        triggeredBy: "manual",
-        useCache: true,
-        reweight: false,
-      });
-
-      expect(intent.forceFullRefresh).toBe(false);
-      expect(intent.banditReweightRequested).toBe(false);
-    });
-
-    it("should treat dashboard refresh like a manual non-scheduled request", () => {
-      const intent = buildSnapshotRefreshIntent({
-        triggeredBy: "manual-dashboard",
-        useCache: false,
-        reweight: false,
-      });
-
-      expect(intent.forceFullRefresh).toBe(true);
-      expect(intent.triggeredBySchedule).toBe(false);
-    });
-
-    it("should build intent for scheduled trigger", () => {
-      const intent = buildSnapshotRefreshIntent({
-        triggeredBy: "schedule",
-        useCache: true,
-        reweight: true,
-      });
-
-      expect(intent.forceFullRefresh).toBe(false);
-      expect(intent.banditReweightRequested).toBe(true);
-      expect(intent.triggeredBySchedule).toBe(true);
-    });
-  });
-
-  describe("mergeSnapshotRefreshIntent", () => {
-    it("should OR boolean flags from existing and incoming", () => {
-      const existing: ExperimentSnapshotRefreshIntent = {
-        forceFullRefresh: false,
-        banditReweightRequested: false,
-        triggeredBySchedule: false,
-      };
-      const incoming: ExperimentSnapshotRefreshIntent = {
-        forceFullRefresh: true,
-        banditReweightRequested: true,
-        triggeredBySchedule: true,
-      };
-
-      const merged = mergeSnapshotRefreshIntent(existing, incoming);
-
-      expect(merged.forceFullRefresh).toBe(true);
-      expect(merged.banditReweightRequested).toBe(true);
-      expect(merged.triggeredBySchedule).toBe(true);
-    });
-
-    it("should handle empty intents", () => {
-      const merged = mergeSnapshotRefreshIntent({}, {});
-
-      expect(merged.forceFullRefresh).toBe(false);
-      expect(merged.banditReweightRequested).toBe(false);
-      expect(merged.triggeredBySchedule).toBe(false);
     });
   });
 });

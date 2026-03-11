@@ -110,7 +110,6 @@ import { FactTableMap } from "back-end/src/models/FactTableModel";
  */
 function createMockContext(
   overrides: {
-    setCurrentExecutionSnapshotId?: jest.Mock;
     getByExperimentId?: jest.Mock;
     upsertByExperimentId?: jest.Mock;
     upsertByExperimentIdIfCurrentExecution?: jest.Mock;
@@ -140,9 +139,6 @@ function createMockContext(
       incrementalRefresh: {
         getByExperimentId:
           overrides.getByExperimentId ?? jest.fn().mockResolvedValue(null),
-        setCurrentExecutionSnapshotId:
-          overrides.setCurrentExecutionSnapshotId ??
-          jest.fn().mockResolvedValue(undefined),
         upsertByExperimentId:
           overrides.upsertByExperimentId ??
           jest.fn().mockResolvedValue(undefined),
@@ -402,36 +398,6 @@ describe("ExperimentIncrementalRefreshQueryRunner", () => {
   // Execution fence
   // -----------------------------------------------------------------
   describe("execution fence", () => {
-    it("records the current execution id at the start of query setup", async () => {
-      const setCurrentExecutionSnapshotId = jest
-        .fn()
-        .mockResolvedValue(undefined);
-      const getByExperimentId = jest.fn().mockResolvedValue(null);
-      const context = createMockContext({
-        setCurrentExecutionSnapshotId,
-        getByExperimentId,
-      });
-      const integration = createMockIntegration();
-      const params = createDefaultParams({ fullRefresh: true });
-      const { startQuery } = createStartQueryMock();
-
-      const runner = new ExperimentIncrementalRefreshQueryRunner(
-        context,
-        createSnapshotStub(params.snapshotSettings),
-        integration,
-        false,
-      );
-      runner.startQuery = startQuery;
-
-      await runner.startQueries(params);
-
-      expect(setCurrentExecutionSnapshotId).toHaveBeenCalledWith(
-        "exp_123",
-        "snap_123",
-      );
-      expect(setCurrentExecutionSnapshotId).toHaveBeenCalledTimes(1);
-    });
-
     it("passes execution id to conditional upsert in units max-timestamp onSuccess", async () => {
       const upsertByExperimentIdIfCurrentExecution = jest
         .fn()

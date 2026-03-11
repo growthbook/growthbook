@@ -260,10 +260,6 @@ const startExperimentIncrementalRefreshQueries = async (
 
   const executionId = params.queryParentId;
   let capturedUnitsMaxTimestamp: Date | null = null;
-  await context.models.incrementalRefresh.setCurrentExecutionSnapshotId(
-    experimentId,
-    executionId,
-  );
 
   // When adding new metrics to a fact table, we will need to scan the whole table.
   // So to simplify things we re-create the whole metric source.

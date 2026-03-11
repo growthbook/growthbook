@@ -9,17 +9,11 @@ import {
 import { MetricSnapshotSettings } from "shared/types/report";
 import { ApiReqContext } from "back-end/types/api";
 import {
-  requestSnapshotFromPlan,
-  createOrReuseStandardSnapshotExecution,
+  startSnapshotFromPlan,
   PlannedExperimentSnapshot,
-  SNAPSHOT_UPDATE_IN_PROGRESS_ERROR,
-  STANDARD_UPDATE_IN_PROGRESS_ERROR,
 } from "back-end/src/services/experiments";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
-import {
-  createExperimentSnapshotModel,
-  findActiveStandardWriterSnapshot,
-} from "back-end/src/models/ExperimentSnapshotModel";
+import { createExperimentSnapshotModel } from "back-end/src/models/ExperimentSnapshotModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
@@ -33,9 +27,8 @@ jest.mock("back-end/src/models/ExperimentModel", () => ({
 
 jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
   createExperimentSnapshotModel: jest.fn(),
-  findActiveStandardWriterSnapshot: jest.fn(),
+  findSnapshotById: jest.fn(),
   updateSnapshot: jest.fn(),
-  clearExecutionMetadata: jest.fn(),
 }));
 
 jest.mock("back-end/src/models/DataSourceModel", () => ({
@@ -94,10 +87,6 @@ const getSourceIntegrationObjectMock =
   getSourceIntegrationObject as jest.MockedFunction<
     typeof getSourceIntegrationObject
   >;
-const findActiveStandardWriterSnapshotMock =
-  findActiveStandardWriterSnapshot as jest.MockedFunction<
-    typeof findActiveStandardWriterSnapshot
-  >;
 
 const resultsQueryRunnerMock =
   ExperimentResultsQueryRunner as unknown as jest.Mock;
@@ -115,6 +104,11 @@ function makeContext(): ApiReqContext {
     models: {
       metricGroups: {
         getAll: jest.fn().mockResolvedValue([]),
+      },
+      incrementalRefresh: {
+        getActiveExecutionSnapshotId: jest.fn().mockResolvedValue(null),
+        acquireLock: jest.fn().mockResolvedValue(true),
+        clearCurrentExecutionSnapshotId: jest.fn().mockResolvedValue(undefined),
       },
     },
   } as unknown as ApiReqContext;
@@ -225,7 +219,7 @@ describe("snapshot lifecycle", () => {
     const metricMap = new Map<string, ExperimentMetricInterface>();
     const factTableMap = new Map() as FactTableMap;
 
-    await requestSnapshotFromPlan({
+    await startSnapshotFromPlan({
       plan,
       context,
       experiment,
@@ -278,7 +272,7 @@ describe("snapshot lifecycle", () => {
       fullRefresh: true,
     });
 
-    await requestSnapshotFromPlan({
+    await startSnapshotFromPlan({
       plan,
       context,
       experiment,
@@ -307,7 +301,7 @@ describe("snapshot lifecycle", () => {
       },
     });
 
-    await requestSnapshotFromPlan({
+    await startSnapshotFromPlan({
       plan,
       context,
       experiment,
@@ -347,7 +341,7 @@ describe("snapshot lifecycle", () => {
       },
     });
 
-    await requestSnapshotFromPlan({
+    await startSnapshotFromPlan({
       plan,
       context,
       experiment,
@@ -361,74 +355,30 @@ describe("snapshot lifecycle", () => {
     expect(resultsQueryRunnerMock).toHaveBeenCalled();
   });
 
-  it("rejects a full refresh (useCache=false) when a standard writer is already running", async () => {
+  it("releases incremental lock when startAnalysis fails", async () => {
     const context = makeContext();
     const experiment = makeExperiment();
+    const plan = makePlan({ runnerKind: "incremental" });
 
-    // Simulate an active writer snapshot with a recent heartbeat
-    const activeWriter = {
-      id: "snp_existing",
-      organization: "org_123",
-      experiment: "exp_123",
-      status: "running",
-      type: "standard",
-      dateCreated: new Date(),
-      executionMetadata: {
-        mode: "writer",
-        heartbeat: new Date(), // recent — not stale
-      },
-    } as unknown as ExperimentSnapshotInterface;
-
-    findActiveStandardWriterSnapshotMock.mockResolvedValue(activeWriter);
-
-    await expect(
-      createOrReuseStandardSnapshotExecution({
-        context,
-        experiment,
-        phaseIndex: 0,
-        useCache: false, // full refresh requested
-        triggeredBy: "manual",
+    incrementalQueryRunnerMock.mockImplementationOnce(
+      (_context: unknown, snapshot: ExperimentSnapshotInterface) => ({
+        model: snapshot,
+        startAnalysis: jest.fn().mockRejectedValue(new Error("Query failed")),
       }),
-    ).rejects.toThrow(SNAPSHOT_UPDATE_IN_PROGRESS_ERROR);
-  });
-
-  it("rejects incremental exploratory snapshots when a standard writer is already running", async () => {
-    const context = makeContext();
-    const experiment = makeExperiment();
-    const plan = makePlan({
-      runnerKind: "incremental-exploratory",
-      snapshot: {
-        ...makePlan().snapshot,
-        type: "exploratory",
-      },
-    });
-
-    const activeWriter = {
-      id: "snp_existing",
-      organization: "org_123",
-      experiment: "exp_123",
-      status: "running",
-      type: "standard",
-      dateCreated: new Date(),
-      executionMetadata: {
-        mode: "writer",
-        heartbeat: new Date(),
-      },
-    } as unknown as ExperimentSnapshotInterface;
-
-    findActiveStandardWriterSnapshotMock.mockResolvedValue(activeWriter);
+    );
 
     await expect(
-      requestSnapshotFromPlan({
+      startSnapshotFromPlan({
         plan,
         context,
         experiment,
         metricMap: new Map<string, ExperimentMetricInterface>(),
         factTableMap: new Map() as FactTableMap,
       }),
-    ).rejects.toThrow(STANDARD_UPDATE_IN_PROGRESS_ERROR);
+    ).rejects.toThrow("Query failed");
 
-    expect(createExperimentSnapshotModelMock).not.toHaveBeenCalled();
-    expect(exploratoryQueryRunnerMock).not.toHaveBeenCalled();
+    expect(
+      context.models.incrementalRefresh.clearCurrentExecutionSnapshotId,
+    ).toHaveBeenCalledWith(experiment.id);
   });
 });

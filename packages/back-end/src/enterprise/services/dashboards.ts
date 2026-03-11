@@ -32,8 +32,9 @@ import { getDataSourcesByIds } from "back-end/src/models/DataSourceModel";
 import { executeAndSaveQuery } from "back-end/src/routers/saved-queries/saved-queries.controller";
 import {
   getDefaultExperimentAnalysisSettings,
-  createSnapshot,
   getAdditionalExperimentAnalysisSettings,
+  planSnapshot,
+  startSnapshotFromPlan,
   determineNextDate,
 } from "back-end/src/services/experiments";
 import { createMetricAnalysis } from "back-end/src/services/metric-analysis";
@@ -179,7 +180,7 @@ export async function updateExperimentDashboards({
       dimension: snapshotSettings.dimensionId,
     });
 
-    const queryRunner = await createSnapshot({
+    const plan = await planSnapshot({
       experiment,
       context,
       phaseIndex: experiment.phases.length - 1,
@@ -193,6 +194,13 @@ export async function updateExperimentDashboards({
       useCache: true,
       type: "exploratory",
       triggeredBy: "update-dashboards",
+    });
+    const queryRunner = await startSnapshotFromPlan({
+      plan,
+      context,
+      experiment,
+      metricMap,
+      factTableMap,
     });
     await queryRunner.waitForResults();
   }

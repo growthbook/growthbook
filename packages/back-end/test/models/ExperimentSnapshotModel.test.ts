@@ -31,14 +31,9 @@ describe("ExperimentSnapshotModel", () => {
     const experiment = "exp_shadow_test";
     const phase = 0;
 
-    it("does not let errored scheduled snapshots shadow in-progress manual refreshes", async () => {
-      // Multi-replica scenario: a scheduled job on a broken replica wrote
-      // an errored snapshot AFTER the user kicked off a manual refresh on
-      // a healthy replica. Without the fix, the UI poll (type=undefined,
-      // withResults=false) would return the scheduled error instead of
-      // the user's running snapshot.
-
-      // User's manual refresh — started first, still running
+    it("returns the most recent snapshot by dateCreated", async () => {
+      // getLatestSnapshot simply returns the most recent snapshot matching criteria.
+      // No special "prefer running over scheduled error" behavior.
       const manual = snapshotFactory.build({
         experiment,
         phase,
@@ -49,7 +44,6 @@ describe("ExperimentSnapshotModel", () => {
       });
       await createExperimentSnapshotModel({ data: manual });
 
-      // Scheduled refresh on broken replica — newer dateCreated, errored
       const scheduled = snapshotFactory.build({
         experiment,
         phase,
@@ -64,44 +58,12 @@ describe("ExperimentSnapshotModel", () => {
         experiment,
         phase,
         withResults: false,
-        // type intentionally omitted — this is what the UI poll sends
       });
 
-      expect(result?.id).toBe(manual.id);
-      expect(result?.triggeredBy).toBe("manual");
-      expect(result?.status).toBe("running");
-    });
-
-    it("prefers an older running snapshot regardless of triggeredBy value", async () => {
-      const runningFromSchedule = snapshotFactory.build({
-        experiment,
-        phase,
-        type: "standard",
-        triggeredBy: "schedule",
-        status: "running",
-        dateCreated: new Date("2024-01-01T12:00:00Z"),
-      });
-      await createExperimentSnapshotModel({ data: runningFromSchedule });
-
-      const scheduledError = snapshotFactory.build({
-        experiment,
-        phase,
-        type: "standard",
-        triggeredBy: "schedule",
-        status: "error",
-        dateCreated: new Date("2024-01-01T12:05:00Z"),
-      });
-      await createExperimentSnapshotModel({ data: scheduledError });
-
-      const result = await getLatestSnapshot({
-        experiment,
-        phase,
-        withResults: false,
-      });
-
-      expect(result?.id).toBe(runningFromSchedule.id);
+      // Returns the most recent snapshot (the error), not the older running one
+      expect(result?.id).toBe(scheduled.id);
       expect(result?.triggeredBy).toBe("schedule");
-      expect(result?.status).toBe("running");
+      expect(result?.status).toBe("error");
     });
 
     it("returns the latest scheduled error when no older running snapshot exists", async () => {
@@ -136,8 +98,8 @@ describe("ExperimentSnapshotModel", () => {
       expect(result?.status).toBe("error");
     });
 
-    it("does not apply the override when beforeSnapshot is passed", async () => {
-      const running = snapshotFactory.build({
+    it("respects beforeSnapshot filter", async () => {
+      const older = snapshotFactory.build({
         experiment,
         phase,
         type: "standard",
@@ -145,9 +107,9 @@ describe("ExperimentSnapshotModel", () => {
         status: "running",
         dateCreated: new Date("2024-01-01T12:00:00Z"),
       });
-      await createExperimentSnapshotModel({ data: running });
+      await createExperimentSnapshotModel({ data: older });
 
-      const scheduledError = snapshotFactory.build({
+      const newer = snapshotFactory.build({
         experiment,
         phase,
         type: "standard",
@@ -155,19 +117,20 @@ describe("ExperimentSnapshotModel", () => {
         status: "error",
         dateCreated: new Date("2024-01-01T12:05:00Z"),
       });
-      await createExperimentSnapshotModel({ data: scheduledError });
+      await createExperimentSnapshotModel({ data: newer });
 
       const result = await getLatestSnapshot({
         experiment,
         phase,
         withResults: false,
         beforeSnapshot: {
-          dateCreated: new Date("2024-01-01T12:10:00Z"),
+          dateCreated: new Date("2024-01-01T12:03:00Z"),
         } as unknown as ExperimentSnapshotDocument,
       });
 
-      expect(result?.id).toBe(scheduledError.id);
-      expect(result?.status).toBe("error");
+      // Should only see snapshots before the cutoff
+      expect(result?.id).toBe(older.id);
+      expect(result?.status).toBe("running");
     });
 
     it("still surfaces successful scheduled snapshots", async () => {

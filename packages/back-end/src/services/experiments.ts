@@ -3,7 +3,6 @@ import cronParser from "cron-parser";
 import { z } from "zod";
 import { isEqual } from "lodash";
 import cloneDeep from "lodash/cloneDeep";
-import uniq from "lodash/uniq";
 import {
   DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
   DEFAULT_METRIC_CAPPING,
@@ -16,8 +15,6 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
   PRECOMPUTED_DIMENSION_PREFIX,
-  SNAPSHOT_EXECUTION_MODE_WRITER,
-  SNAPSHOT_EXECUTION_MODE_READER,
 } from "shared/constants";
 import { getScopedSettings, ScopedSettings } from "shared/settings";
 import {
@@ -35,7 +32,6 @@ import {
   expandMetricGroups,
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
-  getAllMetricSettingsForSnapshot,
   getAllExpandedMetricIdsFromExperiment,
   expandAllSliceMetricsInMap,
   getEqualWeights,
@@ -86,7 +82,6 @@ import {
   ExperimentAnalysisParamsContextData,
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
-  ExperimentSnapshotRefreshExecutionMetadata,
   ExperimentSnapshotRefreshIntent,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
@@ -108,7 +103,6 @@ import {
 import {
   ExperimentUpdateSchedule,
   OrganizationInterface,
-  OrganizationSettings,
 } from "shared/types/organization";
 import { DataSourceInterface, ExposureQuery } from "shared/types/datasource";
 import {
@@ -133,16 +127,11 @@ import {
 import { addTags } from "back-end/src/models/TagModel";
 import {
   addOrUpdateSnapshotAnalysis,
-  clearExecutionMetadata,
   createExperimentSnapshotModel,
-  findActiveStandardWriterSnapshot,
   findSnapshotById,
-  finishSnapshotExecution,
   getLatestSnapshotMultipleExperiments,
   updateSnapshot,
-  updateExecutionMetadata,
   updateSnapshotAnalysis,
-  updateExecutionHeartbeat,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { findDimensionById } from "back-end/src/models/DimensionModel";
 import {
@@ -1052,54 +1041,12 @@ export function getAdditionalQueryMetadataForExperiment(
   };
 }
 
-function buildSnapshotRefreshIntent({
-  triggeredBy,
-  reweight,
-}: {
-  triggeredBy: SnapshotTriggeredBy;
-  reweight: boolean;
-}): ExperimentSnapshotRefreshIntent {
-  return {
-    // TODO: Why do we have this triggeredBy as a boolean? why not use "schedule" directly?
-    // Also how is this being used / why do we need this in the intent?
-    triggeredBySchedule: triggeredBy === "schedule",
-    banditReweightRequested: reweight,
-  };
-}
-
-function mergeSnapshotRefreshIntent(
-  existing: ExperimentSnapshotRefreshIntent,
-  incoming: ExperimentSnapshotRefreshIntent,
-): ExperimentSnapshotRefreshIntent {
-  return {
-    banditReweightRequested:
-      existing.banditReweightRequested ||
-      incoming.banditReweightRequested ||
-      false,
-    triggeredBySchedule:
-      existing.triggeredBySchedule || incoming.triggeredBySchedule || false,
-  };
-}
-
-// True if an index already exists. Being used to enable lock for 'writer' mode for query runners.
-function isDuplicateKeyError(error: unknown): boolean {
-  if (!error || typeof error !== "object") return false;
-
-  return (
-    ("code" in error && error.code === 11000) ||
-    ("message" in error &&
-      typeof error.message === "string" &&
-      error.message.includes("E11000"))
-  );
-}
-
 export const SNAPSHOT_UPDATE_IN_PROGRESS_ERROR =
   "There's already an update in progress.";
 export const STANDARD_UPDATE_IN_PROGRESS_ERROR =
   "Standard update in progress. Try again later.";
 
 const SNAPSHOT_EXECUTION_TIMEOUT_MS = 30 * 60 * 1000;
-const SNAPSHOT_EXECUTION_STALE_THRESHOLD_MS = 10 * 60 * 1000;
 const SNAPSHOT_EXECUTION_POLL_INTERVAL_MS = 1500;
 
 export function getSnapshotType({
@@ -1156,58 +1103,61 @@ async function recordExperimentSnapshotAttempt({
   });
 }
 
-async function updateActiveStandardSnapshotExecution({
-  context,
+/**
+ * Merges incoming refresh intent into an existing running snapshot.
+ * Uses OR logic: if either existing or incoming has a flag set, the merged result has it set.
+ */
+async function mergeRefreshIntent({
   snapshot,
   incomingIntent,
+  context,
 }: {
-  context: ReqContext | ApiReqContext;
   snapshot: ExperimentSnapshotInterface;
   incomingIntent: ExperimentSnapshotRefreshIntent;
+  context: ReqContext | ApiReqContext;
 }): Promise<ExperimentSnapshotInterface> {
-  const { executionMetadata } = snapshot;
-  if (!executionMetadata) return snapshot;
+  const existing = snapshot.refreshIntent ?? {};
+  const mergedIntent: ExperimentSnapshotRefreshIntent = {
+    banditReweightRequested:
+      existing.banditReweightRequested ||
+      incomingIntent.banditReweightRequested ||
+      false,
+    triggeredBySchedule:
+      existing.triggeredBySchedule ||
+      incomingIntent.triggeredBySchedule ||
+      false,
+  };
 
-  const mergedIntent = mergeSnapshotRefreshIntent(
-    executionMetadata.intent,
-    incomingIntent,
-  );
-
+  // Also enable bandit reweight in settings if requested and not already set
   const banditSettings = snapshot.settings.banditSettings;
   const shouldEnableBanditReweight =
-    !!mergedIntent.banditReweightRequested &&
-    !!banditSettings &&
+    mergedIntent.banditReweightRequested &&
+    banditSettings &&
     !banditSettings.reweight;
 
-  if (shouldEnableBanditReweight) {
-    // TODO: Is this safe? When do we read this reweight flag?
-    // And should we merge this flag with `intent`? because now we are having to
-    // keep 2 states in sync.
-    await updateSnapshot({
-      organization: snapshot.organization,
-      id: snapshot.id,
-      updates: {
-        settings: {
-          ...snapshot.settings,
-          banditSettings: {
-            ...banditSettings,
-            reweight: true,
-          },
-        },
-      },
-      context,
-    });
-  }
-
-  const updatedSnapshot = await updateExecutionMetadata({
-    organizationId: snapshot.organization,
-    snapshotId: snapshot.id,
+  await updateSnapshot({
+    organization: snapshot.organization,
+    id: snapshot.id,
     updates: {
-      intent: mergedIntent,
+      refreshIntent: mergedIntent,
+      ...(shouldEnableBanditReweight
+        ? {
+            settings: {
+              ...snapshot.settings,
+              banditSettings: {
+                ...banditSettings,
+                reweight: true,
+              },
+            },
+          }
+        : {}),
     },
+    context,
   });
 
-  return updatedSnapshot ?? snapshot;
+  return (
+    (await findSnapshotById(snapshot.organization, snapshot.id)) ?? snapshot
+  );
 }
 
 export async function requestExperimentSnapshot({
@@ -1230,254 +1180,10 @@ export async function requestExperimentSnapshot({
   type?: SnapshotType;
 }): Promise<{
   snapshot: ExperimentSnapshotInterface;
-  existingExecution: boolean;
 }> {
   const snapshotType =
     type ?? getSnapshotType({ experiment, dimension, phaseIndex });
 
-  if (snapshotType === "standard") {
-    const result = await createOrReuseStandardSnapshotExecution({
-      context,
-      experiment,
-      phaseIndex,
-      useCache,
-      triggeredBy,
-      reweight,
-    });
-    return {
-      snapshot: result.snapshot,
-      existingExecution: result.existing,
-    };
-  }
-
-  const datasource = await getDataSourceById(context, experiment.datasource);
-  if (!datasource) {
-    throw new Error("Could not find datasource for this experiment");
-  }
-
-  let project = null;
-  if (experiment.project) {
-    project = await context.models.projects.getById(experiment.project);
-  }
-
-  const { org } = context;
-  const orgSettings: OrganizationSettings = org.settings ?? {};
-  const { settings } = getScopedSettings({
-    organization: org,
-    project: project ?? undefined,
-    experiment,
-  });
-  const statsEngine = settings.statsEngine.value;
-  const postStratificationEnabled = settings.postStratificationEnabled.value;
-  const metricMap = await getMetricMap(context);
-  const factTableMap = await getFactTableMap(context);
-
-  const metricGroups = await context.models.metricGroups.getAll();
-  const metricIds = getAllMetricIdsFromExperiment(
-    experiment,
-    false,
-    metricGroups,
-  );
-
-  const allExperimentMetrics = metricIds.map((m) => metricMap.get(m) || null);
-  const denominatorMetricIds = uniq<string>(
-    allExperimentMetrics
-      .map((m) => m?.denominator)
-      .filter((d) => d && typeof d === "string") as string[],
-  );
-  const denominatorMetrics = denominatorMetricIds
-    .map((m) => metricMap.get(m) || null)
-    .filter(isDefined) as MetricInterface[];
-
-  const { settingsForSnapshotMetrics, regressionAdjustmentEnabled } =
-    getAllMetricSettingsForSnapshot({
-      allExperimentMetrics,
-      denominatorMetrics,
-      orgSettings,
-      experimentRegressionAdjustmentEnabled:
-        experiment.regressionAdjustmentEnabled,
-      experimentMetricOverrides: experiment.metricOverrides,
-      datasourceType: datasource?.type,
-      hasRegressionAdjustmentFeature: true,
-      ...(experiment.type === "multi-armed-bandit"
-        ? {
-            banditConversionWindowValue:
-              experiment.banditConversionWindowValue ?? undefined,
-            banditConversionWindowUnit:
-              experiment.banditConversionWindowUnit ?? undefined,
-          }
-        : {}),
-    });
-
-  const analysisSettings = getDefaultExperimentAnalysisSettings({
-    statsEngine,
-    experiment,
-    organization: org,
-    regressionAdjustmentEnabled,
-    postStratificationEnabled,
-    dimension,
-  });
-
-  // TODO: Where do we return the already existing one in the createSnapshot?
-  // should we rename it to requestSnapshot?
-  const queryRunner = await createSnapshot({
-    experiment,
-    context,
-    phaseIndex,
-    useCache,
-    defaultAnalysisSettings: analysisSettings,
-    additionalAnalysisSettings:
-      getAdditionalExperimentAnalysisSettings(analysisSettings),
-    settingsForSnapshotMetrics,
-    metricMap,
-    factTableMap,
-    reweight,
-    type: snapshotType,
-    triggeredBy,
-  });
-
-  return {
-    snapshot: queryRunner.model,
-    existingExecution: false,
-  };
-}
-
-async function forceFinishStaleSnapshotExecution({
-  context,
-  snapshot,
-}: {
-  context: ReqContext | ApiReqContext;
-  snapshot: ExperimentSnapshotInterface;
-}): Promise<ExperimentSnapshotInterface> {
-  const heartbeat =
-    snapshot.executionMetadata?.heartbeat ?? snapshot.dateCreated;
-
-  logger.warn(
-    "Force-finishing stale snapshot execution: " +
-      snapshot.id +
-      " (last heartbeat: " +
-      new Date(heartbeat).toISOString() +
-      ")",
-  );
-
-  const result = await finishSnapshotExecution(context.org.id, snapshot.id, {
-    status: "error",
-    error: "Execution timed out (no heartbeat)",
-  });
-
-  return (
-    result ?? {
-      ...snapshot,
-      status: "error",
-      error: "Execution timed out (no heartbeat)",
-      executionMetadata: undefined,
-    }
-  );
-}
-
-export async function waitForSnapshotExecution({
-  context,
-  snapshotId,
-  timeoutMs = SNAPSHOT_EXECUTION_TIMEOUT_MS,
-  pollIntervalMs = SNAPSHOT_EXECUTION_POLL_INTERVAL_MS,
-}: {
-  context: ReqContext | ApiReqContext;
-  snapshotId: string;
-  timeoutMs?: number;
-  pollIntervalMs?: number;
-}): Promise<ExperimentSnapshotInterface> {
-  const start = Date.now();
-
-  // TODO: This feels risky for a server -- how do we ensure we exit in a safe way?
-  while (true) {
-    const snapshot = await findSnapshotById(context.org.id, snapshotId);
-    if (!snapshot) {
-      throw new Error("Snapshot not found");
-    }
-
-    const isTerminal =
-      snapshot.status === "success" || snapshot.status === "error";
-    const heartbeat =
-      snapshot.executionMetadata?.heartbeat ?? snapshot.dateCreated;
-    const isStale =
-      !!snapshot.executionMetadata &&
-      new Date(heartbeat) <
-        new Date(Date.now() - SNAPSHOT_EXECUTION_STALE_THRESHOLD_MS);
-
-    if (isTerminal && !snapshot.executionMetadata) {
-      return snapshot;
-    }
-
-    if (isStale) {
-      return forceFinishStaleSnapshotExecution({
-        context,
-        snapshot,
-      });
-    }
-
-    if (Date.now() - start >= timeoutMs) {
-      throw new Error("Timed out waiting for snapshot execution");
-    }
-
-    await new Promise((resolve) => {
-      setTimeout(resolve, pollIntervalMs);
-    });
-  }
-}
-
-export async function createOrReuseStandardSnapshotExecution({
-  context,
-  experiment,
-  phaseIndex,
-  useCache = true,
-  triggeredBy,
-  reweight,
-}: {
-  context: ReqContext | ApiReqContext;
-  experiment: ExperimentInterface;
-  phaseIndex: number;
-  useCache?: boolean;
-  triggeredBy: SnapshotTriggeredBy;
-  reweight?: boolean;
-}): Promise<{ snapshot: ExperimentSnapshotInterface; existing: boolean }> {
-  const forceFullRefresh = !useCache;
-
-  const existingWriter = await findActiveStandardWriterSnapshot(
-    context.org.id,
-    experiment.id,
-  );
-  if (existingWriter) {
-    // Stale execution check: if the heartbeat (or dateCreated as fallback)
-    // is older than the threshold, force-finish and create a new execution.
-    const heartbeat =
-      existingWriter.executionMetadata?.heartbeat ?? existingWriter.dateCreated;
-    const staleThreshold = new Date(
-      Date.now() - SNAPSHOT_EXECUTION_STALE_THRESHOLD_MS,
-    );
-    if (new Date(heartbeat) < staleThreshold) {
-      await forceFinishStaleSnapshotExecution({
-        context,
-        snapshot: existingWriter,
-      });
-      // Fall through to create a new execution
-    } else if (forceFullRefresh) {
-      throw new Error(SNAPSHOT_UPDATE_IN_PROGRESS_ERROR);
-    } else {
-      const incomingIntent = buildSnapshotRefreshIntent({
-        triggeredBy,
-        reweight: !!reweight,
-      });
-      const snapshot = await updateActiveStandardSnapshotExecution({
-        context,
-        snapshot: existingWriter,
-        incomingIntent,
-      });
-      return { snapshot, existing: true };
-    }
-  }
-
-  // TODO: A lot of these gatherings functions and stuff feel similar
-  // to other functions we have -- any way we can consolidate them?
   const { regressionAdjustmentEnabled, settingsForSnapshotMetrics } =
     await getSettingsForSnapshotMetrics(context, experiment);
 
@@ -1497,64 +1203,215 @@ export async function createOrReuseStandardSnapshotExecution({
     organization: context.org,
     regressionAdjustmentEnabled,
     postStratificationEnabled: scopedSettings.postStratificationEnabled.value,
+    dimension,
   });
   const metricMap = await getMetricMap(context);
   const factTableMap = await getFactTableMap(context);
 
-  try {
-    const queryRunner = (await createSnapshot({
-      experiment,
-      context,
-      phaseIndex,
-      useCache,
-      defaultAnalysisSettings: analysisSettings,
-      additionalAnalysisSettings:
-        getAdditionalExperimentAnalysisSettings(analysisSettings),
-      settingsForSnapshotMetrics,
-      metricMap,
-      factTableMap,
-      reweight,
-      type: "standard",
-      triggeredBy,
-    })) as
-      | ExperimentResultsQueryRunner
-      | ExperimentIncrementalRefreshQueryRunner;
+  const plan = await planSnapshot({
+    experiment,
+    context,
+    type: snapshotType,
+    triggeredBy,
+    phaseIndex,
+    useCache,
+    defaultAnalysisSettings: analysisSettings,
+    additionalAnalysisSettings:
+      getAdditionalExperimentAnalysisSettings(analysisSettings),
+    settingsForSnapshotMetrics,
+    metricMap,
+    factTableMap,
+    reweight,
+  });
 
-    // TODO: Question -- should the QueryRunner be monitoring it?
-    // or is it better to keep them separate?
-    monitorStandardSnapshotExecution({
-      context,
-      experiment,
-      queryRunner,
-      metricMap,
-      factTableMap,
-    });
-    return { snapshot: queryRunner.model, existing: false };
-  } catch (error) {
-    if (!isDuplicateKeyError(error)) throw error;
+  const forceFullRefresh = !useCache;
+  const incomingIntent: ExperimentSnapshotRefreshIntent = {
+    triggeredBySchedule: triggeredBy === "schedule",
+    banditReweightRequested: !!reweight,
+  };
 
-    const activeSnapshot = await findActiveStandardWriterSnapshot(
-      context.org.id,
+  // --- Incremental (standard) snapshots: lock + reuse logic ---
+  if (plan.runnerKind === "incremental" && snapshotType === "standard") {
+    // Check if there's an active incremental execution
+    const activeSnapshotId =
+      await context.models.incrementalRefresh.getActiveExecutionSnapshotId(
+        experiment.id,
+      );
+
+    if (activeSnapshotId) {
+      const activeSnapshot = await findSnapshotById(
+        context.org.id,
+        activeSnapshotId,
+      );
+
+      if (activeSnapshot && activeSnapshot.status === "running") {
+        if (forceFullRefresh) {
+          throw new Error(SNAPSHOT_UPDATE_IN_PROGRESS_ERROR);
+        }
+        // Merge intent into the running snapshot and return it
+        const merged = await mergeRefreshIntent({
+          snapshot: activeSnapshot,
+          incomingIntent,
+          context,
+        });
+        return { snapshot: merged };
+      }
+
+      // Terminal or missing — clear stale lock and proceed
+      await context.models.incrementalRefresh
+        .clearCurrentExecutionSnapshotId(experiment.id)
+        .catch((e) => logger.warn(e, "Failed to clear stale incremental lock"));
+    }
+
+    // Acquire lock via CAS BEFORE starting the snapshot.
+    // startSnapshotFromPlan calls startAnalysis which must not run without the lock.
+    const acquired = await context.models.incrementalRefresh.acquireLock(
       experiment.id,
+      plan.snapshot.id,
     );
-    if (!activeSnapshot) throw error;
 
-    // TODO: Should we check the mode requested or something?
-    // why are we also using implicit checks here?
-    if (forceFullRefresh) {
+    if (!acquired) {
+      // Another process acquired the lock between our check and acquire.
+      // Re-check: if it's running, merge intent; otherwise throw.
+      const raceSnapshotId =
+        await context.models.incrementalRefresh.getActiveExecutionSnapshotId(
+          experiment.id,
+        );
+      if (raceSnapshotId) {
+        const raceSnapshot = await findSnapshotById(
+          context.org.id,
+          raceSnapshotId,
+        );
+        if (raceSnapshot && raceSnapshot.status === "running") {
+          if (forceFullRefresh) {
+            throw new Error(SNAPSHOT_UPDATE_IN_PROGRESS_ERROR);
+          }
+          const merged = await mergeRefreshIntent({
+            snapshot: raceSnapshot,
+            incomingIntent,
+            context,
+          });
+          return { snapshot: merged };
+        }
+      }
       throw new Error(SNAPSHOT_UPDATE_IN_PROGRESS_ERROR);
     }
 
-    const incomingIntent = buildSnapshotRefreshIntent({
-      triggeredBy,
-      reweight: !!reweight,
-    });
-    const snapshot = await updateActiveStandardSnapshotExecution({
+    // Lock acquired — now safe to start the snapshot
+    let queryRunner: ExperimentSnapshotQueryRunner;
+    try {
+      queryRunner = await startSnapshotFromPlan({
+        plan,
+        context,
+        experiment,
+        metricMap,
+        factTableMap,
+      });
+    } catch (e) {
+      // Release lock if snapshot creation fails
+      await context.models.incrementalRefresh
+        .clearCurrentExecutionSnapshotId(experiment.id)
+        .catch((lockErr) =>
+          logger.warn(
+            lockErr,
+            "Failed to release lock after snapshot start failure",
+          ),
+        );
+      throw e;
+    }
+
+    monitorStandardSnapshotExecution({
       context,
-      snapshot: activeSnapshot,
-      incomingIntent,
+      experiment,
+      queryRunner: queryRunner as ExperimentIncrementalRefreshQueryRunner,
+      metricMap,
+      factTableMap,
     });
-    return { snapshot, existing: true };
+
+    return { snapshot: queryRunner.model };
+  }
+
+  // --- Incremental-exploratory: block if incremental writer is active ---
+  if (plan.runnerKind === "incremental-exploratory") {
+    const activeSnapshotId =
+      await context.models.incrementalRefresh.getActiveExecutionSnapshotId(
+        experiment.id,
+      );
+    if (activeSnapshotId) {
+      const activeSnapshot = await findSnapshotById(
+        context.org.id,
+        activeSnapshotId,
+      );
+      if (activeSnapshot && activeSnapshot.status === "running") {
+        throw new Error(STANDARD_UPDATE_IN_PROGRESS_ERROR);
+      }
+    }
+
+    const queryRunner = await startSnapshotFromPlan({
+      plan,
+      context,
+      experiment,
+      metricMap,
+      factTableMap,
+    });
+
+    return { snapshot: queryRunner.model };
+  }
+
+  // --- Results runner (standard or exploratory): no locking ---
+  const queryRunner = await startSnapshotFromPlan({
+    plan,
+    context,
+    experiment,
+    metricMap,
+    factTableMap,
+  });
+
+  if (snapshotType === "standard") {
+    monitorStandardSnapshotExecution({
+      context,
+      experiment,
+      queryRunner: queryRunner as
+        | ExperimentResultsQueryRunner
+        | ExperimentIncrementalRefreshQueryRunner,
+      metricMap,
+      factTableMap,
+    });
+  }
+
+  return { snapshot: queryRunner.model };
+}
+
+export async function waitForSnapshotExecution({
+  context,
+  snapshotId,
+  timeoutMs = SNAPSHOT_EXECUTION_TIMEOUT_MS,
+  pollIntervalMs = SNAPSHOT_EXECUTION_POLL_INTERVAL_MS,
+}: {
+  context: ReqContext | ApiReqContext;
+  snapshotId: string;
+  timeoutMs?: number;
+  pollIntervalMs?: number;
+}): Promise<ExperimentSnapshotInterface> {
+  const start = Date.now();
+
+  while (true) {
+    const snapshot = await findSnapshotById(context.org.id, snapshotId);
+    if (!snapshot) {
+      throw new Error("Snapshot not found");
+    }
+
+    if (snapshot.status !== "running") {
+      return snapshot;
+    }
+
+    if (Date.now() - start >= timeoutMs) {
+      throw new Error("Timed out waiting for snapshot execution");
+    }
+
+    await new Promise((resolve) => {
+      setTimeout(resolve, pollIntervalMs);
+    });
   }
 }
 
@@ -1567,40 +1424,6 @@ export type SnapshotQueryRunnerKind =
   | "results"
   | "incremental"
   | "incremental-exploratory";
-
-async function ensureSnapshotCanStart({
-  context,
-  experiment,
-  runnerKind,
-}: {
-  context: ReqContext | ApiReqContext;
-  experiment: ExperimentInterface;
-  runnerKind: SnapshotQueryRunnerKind;
-}): Promise<void> {
-  if (runnerKind !== "incremental-exploratory") return;
-
-  const activeWriter = await findActiveStandardWriterSnapshot(
-    context.org.id,
-    experiment.id,
-  );
-  if (!activeWriter) return;
-
-  const heartbeat =
-    activeWriter.executionMetadata?.heartbeat ?? activeWriter.dateCreated;
-  const staleThreshold = new Date(
-    Date.now() - SNAPSHOT_EXECUTION_STALE_THRESHOLD_MS,
-  );
-
-  if (new Date(heartbeat) < staleThreshold) {
-    await forceFinishStaleSnapshotExecution({
-      context,
-      snapshot: activeWriter,
-    });
-    return;
-  }
-
-  throw new Error(STANDARD_UPDATE_IN_PROGRESS_ERROR);
-}
 
 function isIncrementalRefreshEnabledForSnapshot({
   datasource,
@@ -1798,23 +1621,10 @@ export async function planSnapshot({
     fullRefresh,
   });
 
-  const refreshIntent = buildSnapshotRefreshIntent({
-    triggeredBy,
-    reweight: !!reweight,
-  });
-  const executionMetadata:
-    | ExperimentSnapshotRefreshExecutionMetadata
-    | undefined =
-    type === "standard"
-      ? {
-          mode:
-            runnerKind === "incremental"
-              ? SNAPSHOT_EXECUTION_MODE_WRITER
-              : SNAPSHOT_EXECUTION_MODE_READER,
-          intent: refreshIntent,
-          heartbeat: new Date(),
-        }
-      : undefined;
+  const refreshIntent: ExperimentSnapshotRefreshIntent = {
+    triggeredBySchedule: triggeredBy === "schedule",
+    banditReweightRequested: !!reweight,
+  };
 
   const snapshot: ExperimentSnapshotInterface = {
     id: uniqid("snp_"),
@@ -1851,7 +1661,7 @@ export async function planSnapshot({
         }),
     ],
     status: "running",
-    ...(executionMetadata ? { executionMetadata } : {}),
+    refreshIntent,
   };
 
   return {
@@ -1863,7 +1673,7 @@ export async function planSnapshot({
   };
 }
 
-export async function requestSnapshotFromPlan({
+export async function startSnapshotFromPlan({
   plan,
   context,
   experiment,
@@ -1887,20 +1697,12 @@ export async function requestSnapshotFromPlan({
     throw new Error("Snapshot plan is missing a snapshot type");
   }
 
-  await ensureSnapshotCanStart({
-    context,
-    experiment,
-    runnerKind: plan.runnerKind,
-  });
-
   await recordExperimentSnapshotAttempt({
     context,
     experiment,
     type: snapshotType,
   });
 
-  // TODO: So what happens here if we have an active writer?
-  // Does this snapshot become an orphan? Or will this creation of snapshot fail because of the partial index for it?
   const snapshot = await createExperimentSnapshotModel({ data: plan.snapshot });
 
   let queryRunner: ExperimentSnapshotQueryRunner;
@@ -1910,7 +1712,7 @@ export async function requestSnapshotFromPlan({
         context,
         snapshot,
         integration,
-        false, // TODO(incremental-refresh): allow cache + cache override for exploratory queries
+        false,
       );
       break;
     case "incremental":
@@ -1918,7 +1720,7 @@ export async function requestSnapshotFromPlan({
         context,
         snapshot,
         integration,
-        false, // always ignore cache for incremental refresh queries
+        false,
       );
       break;
     case "results":
@@ -1945,8 +1747,6 @@ export async function requestSnapshotFromPlan({
       getAdditionalQueryMetadataForExperiment(experiment),
   };
 
-  // TODO: Why do we have this try/catch here now?
-  // Why do we have to handle the error like we are handling?
   try {
     if (plan.runnerKind === "incremental") {
       await (
@@ -1987,15 +1787,16 @@ export async function requestSnapshotFromPlan({
       context,
     });
 
-    if (snapshot.type === "standard") {
-      await clearExecutionMetadata(snapshot.organization, snapshot.id);
+    // Release incremental lock on failure
+    if (plan.runnerKind === "incremental") {
+      await context.models.incrementalRefresh
+        .clearCurrentExecutionSnapshotId(experiment.id)
+        .catch((e) =>
+          logger.warn(e, "Failed to release lock after snapshot start failure"),
+        );
     }
     throw error;
   }
-
-  // TODO: Before we called updateExperimentDashboards here
-  // but we are not doing that anymore. Is this a bug?
-  // It looks like we have updateStandardSnapshotDashboardConsumers now ?
 
   return queryRunner;
 }
@@ -2054,7 +1855,7 @@ async function handleFailedScheduledSnapshotExecution({
 }) {
   if (snapshot.status !== "error") return;
   if (experiment.type === "multi-armed-bandit") return;
-  if (!snapshot.executionMetadata?.intent?.triggeredBySchedule) return;
+  if (!snapshot.refreshIntent?.triggeredBySchedule) return;
   try {
     await updateExperiment({
       context,
@@ -2091,20 +1892,10 @@ function monitorStandardSnapshotExecution({
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
 }) {
-  const HEARTBEAT_INTERVAL_MS = 2 * 60 * 1000;
   const snapshotId = queryRunner.model.id;
-  const isWriterMode =
-    queryRunner.model.executionMetadata?.mode ===
-    SNAPSHOT_EXECUTION_MODE_WRITER;
-  const heartbeatTimer = setInterval(async () => {
-    try {
-      await updateExecutionHeartbeat(context.org.id, snapshotId);
-    } catch (e) {
-      logger.warn(e, "Failed to update snapshot heartbeat: " + snapshotId);
-    }
-  }, HEARTBEAT_INTERVAL_MS);
+  const isIncremental =
+    queryRunner instanceof ExperimentIncrementalRefreshQueryRunner;
 
-  // TODO: Why do we need void here?
   void (async () => {
     let snapshot = queryRunner.model;
     try {
@@ -2114,14 +1905,12 @@ function monitorStandardSnapshotExecution({
 
       if (snapshot.status === "success") {
         try {
-          const currentIntent = snapshot.executionMetadata?.intent ?? {};
-
           if (experiment.type === "multi-armed-bandit") {
             const changes = updateExperimentBanditSettings({
               experiment,
               snapshot,
-              reweight: !!currentIntent.banditReweightRequested,
-              isScheduled: !!currentIntent.triggeredBySchedule,
+              reweight: !!snapshot.refreshIntent?.banditReweightRequested,
+              isScheduled: !!snapshot.refreshIntent?.triggeredBySchedule,
             });
             await updateExperiment({
               context,
@@ -2163,97 +1952,18 @@ function monitorStandardSnapshotExecution({
         snapshot,
       });
     } finally {
-      clearInterval(heartbeatTimer);
-      try {
-        // Ensure the snapshot has reached a terminal status before clearing
-        // metadata. Without this, a snapshot stuck in "running" with no
-        // executionMetadata becomes unresolvable by waitForSnapshotExecution.
-        const current = await findSnapshotById(context.org.id, snapshotId);
-        if (current && current.status === "running") {
-          await finishSnapshotExecution(context.org.id, snapshotId, {
-            status: "error",
-            error:
-              "Snapshot execution ended without reaching a terminal status",
-          });
-        } else {
-          await clearExecutionMetadata(context.org.id, snapshotId);
-        }
-
-        // Release the incremental refresh execution lock if this was a writer
-        if (isWriterMode) {
-          await context.models.incrementalRefresh
-            .clearCurrentExecutionSnapshotId(experiment.id)
-            .catch((e) =>
-              logger.warn(
-                e,
-                "Failed to clear incremental refresh execution lock: " +
-                  experiment.id,
-              ),
-            );
-        }
-      } catch (cleanupError) {
-        logger.error(
-          cleanupError,
-          "Failed to clean up standard snapshot execution metadata: " +
-            snapshotId,
-        );
+      if (isIncremental) {
+        await context.models.incrementalRefresh
+          .clearCurrentExecutionSnapshotId(experiment.id)
+          .catch((e) =>
+            logger.warn(
+              e,
+              "Failed to release incremental lock: " + experiment.id,
+            ),
+          );
       }
     }
   })();
-}
-
-export async function createSnapshot({
-  experiment,
-  context,
-  type,
-  triggeredBy,
-  phaseIndex,
-  useCache = false,
-  defaultAnalysisSettings,
-  additionalAnalysisSettings,
-  settingsForSnapshotMetrics,
-  metricMap,
-  factTableMap,
-  reweight,
-  allowIncrementalRefresh = true,
-}: {
-  experiment: ExperimentInterface;
-  context: ReqContext | ApiReqContext;
-  type: SnapshotType;
-  triggeredBy: SnapshotTriggeredBy;
-  phaseIndex: number;
-  useCache?: boolean;
-  defaultAnalysisSettings: ExperimentSnapshotAnalysisSettings;
-  additionalAnalysisSettings: ExperimentSnapshotAnalysisSettings[];
-  settingsForSnapshotMetrics: MetricSnapshotSettings[];
-  metricMap: Map<string, ExperimentMetricInterface>;
-  factTableMap: FactTableMap;
-  reweight?: boolean;
-  allowIncrementalRefresh?: boolean;
-}): Promise<ExperimentSnapshotQueryRunner> {
-  const plan = await planSnapshot({
-    experiment,
-    context,
-    type,
-    triggeredBy,
-    phaseIndex,
-    useCache,
-    defaultAnalysisSettings,
-    additionalAnalysisSettings,
-    settingsForSnapshotMetrics,
-    metricMap,
-    factTableMap,
-    reweight,
-    allowIncrementalRefresh,
-  });
-
-  return requestSnapshotFromPlan({
-    plan,
-    context,
-    experiment,
-    metricMap,
-    factTableMap,
-  });
 }
 
 export type SnapshotAnalysisParams = {

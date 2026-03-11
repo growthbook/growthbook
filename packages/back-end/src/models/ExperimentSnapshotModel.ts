@@ -6,13 +6,11 @@ import {
   DashboardInterface,
 } from "shared/enterprise";
 import { isString } from "shared/util";
-import { SNAPSHOT_EXECUTION_MODE_WRITER } from "shared/constants";
 import {
   SnapshotType,
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
   LegacyExperimentSnapshotInterface,
-  ExperimentSnapshotRefreshExecutionMetadata,
 } from "shared/types/experiment-snapshot";
 import { logger } from "back-end/src/util/logger";
 import { migrateSnapshot } from "back-end/src/util/migrations";
@@ -77,15 +75,10 @@ const experimentSnapshotSchema = new mongoose.Schema({
   multipleExposures: Number,
   hasCorrectedStats: Boolean,
   status: String,
-  executionMetadata: {
+  refreshIntent: {
     _id: false,
-    mode: String,
-    intent: {
-      _id: false,
-      banditReweightRequested: Boolean,
-      triggeredBySchedule: Boolean,
-    },
-    heartbeat: Date,
+    banditReweightRequested: Boolean,
+    triggeredBySchedule: Boolean,
   },
   settings: {},
   analyses: {},
@@ -191,22 +184,6 @@ experimentSnapshotSchema.index({
   experiment: 1,
   dateCreated: -1,
 });
-// Ensure only one writer snapshot is running at a time
-experimentSnapshotSchema.index(
-  {
-    organization: 1,
-    experiment: 1,
-  },
-  {
-    unique: true,
-    partialFilterExpression: {
-      type: "standard",
-      status: "running",
-      "executionMetadata.mode": SNAPSHOT_EXECUTION_MODE_WRITER,
-    },
-  },
-);
-
 export type ExperimentSnapshotDocument = mongoose.Document &
   LegacyExperimentSnapshotInterface;
 
@@ -586,124 +563,6 @@ export async function getLatestSnapshot({
   }).exec();
 
   return all[0] ? toInterface(all[0]) : null;
-}
-
-export async function findActiveStandardWriterSnapshot(
-  organizationId: string,
-  experimentId: string,
-): Promise<ExperimentSnapshotInterface | null> {
-  const doc = await ExperimentSnapshotModel.findOne(
-    {
-      organization: organizationId,
-      experiment: experimentId,
-      type: "standard",
-      status: "running",
-      "executionMetadata.mode": SNAPSHOT_EXECUTION_MODE_WRITER,
-    },
-    null,
-    {
-      sort: { dateCreated: -1 },
-    },
-  ).exec();
-
-  return doc ? toInterface(doc) : null;
-}
-
-// TODO(adriel): Why is this function so complex looking?
-// Do we need fancy $set vs $unset? Is it just heartbeat?
-// But we have updateExecutionHeartbeat function
-// How can we simplify things?
-// Can we merge with clearExecutionMetadata?
-export async function updateExecutionMetadata({
-  organizationId,
-  snapshotId,
-  updates,
-}: {
-  organizationId: string;
-  snapshotId: string;
-  updates: Partial<ExperimentSnapshotRefreshExecutionMetadata>;
-}): Promise<ExperimentSnapshotInterface | null> {
-  const mongoUpdate: {
-    $set?: Record<string, unknown>;
-    $unset?: Record<string, 1>;
-  } = {};
-
-  for (const [key, value] of Object.entries(updates)) {
-    if (typeof value === "undefined") {
-      (mongoUpdate.$unset ??= {})[`executionMetadata.${key}`] = 1;
-      continue;
-    }
-
-    (mongoUpdate.$set ??= {})[`executionMetadata.${key}`] = value;
-  }
-
-  if (!mongoUpdate.$set && !mongoUpdate.$unset) {
-    return findSnapshotById(organizationId, snapshotId);
-  }
-
-  const doc = await ExperimentSnapshotModel.findOneAndUpdate(
-    {
-      organization: organizationId,
-      id: snapshotId,
-    },
-    mongoUpdate,
-    // TODO(adriel): Why do we need new: true?
-    { new: true },
-  );
-
-  return doc ? toInterface(doc) : null;
-}
-
-export async function finishSnapshotExecution(
-  organizationId: string,
-  snapshotId: string,
-  updates: { status: "success" | "error"; error?: string },
-): Promise<ExperimentSnapshotInterface | null> {
-  const doc = await ExperimentSnapshotModel.findOneAndUpdate(
-    {
-      organization: organizationId,
-      id: snapshotId,
-    },
-    {
-      $set: updates,
-      $unset: { executionMetadata: 1 },
-    },
-    { new: true },
-  );
-
-  return doc ? toInterface(doc) : null;
-}
-
-export async function clearExecutionMetadata(
-  organizationId: string,
-  snapshotId: string,
-): Promise<ExperimentSnapshotInterface | null> {
-  const doc = await ExperimentSnapshotModel.findOneAndUpdate(
-    {
-      organization: organizationId,
-      id: snapshotId,
-    },
-    {
-      $unset: {
-        executionMetadata: 1,
-      },
-    },
-    { new: true },
-  );
-
-  return doc ? toInterface(doc) : null;
-}
-
-export async function updateExecutionHeartbeat(
-  organizationId: string,
-  snapshotId: string,
-): Promise<Date> {
-  const newHeartbeat = new Date();
-  await ExperimentSnapshotModel.updateOne(
-    { organization: organizationId, id: snapshotId },
-    { $set: { "executionMetadata.heartbeat": newHeartbeat } },
-  );
-  return newHeartbeat;
 }
 
 // Gets latest snapshots per experiment-phase pair

@@ -112,7 +112,6 @@ describe("snapshots API", () => {
     const finalSnapshot = {
       ...initialSnapshot,
       status: "success" as const,
-      executionMetadata: undefined,
     };
 
     getExperimentById.mockReturnValueOnce({
@@ -124,7 +123,6 @@ describe("snapshots API", () => {
     getDataSourceById.mockReturnValueOnce({ id: "ds_123" });
     requestExperimentSnapshot.mockResolvedValueOnce({
       snapshot: initialSnapshot,
-      existingExecution: false,
     });
     waitForSnapshotExecution.mockResolvedValueOnce(finalSnapshot);
 

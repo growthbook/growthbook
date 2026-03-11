@@ -25,15 +25,6 @@ export class IncrementalRefreshModel extends BaseClass {
     return this._findOne({ experimentId });
   }
 
-  public async setCurrentExecutionSnapshotId(
-    experimentId: string,
-    snapshotId: string,
-  ) {
-    return this.upsertByExperimentId(experimentId, {
-      currentExecutionSnapshotId: snapshotId,
-    });
-  }
-
   public async upsertByExperimentId(
     experimentId: string,
     data:
@@ -61,6 +52,64 @@ export class IncrementalRefreshModel extends BaseClass {
     return this.upsertByExperimentId(experimentId, {
       currentExecutionSnapshotId: null,
     });
+  }
+
+  public async getActiveExecutionSnapshotId(
+    experimentId: string,
+  ): Promise<string | null> {
+    const doc = await this._findOne({ experimentId });
+    return doc?.currentExecutionSnapshotId ?? null;
+  }
+
+  /**
+   * Atomically acquires the incremental refresh lock via CAS.
+   * Uses upsert so it works even if no document exists yet (first-ever refresh).
+   * Returns true if the lock was acquired, false if another process holds it.
+   */
+  public async acquireLock(
+    experimentId: string,
+    snapshotId: string,
+  ): Promise<boolean> {
+    try {
+      const result = await this._dangerousGetCollection().updateOne(
+        {
+          organization: this.context.org.id,
+          experimentId,
+          currentExecutionSnapshotId: null,
+        },
+        {
+          $set: {
+            currentExecutionSnapshotId: snapshotId,
+            dateUpdated: new Date(),
+          },
+          $setOnInsert: {
+            organization: this.context.org.id,
+            experimentId,
+            unitsTableFullName: null,
+            unitsMaxTimestamp: null,
+            unitsDimensions: [],
+            metricSources: [],
+            metricCovariateSources: [],
+            experimentSettingsHash: null,
+          },
+        },
+        { upsert: true },
+      );
+      // upsertedCount > 0 means we created a new doc with the lock
+      // modifiedCount > 0 means we updated an existing unlocked doc
+      return (result.upsertedCount ?? 0) > 0 || (result.modifiedCount ?? 0) > 0;
+    } catch (error) {
+      // Duplicate key error from concurrent upserts — another process won the race
+      if (
+        error &&
+        typeof error === "object" &&
+        "code" in error &&
+        error.code === 11000
+      ) {
+        return false;
+      }
+      throw error;
+    }
   }
 
   /**
