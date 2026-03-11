@@ -129,6 +129,7 @@ import {
   addOrUpdateSnapshotAnalysis,
   createExperimentSnapshotModel,
   getLatestSnapshotMultipleExperiments,
+  updateSnapshot,
   updateSnapshotAnalysis,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { findDimensionById } from "back-end/src/models/DimensionModel";
@@ -1252,21 +1253,37 @@ export async function createSnapshot({
         getAdditionalQueryMetadataForExperiment(experiment),
     };
 
-    if (
-      queryRunner instanceof ExperimentIncrementalRefreshQueryRunner ||
-      queryRunner instanceof ExperimentIncrementalRefreshExploratoryQueryRunner
-    ) {
-      const fullRefresh =
-        (!useCache || !incrementalRefreshModel) && snapshot.type === "standard";
+    try {
+      if (
+        queryRunner instanceof ExperimentIncrementalRefreshQueryRunner ||
+        queryRunner instanceof
+          ExperimentIncrementalRefreshExploratoryQueryRunner
+      ) {
+        const fullRefresh =
+          (!useCache || !incrementalRefreshModel) &&
+          snapshot.type === "standard";
 
-      await queryRunner.startAnalysis({
-        ...analysisProps,
-        experimentId: experiment.id,
-        incrementalRefreshStartTime: new Date(),
-        fullRefresh,
+        await queryRunner.startAnalysis({
+          ...analysisProps,
+          experimentId: experiment.id,
+          incrementalRefreshStartTime: new Date(),
+          fullRefresh,
+        });
+      } else {
+        await queryRunner.startAnalysis(analysisProps);
+      }
+    } catch (e) {
+      logger.error(e, `Failed to start analysis for snapshot ${snapshot.id}`);
+      await updateSnapshot({
+        organization: organization.id,
+        id: snapshot.id,
+        updates: {
+          status: "error",
+          error: e.message,
+        },
+        context,
       });
-    } else {
-      await queryRunner.startAnalysis(analysisProps);
+      throw e;
     }
   }
 
