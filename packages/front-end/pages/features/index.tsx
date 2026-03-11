@@ -6,7 +6,6 @@ import { Box, Flex } from "@radix-ui/themes";
 import { FeatureInterface, FeatureMetaInfo } from "shared/types/feature";
 import { date, datetime } from "shared/dates";
 import { featureHasEnvironment } from "shared/util";
-import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import FeatureModal from "@/components/Features/FeatureModal";
@@ -233,9 +232,9 @@ export default function FeaturesPage() {
     return (
       allFeatures.length > 0 && (
         <Box>
-          <Box className="mb-2 align-items-center">
+          <Box mb="2">
             <Flex justify="between" mb="3" gap="3" align="center">
-              <Box className="relative" width="40%">
+              <Box width="40%" style={{ position: "relative" }}>
                 <Field
                   placeholder="Search..."
                   type="search"
@@ -306,9 +305,9 @@ export default function FeaturesPage() {
                 return (
                   <TableRow
                     key={feature.id}
-                    className={clsx({
-                      "text-muted": feature.archived,
-                    })}
+                    style={{
+                      color: feature.archived ? "var(--gray-11)" : undefined,
+                    }}
                   >
                     <TableCell className="watching">
                       <WatchButton
@@ -562,7 +561,7 @@ export default function FeaturesPage() {
   const toggleEnvs = environments.filter((en) => en.toggleOnList);
 
   return (
-    <div className="contents container pagecontents">
+    <Box className="contents pagecontents" style={{ margin: "0 auto" }}>
       {confirmToggle && (
         <Modal
           trackingEventModalType=""
@@ -614,12 +613,12 @@ export default function FeaturesPage() {
           }}
         />
       )}
-      <div className="row my-3">
-        <div className="col">
+      <Flex align="center" justify="between" gap="3" my="3">
+        <Box style={{ flex: 1 }}>
           <h1>Features</h1>
-        </div>
+        </Box>
         {!showSetUpFlow && canViewFeatureModal && canCreateFeatures && (
-          <div className="col-auto">
+          <Box>
             <Button
               onClick={() => {
                 setModalOpen(true);
@@ -630,12 +629,12 @@ export default function FeaturesPage() {
             >
               Add Feature
             </Button>
-          </div>
+          </Box>
         )}
-      </div>
-      <div className="mt-3">
+      </Flex>
+      <Box mt="3">
         <CustomMarkdown page={"featureList"} />
-      </div>
+      </Box>
       {!hasFeatures ? (
         <>
           <EmptyState
@@ -695,6 +694,6 @@ export default function FeaturesPage() {
           </TabsContent>
         </Tabs>
       )}
-    </div>
+    </Box>
   );
 }
