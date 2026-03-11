@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { baseSchema } from "./base-model";
 import { featureEnvironment } from "./features";
-import { isoDatetimeToDate } from "./codecs";
+import { isoDatetimeToDate, optionalIsoDatetimeToDate } from "./codecs";
 
 export const holdoutLinkedItemValidator = z.object({
   dateAdded: isoDatetimeToDate,
@@ -9,9 +9,9 @@ export const holdoutLinkedItemValidator = z.object({
 });
 
 const statusUpdateScheduleValidator = z.object({
-  startAt: isoDatetimeToDate.optional(),
-  startAnalysisPeriodAt: isoDatetimeToDate.optional(),
-  stopAt: isoDatetimeToDate.optional(),
+  startAt: optionalIsoDatetimeToDate,
+  startAnalysisPeriodAt: optionalIsoDatetimeToDate,
+  stopAt: optionalIsoDatetimeToDate,
 });
 
 const nextScheduledStatusUpdateValidator = z.object({
@@ -31,7 +31,7 @@ const holdout = z
     linkedExperiments: z.record(z.string(), holdoutLinkedItemValidator),
     linkedFeatures: z.record(z.string(), holdoutLinkedItemValidator),
     environmentSettings: z.record(z.string(), featureEnvironment),
-    analysisStartDate: isoDatetimeToDate.optional(),
+    analysisStartDate: optionalIsoDatetimeToDate,
     // May be undefined for holdouts created before scheduling was added
     // Set to null when the schedule is deleted
     statusUpdateSchedule: statusUpdateScheduleValidator.optional().nullable(),
