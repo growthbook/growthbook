@@ -379,6 +379,6 @@ describe("snapshot lifecycle", () => {
 
     expect(
       context.models.incrementalRefresh.clearCurrentExecutionSnapshotId,
-    ).toHaveBeenCalledWith(experiment.id);
+    ).toHaveBeenCalledWith(experiment.id, "snp_123");
   });
 });

@@ -1259,7 +1259,7 @@ export async function requestExperimentSnapshot({
 
       // Terminal or missing — clear stale lock and proceed
       await context.models.incrementalRefresh
-        .clearCurrentExecutionSnapshotId(experiment.id)
+        .clearCurrentExecutionSnapshotId(experiment.id, activeSnapshotId)
         .catch((e) => logger.warn(e, "Failed to clear stale incremental lock"));
     }
 
@@ -1310,7 +1310,7 @@ export async function requestExperimentSnapshot({
     } catch (e) {
       // Release lock if snapshot creation fails
       await context.models.incrementalRefresh
-        .clearCurrentExecutionSnapshotId(experiment.id)
+        .clearCurrentExecutionSnapshotId(experiment.id, plan.snapshot.id)
         .catch((lockErr) =>
           logger.warn(
             lockErr,
@@ -1790,7 +1790,7 @@ export async function startSnapshotFromPlan({
     // Release incremental lock on failure
     if (plan.runnerKind === "incremental") {
       await context.models.incrementalRefresh
-        .clearCurrentExecutionSnapshotId(experiment.id)
+        .clearCurrentExecutionSnapshotId(experiment.id, snapshot.id)
         .catch((e) =>
           logger.warn(e, "Failed to release lock after snapshot start failure"),
         );
@@ -1954,7 +1954,7 @@ function monitorStandardSnapshotExecution({
     } finally {
       if (isIncremental) {
         await context.models.incrementalRefresh
-          .clearCurrentExecutionSnapshotId(experiment.id)
+          .clearCurrentExecutionSnapshotId(experiment.id, snapshotId)
           .catch((e) =>
             logger.warn(
               e,

@@ -1,3 +1,4 @@
+import uniqid from "uniqid";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import {
   IncrementalRefreshInterface,
@@ -48,10 +49,25 @@ export class IncrementalRefreshModel extends BaseClass {
     });
   }
 
-  public async clearCurrentExecutionSnapshotId(experimentId: string) {
-    return this.upsertByExperimentId(experimentId, {
-      currentExecutionSnapshotId: null,
-    });
+  /**
+   * Atomically clears the lock only if the given snapshotId still owns it.
+   * Prevents a late-running cleanup from accidentally clearing another
+   * process's lock.
+   */
+  public async clearCurrentExecutionSnapshotId(
+    experimentId: string,
+    snapshotId: string,
+  ) {
+    await this._dangerousGetCollection().updateOne(
+      {
+        organization: this.context.org.id,
+        experimentId,
+        currentExecutionSnapshotId: snapshotId,
+      },
+      {
+        $set: { currentExecutionSnapshotId: null, dateUpdated: new Date() },
+      },
+    );
   }
 
   public async getActiveExecutionSnapshotId(
@@ -83,8 +99,10 @@ export class IncrementalRefreshModel extends BaseClass {
             dateUpdated: new Date(),
           },
           $setOnInsert: {
+            id: uniqid("ir_"),
             organization: this.context.org.id,
             experimentId,
+            dateCreated: new Date(),
             unitsTableFullName: null,
             unitsMaxTimestamp: null,
             unitsDimensions: [],

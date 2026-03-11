@@ -2969,7 +2969,7 @@ export async function requestExperimentSnapshotFromPlan({
   } catch (e) {
     if (plan.runnerKind === "incremental") {
       await context.models.incrementalRefresh
-        .clearCurrentExecutionSnapshotId(experiment.id)
+        .clearCurrentExecutionSnapshotId(experiment.id, plan.snapshot.id)
         .catch(() => {});
     }
     throw e;
