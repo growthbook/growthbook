@@ -193,7 +193,7 @@ export default function FactMetricPage() {
   );
   const { apiCall } = useAuth();
 
-  const { hasCommercialFeature, organization } = useUser();
+  const { hasCommercialFeature, organization, getOwnerDisplay } = useUser();
 
   const permissionsUtil = usePermissionsUtil();
 
@@ -476,7 +476,6 @@ export default function FactMetricPage() {
       )}
       {editOwnerModal && (
         <EditOwnerModal
-          resourceType="factMetric"
           cancel={() => setEditOwnerModal(false)}
           owner={factMetric.owner}
           save={async (owner) => {
@@ -658,7 +657,7 @@ export default function FactMetricPage() {
           )}
         </div>
         <div className="col-auto">
-          Owner:{` ${factMetric.owner ?? ""}`}
+          Owner: {getOwnerDisplay(factMetric.owner) || "None"}
           {canEdit && (
             <a
               className="ml-1 cursor-pointer"
@@ -688,13 +687,20 @@ export default function FactMetricPage() {
               canEdit={canEdit}
               value={factMetric.description}
               aiSuggestFunction={async () => {
+                // Only evaluate the feature flag if suggestion is requested
+                const aiTemperature =
+                  growthbook?.getFeatureValue(
+                    "ai-suggestions-temperature",
+                    0.1,
+                  ) || 0.1;
+
                 const res = await apiCall<{
                   status: number;
                   data: {
                     description: string;
                   };
                 }>(
-                  `/metrics/${factMetric.id}/gen-description`,
+                  `/metrics/${factMetric.id}/gen-description?temperature=${aiTemperature}`,
                   {
                     method: "GET",
                   },

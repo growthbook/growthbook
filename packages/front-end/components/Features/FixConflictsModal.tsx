@@ -250,9 +250,11 @@ export default function FixConflictsModal({
               will go live when you publish your draft. Please review them.
             </p>
             <div className="list-group mb-4">
-              {resultDiffs.map((diff) => (
-                <ExpandableDiff {...diff} key={diff.title} />
-              ))}
+              {resultDiffs
+                .filter((d) => d.a !== d.b)
+                .map((diff) => (
+                  <ExpandableDiff {...diff} key={diff.title} />
+                ))}
             </div>
           </>
         ) : (

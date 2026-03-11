@@ -60,6 +60,10 @@ const ideasController = wrapController(ideasControllerRaw);
 
 import * as presentationControllerRaw from "./controllers/presentations";
 const presentationController = wrapController(presentationControllerRaw);
+import * as presentationThemesControllerRaw from "./controllers/presentationThemes";
+const presentationThemesController = wrapController(
+  presentationThemesControllerRaw,
+);
 
 import * as discussionsControllerRaw from "./controllers/discussions";
 const discussionsController = wrapController(discussionsControllerRaw);
@@ -126,6 +130,7 @@ import { dashboardsRouter } from "./routers/dashboards/dashboards.router";
 import { customHooksRouter } from "./routers/custom-hooks/custom-hooks.router";
 import { importingRouter } from "./routers/importing/importing.router";
 import { blogRouter } from "./routers/blog/blog.router";
+import { productAnalyticsRouter } from "./routers/product-analytics/product-analytics.router";
 
 const app = express();
 
@@ -237,8 +242,19 @@ app.use(async (req, res, next) => {
 // Visual Designer js file (does not require JWT or cors)
 app.get("/js/:key.js", getExperimentsScript);
 
-// increase max payload json size to 2mb
-app.use(bodyParser.json({ limit: "2mb" }));
+// increase max payload json size to 2mb (10mb for the api screenshot upload)
+app.use((req, res, next) => {
+  const isScreenshotUpload =
+    req.method === "POST" &&
+    /^\/api\/v1\/experiments\/[^/]+\/variation\/[^/]+\/screenshot\/upload$/.test(
+      req.path,
+    );
+  bodyParser.json({ limit: isScreenshotUpload ? "10mb" : "2mb" })(
+    req,
+    res,
+    next,
+  );
+});
 
 // Public API routes (does not require JWT, does require cors with origin = *)
 app.get(
@@ -765,6 +781,7 @@ app.use("/demo-datasource-project", demoDatasourceProjectRouter);
 // Features
 app.get("/feature", featuresController.getFeatures);
 app.get("/feature/:id", featuresController.getFeatureById);
+app.get("/feature/:id/revisions", featuresController.getFeatureRevisions);
 app.get("/feature/:id/usage", featuresController.getFeatureUsage);
 app.post("/feature", featuresController.postFeatures);
 app.put("/feature/:id", featuresController.putFeature);
@@ -820,7 +837,11 @@ app.post(
   "/features/batch-prerequisite-states",
   featuresController.postBatchPrerequisiteStates,
 );
-app.get("/features/names", featuresController.getFeatureNames);
+app.get("/features/meta-info", featuresController.getFeatureMetaInfo);
+app.get("/features/status", featuresController.getFeaturesStatus);
+app.get("/features/draft-states", featuresController.getFeatureDraftStates);
+app.get("/features/stale", featuresController.getFeaturesStaleStates);
+app.get("/features/dependents", featuresController.getFeaturesDependents);
 app.post(
   "/feature/:id/:version/reorder",
   featuresController.postFeatureMoveRule,
@@ -929,6 +950,24 @@ app.get("/presentation/:id", presentationController.getPresentation);
 app.post("/presentation/:id", presentationController.updatePresentation);
 app.delete("/presentation/:id", presentationController.deletePresentation);
 
+// Presentation themes (saved themes for presentations)
+app.get(
+  "/presentation-themes",
+  presentationThemesController.getPresentationThemes,
+);
+app.post(
+  "/presentation-theme",
+  presentationThemesController.postPresentationTheme,
+);
+app.put(
+  "/presentation-theme/:id",
+  presentationThemesController.putPresentationTheme,
+);
+app.delete(
+  "/presentation-theme/:id",
+  presentationThemesController.deletePresentationTheme,
+);
+
 // Discussions
 app.get(
   "/discussion/:parentType/:parentId",
@@ -1010,6 +1049,9 @@ app.use("/custom-hooks", customHooksRouter);
 
 // 3rd party data importing proxy
 app.use("/importing", importingRouter);
+
+// Product Analytics
+app.use("/product-analytics", productAnalyticsRouter);
 
 // Meta info
 app.get("/meta/ai", (req, res) => {

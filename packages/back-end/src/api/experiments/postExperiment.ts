@@ -16,10 +16,9 @@ import {
 } from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getUserByEmail } from "back-end/src/models/UserModel";
-import { upsertWatch } from "back-end/src/models/WatchModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { validateVariationIds } from "back-end/src/controllers/experiments";
-import { validateCustomFields } from "./validation";
+import { validateCustomFields } from "./validations";
 
 export const postExperiment = createApiRequestHandler(postExperimentValidator)(
   async (req): Promise<PostExperimentResponse> => {
@@ -54,20 +53,19 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
     }
 
     // check if tracking key is unique
-    const existingByTrackingKey = await getExperimentByTrackingKey(
-      req.context,
-      req.body.trackingKey,
-    );
-    if (existingByTrackingKey) {
-      throw new Error(
-        `Experiment with tracking key already exists: ${req.body.trackingKey}`,
+    if (!req.body.bypassDuplicateKeyCheck) {
+      const existingByTrackingKey = await getExperimentByTrackingKey(
+        req.context,
+        req.body.trackingKey,
       );
+      if (existingByTrackingKey) {
+        throw new Error(
+          `Experiment with tracking key already exists: ${req.body.trackingKey}`,
+        );
+      }
     }
 
-    // check if the custom fields are valid
-    if (customFields) {
-      await validateCustomFields(customFields, req.context, project);
-    }
+    await validateCustomFields(customFields, req.context, project);
 
     const ownerId = await (async () => {
       if (!ownerEmail) return req.context.userId;
@@ -133,6 +131,27 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       validateVariationIds(req.body.variations as Variation[]);
     }
 
+    // Validate attributionModel + lookbackOverride consistency
+    if (
+      req.body.attributionModel === "lookbackOverride" &&
+      !req.body.lookbackOverride
+    ) {
+      throw new Error(
+        "lookbackOverride is required when attributionModel is 'lookbackOverride'",
+      );
+    }
+
+    // If lookbackOverride is provided in the payload, it must have the right
+    // attribution model
+    if (
+      (req.body.attributionModel ?? "firstExposure") !== "lookbackOverride" &&
+      req.body.lookbackOverride !== undefined
+    ) {
+      throw new Error(
+        "lookbackOverride is only allowed when attributionModel is 'lookbackOverride'",
+      );
+    }
+
     // transform into exp interface; set sane defaults
     const newExperiment = postExperimentApiPayloadToInterface(
       {
@@ -150,9 +169,8 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
 
     if (ownerId) {
       // add owner as watcher
-      await upsertWatch({
+      await req.context.models.watch.upsertWatch({
         userId: ownerId,
-        organization: req.organization.id,
         item: experiment.id,
         type: "experiments",
       });

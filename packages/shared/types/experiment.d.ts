@@ -14,6 +14,8 @@ import { ExperimentRefVariation, FeatureInterface } from "./feature";
 export {
   AttributionModel,
   ImplementationType,
+  LookbackOverride,
+  LookbackOverrideValueUnit,
   MetricOverride,
   BanditResult,
   ExperimentStatus,

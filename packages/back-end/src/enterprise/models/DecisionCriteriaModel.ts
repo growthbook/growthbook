@@ -14,7 +14,7 @@ const BaseClass = MakeModelClass({
     updateEvent: "decisionCriteria.update",
     deleteEvent: "decisionCriteria.delete",
   },
-  globallyUniqueIds: false,
+  globallyUniquePrimaryKeys: false,
 });
 
 // TODO: project scoping or make more permissive

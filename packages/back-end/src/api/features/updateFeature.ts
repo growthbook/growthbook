@@ -4,7 +4,7 @@ import {
   validateScheduleRules,
 } from "shared/util";
 import { isEqual } from "lodash";
-import { UpdateFeatureResponse } from "shared/types/openapi";
+import type { UpdateFeatureResponse } from "shared/types/openapi";
 import { updateFeatureValidator, RevisionRules } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -17,6 +17,7 @@ import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel"
 import {
   addIdsToRules,
   getApiFeatureObj,
+  getNextScheduledUpdate,
   getSavedGroupMap,
   updateInterfaceEnvSettingsFromApiEnvSettings,
 } from "back-end/src/services/features";
@@ -28,8 +29,9 @@ import {
   getRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
+import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { parseJsonSchemaForEnterprise, validateEnvKeys } from "./postFeature";
-import { validateCustomFields } from "./validation";
+import { validateCustomFields } from "./validations";
 
 export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
   async (req): Promise<UpdateFeatureResponse> => {
@@ -83,8 +85,18 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     }
 
     // check if the custom fields are valid
-    if (customFields) {
-      await validateCustomFields(customFields, req.context, req.body.project);
+    const projectChanged = project !== undefined && project !== feature.project;
+    const customFieldsChanged = shouldValidateCustomFieldsOnUpdate({
+      existingCustomFieldValues: feature.customFields,
+      updatedCustomFieldValues: customFields,
+    });
+
+    if (projectChanged || customFieldsChanged) {
+      await validateCustomFields(
+        customFields ?? feature.customFields,
+        req.context,
+        effectiveProject,
+      );
     }
 
     // ensure environment keys are valid
@@ -184,6 +196,13 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         req.context.permissions.throwPermissionError();
       }
       addIdsToRules(updates.environmentSettings, feature.id);
+    }
+
+    if (updates.environmentSettings) {
+      updates.nextScheduledUpdate = getNextScheduledUpdate(
+        updates.environmentSettings,
+        orgEnvs,
+      );
     }
 
     // Create a revision for the changes and publish them immediately

@@ -48,3 +48,5 @@ charts/**/*.tgz
 
 # Preview environment generated files
 preview/Dockerfile.generated
+
+next-env.d.ts

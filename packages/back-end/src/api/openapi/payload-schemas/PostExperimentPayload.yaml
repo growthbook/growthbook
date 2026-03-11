@@ -13,6 +13,9 @@ properties:
     description: The ID property of one of the assignment query objects associated with the datasource
   trackingKey:
     type: string
+  bypassDuplicateKeyCheck:
+    type: boolean
+    description: If true, allow creating an experiment even if another experiment with the same tracking key already exists
   name:
     type: string
     description: Name of the experiment
@@ -95,7 +98,10 @@ properties:
     enum:
       - firstExposure
       - experimentDuration
-    description: Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override.
+      - lookbackOverride
+    description: Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided.
+  lookbackOverride:
+    $ref: "../schemas/LookbackOverride.yaml"
   statsEngine:
     type: string
     enum:
@@ -248,6 +254,13 @@ properties:
   banditBurnInValue:
     type: number
   banditBurnInUnit:
+    type: string
+    enum:
+      - "days"
+      - "hours"
+  banditConversionWindowValue:
+    type: number
+  banditConversionWindowUnit:
     type: string
     enum:
       - "days"

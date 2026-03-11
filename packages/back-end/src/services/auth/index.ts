@@ -32,12 +32,12 @@ import {
 } from "back-end/src/util/cookie";
 import { getUserPermissions } from "back-end/src/util/organization.util";
 import { insertAudit } from "back-end/src/models/AuditModel";
-import { getTeamsForOrganization } from "back-end/src/models/TeamModel";
 import {
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
 import { licenseInit } from "back-end/src/enterprise";
+import { TeamModel } from "back-end/src/models/TeamModel";
 import { AuthConnection } from "./AuthConnection";
 import { OpenIdAuthConnection } from "./OpenIdAuthConnection";
 import { LocalAuthConnection } from "./LocalAuthConnection";
@@ -222,7 +222,9 @@ export async function processJWT(
           }
         }
 
-        req.teams = await getTeamsForOrganization(req.organization.id);
+        req.teams = await TeamModel.dangerousGetTeamsForOrganization(
+          req.organization.id,
+        );
 
         // Make sure this is a valid login method for the organization
         try {

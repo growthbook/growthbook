@@ -9,14 +9,17 @@ export interface FeatureDefinition {
   rules?: FeatureDefinitionRule[];
 }
 
+// TODO: remove this intermediary type used for payload scrubbing
 export type FeatureDefinitionWithProject = FeatureDefinition & {
   project?: string;
 };
 
+// TODO: remove this intermediary type used for payload scrubbing
 export type FeatureDefinitionWithProjects = FeatureDefinition & {
   projects?: string[];
 };
 
+// TODO: remove this intermediary type used for payload scrubbing
 export type AutoExperimentWithProject = AutoExperiment & {
   project?: string;
 };

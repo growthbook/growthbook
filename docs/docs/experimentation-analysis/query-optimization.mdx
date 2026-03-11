@@ -5,6 +5,8 @@ sidebar_label: Query Optimization
 slug: /app/query-optimization
 ---
 
+import CommercialFeature from '@site/src/components/CommercialFeature';
+
 # Query Optimization
 
 GrowthBook is designed to run efficient database queries out-of-the-box, but for large datasets or complex metrics, there are a few settings and techniques you can use to optimize your queries.
@@ -37,7 +39,9 @@ Read more about [Fact Tables](/app/metrics) and how to [convert legacy metrics t
 
 ## Fact Table Query Optimization
 
-GrowthBook Enterprise customers can enable Fact Table Query Optimization for faster, more efficient queries.
+<CommercialFeature feature="multi-metric-queries" />
+
+Fact Table Query Optimization enables faster, more efficient queries.
 
 If multiple metrics from the same Fact Table are added to an experiment, they will be combined into a single SQL query. For data sourcees with usage-based billing, this can result in dramatic cost savings.
 
@@ -47,11 +51,13 @@ There are some restrictions that limit when this optimization can be performed:
 - If `Exclude In-Progress Conversions` is set for an experiment, optimization is disabled for all metrics
 - If you are using MySQL and a metric has percentile capping, it will be excluded from optimization
 
-In all other cases, this optimization is enabled by default for all Enterprise customers. It can be disabled under **Settings → General → Experiment Settings**. When disabled, a separate SQL query will always be run for every individual metric.
+In all other cases, this optimization is enabled by default. It can be disabled under **Settings → General → Experiment Settings**. When disabled, a separate SQL query will always be run for every individual metric.
 
 ## Data Pipeline Mode
 
-GrowthBook Enterprise customers can enable Data Pipeline Mode to reduce the amount of duplicate data your warehouse needs to scan.
+<CommercialFeature feature="pipeline-mode" />
+
+Data Pipeline Mode reduces the amount of duplicate data your warehouse needs to scan.
 
 When enabled, GrowthBook will write some intermediate tables back to your warehouse with short retention and re-use those across all of the metric queries in an experiment.
 

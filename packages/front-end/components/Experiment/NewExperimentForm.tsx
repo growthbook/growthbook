@@ -46,6 +46,10 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
+import {
+  AttributeOptionWithTooltip,
+  type AttributeOptionForTooltip,
+} from "@/components/Features/AttributeOptionTooltip";
 import { useUser } from "@/services/UserContext";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -122,12 +126,19 @@ export function getDefaultVariations(num: number) {
   return variations;
 }
 
-export function getNewExperimentDatasourceDefaults(
-  datasources: DataSourceInterfaceWithParams[],
-  settings: OrganizationSettings,
-  project?: string,
-  initialValue?: Partial<ExperimentInterfaceStringDates>,
-): Pick<ExperimentInterfaceStringDates, "datasource" | "exposureQueryId"> {
+export function getNewExperimentDatasourceDefaults({
+  datasources,
+  settings,
+  project,
+  initialValue,
+  initialHashAttribute,
+}: {
+  datasources: DataSourceInterfaceWithParams[];
+  settings: OrganizationSettings;
+  project?: string;
+  initialValue?: Partial<ExperimentInterfaceStringDates>;
+  initialHashAttribute?: string;
+}): Pick<ExperimentInterfaceStringDates, "datasource" | "exposureQueryId"> {
   const validDatasources = datasources.filter(
     (d) =>
       d.id === initialValue?.datasource ||
@@ -142,13 +153,19 @@ export function getNewExperimentDatasourceDefaults(
     (initialId && validDatasources.find((d) => d.id === initialId)) ||
     validDatasources[0];
 
+  const initialUserIdType = initialHashAttribute
+    ? (initialDatasource.settings?.userIdTypes?.find((t) =>
+        t.attributes?.includes(initialHashAttribute),
+      )?.userIdType ?? "anonymous_id")
+    : "anonymous_id";
+
   return {
     datasource: initialDatasource.id,
     exposureQueryId:
       getExposureQuery(
         initialDatasource.settings,
         initialValue?.exposureQueryId,
-        initialValue?.userIdType,
+        initialUserIdType,
       )?.id || "",
   };
 }
@@ -210,6 +227,15 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   const [prerequisiteTargetingSdkIssues, setPrerequisiteTargetingSdkIssues] =
     useState(false);
+  const [disableBanditConversionWindow, setDisableBanditConversionWindow] =
+    useState(() => {
+      if (initialValue?.type !== "multi-armed-bandit" || isNewExperiment)
+        return false;
+      const hasOverride =
+        initialValue?.banditConversionWindowValue != null &&
+        initialValue?.banditConversionWindowUnit != null;
+      return !hasOverride;
+    });
   const canSubmit = !prerequisiteTargetingSdkIssues;
   const minWordsForSimilarityCheck = 4;
 
@@ -242,22 +268,24 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   const orgStickyBucketing = !!settings.useStickyBucketing;
   const lastPhase = (initialValue?.phases?.length ?? 1) - 1;
+  const initialHashAttribute = initialValue?.hashAttribute || hashAttribute;
 
   const form = useForm<Partial<ExperimentInterfaceStringDates>>({
     defaultValues: {
       project: initialValue?.project || project || "",
       trackingKey: initialValue?.trackingKey || "",
-      ...getNewExperimentDatasourceDefaults(
+      ...getNewExperimentDatasourceDefaults({
         datasources,
         settings,
-        initialValue?.project || project || "",
+        project: initialValue?.project || project || "",
         initialValue,
-      ),
+        initialHashAttribute,
+      }),
       name: initialValue?.name || "",
       type: initialValue?.type ?? "standard",
       hypothesis: initialValue?.hypothesis || "",
       activationMetric: initialValue?.activationMetric || "",
-      hashAttribute: initialValue?.hashAttribute || hashAttribute,
+      hashAttribute: initialHashAttribute,
       hashVersion:
         initialValue?.hashVersion || (hasSDKWithNoBucketingV2 ? 1 : 2),
       disableStickyBucketing: initialValue?.disableStickyBucketing ?? false,
@@ -326,6 +354,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       banditScheduleUnit: scopedSettings.banditScheduleUnit.value,
       banditBurnInValue: scopedSettings.banditBurnInValue.value,
       banditBurnInUnit: scopedSettings.banditScheduleUnit.value,
+      banditConversionWindowValue: initialValue?.banditConversionWindowValue,
+      banditConversionWindowUnit:
+        initialValue?.banditConversionWindowUnit ?? "hours",
       templateId: initialValue?.templateId || "",
       holdoutId: initialValue?.holdoutId || undefined,
       customMetricSlices: initialValue?.customMetricSlices || [],
@@ -410,6 +441,21 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         if ((data.goalMetrics?.length ?? 0) !== 1) {
           throw new Error("You must select 1 decision metric");
         }
+        const shouldIncludeConversionWindow =
+          !disableBanditConversionWindow &&
+          (!settings.useStickyBucketing || data.disableStickyBucketing);
+
+        if (!shouldIncludeConversionWindow) {
+          delete data.banditConversionWindowValue;
+          delete data.banditConversionWindowUnit;
+        } else if (
+          !data.banditConversionWindowValue ||
+          !data.banditConversionWindowUnit
+        ) {
+          throw new Error(
+            "Enter a conversion window override or disable the conversion window override",
+          );
+        }
       }
     }
 
@@ -480,6 +526,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     .map((t) => ({ value: t.id, label: t.templateMetadata.name }));
 
   const allowAllProjects = permissionsUtils.canViewExperimentModal();
+  const hasProjectPermission = selectedProject
+    ? permissionsUtils.canViewExperimentModal(selectedProject)
+    : allowAllProjects;
 
   const exposureQueries = datasource?.settings?.queries?.exposure || [];
   const exposureQueryId = form.getValues("exposureQueryId");
@@ -540,8 +589,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const [linkNameWithTrackingKey, setLinkNameWithTrackingKey] = useState(true);
 
   let header = isNewExperiment
-    ? `Add new ${isBandit ? "Bandit" : "Experiment"}`
-    : "Add new Experiment Analysis";
+    ? `Add New ${isBandit ? "Bandit" : "Experiment"}`
+    : "Add New Experiment Analysis";
   if (duplicate) {
     header = `Duplicate ${isBandit ? "Bandit" : "Experiment"}`;
   }
@@ -667,7 +716,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         docSection="experimentConfiguration"
         submit={onSubmit}
         cta={"Save"}
-        ctaEnabled={canSubmit}
+        ctaEnabled={canSubmit && hasProjectPermission}
+        disabledMessage={
+          !hasProjectPermission
+            ? !selectedProject && availableProjects.length > 0
+              ? "Select a project to continue."
+              : "You don't have permission to create experiments."
+            : undefined
+        }
         closeCta="Cancel"
         size="lg"
         step={step}
@@ -1064,6 +1120,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           </div>
         </Page>
 
+        {/* Standard Experiments */}
         {!isBandit && (isNewExperiment || duplicate)
           ? ["Overview", "Traffic", "Targeting", "Metrics"].map((p, i) => {
               // skip, custom overview page above
@@ -1146,6 +1203,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             })
           : null}
 
+        {/* Bandit Experiments */}
         {isBandit && (isNewExperiment || duplicate)
           ? ["Overview", "Traffic", "Targeting", "Metrics"].map((p, i) => {
               // skip, custom overview page above
@@ -1216,6 +1274,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                           v.map((v) => v.weight),
                         );
                       }}
+                      disableBanditConversionWindow={
+                        disableBanditConversionWindow
+                      }
+                      setDisableBanditConversionWindow={
+                        setDisableBanditConversionWindow
+                      }
                     />
                   </div>
                 </Page>
@@ -1223,6 +1287,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             })
           : null}
 
+        {/* Imported Experiments */}
         {!(isNewExperiment || duplicate) ? (
           <Page display="Targeting">
             <div>
@@ -1230,6 +1295,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 <>
                   <div className="d-flex" style={{ gap: "2rem" }}>
                     <SelectField
+                      withRadixThemedPortal
                       containerClassName="flex-1"
                       label="Assign variation based on attribute"
                       labelClassName="font-weight-bold"
@@ -1238,11 +1304,25 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                         .map((s) => ({
                           label: s.property,
                           value: s.property,
+                          description: s.description,
+                          tags: s.tags,
+                          datatype: s.datatype,
+                          hashAttribute: s.hashAttribute,
                         }))}
                       sort={false}
                       value={form.watch("hashAttribute") || ""}
                       onChange={(v) => {
                         form.setValue("hashAttribute", v);
+                      }}
+                      formatOptionLabel={(o, meta) => {
+                        return (
+                          <AttributeOptionWithTooltip
+                            option={o as AttributeOptionForTooltip}
+                            context={meta.context}
+                          >
+                            {o.label}
+                          </AttributeOptionWithTooltip>
+                        );
                       }}
                       helpText={
                         "Will be hashed together with the seed (UUID) to determine which variation to assign"

@@ -2,7 +2,13 @@ import Link from "next/link";
 import { useState } from "react";
 import clsx from "clsx";
 import { useRouter } from "next/router";
-import { BsFlag, BsClipboardCheck, BsCodeSlash, BsHouse } from "react-icons/bs";
+import {
+  BsFlag,
+  BsClipboardCheck,
+  BsCodeSlash,
+  BsHouse,
+  BsSearch,
+} from "react-icons/bs";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Flex } from "@radix-ui/themes";
 import { getGrowthBookBuild } from "@/services/env";
@@ -90,15 +96,27 @@ const navlinks: SidebarLinkProps[] = [
   },
   {
     name: "Product Analytics",
-    href: "/product-analytics/dashboards",
-    path: /^(product-analytics\/dashboards)/,
+    href: "/product-analytics/explore",
+    path: /^(product-analytics|sql-explorer)/,
     Icon: GBProductAnalytics,
-    filter: ({ gb }) => !!gb?.isOn("general-dashboards"),
+    subLinks: [
+      {
+        name: "Explore",
+        href: "/product-analytics/explore",
+        path: /^product-analytics\/explore(\/|$)/,
+        beta: true,
+      },
+      {
+        name: "Dashboards",
+        href: "/product-analytics/dashboards",
+        path: /^product-analytics\/dashboards/,
+      },
+    ],
   },
   {
     name: "Metrics and Data",
     href: "/metrics",
-    path: /^(metric\/|metrics|segment|dimension|datasources|fact-|metric-group|sql-explorer)/,
+    path: /^(metric\/|metrics|segment|dimension|datasources|fact-|metric-group)/,
     autoClose: true,
     Icon: GBDatabase,
     subLinks: [
@@ -127,12 +145,6 @@ const navlinks: SidebarLinkProps[] = [
         name: "Data Sources",
         href: "/datasources",
         path: /^datasources/,
-      },
-      {
-        name: "SQL Explorer",
-        href: "/sql-explorer",
-        path: /^sql-explorer/,
-        filter: ({ gb }) => !!gb?.isOn("sql-explorer"),
       },
     ],
   },
@@ -578,6 +590,23 @@ const Layout = (): React.ReactElement => {
                       />
                     </svg>
                   </a>
+                </li>
+                <li>
+                  <button
+                    className={styles.searchTrigger}
+                    onClick={() => {
+                      document.dispatchEvent(new Event("open-command-palette"));
+                    }}
+                  >
+                    <BsSearch size={13} />
+                    <span className={styles.searchTriggerLabel}>Search</span>
+                    <span className={styles.searchTriggerKbd}>
+                      {typeof navigator !== "undefined" &&
+                      /Mac|iPhone|iPad/.test(navigator.userAgent)
+                        ? "\u2318 K"
+                        : "Ctrl+K"}
+                    </span>
+                  </button>
                 </li>
                 <ProjectSelector />
                 {navlinks.map((v, i) => (

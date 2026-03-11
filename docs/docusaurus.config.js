@@ -111,13 +111,13 @@ const config = {
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     {
-      announcementBar: {
-        id: "announcement-bar",
-        content: `<p style="margin: 0;">Office Hours | GrowthBook 4.3: Faster Experiments, Deeper Insights. <a href="https://us06web.zoom.us/webinar/register/8217678192715/WN_HOgWam-wQ9KPADnH7sE0qA" target="_blank">Register Now →</a></p>`,
-        backgroundColor: "var(--violet-a3)",
-        textColor: "var(--violet-a11)",
-        isCloseable: true,
-      },
+      // announcementBar: {
+      //   id: "announcement-bar",
+      //   content: `<p style="margin: 0;">Webinar: Ronny Kohavi on Designing Experiments for Long-Term Growth. <a href="https://us06web.zoom.us/webinar/register/5017695505972/WN_1jSNg4gBS8i8XfyflDbe5w" target="_blank">Register Now →</a></p>`,
+      //   backgroundColor: "var(--violet-a3)",
+      //   textColor: "var(--violet-a11)",
+      //   isCloseable: true,
+      // },
       navbar: {
         //hideOnScroll: true,
         //title: 'GrowthBook Docs',
@@ -260,6 +260,13 @@ const config = {
 
         //... other Algolia params
       },
+      zoom: {
+        selector: ".markdown img:not(.no-zoom)",
+        background: {
+          light: "hsl(0 0% 100% / 0.75)",
+          dark: "hsl(0 0% 0% / 0.75)",
+        },
+      },
     },
   plugins: [
     "docusaurus-plugin-sass",
@@ -272,6 +279,7 @@ const config = {
         },
       },
     ],
+    "docusaurus-plugin-image-zoom",
   ],
 
   stylesheets: [

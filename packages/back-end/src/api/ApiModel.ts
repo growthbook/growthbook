@@ -10,6 +10,7 @@ import {
   createApiRequestHandler,
 } from "back-end/src/util/handler";
 import { MetricGroupModel } from "back-end/src/models/MetricGroupModel";
+import { TeamModel } from "back-end/src/models/TeamModel";
 import {
   CustomApiHandler,
   CrudAction,
@@ -22,6 +23,7 @@ export const API_MODELS: ModelClass[] = [
   DashboardModel,
   CustomFieldModel,
   MetricGroupModel,
+  TeamModel,
 ];
 
 export type ApiBaseSchema = typeof apiBaseSchema;

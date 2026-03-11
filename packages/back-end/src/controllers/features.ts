@@ -3,6 +3,10 @@ import { evaluateFeatures } from "@growthbook/proxy-eval";
 import { cloneDeep, isEqual, omit } from "lodash";
 import { v4 as uuidv4 } from "uuid";
 import {
+  SDKConnectionInterface,
+  SDKLanguage,
+} from "shared/types/sdk-connection";
+import {
   autoMerge,
   filterEnvironmentsByFeature,
   filterProjectsByEnvironmentWithNull,
@@ -12,6 +16,10 @@ import {
   resetReviewOnChange,
   getAffectedEnvsForExperiment,
   getDefaultPrerequisiteCondition,
+  getDependentExperiments,
+  getDependentFeatures,
+  isFeatureStale,
+  IsFeatureStaleResult,
 } from "shared/util";
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
@@ -22,6 +30,7 @@ import {
   SafeRolloutInterface,
   HoldoutInterface,
   SafeRolloutRule,
+  ACTIVE_DRAFT_STATUSES,
 } from "shared/validators";
 import { FeatureUsageLookback } from "shared/types/integrations";
 import {
@@ -36,7 +45,6 @@ import {
   FeatureUsageDataPoint,
 } from "shared/types/feature";
 import { FeatureUsageRecords } from "shared/types/realtime";
-import { Environment } from "shared/types/organization";
 import {
   EventUserForResponseLocals,
   EventUserLoggedIn,
@@ -71,6 +79,7 @@ import {
   getFeaturesByIds,
   getFeatureMetaInfoById,
   getFeatureMetaInfoByIds,
+  getFeatureEnvStatus,
   hasArchivedFeatures,
   migrateDraft,
   publishRevision,
@@ -86,10 +95,15 @@ import {
   arrayMove,
   evaluateAllFeatures,
   evaluateFeature,
+  FeatureDefinitionSDKPayload,
   generateRuleId,
   getFeatureDefinitions,
   getSavedGroupMap,
 } from "back-end/src/services/features";
+import {
+  getSDKPayloadCacheLocation,
+  formatLegacyCacheKey,
+} from "back-end/src/models/SdkConnectionCacheModel";
 import {
   auditDetailsCreate,
   auditDetailsDelete,
@@ -100,8 +114,10 @@ import {
   createInitialRevision,
   createRevision,
   discardRevision,
+  getActiveDraftStates,
   getMinimalRevisions,
   getRevision,
+  getRevisionsByVersions,
   getLatestRevisions,
   getRevisionsByStatus,
   hasDraft,
@@ -125,7 +141,6 @@ import {
   CACHE_CONTROL_STALE_WHILE_REVALIDATE,
   FASTLY_SERVICE_ID,
 } from "back-end/src/util/secrets";
-import { upsertWatch } from "back-end/src/models/WatchModel";
 import { getSurrogateKeysFromEnvironments } from "back-end/src/util/cdn.util";
 import {
   addLinkedFeatureToExperiment,
@@ -133,6 +148,7 @@ import {
   getExperimentById,
   getExperimentsByIds,
   getExperimentsByTrackingKeys,
+  getAllExperiments,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
 import { ApiReqContext } from "back-end/types/api";
@@ -143,26 +159,37 @@ import { getChangesToStartExperiment } from "back-end/src/services/experiments";
 import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { UnrecoverableApiError } from "back-end/src/util/errors";
+import {
+  shouldValidateCustomFieldsOnUpdate,
+  validateCustomFieldsForSection,
+} from "back-end/src/util/custom-fields";
+
+export type SDKPayloadParams = Pick<
+  SDKConnectionInterface,
+  | "key"
+  | "environment"
+  | "projects"
+  | "encryptPayload"
+  | "encryptionKey"
+  | "sdkVersion"
+  | "includeVisualExperiments"
+  | "includeDraftExperiments"
+  | "includeExperimentNames"
+  | "includeRedirectExperiments"
+  | "includeRuleIds"
+  | "hashSecureAttributes"
+  | "savedGroupReferencesEnabled"
+  | "remoteEvalEnabled"
+> &
+  Partial<Pick<SDKConnectionInterface, "organization">> & {
+    // Extend languages to allow "legacy" for old API keys
+    languages: SDKLanguage[] | ["legacy"];
+  };
 
 export async function getPayloadParamsFromApiKey(
   key: string,
   req: Request,
-): Promise<{
-  organization: string;
-  capabilities: SDKCapability[];
-  projects: string[];
-  environment: string;
-  encrypted: boolean;
-  encryptionKey?: string;
-  includeVisualExperiments?: boolean;
-  includeDraftExperiments?: boolean;
-  includeExperimentNames?: boolean;
-  includeRedirectExperiments?: boolean;
-  includeRuleIds?: boolean;
-  hashSecureAttributes?: boolean;
-  remoteEvalEnabled?: boolean;
-  savedGroupReferencesEnabled?: boolean;
-}> {
+): Promise<SDKPayloadParams> {
   // SDK Connection key
   if (key.match(/^sdk-/)) {
     const connection = await findSDKConnectionByKey(key);
@@ -180,11 +207,11 @@ export async function getPayloadParamsFromApiKey(
     }
 
     return {
+      key: connection.key,
       organization: connection.organization,
-      capabilities: getConnectionSDKCapabilities(connection),
       environment: connection.environment,
       projects: connection.projects,
-      encrypted: connection.encryptPayload,
+      encryptPayload: connection.encryptPayload,
       encryptionKey: connection.encryptionKey,
       includeVisualExperiments: connection.includeVisualExperiments,
       includeDraftExperiments: connection.includeDraftExperiments,
@@ -194,6 +221,8 @@ export async function getPayloadParamsFromApiKey(
       hashSecureAttributes: connection.hashSecureAttributes,
       remoteEvalEnabled: connection.remoteEvalEnabled,
       savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
+      languages: connection.languages,
+      sdkVersion: connection.sdkVersion,
     };
   }
   // Old, legacy API Key
@@ -224,70 +253,108 @@ export async function getPayloadParamsFromApiKey(
       projectFilter = project;
     }
 
+    // Synthesize a legacy cache key in lieu of an SDK connection key
+    const cacheKey = formatLegacyCacheKey({
+      apiKey: key,
+      environment,
+      project: projectFilter,
+    });
+
     return {
+      key: cacheKey,
       organization,
-      capabilities: ["bucketingV2"],
       environment: environment || "production",
       projects: projectFilter ? [projectFilter] : [],
-      encrypted: !!encryptSDK,
-      encryptionKey,
+      encryptPayload: !!encryptSDK,
+      encryptionKey: encryptionKey || "",
+      languages: ["legacy"], // "legacy" marker for computing basic capabilities (bucketingV2)
+      sdkVersion: "0.0.0",
     };
   }
 }
 
-export async function getFeatureDefinitionsFilteredByEnvironment({
+// Get feature definitions with cache-first strategy.
+// Falls back to JIT generation on cache miss/corruption, with write-back to populate cache.
+// Accepts: SDKPayloadParams - either a full SDKConnectionInterface object or a subset via API key lookup.
+export async function getFeatureDefinitionsWithCache({
   context,
-  projects,
-  environmentDoc,
-  capabilities,
-  encrypted,
-  encryptionKey,
-  includeVisualExperiments,
-  includeDraftExperiments,
-  includeExperimentNames,
-  includeRedirectExperiments,
-  includeRuleIds,
-  hashSecureAttributes,
-  savedGroupReferencesEnabled,
-  environment,
+  params,
 }: {
   context: ReqContext | ApiReqContext;
-  projects: string[];
-  environmentDoc: Environment | undefined;
-  capabilities: SDKCapability[];
-  encrypted: boolean;
-  encryptionKey: string | undefined;
-  includeVisualExperiments: boolean | undefined;
-  includeDraftExperiments: boolean | undefined;
-  includeExperimentNames: boolean | undefined;
-  includeRedirectExperiments: boolean | undefined;
-  includeRuleIds: boolean | undefined;
-  hashSecureAttributes: boolean | undefined;
-  savedGroupReferencesEnabled: boolean | undefined;
-  environment: string;
-}) {
-  const filteredProjects = filterProjectsByEnvironmentWithNull(
-    projects,
-    environmentDoc,
-    true,
-  );
+  params: SDKPayloadParams;
+}): Promise<FeatureDefinitionSDKPayload> {
+  let defs: FeatureDefinitionSDKPayload | undefined;
+  const storageLocation = getSDKPayloadCacheLocation();
 
-  const defs = await getFeatureDefinitions({
-    context,
-    capabilities,
-    environment,
-    projects: filteredProjects,
-    encryptionKey: encrypted ? encryptionKey : "",
-    includeVisualExperiments,
-    includeDraftExperiments,
-    includeExperimentNames,
-    includeRedirectExperiments,
-    includeRuleIds,
-    hashSecureAttributes,
-    savedGroupReferencesEnabled:
-      savedGroupReferencesEnabled &&
-      capabilities.includes("savedGroupReferences"),
-  });
+  // Try cache first
+  if (storageLocation !== "none") {
+    const cached = await context.models.sdkConnectionCache.getById(params.key);
+    if (cached) {
+      try {
+        defs = JSON.parse(cached.contents);
+      } catch (e) {
+        logger.warn(e, "Failed to parse cached SDK payload, regenerating");
+      }
+    }
+  }
+
+  // Generate if cache disabled, cache miss, or corrupt cache
+  if (!defs) {
+    // Derive capabilities from languages/sdkVersion (or hardcode for legacy API keys)
+    const capabilities =
+      params.languages[0] === "legacy"
+        ? ["bucketingV2" as SDKCapability] // hardcoded for legacy API keys
+        : getConnectionSDKCapabilities({
+            languages: params.languages as SDKLanguage[],
+            sdkVersion: params.sdkVersion,
+          });
+
+    const environmentDoc = context.org?.settings?.environments?.find(
+      (e) => e.id === params.environment,
+    );
+    const filteredProjects = filterProjectsByEnvironmentWithNull(
+      params.projects,
+      environmentDoc,
+      true,
+    );
+
+    defs = await getFeatureDefinitions({
+      context,
+      capabilities,
+      environment: params.environment,
+      projects: filteredProjects,
+      encryptionKey: params.encryptPayload ? params.encryptionKey : undefined,
+      includeVisualExperiments: params.includeVisualExperiments,
+      includeDraftExperiments: params.includeDraftExperiments,
+      includeExperimentNames: params.includeExperimentNames,
+      includeRedirectExperiments: params.includeRedirectExperiments,
+      includeRuleIds: params.includeRuleIds,
+      hashSecureAttributes: params.hashSecureAttributes,
+      savedGroupReferencesEnabled:
+        params.savedGroupReferencesEnabled !== undefined
+          ? params.savedGroupReferencesEnabled &&
+            capabilities.includes("savedGroupReferences")
+          : undefined,
+    });
+
+    // Write back to cache to populate it for future reads (fire and forget)
+    if (storageLocation !== "none") {
+      const rawStack = new Error().stack || "";
+      const stackTrace = rawStack.replace(/^Error.*?\n/, "");
+
+      context.models.sdkConnectionCache
+        .upsert(params.key, JSON.stringify(defs), {
+          dateUpdated: new Date(),
+          event: "cache-miss",
+          model: "sdk-connection",
+          stack: stackTrace,
+          connection: params as unknown as Record<string, unknown>,
+        })
+        .catch((e) => {
+          logger.warn(e, "Failed to write JIT generated payload to cache");
+        });
+    }
+  }
 
   return defs;
 }
@@ -300,49 +367,23 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       throw new UnrecoverableApiError("Missing API key in request");
     }
 
-    const {
-      organization,
-      capabilities,
-      environment,
-      encrypted,
-      projects,
-      encryptionKey,
-      includeVisualExperiments,
-      includeDraftExperiments,
-      includeExperimentNames,
-      includeRedirectExperiments,
-      includeRuleIds,
-      hashSecureAttributes,
-      remoteEvalEnabled,
-      savedGroupReferencesEnabled,
-    } = await getPayloadParamsFromApiKey(key, req);
+    const params = await getPayloadParamsFromApiKey(key, req);
 
-    const context = await getContextForAgendaJobByOrgId(organization);
+    if (!params.organization) {
+      throw new UnrecoverableApiError("Organization not found for API key");
+    }
 
-    if (remoteEvalEnabled) {
+    const context = await getContextForAgendaJobByOrgId(params.organization);
+
+    if (params.remoteEvalEnabled) {
       throw new UnrecoverableApiError(
         "Remote evaluation required for this connection",
       );
     }
 
-    const environmentDoc = context.org?.settings?.environments?.find(
-      (e) => e.id === environment,
-    );
-    const defs = await getFeatureDefinitionsFilteredByEnvironment({
+    const defs = await getFeatureDefinitionsWithCache({
       context,
-      projects,
-      environmentDoc,
-      capabilities,
-      encrypted,
-      encryptionKey,
-      includeVisualExperiments,
-      includeDraftExperiments,
-      includeExperimentNames,
-      includeRedirectExperiments,
-      includeRuleIds,
-      hashSecureAttributes,
-      savedGroupReferencesEnabled,
-      environment,
+      params,
     });
 
     // The default is Cache for 30 seconds, serve stale up to 1 hour (10 hours if origin is down)
@@ -355,9 +396,11 @@ export async function getFeaturesPublic(req: Request, res: Response) {
     if (FASTLY_SERVICE_ID) {
       // Purge by org, API Key, or payload contents
       const surrogateKeys = [
-        organization,
+        params.organization,
         key,
-        ...getSurrogateKeysFromEnvironments(organization, [environment]),
+        ...getSurrogateKeysFromEnvironments(params.organization, [
+          params.environment,
+        ]),
       ];
       res.set("Surrogate-Key", surrogateKeys.join(" "));
     }
@@ -393,38 +436,19 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
       throw new UnrecoverableApiError("Missing API key in request");
     }
 
-    const {
-      organization,
-      capabilities,
-      environment,
-      encrypted,
-      projects,
-      encryptionKey,
-      includeVisualExperiments,
-      includeDraftExperiments,
-      includeExperimentNames,
-      includeRedirectExperiments,
-      includeRuleIds,
-      hashSecureAttributes,
-      remoteEvalEnabled,
-    } = await getPayloadParamsFromApiKey(key, req);
+    const params = await getPayloadParamsFromApiKey(key, req);
 
-    const context = await getContextForAgendaJobByOrgId(organization);
+    if (!params.organization) {
+      throw new UnrecoverableApiError("Organization not found for API key");
+    }
 
-    if (!remoteEvalEnabled) {
+    const context = await getContextForAgendaJobByOrgId(params.organization);
+
+    if (!params.remoteEvalEnabled) {
       throw new UnrecoverableApiError(
         "Remote evaluation disabled for this connection",
       );
     }
-
-    const environmentDoc = context.org?.settings?.environments?.find(
-      (e) => e.id === environment,
-    );
-    const filteredProjects = filterProjectsByEnvironmentWithNull(
-      projects,
-      environmentDoc,
-      true,
-    );
 
     // Evaluate features using provided attributes
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -437,18 +461,9 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
     );
     const url = req.body?.url;
 
-    const defs = await getFeatureDefinitions({
+    const defs = await getFeatureDefinitionsWithCache({
       context,
-      capabilities,
-      environment,
-      projects: filteredProjects,
-      encryptionKey: encrypted ? encryptionKey : "",
-      includeVisualExperiments,
-      includeDraftExperiments,
-      includeExperimentNames,
-      includeRedirectExperiments,
-      includeRuleIds,
-      hashSecureAttributes,
+      params,
     });
 
     // This endpoint should never be cached
@@ -483,8 +498,9 @@ export async function postFeatures(
   >,
 ) {
   const context = getContextFromReq(req);
-  const { org, userId, userName } = context;
-  const { id, environmentSettings, holdout, ...otherProps } = req.body;
+  const { org, userId } = context;
+  const { id, environmentSettings, holdout, customFields, ...otherProps } =
+    req.body;
 
   if (
     !context.permissions.canCreateFeature(req.body) ||
@@ -524,6 +540,13 @@ export async function postFeatures(
     await context.models.projects.ensureProjectsExist([otherProps.project]);
   }
 
+  await validateCustomFieldsForSection({
+    customFieldValues: customFields,
+    customFieldsModel: context.models.customFields,
+    section: "feature",
+    project: otherProps.project || undefined,
+  });
+
   const existing = await getFeature(context, id);
   if (existing) {
     throw new Error(
@@ -534,10 +557,11 @@ export async function postFeatures(
   const feature: FeatureInterface = {
     defaultValue: "",
     valueType: "boolean",
-    owner: userName,
+    owner: userId,
     description: "",
     project: "",
     environmentSettings: {},
+    customFields,
     ...otherProps,
     dateCreated: new Date(),
     dateUpdated: new Date(),
@@ -582,9 +606,8 @@ export async function postFeatures(
   addIdsToRules(feature.environmentSettings, feature.id);
 
   await createFeature(context, feature);
-  await upsertWatch({
+  await context.models.watch.upsertWatch({
     userId,
-    organization: org.id,
     item: feature.id,
     type: "features",
   });
@@ -1468,17 +1491,26 @@ export async function postFeatureSync(
   }
 
   const updates: Partial<FeatureInterface> = {
-    defaultValue: data.defaultValue ?? feature.defaultValue,
     description: data.description ?? feature.description,
     owner: data.owner ?? feature.owner,
     tags: data.tags ?? feature.tags,
   };
+  const updatesInRevision: Partial<FeatureInterface> = {};
+
   const changes: Pick<FeatureRevisionInterface, "rules" | "defaultValue"> = {
     rules: {},
     defaultValue: data.defaultValue ?? feature.defaultValue,
   };
 
-  let needsNewRevision = !isEqual(feature.defaultValue, updates.defaultValue);
+  let needsNewRevision = false;
+
+  if (
+    data.defaultValue != null &&
+    !isEqual(feature.defaultValue, data.defaultValue)
+  ) {
+    updatesInRevision.defaultValue = data.defaultValue;
+    needsNewRevision = true;
+  }
 
   environments.forEach((env) => {
     // Revision Changes
@@ -1488,8 +1520,10 @@ export async function postFeatureSync(
       [];
 
     // Feature updates
-    updates.environmentSettings = updates.environmentSettings || {};
-    updates.environmentSettings[env] = updates.environmentSettings[env] || {
+    updatesInRevision.environmentSettings =
+      updatesInRevision.environmentSettings || {};
+    updatesInRevision.environmentSettings[env] = updatesInRevision
+      .environmentSettings[env] || {
       enabled: feature.environmentSettings?.[env]?.enabled ?? false,
       rules: changes.rules[env],
     };
@@ -1518,7 +1552,15 @@ export async function postFeatureSync(
       org,
     });
 
-    updates.version = revision.version;
+    // Approval flows not required, was published immediately
+    if (revision.status === "published") {
+      updates.version = revision.version;
+      Object.assign(updates, updatesInRevision);
+    }
+    // Approval flows required
+    else {
+      updates.hasDrafts = true;
+    }
   }
 
   const updatedFeature = await updateFeature(context, feature, updates);
@@ -2199,16 +2241,16 @@ export async function postFeatureMoveRule(
   });
 }
 export async function getDraftandReviewRevisions(
-  req: AuthRequest,
+  req: AuthRequest<null, Record<string, never>, { sparse?: string }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
-  const revisions = await getRevisionsByStatus(context, [
-    "draft",
-    "approved",
-    "changes-requested",
-    "pending-review",
-  ]);
+  const sparse = req.query.sparse === "true";
+  const revisions = await getRevisionsByStatus(
+    context,
+    ["draft", "approved", "changes-requested", "pending-review"],
+    { sparse },
+  );
 
   const featureIds = Array.from(new Set(revisions.map((r) => r.featureId)));
   const featureMeta = await getFeatureMetaInfoByIds(context, featureIds);
@@ -2355,6 +2397,23 @@ export async function putFeature(
     ).length > 0
   ) {
     throw new Error("Invalid update fields for feature");
+  }
+
+  // FIXME: We skip validation because project is updated in a different place than where
+  // we define custom fields, and that would prevent the user from doing either update.
+  // Ideally we validate custom fields everytime, but we need to update our UI to support that.
+  if (
+    shouldValidateCustomFieldsOnUpdate({
+      existingCustomFieldValues: feature.customFields,
+      updatedCustomFieldValues: updates.customFields,
+    })
+  ) {
+    await validateCustomFieldsForSection({
+      customFieldValues: updates.customFields,
+      customFieldsModel: context.models.customFields,
+      section: "feature",
+      project: "project" in updates ? updates.project : feature.project,
+    });
   }
 
   const updatedFeature = await updateFeature(context, feature, updates);
@@ -2708,6 +2767,43 @@ export async function getFeatures(
     features,
     hasArchived,
   });
+}
+
+export async function getFeatureRevisions(
+  req: AuthRequest<null, { id: string }, { versions?: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const { id } = req.params;
+
+  const feature = await getFeature(context, id);
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  const versionsParam = req.query.versions ?? "";
+  const versions = versionsParam
+    .split(",")
+    .map((v) => parseInt(v.trim(), 10))
+    .filter((v) => !isNaN(v) && v > 0);
+
+  if (!versions.length) {
+    return res.status(400).json({
+      status: 400,
+      message:
+        "versions query param is required (comma-separated list of version numbers)",
+    });
+  }
+
+  const revisions = await getRevisionsByVersions({
+    context,
+    organization: org.id,
+    featureId: id,
+    versions,
+  });
+
+  return res.status(200).json({ status: 200, revisions });
 }
 
 export async function getRevisionLog(
@@ -3977,23 +4073,206 @@ function evalDeterministicPrereqValueBackend(
 }
 
 // Return lightweight feature metadata for UI components
-export async function getFeatureNames(
-  req: AuthRequest<null, null, { defaultValue?: string }>,
+export async function getFeatureMetaInfo(
+  req: AuthRequest<
+    null,
+    null,
+    { defaultValue?: string; project?: string; ids?: string }
+  >,
+  res: Response<
+    { status: 200; features: FeatureMetaInfo[] },
+    EventUserForResponseLocals
+  >,
+) {
+  const context = getContextFromReq(req);
+  const { defaultValue, project, ids } = req.query;
+
+  const features = await getFeatureMetaInfoById(context, {
+    includeDefaultValue: defaultValue === "1",
+    project: project || undefined,
+    ids: ids ? ids.split(",").filter(Boolean) : undefined,
+  });
+
+  res.status(200).json({ status: 200, features });
+}
+
+export async function getFeatureDraftStates(
+  req: AuthRequest<null, Record<string, never>, { ids?: string }>,
   res: Response<
     {
       status: 200;
-      features: FeatureMetaInfo[];
+      features: Record<string, { status: string; version: number }>;
     },
     EventUserForResponseLocals
   >,
 ) {
   const context = getContextFromReq(req);
-  const includeDefaultValue = req.query.defaultValue === "1";
+  const featureIds = req.query.ids
+    ? req.query.ids.split(",").filter(Boolean)
+    : undefined;
+  const features = await getActiveDraftStates(context.org.id, featureIds);
+  res.status(200).json({ status: 200, features });
+}
 
-  const features = await getFeatureMetaInfoById(context, includeDefaultValue);
+// TODO: consider adding a force-recompute option that writes results back
+export async function getFeaturesStaleStates(
+  req: AuthRequest<null, Record<string, never>, { ids?: string }>,
+  res: Response<
+    {
+      status: 200;
+      features: Record<
+        string,
+        IsFeatureStaleResult & { neverStale: boolean; computedAt: string }
+      >;
+    },
+    EventUserForResponseLocals
+  >,
+) {
+  const context = getContextFromReq(req);
+  const featureIds = req.query.ids
+    ? req.query.ids.split(",").filter(Boolean)
+    : undefined;
 
-  res.status(200).json({
-    status: 200,
-    features,
-  });
+  const [allFeatures, allExperiments, draftRevisions] = await Promise.all([
+    getAllFeatures(context, {}),
+    getAllExperiments(context, { includeArchived: false }),
+    getRevisionsByStatus(context as ReqContext, [...ACTIVE_DRAFT_STATUSES], {
+      sparse: true,
+    }),
+  ]);
+
+  // Map most-recent draft date per feature
+  const mostRecentDraftDateByFeatureId = new Map<string, Date>();
+  for (const rev of draftRevisions) {
+    const existing = mostRecentDraftDateByFeatureId.get(rev.featureId);
+    const revDate = new Date(rev.dateUpdated ?? 0);
+    if (!existing || revDate > existing) {
+      mostRecentDraftDateByFeatureId.set(rev.featureId, revDate);
+    }
+  }
+
+  const targetFeatures = featureIds
+    ? allFeatures.filter((f) => featureIds.includes(f.id))
+    : allFeatures;
+
+  const computedAt = new Date().toISOString();
+  const result: Record<
+    string,
+    IsFeatureStaleResult & { neverStale: boolean; computedAt: string }
+  > = {};
+
+  for (const feature of targetFeatures) {
+    const applicableEnvIds = getEnvironments(context.org)
+      .filter(
+        (env) =>
+          !feature.project ||
+          !env.projects?.length ||
+          env.projects.includes(feature.project as string),
+      )
+      .map((env) => env.id);
+
+    const staleResult = isFeatureStale({
+      feature,
+      features: allFeatures,
+      experiments: allExperiments as unknown as Parameters<
+        typeof isFeatureStale
+      >[0]["experiments"],
+      environments: applicableEnvIds,
+      mostRecentDraftDate:
+        mostRecentDraftDateByFeatureId.get(feature.id) ?? null,
+    });
+
+    result[feature.id] = {
+      ...staleResult,
+      neverStale: feature.neverStale ?? false,
+      computedAt,
+    };
+  }
+
+  res.status(200).json({ status: 200, features: result });
+}
+
+export async function getFeaturesStatus(
+  req: AuthRequest<null, Record<string, never>, { ids?: string }>,
+  res: Response<
+    {
+      status: 200;
+      features: Record<string, Record<string, boolean>>;
+    },
+    EventUserForResponseLocals
+  >,
+) {
+  const context = getContextFromReq(req);
+  const featureIds = req.query.ids
+    ? req.query.ids.split(",").filter(Boolean)
+    : undefined;
+
+  const raw = await getFeatureEnvStatus(context, featureIds);
+
+  const features: Record<string, Record<string, boolean>> = {};
+  for (const f of raw) {
+    const envMap: Record<string, boolean> = {};
+    for (const [envId, settings] of Object.entries(
+      f.environmentSettings || {},
+    )) {
+      envMap[envId] = settings.enabled ?? false;
+    }
+    features[f.id] = envMap;
+  }
+
+  res.status(200).json({ status: 200, features });
+}
+
+export async function getFeaturesDependents(
+  req: AuthRequest<null, Record<string, never>, { ids?: string }>,
+  res: Response<
+    {
+      status: 200;
+      dependents: Record<
+        string,
+        { features: string[]; experiments: { id: string; name: string }[] }
+      >;
+    },
+    EventUserForResponseLocals
+  >,
+) {
+  const context = getContextFromReq(req);
+  const featureIds = req.query.ids
+    ? req.query.ids.split(",").filter(Boolean)
+    : [];
+
+  if (!featureIds.length) {
+    return res.status(200).json({ status: 200, dependents: {} });
+  }
+
+  const allEnvIds = getEnvironments(context.org).map((e) => e.id);
+
+  const [allFeatures, allExperiments] = await Promise.all([
+    getAllFeatures(context, { includeArchived: true }),
+    getAllExperiments(context, { includeArchived: true }),
+  ]);
+
+  const dependents: Record<
+    string,
+    { features: string[]; experiments: { id: string; name: string }[] }
+  > = {};
+
+  for (const featureId of featureIds) {
+    const feature = allFeatures.find((f) => f.id === featureId);
+    if (!feature) {
+      dependents[featureId] = { features: [], experiments: [] };
+      continue;
+    }
+    dependents[featureId] = {
+      features: getDependentFeatures(feature, allFeatures, allEnvIds),
+      experiments: getDependentExperiments(
+        feature,
+        allExperiments as unknown as Parameters<
+          typeof getDependentExperiments
+        >[1],
+      ).map((e) => ({ id: e.id, name: e.name })),
+    };
+  }
+
+  return res.status(200).json({ status: 200, dependents });
 }

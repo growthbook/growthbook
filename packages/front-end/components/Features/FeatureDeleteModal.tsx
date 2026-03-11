@@ -1,9 +1,6 @@
-import { useMemo } from "react";
 import { FeatureInterface } from "shared/types/feature";
-import { getDependentExperiments, getDependentFeatures } from "shared/util";
 import { Text } from "@radix-ui/themes";
-import { useFeaturesList } from "@/services/features";
-import { useExperiments } from "@/hooks/useExperiments";
+import { useFeatureDependents } from "@/hooks/useFeatureDependents";
 import Callout from "@/ui/Callout";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Modal from "@/components/Modal";
@@ -13,31 +10,16 @@ interface FeatureDeleteModalProps {
   feature: FeatureInterface;
   close: () => void;
   onDelete: () => Promise<void>;
-  environments: string[];
 }
 
 export default function FeatureDeleteModal({
   feature,
   close,
   onDelete,
-  environments,
 }: FeatureDeleteModalProps) {
-  const { features, loading: featuresLoading } = useFeaturesList({
-    useCurrentProject: false,
-  });
-  const { experiments, loading: experimentsLoading } = useExperiments();
-
-  const dependentFeatures = useMemo(() => {
-    if (featuresLoading || !features) return [];
-    return getDependentFeatures(feature, features, environments);
-  }, [feature, features, environments, featuresLoading]);
-
-  const dependentExperiments = useMemo(() => {
-    if (experimentsLoading || !experiments) return [];
-    return getDependentExperiments(feature, experiments);
-  }, [feature, experiments, experimentsLoading]);
-
-  const dependents = dependentFeatures.length + dependentExperiments.length;
+  const { dependents, loading } = useFeatureDependents(feature.id);
+  const totalDependents =
+    (dependents?.features.length ?? 0) + (dependents?.experiments.length ?? 0);
 
   return (
     <Modal
@@ -51,14 +33,14 @@ export default function FeatureDeleteModal({
         await onDelete();
         close();
       }}
-      ctaEnabled={!featuresLoading && !experimentsLoading && dependents === 0}
+      ctaEnabled={!loading && totalDependents === 0}
       useRadixButton={true}
     >
-      {featuresLoading || experimentsLoading ? (
+      {loading ? (
         <Text color="gray">
           <LoadingSpinner /> Checking feature dependencies...
         </Text>
-      ) : dependents > 0 ? (
+      ) : totalDependents > 0 ? (
         <>
           <Callout status="error" mb="4">
             <Text as="p" weight="bold" mb="2">
@@ -67,12 +49,12 @@ export default function FeatureDeleteModal({
             <Text as="p" mb="0">
               Before you can delete this feature, you will need to remove any
               references to it. Check the following item
-              {dependents > 1 && "s"} below:
+              {totalDependents > 1 && "s"} below:
             </Text>
           </Callout>
           <FeatureReferencesList
-            features={dependentFeatures}
-            experiments={dependentExperiments}
+            features={dependents?.features}
+            experiments={dependents?.experiments}
           />
         </>
       ) : (

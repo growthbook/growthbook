@@ -1,12 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 type CopyToClipboardOptions = {
-  /**
-   * Optional delay to flip the success flag back to false. Useful for toggling UI elements.
-   * Pass -1 to not flip the success flag back.
-   * (default: -1)
-   */
-  timeout?: number;
+  timeout?: number; // ms before copySuccess flips back; -1 = never (default)
 };
 
 type UseCopyToClipboard = {
@@ -47,17 +42,13 @@ export const useCopyToClipboard = ({
 
   useEffect(
     function flipSuccessAfterDelay() {
-      if (timeout === -1) return;
+      if (timeout === -1 || !success) return;
 
-      if (success) {
-        const timer = window.setTimeout(() => {
-          setSuccess(false);
-        }, timeout);
+      const timer = window.setTimeout(() => {
+        setSuccess(false);
+      }, timeout);
 
-        return () => {
-          window.clearTimeout(timer);
-        };
-      }
+      return () => window.clearTimeout(timer);
     },
     [success, timeout],
   );

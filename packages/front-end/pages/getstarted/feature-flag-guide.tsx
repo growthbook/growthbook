@@ -6,7 +6,7 @@ import { Box, Separator } from "@radix-ui/themes";
 import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import useSDKConnections from "@/hooks/useSDKConnections";
-import { useFeaturesList } from "@/services/features";
+import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -17,7 +17,7 @@ import ViewSampleDataButton from "@/components/GetStarted/ViewSampleDataButton";
 const CreateFeatureFlagsGuide = (): React.ReactElement => {
   const { organization } = useUser();
   const { data: sdkConnections } = useSDKConnections();
-  const { features, loading: featuresLoading, error } = useFeaturesList();
+  const { features, loading: featuresLoading, error } = useFeatureMetaInfo();
   const { project, ready: definitionsReady } = useDefinitions();
   const { setStep, clearStep } = useGetStarted();
 

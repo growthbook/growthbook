@@ -104,9 +104,12 @@ jobs:
           docker pull ${ECR_REGISTRY}/growthbook:latest
           docker create --name temp-container ${ECR_REGISTRY}/growthbook:latest
           docker cp temp-container:/usr/local/src/app/packages/front-end/.next/static ./static
-          # This is for the sentry source maps task below.
+          # Back-end-dist and front-end-dist is for the sentry source maps task below.
           docker cp temp-container:/usr/local/src/app/packages/back-end/dist ./back-end-dist
-          docker cp temp-container:/usr/local/src/app/packages/front-end/.next ./front-end-dist
+          # Copy only server/ and static/ to front-end-dist as symlinks in .next/node_modules break docker cp
+          mkdir -p front-end-dist
+          cp -r ./static ./front-end-dist/static
+          docker cp temp-container:/usr/local/src/app/packages/front-end/.next/server ./front-end-dist/server
           docker rm temp-container
           aws s3 sync ./static s3://growthbook-cloud-static-files/_next/static
 

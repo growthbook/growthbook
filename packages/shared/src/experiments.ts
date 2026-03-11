@@ -26,8 +26,10 @@ import {
   OrganizationSettings,
 } from "shared/types/organization";
 import {
+  AttributionModel,
   ExperimentInterface,
   ExperimentInterfaceStringDates,
+  LookbackOverride,
   MetricOverride,
 } from "shared/types/experiment";
 import {
@@ -1910,4 +1912,20 @@ export function expandAllSliceMetricsInMap({
 
 export function isPrecomputedDimension(dimension: string | undefined): boolean {
   return dimension?.startsWith(PRECOMPUTED_DIMENSION_PREFIX) ?? false;
+}
+
+/**
+ * Returns the LookbackOverride only when both conditions are met:
+ *   1. attributionModel === "lookbackOverride"
+ *   2. lookbackOverride is defined
+ * Use this everywhere you need to decide whether to apply a lookback override.
+ */
+export function getEffectiveLookbackOverride(
+  attributionModel: AttributionModel | undefined,
+  lookbackOverride: LookbackOverride | undefined,
+): LookbackOverride | undefined {
+  if (attributionModel === "lookbackOverride" && lookbackOverride) {
+    return lookbackOverride;
+  }
+  return undefined;
 }

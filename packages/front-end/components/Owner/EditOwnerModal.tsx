@@ -8,8 +8,7 @@ const EditOwnerModal: FC<{
   save: (ownerName: string) => Promise<void>;
   cancel: () => void;
   mutate: () => void;
-  resourceType: React.ComponentProps<typeof SelectOwner>["resourceType"];
-}> = ({ owner, save, cancel, mutate, resourceType }) => {
+}> = ({ owner, save, cancel, mutate }) => {
   const form = useForm({
     defaultValues: {
       owner,
@@ -29,7 +28,6 @@ const EditOwnerModal: FC<{
       cta="Save"
     >
       <SelectOwner
-        resourceType={resourceType}
         value={form.watch("owner")}
         onChange={(v) => form.setValue("owner", v)}
       />

@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { cloneDeep, isEqual } from "lodash";
+import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import {
   DataSourceInterface,
   DataSourceParams,
@@ -206,7 +207,10 @@ export async function deleteDatasource(
 
     // Also delete the main events fact table
     try {
-      const ft = await getFactTable(context, "ch_events");
+      const ft = await getFactTable(
+        context,
+        MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
+      );
       if (ft) {
         await deleteFactTable(context, ft, { bypassManagedByCheck: true });
       }

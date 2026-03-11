@@ -454,6 +454,12 @@ export async function addMembersToTeam({
   await updateOrganization(organization.id, { members: updatedMembers });
 }
 
+export function getMembersOfTeam(org: OrganizationInterface, teamId: string) {
+  return org.members
+    .filter((member) => member.teams?.includes(teamId))
+    .map((m) => m.id);
+}
+
 export async function convertMemberToManagedByIdp({
   organization,
   userId,
@@ -497,6 +503,8 @@ export async function removeMembersFromTeam({
   });
 
   await updateOrganization(organization.id, { members: updatedMembers });
+  // Also update the organization reference in-memory so the team can be deleted if it's now empty
+  organization.members = updatedMembers;
 }
 
 export async function addPendingMemberToOrg({

@@ -137,6 +137,7 @@ export interface DataSourceProperties {
   dropUnitsTable?: boolean;
   hasQuantileTesting?: boolean;
   hasEfficientPercentiles?: boolean;
+  canGroupPercentileCappedMetrics?: boolean;
   hasCountDistinctHLL?: boolean;
   hasIncrementalRefresh?: boolean;
   maxColumns: number;
@@ -180,6 +181,7 @@ export interface FeatureUsageQuery {
 export interface UserIdType {
   userIdType: string;
   description?: string;
+  attributes?: string[];
 }
 
 export type DataSourceEvents = {

@@ -8,7 +8,7 @@ const BaseClass = MakeModelClass({
   schema: sqlResultChunkValidator,
   collectionName: "sqlresultchunks",
   idPrefix: "sqlres_",
-  globallyUniqueIds: true,
+  globallyUniquePrimaryKeys: true,
   additionalIndexes: [
     { fields: { organization: 1, queryId: 1, chunkNumber: 1 }, unique: true },
   ],

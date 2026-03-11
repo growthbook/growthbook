@@ -11,13 +11,13 @@ import { getOrganizationById } from "back-end/src/services/organizations";
 import { getCustomLogProps } from "back-end/src/util/logger";
 import { isApiKeyForUserInOrganization } from "back-end/src/util/api-key.util";
 import { getUserPermissions } from "back-end/src/util/organization.util";
-import { getTeamsForOrganization } from "back-end/src/models/TeamModel";
 import { getUserById } from "back-end/src/models/UserModel";
 import {
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
 import { ReqContextClass } from "back-end/src/services/context";
+import { TeamModel } from "back-end/src/models/TeamModel";
 
 export default function authenticateApiRequestMiddleware(
   req: Request & ApiRequestLocals,
@@ -111,7 +111,7 @@ export default function authenticateApiRequestMiddleware(
         throw new Error("Could not find user attached to this API key");
       }
 
-      const teams = await getTeamsForOrganization(org.id);
+      const teams = await TeamModel.dangerousGetTeamsForOrganization(org.id);
 
       const eventAudit: EventUserApiKey = {
         type: "api_key",
