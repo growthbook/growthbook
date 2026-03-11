@@ -1445,6 +1445,9 @@ export async function waitForSnapshotExecution({
     }
 
     if (snapshot.status !== "running") {
+      if (snapshot.status === "error") {
+        throw new Error(snapshot.error || "Snapshot execution failed");
+      }
       return snapshot;
     }
 

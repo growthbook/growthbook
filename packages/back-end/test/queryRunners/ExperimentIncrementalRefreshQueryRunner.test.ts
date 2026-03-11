@@ -112,7 +112,7 @@ function createMockContext(
   overrides: {
     getByExperimentId?: jest.Mock;
     upsertByExperimentId?: jest.Mock;
-    upsertByExperimentIdIfCurrentExecution?: jest.Mock;
+    updateByExperimentIdIfCurrentExecution?: jest.Mock;
   } = {},
 ): ApiReqContext {
   return {
@@ -142,8 +142,8 @@ function createMockContext(
         upsertByExperimentId:
           overrides.upsertByExperimentId ??
           jest.fn().mockResolvedValue(undefined),
-        upsertByExperimentIdIfCurrentExecution:
-          overrides.upsertByExperimentIdIfCurrentExecution ??
+        updateByExperimentIdIfCurrentExecution:
+          overrides.updateByExperimentIdIfCurrentExecution ??
           jest.fn().mockResolvedValue(true),
       },
     },
@@ -399,12 +399,12 @@ describe("ExperimentIncrementalRefreshQueryRunner", () => {
   // -----------------------------------------------------------------
   describe("execution fence", () => {
     it("passes execution id to conditional upsert in units max-timestamp onSuccess", async () => {
-      const upsertByExperimentIdIfCurrentExecution = jest
+      const updateByExperimentIdIfCurrentExecution = jest
         .fn()
         .mockResolvedValue(true);
 
       const context = createMockContext({
-        upsertByExperimentIdIfCurrentExecution,
+        updateByExperimentIdIfCurrentExecution,
       });
       const integration = createMockIntegration();
       const params = createDefaultParams({ fullRefresh: true });
@@ -426,7 +426,7 @@ describe("ExperimentIncrementalRefreshQueryRunner", () => {
 
       await maxTimestampCb!([{ max_timestamp: "2025-01-20T00:00:00Z" }]);
 
-      expect(upsertByExperimentIdIfCurrentExecution).toHaveBeenCalledWith(
+      expect(updateByExperimentIdIfCurrentExecution).toHaveBeenCalledWith(
         "exp_123",
         "snap_123",
         expect.objectContaining({
@@ -438,12 +438,12 @@ describe("ExperimentIncrementalRefreshQueryRunner", () => {
     });
 
     it("passes execution id to conditional upsert in metric-source max-timestamp onSuccess", async () => {
-      const upsertByExperimentIdIfCurrentExecution = jest
+      const updateByExperimentIdIfCurrentExecution = jest
         .fn()
         .mockResolvedValue(true);
 
       const context = createMockContext({
-        upsertByExperimentIdIfCurrentExecution,
+        updateByExperimentIdIfCurrentExecution,
       });
       const integration = createMockIntegration();
       const params = createDefaultParams({ fullRefresh: true });
@@ -471,7 +471,7 @@ describe("ExperimentIncrementalRefreshQueryRunner", () => {
 
       await metricCb!([{ max_timestamp: "2025-01-20T00:00:00Z" }]);
 
-      expect(upsertByExperimentIdIfCurrentExecution).toHaveBeenCalledWith(
+      expect(updateByExperimentIdIfCurrentExecution).toHaveBeenCalledWith(
         "exp_123",
         "snap_123",
         expect.objectContaining({
@@ -481,12 +481,12 @@ describe("ExperimentIncrementalRefreshQueryRunner", () => {
     });
 
     it("passes execution id to conditional upsert in metric-source onFailure", async () => {
-      const upsertByExperimentIdIfCurrentExecution = jest
+      const updateByExperimentIdIfCurrentExecution = jest
         .fn()
         .mockResolvedValue(true);
 
       const context = createMockContext({
-        upsertByExperimentIdIfCurrentExecution,
+        updateByExperimentIdIfCurrentExecution,
       });
       const integration = createMockIntegration();
       const params = createDefaultParams({ fullRefresh: true });
@@ -514,7 +514,7 @@ describe("ExperimentIncrementalRefreshQueryRunner", () => {
 
       await failureCb!();
 
-      expect(upsertByExperimentIdIfCurrentExecution).toHaveBeenCalledWith(
+      expect(updateByExperimentIdIfCurrentExecution).toHaveBeenCalledWith(
         "exp_123",
         "snap_123",
         expect.objectContaining({
