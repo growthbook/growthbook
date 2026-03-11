@@ -106,9 +106,9 @@ function makeContext(): ApiReqContext {
         getAll: jest.fn().mockResolvedValue([]),
       },
       incrementalRefresh: {
-        getActiveExecutionSnapshotId: jest.fn().mockResolvedValue(null),
+        getCurrentExecutionSnapshotId: jest.fn().mockResolvedValue(null),
         acquireLock: jest.fn().mockResolvedValue(true),
-        clearCurrentExecutionSnapshotId: jest.fn().mockResolvedValue(undefined),
+        releaseLock: jest.fn().mockResolvedValue(undefined),
       },
     },
   } as unknown as ApiReqContext;
@@ -377,8 +377,9 @@ describe("snapshot lifecycle", () => {
       }),
     ).rejects.toThrow("Query failed");
 
-    expect(
-      context.models.incrementalRefresh.clearCurrentExecutionSnapshotId,
-    ).toHaveBeenCalledWith(experiment.id, "snp_123");
+    expect(context.models.incrementalRefresh.releaseLock).toHaveBeenCalledWith(
+      experiment.id,
+      "snp_123",
+    );
   });
 });

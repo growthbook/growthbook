@@ -47,6 +47,7 @@ const expireOldQueries = async () => {
     const snapshot = snapshots[i];
     logger.info("Updating status of snapshot " + snapshot.id);
     updateQueryStatus(snapshot.queries, queryIds);
+    const context = await getContextForAgendaJobByOrgId(snapshot.organization);
     await updateSnapshot({
       organization: snapshot.organization,
       id: snapshot.id,
@@ -55,8 +56,19 @@ const expireOldQueries = async () => {
         status: "error",
         queries: snapshot.queries,
       },
-      context: await getContextForAgendaJobByOrgId(snapshot.organization),
+      context,
     });
+
+    // Release the incremental refresh lock if this snapshot held it.
+    // This is a no-op if the snapshot wasn't an incremental execution.
+    await context.models.incrementalRefresh
+      .releaseLock(snapshot.experiment, snapshot.id)
+      .catch((e) =>
+        logger.warn(
+          e,
+          "Failed to release incremental lock for expired snapshot",
+        ),
+      );
   }
 
   // Look for matching reports and update the status

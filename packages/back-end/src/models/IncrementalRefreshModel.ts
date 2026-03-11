@@ -49,15 +49,7 @@ export class IncrementalRefreshModel extends BaseClass {
     });
   }
 
-  /**
-   * Atomically clears the lock only if the given snapshotId still owns it.
-   * Prevents a late-running cleanup from accidentally clearing another
-   * process's lock.
-   */
-  public async clearCurrentExecutionSnapshotId(
-    experimentId: string,
-    snapshotId: string,
-  ) {
+  public async releaseLock(experimentId: string, snapshotId: string) {
     await this._dangerousGetCollection().updateOne(
       {
         organization: this.context.org.id,
@@ -70,7 +62,7 @@ export class IncrementalRefreshModel extends BaseClass {
     );
   }
 
-  public async getActiveExecutionSnapshotId(
+  public async getCurrentExecutionSnapshotId(
     experimentId: string,
   ): Promise<string | null> {
     const doc = await this._findOne({ experimentId });

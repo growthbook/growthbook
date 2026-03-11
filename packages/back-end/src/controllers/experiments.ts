@@ -2873,6 +2873,13 @@ export async function cancelSnapshot(
   await queryRunner.cancelQueries();
   await deleteSnapshotById(org.id, snapshot.id);
 
+  // Release the incremental refresh lock if this snapshot held it.
+  await context.models.incrementalRefresh
+    .releaseLock(experiment.id, snapshot.id)
+    .catch((e) =>
+      logger.warn(e, "Failed to release incremental lock on snapshot cancel"),
+    );
+
   res.status(200).json({ status: 200 });
 }
 
@@ -2969,7 +2976,7 @@ export async function requestExperimentSnapshotFromPlan({
   } catch (e) {
     if (plan.runnerKind === "incremental") {
       await context.models.incrementalRefresh
-        .clearCurrentExecutionSnapshotId(experiment.id, plan.snapshot.id)
+        .releaseLock(experiment.id, plan.snapshot.id)
         .catch(() => {});
     }
     throw e;

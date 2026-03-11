@@ -1234,7 +1234,7 @@ export async function requestExperimentSnapshot({
   if (plan.runnerKind === "incremental" && snapshotType === "standard") {
     // Check if there's an active incremental execution
     const activeSnapshotId =
-      await context.models.incrementalRefresh.getActiveExecutionSnapshotId(
+      await context.models.incrementalRefresh.getCurrentExecutionSnapshotId(
         experiment.id,
       );
 
@@ -1259,7 +1259,7 @@ export async function requestExperimentSnapshot({
 
       // Terminal or missing — clear stale lock and proceed
       await context.models.incrementalRefresh
-        .clearCurrentExecutionSnapshotId(experiment.id, activeSnapshotId)
+        .releaseLock(experiment.id, activeSnapshotId)
         .catch((e) => logger.warn(e, "Failed to clear stale incremental lock"));
     }
 
@@ -1274,7 +1274,7 @@ export async function requestExperimentSnapshot({
       // Another process acquired the lock between our check and acquire.
       // Re-check: if it's running, merge intent; otherwise throw.
       const raceSnapshotId =
-        await context.models.incrementalRefresh.getActiveExecutionSnapshotId(
+        await context.models.incrementalRefresh.getCurrentExecutionSnapshotId(
           experiment.id,
         );
       if (raceSnapshotId) {
@@ -1310,7 +1310,7 @@ export async function requestExperimentSnapshot({
     } catch (e) {
       // Release lock if snapshot creation fails
       await context.models.incrementalRefresh
-        .clearCurrentExecutionSnapshotId(experiment.id, plan.snapshot.id)
+        .releaseLock(experiment.id, plan.snapshot.id)
         .catch((lockErr) =>
           logger.warn(
             lockErr,
@@ -1334,7 +1334,7 @@ export async function requestExperimentSnapshot({
   // --- Incremental-exploratory: block if incremental writer is active ---
   if (plan.runnerKind === "incremental-exploratory") {
     const activeSnapshotId =
-      await context.models.incrementalRefresh.getActiveExecutionSnapshotId(
+      await context.models.incrementalRefresh.getCurrentExecutionSnapshotId(
         experiment.id,
       );
     if (activeSnapshotId) {
@@ -1790,7 +1790,7 @@ export async function startSnapshotFromPlan({
     // Release incremental lock on failure
     if (plan.runnerKind === "incremental") {
       await context.models.incrementalRefresh
-        .clearCurrentExecutionSnapshotId(experiment.id, snapshot.id)
+        .releaseLock(experiment.id, snapshot.id)
         .catch((e) =>
           logger.warn(e, "Failed to release lock after snapshot start failure"),
         );
@@ -1954,7 +1954,7 @@ function monitorStandardSnapshotExecution({
     } finally {
       if (isIncremental) {
         await context.models.incrementalRefresh
-          .clearCurrentExecutionSnapshotId(experiment.id, snapshotId)
+          .releaseLock(experiment.id, snapshotId)
           .catch((e) =>
             logger.warn(
               e,
