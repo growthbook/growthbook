@@ -51,7 +51,7 @@ info:
 servers:
   - url: 'https://api.growthbook.io/api/v1'
     description: GrowthBook Cloud
-  - url: 'http://{domain}/api/v1'
+  - url: 'https://{domain}/api/v1'
     description: Self-hosted GrowthBook
 tags:
   - name: projects
