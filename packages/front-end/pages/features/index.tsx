@@ -56,6 +56,15 @@ import FeaturesDraftTable from "./FeaturesDraftTable";
 
 const NUM_PER_PAGE = 20;
 
+// Feature table column widths (shared by header and body for alignment)
+const FEATURE_TABLE_COLUMN_WIDTH = {
+  WATCHING: 40,
+  FEATURE_KEY_MAX: 200,
+  TAGS: 160,
+  DATA_TYPE_MIN: 80,
+  RECENT_USAGE: 170,
+} as const;
+
 function valueTypeLabel(
   valueType: "boolean" | "string" | "number" | "json",
 ): string {
@@ -246,14 +255,23 @@ export default function FeaturesPage() {
           <Table variant="list" stickyHeader roundedCorners>
             <TableHeader>
               <TableRow>
-                <TableColumnHeader style={{ width: 40 }} />
-                <SortableTableColumnHeader field="id" style={{ maxWidth: 200 }}>
+                <TableColumnHeader
+                  style={{ width: FEATURE_TABLE_COLUMN_WIDTH.WATCHING }}
+                />
+                <SortableTableColumnHeader
+                  field="id"
+                  style={{
+                    maxWidth: FEATURE_TABLE_COLUMN_WIDTH.FEATURE_KEY_MAX,
+                  }}
+                >
                   Feature Key
                 </SortableTableColumnHeader>
                 {showProjectColumn && (
                   <TableColumnHeader>Project</TableColumnHeader>
                 )}
-                <TableColumnHeader style={{ maxWidth: 160 }}>
+                <TableColumnHeader
+                  style={{ maxWidth: FEATURE_TABLE_COLUMN_WIDTH.TAGS }}
+                >
                   Tags
                 </TableColumnHeader>
                 {toggleEnvs.map((en) => (
@@ -299,7 +317,12 @@ export default function FeaturesPage() {
                         type="icon"
                       />
                     </TableCell>
-                    <TableCell className="p-0" style={{ maxWidth: 200 }}>
+                    <TableCell
+                      className="p-0"
+                      style={{
+                        maxWidth: FEATURE_TABLE_COLUMN_WIDTH.FEATURE_KEY_MAX,
+                      }}
+                    >
                       <Link
                         href={`/features/${feature.id}`}
                         className={clsx("featurename d-block p-2", {
@@ -309,7 +332,7 @@ export default function FeaturesPage() {
                         <TruncateMiddleWithTooltip
                           text={feature.id}
                           maxChars={23}
-                          maxWidth={200}
+                          maxWidth={FEATURE_TABLE_COLUMN_WIDTH.FEATURE_KEY_MAX}
                           flipTheme={false}
                         />
                       </Link>
@@ -326,7 +349,7 @@ export default function FeaturesPage() {
                     )}
                     <TableCell
                       style={{
-                        width: 160,
+                        width: FEATURE_TABLE_COLUMN_WIDTH.TAGS,
                         overflow: "hidden",
                       }}
                     >
@@ -375,7 +398,11 @@ export default function FeaturesPage() {
                         </Flex>
                       </TableCell>
                     ))}
-                    <TableCell style={{ minWidth: 80 }}>
+                    <TableCell
+                      style={{
+                        minWidth: FEATURE_TABLE_COLUMN_WIDTH.DATA_TYPE_MIN,
+                      }}
+                    >
                       {valueTypeLabel(feature.valueType)}
                     </TableCell>
                     <TableCell
@@ -406,7 +433,11 @@ export default function FeaturesPage() {
                       {date(feature.dateUpdated)}
                     </TableCell>
                     {showGraphs && (
-                      <TableCell style={{ width: 170 }}>
+                      <TableCell
+                        style={{
+                          width: FEATURE_TABLE_COLUMN_WIDTH.RECENT_USAGE,
+                        }}
+                      >
                         <RealTimeFeatureGraph
                           data={usage?.[feature.id]?.realtime || []}
                           yDomain={usageDomain}
