@@ -2960,6 +2960,15 @@ export async function createExperimentSnapshotFromPlan({
 }> {
   const metricMap = await getMetricMap(context);
   const factTableMap = await getFactTableMap(context);
+  const metricGroups = await context.models.metricGroups.getAll();
+
+  expandAllSliceMetricsInMap({
+    metricMap,
+    factTableMap,
+    experiment,
+    metricGroups,
+  });
+
   const queryRunner = await createSnapshotFromPlan({
     plan,
     context,
