@@ -46,7 +46,7 @@ export default function ProductAnalyticsExplorerBlock({
         exploration={data?.exploration}
         error={data?.exploration.error || error?.message || null}
         loading={isLoading}
-        submittedExploreState={data?.exploration.config}
+        submittedExploreState={block.config ?? data?.exploration.config}
       />
     </Flex>
   );

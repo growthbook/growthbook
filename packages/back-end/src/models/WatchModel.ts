@@ -1,97 +1,82 @@
-import mongoose from "mongoose";
-import { UpdateResult } from "mongodb";
-import { WatchInterface } from "back-end/types/watch";
 import {
-  ToInterface,
-  getCollection,
-  removeMongooseFields,
-} from "back-end/src/util/mongo.util";
+  UpdateWatchOptions,
+  WatchInterface,
+  watchSchema,
+} from "shared/validators";
+import { MakeModelClass } from "./BaseModel";
 
-const watchSchema = new mongoose.Schema({
-  userId: String,
-  organization: String,
-  experiments: [String],
-  features: [String],
+const BaseClass = MakeModelClass({
+  schema: watchSchema,
+  pKey: ["userId", "organization"],
+  collectionName: "watches",
+  idPrefix: "watch_",
+  readonlyFields: [],
+  additionalIndexes: [{ fields: { organization: 1, experiments: 1 } }],
 });
-watchSchema.index({ userId: 1, organization: 1 }, { unique: true });
 
-export type WatchDocument = mongoose.Document & WatchInterface;
+export class WatchModel extends BaseClass {
+  protected canCreate(): boolean {
+    return true;
+  }
+  protected canRead(): boolean {
+    return true;
+  }
+  protected canUpdate(): boolean {
+    return true;
+  }
+  protected canDelete(): boolean {
+    return true;
+  }
 
-interface UpdateWatchOptions {
-  organization: string;
-  userId: string;
-  type: "experiments" | "features";
-  item: string;
-}
+  protected migrate(legacyWatch: unknown): WatchInterface {
+    const typecast = legacyWatch as WatchInterface;
+    return {
+      ...typecast,
+      dateCreated: typecast.dateCreated ?? new Date(),
+      dateUpdated: typecast.dateUpdated ?? new Date(),
+    };
+  }
 
-const WatchModel = mongoose.model<WatchInterface>("Watch", watchSchema);
-const COLLECTION = "watches";
-
-const toInterface: ToInterface<WatchInterface> = (doc) =>
-  removeMongooseFields(doc);
-
-export async function getWatchedByUser(
-  organization: string,
-  userId: string,
-): Promise<WatchInterface | null> {
-  const watchDoc = await getCollection(COLLECTION).findOne({
-    userId,
-    organization,
-  });
-  return watchDoc ? toInterface(watchDoc) : null;
-}
-
-export async function getExperimentWatchers(
-  experimentId: string,
-  organization: string,
-): Promise<string[]> {
-  const watchers = await getCollection(COLLECTION)
-    .find({
-      experiments: experimentId,
-      organization,
-    })
-    .project({ userId: 1, _id: 0 })
-    .toArray();
-  return watchers.map((watcher) => watcher.userId);
-}
-
-export async function upsertWatch({
-  userId,
-  organization,
-  item,
-  type,
-}: UpdateWatchOptions): Promise<UpdateResult> {
-  return await WatchModel.updateOne(
-    {
+  public async getWatchedByUser(
+    userId: string,
+  ): Promise<WatchInterface | null> {
+    return await this._findOne({
       userId,
-      organization,
-    },
-    {
-      $addToSet: {
-        [type]: item,
-      },
-    },
-    {
-      upsert: true,
-    },
-  );
-}
+    });
+  }
 
-export async function deleteWatchedByEntity({
-  organization,
-  userId,
-  type,
-  item,
-}: UpdateWatchOptions): Promise<UpdateResult> {
-  return await WatchModel.updateOne(
-    {
-      userId: userId,
-      organization: organization,
-    },
-    {
-      $pull: {
-        [type]: item,
-      },
-    },
-  );
+  public async getExperimentWatchers(experimentId: string): Promise<string[]> {
+    return (
+      await this._find({
+        experiments: experimentId,
+      })
+    ).map((watcher) => watcher.userId);
+  }
+
+  public async upsertWatch({ userId, item, type }: UpdateWatchOptions) {
+    const existing = await this.getWatchedByUser(userId);
+    if (existing) {
+      const itemSet = new Set(existing[type]);
+      itemSet.add(item);
+      await this._updateOne(existing, { [type]: [...itemSet] });
+    } else {
+      await this._createOne({
+        userId,
+        experiments: type === "experiments" ? [item] : [],
+        features: type === "features" ? [item] : [],
+      });
+    }
+  }
+
+  public async deleteWatchedByEntity({
+    userId,
+    type,
+    item,
+  }: UpdateWatchOptions) {
+    const existing = await this.getWatchedByUser(userId);
+    if (!existing) this.context.throwNotFoundError();
+    await this._updateOne(existing, {
+      [type]: existing[type].filter((el) => el !== item),
+    });
+  }
 }

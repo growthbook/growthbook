@@ -27,7 +27,6 @@ import {
 } from "shared/types/organization";
 import { ExperimentRule, NamespaceValue } from "shared/types/feature";
 import { TeamInterface } from "shared/types/team";
-import { getWatchedByUser } from "back-end/src/models/WatchModel";
 import { validateRoleAndEnvs } from "back-end/src/api/members/updateMemberRole";
 import {
   AuthRequest,
@@ -225,9 +224,9 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
 
 export async function getActivityFeed(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
-  const { org, userId } = context;
+  const { userId } = context;
   try {
-    const docs = await getRecentWatchedAudits(userId, org.id);
+    const docs = await getRecentWatchedAudits(context, userId);
 
     if (!docs.length) {
       return res.status(200).json({
@@ -931,7 +930,7 @@ export async function getOrganization(
   );
   const seatsInUse = getNumberOfUniqueMembersAndInvites(org);
 
-  const watch = await getWatchedByUser(org.id, userId);
+  const watch = await context.models.watch.getWatchedByUser(userId);
 
   const commercialFeatureLowestPlan = getLowestPlanPerFeature(accountFeatures);
 
@@ -1921,10 +1920,18 @@ export async function putSDKWebhook(
     context.permissions.throwPermissionError();
   }
 
-  const updatedWebhook = await context.models.sdkWebhooks.update(
-    webhook,
-    updateSdkWebhookValidator.parse(req.body),
-  );
+  const parsedUpdates = updateSdkWebhookValidator.parse(req.body);
+
+  // Reset failure state when endpoint changes
+  const resetFields =
+    parsedUpdates.endpoint && parsedUpdates.endpoint !== webhook.endpoint
+      ? { consecutiveFailures: 0, disabled: false }
+      : {};
+
+  const updatedWebhook = await context.models.sdkWebhooks.update(webhook, {
+    ...parsedUpdates,
+    ...resetFields,
+  });
 
   // Fire the webhook now that it has changed
   fireSdkWebhook(context, updatedWebhook).catch(() => {

@@ -414,19 +414,10 @@ export default function FeaturesPage() {
     );
   };
 
-  const canViewFeatureModal = useMemo(() => {
-    // If a specific project is selected, check permissions for that project
-    if (project) {
-      return permissionsUtil.canViewFeatureModal(project);
-    }
-    if (projects?.length) {
-      // If "All Projects" is selected, check if user has permissions for at least one project
-
-      return projects.some((p) => permissionsUtil.canViewFeatureModal(p.id));
-    }
-    // No projects - fall back to global permission check (e.g. admin in new org)
-    return permissionsUtil.canViewFeatureModal();
-  }, [project, projects, permissionsUtil]);
+  const canViewFeatureModal = permissionsUtil.canViewFeatureModal(
+    project,
+    projects,
+  );
 
   const canCreateFeatures = useMemo(() => {
     // If a specific project is selected, check permissions for that project

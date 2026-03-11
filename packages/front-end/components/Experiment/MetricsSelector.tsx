@@ -285,18 +285,6 @@ const MetricsSelector: FC<{
     <MultiSelectField
       value={selected}
       onChange={onChange}
-      customStyles={{
-        group: groupOptions
-          ? (base, state) => ({
-              ...base,
-              borderBottom:
-                state.selectProps.options?.length >= 1 &&
-                state.selectProps.options[0] === state.data
-                  ? "1px solid #e9ecef"
-                  : "none",
-            })
-          : undefined,
-      }}
       options={
         groupOptions
           ? (() => {
@@ -335,6 +323,11 @@ const MetricsSelector: FC<{
                   label: "",
                   options: unManagedMetrics,
                 });
+              }
+
+              // If there is only one group, return the options as SingleValue[] instead of GroupedValue[]
+              if (groupedOptions.length === 1) {
+                return groupedOptions[0].options;
               }
 
               return groupedOptions;

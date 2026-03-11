@@ -1,5 +1,4 @@
 import { databricksCreateTableOptions } from "shared/enterprise";
-import { Dialect } from "shared/sql";
 import { FormatDialect } from "shared/types/sql";
 import { QueryResponse, DataType } from "shared/types/integrations";
 import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
@@ -30,7 +29,7 @@ export default class Databricks extends SqlIntegration {
     );
   }
   getFormatDialect(): FormatDialect {
-    return Dialect.Databricks;
+    return "spark";
   }
   getSensitiveParamKeys(): string[] {
     const sensitiveKeys: (keyof DatabricksConnectionParams)[] = ["token"];

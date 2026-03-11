@@ -5,7 +5,11 @@ import type {
   ExplorationConfig,
   ProductAnalyticsExploration,
 } from "shared/validators";
-import { shouldChartSectionShow } from "@/enterprise/components/ProductAnalytics/util";
+import {
+  shouldChartSectionShow,
+  getEffectiveMetricValue,
+  computeDimensionTotals,
+} from "@/enterprise/components/ProductAnalytics/util";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { useDashboardCharts } from "@/enterprise/components/Dashboards/DashboardChartsContext";
 import BigValueChart from "@/components/SqlExplorer/BigValueChart";
@@ -135,20 +139,47 @@ export default function ExplorerChart({
           };
         }
 
-        dataMap[seriesKey][xValue] = v.numerator ?? 0;
-        if (v.denominator) {
-          dataMap[seriesKey][xValue] /= v.denominator;
-        }
+        dataMap[seriesKey][xValue] = getEffectiveMetricValue(v);
       });
     });
 
-    // 2. Sort X-axis values
-    const sortedXValues = Array.from(uniqueXValues).sort();
+    // 2. Compute cumulative totals for sorting
+    const seriesTotals: Record<string, number> = {};
+    for (const [seriesKey, seriesData] of Object.entries(dataMap)) {
+      seriesTotals[seriesKey] = Object.values(seriesData).reduce(
+        (sum, v) => sum + v,
+        0,
+      );
+    }
+    const sortedSeriesKeys = Object.keys(dataMap).sort(
+      (a, b) => seriesTotals[b] - seriesTotals[a],
+    );
 
-    // 3. Build Series
+    const isBarType = [
+      "bar",
+      "stackedBar",
+      "stackedHorizontalBar",
+      "horizontalBar",
+    ].includes(chartType);
+
+    // Bar charts: sort categories by total value; timeseries: chronological
+    let sortedXValues: string[];
+    if (isBarType) {
+      const xValueTotals = computeDimensionTotals(rows, 0);
+      // Horizontal bars render bottom-to-top, so sort ascending for largest on top
+      sortedXValues = Array.from(uniqueXValues).sort((a, b) =>
+        isHorizontalBar
+          ? xValueTotals[a] - xValueTotals[b]
+          : xValueTotals[b] - xValueTotals[a],
+      );
+    } else {
+      sortedXValues = Array.from(uniqueXValues).sort();
+    }
+
+    // 3. Build Series (ordered by cumulative total, highest first)
     const seriesColor = (i: number) => CHART_COLORS[i % CHART_COLORS.length];
 
-    const seriesConfigs = Object.keys(dataMap).map((seriesKey, idx) => {
+    const seriesConfigs = sortedSeriesKeys.map((seriesKey, idx) => {
       const { name } = seriesMeta[seriesKey];
       const seriesDataMap = dataMap[seriesKey];
 

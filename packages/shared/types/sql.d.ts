@@ -1,3 +1,5 @@
+import type { SqlLanguage } from "sql-formatter";
+
 export type TemplateVariables = {
   eventName?: string;
   valueColumn?: string;
@@ -16,25 +18,8 @@ export type SQLVars = {
   templateVariables?: TemplateVariables;
 };
 
-// SQL formatter dialect type - string values matching Polyglot/sql-formatter
-// We need "" for google analytics and mixpanel
-export type FormatDialect =
-  | "redshift"
-  | "snowflake"
-  | "mysql"
-  | "bigquery"
-  | "postgresql"
-  | "tsql"
-  | "clickhouse"
-  | "athena"
-  | "presto"
-  | "databricks"
-  | "trino"
-  | "spark"
-  | "sql"
-  | "sqlite"
-  | "generic"
-  | "";
+// SQL formatter dialect type - uses sql-formatter's SqlLanguage, plus "" for no formatting
+export type FormatDialect = SqlLanguage | "";
 
 export type DateTruncGranularity = "hour" | "day" | "week" | "month" | "year";
 

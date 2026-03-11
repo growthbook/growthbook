@@ -4,7 +4,6 @@ import {
   FeatureUsageLookback,
   QueryResponse,
 } from "shared/types/integrations";
-import { Dialect } from "shared/sql";
 import { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
 import { DateTruncGranularity, FormatDialect } from "shared/types/sql";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
@@ -29,11 +28,11 @@ export default class ClickHouse extends SqlIntegration {
       delete this.params.host;
     }
   }
-  getFormatDialect(): FormatDialect {
-    return Dialect.ClickHouse;
-  }
   getSensitiveParamKeys(): string[] {
     return ["password"];
+  }
+  getFormatDialect(): FormatDialect {
+    return "clickhouse";
   }
 
   async runQuery(sql: string): Promise<QueryResponse> {

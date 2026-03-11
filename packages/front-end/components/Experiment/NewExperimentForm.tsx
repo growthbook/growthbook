@@ -46,6 +46,10 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
+import {
+  AttributeOptionWithTooltip,
+  type AttributeOptionForTooltip,
+} from "@/components/Features/AttributeOptionTooltip";
 import { useUser } from "@/services/UserContext";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -522,6 +526,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     .map((t) => ({ value: t.id, label: t.templateMetadata.name }));
 
   const allowAllProjects = permissionsUtils.canViewExperimentModal();
+  const hasProjectPermission = selectedProject
+    ? permissionsUtils.canViewExperimentModal(selectedProject)
+    : allowAllProjects;
 
   const exposureQueries = datasource?.settings?.queries?.exposure || [];
   const exposureQueryId = form.getValues("exposureQueryId");
@@ -709,7 +716,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         docSection="experimentConfiguration"
         submit={onSubmit}
         cta={"Save"}
-        ctaEnabled={canSubmit}
+        ctaEnabled={canSubmit && hasProjectPermission}
+        disabledMessage={
+          !hasProjectPermission
+            ? !selectedProject && availableProjects.length > 0
+              ? "Select a project to continue."
+              : "You don't have permission to create experiments."
+            : undefined
+        }
         closeCta="Cancel"
         size="lg"
         step={step}
@@ -1281,6 +1295,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 <>
                   <div className="d-flex" style={{ gap: "2rem" }}>
                     <SelectField
+                      withRadixThemedPortal
                       containerClassName="flex-1"
                       label="Assign variation based on attribute"
                       labelClassName="font-weight-bold"
@@ -1289,11 +1304,25 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                         .map((s) => ({
                           label: s.property,
                           value: s.property,
+                          description: s.description,
+                          tags: s.tags,
+                          datatype: s.datatype,
+                          hashAttribute: s.hashAttribute,
                         }))}
                       sort={false}
                       value={form.watch("hashAttribute") || ""}
                       onChange={(v) => {
                         form.setValue("hashAttribute", v);
+                      }}
+                      formatOptionLabel={(o, meta) => {
+                        return (
+                          <AttributeOptionWithTooltip
+                            option={o as AttributeOptionForTooltip}
+                            context={meta.context}
+                          >
+                            {o.label}
+                          </AttributeOptionWithTooltip>
+                        );
                       }}
                       helpText={
                         "Will be hashed together with the seed (UUID) to determine which variation to assign"

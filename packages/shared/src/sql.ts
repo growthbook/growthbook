@@ -1,39 +1,7 @@
-import {
-  format as polyglotFormat,
-  init as polyglotInit,
-  Dialect,
-} from "@polyglot-sql/sdk";
-
-export { Dialect };
-import type { SqlLanguage } from "sql-formatter";
 import { format as sqlFormat } from "sql-formatter";
 import { SqlResultChunkInterface } from "../types/query";
 import { FormatDialect } from "../types/sql";
 import { FormatError } from "../types/error";
-
-export type FormatMetricsEvent = {
-  engine: "polyglot" | "sqlformat";
-  success: boolean;
-  timeMs: number;
-};
-
-let formatMetricsReporter: ((event: FormatMetricsEvent) => void) | null = null;
-
-export function setFormatMetricsReporter(
-  reporter: (event: FormatMetricsEvent) => void,
-): void {
-  formatMetricsReporter = reporter;
-}
-
-let polyglotInitPromise: Promise<void> | null = null;
-
-export async function initPolyglotFormat(): Promise<void> {
-  if (typeof polyglotInit !== "function") return;
-  if (!polyglotInitPromise) {
-    polyglotInitPromise = polyglotInit().catch(() => {});
-  }
-  await polyglotInitPromise;
-}
 
 export const SQL_ROW_LIMIT = 1000;
 
@@ -41,93 +9,24 @@ export const MAX_SQL_LENGTH_TO_FORMAT = parseInt(
   process.env.MAX_SQL_LENGTH_TO_FORMAT || "15000",
 );
 
-const MAX_SQL_LENGTH_FOR_POLYGLOT = parseInt(
-  process.env.MAX_SQL_LENGTH_FOR_POLYGLOT || "500000",
-);
-
-/** Map Polyglot Dialect to sql-formatter SqlLanguage for fallback when polyglot fails */
-function polyglotToSqlFormatter(dialect: FormatDialect): SqlLanguage {
-  switch (dialect) {
-    case "postgresql":
-    case "mysql":
-    case "bigquery":
-    case "snowflake":
-    case "redshift":
-    case "trino":
-    case "clickhouse":
-    case "tsql":
-    case "sqlite":
-      return dialect as SqlLanguage;
-    case "presto":
-      return "trino"; // sql-formatter has trino, not presto
-    case "athena":
-      return "trino"; // sql-formatter doesn't have athena
-    case "databricks":
-      return "spark"; // sql-formatter has spark (databricks is spark-based)
-    case "generic":
-    case "spark":
-    case "sql":
-    default:
-      return "sql";
-  }
-}
-
 export function format(
   sql: string,
   dialect?: FormatDialect,
   onError?: (error: FormatError) => void,
 ): string {
-  if (!dialect) return sql;
-  const report = formatMetricsReporter;
-
-  // 1. Try polyglot first (high length limit; fast) when available
-  // initPolyglotFormat() must be called before first use on back-end; front-end falls back to sql-formatter when polyglot is missing
-  if (
-    typeof polyglotFormat === "function" &&
-    MAX_SQL_LENGTH_FOR_POLYGLOT &&
-    sql.length <= MAX_SQL_LENGTH_FOR_POLYGLOT
-  ) {
-    const polyglotStart = performance.now();
-    let result: string | null = null;
-    try {
-      const fmtResult = polyglotFormat(sql, dialect as Dialect);
-      if (fmtResult?.success && fmtResult?.sql?.length) {
-        result = fmtResult.sql[0];
-      }
-    } catch {
-      /* fall through */
-    }
-    const timeMs = performance.now() - polyglotStart;
-    if (result != null) {
-      report?.({ engine: "polyglot", success: true, timeMs });
-      return result;
-    }
-    report?.({ engine: "polyglot", success: false, timeMs });
-    // Parse error; fall through to sql-formatter
-  }
-
-  // 2. Fall back to sql-formatter (slower; skip for very large queries)
+  // sqlFormat is slow, consuming a lot of CPU and blocking other operations.
+  // To avoid performance issues, skip formatting for very large queries.
   if (MAX_SQL_LENGTH_TO_FORMAT && sql.length > MAX_SQL_LENGTH_TO_FORMAT) {
     return sql;
   }
-  const sqlFormatStart = performance.now();
+  if (!dialect) return sql;
+
   try {
-    const formatted = sqlFormat(sql, {
-      language: polyglotToSqlFormatter(dialect),
+    return sqlFormat(sql, {
+      language: dialect,
     });
-    report?.({
-      engine: "sqlformat",
-      success: true,
-      timeMs: performance.now() - sqlFormatStart,
-    });
-    return formatted;
   } catch (e) {
     const error = e instanceof Error ? e : new Error(String(e));
-    report?.({
-      engine: "sqlformat",
-      success: false,
-      timeMs: performance.now() - sqlFormatStart,
-    });
     if (onError) {
       onError({ error, originalSql: sql });
     }
