@@ -49,6 +49,10 @@ import {
   AddOrGroupButton,
   ConditionRowLabel,
 } from "./TargetingConditionsCard";
+import {
+  AttributeOptionWithTooltip,
+  type AttributeOptionForTooltip,
+} from "./AttributeOptionTooltip";
 
 export function ConditionLabel({
   label,
@@ -515,6 +519,7 @@ function ConditionAndGroupInput({
 
         const fieldSelector = (
           <SelectField
+            withRadixThemedPortal
             useMultilineLabels={true}
             value={field}
             containerStyles={{
@@ -528,7 +533,10 @@ function ConditionAndGroupInput({
                       options: attributeSchema.map((s) => ({
                         label: s.property,
                         value: s.property,
-                        tooltip: s.description || "",
+                        description: s.description,
+                        tags: s.tags,
+                        datatype: s.datatype,
+                        hashAttribute: s.hashAttribute,
                       })),
                     },
                     {
@@ -548,10 +556,22 @@ function ConditionAndGroupInput({
                 : attributeSchema.map((s) => ({
                     label: s.property,
                     value: s.property,
-                    tooltip: s.description || "",
+                    description: s.description,
+                    tags: s.tags,
+                    datatype: s.datatype,
+                    hashAttribute: s.hashAttribute,
                   }))
             }
-            formatOptionLabel={(o) => <span title={o.tooltip}>{o.label}</span>}
+            formatOptionLabel={(o, meta) => {
+              return (
+                <AttributeOptionWithTooltip
+                  option={o as AttributeOptionForTooltip}
+                  context={meta.context}
+                >
+                  <Text size="2">{o.label}</Text>
+                </AttributeOptionWithTooltip>
+              );
+            }}
             name="field"
             onChange={(value) => {
               const newConds = [...conds];
