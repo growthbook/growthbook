@@ -325,10 +325,14 @@ export default function FeaturesPage() {
                     >
                       <Link
                         href={`/features/${feature.id}`}
-                        className={clsx("featurename d-block", {
-                          "text-muted": feature.archived,
-                        })}
-                        style={{ padding: "var(--space-3)" }}
+                        className="featurename"
+                        style={{
+                          padding: "var(--space-3)",
+                          display: "block",
+                          color: feature.archived
+                            ? "var(--gray-11)"
+                            : undefined,
+                        }}
                       >
                         <TruncateMiddleWithTooltip
                           text={feature.id}
