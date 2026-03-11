@@ -12,6 +12,7 @@ import type {
   DatasetType,
   ExplorationDataset,
   ExplorationConfig,
+  ProductAnalyticsResultRow,
 } from "shared/validators";
 import { isEqual } from "lodash";
 import { dateGranularity } from "shared/validators";
@@ -500,4 +501,74 @@ export function shouldChartSectionShow(params: {
   }
 
   return true;
+}
+
+// --- Shared sorting helpers for chart & table ---
+
+export function getEffectiveMetricValue(v: {
+  numerator: number | null;
+  denominator: number | null;
+}): number {
+  const num = v.numerator ?? 0;
+  return v.denominator ? num / v.denominator : num;
+}
+
+function getRowTotal(row: ProductAnalyticsResultRow): number {
+  return row.values.reduce((sum, v) => sum + getEffectiveMetricValue(v), 0);
+}
+
+/** Compute the sum of all metric values grouped by a specific dimension index. */
+export function computeDimensionTotals(
+  rows: ProductAnalyticsResultRow[],
+  dimIndex: number,
+): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const row of rows) {
+    const key = row.dimensions[dimIndex] ?? "";
+    totals[key] = (totals[key] ?? 0) + getRowTotal(row);
+  }
+  return totals;
+}
+
+/** Compute the sum of all metric values grouped by the "group key" (all dimensions after the first). */
+export function computeGroupTotals(
+  rows: ProductAnalyticsResultRow[],
+): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const row of rows) {
+    const key = row.dimensions.slice(1).join(" - ");
+    totals[key] = (totals[key] ?? 0) + getRowTotal(row);
+  }
+  return totals;
+}
+
+/**
+ * Sort exploration result rows to match the visual ordering of the chart.
+ * - Timeseries: chronological by first dimension (date), then by group total descending.
+ * - Bar/cumulative: by first-dimension total descending, then by group total descending.
+ */
+export function sortExplorationRows(
+  rows: ProductAnalyticsResultRow[],
+  isTimeseries: boolean,
+): ProductAnalyticsResultRow[] {
+  if (rows.length === 0) return rows;
+
+  const dim0Totals = computeDimensionTotals(rows, 0);
+  const groupTotals = computeGroupTotals(rows);
+
+  return [...rows].sort((a, b) => {
+    const dim0A = a.dimensions[0] ?? "";
+    const dim0B = b.dimensions[0] ?? "";
+
+    if (dim0A !== dim0B) {
+      if (isTimeseries) {
+        return new Date(dim0A).getTime() - new Date(dim0B).getTime();
+      }
+      return (dim0Totals[dim0B] ?? 0) - (dim0Totals[dim0A] ?? 0);
+    }
+
+    const groupA = a.dimensions.slice(1).join(" - ");
+    const groupB = b.dimensions.slice(1).join(" - ");
+    return (groupTotals[groupB] ?? 0) - (groupTotals[groupA] ?? 0);
+  });
 }

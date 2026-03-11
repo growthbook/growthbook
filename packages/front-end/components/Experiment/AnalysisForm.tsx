@@ -909,26 +909,27 @@ const AnalysisForm: FC<{
                   lazyRender={true}
                 >
                   <div className="rounded px-3 pt-3 pb-1 bg-highlight">
-                    {datasourceProperties?.experimentSegments && (
-                      <div className="form-group mb-2">
-                        <SelectField
-                          label="Segment"
-                          labelClassName="font-weight-bold"
-                          value={form.watch("segment")}
-                          onChange={(value) =>
-                            form.setValue("segment", value || "")
-                          }
-                          initialOption="None (All Users)"
-                          options={filteredSegments.map((s) => {
-                            return {
-                              label: s.name,
-                              value: s.id,
-                            };
-                          })}
-                          helpText="Only users in this segment will be included"
-                        />
-                      </div>
-                    )}
+                    {datasourceProperties?.experimentSegments &&
+                      filteredSegments.length > 0 && (
+                        <div className="form-group mb-2">
+                          <SelectField
+                            label="Segment"
+                            labelClassName="font-weight-bold"
+                            value={form.watch("segment")}
+                            onChange={(value) =>
+                              form.setValue("segment", value || "")
+                            }
+                            initialOption="None (All Users)"
+                            options={filteredSegments.map((s) => {
+                              return {
+                                label: s.name,
+                                value: s.id,
+                              };
+                            })}
+                            helpText="Only users in this segment will be included"
+                          />
+                        </div>
+                      )}
                     {datasourceProperties?.separateExperimentResultQueries && (
                       <div className="form-group mb-2">
                         <Tooltip

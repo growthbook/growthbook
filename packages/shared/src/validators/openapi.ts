@@ -326,6 +326,18 @@ export const postExperimentSnapshotValidator = {
   paramsSchema: z.object({ "id": z.string() }).strict(),
 };
 
+export const postVariationImageUploadValidator = {
+  bodySchema: z.object({ "screenshot": z.string().base64().describe("Base64-encoded screenshot data"), "contentType": z.enum(["image/png","image/jpeg","image/gif"]).describe("MIME type of the screenshot"), "description": z.string().describe("Optional description for the screenshot").optional() }).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string(), "variationId": z.string() }).strict(),
+};
+
+export const deleteVariationScreenshotValidator = {
+  bodySchema: z.object({ "path": z.string().describe("The screenshot path/URL to delete (from upload response)") }).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string(), "variationId": z.string() }).strict(),
+};
+
 export const getExperimentResultsValidator = {
   bodySchema: z.never(),
   querySchema: z.object({ "phase": z.string().optional(), "dimension": z.string().optional() }).strict(),

@@ -1,5 +1,5 @@
 import React, { useCallback } from "react";
-import { Text, Theme } from "@radix-ui/themes";
+import { Text } from "@radix-ui/themes";
 import { useHoverTooltip } from "@/hooks/useHoverTooltip";
 
 /**
@@ -58,15 +58,13 @@ export function DrilldownTooltip({ enabled, children }: DrilldownTooltipProps) {
         onClick: close,
       })}
       {renderTooltip(
-        <Theme>
-          <div className="rt-TooltipContent">
-            <Text as="p" className="rt-TooltipText" size="1">
-              Click anywhere in a row to
-              <br />
-              open the Metric Drilldown.
-            </Text>
-          </div>
-        </Theme>,
+        <div className="rt-TooltipContent">
+          <Text as="p" className="rt-TooltipText" size="1">
+            Click anywhere in a row to
+            <br />
+            open the Metric Drilldown.
+          </Text>
+        </div>,
       )}
     </>
   );
