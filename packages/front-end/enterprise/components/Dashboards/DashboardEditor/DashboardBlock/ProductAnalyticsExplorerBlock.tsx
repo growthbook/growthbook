@@ -49,14 +49,7 @@ export default function ProductAnalyticsExplorerBlock({
 
   return (
     <Flex direction="column" style={{ height: 500 }} gap="2">
-      {!shouldShowTable ? (
-        <ExplorerChart
-          exploration={data?.exploration}
-          error={data?.exploration.error || error?.message || null}
-          loading={isLoading}
-          submittedExploreState={block.config ?? data?.exploration.config}
-        />
-      ) : (
+      {shouldShowTable ? (
         <ExplorerDataTable
           exploration={data.exploration}
           error={data.exploration.error ?? error?.message ?? null}
@@ -64,6 +57,13 @@ export default function ProductAnalyticsExplorerBlock({
           loading={isLoading}
           hasChart={false}
           query={data?.query ?? null}
+        />
+      ) : (
+        <ExplorerChart
+          exploration={data?.exploration}
+          error={data?.exploration.error || error?.message || null}
+          loading={isLoading}
+          submittedExploreState={block.config ?? data?.exploration.config}
         />
       )}
     </Flex>
