@@ -25,11 +25,16 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import MetricValueColumn from "@/components/Experiment/MetricValueColumn";
 
 const numberFormatter = Intl.NumberFormat();
+const emptySnapshotMetric: SnapshotMetric = {
+  value: 0,
+  cr: 0,
+  users: 0,
+};
 
 export interface VariationStatRow {
   variationIndex: number;
   variationName: string;
-  stats: SnapshotMetric;
+  stats?: SnapshotMetric;
   isBaseline: boolean;
 }
 
@@ -111,6 +116,7 @@ export default function VariationStatsTable({
 
       <TableBody>
         {rows.map((row) => {
+          const stats = row.stats ?? emptySnapshotMetric;
           const variationColor = getVariationColor(row.variationIndex, true);
           return (
             <TableRow
@@ -164,27 +170,27 @@ export default function VariationStatsTable({
               </TableCell>
 
               <TableCell justify="end">
-                {quantileMetric && row.stats.stats
-                  ? numberFormatter.format(row.stats.stats.count)
-                  : numberFormatter.format(row.stats.users)}
+                {quantileMetric && stats.stats
+                  ? numberFormatter.format(stats.stats.count)
+                  : numberFormatter.format(stats.users)}
               </TableCell>
 
               {!quantileMetric ? (
                 <TableCell justify="end">
                   {isFactMetric(metric)
                     ? getColumnRefFormatter(metric.numerator, getFactTableById)(
-                        row.stats.value,
+                        stats.value,
                         { currency: displayCurrency },
                       )
                     : getMetricFormatter(
                         metric.type === "binomial" ? "count" : metric.type,
-                      )(row.stats.value, { currency: displayCurrency })}
+                      )(stats.value, { currency: displayCurrency })}
                 </TableCell>
               ) : null}
 
               {hasCustomDenominator ? (
                 <TableCell justify="end">
-                  {denomFormatter(row.stats.denominator || row.stats.users, {
+                  {denomFormatter(stats.denominator || stats.users, {
                     currency: displayCurrency,
                   })}
                 </TableCell>
@@ -193,8 +199,8 @@ export default function VariationStatsTable({
               <TableCell justify="end">
                 <MetricValueColumn
                   metric={metric}
-                  stats={row.stats}
-                  users={row.stats?.users || 0}
+                  stats={stats}
+                  users={stats.users}
                   showRatio={false}
                   displayCurrency={displayCurrency}
                   getExperimentMetricById={
