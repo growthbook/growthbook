@@ -50,10 +50,7 @@ import {
   _getSnapshots,
   createSnapshotAnalyses,
   createSnapshotAnalysis,
-  startSnapshotFromPlan,
-  SNAPSHOT_UPDATE_IN_PROGRESS_ERROR,
   determineNextBanditSchedule,
-  ExperimentSnapshotQueryRunner,
   getAdditionalExperimentAnalysisSettings,
   getChangesToStartExperiment,
   getDefaultExperimentAnalysisSettings,
@@ -65,6 +62,7 @@ import {
   SnapshotAnalysisParams,
   validateExperimentData,
   resetExperimentBanditSettings,
+  updateExperimentBanditSettings,
   waitForSnapshotExecution,
 } from "back-end/src/services/experiments";
 import {
@@ -2883,125 +2881,6 @@ export async function cancelSnapshot(
   res.status(200).json({ status: 200 });
 }
 
-export async function createExperimentSnapshot({
-  context,
-  experiment,
-  datasource,
-  dimension,
-  phase,
-  useCache = true,
-  triggeredBy,
-  type,
-  reweight,
-  allowIncrementalRefresh = true,
-}: {
-  context: ReqContext;
-  experiment: ExperimentInterface;
-  datasource: DataSourceInterface;
-  dimension: string | undefined;
-  phase: number;
-  useCache?: boolean;
-  triggeredBy?: SnapshotTriggeredBy;
-  type?: SnapshotType;
-  reweight?: boolean;
-  allowIncrementalRefresh?: boolean;
-}): Promise<{
-  snapshot: ExperimentSnapshotInterface;
-  queryRunner: ExperimentSnapshotQueryRunner;
-}> {
-  const plan = await planExperimentSnapshot({
-    context,
-    experiment,
-    datasource,
-    dimension,
-    phase,
-    useCache,
-    triggeredBy,
-    type,
-    reweight,
-    allowIncrementalRefresh,
-  });
-
-  return requestExperimentSnapshotFromPlan({
-    plan,
-    context,
-    experiment,
-  });
-}
-
-export async function requestExperimentSnapshotFromPlan({
-  plan,
-  context,
-  experiment,
-}: {
-  plan: PlannedExperimentSnapshot;
-  context: ReqContext;
-  experiment: ExperimentInterface;
-}): Promise<{
-  snapshot: ExperimentSnapshotInterface;
-  queryRunner: ExperimentSnapshotQueryRunner;
-}> {
-  const metricMap = await getMetricMap(context);
-  const factTableMap = await getFactTableMap(context);
-  const metricGroups = await context.models.metricGroups.getAll();
-
-  expandAllSliceMetricsInMap({
-    metricMap,
-    factTableMap,
-    experiment,
-    metricGroups,
-  });
-
-  // Acquire incremental lock before starting, if this plan uses the
-  // incremental runner (which writes to shared warehouse tables).
-  if (plan.runnerKind === "incremental") {
-    const acquired = await context.models.incrementalRefresh.acquireLock(
-      experiment.id,
-      plan.snapshot.id,
-    );
-    if (!acquired) {
-      throw new Error(SNAPSHOT_UPDATE_IN_PROGRESS_ERROR);
-    }
-  }
-
-  let queryRunner: ExperimentSnapshotQueryRunner;
-  try {
-    queryRunner = await startSnapshotFromPlan({
-      plan,
-      context,
-      experiment,
-      metricMap,
-      factTableMap,
-    });
-  } catch (e) {
-    if (plan.runnerKind === "incremental") {
-      await context.models.incrementalRefresh
-        .releaseLock(experiment.id, plan.snapshot.id)
-        .catch(() => {});
-    }
-    throw e;
-  }
-
-  // Release the incremental lock when the runner finishes (success or failure).
-  // This mirrors the finally block in monitorStandardSnapshotExecution.
-  if (plan.runnerKind === "incremental") {
-    void queryRunner
-      .waitForResults()
-      .finally(() =>
-        context.models.incrementalRefresh
-          .releaseLock(experiment.id, plan.snapshot.id)
-          .catch((e) =>
-            logger.warn(
-              e,
-              "Failed to release incremental lock: " + experiment.id,
-            ),
-          ),
-      );
-  }
-
-  return { snapshot: queryRunner.model, queryRunner };
-}
-
 export async function planExperimentSnapshot({
   context,
   experiment,
@@ -3334,8 +3213,17 @@ export async function postBanditSnapshot(
     });
   }
 
-  // TODO: We moved `updateExperimentBanditSettings` from here
-  // is this safe?
+  const changes = updateExperimentBanditSettings({
+    experiment,
+    snapshot,
+    reweight,
+  });
+
+  await updateExperiment({
+    context,
+    experiment,
+    changes,
+  });
 
   await req.audit({
     event: "experiment.refresh",

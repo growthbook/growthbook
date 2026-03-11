@@ -11,8 +11,8 @@ import { ApiReqContext } from "back-end/types/api";
 import {
   startSnapshotFromPlan,
   PlannedExperimentSnapshot,
+  requestExperimentSnapshotFromPlan,
 } from "back-end/src/services/experiments";
-import { requestExperimentSnapshotFromPlan } from "back-end/src/controllers/experiments";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { createExperimentSnapshotModel } from "back-end/src/models/ExperimentSnapshotModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";

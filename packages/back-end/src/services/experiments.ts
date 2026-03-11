@@ -1224,11 +1224,53 @@ export async function requestExperimentSnapshot({
     reweight,
   });
 
-  const forceFullRefresh = !useCache;
-  const incomingIntent: ExperimentSnapshotRefreshIntent = {
-    triggeredBySchedule: triggeredBy === "schedule",
-    banditReweightRequested: !!reweight,
-  };
+  const { snapshot } = await requestExperimentSnapshotFromPlan({
+    plan,
+    context,
+    experiment,
+    forceFullRefresh: !useCache,
+    incomingIntent: {
+      triggeredBySchedule: triggeredBy === "schedule",
+      banditReweightRequested: !!reweight,
+    },
+  });
+  return { snapshot };
+}
+
+/**
+ * Single entry point for executing a planned snapshot. Handles:
+ * - Incremental lock lifecycle (stale cleanup, CAS acquire, race re-check, release)
+ * - Incremental-exploratory blocking when an incremental writer is active
+ * - Standard (non-incremental) execution and monitoring
+ */
+export async function requestExperimentSnapshotFromPlan({
+  plan,
+  context,
+  experiment,
+  forceFullRefresh = false,
+  incomingIntent,
+}: {
+  plan: PlannedExperimentSnapshot;
+  context: ReqContext | ApiReqContext;
+  experiment: ExperimentInterface;
+  forceFullRefresh?: boolean;
+  incomingIntent?: ExperimentSnapshotRefreshIntent;
+}): Promise<{
+  snapshot: ExperimentSnapshotInterface;
+  queryRunner?: ExperimentSnapshotQueryRunner;
+}> {
+  const metricMap = await getMetricMap(context);
+  const factTableMap = await getFactTableMap(context);
+  const metricGroups = await context.models.metricGroups.getAll();
+
+  expandAllSliceMetricsInMap({
+    metricMap,
+    factTableMap,
+    experiment,
+    metricGroups,
+  });
+
+  const snapshotType = plan.snapshot.type;
 
   // --- Incremental (standard) snapshots: lock + reuse logic ---
   if (plan.runnerKind === "incremental" && snapshotType === "standard") {
@@ -1248,13 +1290,16 @@ export async function requestExperimentSnapshot({
         if (forceFullRefresh) {
           throw new Error(SNAPSHOT_UPDATE_IN_PROGRESS_ERROR);
         }
-        // Merge intent into the running snapshot and return it
-        const merged = await mergeRefreshIntent({
-          snapshot: activeSnapshot,
-          incomingIntent,
-          context,
-        });
-        return { snapshot: merged };
+        if (incomingIntent) {
+          // Merge intent into the running snapshot and return it
+          const merged = await mergeRefreshIntent({
+            snapshot: activeSnapshot,
+            incomingIntent,
+            context,
+          });
+          return { snapshot: merged };
+        }
+        throw new Error(SNAPSHOT_UPDATE_IN_PROGRESS_ERROR);
       }
 
       // Terminal or missing — clear stale lock and proceed
@@ -1286,12 +1331,14 @@ export async function requestExperimentSnapshot({
           if (forceFullRefresh) {
             throw new Error(SNAPSHOT_UPDATE_IN_PROGRESS_ERROR);
           }
-          const merged = await mergeRefreshIntent({
-            snapshot: raceSnapshot,
-            incomingIntent,
-            context,
-          });
-          return { snapshot: merged };
+          if (incomingIntent) {
+            const merged = await mergeRefreshIntent({
+              snapshot: raceSnapshot,
+              incomingIntent,
+              context,
+            });
+            return { snapshot: merged };
+          }
         }
       }
       throw new Error(SNAPSHOT_UPDATE_IN_PROGRESS_ERROR);
@@ -1326,9 +1373,10 @@ export async function requestExperimentSnapshot({
       queryRunner: queryRunner as ExperimentIncrementalRefreshQueryRunner,
       metricMap,
       factTableMap,
+      isIncremental: true,
     });
 
-    return { snapshot: queryRunner.model };
+    return { snapshot: queryRunner.model, queryRunner };
   }
 
   // --- Incremental-exploratory: block if incremental writer is active ---
@@ -1355,7 +1403,7 @@ export async function requestExperimentSnapshot({
       factTableMap,
     });
 
-    return { snapshot: queryRunner.model };
+    return { snapshot: queryRunner.model, queryRunner };
   }
 
   // --- Results runner (standard or exploratory): no locking ---
@@ -1379,7 +1427,7 @@ export async function requestExperimentSnapshot({
     });
   }
 
-  return { snapshot: queryRunner.model };
+  return { snapshot: queryRunner.model, queryRunner };
 }
 
 export async function waitForSnapshotExecution({
@@ -1883,6 +1931,7 @@ function monitorStandardSnapshotExecution({
   queryRunner,
   metricMap,
   factTableMap,
+  isIncremental = false,
 }: {
   context: ReqContext | ApiReqContext;
   experiment: ExperimentInterface;
@@ -1891,10 +1940,9 @@ function monitorStandardSnapshotExecution({
     | ExperimentIncrementalRefreshQueryRunner;
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
+  isIncremental?: boolean;
 }) {
   const snapshotId = queryRunner.model.id;
-  const isIncremental =
-    queryRunner instanceof ExperimentIncrementalRefreshQueryRunner;
 
   void (async () => {
     let snapshot = queryRunner.model;
@@ -1905,12 +1953,15 @@ function monitorStandardSnapshotExecution({
 
       if (snapshot.status === "success") {
         try {
-          if (experiment.type === "multi-armed-bandit") {
+          if (
+            experiment.type === "multi-armed-bandit" &&
+            snapshot.refreshIntent?.triggeredBySchedule
+          ) {
             const changes = updateExperimentBanditSettings({
               experiment,
               snapshot,
               reweight: !!snapshot.refreshIntent?.banditReweightRequested,
-              isScheduled: !!snapshot.refreshIntent?.triggeredBySchedule,
+              isScheduled: true,
             });
             await updateExperiment({
               context,
