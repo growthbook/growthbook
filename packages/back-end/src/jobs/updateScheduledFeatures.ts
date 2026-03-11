@@ -2,10 +2,15 @@ import Agenda, { Job } from "agenda";
 import {
   getFeature,
   getScheduledFeaturesToUpdate,
-  updateFeature,
+  updateNextScheduledDate,
 } from "back-end/src/models/FeatureModel";
-import { getNextScheduledUpdate } from "back-end/src/services/features";
+import {
+  getNextScheduledUpdate,
+  refreshSDKPayloadCache,
+} from "back-end/src/services/features";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { getSDKPayloadKeysByDiff } from "back-end/src/util/features";
+import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { logger } from "back-end/src/util/logger";
 
 type UpdateSingleFeatureJob = Job<{
@@ -14,7 +19,6 @@ type UpdateSingleFeatureJob = Job<{
 }>;
 
 const QUEUE_FEATURE_UPDATES = "queueScheduledFeatureUpdates";
-
 const UPDATE_SINGLE_FEATURE = "updateSingleFeature";
 
 async function fireUpdateWebhook(agenda: Agenda) {
@@ -33,22 +37,19 @@ async function queueFeatureUpdate(
     organization: feature.organization,
   }) as UpdateSingleFeatureJob;
 
-  job.unique({
-    featureId: feature.id,
-    organization: feature.organization,
-  });
+  job.unique({ featureId: feature.id, organization: feature.organization });
   job.schedule(new Date());
   await job.save();
 }
 
 export default async function (agenda: Agenda) {
   agenda.define(QUEUE_FEATURE_UPDATES, async () => {
-    const featureIds = (await getScheduledFeaturesToUpdate()).map((f) => {
-      return { id: f.id, organization: f.organization };
-    });
-
-    for (let i = 0; i < featureIds.length; i++) {
-      await queueFeatureUpdate(agenda, featureIds[i]);
+    const features = (await getScheduledFeaturesToUpdate()).map((f) => ({
+      id: f.id,
+      organization: f.organization,
+    }));
+    for (const feature of features) {
+      await queueFeatureUpdate(agenda, feature);
     }
   });
 
@@ -57,28 +58,35 @@ export default async function (agenda: Agenda) {
   await fireUpdateWebhook(agenda);
 }
 
-const updateSingleFeature = async (job: UpdateSingleFeatureJob) => {
+export const updateSingleFeature = async (job: UpdateSingleFeatureJob) => {
   const featureId = job.attrs.data?.featureId;
   const organization = job.attrs.data?.organization;
   if (!featureId || !organization) return;
 
   const context = await getContextForAgendaJobByOrgId(organization);
-
   const feature = await getFeature(context, featureId);
   if (!feature) return;
 
-  try {
-    // Recalculate the feature's new nextScheduledUpdate
-    const nextScheduledUpdate = getNextScheduledUpdate(
-      feature.environmentSettings || {},
-      context.environments,
-    );
+  const nextScheduledUpdate = getNextScheduledUpdate(
+    feature.environmentSettings || {},
+    context.environments,
+  );
 
-    // Update the feature in Mongo
-    await updateFeature(context, feature, {
-      nextScheduledUpdate: nextScheduledUpdate,
-    });
-  } catch (e) {
-    logger.error(e, "Failed updating feature " + featureId);
-  }
+  const payloadKeys = getSDKPayloadKeysByDiff(
+    feature,
+    { ...feature, nextScheduledUpdate: nextScheduledUpdate ?? undefined },
+    getEnvironmentIdsFromOrg(context.org),
+  );
+
+  // Advance nextScheduledUpdate only after a successful cache refresh so failed
+  // refreshes are retried on the next cron tick.
+  refreshSDKPayloadCache({
+    context,
+    payloadKeys,
+    auditContext: { event: "updated", model: "feature", id: feature.id },
+  })
+    .then(() => updateNextScheduledDate(feature, nextScheduledUpdate))
+    .catch((e) =>
+      logger.error(e, "Failed updating scheduled feature " + featureId),
+    );
 };
