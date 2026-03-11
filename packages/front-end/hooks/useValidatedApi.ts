@@ -25,12 +25,7 @@ export default function useValidatedApi<Response = unknown>(
   const { data, ...rest } = response;
 
   const parsedData = schema.safeParse(data);
-  if (!parsedData.success && parsedData.error) {
-    console.error(
-      "Error parsing API response with useValidatedApi: ",
-      parsedData.error.message,
-    );
-  }
+
   return {
     data: parsedData.data as Response,
     ...rest,
