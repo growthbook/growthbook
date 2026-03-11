@@ -44,12 +44,12 @@ async function queueFeatureUpdate(
 
 export default async function (agenda: Agenda) {
   agenda.define(QUEUE_FEATURE_UPDATES, async () => {
-    const features = (await getScheduledFeaturesToUpdate()).map((f) => ({
-      id: f.id,
-      organization: f.organization,
-    }));
-    for (const feature of features) {
-      await queueFeatureUpdate(agenda, feature);
+    const featureIds = (await getScheduledFeaturesToUpdate()).map((f) => {
+      return { id: f.id, organization: f.organization };
+    });
+
+    for (let i = 0; i < featureIds.length; i++) {
+      await queueFeatureUpdate(agenda, featureIds[i]);
     }
   });
 
