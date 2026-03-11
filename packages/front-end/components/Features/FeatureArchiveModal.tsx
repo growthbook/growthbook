@@ -59,22 +59,6 @@ export default function FeatureArchiveModal({
         <Text color="text-disabled">
           <LoadingSpinner /> Checking feature dependencies...
         </Text>
-      ) : hasActiveEnvs ? (
-        <>
-          <Text as="p" mb="4">
-            Are you sure you want to continue? This will completely remove the
-            feature from all SDKs and webhooks.
-          </Text>
-          <Callout status="warning" mb="4">
-            This feature is still active in the following environments:{" "}
-            <strong>{enabledEnvs.join(", ")}</strong>.
-          </Callout>
-          <Checkbox
-            value={confirmEnvBypass}
-            setValue={setConfirmEnvBypass}
-            label="I understand that all environments will be immediately disabled after archiving."
-          />
-        </>
       ) : totalDependents > 0 ? (
         <>
           <Callout status="error" mb="4">
@@ -91,6 +75,22 @@ export default function FeatureArchiveModal({
           <FeatureReferencesList
             features={dependents?.features}
             experiments={dependents?.experiments}
+          />
+        </>
+      ) : hasActiveEnvs ? (
+        <>
+          <Text as="p" mb="4">
+            Are you sure you want to continue? This will completely remove the
+            feature from all SDKs and webhooks.
+          </Text>
+          <Callout status="warning" mb="4">
+            This feature is still active in the following environments:{" "}
+            <strong>{enabledEnvs.join(", ")}</strong>.
+          </Callout>
+          <Checkbox
+            value={confirmEnvBypass}
+            setValue={setConfirmEnvBypass}
+            label="I understand that all environments will be immediately disabled after archiving."
           />
         </>
       ) : isArchived ? (
