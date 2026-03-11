@@ -14,6 +14,7 @@ import Table, { TableBody, TableRow, TableCell } from "@/ui/Table";
 import ValueDisplay from "./ValueDisplay";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import ConditionDisplay from "./ConditionDisplay";
+import { AttributeBadge } from "./AttributeBadge";
 import ForceSummary from "./ForceSummary";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -142,14 +143,7 @@ export default function ExperimentRefSummary({
       <Flex direction="row" gap="2" mb="3">
         <Text weight="medium">SPLIT</Text>
         by
-        <Badge
-          color="gray"
-          label={
-            <Text style={{ color: "var(--slate-12)" }}>
-              {experiment.hashAttribute || "id"}
-            </Text>
-          }
-        />
+        <AttributeBadge attributeId={experiment.hashAttribute || "id"} />
         {hasNamespace && (
           <>
             in the namespace
