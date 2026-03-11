@@ -164,6 +164,7 @@ import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunne
 import { getSignedImageUrl } from "back-end/src/services/files";
 import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
 import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
+import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
 import { notifyAutoUpdate } from "back-end/src/services/experimentNotifications";
 import { getMetricForSnapshot } from "./reports";
@@ -1090,13 +1091,13 @@ function isDuplicateKeyError(error: unknown): boolean {
   );
 }
 
-const SNAPSHOT_UPDATE_IN_PROGRESS_ERROR =
+export const SNAPSHOT_UPDATE_IN_PROGRESS_ERROR =
   "There's already an update in progress.";
 const SNAPSHOT_EXECUTION_STALE_THRESHOLD_MS = 10 * 60 * 1000;
 const SNAPSHOT_EXECUTION_POLL_INTERVAL_MS = 1000;
 const SNAPSHOT_EXECUTION_TIMEOUT_MS = 30 * 60 * 1000;
 
-function getSnapshotType({
+export function getSnapshotType({
   experiment,
   dimension,
   phaseIndex,
@@ -1453,12 +1454,6 @@ export async function createOrReuseStandardSnapshotExecution({
 }): Promise<{ snapshot: ExperimentSnapshotInterface; existing: boolean }> {
   const forceFullRefresh = !useCache;
 
-  await recordExperimentSnapshotAttempt({
-    context,
-    experiment,
-    type: "standard",
-  });
-
   const existingWriter = await findActiveStandardWriterSnapshot(
     context.org.id,
     experiment.id,
@@ -1531,7 +1526,6 @@ export async function createOrReuseStandardSnapshotExecution({
       reweight,
       type: "standard",
       triggeredBy,
-      skipRecordingSnapshotAttempt: true,
     })) as
       | ExperimentResultsQueryRunner
       | ExperimentIncrementalRefreshQueryRunner;
@@ -1569,7 +1563,131 @@ export async function createOrReuseStandardSnapshotExecution({
   }
 }
 
-export async function createSnapshot({
+export type ExperimentSnapshotQueryRunner =
+  | ExperimentResultsQueryRunner
+  | ExperimentIncrementalRefreshQueryRunner
+  | ExperimentIncrementalRefreshExploratoryQueryRunner;
+
+export type SnapshotQueryRunnerKind =
+  | "results"
+  | "incremental"
+  | "incremental-exploratory";
+
+function isIncrementalRefreshEnabledForSnapshot({
+  datasource,
+  experiment,
+}: {
+  datasource: DataSourceInterface;
+  experiment: ExperimentInterface;
+}): boolean {
+  return (
+    datasource.settings.pipelineSettings?.mode === "incremental" &&
+    !datasource.settings.pipelineSettings?.excludedExperimentIds?.includes(
+      experiment.id,
+    ) &&
+    (datasource.settings.pipelineSettings?.includedExperimentIds ===
+      undefined ||
+      datasource.settings.pipelineSettings?.includedExperimentIds.includes(
+        experiment.id,
+      ))
+  );
+}
+
+export function getSnapshotQueryRunnerKind({
+  allowIncrementalRefresh,
+  isExperimentCompatibleWithIncrementalRefresh,
+  datasource,
+  experiment,
+  snapshotType,
+}: {
+  allowIncrementalRefresh: boolean;
+  isExperimentCompatibleWithIncrementalRefresh: boolean;
+  datasource: DataSourceInterface;
+  experiment: ExperimentInterface;
+  snapshotType: SnapshotType;
+}): SnapshotQueryRunnerKind {
+  if (
+    allowIncrementalRefresh &&
+    isIncrementalRefreshEnabledForSnapshot({ datasource, experiment }) &&
+    (experiment.type === undefined || experiment.type === "standard") &&
+    isExperimentCompatibleWithIncrementalRefresh
+  ) {
+    return snapshotType === "exploratory"
+      ? "incremental-exploratory"
+      : "incremental";
+  }
+
+  return "results";
+}
+
+async function planSnapshotQueryRunner({
+  allowIncrementalRefresh,
+  organization,
+  datasource,
+  integration,
+  snapshotSettings,
+  metricMap,
+  factTableMap,
+  experiment,
+  incrementalRefreshModel,
+  snapshotType,
+  fullRefresh,
+}: {
+  allowIncrementalRefresh: boolean;
+  organization: OrganizationInterface;
+  datasource: DataSourceInterface;
+  integration: SourceIntegrationInterface;
+  snapshotSettings: ExperimentSnapshotSettings;
+  metricMap: Map<string, ExperimentMetricInterface>;
+  factTableMap: FactTableMap;
+  experiment: ExperimentInterface;
+  incrementalRefreshModel: IncrementalRefreshInterface | null;
+  snapshotType: SnapshotType;
+  fullRefresh: boolean;
+}): Promise<SnapshotQueryRunnerKind> {
+  let isExperimentCompatibleWithIncrementalRefresh = false;
+  if (allowIncrementalRefresh) {
+    try {
+      await validateIncrementalPipeline({
+        org: organization,
+        integration,
+        snapshotSettings,
+        metricMap,
+        factTableMap,
+        experiment,
+        incrementalRefreshModel,
+        analysisType: fullRefresh
+          ? "main-fullRefresh"
+          : snapshotType === "standard"
+            ? "main-update"
+            : "exploratory",
+      });
+      isExperimentCompatibleWithIncrementalRefresh = true;
+    } catch (error) {
+      logger.info(
+        `Experiment ${experiment.id} does not support incremental refresh: ${"message" in error ? error.message : error}`,
+      );
+    }
+  }
+
+  return getSnapshotQueryRunnerKind({
+    allowIncrementalRefresh,
+    isExperimentCompatibleWithIncrementalRefresh,
+    datasource,
+    experiment,
+    snapshotType,
+  });
+}
+
+export type PlannedExperimentSnapshot = {
+  snapshot: ExperimentSnapshotInterface;
+  runnerKind: SnapshotQueryRunnerKind;
+  useCache: boolean;
+  fullRefresh: boolean;
+  settingsForSnapshotMetrics: MetricSnapshotSettings[];
+};
+
+export async function planSnapshot({
   experiment,
   context,
   type,
@@ -1582,7 +1700,7 @@ export async function createSnapshot({
   metricMap,
   factTableMap,
   reweight,
-  skipRecordingSnapshotAttempt,
+  allowIncrementalRefresh = true,
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
@@ -1596,12 +1714,8 @@ export async function createSnapshot({
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
   reweight?: boolean;
-  skipRecordingSnapshotAttempt?: boolean;
-}): Promise<
-  | ExperimentResultsQueryRunner
-  | ExperimentIncrementalRefreshQueryRunner
-  | ExperimentIncrementalRefreshExploratoryQueryRunner
-> {
+  allowIncrementalRefresh?: boolean;
+}): Promise<PlannedExperimentSnapshot> {
   const { org: organization } = context;
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
   const metricGroups = await context.models.metricGroups.getAll();
@@ -1641,68 +1755,37 @@ export async function createSnapshot({
   });
 
   const integration = getSourceIntegrationObject(context, datasource, true);
-
-  const isIncrementalRefreshEnabledForExperiment =
-    datasource.settings.pipelineSettings?.mode === "incremental" &&
-    !datasource.settings.pipelineSettings?.excludedExperimentIds?.includes(
-      experiment.id,
-    ) &&
-    (datasource.settings.pipelineSettings?.includedExperimentIds ===
-      undefined ||
-      datasource.settings.pipelineSettings?.includedExperimentIds.includes(
-        experiment.id,
-      ));
-
-  let isExperimentCompatibleWithIncrementalRefresh;
-  try {
-    await validateIncrementalPipeline({
-      org: organization,
-      integration,
-      snapshotSettings,
-      metricMap,
-      factTableMap,
-      experiment,
-      incrementalRefreshModel,
-      analysisType: fullRefresh
-        ? "main-fullRefresh"
-        : type === "standard"
-          ? "main-update"
-          : "exploratory",
-    });
-    isExperimentCompatibleWithIncrementalRefresh = true;
-  } catch (error) {
-    isExperimentCompatibleWithIncrementalRefresh = false;
-    logger.info(
-      `Experiment ${experiment.id} does not support incremental refresh: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-    );
-  }
-
-  const isStandardIncrementalWriter =
-    type === "standard" &&
-    isIncrementalRefreshEnabledForExperiment &&
-    (experiment.type === undefined || experiment.type === "standard") &&
-    isExperimentCompatibleWithIncrementalRefresh;
+  const runnerKind = await planSnapshotQueryRunner({
+    allowIncrementalRefresh,
+    organization,
+    datasource,
+    integration,
+    snapshotSettings,
+    metricMap,
+    factTableMap,
+    experiment,
+    incrementalRefreshModel,
+    snapshotType: type,
+    fullRefresh,
+  });
 
   const refreshIntent = buildSnapshotRefreshIntent({
     triggeredBy,
     reweight: !!reweight,
   });
-  const snapshotId = uniqid("snp_");
   const refreshExecution:
     | ExperimentSnapshotRefreshExecutionMetadata
     | undefined =
     type === "standard"
       ? {
-          mode: isStandardIncrementalWriter ? "writer" : "reader",
+          mode: runnerKind === "incremental" ? "writer" : "reader",
           intent: refreshIntent,
           heartbeat: new Date(),
         }
       : undefined;
 
-  const data: ExperimentSnapshotInterface = {
-    id: snapshotId,
+  const snapshot: ExperimentSnapshotInterface = {
+    id: uniqid("snp_"),
     organization: experiment.organization,
     experiment: experiment.id,
     runStarted: new Date(),
@@ -1724,12 +1807,14 @@ export async function createSnapshot({
         status: "running",
       },
       ...additionalAnalysisSettings
-        .filter((a) => isAnalysisAllowed(snapshotSettings, a))
-        .map((a) => {
+        .filter((analysisSettings) =>
+          isAnalysisAllowed(snapshotSettings, analysisSettings),
+        )
+        .map((analysisSettings) => {
           const analysis: ExperimentSnapshotAnalysis = {
             dateCreated: new Date(),
             results: [],
-            settings: a,
+            settings: analysisSettings,
             status: "running",
           };
           return analysis;
@@ -1739,77 +1824,111 @@ export async function createSnapshot({
     ...(refreshExecution ? { executionMetadata: refreshExecution } : {}),
   };
 
-  if (!skipRecordingSnapshotAttempt) {
-    await recordExperimentSnapshotAttempt({
-      context,
-      experiment,
-      type,
-    });
+  return {
+    snapshot,
+    runnerKind,
+    useCache,
+    fullRefresh,
+    settingsForSnapshotMetrics,
+  };
+}
+
+export async function createSnapshotFromPlan({
+  plan,
+  context,
+  experiment,
+  metricMap,
+  factTableMap,
+}: {
+  plan: PlannedExperimentSnapshot;
+  context: ReqContext | ApiReqContext;
+  experiment: ExperimentInterface;
+  metricMap: Map<string, ExperimentMetricInterface>;
+  factTableMap: FactTableMap;
+}): Promise<ExperimentSnapshotQueryRunner> {
+  const datasource = await getDataSourceById(context, experiment.datasource);
+  if (!datasource) {
+    throw new Error("Could not load data source");
+  }
+  const integration = getSourceIntegrationObject(context, datasource, true);
+
+  const snapshotType = plan.snapshot.type;
+  if (!snapshotType) {
+    throw new Error("Snapshot plan is missing a snapshot type");
   }
 
-  const snapshot = await createExperimentSnapshotModel({ data });
+  await recordExperimentSnapshotAttempt({
+    context,
+    experiment,
+    type: snapshotType,
+  });
 
-  let queryRunner:
-    | ExperimentResultsQueryRunner
-    | ExperimentIncrementalRefreshQueryRunner
-    | ExperimentIncrementalRefreshExploratoryQueryRunner;
+  const snapshot = await createExperimentSnapshotModel({ data: plan.snapshot });
 
-  if (
-    isIncrementalRefreshEnabledForExperiment &&
-    (experiment.type === undefined || experiment.type === "standard") &&
-    isExperimentCompatibleWithIncrementalRefresh
-  ) {
-    if (snapshot.type === "exploratory") {
+  let queryRunner: ExperimentSnapshotQueryRunner;
+  switch (plan.runnerKind) {
+    case "incremental-exploratory":
       queryRunner = new ExperimentIncrementalRefreshExploratoryQueryRunner(
         context,
         snapshot,
         integration,
         false, // TODO(incremental-refresh): allow cache + cache override for exploratory queries
       );
-    } else {
+      break;
+    case "incremental":
       queryRunner = new ExperimentIncrementalRefreshQueryRunner(
         context,
         snapshot,
         integration,
         false, // always ignore cache for incremental refresh queries
       );
-    }
-  } else {
-    queryRunner = new ExperimentResultsQueryRunner(
-      context,
-      snapshot,
-      integration,
-      useCache,
-    );
+      break;
+    case "results":
+      queryRunner = new ExperimentResultsQueryRunner(
+        context,
+        snapshot,
+        integration,
+        plan.useCache,
+      );
+      break;
+    default:
+      plan.runnerKind satisfies never;
+      throw new Error(`Unknown snapshot runner kind: ${plan.runnerKind}`);
   }
 
   const analysisProps = {
-    snapshotType: type,
-    snapshotSettings: data.settings,
+    snapshotType,
+    snapshotSettings: plan.snapshot.settings,
     variationNames: experiment.variations.map((v) => v.name),
     metricMap,
-    queryParentId: snapshot.id,
+    queryParentId: queryRunner.model.id,
     factTableMap,
     experimentQueryMetadata:
       getAdditionalQueryMetadataForExperiment(experiment),
   };
 
   try {
-    if (
-      queryRunner instanceof ExperimentIncrementalRefreshQueryRunner ||
-      queryRunner instanceof ExperimentIncrementalRefreshExploratoryQueryRunner
-    ) {
-      const fullRefresh =
-        (!useCache || !incrementalRefreshModel) && snapshot.type === "standard";
-
-      await queryRunner.startAnalysis({
+    if (plan.runnerKind === "incremental") {
+      await (
+        queryRunner as ExperimentIncrementalRefreshQueryRunner
+      ).startAnalysis({
         ...analysisProps,
         experimentId: experiment.id,
         incrementalRefreshStartTime: new Date(),
-        fullRefresh,
+        fullRefresh: plan.fullRefresh && snapshot.type === "standard",
+      });
+    } else if (plan.runnerKind === "incremental-exploratory") {
+      await (
+        queryRunner as ExperimentIncrementalRefreshExploratoryQueryRunner
+      ).startAnalysis({
+        ...analysisProps,
+        experimentId: experiment.id,
+        incrementalRefreshStartTime: new Date(),
       });
     } else {
-      await queryRunner.startAnalysis(analysisProps);
+      await (queryRunner as ExperimentResultsQueryRunner).startAnalysis(
+        analysisProps,
+      );
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -1827,6 +1946,7 @@ export async function createSnapshot({
       },
       context,
     });
+
     if (snapshot.type === "standard") {
       await clearExecutionMetadata(snapshot.organization, snapshot.id);
     }
@@ -2004,6 +2124,60 @@ function monitorStandardSnapshotExecution({
       }
     }
   })();
+}
+
+export async function createSnapshot({
+  experiment,
+  context,
+  type,
+  triggeredBy,
+  phaseIndex,
+  useCache = false,
+  defaultAnalysisSettings,
+  additionalAnalysisSettings,
+  settingsForSnapshotMetrics,
+  metricMap,
+  factTableMap,
+  reweight,
+  allowIncrementalRefresh = true,
+}: {
+  experiment: ExperimentInterface;
+  context: ReqContext | ApiReqContext;
+  type: SnapshotType;
+  triggeredBy: SnapshotTriggeredBy;
+  phaseIndex: number;
+  useCache?: boolean;
+  defaultAnalysisSettings: ExperimentSnapshotAnalysisSettings;
+  additionalAnalysisSettings: ExperimentSnapshotAnalysisSettings[];
+  settingsForSnapshotMetrics: MetricSnapshotSettings[];
+  metricMap: Map<string, ExperimentMetricInterface>;
+  factTableMap: FactTableMap;
+  reweight?: boolean;
+  allowIncrementalRefresh?: boolean;
+}): Promise<ExperimentSnapshotQueryRunner> {
+  const plan = await planSnapshot({
+    experiment,
+    context,
+    type,
+    triggeredBy,
+    phaseIndex,
+    useCache,
+    defaultAnalysisSettings,
+    additionalAnalysisSettings,
+    settingsForSnapshotMetrics,
+    metricMap,
+    factTableMap,
+    reweight,
+    allowIncrementalRefresh,
+  });
+
+  return createSnapshotFromPlan({
+    plan,
+    context,
+    experiment,
+    metricMap,
+    factTableMap,
+  });
 }
 
 export type SnapshotAnalysisParams = {

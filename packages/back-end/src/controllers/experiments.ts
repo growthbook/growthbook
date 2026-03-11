@@ -2,6 +2,7 @@ import { Response } from "express";
 import uniqid from "uniqid";
 import format from "date-fns/format";
 import cloneDeep from "lodash/cloneDeep";
+import uniq from "lodash/uniq";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import {
@@ -13,13 +14,14 @@ import {
   expandAllSliceMetricsInMap,
   expandMetricGroups,
   getAllMetricIdsFromExperiment,
+  getAllMetricSettingsForSnapshot,
 } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
 import { IdeaInterface } from "shared/types/idea";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { DataSourceInterface } from "shared/types/datasource";
-import { MetricStats } from "shared/types/metric";
+import { MetricInterface, MetricStats } from "shared/types/metric";
 import {
   Changeset,
   ExperimentInterface,
@@ -33,9 +35,11 @@ import {
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
+  SnapshotTriggeredBy,
   SnapshotType,
 } from "shared/types/experiment-snapshot";
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
+import { OrganizationSettings } from "shared/types/organization";
 import { CreateURLRedirectProps } from "shared/types/url-redirect";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
@@ -46,14 +50,21 @@ import {
   _getSnapshots,
   createSnapshotAnalyses,
   createSnapshotAnalysis,
+  createSnapshotFromPlan,
   determineNextBanditSchedule,
+  ExperimentSnapshotQueryRunner,
+  getAdditionalExperimentAnalysisSettings,
   getChangesToStartExperiment,
+  getDefaultExperimentAnalysisSettings,
+  getSnapshotType,
   getLinkedFeatureInfo,
+  PlannedExperimentSnapshot,
+  planSnapshot,
   requestExperimentSnapshot,
   resetExperimentBanditSettings,
   SnapshotAnalysisParams,
-  waitForSnapshotExecution,
   validateExperimentData,
+  waitForSnapshotExecution,
 } from "back-end/src/services/experiments";
 import {
   createExperiment,
@@ -131,6 +142,10 @@ import {
 } from "back-end/src/util/custom-fields";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
+
+function getErrorMessage(error: unknown, fallback = "Unknown error") {
+  return error instanceof Error ? error.message : fallback;
+}
 
 export async function getExperiments(
   req: AuthRequest<
@@ -1085,7 +1100,7 @@ export async function postExperiments(
   } catch (e) {
     res.status(400).json({
       status: 400,
-      message: e.message,
+      message: getErrorMessage(e),
     });
     return;
   }
@@ -1315,7 +1330,7 @@ export async function postExperiments(
   } catch (e) {
     res.status(400).json({
       status: 400,
-      message: e.message,
+      message: getErrorMessage(e),
     });
   }
 }
@@ -1908,7 +1923,7 @@ export async function postExperimentArchive(
   } catch (e) {
     res.status(400).json({
       status: 400,
-      message: e.message || "Failed to archive experiment",
+      message: getErrorMessage(e, "Failed to archive experiment"),
     });
   }
 }
@@ -1968,7 +1983,7 @@ export async function postExperimentUnarchive(
   } catch (e) {
     res.status(400).json({
       status: 400,
-      message: e.message || "Failed to unarchive experiment",
+      message: getErrorMessage(e, "Failed to unarchive experiment"),
     });
   }
 }
@@ -2255,7 +2270,7 @@ export async function postExperimentStop(
   } catch (e) {
     res.status(400).json({
       status: 400,
-      message: e.message || "Failed to stop experiment",
+      message: getErrorMessage(e, "Failed to stop experiment"),
     });
   }
 }
@@ -2608,7 +2623,7 @@ export async function postExperimentTargeting(
   } catch (e) {
     res.status(400).json({
       status: 400,
-      message: e.message || "Failed to edit experiment targeting",
+      message: getErrorMessage(e, "Failed to edit experiment targeting"),
     });
   }
 }
@@ -2721,7 +2736,7 @@ export async function postExperimentPhase(
   } catch (e) {
     res.status(400).json({
       status: 400,
-      message: e.message || "Failed to start new experiment phase",
+      message: getErrorMessage(e, "Failed to start new experiment phase"),
     });
   }
 }
@@ -2862,6 +2877,191 @@ export async function cancelSnapshot(
   await deleteSnapshotById(org.id, snapshot.id);
 
   res.status(200).json({ status: 200 });
+}
+
+export async function createExperimentSnapshot({
+  context,
+  experiment,
+  datasource,
+  dimension,
+  phase,
+  useCache = true,
+  triggeredBy,
+  type,
+  reweight,
+  allowIncrementalRefresh = true,
+}: {
+  context: ReqContext;
+  experiment: ExperimentInterface;
+  datasource: DataSourceInterface;
+  dimension: string | undefined;
+  phase: number;
+  useCache?: boolean;
+  triggeredBy?: SnapshotTriggeredBy;
+  type?: SnapshotType;
+  reweight?: boolean;
+  allowIncrementalRefresh?: boolean;
+}): Promise<{
+  snapshot: ExperimentSnapshotInterface;
+  queryRunner: ExperimentSnapshotQueryRunner;
+}> {
+  const plan = await planExperimentSnapshot({
+    context,
+    experiment,
+    datasource,
+    dimension,
+    phase,
+    useCache,
+    triggeredBy,
+    type,
+    reweight,
+    allowIncrementalRefresh,
+  });
+
+  return createExperimentSnapshotFromPlan({
+    plan,
+    context,
+    experiment,
+  });
+}
+
+export async function createExperimentSnapshotFromPlan({
+  plan,
+  context,
+  experiment,
+}: {
+  plan: PlannedExperimentSnapshot;
+  context: ReqContext;
+  experiment: ExperimentInterface;
+}): Promise<{
+  snapshot: ExperimentSnapshotInterface;
+  queryRunner: ExperimentSnapshotQueryRunner;
+}> {
+  const metricMap = await getMetricMap(context);
+  const factTableMap = await getFactTableMap(context);
+  const queryRunner = await createSnapshotFromPlan({
+    plan,
+    context,
+    experiment,
+    metricMap,
+    factTableMap,
+  });
+  return { snapshot: queryRunner.model, queryRunner };
+}
+
+export async function planExperimentSnapshot({
+  context,
+  experiment,
+  datasource,
+  dimension,
+  phase,
+  useCache = true,
+  triggeredBy,
+  type,
+  reweight,
+  allowIncrementalRefresh = true,
+}: {
+  context: ReqContext;
+  experiment: ExperimentInterface;
+  datasource: DataSourceInterface;
+  dimension: string | undefined;
+  phase: number;
+  useCache?: boolean;
+  triggeredBy?: SnapshotTriggeredBy;
+  type?: SnapshotType;
+  reweight?: boolean;
+  allowIncrementalRefresh?: boolean;
+}): Promise<PlannedExperimentSnapshot> {
+  const snapshotType =
+    type ??
+    getSnapshotType({
+      experiment,
+      dimension,
+      phaseIndex: phase,
+    });
+
+  let project = null;
+  if (experiment.project) {
+    project = await context.models.projects.getById(experiment.project);
+  }
+
+  const { org } = context;
+  const orgSettings: OrganizationSettings =
+    org.settings as OrganizationSettings;
+  const { settings } = getScopedSettings({
+    organization: org,
+    project: project ?? undefined,
+    experiment,
+  });
+  const statsEngine = settings.statsEngine.value;
+  const postStratificationEnabled = settings.postStratificationEnabled.value;
+  const metricMap = await getMetricMap(context);
+  const factTableMap = await getFactTableMap(context);
+
+  const metricGroups = await context.models.metricGroups.getAll();
+  const metricIds = getAllMetricIdsFromExperiment(
+    experiment,
+    false,
+    metricGroups,
+  );
+
+  const allExperimentMetrics = metricIds.map((m) => metricMap.get(m) || null);
+
+  const denominatorMetricIds = uniq<string>(
+    allExperimentMetrics
+      .map((m) => m?.denominator)
+      .filter((d) => d && typeof d === "string") as string[],
+  );
+  const denominatorMetrics = denominatorMetricIds
+    .map((m) => metricMap.get(m) || null)
+    .filter(isDefined) as MetricInterface[];
+
+  const { settingsForSnapshotMetrics, regressionAdjustmentEnabled } =
+    getAllMetricSettingsForSnapshot({
+      allExperimentMetrics,
+      denominatorMetrics,
+      orgSettings,
+      experimentRegressionAdjustmentEnabled:
+        experiment.regressionAdjustmentEnabled,
+      experimentMetricOverrides: experiment.metricOverrides,
+      datasourceType: datasource?.type,
+      hasRegressionAdjustmentFeature: true,
+      ...(experiment.type === "multi-armed-bandit"
+        ? {
+            banditConversionWindowValue:
+              experiment.banditConversionWindowValue ?? undefined,
+            banditConversionWindowUnit:
+              experiment.banditConversionWindowUnit ?? undefined,
+          }
+        : {}),
+    });
+
+  const analysisSettings = getDefaultExperimentAnalysisSettings({
+    statsEngine,
+    experiment,
+    organization: org,
+    regressionAdjustmentEnabled,
+    postStratificationEnabled,
+    dimension,
+  });
+
+  const plan = await planSnapshot({
+    experiment,
+    context,
+    phaseIndex: phase,
+    useCache,
+    defaultAnalysisSettings: analysisSettings,
+    additionalAnalysisSettings:
+      getAdditionalExperimentAnalysisSettings(analysisSettings),
+    settingsForSnapshotMetrics,
+    metricMap,
+    factTableMap,
+    reweight,
+    type: snapshotType,
+    triggeredBy: triggeredBy ?? "manual",
+    allowIncrementalRefresh,
+  });
+  return plan;
 }
 
 export async function postSnapshot(
@@ -3008,7 +3208,7 @@ export async function postSnapshotAnalysis(
     req.log.error(e, "Failed to create experiment snapshot analysis");
     res.status(400).json({
       status: 400,
-      message: e.message,
+      message: getErrorMessage(e),
     });
   }
 }

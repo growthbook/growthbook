@@ -16,16 +16,27 @@ import {
   ResponseWithStatusAndError,
 } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import {
+  createExperimentSnapshot,
+  planExperimentSnapshot,
+} from "back-end/src/controllers/experiments";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
-import { findSnapshotsByIds } from "back-end/src/models/ExperimentSnapshotModel";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import {
+  findActiveStandardWriterSnapshot,
+  findSnapshotsByIds,
+} from "back-end/src/models/ExperimentSnapshotModel";
 import {
   updateDashboardMetricAnalyses,
   updateDashboardExplorations,
   updateDashboardSavedQueries,
   updateNonExperimentDashboard,
 } from "back-end/src/enterprise/services/dashboards";
-import { requestExperimentSnapshot } from "back-end/src/services/experiments";
+import {
+  requestExperimentSnapshot,
+  SNAPSHOT_UPDATE_IN_PROGRESS_ERROR,
+  waitForSnapshotExecution,
+} from "back-end/src/services/experiments";
 import {
   generateDashboardBlockIds,
   migrateBlock,
@@ -187,49 +198,95 @@ export async function refreshDashboardData(
     const datasource = await getDataSourceById(context, experiment.datasource);
     if (!datasource) throw new Error("Failed to find connected datasource");
 
-    const { snapshot: mainSnapshot } = await requestExperimentSnapshot({
+    const plannedExperimentMainSnapshot = await planExperimentSnapshot({
       context,
       experiment,
       dimension: undefined,
-      phaseIndex: experiment.phases.length - 1,
+      datasource,
+      phase: experiment.phases.length - 1,
       useCache: false,
       triggeredBy: "manual-dashboard",
       type: "standard",
-      // TODO: Missing `preventStartingAnalysis` ?
     });
+
+    const plannedMainSnapshot = plannedExperimentMainSnapshot.snapshot;
+    const mainBlockIds = new Set<string>();
+    const dimensionBlocks = new Map<string, string[]>();
 
     // Copy the blocks of the dashboard to overwrite their snapshot IDs
     const newBlocks = dashboard.blocks.map((block) => {
+      const nextBlock = { ...block };
       if (!blockHasFieldOfType(block, "snapshotId", isString)) {
-        return { ...block };
+        return nextBlock;
       }
 
-      if (!snapshotSatisfiesBlock(mainSnapshot, block)) {
-        return { ...block };
-      }
-
-      return { ...block, snapshotId: mainSnapshot.id };
-    });
-
-    const dimensionBlocks = new Map<string, string[]>();
-    dashboard.blocks.forEach((block) => {
-      if (
-        blockHasFieldOfType(block, "snapshotId", isString) &&
-        blockHasFieldOfType(block, "dimensionId", isString) &&
-        !snapshotSatisfiesBlock(mainSnapshot, block)
-      ) {
+      if (snapshotSatisfiesBlock(plannedMainSnapshot, block)) {
+        mainBlockIds.add(block.id);
+      } else if (blockHasFieldOfType(block, "dimensionId", isString)) {
         const blockIds = dimensionBlocks.get(block.dimensionId) ?? [];
         blockIds.push(block.id);
         dimensionBlocks.set(block.dimensionId, blockIds);
       }
+
+      return nextBlock;
     });
+    let requestedMainSnapshot:
+      | Awaited<ReturnType<typeof requestExperimentSnapshot>>["snapshot"]
+      | undefined;
+
+    if (mainBlockIds.size > 0) {
+      ({ snapshot: requestedMainSnapshot } = await requestExperimentSnapshot({
+        context,
+        experiment,
+        dimension: undefined,
+        phaseIndex: experiment.phases.length - 1,
+        useCache: false,
+        triggeredBy: "manual-dashboard",
+        type: "standard",
+      }));
+
+      newBlocks.forEach((block) => {
+        if (
+          requestedMainSnapshot &&
+          mainBlockIds.has(block.id) &&
+          blockHasFieldOfType(block, "snapshotId", isString)
+        ) {
+          block.snapshotId = requestedMainSnapshot.id;
+        }
+      });
+    }
+
+    if (dimensionBlocks.size > 0) {
+      const writerSnapshot =
+        requestedMainSnapshot?.executionMetadata?.mode === "writer"
+          ? requestedMainSnapshot
+          : await findActiveStandardWriterSnapshot(
+              context.org.id,
+              experiment.id,
+            );
+
+      if (writerSnapshot) {
+        if (
+          requestedMainSnapshot &&
+          writerSnapshot.id === requestedMainSnapshot.id
+        ) {
+          await waitForSnapshotExecution({
+            context,
+            snapshotId: writerSnapshot.id,
+          });
+        } else {
+          context.throwBadRequestError(SNAPSHOT_UPDATE_IN_PROGRESS_ERROR);
+        }
+      }
+    }
 
     for (const [dimensionId, blockIds] of dimensionBlocks.entries()) {
-      const { snapshot } = await requestExperimentSnapshot({
+      const { snapshot } = await createExperimentSnapshot({
         context,
         experiment,
         dimension: dimensionId,
-        phaseIndex: experiment.phases.length - 1,
+        datasource,
+        phase: experiment.phases.length - 1,
         useCache: false,
         triggeredBy: "manual-dashboard",
         type: "exploratory",
