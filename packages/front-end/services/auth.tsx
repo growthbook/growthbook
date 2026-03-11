@@ -48,6 +48,8 @@ export interface AuthContextValue {
   specialOrg?: null | Partial<OrganizationInterface>;
   setOrgName?: (name: string) => void;
   setSpecialOrg?: (org: null | Partial<OrganizationInterface>) => void;
+  pendingInitialPlanSelection: boolean;
+  setPendingInitialPlanSelection?: (value: boolean) => void;
 }
 
 export const AuthContext = React.createContext<AuthContextValue>({
@@ -62,6 +64,7 @@ export const AuthContext = React.createContext<AuthContextValue>({
     return x;
   },
   orgId: null,
+  pendingInitialPlanSelection: false,
 });
 
 export const useAuth = (): AuthContextValue => useContext(AuthContext);
@@ -150,6 +153,44 @@ const addCloudRegisterParam = (uri: string) => {
   return url.toString();
 };
 
+export const SIGNUP_PLAN_COOKIE_NAME = "gb-signup-plan";
+const SIGNUP_PLAN_COOKIE_MAX_AGE_SEC = 86400; // 24h
+
+function setSignupPlanCookieFromUrl() {
+  if (typeof window === "undefined") return;
+  const plan = new URLSearchParams(window.location.search).get("plan");
+  if (plan === "pro" || plan === "starter") {
+    document.cookie = `${SIGNUP_PLAN_COOKIE_NAME}=${plan}; path=/; max-age=${SIGNUP_PLAN_COOKIE_MAX_AGE_SEC}; SameSite=Lax`;
+  }
+}
+
+export function getSignupPlanFromCookie(): "starter" | "pro" {
+  if (typeof window === "undefined") return "starter";
+  const match = document.cookie.match(
+    new RegExp(`(?:^|; )${SIGNUP_PLAN_COOKIE_NAME}=([^;]*)`),
+  );
+  const value = match?.[1]?.trim();
+  return value === "pro" ? "pro" : "starter";
+}
+
+export function clearSignupPlanCookie() {
+  if (typeof window === "undefined") return;
+  document.cookie = `${SIGNUP_PLAN_COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax`;
+}
+
+export const PENDING_INITIAL_PLAN_SESSION_KEY = "gb-pending-initial-plan";
+
+function getPendingInitialPlanFromSession(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return (
+      window.sessionStorage.getItem(PENDING_INITIAL_PLAN_SESSION_KEY) === "true"
+    );
+  } catch {
+    return false;
+  }
+}
+
 function getDetailedError(error: string): string | ReactElement {
   const curUrl = window.location.origin;
   if (!isCloud()) {
@@ -211,12 +252,28 @@ export const AuthProvider: React.FC<{
   const [authComponent, setAuthComponent] = useState<ReactElement | null>(null);
   const [initError, setInitError] = useState("");
   const [sessionError, setSessionError] = useState(false);
+  const [pendingInitialPlanSelection, setPendingInitialPlanSelectionState] =
+    useState<boolean>(getPendingInitialPlanFromSession);
   const router = useRouter();
   const initialOrgId = router.query.org ? router.query.org + "" : null;
 
   const [, setProject] = useProject();
 
+  const setPendingInitialPlanSelection = useCallback((value: boolean) => {
+    setPendingInitialPlanSelectionState(value);
+    try {
+      if (value) {
+        window.sessionStorage.setItem(PENDING_INITIAL_PLAN_SESSION_KEY, "true");
+      } else {
+        window.sessionStorage.removeItem(PENDING_INITIAL_PLAN_SESSION_KEY);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
   async function init() {
+    setSignupPlanCookieFromUrl();
     const resp = await refreshToken();
     if ("token" in resp) {
       setInitError("");
@@ -484,6 +541,7 @@ export const AuthProvider: React.FC<{
           setOrganizations([]);
           setSpecialOrg(null);
           setToken("");
+          setPendingInitialPlanSelection(false);
           if (isSentryEnabled()) {
             sentrySetUser(null);
           }
@@ -508,6 +566,8 @@ export const AuthProvider: React.FC<{
         },
         specialOrg,
         setSpecialOrg,
+        pendingInitialPlanSelection,
+        setPendingInitialPlanSelection,
       }}
     >
       <>

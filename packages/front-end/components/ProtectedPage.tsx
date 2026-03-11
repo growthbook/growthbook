@@ -1,9 +1,11 @@
 import { ReactNode } from "react";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useAuth, safeLogout } from "@/services/auth";
 import WatchProvider from "@/services/WatchProvider";
 import { UserContextProvider, useUser } from "@/services/UserContext";
 import LoadingOverlay from "./LoadingOverlay";
 import CreateOrJoinOrganization from "./Auth/CreateOrJoinOrganization";
+import SelectInitialPlan from "./Auth/SelectInitialPlan";
 import InAppHelp from "./Auth/InAppHelp";
 import Button from "./Button";
 import TopNavLite from "./Layout/TopNavLite";
@@ -79,7 +81,9 @@ const ProtectedPage: React.FC<{
   organizationRequired: boolean;
   children: ReactNode;
 }> = ({ children, organizationRequired }) => {
-  const { orgId } = useAuth();
+  const { orgId, pendingInitialPlanSelection } = useAuth();
+  // const initialPlanSelectionEnabled = useFeatureIsOn("initial-plan-selection");
+  const initialPlanSelectionEnabled = true;
 
   return (
     <UserContextProvider key={orgId}>
@@ -87,6 +91,10 @@ const ProtectedPage: React.FC<{
         <InAppHelp />
         {!organizationRequired ? (
           <>{children}</>
+        ) : orgId &&
+          initialPlanSelectionEnabled &&
+          pendingInitialPlanSelection ? (
+          <SelectInitialPlan />
         ) : orgId ? (
           <WatchProvider>{children}</WatchProvider>
         ) : (
