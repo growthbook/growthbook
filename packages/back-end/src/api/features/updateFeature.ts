@@ -1,6 +1,6 @@
 import {
   featureRequiresReview,
-  getReviewSetting,
+  checkIfRevisionNeedsReview,
   validateFeatureValue,
   validateScheduleRules,
 } from "shared/util";
@@ -206,20 +206,15 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       );
     }
 
-    const requireReviews = req.context.org.settings?.requireReviews;
-    const reviewSetting = Array.isArray(requireReviews)
-      ? getReviewSetting(requireReviews, feature)
-      : null;
     const apiBypassesReviews =
       req.context.org.settings?.restApiBypassesReviews !== false;
 
-    const envReviewRequired =
-      !!reviewSetting?.requireReviewOn &&
-      !!reviewSetting?.featureRequireEnvironmentReview;
+    // All envelope changes (environmentsEnabled, prerequisites) always go through a revision.
+    // Check if the affected environments require review.
+    const canBypass = apiBypassesReviews || req.context.permissions.canBypassApprovalChecks(feature);
 
-    // Handle gated envelope fields via revision system
-    // environmentsEnabled (kill switch changes gated by featureRequireEnvironmentReview)
-    if (envReviewRequired && updates.environmentSettings) {
+    // Handle environmentsEnabled (kill switch changes) — always via revision
+    if (updates.environmentSettings) {
       const changedEnvEnabled: Record<string, boolean> = {};
       for (const [env, settings] of Object.entries(
         updates.environmentSettings,
@@ -229,9 +224,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
           settings.enabled !== feature.environmentSettings?.[env]?.enabled
         ) {
           changedEnvEnabled[env] = settings.enabled;
-          // Preserve the current enabled state in the direct write — the kill
-          // switch change is captured in the revision and should not be applied
-          // until that revision is published.
+          // Keep current enabled state in the direct write so it is not applied twice
           updates.environmentSettings[env] = {
             ...updates.environmentSettings[env],
             enabled: feature.environmentSettings?.[env]?.enabled ?? true,
@@ -239,10 +232,22 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         }
       }
       if (Object.keys(changedEnvEnabled).length > 0) {
-        if (
-          !apiBypassesReviews &&
-          !req.context.permissions.canBypassApprovalChecks(feature)
-        ) {
+        const liveRevision = await (await import("back-end/src/models/FeatureRevisionModel")).getRevision({
+          context: req.context,
+          organization: feature.organization,
+          featureId: feature.id,
+          version: feature.version,
+        });
+        if (!liveRevision) throw new Error("Could not load live revision");
+        const fakeRevision = { ...liveRevision, environmentsEnabled: changedEnvEnabled };
+        const reviewRequired = checkIfRevisionNeedsReview({
+          feature,
+          baseRevision: liveRevision,
+          revision: fakeRevision,
+          allEnvironments: orgEnvs,
+          settings: req.organization.settings,
+        });
+        if (reviewRequired && !canBypass) {
           throw new Error(
             "This feature requires a review for kill switch changes and the API key being used does not have permission to bypass reviews.",
           );
@@ -257,26 +262,36 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
           publish: true,
           changes: { environmentsEnabled: changedEnvEnabled },
           org: req.organization,
-          canBypassApprovalChecks: apiBypassesReviews,
+          canBypassApprovalChecks: canBypass,
         });
-        // Apply kill switch changes now; continue to apply remaining updates below
         const featureWithToggle = await (
           await import("back-end/src/models/FeatureModel")
         ).applyRevisionChanges(req.context, feature, envEnabledRevision, {
           environmentsEnabled: changedEnvEnabled,
         });
-        // Merge the feature state so subsequent revision creation sees latest version
         Object.assign(feature, featureWithToggle);
         updates.version = envEnabledRevision.version;
       }
     }
 
-    // prerequisites (gated)
-    if (envReviewRequired && updates.prerequisites) {
-      if (
-        !apiBypassesReviews &&
-        !req.context.permissions.canBypassApprovalChecks(feature)
-      ) {
+    // prerequisites — always via revision
+    if (updates.prerequisites) {
+      const liveRevision2 = await (await import("back-end/src/models/FeatureRevisionModel")).getRevision({
+        context: req.context,
+        organization: feature.organization,
+        featureId: feature.id,
+        version: feature.version,
+      });
+      if (!liveRevision2) throw new Error("Could not load live revision");
+      const fakeRevision2 = { ...liveRevision2, prerequisites: updates.prerequisites };
+      const reviewRequired2 = checkIfRevisionNeedsReview({
+        feature,
+        baseRevision: liveRevision2,
+        revision: fakeRevision2,
+        allEnvironments: orgEnvs,
+        settings: req.organization.settings,
+      });
+      if (reviewRequired2 && !canBypass) {
         throw new Error(
           "This feature requires a review for prerequisite changes and the API key being used does not have permission to bypass reviews.",
         );
@@ -291,7 +306,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         publish: true,
         changes: { prerequisites: updates.prerequisites },
         org: req.organization,
-        canBypassApprovalChecks: apiBypassesReviews,
+        canBypassApprovalChecks: canBypass,
       });
       const featureWithPrereqs = await (
         await import("back-end/src/models/FeatureModel")
@@ -303,8 +318,8 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       delete updates.prerequisites;
     }
 
-    // metadata (gated)
-    if (reviewSetting?.featureRequireMetadataReview) {
+    // metadata — always via revision
+    {
       const metadataChanges: Record<string, unknown> = {};
       const metadataFields = [
         "owner",
@@ -321,10 +336,22 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         }
       }
       if (Object.keys(metadataChanges).length > 0) {
-        if (
-          !apiBypassesReviews &&
-          !req.context.permissions.canBypassApprovalChecks(feature)
-        ) {
+        const liveRevision3 = await (await import("back-end/src/models/FeatureRevisionModel")).getRevision({
+          context: req.context,
+          organization: feature.organization,
+          featureId: feature.id,
+          version: feature.version,
+        });
+        if (!liveRevision3) throw new Error("Could not load live revision");
+        const fakeRevision3 = { ...liveRevision3, metadata: metadataChanges };
+        const reviewRequired3 = checkIfRevisionNeedsReview({
+          feature,
+          baseRevision: liveRevision3,
+          revision: fakeRevision3,
+          allEnvironments: orgEnvs,
+          settings: req.organization.settings,
+        });
+        if (reviewRequired3 && !canBypass) {
           throw new Error(
             "This feature requires a review for metadata changes and the API key being used does not have permission to bypass reviews.",
           );
@@ -339,7 +366,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
           publish: true,
           changes: { metadata: metadataChanges },
           org: req.organization,
-          canBypassApprovalChecks: apiBypassesReviews,
+          canBypassApprovalChecks: canBypass,
         });
         const featureWithMeta = await (
           await import("back-end/src/models/FeatureModel")

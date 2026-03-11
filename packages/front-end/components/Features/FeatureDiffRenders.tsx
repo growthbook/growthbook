@@ -1309,11 +1309,12 @@ export function renderEnvironmentsEnabled(
   current: boolean | undefined,
   draft: boolean | undefined,
 ): ReactNode {
+  const toLabel = (v: boolean | undefined) =>
+    v === undefined ? null : v ? "enabled" : "disabled";
   return (
     <ValueChangedField
-      label={`${envId} enabled`}
-      pre={current !== undefined ? String(current) : null}
-      post={draft !== undefined ? String(draft) : null}
+      pre={toLabel(current)}
+      post={toLabel(draft)}
     />
   );
 }

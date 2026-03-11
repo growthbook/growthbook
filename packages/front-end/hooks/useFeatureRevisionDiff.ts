@@ -176,13 +176,17 @@ export function useFeatureRevisionDiff({
       const currentVal = current.environmentsEnabled?.[envId];
       const draftVal = draft.environmentsEnabled?.[envId];
       if (currentVal !== draftVal) {
+        const direction = draftVal ? "on" : "off";
         diffs.push({
           title: `Environment Toggle - ${envId}`,
           a: currentVal !== undefined ? String(currentVal) : "",
           b: draftVal !== undefined ? String(draftVal) : "",
           customRender: renderEnvironmentsEnabled(envId, currentVal, draftVal),
           badges: [
-            { label: "Toggle environment", action: "toggle environment" },
+            {
+              label: `Toggled ${envId} ${direction}`,
+              action: `toggle environment ${envId}`,
+            },
           ],
         });
       }

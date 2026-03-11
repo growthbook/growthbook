@@ -252,7 +252,6 @@ const revisionMetadataSchema = z.object({
   project: z.string().optional(),
   tags: z.array(z.string()).optional(),
   neverStale: z.boolean().optional(),
-  archived: z.boolean().optional(),
   customFields: z.record(z.string(), z.any()).optional(),
   jsonSchema: JSONSchemaDef.optional(),
   valueType: z.enum(featureValueType).optional(),
@@ -270,9 +269,10 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
     comment: z.string(),
     defaultValue: z.string(),
     rules: revisionRulesSchema,
-    // New revision envelopes — only present when the change type is gated
+    // Revision envelopes — only present when explicitly changed
     environmentsEnabled: z.record(z.string(), z.boolean()).optional(),
     prerequisites: z.array(featurePrerequisite).optional(),
+    archived: z.boolean().optional(),
     metadata: revisionMetadataSchema.optional(),
     log: z.array(revisionLog).optional(), // This is deprecated in favor of using FeatureRevisionLog due to it being too large
   })

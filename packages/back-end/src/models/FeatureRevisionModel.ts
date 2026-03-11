@@ -34,9 +34,10 @@ const featureRevisionSchema = new mongoose.Schema({
   comment: String,
   defaultValue: String,
   rules: {},
-  // New revision envelopes — only present when the change type is gated
+  // Revision envelopes — only present when explicitly changed
   environmentsEnabled: {},
   prerequisites: [{}],
+  archived: Boolean,
   metadata: {},
   status: String,
   requiresReview: Boolean,
@@ -136,15 +137,31 @@ export async function getLatestRevisions(
   organization: string,
   featureId: string,
 ): Promise<FeatureRevisionInterface[]> {
-  const docs: FeatureRevisionDocument[] = await FeatureRevisionModel.find({
-    organization,
-    featureId,
-  })
-    .select("-log") // Remove the log when fetching all revisions since it can be large to send over the network
-    .sort({ version: -1 })
-    .limit(5);
+  // Fetch the 5 most recent revisions and all active drafts in parallel,
+  // then deduplicate. This ensures the kill-switch modal always has full
+  // revision data for every active draft, not just the most recent 5.
+  const [recentDocs, activeDraftDocs] = await Promise.all([
+    FeatureRevisionModel.find({ organization, featureId })
+      .select("-log")
+      .sort({ version: -1 })
+      .limit(5),
+    FeatureRevisionModel.find({
+      organization,
+      featureId,
+      status: { $in: ACTIVE_DRAFT_STATUSES },
+    }).select("-log"),
+  ]);
 
-  return docs.map((m) => toInterface(m, context));
+  const seen = new Set<number>();
+  const merged: FeatureRevisionDocument[] = [];
+  for (const doc of [...recentDocs, ...activeDraftDocs]) {
+    if (!seen.has(doc.version)) {
+      seen.add(doc.version);
+      merged.push(doc);
+    }
+  }
+
+  return merged.map((m) => toInterface(m, context));
 }
 
 export async function hasDraft(
@@ -264,6 +281,7 @@ const SPARSE_REVISION_PROJECTION = {
   defaultValue: 0,
   environmentsEnabled: 0,
   prerequisites: 0,
+  archived: 0,
   metadata: 0,
   baseVersion: 0,
   datePublished: 0,
@@ -318,6 +336,7 @@ export async function createInitialRevision(
     rules,
     environmentsEnabled,
     prerequisites: feature.prerequisites || [],
+    archived: feature.archived ?? false,
     metadata: {
       description: feature.description,
       owner: feature.owner,
@@ -399,9 +418,10 @@ export async function createRevision({
     }
   });
 
-  // New envelope fields — only included in the revision when explicitly provided in changes
+  // Envelope fields — only included in the revision when explicitly provided in changes
   const environmentsEnabled = changes?.environmentsEnabled;
   const prerequisites = changes?.prerequisites;
+  const archived = changes?.archived;
   const metadata = changes?.metadata;
 
   if (!baseVersion) baseVersion = lastRevision?.version;
@@ -439,6 +459,7 @@ export async function createRevision({
     rules,
     ...(environmentsEnabled !== undefined && { environmentsEnabled }),
     ...(prerequisites !== undefined && { prerequisites }),
+    ...(archived !== undefined && { archived }),
     ...(metadata !== undefined && { metadata }),
   } as FeatureRevisionInterface;
   const requiresReview = checkIfRevisionNeedsReview({
@@ -480,6 +501,7 @@ export async function createRevision({
         rules,
         ...(environmentsEnabled !== undefined && { environmentsEnabled }),
         ...(prerequisites !== undefined && { prerequisites }),
+        ...(archived !== undefined && { archived }),
         ...(metadata !== undefined && { metadata }),
       }),
     })
@@ -503,6 +525,7 @@ export async function updateRevision(
       | "baseVersion"
       | "environmentsEnabled"
       | "prerequisites"
+      | "archived"
       | "metadata"
     >
   >,

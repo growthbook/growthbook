@@ -104,6 +104,10 @@ export function mergeRevision(
     newFeature.prerequisites = revision.prerequisites;
   }
 
+  if (revision.archived !== undefined) {
+    newFeature.archived = revision.archived;
+  }
+
   if (revision.metadata) {
     const m = revision.metadata;
     if (m.description !== undefined) newFeature.description = m.description;
@@ -612,6 +616,7 @@ export type MergeResultChanges = {
   rules?: Record<string, FeatureRule[]>;
   environmentsEnabled?: Record<string, boolean>;
   prerequisites?: FeaturePrerequisite[];
+  archived?: boolean;
   metadata?: RevisionMetadata;
 };
 export type AutoMergeResult =
@@ -632,6 +637,7 @@ export type RulesAndValues = Pick<
   | "version"
   | "environmentsEnabled"
   | "prerequisites"
+  | "archived"
   | "metadata"
 >;
 
@@ -643,6 +649,7 @@ export function mergeResultHasChanges(mergeResult: AutoMergeResult): boolean {
   if (Object.keys(r.rules || {}).length > 0) return true;
   if (Object.keys(r.environmentsEnabled || {}).length > 0) return true;
   if (r.prerequisites !== undefined) return true;
+  if (r.archived !== undefined) return true;
   if (r.metadata !== undefined && Object.keys(r.metadata).length > 0)
     return true;
 
@@ -674,7 +681,6 @@ function normalizeMetadataValue(
   if (k === "tags") return (v as string[] | null | undefined) ?? [];
   if (k === "description" || k === "owner" || k === "project")
     return (v as string | null | undefined) ?? "";
-  if (k === "archived") return (v as boolean | null | undefined) ?? false;
   return v;
 }
 
@@ -719,6 +725,14 @@ export function autoMerge(
       !isEqual(revision.prerequisites, base.prerequisites || [])
     ) {
       result.prerequisites = revision.prerequisites;
+    }
+
+    // archived
+    if (
+      revision.archived !== undefined &&
+      revision.archived !== base.archived
+    ) {
+      result.archived = revision.archived;
     }
 
     // metadata — per-field comparison
@@ -869,6 +883,35 @@ export function autoMerge(
         conflicts.push(conflictInfo);
       } else {
         result.prerequisites = revVal;
+      }
+    }
+  }
+
+  // archived (simple boolean, same conflict pattern as environmentsEnabled)
+  if (revision.archived !== undefined) {
+    const revVal = revision.archived;
+    const baseVal = base.archived;
+    const liveVal = live.archived;
+    if (revVal !== baseVal && revVal !== liveVal) {
+      if (liveVal !== baseVal && liveVal !== revVal) {
+        const conflictInfo: MergeConflict = {
+          name: "Archived",
+          key: "archived",
+          base: JSON.stringify(baseVal),
+          live: JSON.stringify(liveVal),
+          revision: JSON.stringify(revVal),
+          resolved: false,
+        };
+        const strategy = strategies["archived"];
+        if (strategy === "overwrite") {
+          conflictInfo.resolved = true;
+          result.archived = revVal;
+        } else if (strategy === "discard") {
+          conflictInfo.resolved = true;
+        }
+        conflicts.push(conflictInfo);
+      } else {
+        result.archived = revVal;
       }
     }
   }
@@ -1287,6 +1330,62 @@ export function resetReviewOnChange({
   return checkEnvironmentsMatch(changedEnvironments, reviewSetting);
 }
 
+/**
+ * Returns which environments a revision affects relative to its base revision.
+ * - Per-env changes (rules, environmentsEnabled) return the specific env IDs.
+ * - Global changes (prerequisites, archived, metadata) return "all".
+ * - Default value changes return all environments in the feature.
+ * Used for both UI display and approval-gate determination.
+ */
+export function getDraftAffectedEnvironments(
+  revision: RulesAndValues,
+  baseRevision: RulesAndValues,
+  allEnvironments: string[],
+): string[] | "all" {
+  // Global changes affect every environment
+  if (
+    (revision.prerequisites !== undefined &&
+      !isEqual(revision.prerequisites, baseRevision.prerequisites || [])) ||
+    (revision.archived !== undefined &&
+      revision.archived !== baseRevision.archived) ||
+    (revision.metadata &&
+      (Object.keys(revision.metadata) as (keyof RevisionMetadata)[]).some(
+        (k) =>
+          !isEqual(
+            normalizeMetadataValue(k, revision.metadata![k]),
+            normalizeMetadataValue(k, baseRevision.metadata?.[k]),
+          ),
+      ))
+  ) {
+    return "all";
+  }
+
+  // Default value change: treat as affecting all environments in the feature
+  if (revision.defaultValue !== baseRevision.defaultValue) {
+    return "all";
+  }
+
+  // Per-environment changes
+  const envs = new Set<string>();
+  for (const env of allEnvironments) {
+    if (!isEqual(revision.rules[env] || [], baseRevision.rules[env] || [])) {
+      envs.add(env);
+    }
+    if (
+      revision.environmentsEnabled?.[env] !== undefined &&
+      revision.environmentsEnabled[env] !==
+        baseRevision.environmentsEnabled?.[env]
+    ) {
+      envs.add(env);
+    }
+  }
+  // Collapse to "all" when every environment is affected
+  if (allEnvironments.length > 0 && envs.size === allEnvironments.length) {
+    return "all";
+  }
+  return [...envs];
+}
+
 export function checkIfRevisionNeedsReview({
   feature,
   baseRevision,
@@ -1300,60 +1399,66 @@ export function checkIfRevisionNeedsReview({
   allEnvironments: string[];
   settings?: OrganizationSettings;
 }) {
-  const changedEnvironments = listChangedEnvironments(
-    baseRevision,
-    revision,
-    allEnvironments,
-  );
-  const defaultValueChanged =
-    baseRevision.defaultValue !== revision.defaultValue;
-
-  // Check rules/defaultValue gating (existing logic)
-  if (
-    featureRequiresReview(
-      feature,
-      changedEnvironments,
-      defaultValueChanged,
-      settings,
-    )
-  ) {
-    return true;
-  }
-
   const requireReviews = settings?.requireReviews;
-  if (!requireReviews || typeof requireReviews !== "object") return false;
+  if (!Array.isArray(requireReviews)) return false;
 
   const reviewSetting = getReviewSetting(requireReviews, feature);
-  if (!reviewSetting || !reviewSetting.requireReviewOn) return false;
+  if (!reviewSetting?.requireReviewOn) return false;
 
-  // Kill switches (environmentsEnabled) and prerequisites share a single gate
-  if (reviewSetting.featureRequireEnvironmentReview) {
-    if (revision.environmentsEnabled) {
-      const changedEnvs = Object.keys(revision.environmentsEnabled).filter(
-        (env) =>
-          revision.environmentsEnabled![env] !==
-          baseRevision.environmentsEnabled?.[env],
-      );
-      if (changedEnvs.length > 0) return true;
-    }
+  const affected = getDraftAffectedEnvironments(
+    revision,
+    baseRevision,
+    allEnvironments,
+  );
+
+  if (affected === "all") {
+    // Check whether the only "global" change is metadata — prerequisites, archived,
+    // and defaultValue always require approval. Metadata only requires approval when
+    // featureRequireMetadataReview is true (default: true when unset).
+    const hasNonMetadataGlobalChange =
+      (revision.prerequisites !== undefined &&
+        !isEqual(revision.prerequisites, baseRevision.prerequisites || [])) ||
+      (revision.archived !== undefined &&
+        revision.archived !== baseRevision.archived) ||
+      revision.defaultValue !== baseRevision.defaultValue;
+
+    if (hasNonMetadataGlobalChange) return true;
+
+    // Only metadata changed — respect the metadata gate.
+    const metadataReviewEnabled =
+      reviewSetting.featureRequireMetadataReview !== false;
+    return metadataReviewEnabled;
+  }
+  if (affected.length === 0) return false;
+
+  // Environment-specific changes: split into rules/values vs kill switches.
+  // Rules/values always require approval. Kill switches only require approval
+  // when featureRequireEnvironmentReview is true (default: true when unset).
+  const envsWithRuleChanges = affected.filter((env) =>
+    !isEqual(revision.rules?.[env] || [], baseRevision.rules?.[env] || []),
+  );
+  const envKillSwitchChanges = affected.filter(
+    (env) =>
+      revision.environmentsEnabled?.[env] !== undefined &&
+      revision.environmentsEnabled[env] !==
+        baseRevision.environmentsEnabled?.[env],
+  );
+
+  const gatedEnvs = reviewSetting.environments;
+
+  // Rules/values always gate
+  if (envsWithRuleChanges.length > 0) {
+    if (gatedEnvs.length === 0) return true;
+    if (envsWithRuleChanges.some((env) => gatedEnvs.includes(env))) return true;
   }
 
-  // Prerequisites (feature-level)
-  if (reviewSetting.featureRequireEnvironmentReview) {
-    if (
-      revision.prerequisites !== undefined &&
-      !isEqual(revision.prerequisites, baseRevision.prerequisites || [])
-    ) {
-      return true;
-    }
-  }
-
-  // Metadata
-  if (reviewSetting.featureRequireMetadataReview && revision.metadata) {
-    const hasMetadataChange = (
-      Object.keys(revision.metadata) as (keyof RevisionMetadata)[]
-    ).some((k) => !isEqual(revision.metadata![k], baseRevision.metadata?.[k]));
-    if (hasMetadataChange) return true;
+  // Kill switch changes only gate when featureRequireEnvironmentReview is enabled
+  if (
+    envKillSwitchChanges.length > 0 &&
+    reviewSetting.featureRequireEnvironmentReview !== false
+  ) {
+    if (gatedEnvs.length === 0) return true;
+    if (envKillSwitchChanges.some((env) => gatedEnvs.includes(env))) return true;
   }
 
   return false;

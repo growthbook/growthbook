@@ -45,13 +45,10 @@ const EditFeatureInfoModal: FC<{
       return false;
     }
     const reviewSetting = getReviewSetting(requireReviewSettings, feature);
-    return !!(
-      reviewSetting?.requireReviewOn &&
-      reviewSetting?.featureRequireMetadataReview
-    );
+    return !!(reviewSetting?.requireReviewOn);
   }, [requireReviewSettings, feature]);
 
-  // Find the active draft (there can only ever be one)
+  // Find an active draft (there can be multiple)
   const activeDraft = useMemo(
     () =>
       revisionList

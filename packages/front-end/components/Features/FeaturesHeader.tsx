@@ -1,16 +1,22 @@
 import { useRouter } from "next/router";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 import { Box, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
 import { FeatureInterface } from "shared/types/feature";
-import { filterEnvironmentsByFeature } from "shared/util";
+import {
+  filterEnvironmentsByFeature,
+  getDraftAffectedEnvironments,
+} from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiLink, PiCheck } from "react-icons/pi";
-import { HoldoutInterface } from "shared/validators";
+import { HoldoutInterface, ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
-import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import {
+  FeatureRevisionInterface,
+  MinimalFeatureRevisionInterface,
+} from "shared/types/feature-revision";
 import { useUser } from "@/services/UserContext";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
@@ -53,6 +59,7 @@ export default function FeaturesHeader({
   setVersion,
   version,
   revisions,
+  allRevisions,
   tab,
   setTab,
   setEditFeatureInfoModal,
@@ -67,6 +74,7 @@ export default function FeaturesHeader({
   setVersion: (version: number) => void;
   version: number | null;
   revisions: MinimalFeatureRevisionInterface[];
+  allRevisions?: FeatureRevisionInterface[];
   tab: FeatureTab;
   setTab: (tab: FeatureTab) => void;
   setEditFeatureInfoModal: (open: boolean) => void;
@@ -147,6 +155,27 @@ export default function FeaturesHeader({
   const permissionsUtil = usePermissionsUtil();
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
+
+  const affectedEnvsByVersion = useMemo(() => {
+    if (!allRevisions || allRevisions.length === 0) return undefined;
+    const allEnvIds = allEnvironments.map((e) => e.id);
+    const revisionsMap = new Map(allRevisions.map((r) => [r.version, r]));
+    const baseRevision = revisionsMap.get(baseFeature.version);
+    if (!baseRevision) return undefined;
+    const map = new Map<number, string[] | "all">();
+    for (const r of revisions) {
+      if ((ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status)) {
+        const full = revisionsMap.get(r.version);
+        if (full) {
+          map.set(
+            r.version,
+            getDraftAffectedEnvironments(full, baseRevision, allEnvIds),
+          );
+        }
+      }
+    }
+    return map;
+  }, [allRevisions, revisions, baseFeature.version, allEnvironments]);
   const { apiCall } = useAuth();
   const {
     getProjectById,
@@ -548,6 +577,7 @@ export default function FeaturesHeader({
                       revisions={revisions}
                       version={version ?? feature.version}
                       setVersion={setVersion}
+                      affectedEnvsByVersion={affectedEnvsByVersion}
                     />
                   </Flex>
                 </Box>

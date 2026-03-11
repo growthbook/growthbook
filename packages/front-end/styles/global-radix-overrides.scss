@@ -255,8 +255,8 @@
   &.multiline-item {
     height: auto !important;
     min-height: var(--base-menu-item-height) !important;
-    padding-top: var(--space-1) !important;
-    padding-bottom: var(--space-1) !important;
+    padding-top: var(--space-2) !important;
+    padding-bottom: var(--space-2) !important;
   }
   &.selected-item {
     background-color: var(--accent-a3);
@@ -292,9 +292,8 @@
 .dropdown-trigger-select-style {
   box-sizing: border-box;
   width: 100%;
-  height: var(--space-7);
   overflow: hidden;
-  padding: 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
   background-color: var(--color-surface);
   box-shadow: inset 0 0 0 1px var(--gray-a7);
   border-radius: var(--radius-2);

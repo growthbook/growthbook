@@ -38,10 +38,7 @@ export default function EditFeatureDescriptionModal({
       return false;
     }
     const reviewSetting = getReviewSetting(requireReviewSettings, feature);
-    return !!(
-      reviewSetting?.requireReviewOn &&
-      reviewSetting?.featureRequireMetadataReview
-    );
+    return !!reviewSetting?.requireReviewOn;
   }, [settings?.requireReviews, feature]);
 
   const activeDraft = useMemo(

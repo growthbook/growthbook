@@ -13,38 +13,9 @@ import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { useEnvironments } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Checkbox from "@/ui/Checkbox";
-import RadioGroup from "@/ui/RadioGroup";
 import Button from "@/ui/Button";
 import { GBInfo } from "@/components/Icons";
 import Frame from "@/ui/Frame";
-
-/**
- * Single checkbox that gates both environment kill switches and prerequisites.
- * When checked, the kill switch behavior radio is cleared (direct-write
- * confirmation is irrelevant when changes go into a draft anyway).
- */
-function EnvironmentReviewCheckbox({ i }: { i: number }) {
-  const form = useFormContext();
-  const checked = !!form.watch(
-    `requireReviews.${i}.featureRequireEnvironmentReview`,
-  );
-
-  return (
-    <Checkbox
-      id={`toggle-env-review-${i}`}
-      label="Environment toggle and prerequisite changes"
-      description="Supercedes kill switch warnings"
-      value={checked}
-      setValue={(v) => {
-        form.setValue(`requireReviews.${i}.featureRequireEnvironmentReview`, v);
-        if (v) {
-          form.setValue("featureKillSwitchBehavior", "off");
-          form.setValue("killswitchConfirmation", false);
-        }
-      }}
-    />
-  );
-}
 
 export default function FeatureSettings() {
   const [codeRefsBranchesToFilterStr, setCodeRefsBranchesToFilterStr] =
@@ -74,6 +45,27 @@ export default function FeatureSettings() {
       );
     },
   );
+
+  // Auto-expand scope views when form values are loaded asynchronously
+  // (the form initializes with defaults before settings load via useEffect+reset).
+  const requireReviewsWatched = form.watch("requireReviews");
+  useEffect(() => {
+    if (!Array.isArray(requireReviewsWatched)) return;
+    setShowEnvScope((prev) => {
+      const next = { ...prev };
+      requireReviewsWatched.forEach((r, i) => {
+        if ((r.environments?.length ?? 0) > 0) next[i] = true;
+      });
+      return next;
+    });
+    setShowProjectScope((prev) => {
+      const next = { ...prev };
+      requireReviewsWatched.forEach((r, i) => {
+        if ((r.projects?.length ?? 0) > 0) next[i] = true;
+      });
+      return next;
+    });
+  }, [requireReviewsWatched]);
 
   const hasSecureAttributesFeature = hasCommercialFeature(
     "hash-secure-attributes",
@@ -261,35 +253,11 @@ export default function FeatureSettings() {
                 Drafts and Approvals
               </Heading>
 
-              {/* Kill switch behavior — available to all orgs */}
-              <Box mb="5">
-                <Text as="label" size="2" weight="bold" mb="3">
-                  Warn on kill switch change
-                </Text>
-                <RadioGroup
-                  value={
-                    form.watch("featureKillSwitchBehavior") ??
-                    (form.watch("killswitchConfirmation") ? "warn" : "off")
-                  }
-                  setValue={(v) => {
-                    form.setValue(
-                      "featureKillSwitchBehavior",
-                      v as "off" | "warn",
-                    );
-                    form.setValue("killswitchConfirmation", v !== "off");
-                  }}
-                  options={[
-                    {
-                      value: "off",
-                      label: "Off",
-                    },
-                    {
-                      value: "warn",
-                      label: "Show a confirmation dialog before toggling",
-                    },
-                  ]}
-                />
-              </Box>
+              <Text as="p" size="2" mb="4" color="gray">
+                All changes to features are tracked as revisions. Kill switch
+                changes always open a modal where you can choose to save to a
+                draft or auto-publish.
+              </Text>
 
               {hasRequireApprovals && (
                 <>
@@ -348,7 +316,7 @@ export default function FeatureSettings() {
                             {showEnvScope[i] ? (
                               <MultiSelectField
                                 id={`environments-${i}`}
-                                label="Environments"
+                                label="Specific environments"
                                 labelClassName="font-weight-semibold"
                                 containerClassName="mb-0"
                                 value={
@@ -366,7 +334,7 @@ export default function FeatureSettings() {
                                   value: e.id,
                                   label: e.id,
                                 }))}
-                                placeholder="All Environments"
+                                placeholder="All environments (leave blank to gate all)"
                               />
                             ) : (
                               <Link
@@ -398,26 +366,54 @@ export default function FeatureSettings() {
                             }
                           />
                           <Box mt="2">
-                            <Text as="label" size="2" weight="bold" mb="3">
-                              Require approvals for
+                            <Text as="label" size="2" weight="bold" mb="2">
+                              Require approval for
                             </Text>
                             <Flex direction="column" gap="2" align="start">
                               <Checkbox
                                 id={`toggle-rules-values-${i}`}
-                                label="Rules and values"
+                                label="Rules, values, and prerequisites"
                                 value={true}
                                 disabled={true}
-                                disabledMessage="Rules and values always require approval"
+                                disabledMessage="Rules, values, and prerequisites always require approval"
                                 setValue={() => undefined}
                               />
-                              <EnvironmentReviewCheckbox i={i} />
+                              <Checkbox
+                                id={`toggle-env-review-${i}`}
+                                label="Kill switch changes"
+                                description={
+                                  form.watch(
+                                    `requireReviews.${i}.featureRequireEnvironmentReview`,
+                                  ) !== false
+                                    ? "Kill switch changes open a draft/publish modal. Gated by the environments selected above."
+                                    : "Kill switch changes auto-publish as a standalone revision."
+                                }
+                                value={
+                                  form.watch(
+                                    `requireReviews.${i}.featureRequireEnvironmentReview`,
+                                  ) !== false
+                                }
+                                setValue={(v) =>
+                                  form.setValue(
+                                    `requireReviews.${i}.featureRequireEnvironmentReview`,
+                                    v,
+                                  )
+                                }
+                              />
                               <Checkbox
                                 id={`toggle-metadata-review-${i}`}
                                 label="Metadata changes (description, owner, project, tags, etc.)"
-                                value={
-                                  !!form.watch(
+                                description={
+                                  form.watch(
                                     `requireReviews.${i}.featureRequireMetadataReview`,
-                                  )
+                                  ) !== false
+                                    ? "Metadata changes require approval before publishing."
+                                    : "Metadata changes auto-publish as a standalone revision."
+                                }
+                                value={
+                                  form.watch(
+                                    `requireReviews.${i}.featureRequireMetadataReview`,
+                                  ) !== false
                                 }
                                 setValue={(v) =>
                                   form.setValue(
@@ -426,25 +422,25 @@ export default function FeatureSettings() {
                                   )
                                 }
                               />
-                              {/* REST API bypass — global, shown after the last rule's options */}
-                              {i ===
-                                (form.watch("requireReviews")?.length ?? 1) -
-                                  1 && (
-                                <Checkbox
-                                  id="toggle-restApiBypassesReviews"
-                                  label="Changes made through the REST API"
-                                  description="When enabled, API changes create a draft requiring approval instead of auto-publishing."
-                                  value={
-                                    form.watch("restApiBypassesReviews") ===
-                                    false
-                                  }
-                                  setValue={(v) =>
-                                    form.setValue("restApiBypassesReviews", !v)
-                                  }
-                                />
-                              )}
                             </Flex>
                           </Box>
+                          {/* REST API bypass — global, shown after the last rule's options */}
+                          {i ===
+                            (form.watch("requireReviews")?.length ?? 1) - 1 && (
+                            <Box mt="2">
+                              <Checkbox
+                                id="toggle-restApiBypassesReviews"
+                                label="API keys bypass review requirements"
+                                description="When enabled, changes made via the REST API are auto-published even for protected environments. Disable to require approval for API changes (admins with admin-scoped API keys can still bypass)."
+                                value={
+                                  form.watch("restApiBypassesReviews") !== false
+                                }
+                                setValue={(v) =>
+                                  form.setValue("restApiBypassesReviews", v)
+                                }
+                              />
+                            </Box>
+                          )}
                         </Flex>
                       )}
                     </Box>

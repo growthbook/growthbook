@@ -1,5 +1,5 @@
 import Link from "next/link";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { useFeature } from "@growthbook/growthbook-react";
 import { Box, Flex } from "@radix-ui/themes";
@@ -7,12 +7,12 @@ import { FeatureInterface, FeatureMetaInfo } from "shared/types/feature";
 import { date, datetime } from "shared/dates";
 import { featureHasEnvironment } from "shared/util";
 import { FaTriangleExclamation } from "react-icons/fa6";
+import { FaRegCircleCheck, FaRegCircleXmark } from "react-icons/fa6";
 import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import FeatureModal from "@/components/Features/FeatureModal";
 import track from "@/services/track";
-import Switch from "@/ui/Switch";
 import RealTimeFeatureGraph from "@/components/Features/RealTimeFeatureGraph";
 import {
   useRealtimeData,
@@ -44,8 +44,6 @@ import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useFeaturesStatus } from "@/hooks/useFeaturesStatus";
 import { useFeatureDraftStates } from "@/hooks/useFeatureDraftStates";
 import { useFeatureStaleStates } from "@/hooks/useFeatureStaleStates";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import Modal from "@/components/Modal";
 import FeaturesDraftTable from "./FeaturesDraftTable";
 
 const NUM_PER_PAGE = 20;
@@ -62,26 +60,10 @@ export default function FeaturesPage() {
     useState<FeatureInterface | null>(null);
   const [featureToToggleStaleDetection, setFeatureToToggleStaleDetection] =
     useState<FeatureMetaInfo | null>(null);
-  const [confirmToggle, setConfirmToggle] = useState<{
-    featureId: string;
-    envId: string;
-    state: boolean;
-  } | null>(null);
-
-  const { apiCall } = useAuth();
-  const settings = useOrgSettings();
-  const showConfirmation = !!settings?.killswitchConfirmation;
-  // When environment toggles are approval-gated, disable list toggles entirely.
-  // Users must go to the feature detail page to act on the active draft.
-  const killSwitchGatedOnList = !!(
-    Array.isArray(settings?.requireReviews) &&
-    settings.requireReviews.some(
-      (r) => r.requireReviewOn && r.featureRequireEnvironmentReview,
-    )
-  );
 
   const showGraphs = useFeature("feature-list-realtime-graphs").on;
 
+  const { apiCall } = useAuth();
   const { project, projects } = useDefinitions();
   const environments = useEnvironments();
 
@@ -199,21 +181,6 @@ export default function FeaturesPage() {
     setFeatureToDuplicate(null);
   }, [modalOpen]);
 
-  const handleToggle = useCallback(
-    async (featureId: string, envId: string, state: boolean) => {
-      if (showConfirmation) {
-        setConfirmToggle({ featureId, envId, state });
-      } else {
-        await statusHook.toggle(featureId, envId, state);
-        track("Feature Environment Toggle", {
-          environment: envId,
-          enabled: state,
-        });
-      }
-    },
-    [showConfirmation, statusHook],
-  );
-
   const renderFeaturesTable = () => {
     return (
       allFeatures.length > 0 && (
@@ -315,43 +282,35 @@ export default function FeaturesPage() {
                             en,
                           ) &&
                             (() => {
-                              const noPermission =
-                                !permissionsUtil.canPublishFeature(
-                                  { project: feature.project },
-                                  [en.id],
-                                );
-                              const sw = (
-                                <Switch
-                                  id={`${feature.id}__${en.id}`}
-                                  disabled={
-                                    noPermission || killSwitchGatedOnList
+                              const enabled =
+                                statusHook.environmentStatus[feature.id]?.[
+                                  en.id
+                                ] ?? false;
+                              return (
+                                <Tooltip
+                                  body={
+                                    enabled
+                                      ? `${en.id}: enabled`
+                                      : `${en.id}: disabled`
                                   }
-                                  value={
-                                    statusHook.environmentStatus[feature.id]?.[
-                                      en.id
-                                    ] ?? false
-                                  }
-                                  onChange={(on) =>
-                                    handleToggle(feature.id, en.id, on)
-                                  }
-                                  size="3"
-                                />
+                                >
+                                  {enabled ? (
+                                    <FaRegCircleCheck
+                                      style={{
+                                        color: "var(--green-9)",
+                                        fontSize: 18,
+                                      }}
+                                    />
+                                  ) : (
+                                    <FaRegCircleXmark
+                                      style={{
+                                        color: "var(--gray-8)",
+                                        fontSize: 18,
+                                      }}
+                                    />
+                                  )}
+                                </Tooltip>
                               );
-                              if (killSwitchGatedOnList) {
-                                return (
-                                  <Tooltip body="Open the feature to toggle this environment via a draft">
-                                    {sw}
-                                  </Tooltip>
-                                );
-                              }
-                              if (noPermission) {
-                                return (
-                                  <Tooltip body="You don't have permission to change features in this environment">
-                                    {sw}
-                                  </Tooltip>
-                                );
-                              }
-                              return sw;
                             })()}
                         </Flex>
                       </td>
@@ -509,32 +468,6 @@ export default function FeaturesPage() {
 
   return (
     <div className="contents container pagecontents">
-      {confirmToggle && (
-        <Modal
-          trackingEventModalType=""
-          header="Toggle environment"
-          close={() => setConfirmToggle(null)}
-          open={true}
-          cta="Confirm"
-          useRadixButton={true}
-          submit={async () => {
-            await statusHook.toggle(
-              confirmToggle.featureId,
-              confirmToggle.envId,
-              confirmToggle.state,
-            );
-            track("Feature Environment Toggle", {
-              environment: confirmToggle.envId,
-              enabled: confirmToggle.state,
-            });
-            setConfirmToggle(null);
-          }}
-        >
-          You are about to set the <strong>{confirmToggle.envId}</strong>{" "}
-          environment to{" "}
-          <strong>{confirmToggle.state ? "enabled" : "disabled"}</strong>.
-        </Modal>
-      )}
       {modalOpen && (
         <FeatureModal
           cta={featureToDuplicate ? "Duplicate" : "Create"}

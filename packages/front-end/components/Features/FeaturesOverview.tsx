@@ -171,6 +171,7 @@ export default function FeaturesOverview({
   const [reviewModal, setReviewModal] = useState(false);
   const [conflictModal, setConflictModal] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [creatingDraft, setCreatingDraft] = useState(false);
   const [hideInactive, setHideInactive] = useLocalStorage(
     `hide-disabled-rules`,
     false,
@@ -342,25 +343,19 @@ export default function FeaturesOverview({
     (revision.status === "published" || revision.status === "discarded") &&
     (!isLive || drafts.length > 0);
 
-  // Derive per-type gating from org settings.
+  // Derive review settings from org settings.
+  // Handle legacy boolean requireReviews (true = everything gated) as well as
+  // the modern RequireReview[] array format.
+  const legacyGated = settings?.requireReviews === true;
   const requireReviewSettings = Array.isArray(settings?.requireReviews)
     ? settings.requireReviews
     : [];
   const reviewSetting = getReviewSetting(requireReviewSettings, feature);
-  const envGated = !!(
-    reviewSetting?.requireReviewOn &&
-    reviewSetting?.featureRequireEnvironmentReview
-  );
-  // Keep these aliases for the rest of the component
-  const killSwitchGated = envGated;
-  const prereqGated = envGated;
-  const metadataReviewRequired = !!(
-    reviewSetting?.requireReviewOn &&
-    reviewSetting?.featureRequireMetadataReview
-  );
-  // Controls are locked when gated and we're not on the active draft.
-  const killSwitchIsLocked = killSwitchGated && isLocked;
+  const killSwitchGated = legacyGated || !!reviewSetting?.requireReviewOn;
+  const prereqGated = legacyGated || !!reviewSetting?.requireReviewOn;
   const prereqIsLocked = prereqGated && isLocked;
+  const metadataReviewRequired =
+    legacyGated || !!reviewSetting?.requireReviewOn;
 
   const canEdit = permissionsUtil.canViewFeatureModal(projectId);
   const canEditDrafts = permissionsUtil.canManageFeatureDrafts(feature);
@@ -444,6 +439,31 @@ export default function FeaturesOverview({
 
       if (drafts.length > 0 && isLocked && !isDraft) {
         // "Switch to active draft" is rendered inline in the context header instead.
+      }
+
+      if (!isDraft) {
+        actions.push(
+          <Button
+            key="new-draft"
+            loading={creatingDraft}
+            onClick={async () => {
+              setCreatingDraft(true);
+              try {
+                const res = await apiCall<{ draftVersion: number }>(
+                  `/feature/${feature.id}/draft`,
+                  { method: "POST" },
+                );
+                await mutate();
+                setVersion(res.draftVersion);
+              } finally {
+                setCreatingDraft(false);
+              }
+            }}
+            variant="soft"
+          >
+            New Draft
+          </Button>,
+        );
       }
 
       if (isDraft) {
@@ -601,7 +621,7 @@ export default function FeaturesOverview({
                   <>
                     <Separator orientation="vertical" />
                     <Link onClick={() => setVersion(drafts[0].version)}>
-                      Switch to active draft
+                      Switch to an active draft
                     </Link>
                   </>
                 )}
@@ -772,7 +792,7 @@ export default function FeaturesOverview({
               <Heading as="h3" size="4" mb="0">
                 Environment Status
               </Heading>
-              <DraftControlBadge gated={envGated} />
+              <DraftControlBadge gated={killSwitchGated} />
             </Flex>
             <div className="mb-4">
               When disabled, this feature will evaluate to <code>null</code>.
@@ -843,11 +863,15 @@ export default function FeaturesOverview({
                           <Flex align="center" justify="center">
                             <EnvironmentToggle
                               feature={feature}
+                              baseFeature={baseFeature}
                               environment={env}
                               mutate={mutate}
                               setVersion={setVersion}
+                              currentVersion={currentVersion}
+                              revisionList={revisionList || []}
+                              allRevisions={revisions}
                               id={`${env}_toggle`}
-                              isLocked={killSwitchIsLocked}
+                              isLocked={false}
                             />
                           </Flex>
                         </td>
@@ -915,11 +939,15 @@ export default function FeaturesOverview({
                       </label>
                       <EnvironmentToggle
                         feature={feature}
+                        baseFeature={baseFeature}
                         environment={en.id}
                         mutate={mutate}
                         setVersion={setVersion}
+                        currentVersion={currentVersion}
+                        revisionList={revisionList || []}
+                        allRevisions={revisions}
                         id={`${en.id}_toggle`}
-                        isLocked={killSwitchIsLocked}
+                        isLocked={false}
                       />
                     </Flex>
                   ))
@@ -1331,10 +1359,12 @@ export default function FeaturesOverview({
         {compareRevisionsModalOpen && (
           <CompareRevisionsModal
             feature={feature}
+            baseFeature={baseFeature}
             revisionList={revisionList || []}
             revisions={revisions}
             currentVersion={version ?? feature.version}
             onClose={() => setCompareRevisionsModalOpen(false)}
+            initialPreviewDraft={isDraft ? (version ?? undefined) : undefined}
           />
         )}
       </Box>

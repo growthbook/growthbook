@@ -1160,6 +1160,11 @@ export async function applyRevisionChanges(
     hasChanges = true;
   }
 
+  if (result.archived !== undefined) {
+    changes.archived = result.archived;
+    hasChanges = true;
+  }
+
   if (result.metadata) {
     const m = result.metadata;
     if (m.description !== undefined) changes.description = m.description;
@@ -1167,7 +1172,6 @@ export async function applyRevisionChanges(
     if (m.project !== undefined) changes.project = m.project;
     if (m.tags !== undefined) changes.tags = m.tags;
     if (m.neverStale !== undefined) changes.neverStale = m.neverStale;
-    if (m.archived !== undefined) changes.archived = m.archived;
     if (m.customFields !== undefined)
       changes.customFields = m.customFields as Record<string, unknown>;
     if (m.jsonSchema !== undefined) changes.jsonSchema = m.jsonSchema;

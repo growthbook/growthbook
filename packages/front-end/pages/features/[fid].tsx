@@ -113,6 +113,7 @@ export default function FeaturePage() {
         setVersion={setVersion}
         version={version}
         revisions={data.revisionList || []}
+        allRevisions={data.revisions}
         tab={tab}
         setTab={setTabAndScroll}
         setEditFeatureInfoModal={setEditFeatureInfoModal}
