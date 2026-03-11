@@ -318,16 +318,17 @@ export default function FeaturesPage() {
                       />
                     </TableCell>
                     <TableCell
-                      className="p-0"
                       style={{
+                        padding: "var(--space-0)",
                         maxWidth: FEATURE_TABLE_COLUMN_WIDTH.FEATURE_KEY_MAX,
                       }}
                     >
                       <Link
                         href={`/features/${feature.id}`}
-                        className={clsx("featurename d-block p-2", {
+                        className={clsx("featurename d-block", {
                           "text-muted": feature.archived,
                         })}
+                        style={{ padding: "var(--space-3)" }}
                       >
                         <TruncateMiddleWithTooltip
                           text={feature.id}
