@@ -4,6 +4,7 @@ import {
   Flex,
   IconButton,
   Tooltip,
+  CalloutProps,
 } from "@radix-ui/themes";
 import React, { forwardRef, ReactNode } from "react";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
@@ -39,6 +40,7 @@ export default forwardRef<
   {
     children: ReactNode;
     status: Status;
+    color?: CalloutProps["color"]; // Use status instead of color whenever possible
     size?: "sm" | "md";
     icon?: ReactNode | null;
     contentsAs?: "text" | "div";
@@ -49,6 +51,7 @@ export default forwardRef<
   {
     children,
     status,
+    color,
     size = "md",
     icon,
     contentsAs = "text",
@@ -83,7 +86,7 @@ export default forwardRef<
     <RadixCallout.Root
       ref={ref}
       className={styles.callout}
-      color={getRadixColor(status)}
+      color={color || getRadixColor(status)}
       role={status === "error" ? "alert" : undefined}
       size={getRadixSize(size)}
       {...containerProps}

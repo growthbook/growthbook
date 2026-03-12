@@ -9,6 +9,7 @@ import {
   PiShieldSlashBold,
   PiPencilSimpleFill,
   PiCaretDownBold,
+  PiPencil,
 } from "react-icons/pi";
 import { FaBoltLightning } from "react-icons/fa6";
 import { ago, datetime } from "shared/dates";
@@ -509,7 +510,7 @@ export default function FeaturesOverview({
                 }
               >
                 <Button
-                  disabled={!revisionHasChanges}
+                  disabled={!revisionHasChanges || !hasDraftPublishPermission}
                   onClick={() => {
                     setDraftModal(true);
                   }}
@@ -590,10 +591,11 @@ export default function FeaturesOverview({
               variant="ghost"
               color="violet"
               size="2"
+              radius="full"
               onClick={() => setEditCommentModal(true)}
               ml="1"
             >
-              <PiPencilSimpleFill size={14} />
+              <PiPencilSimpleFill />
             </IconButton>
           )}
         </Flex>
@@ -670,18 +672,19 @@ export default function FeaturesOverview({
                       liveVersion={feature.version}
                     />
                     {isDraft && canEditDrafts && !editingTitle && (
-                      <a
-                        href="#"
-                        onClick={(e) => {
-                          e.preventDefault();
+                      <IconButton
+                        variant="ghost"
+                        color="violet"
+                        size="2"
+                        radius="full"
+                        onClick={() => {
                           setTitleDraft(revision.title || "");
                           setEditingTitle(true);
                         }}
-                        title="Edit title"
-                        style={{ color: "var(--violet-9)", lineHeight: 1 }}
+                        ml="1"
                       >
                         <PiPencilSimpleFill />
-                      </a>
+                      </IconButton>
                     )}
                   </Flex>
                   {isDraft &&
@@ -804,17 +807,7 @@ export default function FeaturesOverview({
             )}
             <Separator size="4" my="3" />
             {renderRevisionInfo()}
-            {isPendingReview ? (
-              <Callout status="warning" mt="2" mb="0">
-                You are viewing a <strong>draft</strong>. The changes below will
-                not go live until they are approved and published.
-              </Callout>
-            ) : isDraft ? (
-              <Callout status="warning" mt="2" mb="0">
-                You are viewing a <strong>draft</strong>. The changes below will
-                not go live until you review and publish them.
-              </Callout>
-            ) : isLocked && !isLive ? (
+            {isLocked && !isLive ? (
               <Callout status="info" mt="2" mb="0">
                 This revision has been <strong>locked</strong>. It is no longer
                 live and cannot be modified.
@@ -822,10 +815,12 @@ export default function FeaturesOverview({
             ) : null}
             {!rulesGated && (
               <Callout
-                status="wizard"
+                status="info"
+                color="gray"
                 icon={<PiShieldSlashBold size={16} />}
                 mt="2"
                 mb="0"
+                size="sm"
               >
                 Approvals are <em>not</em> required to publish changes.
               </Callout>
@@ -833,10 +828,11 @@ export default function FeaturesOverview({
             {rulesGated &&
               (killSwitchGated || prereqGated || metadataReviewRequired) && (
                 <Callout
-                  status="wizard"
+                  status="info"
                   icon={<PiShieldCheckBold size={16} />}
                   mt="2"
                   mb="0"
+                  size="sm"
                 >
                   <Flex direction="column" gap="1">
                     {rulesGated && (
@@ -886,10 +882,12 @@ export default function FeaturesOverview({
                       exempt[exempt.length - 1];
                 return (
                   <Callout
-                    status="wizard"
+                    status="info"
+                    color="gray"
                     icon={<PiShieldSlashBold size={16} />}
                     mt="2"
                     mb="0"
+                    size="sm"
                   >
                     {label.charAt(0).toUpperCase() + label.slice(1)} changes do{" "}
                     <em>not</em> require approval.
@@ -910,7 +908,7 @@ export default function FeaturesOverview({
                 approvalsEnabled={rulesGated}
               />
             </Flex>
-            {canEdit && (
+            {canEdit && canEditDrafts && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -1201,7 +1199,7 @@ export default function FeaturesOverview({
               />
             )}
 
-            {canEdit && !prereqIsLocked && (
+            {canEdit && canEditDrafts && !prereqIsLocked && (
               <PremiumTooltip
                 commercialFeature="prerequisites"
                 className="d-inline-flex align-items-center mt-3"
@@ -1640,17 +1638,16 @@ export default function FeaturesOverview({
                   liveVersion={feature.version}
                 />
                 {!editingNewDraftTitle && (
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setEditingNewDraftTitle(true);
-                    }}
-                    title="Name this draft"
-                    style={{ color: "var(--violet-9)", lineHeight: 1 }}
+                  <IconButton
+                    variant="ghost"
+                    color="violet"
+                    size="2"
+                    radius="full"
+                    onClick={() => setEditingNewDraftTitle(true)}
+                    ml="1"
                   >
                     <PiPencilSimpleFill />
-                  </a>
+                  </IconButton>
                 )}
               </Flex>
               <Flex align="center" gap="2">
@@ -1696,6 +1693,30 @@ export default function FeaturesOverview({
           />
         )}
       </Box>
+      {(isDraft || isPendingReview) && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: -10,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 1000,
+            whiteSpace: "nowrap",
+            boxShadow: "var(--shadow-3)",
+            borderRadius: "var(--radius-4)",
+            backgroundColor: "var(--color-panel-solid)",
+          }}
+        >
+          <Callout status="warning" icon={<PiPencil size={18} />}>
+            <Box mb="3">
+              Viewing a <strong>draft</strong> —{" "}
+              {isPendingReview
+                ? "changes will not go live until approved and published"
+                : "changes will not go live until published"}
+            </Box>
+          </Callout>
+        </div>
+      )}
     </>
   );
 }
