@@ -156,6 +156,7 @@ import { updateExperimentDashboards } from "back-end/src/enterprise/services/das
 import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
+import { ConcurrentIncrementalRefreshError } from "back-end/src/util/errors";
 import { getMetricForSnapshot } from "./reports";
 import { validateIncrementalPipeline } from "./dataPipeline";
 import {
@@ -1309,133 +1310,163 @@ export async function createSnapshotFromPlan({
   }
   const integration = getSourceIntegrationObject(context, datasource, true);
 
-  let scheduleNextSnapshot = true;
-  if (
-    experiment.type === "multi-armed-bandit" &&
-    plan.snapshot.type !== "standard"
-  ) {
-    // explore tab actions should never trigger the next schedule for bandits
-    scheduleNextSnapshot = false;
-  }
-
-  if (scheduleNextSnapshot) {
-    const nextUpdate =
-      experiment.type !== "multi-armed-bandit"
-        ? determineNextDate(context.org.settings?.updateSchedule || null)
-        : determineNextBanditSchedule(experiment);
-
-    await updateExperiment({
-      context,
-      experiment,
-      changes: {
-        lastSnapshotAttempt: new Date(),
-        ...(nextUpdate ? { nextSnapshotAttempt: nextUpdate } : {}),
-        autoSnapshots: nextUpdate !== null,
-      },
-    });
-  }
-
-  const snapshot = await createExperimentSnapshotModel({ data: plan.snapshot });
-
-  let queryRunner: ExperimentSnapshotQueryRunner;
-  switch (plan.runnerKind) {
-    case "incremental-exploratory":
-      queryRunner = new ExperimentIncrementalRefreshExploratoryQueryRunner(
-        context,
-        snapshot,
-        integration,
-        false, // TODO(incremental-refresh): allow cache + cache override for exploratory queries
-      );
-      break;
-    case "incremental":
-      queryRunner = new ExperimentIncrementalRefreshQueryRunner(
-        context,
-        snapshot,
-        integration,
-        false, // always ignore cache for incremental refresh queries
-      );
-      break;
-    case "results":
-      queryRunner = new ExperimentResultsQueryRunner(
-        context,
-        snapshot,
-        integration,
-        plan.useCache,
-      );
-      break;
-    default:
-      plan.runnerKind satisfies never;
-      throw new Error(`Unknown snapshot runner kind: ${plan.runnerKind}`);
-  }
-
-  const snapshotType = plan.snapshot.type;
-  if (!snapshotType) {
-    throw new Error("Snapshot plan is missing a snapshot type");
-  }
-
-  const analysisProps = {
-    snapshotType,
-    snapshotSettings: plan.snapshot.settings,
-    variationNames: experiment.variations.map((v) => v.name),
-    metricMap,
-    queryParentId: queryRunner.model.id,
-    factTableMap,
-    experimentQueryMetadata:
-      getAdditionalQueryMetadataForExperiment(experiment),
-  };
-
+  let hasIncrementalRefreshLock = false;
   if (plan.runnerKind === "incremental") {
-    await (
-      queryRunner as ExperimentIncrementalRefreshQueryRunner
-    ).startAnalysis({
-      ...analysisProps,
-      experimentId: experiment.id,
-      incrementalRefreshStartTime: new Date(),
-      fullRefresh: plan.fullRefresh && plan.snapshot.type === "standard",
-    });
-  } else if (plan.runnerKind === "incremental-exploratory") {
-    await (
-      queryRunner as ExperimentIncrementalRefreshExploratoryQueryRunner
-    ).startAnalysis({
-      ...analysisProps,
-      experimentId: experiment.id,
-      incrementalRefreshStartTime: new Date(),
-    });
-  } else {
-    await (queryRunner as ExperimentResultsQueryRunner).startAnalysis(
-      analysisProps,
-    );
+    hasIncrementalRefreshLock =
+      await context.models.incrementalRefresh.acquireLock(
+        experiment.id,
+        plan.snapshot.id,
+      );
+    if (!hasIncrementalRefreshLock) {
+      throw new ConcurrentIncrementalRefreshError(
+        "There is already an update in progress for this experiment.",
+      );
+    }
   }
 
-  const runningSnapshot = queryRunner.model;
-  // Whenever the standard snapshot for an experiment is refreshed, also refresh the associated dashboards in the background
-  if (
-    runningSnapshot.type === "standard" &&
-    runningSnapshot.triggeredBy !== "manual-dashboard"
-  ) {
-    const defaultAnalysisSettings = runningSnapshot.analyses[0]?.settings;
-    if (!defaultAnalysisSettings) {
-      throw new Error("Snapshot is missing its default analysis settings");
+  try {
+    let scheduleNextSnapshot = true;
+    if (
+      experiment.type === "multi-armed-bandit" &&
+      plan.snapshot.type !== "standard"
+    ) {
+      // explore tab actions should never trigger the next schedule for bandits
+      scheduleNextSnapshot = false;
     }
 
-    updateExperimentDashboards({
-      context,
-      experiment,
-      mainSnapshot: runningSnapshot,
-      statsEngine: defaultAnalysisSettings.statsEngine,
-      regressionAdjustmentEnabled:
-        defaultAnalysisSettings.regressionAdjusted ??
-        DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-      postStratificationEnabled:
-        defaultAnalysisSettings.postStratificationEnabled ??
-        DEFAULT_POST_STRATIFICATION_ENABLED,
-      settingsForSnapshotMetrics: plan.settingsForSnapshotMetrics,
-      metricMap,
-      factTableMap,
-    });
-  }
+    if (scheduleNextSnapshot) {
+      const nextUpdate =
+        experiment.type !== "multi-armed-bandit"
+          ? determineNextDate(context.org.settings?.updateSchedule || null)
+          : determineNextBanditSchedule(experiment);
 
-  return queryRunner;
+      await updateExperiment({
+        context,
+        experiment,
+        changes: {
+          lastSnapshotAttempt: new Date(),
+          ...(nextUpdate ? { nextSnapshotAttempt: nextUpdate } : {}),
+          autoSnapshots: nextUpdate !== null,
+        },
+      });
+    }
+
+    const snapshot = await createExperimentSnapshotModel({
+      data: plan.snapshot,
+    });
+
+    let queryRunner: ExperimentSnapshotQueryRunner;
+    switch (plan.runnerKind) {
+      case "incremental-exploratory":
+        queryRunner = new ExperimentIncrementalRefreshExploratoryQueryRunner(
+          context,
+          snapshot,
+          integration,
+          false, // TODO(incremental-refresh): allow cache + cache override for exploratory queries
+        );
+        break;
+      case "incremental":
+        queryRunner = new ExperimentIncrementalRefreshQueryRunner(
+          context,
+          snapshot,
+          integration,
+          false, // always ignore cache for incremental refresh queries
+        );
+        break;
+      case "results":
+        queryRunner = new ExperimentResultsQueryRunner(
+          context,
+          snapshot,
+          integration,
+          plan.useCache,
+        );
+        break;
+      default:
+        plan.runnerKind satisfies never;
+        throw new Error(`Unknown snapshot runner kind: ${plan.runnerKind}`);
+    }
+
+    const snapshotType = plan.snapshot.type;
+    if (!snapshotType) {
+      throw new Error("Snapshot plan is missing a snapshot type");
+    }
+
+    const analysisProps = {
+      snapshotType,
+      snapshotSettings: plan.snapshot.settings,
+      variationNames: experiment.variations.map((v) => v.name),
+      metricMap,
+      queryParentId: queryRunner.model.id,
+      factTableMap,
+      experimentQueryMetadata:
+        getAdditionalQueryMetadataForExperiment(experiment),
+    };
+
+    if (plan.runnerKind === "incremental") {
+      await (
+        queryRunner as ExperimentIncrementalRefreshQueryRunner
+      ).startAnalysis({
+        ...analysisProps,
+        experimentId: experiment.id,
+        incrementalRefreshStartTime: new Date(),
+        fullRefresh: plan.fullRefresh && plan.snapshot.type === "standard",
+      });
+    } else if (plan.runnerKind === "incremental-exploratory") {
+      await (
+        queryRunner as ExperimentIncrementalRefreshExploratoryQueryRunner
+      ).startAnalysis({
+        ...analysisProps,
+        experimentId: experiment.id,
+        incrementalRefreshStartTime: new Date(),
+      });
+    } else {
+      await (queryRunner as ExperimentResultsQueryRunner).startAnalysis(
+        analysisProps,
+      );
+    }
+
+    const runningSnapshot = queryRunner.model;
+    // Whenever the standard snapshot for an experiment is refreshed, also refresh the associated dashboards in the background
+    if (
+      runningSnapshot.type === "standard" &&
+      runningSnapshot.triggeredBy !== "manual-dashboard"
+    ) {
+      const defaultAnalysisSettings = runningSnapshot.analyses[0]?.settings;
+      if (!defaultAnalysisSettings) {
+        throw new Error("Snapshot is missing its default analysis settings");
+      }
+
+      updateExperimentDashboards({
+        context,
+        experiment,
+        mainSnapshot: runningSnapshot,
+        statsEngine: defaultAnalysisSettings.statsEngine,
+        regressionAdjustmentEnabled:
+          defaultAnalysisSettings.regressionAdjusted ??
+          DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+        postStratificationEnabled:
+          defaultAnalysisSettings.postStratificationEnabled ??
+          DEFAULT_POST_STRATIFICATION_ENABLED,
+        settingsForSnapshotMetrics: plan.settingsForSnapshotMetrics,
+        metricMap,
+        factTableMap,
+      });
+    }
+
+    return queryRunner;
+  } catch (e) {
+    if (hasIncrementalRefreshLock) {
+      await context.models.incrementalRefresh
+        .releaseLock(experiment.id, plan.snapshot.id)
+        .catch((releaseErr) =>
+          context.logger.warn(
+            releaseErr,
+            "Failed to release incremental refresh lock during error cleanup",
+          ),
+        );
+    }
+    throw e;
+  }
 }
 
 export async function createSnapshot({

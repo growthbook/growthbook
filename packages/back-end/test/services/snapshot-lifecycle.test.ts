@@ -21,6 +21,7 @@ import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/Experime
 import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
+import { ConcurrentIncrementalRefreshError } from "back-end/src/util/errors";
 
 jest.mock("back-end/src/models/ExperimentModel", () => ({
   updateExperiment: jest.fn(),
@@ -111,6 +112,10 @@ function makeContext(): ApiReqContext {
     models: {
       metricGroups: {
         getAll: jest.fn().mockResolvedValue([]),
+      },
+      incrementalRefresh: {
+        acquireLock: jest.fn().mockResolvedValue(true),
+        releaseLock: jest.fn().mockResolvedValue(undefined),
       },
     },
   } as unknown as ApiReqContext;
@@ -378,5 +383,116 @@ describe("snapshot lifecycle", () => {
 
     expect(updateExperimentMock).not.toHaveBeenCalled();
     expect(resultsQueryRunnerMock).toHaveBeenCalled();
+  });
+
+  describe("incremental refresh lock", () => {
+    it("acquires lock before starting incremental snapshot", async () => {
+      const context = makeContext();
+      const experiment = makeExperiment();
+      const plan = makePlan({ runnerKind: "incremental" });
+
+      await createSnapshotFromPlan({
+        plan,
+        context,
+        experiment,
+        metricMap: new Map<string, ExperimentMetricInterface>(),
+        factTableMap: new Map() as FactTableMap,
+      });
+
+      expect(
+        context.models.incrementalRefresh.acquireLock,
+      ).toHaveBeenCalledWith(experiment.id, plan.snapshot.id);
+      expect(incrementalQueryRunnerMock).toHaveBeenCalled();
+    });
+
+    it("throws ConcurrentIncrementalRefreshError when lock cannot be acquired", async () => {
+      const context = makeContext();
+      (
+        context.models.incrementalRefresh.acquireLock as jest.Mock
+      ).mockResolvedValue(false);
+      const experiment = makeExperiment();
+      const plan = makePlan({ runnerKind: "incremental" });
+
+      await expect(
+        createSnapshotFromPlan({
+          plan,
+          context,
+          experiment,
+          metricMap: new Map<string, ExperimentMetricInterface>(),
+          factTableMap: new Map() as FactTableMap,
+        }),
+      ).rejects.toThrow(ConcurrentIncrementalRefreshError);
+
+      expect(incrementalQueryRunnerMock).not.toHaveBeenCalled();
+      expect(createExperimentSnapshotModelMock).not.toHaveBeenCalled();
+    });
+
+    it("releases lock when snapshot creation fails", async () => {
+      const context = makeContext();
+      const experiment = makeExperiment();
+      const plan = makePlan({ runnerKind: "incremental" });
+
+      // Make snapshot creation throw
+      createExperimentSnapshotModelMock.mockRejectedValueOnce(
+        new Error("DB write failed"),
+      );
+
+      await expect(
+        createSnapshotFromPlan({
+          plan,
+          context,
+          experiment,
+          metricMap: new Map<string, ExperimentMetricInterface>(),
+          factTableMap: new Map() as FactTableMap,
+        }),
+      ).rejects.toThrow("DB write failed");
+
+      expect(
+        context.models.incrementalRefresh.releaseLock,
+      ).toHaveBeenCalledWith(experiment.id, plan.snapshot.id);
+    });
+
+    it("does not acquire lock for non-incremental plans", async () => {
+      const context = makeContext();
+      const experiment = makeExperiment();
+      const plan = makePlan({ runnerKind: "results" });
+
+      await createSnapshotFromPlan({
+        plan,
+        context,
+        experiment,
+        metricMap: new Map<string, ExperimentMetricInterface>(),
+        factTableMap: new Map() as FactTableMap,
+      });
+
+      expect(
+        context.models.incrementalRefresh.acquireLock,
+      ).not.toHaveBeenCalled();
+      expect(resultsQueryRunnerMock).toHaveBeenCalled();
+    });
+
+    it("does not release lock on failure for non-incremental plans", async () => {
+      const context = makeContext();
+      const experiment = makeExperiment();
+      const plan = makePlan({ runnerKind: "results" });
+
+      createExperimentSnapshotModelMock.mockRejectedValueOnce(
+        new Error("DB write failed"),
+      );
+
+      await expect(
+        createSnapshotFromPlan({
+          plan,
+          context,
+          experiment,
+          metricMap: new Map<string, ExperimentMetricInterface>(),
+          factTableMap: new Map() as FactTableMap,
+        }),
+      ).rejects.toThrow("DB write failed");
+
+      expect(
+        context.models.incrementalRefresh.releaseLock,
+      ).not.toHaveBeenCalled();
+    });
   });
 });
