@@ -1456,10 +1456,14 @@ export async function createSnapshotFromPlan({
     return queryRunner;
   } catch (e) {
     if (hasIncrementalRefreshLock) {
-      await context.models.incrementalRefresh.releaseLock(
-        experiment.id,
-        plan.snapshot.id,
-      );
+      await context.models.incrementalRefresh
+        .releaseLock(experiment.id, plan.snapshot.id)
+        .catch((releaseErr) =>
+          context.logger.warn(
+            releaseErr,
+            "Failed to release incremental refresh lock during error cleanup",
+          ),
+        );
     }
     throw e;
   }

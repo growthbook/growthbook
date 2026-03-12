@@ -211,8 +211,12 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
     }
   } catch (e) {
     // Lock contention is transient so we don't disable auto-updates
-    // and we don't log it as an error
     if (e instanceof ConcurrentIncrementalRefreshError) {
+      logger.info(
+        "Skipping auto-update for experiment " +
+          experimentId +
+          ": incremental refresh already in progress",
+      );
       return;
     }
 

@@ -426,16 +426,21 @@ const startExperimentIncrementalRefreshQueries = async (
       capturedUnitsMaxTimestamp = maxTimestamp;
 
       if (maxTimestamp) {
-        const lockHeld = await context.models.incrementalRefresh
-          .updateByExperimentIdIfCurrentExecution(experimentId, executionId, {
-            unitsTableFullName: unitsTableFullName,
-            unitsMaxTimestamp: maxTimestamp,
-            experimentSettingsHash:
-              getExperimentSettingsHashForIncrementalRefresh(snapshotSettings),
-            unitsDimensions: eligibleDimensions.map((d) => d.id),
-          })
-          .catch((e) => context.logger.error(e));
-        if (!lockHeld) {
+        const lockHeld =
+          await context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
+            experimentId,
+            executionId,
+            {
+              unitsTableFullName: unitsTableFullName,
+              unitsMaxTimestamp: maxTimestamp,
+              experimentSettingsHash:
+                getExperimentSettingsHashForIncrementalRefresh(
+                  snapshotSettings,
+                ),
+              unitsDimensions: eligibleDimensions.map((d) => d.id),
+            },
+          );
+        if (lockHeld !== true) {
           context.logger.warn(
             "Incremental refresh execution lock lost for experiment: " +
               experimentId,
@@ -659,12 +664,15 @@ const startExperimentIncrementalRefreshQueries = async (
               s.groupId === group.groupId ? updatedCovariateSource : s,
             );
           }
-          const lockHeld = await context.models.incrementalRefresh
-            .updateByExperimentIdIfCurrentExecution(experimentId, executionId, {
-              metricCovariateSources: runningCovariateSourceData,
-            })
-            .catch((e) => context.logger.error(e));
-          if (!lockHeld) {
+          const lockHeld =
+            await context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
+              experimentId,
+              executionId,
+              {
+                metricCovariateSources: runningCovariateSourceData,
+              },
+            );
+          if (lockHeld !== true) {
             context.logger.warn(
               "Incremental refresh execution lock lost for experiment: " +
                 experimentId,
@@ -686,18 +694,23 @@ const startExperimentIncrementalRefreshQueries = async (
       dependencies: [insertMetricsSourceDataQuery.query],
       run: (query, setExternalId) =>
         integration.runMaxTimestampQuery(query, setExternalId),
-      onFailure: async () => {
+      onFailure: () => {
         // Remove the source from the running data if max timestamp fails
         runningSourceData = runningSourceData.filter(
           (s) => s.groupId !== group.groupId,
         );
-        await context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
-          experimentId,
-          executionId,
-          {
+        // Note: onFailure is not awaited by QueryRunner, so we must catch
+        // errors here to avoid unhandled promise rejections.
+        context.models.incrementalRefresh
+          .updateByExperimentIdIfCurrentExecution(experimentId, executionId, {
             metricSources: runningSourceData,
-          },
-        );
+          })
+          .catch((e) =>
+            context.logger.error(
+              e,
+              "Failed to update metric sources on query failure",
+            ),
+          );
       },
       onSuccess: async (rows) => {
         const maxTimestamp = new Date(rows[0].max_timestamp as string);
@@ -730,12 +743,15 @@ const startExperimentIncrementalRefreshQueries = async (
               s.groupId === group.groupId ? updatedSource : s,
             );
           }
-          const lockHeld = await context.models.incrementalRefresh
-            .updateByExperimentIdIfCurrentExecution(experimentId, executionId, {
-              metricSources: runningSourceData,
-            })
-            .catch((e) => context.logger.error(e));
-          if (!lockHeld) {
+          const lockHeld =
+            await context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
+              experimentId,
+              executionId,
+              {
+                metricSources: runningSourceData,
+              },
+            );
+          if (lockHeld !== true) {
             context.logger.warn(
               "Incremental refresh execution lock lost for experiment: " +
                 experimentId,
