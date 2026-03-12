@@ -33,13 +33,6 @@ export * from "./errors";
 
 export const DEFAULT_ENVIRONMENT_IDS = ["production", "dev", "staging", "test"];
 
-/** Returns the human-readable label for a revision: its title when set, otherwise "Revision N". */
-export function revisionLabel(
-  version: number,
-  title?: string | null,
-): string {
-  return title ? `${title} (${version})` : `Revision ${version}`;
-}
 
 export function getAffectedEnvsForExperiment({
   experiment,

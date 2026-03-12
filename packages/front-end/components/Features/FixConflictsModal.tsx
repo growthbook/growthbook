@@ -12,7 +12,6 @@ import {
   autoMerge,
   mergeResultHasChanges,
   filterEnvironmentsByFeature,
-  revisionLabel,
 } from "shared/util";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import Text from "@/ui/Text";
@@ -21,6 +20,7 @@ import Heading from "@/ui/Heading";
 import { useEnvironments } from "@/services/features";
 import EventUser from "@/components/Avatar/EventUser";
 import RevisionStatusBadge from "@/components/Features/RevisionStatusBadge";
+import RevisionLabel, { revisionLabelText } from "@/components/Features/RevisionLabel";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import { useAuth } from "@/services/auth";
 import PagedModal from "@/components/Modal/PagedModal";
@@ -112,7 +112,7 @@ export function ExpandableConflict({
                 <Flex align="center" gap="2" wrap="wrap">
                   <Heading as="h4" size="x-small" mb="0">
                     {liveRevision
-                      ? <OverflowText maxWidth={200}>{revisionLabel(liveRevision.version, liveRevision.title)}</OverflowText>
+                      ? <OverflowText maxWidth={200} title={revisionLabelText(liveRevision.version, liveRevision.title)}><RevisionLabel version={liveRevision.version} title={liveRevision.title} /></OverflowText>
                       : "External Change"}
                   </Heading>
                   {liveRevision && (
@@ -162,7 +162,7 @@ export function ExpandableConflict({
                 <Flex align="center" gap="2" wrap="wrap">
                   <Heading as="h4" size="x-small" mb="0">
                     {draftRevision
-                      ? <OverflowText maxWidth={200}>{revisionLabel(draftRevision.version, draftRevision.title)}</OverflowText>
+                      ? <OverflowText maxWidth={200} title={revisionLabelText(draftRevision.version, draftRevision.title)}><RevisionLabel version={draftRevision.version} title={draftRevision.title} /></OverflowText>
                       : "Your Change"}
                   </Heading>
                   {draftRevision && (
@@ -322,7 +322,7 @@ export default function FixConflictsModal({
           <Text as="p">
             Your changes {" "}(
             <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)", whiteSpace: "nowrap" }}>
-              <Text as="span" size="medium" weight="semibold" color="text-high"><OverflowText maxWidth={200}>{revisionLabel(revision.version, revision.title)}</OverflowText></Text>
+              <Text as="span" size="medium" weight="semibold" color="text-high"><OverflowText maxWidth={200} title={revisionLabelText(revision.version, revision.title)}><RevisionLabel version={revision.version} title={revision.title} /></OverflowText></Text>
               <RevisionStatusBadge
                 revision={revision}
                 liveVersion={liveRevision?.version ?? -1}
@@ -330,7 +330,7 @@ export default function FixConflictsModal({
             </span>
             ){" "}are based on{" "}
             <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)", whiteSpace: "nowrap" }}>
-              <Text as="span" size="medium" weight="semibold" color="text-high"><OverflowText maxWidth={200}>{revisionLabel(baseRevision?.version ?? 0, baseRevision?.title)}</OverflowText></Text>
+              <Text as="span" size="medium" weight="semibold" color="text-high"><OverflowText maxWidth={200} title={revisionLabelText(baseRevision?.version ?? 0, baseRevision?.title)}><RevisionLabel version={baseRevision?.version ?? 0} title={baseRevision?.title} /></OverflowText></Text>
               {baseRevision && (
                 <RevisionStatusBadge
                   revision={baseRevision}
@@ -340,7 +340,7 @@ export default function FixConflictsModal({
             </span>
             {", but "}
             <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)", whiteSpace: "nowrap" }}>
-              <Text as="span" size="medium" weight="semibold" color="text-high"><OverflowText maxWidth={200}>{revisionLabel(liveRevision?.version ?? 0, liveRevision?.title)}</OverflowText></Text>
+              <Text as="span" size="medium" weight="semibold" color="text-high"><OverflowText maxWidth={200} title={revisionLabelText(liveRevision?.version ?? 0, liveRevision?.title)}><RevisionLabel version={liveRevision?.version ?? 0} title={liveRevision?.title} /></OverflowText></Text>
               {liveRevision && (
                 <RevisionStatusBadge
                   revision={liveRevision}
@@ -381,7 +381,7 @@ export default function FixConflictsModal({
             <Text as="p">
               Almost done —{" "}
               <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)", whiteSpace: "nowrap" }}>
-                <Text as="span" weight="semibold" color="text-high"><OverflowText maxWidth={200}>{revisionLabel(revision.version, revision.title)}</OverflowText></Text>
+                <Text as="span" weight="semibold" color="text-high"><OverflowText maxWidth={200} title={revisionLabelText(revision.version, revision.title)}><RevisionLabel version={revision.version} title={revision.title} /></OverflowText></Text>
                 <RevisionStatusBadge
                   revision={revision}
                   liveVersion={liveRevision?.version ?? -1}
@@ -389,7 +389,7 @@ export default function FixConflictsModal({
               </span>
               {" "}has been successfully rebased onto{" "}
               <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)", whiteSpace: "nowrap" }}>
-                <Text as="span" weight="semibold" color="text-high"><OverflowText maxWidth={200}>{revisionLabel(liveRevision?.version ?? 0, liveRevision?.title)}</OverflowText></Text>
+                <Text as="span" weight="semibold" color="text-high"><OverflowText maxWidth={200} title={revisionLabelText(liveRevision?.version ?? 0, liveRevision?.title)}><RevisionLabel version={liveRevision?.version ?? 0} title={liveRevision?.title} /></OverflowText></Text>
                 {liveRevision && (
                   <RevisionStatusBadge
                     revision={liveRevision}
@@ -415,7 +415,7 @@ export default function FixConflictsModal({
                   styles={COMPACT_DIFF_STYLES}
                   leftTitle={
                     <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)", fontFamily: "var(--default-font-family)", marginBottom: "var(--space-2)" }}>
-                      <Text as="span" weight="semibold" color="text-high"><OverflowText maxWidth={200}>{revisionLabel(liveRevision?.version ?? 0, liveRevision?.title)}</OverflowText></Text>
+                      <Text as="span" weight="semibold" color="text-high"><OverflowText maxWidth={200} title={revisionLabelText(liveRevision?.version ?? 0, liveRevision?.title)}><RevisionLabel version={liveRevision?.version ?? 0} title={liveRevision?.title} /></OverflowText></Text>
                       {liveRevision && (
                         <RevisionStatusBadge
                           revision={liveRevision}
@@ -426,7 +426,7 @@ export default function FixConflictsModal({
                   }
                   rightTitle={
                     <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)", fontFamily: "var(--default-font-family)", marginBottom: "var(--space-2)" }}>
-                      <Text as="span" weight="semibold" color="text-high"><OverflowText maxWidth={200}>{revisionLabel(revision.version, revision.title)}</OverflowText></Text>
+                      <Text as="span" weight="semibold" color="text-high"><OverflowText maxWidth={200} title={revisionLabelText(revision.version, revision.title)}><RevisionLabel version={revision.version} title={revision.title} /></OverflowText></Text>
                       <RevisionStatusBadge
                         revision={revision}
                         liveVersion={liveRevision?.version ?? -1}

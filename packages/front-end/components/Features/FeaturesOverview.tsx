@@ -1,6 +1,6 @@
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import {
   PiPlusCircleBold,
@@ -19,7 +19,6 @@ import {
   getDraftAffectedEnvironments,
   getReviewSetting,
   mergeResultHasChanges,
-  revisionLabel,
 } from "shared/util";
 import { MdRocketLaunch } from "react-icons/md";
 import { BiHide, BiShow } from "react-icons/bi";
@@ -70,6 +69,9 @@ import FixConflictsModal from "@/components/Features/FixConflictsModal";
 import CompareRevisionsModal from "@/components/Features/CompareRevisionsModal";
 import RevisionStatusBadge from "@/components/Features/RevisionStatusBadge";
 import RevisionDropdown from "@/components/Features/RevisionDropdown";
+import RevisionLabel, {
+  revisionLabelText,
+} from "@/components/Features/RevisionLabel";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
@@ -623,8 +625,8 @@ export default function FeaturesOverview({
       <Box className="contents container-fluid pagecontents">
         {revision && (
           <Frame mt="2" mb="4" px="6" py="4">
-            <Flex align="center" justify="between" mb="2" wrap="wrap" gap="2">
-              <Flex align="center" gap="3">
+            <Flex align="start" justify="between" mb="2" wrap="wrap" gap="2">
+              <Flex align="start" gap="3" style={{ marginTop: 6 }}>
                 <Flex direction="column" gap="1">
                   <Flex align="center" gap="2">
                     {editingTitle ? (
@@ -655,7 +657,7 @@ export default function FeaturesOverview({
                           await mutate();
                         }}
                         style={{
-                          maxWidth: 300,
+                          maxWidth: 250,
                           fontWeight: "bold",
                           fontSize: "var(--font-size-3)",
                           border: "none",
@@ -667,17 +669,19 @@ export default function FeaturesOverview({
                       />
                     ) : (
                       <Text weight="bold">
-                        <span
-                          style={{
-                            display: "-webkit-box",
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: "vertical",
-                            overflow: "hidden",
-                            maxWidth: 300,
-                          }}
+                        <OverflowText
+                          maxWidth={250}
+                          title={revisionLabelText(
+                            revision.version,
+                            revision.title,
+                          )}
                         >
-                          {revisionLabel(revision.version, revision.title)}
-                        </span>
+                          <RevisionLabel
+                            version={revision.version}
+                            title={revision.title}
+                            numbered={false}
+                          />
+                        </OverflowText>
                       </Text>
                     )}
                     <RevisionStatusBadge
@@ -712,7 +716,10 @@ export default function FeaturesOverview({
                 </Flex>
                 {drafts.length > 0 && isLocked && !isDraft && (
                   <>
-                    <Separator orientation="vertical" />
+                    <Separator
+                      orientation="vertical"
+                      style={{ marginTop: 2 }}
+                    />
                     {drafts.length === 1 ? (
                       <Link onClick={() => setVersion(drafts[0].version)}>
                         Switch to active draft
@@ -740,7 +747,10 @@ export default function FeaturesOverview({
                 )}
                 {isDraft && !isLive && (
                   <>
-                    <Separator orientation="vertical" />
+                    <Separator
+                      orientation="vertical"
+                      style={{ marginTop: 2 }}
+                    />
                     <Link onClick={() => setVersion(feature.version)}>
                       See live revision
                     </Link>
@@ -748,7 +758,10 @@ export default function FeaturesOverview({
                 )}
                 {onCompareRevisions && (
                   <>
-                    <Separator orientation="vertical" />
+                    <Separator
+                      orientation="vertical"
+                      style={{ marginTop: 2 }}
+                    />
                     <Link onClick={onCompareRevisions}>
                       <PiArrowsLeftRightBold
                         style={{ marginRight: 4, verticalAlign: "middle" }}
@@ -758,7 +771,7 @@ export default function FeaturesOverview({
                   </>
                 )}
               </Flex>
-              <Flex align="center" gap="2">
+              <Flex align="center" justify="end" gap="2" flexGrow="1">
                 {revisionCTA}
               </Flex>
             </Flex>
@@ -1587,16 +1600,8 @@ export default function FeaturesOverview({
                 )}
               </Flex>
               <Flex align="center" gap="2">
-                <Text>based on</Text>
-                <Text weight="medium">
-                  <OverflowText maxWidth={200}>
-                    {revisionLabel(
-                      feature.version,
-                      revisions.find((r) => r.version === feature.version)
-                        ?.title,
-                    )}
-                  </OverflowText>
-                </Text>
+                <Text>Based on:</Text>
+                <Text weight="medium">Revision {feature.version}</Text>
                 <RevisionStatusBadge
                   revision={revisions.find(
                     (r) => r.version === feature.version,

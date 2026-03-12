@@ -20,7 +20,7 @@ import {
   PiX,
 } from "react-icons/pi";
 import { datetime } from "shared/dates";
-import { DRAFT_REVISION_STATUSES, revisionLabel } from "shared/util";
+import { DRAFT_REVISION_STATUSES } from "shared/util";
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -41,6 +41,7 @@ import Badge from "@/ui/Badge";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import EventUser from "@/components/Avatar/EventUser";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+import RevisionLabel, { revisionLabelText } from "@/components/Features/RevisionLabel";
 import {
   useFeatureRevisionDiff,
   FeatureRevisionDiffInput,
@@ -98,7 +99,6 @@ function RevisionCompareLabel({
   revBFailed = false,
   mb,
   mt,
-  getRevision,
 }: {
   versionA: number;
   versionB: number;
@@ -109,7 +109,6 @@ function RevisionCompareLabel({
   revBFailed?: boolean;
   mb?: "1" | "2" | "3" | "4";
   mt?: "1" | "2" | "3" | "4";
-  getRevision?: (version: number) => FeatureRevisionInterface | null;
 }) {
   return (
     <Flex align="center" gap="4" wrap="nowrap" mb={mb} mt={mt}>
@@ -124,7 +123,7 @@ function RevisionCompareLabel({
               </Tooltip>
             )}
             <Text weight="semibold" size="medium">
-              <OverflowText maxWidth={200}>{revisionLabel(versionA, revA?.title)}</OverflowText>
+              <OverflowText maxWidth={250} title={revisionLabelText(versionA, revA?.title)}><RevisionLabel version={versionA} title={revA?.title} /></OverflowText>
             </Text>
           </Flex>
           <RevisionStatusBadge revision={revA} liveVersion={liveVersion} />
@@ -141,16 +140,14 @@ function RevisionCompareLabel({
         {revA &&
           revA.baseVersion !== 0 &&
           (() => {
-            const baseRev = getRevision?.(revA.baseVersion);
-            const baseLabel = revisionLabel(revA.baseVersion, baseRev?.title);
             return DRAFT_REVISION_STATUSES.includes(revA.status) &&
               revA.baseVersion !== liveVersion ? (
               <HelperText status="warning" size="sm">
-                based on: {baseLabel}
+                based on: Revision {revA.baseVersion}
               </HelperText>
             ) : (
               <Text as="div" size="small" color="text-low">
-                based on: {baseLabel}
+                based on: Revision {revA.baseVersion}
               </Text>
             );
           })()}
@@ -167,7 +164,7 @@ function RevisionCompareLabel({
               </Tooltip>
             )}
             <Text weight="semibold" size="medium">
-              <OverflowText maxWidth={200}>{revisionLabel(versionB, revB?.title)}</OverflowText>
+              <OverflowText maxWidth={250} title={revisionLabelText(versionB, revB?.title)}><RevisionLabel version={versionB} title={revB?.title} /></OverflowText>
             </Text>
           </Flex>
           <RevisionStatusBadge revision={revB} liveVersion={liveVersion} />
@@ -184,16 +181,14 @@ function RevisionCompareLabel({
         {revB &&
           revB.baseVersion !== 0 &&
           (() => {
-            const baseRev = getRevision?.(revB.baseVersion);
-            const baseLabel = revisionLabel(revB.baseVersion, baseRev?.title);
             return DRAFT_REVISION_STATUSES.includes(revB.status) &&
               revB.baseVersion !== liveVersion ? (
               <HelperText status="warning" size="sm">
-                based on: {baseLabel}
+                based on: Revision {revB.baseVersion}
               </HelperText>
             ) : (
               <Text as="div" size="small" color="text-low">
-                based on: {baseLabel}
+                based on: Revision {revB.baseVersion}
               </Text>
             );
           })()}
@@ -271,7 +266,7 @@ function RevisionCommentItem({
     <Box>
       <Flex align="center" gap="2" mb="1" wrap="wrap">
         <Text size="medium" weight="medium" color="text-mid">
-          <OverflowText maxWidth={200}>{revisionLabel(version, title)}</OverflowText> comment
+          <OverflowText maxWidth={200} title={revisionLabelText(version, title)}><RevisionLabel version={version} title={title} /></OverflowText> comment
         </Text>
         {logEntry?.user && (
           <Text size="small" color="text-low">
@@ -1016,9 +1011,9 @@ export default function CompareRevisionsModal({
                     <Flex direction="column" gap="1" style={{ minWidth: 0 }}>
                       <Text weight="semibold">Most recent draft changes</Text>
                       <Text size="small" color="text-low">
-                        <OverflowText maxWidth={160}>{revisionLabel(quickActionRanges.draftPreviewVersion, revisionListByVersion.get(quickActionRanges.draftPreviewVersion)?.title ?? getFullRevision(quickActionRanges.draftPreviewVersion)?.title)}</OverflowText>{" "}
+                        <OverflowText maxWidth={160} title={revisionLabelText(quickActionRanges.draftPreviewVersion, revisionListByVersion.get(quickActionRanges.draftPreviewVersion)?.title ?? getFullRevision(quickActionRanges.draftPreviewVersion)?.title)}><RevisionLabel version={quickActionRanges.draftPreviewVersion} title={revisionListByVersion.get(quickActionRanges.draftPreviewVersion)?.title ?? getFullRevision(quickActionRanges.draftPreviewVersion)?.title} /></OverflowText>{" "}
                         <PiArrowsLeftRightBold />{" "}
-                        live (<OverflowText maxWidth={160}>{revisionLabel(liveVersion, revisionListByVersion.get(liveVersion)?.title ?? getFullRevision(liveVersion)?.title)}</OverflowText>)
+                        live (<OverflowText maxWidth={160} title={revisionLabelText(liveVersion, revisionListByVersion.get(liveVersion)?.title ?? getFullRevision(liveVersion)?.title)}><RevisionLabel version={liveVersion} title={revisionListByVersion.get(liveVersion)?.title ?? getFullRevision(liveVersion)?.title} /></OverflowText>)
                       </Text>
                     </Flex>
                   </Box>
@@ -1236,7 +1231,7 @@ export default function CompareRevisionsModal({
                           gap="2"
                           width="100%"
                         >
-                          <Flex align="center" gap="1">
+                          <Flex align="center" gap="1" style={{ minWidth: 0, flex: 1, overflow: "hidden" }}>
                             {checkboxChecked && isVersionFailed(v) && (
                               <Tooltip body="Could not load revision">
                                 <PiWarningBold
@@ -1247,13 +1242,17 @@ export default function CompareRevisionsModal({
                                 />
                               </Tooltip>
                             )}
-                            <Text weight="semibold"><OverflowText maxWidth={180}>{revisionLabel(v, minRev?.title ?? fullRev?.title)}</OverflowText></Text>
+                            <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0, fontWeight: "bold" }} title={revisionLabelText(v, minRev?.title ?? fullRev?.title)}>
+                              <RevisionLabel version={v} title={minRev?.title ?? fullRev?.title} />
+                            </div>
                           </Flex>
                           {minRev ? (
-                            <RevisionStatusBadge
-                              revision={minRev}
-                              liveVersion={liveVersion}
-                            />
+                            <Box flexShrink="0">
+                              <RevisionStatusBadge
+                                revision={minRev}
+                                liveVersion={liveVersion}
+                              />
+                            </Box>
                           ) : null}
                         </Flex>
                         {date && minRev ? (
@@ -1264,7 +1263,7 @@ export default function CompareRevisionsModal({
                         ) : null}
                         {showBase && fullRev && fullRev.baseVersion !== 0 ? (
                           <HelperText status="info" size="sm" mt="1">
-                            based on: <OverflowText maxWidth={160}>{revisionLabel(fullRev.baseVersion, getFullRevision(fullRev.baseVersion)?.title)}</OverflowText>
+                            based on: Revision {fullRev.baseVersion}
                           </HelperText>
                         ) : null}
                       </Flex>
@@ -1326,7 +1325,6 @@ export default function CompareRevisionsModal({
                   revAFailed={isVersionFailed(liveVersion)}
                   revBFailed={isVersionFailed(previewDraftVersion)}
                   mt="3"
-                  getRevision={getFullRevision}
                 />
               </Box>
               {previewDisplayLoading ? (
@@ -1417,7 +1415,6 @@ export default function CompareRevisionsModal({
                           revBFailed={isVersionFailed(
                             selectedSorted[selectedSorted.length - 1],
                           )}
-                          getRevision={getFullRevision}
                         />
                       )}
                   </Flex>
@@ -1446,7 +1443,6 @@ export default function CompareRevisionsModal({
                     revAFailed={isVersionFailed(currentStep[0])}
                     revBFailed={isVersionFailed(currentStep[1])}
                     mt="3"
-                    getRevision={getFullRevision}
                   />
                 )}
               </Box>

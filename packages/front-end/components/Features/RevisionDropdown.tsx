@@ -3,12 +3,12 @@ import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { datetime, date as formatDate } from "shared/dates";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
-import { revisionLabel } from "shared/util";
-
 import { DropdownMenu as RadixDropdownMenu, Box, Flex } from "@radix-ui/themes";
 import { PiCaretDownBold } from "react-icons/pi";
+import RevisionLabel, {
+  revisionLabelText,
+} from "@/components/Features/RevisionLabel";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
-import Heading from "@/ui/Heading";
 import Switch from "@/ui/Switch";
 import Text from "@/ui/Text";
 import {
@@ -77,11 +77,14 @@ function RevisionRow({
   return (
     <Flex align="center" justify="between" gap="3" style={{ width: "100%" }}>
       <Box flexShrink="0">
-        <Heading as="h4" size="x-small" mb="0">
-          <OverflowText maxWidth={200}>
-            {revisionLabel(r.version, r.title)}
+        <Text weight="semibold">
+          <OverflowText
+            maxWidth={250}
+            title={revisionLabelText(r.version, r.title)}
+          >
+            <RevisionLabel version={r.version} title={r.title} />
           </OverflowText>
-        </Heading>
+        </Text>
       </Box>
       <Box flexGrow="1" />
       {/* Right: metadata + status, vertically centered */}
@@ -247,9 +250,7 @@ export default function RevisionDropdown({
       }}
     >
       <Flex align="center" gap="3" style={{ width: "100%" }}>
-        <Heading as="h4" size="x-small" mb="0">
-          New Draft
-        </Heading>
+        <Text weight="semibold">New Draft</Text>
         <Box flexGrow="1" />
         <Text size="small" color="text-low">
           Branch from live revision
@@ -276,15 +277,21 @@ export default function RevisionDropdown({
     >
       {/* Left: revision label */}
       <Box flexShrink="0">
-        <Heading as="h4" size="x-small" mb="0">
+        <Text weight="semibold">
           {version === null ? (
             "New Draft"
           ) : (
-            <OverflowText maxWidth={200}>
-              {revisionLabel(version, selectedRevision?.title)}
+            <OverflowText
+              maxWidth={150}
+              title={revisionLabelText(version, selectedRevision?.title)}
+            >
+              <RevisionLabel
+                version={version}
+                title={selectedRevision?.title}
+              />
             </OverflowText>
           )}
-        </Heading>
+        </Text>
       </Box>
       <Box flexGrow="1" />
       {/* Right: metadata + status + caret, vertically centered */}
