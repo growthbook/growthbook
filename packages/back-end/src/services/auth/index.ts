@@ -15,6 +15,7 @@ import {
   hasUser,
   markUserAsVerified,
   getUserByEmail,
+  updateUser,
 } from "back-end/src/models/UserModel";
 import {
   getOrganizationById,
@@ -84,7 +85,7 @@ async function getUserFromJWT(info: JWTInfo): Promise<null | UserInterface> {
 
   return user;
 }
-function getInitialDataFromJWT(user: IdToken): JWTInfo {
+export function getInitialDataFromJWT(user: IdToken): JWTInfo {
   // Vercel has special property names
   if ("iss" in user && user.iss === "https://marketplace.vercel.com") {
     return {
@@ -99,7 +100,7 @@ function getInitialDataFromJWT(user: IdToken): JWTInfo {
   return {
     verified: user.email_verified || false,
     email: user.email || "",
-    name: user.given_name || user.name || "",
+    name: user.name || user.given_name || "",
     issuedAt: user.iat,
     sub: user.sub,
   };
@@ -155,11 +156,33 @@ export async function processJWT(
   const user = await getUserFromJWT(parsedJWT);
 
   if (user) {
-    req.currentUser = user;
-    req.email = user.email;
-    req.userId = user.id;
-    req.name = user.name;
-    req.superAdmin = !!user.superAdmin;
+    let currentUser = user;
+    const tokenName = (name || "").trim();
+    if (
+      usingOpenId() &&
+      tokenName &&
+      tokenName !== currentUser.name &&
+      tokenName !== currentUser.email
+    ) {
+      try {
+        await updateUser(currentUser.id, { name: tokenName });
+        currentUser = {
+          ...currentUser,
+          name: tokenName,
+        };
+      } catch (e) {
+        logger.error(
+          { userId: currentUser.id, err: e },
+          "error updating user name from JWT",
+        );
+      }
+    }
+
+    req.currentUser = currentUser;
+    req.email = currentUser.email;
+    req.userId = currentUser.id;
+    req.name = currentUser.name;
+    req.superAdmin = !!currentUser.superAdmin;
 
     // If using default Cloud SSO (Auth0), once a user logs in with a verified email address,
     // require all future logins to be verified too.
@@ -254,9 +277,9 @@ export async function processJWT(
 
     const eventAudit: EventUserLoggedIn = {
       type: "dashboard",
-      id: user.id,
-      email: user.email,
-      name: user.name || "",
+      id: currentUser.id,
+      email: currentUser.email,
+      name: currentUser.name || "",
     };
     res.locals.eventAudit = eventAudit;
 
@@ -269,9 +292,9 @@ export async function processJWT(
       await insertAudit({
         ...data,
         user: {
-          id: user.id,
-          email: user.email,
-          name: user.name || "",
+          id: currentUser.id,
+          email: currentUser.email,
+          name: currentUser.name || "",
         },
         organization: req.organization?.id || "",
         dateCreated: new Date(),
