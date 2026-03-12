@@ -491,23 +491,34 @@ describe("buildMinimalOrCondition", () => {
 
   it("keeps overlapping but non-subset groups", () => {
     // {A, B} and {B, C} share condition B but neither is a subset of the other
-    expect(buildMinimalOrCondition([["A", "B"], ["B", "C"]])).toBe(
-      "((A AND B)\nOR\n(B AND C))",
-    );
+    expect(
+      buildMinimalOrCondition([
+        ["A", "B"],
+        ["B", "C"],
+      ]),
+    ).toBe("((A AND B)\nOR\n(B AND C))");
   });
 
   it("dominates a group that is a superset of multiple independent minimals", () => {
     // {A, B} and {C, D} are independent minimals
     // {A, B, C, D} is a superset of both — should be removed
     expect(
-      buildMinimalOrCondition([["A", "B"], ["C", "D"], ["A", "B", "C", "D"]]),
+      buildMinimalOrCondition([
+        ["A", "B"],
+        ["C", "D"],
+        ["A", "B", "C", "D"],
+      ]),
     ).toBe("((A AND B)\nOR\n(C AND D))");
   });
 
   it("keeps a partial-overlap chain where no group dominates another", () => {
     // {A, B}, {B, C}, {C, D} — each pair overlaps but none is a subset
     expect(
-      buildMinimalOrCondition([["A", "B"], ["B", "C"], ["C", "D"]]),
+      buildMinimalOrCondition([
+        ["A", "B"],
+        ["B", "C"],
+        ["C", "D"],
+      ]),
     ).toBe("((A AND B)\nOR\n(B AND C)\nOR\n(C AND D))");
   });
 
