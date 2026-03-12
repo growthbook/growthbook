@@ -25,6 +25,7 @@ import {
   getSnapshotAnalysis,
   isAnalysisAllowed,
   isDefined,
+  isMultiRangeNamespaceFormat,
   MatchingRule,
   validateCondition,
 } from "shared/util";
@@ -1842,7 +1843,9 @@ export async function toExperimentApiInterface(
       namespace: p.namespace?.enabled
         ? {
             namespaceId: p.namespace.name,
-            range: p.namespace.range,
+            range: isMultiRangeNamespaceFormat(p.namespace)
+              ? (p.namespace.ranges?.[0] ?? [0, 0])
+              : (p.namespace.range ?? [0, 0]),
           }
         : undefined,
     })),

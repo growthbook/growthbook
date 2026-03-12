@@ -1377,6 +1377,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     form={form}
                     featureId={""}
                     trackingKey={""}
+                    experimentHashAttribute={form.watch("hashAttribute")}
+                    fallbackAttribute={form.watch("fallbackAttribute")}
                   />
                 </>
               )}

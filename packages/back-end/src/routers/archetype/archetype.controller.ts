@@ -27,6 +27,7 @@ import {
 import {
   evaluateFeature,
   getSavedGroupMap,
+  namespacesToMap,
 } from "back-end/src/services/features";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { getAllPayloadExperiments } from "back-end/src/models/ExperimentModel";
@@ -137,6 +138,7 @@ export const getArchetypeAndEval = async (
           scrubPrerequisites,
           skipRulesWithPrerequisites,
           safeRolloutMap,
+          namespaces: namespacesToMap(org.settings?.namespaces),
         });
 
         if (!result) return;

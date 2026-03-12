@@ -466,6 +466,8 @@ export default function ExperimentRefNewFields({
               formPrefix={namespaceFormPrefix}
               trackingKey={form.watch("trackingKey") || feature?.id}
               featureId={feature?.id || ""}
+              experimentHashAttribute={hashAttribute}
+              fallbackAttribute={form.watch("fallbackAttribute")}
             />
           )}
         </>
