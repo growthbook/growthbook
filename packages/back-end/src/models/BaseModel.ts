@@ -565,6 +565,7 @@ export abstract class BaseModel<
       limit,
       skip,
       bypassReadPermissionChecks,
+      bypassSanitization,
       projection,
       dangerousCrossOrganization,
     }: {
@@ -574,6 +575,7 @@ export abstract class BaseModel<
       limit?: number;
       skip?: number;
       bypassReadPermissionChecks?: boolean;
+      bypassSanitization?: boolean;
       // Note: projection does not work when using config.yml
       projection?: Partial<Record<keyof z.infer<T>, 0 | 1>>;
       dangerousCrossOrganization?: boolean;
@@ -624,12 +626,18 @@ export abstract class BaseModel<
       ? migrated
       : await this.filterByReadPermissions(migrated);
 
-    if (!skip && !limit) return filtered;
+    const paged =
+      !skip && !limit
+        ? filtered
+        : filtered.slice(skip || 0, limit ? (skip || 0) + limit : undefined);
 
-    return filtered.slice(skip || 0, limit ? (skip || 0) + limit : undefined);
+    return bypassSanitization ? paged : paged.map((doc) => this.sanitize(doc));
   }
 
-  protected async _findOne(query: ScopedFilterQuery<T, PKey>) {
+  protected async _findOne(
+    query: ScopedFilterQuery<T, PKey>,
+    { bypassSanitization }: { bypassSanitization?: boolean } = {},
+  ) {
     const fullQuery = this.applyBaseQuery(query);
     const doc = this.useConfigFile()
       ? this.getConfigDocuments().find((doc) => evalCondition(doc, fullQuery))
@@ -643,7 +651,12 @@ export abstract class BaseModel<
       return null;
     }
 
-    return migrated;
+    return bypassSanitization ? migrated : this.sanitize(migrated);
+  }
+
+  // Remove or transform any sensitive fields before returning to users
+  protected sanitize(doc: z.infer<T>): z.infer<T> {
+    return doc;
   }
 
   protected async _createOne(
