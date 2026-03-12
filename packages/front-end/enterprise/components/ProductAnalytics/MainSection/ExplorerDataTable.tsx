@@ -1,5 +1,4 @@
 import { useMemo } from "react";
-import { Flex } from "@radix-ui/themes";
 import type {
   ExplorationConfig,
   ProductAnalyticsExploration,
@@ -7,7 +6,6 @@ import type {
 import type { QueryInterface } from "shared/types/query";
 import { sortExplorationRows } from "@/enterprise/components/ProductAnalytics/util";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
-import Text from "@/ui/Text";
 
 type ColumnSlot =
   | { type: "dimension"; key: string; dimIndex: number }
@@ -266,36 +264,19 @@ export default function ExplorerDataTable({
     return exploration.result.rows.every((r) => r.values.length === 0);
   }, [exploration?.result.rows]);
 
-  const showEmptyDataMessage = explorationReturnedNoData && !hasChart && !error;
-
-  if (showEmptyDataMessage) {
-    return (
-      <Flex
-        p="4"
-        style={{ textAlign: "center", flex: 1, minHeight: 0 }}
-        align="center"
-        justify="center"
-      >
-        <Text color="text-mid" weight="medium">
-          The query ran successfully, but no data was returned.
-        </Text>
-      </Flex>
-    );
-  }
-
   return (
     <DisplayTestQueryResults
       results={rowData}
       duration={query?.statistics?.executionDurationMs ?? 0}
       sql={query?.query || ""}
       error={error || ""}
+      showNoRowsWarning={explorationReturnedNoData && !hasChart}
       allowDownload={true}
       showSampleHeader={false}
       showDuration={!!query?.statistics}
       headerStructure={headerStructure ?? undefined}
       orderedColumnKeys={orderedColumnKeys}
       paddingTop={(isStale || loading) && !hasChart ? 35 : 0}
-      showNoRowsWarning={false}
     />
   );
 }
