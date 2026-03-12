@@ -285,7 +285,8 @@ export function buildMinimalOrCondition(
     ...new Set(group.filter((f): f is string => f !== null)),
   ]);
 
-  // An empty group (no conditions) matches everything — no WHERE clause needed
+  // An empty group (no conditions) matches everything
+  // So we cannot filter anything out
   if (cleanGroups.length === 0 || cleanGroups.some((g) => g.length === 0)) {
     return "";
   }
