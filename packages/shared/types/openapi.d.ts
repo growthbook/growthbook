@@ -10590,6 +10590,15 @@ export interface operations {
           minBucketVersion?: number;
           releasedVariationId?: string;
           excludeFromPayload?: boolean;
+          /**
+           * @description The result status of the experiment (maps to resultSummary.status in response) 
+           * @enum {string}
+           */
+          results?: "dnf" | "won" | "lost" | "inconclusive";
+          /** @description The index of the winning variation (0-indexed). Maps to resultSummary.winner variation ID in response. */
+          winner?: number;
+          /** @description Analysis summary or conclusions for the experiment (maps to resultSummary.conclusions in response) */
+          analysis?: string;
           /** @enum {string} */
           inProgressConversions?: "loose" | "strict";
           /**

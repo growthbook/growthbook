@@ -2458,6 +2458,20 @@ paths:
                   type: string
                 excludeFromPayload:
                   type: boolean
+                results:
+                  type: string
+                  enum:
+                    - dnf
+                    - won
+                    - lost
+                    - inconclusive
+                  description: The result status of the experiment (maps to resultSummary.status in response)
+                winner:
+                  type: number
+                  description: The index of the winning variation (0-indexed). Maps to resultSummary.winner variation ID in response.
+                analysis:
+                  type: string
+                  description: Analysis summary or conclusions for the experiment (maps to resultSummary.conclusions in response)
                 inProgressConversions:
                   type: string
                   enum:
