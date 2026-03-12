@@ -68,13 +68,11 @@ export async function validateFactMetricRowFilterSql({
   integration,
   factTable,
   rowFilters,
-  testQueryDays,
   errorPrefix,
 }: {
   integration: SourceIntegrationInterface;
   factTable: FactTableForRowFilterValidation;
   rowFilters: RowFilter[] | undefined;
-  testQueryDays?: number;
   errorPrefix: string;
 }): Promise<void> {
   if (!integration.getTestValidityQuery || !integration.runTestQuery) {
@@ -86,12 +84,12 @@ export async function validateFactMetricRowFilterSql({
     return;
   }
 
-  const query = `SELECT * FROM (
+  const query = `SELECT timestamp FROM (
   ${factTable.sql}
 ) f
 WHERE ${riskyFilterExpressions.join(" AND ")}`;
 
-  const sql = integration.getTestValidityQuery(query, testQueryDays, {
+  const sql = integration.getTestValidityQuery(query, 1, {
     eventName: factTable.eventName,
   });
 

@@ -401,7 +401,6 @@ export class FactMetricModel extends BaseClass {
       numeratorSqlExprFiltersToValidate.length ||
       denominatorSqlExprFiltersToValidate.length
     ) {
-      const rowFilterValidationTestDays = 1;
       const datasource = await getDataSourceById(this.context, data.datasource);
       if (!datasource) {
         throw new Error("Could not find datasource");
@@ -416,7 +415,6 @@ export class FactMetricModel extends BaseClass {
         integration,
         factTable: numeratorFactTable,
         rowFilters: numeratorSqlExprFiltersToValidate,
-        testQueryDays: rowFilterValidationTestDays,
         errorPrefix: "Invalid numerator row filter SQL: ",
       });
 
@@ -425,7 +423,6 @@ export class FactMetricModel extends BaseClass {
           integration,
           factTable: denominatorFactTable,
           rowFilters: denominatorSqlExprFiltersToValidate,
-          testQueryDays: rowFilterValidationTestDays,
           errorPrefix: "Invalid denominator row filter SQL: ",
         });
       }

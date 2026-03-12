@@ -118,7 +118,6 @@ describe("factMetricRowFilterValidation", () => {
         integration,
         factTable,
         rowFilters: [{ operator: "in", column: "country", values: ["US"] }],
-        testQueryDays: 14,
         errorPrefix: "Invalid row filter SQL: ",
       });
 
@@ -132,7 +131,6 @@ describe("factMetricRowFilterValidation", () => {
           integration: {} as SourceIntegrationInterface,
           factTable,
           rowFilters: [{ operator: "sql_expr", values: ["amount > 100"] }],
-          testQueryDays: 14,
           errorPrefix: "Invalid row filter SQL: ",
         }),
       ).resolves.toBeUndefined();
@@ -155,7 +153,6 @@ describe("factMetricRowFilterValidation", () => {
           { operator: "saved_filter", values: ["filter_country_us"] },
           { operator: "sql_expr", values: ["amount > 100"] },
         ],
-        testQueryDays: 14,
         errorPrefix: "Invalid row filter SQL: ",
       });
 
@@ -163,7 +160,7 @@ describe("factMetricRowFilterValidation", () => {
         getTestValidityQuery.mock.calls[0];
       expect(query).toContain("WHERE (amount > 100\n)");
       expect(query).not.toContain("country = 'US'");
-      expect(testDays).toBe(14);
+      expect(testDays).toBe(1);
       expect(templateVariables).toEqual({ eventName: "orders" });
       expect(runTestQuery).toHaveBeenCalledWith(
         "SELECT * FROM __table LIMIT 0",
@@ -183,7 +180,6 @@ describe("factMetricRowFilterValidation", () => {
           integration,
           factTable,
           rowFilters: [{ operator: "sql_expr", values: ["amount > )"] }],
-          testQueryDays: 14,
           errorPrefix: "Invalid numerator row filter SQL: ",
         }),
       ).rejects.toThrow(
