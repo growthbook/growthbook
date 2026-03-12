@@ -1,19 +1,25 @@
 import Agenda, { Job } from "agenda";
+import { getScopedSettings } from "shared/settings";
 import {
   getExperimentById,
   getExperimentsToUpdate,
   getExperimentsToUpdateLegacy,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
-  createExperimentSnapshot,
+  createSnapshot,
+  getAdditionalExperimentAnalysisSettings,
+  getDefaultExperimentAnalysisSettings,
+  getSettingsForSnapshotMetrics,
   updateExperimentBanditSettings,
-  waitForSnapshotExecution,
 } from "back-end/src/services/experiments";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { getMetricMap } from "back-end/src/models/MetricModel";
 import { notifyAutoUpdate } from "back-end/src/services/experimentNotifications";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
+import { getFactTableMap } from "back-end/src/models/FactTableModel";
 
 // Time between experiment result updates (default 6 hours)
 const UPDATE_EVERY = EXPERIMENT_REFRESH_FREQUENCY * 60 * 60 * 1000;
@@ -102,6 +108,15 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
   const experiment = await getExperimentById(context, experimentId);
   if (!experiment) return;
 
+  let project = null;
+  if (experiment.project) {
+    project = await context.models.projects.getById(experiment.project);
+  }
+  const { settings: scopedSettings } = getScopedSettings({
+    organization: context.org,
+    project: project ?? undefined,
+  });
+
   // Disable auto snapshots for the experiment so it doesn't keep trying to update if schedule is off (non-bandits only)
   if (
     organization?.settings?.updateSchedule?.type === "never" &&
@@ -118,7 +133,28 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
   }
 
   try {
-    logger.info("Requesting Results Refresh for experiment " + experimentId);
+    logger.info("Start Refreshing Results for experiment " + experimentId);
+    const datasource = await getDataSourceById(
+      context,
+      experiment.datasource || "",
+    );
+    if (!datasource) {
+      throw new Error("Error refreshing experiment, could not find datasource");
+    }
+
+    const { regressionAdjustmentEnabled, settingsForSnapshotMetrics } =
+      await getSettingsForSnapshotMetrics(context, experiment);
+
+    const analysisSettings = getDefaultExperimentAnalysisSettings({
+      statsEngine: experiment.statsEngine || scopedSettings.statsEngine.value,
+      experiment,
+      organization,
+      regressionAdjustmentEnabled,
+      postStratificationEnabled: scopedSettings.postStratificationEnabled.value,
+    });
+
+    const metricMap = await getMetricMap(context);
+    const factTableMap = await getFactTableMap(context);
 
     let reweight =
       experiment.type === "multi-armed-bandit" &&
@@ -135,21 +171,23 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
       }
     }
 
-    const { snapshot } = await createExperimentSnapshot({
+    const queryRunner = await createSnapshot({
       experiment,
       context,
       phaseIndex: experiment.phases.length - 1,
+      defaultAnalysisSettings: analysisSettings,
+      additionalAnalysisSettings:
+        getAdditionalExperimentAnalysisSettings(analysisSettings),
+      settingsForSnapshotMetrics: settingsForSnapshotMetrics || [],
+      metricMap,
+      factTableMap,
       useCache: true,
       type: "standard",
       triggeredBy: "schedule",
       reweight,
     });
-
-    // TODO(adriel): Can we remove this wait since this is a background job?
-    const finalSnapshot = await waitForSnapshotExecution({
-      context,
-      snapshotId: snapshot.id,
-    });
+    await queryRunner.waitForResults();
+    const currentSnapshot = queryRunner.model;
 
     logger.info(
       "Successfully Refreshed Results for experiment " + experimentId,
@@ -158,9 +196,9 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
     if (experiment.type === "multi-armed-bandit") {
       const changes = updateExperimentBanditSettings({
         experiment,
-        snapshot: finalSnapshot,
+        snapshot: currentSnapshot,
         reweight:
-          finalSnapshot?.banditResult?.reweight &&
+          currentSnapshot?.banditResult?.reweight &&
           experiment.banditStage === "exploit",
         isScheduled: true,
       });

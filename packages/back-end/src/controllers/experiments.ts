@@ -48,22 +48,21 @@ import {
 } from "back-end/src/types/AuthRequest";
 import {
   _getSnapshots,
+  createSnapshotFromPlan,
   createSnapshotAnalyses,
   createSnapshotAnalysis,
   determineNextBanditSchedule,
+  ExperimentSnapshotQueryRunner,
   getAdditionalExperimentAnalysisSettings,
   getChangesToStartExperiment,
   getDefaultExperimentAnalysisSettings,
-  getSnapshotType,
   getLinkedFeatureInfo,
   PlannedExperimentSnapshot,
   planSnapshot,
-  createExperimentSnapshot,
   resetExperimentBanditSettings,
   SnapshotAnalysisParams,
   updateExperimentBanditSettings,
   validateExperimentData,
-  waitForSnapshotExecution,
 } from "back-end/src/services/experiments";
 import {
   createExperiment,
@@ -1294,8 +1293,9 @@ export async function postExperiments(
         await createExperimentSnapshot({
           context,
           experiment,
+          datasource,
           dimension: "",
-          phaseIndex: 0,
+          phase: 0,
           useCache: true,
         });
       } catch (e) {
@@ -2881,6 +2881,107 @@ export async function cancelSnapshot(
   res.status(200).json({ status: 200 });
 }
 
+function getSnapshotType({
+  experiment,
+  dimension,
+  phaseIndex,
+}: {
+  experiment: ExperimentInterface;
+  dimension: string | undefined;
+  phaseIndex: number;
+}): SnapshotType {
+  // dimension analyses are ad-hoc
+  if (dimension) {
+    return "exploratory";
+  }
+
+  // analyses of old phases are ad-hoc
+  if (phaseIndex !== experiment.phases.length - 1) {
+    return "exploratory";
+  }
+
+  return "standard";
+}
+
+export async function createExperimentSnapshot({
+  context,
+  experiment,
+  datasource,
+  dimension,
+  phase,
+  useCache = true,
+  triggeredBy,
+  type,
+  reweight,
+  allowIncrementalRefresh = true,
+}: {
+  context: ReqContext;
+  experiment: ExperimentInterface;
+  datasource: DataSourceInterface;
+  dimension: string | undefined;
+  phase: number;
+  useCache?: boolean;
+  triggeredBy?: SnapshotTriggeredBy;
+  type?: SnapshotType;
+  reweight?: boolean;
+  allowIncrementalRefresh?: boolean;
+}): Promise<{
+  snapshot: ExperimentSnapshotInterface;
+  queryRunner: ExperimentSnapshotQueryRunner;
+}> {
+  const plan = await planExperimentSnapshot({
+    context,
+    experiment,
+    datasource,
+    dimension,
+    phase,
+    useCache,
+    triggeredBy,
+    type,
+    reweight,
+    allowIncrementalRefresh,
+  });
+
+  return createExperimentSnapshotFromPlan({
+    plan,
+    context,
+    experiment,
+  });
+}
+
+export async function createExperimentSnapshotFromPlan({
+  plan,
+  context,
+  experiment,
+}: {
+  plan: PlannedExperimentSnapshot;
+  context: ReqContext;
+  experiment: ExperimentInterface;
+}): Promise<{
+  snapshot: ExperimentSnapshotInterface;
+  queryRunner: ExperimentSnapshotQueryRunner;
+}> {
+  const metricMap = await getMetricMap(context);
+  const factTableMap = await getFactTableMap(context);
+  const metricGroups = await context.models.metricGroups.getAll();
+
+  expandAllSliceMetricsInMap({
+    metricMap,
+    factTableMap,
+    experiment,
+    metricGroups,
+  });
+
+  const queryRunner = await createSnapshotFromPlan({
+    plan,
+    context,
+    experiment,
+    metricMap,
+    factTableMap,
+  });
+  return { snapshot: queryRunner.model, queryRunner };
+}
+
 export async function planExperimentSnapshot({
   context,
   experiment,
@@ -3040,8 +3141,9 @@ export async function postSnapshot(
   const { snapshot } = await createExperimentSnapshot({
     context,
     experiment,
+    datasource,
     dimension,
-    phaseIndex: phase,
+    phase: phase,
     useCache,
     type: experiment.type === "multi-armed-bandit" ? "exploratory" : undefined,
   });
@@ -3189,23 +3291,21 @@ export async function postBanditSnapshot(
   req.setTimeout(SNAPSHOT_TIMEOUT);
   let snapshot: ExperimentSnapshotInterface | undefined = undefined;
 
-  ({ snapshot } = await createExperimentSnapshot({
+  const { queryRunner } = await createExperimentSnapshot({
     context,
     experiment,
+    datasource,
     dimension: "",
-    phaseIndex: phase,
+    phase,
     useCache: false,
     type: "standard",
     reweight,
-  }));
-
-  snapshot = await waitForSnapshotExecution({
-    context,
-    snapshotId: snapshot.id,
-    timeoutMs: SNAPSHOT_TIMEOUT,
   });
 
-  if (!snapshot.banditResult) {
+  await queryRunner.waitForResults();
+  snapshot = queryRunner.model;
+
+  if (!snapshot?.banditResult) {
     return res.status(400).json({
       status: 400,
       message: "Unable to update bandit.",

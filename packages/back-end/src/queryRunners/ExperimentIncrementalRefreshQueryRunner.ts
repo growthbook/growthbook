@@ -434,10 +434,7 @@ const startExperimentIncrementalRefreshQueries = async (
               getExperimentSettingsHashForIncrementalRefresh(snapshotSettings),
             unitsDimensions: eligibleDimensions.map((d) => d.id),
           })
-          .catch((e) => {
-            context.logger.error(e);
-            return false;
-          });
+          .catch((e) => context.logger.error(e));
         if (!lockHeld) {
           context.logger.warn(
             "Incremental refresh execution lock lost for experiment: " +
@@ -666,10 +663,7 @@ const startExperimentIncrementalRefreshQueries = async (
             .updateByExperimentIdIfCurrentExecution(experimentId, executionId, {
               metricCovariateSources: runningCovariateSourceData,
             })
-            .catch((e) => {
-              context.logger.error(e);
-              return false;
-            });
+            .catch((e) => context.logger.error(e));
           if (!lockHeld) {
             context.logger.warn(
               "Incremental refresh execution lock lost for experiment: " +
@@ -740,10 +734,7 @@ const startExperimentIncrementalRefreshQueries = async (
             .updateByExperimentIdIfCurrentExecution(experimentId, executionId, {
               metricSources: runningSourceData,
             })
-            .catch((e) => {
-              context.logger.error(e);
-              return false;
-            });
+            .catch((e) => context.logger.error(e));
           if (!lockHeld) {
             context.logger.warn(
               "Incremental refresh execution lock lost for experiment: " +

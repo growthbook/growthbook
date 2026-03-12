@@ -1,13 +1,9 @@
 import { postExperimentSnapshotValidator } from "shared/validators";
 import { PostExperimentSnapshotResponse } from "shared/types/openapi";
-import { SNAPSHOT_TIMEOUT } from "back-end/src/controllers/experiments";
+import { createExperimentSnapshot } from "back-end/src/controllers/experiments";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { auditDetailsCreate } from "back-end/src/services/audit";
-import {
-  createExperimentSnapshot,
-  waitForSnapshotExecution,
-} from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 // TODO update params (add phase, useCache)
@@ -55,22 +51,12 @@ export const postExperimentSnapshot = createApiRequestHandler(
     useCache: true,
   };
 
-  // Wait until the snapshot is in a final state, which can
-  // take some time, so we use a longer timeout.
-  req.setTimeout(SNAPSHOT_TIMEOUT);
-
-  const { snapshot } = await createExperimentSnapshot({
+  const snapshot = await createExperimentSnapshot({
     context,
     experiment,
-    phaseIndex: createSnapshotPayload.phase,
-    useCache: createSnapshotPayload.useCache,
+    datasource,
     triggeredBy,
-  });
-
-  const finalSnapshot = await waitForSnapshotExecution({
-    context,
-    snapshotId: snapshot.id,
-    timeoutMs: SNAPSHOT_TIMEOUT,
+    ...createSnapshotPayload,
   });
 
   await req.audit({
@@ -86,9 +72,9 @@ export const postExperimentSnapshot = createApiRequestHandler(
   });
   return {
     snapshot: {
-      id: finalSnapshot.id,
-      experiment: finalSnapshot.experiment,
-      status: finalSnapshot.status,
+      id: snapshot.snapshot.id,
+      experiment: snapshot.snapshot.experiment,
+      status: snapshot.snapshot.status,
     },
   };
 });

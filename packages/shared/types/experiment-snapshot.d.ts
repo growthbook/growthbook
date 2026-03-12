@@ -148,13 +148,11 @@ export type SnapshotTriggeredBy =
   | "manual-dashboard"
   | "update-dashboards";
 
-export type ExperimentSnapshotStatus = "running" | "success" | "error";
-
 export interface ExperimentSnapshotAnalysis {
   // Determines which analysis this is
   settings: ExperimentSnapshotAnalysisSettings;
   dateCreated: Date;
-  status: ExperimentSnapshotStatus;
+  status: "running" | "success" | "error";
   error?: string;
   results: ExperimentReportResultDimension[];
 }
@@ -221,7 +219,7 @@ export interface ExperimentSnapshotInterface {
   error?: string;
   dateCreated: Date;
   runStarted: Date | null;
-  status: ExperimentSnapshotStatus;
+  status: "running" | "success" | "error";
   settings: ExperimentSnapshotSettings;
   type?: SnapshotType;
   triggeredBy?: SnapshotTriggeredBy;

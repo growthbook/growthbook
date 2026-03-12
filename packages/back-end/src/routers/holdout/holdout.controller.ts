@@ -37,10 +37,12 @@ import {
   removeHoldoutFromFeature,
 } from "back-end/src/models/FeatureModel";
 import { logger } from "back-end/src/util/logger";
-import { validateVariationIds } from "back-end/src/controllers/experiments";
+import {
+  createExperimentSnapshot,
+  validateVariationIds,
+} from "back-end/src/controllers/experiments";
 import {
   getChangesToStartExperiment,
-  createExperimentSnapshot,
   validateExperimentData,
 } from "back-end/src/services/experiments";
 import { auditDetailsCreate } from "back-end/src/services/audit";
@@ -261,8 +263,9 @@ export const createHoldout = async (
         await createExperimentSnapshot({
           context,
           experiment,
+          datasource,
           dimension: "",
-          phaseIndex: 0,
+          phase: 0,
           useCache: true,
         });
       } catch (e) {

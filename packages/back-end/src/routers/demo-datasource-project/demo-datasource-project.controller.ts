@@ -4,12 +4,17 @@ import {
   getDemoDataSourceFeatureId,
   getDemoDatasourceProjectIdForOrganization,
 } from "shared/demo-datasource";
+import {
+  DEFAULT_P_VALUE_THRESHOLD,
+  DEFAULT_STATS_ENGINE,
+} from "shared/constants";
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { PostgresConnectionParams } from "shared/types/integrations/postgres";
 import { DataSourceSettings } from "shared/types/datasource";
 import { ExperimentInterface } from "shared/types/experiment";
 import { ExperimentRefRule, FeatureInterface } from "shared/types/feature";
 import { ProjectInterface } from "shared/types/project";
+import { ExperimentSnapshotAnalysisSettings } from "shared/types/experiment-snapshot";
 import {
   FactMetricInterface,
   MetricWindowSettings,
@@ -21,10 +26,14 @@ import {
   createExperiment,
   getAllExperiments,
 } from "back-end/src/models/ExperimentModel";
-import { createExperimentSnapshot } from "back-end/src/services/experiments";
+import { createSnapshot } from "back-end/src/services/experiments";
 import { PrivateApiErrorResponse } from "back-end/types/api";
+import { getMetricMap } from "back-end/src/models/MetricModel";
 import { createFeature } from "back-end/src/models/FeatureModel";
-import { createFactTable } from "back-end/src/models/FactTableModel";
+import {
+  createFactTable,
+  getFactTableMap,
+} from "back-end/src/models/FactTableModel";
 
 // region Constants for Demo Datasource
 
@@ -475,10 +484,27 @@ Treatment shows a larger 'Add to Cart' CTA, but with the same functionality.`,
 
     await createFeature(context, featureToCreate);
 
-    await createExperimentSnapshot({
+    const analysisSettings: ExperimentSnapshotAnalysisSettings = {
+      statsEngine: org.settings?.statsEngine || DEFAULT_STATS_ENGINE,
+      differenceType: "relative",
+      dimensions: [],
+      pValueThreshold:
+        org.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
+      numGoalMetrics: goalMetrics.length,
+    };
+
+    const metricMap = await getMetricMap(context);
+    const factTableMap = await getFactTableMap(context);
+
+    await createSnapshot({
       experiment: createdExperiment,
       context,
       phaseIndex: 0,
+      defaultAnalysisSettings: analysisSettings,
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: metricMap,
+      factTableMap,
       useCache: true,
       type: "standard",
       triggeredBy: "manual",

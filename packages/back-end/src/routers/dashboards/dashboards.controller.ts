@@ -17,11 +17,11 @@ import {
   ResponseWithStatusAndError,
 } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { planExperimentSnapshot } from "back-end/src/controllers/experiments";
 import {
   createExperimentSnapshot,
   createExperimentSnapshotFromPlan,
-} from "back-end/src/services/experiments";
+  planExperimentSnapshot,
+} from "back-end/src/controllers/experiments";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { findSnapshotsByIds } from "back-end/src/models/ExperimentSnapshotModel";
@@ -247,8 +247,9 @@ export async function refreshDashboardData(
       const { snapshot } = await createExperimentSnapshot({
         context,
         experiment,
+        datasource,
         dimension: dimensionId,
-        phaseIndex: experiment.phases.length - 1,
+        phase: experiment.phases.length - 1,
         useCache: false,
         triggeredBy: "manual-dashboard",
         type: "exploratory",
