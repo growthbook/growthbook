@@ -983,6 +983,19 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
         snapshot: this.model.id,
       });
     }
+
+    // Release the incremental refresh lock on any terminal status
+    if (status !== "running") {
+      await this.context.models.incrementalRefresh
+        .releaseLock(this.model.experiment, this.model.id)
+        .catch((e) =>
+          this.context.logger.warn(
+            e,
+            "Failed to release incremental refresh lock on terminal status",
+          ),
+        );
+    }
+
     return {
       ...this.model,
       ...updates,

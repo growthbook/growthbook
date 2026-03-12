@@ -8,6 +8,9 @@ import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "incrementalrefresh";
 
+// If a lock hasn't been updated in this long, consider it stale
+const STALE_LOCK_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+
 const BaseClass = MakeModelClass({
   schema: incrementalRefreshValidator,
   collectionName: COLLECTION_NAME,
@@ -52,12 +55,18 @@ export class IncrementalRefreshModel extends BaseClass {
     experimentId: string,
     snapshotId: string,
   ): Promise<boolean> {
+    const staleLockThreshold = new Date(Date.now() - STALE_LOCK_TIMEOUT_MS);
     try {
       const result = await this._dangerousGetCollection().updateOne(
         {
           organization: this.context.org.id,
           experimentId,
-          currentExecutionSnapshotId: null,
+          $or: [
+            // Unlocked
+            { currentExecutionSnapshotId: null },
+            // Or lock is stale
+            { dateUpdated: { $lt: staleLockThreshold } },
+          ],
         },
         {
           $set: {

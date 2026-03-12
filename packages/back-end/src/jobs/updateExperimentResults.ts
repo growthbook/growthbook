@@ -14,6 +14,7 @@ import {
   getSettingsForSnapshotMetrics,
   updateExperimentBanditSettings,
 } from "back-end/src/services/experiments";
+import { ConcurrentIncrementalRefreshError } from "back-end/src/util/errors";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { notifyAutoUpdate } from "back-end/src/services/experimentNotifications";
@@ -209,6 +210,12 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
       });
     }
   } catch (e) {
+    // Lock contention is transient so we don't disable auto-updates
+    // and we don't log it as an error
+    if (e instanceof ConcurrentIncrementalRefreshError) {
+      return;
+    }
+
     logger.error(e, "Failed to update experiment: " + experimentId);
     // If we failed to update the experiment, turn off auto-updating for the future (non-bandits only)
     if (experiment.type === "multi-armed-bandit") return;
