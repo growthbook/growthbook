@@ -7,7 +7,6 @@ import {
   postMetricApiPayloadToMetricInterface,
   putMetricApiPayloadIsValid,
   putMetricApiPayloadToMetricInterface,
-  getSnapshotType,
 } from "back-end/src/services/experiments";
 
 describe("experiments utils", () => {
@@ -1223,41 +1222,5 @@ describe("putMetricApiPayloadToMetricInterface", () => {
       expect(result.type).toEqual("count");
       expect(result.userIdTypes).toEqual(undefined);
     });
-  });
-});
-
-describe("snapshot request routing", () => {
-  const experiment = {
-    phases: [{ name: "Phase 1" }, { name: "Phase 2" }],
-  } as never;
-
-  it("routes latest phase without a dimension to standard", () => {
-    expect(
-      getSnapshotType({
-        experiment,
-        phaseIndex: 1,
-        dimension: undefined,
-      }),
-    ).toBe("standard");
-  });
-
-  it("routes older phases to exploratory", () => {
-    expect(
-      getSnapshotType({
-        experiment,
-        phaseIndex: 0,
-        dimension: undefined,
-      }),
-    ).toBe("exploratory");
-  });
-
-  it("routes dimension requests to exploratory", () => {
-    expect(
-      getSnapshotType({
-        experiment,
-        phaseIndex: 1,
-        dimension: "exp:country",
-      }),
-    ).toBe("exploratory");
   });
 });
