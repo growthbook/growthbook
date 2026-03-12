@@ -1,17 +1,20 @@
 import { useRouter } from "next/router";
 import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import clsx from "clsx";
 import { Box, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
 import { FeatureInterface } from "shared/types/feature";
-import { filterEnvironmentsByFeature } from "shared/util";
+import { filterEnvironmentsByFeature, isDefined } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { PiLink, PiCheck } from "react-icons/pi";
+import { PiLink, PiCheck, PiEye } from "react-icons/pi";
 import { HoldoutInterface } from "shared/validators";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { useUser } from "@/services/UserContext";
+import useApi from "@/hooks/useApi";
+import Modal from "@/components/Modal";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
 import { getEnabledEnvironments, useEnvironments } from "@/services/features";
@@ -19,7 +22,7 @@ import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SortedTags from "@/components/Tags/SortedTags";
-import WatchButton from "@/components/WatchButton";
+import { useWatching } from "@/services/WatchProvider";
 import CompareFeatureEventsModal from "@/components/Features/CompareFeatureEventsModal";
 import FeatureImplementationModal from "@/components/Features/FeatureImplementationModal";
 import FeatureModal from "@/components/Features/FeatureModal";
@@ -38,6 +41,7 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownSubMenu,
 } from "@/ui/DropdownMenu";
 import { useFeatureStaleStates } from "@/hooks/useFeatureStaleStates";
 import { useScrollPosition } from "@/hooks/useScrollPosition";
@@ -80,6 +84,7 @@ export default function FeaturesHeader({
   const projectId = feature?.project;
   const firstFeature = router?.query && "first" in router.query;
   const [auditModal, setAuditModal] = useState(false);
+  const [watchersModal, setWatchersModal] = useState(false);
   const [duplicateModal, setDuplicateModal] = useState(false);
   const [staleFFModal, setStaleFFModal] = useState(false);
   const [addToHoldoutModal, setAddToHoldoutModal] = useState(false);
@@ -88,7 +93,8 @@ export default function FeaturesHeader({
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [staleStatusOpen, setStaleStatusOpen] = useState(false);
   const [showImplementation, setShowImplementation] = useState(firstFeature);
-  const { organization, hasCommercialFeature, getOwnerDisplay } = useUser();
+  const { organization, hasCommercialFeature, getOwnerDisplay, users } =
+    useUser();
   const ownerDisplay = getOwnerDisplay(feature.owner);
   const baseOwnerDisplay = getOwnerDisplay(baseFeature.owner);
 
@@ -148,6 +154,25 @@ export default function FeaturesHeader({
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
 
   const { apiCall } = useAuth();
+  const { watchedFeatures, refreshWatching } = useWatching();
+  const isWatching = watchedFeatures.includes(feature.id);
+  const { data: watchersData } = useApi<{ userIds: string[] }>(
+    `/feature/${feature.id}/watchers`,
+  );
+  const usersWatching = (watchersData?.userIds || [])
+    .map((id) => users.get(id))
+    .filter(isDefined)
+    .map((u) => u.name || u.email);
+  async function handleWatchUpdates(watch: boolean) {
+    await apiCall(
+      `/user/${watch ? "watch" : "unwatch"}/feature/${feature.id}`,
+      {
+        method: "POST",
+      },
+    );
+    refreshWatching();
+    setDropdownOpen(false);
+  }
   const {
     getProjectById,
     project: currentProject,
@@ -179,6 +204,27 @@ export default function FeaturesHeader({
       tabsRef.current.getBoundingClientRect().top <= TABS_HEADER_HEIGHT_PX,
     );
   }, [scrollY]);
+
+  // Controls group swap: move the controls between the header title row and the
+  // sticky tabs bar based on a simple 20px scroll threshold.  We use a single
+  // stable DOM node (`portalHost`) that is imperatively moved between two empty
+  // slot divs via `appendChild`. Because the host node identity never changes,
+  // React never unmounts the controls — any open dropdown stays open across the
+  // transition rather than producing a disembodied floating menu.
+  const scrolled = scrollY > 30;
+  const headerSlotRef = useRef<HTMLDivElement>(null);
+  const tabsSlotRef = useRef<HTMLDivElement>(null);
+  const [portalHost] = useState<HTMLDivElement | null>(() => {
+    if (typeof document === "undefined") return null;
+    const div = document.createElement("div");
+    div.style.display = "contents";
+    return div;
+  });
+  useEffect(() => {
+    if (!portalHost) return;
+    const target = scrolled ? tabsSlotRef.current : headerSlotRef.current;
+    if (target) target.appendChild(portalHost);
+  }, [scrolled, portalHost]);
 
   // Re-compute whenever the feature is saved (version increments on publish).
   const prevVersionRef = useRef<number | null>(null);
@@ -212,6 +258,203 @@ export default function FeaturesHeader({
   const canPublish = permissionsUtil.canPublishFeature(feature, enabledEnvs);
   const isArchived = feature.archived;
 
+  // Controls group — rendered once via a stable portal host (see below).
+  const controlsGroup = (
+    <Flex align="center" gap="4" pr="2">
+      {onCopyLink && (
+        <Tooltip
+          body={copyLinkSuccess ? "Copied!" : "Copy link"}
+          tipPosition="bottom"
+          tipMinWidth="0"
+          style={{ marginBottom: -4 }}
+        >
+          <IconButton
+            variant="ghost"
+            size="2"
+            color="violet"
+            onClick={onCopyLink}
+          >
+            {copyLinkSuccess ? <PiCheck /> : <PiLink />}
+          </IconButton>
+        </Tooltip>
+      )}
+      <RevisionDropdown
+        feature={feature}
+        revisions={revisions}
+        version={version ?? feature.version}
+        setVersion={setVersion}
+      />
+      <DropdownMenu
+        trigger={
+          <IconButton
+            variant="ghost"
+            color="gray"
+            radius="full"
+            size="2"
+            highContrast
+          >
+            <BsThreeDotsVertical size={16} />
+          </IconButton>
+        }
+        open={dropdownOpen}
+        onOpenChange={setDropdownOpen}
+        menuPlacement="end"
+      >
+        <DropdownMenuGroup>
+          {canEdit && canPublish && (
+            <DropdownMenuItem
+              onClick={() => {
+                setEditFeatureInfoModal(true);
+                setDropdownOpen(false);
+              }}
+            >
+              Edit information
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem
+            onClick={() => {
+              setShowImplementation(true);
+              setDropdownOpen(false);
+            }}
+          >
+            Show implementation
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => {
+              setAuditModal(true);
+              setDropdownOpen(false);
+            }}
+          >
+            Audit history
+          </DropdownMenuItem>
+          <DropdownSubMenu
+            trigger={
+              <Flex
+                align="center"
+                className={isWatching ? "font-weight-bold" : ""}
+              >
+                <PiEye style={{ marginRight: "5px" }} size={18} />
+                <span className="pr-5">
+                  {isWatching ? "Watching" : "Not watching"}
+                </span>
+              </Flex>
+            }
+          >
+            <DropdownMenuItem
+              onClick={async () => {
+                await handleWatchUpdates(!isWatching);
+              }}
+            >
+              {isWatching ? "Stop watching" : "Start watching"}
+            </DropdownMenuItem>
+          </DropdownSubMenu>
+          <DropdownMenuItem
+            onClick={() => {
+              setWatchersModal(true);
+              setDropdownOpen(false);
+            }}
+            disabled={!usersWatching.length}
+          >
+            <Flex as="div" align="center">
+              <IconButton
+                style={{
+                  marginRight: "5px",
+                  backgroundColor:
+                    usersWatching.length > 0
+                      ? "var(--violet-9)"
+                      : "var(--slate-9)",
+                }}
+                radius="full"
+                size="1"
+              >
+                {usersWatching.length || 0}
+              </IconButton>
+              {usersWatching.length > 0 ? "View watchers" : "No watchers"}
+            </Flex>
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
+        {canEdit &&
+          canPublish &&
+          holdoutsEnabled &&
+          holdouts.length > 0 &&
+          !holdout?.id && (
+            <DropdownMenuGroup>
+              <DropdownMenuItem
+                onClick={() => {
+                  setAddToHoldoutModal(true);
+                  setDropdownOpen(false);
+                }}
+              >
+                Add to holdout
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+          )}
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuItem
+            onClick={() => {
+              setStaleStatusOpen(true);
+              setDropdownOpen(false);
+            }}
+          >
+            Check stale status
+          </DropdownMenuItem>
+          {canEdit && canPublish && (
+            <DropdownMenuItem
+              onClick={() => {
+                setStaleFFModal(true);
+                setDropdownOpen(false);
+              }}
+            >
+              {feature.neverStale
+                ? "Enable stale detection"
+                : "Disable stale detection"}
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuGroup>
+        {canEdit && canPublish && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuItem
+                onClick={() => {
+                  setDuplicateModal(true);
+                  setDropdownOpen(false);
+                }}
+              >
+                Duplicate
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  setArchiveModal(true);
+                  setDropdownOpen(false);
+                }}
+              >
+                {isArchived ? "Unarchive" : "Archive"}
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+            {isArchived && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup>
+                  <DropdownMenuItem
+                    color="red"
+                    onClick={() => {
+                      setDeleteModal(true);
+                      setDropdownOpen(false);
+                    }}
+                  >
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+              </>
+            )}
+          </>
+        )}
+      </DropdownMenu>
+    </Flex>
+  );
+
   return (
     <>
       <Box className="features-header contents container-fluid pagecontents">
@@ -235,7 +478,7 @@ export default function FeaturesHeader({
             </Callout>
           )}
 
-          <Flex align="center" justify="between">
+          <Flex align="start" justify="between">
             <Flex align="center" mb="2" gap="3">
               <Heading size="7" as="h1" mb="0">
                 {feature.id}
@@ -250,129 +493,9 @@ export default function FeaturesHeader({
                 onOpenChange={setStaleStatusOpen}
               />
             </Flex>
-            <DropdownMenu
-              trigger={
-                <IconButton
-                  variant="ghost"
-                  color="gray"
-                  radius="full"
-                  size="3"
-                  highContrast
-                >
-                  <BsThreeDotsVertical size={18} />
-                </IconButton>
-              }
-              open={dropdownOpen}
-              onOpenChange={setDropdownOpen}
-              menuPlacement="end"
-            >
-              <DropdownMenuGroup>
-                {canEdit && canPublish && (
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setEditFeatureInfoModal(true);
-                      setDropdownOpen(false);
-                    }}
-                  >
-                    Edit information
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuItem
-                  onClick={() => {
-                    setShowImplementation(true);
-                    setDropdownOpen(false);
-                  }}
-                >
-                  Show implementation
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setAuditModal(true);
-                    setDropdownOpen(false);
-                  }}
-                >
-                  Audit history
-                </DropdownMenuItem>
-              </DropdownMenuGroup>
-              {canEdit &&
-                canPublish &&
-                holdoutsEnabled &&
-                holdouts.length > 0 &&
-                !holdout?.id && (
-                  <DropdownMenuGroup>
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setAddToHoldoutModal(true);
-                        setDropdownOpen(false);
-                      }}
-                    >
-                      Add to holdout
-                    </DropdownMenuItem>
-                  </DropdownMenuGroup>
-                )}
-              <DropdownMenuSeparator />
-              <DropdownMenuGroup>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setStaleStatusOpen(true);
-                    setDropdownOpen(false);
-                  }}
-                >
-                  Check stale status
-                </DropdownMenuItem>
-                {canEdit && canPublish && (
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setStaleFFModal(true);
-                      setDropdownOpen(false);
-                    }}
-                  >
-                    {feature.neverStale
-                      ? "Enable stale detection"
-                      : "Disable stale detection"}
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuGroup>
-              {canEdit && canPublish && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuGroup>
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setDuplicateModal(true);
-                        setDropdownOpen(false);
-                      }}
-                    >
-                      Duplicate
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setArchiveModal(true);
-                        setDropdownOpen(false);
-                      }}
-                    >
-                      {isArchived ? "Unarchive" : "Archive"}
-                    </DropdownMenuItem>
-                  </DropdownMenuGroup>
-                  {isArchived && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuGroup>
-                        <DropdownMenuItem
-                          color="red"
-                          onClick={() => {
-                            setDeleteModal(true);
-                            setDropdownOpen(false);
-                          }}
-                        >
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuGroup>
-                    </>
-                  )}
-                </>
-              )}
-            </DropdownMenu>
+            {/* Slot: controls portal mounts here when not scrolled (>20px → tabs bar) */}
+            <div ref={headerSlotRef} />
+            {portalHost && createPortal(controlsGroup, portalHost)}
           </Flex>
           <Flex gap="4">
             {holdout?.id && (
@@ -467,9 +590,6 @@ export default function FeaturesHeader({
                 <em className="text-muted">None</em>
               )}
             </Box>
-            <Box>
-              <WatchButton item={feature.id} itemType="feature" type="link" />
-            </Box>
           </Flex>
           <Box mt="3" mb="4">
             <Box>
@@ -518,38 +638,9 @@ export default function FeaturesHeader({
                 <TabsTrigger value="test">Simulate</TabsTrigger>
                 <TabsTrigger value="stats">Code Refs</TabsTrigger>
                 <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>
-                <Box
-                  style={{
-                    marginLeft: "auto",
-                    alignSelf: "center",
-                    maxWidth: 480,
-                  }}
-                >
-                  <Flex align="center" gap="3">
-                    {onCopyLink && (
-                      <Tooltip
-                        body={copyLinkSuccess ? "Copied!" : "Copy link"}
-                        tipPosition="bottom"
-                        tipMinWidth="0"
-                        style={{ marginBottom: -4 }}
-                      >
-                        <IconButton
-                          variant="ghost"
-                          size="2"
-                          color="violet"
-                          onClick={onCopyLink}
-                        >
-                          {copyLinkSuccess ? <PiCheck /> : <PiLink />}
-                        </IconButton>
-                      </Tooltip>
-                    )}
-                    <RevisionDropdown
-                      feature={feature}
-                      revisions={revisions}
-                      version={version ?? feature.version}
-                      setVersion={setVersion}
-                    />
-                  </Flex>
+                {/* Slot: controls portal mounts here when scrolled */}
+                <Box style={{ marginLeft: "auto", alignSelf: "center" }}>
+                  <div ref={tabsSlotRef} />
                 </Box>
               </TabsList>
             </Tabs>
@@ -561,6 +652,21 @@ export default function FeaturesHeader({
           feature={feature}
           onClose={() => setAuditModal(false)}
         />
+      )}
+      {watchersModal && (
+        <Modal
+          trackingEventModalType=""
+          open={true}
+          header="Feature Watchers"
+          close={() => setWatchersModal(false)}
+          closeCta="Close"
+        >
+          <ul>
+            {usersWatching.map((u, i) => (
+              <li key={i}>{u}</li>
+            ))}
+          </ul>
+        </Modal>
       )}
       {duplicateModal && (
         <FeatureModal
@@ -602,16 +708,9 @@ export default function FeaturesHeader({
         <FeatureArchiveModal
           feature={feature}
           close={() => setArchiveModal(false)}
-          onArchive={async () => {
-            const res = await apiCall<{ draftVersion?: number }>(
-              `/feature/${feature.id}/archive`,
-              { method: "POST" },
-            );
-            mutate();
-            if (res?.draftVersion) {
-              setVersion(res.draftVersion);
-            }
-          }}
+          revisionList={revisions}
+          mutate={mutate}
+          setVersion={setVersion}
         />
       )}
       {deleteModal && (

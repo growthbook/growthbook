@@ -293,7 +293,7 @@ export default function RevisionDropdown({
           )}
         </Text>
       </Box>
-      <Box flexGrow="1" />
+      {variant !== "slim" && <Box flexGrow="1" />}
       {/* Right: metadata + status + caret, vertically centered */}
       <Box
         flexShrink="1"

@@ -2592,7 +2592,11 @@ export async function deleteFeatureRule(
 
 export async function putFeature(
   req: AuthRequest<
-    Partial<FeatureInterface> & { targetDraftVersion?: number },
+    Partial<FeatureInterface> & {
+      targetDraftVersion?: number;
+      autoPublish?: boolean;
+      forceNewDraft?: boolean;
+    },
     { id: string }
   >,
   res: Response<
@@ -2609,7 +2613,7 @@ export async function putFeature(
     throw new Error("Could not find feature");
   }
 
-  const { targetDraftVersion, ...updates } = req.body;
+  const { targetDraftVersion, autoPublish, forceNewDraft, ...updates } = req.body;
   if (!context.permissions.canUpdateFeature(feature, updates)) {
     context.permissions.throwPermissionError();
   }
@@ -2697,45 +2701,55 @@ export async function putFeature(
   ) as Partial<FeatureInterface>;
 
   if (Object.keys(metadataUpdates).length > 0) {
+    const metadataChanges = {
+      metadata: {
+        ...(metadataUpdates.description !== undefined && {
+          description: metadataUpdates.description,
+        }),
+        ...(metadataUpdates.owner !== undefined && {
+          owner: metadataUpdates.owner,
+        }),
+        ...(metadataUpdates.project !== undefined && {
+          project: metadataUpdates.project,
+        }),
+        ...(metadataUpdates.tags !== undefined && {
+          tags: metadataUpdates.tags,
+        }),
+        ...(metadataUpdates.customFields !== undefined && {
+          customFields: metadataUpdates.customFields as Record<
+            string,
+            unknown
+          >,
+        }),
+      },
+    };
     const draft = await createOrUpdateDraftWithChanges(
       context,
       feature,
-      {
-        metadata: {
-          ...(metadataUpdates.description !== undefined && {
-            description: metadataUpdates.description,
-          }),
-          ...(metadataUpdates.owner !== undefined && {
-            owner: metadataUpdates.owner,
-          }),
-          ...(metadataUpdates.project !== undefined && {
-            project: metadataUpdates.project,
-          }),
-          ...(metadataUpdates.tags !== undefined && {
-            tags: metadataUpdates.tags,
-          }),
-          ...(metadataUpdates.customFields !== undefined && {
-            customFields: metadataUpdates.customFields as Record<
-              string,
-              unknown
-            >,
-          }),
-        },
-      },
+      metadataChanges,
       {
         user: context.auditUser,
         action: "update",
         subject: "metadata",
         value: JSON.stringify(metadataUpdates),
       },
-      targetDraftVersion,
+      autoPublish ? undefined : targetDraftVersion,
+      autoPublish ? true : forceNewDraft,
     );
+    let updatedFeature: FeatureInterface = feature;
+    if (autoPublish) {
+      updatedFeature = await publishRevision(
+        context,
+        feature,
+        draft,
+        metadataChanges,
+      );
+    }
     // Still apply non-metadata fields (holdout) directly
-    let updatedFeature = feature;
     if (Object.keys(nonMetadataUpdates).length > 0) {
       updatedFeature = await updateFeature(
         context,
-        feature,
+        updatedFeature,
         nonMetadataUpdates,
       );
     }
@@ -2743,7 +2757,7 @@ export async function putFeature(
       event: "feature.update",
       entity: { object: "feature", id: feature.id },
       details: auditDetailsUpdate(feature, updatedFeature, {
-        draft: true,
+        draft: !autoPublish,
         draftVersion: draft.version,
       }),
     });
@@ -3022,7 +3036,16 @@ export async function postFeaturesEvaluate(
 }
 
 export async function postFeatureArchive(
-  req: AuthRequest<null, { id: string }>,
+  req: AuthRequest<
+    | {
+        archived: boolean;
+        autoPublish?: boolean;
+        draftVersion?: number;
+        forceNewDraft?: boolean;
+      }
+    | undefined,
+    { id: string }
+  >,
   res: Response<{ status: 200; draftVersion?: number }, EventUserForResponseLocals>,
 ) {
   const { id } = req.params;
@@ -3040,18 +3063,31 @@ export async function postFeatureArchive(
     context.permissions.throwPermissionError();
   }
 
-  const newArchivedState = !feature.archived;
+  const { archived: archivedParam, autoPublish, draftVersion, forceNewDraft } =
+    req.body ?? {};
+  // Use the explicitly requested state if provided; fall back to toggling.
+  const newArchivedState = archivedParam ?? !feature.archived;
+  const archiveChanges = { archived: newArchivedState };
+  const archiveTitle = newArchivedState ? "Archive feature" : "Unarchive feature";
+
   const draft = await createOrUpdateDraftWithChanges(
     context,
     feature,
-    { archived: newArchivedState },
+    archiveChanges,
     {
       user: context.auditUser,
       action: "update",
       subject: newArchivedState ? "archive" : "unarchive",
       value: JSON.stringify({ archived: newArchivedState }),
     },
+    autoPublish ? undefined : draftVersion,
+    autoPublish ? true : forceNewDraft,
+    archiveTitle,
   );
+
+  if (autoPublish) {
+    await publishRevision(context, feature, draft, archiveChanges);
+  }
 
   await req.audit({
     event: "feature.archive",
@@ -3062,7 +3098,7 @@ export async function postFeatureArchive(
     details: auditDetailsUpdate(
       { archived: feature.archived },
       { archived: newArchivedState },
-      { draft: true, draftVersion: draft.version },
+      { draft: !autoPublish, draftVersion: draft.version },
     ),
   });
 
@@ -4667,4 +4703,17 @@ export async function getFeaturesDependents(
   }
 
   return res.status(200).json({ status: 200, dependents });
+}
+
+export async function getFeatureWatchers(
+  req: AuthRequest<null, { id: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const watchers = await context.models.watch.getFeatureWatchers(id);
+  res.status(200).json({
+    status: 200,
+    userIds: watchers,
+  });
 }

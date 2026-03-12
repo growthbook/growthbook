@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { PiArrowSquareOutFill } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
@@ -12,7 +12,10 @@ import Link from "@/ui/Link";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import Modal from "@/components/Modal";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import DraftRevisionCallout from "@/components/Features/DraftRevisionCallout";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Checkbox from "@/ui/Checkbox";
+import Badge from "@/ui/Badge";
+import RevisionDropdown from "@/components/Features/RevisionDropdown";
 
 interface Props {
   close: () => void;
@@ -31,25 +34,40 @@ export default function EditFeatureDescriptionModal({
 }: Props) {
   const { apiCall } = useAuth();
   const settings = useOrgSettings();
+  const permissionsUtil = usePermissionsUtil();
 
-  const metadataReviewRequired = useMemo(() => {
-    const requireReviewSettings = settings?.requireReviews;
-    if (!requireReviewSettings || typeof requireReviewSettings === "boolean") {
-      return false;
-    }
-    const reviewSetting = getReviewSetting(requireReviewSettings, feature);
-    return !!reviewSetting?.requireReviewOn;
-  }, [settings?.requireReviews, feature]);
+  const isAdmin = permissionsUtil.canBypassApprovalChecks(feature);
 
-  const activeDraft = useMemo(
+  const metadataGated: boolean = (() => {
+    const raw = settings?.requireReviews;
+    if (raw === true) return true;
+    if (!Array.isArray(raw)) return false;
+    const reviewSetting = getReviewSetting(raw, feature);
+    if (!reviewSetting?.requireReviewOn) return false;
+    return reviewSetting.featureRequireMetadataReview !== false;
+  })();
+
+  const canAutoPublish = isAdmin || !metadataGated;
+
+  const activeDrafts = useMemo(
     () =>
-      revisionList
-        .filter((r) =>
-          (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status),
-        )
-        .sort((a, b) => b.version - a.version)[0] ?? null,
+      revisionList.filter((r) =>
+        (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status),
+      ),
     [revisionList],
   );
+
+  const [autoPublish, setAutoPublish] = useState(canAutoPublish);
+
+  const defaultDraft = useMemo((): number | null => {
+    if (activeDrafts.length > 0) return activeDrafts[0].version;
+    return null;
+  }, [activeDrafts]);
+
+  const [selectedDraft, setSelectedDraft] = useState<number | null>(
+    defaultDraft,
+  );
+  const displayedDraft = autoPublish ? null : selectedDraft;
 
   const form = useForm<{ description: string }>({
     defaultValues: {
@@ -69,7 +87,14 @@ export default function EditFeatureDescriptionModal({
           `/feature/${feature.id}`,
           {
             method: "PUT",
-            body: JSON.stringify({ description }),
+            body: JSON.stringify({
+              description,
+              ...(autoPublish
+                ? { autoPublish: true }
+                : selectedDraft != null
+                  ? { targetDraftVersion: selectedDraft }
+                  : { forceNewDraft: true }),
+            }),
           },
         );
         mutate();
@@ -77,12 +102,9 @@ export default function EditFeatureDescriptionModal({
           setVersion(res.draftVersion);
         }
       })}
-      cta={metadataReviewRequired ? "Save to Draft" : "Save"}
+      cta={autoPublish ? "Save" : "Save to draft"}
       useRadixButton={true}
     >
-      {metadataReviewRequired && (
-        <DraftRevisionCallout activeDraft={activeDraft} />
-      )}
       <Flex align="center" wrap="wrap" width="auto" mb="2">
         <Box as="div">
           <span className="pr-1">
@@ -104,6 +126,47 @@ export default function EditFeatureDescriptionModal({
         setValue={(value) => form.setValue("description", value)}
         placeholder="Add context about this feature for your team"
       />
+
+      <Box mt="4" mb="3">
+        <RevisionDropdown
+          feature={feature}
+          revisions={revisionList}
+          version={displayedDraft}
+          setVersion={() => undefined}
+          onVersionChange={setSelectedDraft}
+          draftsOnly
+          variant="select"
+          disabled={autoPublish}
+        />
+        {!autoPublish && (
+          <Flex align="center" gap="2" mt="2" wrap="wrap">
+            <Text size="small" color="text-low">
+              Environments affected in this draft:
+            </Text>
+            <Badge
+              label="all environments"
+              color="gray"
+              variant="soft"
+              radius="small"
+              style={{ fontSize: "11px" }}
+            />
+          </Flex>
+        )}
+      </Box>
+
+      {canAutoPublish && (
+        <Checkbox
+          id="edit-description-auto-publish"
+          label="Automatically publish as a new revision"
+          description={
+            metadataGated
+              ? "Bypass approval and publish now"
+              : "No approval required for metadata changes"
+          }
+          value={autoPublish}
+          setValue={setAutoPublish}
+        />
+      )}
     </Modal>
   );
 }

@@ -113,7 +113,6 @@ export default function FeaturePage() {
         setVersion={setVersion}
         version={version}
         revisions={data.revisionList || []}
-        allRevisions={data.revisions}
         tab={tab}
         setTab={setTabAndScroll}
         setEditFeatureInfoModal={setEditFeatureInfoModal}
@@ -186,21 +185,9 @@ export default function FeaturePage() {
           dependents={dependents}
           feature={feature}
           revisionList={data.revisionList || []}
-          save={async (updates) => {
-            const res = await apiCall<{ draftVersion?: number }>(
-              `/feature/${feature.id}`,
-              {
-                method: "PUT",
-                body: JSON.stringify({ ...updates }),
-              },
-            );
-            await refreshData();
-            if (res.draftVersion) {
-              setVersion(res.draftVersion);
-            }
-          }}
           cancel={() => setEditFeatureInfoModal(false)}
           mutate={refreshData}
+          setVersion={setVersion}
         />
       )}
     </FeatureUsageProvider>
