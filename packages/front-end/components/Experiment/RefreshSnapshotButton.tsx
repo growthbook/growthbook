@@ -84,12 +84,10 @@ const RefreshSnapshotButton: FC<{
 
               try {
                 await refreshSnapshot();
+              } finally {
                 setLoading(false);
                 clearTimeout(timer);
-              } catch (e) {
-                setLoading(false);
-                clearTimeout(timer);
-                throw e;
+                mutate();
               }
             }}
             style={{
@@ -120,12 +118,10 @@ const RefreshSnapshotButton: FC<{
 
               try {
                 await refreshSnapshot();
+              } finally {
                 setLoading(false);
                 clearTimeout(timer);
-              } catch (e) {
-                setLoading(false);
-                clearTimeout(timer);
-                throw e;
+                mutate();
               }
             }}
           >
