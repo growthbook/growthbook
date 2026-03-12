@@ -29,7 +29,7 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
         <ApiKeysModal
           close={() => setOpen(false)}
           onCreate={onCreate}
-          type="user"
+          personalAccessToken
         />
       )}
 
