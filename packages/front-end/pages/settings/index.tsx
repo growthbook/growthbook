@@ -178,6 +178,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       defaultFeatureRulesInAllEnvs:
         settings.defaultFeatureRulesInAllEnvs ?? false,
       preferredEnvironment: settings.preferredEnvironment || "",
+      userNameDisplayFormat: settings.userNameDisplayFormat || "fullName",
       maxMetricSliceLevels:
         settings.maxMetricSliceLevels ?? DEFAULT_MAX_METRIC_SLICE_LEVELS,
       savedGroupSizeLimit: undefined,
@@ -234,6 +235,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     disableLegacyMetricCreation: form.watch("disableLegacyMetricCreation"),
     defaultFeatureRulesInAllEnvs: form.watch("defaultFeatureRulesInAllEnvs"),
     preferredEnvironment: form.watch("preferredEnvironment") || "",
+    userNameDisplayFormat: form.watch("userNameDisplayFormat"),
     maxMetricSliceLevels: form.watch("maxMetricSliceLevels"),
     savedGroupSizeLimit: form.watch("savedGroupSizeLimit"),
   };
