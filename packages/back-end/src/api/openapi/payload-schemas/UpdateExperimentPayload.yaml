@@ -78,10 +78,6 @@ properties:
     type: number
   minBucketVersion:
     type: number
-  releasedVariationId:
-    type: string
-  excludeFromPayload:
-    type: boolean
   results:
     type: string
     enum:
@@ -89,13 +85,19 @@ properties:
       - won
       - lost
       - inconclusive
-    description: The result status of the experiment (maps to resultSummary.status in response)
+    description: The result status of the experiment. Maps to resultSummary.status in the GET response.
   winner:
     type: number
-    description: The index of the winning variation (0-indexed). Maps to resultSummary.winner variation ID in response.
+    description: The index of the winning variation (0-indexed). Maps to resultSummary.winner (variation ID) in the GET response.
   analysis:
     type: string
-    description: Analysis summary or conclusions for the experiment (maps to resultSummary.conclusions in response)
+    description: Analysis summary or conclusions for the experiment. Maps to resultSummary.conclusions in the GET response.
+  releasedVariationId:
+    type: string
+    description: The ID of the released variation. Maps to resultSummary.releasedVariationId in the GET response.
+  excludeFromPayload:
+    type: boolean
+    description: If true, the experiment is excluded from the SDK payload. Maps to resultSummary.excludeFromPayload in the GET response.
   inProgressConversions:
     type: string
     enum:
