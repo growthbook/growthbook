@@ -61,6 +61,7 @@ const expireOldQueries = async () => {
 
     // Release the incremental refresh lock if this snapshot held it.
     // This is a no-op if the snapshot wasn't an incremental execution.
+    // TODO: Is this a new race condition? Do we need to release lock with executionId?
     await context.models.incrementalRefresh
       .releaseLock(snapshot.experiment, snapshot.id)
       .catch((e) =>

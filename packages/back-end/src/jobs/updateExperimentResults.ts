@@ -6,7 +6,7 @@ import {
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
 import {
-  requestExperimentSnapshot,
+  createExperimentSnapshot,
   updateExperimentBanditSettings,
   waitForSnapshotExecution,
 } from "back-end/src/services/experiments";
@@ -135,7 +135,7 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
       }
     }
 
-    const { snapshot } = await requestExperimentSnapshot({
+    const { snapshot } = await createExperimentSnapshot({
       experiment,
       context,
       phaseIndex: experiment.phases.length - 1,

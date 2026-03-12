@@ -75,11 +75,6 @@ const experimentSnapshotSchema = new mongoose.Schema({
   multipleExposures: Number,
   hasCorrectedStats: Boolean,
   status: String,
-  refreshIntent: {
-    _id: false,
-    banditReweightRequested: Boolean,
-    triggeredBySchedule: Boolean,
-  },
   settings: {},
   analyses: {},
   results: [

@@ -150,11 +150,6 @@ export type SnapshotTriggeredBy =
 
 export type ExperimentSnapshotStatus = "running" | "success" | "error";
 
-export interface ExperimentSnapshotRefreshIntent {
-  banditReweightRequested?: boolean;
-  triggeredBySchedule?: boolean;
-}
-
 export interface ExperimentSnapshotAnalysis {
   // Determines which analysis this is
   settings: ExperimentSnapshotAnalysisSettings;
@@ -231,7 +226,6 @@ export interface ExperimentSnapshotInterface {
   type?: SnapshotType;
   triggeredBy?: SnapshotTriggeredBy;
   report?: string;
-  refreshIntent?: ExperimentSnapshotRefreshIntent;
 
   // List of queries that were run as part of this snapshot
   queries: Queries;

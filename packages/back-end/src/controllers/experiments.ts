@@ -58,7 +58,7 @@ import {
   getLinkedFeatureInfo,
   PlannedExperimentSnapshot,
   planSnapshot,
-  requestExperimentSnapshot,
+  createExperimentSnapshot,
   resetExperimentBanditSettings,
   SnapshotAnalysisParams,
   updateExperimentBanditSettings,
@@ -1291,7 +1291,7 @@ export async function postExperiments(
 
     if (datasource && req.query.autoRefreshResults && metricIds.length > 0) {
       try {
-        await requestExperimentSnapshot({
+        await createExperimentSnapshot({
           context,
           experiment,
           dimension: "",
@@ -3037,7 +3037,7 @@ export async function postSnapshot(
 
   const useCache = !req.query["force"];
 
-  const { snapshot } = await requestExperimentSnapshot({
+  const { snapshot } = await createExperimentSnapshot({
     context,
     experiment,
     dimension,
@@ -3189,7 +3189,7 @@ export async function postBanditSnapshot(
   req.setTimeout(SNAPSHOT_TIMEOUT);
   let snapshot: ExperimentSnapshotInterface | undefined = undefined;
 
-  ({ snapshot } = await requestExperimentSnapshot({
+  ({ snapshot } = await createExperimentSnapshot({
     context,
     experiment,
     dimension: "",

@@ -19,8 +19,8 @@ import {
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { planExperimentSnapshot } from "back-end/src/controllers/experiments";
 import {
-  requestExperimentSnapshot,
-  requestExperimentSnapshotFromPlan,
+  createExperimentSnapshot,
+  createExperimentSnapshotFromPlan,
 } from "back-end/src/services/experiments";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
@@ -214,7 +214,7 @@ export async function refreshDashboardData(
       return { ...block, snapshotId: mainSnapshot.id };
     });
     if (mainSnapshotUsed) {
-      await requestExperimentSnapshotFromPlan({
+      await createExperimentSnapshotFromPlan({
         plan: plannedExperimentMainSnapshot,
         context,
         experiment,
@@ -244,7 +244,7 @@ export async function refreshDashboardData(
     );
 
     for (const [dimensionId, blockIds] of Object.entries(dimensionsByBlocks)) {
-      const { snapshot } = await requestExperimentSnapshot({
+      const { snapshot } = await createExperimentSnapshot({
         context,
         experiment,
         dimension: dimensionId,

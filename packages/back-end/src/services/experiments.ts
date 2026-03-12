@@ -82,7 +82,6 @@ import {
   ExperimentAnalysisParamsContextData,
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
-  ExperimentSnapshotRefreshIntent,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
   SnapshotTriggeredBy,
@@ -1101,64 +1100,7 @@ async function recordExperimentSnapshotAttempt({
   });
 }
 
-/**
- * Merges incoming refresh intent into an existing running snapshot.
- * Uses OR logic: if either existing or incoming has a flag set, the merged result has it set.
- */
-async function mergeRefreshIntent({
-  snapshot,
-  incomingIntent,
-  context,
-}: {
-  snapshot: ExperimentSnapshotInterface;
-  incomingIntent: ExperimentSnapshotRefreshIntent;
-  context: ReqContext | ApiReqContext;
-}): Promise<ExperimentSnapshotInterface> {
-  const existing = snapshot.refreshIntent ?? {};
-  const mergedIntent: ExperimentSnapshotRefreshIntent = {
-    banditReweightRequested:
-      existing.banditReweightRequested ||
-      incomingIntent.banditReweightRequested ||
-      false,
-    triggeredBySchedule:
-      existing.triggeredBySchedule ||
-      incomingIntent.triggeredBySchedule ||
-      false,
-  };
-
-  // Also enable bandit reweight in settings if requested and not already set
-  const banditSettings = snapshot.settings.banditSettings;
-  const shouldEnableBanditReweight =
-    mergedIntent.banditReweightRequested &&
-    banditSettings &&
-    !banditSettings.reweight;
-
-  await updateSnapshot({
-    organization: snapshot.organization,
-    id: snapshot.id,
-    updates: {
-      refreshIntent: mergedIntent,
-      ...(shouldEnableBanditReweight
-        ? {
-            settings: {
-              ...snapshot.settings,
-              banditSettings: {
-                ...banditSettings,
-                reweight: true,
-              },
-            },
-          }
-        : {}),
-    },
-    context,
-  });
-
-  return (
-    (await findSnapshotById(snapshot.organization, snapshot.id)) ?? snapshot
-  );
-}
-
-export async function requestExperimentSnapshot({
+export async function createExperimentSnapshot({
   context,
   experiment,
   phaseIndex,
@@ -1222,17 +1164,11 @@ export async function requestExperimentSnapshot({
     reweight,
   });
 
-  const { snapshot } = await requestExperimentSnapshotFromPlan({
+  return await createExperimentSnapshotFromPlan({
     plan,
     context,
     experiment,
-    forceFullRefresh: !useCache,
-    incomingIntent: {
-      triggeredBySchedule: triggeredBy === "schedule",
-      banditReweightRequested: !!reweight,
-    },
   });
-  return { snapshot };
 }
 
 /**
@@ -1241,18 +1177,14 @@ export async function requestExperimentSnapshot({
  * - Incremental-exploratory blocking when an incremental writer is active
  * - Standard (non-incremental) execution and monitoring
  */
-export async function requestExperimentSnapshotFromPlan({
+export async function createExperimentSnapshotFromPlan({
   plan,
   context,
   experiment,
-  forceFullRefresh = false,
-  incomingIntent,
 }: {
   plan: PlannedExperimentSnapshot;
   context: ReqContext | ApiReqContext;
   experiment: ExperimentInterface;
-  forceFullRefresh?: boolean;
-  incomingIntent?: ExperimentSnapshotRefreshIntent;
 }): Promise<{
   snapshot: ExperimentSnapshotInterface;
   queryRunner?: ExperimentSnapshotQueryRunner;
@@ -1272,72 +1204,40 @@ export async function requestExperimentSnapshotFromPlan({
 
   if (plan.runnerKind === "incremental" && snapshotType === "standard") {
     // Check if there's an active incremental execution
-    const activeSnapshotId =
+    const currentExecutionSnapshotId =
       await context.models.incrementalRefresh.getCurrentExecutionSnapshotId(
         experiment.id,
       );
 
-    if (activeSnapshotId) {
-      const activeSnapshot = await findSnapshotById(
+    if (currentExecutionSnapshotId) {
+      const currentExecutionSnapshot = await findSnapshotById(
         context.org.id,
-        activeSnapshotId,
+        currentExecutionSnapshotId,
       );
 
-      if (activeSnapshot && activeSnapshot.status === "running") {
-        if (forceFullRefresh) {
-          throw new Error(SNAPSHOT_UPDATE_IN_PROGRESS_ERROR);
-        }
-        if (incomingIntent) {
-          // Merge intent into the running snapshot and return it
-          const merged = await mergeRefreshIntent({
-            snapshot: activeSnapshot,
-            incomingIntent,
-            context,
-          });
-          return { snapshot: merged };
-        }
+      if (
+        currentExecutionSnapshot &&
+        currentExecutionSnapshot.status === "running"
+      ) {
         throw new Error(SNAPSHOT_UPDATE_IN_PROGRESS_ERROR);
       }
 
-      // Terminal or missing — clear stale lock and proceed
+      // Not running or missing — clear stale lock and proceed
       await context.models.incrementalRefresh
-        .releaseLock(experiment.id, activeSnapshotId)
+        .releaseLock(experiment.id, currentExecutionSnapshotId)
         .catch((e) => logger.warn(e, "Failed to clear stale incremental lock"));
     }
 
-    // Acquire lock via CAS BEFORE starting the snapshot.
-    // startSnapshotFromPlan calls startAnalysis which must not run without the lock.
+    // Acquire lock before starting the snapshot
     const acquired = await context.models.incrementalRefresh.acquireLock(
       experiment.id,
       plan.snapshot.id,
     );
 
     if (!acquired) {
-      // Another process acquired the lock between our check and acquire.
-      // Re-check: if it's running, merge intent; otherwise throw.
-      const raceSnapshotId =
-        await context.models.incrementalRefresh.getCurrentExecutionSnapshotId(
-          experiment.id,
-        );
-      if (raceSnapshotId) {
-        const raceSnapshot = await findSnapshotById(
-          context.org.id,
-          raceSnapshotId,
-        );
-        if (raceSnapshot && raceSnapshot.status === "running") {
-          if (forceFullRefresh) {
-            throw new Error(SNAPSHOT_UPDATE_IN_PROGRESS_ERROR);
-          }
-          if (incomingIntent) {
-            const merged = await mergeRefreshIntent({
-              snapshot: raceSnapshot,
-              incomingIntent,
-              context,
-            });
-            return { snapshot: merged };
-          }
-        }
-      }
+      // Another process acquired the lock between our check and acquire
+      // TODO: We can potentially be smarter here and check again the status
+      // and try to recover
       throw new Error(SNAPSHOT_UPDATE_IN_PROGRESS_ERROR);
     }
 
@@ -1667,11 +1567,6 @@ export async function planSnapshot({
     fullRefresh,
   });
 
-  const refreshIntent: ExperimentSnapshotRefreshIntent = {
-    triggeredBySchedule: triggeredBy === "schedule",
-    banditReweightRequested: !!reweight,
-  };
-
   const snapshot: ExperimentSnapshotInterface = {
     id: uniqid("snp_"),
     organization: experiment.organization,
@@ -1707,7 +1602,6 @@ export async function planSnapshot({
         }),
     ],
     status: "running",
-    refreshIntent,
   };
 
   return {
@@ -1900,7 +1794,6 @@ async function handleFailedScheduledSnapshotExecution({
 }) {
   if (snapshot.status !== "error") return;
   if (experiment.type === "multi-armed-bandit") return;
-  if (!snapshot.refreshIntent?.triggeredBySchedule) return;
   try {
     await updateExperiment({
       context,

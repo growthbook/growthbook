@@ -40,7 +40,7 @@ import { logger } from "back-end/src/util/logger";
 import { validateVariationIds } from "back-end/src/controllers/experiments";
 import {
   getChangesToStartExperiment,
-  requestExperimentSnapshot,
+  createExperimentSnapshot,
   validateExperimentData,
 } from "back-end/src/services/experiments";
 import { auditDetailsCreate } from "back-end/src/services/audit";
@@ -258,7 +258,7 @@ export const createHoldout = async (
 
     if (datasource && req.query.autoRefreshResults && metricIds.length > 0) {
       try {
-        await requestExperimentSnapshot({
+        await createExperimentSnapshot({
           context,
           experiment,
           dimension: "",
