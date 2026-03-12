@@ -57,7 +57,6 @@ const RefreshSnapshotButton: FC<{
       getDatasourceById(experiment.datasource)?.type || null,
       res.snapshot,
     );
-    mutate();
   };
 
   return (
