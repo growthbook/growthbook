@@ -11,11 +11,7 @@ import { useForm } from "react-hook-form";
 import { TaxIdType, StripeAddress } from "shared/types/subscriptions";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
-import {
-  useAuth,
-  getSignupPlanFromCookie,
-  clearSignupPlanCookie,
-} from "@/services/auth";
+import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import { StripeProvider } from "@/enterprise/components/Billing/StripeProvider";
 import { useStripeContext } from "@/hooks/useStripeContext";
@@ -33,10 +29,7 @@ import WelcomeFrame from "./WelcomeFrame";
 const leftside = (
   <>
     <h1 className="title h1">Choose your plan</h1>
-    <p>
-      Select the plan that works best for your team. You can change this later
-      in settings.
-    </p>
+    <p>Choose the plan that works best for your team.</p>
   </>
 );
 
@@ -50,9 +43,13 @@ export type ProBillingData = {
 
 const SelectInitialPlan: FC = () => {
   const router = useRouter();
-  const { setPendingInitialPlanSelection } = useAuth();
+  const { initialPlanSelection, setInitialPlanSelection } = useAuth();
   const { email } = useUser();
-  const [plan, setPlan] = useState<PlanChoice>(() => getSignupPlanFromCookie());
+  const plan: PlanChoice =
+    initialPlanSelection === "pro" || initialPlanSelection === "starter"
+      ? initialPlanSelection
+      : "starter";
+  const setPlan = setInitialPlanSelection ?? (() => {});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
@@ -64,10 +61,9 @@ const SelectInitialPlan: FC = () => {
   );
 
   const completeFlow = useCallback(() => {
-    clearSignupPlanCookie();
-    setPendingInitialPlanSelection?.(false);
+    setInitialPlanSelection?.("");
     router.push("/");
-  }, [router, setPendingInitialPlanSelection]);
+  }, [router, setInitialPlanSelection]);
 
   const handleStarter = async () => {
     if (loading) return;
@@ -111,7 +107,7 @@ const SelectInitialPlan: FC = () => {
             GrowthBook Pro features.
           </p>
           <Button color="primary" onClick={completeFlow} disabled={loading}>
-            Go to dashboard
+            Setup Your Account
           </Button>
         </div>
       </WelcomeFrame>

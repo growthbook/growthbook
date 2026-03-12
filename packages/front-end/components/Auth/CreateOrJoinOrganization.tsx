@@ -1,5 +1,4 @@
 import { FC, useEffect, useState } from "react";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { FiLogOut } from "react-icons/fi";
 import { useForm } from "react-hook-form";
 import { FaCheck, FaPlus } from "react-icons/fa";
@@ -12,7 +11,7 @@ import {
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
-import { isCloud, isMultiOrg, showMultiOrgSelfSelector } from "@/services/env";
+import { isMultiOrg, showMultiOrgSelfSelector } from "@/services/env";
 import useApi from "@/hooks/useApi";
 import Field from "@/components/Forms/Field";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -47,12 +46,9 @@ const CreateOrJoinOrganization: FC<{
     setMode(mode === "create" ? "join" : "create");
   }
 
-  const { apiCall, logout, setOrgId, setPendingInitialPlanSelection } =
-    useAuth();
+  const { apiCall, logout, setOrgId } = useAuth();
   const { updateUser } = useUser();
   const [, setProject] = useProject();
-  // const initialPlanSelectionEnabled = useFeatureIsOn("initial-plan-selection");
-  const initialPlanSelectionEnabled = true;
 
   const { data: recommendedOrgsData } = useApi<{
     organizations: {
@@ -259,13 +255,6 @@ const CreateOrJoinOrganization: FC<{
                       updateUser();
                       if (resp.projectId) {
                         setProject(resp.projectId);
-                      }
-                      if (
-                        initialPlanSelectionEnabled &&
-                        // isCloud() &&
-                        setPendingInitialPlanSelection
-                      ) {
-                        setPendingInitialPlanSelection(true);
                       }
                       setLoading(false);
                     } catch (e) {

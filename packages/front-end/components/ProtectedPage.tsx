@@ -1,5 +1,4 @@
 import { ReactNode } from "react";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useAuth, safeLogout } from "@/services/auth";
 import WatchProvider from "@/services/WatchProvider";
 import { UserContextProvider, useUser } from "@/services/UserContext";
@@ -81,7 +80,7 @@ const ProtectedPage: React.FC<{
   organizationRequired: boolean;
   children: ReactNode;
 }> = ({ children, organizationRequired }) => {
-  const { orgId, pendingInitialPlanSelection } = useAuth();
+  const { orgId, initialPlanSelection } = useAuth();
   // const initialPlanSelectionEnabled = useFeatureIsOn("initial-plan-selection");
   const initialPlanSelectionEnabled = true;
 
@@ -91,9 +90,8 @@ const ProtectedPage: React.FC<{
         <InAppHelp />
         {!organizationRequired ? (
           <>{children}</>
-        ) : orgId &&
-          initialPlanSelectionEnabled &&
-          pendingInitialPlanSelection ? (
+        ) : // Add cloud check?
+        orgId && initialPlanSelectionEnabled && initialPlanSelection ? (
           <SelectInitialPlan />
         ) : orgId ? (
           <WatchProvider>{children}</WatchProvider>
