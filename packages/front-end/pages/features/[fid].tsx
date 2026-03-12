@@ -150,9 +150,7 @@ export default function FeaturePage() {
           baseFeature={baseFeature}
           feature={feature}
           revision={revision}
-          revisions={data.revisionList}
           version={version}
-          setVersion={setVersion}
         />
       )}
 

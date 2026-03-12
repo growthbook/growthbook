@@ -818,6 +818,7 @@ app.post(
   featuresController.postFeatureExperimentRefRule,
 );
 app.put("/feature/:id/:version/comment", featuresController.putRevisionComment);
+app.put("/feature/:id/:version/title", featuresController.putRevisionTitle);
 app.put("/feature/:id/:version/rule", featuresController.putFeatureRule);
 app.put(
   "/feature/:id/safeRollout/status",

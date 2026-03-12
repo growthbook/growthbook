@@ -32,6 +32,7 @@ const featureRevisionSchema = new mongoose.Schema({
   datePublished: Date,
   publishedBy: {},
   comment: String,
+  title: String,
   defaultValue: String,
   rules: {},
   // Revision envelopes — only present when explicitly changed
@@ -118,7 +119,7 @@ export async function getMinimalRevisions(
     organization,
     featureId,
   })
-    .select("version datePublished dateUpdated createdBy status comment")
+    .select("version datePublished dateUpdated createdBy status comment title")
     .sort({ version: -1 })
     .limit(200);
 
@@ -129,6 +130,7 @@ export async function getMinimalRevisions(
     createdBy: m.createdBy,
     status: m.status,
     comment: m.comment || "",
+    ...(m.title ? { title: m.title } : {}),
   }));
 }
 
@@ -158,6 +160,28 @@ export async function getLatestRevisions(
     if (!seen.has(doc.version)) {
       seen.add(doc.version);
       merged.push(doc);
+    }
+  }
+
+  // Also ensure we have the baseVersion of every active draft — needed for
+  // autoMerge (and thus the publish/review CTAs) on the feature detail page.
+  // If a draft was created off an old revision that fell outside the top-5
+  // window, it would otherwise be missing and mergeResult would be null.
+  const missingBaseVersions = activeDraftDocs
+    .map((d) => d.baseVersion)
+    .filter((v): v is number => typeof v === "number" && !seen.has(v));
+
+  if (missingBaseVersions.length > 0) {
+    const baseDocs = await FeatureRevisionModel.find({
+      organization,
+      featureId,
+      version: { $in: missingBaseVersions },
+    }).select("-log");
+    for (const doc of baseDocs) {
+      if (!seen.has(doc.version)) {
+        seen.add(doc.version);
+        merged.push(doc);
+      }
     }
   }
 
@@ -386,6 +410,7 @@ export async function createRevision({
   changes,
   publish,
   comment,
+  title,
   org,
   canBypassApprovalChecks,
 }: {
@@ -397,6 +422,7 @@ export async function createRevision({
   changes?: Partial<FeatureRevisionInterface>;
   publish?: boolean;
   comment?: string;
+  title?: string;
   org: OrganizationInterface;
   canBypassApprovalChecks?: boolean;
 }) {
@@ -455,6 +481,7 @@ export async function createRevision({
     status,
     publishedBy: null,
     comment: comment || "",
+    ...(title ? { title } : {}),
     defaultValue,
     rules,
     ...(environmentsEnabled !== undefined && { environmentsEnabled }),
@@ -519,6 +546,7 @@ export async function updateRevision(
   changes: Partial<
     Pick<
       FeatureRevisionInterface,
+      | "title"
       | "comment"
       | "defaultValue"
       | "rules"

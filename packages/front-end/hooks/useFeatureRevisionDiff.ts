@@ -176,12 +176,23 @@ export function useFeatureRevisionDiff({
       const currentVal = current.environmentsEnabled?.[envId];
       const draftVal = draft.environmentsEnabled?.[envId];
       if (currentVal !== draftVal) {
+        // When the older revision didn't explicitly set this env, infer the
+        // previous state as the opposite of the new state. This is guaranteed
+        // correct here because currentVal !== draftVal already filtered out
+        // no-ops — if draftVal is false the env must have been true before,
+        // and vice versa.
+        const resolvedCurrentVal =
+          currentVal !== undefined ? currentVal : !draftVal;
         const direction = draftVal ? "on" : "off";
         diffs.push({
           title: `Environment Toggle - ${envId}`,
-          a: currentVal !== undefined ? String(currentVal) : "",
+          a: String(resolvedCurrentVal),
           b: draftVal !== undefined ? String(draftVal) : "",
-          customRender: renderEnvironmentsEnabled(envId, currentVal, draftVal),
+          customRender: renderEnvironmentsEnabled(
+            envId,
+            resolvedCurrentVal,
+            draftVal,
+          ),
           badges: [
             {
               label: `Toggled ${envId} ${direction}`,

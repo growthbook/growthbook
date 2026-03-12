@@ -1,17 +1,14 @@
 import { useRouter } from "next/router";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import clsx from "clsx";
 import { Box, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
 import { FeatureInterface } from "shared/types/feature";
-import {
-  filterEnvironmentsByFeature,
-  getDraftAffectedEnvironments,
-} from "shared/util";
+import { filterEnvironmentsByFeature, revisionLabel } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { PiLink, PiCheck } from "react-icons/pi";
-import { HoldoutInterface, ACTIVE_DRAFT_STATUSES } from "shared/validators";
+import { PiLink, PiCheck, PiPencilSimpleFill } from "react-icons/pi";
+import { HoldoutInterface } from "shared/validators";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import {
   FeatureRevisionInterface,
@@ -35,6 +32,9 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import UserAvatar from "@/components/Avatar/UserAvatar";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import RevisionDropdown from "@/components/Features/RevisionDropdown";
+import Modal from "@/components/Modal";
+import RevisionStatusBadge from "@/components/Features/RevisionStatusBadge";
+import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import Callout from "@/ui/Callout";
 import ProjectBadges from "@/components/ProjectBadges";
 import { useHoldouts } from "@/hooks/useHoldouts";
@@ -96,6 +96,10 @@ export default function FeaturesHeader({
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [staleStatusOpen, setStaleStatusOpen] = useState(false);
   const [showImplementation, setShowImplementation] = useState(firstFeature);
+  const [confirmNewDraft, setConfirmNewDraft] = useState(false);
+  const [creatingDraft, setCreatingDraft] = useState(false);
+  const [newDraftTitle, setNewDraftTitle] = useState("");
+  const [editingNewDraftTitle, setEditingNewDraftTitle] = useState(false);
 
   const { organization, hasCommercialFeature, getOwnerDisplay } = useUser();
   const ownerDisplay = getOwnerDisplay(feature.owner);
@@ -156,26 +160,6 @@ export default function FeaturesHeader({
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
 
-  const affectedEnvsByVersion = useMemo(() => {
-    if (!allRevisions || allRevisions.length === 0) return undefined;
-    const allEnvIds = allEnvironments.map((e) => e.id);
-    const revisionsMap = new Map(allRevisions.map((r) => [r.version, r]));
-    const baseRevision = revisionsMap.get(baseFeature.version);
-    if (!baseRevision) return undefined;
-    const map = new Map<number, string[] | "all">();
-    for (const r of revisions) {
-      if ((ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status)) {
-        const full = revisionsMap.get(r.version);
-        if (full) {
-          map.set(
-            r.version,
-            getDraftAffectedEnvironments(full, baseRevision, allEnvIds),
-          );
-        }
-      }
-    }
-    return map;
-  }, [allRevisions, revisions, baseFeature.version, allEnvironments]);
   const { apiCall } = useAuth();
   const {
     getProjectById,
@@ -577,7 +561,7 @@ export default function FeaturesHeader({
                       revisions={revisions}
                       version={version ?? feature.version}
                       setVersion={setVersion}
-                      affectedEnvsByVersion={affectedEnvsByVersion}
+                      onNewDraft={() => setConfirmNewDraft(true)}
                     />
                   </Flex>
                 </Box>
@@ -655,6 +639,114 @@ export default function FeaturesHeader({
             await router.push("/features");
           }}
         />
+      )}
+      {confirmNewDraft && (
+        <Modal
+          trackingEventModalType="create-new-draft"
+          open={true}
+          close={() => {
+            setConfirmNewDraft(false);
+            setNewDraftTitle("");
+            setEditingNewDraftTitle(false);
+          }}
+          header="Create New Draft"
+          cta="Create Draft"
+          loading={creatingDraft}
+          submit={async () => {
+            setCreatingDraft(true);
+            try {
+              const res = await apiCall<{ draftVersion: number }>(
+                `/feature/${feature.id}/draft`,
+                {
+                  method: "POST",
+                  body: JSON.stringify({
+                    ...(newDraftTitle.trim()
+                      ? { title: newDraftTitle.trim() }
+                      : {}),
+                  }),
+                },
+              );
+              await mutate();
+              setVersion(res.draftVersion);
+            } finally {
+              setCreatingDraft(false);
+            }
+          }}
+        >
+          <Flex direction="column" gap="2">
+            <Text>You are about to create a new draft:</Text>
+            <Flex align="center" gap="2">
+              {editingNewDraftTitle ? (
+                <input
+                  autoFocus
+                  type="text"
+                  value={newDraftTitle}
+                  placeholder={`Revision ${Math.max(0, ...revisions.map((r) => r.version)) + 1}`}
+                  onChange={(e) => setNewDraftTitle(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.currentTarget.blur();
+                    } else if (e.key === "Escape") {
+                      setEditingNewDraftTitle(false);
+                    }
+                  }}
+                  onBlur={() => setEditingNewDraftTitle(false)}
+                  style={{
+                    fontWeight: "bold",
+                    fontSize: "var(--font-size-3)",
+                    border: "none",
+                    borderBottom: "2px solid var(--violet-9)",
+                    outline: "none",
+                    background: "transparent",
+                    padding: "0 2px",
+                    minWidth: 0,
+                    flex: 1,
+                  }}
+                />
+              ) : (
+                <Text weight="bold">
+                  {newDraftTitle.trim()
+                    ? newDraftTitle.trim()
+                    : `Revision ${Math.max(0, ...revisions.map((r) => r.version)) + 1}`}
+                </Text>
+              )}
+              <RevisionStatusBadge
+                revision={{ status: "draft" } as FeatureRevisionInterface}
+                liveVersion={feature.version}
+              />
+              {!editingNewDraftTitle && (
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setEditingNewDraftTitle(true);
+                  }}
+                  title="Name this draft"
+                  style={{ color: "var(--violet-9)", lineHeight: 1 }}
+                >
+                  <PiPencilSimpleFill />
+                </a>
+              )}
+            </Flex>
+            <Flex align="center" gap="2">
+              <Text>based on</Text>
+              <Text weight="medium">
+                <OverflowText maxWidth={200}>
+                  {revisionLabel(
+                    feature.version,
+                    (allRevisions ?? revisions).find(
+                      (r) => r.version === feature.version,
+                    )?.title,
+                  )}
+                </OverflowText>
+              </Text>
+              <RevisionStatusBadge
+                revision={revisions.find((r) => r.version === feature.version)}
+                liveVersion={feature.version}
+              />
+            </Flex>
+          </Flex>
+        </Modal>
       )}
     </>
   );

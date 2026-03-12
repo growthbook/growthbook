@@ -8,6 +8,7 @@ import {
   PiShieldCheckBold,
   PiShieldSlashBold,
   PiPencilSimpleFill,
+  PiCaretDownBold,
 } from "react-icons/pi";
 import { FaBoltLightning } from "react-icons/fa6";
 import { ago, datetime } from "shared/dates";
@@ -15,8 +16,10 @@ import {
   autoMerge,
   checkIfRevisionNeedsReview,
   filterEnvironmentsByFeature,
+  getDraftAffectedEnvironments,
   getReviewSetting,
   mergeResultHasChanges,
+  revisionLabel,
 } from "shared/util";
 import { MdRocketLaunch } from "react-icons/md";
 import { BiHide, BiShow } from "react-icons/bi";
@@ -60,11 +63,13 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import EventUser from "@/components/Avatar/EventUser";
+import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import RevertModal from "@/components/Features/RevertModal";
 import EditRevisionCommentModal from "@/components/Features/EditRevisionCommentModal";
 import FixConflictsModal from "@/components/Features/FixConflictsModal";
 import CompareRevisionsModal from "@/components/Features/CompareRevisionsModal";
 import RevisionStatusBadge from "@/components/Features/RevisionStatusBadge";
+import RevisionDropdown from "@/components/Features/RevisionDropdown";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
@@ -171,7 +176,12 @@ export default function FeaturesOverview({
   const [reviewModal, setReviewModal] = useState(false);
   const [conflictModal, setConflictModal] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [confirmNewDraft, setConfirmNewDraft] = useState(false);
+  const [newDraftTitle, setNewDraftTitle] = useState("");
+  const [editingNewDraftTitle, setEditingNewDraftTitle] = useState(false);
   const [creatingDraft, setCreatingDraft] = useState(false);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState("");
   const [hideInactive, setHideInactive] = useLocalStorage(
     `hide-disabled-rules`,
     false,
@@ -282,6 +292,13 @@ export default function FeaturesOverview({
   const { showFeatureUsage, featureUsage, lookback, setLookback } =
     useFeatureUsage();
 
+  const affectedEnvs = useMemo<string[] | "all" | null>(() => {
+    const liveRevision = revisions.find((r) => r.version === feature.version);
+    if (!revision || !liveRevision) return null;
+    const allEnvIds = allEnvironments.map((e) => e.id);
+    return getDraftAffectedEnvironments(revision, liveRevision, allEnvIds);
+  }, [revision, revisions, feature.version, allEnvironments]);
+
   if (!baseFeature || !feature || !revision) return null;
 
   const hasConditionalState =
@@ -353,6 +370,14 @@ export default function FeaturesOverview({
   const reviewSetting = getReviewSetting(requireReviewSettings, feature);
   const killSwitchGated = legacyGated || !!reviewSetting?.requireReviewOn;
   const prereqGated = legacyGated || !!reviewSetting?.requireReviewOn;
+
+  // Mirrors RevisionDropdown's gatedEnvs — used for badge coloring in the affected-envs widget.
+  const gatedEnvSet: Set<string> | "all" | "none" = (() => {
+    if (legacyGated) return "all";
+    if (!reviewSetting?.requireReviewOn) return "none";
+    const envList = reviewSetting.environments ?? [];
+    return envList.length === 0 ? "all" : new Set(envList);
+  })();
   const prereqIsLocked = prereqGated && isLocked;
   const metadataReviewRequired =
     legacyGated || !!reviewSetting?.requireReviewOn;
@@ -446,19 +471,7 @@ export default function FeaturesOverview({
           <Button
             key="new-draft"
             loading={creatingDraft}
-            onClick={async () => {
-              setCreatingDraft(true);
-              try {
-                const res = await apiCall<{ draftVersion: number }>(
-                  `/feature/${feature.id}/draft`,
-                  { method: "POST" },
-                );
-                await mutate();
-                setVersion(res.draftVersion);
-              } finally {
-                setCreatingDraft(false);
-              }
-            }}
+            onClick={() => setConfirmNewDraft(true)}
             variant="soft"
           >
             New Draft
@@ -586,7 +599,9 @@ export default function FeaturesOverview({
         </Flex>
         <Flex align="center" gap="2">
           <span className="text-muted">Comment:</span>{" "}
-          {revision.comment || <em>None</em>}
+          {revision.comment || (
+            <em style={{ color: "var(--color-text-mid)" }}>none</em>
+          )}
           {canEditDrafts && (
             <IconButton
               variant="ghost"
@@ -610,19 +625,117 @@ export default function FeaturesOverview({
           <Frame mt="2" mb="4" px="6" py="4">
             <Flex align="center" justify="between" mb="2" wrap="wrap" gap="2">
               <Flex align="center" gap="3">
-                <Flex align="center" gap="2">
-                  <Text weight="bold">Viewing Revision {revision.version}</Text>
-                  <RevisionStatusBadge
-                    revision={revision}
-                    liveVersion={feature.version}
-                  />
+                <Flex direction="column" gap="1">
+                  <Flex align="center" gap="2">
+                    {editingTitle ? (
+                      <input
+                        autoFocus
+                        type="text"
+                        value={titleDraft}
+                        placeholder={`Revision ${revision.version}`}
+                        onChange={(e) => setTitleDraft(e.target.value)}
+                        onKeyDown={async (e) => {
+                          if (e.key === "Enter") {
+                            e.currentTarget.blur();
+                          } else if (e.key === "Escape") {
+                            setEditingTitle(false);
+                          }
+                        }}
+                        onBlur={async () => {
+                          setEditingTitle(false);
+                          await apiCall(
+                            `/feature/${feature.id}/${revision.version}/title`,
+                            {
+                              method: "PUT",
+                              body: JSON.stringify({
+                                title: titleDraft.trim(),
+                              }),
+                            },
+                          );
+                          await mutate();
+                        }}
+                        style={{
+                          maxWidth: 300,
+                          fontWeight: "bold",
+                          fontSize: "var(--font-size-3)",
+                          border: "none",
+                          borderBottom: "2px solid var(--violet-9)",
+                          outline: "none",
+                          background: "transparent",
+                          padding: "0 2px",
+                        }}
+                      />
+                    ) : (
+                      <Text weight="bold">
+                        <span
+                          style={{
+                            display: "-webkit-box",
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: "vertical",
+                            overflow: "hidden",
+                            maxWidth: 300,
+                          }}
+                        >
+                          {revisionLabel(revision.version, revision.title)}
+                        </span>
+                      </Text>
+                    )}
+                    <RevisionStatusBadge
+                      revision={revision}
+                      liveVersion={feature.version}
+                    />
+                    {isDraft && canEditDrafts && !editingTitle && (
+                      <a
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setTitleDraft(revision.title || "");
+                          setEditingTitle(true);
+                        }}
+                        title="Edit title"
+                        style={{ color: "var(--violet-9)", lineHeight: 1 }}
+                      >
+                        <PiPencilSimpleFill />
+                      </a>
+                    )}
+                  </Flex>
+                  {isDraft &&
+                    baseRevision &&
+                    baseRevision.version !== feature.version && (
+                      <Text as="span" size="1" color="gray">
+                        based on{" "}
+                        <Text as="span" size="1" weight="medium">
+                          Revision {baseRevision.version}
+                        </Text>
+                      </Text>
+                    )}
                 </Flex>
                 {drafts.length > 0 && isLocked && !isDraft && (
                   <>
                     <Separator orientation="vertical" />
-                    <Link onClick={() => setVersion(drafts[0].version)}>
-                      Switch to an active draft
-                    </Link>
+                    {drafts.length === 1 ? (
+                      <Link onClick={() => setVersion(drafts[0].version)}>
+                        Switch to active draft
+                      </Link>
+                    ) : (
+                      <RevisionDropdown
+                        feature={feature}
+                        revisions={revisionList || []}
+                        version={version ?? feature.version}
+                        setVersion={setVersion}
+                        draftsOnly
+                        hideNewDraft
+                        menuPlacement="start"
+                        customTrigger={
+                          <Link>
+                            Switch to active draft
+                            <PiCaretDownBold
+                              style={{ marginLeft: 4, verticalAlign: "middle" }}
+                            />
+                          </Link>
+                        }
+                      />
+                    )}
                   </>
                 )}
                 {isDraft && !isLive && (
@@ -649,6 +762,52 @@ export default function FeaturesOverview({
                 {revisionCTA}
               </Flex>
             </Flex>
+            {affectedEnvs !== null && (
+              <Flex align="center" gap="2" mt="1" mb="2" wrap="wrap">
+                <span
+                  style={{
+                    fontSize: "var(--font-size-2)",
+                    color: "var(--color-text-low)",
+                  }}
+                >
+                  Affected environments:
+                </span>
+                {(() => {
+                  const envIds =
+                    affectedEnvs === "all"
+                      ? allEnvironments.map((e) => e.id)
+                      : affectedEnvs;
+                  if (envIds.length === 0) {
+                    return (
+                      <span
+                        style={{
+                          fontSize: "var(--font-size-2)",
+                          color: "var(--color-text-mid)",
+                          fontStyle: "italic",
+                        }}
+                      >
+                        none
+                      </span>
+                    );
+                  }
+                  return envIds.map((envId) => {
+                    const isGated =
+                      gatedEnvSet === "all" ||
+                      (gatedEnvSet !== "none" &&
+                        (gatedEnvSet as Set<string>).has(envId));
+                    return (
+                      <Badge
+                        key={envId}
+                        label={envId}
+                        color={isGated ? "amber" : "sky"}
+                        variant="soft"
+                        radius="small"
+                      />
+                    );
+                  });
+                })()}
+              </Flex>
+            )}
             <Separator size="4" my="3" />
             {renderRevisionInfo()}
             {isPendingReview ? (
@@ -1339,6 +1498,115 @@ export default function FeaturesOverview({
             </p>
           </Modal>
         )}
+        {confirmNewDraft && (
+          <Modal
+            trackingEventModalType="create-new-draft"
+            open={true}
+            close={() => {
+              setConfirmNewDraft(false);
+              setNewDraftTitle("");
+              setEditingNewDraftTitle(false);
+            }}
+            header="Create New Draft"
+            cta="Create Draft"
+            loading={creatingDraft}
+            submit={async () => {
+              setCreatingDraft(true);
+              try {
+                const res = await apiCall<{ draftVersion: number }>(
+                  `/feature/${feature.id}/draft`,
+                  {
+                    method: "POST",
+                    body: JSON.stringify({
+                      ...(newDraftTitle.trim()
+                        ? { title: newDraftTitle.trim() }
+                        : {}),
+                    }),
+                  },
+                );
+                await mutate();
+                setVersion(res.draftVersion);
+              } finally {
+                setCreatingDraft(false);
+              }
+            }}
+          >
+            <Flex direction="column" gap="2">
+              <Text>You are about to create a new draft:</Text>
+              <Flex align="center" gap="2">
+                {editingNewDraftTitle ? (
+                  <input
+                    autoFocus
+                    type="text"
+                    value={newDraftTitle}
+                    placeholder={`Revision ${Math.max(0, ...revisionList.map((r) => r.version)) + 1}`}
+                    onChange={(e) => setNewDraftTitle(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.currentTarget.blur();
+                      } else if (e.key === "Escape") {
+                        setEditingNewDraftTitle(false);
+                      }
+                    }}
+                    onBlur={() => setEditingNewDraftTitle(false)}
+                    style={{
+                      fontWeight: "bold",
+                      fontSize: "var(--font-size-3)",
+                      border: "none",
+                      borderBottom: "2px solid var(--violet-9)",
+                      outline: "none",
+                      background: "transparent",
+                      padding: "0 2px",
+                      minWidth: 0,
+                      flex: 1,
+                    }}
+                  />
+                ) : (
+                  <Text weight="bold">
+                    {newDraftTitle.trim()
+                      ? newDraftTitle.trim()
+                      : `Revision ${Math.max(0, ...revisionList.map((r) => r.version)) + 1}`}
+                  </Text>
+                )}
+                <RevisionStatusBadge
+                  revision={{ status: "draft" } as FeatureRevisionInterface}
+                  liveVersion={feature.version}
+                />
+                {!editingNewDraftTitle && (
+                  <a
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setEditingNewDraftTitle(true);
+                    }}
+                    title="Name this draft"
+                    style={{ color: "var(--violet-9)", lineHeight: 1 }}
+                  >
+                    <PiPencilSimpleFill />
+                  </a>
+                )}
+              </Flex>
+              <Flex align="center" gap="2">
+                <Text>based on</Text>
+                <Text weight="medium">
+                  <OverflowText maxWidth={200}>
+                    {revisionLabel(
+                      feature.version,
+                      revisions.find((r) => r.version === feature.version)
+                        ?.title,
+                    )}
+                  </OverflowText>
+                </Text>
+                <RevisionStatusBadge
+                  revision={revisions.find(
+                    (r) => r.version === feature.version,
+                  )}
+                  liveVersion={feature.version}
+                />
+              </Flex>
+            </Flex>
+          </Modal>
+        )}
         {editCommentModel && revision && (
           <EditRevisionCommentModal
             close={() => setEditCommentModal(false)}
@@ -1365,6 +1633,7 @@ export default function FeaturesOverview({
             currentVersion={version ?? feature.version}
             onClose={() => setCompareRevisionsModalOpen(false)}
             initialPreviewDraft={isDraft ? (version ?? undefined) : undefined}
+            initialMode={isLive && !isDraft ? "most-recent-live" : undefined}
           />
         )}
       </Box>

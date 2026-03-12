@@ -5,6 +5,8 @@ import {
   autoMerge,
   filterEnvironmentsByFeature,
   getAffectedEnvsForExperiment,
+  getDraftAffectedEnvironments,
+  getReviewSetting,
   mergeResultHasChanges,
 } from "shared/util";
 import { useForm } from "react-hook-form";
@@ -18,6 +20,7 @@ import {
   useEnvironments,
   useFeatureExperimentChecklists,
 } from "@/services/features";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import Button from "@/components/Button";
@@ -60,6 +63,7 @@ export default function RequestReviewModal({
   const [adminPublish, setAdminPublish] = useState(false);
   const revisionLogRef = useRef<MutateLog>(null);
   const commentInputRef = useRef<HTMLInputElement>(null);
+  const settings = useOrgSettings();
 
   const { apiCall } = useAuth();
   const user = getCurrentUser();
@@ -80,16 +84,36 @@ export default function RequestReviewModal({
   );
   const liveRevision = revisions.find((r) => r.version === feature.version);
 
+  const envIds = environments.map((e) => e.id);
+
+  const affectedEnvs = useMemo(() => {
+    if (!revision || !liveRevision) return null;
+    return getDraftAffectedEnvironments(revision, liveRevision, envIds);
+  }, [revision, liveRevision, envIds]);
+
+  const legacyGated = settings?.requireReviews === true;
+  const requireReviewSettings = Array.isArray(settings?.requireReviews)
+    ? settings.requireReviews
+    : [];
+  const reviewSetting = getReviewSetting(requireReviewSettings, feature);
+  const gatedEnvSet: Set<string> | "all" | "none" = legacyGated
+    ? "all"
+    : !reviewSetting?.requireReviewOn
+      ? "none"
+      : (reviewSetting.environments ?? []).length === 0
+        ? "all"
+        : new Set(reviewSetting.environments ?? []);
+
   const mergeResult = useMemo(() => {
     if (!revision || !baseRevision || !liveRevision) return null;
     return autoMerge(
       liveRevision,
       baseRevision,
       revision,
-      environments.map((e) => e.id),
+      envIds,
       {},
     );
-  }, [revision, baseRevision, liveRevision, environments]);
+  }, [revision, baseRevision, liveRevision, envIds]);
 
   const [comment, setComment] = useState("");
 
@@ -304,6 +328,34 @@ export default function RequestReviewModal({
               </div>
             ) : (
               <>
+                {affectedEnvs && (
+                  <Flex align="center" gap="2" mb="3" wrap="wrap">
+                    <span
+                      style={{
+                        fontSize: "var(--font-size-2)",
+                        color: "var(--color-text-low)",
+                      }}
+                    >
+                      Affected environments:
+                    </span>
+                    {(affectedEnvs === "all" ? envIds : affectedEnvs).map(
+                      (envId) => {
+                        const isGated =
+                          gatedEnvSet === "all" ||
+                          (gatedEnvSet !== "none" && gatedEnvSet.has(envId));
+                        return (
+                          <Badge
+                            key={envId}
+                            label={envId}
+                            color={isGated ? "amber" : "sky"}
+                            variant="soft"
+                            radius="small"
+                          />
+                        );
+                      },
+                    )}
+                  </Flex>
+                )}
                 {approved && experimentData.length > 0 ? (
                   <div className="mb-3">
                     <h4>Start running experiments upon publishing:</h4>

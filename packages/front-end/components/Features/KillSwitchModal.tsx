@@ -10,6 +10,7 @@ import { Environment } from "shared/types/organization";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import { getReviewSetting, getDraftAffectedEnvironments } from "shared/util";
 import Text from "@/ui/Text";
+import Badge from "@/ui/Badge";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import Modal from "@/components/Modal";
@@ -322,8 +323,10 @@ export default function KillSwitchModal({
           body: JSON.stringify({
             environment,
             state: desiredState,
-            // null selectedDraft = create new draft (omit draftVersion)
-            draftVersion: selectedDraft ?? undefined,
+            // null selectedDraft = create a brand-new draft
+            ...(selectedDraft != null
+              ? { draftVersion: selectedDraft }
+              : { forceNewDraft: true }),
           }),
         },
       );
@@ -390,8 +393,47 @@ export default function KillSwitchModal({
           draftsOnly
           variant="select"
           disabled={autoPublish}
-          affectedEnvsByVersion={affectedEnvsByVersion}
         />
+        {!autoPublish &&
+          displayedDraft !== null &&
+          (() => {
+            const affected = affectedEnvsByVersion?.get(displayedDraft);
+            if (!affected) return null;
+            const envList =
+              affected === "all"
+                ? "all environments"
+                : affected.length === 0
+                  ? null
+                  : affected;
+            if (!envList) return null;
+            return (
+              <Flex align="center" gap="2" mt="2" wrap="wrap">
+                <Text size="small" color="text-low">
+                  Environments affected in this draft:
+                </Text>
+                {envList === "all environments" ? (
+                  <Badge
+                    label="all environments"
+                    color="gray"
+                    variant="soft"
+                    radius="small"
+                    style={{ fontSize: "11px" }}
+                  />
+                ) : (
+                  (envList as string[]).map((env) => (
+                    <Badge
+                      key={env}
+                      label={<OverflowText maxWidth={80}>{env}</OverflowText>}
+                      color="sky"
+                      variant="soft"
+                      radius="small"
+                      style={{ fontSize: "11px" }}
+                    />
+                  ))
+                )}
+              </Flex>
+            );
+          })()}
       </Box>
 
       {canAutoPublish && (

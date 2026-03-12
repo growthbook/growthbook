@@ -180,12 +180,17 @@ async function createOrUpdateDraftWithChanges(
   >,
   logEntry: Omit<RevisionLog, "timestamp">,
   targetDraftVersion?: number,
+  forceNewDraft?: boolean,
+  newDraftTitle?: string,
 ): Promise<FeatureRevisionInterface> {
   const { org } = context;
   const environments = getEnvironmentIdsFromOrg(context.org);
 
   let existingDraft: FeatureRevisionInterface | null = null;
-  if (targetDraftVersion) {
+  if (forceNewDraft) {
+    // Caller explicitly requested a brand-new draft — skip any existing one.
+    existingDraft = null;
+  } else if (targetDraftVersion) {
     existingDraft = await getRevision({
       context,
       organization: feature.organization,
@@ -236,6 +241,7 @@ async function createOrUpdateDraftWithChanges(
     baseVersion: feature.version,
     changes: envelopeChanges as Partial<FeatureRevisionInterface>,
     publish: false,
+    ...(newDraftTitle ? { title: newDraftTitle } : {}),
     org,
   });
   await updateFeature(context, feature, { hasDrafts: true });
@@ -1884,6 +1890,56 @@ export async function putRevisionComment(
   });
 }
 
+export async function putRevisionTitle(
+  req: AuthRequest<{ title: string }, { id: string; version: string }>,
+  res: Response<{ status: 200 }, EventUserForResponseLocals>,
+) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const { id, version } = req.params;
+  const { title } = req.body;
+
+  const feature = await getFeature(context, id);
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  if (
+    !context.permissions.canUpdateFeature(feature, {}) ||
+    !context.permissions.canManageFeatureDrafts(feature)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  const revision = await getRevision({
+    context,
+    organization: org.id,
+    featureId: feature.id,
+    version: parseInt(version),
+  });
+  if (!revision) {
+    throw new Error("Could not find feature revision");
+  }
+
+  await updateRevision(
+    context,
+    feature,
+    revision,
+    { title },
+    {
+      user: res.locals.eventAudit,
+      action: "edit title",
+      subject: "",
+      value: JSON.stringify({ title }),
+    },
+    false,
+  );
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
 export async function postFeatureDefaultValue(
   req: AuthRequest<{ defaultValue: string }, { id: string; version: string }>,
   res: Response<{ status: 200; version: number }, EventUserForResponseLocals>,
@@ -2207,13 +2263,14 @@ export async function putFeatureRule(
 }
 
 export async function postFeatureCreateDraft(
-  req: AuthRequest<null, { id: string }>,
+  req: AuthRequest<{ title?: string }, { id: string }>,
   res: Response<
     { status: 200; draftVersion: number },
     EventUserForResponseLocals
   >,
 ) {
   const { id } = req.params;
+  const { title } = req.body ?? {};
   const context = getContextFromReq(req);
   const feature = await getFeature(context, id);
 
@@ -2243,7 +2300,8 @@ export async function postFeatureCreateDraft(
     feature,
     user: context.auditUser,
     baseVersion: feature.version,
-    comment: "New draft",
+    comment: "",
+    title,
     environments,
     publish: false,
     changes: {},
@@ -2259,7 +2317,7 @@ export async function postFeatureCreateDraft(
 
 export async function postFeatureToggle(
   req: AuthRequest<
-    { environment: string; state: boolean; autoPublish?: boolean; draftVersion?: number },
+    { environment: string; state: boolean; autoPublish?: boolean; draftVersion?: number; forceNewDraft?: boolean },
     { id: string }
   >,
   res: Response<{ status: 200; draftVersion?: number }, EventUserForResponseLocals>,
@@ -2267,7 +2325,7 @@ export async function postFeatureToggle(
   const context = getContextFromReq(req);
   const { environments } = context;
   const { id } = req.params;
-  const { environment, state, autoPublish, draftVersion } = req.body;
+  const { environment, state, autoPublish, draftVersion, forceNewDraft } = req.body;
   const feature = await getFeature(context, id);
 
   if (!feature) {
@@ -2295,13 +2353,15 @@ export async function postFeatureToggle(
     }
 
     const environments = getEnvironmentIdsFromOrg(context.org);
+    const toggleTitle = `Toggle ${environment} ${state ? "on" : "off"}`;
     // Step 1: create draft
     const revision = await createRevision({
       context,
       feature,
       user: context.auditUser,
       baseVersion: feature.version,
-      comment: `Toggle ${environment} ${state ? "on" : "off"}`,
+      comment: "",
+      title: toggleTitle,
       environments,
       publish: false,
       changes: { environmentsEnabled: { [environment]: state } },
@@ -2330,7 +2390,11 @@ export async function postFeatureToggle(
   }
 
   // All other toggles go through the revision/draft system.
-  const existingDraft = draftVersion
+  // When forceNewDraft is true the user explicitly chose "New Draft" — don't
+  // reuse any existing active draft.
+  const existingDraft = forceNewDraft
+    ? null
+    : draftVersion
     ? await getRevision({ context, organization: feature.organization, featureId: feature.id, version: draftVersion })
     : await getActiveDraft(context, feature);
 
@@ -2344,6 +2408,7 @@ export async function postFeatureToggle(
     return res.status(200).json({ status: 200 });
   }
 
+  const toggleTitle = `Toggle ${environment} ${state ? "on" : "off"}`;
   const draft = await createOrUpdateDraftWithChanges(
     context,
     feature,
@@ -2355,6 +2420,9 @@ export async function postFeatureToggle(
       value: JSON.stringify({ environment, state }),
     },
     existingDraft?.version,
+    forceNewDraft,
+    // Only set the title when creating a brand-new draft (no existing draft to update).
+    existingDraft ? undefined : toggleTitle,
   );
 
   await req.audit({

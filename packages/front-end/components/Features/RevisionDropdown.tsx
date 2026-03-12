@@ -1,9 +1,9 @@
-import { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { datetime, date as formatDate } from "shared/dates";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
-import { getReviewSetting } from "shared/util";
+import { revisionLabel } from "shared/util";
 
 import { DropdownMenu as RadixDropdownMenu, Box, Flex } from "@radix-ui/themes";
 import { PiCaretDownBold } from "react-icons/pi";
@@ -11,7 +11,6 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Heading from "@/ui/Heading";
 import Switch from "@/ui/Switch";
 import Text from "@/ui/Text";
-import Badge from "@/ui/Badge";
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -19,8 +18,6 @@ import {
 } from "@/ui/DropdownMenu";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Link from "@/ui/Link";
-import Tooltip from "@/ui/Tooltip";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import EventUser from "@/components/Avatar/EventUser";
@@ -45,8 +42,19 @@ export interface Props {
    */
   onVersionChange?: (version: number | null) => void;
   disabled?: boolean;
-  /** Precomputed map of which environments each revision version affects. */
-  affectedEnvsByVersion?: Map<number, string[] | "all">;
+  /**
+   * When provided, replaces the built-in trigger entirely. The element must
+   * forward a ref and accept onClick so Radix can open the menu.
+   */
+  customTrigger?: React.ReactNode;
+  /** Suppress the "New Draft" option even in draftsOnly mode. */
+  hideNewDraft?: boolean;
+  /**
+   * Called when "New Draft" is clicked. When provided, the click will call
+   * this handler instead of the default (no-op) behaviour, allowing the parent
+   * to show a confirmation modal before creating the draft.
+   */
+  onNewDraft?: () => void;
 }
 
 /** Like `date()` but omits the year when it matches the current calendar year. */
@@ -58,103 +66,23 @@ function dateNoCurrentYear(d: string | Date): string {
     : str;
 }
 
-const MAX_VISIBLE_ENVS = 3;
-// Fixed width reserved for the env-badge row in every revision item.
-// Keeps the left column (and thus dropdown) a consistent width across all tabs
-// regardless of whether a given revision has env-badge data or not.
-const AFFECTED_COL_W = 150;
-const ENV_BADGE_MAX_W = 52;
-const ENV_BADGE_STYLE = {
-  fontSize: "10px",
-  padding: "1px 5px",
-  lineHeight: 1.4,
-} as const;
-
-function AffectedEnvBadges({
-  affected,
-  gatedEnvs,
-}: {
-  affected: string[] | "all" | undefined;
-  gatedEnvs: Set<string> | "all" | "none";
-}) {
-  if (!affected || (Array.isArray(affected) && affected.length === 0))
-    return null;
-  if (affected === "all") {
-    return (
-      <Flex gap="1" align="center" wrap="nowrap">
-        <Badge
-          label="All envs"
-          color={gatedEnvs !== "none" ? "amber" : "gray"}
-          variant="soft"
-          radius="small"
-          style={ENV_BADGE_STYLE}
-        />
-      </Flex>
-    );
-  }
-  const visible = affected.slice(0, MAX_VISIBLE_ENVS);
-  const hidden = affected.slice(MAX_VISIBLE_ENVS);
-  const isGated = (env: string) =>
-    gatedEnvs === "all" || (gatedEnvs !== "none" && gatedEnvs.has(env));
-  return (
-    <Flex gap="1" align="center" wrap="nowrap">
-      {visible.map((env) => (
-        <Badge
-          key={env}
-          label={<OverflowText maxWidth={ENV_BADGE_MAX_W}>{env}</OverflowText>}
-          color={isGated(env) ? "amber" : "sky"}
-          variant="soft"
-          radius="small"
-          style={ENV_BADGE_STYLE}
-        />
-      ))}
-      {hidden.length > 0 && (
-        <Tooltip content={hidden.join(", ")}>
-          <Badge
-            label={`+${hidden.length}`}
-            color="gray"
-            variant="soft"
-            radius="small"
-            style={ENV_BADGE_STYLE}
-          />
-        </Tooltip>
-      )}
-    </Flex>
-  );
-}
-
 function RevisionRow({
   r,
   liveVersion,
-  affected,
-  gatedEnvs,
 }: {
   r: MinimalFeatureRevisionInterface;
   liveVersion: number;
-  affected?: string[] | "all";
-  gatedEnvs: Set<string> | "all" | "none";
 }) {
   const revDate = r.status === "published" ? r.datePublished : r.dateUpdated;
-  const showAffected =
-    affected !== undefined &&
-    !(Array.isArray(affected) && affected.length === 0);
   return (
     <Flex align="center" justify="between" gap="3" style={{ width: "100%" }}>
-      {/* Left: fixed-width column — width is always AFFECTED_COL_W so the dropdown
-           never changes size between tabs; inner badge row only rendered when present */}
-      <Flex
-        direction="column"
-        style={{ gap: 4, flexShrink: 0, width: AFFECTED_COL_W }}
-      >
+      <Box flexShrink="0">
         <Heading as="h4" size="x-small" mb="0">
-          Revision {r.version}
+          <OverflowText maxWidth={200}>
+            {revisionLabel(r.version, r.title)}
+          </OverflowText>
         </Heading>
-        {showAffected && (
-          <div style={{ overflow: "hidden" }}>
-            <AffectedEnvBadges affected={affected} gatedEnvs={gatedEnvs} />
-          </div>
-        )}
-      </Flex>
+      </Box>
       <Box flexGrow="1" />
       {/* Right: metadata + status, vertically centered */}
       <Box
@@ -187,21 +115,12 @@ export default function RevisionDropdown({
   draftsOnly = false,
   onVersionChange,
   disabled = false,
-  affectedEnvsByVersion,
+  customTrigger,
+  hideNewDraft = false,
+  onNewDraft,
 }: Props) {
   const liveVersion = feature.version;
   const initialPageSize = 10;
-  const settings = useOrgSettings();
-
-  const gatedEnvs = useMemo((): Set<string> | "all" | "none" => {
-    const raw = settings?.requireReviews;
-    if (raw === true) return "all";
-    if (!Array.isArray(raw)) return "none";
-    const rule = getReviewSetting(raw, feature);
-    if (!rule?.requireReviewOn) return "none";
-    const envs = rule.environments ?? [];
-    return envs.length === 0 ? "all" : new Set(envs);
-  }, [settings?.requireReviews, feature]);
 
   const { userId } = useUser();
 
@@ -290,20 +209,16 @@ export default function RevisionDropdown({
     setOpen(false);
   };
 
-  const liveItem = liveRevision ? (
-    <DropdownMenuItem
-      key={liveRevision.version}
-      className={`multiline-item${liveRevision.version === version ? " selected-item" : ""}`}
-      onClick={() => handleSelect(liveRevision.version)}
-    >
-      <RevisionRow
-        r={liveRevision}
-        liveVersion={liveVersion}
-        affected={affectedEnvsByVersion?.get(liveRevision.version)}
-        gatedEnvs={gatedEnvs}
-      />
-    </DropdownMenuItem>
-  ) : null;
+  const liveItem =
+    !draftsOnly && liveRevision ? (
+      <DropdownMenuItem
+        key={liveRevision.version}
+        className={`multiline-item${liveRevision.version === version ? " selected-item" : ""}`}
+        onClick={() => handleSelect(liveRevision.version)}
+      >
+        <RevisionRow r={liveRevision} liveVersion={liveVersion} />
+      </DropdownMenuItem>
+    ) : null;
 
   const menuItems: React.ReactNode[] = shown.map((r) => (
     <DropdownMenuItem
@@ -311,21 +226,25 @@ export default function RevisionDropdown({
       className={`multiline-item${r.version === version ? " selected-item" : ""}`}
       onClick={() => handleSelect(r.version)}
     >
-      <RevisionRow
-        r={r}
-        liveVersion={liveVersion}
-        affected={affectedEnvsByVersion?.get(r.version)}
-        gatedEnvs={gatedEnvs}
-      />
+      <RevisionRow r={r} liveVersion={liveVersion} />
     </DropdownMenuItem>
   ));
 
-  // "New Draft" option appended in draftsOnly mode
-  const newDraftItem = draftsOnly ? (
+  // "New Draft" option — always shown in draftsOnly mode; also shown in
+  // full-list mode when an onNewDraft handler is provided (e.g. from FeaturesHeader).
+  const showNewDraft = !hideNewDraft && (draftsOnly || !!onNewDraft);
+  const newDraftItem = showNewDraft ? (
     <DropdownMenuItem
       key="__new__"
       className={`multiline-item${version === null ? " selected-item" : ""}`}
-      onClick={() => handleSelect(null)}
+      onClick={() => {
+        if (onNewDraft) {
+          setOpen(false);
+          onNewDraft();
+        } else {
+          handleSelect(null);
+        }
+      }}
     >
       <Flex align="center" gap="3" style={{ width: "100%" }}>
         <Heading as="h4" size="x-small" mb="0">
@@ -343,71 +262,73 @@ export default function RevisionDropdown({
     (r) => r.status === "discarded",
   ).length;
 
+  const builtInTrigger = (
+    <Flex
+      align="center"
+      justify="between"
+      gap="3"
+      style={{
+        width: "100%",
+        overflow: "hidden",
+        opacity: disabled ? 0.5 : 1,
+        cursor: disabled ? "not-allowed" : undefined,
+      }}
+    >
+      {/* Left: revision label */}
+      <Box flexShrink="0">
+        <Heading as="h4" size="x-small" mb="0">
+          {version === null ? (
+            "New Draft"
+          ) : (
+            <OverflowText maxWidth={200}>
+              {revisionLabel(version, selectedRevision?.title)}
+            </OverflowText>
+          )}
+        </Heading>
+      </Box>
+      <Box flexGrow="1" />
+      {/* Right: metadata + status + caret, vertically centered */}
+      <Box
+        flexShrink="1"
+        overflow="hidden"
+        style={{ textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+      >
+        {(selectedMeta?.createdBy || (triggerDate && !disabled)) && (
+          <Text size="small" color="text-low" whiteSpace="nowrap">
+            {selectedMeta?.createdBy && (
+              <EventUser user={selectedMeta.createdBy} display="name" />
+            )}
+            {selectedMeta?.createdBy && triggerDate && !disabled && (
+              <> &middot; </>
+            )}
+            {triggerDate && !disabled && dateNoCurrentYear(triggerDate)}
+          </Text>
+        )}
+      </Box>
+      {(selectedMeta || !draftsOnly) && (
+        <Box flexShrink="0">
+          <RevisionStatusBadge
+            revision={selectedMeta}
+            liveVersion={liveVersion}
+          />
+        </Box>
+      )}
+      <PiCaretDownBold style={{ flexShrink: 0 }} />
+    </Flex>
+  );
+
   return (
     <DropdownMenu
       variant="soft"
       open={disabled ? false : open}
       onOpenChange={disabled ? undefined : setOpen}
-      trigger={
-        <Flex
-          align="center"
-          justify="between"
-          gap="3"
-          style={{
-            width: "100%",
-            overflow: "hidden",
-            opacity: disabled ? 0.5 : 1,
-            cursor: disabled ? "not-allowed" : undefined,
-          }}
-        >
-          {/* Left: revision label + env badges stacked (badges only in select variant) */}
-          <Flex direction="column" style={{ gap: 4, flexShrink: 0 }}>
-            <Heading as="h4" size="x-small" mb="0">
-              {version === null ? "New Draft" : `Revision ${version}`}
-            </Heading>
-            {variant === "select" &&
-              version !== null &&
-              affectedEnvsByVersion?.has(version) && (
-                <AffectedEnvBadges
-                  affected={affectedEnvsByVersion.get(version)}
-                  gatedEnvs={gatedEnvs}
-                />
-              )}
-          </Flex>
-          <Box flexGrow="1" />
-          {/* Right: metadata + status + caret, vertically centered */}
-          <Box
-            flexShrink="1"
-            overflow="hidden"
-            style={{ textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-          >
-            {(selectedMeta?.createdBy || (triggerDate && !disabled)) && (
-              <Text size="small" color="text-low" whiteSpace="nowrap">
-                {selectedMeta?.createdBy && (
-                  <EventUser user={selectedMeta.createdBy} display="name" />
-                )}
-                {selectedMeta?.createdBy && triggerDate && !disabled && (
-                  <> &middot; </>
-                )}
-                {triggerDate && !disabled && dateNoCurrentYear(triggerDate)}
-              </Text>
-            )}
-          </Box>
-          {(selectedMeta || !draftsOnly) && (
-            <Box flexShrink="0">
-              <RevisionStatusBadge
-                revision={selectedMeta}
-                liveVersion={liveVersion}
-              />
-            </Box>
-          )}
-          <PiCaretDownBold style={{ flexShrink: 0 }} />
-        </Flex>
-      }
+      trigger={customTrigger ?? builtInTrigger}
       triggerClassName={
-        variant === "select"
-          ? "dropdown-trigger-select-style"
-          : "dropdown-trigger-slim-style"
+        customTrigger
+          ? undefined
+          : variant === "select"
+            ? "dropdown-trigger-select-style"
+            : "dropdown-trigger-slim-style"
       }
       menuWidth="full"
       menuPlacement={menuPlacement}

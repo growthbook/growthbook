@@ -1,12 +1,14 @@
 import { FeatureInterface } from "shared/types/feature";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { FaAngleDown, FaAngleRight, FaArrowLeft } from "react-icons/fa";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   autoMerge,
   filterEnvironmentsByFeature,
   getAffectedEnvsForExperiment,
+  getDraftAffectedEnvironments,
+  getReviewSetting,
   mergeResultHasChanges,
 } from "shared/util";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -17,6 +19,7 @@ import {
   useFeatureExperimentChecklists,
 } from "@/services/features";
 import { useAuth } from "@/services/auth";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "@/components/Modal";
 import Button from "@/components/Button";
 import Field from "@/components/Forms/Field";
@@ -48,12 +51,16 @@ export function ExpandableDiff({
   b,
   defaultOpen = false,
   styles,
+  leftTitle,
+  rightTitle,
 }: {
   title: string;
   a: string;
   b: string;
   defaultOpen?: boolean;
   styles?: object;
+  leftTitle?: string | React.ReactElement;
+  rightTitle?: string | React.ReactElement;
 }) {
   const [open, setOpen] = useState(defaultOpen);
 
@@ -81,6 +88,8 @@ export function ExpandableDiff({
             newValue={b}
             compareMethod={DiffMethod.LINES}
             styles={styles ?? { contentText: { wordBreak: "break-all" } }}
+            leftTitle={leftTitle}
+            rightTitle={rightTitle}
           />
         </div>
       )}
@@ -100,6 +109,7 @@ export default function DraftModal({
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const permissionsUtil = usePermissionsUtil();
+  const settings = useOrgSettings();
 
   const { apiCall } = useAuth();
 
@@ -110,6 +120,25 @@ export default function DraftModal({
   const liveRevision = revisions.find((r) => r.version === feature.version);
 
   const envIds = environments.map((e) => e.id);
+
+  const affectedEnvs = useMemo(() => {
+    if (!revision || !liveRevision) return null;
+    return getDraftAffectedEnvironments(revision, liveRevision, envIds);
+  }, [revision, liveRevision, envIds]);
+
+  const legacyGated = settings?.requireReviews === true;
+  const requireReviewSettings = Array.isArray(settings?.requireReviews)
+    ? settings.requireReviews
+    : [];
+  const reviewSetting = getReviewSetting(requireReviewSettings, feature);
+  const gatedEnvSet: Set<string> | "all" | "none" = legacyGated
+    ? "all"
+    : !reviewSetting?.requireReviewOn
+      ? "none"
+      : (reviewSetting.environments ?? []).length === 0
+        ? "all"
+        : new Set(reviewSetting.environments ?? []);
+
   const mergeResult = useMemo(() => {
     if (!revision || !baseRevision || !liveRevision) return null;
     return autoMerge(liveRevision, baseRevision, revision, envIds, {});
@@ -292,6 +321,34 @@ export default function DraftModal({
         ) : (
           <div>
             <h3>Review &amp; Publish</h3>
+            {affectedEnvs && (
+              <Flex align="center" gap="2" mb="3" wrap="wrap">
+                <span
+                  style={{
+                    fontSize: "var(--font-size-2)",
+                    color: "var(--color-text-low)",
+                  }}
+                >
+                  Affected environments:
+                </span>
+                {(affectedEnvs === "all" ? envIds : affectedEnvs).map(
+                  (envId) => {
+                    const isGated =
+                      gatedEnvSet === "all" ||
+                      (gatedEnvSet !== "none" && gatedEnvSet.has(envId));
+                    return (
+                      <Badge
+                        key={envId}
+                        label={envId}
+                        color={isGated ? "amber" : "sky"}
+                        variant="soft"
+                        radius="small"
+                      />
+                    );
+                  },
+                )}
+              </Flex>
+            )}
             <p>
               The changes below will go live when this draft revision is
               published. You will be able to revert later if needed.
