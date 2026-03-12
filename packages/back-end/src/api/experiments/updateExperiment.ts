@@ -20,6 +20,7 @@ import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fie
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { validateVariationIds } from "back-end/src/controllers/experiments";
 import { validateCustomFields } from "./validations";
+import { auditDetailsUpdate } from "back-end/src/services/audit";
 
 export const updateExperiment = createApiRequestHandler(
   updateExperimentValidator,
@@ -217,6 +218,16 @@ export const updateExperiment = createApiRequestHandler(
   if (updatedExperiment === null) {
     throw new Error("Error happened during updating experiment.");
   }
+
+  await req.audit({
+    event: "experiment.update",
+    entity: {
+      object: "experiment",
+      id: experiment.id,
+    },
+    details: auditDetailsUpdate(experiment, updatedExperiment),
+  });
+
   const apiExperiment = await toExperimentApiInterface(
     req.context,
     updatedExperiment as ExperimentInterfaceExcludingHoldouts,
