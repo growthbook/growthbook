@@ -5,7 +5,7 @@ import {
   SignedUploadUrlResponse,
   UploadResponse,
 } from "shared/types/upload";
-import { getAllVariations } from "shared/experiments";
+import { getAllVariations } from "shared/variations";
 import {
   uploadFile,
   getSignedImageUrl,

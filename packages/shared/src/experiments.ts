@@ -31,7 +31,6 @@ import {
   ExperimentInterfaceStringDates,
   LookbackOverride,
   MetricOverride,
-  Variation,
 } from "shared/types/experiment";
 import {
   ExperimentReportResultDimension,
@@ -1931,44 +1930,4 @@ export function getEffectiveLookbackOverride(
   return undefined;
 }
 
-type ExperimentWithVariations = {
-  variations: Variation[];
-};
-
-type VariationWithIndex = Variation & {
-  index: number;
-};
-
-/**
- * Returns the variations for the current/latest phase of an experiment.
- * Today this just returns experiment.variations directly. In the future,
- * this will merge phase-level variation status with top-level metadata.
- */
-export function getLatestPhaseVariations(
-  experiment: ExperimentWithVariations,
-): VariationWithIndex[] {
-  const allVariations = getAllVariations(experiment);
-  // TODO change to come from phase
-  const phaseVariations = experiment.variations;
-  return phaseVariations.map((v, i) => ({
-    ...v,
-    index: allVariations.findIndex((allV) => allV.id === v.id) ?? i,
-  }));
-}
-
-/**
- * Returns all variations defined on an experiment, regardless of phase.
- * Use this when you need to look up a variation by index or ID outside
- * the scope of a specific phase (e.g. winner, releasedVariationId).
- * Sometimes we do look up via index within a phase, such as around results
- * computation from the stats engine, and in those cases, please use
- * getLatestPhaseVariations.
- */
-export function getAllVariations(
-  experiment: ExperimentWithVariations,
-): VariationWithIndex[] {
-  return experiment.variations.map((v, i) => ({
-    ...v,
-    index: i,
-  }));
-}
+export { getAllVariations, getLatestPhaseVariations } from "./variations";

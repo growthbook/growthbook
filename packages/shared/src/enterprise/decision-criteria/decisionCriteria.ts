@@ -1,5 +1,5 @@
 import { addDays, differenceInHours, differenceInMinutes } from "date-fns";
-import { getLatestPhaseVariations } from "shared/experiments";
+import { getLatestPhaseVariations } from "shared/variations";
 import {
   DecisionCriteriaAction,
   DecisionCriteriaData,

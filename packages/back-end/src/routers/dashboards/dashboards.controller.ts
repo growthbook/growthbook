@@ -12,10 +12,8 @@ import { ProductAnalyticsExploration, SavedQuery } from "shared/validators";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { MetricAnalysisInterface } from "shared/types/metric-analysis";
 import { ExperimentInterface } from "shared/types/experiment";
-import {
-  expandAllSliceMetricsInMap,
-  getLatestPhaseVariations,
-} from "shared/experiments";
+import { expandAllSliceMetricsInMap } from "shared/experiments";
+import { getLatestPhaseVariations } from "shared/variations";
 import {
   AuthRequest,
   ResponseWithStatusAndError,

@@ -1,10 +1,10 @@
 import md5 from "md5";
 import {
   getAllExpandedMetricIdsFromExperiment,
-  getLatestPhaseVariations,
   isFactMetricId,
   expandAllSliceMetricsInMap,
 } from "shared/experiments";
+import { getLatestPhaseVariations } from "shared/variations";
 import cloneDeep from "lodash/cloneDeep";
 import {
   CreateMetricTimeSeriesSingleDataPoint,

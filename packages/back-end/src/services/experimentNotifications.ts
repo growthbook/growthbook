@@ -5,11 +5,11 @@ import {
 } from "shared/util";
 import {
   expandMetricGroups,
-  getLatestPhaseVariations,
   getMetricResultStatus,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
 } from "shared/experiments";
+import { getLatestPhaseVariations } from "shared/variations";
 import cloneDeep from "lodash/cloneDeep";
 import {
   PRESET_DECISION_CRITERIA,

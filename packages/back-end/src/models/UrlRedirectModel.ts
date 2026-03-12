@@ -1,7 +1,7 @@
 import { keyBy } from "lodash";
 import { getAffectedEnvsForExperiment } from "shared/util";
-import { getLatestPhaseVariations } from "shared/experiments";
 import { isURLTargeted } from "@growthbook/growthbook";
+import { getLatestPhaseVariations } from "shared/variations";
 import { ExperimentInterface } from "shared/types/experiment";
 import {
   DestinationURL,

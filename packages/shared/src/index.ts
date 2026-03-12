@@ -3,6 +3,7 @@ export * as dates from "./dates";
 export * as settings from "./settings";
 export * as util from "./util";
 export * as experiments from "./experiments";
+export * as variations from "./variations";
 export * as permissions from "./permissions";
 export * as sdkVersioning from "./sdk-versioning";
 export * as types from "../types";

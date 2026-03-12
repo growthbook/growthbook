@@ -31,7 +31,7 @@ import {
   scrubSavedGroups,
   SDKCapability,
 } from "shared/sdk-versioning";
-import { getLatestPhaseVariations } from "shared/experiments";
+import { getLatestPhaseVariations } from "shared/variations";
 import cloneDeep from "lodash/cloneDeep";
 import pickBy from "lodash/pickBy";
 import {
@@ -266,7 +266,7 @@ export function generateAutoExperimentsPayload({
       const hasForcedVariation =
         e.status === "stopped" && e.releasedVariationId;
 
-      let forcedVariation = hasForcedVariation
+      const forcedVariation = hasForcedVariation
         ? variations.find((v) => v.id === e.releasedVariationId)
         : null;
 

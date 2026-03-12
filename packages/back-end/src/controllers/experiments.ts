@@ -14,8 +14,8 @@ import {
   expandMetricGroups,
   getAllMetricIdsFromExperiment,
   getAllMetricSettingsForSnapshot,
-  getAllVariations,
 } from "shared/experiments";
+import { getAllVariations } from "shared/variations";
 import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
 import uniq from "lodash/uniq";
