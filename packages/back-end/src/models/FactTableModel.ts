@@ -87,9 +87,19 @@ const FactTableModel = mongoose.model<FactTableInterface>(
   factTableSchema,
 );
 
+function migrateFactTable(doc: FactTableInterface): FactTableInterface {
+  const newDoc = { ...doc };
+
+  if (!doc.timestampColumn) {
+    newDoc.timestampColumn = "timestamp";
+  }
+
+  return newDoc;
+}
+
 function toInterface(doc: FactTableDocument): FactTableInterface {
   const ret = doc.toJSON<FactTableDocument>();
-  return omit(ret, ["__v", "_id"]);
+  return migrateFactTable(omit(ret, ["__v", "_id"]));
 }
 
 function createPropsToInterface(
