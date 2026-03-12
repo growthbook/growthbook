@@ -9,7 +9,7 @@ import { MakeModelClass } from "./BaseModel";
 export const COLLECTION_NAME = "incrementalrefresh";
 
 // If a lock hasn't been updated in this long, consider it stale
-const STALE_LOCK_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+const STALE_LOCK_TIMEOUT_MS = 60 * 60 * 1000;
 
 const BaseClass = MakeModelClass({
   schema: incrementalRefreshValidator,

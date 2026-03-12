@@ -3134,33 +3134,42 @@ export async function postSnapshot(
 
   const useCache = !req.query["force"];
 
-  const { snapshot } = await createExperimentSnapshot({
-    context,
-    experiment,
-    datasource,
-    dimension,
-    phase: phase,
-    useCache,
-    type: experiment.type === "multi-armed-bandit" ? "exploratory" : undefined,
-  });
-
-  await req.audit({
-    event: "experiment.refresh",
-    entity: {
-      object: "experiment",
-      id: experiment.id,
-    },
-    details: auditDetailsCreate({
-      phase,
+  try {
+    const { snapshot } = await createExperimentSnapshot({
+      context,
+      experiment,
+      datasource,
       dimension,
+      phase,
       useCache,
-      manual: false,
-    }),
-  });
-  res.status(200).json({
-    status: 200,
-    snapshot,
-  });
+      type:
+        experiment.type === "multi-armed-bandit" ? "exploratory" : undefined,
+    });
+
+    await req.audit({
+      event: "experiment.refresh",
+      entity: {
+        object: "experiment",
+        id: experiment.id,
+      },
+      details: auditDetailsCreate({
+        phase,
+        dimension,
+        useCache,
+        manual: false,
+      }),
+    });
+    res.status(200).json({
+      status: 200,
+      snapshot,
+    });
+  } catch (e) {
+    req.log.error(e, "Failed to create experiment snapshot");
+    res.status(400).json({
+      status: 400,
+      message: e.message,
+    });
+  }
 }
 export async function postSnapshotAnalysis(
   req: AuthRequest<
@@ -3287,57 +3296,65 @@ export async function postBanditSnapshot(
   req.setTimeout(SNAPSHOT_TIMEOUT);
   let snapshot: ExperimentSnapshotInterface | undefined = undefined;
 
-  const { queryRunner } = await createExperimentSnapshot({
-    context,
-    experiment,
-    datasource,
-    dimension: "",
-    phase,
-    useCache: false,
-    type: "standard",
-    reweight,
-  });
+  try {
+    const { queryRunner } = await createExperimentSnapshot({
+      context,
+      experiment,
+      datasource,
+      dimension: "",
+      phase,
+      useCache: false,
+      type: "standard",
+      reweight,
+    });
 
-  await queryRunner.waitForResults();
-  snapshot = queryRunner.model;
+    await queryRunner.waitForResults();
+    snapshot = queryRunner.model;
 
-  if (!snapshot?.banditResult) {
+    if (!snapshot?.banditResult) {
+      return res.status(400).json({
+        status: 400,
+        message: "Unable to update bandit.",
+        snapshot,
+      });
+    }
+
+    const changes = updateExperimentBanditSettings({
+      experiment,
+      snapshot,
+      reweight,
+    });
+
+    await updateExperiment({
+      context,
+      experiment,
+      changes,
+    });
+
+    await req.audit({
+      event: "experiment.refresh",
+      entity: {
+        object: "experiment",
+        id: experiment.id,
+      },
+      details: auditDetailsCreate({
+        phase,
+        dimension: "",
+        useCache: false,
+        manual: false,
+      }),
+    });
+    return res.status(200).json({
+      status: 200,
+      snapshot,
+    });
+  } catch (e) {
     return res.status(400).json({
       status: 400,
-      message: "Unable to update bandit.",
+      message: e?.message || e,
       snapshot,
     });
   }
-
-  const changes = updateExperimentBanditSettings({
-    experiment,
-    snapshot,
-    reweight,
-  });
-
-  await updateExperiment({
-    context,
-    experiment,
-    changes,
-  });
-
-  await req.audit({
-    event: "experiment.refresh",
-    entity: {
-      object: "experiment",
-      id: experiment.id,
-    },
-    details: auditDetailsCreate({
-      phase,
-      dimension: "",
-      useCache: false,
-      manual: false,
-    }),
-  });
-  return res.status(200).json({
-    status: 200,
-    snapshot,
-  });
 }
 
 function addCoverageToSnapshotIfMissing(

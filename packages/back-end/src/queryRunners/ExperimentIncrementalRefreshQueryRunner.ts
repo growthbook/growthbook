@@ -259,7 +259,6 @@ const startExperimentIncrementalRefreshQueries = async (
     : await context.models.incrementalRefresh.getByExperimentId(experimentId);
 
   const executionId = params.queryParentId;
-  let capturedUnitsMaxTimestamp: Date | null = null;
 
   // When adding new metrics to a fact table, we will need to scan the whole table.
   // So to simplify things we re-create the whole metric source.
@@ -423,7 +422,6 @@ const startExperimentIncrementalRefreshQueries = async (
       integration.runIncrementalWithNoOutputQuery(query, setExternalId),
     onSuccess: async (rows) => {
       const maxTimestamp = new Date(rows[0].max_timestamp as string);
-      capturedUnitsMaxTimestamp = maxTimestamp;
 
       if (maxTimestamp) {
         const lockHeld =
@@ -643,7 +641,12 @@ const startExperimentIncrementalRefreshQueries = async (
         run: (query, setExternalId) =>
           integration.runIncrementalWithNoOutputQuery(query, setExternalId),
         onSuccess: async () => {
-          const lastSuccessfulMaxTimestamp = capturedUnitsMaxTimestamp;
+          const incrementalRefresh =
+            await context.models.incrementalRefresh.getByExperimentId(
+              experimentId,
+            );
+          const lastSuccessfulMaxTimestamp =
+            incrementalRefresh?.unitsMaxTimestamp ?? null;
           const updatedCovariateSource: IncrementalRefreshMetricCovariateSourceInterface =
             existingCovariateSource
               ? {
@@ -694,7 +697,7 @@ const startExperimentIncrementalRefreshQueries = async (
       dependencies: [insertMetricsSourceDataQuery.query],
       run: (query, setExternalId) =>
         integration.runMaxTimestampQuery(query, setExternalId),
-      onFailure: () => {
+      onFailure: async () => {
         // Remove the source from the running data if max timestamp fails
         runningSourceData = runningSourceData.filter(
           (s) => s.groupId !== group.groupId,
@@ -973,17 +976,19 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
     result?: SnapshotResult;
     error?: string;
   }): Promise<ExperimentSnapshotInterface> {
+    const snapshotStatus =
+      status === "running"
+        ? "running"
+        : status === "failed"
+          ? "error"
+          : "success";
+
     const updates: Partial<ExperimentSnapshotInterface> = {
       queries,
       runStarted,
       error,
       ...result,
-      status:
-        status === "running"
-          ? "running"
-          : status === "failed"
-            ? "error"
-            : "success",
+      status: snapshotStatus,
     };
     await updateSnapshot({
       organization: this.model.organization,
@@ -1001,7 +1006,8 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
     }
 
     // Release the incremental refresh lock on any terminal status
-    if (status !== "running") {
+    // TODO: Properly handle partially-succeeded status that also becomes terminal??
+    if (snapshotStatus !== "running") {
       await this.context.models.incrementalRefresh
         .releaseLock(this.model.experiment, this.model.id)
         .catch((e) =>

@@ -247,8 +247,8 @@ export async function refreshDashboardData(
       const { snapshot } = await createExperimentSnapshot({
         context,
         experiment,
-        datasource,
         dimension: dimensionId,
+        datasource,
         phase: experiment.phases.length - 1,
         useCache: false,
         triggeredBy: "manual-dashboard",
