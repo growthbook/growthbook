@@ -49,14 +49,17 @@ import {
 } from "back-end/src/types/AuthRequest";
 import {
   _getSnapshots,
-  createSnapshot,
+  createSnapshotFromPlan,
   createSnapshotAnalyses,
   createSnapshotAnalysis,
   determineNextBanditSchedule,
+  ExperimentSnapshotQueryRunner,
   getAdditionalExperimentAnalysisSettings,
   getChangesToStartExperiment,
   getDefaultExperimentAnalysisSettings,
   getLinkedFeatureInfo,
+  PlannedExperimentSnapshot,
+  planSnapshot,
   resetExperimentBanditSettings,
   SnapshotAnalysisParams,
   updateExperimentBanditSettings,
@@ -121,23 +124,17 @@ import {
   getVisualEditorApiKey,
 } from "back-end/src/models/ApiKeyModel";
 
-import {
-  getExperimentWatchers,
-  upsertWatch,
-} from "back-end/src/models/WatchModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { generateExperimentReportSSRData } from "back-end/src/services/reports";
-import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 import {
   cosineSimilarity,
   generateEmbeddings,
   secondsUntilAICanBeUsedAgain,
   simpleCompletion,
 } from "back-end/src/enterprise/services/ai";
-import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
 import {
   shouldValidateCustomFieldsOnUpdate,
   validateCustomFieldsForSection,
@@ -1321,9 +1318,8 @@ export async function postExperiments(
       details: auditDetailsCreate(experiment),
     });
 
-    await upsertWatch({
+    await context.models.watch.upsertWatch({
       userId,
-      organization: org.id,
       item: experiment.id,
       type: "experiments",
     });
@@ -1844,9 +1840,8 @@ export async function postExperiment(
   // If there are new tags to add
   await addTagsDiff(org.id, experiment.tags || [], data.tags || []);
 
-  await upsertWatch({
+  await context.models.watch.upsertWatch({
     userId,
-    organization: org.id,
     item: experiment.id,
     type: "experiments",
   });
@@ -2617,9 +2612,8 @@ export async function postExperimentTargeting(
       details: auditDetailsUpdate(experiment, updated),
     });
 
-    await upsertWatch({
+    await context.models.watch.upsertWatch({
       userId,
-      organization: org.id,
       item: experiment.id,
       type: "experiments",
     });
@@ -2731,9 +2725,8 @@ export async function postExperimentPhase(
       details: auditDetailsUpdate(experiment, updated),
     });
 
-    await upsertWatch({
+    await context.models.watch.upsertWatch({
       userId,
-      organization: org.id,
       item: experiment.id,
       type: "experiments",
     });
@@ -2753,9 +2746,9 @@ export async function getWatchingUsers(
   req: AuthRequest<null, { id: string }>,
   res: Response,
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
   const { id } = req.params;
-  const watchers = await getExperimentWatchers(id, org.id);
+  const watchers = await context.models.watch.getExperimentWatchers(id);
   res.status(200).json({
     status: 200,
     userIds: watchers,
@@ -2919,7 +2912,7 @@ export async function createExperimentSnapshot({
   triggeredBy,
   type,
   reweight,
-  preventStartingAnalysis,
+  allowIncrementalRefresh = true,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
@@ -2930,14 +2923,87 @@ export async function createExperimentSnapshot({
   triggeredBy?: SnapshotTriggeredBy;
   type?: SnapshotType;
   reweight?: boolean;
-  preventStartingAnalysis?: boolean;
+  allowIncrementalRefresh?: boolean;
 }): Promise<{
   snapshot: ExperimentSnapshotInterface;
-  queryRunner:
-    | ExperimentResultsQueryRunner
-    | ExperimentIncrementalRefreshQueryRunner
-    | ExperimentIncrementalRefreshExploratoryQueryRunner;
+  queryRunner: ExperimentSnapshotQueryRunner;
 }> {
+  const plan = await planExperimentSnapshot({
+    context,
+    experiment,
+    datasource,
+    dimension,
+    phase,
+    useCache,
+    triggeredBy,
+    type,
+    reweight,
+    allowIncrementalRefresh,
+  });
+
+  return createExperimentSnapshotFromPlan({
+    plan,
+    context,
+    experiment,
+  });
+}
+
+export async function createExperimentSnapshotFromPlan({
+  plan,
+  context,
+  experiment,
+}: {
+  plan: PlannedExperimentSnapshot;
+  context: ReqContext;
+  experiment: ExperimentInterface;
+}): Promise<{
+  snapshot: ExperimentSnapshotInterface;
+  queryRunner: ExperimentSnapshotQueryRunner;
+}> {
+  const metricMap = await getMetricMap(context);
+  const factTableMap = await getFactTableMap(context);
+  const metricGroups = await context.models.metricGroups.getAll();
+
+  expandAllSliceMetricsInMap({
+    metricMap,
+    factTableMap,
+    experiment,
+    metricGroups,
+  });
+
+  const queryRunner = await createSnapshotFromPlan({
+    plan,
+    context,
+    experiment,
+    metricMap,
+    factTableMap,
+  });
+  return { snapshot: queryRunner.model, queryRunner };
+}
+
+export async function planExperimentSnapshot({
+  context,
+  experiment,
+  datasource,
+  dimension,
+  phase,
+  useCache = true,
+  triggeredBy,
+  type,
+  reweight,
+  allowIncrementalRefresh = true,
+}: {
+  context: ReqContext;
+  experiment: ExperimentInterface;
+  datasource: DataSourceInterface;
+  dimension: string | undefined;
+  phase: number;
+  useCache?: boolean;
+  triggeredBy?: SnapshotTriggeredBy;
+  type?: SnapshotType;
+  reweight?: boolean;
+  allowIncrementalRefresh?: boolean;
+}): Promise<PlannedExperimentSnapshot> {
   const snapshotType =
     type ??
     getSnapshotType({
@@ -3011,7 +3077,7 @@ export async function createExperimentSnapshot({
     dimension,
   });
 
-  const queryRunner = await createSnapshot({
+  const plan = await planSnapshot({
     experiment,
     context,
     phaseIndex: phase,
@@ -3025,11 +3091,9 @@ export async function createExperimentSnapshot({
     reweight,
     type: snapshotType,
     triggeredBy: triggeredBy ?? "manual",
-    preventStartingAnalysis,
+    allowIncrementalRefresh,
   });
-  const snapshot = queryRunner.model;
-
-  return { snapshot, queryRunner };
+  return plan;
 }
 
 export async function postSnapshot(
@@ -3516,9 +3580,8 @@ export async function addScreenshot(
     }),
   });
 
-  await upsertWatch({
+  await context.models.watch.upsertWatch({
     userId,
-    organization: org.id,
     item: experiment.id,
     type: "experiments",
   });

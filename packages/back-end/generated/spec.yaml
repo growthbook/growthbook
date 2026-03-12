@@ -264,6 +264,9 @@ tags:
   - name: Team_model
     x-displayName: Team
     description: <SchemaDefinition schemaRef="#/components/schemas/Team" />
+  - name: ExperimentTemplate_model
+    x-displayName: ExperimentTemplate
+    description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentTemplate" />
 paths:
   /features:
     get:
@@ -2715,6 +2718,112 @@ paths:
                 properties:
                   snapshot:
                     $ref: '#/components/schemas/ExperimentSnapshot'
+  '/experiments/{id}/variation/{variationId}/screenshot/upload':
+    parameters:
+      - $ref: '#/components/parameters/id'
+      - name: variationId
+        in: path
+        required: true
+        description: The variation ID (e.g. var_abc123) from the experiment's variations
+        schema:
+          type: string
+    post:
+      tags:
+        - experiments
+      summary: Upload a variation screenshot
+      operationId: postVariationImageUpload
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/experiments/exp_1234/variation/var_abc123/screenshot/upload \
+              -H "Content-Type: application/json" \
+              -d '{"screenshot":"<base64-encoded-screenshot>","contentType":"image/png"}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - screenshot
+                - contentType
+              properties:
+                screenshot:
+                  type: string
+                  description: Base64-encoded screenshot data
+                  contentEncoding: base64
+                contentType:
+                  type: string
+                  description: MIME type of the screenshot
+                  enum:
+                    - image/png
+                    - image/jpeg
+                    - image/gif
+                description:
+                  type: string
+                  description: Optional description for the screenshot
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - screenshot
+                properties:
+                  screenshot:
+                    type: object
+                    required:
+                      - path
+                      - description
+                    properties:
+                      path:
+                        type: string
+                        description: URL or path to the uploaded screenshot
+                      description:
+                        type: string
+                        description: Description of the screenshot
+  '/experiments/{id}/variation/{variationId}/screenshot':
+    delete:
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - name: variationId
+          in: path
+          required: true
+          description: The variation ID (e.g. var_abc123) from the experiment's variations
+          schema:
+            type: string
+      tags:
+        - experiments
+      summary: Delete a variation screenshot
+      operationId: deleteVariationScreenshot
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X DELETE https://api.growthbook.io/api/v1/experiments/exp_1234/variation/var_abc123/screenshot \
+              -H "Content-Type: application/json" \
+              -d '{"path":"/upload/org_xxx/2025-03/img_uuid.png"}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - path
+              properties:
+                path:
+                  type: string
+                  description: The screenshot path/URL to delete (from upload response)
+      responses:
+        '200':
+          description: Screenshot deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
   '/experiments/{id}/results':
     parameters:
       - $ref: '#/components/parameters/id'
@@ -17596,6 +17705,190 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+  /experiment-templates:
+    get:
+      $skipValidatorGeneration: true
+      parameters:
+        - name: projectId
+          in: query
+          required: false
+          schema:
+            type: string
+      tags:
+        - ExperimentTemplates
+      summary: Get all experimentTemplates
+      operationId: listExperimentTemplates
+      x-codeSamples:
+        - lang: cURL
+          source: 'curl -X GET https://api.growthbook.io/api/v1/experiment-templates -u secret_abc123DEF456'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - experimentTemplates
+                properties:
+                  experimentTemplates:
+                    $schema: 'https://json-schema.org/draft/2020-12/schema'
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        dateCreated:
+                          type: string
+                          format: date-time
+                          pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                        dateUpdated:
+                          type: string
+                          format: date-time
+                          pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                        project:
+                          type: string
+                        owner:
+                          type: string
+                        templateMetadata:
+                          type: object
+                          properties:
+                            name:
+                              type: string
+                            description:
+                              type: string
+                          required:
+                            - name
+                          additionalProperties: false
+                        type:
+                          type: string
+                          enum:
+                            - standard
+                        hypothesis:
+                          type: string
+                        description:
+                          type: string
+                        tags:
+                          type: array
+                          items:
+                            type: string
+                        customFields:
+                          type: object
+                          propertyNames:
+                            type: string
+                          additionalProperties:
+                            type: string
+                        datasource:
+                          type: string
+                        exposureQueryId:
+                          type: string
+                        hashAttribute:
+                          type: string
+                        fallbackAttribute:
+                          type: string
+                        disableStickyBucketing:
+                          type: boolean
+                        goalMetrics:
+                          type: array
+                          items:
+                            type: string
+                        secondaryMetrics:
+                          type: array
+                          items:
+                            type: string
+                        guardrailMetrics:
+                          type: array
+                          items:
+                            type: string
+                        activationMetric:
+                          type: string
+                        statsEngine:
+                          type: string
+                          enum:
+                            - bayesian
+                            - frequentist
+                        segment:
+                          type: string
+                        skipPartialData:
+                          type: boolean
+                        targeting:
+                          type: object
+                          properties:
+                            coverage:
+                              type: number
+                            savedGroups:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  match:
+                                    type: string
+                                    enum:
+                                      - all
+                                      - none
+                                      - any
+                                  ids:
+                                    type: array
+                                    items:
+                                      type: string
+                                required:
+                                  - match
+                                  - ids
+                                additionalProperties: false
+                            prerequisites:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  id:
+                                    type: string
+                                  condition:
+                                    type: string
+                                required:
+                                  - id
+                                  - condition
+                                additionalProperties: false
+                            condition:
+                              type: string
+                          required:
+                            - coverage
+                            - condition
+                          additionalProperties: false
+                        customMetricSlices:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              slices:
+                                type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    column:
+                                      type: string
+                                    levels:
+                                      type: array
+                                      items:
+                                        type: string
+                                  required:
+                                    - column
+                                    - levels
+                                  additionalProperties: false
+                            required:
+                              - slices
+                            additionalProperties: false
+                      required:
+                        - id
+                        - dateCreated
+                        - dateUpdated
+                        - owner
+                        - templateMetadata
+                        - type
+                        - datasource
+                        - exposureQueryId
+                        - statsEngine
+                        - targeting
+                      additionalProperties: false
 components:
   parameters:
     id:
@@ -19399,6 +19692,164 @@ components:
         - environments
         - members
         - managedByIdp
+      additionalProperties: false
+      $skipValidatorGeneration: true
+    ExperimentTemplate:
+      $schema: 'https://json-schema.org/draft/2020-12/schema'
+      type: object
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+          pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+        dateUpdated:
+          type: string
+          format: date-time
+          pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+        project:
+          type: string
+        owner:
+          type: string
+        templateMetadata:
+          type: object
+          properties:
+            name:
+              type: string
+            description:
+              type: string
+          required:
+            - name
+          additionalProperties: false
+        type:
+          type: string
+          enum:
+            - standard
+        hypothesis:
+          type: string
+        description:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        customFields:
+          type: object
+          propertyNames:
+            type: string
+          additionalProperties:
+            type: string
+        datasource:
+          type: string
+        exposureQueryId:
+          type: string
+        hashAttribute:
+          type: string
+        fallbackAttribute:
+          type: string
+        disableStickyBucketing:
+          type: boolean
+        goalMetrics:
+          type: array
+          items:
+            type: string
+        secondaryMetrics:
+          type: array
+          items:
+            type: string
+        guardrailMetrics:
+          type: array
+          items:
+            type: string
+        activationMetric:
+          type: string
+        statsEngine:
+          type: string
+          enum:
+            - bayesian
+            - frequentist
+        segment:
+          type: string
+        skipPartialData:
+          type: boolean
+        targeting:
+          type: object
+          properties:
+            coverage:
+              type: number
+            savedGroups:
+              type: array
+              items:
+                type: object
+                properties:
+                  match:
+                    type: string
+                    enum:
+                      - all
+                      - none
+                      - any
+                  ids:
+                    type: array
+                    items:
+                      type: string
+                required:
+                  - match
+                  - ids
+                additionalProperties: false
+            prerequisites:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  condition:
+                    type: string
+                required:
+                  - id
+                  - condition
+                additionalProperties: false
+            condition:
+              type: string
+          required:
+            - coverage
+            - condition
+          additionalProperties: false
+        customMetricSlices:
+          type: array
+          items:
+            type: object
+            properties:
+              slices:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    column:
+                      type: string
+                    levels:
+                      type: array
+                      items:
+                        type: string
+                  required:
+                    - column
+                    - levels
+                  additionalProperties: false
+            required:
+              - slices
+            additionalProperties: false
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - owner
+        - templateMetadata
+        - type
+        - datasource
+        - exposureQueryId
+        - statsEngine
+        - targeting
       additionalProperties: false
       $skipValidatorGeneration: true
     PaginationFields:
@@ -22317,6 +22768,7 @@ x-tagGroups:
       - CustomFields
       - MetricGroups
       - Teams
+      - ExperimentTemplates
   - name: Models
     tags:
       - Archetype_model
@@ -22366,3 +22818,4 @@ x-tagGroups:
       - CustomField_model
       - MetricGroup_model
       - Team_model
+      - ExperimentTemplate_model

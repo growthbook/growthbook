@@ -16,7 +16,7 @@ const BaseClass = MakeModelClass({
     updateEvent: "holdout.update",
     deleteEvent: "holdout.delete",
   },
-  globallyUniqueIds: false,
+  globallyUniquePrimaryKeys: false,
   additionalIndexes: [
     {
       fields: { "nextScheduledStatusUpdate.date": 1 },
