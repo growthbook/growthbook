@@ -177,37 +177,6 @@ const SelectInitialPlan: FC = () => {
         <RadioCards
           options={[
             {
-              value: "starter",
-              label: (
-                <Flex direction="row" align="center" justify="between" gap="2">
-                  <Heading as="h2" size="small">
-                    Starter
-                  </Heading>
-                  <Text color="text-low">Free</Text>
-                </Flex>
-              ),
-              description: (
-                <Flex direction="column" gap="3" className="mt-3">
-                  <Text color="text-low">
-                    Basic flags and experiments for solo devs and small teams
-                  </Text>
-                  <ul
-                    style={{
-                      paddingLeft: 0,
-                      marginLeft: 0,
-                      listStylePosition: "inside",
-                    }}
-                  >
-                    <li>Unlimited feature flags</li>
-                    <li>Unlimited experiments</li>
-                    <li>Add up to 3 seats</li>
-                    <li>1M CDN Requests/month included</li>
-                    <li>5GB Bandwidth/month included</li>
-                  </ul>
-                </Flex>
-              ),
-            },
-            {
               value: "pro",
               label: (
                 <Flex direction="row" align="center" justify="between" gap="2">
@@ -238,6 +207,37 @@ const SelectInitialPlan: FC = () => {
                 </Flex>
               ),
             },
+            {
+              value: "starter",
+              label: (
+                <Flex direction="row" align="center" justify="between" gap="2">
+                  <Heading as="h2" size="small">
+                    Starter
+                  </Heading>
+                  <Text color="text-low">Free</Text>
+                </Flex>
+              ),
+              description: (
+                <Flex direction="column" gap="3" className="mt-3">
+                  <Text color="text-low">
+                    Basic flags and experiments for solo devs and small teams
+                  </Text>
+                  <ul
+                    style={{
+                      paddingLeft: 0,
+                      marginLeft: 0,
+                      listStylePosition: "inside",
+                    }}
+                  >
+                    <li>Unlimited feature flags</li>
+                    <li>Unlimited experiments</li>
+                    <li>Add up to 3 seats</li>
+                    <li>1M CDN Requests/month included</li>
+                    <li>5GB Bandwidth/month included</li>
+                  </ul>
+                </Flex>
+              ),
+            },
           ]}
           value={plan}
           align="start"
@@ -253,7 +253,7 @@ const SelectInitialPlan: FC = () => {
           >
             {plan === "starter"
               ? "Get Started for Free"
-              : "Get Started with Pro"}
+              : "Next: Add Payment Details"}
           </Button>
         </div>
         {error && <div className="alert alert-danger mt-3">{error}</div>}
@@ -302,10 +302,10 @@ const ProBillingStep: FC<ProBillingStepProps> = ({
 
   return (
     <div style={{ maxWidth: "500px" }}>
-      <Heading as="h2" className="mb-3">
+      <Heading as="h2" mb="3">
         Billing details
       </Heading>
-      <Text color="gray" className="mb-4" as="p">
+      <Text color="text-low" mb="4" as="p">
         Enter your billing information. You&apos;ll add a payment method on the
         next step.
       </Text>
@@ -316,7 +316,7 @@ const ProBillingStep: FC<ProBillingStepProps> = ({
           label="Billing email"
           {...form.register("email", { required: true })}
         />
-        <Text size="1" color="gray" as="p" className="mt-1">
+        <Text color="text-low" as="p" mt="1">
           Monthly invoices will be sent to this address
         </Text>
       </div>
@@ -348,11 +348,11 @@ const ProBillingStep: FC<ProBillingStepProps> = ({
         </Box>
       </Flex>
       <Flex gap="2" className="mt-4">
-        <Button color="primary" onClick={handleNext}>
-          Next: Add payment method
-        </Button>
         <Button color="secondary" onClick={onBack}>
-          Back to plan selection
+          Back
+        </Button>
+        <Button color="primary" onClick={handleNext}>
+          Next
         </Button>
       </Flex>
     </div>
@@ -478,7 +478,7 @@ const ProPaymentFormInner: FC<ProPaymentFormProps> = ({
 
   return (
     <div style={{ maxWidth: "500px" }}>
-      <Heading as="h2" className="mb-3">
+      <Heading as="h2" mb="3">
         Add payment method
       </Heading>
       <div className="mb-4">
@@ -510,11 +510,11 @@ const ProPaymentFormInner: FC<ProPaymentFormProps> = ({
         </div>
       )}
       <Flex gap="2">
-        <Button color="primary" onClick={handleSubmit}>
-          Start subscription
-        </Button>
         <Button color="secondary" onClick={onBack}>
           Back
+        </Button>
+        <Button color="primary" onClick={handleSubmit}>
+          Next
         </Button>
       </Flex>
     </div>
