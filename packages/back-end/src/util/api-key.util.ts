@@ -76,7 +76,8 @@ export function migrateApiKey(legacyDoc: unknown) {
   };
 }
 
-export async function lookupOrganizationByApiKey(
+// Cross-organization DB operation, lives outside of ApiKeyModel due to a circular dependency with auth middleware
+export async function dangerousLookupOrganizationByApiKey(
   key: string,
 ): Promise<Partial<ApiKeyInterface>> {
   // If self-hosting on a single org and using a hardcoded secret key

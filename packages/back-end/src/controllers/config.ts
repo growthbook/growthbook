@@ -6,7 +6,7 @@ import {
   LegacyExperimentPhase,
   LegacyVariation,
 } from "shared/types/experiment";
-import { lookupOrganizationByApiKey } from "back-end/src/util/api-key.util";
+import { dangerousLookupOrganizationByApiKey } from "back-end/src/util/api-key.util";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
 import { ErrorResponse, ExperimentOverridesResponse } from "back-end/types/api";
 import {
@@ -35,7 +35,8 @@ export async function getExperimentConfig(
   const { key } = req.params;
 
   try {
-    const { organization, secret } = await lookupOrganizationByApiKey(key);
+    const { organization, secret } =
+      await dangerousLookupOrganizationByApiKey(key);
     if (!organization) {
       return res.status(400).json({
         status: 400,
@@ -103,7 +104,8 @@ export async function getExperimentsScript(
   const { key } = req.params;
 
   try {
-    const { organization, secret } = await lookupOrganizationByApiKey(key);
+    const { organization, secret } =
+      await dangerousLookupOrganizationByApiKey(key);
     if (!organization) {
       return res
         .status(400)
