@@ -91,8 +91,8 @@ function tabulateCovariateImbalanceByGroup(
   overallResult: ExperimentReportResultDimension,
   metrics: string[],
   covariateImbalanceTable: CovariateImbalanceTableRow[],
+  pValueThreshold: number,
 ): SingleGroupCovariateImbalanceResult {
-  const pValueThreshold = DEFAULT_P_VALUE_THRESHOLD_FOR_COVARIATE_IMBALANCE;
   let isImbalanced = false;
   let processedMetrics = 0;
   let numMetricsImbalanced = 0;
@@ -201,20 +201,28 @@ export function tabulateCovariateImbalance(
     };
   }
 
+  // Bonferroni: use threshold / nTests for significance (single p-value stored)
+  const pValueThreshold = DEFAULT_P_VALUE_THRESHOLD_FOR_COVARIATE_IMBALANCE;
+  const nTests = Math.max(1, goalMetrics.length + guardrailMetrics.length);
+  const adjustedThreshold = pValueThreshold / nTests;
+
   const goalMetricsResult = tabulateCovariateImbalanceByGroup(
     overallResult,
     goalMetrics,
     covariateImbalanceTable,
+    adjustedThreshold,
   );
   const guardrailMetricsResult = tabulateCovariateImbalanceByGroup(
     overallResult,
     guardrailMetrics,
     covariateImbalanceTable,
+    adjustedThreshold,
   );
   const secondaryMetricsResult = tabulateCovariateImbalanceByGroup(
     overallResult,
     secondaryMetrics,
     covariateImbalanceTable,
+    adjustedThreshold,
   );
 
   const isImbalanced =
@@ -224,7 +232,7 @@ export function tabulateCovariateImbalance(
 
   return {
     isImbalanced,
-    pValueThreshold: DEFAULT_P_VALUE_THRESHOLD_FOR_COVARIATE_IMBALANCE,
+    pValueThreshold,
     numGoalMetrics: goalMetricsResult.numMetrics,
     numGoalMetricsImbalanced: goalMetricsResult.numMetricsImbalanced,
     numGuardrailMetrics: guardrailMetricsResult.numMetrics,
