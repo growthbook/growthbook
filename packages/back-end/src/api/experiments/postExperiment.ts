@@ -16,7 +16,6 @@ import {
 } from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getUserByEmail } from "back-end/src/models/UserModel";
-import { upsertWatch } from "back-end/src/models/WatchModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { validateVariationIds } from "back-end/src/controllers/experiments";
 import { validateCustomFields } from "./validations";
@@ -54,14 +53,16 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
     }
 
     // check if tracking key is unique
-    const existingByTrackingKey = await getExperimentByTrackingKey(
-      req.context,
-      req.body.trackingKey,
-    );
-    if (existingByTrackingKey) {
-      throw new Error(
-        `Experiment with tracking key already exists: ${req.body.trackingKey}`,
+    if (!req.body.bypassDuplicateKeyCheck) {
+      const existingByTrackingKey = await getExperimentByTrackingKey(
+        req.context,
+        req.body.trackingKey,
       );
+      if (existingByTrackingKey) {
+        throw new Error(
+          `Experiment with tracking key already exists: ${req.body.trackingKey}`,
+        );
+      }
     }
 
     await validateCustomFields(customFields, req.context, project);
@@ -168,9 +169,8 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
 
     if (ownerId) {
       // add owner as watcher
-      await upsertWatch({
+      await req.context.models.watch.upsertWatch({
         userId: ownerId,
-        organization: req.organization.id,
         item: experiment.id,
         type: "experiments",
       });

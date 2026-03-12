@@ -206,7 +206,7 @@ const NewDataSourceForm: FC<{
 
   let ctaEnabled = true;
   let disabledMessage: string | null = null;
-  if (!permissionsUtil.canViewCreateDataSourceModal(project)) {
+  if (!permissionsUtil.canViewCreateDataSourceModal(project, projects)) {
     ctaEnabled = false;
     disabledMessage = "You don't have permission to create data sources.";
   }

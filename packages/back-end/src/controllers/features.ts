@@ -89,7 +89,7 @@ import {
   updateFeature,
 } from "back-end/src/models/FeatureModel";
 import { getRealtimeUsageByHour } from "back-end/src/models/RealtimeModel";
-import { lookupOrganizationByApiKey } from "back-end/src/models/ApiKeyModel";
+import { dangerousLookupOrganizationByApiKey } from "back-end/src/util/api-key.util";
 import {
   addIdsToRules,
   arrayMove,
@@ -141,7 +141,6 @@ import {
   CACHE_CONTROL_STALE_WHILE_REVALIDATE,
   FASTLY_SERVICE_ID,
 } from "back-end/src/util/secrets";
-import { upsertWatch } from "back-end/src/models/WatchModel";
 import { getSurrogateKeysFromEnvironments } from "back-end/src/util/cdn.util";
 import {
   addLinkedFeatureToExperiment,
@@ -240,7 +239,7 @@ export async function getPayloadParamsFromApiKey(
       project,
       encryptSDK,
       encryptionKey,
-    } = await lookupOrganizationByApiKey(key);
+    } = await dangerousLookupOrganizationByApiKey(key);
     if (!organization) {
       throw new UnrecoverableApiError("Invalid API Key");
     }
@@ -499,7 +498,7 @@ export async function postFeatures(
   >,
 ) {
   const context = getContextFromReq(req);
-  const { org, userId, userName } = context;
+  const { org, userId } = context;
   const { id, environmentSettings, holdout, customFields, ...otherProps } =
     req.body;
 
@@ -558,7 +557,7 @@ export async function postFeatures(
   const feature: FeatureInterface = {
     defaultValue: "",
     valueType: "boolean",
-    owner: userName,
+    owner: userId,
     description: "",
     project: "",
     environmentSettings: {},
@@ -607,9 +606,8 @@ export async function postFeatures(
   addIdsToRules(feature.environmentSettings, feature.id);
 
   await createFeature(context, feature);
-  await upsertWatch({
+  await context.models.watch.upsertWatch({
     userId,
-    organization: org.id,
     item: feature.id,
     type: "features",
   });
