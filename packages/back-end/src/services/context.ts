@@ -69,6 +69,7 @@ import { TeamModel } from "back-end/src/models/TeamModel";
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
 import { PresentationThemeModel } from "back-end/src/models/PresentationThemeModel";
 import { WatchModel } from "back-end/src/models/WatchModel";
+import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
@@ -109,7 +110,8 @@ export type ModelName =
   | "teams"
   | "analyticsExplorations"
   | "presentationThemes"
-  | "watch";
+  | "watch"
+  | "apiKeys";
 
 export const modelClasses = {
   agreements: AgreementModel,
@@ -143,6 +145,7 @@ export const modelClasses = {
   analyticsExplorations: AnalyticsExplorationModel,
   presentationThemes: PresentationThemeModel,
   watch: WatchModel,
+  apiKeys: ApiKeyModel,
 };
 export type ModelClass = (typeof modelClasses)[ModelName];
 type ModelInstances = {
@@ -185,6 +188,7 @@ export class ReqContextClass {
       analyticsExplorations: new AnalyticsExplorationModel(this),
       presentationThemes: new PresentationThemeModel(this),
       watch: new WatchModel(this),
+      apiKeys: new ApiKeyModel(this),
     };
   }
 

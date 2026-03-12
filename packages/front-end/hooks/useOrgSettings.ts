@@ -1,6 +1,6 @@
 import { AGREEMENT_TYPE_AI } from "shared/validators";
 import { useUser } from "@/services/UserContext";
-import { hasAnthropicKey, isCloud, hasOpenAIKey } from "@/services/env";
+import { isCloud, hasAnyAIKey } from "@/services/env";
 
 export default function useOrgSettings() {
   const { settings } = useUser();
@@ -16,7 +16,7 @@ export const useAISettings = (): {
 
   const aiEnabled = isCloud()
     ? !!settings?.aiEnabled && !!agreements?.includes(AGREEMENT_TYPE_AI)
-    : !!(settings?.aiEnabled && (hasOpenAIKey() || hasAnthropicKey()));
+    : !!(settings?.aiEnabled && hasAnyAIKey());
   const aiAgreedTo = isCloud()
     ? !!agreements?.includes(AGREEMENT_TYPE_AI)
     : true;
