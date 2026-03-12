@@ -205,13 +205,9 @@ export default function FeaturesHeader({
     );
   }, [scrollY]);
 
-  // Controls group swap: move the controls between the header title row and the
-  // sticky tabs bar based on a simple 20px scroll threshold.  We use a single
-  // stable DOM node (`portalHost`) that is imperatively moved between two empty
-  // slot divs via `appendChild`. Because the host node identity never changes,
-  // React never unmounts the controls — any open dropdown stays open across the
-  // transition rather than producing a disembodied floating menu.
-  const scrolled = scrollY > 30;
+  // Portal the revisionAndSettingsGroup between the header and sticky tabs on scroll.
+  // Moving a single DOM node keeps dropdown menus stable.
+  const scrolled = scrollY > 15;
   const headerSlotRef = useRef<HTMLDivElement>(null);
   const tabsSlotRef = useRef<HTMLDivElement>(null);
   const [portalHost] = useState<HTMLDivElement | null>(() => {
@@ -258,8 +254,8 @@ export default function FeaturesHeader({
   const canPublish = permissionsUtil.canPublishFeature(feature, enabledEnvs);
   const isArchived = feature.archived;
 
-  // Controls group — rendered once via a stable portal host (see below).
-  const controlsGroup = (
+  // Rendered once via a stable portal host (see above).
+  const revisionAndSettingsGroup = (
     <Flex align="center" gap="4" pr="2">
       {onCopyLink && (
         <Tooltip
@@ -493,9 +489,9 @@ export default function FeaturesHeader({
                 onOpenChange={setStaleStatusOpen}
               />
             </Flex>
-            {/* Slot: controls portal mounts here when not scrolled (>20px → tabs bar) */}
+            {/* Slot: revisionAndSettingsGroup portal mounts here when not scrolled (>20px → tabs bar) */}
             <div ref={headerSlotRef} />
-            {portalHost && createPortal(controlsGroup, portalHost)}
+            {portalHost && createPortal(revisionAndSettingsGroup, portalHost)}
           </Flex>
           <Flex gap="4">
             {holdout?.id && (
@@ -638,7 +634,7 @@ export default function FeaturesHeader({
                 <TabsTrigger value="test">Simulate</TabsTrigger>
                 <TabsTrigger value="stats">Code Refs</TabsTrigger>
                 <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>
-                {/* Slot: controls portal mounts here when scrolled */}
+                {/* Slot: revisionAndSettingsGroup portal mounts here when scrolled */}
                 <Box style={{ marginLeft: "auto", alignSelf: "center" }}>
                   <div ref={tabsSlotRef} />
                 </Box>

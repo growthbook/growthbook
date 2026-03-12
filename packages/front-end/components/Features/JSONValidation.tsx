@@ -3,20 +3,15 @@ import { getValidation, getReviewSetting } from "shared/util";
 import { useMemo, useState } from "react";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { Box, Flex } from "@radix-ui/themes";
-import {
-  PiCaretDown,
-  PiCaretRight,
-  PiShieldCheckBold,
-  PiShieldSlashBold,
-} from "react-icons/pi";
+import { PiCaretDown, PiCaretRight } from "react-icons/pi";
 import { ago, datetime } from "shared/dates";
 import { useRouter } from "next/router";
+import DraftControlBadge from "@/components/Features/DraftControlBadge";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
 import Badge from "@/ui/Badge";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import JSONSchemaDescription from "@/components/Features/JSONSchemaDescription";
 import Code from "@/components/SyntaxHighlighting/Code";
 import EditSchemaModal from "@/components/Features/EditSchemaModal";
@@ -93,28 +88,10 @@ export default function JSONValidation({
         <Heading as="h3" size="medium" mb="0">
           JSON Validation
         </Heading>
-        <Tooltip
-          body={
-            requiresApproval
-              ? "Changes to this section create a draft revision that requires approval before going live."
-              : "Changes to this section are published directly — no draft or approval required."
-          }
-          tipMinWidth="180px"
-        >
-          <span
-            style={{
-              color: requiresApproval ? "var(--violet-9)" : "var(--gray-8)",
-              lineHeight: 1,
-              display: "flex",
-            }}
-          >
-            {requiresApproval ? (
-              <PiShieldCheckBold size={16} />
-            ) : (
-              <PiShieldSlashBold size={16} />
-            )}
-          </span>
-        </Tooltip>
+        <DraftControlBadge
+          gated={requiresApproval}
+          approvalsEnabled={requiresApproval}
+        />
         {hasJsonValidator && (
           <Badge
             label={validationEnabled ? "Enabled" : "Not enabled"}

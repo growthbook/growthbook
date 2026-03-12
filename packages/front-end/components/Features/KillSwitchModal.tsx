@@ -211,8 +211,8 @@ export default function KillSwitchModal({
   const isAdmin = permissionsUtil.canBypassApprovalChecks(feature);
 
   // Determine if this environment is gated by the approval rules.
-  // Handle legacy boolean requireReviews (true = all envs gated) as well as
-  // the modern RequireReview[] array format.
+  // requireReviews === true is the top-level opt-in (all envs gated);
+  // the array format allows per-project/env configuration.
   const rawRequireReviews = settings?.requireReviews;
   const envIsGated: boolean = (() => {
     if (rawRequireReviews === true) return true;

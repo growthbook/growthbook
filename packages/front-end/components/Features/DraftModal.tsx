@@ -126,12 +126,12 @@ export default function DraftModal({
     return getDraftAffectedEnvironments(revision, liveRevision, envIds);
   }, [revision, liveRevision, envIds]);
 
-  const legacyGated = settings?.requireReviews === true;
+  const requiresApproval = settings?.requireReviews === true;
   const requireReviewSettings = Array.isArray(settings?.requireReviews)
     ? settings.requireReviews
     : [];
   const reviewSetting = getReviewSetting(requireReviewSettings, feature);
-  const gatedEnvSet: Set<string> | "all" | "none" = legacyGated
+  const gatedEnvSet: Set<string> | "all" | "none" = requiresApproval
     ? "all"
     : !reviewSetting?.requireReviewOn
       ? "none"

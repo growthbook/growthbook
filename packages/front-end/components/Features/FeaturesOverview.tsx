@@ -89,6 +89,7 @@ import Switch from "@/ui/Switch";
 import Link from "@/ui/Link";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import JSONValidation from "@/components/Features/JSONValidation";
+import DraftControlBadge from "@/components/Features/DraftControlBadge";
 import {
   PrerequisiteStateResult,
   usePrerequisiteStates,
@@ -107,41 +108,6 @@ import FeatureRules from "./FeatureRules";
  * revision / approval control. `gated` = requires org approval; otherwise
  * it's just always tracked in revision history (rules/default value).
  */
-function DraftControlBadge({
-  gated,
-  alwaysDrafted = false,
-}: {
-  gated: boolean;
-  alwaysDrafted?: boolean;
-}) {
-  const notGatedTooltip = alwaysDrafted
-    ? "Changes to this section always create a draft revision, but no approval is required to publish."
-    : "Changes to this section are published directly — no draft or approval required.";
-  return (
-    <Tooltip
-      body={
-        gated
-          ? "Changes to this section create a draft revision that requires approval before going live."
-          : notGatedTooltip
-      }
-      tipMinWidth="180px"
-    >
-      <span
-        style={{
-          color: gated ? "var(--violet-9)" : "var(--gray-8)",
-          lineHeight: 1,
-          display: "flex",
-        }}
-      >
-        {gated ? (
-          <PiShieldCheckBold size={16} />
-        ) : (
-          <PiShieldSlashBold size={16} />
-        )}
-      </span>
-    </Tooltip>
-  );
-}
 
 export default function FeaturesOverview({
   baseFeature,
@@ -363,26 +329,41 @@ export default function FeaturesOverview({
     (!isLive || drafts.length > 0);
 
   // Derive review settings from org settings.
-  // Handle legacy boolean requireReviews (true = everything gated) as well as
-  // the modern RequireReview[] array format.
-  const legacyGated = settings?.requireReviews === true;
+  // requiresApproval = top-level boolean opt-in (gates rules, default value,
+  // archiving, etc. regardless of per-environment settings).
+  // requireReviewSettings = the modern per-project/env RequireReview[] array.
+  const requiresApproval = settings?.requireReviews === true;
   const requireReviewSettings = Array.isArray(settings?.requireReviews)
     ? settings.requireReviews
     : [];
   const reviewSetting = getReviewSetting(requireReviewSettings, feature);
-  const killSwitchGated = legacyGated || !!reviewSetting?.requireReviewOn;
-  const prereqGated = legacyGated || !!reviewSetting?.requireReviewOn;
+  const rulesGated = requiresApproval || !!reviewSetting?.requireReviewOn;
+  const killSwitchGated =
+    requiresApproval ||
+    (!!reviewSetting?.requireReviewOn &&
+      reviewSetting.featureRequireEnvironmentReview !== false);
+  const prereqGated = requiresApproval || !!reviewSetting?.requireReviewOn;
 
   // Mirrors RevisionDropdown's gatedEnvs — used for badge coloring in the affected-envs widget.
   const gatedEnvSet: Set<string> | "all" | "none" = (() => {
-    if (legacyGated) return "all";
+    if (requiresApproval) return "all";
     if (!reviewSetting?.requireReviewOn) return "none";
     const envList = reviewSetting.environments ?? [];
     return envList.length === 0 ? "all" : new Set(envList);
   })();
   const prereqIsLocked = prereqGated && isLocked;
   const metadataReviewRequired =
-    legacyGated || !!reviewSetting?.requireReviewOn;
+    requiresApproval ||
+    (!!reviewSetting?.requireReviewOn &&
+      reviewSetting.featureRequireMetadataReview !== false);
+  const gatedEnvNames: string[] | "all" =
+    gatedEnvSet === "all" || gatedEnvSet === "none"
+      ? gatedEnvSet === "all"
+        ? "all"
+        : []
+      : environments
+          .filter((e) => (gatedEnvSet as Set<string>).has(e.id))
+          .map((e) => e.id);
 
   const canEdit = permissionsUtil.canViewFeatureModal(projectId);
   const canEditDrafts = permissionsUtil.canManageFeatureDrafts(feature);
@@ -839,17 +820,82 @@ export default function FeaturesOverview({
                 live and cannot be modified.
               </Callout>
             ) : null}
-            {(killSwitchGated || prereqGated || metadataReviewRequired) && (
+            {!rulesGated && (
               <Callout
                 status="wizard"
-                icon={<PiShieldCheckBold size={16} />}
+                icon={<PiShieldSlashBold size={16} />}
                 mt="2"
                 mb="0"
               >
-                Changes to feature rules, values, kill switches, prerequisites,
-                and metadata are gated by draft approvals.
+                Approvals are <em>not</em> required to publish changes.
               </Callout>
             )}
+            {rulesGated &&
+              (killSwitchGated || prereqGated || metadataReviewRequired) && (
+                <Callout
+                  status="wizard"
+                  icon={<PiShieldCheckBold size={16} />}
+                  mt="2"
+                  mb="0"
+                >
+                  <Flex direction="column" gap="1">
+                    {rulesGated && (
+                      <div>
+                        {killSwitchGated
+                          ? "Rule, value, and kill switch changes"
+                          : "Rule and value changes"}{" "}
+                        require approval in{" "}
+                        <strong>
+                          {gatedEnvNames === "all"
+                            ? "all environments"
+                            : gatedEnvNames.join(", ")}
+                        </strong>
+                        .
+                      </div>
+                    )}
+                    {(prereqGated || metadataReviewRequired) && (
+                      <div>
+                        {prereqGated && metadataReviewRequired
+                          ? "Prerequisite and metadata changes"
+                          : prereqGated
+                            ? "Prerequisite changes"
+                            : "Metadata changes"}{" "}
+                        require approvals.
+                      </div>
+                    )}
+                  </Flex>
+                </Callout>
+              )}
+            {(rulesGated ||
+              killSwitchGated ||
+              prereqGated ||
+              metadataReviewRequired) &&
+              (() => {
+                const exempt = [
+                  !rulesGated && "rule and value",
+                  !killSwitchGated && "kill switch",
+                  !prereqGated && "prerequisite",
+                  !metadataReviewRequired && "metadata",
+                ].filter(Boolean) as string[];
+                if (!exempt.length) return null;
+                const label =
+                  exempt.length === 1
+                    ? exempt[0]
+                    : exempt.slice(0, -1).join(", ") +
+                      " and " +
+                      exempt[exempt.length - 1];
+                return (
+                  <Callout
+                    status="wizard"
+                    icon={<PiShieldSlashBold size={16} />}
+                    mt="2"
+                    mb="0"
+                  >
+                    {label.charAt(0).toUpperCase() + label.slice(1)} changes do{" "}
+                    <em>not</em> require approval.
+                  </Callout>
+                );
+              })()}
           </Frame>
         )}
 
@@ -859,7 +905,10 @@ export default function FeaturesOverview({
               <Heading as="h3" size="4" mb="0">
                 Description
               </Heading>
-              <DraftControlBadge gated={metadataReviewRequired} />
+              <DraftControlBadge
+                gated={metadataReviewRequired}
+                approvalsEnabled={rulesGated}
+              />
             </Flex>
             {canEdit && (
               <Button
@@ -887,7 +936,7 @@ export default function FeaturesOverview({
             mutate={mutate}
             section={"feature"}
             mt="6"
-            showApprovalBadge
+            showApprovalBadge={rulesGated}
             draftInfo={
               metadataReviewRequired
                 ? ({
@@ -964,7 +1013,10 @@ export default function FeaturesOverview({
               <Heading as="h3" size="4" mb="0">
                 Environment Status
               </Heading>
-              <DraftControlBadge gated={killSwitchGated} />
+              <DraftControlBadge
+                gated={killSwitchGated}
+                approvalsEnabled={rulesGated}
+              />
             </Flex>
             <div className="mb-4">
               When disabled, this feature will evaluate to <code>null</code>.
@@ -1290,8 +1342,9 @@ export default function FeaturesOverview({
                     Default Value
                   </Heading>
                   <DraftControlBadge
-                    gated={!!reviewSetting?.requireReviewOn}
+                    gated={rulesGated}
                     alwaysDrafted
+                    approvalsEnabled={rulesGated}
                   />
                 </Flex>
                 {canEdit && !isLocked && canEditDrafts && (
@@ -1326,8 +1379,9 @@ export default function FeaturesOverview({
                       Rules
                     </Heading>
                     <DraftControlBadge
-                      gated={!!reviewSetting?.requireReviewOn}
+                      gated={rulesGated}
                       alwaysDrafted
+                      approvalsEnabled={rulesGated}
                     />
                   </Flex>
                   <label className="font-weight-semibold">

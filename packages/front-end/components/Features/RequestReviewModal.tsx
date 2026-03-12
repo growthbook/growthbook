@@ -91,12 +91,12 @@ export default function RequestReviewModal({
     return getDraftAffectedEnvironments(revision, liveRevision, envIds);
   }, [revision, liveRevision, envIds]);
 
-  const legacyGated = settings?.requireReviews === true;
+  const requiresApproval = settings?.requireReviews === true;
   const requireReviewSettings = Array.isArray(settings?.requireReviews)
     ? settings.requireReviews
     : [];
   const reviewSetting = getReviewSetting(requireReviewSettings, feature);
-  const gatedEnvSet: Set<string> | "all" | "none" = legacyGated
+  const gatedEnvSet: Set<string> | "all" | "none" = requiresApproval
     ? "all"
     : !reviewSetting?.requireReviewOn
       ? "none"
@@ -106,13 +106,7 @@ export default function RequestReviewModal({
 
   const mergeResult = useMemo(() => {
     if (!revision || !baseRevision || !liveRevision) return null;
-    return autoMerge(
-      liveRevision,
-      baseRevision,
-      revision,
-      envIds,
-      {},
-    );
+    return autoMerge(liveRevision, baseRevision, revision, envIds, {});
   }, [revision, baseRevision, liveRevision, envIds]);
 
   const [comment, setComment] = useState("");

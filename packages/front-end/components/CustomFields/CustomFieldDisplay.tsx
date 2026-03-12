@@ -1,11 +1,10 @@
 import React, { FC, useState } from "react";
-import { PiShieldCheckBold, PiShieldSlashBold } from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useForm } from "react-hook-form";
 import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
 import { FeatureInterface } from "shared/types/feature";
 import { Box, Flex, Heading } from "@radix-ui/themes";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import DraftControlBadge from "@/components/Features/DraftControlBadge";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -205,28 +204,10 @@ const CustomFieldDisplay: FC<{
                   {label ? label : ""}
                 </Heading>
                 {showApprovalBadge && (
-                  <Tooltip
-                    body={
-                      draftInfo
-                        ? "Changes to this section create a draft revision that requires approval before going live."
-                        : "Changes to this section are published directly — no draft or approval required."
-                    }
-                    tipMinWidth="180px"
-                  >
-                    <span
-                      style={{
-                        color: draftInfo ? "var(--violet-9)" : "var(--gray-8)",
-                        lineHeight: 1,
-                        display: "flex",
-                      }}
-                    >
-                      {draftInfo ? (
-                        <PiShieldCheckBold size={16} />
-                      ) : (
-                        <PiShieldSlashBold size={16} />
-                      )}
-                    </span>
-                  </Tooltip>
+                  <DraftControlBadge
+                    gated={!!draftInfo}
+                    approvalsEnabled={showApprovalBadge}
+                  />
                 )}
               </Flex>
               <div className="flex-1" />
