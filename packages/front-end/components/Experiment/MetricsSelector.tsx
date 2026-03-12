@@ -474,6 +474,7 @@ const MetricsSelector: FC<{
       autoFocus={autoFocus}
       isOptionDisabled={isOptionDisabled}
       formatOptionLabel={multiFormatOptionLabel}
+      virtualized
       disabled={disabled}
       helpText={
         <>
