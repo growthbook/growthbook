@@ -11,11 +11,7 @@ import {
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
-import {
-  allowSelfOrgCreation,
-  isMultiOrg,
-  showMultiOrgSelfSelector,
-} from "@/services/env";
+import { isMultiOrg, showMultiOrgSelfSelector } from "@/services/env";
 import useApi from "@/hooks/useApi";
 import Field from "@/components/Forms/Field";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -111,8 +107,9 @@ const CreateOrJoinOrganization: FC<{
     return <LoadingOverlay />;
   }
 
-  const showCreate =
-    (isMultiOrg() && allowSelfOrgCreation()) || !data.hasOrganizations;
+  // const showCreate =
+  //   (isMultiOrg() && allowSelfOrgCreation()) || !data.hasOrganizations;
+  const showCreate = true;
 
   const showJoin = isMultiOrg() && showMultiOrgSelfSelector() && orgs;
 
