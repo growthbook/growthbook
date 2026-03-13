@@ -26,7 +26,10 @@ import { ReqContext } from "back-end/types/request";
 import { addCloudSDKMapping } from "back-end/src/services/clickhouse";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { createModelAuditLogger } from "back-end/src/services/audit";
-import { generateEncryptionKey, generateSigningKey } from "./ApiKeyModel";
+import {
+  generateEncryptionKey,
+  generateSigningKey,
+} from "back-end/src/util/api-key.util";
 
 const audit = createModelAuditLogger({
   entity: "sdk-connection",

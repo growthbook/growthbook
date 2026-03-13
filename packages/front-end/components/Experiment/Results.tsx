@@ -10,6 +10,7 @@ import {
 import {
   isPrecomputedDimension,
   getEffectiveLookbackOverride,
+  getLatestPhaseVariations,
 } from "shared/experiments";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { MetricSnapshotSettings } from "shared/types/report";
@@ -124,9 +125,10 @@ const Results: FC<{
     (Date.now() - getValidDate(phaseObj?.dateStarted ?? "").getTime()) /
     (1000 * 60);
 
-  const variations = experiment.variations.map((v, i) => {
+  const variations = getLatestPhaseVariations(experiment).map((v, i) => {
     return {
-      id: v.key || i + "",
+      id: v.key || v.index + "",
+      index: v.index,
       name: v.name,
       weight: phaseObj?.variationWeights?.[i] || 0,
     };
@@ -290,7 +292,7 @@ const Results: FC<{
             await apiCall(`/experiment/${experiment.id}`, {
               method: "POST",
               body: JSON.stringify({
-                variations: experiment.variations.map((v, i) => {
+                variations: getLatestPhaseVariations(experiment).map((v, i) => {
                   return {
                     ...v,
                     key: ids[i] ?? v.key,

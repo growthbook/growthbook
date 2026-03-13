@@ -12,6 +12,10 @@ import ScheduleInputs from "@/components/Features/ScheduleInputs";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
 import ConditionInput from "@/components/Features/ConditionInput";
 import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
+import {
+  AttributeOptionWithTooltip,
+  type AttributeOptionForTooltip,
+} from "@/components/Features/AttributeOptionTooltip";
 
 export default function RolloutFields({
   feature,
@@ -82,13 +86,31 @@ export default function RolloutFields({
             className="mb-3"
           />
           <SelectField
+            withRadixThemedPortal
             label="Sample based on attribute"
             options={attributeSchema
               .filter((s) => !hasHashAttributes || s.hashAttribute)
-              .map((s) => ({ label: s.property, value: s.property }))}
+              .map((s) => ({
+                label: s.property,
+                value: s.property,
+                description: s.description,
+                tags: s.tags,
+                datatype: s.datatype,
+                hashAttribute: s.hashAttribute,
+              }))}
             value={form.watch("hashAttribute")}
             onChange={(v) => {
               form.setValue("hashAttribute", v);
+            }}
+            formatOptionLabel={(o, meta) => {
+              return (
+                <AttributeOptionWithTooltip
+                  option={o as AttributeOptionForTooltip}
+                  context={meta.context}
+                >
+                  {o.label}
+                </AttributeOptionWithTooltip>
+              );
             }}
           />
           <div className="mb-2">

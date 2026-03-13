@@ -18,6 +18,7 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
 } from "shared/types/experiment";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { BiRadioCircle, BiRadioCircleMarked } from "react-icons/bi";
 import { formatNumber } from "@/services/metrics";
 import { getVariationColor } from "@/services/features";
@@ -168,7 +169,9 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
 }) => {
   const formatter = formatNumber;
 
-  const variationNames = experiment.variations.map((v) => v.name);
+  const variationNames = getLatestPhaseVariations(experiment).map(
+    (v) => v.name,
+  );
   const { containerRef, containerBounds } = useTooltipInPortal({
     scroll: true,
     detectBounds: true,

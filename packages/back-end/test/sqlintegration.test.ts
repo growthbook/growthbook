@@ -370,7 +370,7 @@ describe("bigquery integration", () => {
         "SELECT user_id, anonymous_id, timestamp, value FROM events\n" +
         ") m\n" +
         "\n" +
-        "WHERE m.timestamp >= '2023-01-01 00:00:00' AND m.timestamp <= '2023-01-31 00:00:00' AND (((event_type = 'purchase')) OR ((country = 'UK')))\n" +
+        "WHERE m.timestamp >= '2023-01-01 00:00:00' AND m.timestamp <= '2023-01-31 00:00:00' AND ((event_type = 'purchase')\nOR\n(country = 'UK'))\n" +
         "",
     );
 
@@ -485,7 +485,7 @@ describe("bigquery integration", () => {
         "SELECT user_id, anonymous_id, timestamp, value FROM events\n" +
         ") m\n" +
         "\n" +
-        "WHERE m.timestamp >= '2023-01-01 00:00:00' AND m.timestamp <= '2023-01-31 00:00:00' AND (((event_type = 'purchase')))\n" +
+        "WHERE m.timestamp >= '2023-01-01 00:00:00' AND m.timestamp <= '2023-01-31 00:00:00' AND (event_type = 'purchase')\n" +
         "",
     );
   });
@@ -564,7 +564,7 @@ describe("bigquery integration", () => {
         "SELECT user_id, anonymous_id, timestamp, value FROM events\n" +
         ") m\n" +
         "\n" +
-        "WHERE m.timestamp >= '2023-01-01 00:00:00' AND m.timestamp <= '2023-01-31 00:00:00' AND (((event_type = 'purchase')) OR ((event_type = 'session_start')))\n" +
+        "WHERE m.timestamp >= '2023-01-01 00:00:00' AND m.timestamp <= '2023-01-31 00:00:00' AND ((event_type = 'purchase')\nOR\n(event_type = 'session_start'))\n" +
         "",
     );
   });

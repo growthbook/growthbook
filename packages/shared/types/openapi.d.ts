@@ -161,6 +161,22 @@ export interface paths {
       };
     };
   };
+  "/experiments/{id}/variation/{variationId}/screenshot/upload": {
+    /** Upload a variation screenshot */
+    post: operations["postVariationImageUpload"];
+    parameters: {
+        /** @description The id of the requested resource */
+        /** @description The variation ID (e.g. var_abc123) from the experiment's variations */
+      path: {
+        id: string;
+        variationId: string;
+      };
+    };
+  };
+  "/experiments/{id}/variation/{variationId}/screenshot": {
+    /** Delete a variation screenshot */
+    delete: operations["deleteVariationScreenshot"];
+  };
   "/experiments/{id}/results": {
     /** Get results for an experiment */
     get: operations["getExperimentResults"];
@@ -453,6 +469,10 @@ export interface paths {
   "/teams/{teamId}/": {
     /** Delete a single team */
     delete: operations["deleteTeam"];
+  };
+  "/experiment-templates": {
+    /** Get all experimentTemplates */
+    get: operations["listExperimentTemplates"];
   };
 }
 
@@ -916,6 +936,59 @@ export interface components {
         resourceId: string;
       };
       defaultProject?: string;
+    };
+    ExperimentTemplate: {
+      id: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      project?: string;
+      owner: string;
+      templateMetadata: {
+        name: string;
+        description?: string;
+      };
+      /** @enum {string} */
+      type: "standard";
+      hypothesis?: string;
+      description?: string;
+      tags?: (string)[];
+      customFields?: {
+        [key: string]: string | undefined;
+      };
+      datasource: string;
+      exposureQueryId: string;
+      hashAttribute?: string;
+      fallbackAttribute?: string;
+      disableStickyBucketing?: boolean;
+      goalMetrics?: (string)[];
+      secondaryMetrics?: (string)[];
+      guardrailMetrics?: (string)[];
+      activationMetric?: string;
+      /** @enum {string} */
+      statsEngine: "bayesian" | "frequentist";
+      segment?: string;
+      skipPartialData?: boolean;
+      targeting: {
+        coverage: number;
+        savedGroups?: ({
+            /** @enum {string} */
+            match: "all" | "none" | "any";
+            ids: (string)[];
+          })[];
+        prerequisites?: ({
+            id: string;
+            condition: string;
+          })[];
+        condition: string;
+      };
+      customMetricSlices?: ({
+          slices: ({
+              column: string;
+              levels: (string)[];
+            })[];
+        })[];
     };
     PaginationFields: {
       limit: number;
@@ -10515,7 +10588,18 @@ export interface operations {
           disableStickyBucketing?: boolean;
           bucketVersion?: number;
           minBucketVersion?: number;
+          /**
+           * @description The result status of the experiment. Maps to resultSummary.status in the GET response. 
+           * @enum {string}
+           */
+          results?: "dnf" | "won" | "lost" | "inconclusive";
+          /** @description The index of the winning variation (0-indexed). Maps to resultSummary.winner (variation ID) in the GET response. */
+          winner?: number;
+          /** @description Analysis summary or conclusions for the experiment. Maps to resultSummary.conclusions in the GET response. */
+          analysis?: string;
+          /** @description The ID of the released variation. Maps to resultSummary.releasedVariationId in the GET response. */
           releasedVariationId?: string;
+          /** @description If true, the experiment is excluded from the SDK payload. Maps to resultSummary.excludeFromPayload in the GET response. */
           excludeFromPayload?: boolean;
           /** @enum {string} */
           inProgressConversions?: "loose" | "strict";
@@ -10816,6 +10900,65 @@ export interface operations {
               status: string;
             };
           };
+        };
+      };
+    };
+  };
+  postVariationImageUpload: {
+    /** Upload a variation screenshot */
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description Base64-encoded screenshot data */
+          screenshot: string;
+          /**
+           * @description MIME type of the screenshot 
+           * @enum {string}
+           */
+          contentType: "image/png" | "image/jpeg" | "image/gif";
+          /** @description Optional description for the screenshot */
+          description?: string;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            screenshot: {
+              /** @description URL or path to the uploaded screenshot */
+              path: string;
+              /** @description Description of the screenshot */
+              description: string;
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteVariationScreenshot: {
+    /** Delete a variation screenshot */
+    parameters: {
+        /** @description The id of the requested resource */
+        /** @description The variation ID (e.g. var_abc123) from the experiment's variations */
+      path: {
+        id: string;
+        variationId: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The screenshot path/URL to delete (from upload response) */
+          path: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Screenshot deleted successfully */
+      200: {
+        content: {
+          "application/json": any;
         };
       };
     };
@@ -18403,6 +18546,75 @@ export interface operations {
       };
     };
   };
+  listExperimentTemplates: {
+    /** Get all experimentTemplates */
+    parameters: {
+      query: {
+        projectId?: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            experimentTemplates: ({
+                id: string;
+                /** Format: date-time */
+                dateCreated: string;
+                /** Format: date-time */
+                dateUpdated: string;
+                project?: string;
+                owner: string;
+                templateMetadata: {
+                  name: string;
+                  description?: string;
+                };
+                /** @enum {string} */
+                type: "standard";
+                hypothesis?: string;
+                description?: string;
+                tags?: (string)[];
+                customFields?: {
+                  [key: string]: string | undefined;
+                };
+                datasource: string;
+                exposureQueryId: string;
+                hashAttribute?: string;
+                fallbackAttribute?: string;
+                disableStickyBucketing?: boolean;
+                goalMetrics?: (string)[];
+                secondaryMetrics?: (string)[];
+                guardrailMetrics?: (string)[];
+                activationMetric?: string;
+                /** @enum {string} */
+                statsEngine: "bayesian" | "frequentist";
+                segment?: string;
+                skipPartialData?: boolean;
+                targeting: {
+                  coverage: number;
+                  savedGroups?: ({
+                      /** @enum {string} */
+                      match: "all" | "none" | "any";
+                      ids: (string)[];
+                    })[];
+                  prerequisites?: ({
+                      id: string;
+                      condition: string;
+                    })[];
+                  condition: string;
+                };
+                customMetricSlices?: ({
+                    slices: ({
+                        column: string;
+                        levels: (string)[];
+                      })[];
+                  })[];
+              })[];
+          };
+        };
+      };
+    };
+  };
 }
 import { z } from "zod";
 import * as openApiValidators from "shared/validators";
@@ -18492,6 +18704,8 @@ export type GetExperimentNamesResponse = operations["getExperimentNames"]["respo
 export type GetExperimentResponse = operations["getExperiment"]["responses"]["200"]["content"]["application/json"];
 export type UpdateExperimentResponse = operations["updateExperiment"]["responses"]["200"]["content"]["application/json"];
 export type PostExperimentSnapshotResponse = operations["postExperimentSnapshot"]["responses"]["200"]["content"]["application/json"];
+export type PostVariationImageUploadResponse = operations["postVariationImageUpload"]["responses"]["200"]["content"]["application/json"];
+export type DeleteVariationScreenshotResponse = operations["deleteVariationScreenshot"]["responses"]["200"]["content"]["application/json"];
 export type GetExperimentResultsResponse = operations["getExperimentResults"]["responses"]["200"]["content"]["application/json"];
 export type ListVisualChangesetsResponse = operations["listVisualChangesets"]["responses"]["200"]["content"]["application/json"];
 export type GetExperimentSnapshotResponse = operations["getExperimentSnapshot"]["responses"]["200"]["content"]["application/json"];

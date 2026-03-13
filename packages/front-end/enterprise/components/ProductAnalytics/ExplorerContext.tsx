@@ -43,6 +43,7 @@ export interface ExplorerContextValue {
   error: string | null;
   commonColumns: Pick<ColumnInterface, "column" | "name">[];
   isStale: boolean;
+  needsFetch: boolean;
   needsUpdate: boolean;
   isSubmittable: boolean;
 
@@ -426,6 +427,7 @@ export function ExplorerProvider({
       updateTimestampColumn,
       changeChartType,
       isStale,
+      needsFetch,
       needsUpdate,
       isSubmittable,
       clearAllDatasets,
@@ -446,6 +448,7 @@ export function ExplorerProvider({
       updateTimestampColumn,
       changeChartType,
       isStale,
+      needsFetch,
       needsUpdate,
       isSubmittable,
       clearAllDatasets,
