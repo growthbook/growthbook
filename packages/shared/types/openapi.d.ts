@@ -53,6 +53,10 @@ export interface paths {
     /** Get all revisions for a feature */
     get: operations["getFeatureRevisions"];
   };
+  "/stale-features": {
+    /** Get stale status for one or more features */
+    get: operations["getFeatureStale"];
+  };
   "/feature-keys": {
     /** Get list of feature keys */
     get: operations["getFeatureKeys"];
@@ -156,6 +160,22 @@ export interface paths {
         id: string;
       };
     };
+  };
+  "/experiments/{id}/variation/{variationId}/screenshot/upload": {
+    /** Upload a variation screenshot */
+    post: operations["postVariationImageUpload"];
+    parameters: {
+        /** @description The id of the requested resource */
+        /** @description The variation ID (e.g. var_abc123) from the experiment's variations */
+      path: {
+        id: string;
+        variationId: string;
+      };
+    };
+  };
+  "/experiments/{id}/variation/{variationId}/screenshot": {
+    /** Delete a variation screenshot */
+    delete: operations["deleteVariationScreenshot"];
   };
   "/experiments/{id}/results": {
     /** Get results for an experiment */
@@ -449,6 +469,10 @@ export interface paths {
   "/teams/{teamId}/": {
     /** Delete a single team */
     delete: operations["deleteTeam"];
+  };
+  "/experiment-templates": {
+    /** Get all experimentTemplates */
+    get: operations["listExperimentTemplates"];
   };
 }
 
@@ -912,6 +936,59 @@ export interface components {
         resourceId: string;
       };
       defaultProject?: string;
+    };
+    ExperimentTemplate: {
+      id: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      project?: string;
+      owner: string;
+      templateMetadata: {
+        name: string;
+        description?: string;
+      };
+      /** @enum {string} */
+      type: "standard";
+      hypothesis?: string;
+      description?: string;
+      tags?: (string)[];
+      customFields?: {
+        [key: string]: string | undefined;
+      };
+      datasource: string;
+      exposureQueryId: string;
+      hashAttribute?: string;
+      fallbackAttribute?: string;
+      disableStickyBucketing?: boolean;
+      goalMetrics?: (string)[];
+      secondaryMetrics?: (string)[];
+      guardrailMetrics?: (string)[];
+      activationMetric?: string;
+      /** @enum {string} */
+      statsEngine: "bayesian" | "frequentist";
+      segment?: string;
+      skipPartialData?: boolean;
+      targeting: {
+        coverage: number;
+        savedGroups?: ({
+            /** @enum {string} */
+            match: "all" | "none" | "any";
+            ids: (string)[];
+          })[];
+        prerequisites?: ({
+            id: string;
+            condition: string;
+          })[];
+        condition: string;
+      };
+      customMetricSlices?: ({
+          slices: ({
+              column: string;
+              levels: (string)[];
+            })[];
+        })[];
     };
     PaginationFields: {
       limit: number;
@@ -3486,6 +3563,9 @@ export interface components {
       banditBurnInValue?: number;
       /** @enum {string} */
       banditBurnInUnit?: "days" | "hours";
+      banditConversionWindowValue?: number;
+      /** @enum {string} */
+      banditConversionWindowUnit?: "days" | "hours";
       linkedFeatures?: (string)[];
       hasVisualChangesets?: boolean;
       hasURLRedirects?: boolean;
@@ -3880,6 +3960,9 @@ export interface components {
       banditBurnInValue?: number;
       /** @enum {string} */
       banditBurnInUnit?: "days" | "hours";
+      banditConversionWindowValue?: number;
+      /** @enum {string} */
+      banditConversionWindowUnit?: "days" | "hours";
       linkedFeatures?: (string)[];
       hasVisualChangesets?: boolean;
       hasURLRedirects?: boolean;
@@ -8620,6 +8703,54 @@ export interface operations {
       };
     };
   };
+  getFeatureStale: {
+    /** Get stale status for one or more features */
+    parameters: {
+        /** @description Comma-separated list of feature IDs (URL-encoded if needed). Example: `my_feature,another_feature` */
+      query: {
+        ids: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            /** @description Map of feature ID to stale status. Only requested features that were found and readable are included. */
+            features: {
+              [key: string]: ({
+                /** @description The feature key */
+                featureId: string;
+                /** @description Whether the feature is considered stale overall (all enabled environments are stale). Always false when neverStale is true. */
+                isStale: boolean;
+                /**
+                 * @description Reason for the feature's stale or non-stale status. `never-stale` when stale detection is disabled. Non-stale reasons: `recently-updated`, `active-draft`, `has-dependents`. Stale reasons: `no-rules`, `rules-one-sided`, `abandoned-draft`, `toggled-off`. Null when non-stale with no single cause (see staleByEnv).
+                 *  
+                 * @enum {string|null}
+                 */
+                staleReason: "never-stale" | "recently-updated" | "active-draft" | "has-dependents" | "no-rules" | "rules-one-sided" | "abandoned-draft" | "toggled-off" | "active-experiment" | "has-rules" | null;
+                /** @description When true the feature is permanently excluded from stale detection. */
+                neverStale: boolean;
+                /** @description Per-environment staleness breakdown, keyed by environment ID. Present when environments exist and neverStale is false. */
+                staleByEnv?: {
+                  [key: string]: ({
+                    /** @description Whether this environment is stale */
+                    isStale: boolean;
+                    /**
+                     * @description Reason for the stale status in this environment 
+                     * @enum {string|null}
+                     */
+                    reason: "no-rules" | "rules-one-sided" | "abandoned-draft" | "toggled-off" | "active-experiment" | "has-rules" | "recently-updated" | "active-draft" | "has-dependents" | null;
+                    /** @description The deterministic value this feature evaluates to in this environment. Uses the same raw string encoding as `feature.defaultValue`. Only present when the value is deterministic or the environment is toggled off. */
+                    evaluatesTo?: string;
+                  }) | undefined;
+                };
+              }) | undefined;
+            };
+          };
+        };
+      };
+    };
+  };
   getFeatureKeys: {
     /** Get list of feature keys */
     parameters: {
@@ -9842,6 +9973,9 @@ export interface operations {
                 banditBurnInValue?: number;
                 /** @enum {string} */
                 banditBurnInUnit?: "days" | "hours";
+                banditConversionWindowValue?: number;
+                /** @enum {string} */
+                banditConversionWindowUnit?: "days" | "hours";
                 linkedFeatures?: (string)[];
                 hasVisualChangesets?: boolean;
                 hasURLRedirects?: boolean;
@@ -9878,6 +10012,8 @@ export interface operations {
           /** @description The ID property of one of the assignment query objects associated with the datasource */
           assignmentQueryId: string;
           trackingKey: string;
+          /** @description If true, allow creating an experiment even if another experiment with the same tracking key already exists */
+          bypassDuplicateKeyCheck?: boolean;
           /** @description Name of the experiment */
           name: string;
           /** @enum {string} */
@@ -9995,6 +10131,9 @@ export interface operations {
           banditBurnInValue?: number;
           /** @enum {string} */
           banditBurnInUnit?: "days" | "hours";
+          banditConversionWindowValue?: number;
+          /** @enum {string} */
+          banditConversionWindowUnit?: "days" | "hours";
           customFields?: {
             [key: string]: string | undefined;
           };
@@ -10164,6 +10303,9 @@ export interface operations {
               banditBurnInValue?: number;
               /** @enum {string} */
               banditBurnInUnit?: "days" | "hours";
+              banditConversionWindowValue?: number;
+              /** @enum {string} */
+              banditConversionWindowUnit?: "days" | "hours";
               linkedFeatures?: (string)[];
               hasVisualChangesets?: boolean;
               hasURLRedirects?: boolean;
@@ -10368,6 +10510,9 @@ export interface operations {
               banditBurnInValue?: number;
               /** @enum {string} */
               banditBurnInUnit?: "days" | "hours";
+              banditConversionWindowValue?: number;
+              /** @enum {string} */
+              banditConversionWindowUnit?: "days" | "hours";
               linkedFeatures?: (string)[];
               hasVisualChangesets?: boolean;
               hasURLRedirects?: boolean;
@@ -10408,6 +10553,8 @@ export interface operations {
           datasourceId?: string;
           assignmentQueryId?: string;
           trackingKey?: string;
+          /** @description If true, allow updating the tracking key even if another experiment with the same tracking key already exists */
+          bypassDuplicateKeyCheck?: boolean;
           /** @description Name of the experiment */
           name?: string;
           /** @enum {string} */
@@ -10441,7 +10588,18 @@ export interface operations {
           disableStickyBucketing?: boolean;
           bucketVersion?: number;
           minBucketVersion?: number;
+          /**
+           * @description The result status of the experiment. Maps to resultSummary.status in the GET response. 
+           * @enum {string}
+           */
+          results?: "dnf" | "won" | "lost" | "inconclusive";
+          /** @description The index of the winning variation (0-indexed). Maps to resultSummary.winner (variation ID) in the GET response. */
+          winner?: number;
+          /** @description Analysis summary or conclusions for the experiment. Maps to resultSummary.conclusions in the GET response. */
+          analysis?: string;
+          /** @description The ID of the released variation. Maps to resultSummary.releasedVariationId in the GET response. */
           releasedVariationId?: string;
+          /** @description If true, the experiment is excluded from the SDK payload. Maps to resultSummary.excludeFromPayload in the GET response. */
           excludeFromPayload?: boolean;
           /** @enum {string} */
           inProgressConversions?: "loose" | "strict";
@@ -10525,6 +10683,9 @@ export interface operations {
           banditBurnInValue?: number;
           /** @enum {string} */
           banditBurnInUnit?: "days" | "hours";
+          banditConversionWindowValue?: number;
+          /** @enum {string} */
+          banditConversionWindowUnit?: "days" | "hours";
           customFields?: {
             [key: string]: string | undefined;
           };
@@ -10694,6 +10855,9 @@ export interface operations {
               banditBurnInValue?: number;
               /** @enum {string} */
               banditBurnInUnit?: "days" | "hours";
+              banditConversionWindowValue?: number;
+              /** @enum {string} */
+              banditConversionWindowUnit?: "days" | "hours";
               linkedFeatures?: (string)[];
               hasVisualChangesets?: boolean;
               hasURLRedirects?: boolean;
@@ -10736,6 +10900,65 @@ export interface operations {
               status: string;
             };
           };
+        };
+      };
+    };
+  };
+  postVariationImageUpload: {
+    /** Upload a variation screenshot */
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description Base64-encoded screenshot data */
+          screenshot: string;
+          /**
+           * @description MIME type of the screenshot 
+           * @enum {string}
+           */
+          contentType: "image/png" | "image/jpeg" | "image/gif";
+          /** @description Optional description for the screenshot */
+          description?: string;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            screenshot: {
+              /** @description URL or path to the uploaded screenshot */
+              path: string;
+              /** @description Description of the screenshot */
+              description: string;
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteVariationScreenshot: {
+    /** Delete a variation screenshot */
+    parameters: {
+        /** @description The id of the requested resource */
+        /** @description The variation ID (e.g. var_abc123) from the experiment's variations */
+      path: {
+        id: string;
+        variationId: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The screenshot path/URL to delete (from upload response) */
+          path: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Screenshot deleted successfully */
+      200: {
+        content: {
+          "application/json": any;
         };
       };
     };
@@ -11885,6 +12108,9 @@ export interface operations {
               banditBurnInValue?: number;
               /** @enum {string} */
               banditBurnInUnit?: "days" | "hours";
+              banditConversionWindowValue?: number;
+              /** @enum {string} */
+              banditConversionWindowUnit?: "days" | "hours";
               linkedFeatures?: (string)[];
               hasVisualChangesets?: boolean;
               hasURLRedirects?: boolean;
@@ -18320,6 +18546,75 @@ export interface operations {
       };
     };
   };
+  listExperimentTemplates: {
+    /** Get all experimentTemplates */
+    parameters: {
+      query: {
+        projectId?: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            experimentTemplates: ({
+                id: string;
+                /** Format: date-time */
+                dateCreated: string;
+                /** Format: date-time */
+                dateUpdated: string;
+                project?: string;
+                owner: string;
+                templateMetadata: {
+                  name: string;
+                  description?: string;
+                };
+                /** @enum {string} */
+                type: "standard";
+                hypothesis?: string;
+                description?: string;
+                tags?: (string)[];
+                customFields?: {
+                  [key: string]: string | undefined;
+                };
+                datasource: string;
+                exposureQueryId: string;
+                hashAttribute?: string;
+                fallbackAttribute?: string;
+                disableStickyBucketing?: boolean;
+                goalMetrics?: (string)[];
+                secondaryMetrics?: (string)[];
+                guardrailMetrics?: (string)[];
+                activationMetric?: string;
+                /** @enum {string} */
+                statsEngine: "bayesian" | "frequentist";
+                segment?: string;
+                skipPartialData?: boolean;
+                targeting: {
+                  coverage: number;
+                  savedGroups?: ({
+                      /** @enum {string} */
+                      match: "all" | "none" | "any";
+                      ids: (string)[];
+                    })[];
+                  prerequisites?: ({
+                      id: string;
+                      condition: string;
+                    })[];
+                  condition: string;
+                };
+                customMetricSlices?: ({
+                    slices: ({
+                        column: string;
+                        levels: (string)[];
+                      })[];
+                  })[];
+              })[];
+          };
+        };
+      };
+    };
+  };
 }
 import { z } from "zod";
 import * as openApiValidators from "shared/validators";
@@ -18378,6 +18673,7 @@ export type DeleteFeatureResponse = operations["deleteFeature"]["responses"]["20
 export type ToggleFeatureResponse = operations["toggleFeature"]["responses"]["200"]["content"]["application/json"];
 export type RevertFeatureResponse = operations["revertFeature"]["responses"]["200"]["content"]["application/json"];
 export type GetFeatureRevisionsResponse = operations["getFeatureRevisions"]["responses"]["200"]["content"]["application/json"];
+export type GetFeatureStaleResponse = operations["getFeatureStale"]["responses"]["200"]["content"]["application/json"];
 export type GetFeatureKeysResponse = operations["getFeatureKeys"]["responses"]["200"]["content"]["application/json"];
 export type ListProjectsResponse = operations["listProjects"]["responses"]["200"]["content"]["application/json"];
 export type PostProjectResponse = operations["postProject"]["responses"]["200"]["content"]["application/json"];
@@ -18408,6 +18704,8 @@ export type GetExperimentNamesResponse = operations["getExperimentNames"]["respo
 export type GetExperimentResponse = operations["getExperiment"]["responses"]["200"]["content"]["application/json"];
 export type UpdateExperimentResponse = operations["updateExperiment"]["responses"]["200"]["content"]["application/json"];
 export type PostExperimentSnapshotResponse = operations["postExperimentSnapshot"]["responses"]["200"]["content"]["application/json"];
+export type PostVariationImageUploadResponse = operations["postVariationImageUpload"]["responses"]["200"]["content"]["application/json"];
+export type DeleteVariationScreenshotResponse = operations["deleteVariationScreenshot"]["responses"]["200"]["content"]["application/json"];
 export type GetExperimentResultsResponse = operations["getExperimentResults"]["responses"]["200"]["content"]["application/json"];
 export type ListVisualChangesetsResponse = operations["listVisualChangesets"]["responses"]["200"]["content"]["application/json"];
 export type GetExperimentSnapshotResponse = operations["getExperimentSnapshot"]["responses"]["200"]["content"]["application/json"];

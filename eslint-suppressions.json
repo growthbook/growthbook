@@ -199,11 +199,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/TabbedPage/AnalysisSettings.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/TabbedPage/AnalysisSettingsSummary.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -310,11 +305,6 @@
     }
   },
   "packages/front-end/components/Features/ExperimentSummary.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/FeatureArchiveModal.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -432,11 +422,6 @@
   "packages/front-end/components/GeneralSettings/AISettings.tsx": {
     "no-restricted-imports": {
       "count": 2
-    }
-  },
-  "packages/front-end/components/GeneralSettings/BanditSettings.tsx": {
-    "no-restricted-imports": {
-      "count": 1
     }
   },
   "packages/front-end/components/GeneralSettings/DatasourceSettings.tsx": {
@@ -644,11 +629,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Owner/SelectOwner.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Queries/QueriesLastRun.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -690,11 +670,6 @@
     }
   },
   "packages/front-end/components/SchemaBrowser/EditSqlModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Search/SearchFilters.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -942,11 +917,6 @@
   "packages/front-end/pages/metric-effects.tsx": {
     "no-restricted-imports": {
       "count": 2
-    }
-  },
-  "packages/front-end/pages/presentations.tsx": {
-    "no-restricted-imports": {
-      "count": 1
     }
   },
   "packages/front-end/pages/product-analytics/dashboards/index.tsx": {

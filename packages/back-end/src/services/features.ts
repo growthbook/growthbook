@@ -300,7 +300,7 @@ export function generateAutoExperimentsPayload({
       const { experiment: e } = data;
       if (e.status === "stopped" && e.excludeFromPayload) return null;
 
-      const phase: ExperimentPhase | null = e.phases.slice(-1)?.[0] ?? null;
+      const phase: ExperimentPhase | null = e.phases?.slice(-1)?.[0] ?? null;
       const forcedVariation =
         e.status === "stopped" && e.releasedVariationId
           ? e.variations.find((v) => v.id === e.releasedVariationId)
@@ -858,7 +858,7 @@ export async function getFeatureDefinitionsResponse({
     organization,
   );
 
-  const scrubbedSavedGroups =
+  const savedGroupsForPayload =
     capabilities.includes("savedGroupReferences") && savedGroupReferencesEnabled
       ? savedGroupsValues
       : undefined;
@@ -868,7 +868,7 @@ export async function getFeatureDefinitionsResponse({
       features,
       ...(experiments !== undefined && { experiments: processedExperiments }),
       dateUpdated,
-      savedGroups: scrubbedSavedGroups,
+      savedGroups: savedGroupsForPayload,
     };
   }
 
@@ -881,8 +881,8 @@ export async function getFeatureDefinitionsResponse({
       ? await encrypt(JSON.stringify(processedExperiments), encryptionKey)
       : undefined;
 
-  const encryptedSavedGroups = scrubbedSavedGroups
-    ? await encrypt(JSON.stringify(scrubbedSavedGroups), encryptionKey)
+  const encryptedSavedGroups = savedGroupsForPayload
+    ? await encrypt(JSON.stringify(savedGroupsForPayload), encryptionKey)
     : undefined;
 
   return {

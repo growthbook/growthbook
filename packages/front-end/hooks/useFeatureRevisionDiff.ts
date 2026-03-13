@@ -65,10 +65,13 @@ export function useFeatureRevisionDiff({
   return useMemo(() => {
     const diffs: FeatureRevisionDiff[] = [];
 
-    // Compare default values
-    if (current.defaultValue !== draft.defaultValue) {
-      const aValue = parseDefaultValue(current.defaultValue);
-      const bValue = parseDefaultValue(draft.defaultValue);
+    // Compare default values using semantic equality (parsed) so we don't show
+    // a diff when only formatting/whitespace differs (e.g. "true" vs "true ").
+    const currentDefault = current.defaultValue ?? "";
+    const draftDefault = draft.defaultValue ?? "";
+    const aValue = parseDefaultValue(currentDefault);
+    const bValue = parseDefaultValue(draftDefault);
+    if (!isEqual(aValue, bValue)) {
       diffs.push({
         title: "Default Value",
         a:

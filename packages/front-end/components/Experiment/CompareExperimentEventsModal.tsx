@@ -194,6 +194,8 @@ const EXPERIMENT_SECTION_KEYS: Record<
   banditScheduleUnit: "analysis",
   banditScheduleValue: "analysis",
   lookbackOverride: "analysis",
+  banditConversionWindowUnit: "analysis",
+  banditConversionWindowValue: "analysis",
 
   // — Metadata —
   name: "metadata",

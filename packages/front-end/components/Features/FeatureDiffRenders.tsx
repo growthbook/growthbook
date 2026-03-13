@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import isEqual from "lodash/isEqual";
+import { Box } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
 import {
   FeatureRule,
@@ -26,6 +27,7 @@ import {
 } from "@/components/AuditHistoryExplorer/DiffRenderUtils";
 import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
+import styles from "./FeatureDiffRenders.module.scss";
 
 // Resolves an experiment ID to its display name and renders it as a link.
 // Falls back to the raw ID if not found in the local SWR cache.
@@ -59,6 +61,9 @@ function ValueChangedField({
   post: string | null | undefined;
 }) {
   if (isEqual(pre, post)) return null;
+  // Treat null, undefined, and empty string as unset (matches GenericFieldChange precedent)
+  const displayVal = (v: string | null | undefined): ReactNode =>
+    v == null || v === "" ? <em>unset</em> : v;
   const isSimple = (v: string | null | undefined): boolean =>
     v == null || (!v.includes("\n") && v.length <= 80);
   if (isSimple(pre) && isSimple(post)) {
@@ -67,8 +72,8 @@ function ValueChangedField({
         <ChangeField
           label={label}
           changed
-          oldNode={pre != null ? pre : <em>None</em>}
-          newNode={post != null ? post : <em>None</em>}
+          oldNode={displayVal(pre)}
+          newNode={displayVal(post)}
         />
       );
     }
@@ -78,22 +83,26 @@ function ValueChangedField({
           <div className="text-center mr-2" style={{ width: 16 }}>
             Δ
           </div>
-          <div>{pre ?? <em>None</em>}</div>
+          <div>{displayVal(pre)}</div>
         </div>
         <div className="font-weight-bold text-success d-flex align-items-start ml-4">
           <div className="text-center mx-2" style={{ width: 16 }}>
             →
           </div>
-          <div>{post ?? <em>None</em>}</div>
+          <div>{displayVal(post)}</div>
         </div>
       </div>
     );
   }
   // Multi-line content (e.g. pretty-printed JSON) — use inline diff viewer.
+  // diff-wrapper applies theme-aware background/text (light/dark mode) from _bootstrap-theme-overrides.scss
   return (
     <div className="mb-2">
       {label && <div className="font-weight-bold mb-1">{label}</div>}
-      <div style={{ maxHeight: 250, overflowY: "auto" }}>
+      <div
+        className="diff-wrapper diff-wrapper-compact"
+        style={{ maxHeight: 250, overflowY: "auto" }}
+      >
         <ReactDiffViewer
           oldValue={pre ?? ""}
           newValue={post ?? ""}
@@ -160,8 +169,8 @@ function RuleHeading({ rule, index }: { rule: FeatureRule; index: number }) {
     detail = <ExperimentLink experimentId={rule.experimentId} />;
   }
   return (
-    <div className="mb-1">
-      <Text size="medium" color="text-low">
+    <div className="mb-2">
+      <Text size="medium" weight="semibold" color="text-high">
         Rule #{index} — {getRuleTypeLabel(rule.type)}
       </Text>
       {(detail || rule.description) && (
@@ -227,14 +236,14 @@ function RuleFieldDiffs({
           preCond && preCond !== "{}" ? (
             <ConditionDisplay condition={preCond} />
           ) : (
-            <em>None</em>
+            <em>unset</em>
           )
         }
         newNode={
           postCond && postCond !== "{}" ? (
             <ConditionDisplay condition={postCond} />
           ) : (
-            <em>None</em>
+            <em>unset</em>
           )
         }
       />,
@@ -253,14 +262,14 @@ function RuleFieldDiffs({
           preSG?.length ? (
             <SavedGroupTargetingDisplay savedGroups={preSG} />
           ) : (
-            <em>None</em>
+            <em>unset</em>
           )
         }
         newNode={
           postSG?.length ? (
             <SavedGroupTargetingDisplay savedGroups={postSG} />
           ) : (
-            <em>None</em>
+            <em>unset</em>
           )
         }
       />,
@@ -290,14 +299,14 @@ function RuleFieldDiffs({
           normPrereqs(prePrereqs)?.length ? (
             <ConditionDisplay prerequisites={normPrereqs(prePrereqs)} />
           ) : (
-            <em>None</em>
+            <em>unset</em>
           )
         }
         newNode={
           normPrereqs(postPrereqs)?.length ? (
             <ConditionDisplay prerequisites={normPrereqs(postPrereqs)} />
           ) : (
-            <em>None</em>
+            <em>unset</em>
           )
         }
       />,
@@ -465,7 +474,7 @@ function NewRuleDetails({ rule }: { rule: FeatureRule }) {
         key="cond"
         label="Targeting condition"
         changed
-        oldNode={<em>None</em>}
+        oldNode={<em>unset</em>}
         newNode={<ConditionDisplay condition={cond} />}
       />,
     );
@@ -477,7 +486,7 @@ function NewRuleDetails({ rule }: { rule: FeatureRule }) {
         key="sg"
         label="Saved group targeting"
         changed
-        oldNode={<em>None</em>}
+        oldNode={<em>unset</em>}
         newNode={<SavedGroupTargetingDisplay savedGroups={sg} />}
       />,
     );
@@ -493,7 +502,7 @@ function NewRuleDetails({ rule }: { rule: FeatureRule }) {
         key="prereq"
         label="Prerequisites"
         changed
-        oldNode={<em>None</em>}
+        oldNode={<em>unset</em>}
         newNode={<ConditionDisplay prerequisites={normPrereqs} />}
       />,
     );
@@ -516,7 +525,7 @@ function NewRuleDetails({ rule }: { rule: FeatureRule }) {
         key="coverage"
         label="Coverage"
         changed
-        oldNode={<em>None</em>}
+        oldNode={<em>unset</em>}
         newNode={percentFormatter.format(rule.coverage)}
       />,
       <ValueChangedField
@@ -551,7 +560,7 @@ function NewRuleDetails({ rule }: { rule: FeatureRule }) {
         key="experimentId"
         label="Experiment"
         changed
-        oldNode={<em>None</em>}
+        oldNode={<em>unset</em>}
         newNode={<ExperimentLink experimentId={rule.experimentId} />}
       />,
     );
@@ -573,7 +582,7 @@ function NewRuleDetails({ rule }: { rule: FeatureRule }) {
         key="enabled"
         label="Enabled"
         changed
-        oldNode={<em>None</em>}
+        oldNode={<em>unset</em>}
         newNode="disabled"
       />,
     );
@@ -607,6 +616,7 @@ function NewRuleDetails({ rule }: { rule: FeatureRule }) {
   return <div className="ml-3">{rows}</div>;
 }
 
+// Label omitted — revision/draft summary cards already use the section title "Default value".
 export function renderFeatureDefaultValue(
   pre: string | null | undefined,
   post: string,
@@ -614,13 +624,7 @@ export function renderFeatureDefaultValue(
   if (pre === post) return null;
   const preFormatted = pre != null ? formatValue(pre) : null;
   const postFormatted = formatValue(post);
-  return (
-    <ValueChangedField
-      label="Default value"
-      pre={preFormatted}
-      post={postFormatted}
-    />
-  );
+  return <ValueChangedField pre={preFormatted} post={postFormatted} />;
 }
 
 export type RuleChangeSummary = {
@@ -724,10 +728,10 @@ export function renderFeatureRules(
         {added.map((r) => {
           const idx = postIndexById.get(r.id)!;
           return (
-            <div key={r.id} className="mb-3">
+            <Box key={r.id} mb="3" className={styles.ruleSummaryBox}>
               <RuleHeading rule={r} index={idx} />
               <NewRuleDetails rule={r} />
-            </div>
+            </Box>
           );
         })}
       </div>,
@@ -743,9 +747,9 @@ export function renderFeatureRules(
         {removed.map((r) => {
           const idx = preIndexById.get(r.id)!;
           return (
-            <div key={r.id} className="mb-1">
+            <Box key={r.id} mb="2" className={styles.ruleSummaryBox}>
               <RuleHeading rule={r} index={idx} />
-            </div>
+            </Box>
           );
         })}
       </div>,
@@ -762,10 +766,10 @@ export function renderFeatureRules(
           const prev = preById.get(r.id)!;
           const idx = postIndexById.get(r.id)!;
           return (
-            <div key={r.id} className="mb-3">
+            <Box key={r.id} mb="3" className={styles.ruleSummaryBox}>
               <RuleHeading rule={r} index={idx} />
               <RuleFieldDiffs pre={prev} post={r} />
-            </div>
+            </Box>
           );
         })}
       </div>,
@@ -854,18 +858,19 @@ type FeaturePartial = Partial<FeatureInterface> | null;
 
 // defaultValue may already be a parsed object after normalizeSnapshot, so re-stringify.
 // Label is omitted here because the section card header already says "Default value".
+// Treat undefined and "" as equal so we don't show a diff when there's no real change.
 export function renderFeatureDefaultValueSection(
   pre: FeaturePartial,
   post: Partial<FeatureInterface>,
 ): ReactNode | null {
   const toStr = (v: unknown): string | null =>
     v == null ? null : typeof v === "string" ? v : JSON.stringify(v);
-  const preStr = toStr(pre?.defaultValue);
-  const postStr = toStr(post.defaultValue) ?? "";
+  const preStr = (toStr(pre?.defaultValue) ?? "").trim();
+  const postStr = (toStr(post.defaultValue) ?? "").trim();
   if (preStr === postStr) return null;
   return (
     <ValueChangedField
-      pre={preStr != null ? formatValue(preStr) : null}
+      pre={preStr ? formatValue(preStr) : null}
       post={formatValue(postStr)}
     />
   );
@@ -962,7 +967,7 @@ export function renderFeatureMetadataSection(
         key="owner"
         label="Owner"
         changed
-        oldNode={pre?.owner || <em>None</em>}
+        oldNode={pre?.owner || <em>unset</em>}
         newNode={post.owner}
       />,
     );
@@ -975,7 +980,7 @@ export function renderFeatureMetadataSection(
         label="Project"
         changed
         oldNode={
-          pre?.project ? <ProjectName id={pre.project} /> : <em>None</em>
+          pre?.project ? <ProjectName id={pre.project} /> : <em>unset</em>
         }
         newNode={<ProjectName id={post.project} />}
       />,

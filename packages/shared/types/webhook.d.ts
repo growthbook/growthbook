@@ -5,7 +5,14 @@ export type WebhookInterface = z.infer<typeof webhookSchema>;
 
 export type WebhookSummary = Pick<
   WebhookInterface,
-  "id" | "name" | "endpoint" | "lastSuccess" | "error" | "dateCreated"
+  | "id"
+  | "name"
+  | "endpoint"
+  | "lastSuccess"
+  | "error"
+  | "dateCreated"
+  | "disabled"
+  | "consecutiveFailures"
 >;
 
 export type WebhookMethod = (typeof webhookMethods)[number];

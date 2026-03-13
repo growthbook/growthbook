@@ -11,7 +11,7 @@ const BaseClass = MakeModelClass({
   schema: sdkConnectionCacheValidator,
   collectionName: "sdkcache",
   idPrefix: "sdk-",
-  globallyUniqueIds: true,
+  globallyUniquePrimaryKeys: true,
 });
 
 export class SdkConnectionCacheModel extends BaseClass {

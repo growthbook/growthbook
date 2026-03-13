@@ -33,13 +33,13 @@ We cover how to connect the GrowthBook MCP server for the most popular tools bel
 
 Configuration uses the following environment variables:
 
-| Variable Name     | Status   | Description                                                                                           |
-| ----------------- | -------- | ----------------------------------------------------------------------------------------------------- |
-| GB_API_KEY        | Required | A GrowthBook API key or PAT. When using a PAT, you can only access tools that your permissions allow. |
-| GB_EMAIL          | Required | Your email address used with GrowthBook. Used when creating feature flags and experiments.            |
-| GB_API_URL        | Optional | Your GrowthBook API URL. Defaults to `https://api.growthbook.io`.                                     |
-| GB_APP_ORIGIN     | Optional | Your GrowthBook app URL Defaults to `https://app.growthbook.io`.                                      |
-| GB*HTTP_HEADER*\* | Optional | Custom HTTP headers included in all API requests. See [Custom Headers](#custom-headers) below.        |
+| Variable Name    | Status   | Description                                                                                           |
+| ---------------- | -------- | ----------------------------------------------------------------------------------------------------- |
+| GB_API_KEY       | Required | A GrowthBook API key or PAT. When using a PAT, you can only access tools that your permissions allow. |
+| GB_EMAIL         | Required | Your email address used with GrowthBook. Used when creating feature flags and experiments.            |
+| GB_API_URL       | Optional | Your GrowthBook API URL. Defaults to `https://api.growthbook.io`.                                     |
+| GB_APP_ORIGIN    | Optional | Your GrowthBook app URL Defaults to `https://app.growthbook.io`.                                      |
+| GB_HTTP_HEADER\* | Optional | Custom HTTP headers included in all API requests. See [Custom Headers](#custom-headers) below.        |
 
 <br />
 
@@ -49,7 +49,13 @@ You only need to configure `GB_API_KEY` and `GB_EMAIL`.
 
 ### Cursor
 
-[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en-US/install-mcp?name=growthbook&config=eyJlbnYiOnsiR0JfQVBJX0tFWSI6IllPVVJfQVBJX0tFWSIsIkdCX0VNQUlMIjoiWU9VUl9FTUFJTCIsIkdCX0FQSV9VUkwiOiJZT1VSX0FQSV9VUkwiLCJHQl9BUFBfT1JJR0lOIjoiWU9VUl9BUFBfT1JJR0lOIn0sImNvbW1hbmQiOiJucHggLXkgQGdyb3d0aGJvb2svbWNwQGxhdGVzdCJ9)
+<a href="https://cursor.com/en-US/install-mcp?name=growthbook&amp;config=eyJlbnYiOnsiR0JfQVBJX0tFWSI6IllPVVJfQVBJX0tFWSIsIkdCX0VNQUlMIjoiWU9VUl9FTUFJTCIsIkdCX0FQSV9VUkwiOiJZT1VSX0FQSV9VUkwiLCJHQl9BUFBfT1JJR0lOIjoiWU9VUl9BUFBfT1JJR0lOIn0sImNvbW1hbmQiOiJucHggLXkgQGdyb3d0aGJvb2svbWNwQGxhdGVzdCJ9">
+  <img 
+    src="https://cursor.com/deeplink/mcp-install-dark.svg" 
+    alt="Install MCP Server"
+    className="no-zoom"
+  />
+</a>
 
 1. Open **Cursor Settings** &rarr; **MCP**
 2. Click **Add new global MCP server**
@@ -381,7 +387,7 @@ You can add as many `GB_HTTP_HEADER_*` variables as needed — each one becomes 
 
 - `create_feature_flag`: Create, add, or wrap an element with a feature flag. Accepts key, type, default value, and other metadata.
 - `get_feature_flags`: List feature flags in your GrowthBook instance. Include a feature ID to retrieve a single flag.
-- `get_stale_safe_rollouts`: List safe rollout rules that have been rolled back or released. This tools is helpful for removing stale flags from your codebase.
+- `get_stale_feature_flags`: Given a list of feature flag IDs, checks whether each one is stale and returns cleanup guidance including replacement values and SDK search patterns.
 - `create_force_rule`: Add a targeting condition (e.g., `country = CA`) to an existing flag.
 - `generate_flag_types`: Generate TypeScript types for feature flags.
 
@@ -418,6 +424,30 @@ You can add as many `GB_HTTP_HEADER_*` variables as needed — each one becomes 
 ### Documentation Search
 
 - `search_growthbook_docs`: Search the GrowthBook documentation for information on how to use a feature, by keyword or question.
+
+## Example Prompts
+
+Here are some prompts to try with your AI assistant once the MCP server is connected:
+
+### Feature Flags
+
+- "Create a boolean feature flag called `new-checkout-flow` that defaults to `false`"
+- "Show me the details and rules for the `dark-mode` feature flag"
+- "Add a force rule to `new-checkout-flow` that enables it for users where `country` is `US`"
+- "Check if these flags are stale and can be cleaned up: `old-banner`, `beta-pricing`, `temp-fix`"
+- "Generate TypeScript types for all my feature flags"
+
+### Experiments
+
+- "Summarize the results of my last 5 experiments"
+- "Create an A/B test on the `new-checkout-flow` flag with a control (`false`) and treatment (`true`)"
+- "Show me the full results for experiment `exp_abc123`, including metric breakdowns"
+
+### General
+
+- "What SDK connections do I have set up?"
+- "Search the GrowthBook docs for how to set up a fact metric"
+- "List all my projects and environments"
 
 ## Video Tutorial
 

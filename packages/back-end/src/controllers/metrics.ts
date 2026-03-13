@@ -398,7 +398,7 @@ export async function postMetrics(
   res: Response,
 ) {
   const context = getContextFromReq(req);
-  const { org, userName } = context;
+  const { org, userId } = context;
 
   const {
     name,
@@ -455,7 +455,7 @@ export async function postMetrics(
 
   const metric = await createMetric(context, {
     organization: org.id,
-    owner: userName,
+    owner: userId,
     datasource,
     name,
     description,

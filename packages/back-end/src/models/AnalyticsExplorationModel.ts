@@ -16,7 +16,7 @@ const BaseClass = MakeModelClass({
   schema: productAnalyticsExplorationValidator,
   collectionName: COLLECTION_NAME,
   idPrefix: "ae_",
-  globallyUniqueIds: false,
+  globallyUniquePrimaryKeys: false,
   additionalIndexes: [],
 });
 

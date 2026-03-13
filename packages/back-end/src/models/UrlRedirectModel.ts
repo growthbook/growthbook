@@ -31,7 +31,7 @@ const BaseClass = MakeModelClass({
     updateEvent: "urlRedirect.update",
     deleteEvent: "urlRedirect.delete",
   },
-  globallyUniqueIds: false,
+  globallyUniquePrimaryKeys: false,
   readonlyFields: ["experiment"],
 });
 
@@ -87,6 +87,7 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
 
   protected async customValidation(
     doc: URLRedirectInterface,
+    previousDoc?: URLRedirectInterface,
     writeOptions?: WriteOptions,
   ) {
     if (!doc.urlPattern) {
