@@ -7,7 +7,7 @@ import {
   useElements,
   useStripe,
 } from "@stripe/react-stripe-js";
-import { useForm } from "react-hook-form";
+import { useForm, UseFormReturn } from "react-hook-form";
 import { TaxIdType, StripeAddress } from "shared/types/subscriptions";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
@@ -32,9 +32,6 @@ const leftside = (
     <p>You can change this later in your account settings.</p>
   </>
 );
-
-type Step = "plan" | "proBilling" | "proPayment" | "proSuccess";
-
 type ProBillingData = {
   email: string;
   taxIdType?: TaxIdType;
@@ -50,12 +47,16 @@ const SelectInitialPlan: FC = () => {
       ? initialPlanSelection
       : "starter";
   const setPlan = setInitialPlanSelection ?? (() => {});
-  const [step, setStep] = useState<Step>("plan");
+  const [step, setStep] = useState<number>(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [proBillingData, setProBillingData] = useState<ProBillingData | null>(
-    null,
-  );
+  const billingForm = useForm<ProBillingData>({
+    defaultValues: {
+      email: email ?? "",
+      taxIdType: undefined,
+      taxIdValue: undefined,
+    },
+  });
 
   const completeFlow = useCallback(() => {
     setInitialPlanSelection?.("");
@@ -73,59 +74,19 @@ const SelectInitialPlan: FC = () => {
     }
   };
 
-  const handleProContinue = () => {
-    setError(null);
-    if (plan === "pro") setStep("proBilling");
-  };
-
-  const handleBackToPlanSelection = () => {
-    setStep("plan");
-    setProBillingData(null);
+  const handleNext = () => {
+    setStep((s) => s + 1);
     setError(null);
   };
 
-  const handleBackToBilling = () => {
-    setStep("proBilling");
+  const handleBack = () => {
+    setStep((s) => s - 1);
     setError(null);
   };
 
   return (
     <WelcomeFrame leftside={leftside} pathName="/select-initial-plan">
-      {step === "proSuccess" && (
-        <div style={{ maxWidth: "500px" }}>
-          <h2 className="h3 mb-1">Welcome to GrowthBook Pro!</h2>
-          <p className="text-muted mb-3">
-            You&apos;re all set! Go to your GrowthBook dashboard to start your
-            setup.
-          </p>
-          <Button color="primary" onClick={completeFlow} disabled={loading}>
-            Get started
-          </Button>
-        </div>
-      )}
-      {step === "proBilling" && (
-        <ProBillingStep
-          initialData={proBillingData}
-          defaultEmail={email || ""}
-          onNext={(data) => {
-            setProBillingData(data);
-            setStep("proPayment");
-            setError(null);
-          }}
-          onBack={handleBackToPlanSelection}
-          setError={setError}
-        />
-      )}
-      {step === "proPayment" && proBillingData && (
-        <ProPaymentStep
-          billingData={proBillingData}
-          onSuccess={() => setStep("proSuccess")}
-          onBack={handleBackToBilling}
-          setLoading={setLoading}
-          setError={setError}
-        />
-      )}
-      {step === "plan" && (
+      {step === 1 && (
         <Flex direction="column" gap="4" width="100%">
           <Heading as="h1">Plan options</Heading>
           <RadioCards
@@ -208,7 +169,7 @@ const SelectInitialPlan: FC = () => {
                     </ul>
                     <Button
                       color="primary"
-                      onClick={handleProContinue}
+                      onClick={() => handleNext()}
                       disabled={loading || plan !== "pro"}
                     >
                       Next: Add Payment Details
@@ -226,46 +187,55 @@ const SelectInitialPlan: FC = () => {
           {error && <div className="alert alert-danger mt-3">{error}</div>}
         </Flex>
       )}
+      {step === 2 && (
+        <ProBillingStep
+          form={billingForm}
+          onNext={handleNext}
+          onBack={handleBack}
+          setError={setError}
+        />
+      )}
+      {step === 3 && (
+        <ProPaymentStep
+          getBillingData={() => billingForm.getValues()}
+          onSuccess={() => handleNext()}
+          onBack={handleBack}
+          setLoading={setLoading}
+          setError={setError}
+        />
+      )}
+      {step >= 4 && (
+        <div style={{ maxWidth: "500px" }}>
+          <h2 className="h3 mb-1">Welcome to GrowthBook Pro!</h2>
+          <p className="text-muted mb-3">
+            You&apos;re all set! Go to your GrowthBook dashboard to start your
+            setup.
+          </p>
+          <Button color="primary" onClick={completeFlow} disabled={loading}>
+            Get started
+          </Button>
+        </div>
+      )}
     </WelcomeFrame>
   );
 };
 
 type ProBillingStepProps = {
-  initialData: ProBillingData | null;
-  defaultEmail: string;
-  onNext: (data: ProBillingData) => void;
+  form: UseFormReturn<ProBillingData>;
+  onNext: () => void;
   onBack: () => void;
   setError: (v: string | null) => void;
 };
 
 const ProBillingStep: FC<ProBillingStepProps> = ({
-  initialData,
-  defaultEmail,
+  form,
   onNext,
   onBack,
   setError,
 }) => {
-  const form = useForm<ProBillingData>({
-    defaultValues: {
-      email: initialData?.email ?? defaultEmail,
-      taxIdType: initialData?.taxIdType,
-      taxIdValue: initialData?.taxIdValue,
-    },
-  });
-
-  useEffect(() => {
-    if (initialData) {
-      form.reset({
-        email: initialData.email,
-        taxIdType: initialData.taxIdType,
-        taxIdValue: initialData.taxIdValue,
-      });
-    }
-  }, [initialData, form]);
-
   const handleNext = () => {
     setError(null);
-    form.handleSubmit((data) => onNext(data))();
+    form.handleSubmit(() => onNext())();
   };
 
   return (
@@ -323,7 +293,7 @@ const ProBillingStep: FC<ProBillingStepProps> = ({
 };
 
 type ProPaymentStepProps = {
-  billingData: ProBillingData;
+  getBillingData: () => ProBillingData;
   onSuccess: () => void;
   onBack: () => void;
   setLoading: (v: boolean) => void;
@@ -331,7 +301,7 @@ type ProPaymentStepProps = {
 };
 
 const ProPaymentStep: FC<ProPaymentStepProps> = ({
-  billingData,
+  getBillingData,
   onSuccess,
   onBack,
   setLoading,
@@ -370,7 +340,7 @@ const ProPaymentStep: FC<ProPaymentStepProps> = ({
   return (
     <StripeProvider initialClientSecret={clientSecret}>
       <ProPaymentFormInner
-        billingData={billingData}
+        getBillingData={getBillingData}
         onSuccess={onSuccess}
         onBack={onBack}
         setLoading={setLoading}
@@ -381,7 +351,7 @@ const ProPaymentStep: FC<ProPaymentStepProps> = ({
 };
 
 type ProPaymentFormProps = {
-  billingData: ProBillingData;
+  getBillingData: () => ProBillingData;
   onSuccess: () => void;
   onBack: () => void;
   setLoading: (v: boolean) => void;
@@ -389,7 +359,7 @@ type ProPaymentFormProps = {
 };
 
 const ProPaymentFormInner: FC<ProPaymentFormProps> = ({
-  billingData,
+  getBillingData,
   onSuccess,
   onBack,
   setLoading,
@@ -427,6 +397,7 @@ const ProPaymentFormInner: FC<ProPaymentFormProps> = ({
           }
         }
       }
+      const billingData = getBillingData();
       await stripe.confirmSetup({
         elements,
         clientSecret,
