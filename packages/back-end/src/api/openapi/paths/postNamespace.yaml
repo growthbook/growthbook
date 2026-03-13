@@ -1,0 +1,45 @@
+parameters: []
+tags:
+  - namespaces
+summary: Create a single namespace
+operationId: postNamespace
+x-codeSamples:
+  - lang: "cURL"
+    source: |
+      curl -X POST https://api.growthbook.io/api/v1/namespaces \
+        -d '{"label": "My Namespace", "description": "For mutually exclusive experiments", "status": "active"}' \
+        -u secret_abc123DEF456:
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        type: object
+        required:
+          - label
+          - description
+          - status
+        properties:
+          label:
+            type: string
+            description: The display name of the namespace
+          description:
+            type: string
+            description: A description of what the namespace is used for
+          status:
+            type: string
+            enum:
+              - active
+              - inactive
+            description: Whether the namespace is active or inactive
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - namespace
+          properties:
+            namespace:
+              $ref: "../schemas/Namespace.yaml"
