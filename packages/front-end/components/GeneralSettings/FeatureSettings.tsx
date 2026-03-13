@@ -179,41 +179,6 @@ export default function FeatureSettings() {
             </Flex>
           </Box>
 
-          <Box mb="6" width="100%">
-            <Text
-              as="label"
-              htmlFor="userNameDisplayFormat"
-              size="3"
-              className="font-weight-semibold"
-            >
-              Owner and user name display format
-            </Text>
-            <Text as="p" size="2" color="gray" mb="2">
-              Choose whether owner selectors and owner/user labels use full
-              names or only given names.
-            </Text>
-            <SelectField
-              id="userNameDisplayFormat"
-              value={form.watch("userNameDisplayFormat") || "fullName"}
-              options={[
-                {
-                  label: "Full name (e.g. Alice Johnson)",
-                  value: "fullName",
-                },
-                {
-                  label: "Given name only (e.g. Alice)",
-                  value: "givenName",
-                },
-              ]}
-              onChange={(v) =>
-                form.setValue("userNameDisplayFormat", v, {
-                  shouldDirty: true,
-                })
-              }
-              sort={false}
-            />
-          </Box>
-
           {/* Require project for features */}
           {hasCommercialFeature("require-project-for-features-setting") && (
             <Box mb="6" width="100%">

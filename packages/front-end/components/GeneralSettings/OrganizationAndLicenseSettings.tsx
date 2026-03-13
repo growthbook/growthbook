@@ -1,8 +1,13 @@
 import React, { useState } from "react";
-import { OrganizationInterface } from "shared/types/organization";
+import {
+  OrganizationInterface,
+  UserNameDisplayFormat,
+} from "shared/types/organization";
+import { useFormContext } from "react-hook-form";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
 import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
+import SelectField from "@/components/Forms/SelectField";
 import { isCloud, isMultiOrg } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import usePermissions from "@/hooks/usePermissions";
@@ -27,6 +32,9 @@ export default function OrganizationAndLicenseSettings({
   );
   const showInstallationName =
     license?.plan === "enterprise" && !isCloud() && isMultiOrg();
+  const form = useFormContext<{
+    userNameDisplayFormat?: UserNameDisplayFormat;
+  }>();
 
   return (
     <>
@@ -78,6 +86,45 @@ export default function OrganizationAndLicenseSettings({
                     {installationName}
                   </Box>
                 )}
+                <Box maxWidth="420px">
+                  <Text
+                    as="label"
+                    size="2"
+                    className="font-weight-semibold"
+                    htmlFor="userNameDisplayFormat"
+                  >
+                    Site-wide owner and user name display format
+                  </Text>
+                  <Text as="p" size="2" color="gray" mb="2">
+                    Applies across the app to owner selectors and owner/user
+                    labels.
+                  </Text>
+                  <SelectField
+                    id="userNameDisplayFormat"
+                    value={form.watch("userNameDisplayFormat") || "fullName"}
+                    disabled={!canEdit}
+                    options={[
+                      {
+                        label: "Full name (e.g. Alice Johnson)",
+                        value: "fullName",
+                      },
+                      {
+                        label: "Given name only (e.g. Alice)",
+                        value: "givenName",
+                      },
+                    ]}
+                    onChange={(v) =>
+                      form.setValue(
+                        "userNameDisplayFormat",
+                        v as UserNameDisplayFormat,
+                        {
+                          shouldDirty: true,
+                        },
+                      )
+                    }
+                    sort={false}
+                  />
+                </Box>
               </Flex>
               {canEdit && (
                 <Button
