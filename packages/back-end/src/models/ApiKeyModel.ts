@@ -1,5 +1,6 @@
 import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
 import { apiKeySchema } from "shared/validators";
+import { getRoleById } from "shared/permissions";
 import {
   generateEncryptionKey,
   generateSigningKey,
@@ -67,18 +68,25 @@ export class ApiKeyModel extends BaseClass {
 
   public async createOrganizationApiKey({
     description,
-    role = "readonly",
+    roleId,
   }: {
     description: string;
-    role: "admin" | "readonly";
+    roleId: string;
   }): Promise<ApiKeyInterface> {
+    if (this.context.org.deactivatedRoles?.includes(roleId)) {
+      this.context.throwBadRequestError(`Role has been deactivated: ${roleId}`);
+    }
+    const role = getRoleById(roleId, this.context.org);
+    if (!role) {
+      this.context.throwBadRequestError(`Invalid role: ${roleId}`);
+    }
     return await this.createApiKey({
       secret: true,
       encryptSDK: false,
       description,
       environment: "",
       project: "",
-      role,
+      role: roleId,
     });
   }
 
@@ -155,6 +163,10 @@ export class ApiKeyModel extends BaseClass {
     )) as SecretApiKey;
   }
 
+  public async dangerousGetAllApiKeysInOrg() {
+    return await this._find({}, { bypassReadPermissionChecks: true });
+  }
+
   private prefixForApiKey({
     environment,
     secret,
@@ -176,7 +188,7 @@ export class ApiKeyModel extends BaseClass {
     if (userId) {
       prefix += "user_";
     } else if (role) {
-      prefix += `${role}_`;
+      prefix += `${role.slice(0, 20)}_`;
     }
 
     return prefix;

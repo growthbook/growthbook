@@ -1737,13 +1737,9 @@ export async function postApiKey(
   }
   // Handle organization secret tokens
   else {
-    if (type && !["readonly", "admin"].includes(type)) {
-      throw new Error("can only assign readonly or admin roles");
-    }
-
     const key = await context.models.apiKeys.createOrganizationApiKey({
       description,
-      role: type as "readonly" | "admin",
+      roleId: type,
     });
 
     return res.status(200).json({
@@ -2404,7 +2400,7 @@ export async function deleteCustomRole(
     context.permissions.throwPermissionError();
   }
 
-  await removeCustomRole(context.org, context.teams, id);
+  await removeCustomRole(context, id);
 
   res.status(200).json({
     status: 200,
