@@ -59,6 +59,7 @@ import {
   RowsType,
   StartQueryParams,
 } from "./QueryRunner";
+import { shouldRunHealthTrafficQuery } from "./shouldRunHealthTrafficQuery";
 
 export const INCREMENTAL_UNITS_TABLE_PREFIX = "gb_units";
 export const INCREMENTAL_METRICS_TABLE_PREFIX = "gb_metrics";
@@ -792,8 +793,11 @@ const startExperimentIncrementalRefreshQueries = async (
     });
     queries.push(statisticsQuery);
   }
-  const runTrafficQuery =
-    params.snapshotType === "standard" && org.settings?.runHealthTrafficQuery;
+  const runTrafficQuery = shouldRunHealthTrafficQuery({
+    snapshotType: params.snapshotType,
+    snapshotDimensions: snapshotSettings.dimensions,
+    runHealthTrafficQuery: org.settings?.runHealthTrafficQuery,
+  });
 
   if (runTrafficQuery) {
     const trafficQuery = await startQuery({

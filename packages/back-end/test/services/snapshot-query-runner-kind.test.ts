@@ -40,6 +40,7 @@ describe("getSnapshotQueryRunnerKind", () => {
         datasource: makeDatasource(),
         experiment: makeExperiment(),
         snapshotType: "standard",
+        hasSnapshotDimensions: false,
       }),
     ).toBe("incremental");
   });
@@ -52,8 +53,22 @@ describe("getSnapshotQueryRunnerKind", () => {
         datasource: makeDatasource(),
         experiment: makeExperiment(),
         snapshotType: "exploratory",
+        hasSnapshotDimensions: true,
       }),
     ).toBe("incremental-exploratory");
+  });
+
+  it("returns 'results' for exploratory snapshots without dimensions", () => {
+    expect(
+      getSnapshotQueryRunnerKind({
+        allowIncrementalRefresh: true,
+        isExperimentCompatibleWithIncrementalRefresh: true,
+        datasource: makeDatasource(),
+        experiment: makeExperiment(),
+        snapshotType: "exploratory",
+        hasSnapshotDimensions: false,
+      }),
+    ).toBe("results");
   });
 
   it("returns 'results' when allowIncrementalRefresh is false", () => {
@@ -64,6 +79,7 @@ describe("getSnapshotQueryRunnerKind", () => {
         datasource: makeDatasource(),
         experiment: makeExperiment(),
         snapshotType: "standard",
+        hasSnapshotDimensions: false,
       }),
     ).toBe("results");
   });
@@ -76,6 +92,7 @@ describe("getSnapshotQueryRunnerKind", () => {
         datasource: makeDatasource(),
         experiment: makeExperiment(),
         snapshotType: "standard",
+        hasSnapshotDimensions: false,
       }),
     ).toBe("results");
   });
@@ -89,6 +106,7 @@ describe("getSnapshotQueryRunnerKind", () => {
         datasource,
         experiment: makeExperiment(),
         snapshotType: "standard",
+        hasSnapshotDimensions: false,
       }),
     ).toBe("results");
   });
@@ -104,6 +122,7 @@ describe("getSnapshotQueryRunnerKind", () => {
         datasource,
         experiment: makeExperiment(),
         snapshotType: "standard",
+        hasSnapshotDimensions: false,
       }),
     ).toBe("results");
   });
@@ -119,6 +138,7 @@ describe("getSnapshotQueryRunnerKind", () => {
         datasource,
         experiment: makeExperiment(),
         snapshotType: "standard",
+        hasSnapshotDimensions: false,
       }),
     ).toBe("results");
   });
@@ -134,6 +154,7 @@ describe("getSnapshotQueryRunnerKind", () => {
         datasource,
         experiment: makeExperiment(),
         snapshotType: "standard",
+        hasSnapshotDimensions: false,
       }),
     ).toBe("incremental");
   });
@@ -146,6 +167,7 @@ describe("getSnapshotQueryRunnerKind", () => {
         datasource: makeDatasource(),
         experiment: makeExperiment({ type: "multi-armed-bandit" }),
         snapshotType: "standard",
+        hasSnapshotDimensions: false,
       }),
     ).toBe("results");
   });
@@ -158,6 +180,7 @@ describe("getSnapshotQueryRunnerKind", () => {
         datasource: makeDatasource(),
         experiment: makeExperiment({ type: undefined }),
         snapshotType: "standard",
+        hasSnapshotDimensions: false,
       }),
     ).toBe("incremental");
   });
