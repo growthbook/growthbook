@@ -6,6 +6,7 @@ import { Flex } from "@radix-ui/themes";
 import { date, datetime } from "shared/dates";
 import {
   ExperimentMetricInterface,
+  getLatestPhaseVariations,
   getMetricResultStatus,
   isFactMetric,
 } from "shared/experiments";
@@ -113,7 +114,7 @@ function MetricExperimentResultTab({
       }
     }
     const baseline = variationResults?.[0];
-    e.variations.forEach((v, i) => {
+    getLatestPhaseVariations(e).forEach((v, i) => {
       if (i === 0) return;
       let expVariationData: MetricExperimentData = {
         id: e.id,
@@ -122,7 +123,7 @@ function MetricExperimentResultTab({
         status: e.status,
         results: e.results,
         archived: e.archived,
-        variations: e.variations,
+        variations: getLatestPhaseVariations(e),
         statsEngine: statsEngine,
         variationId: i,
         variationName: v.name,

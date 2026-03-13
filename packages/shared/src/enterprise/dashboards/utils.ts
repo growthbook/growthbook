@@ -26,7 +26,7 @@ import {
   parseSliceQueryString,
   generateSliceString,
   expandMetricGroups,
-} from "../../experiments";
+} from "../../experiments/experiments";
 import { DataVizConfig } from "../../../validators";
 import { getInitialConfigByBlockType } from "../product-analytics/utils";
 
