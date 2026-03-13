@@ -1,6 +1,7 @@
 import React from "react";
 import { Flex, Box } from "@radix-ui/themes";
 import { PiChartBar, PiCode, PiDatabase, PiTable } from "react-icons/pi";
+import { BsStars } from "react-icons/bs";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import LinkButton from "@/ui/LinkButton";
@@ -11,11 +12,12 @@ import Link from "@/ui/Link";
 import Badge from "@/ui/Badge";
 
 export default function EmptyState() {
-  const { permissionsUtil } = useUser();
+  const { permissionsUtil, hasCommercialFeature } = useUser();
   const { datasources } = useDefinitions();
   const { project } = useDefinitions();
 
   const hasDatasources = datasources.length > 0;
+  const hasAISuggestions = hasCommercialFeature("ai-suggestions");
 
   return (
     <Box m="7">
@@ -140,6 +142,22 @@ export default function EmptyState() {
               <Flex direction="column" align="center" gap="1">
                 <PiCode size={24} />
                 <Text weight="medium">Custom SQL</Text>
+              </Flex>
+            </LinkButton>
+            <LinkButton
+              href="/product-analytics/explore/ai-chat"
+              variant="outline"
+              disabled={!hasDatasources || !hasAISuggestions}
+              style={{
+                height: "116px",
+                paddingTop: "16px",
+                paddingBottom: "16px",
+                width: "160px",
+              }}
+            >
+              <Flex direction="column" align="center" gap="1">
+                <BsStars size={22} />
+                <Text weight="medium">AI Chat</Text>
               </Flex>
             </LinkButton>
           </Flex>
