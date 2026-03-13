@@ -49,7 +49,7 @@ export interface AuthContextValue {
   specialOrg?: null | Partial<OrganizationInterface>;
   setOrgName?: (name: string) => void;
   setSpecialOrg?: (org: null | Partial<OrganizationInterface>) => void;
-  initialPlanSelection: "" | "starter" | "pro";
+  initialPlanSelection?: "" | "starter" | "pro";
   setInitialPlanSelection?: (value: "" | "starter" | "pro") => void;
 }
 
@@ -65,7 +65,6 @@ export const AuthContext = React.createContext<AuthContextValue>({
     return x;
   },
   orgId: null,
-  initialPlanSelection: "",
 });
 
 export const useAuth = (): AuthContextValue => useContext(AuthContext);
@@ -228,7 +227,7 @@ export const AuthProvider: React.FC<{
   async function init() {
     if (typeof window !== "undefined") {
       const plan = new URLSearchParams(window.location.search).get("plan");
-      if (plan === "pro" || (plan === "starter" && isCloud())) {
+      if ((plan === "pro" || plan === "starter") && isCloud()) {
         setInitialPlanSelection(plan);
       }
     }

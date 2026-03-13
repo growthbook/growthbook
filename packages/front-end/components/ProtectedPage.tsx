@@ -85,16 +85,16 @@ const ProtectedPage: React.FC<{
   const { orgId, initialPlanSelection } = useAuth();
   const initialPlanSelectionEnabled = useFeatureIsOn("pro-signup-flow");
 
+  const showSelectPlanFlow =
+    orgId && initialPlanSelectionEnabled && initialPlanSelection && isCloud();
+
   return (
     <UserContextProvider key={orgId}>
       <LoggedInPageGuard organizationRequired={organizationRequired}>
         <InAppHelp />
         {!organizationRequired ? (
           <>{children}</>
-        ) : orgId &&
-          initialPlanSelectionEnabled &&
-          initialPlanSelection &&
-          isCloud() ? (
+        ) : showSelectPlanFlow ? (
           <SelectInitialPlan />
         ) : orgId ? (
           <WatchProvider>{children}</WatchProvider>
