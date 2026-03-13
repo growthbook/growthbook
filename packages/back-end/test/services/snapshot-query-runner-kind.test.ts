@@ -58,7 +58,7 @@ describe("getSnapshotQueryRunnerKind", () => {
     ).toBe("incremental-exploratory");
   });
 
-  it("returns 'results' for exploratory snapshots without dimensions", () => {
+  it("returns 'incremental' for exploratory snapshots without dimensions", () => {
     expect(
       getSnapshotQueryRunnerKind({
         allowIncrementalRefresh: true,
@@ -68,7 +68,7 @@ describe("getSnapshotQueryRunnerKind", () => {
         snapshotType: "exploratory",
         hasSnapshotDimensions: false,
       }),
-    ).toBe("results");
+    ).toBe("incremental");
   });
 
   it("returns 'results' when allowIncrementalRefresh is false", () => {

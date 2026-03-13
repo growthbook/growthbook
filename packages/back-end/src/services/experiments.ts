@@ -1093,7 +1093,7 @@ export function getSnapshotQueryRunnerKind({
     isExperimentCompatibleWithIncrementalRefresh
   ) {
     if (snapshotType === "exploratory" && !hasSnapshotDimensions) {
-      return "results";
+      return "incremental";
     }
 
     return snapshotType === "exploratory"

@@ -178,7 +178,7 @@ describe("snapshot planning", () => {
     ).toBe("incremental-exploratory");
   });
 
-  it("uses the standard results runner for exploratory snapshots with no dimensions", () => {
+  it("uses the incremental runner for exploratory snapshots with no dimensions", () => {
     const experiment = { type: "standard" } as unknown as ExperimentInterface;
 
     expect(
@@ -190,7 +190,7 @@ describe("snapshot planning", () => {
         snapshotType: "exploratory",
         hasSnapshotDimensions: false,
       }),
-    ).toBe("results");
+    ).toBe("incremental");
   });
 
   it("falls back to the standard results runner for unsupported experiment types", () => {
