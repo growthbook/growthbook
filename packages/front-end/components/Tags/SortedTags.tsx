@@ -3,7 +3,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Tag from "./Tag";
 
-export interface Props {
+export type Props = {
   tags?: string[];
   shouldShowEllipsis?: boolean;
   skipFirstMargin?: boolean;
@@ -12,7 +12,7 @@ export interface Props {
   truncateTagChars?: number;
   /** When provided, used for the overflow label instead of "X more tag(s)...". Receives the count of hidden tags. */
   ellipsisFormat?: (count: number) => string;
-}
+};
 
 export default function SortedTags({
   tags,
