@@ -132,6 +132,8 @@ export interface NorthStarMetric {
   startDate?: Date;
 }
 
+export type UserNameDisplayFormat = "fullName" | "givenName";
+
 export interface MetricDefaults {
   minimumSampleSize?: number;
   maxPercentageChange?: number;
@@ -236,6 +238,7 @@ export interface OrganizationSettings {
   metricListMarkdown?: string;
   metricPageMarkdown?: string;
   preferredEnvironment?: string | null; // null (or undefined) means "remember previous environment"
+  userNameDisplayFormat?: UserNameDisplayFormat;
   maxMetricSliceLevels?: number;
   banditScheduleValue?: number;
   banditScheduleUnit?: "hours" | "days";

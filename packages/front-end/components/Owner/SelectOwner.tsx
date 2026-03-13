@@ -3,6 +3,7 @@ import Text from "@/ui/Text";
 import UserAvatar from "@/components/Avatar/UserAvatar";
 import SelectField from "@/components/Forms/SelectField";
 import { useUser } from "@/services/UserContext";
+import { getDisplayNameForUser } from "@/services/owners";
 
 interface Props {
   value: string;
@@ -17,14 +18,14 @@ export default function SelectOwner({
   placeholder = "",
   disabled = false,
 }: Props) {
-  const { users } = useUser();
+  const { users, settings } = useUser();
 
   const memberOptions = useMemo(() => {
     return Array.from(users.values()).map((user) => ({
       value: user.id,
-      label: user.name || user.email,
+      label: getDisplayNameForUser(user, settings.userNameDisplayFormat),
     }));
-  }, [users]);
+  }, [settings.userNameDisplayFormat, users]);
 
   const memberOptionValues = useMemo(() => {
     return new Set(memberOptions.map((member) => member.value));

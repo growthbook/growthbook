@@ -40,7 +40,10 @@ import { getValidDate } from "shared/dates";
 import sha256 from "crypto-js/sha256";
 import { useFeature } from "@growthbook/growthbook-react";
 import { AgreementType } from "shared/validators";
-import { getOwnerDisplay as getOwnerDisplayName } from "@/services/owners";
+import {
+  getDisplayNameForUser,
+  getOwnerDisplay as getOwnerDisplayName,
+} from "@/services/owners";
 import {
   getGrowthBookBuild,
   getSuperadminDefaultRole,
@@ -448,20 +451,26 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     );
   }, [currentOrg?.currentUserPermissions]);
 
+  const settings = currentOrg?.organization?.settings || {};
+
   const getUserDisplay = useCallback(
     (id: string, fallback = true) => {
       const u = users.get(id);
       if (!u && fallback) return id;
-      return u?.name || u?.email || "";
+      return getDisplayNameForUser(u, settings.userNameDisplayFormat);
     },
-    [users],
+    [settings.userNameDisplayFormat, users],
   );
 
   const getOwnerDisplay = useCallback(
     (owner: string | undefined) => {
-      return getOwnerDisplayName({ owner, users });
+      return getOwnerDisplayName({
+        owner,
+        users,
+        format: settings.userNameDisplayFormat,
+      });
     },
-    [users],
+    [settings.userNameDisplayFormat, users],
   );
 
   const watching = useMemo(() => {
@@ -525,7 +534,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         roles: currentOrg?.roles || [],
         permissions,
         permissionsUtil,
-        settings: currentOrg?.organization?.settings || {},
+        settings,
         license,
         installationName: currentOrg?.installationName || undefined,
         subscription,
