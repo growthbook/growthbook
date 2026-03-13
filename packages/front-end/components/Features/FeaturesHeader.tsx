@@ -392,7 +392,7 @@ export default function FeaturesHeader({
 
   return (
     <>
-      <Box className="features-header contents container-fluid pagecontents">
+      <Box className="features-header contents container-fluid pagecontents pb-0">
         <Box>
           {projectId ===
             getDemoDatasourceProjectIdForOrganization(organization.id) && (
@@ -505,7 +505,7 @@ export default function FeaturesHeader({
               )}
             </Box>
           </Flex>
-          <Box mt="3" mb="4">
+          <Box mt="1" mb="3">
             <Box>
               <Text weight="medium">Tags: </Text>
               <SortedTags

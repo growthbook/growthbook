@@ -1370,6 +1370,111 @@ export async function postFeatureRevert(
   });
 }
 
+/**
+ * Creates a new draft that, when published, will revert the feature back to
+ * the state of a previously-published revision. The diff is computed between
+ * the current live state and the target revision and stored as a draft whose
+ * baseVersion is the current live revision. This means the revert is subject
+ * to the normal approval flow before going live.
+ */
+export async function postFeatureRevertDraft(
+  req: AuthRequest<{ comment?: string }, { id: string; version: string }>,
+  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>,
+) {
+  const context = getContextFromReq(req);
+  const { org, environments: contextEnvironments } = context;
+  const { id, version } = req.params;
+  const { comment } = req.body;
+
+  const feature = await getFeature(context, id);
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  const allEnvironments = getEnvironments(org);
+  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
+  const environmentIds = environments.map((e) => e.id);
+
+  const revision = await getRevision({
+    context,
+    organization: org.id,
+    featureId: feature.id,
+    version: parseInt(version),
+  });
+  if (!revision) {
+    throw new Error("Could not find feature revision");
+  }
+
+  if (revision.version === feature.version || revision.status !== "published") {
+    throw new Error(
+      "Can only create a revert draft for previously published revisions",
+    );
+  }
+
+  if (
+    !context.permissions.canUpdateFeature(feature, {}) ||
+    !context.permissions.canManageFeatureDrafts(feature)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  // Build changes that represent the full state of the target revision so the
+  // resulting draft, when published, will match the target revision exactly.
+  const changes: Partial<FeatureRevisionInterface> = {
+    defaultValue: revision.defaultValue,
+    rules: Object.fromEntries(
+      environmentIds.map((env) => [
+        env,
+        revision.rules[env] ?? feature.environmentSettings?.[env]?.rules ?? [],
+      ]),
+    ),
+  };
+
+  if (revision.environmentsEnabled !== undefined) {
+    changes.environmentsEnabled = revision.environmentsEnabled;
+  }
+  if (revision.prerequisites !== undefined) {
+    changes.prerequisites = revision.prerequisites;
+  }
+  if (revision.archived !== undefined) {
+    changes.archived = revision.archived;
+  }
+  if (revision.metadata !== undefined) {
+    changes.metadata = revision.metadata;
+  }
+
+  const newRevision = await createRevision({
+    context,
+    feature,
+    user: res.locals.eventAudit,
+    baseVersion: feature.version,
+    changes,
+    environments: contextEnvironments,
+    org,
+    comment: comment || `Revert to revision #${revision.version}`,
+    title: `Revert to #${revision.version}`,
+  });
+  await updateFeature(context, feature, { hasDrafts: true });
+
+  await req.audit({
+    event: "feature.update",
+    entity: {
+      object: "feature",
+      id: feature.id,
+    },
+    details: auditDetailsUpdate(
+      feature,
+      { ...feature, hasDrafts: true },
+      { revision: newRevision.version },
+    ),
+  });
+
+  res.status(200).json({
+    status: 200,
+    version: newRevision.version,
+  });
+}
+
 export async function postFeatureFork(
   req: AuthRequest<never, { id: string; version: string }>,
   res: Response<{ status: 200; version: number }, EventUserForResponseLocals>,
