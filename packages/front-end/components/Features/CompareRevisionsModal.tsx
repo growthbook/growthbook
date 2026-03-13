@@ -1311,7 +1311,7 @@ export default function CompareRevisionsModal({
                       Preview draft
                     </Heading>
                     <Text size="small" color="text-low">
-                      Comparing draft directly against live
+                      Draft content vs live (two-way)
                     </Text>
                   </Flex>
 
@@ -1326,6 +1326,17 @@ export default function CompareRevisionsModal({
                   revBFailed={isVersionFailed(previewDraftVersion)}
                   mt="3"
                 />
+                {previewDraftRev &&
+                  previewDraftRev.baseVersion !== liveVersion && (
+                    <Callout status="warning" mt="3">
+                      Live has changed since this draft was created (based on
+                      Revision {previewDraftRev.baseVersion}). Publishing uses
+                      three-way merge — only fields the draft explicitly changed
+                      from its base will take effect. Use{" "}
+                      <strong>Review &amp; Publish</strong> to see the exact
+                      changes that will go live.
+                    </Callout>
+                  )}
               </Box>
               {previewDisplayLoading ? (
                 <LoadingOverlay />

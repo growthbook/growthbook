@@ -155,8 +155,12 @@ export default function DraftModal({
 
   const mergeResult = useMemo(() => {
     if (!revision || !baseRevision || !liveRevision) return null;
-    return autoMerge(liveRevision, baseRevision, revision, envIds, {});
-  }, [revision, baseRevision, liveRevision, envIds]);
+    const fillEnvs = (r: typeof liveRevision) => ({
+      ...r,
+      environmentsEnabled: { ...liveFeatureEnvs, ...(r.environmentsEnabled ?? {}) },
+    });
+    return autoMerge(fillEnvs(liveRevision), fillEnvs(baseRevision), revision, envIds, {});
+  }, [revision, baseRevision, liveRevision, envIds, liveFeatureEnvs]);
 
   const [comment, setComment] = useState(revision?.comment || "");
 
@@ -180,8 +184,7 @@ export default function DraftModal({
           defaultValue:
             mergeResult.result.defaultValue ?? currentRevisionData.defaultValue,
           rules: mergeResult.result.rules ?? currentRevisionData.rules,
-          // New envelope fields — only include them in the diff if they were
-          // explicitly part of the merge result (i.e., gated and changed).
+          // Only include envelope fields if they were part of the merge result
           environmentsEnabled:
             mergeResult.result.environmentsEnabled !== undefined
               ? mergeResult.result.environmentsEnabled

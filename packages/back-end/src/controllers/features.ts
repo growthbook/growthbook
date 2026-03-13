@@ -32,6 +32,7 @@ import {
   HoldoutInterface,
   SafeRolloutRule,
   ACTIVE_DRAFT_STATUSES,
+  RevisionMetadata,
 } from "shared/validators";
 import { FeatureUsageLookback } from "shared/types/integrations";
 import {
@@ -791,9 +792,22 @@ export async function postFeatureRebase(
     throw new Error("Could not lookup feature history");
   }
 
+  // Fill sparse environmentsEnabled in older revisions with the current
+  // feature document's env state so autoMerge produces the same result as
+  // the front-end (which applies the same normalisation before serialising).
+  const featureEnvs: Record<string, boolean> = Object.fromEntries(
+    Object.entries(feature.environmentSettings ?? {}).map(([envId, env]) => [
+      envId,
+      env.enabled,
+    ]),
+  );
+  const fillEnvs = (r: typeof live) => ({
+    ...r,
+    environmentsEnabled: { ...featureEnvs, ...(r.environmentsEnabled ?? {}) },
+  });
   const mergeResult = autoMerge(
-    live,
-    base,
+    fillEnvs(live),
+    fillEnvs(base),
     revision,
     environmentIds,
     strategies || {},
@@ -1027,7 +1041,20 @@ export async function postFeaturePublish(
       context.permissions.throwPermissionError();
     }
   }
-  const mergeResult = autoMerge(live, base, revision, environmentIds, {});
+  // Fill sparse environmentsEnabled in older revisions with the current
+  // feature document's env state so autoMerge produces the same result as
+  // the front-end (which applies the same normalisation before serialising).
+  const featureEnvs: Record<string, boolean> = Object.fromEntries(
+    Object.entries(feature.environmentSettings ?? {}).map(([envId, env]) => [
+      envId,
+      env.enabled,
+    ]),
+  );
+  const fillEnvs = (r: typeof live) => ({
+    ...r,
+    environmentsEnabled: { ...featureEnvs, ...(r.environmentsEnabled ?? {}) },
+  });
+  const mergeResult = autoMerge(fillEnvs(live), fillEnvs(base), revision, environmentIds, {});
   if (JSON.stringify(mergeResult) !== mergeResultSerialized) {
     throw new Error(
       "Something seems to have changed while you were reviewing the draft. Please re-review with the latest changes and submit again.",
@@ -1188,13 +1215,12 @@ export async function postFeatureRevert(
 
   const changes: MergeResultChanges = {};
 
+  const allEnabledEnvs = Array.from(
+    getEnabledEnvironments(feature, environmentIds),
+  );
+
   if (revision.defaultValue !== feature.defaultValue) {
-    if (
-      !context.permissions.canPublishFeature(
-        feature,
-        Array.from(getEnabledEnvironments(feature, environmentIds)),
-      )
-    ) {
+    if (!context.permissions.canPublishFeature(feature, allEnabledEnvs)) {
       context.permissions.throwPermissionError();
     }
     changes.defaultValue = revision.defaultValue;
@@ -1213,10 +1239,90 @@ export async function postFeatureRevert(
       changes.rules = changes.rules || {};
       changes.rules[env] = revision.rules[env];
     }
+
+    // Kill switches — sparse: only revert if this revision explicitly set them
+    if (
+      revision.environmentsEnabled !== undefined &&
+      env in revision.environmentsEnabled
+    ) {
+      const revEnabled = revision.environmentsEnabled[env];
+      const liveEnabled = feature.environmentSettings?.[env]?.enabled ?? false;
+      if (revEnabled !== liveEnabled) {
+        if (!changedEnvs.includes(env)) changedEnvs.push(env);
+        changes.environmentsEnabled = changes.environmentsEnabled || {};
+        changes.environmentsEnabled[env] = revEnabled;
+      }
+    }
   });
   if (changedEnvs.length > 0) {
     if (!context.permissions.canPublishFeature(feature, changedEnvs)) {
       context.permissions.throwPermissionError();
+    }
+  }
+
+  // Prerequisites — sparse: only revert if this revision explicitly set them
+  if (
+    revision.prerequisites !== undefined &&
+    !isEqual(revision.prerequisites, feature.prerequisites || [])
+  ) {
+    if (!context.permissions.canPublishFeature(feature, allEnabledEnvs)) {
+      context.permissions.throwPermissionError();
+    }
+    changes.prerequisites = revision.prerequisites;
+  }
+
+  // Archived state — sparse: only revert if this revision explicitly changed it
+  if (
+    revision.archived !== undefined &&
+    revision.archived !== (feature.archived ?? false)
+  ) {
+    if (!context.permissions.canPublishFeature(feature, allEnabledEnvs)) {
+      context.permissions.throwPermissionError();
+    }
+    changes.archived = revision.archived;
+  }
+
+  // Metadata — sparse: revert only the fields this revision explicitly changed
+  if (revision.metadata) {
+    const metadataChanges: RevisionMetadata = {};
+    let hasMetadataChanges = false;
+    const m = revision.metadata;
+    if (m.description !== undefined && m.description !== (feature.description ?? "")) {
+      metadataChanges.description = m.description;
+      hasMetadataChanges = true;
+    }
+    if (m.owner !== undefined && m.owner !== (feature.owner ?? "")) {
+      metadataChanges.owner = m.owner;
+      hasMetadataChanges = true;
+    }
+    if (m.project !== undefined && m.project !== (feature.project ?? "")) {
+      metadataChanges.project = m.project;
+      hasMetadataChanges = true;
+    }
+    if (m.tags !== undefined && !isEqual(m.tags, feature.tags ?? [])) {
+      metadataChanges.tags = m.tags;
+      hasMetadataChanges = true;
+    }
+    if (m.neverStale !== undefined && m.neverStale !== feature.neverStale) {
+      metadataChanges.neverStale = m.neverStale;
+      hasMetadataChanges = true;
+    }
+    if (
+      m.customFields !== undefined &&
+      !isEqual(m.customFields, feature.customFields ?? {})
+    ) {
+      metadataChanges.customFields = m.customFields;
+      hasMetadataChanges = true;
+    }
+    if (m.jsonSchema !== undefined && !isEqual(m.jsonSchema, feature.jsonSchema)) {
+      metadataChanges.jsonSchema = m.jsonSchema;
+      hasMetadataChanges = true;
+    }
+    if (hasMetadataChanges) {
+      if (!context.permissions.canPublishFeature(feature, allEnabledEnvs)) {
+        context.permissions.throwPermissionError();
+      }
+      changes.metadata = metadataChanges;
     }
   }
 

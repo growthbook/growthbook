@@ -24,7 +24,6 @@ import {
   CreateSafeRolloutInterface,
   SafeRolloutInterface,
   SafeRolloutRule,
-  ACTIVE_DRAFT_STATUSES,
 } from "shared/validators";
 import {
   PostFeatureRuleBody,
@@ -67,6 +66,7 @@ import HelperText from "@/ui/HelperText";
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
+import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 import { useTemplates } from "@/hooks/useTemplates";
 import { useBatchPrerequisiteStates } from "@/hooks/usePrerequisiteStates";
 import SafeRolloutFields from "@/components/Features/RuleModal/SafeRolloutFields";
@@ -75,7 +75,6 @@ import EnvironmentSelect from "@/components/Features/FeatureModal/EnvironmentSel
 export interface Props {
   close: () => void;
   feature: FeatureInterface;
-  version: number;
   setVersion: (version: number) => void;
   mutate: () => void;
   i: number;
@@ -112,7 +111,6 @@ export default function RuleModal({
   mutate,
   environment,
   defaultType = "",
-  version,
   setVersion,
   mode,
   safeRolloutsMap,
@@ -144,19 +142,13 @@ export default function RuleModal({
   const settings = useOrgSettings();
   const { settings: scopedSettings } = getScopedSettings({ organization });
 
-  const viewingActiveDraft = useMemo(
-    () =>
-      (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(
-        revisionList.find((r) => r.version === version)?.status ?? "",
-      ),
-    [revisionList, version],
-  );
+  const defaultDraft = useDefaultDraft(revisionList);
 
   const [draftMode, setDraftMode] = useState<DraftMode>(
-    viewingActiveDraft ? "existing" : "new",
+    defaultDraft != null ? "existing" : "new",
   );
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
-    viewingActiveDraft ? version : null,
+    defaultDraft,
   );
 
   // Determines which draft/revision to target in the API call.

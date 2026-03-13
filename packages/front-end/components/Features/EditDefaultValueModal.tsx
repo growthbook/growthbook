@@ -3,7 +3,6 @@ import { useForm } from "react-hook-form";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { validateFeatureValue, getReviewSetting } from "shared/util";
-import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import { getFeatureDefaultValue } from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -11,6 +10,7 @@ import Modal from "@/components/Modal";
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
+import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 import FeatureValueField from "./FeatureValueField";
 
 export interface Props {
@@ -48,20 +48,12 @@ export default function EditDefaultValueModal({
     return envList.length === 0 ? "all" : new Set(envList);
   }, [settings?.requireReviews, feature]);
 
-  const viewingActiveDraft = useMemo(
-    () =>
-      (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(
-        revisionList.find((r) => r.version === version)?.status ?? "",
-      ),
-    [revisionList, version],
-  );
+  const defaultDraft = useDefaultDraft(revisionList);
 
   const [mode, setMode] = useState<DraftMode>(
-    viewingActiveDraft ? "existing" : "new",
+    defaultDraft != null ? "existing" : "new",
   );
-  const [selectedDraft, setSelectedDraft] = useState<number | null>(
-    viewingActiveDraft ? version : null,
-  );
+  const [selectedDraft, setSelectedDraft] = useState<number | null>(defaultDraft);
 
   // URL version drives draft behavior: feature.version = new draft, draft version = modify existing.
   const targetVersion =

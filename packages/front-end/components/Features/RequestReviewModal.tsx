@@ -121,8 +121,12 @@ export default function RequestReviewModal({
 
   const mergeResult = useMemo(() => {
     if (!revision || !baseRevision || !liveRevision) return null;
-    return autoMerge(liveRevision, baseRevision, revision, envIds, {});
-  }, [revision, baseRevision, liveRevision, envIds]);
+    const fillEnvs = (r: typeof liveRevision) => ({
+      ...r,
+      environmentsEnabled: { ...liveFeatureEnvs, ...(r.environmentsEnabled ?? {}) },
+    });
+    return autoMerge(fillEnvs(liveRevision), fillEnvs(baseRevision), revision, envIds, {});
+  }, [revision, baseRevision, liveRevision, envIds, liveFeatureEnvs]);
 
   const [comment, setComment] = useState("");
 

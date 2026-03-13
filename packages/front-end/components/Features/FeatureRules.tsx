@@ -304,7 +304,6 @@ export default function FeatureRules({
           environment={ruleModal.environment}
           mutate={mutate}
           defaultType={ruleModal.defaultType || ""}
-          version={currentVersion}
           setVersion={setVersion}
           mode={ruleModal.mode}
           revisionList={revisionList}

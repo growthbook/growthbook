@@ -448,11 +448,31 @@ export default function FeaturesOverview({
           </Button>,
         );
       } else if (revision.version > 1 && isLive) {
+        // Find the revision that was live immediately before the current one,
+        // using datePublished so out-of-order draft merges are handled correctly.
+        const liveRevision = revisions.find(
+          (r) => r.version === feature.version,
+        );
+        const livePublishedAt = liveRevision?.datePublished
+          ? new Date(liveRevision.datePublished).getTime()
+          : Infinity;
         const previousRevision = revisions
           .filter(
-            (r) => r.status === "published" && r.version < feature.version,
+            (r) =>
+              r.status === "published" &&
+              r.version !== feature.version &&
+              r.datePublished != null &&
+              new Date(r.datePublished).getTime() < livePublishedAt,
           )
-          .sort((a, b) => b.version - a.version)[0];
+          .sort((a, b) => {
+            const bt = b.datePublished
+              ? new Date(b.datePublished).getTime()
+              : 0;
+            const at = a.datePublished
+              ? new Date(a.datePublished).getTime()
+              : 0;
+            return bt - at;
+          })[0];
 
         if (previousRevision) {
           actions.push(
@@ -462,7 +482,6 @@ export default function FeaturesOverview({
               onClick={() => {
                 setRevertIndex(previousRevision.version);
               }}
-              title="Create a new Draft based on this revision"
             >
               Revert to Previous
             </Button>,
@@ -1482,6 +1501,7 @@ export default function FeaturesOverview({
                 (r) => r.version === revertIndex,
               ) as FeatureRevisionInterface
             }
+            allRevisions={revisions}
             mutate={mutate}
             setVersion={setVersion}
           />

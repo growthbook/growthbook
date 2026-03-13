@@ -31,6 +31,8 @@ export interface Props {
   variant?: "slim" | "select";
   menuPlacement?: "start" | "center" | "end";
   draftsOnly?: boolean;
+  /** Show only previously-published revisions; hides draft tabs and live pin. */
+  publishedOnly?: boolean;
   disabled?: boolean;
   customTrigger?: React.ReactNode;
 }
@@ -48,12 +50,21 @@ function RevisionRow({
   r,
   liveVersion,
   fullWidth = false,
+  publishedOnly = false,
 }: {
   r: MinimalFeatureRevisionInterface;
   liveVersion: number;
   fullWidth?: boolean;
+  publishedOnly?: boolean;
 }) {
-  const revDate = r.status === "published" ? r.datePublished : r.dateUpdated;
+  // In publishedOnly context always show datePublished (falling back to
+  // dateUpdated for revisions that pre-date the field). In normal context
+  // show datePublished for published revisions, dateUpdated for drafts.
+  const revDate = publishedOnly
+    ? (r.datePublished ?? r.dateUpdated)
+    : r.status === "published"
+      ? r.datePublished
+      : r.dateUpdated;
   return (
     <Flex align="center" justify="between" gap="3" style={{ width: "100%" }}>
       {fullWidth ? (
@@ -94,17 +105,26 @@ function RevisionRow({
         overflow="hidden"
         style={{ textOverflow: "ellipsis" }}
       >
-        {(r.createdBy || revDate) && (
-          <Text size="small" color="text-low" whiteSpace="nowrap">
-            {r.createdBy && <EventUser user={r.createdBy} display="name" />}
-            {r.createdBy && revDate && <> &middot; </>}
-            {revDate && datetime(revDate)}
-          </Text>
-        )}
+        {publishedOnly
+          ? revDate && (
+              <Text size="small" color="text-low" whiteSpace="nowrap">
+                Published: {datetime(revDate)}
+              </Text>
+            )
+          : (r.createdBy || revDate) && (
+              <Text size="small" color="text-low" whiteSpace="nowrap">
+                {r.createdBy && <EventUser user={r.createdBy} display="name" />}
+                {r.createdBy && revDate && <> &middot; </>}
+                {revDate && datetime(revDate)}
+              </Text>
+            )}
       </Box>
-      <Box flexShrink="0">
-        <RevisionStatusBadge revision={r} liveVersion={liveVersion} />
-      </Box>
+      {/* Status badge is redundant when all items are known to be published */}
+      {!publishedOnly && (
+        <Box flexShrink="0">
+          <RevisionStatusBadge revision={r} liveVersion={liveVersion} />
+        </Box>
+      )}
     </Flex>
   );
 }
@@ -117,6 +137,7 @@ export default function RevisionDropdown({
   variant = "slim",
   menuPlacement = "end",
   draftsOnly = false,
+  publishedOnly = false,
   disabled = false,
   customTrigger,
 }: Props) {
@@ -165,26 +186,30 @@ export default function RevisionDropdown({
   const activeDrafts = (r: MinimalFeatureRevisionInterface) =>
     (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status);
 
-  // In draftsOnly mode show only active drafts; no pagination/tab/discard toggle needed.
-  const displayList = draftsOnly
-    ? withoutLive.filter(activeDrafts)
-    : revisionTab === "all-drafts"
+  // In draftsOnly/publishedOnly mode show filtered set; no pagination/tab/discard toggle.
+  const displayList = publishedOnly
+    ? withoutLive.filter((r) => r.status === "published")
+    : draftsOnly
       ? withoutLive.filter(activeDrafts)
-      : revisionTab === "my-drafts"
-        ? withoutLive.filter((r) => activeDrafts(r) && isMyRevision(r))
-        : showDiscarded
-          ? withoutLive
-          : withoutLive.filter(
-              (r) => r.status !== "discarded" || r.version === version,
-            );
+      : revisionTab === "all-drafts"
+        ? withoutLive.filter(activeDrafts)
+        : revisionTab === "my-drafts"
+          ? withoutLive.filter((r) => activeDrafts(r) && isMyRevision(r))
+          : showDiscarded
+            ? withoutLive
+            : withoutLive.filter(
+                (r) => r.status !== "discarded" || r.version === version,
+              );
 
-  // In normal mode apply the sliding window; draftsOnly shows all at once.
-  const selectedIndex = draftsOnly
-    ? -1
-    : displayList.findIndex((r) => r.version === version);
-  const baseWindow = draftsOnly
-    ? displayList.length
-    : Math.max(initialPageSize, selectedIndex >= 0 ? selectedIndex + 1 : 0);
+  // In filtered modes apply no sliding window; normal mode applies pagination.
+  const selectedIndex =
+    draftsOnly || publishedOnly
+      ? -1
+      : displayList.findIndex((r) => r.version === version);
+  const baseWindow =
+    draftsOnly || publishedOnly
+      ? displayList.length
+      : Math.max(initialPageSize, selectedIndex >= 0 ? selectedIndex + 1 : 0);
   const windowSize = baseWindow + extraShown;
   const shown = displayList.slice(0, windowSize);
   const remaining = displayList.length - windowSize;
@@ -196,8 +221,11 @@ export default function RevisionDropdown({
       : null;
 
   const selectedMeta = selectedRevision;
-  const triggerDate =
-    selectedMeta?.status === "published"
+  // In publishedOnly context always show datePublished (with dateUpdated
+  // fallback for old revisions). Otherwise use the normal status-based logic.
+  const triggerDate = publishedOnly
+    ? (selectedMeta?.datePublished ?? selectedMeta?.dateUpdated)
+    : selectedMeta?.status === "published"
       ? selectedMeta?.datePublished
       : selectedMeta?.dateUpdated;
 
@@ -207,7 +235,7 @@ export default function RevisionDropdown({
   };
 
   const liveItem =
-    !draftsOnly && liveRevision ? (
+    !draftsOnly && !publishedOnly && liveRevision ? (
       <DropdownMenuItem
         key={liveRevision.version}
         className={`multiline-item${liveRevision.version === version ? " selected-item" : ""}`}
@@ -231,6 +259,7 @@ export default function RevisionDropdown({
         r={r}
         liveVersion={liveVersion}
         fullWidth={variant === "select"}
+        publishedOnly={publishedOnly}
       />
     </DropdownMenuItem>
   ));
@@ -300,19 +329,26 @@ export default function RevisionDropdown({
         overflow="hidden"
         style={{ textOverflow: "ellipsis", whiteSpace: "nowrap" }}
       >
-        {(selectedMeta?.createdBy || (triggerDate && !disabled)) && (
-          <Text size="small" color="text-low" whiteSpace="nowrap">
-            {selectedMeta?.createdBy && (
-              <EventUser user={selectedMeta.createdBy} display="name" />
+        {publishedOnly
+          ? triggerDate &&
+            !disabled && (
+              <Text size="small" color="text-low" whiteSpace="nowrap">
+                Published: {dateNoCurrentYear(triggerDate)}
+              </Text>
+            )
+          : (selectedMeta?.createdBy || (triggerDate && !disabled)) && (
+              <Text size="small" color="text-low" whiteSpace="nowrap">
+                {selectedMeta?.createdBy && (
+                  <EventUser user={selectedMeta.createdBy} display="name" />
+                )}
+                {selectedMeta?.createdBy && triggerDate && !disabled && (
+                  <> &middot; </>
+                )}
+                {triggerDate && !disabled && dateNoCurrentYear(triggerDate)}
+              </Text>
             )}
-            {selectedMeta?.createdBy && triggerDate && !disabled && (
-              <> &middot; </>
-            )}
-            {triggerDate && !disabled && dateNoCurrentYear(triggerDate)}
-          </Text>
-        )}
       </Box>
-      {(selectedMeta || !draftsOnly) && (
+      {!publishedOnly && (selectedMeta || !draftsOnly) && (
         <Box flexShrink="0">
           <RevisionStatusBadge
             revision={selectedMeta}
@@ -340,7 +376,7 @@ export default function RevisionDropdown({
       menuWidth="full"
       menuPlacement={menuPlacement}
     >
-      {!draftsOnly && (
+      {!draftsOnly && !publishedOnly && (
         <Box pb="2">
           <Tabs
             value={revisionTab}
@@ -379,20 +415,28 @@ export default function RevisionDropdown({
           revisionTab === "all-revisions" &&
           discardedCount > 0)) &&
         liveItem && <DropdownMenuSeparator />}
-      {!draftsOnly && revisionTab === "all-revisions" && discardedCount > 0 && (
-        <RadixDropdownMenu.Label>
-          <Flex justify="end" align="center" gap="2" style={{ width: "100%" }}>
-            <Text size="small" color="text-low">
-              Show discarded ({discardedCount})
-            </Text>
-            <Switch
-              size="1"
-              value={showDiscarded}
-              onChange={setShowDiscarded}
-            />
-          </Flex>
-        </RadixDropdownMenu.Label>
-      )}
+      {!draftsOnly &&
+        !publishedOnly &&
+        revisionTab === "all-revisions" &&
+        discardedCount > 0 && (
+          <RadixDropdownMenu.Label>
+            <Flex
+              justify="end"
+              align="center"
+              gap="2"
+              style={{ width: "100%" }}
+            >
+              <Text size="small" color="text-low">
+                Show discarded ({discardedCount})
+              </Text>
+              <Switch
+                size="1"
+                value={showDiscarded}
+                onChange={setShowDiscarded}
+              />
+            </Flex>
+          </RadixDropdownMenu.Label>
+        )}
       {menuItems}
       {remaining > 0 && (
         <RadixDropdownMenu.Label>
