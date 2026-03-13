@@ -114,6 +114,9 @@ tags:
   - name: settings
     x-displayName: Settings
     description: Get the organization settings.
+  - name: namespaces
+    x-displayName: Namespaces
+    description: Experiment namespaces allow you to run mutually exclusive experiments.
   - name: attributes
     x-displayName: Attributes
     description: Used when targeting feature flags and experiments.
@@ -216,6 +219,9 @@ tags:
   - name: MetricUsage_model
     x-displayName: MetricUsage
     description: <SchemaDefinition schemaRef="#/components/schemas/MetricUsage" />
+  - name: Namespace_model
+    x-displayName: Namespace
+    description: <SchemaDefinition schemaRef="#/components/schemas/Namespace" />
   - name: Organization_model
     x-displayName: Organization
     description: <SchemaDefinition schemaRef="#/components/schemas/Organization" />
@@ -3737,6 +3743,171 @@ paths:
                 properties:
                   nModified:
                     type: number
+  /namespaces:
+    get:
+      summary: Get all namespaces
+      tags:
+        - namespaces
+      parameters: []
+      operationId: listNamespaces
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/namespaces \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - namespaces
+                properties:
+                  namespaces:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Namespace'
+    post:
+      parameters: []
+      tags:
+        - namespaces
+      summary: Create a single namespace
+      operationId: postNamespace
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/namespaces \
+              -d '{"label": "My Namespace", "description": "For mutually exclusive experiments", "status": "active"}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - label
+                - description
+                - status
+              properties:
+                label:
+                  type: string
+                  description: The display name of the namespace
+                description:
+                  type: string
+                  description: A description of what the namespace is used for
+                status:
+                  type: string
+                  enum:
+                    - active
+                    - inactive
+                  description: Whether the namespace is active or inactive
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - namespace
+                properties:
+                  namespace:
+                    $ref: '#/components/schemas/Namespace'
+  '/namespaces/{id}':
+    get:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - namespaces
+      summary: Get a single namespace
+      operationId: getNamespace
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/namespaces/ns_123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - namespace
+                properties:
+                  namespace:
+                    $ref: '#/components/schemas/Namespace'
+    put:
+      summary: Update a single namespace
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - namespaces
+      operationId: putNamespace
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X PUT https://api.growthbook.io/api/v1/namespaces/ns_123abc \
+              -d '{"label": "Updated Namespace", "description": "Updated description", "status": "inactive"}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - label
+                - description
+                - status
+              properties:
+                label:
+                  type: string
+                  description: The display name of the namespace
+                description:
+                  type: string
+                  description: A description of what the namespace is used for
+                status:
+                  type: string
+                  enum:
+                    - active
+                    - inactive
+                  description: Whether the namespace is active or inactive
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - namespace
+                properties:
+                  namespace:
+                    $ref: '#/components/schemas/Namespace'
+    delete:
+      summary: Delete a single namespace
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - namespaces
+      operationId: deleteNamespace
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X DELETE https://api.growthbook.io/api/v1/namespaces/ns_123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - deletedId
+                properties:
+                  deletedId:
+                    type: string
   /saved-groups:
     get:
       summary: Get all saved group
@@ -22719,6 +22890,29 @@ components:
               flagKey:
                 type: string
                 description: The feature flag key referenced
+    Namespace:
+      type: object
+      required:
+        - name
+        - label
+        - description
+        - status
+      properties:
+        name:
+          type: string
+          description: The unique identifier for the namespace (e.g. ns-abc123)
+        label:
+          type: string
+          description: The display name of the namespace
+        description:
+          type: string
+          description: A description of what the namespace is used for
+        status:
+          type: string
+          enum:
+            - active
+            - inactive
+          description: Whether the namespace is active or inactive
   securitySchemes:
     bearerAuth:
       type: http
@@ -22775,6 +22969,7 @@ x-tagGroups:
       - archetypes
       - queries
       - settings
+      - namespaces
       - attributes
       - usage
       - Dashboards
@@ -22816,6 +23011,7 @@ x-tagGroups:
       - Metric_model
       - MetricAnalysis_model
       - MetricUsage_model
+      - Namespace_model
       - Organization_model
       - PaginationFields_model
       - Project_model

@@ -1,0 +1,46 @@
+summary: Update a single namespace
+parameters:
+  - $ref: "../parameters.yaml#/id"
+tags:
+  - namespaces
+operationId: putNamespace
+x-codeSamples:
+  - lang: "cURL"
+    source: |
+      curl -X PUT https://api.growthbook.io/api/v1/namespaces/ns_123abc \
+        -d '{"label": "Updated Namespace", "description": "Updated description", "status": "inactive"}' \
+        -u secret_abc123DEF456:
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        type: object
+        required:
+          - label
+          - description
+          - status
+        properties:
+          label:
+            type: string
+            description: The display name of the namespace
+          description:
+            type: string
+            description: A description of what the namespace is used for
+          status:
+            type: string
+            enum:
+              - active
+              - inactive
+            description: Whether the namespace is active or inactive
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - namespace
+          properties:
+            namespace:
+              $ref: "../schemas/Namespace.yaml"

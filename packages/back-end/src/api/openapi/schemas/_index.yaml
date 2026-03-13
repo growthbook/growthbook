@@ -84,3 +84,5 @@ Settings:
   $ref: "./Settings.yaml"
 CodeRef:
   $ref: "./CodeRef.yaml"
+Namespace:
+  $ref: "./Namespace.yaml"
