@@ -13,6 +13,7 @@ export interface Props {
   environment: string;
   mutate: () => void;
   id?: string;
+  size?: "1" | "2" | "3";
 }
 
 export default function EnvironmentToggle({
@@ -20,6 +21,7 @@ export default function EnvironmentToggle({
   environment,
   mutate,
   id = "",
+  size = "3",
 }: Props) {
   const [toggling, setToggling] = useState(false);
 
@@ -82,7 +84,7 @@ export default function EnvironmentToggle({
           await submit(feature, environment, on);
         }
       }}
-      size="3"
+      size={size}
     />
   );
 

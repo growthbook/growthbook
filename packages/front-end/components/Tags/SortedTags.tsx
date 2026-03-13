@@ -3,15 +3,16 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Tag from "./Tag";
 
-export interface Props {
+export type Props = {
   tags?: string[];
   shouldShowEllipsis?: boolean;
   skipFirstMargin?: boolean;
   useFlex?: boolean;
   showEllipsisAtIndex?: number;
+  truncateTagChars?: number;
   /** When provided, used for the overflow label instead of "X more tag(s)...". Receives the count of hidden tags. */
   ellipsisFormat?: (count: number) => string;
-}
+};
 
 export default function SortedTags({
   tags,
@@ -19,6 +20,7 @@ export default function SortedTags({
   skipFirstMargin = false,
   useFlex = false,
   showEllipsisAtIndex = 5,
+  truncateTagChars,
   ellipsisFormat,
 }: Props) {
   const { tags: all } = useDefinitions();
@@ -37,9 +39,10 @@ export default function SortedTags({
     const moreTagsCopy = ellipsisFormat
       ? ellipsisFormat(tags.length)
       : `${tags.length} more tag${tags.length === 1 ? "" : "s"}...`;
-    const tagElements = renderTags(tags);
+    const tagElements = renderTags(tags, false);
     return (
       <Tooltip
+        flipTheme={false}
         body={<>{renderFlexContainer(tagElements, true)}</>}
         usePortal={true}
       >
@@ -48,10 +51,17 @@ export default function SortedTags({
     );
   };
 
-  const renderTags = (tags: string[]) => {
-    return tags.map((tag, i) => {
+  const renderTags = (tagsToRender: string[], truncateInTable = true) => {
+    return tagsToRender.map((tag, i) => {
       const skipMargin = useFlex || (skipFirstMargin && i === 0);
-      return <Tag tag={tag} key={tag} skipMargin={skipMargin} />;
+      return (
+        <Tag
+          tag={tag}
+          key={tag}
+          skipMargin={skipMargin}
+          maxChars={truncateInTable ? truncateTagChars : undefined}
+        />
+      );
     });
   };
   const renderFlexContainer = (
