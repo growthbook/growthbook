@@ -1601,7 +1601,16 @@ export default abstract class SqlIntegration
   ): Promise<TestQueryResult> {
     // Calculate the run time of the query
     const queryStartTime = Date.now();
-    const results = await this.runQuery(sql);
+    const results = await this.runQuery(sql).catch((e) => {
+      // If the user forgets to include a timestamp column in their SQL
+      // The error message from the db will be confusing, so make it more clear.
+      for (const col of timestampCols ?? []) {
+        if (e.message.includes(col)) {
+          throw new Error(`The column '${col}' is required. ${e.message}`);
+        }
+      }
+      throw e;
+    });
     const queryEndTime = Date.now();
     const duration = queryEndTime - queryStartTime;
 
