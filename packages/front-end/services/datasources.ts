@@ -218,7 +218,7 @@ FROM
         : `,\n  {{valueColumn}} as value`
   }
 FROM
-  ${tablePrefix}my_table`;
+  ${tablePrefix}{{snakecase eventName}}`;
   },
 };
 
