@@ -30,13 +30,8 @@ export interface Props {
   setVersion: (version: number) => void;
   variant?: "slim" | "select";
   menuPlacement?: "start" | "center" | "end";
-  /** When true, only active drafts are shown. */
   draftsOnly?: boolean;
   disabled?: boolean;
-  /**
-   * When provided, replaces the built-in trigger entirely. The element must
-   * forward a ref and accept onClick so Radix can open the menu.
-   */
   customTrigger?: React.ReactNode;
 }
 
@@ -52,24 +47,47 @@ function dateNoCurrentYear(d: string | Date): string {
 function RevisionRow({
   r,
   liveVersion,
+  fullWidth = false,
 }: {
   r: MinimalFeatureRevisionInterface;
   liveVersion: number;
+  fullWidth?: boolean;
 }) {
   const revDate = r.status === "published" ? r.datePublished : r.dateUpdated;
   return (
     <Flex align="center" justify="between" gap="3" style={{ width: "100%" }}>
-      <Box flexShrink="0">
-        <Text weight="semibold">
-          <OverflowText
-            maxWidth={250}
-            title={revisionLabelText(r.version, r.title)}
-          >
-            <RevisionLabel version={r.version} title={r.title} />
-          </OverflowText>
-        </Text>
-      </Box>
-      <Box flexGrow="1" />
+      {fullWidth ? (
+        <Box style={{ flex: 1, minWidth: 0 }}>
+          <Text weight="semibold">
+            <span
+              style={{
+                display: "block",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                maxWidth: 400,
+              }}
+              title={revisionLabelText(r.version, r.title)}
+            >
+              <RevisionLabel version={r.version} title={r.title} />
+            </span>
+          </Text>
+        </Box>
+      ) : (
+        <>
+          <Box flexShrink="0">
+            <Text weight="semibold">
+              <OverflowText
+                maxWidth={250}
+                title={revisionLabelText(r.version, r.title)}
+              >
+                <RevisionLabel version={r.version} title={r.title} />
+              </OverflowText>
+            </Text>
+          </Box>
+          <Box flexGrow="1" />
+        </>
+      )}
       {/* Right: metadata + status, vertically centered */}
       <Box
         flexShrink="1"
@@ -195,7 +213,11 @@ export default function RevisionDropdown({
         className={`multiline-item${liveRevision.version === version ? " selected-item" : ""}`}
         onClick={() => handleSelect(liveRevision.version)}
       >
-        <RevisionRow r={liveRevision} liveVersion={liveVersion} />
+        <RevisionRow
+          r={liveRevision}
+          liveVersion={liveVersion}
+          fullWidth={variant === "select"}
+        />
       </DropdownMenuItem>
     ) : null;
 
@@ -205,7 +227,11 @@ export default function RevisionDropdown({
       className={`multiline-item${r.version === version ? " selected-item" : ""}`}
       onClick={() => handleSelect(r.version)}
     >
-      <RevisionRow r={r} liveVersion={liveVersion} />
+      <RevisionRow
+        r={r}
+        liveVersion={liveVersion}
+        fullWidth={variant === "select"}
+      />
     </DropdownMenuItem>
   ));
 
@@ -226,22 +252,48 @@ export default function RevisionDropdown({
       }}
     >
       {/* Left: revision label */}
-      <Box flexShrink="0">
-        <Text weight="semibold">
-          {version != null ? (
-            <OverflowText
-              maxWidth={150}
-              title={revisionLabelText(version, selectedRevision?.title)}
-            >
-              <RevisionLabel
-                version={version}
-                title={selectedRevision?.title}
-              />
-            </OverflowText>
-          ) : null}
-        </Text>
-      </Box>
-      {variant !== "slim" && <Box flexGrow="1" />}
+      {variant === "select" ? (
+        // In select (full-width) context: grow to fill space and truncate with CSS
+        // so the badge + caret are always visible on the right.
+        <Box style={{ flex: 1, minWidth: 0 }}>
+          <Text weight="semibold">
+            {version != null ? (
+              <span
+                style={{
+                  display: "block",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  maxWidth: 400,
+                }}
+                title={revisionLabelText(version, selectedRevision?.title)}
+              >
+                <RevisionLabel
+                  version={version}
+                  title={selectedRevision?.title}
+                />
+              </span>
+            ) : null}
+          </Text>
+        </Box>
+      ) : (
+        <Box flexShrink="0">
+          <Text weight="semibold">
+            {version != null ? (
+              <OverflowText
+                maxWidth={150}
+                title={revisionLabelText(version, selectedRevision?.title)}
+              >
+                <RevisionLabel
+                  version={version}
+                  title={selectedRevision?.title}
+                />
+              </OverflowText>
+            ) : null}
+          </Text>
+        </Box>
+      )}
+      {variant !== "slim" && variant !== "select" && <Box flexGrow="1" />}
       {/* Right: metadata + status + caret, vertically centered */}
       <Box
         flexShrink="1"
