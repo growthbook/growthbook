@@ -191,9 +191,7 @@ const Presentation = ({
     const e = em.get(eid);
     const variationExtra: JSX.Element[] = [];
     let sideExtra = <></>;
-    const expVariations = e?.experiment
-      ? getAllVariations(e.experiment)
-      : [];
+    const expVariations = e?.experiment ? getAllVariations(e.experiment) : [];
     const variationsPlural =
       (expVariations?.length || 0) !== 1 ? "variations" : "variation";
 

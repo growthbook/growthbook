@@ -1399,7 +1399,7 @@ export async function createSnapshotFromPlan({
     const analysisProps = {
       snapshotType,
       snapshotSettings: plan.snapshot.settings,
-      variationNames: experiment.variations.map((v) => v.name),
+      variationNames: getLatestPhaseVariations(experiment).map((v) => v.name),
       metricMap,
       queryParentId: queryRunner.model.id,
       factTableMap,

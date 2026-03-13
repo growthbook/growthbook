@@ -145,21 +145,20 @@ export default function ResultsTable({
   useLayoutEffect(onResize, []);
   useEffect(onResize, [isTabActive]);
 
-  const orderedVariations: ExperimentReportVariation[] =
-    useMemo(() => {
-      const sorted = [...variations].sort((a, b) => {
-          if (a.index === baselineRow) return -1;
-          return a.index - b.index;
-        });
-      // fix browser .sort() quirks. manually move the control row to top:
-      const baselineIndex = sorted.findIndex((v) => v.index === baselineRow);
-      if (baselineIndex > -1) {
-        const baseline = sorted[baselineIndex];
-        sorted.splice(baselineIndex, 1);
-        sorted.unshift(baseline);
-      }
-      return sorted;
-    }, [variations, baselineRow]);
+  const orderedVariations: ExperimentReportVariation[] = useMemo(() => {
+    const sorted = [...variations].sort((a, b) => {
+      if (a.index === baselineRow) return -1;
+      return a.index - b.index;
+    });
+    // fix browser .sort() quirks. manually move the control row to top:
+    const baselineIndex = sorted.findIndex((v) => v.index === baselineRow);
+    if (baselineIndex > -1) {
+      const baseline = sorted[baselineIndex];
+      sorted.splice(baselineIndex, 1);
+      sorted.unshift(baseline);
+    }
+    return sorted;
+  }, [variations, baselineRow]);
 
   const filteredVariations = orderedVariations.filter(
     (v) => !variationFilter?.includes(v.index),
