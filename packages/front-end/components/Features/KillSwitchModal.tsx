@@ -69,10 +69,7 @@ function EnvStateGrid({
   );
 
   return (
-    <Box
-      my="4"
-      style={{ overflowX: "auto" }}
-    >
+    <Box my="4" style={{ overflowX: "auto" }}>
       <Flex direction="column" style={{ minWidth: "max-content" }}>
         {/* Header row */}
         <Flex
@@ -240,7 +237,6 @@ export default function KillSwitchModal({
     [revisionList],
   );
 
-
   // Whether we're already viewing an active draft
   const viewingActiveDraft = activeDrafts.some(
     (r) => r.version === currentVersion,
@@ -302,6 +298,11 @@ export default function KillSwitchModal({
 
   const actionLabel = desiredState ? "Enable" : "Disable";
 
+  const liveEnvState =
+    (baseFeature ?? feature).environmentSettings?.[environment]?.enabled ??
+    false;
+  const noNetChange = desiredState === liveEnvState;
+
   return (
     <Modal
       trackingEventModalType="kill-switch-toggle"
@@ -356,6 +357,31 @@ export default function KillSwitchModal({
               : "new draft"
         }
       />
+      {noNetChange && (
+        <Box mt="2">
+          <Text as="p" size="small" color="text-low">
+            <em>
+              {mode === "existing" ? (
+                <>
+                  This undoes a pending draft change —{" "}
+                  <strong>{environment}</strong> will match live with no net
+                  change.
+                </>
+              ) : mode === "publish" ? (
+                <>
+                  <strong>{environment}</strong> already matches live — nothing
+                  will be published.
+                </>
+              ) : (
+                <>
+                  <strong>{environment}</strong> already matches live — this
+                  will have no effect.
+                </>
+              )}
+            </em>
+          </Text>
+        </Box>
+      )}
     </Modal>
   );
 }
