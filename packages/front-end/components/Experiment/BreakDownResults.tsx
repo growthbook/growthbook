@@ -1,4 +1,4 @@
-import { FC } from "react";
+import { FC, useState, useEffect, useRef } from "react";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
@@ -24,6 +24,7 @@ import {
   ExperimentSortBy,
   SetExperimentSortBy,
   formatDimensionValueForDisplay,
+  expandMetricGroups,
 } from "shared/experiments";
 import { NULL_DIMENSION_VALUE } from "shared/constants";
 import { FaCaretRight } from "react-icons/fa";
@@ -84,6 +85,13 @@ const BreakDownResults: FC<{
   differenceType: DifferenceType;
   metricTagFilter?: string[];
   metricsFilter?: string[];
+  sliceTagsFilter?: string[];
+  customMetricSlices?: Array<{
+    slices: Array<{
+      column: string;
+      levels: string[];
+    }>;
+  }>;
   experimentType?: ExperimentType;
   ssrPolyfills?: SSRPolyfills;
   renderMetricName?: (
@@ -137,6 +145,8 @@ const BreakDownResults: FC<{
   differenceType,
   metricTagFilter,
   metricsFilter,
+  sliceTagsFilter,
+  customMetricSlices,
   experimentType,
   ssrPolyfills,
   renderMetricName,
@@ -154,7 +164,15 @@ const BreakDownResults: FC<{
   mutate,
   setDifferenceType,
 }) => {
-  const { getDimensionById, getExperimentMetricById } = useDefinitions();
+  const {
+    getDimensionById,
+    getExperimentMetricById,
+    getFactTableById,
+    metricGroups: _metricGroups,
+  } = useDefinitions();
+
+  const getFactTableByIdFn = ssrPolyfills?.getFactTableById || getFactTableById;
+  const metricGroupsFn = ssrPolyfills?.metricGroups || _metricGroups;
 
   const _settings = useOrgSettings();
   const settings = ssrPolyfills?.useOrgSettings?.() || _settings;
@@ -168,7 +186,84 @@ const BreakDownResults: FC<{
     dimensionId?.split(":")?.[1] ||
     "Dimension";
 
-  const { tables } = useExperimentDimensionRows({
+  // Expanded state for metric slices
+  const [expandedMetrics, setExpandedMetrics] = useState<
+    Record<string, boolean>
+  >({});
+  const toggleExpandedMetric = (
+    metricId: string,
+    resultGroup: "goal" | "secondary" | "guardrail",
+  ) => {
+    const key = `${metricId}:${resultGroup}`;
+    setExpandedMetrics((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
+
+  // Compute expanded metrics
+  const expandedGoals = expandMetricGroups(goalMetrics, metricGroupsFn);
+  const expandedSecondaries = expandMetricGroups(
+    secondaryMetrics,
+    metricGroupsFn,
+  );
+  const expandedGuardrails = expandMetricGroups(
+    guardrailMetrics,
+    metricGroupsFn,
+  );
+
+  // Track previous sliceTagsFilter to detect when it goes from non-empty to empty
+  const prevSliceTagsFilterRef = useRef<string[] | undefined>(sliceTagsFilter);
+
+  // Auto-expand all metrics when slice tags are selected, collapse when slice filters are cleared
+  useEffect(() => {
+    const allMetricIds = [
+      ...expandedGoals,
+      ...expandedSecondaries,
+      ...expandedGuardrails,
+    ];
+
+    const prevHadSliceFilters =
+      prevSliceTagsFilterRef.current &&
+      prevSliceTagsFilterRef.current.length > 0;
+    const currentHasSliceFilters =
+      sliceTagsFilter && sliceTagsFilter.length > 0;
+
+    if (currentHasSliceFilters) {
+      // Expand all metrics for all result groups when slice filter is active
+      const newExpandedMetrics: Record<string, boolean> = {};
+      allMetricIds.forEach((metricId) => {
+        ["goal", "secondary", "guardrail"].forEach((resultGroup) => {
+          const key = `${metricId}:${resultGroup}`;
+          newExpandedMetrics[key] = true;
+        });
+      });
+
+      setExpandedMetrics((prev) => ({
+        ...prev,
+        ...newExpandedMetrics,
+      }));
+    } else if (prevHadSliceFilters && !currentHasSliceFilters) {
+      // Collapse all metrics when slice filters go from non-empty to empty
+      const collapsedMetrics: Record<string, boolean> = {};
+      allMetricIds.forEach((metricId) => {
+        ["goal", "secondary", "guardrail"].forEach((resultGroup) => {
+          const key = `${metricId}:${resultGroup}`;
+          collapsedMetrics[key] = false;
+        });
+      });
+
+      setExpandedMetrics((prev) => ({
+        ...prev,
+        ...collapsedMetrics,
+      }));
+    }
+
+    // Update ref for next render
+    prevSliceTagsFilterRef.current = sliceTagsFilter;
+  }, [sliceTagsFilter, expandedGoals, expandedSecondaries, expandedGuardrails]);
+
+  const { tables, getChildRowCounts } = useExperimentDimensionRows({
     results,
     goalMetrics,
     secondaryMetrics,
@@ -177,6 +272,8 @@ const BreakDownResults: FC<{
     ssrPolyfills,
     metricTagFilter,
     metricsFilter,
+    sliceTagsFilter,
+    customMetricSlices,
     sortBy,
     sortDirection,
     customMetricOrder,
@@ -186,6 +283,8 @@ const BreakDownResults: FC<{
     settingsForSnapshotMetrics,
     dimensionValuesFilter,
     showErrorsOnQuantileMetrics,
+    shouldShowMetricSlices: true,
+    expandedMetrics,
   });
 
   const activationMetricObj = activationMetric
@@ -195,6 +294,9 @@ const BreakDownResults: FC<{
 
   const isBandit = experimentType === "multi-armed-bandit";
   const isHoldout = experimentType === "holdout";
+
+  // Filter slice rows based on expansion state when there's no slice filter
+  const hasSliceFilter = sliceTagsFilter && sliceTagsFilter.length > 0;
 
   // Wrap drilldown to include dimension info
   const handleRowClick = drilldownContext
@@ -244,6 +346,20 @@ const BreakDownResults: FC<{
       </div>
 
       {tables.map((table, i) => {
+        // Filter slice rows based on expansion state
+        const filteredSliceRows = hasSliceFilter
+          ? table.sliceRows
+          : table.sliceRows.filter((row) => {
+              if (row.parentRowId) {
+                const expandedKey = `${row.parentRowId}:${row.resultGroup}`;
+                return !!expandedMetrics?.[expandedKey];
+              }
+              return true;
+            });
+
+        // Combine dimension rows with slice rows for display
+        const allRows = [...filteredSliceRows, ...table.rows];
+
         return (
           <>
             <h4
@@ -273,20 +389,31 @@ const BreakDownResults: FC<{
               setVariationFilter={setVariationFilter}
               baselineRow={baselineRow}
               columnsFilter={columnsFilter}
-              rows={table.rows}
+              rows={allRows}
               onRowClick={handleRowClick}
               dimension={dimension}
               id={(idPrefix ? `${idPrefix}_` : "") + table.metric.id}
-              tableRowAxis="dimension" // todo: dynamic grouping?
+              tableRowAxis="dimension"
               labelHeader={
                 renderMetricName ? (
                   renderMetricName(table.metric)
                 ) : (
                   <div style={{ marginBottom: 2 }}>
-                    {getRenderLabelColumn({})({
+                    {getRenderLabelColumn({
+                      expandedMetrics,
+                      toggleExpandedMetric,
+                      getExperimentMetricById:
+                        ssrPolyfills?.getExperimentMetricById ||
+                        getExperimentMetricById,
+                      getFactTableById: getFactTableByIdFn,
+                      shouldShowMetricSlices: true,
+                      getChildRowCounts,
+                      sliceTagsFilter,
+                    })({
                       label: table.metric.name,
                       metric: table.metric,
-                      row: table.rows[0],
+                      row: { ...table.rows[0], numSlices: table.numSlices },
+                      location: table.rows[0]?.resultGroup,
                     })}
                   </div>
                 )
@@ -297,28 +424,41 @@ const BreakDownResults: FC<{
               pValueCorrection={pValueCorrection}
               differenceType={differenceType}
               setDifferenceType={setDifferenceType}
-              renderLabelColumn={({ label }) => (
-                <div
-                  className="pl-3 font-weight-bold"
-                  style={{
-                    display: "-webkit-box",
-                    WebkitLineClamp: 1,
-                    WebkitBoxOrient: "vertical",
-                    overflow: "hidden",
-                    color: "var(--color-text-mid)",
-                  }}
-                >
-                  {label ? (
-                    label === NULL_DIMENSION_VALUE ? (
-                      <em>{formatDimensionValueForDisplay(label)}</em>
+              renderLabelColumn={({ label, row }) => {
+                // For slice rows, use the slice row rendering
+                if (row?.isSliceRow) {
+                  return getRenderLabelColumn({})({
+                    label: label as string,
+                    metric: row.metric,
+                    row,
+                  });
+                }
+                // For dimension value rows, use the original dimension value rendering
+                return (
+                  <div
+                    className="pl-3 font-weight-bold"
+                    style={{
+                      display: "-webkit-box",
+                      WebkitLineClamp: 1,
+                      WebkitBoxOrient: "vertical",
+                      overflow: "hidden",
+                      color: "var(--color-text-mid)",
+                    }}
+                  >
+                    {label ? (
+                      label === NULL_DIMENSION_VALUE ? (
+                        <em>
+                          {formatDimensionValueForDisplay(label as string)}
+                        </em>
+                      ) : (
+                        label
+                      )
                     ) : (
-                      label
-                    )
-                  ) : (
-                    <em>unknown</em>
-                  )}
-                </div>
-              )}
+                      <em>unknown</em>
+                    )}
+                  </div>
+                );
+              }}
               isTabActive={true}
               isBandit={isBandit}
               ssrPolyfills={ssrPolyfills}

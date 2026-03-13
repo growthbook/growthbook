@@ -6,6 +6,10 @@ import {
 import { MetricOverride } from "shared/types/experiment";
 import { PValueCorrection, StatsEngine } from "shared/types/stats";
 import {
+  FactMetricInterface,
+  FactTableInterface,
+} from "shared/types/fact-table";
+import {
   expandMetricGroups,
   ExperimentMetricInterface,
   ExperimentSortBy,
@@ -13,6 +17,13 @@ import {
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
   isMetricGroupId,
+  createAutoSliceDataForMetric,
+  createCustomSliceDataForMetric,
+  dedupeSliceMetrics,
+  SliceDataForMetric,
+  isFactMetric,
+  generateSliceString,
+  generateSelectAllSliceString,
 } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -39,6 +50,13 @@ export interface UseExperimentDimensionRowsParams {
   ssrPolyfills?: SSRPolyfills;
   metricTagFilter?: string[];
   metricsFilter?: string[];
+  sliceTagsFilter?: string[];
+  customMetricSlices?: Array<{
+    slices: Array<{
+      column: string;
+      levels: string[];
+    }>;
+  }>;
   sortBy?: ExperimentSortBy;
   sortDirection?: "asc" | "desc" | null;
   customMetricOrder?: string[];
@@ -50,6 +68,8 @@ export interface UseExperimentDimensionRowsParams {
   settingsForSnapshotMetrics?: MetricSnapshotSettings[];
   dimensionValuesFilter?: string[];
   showErrorsOnQuantileMetrics?: boolean;
+  shouldShowMetricSlices?: boolean;
+  expandedMetrics?: Record<string, boolean>;
 }
 
 export interface UseExperimentDimensionRowsReturn {
@@ -57,7 +77,10 @@ export interface UseExperimentDimensionRowsReturn {
     metric: ExperimentMetricInterface;
     isGuardrail: boolean;
     rows: ExperimentTableRow[];
+    sliceRows: ExperimentTableRow[];
+    numSlices: number;
   }>;
+  getChildRowCounts: (metricId: string) => number;
 }
 
 export function useExperimentDimensionRows({
@@ -69,6 +92,8 @@ export function useExperimentDimensionRows({
   ssrPolyfills,
   metricTagFilter,
   metricsFilter,
+  sliceTagsFilter,
+  customMetricSlices,
   sortBy,
   sortDirection,
   customMetricOrder,
@@ -78,8 +103,16 @@ export function useExperimentDimensionRows({
   settingsForSnapshotMetrics,
   dimensionValuesFilter,
   showErrorsOnQuantileMetrics = false,
+  shouldShowMetricSlices = false,
+  expandedMetrics,
 }: UseExperimentDimensionRowsParams): UseExperimentDimensionRowsReturn {
-  const { getExperimentMetricById, metricGroups, ready } = useDefinitions();
+  const {
+    getExperimentMetricById,
+    getFactTableById: _getFactTableById,
+    metricGroups,
+    ready,
+  } = useDefinitions();
+  const getFactTableById = ssrPolyfills?.getFactTableById || _getFactTableById;
   const { metricDefaults } = useOrganizationMetricDefaults();
 
   const _pValueThreshold = usePValueThreshold();
@@ -365,16 +398,150 @@ export function useExperimentDimensionRows({
             newMetric,
           });
 
+          // Generate slice rows if enabled
+          const sliceRows: ExperimentTableRow[] = [];
+          let numSlices = 0;
+
+          if (shouldShowMetricSlices && isFactMetric(metric)) {
+            const sliceData = generateSliceDataForMetric({
+              metricId,
+              metric,
+              newMetric,
+              customMetricSlices,
+              getExperimentMetricById:
+                ssrPolyfills?.getExperimentMetricById ||
+                getExperimentMetricById,
+              getFactTableById,
+            });
+
+            numSlices = sliceData.length;
+
+            sliceData.forEach((slice) => {
+              // Check if slice matches filter
+              let sliceMatches = true;
+
+              if (sliceTagsFilter && sliceTagsFilter.length > 0) {
+                const hasSelectAllFilter = slice.sliceLevels.some(
+                  (sliceLevel) => {
+                    const selectAllTag = generateSelectAllSliceString(
+                      sliceLevel.column,
+                    );
+                    return sliceTagsFilter.includes(selectAllTag);
+                  },
+                );
+
+                if (hasSelectAllFilter) {
+                  sliceMatches = true;
+                } else {
+                  const sliceTags: string[] = [];
+                  slice.sliceLevels.forEach((sliceLevel) => {
+                    const value = sliceLevel.levels[0] || "";
+                    const tag = generateSliceString({
+                      [sliceLevel.column]: value,
+                    });
+                    sliceTags.push(tag);
+                  });
+                  if (slice.sliceLevels.length > 1) {
+                    const slices: Record<string, string> = {};
+                    slice.sliceLevels.forEach((sl) => {
+                      slices[sl.column] = sl.levels[0] || "";
+                    });
+                    const comboTag = generateSliceString(slices);
+                    sliceTags.push(comboTag);
+                  }
+                  sliceMatches = sliceTags.some((tag) =>
+                    sliceTagsFilter.includes(tag),
+                  );
+                }
+              }
+
+              // Check expansion state
+              const expandedKey = `${metricId}:${resultGroup}`;
+              const hasFilter = sliceTagsFilter && sliceTagsFilter.length > 0;
+              const isExpanded = hasFilter
+                ? true
+                : !!expandedMetrics?.[expandedKey];
+
+              const shouldShowLevel = hasFilter
+                ? isExpanded && sliceMatches
+                : isExpanded;
+
+              const label = slice.sliceLevels
+                .map((dl) => {
+                  if (dl.levels.length === 0) {
+                    const emptyValue =
+                      dl.datatype === "string" ? "other" : "null";
+                    return `${dl.column}: ${emptyValue}`;
+                  }
+                  const value = dl.levels[0];
+                  if (dl.datatype === "boolean") {
+                    return `${dl.column}: ${value}`;
+                  }
+                  return value;
+                })
+                .join(" + ");
+
+              // Get slice data from the first result (overall)
+              const sliceRow: ExperimentTableRow = {
+                label,
+                metric: {
+                  ...newMetric,
+                  name: slice.name,
+                },
+                metricOverrideFields: overrideFields,
+                rowClass: `${newMetric?.inverse ? "inverse" : ""} slice-row`,
+                sliceId: slice.id,
+                variations:
+                  results[0]?.variations.map((v) => {
+                    return (
+                      v.metrics?.[slice.id] || {
+                        users: 0,
+                        value: 0,
+                        cr: 0,
+                        errorMessage: "No data",
+                      }
+                    );
+                  }) || [],
+                metricSnapshotSettings: _metricSnapshotSettings,
+                resultGroup,
+                numSlices: 0,
+                isSliceRow: true,
+                parentRowId: metricId,
+                sliceLevels: slice.sliceLevels.map((dl) => ({
+                  column: dl.column,
+                  datatype: dl.datatype,
+                  levels: dl.levels,
+                })),
+                allSliceLevels: slice.allSliceLevels,
+                isHiddenByFilter: hasFilter ? !shouldShowLevel : false,
+              };
+
+              // Skip "other" slice rows with no data
+              if (
+                slice.sliceLevels.every((dl) => dl.levels.length === 0) &&
+                sliceRow.variations.every((v) => v.value === 0)
+              ) {
+                return;
+              }
+
+              sliceRows.push(sliceRow);
+            });
+          }
+
           return {
             metric: newMetric,
             isGuardrail: resultGroup === "guardrail",
             rows,
+            sliceRows,
+            numSlices,
           };
         })
         .filter((table) => table?.metric) as Array<{
         metric: ExperimentMetricInterface;
         isGuardrail: boolean;
         rows: ExperimentTableRow[];
+        sliceRows: ExperimentTableRow[];
+        numSlices: number;
       }>;
     }
 
@@ -406,6 +573,8 @@ export function useExperimentDimensionRows({
     metricOverrides,
     ssrPolyfills,
     metricTagFilter,
+    sliceTagsFilter,
+    customMetricSlices,
     sortBy,
     sortDirection,
     customMetricOrder,
@@ -415,6 +584,7 @@ export function useExperimentDimensionRows({
     settingsForSnapshotMetrics,
     dimensionValuesFilter,
     getExperimentMetricById,
+    getFactTableById,
     ready,
     metricDefaults,
     pValueThreshold,
@@ -422,10 +592,19 @@ export function useExperimentDimensionRows({
     expandedSecondaries,
     expandedGuardrails,
     showErrorsOnQuantileMetrics,
+    shouldShowMetricSlices,
+    expandedMetrics,
   ]);
+
+  const getChildRowCounts = (metricId: string) => {
+    const table = tables.find((t) => t.metric.id === metricId);
+    if (!table) return 0;
+    return table.sliceRows.filter((row) => !row.isHiddenByFilter).length;
+  };
 
   return {
     tables,
+    getChildRowCounts,
   };
 }
 
@@ -500,4 +679,46 @@ export function generateDimensionRowsForMetric({
   });
 
   return rows;
+}
+
+// Helper function to generate slice data for a metric
+function generateSliceDataForMetric({
+  metricId,
+  metric,
+  newMetric,
+  customMetricSlices,
+  getExperimentMetricById,
+  getFactTableById,
+}: {
+  metricId: string;
+  metric: ExperimentMetricInterface;
+  newMetric: ExperimentMetricInterface;
+  customMetricSlices?: Array<{
+    slices: Array<{
+      column: string;
+      levels: string[];
+    }>;
+  }>;
+  getExperimentMetricById: (id: string) => ExperimentMetricInterface | null;
+  getFactTableById: (id: string) => FactTableInterface | null;
+}): SliceDataForMetric[] {
+  const standardSliceData = createAutoSliceDataForMetric({
+    parentMetric: getExperimentMetricById(metricId),
+    factTable: getFactTableById(
+      (getExperimentMetricById(metricId) as FactMetricInterface)?.numerator
+        ?.factTableId || "",
+    ),
+    includeOther: true,
+  });
+
+  const customSliceData = createCustomSliceDataForMetric({
+    metricId,
+    metricName: newMetric?.name || "",
+    customMetricSlices: customMetricSlices || [],
+    factTable: getFactTableById(
+      (metric as FactMetricInterface)?.numerator?.factTableId || "",
+    ),
+  });
+
+  return dedupeSliceMetrics([...standardSliceData, ...customSliceData]);
 }
