@@ -10,23 +10,21 @@ import { Environment } from "shared/types/organization";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import { getReviewSetting, getDraftAffectedEnvironments } from "shared/util";
 import Text from "@/ui/Text";
-import Badge from "@/ui/Badge";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import Modal from "@/components/Modal";
-import Checkbox from "@/ui/Checkbox";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useEnvironments } from "@/services/features";
 import track from "@/services/track";
-import RevisionDropdown from "@/components/Features/RevisionDropdown";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+import DraftSelectorForChanges from "@/components/Features/DraftSelectorForChanges";
 
 function ToggleIcon({ enabled, muted }: { enabled: boolean; muted: boolean }) {
   const Icon = enabled ? PiToggleRight : PiToggleLeft;
   return (
     <Icon
-      size={22}
+      size={24}
       style={{
         color: muted
           ? "var(--gray-6)"
@@ -58,7 +56,7 @@ function EnvStateGrid({
   liveVersion: number;
   afterChangeSubtext: string;
 }) {
-  const COL_W = 60;
+  const COL_W = 70;
   const LABEL_W = 156;
   const ROW_PY = 6;
 
@@ -73,14 +71,8 @@ function EnvStateGrid({
 
   return (
     <Box
-      mb="3"
-      style={{
-        overflowX: "auto",
-        fontSize: "var(--font-size-2)",
-        background: "var(--gray-2)",
-        borderRadius: "var(--radius-3)",
-        padding: "var(--space-3)",
-      }}
+      my="4"
+      style={{ overflowX: "auto" }}
     >
       <Flex direction="column" style={{ minWidth: "max-content" }}>
         {/* Header row */}
@@ -113,7 +105,7 @@ function EnvStateGrid({
           style={{ paddingTop: ROW_PY, paddingBottom: ROW_PY }}
         >
           <Box style={{ width: LABEL_W, flexShrink: 0 }}>
-            <Text size="small" weight="semibold" color="text-mid">
+            <Text size="small" weight="semibold">
               Live
             </Text>
             <div style={{ fontSize: "0.75em", color: "var(--color-text-low)" }}>
@@ -142,7 +134,7 @@ function EnvStateGrid({
           style={{ paddingTop: ROW_PY, paddingBottom: ROW_PY }}
         >
           <Box style={{ width: LABEL_W, flexShrink: 0 }}>
-            <Text size="small" weight="semibold" color="text-mid">
+            <Text size="small" weight="semibold">
               After change
             </Text>
             <div style={{ fontSize: "0.75em", color: "var(--color-text-low)" }}>
@@ -210,10 +202,24 @@ export default function KillSwitchModal({
 
   const isAdmin = permissionsUtil.canBypassApprovalChecks(feature);
 
-  // Determine if this environment is gated by the approval rules.
+  // Determine per-environment approval gating.
   // requireReviews === true is the top-level opt-in (all envs gated);
   // the array format allows per-project/env configuration.
   const rawRequireReviews = settings?.requireReviews;
+
+  // Badge display: reflects env filtering only (no kill-switch-specific checks).
+  // "all" if no env list, a Set if specific envs are listed, "none" if approvals off.
+  const gatedEnvSet: Set<string> | "all" | "none" = (() => {
+    if (rawRequireReviews === true) return "all";
+    if (!Array.isArray(rawRequireReviews)) return "none";
+    const reviewSetting = getReviewSetting(rawRequireReviews, feature);
+    if (!reviewSetting?.requireReviewOn) return "none";
+    const gatedEnvs = reviewSetting.environments ?? [];
+    return gatedEnvs.length === 0 ? "all" : new Set(gatedEnvs);
+  })();
+
+  // Approval requirement for this specific kill-switch action: also checks
+  // featureRequireEnvironmentReview, which can disable kill-switch gating.
   const envIsGated: boolean = (() => {
     if (rawRequireReviews === true) return true;
     if (!Array.isArray(rawRequireReviews)) return false;
@@ -352,6 +358,24 @@ export default function KillSwitchModal({
       submit={submit}
       useRadixButton={true}
     >
+      <DraftSelectorForChanges
+        feature={feature}
+        revisionList={revisionList}
+        autoPublish={autoPublish}
+        setAutoPublish={setAutoPublish}
+        selectedDraft={selectedDraft}
+        setSelectedDraft={setSelectedDraft}
+        canAutoPublish={canAutoPublish}
+        gatedEnvSet={gatedEnvSet}
+        affectedEnvs={(() => {
+          if (autoPublish || displayedDraft === null) return null;
+          const affected = affectedEnvsByVersion?.get(displayedDraft);
+          if (!affected || (Array.isArray(affected) && affected.length === 0))
+            return null;
+          return affected;
+        })()}
+      />
+
       <Text as="p" mb="2">
         You are about to set the <strong>{environment}</strong> environment to{" "}
         <strong
@@ -382,73 +406,6 @@ export default function KillSwitchModal({
               : "new draft"
         }
       />
-
-      <Box mb="3">
-        <RevisionDropdown
-          feature={feature}
-          revisions={revisionList}
-          version={displayedDraft}
-          setVersion={() => undefined}
-          onVersionChange={setSelectedDraft}
-          draftsOnly
-          variant="select"
-          disabled={autoPublish}
-        />
-        {!autoPublish &&
-          displayedDraft !== null &&
-          (() => {
-            const affected = affectedEnvsByVersion?.get(displayedDraft);
-            if (!affected) return null;
-            const envList =
-              affected === "all"
-                ? "all environments"
-                : affected.length === 0
-                  ? null
-                  : affected;
-            if (!envList) return null;
-            return (
-              <Flex align="center" gap="2" mt="2" wrap="wrap">
-                <Text size="small" color="text-low">
-                  Environments affected in this draft:
-                </Text>
-                {envList === "all environments" ? (
-                  <Badge
-                    label="all environments"
-                    color="gray"
-                    variant="soft"
-                    radius="small"
-                    style={{ fontSize: "11px" }}
-                  />
-                ) : (
-                  (envList as string[]).map((env) => (
-                    <Badge
-                      key={env}
-                      label={<OverflowText maxWidth={80}>{env}</OverflowText>}
-                      color="sky"
-                      variant="soft"
-                      radius="small"
-                      style={{ fontSize: "11px" }}
-                    />
-                  ))
-                )}
-              </Flex>
-            );
-          })()}
-      </Box>
-
-      {canAutoPublish && (
-        <Checkbox
-          id="kill-switch-auto-publish"
-          label="Automatically publish as a new revision"
-          description={
-            envIsGated
-              ? "Bypass approval and publish now"
-              : "No approval required in this environment"
-          }
-          value={autoPublish}
-          setValue={setAutoPublish}
-        />
-      )}
     </Modal>
   );
 }

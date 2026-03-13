@@ -26,35 +26,20 @@ import RevisionStatusBadge from "@/components/Features/RevisionStatusBadge";
 export interface Props {
   feature: FeatureInterface;
   revisions: MinimalFeatureRevisionInterface[];
-  /** Currently selected version. Pass `null` to indicate "New Draft" (only meaningful with `draftsOnly`). */
   version: number | null;
   setVersion: (version: number) => void;
   variant?: "slim" | "select";
   menuPlacement?: "start" | "center" | "end";
-  /**
-   * When true, only active drafts are shown plus a "New Draft" option.
-   * Use `onVersionChange` instead of `setVersion` to receive `null` for "New Draft".
-   */
+  /** When true, only active drafts are shown. Use `onVersionChange` instead of `setVersion`. */
   draftsOnly?: boolean;
-  /**
-   * Local onChange used in draftsOnly mode. Receives `null` when "New Draft" is selected.
-   * Does NOT call `setVersion` (won't mutate the page-level version state).
-   */
-  onVersionChange?: (version: number | null) => void;
+  /** Local onChange for draftsOnly mode. Does NOT mutate the page-level version state. */
+  onVersionChange?: (version: number) => void;
   disabled?: boolean;
   /**
    * When provided, replaces the built-in trigger entirely. The element must
    * forward a ref and accept onClick so Radix can open the menu.
    */
   customTrigger?: React.ReactNode;
-  /** Suppress the "New Draft" option even in draftsOnly mode. */
-  hideNewDraft?: boolean;
-  /**
-   * Called when "New Draft" is clicked. When provided, the click will call
-   * this handler instead of the default (no-op) behaviour, allowing the parent
-   * to show a confirmation modal before creating the draft.
-   */
-  onNewDraft?: () => void;
 }
 
 /** Like `date()` but omits the year when it matches the current calendar year. */
@@ -119,8 +104,6 @@ export default function RevisionDropdown({
   onVersionChange,
   disabled = false,
   customTrigger,
-  hideNewDraft = false,
-  onNewDraft,
 }: Props) {
   const liveVersion = feature.version;
   const initialPageSize = 10;
@@ -203,10 +186,10 @@ export default function RevisionDropdown({
       ? selectedMeta?.datePublished
       : selectedMeta?.dateUpdated;
 
-  const handleSelect = (v: number | null) => {
+  const handleSelect = (v: number) => {
     if (onVersionChange) {
       onVersionChange(v);
-    } else if (v !== null) {
+    } else {
       setVersion(v);
     }
     setOpen(false);
@@ -233,32 +216,6 @@ export default function RevisionDropdown({
     </DropdownMenuItem>
   ));
 
-  // "New Draft" option — always shown in draftsOnly mode; also shown in
-  // full-list mode when an onNewDraft handler is provided (e.g. from FeaturesHeader).
-  const showNewDraft = !hideNewDraft && (draftsOnly || !!onNewDraft);
-  const newDraftItem = showNewDraft ? (
-    <DropdownMenuItem
-      key="__new__"
-      className={`multiline-item${version === null ? " selected-item" : ""}`}
-      onClick={() => {
-        if (onNewDraft) {
-          setOpen(false);
-          onNewDraft();
-        } else {
-          handleSelect(null);
-        }
-      }}
-    >
-      <Flex align="center" gap="3" style={{ width: "100%" }}>
-        <Text weight="semibold">New Draft</Text>
-        <Box flexGrow="1" />
-        <Text size="small" color="text-low">
-          Branch from live revision
-        </Text>
-      </Flex>
-    </DropdownMenuItem>
-  ) : null;
-
   const discardedCount = allSorted.filter(
     (r) => r.status === "discarded",
   ).length;
@@ -278,9 +235,7 @@ export default function RevisionDropdown({
       {/* Left: revision label */}
       <Box flexShrink="0">
         <Text weight="semibold">
-          {version === null ? (
-            "New Draft"
-          ) : (
+          {version != null ? (
             <OverflowText
               maxWidth={150}
               title={revisionLabelText(version, selectedRevision?.title)}
@@ -290,7 +245,7 @@ export default function RevisionDropdown({
                 title={selectedRevision?.title}
               />
             </OverflowText>
-          )}
+          ) : null}
         </Text>
       </Box>
       {variant !== "slim" && <Box flexGrow="1" />}
@@ -375,7 +330,6 @@ export default function RevisionDropdown({
       )}
       {liveItem}
       {(menuItems.length > 0 ||
-        newDraftItem ||
         (!draftsOnly &&
           revisionTab === "all-revisions" &&
           discardedCount > 0)) &&
@@ -395,7 +349,6 @@ export default function RevisionDropdown({
         </RadixDropdownMenu.Label>
       )}
       {menuItems}
-      {newDraftItem}
       {remaining > 0 && (
         <RadixDropdownMenu.Label>
           <Link

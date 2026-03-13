@@ -91,6 +91,7 @@ import Link from "@/ui/Link";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import JSONValidation from "@/components/Features/JSONValidation";
 import DraftControlBadge from "@/components/Features/DraftControlBadge";
+import AffectedEnvironmentsBadges from "@/components/Features/AffectedEnvironmentsBadges";
 import {
   PrerequisiteStateResult,
   usePrerequisiteStates,
@@ -715,7 +716,6 @@ export default function FeaturesOverview({
                         version={version ?? feature.version}
                         setVersion={setVersion}
                         draftsOnly
-                        hideNewDraft
                         menuPlacement="start"
                         customTrigger={
                           <Link>
@@ -760,49 +760,11 @@ export default function FeaturesOverview({
               </Flex>
             </Flex>
             {affectedEnvs !== null && (
-              <Flex align="center" gap="2" mt="1" mb="2" wrap="wrap">
-                <span
-                  style={{
-                    fontSize: "var(--font-size-2)",
-                    color: "var(--color-text-low)",
-                  }}
-                >
-                  Affected environments:
-                </span>
-                {(() => {
-                  const envIds =
-                    affectedEnvs === "all"
-                      ? allEnvironments.map((e) => e.id)
-                      : affectedEnvs;
-                  if (envIds.length === 0) {
-                    return (
-                      <span
-                        style={{
-                          fontSize: "var(--font-size-2)",
-                          color: "var(--color-text-mid)",
-                          fontStyle: "italic",
-                        }}
-                      >
-                        none
-                      </span>
-                    );
-                  }
-                  return envIds.map((envId) => {
-                    const isGated =
-                      gatedEnvSet === "all" ||
-                      (gatedEnvSet !== "none" &&
-                        (gatedEnvSet as Set<string>).has(envId));
-                    return (
-                      <Badge
-                        key={envId}
-                        label={envId}
-                        color={isGated ? "amber" : "sky"}
-                        variant="soft"
-                        radius="small"
-                      />
-                    );
-                  });
-                })()}
+              <Flex mt="1" mb="2">
+                <AffectedEnvironmentsBadges
+                  affectedEnvs={affectedEnvs}
+                  gatedEnvSet={gatedEnvSet}
+                />
               </Flex>
             )}
             <Separator size="4" my="3" />

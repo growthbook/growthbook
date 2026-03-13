@@ -13,9 +13,7 @@ import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import Modal from "@/components/Modal";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Checkbox from "@/ui/Checkbox";
-import Badge from "@/ui/Badge";
-import RevisionDropdown from "@/components/Features/RevisionDropdown";
+import DraftSelectorForChanges from "@/components/Features/DraftSelectorForChanges";
 
 interface Props {
   close: () => void;
@@ -67,7 +65,6 @@ export default function EditFeatureDescriptionModal({
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
   );
-  const displayedDraft = autoPublish ? null : selectedDraft;
 
   const form = useForm<{ description: string }>({
     defaultValues: {
@@ -128,45 +125,17 @@ export default function EditFeatureDescriptionModal({
       />
 
       <Box mt="4" mb="3">
-        <RevisionDropdown
+        <DraftSelectorForChanges
           feature={feature}
-          revisions={revisionList}
-          version={displayedDraft}
-          setVersion={() => undefined}
-          onVersionChange={setSelectedDraft}
-          draftsOnly
-          variant="select"
-          disabled={autoPublish}
+          revisionList={revisionList}
+          autoPublish={autoPublish}
+          setAutoPublish={setAutoPublish}
+          selectedDraft={selectedDraft}
+          setSelectedDraft={setSelectedDraft}
+          canAutoPublish={canAutoPublish}
+          gatedEnvSet={metadataGated ? "all" : "none"}
         />
-        {!autoPublish && (
-          <Flex align="center" gap="2" mt="2" wrap="wrap">
-            <Text size="small" color="text-low">
-              Environments affected in this draft:
-            </Text>
-            <Badge
-              label="all environments"
-              color="gray"
-              variant="soft"
-              radius="small"
-              style={{ fontSize: "11px" }}
-            />
-          </Flex>
-        )}
       </Box>
-
-      {canAutoPublish && (
-        <Checkbox
-          id="edit-description-auto-publish"
-          label="Automatically publish as a new revision"
-          description={
-            metadataGated
-              ? "Bypass approval and publish now"
-              : "No approval required for metadata changes"
-          }
-          value={autoPublish}
-          setValue={setAutoPublish}
-        />
-      )}
     </Modal>
   );
 }

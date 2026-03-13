@@ -2,7 +2,7 @@ import { FeatureInterface } from "shared/types/feature";
 import { useState } from "react";
 import { filterEnvironmentsByFeature, getReviewSetting } from "shared/util";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import { useFeatureDependents } from "@/hooks/useFeatureDependents";
 import { getEnabledEnvironments, useEnvironments } from "@/services/features";
@@ -13,8 +13,7 @@ import Checkbox from "@/ui/Checkbox";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Badge from "@/ui/Badge";
-import RevisionDropdown from "@/components/Features/RevisionDropdown";
+import DraftSelectorForChanges from "@/components/Features/DraftSelectorForChanges";
 import FeatureReferencesList from "./FeatureReferencesList";
 
 interface FeatureArchiveModalProps {
@@ -67,7 +66,6 @@ export default function FeatureArchiveModal({
   const [autoPublish, setAutoPublish] = useState(canAutoPublish);
 
   const [selectedDraft, setSelectedDraft] = useState<number | null>(null);
-  const displayedDraft = autoPublish ? null : selectedDraft;
 
   const canSubmit =
     !loading && totalDependents === 0 && (confirmEnvBypass || !hasActiveEnvs);
@@ -162,45 +160,17 @@ export default function FeatureArchiveModal({
       )}
 
       <Box mt="4" mb="3">
-        <RevisionDropdown
+        <DraftSelectorForChanges
           feature={feature}
-          revisions={revisionList}
-          version={displayedDraft}
-          setVersion={() => undefined}
-          onVersionChange={setSelectedDraft}
-          draftsOnly
-          variant="select"
-          disabled={autoPublish}
+          revisionList={revisionList}
+          autoPublish={autoPublish}
+          setAutoPublish={setAutoPublish}
+          selectedDraft={selectedDraft}
+          setSelectedDraft={setSelectedDraft}
+          canAutoPublish={canAutoPublish}
+          gatedEnvSet={archiveGated ? "all" : "none"}
         />
-        {!autoPublish && (
-          <Flex align="center" gap="2" mt="2" wrap="wrap">
-            <Text size="small" color="text-low">
-              Environments affected in this draft:
-            </Text>
-            <Badge
-              label="all environments"
-              color="gray"
-              variant="soft"
-              radius="small"
-              style={{ fontSize: "11px" }}
-            />
-          </Flex>
-        )}
       </Box>
-
-      {canAutoPublish && (
-        <Checkbox
-          id="archive-auto-publish"
-          label="Automatically publish as a new revision"
-          description={
-            archiveGated
-              ? "Bypass approval and publish now"
-              : "No approval required for archive changes"
-          }
-          value={autoPublish}
-          setValue={setAutoPublish}
-        />
-      )}
     </Modal>
   );
 }

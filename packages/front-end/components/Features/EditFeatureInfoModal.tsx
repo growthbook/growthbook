@@ -4,7 +4,7 @@ import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { getReviewSetting } from "shared/util";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
@@ -18,9 +18,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import { useAuth } from "@/services/auth";
-import Checkbox from "@/ui/Checkbox";
-import Badge from "@/ui/Badge";
-import RevisionDropdown from "@/components/Features/RevisionDropdown";
+import DraftSelectorForChanges from "@/components/Features/DraftSelectorForChanges";
 
 const EditFeatureInfoModal: FC<{
   feature: FeatureInterface;
@@ -30,7 +28,15 @@ const EditFeatureInfoModal: FC<{
   setVersion?: (v: number) => void;
   source?: string;
   dependents: number;
-}> = ({ feature, revisionList, cancel, mutate, setVersion, source, dependents }) => {
+}> = ({
+  feature,
+  revisionList,
+  cancel,
+  mutate,
+  setVersion,
+  source,
+  dependents,
+}) => {
   const { apiCall } = useAuth();
   const settings = useOrgSettings();
   const permissionsUtil = usePermissionsUtil();
@@ -67,8 +73,9 @@ const EditFeatureInfoModal: FC<{
     return null;
   }, [activeDrafts]);
 
-  const [selectedDraft, setSelectedDraft] = useState<number | null>(defaultDraft);
-  const displayedDraft = autoPublish ? null : selectedDraft;
+  const [selectedDraft, setSelectedDraft] = useState<number | null>(
+    defaultDraft,
+  );
 
   const form = useForm({
     defaultValues: {
@@ -190,45 +197,17 @@ const EditFeatureInfoModal: FC<{
         </Box>
 
         <Box mb="3">
-          <RevisionDropdown
+          <DraftSelectorForChanges
             feature={feature}
-            revisions={revisionList}
-            version={displayedDraft}
-            setVersion={() => undefined}
-            onVersionChange={setSelectedDraft}
-            draftsOnly
-            variant="select"
-            disabled={autoPublish}
+            revisionList={revisionList}
+            autoPublish={autoPublish}
+            setAutoPublish={setAutoPublish}
+            selectedDraft={selectedDraft}
+            setSelectedDraft={setSelectedDraft}
+            canAutoPublish={canAutoPublish}
+            gatedEnvSet={metadataGated ? "all" : "none"}
           />
-          {!autoPublish && (
-            <Flex align="center" gap="2" mt="2" wrap="wrap">
-              <Text size="small" color="text-low">
-                Environments affected in this draft:
-              </Text>
-              <Badge
-                label="all environments"
-                color="gray"
-                variant="soft"
-                radius="small"
-                style={{ fontSize: "11px" }}
-              />
-            </Flex>
-          )}
         </Box>
-
-        {canAutoPublish && (
-          <Checkbox
-            id="edit-info-auto-publish"
-            label="Automatically publish as a new revision"
-            description={
-              metadataGated
-                ? "Bypass approval and publish now"
-                : "No approval required for metadata changes"
-            }
-            value={autoPublish}
-            setValue={setAutoPublish}
-          />
-        )}
       </Box>
     </Modal>
   );

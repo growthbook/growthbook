@@ -1436,13 +1436,30 @@ main.main {
     transition: transform 0.1s;
     transform: rotate(0deg);
   }
+  .chevron-right {
+    transition: transform 0.1s;
+    transform: rotate(0deg);
+  }
   &.is-open {
     .chevron {
+      transform: rotate(90deg);
+    }
+    .chevron-right {
       transform: rotate(90deg);
     }
   }
 }
 
+.draft-selector-collapsible-trigger {
+  background-color: var(--violet-a2);
+  &:hover {
+    background-color: var(--violet-a3);
+  }
+}
+
+.draft-selector-collapsible-content {
+  border: 0px !important;
+}
 .code-holder {
   margin: 0.5em 0;
 
