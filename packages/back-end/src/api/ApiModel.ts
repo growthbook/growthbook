@@ -11,6 +11,7 @@ import {
 } from "back-end/src/util/handler";
 import { MetricGroupModel } from "back-end/src/models/MetricGroupModel";
 import { TeamModel } from "back-end/src/models/TeamModel";
+import { ExperimentTemplatesModel } from "back-end/src/models/ExperimentTemplateModel";
 import {
   CustomApiHandler,
   CrudAction,
@@ -24,6 +25,7 @@ export const API_MODELS: ModelClass[] = [
   CustomFieldModel,
   MetricGroupModel,
   TeamModel,
+  ExperimentTemplatesModel,
 ];
 
 export type ApiBaseSchema = typeof apiBaseSchema;
@@ -41,7 +43,7 @@ type CrudValidatorShapes<T extends ApiBaseSchema> = {
     z.ZodNever
   >;
   get: ApiRequestValidator<z.ZodType<{ id: string }>, z.ZodNever, z.ZodNever>;
-  list: ApiRequestValidator<z.ZodNever, z.ZodNever, z.ZodNever>;
+  list: ApiRequestValidator<z.ZodNever, z.ZodNever, z.ZodTypeAny>;
   update: ApiRequestValidator<
     z.ZodType<{ id: string }>,
     ApiUpdateZodObject<T>,

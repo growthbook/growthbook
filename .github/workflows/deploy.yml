@@ -12,6 +12,11 @@ on:
       - "pnpm-lock.yaml"
       - "Dockerfile"
       - ".dockerignore"
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
 jobs:
   # Build and publish the commit to docker
   docker:

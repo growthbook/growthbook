@@ -15,7 +15,7 @@ const BaseClass = MakeModelClass({
     updateEvent: "customHook.update",
     deleteEvent: "customHook.delete",
   },
-  globallyUniqueIds: false,
+  globallyUniquePrimaryKeys: false,
 });
 
 export class CustomHookModel extends BaseClass {
