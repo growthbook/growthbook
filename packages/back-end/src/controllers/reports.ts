@@ -12,7 +12,7 @@ import {
   ExperimentSnapshotReportInterface,
   ReportInterface,
 } from "shared/types/report";
-import { getAllVariations } from "shared/variations";
+import { getAllVariations } from "shared/experiments";
 import {
   getExperimentById,
   getExperimentsByIds,

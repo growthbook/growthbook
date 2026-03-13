@@ -48,16 +48,17 @@ export default function BanditSRMCard({
 
   const [chartMode, setChartMode] = useState<"weights" | "users">("users");
 
+  const numOfVariations = getLatestPhaseVariations(experiment).length;
   const overallHealth = useMemo(
     () =>
       getSRMHealthData({
         srm: srm ?? Infinity,
         srmThreshold,
-        numOfVariations: getLatestPhaseVariations(experiment).length,
+        numOfVariations,
         totalUsersCount: totalUsers,
         minUsersPerVariation: DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
       }),
-    [srm, srmThreshold, experiment, totalUsers],
+    [srm, srmThreshold, numOfVariations, totalUsers],
   );
 
   useEffect(() => {

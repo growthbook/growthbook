@@ -20,8 +20,8 @@ import {
   parseSliceMetricId,
   SliceLevelsData,
   getEffectiveLookbackOverride,
+  getLatestPhaseVariations,
 } from "shared/experiments";
-import { getLatestPhaseVariations } from "shared/variations";
 import { isDefined } from "shared/util";
 import uniqid from "uniqid";
 import { differenceInMinutes } from "date-fns";

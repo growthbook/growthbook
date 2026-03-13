@@ -3,8 +3,8 @@ import {
   getAllExpandedMetricIdsFromExperiment,
   isFactMetricId,
   expandAllSliceMetricsInMap,
+  getLatestPhaseVariations,
 } from "shared/experiments";
-import { getLatestPhaseVariations } from "shared/variations";
 import cloneDeep from "lodash/cloneDeep";
 import {
   CreateMetricTimeSeriesSingleDataPoint,

@@ -14,8 +14,8 @@ import {
   expandMetricGroups,
   getAllMetricIdsFromExperiment,
   getAllMetricSettingsForSnapshot,
+  getAllVariations,
 } from "shared/experiments";
-import { getAllVariations } from "shared/variations";
 import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
 import uniq from "lodash/uniq";
@@ -247,11 +247,10 @@ export async function postAIExperimentAnalysis(
       type: "standard",
     })) || undefined;
 
-  const winnerVariationName =
-    getAllVariations(experiment)[winner]?.name || "none chosen";
+  const allVariations = getAllVariations(experiment);
+  const winnerVariationName = allVariations[winner]?.name || "none chosen";
   const releasedVariationName =
-    getAllVariations(experiment).find((v) => v.id === releasedVariationId)
-      ?.name || "";
+    allVariations.find((v) => v.id === releasedVariationId)?.name || "";
 
   const allMetricGroups = await context.models.metricGroups.getAll();
   const experimentMetricIds = expandMetricGroups(

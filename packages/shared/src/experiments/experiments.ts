@@ -48,8 +48,8 @@ import {
   StatsEngine,
 } from "shared/types/stats";
 import { MetricGroupInterface } from "shared/types/metric-groups";
-import { TemplateVariables } from "../types/sql";
-import { stringToBoolean } from "./util";
+import { TemplateVariables } from "shared/types/sql";
+import { stringToBoolean } from "../util";
 
 export type ExperimentMetricInterface = MetricInterface | FactMetricInterface;
 
@@ -1929,5 +1929,3 @@ export function getEffectiveLookbackOverride(
   }
   return undefined;
 }
-
-export { getAllVariations, getLatestPhaseVariations } from "./variations";

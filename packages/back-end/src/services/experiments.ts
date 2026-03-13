@@ -46,8 +46,9 @@ import {
   parseSliceMetricId,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
+  getAllVariations,
+  getLatestPhaseVariations,
 } from "shared/experiments";
-import { getAllVariations, getLatestPhaseVariations } from "shared/variations";
 import { hoursBetween } from "shared/dates";
 import { v4 as uuidv4 } from "uuid";
 import { differenceInMinutes } from "date-fns";

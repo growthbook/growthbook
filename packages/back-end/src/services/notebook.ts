@@ -2,8 +2,10 @@ import { promisify } from "util";
 import { PythonShell } from "python-shell";
 import { getSnapshotAnalysis } from "shared/util";
 import { hoursBetween } from "shared/dates";
-import { expandAllSliceMetricsInMap } from "shared/experiments";
-import { getLatestPhaseVariations } from "shared/variations";
+import {
+  expandAllSliceMetricsInMap,
+  getLatestPhaseVariations,
+} from "shared/experiments";
 import { Queries } from "shared/types/query";
 import {
   ExperimentSnapshotAnalysisSettings,

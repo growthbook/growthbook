@@ -8,8 +8,8 @@ import {
   getMetricResultStatus,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
+  getLatestPhaseVariations,
 } from "shared/experiments";
-import { getLatestPhaseVariations } from "shared/variations";
 import cloneDeep from "lodash/cloneDeep";
 import {
   PRESET_DECISION_CRITERIA,

@@ -26,7 +26,7 @@ import {
   getRowFilterSQL,
   getColumnExpression,
   getAggregateFilters,
-} from "../../experiments";
+} from "../../experiments/experiments";
 
 // Internal Type definitions
 type MinimalFactTable = Pick<

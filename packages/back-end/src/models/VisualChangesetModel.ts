@@ -8,7 +8,7 @@ import {
   VisualChangesetInterface,
   VisualChangesetURLPattern,
 } from "shared/types/visual-changeset";
-import { getLatestPhaseVariations } from "shared/variations";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { ExperimentInterface, Variation } from "shared/types/experiment";
 import { ApiVisualChangeset } from "shared/types/openapi";
 import { ReqContext } from "back-end/types/request";

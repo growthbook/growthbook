@@ -31,7 +31,7 @@ import {
   scrubSavedGroups,
   SDKCapability,
 } from "shared/sdk-versioning";
-import { getLatestPhaseVariations } from "shared/variations";
+import { getLatestPhaseVariations } from "shared/experiments";
 import cloneDeep from "lodash/cloneDeep";
 import pickBy from "lodash/pickBy";
 import {
