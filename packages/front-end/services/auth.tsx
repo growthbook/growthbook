@@ -228,8 +228,7 @@ export const AuthProvider: React.FC<{
   async function init() {
     if (typeof window !== "undefined") {
       const plan = new URLSearchParams(window.location.search).get("plan");
-      // Add cloud check?
-      if (plan === "pro" || plan === "starter") {
+      if (plan === "pro" || (plan === "starter" && isCloud())) {
         setInitialPlanSelection(plan);
       }
     }

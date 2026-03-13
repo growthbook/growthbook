@@ -28,8 +28,8 @@ import WelcomeFrame from "./WelcomeFrame";
 
 const leftside = (
   <>
-    <h1 className="title h1">Choose your plan</h1>
-    <p>Choose the plan that works best for your team.</p>
+    <h1 className="title h1">Confirm your plan</h1>
+    <p>You can change this later in your account settings.</p>
   </>
 );
 
@@ -101,13 +101,13 @@ const SelectInitialPlan: FC = () => {
     return (
       <WelcomeFrame leftside={leftside} pathName="/select-initial-plan">
         <div style={{ maxWidth: "500px" }}>
-          <h2 className="h3 mb-3">Welcome to GrowthBook Pro!</h2>
-          <p className="text-muted mb-4">
-            You&apos;re all set! Your organization now has access to all
-            GrowthBook Pro features.
+          <h2 className="h3 mb-1">Welcome to GrowthBook Pro!</h2>
+          <p className="text-muted mb-3">
+            You&apos;re all set! Go to your GrowthBook dashboard to start your
+            setup.
           </p>
           <Button color="primary" onClick={completeFlow} disabled={loading}>
-            Setup Your Account
+            Get started
           </Button>
         </div>
       </WelcomeFrame>
@@ -168,45 +168,19 @@ const SelectInitialPlan: FC = () => {
 
   return (
     <WelcomeFrame leftside={leftside} pathName="/select-initial-plan">
-      <Flex direction="column" gap="4" style={{ maxWidth: "600px" }}>
+      <Flex direction="column" gap="4" width="100%">
         <Heading as="h1">Plan Options</Heading>
         <RadioCards
           options={[
             {
-              value: "pro",
-              label: (
-                <Flex direction="row" align="center" justify="between" gap="2">
-                  <Heading as="h2" size="small">
-                    Pro
-                  </Heading>
-                  <Text color="text-low">Starts at $40/month</Text>
-                </Flex>
-              ),
-              description: (
-                <Flex direction="column" gap="3" className="mt-3">
-                  <Text color="text-low">
-                    Full featured experimentation and growth platform
-                  </Text>
-                  <ul
-                    style={{
-                      paddingLeft: 0,
-                      marginLeft: 0,
-                      listStylePosition: "inside",
-                    }}
-                  >
-                    <li>Advanced statistics</li>
-                    <li>Add up to 50 seats</li>
-                    <li>Advanced permissions</li>
-                    <li>2M CDN Requests/month included</li>
-                    <li>20GB Bandwidth/month included</li>
-                  </ul>
-                </Flex>
-              ),
-            },
-            {
               value: "starter",
               label: (
-                <Flex direction="row" align="center" justify="between" gap="2">
+                <Flex
+                  direction="row"
+                  align="baseline"
+                  justify="between"
+                  gap="2"
+                >
                   <Heading as="h2" size="small">
                     Starter
                   </Heading>
@@ -231,6 +205,56 @@ const SelectInitialPlan: FC = () => {
                     <li>1M CDN Requests/month included</li>
                     <li>5GB Bandwidth/month included</li>
                   </ul>
+                  <Button
+                    color="primary"
+                    onClick={handleStarter}
+                    disabled={loading || plan !== "starter"}
+                  >
+                    Get Started for Free
+                  </Button>
+                </Flex>
+              ),
+            },
+            {
+              value: "pro",
+              label: (
+                <Flex
+                  direction="row"
+                  align="baseline"
+                  justify="between"
+                  gap="2"
+                >
+                  <Heading as="h2" size="small">
+                    Pro
+                  </Heading>
+                  <Text color="text-low">Starts at $40/month</Text>
+                </Flex>
+              ),
+              description: (
+                <Flex direction="column" gap="3" className="mt-3">
+                  <Text color="text-low">
+                    Full featured experimentation and growth platform
+                  </Text>
+                  <ul
+                    style={{
+                      paddingLeft: 0,
+                      marginLeft: 0,
+                      listStylePosition: "inside",
+                    }}
+                  >
+                    <li>Advanced statistics</li>
+                    <li>Add up to 50 seats</li>
+                    <li>Advanced permissions</li>
+                    <li>2M CDN Requests/month included</li>
+                    <li>20GB Bandwidth/month included</li>
+                  </ul>
+                  <Button
+                    color="primary"
+                    onClick={handleProContinue}
+                    disabled={loading || plan !== "pro"}
+                  >
+                    Next: Add Payment Details
+                  </Button>
                 </Flex>
               ),
             },
@@ -241,7 +265,7 @@ const SelectInitialPlan: FC = () => {
           columns="2"
           width="100%"
         />
-        <div className="d-flex gap-2">
+        {/* <Flex gap="2" justify="end">
           <Button
             color="primary"
             onClick={plan === "starter" ? handleStarter : handleProContinue}
@@ -251,7 +275,7 @@ const SelectInitialPlan: FC = () => {
               ? "Get Started for Free"
               : "Next: Add Payment Details"}
           </Button>
-        </div>
+        </Flex> */}
         {error && <div className="alert alert-danger mt-3">{error}</div>}
       </Flex>
     </WelcomeFrame>
@@ -297,26 +321,21 @@ const ProBillingStep: FC<ProBillingStepProps> = ({
   };
 
   return (
-    <div style={{ maxWidth: "500px" }}>
-      <Heading as="h2" mb="3">
+    <div>
+      <Heading as="h2" mb="1">
         Billing details
       </Heading>
       <Text color="text-low" mb="4" as="p">
-        Enter your billing information. You&apos;ll add a payment method on the
-        next step.
+        Enter your billing information. You can add your payment method next.
       </Text>
-      <div className="mb-4">
-        <Field
-          type="email"
-          required={true}
-          label="Billing email"
-          {...form.register("email", { required: true })}
-        />
-        <Text color="text-low" as="p" mt="1">
-          Monthly invoices will be sent to this address
-        </Text>
-      </div>
-      <Flex gap="4" mb="4">
+      <Field
+        type="email"
+        required={true}
+        label="Billing email"
+        helpText="Monthly invoices will be sent to this address"
+        {...form.register("email", { required: true })}
+      />
+      <Flex gap="4">
         <Box style={{ flex: 1 }}>
           <SelectField
             label="Tax ID type"
@@ -343,7 +362,7 @@ const ProBillingStep: FC<ProBillingStepProps> = ({
           />
         </Box>
       </Flex>
-      <Flex gap="2" className="mt-4">
+      <Flex width="100%" justify="between">
         <Button color="secondary" onClick={onBack}>
           Back
         </Button>
@@ -480,17 +499,16 @@ const ProPaymentFormInner: FC<ProPaymentFormProps> = ({
       <div className="mb-4">
         <PaymentElement />
         <p className="pt-3 text-muted" style={{ fontSize: "14px" }}>
-          The cost is <strong>$40 per seat per month</strong>. You will be
-          charged a pro-rated amount immediately for the remainder of the
-          current month. Cancel anytime.
+          You will be charged a pro-rated amount for the remainder of this
+          month, and $40 per month per seat thereafter. Cancel anytime
         </p>
       </div>
       <div className="mb-4">
         <Checkbox
-          label="Customize Invoice"
+          label="Customize invoice"
           value={showAddress}
           setValue={setShowAddress}
-          description="Add a full billing address and optionally customize the name displayed on invoices."
+          description="Add a billing address and customize the name displayed on invoices."
         />
       </div>
       {showAddress && (
@@ -505,7 +523,7 @@ const ProPaymentFormInner: FC<ProPaymentFormProps> = ({
           />
         </div>
       )}
-      <Flex gap="2">
+      <Flex gap="2" width="100%" justify="between">
         <Button color="secondary" onClick={onBack}>
           Back
         </Button>

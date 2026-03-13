@@ -249,9 +249,6 @@ const CreateOrJoinOrganization: FC<{
                         body: JSON.stringify(body),
                       });
                       track("Create Organization");
-                      if (setOrgId) {
-                        setOrgId(resp.orgId);
-                      }
                       updateUser();
                       if (resp.projectId) {
                         setProject(resp.projectId);
