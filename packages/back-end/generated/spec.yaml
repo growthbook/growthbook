@@ -51,11 +51,8 @@ info:
 servers:
   - url: 'https://api.growthbook.io/api/v1'
     description: GrowthBook Cloud
-  - url: '{domain}/api/v1'
+  - url: 'https://{domain}/api/v1'
     description: Self-hosted GrowthBook
-    variables:
-      domain:
-        default: 'http://localhost:3100'
 tags:
   - name: projects
     x-displayName: Projects
@@ -2457,10 +2454,26 @@ paths:
                   type: number
                 minBucketVersion:
                   type: number
+                results:
+                  type: string
+                  enum:
+                    - dnf
+                    - won
+                    - lost
+                    - inconclusive
+                  description: The result status of the experiment. Maps to resultSummary.status in the GET response.
+                winner:
+                  type: number
+                  description: The index of the winning variation (0-indexed). Maps to resultSummary.winner (variation ID) in the GET response.
+                analysis:
+                  type: string
+                  description: Analysis summary or conclusions for the experiment. Maps to resultSummary.conclusions in the GET response.
                 releasedVariationId:
                   type: string
+                  description: The ID of the released variation. Maps to resultSummary.releasedVariationId in the GET response.
                 excludeFromPayload:
                   type: boolean
+                  description: 'If true, the experiment is excluded from the SDK payload. Maps to resultSummary.excludeFromPayload in the GET response.'
                 inProgressConversions:
                   type: string
                   enum:

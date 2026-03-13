@@ -496,7 +496,7 @@ export function queueSDKPayloadRefresh(data: {
   });
 }
 
-async function refreshSDKPayloadCache({
+export async function refreshSDKPayloadCache({
   context: baseContext,
   payloadKeys,
   skipRefreshForProject,

@@ -88,6 +88,7 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
 
   protected async customValidation(
     doc: URLRedirectInterface,
+    previousDoc?: URLRedirectInterface,
     writeOptions?: WriteOptions,
   ) {
     if (!doc.urlPattern) {

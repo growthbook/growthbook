@@ -31,3 +31,8 @@ export const putMemberProjectRoleValidator = z
     projectRole: projectMemberRoleValidator,
   })
   .strict();
+
+export const postApiKeyValidator = z.strictObject({
+  type: z.string(),
+  description: z.string().optional(),
+});

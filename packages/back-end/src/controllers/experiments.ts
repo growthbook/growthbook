@@ -119,10 +119,6 @@ import {
 import { ApiReqContext, PrivateApiErrorResponse } from "back-end/types/api";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { PastExperimentsQueryRunner } from "back-end/src/queryRunners/PastExperimentsQueryRunner";
-import {
-  createUserVisualEditorApiKey,
-  getVisualEditorApiKey,
-} from "back-end/src/models/ApiKeyModel";
 
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { ReqContext } from "back-end/types/request";
@@ -1290,10 +1286,6 @@ export async function postExperiments(
     }
 
     if (datasource && req.query.autoRefreshResults && metricIds.length > 0) {
-      // This is doing an expensive analytics SQL query, so may take a long time
-      // Set timeout to 30 minutes
-      req.setTimeout(SNAPSHOT_TIMEOUT);
-
       try {
         await createExperimentSnapshot({
           context,
@@ -2876,6 +2868,13 @@ export async function cancelSnapshot(
   await queryRunner.cancelQueries();
   await deleteSnapshotById(org.id, snapshot.id);
 
+  // Release the incremental refresh lock if this snapshot held it.
+  await context.models.incrementalRefresh
+    .releaseLock(experiment.id, snapshot.id)
+    .catch((e) =>
+      logger.warn(e, "Failed to release incremental lock on snapshot cancel"),
+    );
+
   res.status(200).json({ status: 200 });
 }
 
@@ -3136,10 +3135,6 @@ export async function postSnapshot(
 
   const useCache = !req.query["force"];
 
-  // This is doing an expensive analytics SQL query, so may take a long time
-  // Set timeout to 30 minutes
-  req.setTimeout(SNAPSHOT_TIMEOUT);
-
   try {
     const { snapshot } = await createExperimentSnapshot({
       context,
@@ -3297,9 +3292,9 @@ export async function postBanditSnapshot(
     throw new Error("Could not find datasource for this experiment");
   }
 
-  // This is doing an expensive analytics SQL query, so may take a long time
-  // Set timeout to 30 minutes
-  req.setTimeout(30 * 60 * 1000);
+  // We wait until the snapshot is fully updated, which can
+  // take some time, so we increase the timeout.
+  req.setTimeout(SNAPSHOT_TIMEOUT);
   let snapshot: ExperimentSnapshotInterface | undefined = undefined;
 
   try {
@@ -3893,19 +3888,22 @@ export async function findOrCreateVisualEditorToken(
   req: AuthRequest,
   res: Response,
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
 
   if (!req.userId) throw new Error("No user found");
 
-  let visualEditorKey = await getVisualEditorApiKey(org.id, req.userId);
+  let visualEditorKey = await context.models.apiKeys.getVisualEditorApiKey(
+    req.userId,
+  );
 
   // if not exist, create one
   if (!visualEditorKey) {
-    visualEditorKey = await createUserVisualEditorApiKey({
-      userId: req.userId,
-      organizationId: org.id,
-      description: `Created automatically for the Visual Editor`,
-    });
+    visualEditorKey = await context.models.apiKeys.createUserVisualEditorApiKey(
+      {
+        userId: req.userId,
+        description: `Created automatically for the Visual Editor`,
+      },
+    );
   }
 
   res.status(200).json({
