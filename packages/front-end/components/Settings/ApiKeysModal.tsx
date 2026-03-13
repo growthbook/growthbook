@@ -42,7 +42,8 @@ const ApiKeysModal: FC<{
             .filter(
               (role) =>
                 !deactivatedRoles.includes(role.id) &&
-                !(role.id in DEFAULT_ROLES),
+                !(role.id in DEFAULT_ROLES) &&
+                role.id !== "noaccess",
             )
             .map((role) => ({
               label: role.displayName || role.id,
