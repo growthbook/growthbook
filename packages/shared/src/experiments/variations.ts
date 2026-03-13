@@ -21,15 +21,10 @@ export function getLatestPhaseVariations(
   // TODO change to come from phase
   const phaseVariations = experiment.variations;
 
-  const indexById = new Map<string, number>();
-  allVariations.forEach((v, i) => {
-    indexById.set(v.id, i);
-  });
-
   let hasMissing = false;
   const result: VariationWithIndex[] = phaseVariations.map((v, i) => {
-    const foundIndex = indexById.get(v.id);
-    if (foundIndex === undefined) {
+    const foundVariation = allVariations.find((allV) => allV.id === v.id);
+    if (foundVariation === undefined) {
       hasMissing = true;
       return {
         ...v,
@@ -37,10 +32,9 @@ export function getLatestPhaseVariations(
       };
     }
     return {
-      ...allVariations[foundIndex],
+      ...foundVariation,
       // override experiment variation metadata with phase variation metadata, if present
       ...v,
-      index: foundIndex,
     };
   });
   if (!hasMissing) {
