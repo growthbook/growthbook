@@ -520,15 +520,12 @@ export function getSnapshotSettings({
   const currentDate = new Date();
 
   // Expand all slice metrics (auto and custom) and add them to the metricMap
-  // Skip slice expansion for dimension snapshots
-  if (!dimension) {
-    expandAllSliceMetricsInMap({
-      metricMap,
-      factTableMap,
-      experiment,
-      metricGroups,
-    });
-  }
+  expandAllSliceMetricsInMap({
+    metricMap,
+    factTableMap,
+    experiment,
+    metricGroups,
+  });
 
   const phaseEndDate = phase.dateEnded || currentDate;
   const lookbackOverride = getEffectiveLookbackOverride(
