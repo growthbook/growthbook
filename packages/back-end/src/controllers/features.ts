@@ -1054,7 +1054,13 @@ export async function postFeaturePublish(
     ...r,
     environmentsEnabled: { ...featureEnvs, ...(r.environmentsEnabled ?? {}) },
   });
-  const mergeResult = autoMerge(fillEnvs(live), fillEnvs(base), revision, environmentIds, {});
+  const mergeResult = autoMerge(
+    fillEnvs(live),
+    fillEnvs(base),
+    revision,
+    environmentIds,
+    {},
+  );
   if (JSON.stringify(mergeResult) !== mergeResultSerialized) {
     throw new Error(
       "Something seems to have changed while you were reviewing the draft. Please re-review with the latest changes and submit again.",
@@ -1287,7 +1293,10 @@ export async function postFeatureRevert(
     const metadataChanges: RevisionMetadata = {};
     let hasMetadataChanges = false;
     const m = revision.metadata;
-    if (m.description !== undefined && m.description !== (feature.description ?? "")) {
+    if (
+      m.description !== undefined &&
+      m.description !== (feature.description ?? "")
+    ) {
       metadataChanges.description = m.description;
       hasMetadataChanges = true;
     }
@@ -1314,7 +1323,10 @@ export async function postFeatureRevert(
       metadataChanges.customFields = m.customFields;
       hasMetadataChanges = true;
     }
-    if (m.jsonSchema !== undefined && !isEqual(m.jsonSchema, feature.jsonSchema)) {
+    if (
+      m.jsonSchema !== undefined &&
+      !isEqual(m.jsonSchema, feature.jsonSchema)
+    ) {
       metadataChanges.jsonSchema = m.jsonSchema;
       hasMetadataChanges = true;
     }
@@ -2105,12 +2117,8 @@ export async function postFeatureSchema(
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
-  const {
-    targetDraftVersion,
-    autoPublish,
-    forceNewDraft,
-    ...schemaDef
-  } = req.body;
+  const { targetDraftVersion, autoPublish, forceNewDraft, ...schemaDef } =
+    req.body;
   const feature = await getFeature(context, id);
 
   if (!feature) {
@@ -2140,9 +2148,12 @@ export async function postFeatureSchema(
     },
     autoPublish ? undefined : targetDraftVersion,
     autoPublish ? true : forceNewDraft,
+    autoPublish ? "Update JSON schema" : undefined,
   );
   if (autoPublish) {
-    await publishRevision(context, feature, draft, { metadata: { jsonSchema } });
+    await publishRevision(context, feature, draft, {
+      metadata: { jsonSchema },
+    });
   }
   return res.status(200).json({ status: 200, draftVersion: draft.version });
 }
@@ -2440,15 +2451,25 @@ export async function postFeatureCreateDraft(
 
 export async function postFeatureToggle(
   req: AuthRequest<
-    { environment: string; state: boolean; autoPublish?: boolean; draftVersion?: number; forceNewDraft?: boolean },
+    {
+      environment: string;
+      state: boolean;
+      autoPublish?: boolean;
+      draftVersion?: number;
+      forceNewDraft?: boolean;
+    },
     { id: string }
   >,
-  res: Response<{ status: 200; draftVersion?: number }, EventUserForResponseLocals>,
+  res: Response<
+    { status: 200; draftVersion?: number },
+    EventUserForResponseLocals
+  >,
 ) {
   const context = getContextFromReq(req);
   const { environments } = context;
   const { id } = req.params;
-  const { environment, state, autoPublish, draftVersion, forceNewDraft } = req.body;
+  const { environment, state, autoPublish, draftVersion, forceNewDraft } =
+    req.body;
   const feature = await getFeature(context, id);
 
   if (!feature) {
@@ -2518,20 +2539,24 @@ export async function postFeatureToggle(
   const existingDraft = forceNewDraft
     ? null
     : draftVersion
-    ? await getRevision({ context, organization: feature.organization, featureId: feature.id, version: draftVersion })
-    : await getActiveDraft(context, feature);
+      ? await getRevision({
+          context,
+          organization: feature.organization,
+          featureId: feature.id,
+          version: draftVersion,
+        })
+      : await getActiveDraft(context, feature);
 
   const currentState =
     existingDraft?.environmentsEnabled != null &&
     environment in existingDraft.environmentsEnabled
       ? existingDraft.environmentsEnabled[environment]
-      : (feature.environmentSettings?.[environment]?.enabled || false);
+      : feature.environmentSettings?.[environment]?.enabled || false;
 
   if (currentState === state) {
     return res.status(200).json({ status: 200 });
   }
 
-  const toggleTitle = `Toggle ${environment} ${state ? "on" : "off"}`;
   const draft = await createOrUpdateDraftWithChanges(
     context,
     feature,
@@ -2544,8 +2569,6 @@ export async function postFeatureToggle(
     },
     existingDraft?.version,
     forceNewDraft,
-    // Only set the title when creating a brand-new draft (no existing draft to update).
-    existingDraft ? undefined : toggleTitle,
   );
 
   await req.audit({
@@ -2736,7 +2759,8 @@ export async function putFeature(
     throw new Error("Could not find feature");
   }
 
-  const { targetDraftVersion, autoPublish, forceNewDraft, ...updates } = req.body;
+  const { targetDraftVersion, autoPublish, forceNewDraft, ...updates } =
+    req.body;
   if (!context.permissions.canUpdateFeature(feature, updates)) {
     context.permissions.throwPermissionError();
   }
@@ -2839,13 +2863,26 @@ export async function putFeature(
           tags: metadataUpdates.tags,
         }),
         ...(metadataUpdates.customFields !== undefined && {
-          customFields: metadataUpdates.customFields as Record<
-            string,
-            unknown
-          >,
+          customFields: metadataUpdates.customFields as Record<string, unknown>,
         }),
       },
     };
+    const metadataFieldLabels: Partial<Record<keyof FeatureInterface, string>> =
+      {
+        description: "description",
+        tags: "tags",
+        owner: "owner",
+        project: "project",
+        customFields: "custom fields",
+      };
+    const changedMetaKeys = Object.keys(
+      metadataUpdates,
+    ) as (keyof FeatureInterface)[];
+    const metadataTitle = autoPublish
+      ? changedMetaKeys.length === 1
+        ? `Update ${metadataFieldLabels[changedMetaKeys[0]] ?? changedMetaKeys[0]}`
+        : "Update feature metadata"
+      : undefined;
     const draft = await createOrUpdateDraftWithChanges(
       context,
       feature,
@@ -2858,6 +2895,7 @@ export async function putFeature(
       },
       autoPublish ? undefined : targetDraftVersion,
       autoPublish ? true : forceNewDraft,
+      metadataTitle,
     );
     let updatedFeature: FeatureInterface = feature;
     if (autoPublish) {
@@ -3007,9 +3045,7 @@ export async function deleteFeatureById(
       throw new Error("Feature must be archived before it can be deleted");
     }
 
-    if (
-      !context.permissions.canDeleteFeature(feature)
-    ) {
+    if (!context.permissions.canDeleteFeature(feature)) {
       context.permissions.throwPermissionError();
     }
     if (feature.holdout?.id) {
@@ -3169,7 +3205,10 @@ export async function postFeatureArchive(
     | undefined,
     { id: string }
   >,
-  res: Response<{ status: 200; draftVersion?: number }, EventUserForResponseLocals>,
+  res: Response<
+    { status: 200; draftVersion?: number },
+    EventUserForResponseLocals
+  >,
 ) {
   const { id } = req.params;
   const context = getContextFromReq(req);
@@ -3186,12 +3225,18 @@ export async function postFeatureArchive(
     context.permissions.throwPermissionError();
   }
 
-  const { archived: archivedParam, autoPublish, draftVersion, forceNewDraft } =
-    req.body ?? {};
+  const {
+    archived: archivedParam,
+    autoPublish,
+    draftVersion,
+    forceNewDraft,
+  } = req.body ?? {};
   // Use the explicitly requested state if provided; fall back to toggling.
   const newArchivedState = archivedParam ?? !feature.archived;
   const archiveChanges = { archived: newArchivedState };
-  const archiveTitle = newArchivedState ? "Archive feature" : "Unarchive feature";
+  const archiveTitle = newArchivedState
+    ? "Archive feature"
+    : "Unarchive feature";
 
   const draft = await createOrUpdateDraftWithChanges(
     context,
@@ -3801,7 +3846,8 @@ export async function postPrerequisite(
     targetDraftVersion,
     forceNewDraft,
   );
-  const basePrerequisites = baseDraft?.prerequisites ?? feature.prerequisites ?? [];
+  const basePrerequisites =
+    baseDraft?.prerequisites ?? feature.prerequisites ?? [];
   const newPrerequisites = [...basePrerequisites, prerequisite];
   const draft = await createOrUpdateDraftWithChanges(
     context,
@@ -3853,7 +3899,8 @@ export async function putPrerequisite(
     targetDraftVersion,
     forceNewDraft,
   );
-  const basePrerequisites = baseDraftPut?.prerequisites ?? feature.prerequisites ?? [];
+  const basePrerequisites =
+    baseDraftPut?.prerequisites ?? feature.prerequisites ?? [];
   const newPrerequisites = [...basePrerequisites];
   if (!newPrerequisites[i]) {
     throw new Error("Unknown prerequisite");
@@ -3904,7 +3951,8 @@ export async function deletePrerequisite(
     targetDraftVersion,
     forceNewDraft,
   );
-  const basePrerequisites = baseDraftDel?.prerequisites ?? feature.prerequisites ?? [];
+  const basePrerequisites =
+    baseDraftDel?.prerequisites ?? feature.prerequisites ?? [];
   const newPrerequisites = [...basePrerequisites];
   if (!newPrerequisites[i]) {
     throw new Error("Unknown prerequisite");
@@ -3923,7 +3971,9 @@ export async function deletePrerequisite(
     baseDraftDel?.version,
     forceNewDraft,
   );
-  return res.status(200).json({ status: 200, draftVersion: deleteDraft.version });
+  return res
+    .status(200)
+    .json({ status: 200, draftVersion: deleteDraft.version });
 }
 
 export async function postCopyEnvironmentRules(

@@ -107,98 +107,97 @@ export default function FeaturePage() {
         currentVersion: version ?? baseFeature.version,
       }}
     >
-    <FeatureUsageProvider feature={feature}>
-      <PageHead
-        breadcrumb={[
-          { display: "Features", href: "/features" },
-          { display: feature.id },
-        ]}
-      />
-      <FeaturesHeader
-        feature={feature}
-        baseFeature={baseFeature}
-        mutate={refreshData}
-        setVersion={setVersion}
-        version={version}
-        revisions={data.revisionList || []}
-        tab={tab}
-        setTab={setTabAndScroll}
-        setEditFeatureInfoModal={setEditFeatureInfoModal}
-        holdout={holdout}
-        onCopyLink={() => {
-          const url =
-            window.location.href.replace(/[?#].*/, "") +
-            `?v=${version ?? feature.version}`;
-          performCopy(url);
-        }}
-        copyLinkSuccess={copySuccess}
-      />
-
-      {tab === "overview" && (
-        <FeaturesOverview
-          baseFeature={baseFeature}
+      <FeatureUsageProvider feature={feature}>
+        <PageHead
+          breadcrumb={[
+            { display: "Features", href: "/features" },
+            { display: feature.id },
+          ]}
+        />
+        <FeaturesHeader
           feature={feature}
-          revision={revision}
-          revisionList={data.revisionList}
-          revisions={data.revisions}
-          experiments={experiments}
-          safeRollouts={safeRollouts}
+          mutate={refreshData}
+          setVersion={setVersion}
+          version={version}
+          revisions={data.revisionList || []}
+          tab={tab}
+          setTab={setTabAndScroll}
+          setEditFeatureInfoModal={setEditFeatureInfoModal}
           holdout={holdout}
-          mutate={refreshData}
-          editProjectModal={editProjectModal}
-          setEditProjectModal={setEditProjectModal}
-          version={version}
-          setVersion={setVersion}
-        />
-      )}
-
-      {tab === "test" && (
-        <FeatureTest
-          baseFeature={baseFeature}
-          feature={feature}
-          revision={revision}
-          version={version}
-        />
-      )}
-
-      {tab === "stats" && (
-        <FeaturesStats orgSettings={orgSettings} codeRefs={data.codeRefs} />
-      )}
-
-      {tab === "diagnostics" && (
-        <FeatureDiagnostics
-          feature={feature}
-          results={diagnosticsResults}
-          setResults={setDiagnosticsResults}
-        />
-      )}
-
-      {editTagsModal && (
-        <EditTagsForm
-          tags={feature.tags || []}
-          save={async (tags) => {
-            await apiCall(`/feature/${feature.id}`, {
-              method: "PUT",
-              body: JSON.stringify({ tags }),
-            });
+          onCopyLink={() => {
+            const url =
+              window.location.href.replace(/[?#].*/, "") +
+              `?v=${version ?? feature.version}`;
+            performCopy(url);
           }}
-          cancel={() => setEditTagsModal(false)}
-          mutate={refreshData}
+          copyLinkSuccess={copySuccess}
         />
-      )}
 
-      {editFeatureInfoModal && (
-        <EditFeatureInfoModal
-          source="feature-header"
-          dependents={dependents}
-          feature={feature}
-          revisionList={data.revisionList || []}
-          cancel={() => setEditFeatureInfoModal(false)}
-          mutate={refreshData}
-          setVersion={setVersion}
-        />
-      )}
-    </FeatureUsageProvider>
+        {tab === "overview" && (
+          <FeaturesOverview
+            baseFeature={baseFeature}
+            feature={feature}
+            revision={revision}
+            revisionList={data.revisionList}
+            revisions={data.revisions}
+            experiments={experiments}
+            safeRollouts={safeRollouts}
+            holdout={holdout}
+            mutate={refreshData}
+            editProjectModal={editProjectModal}
+            setEditProjectModal={setEditProjectModal}
+            version={version}
+            setVersion={setVersion}
+          />
+        )}
+
+        {tab === "test" && (
+          <FeatureTest
+            baseFeature={baseFeature}
+            feature={feature}
+            revision={revision}
+            version={version}
+          />
+        )}
+
+        {tab === "stats" && (
+          <FeaturesStats orgSettings={orgSettings} codeRefs={data.codeRefs} />
+        )}
+
+        {tab === "diagnostics" && (
+          <FeatureDiagnostics
+            feature={feature}
+            results={diagnosticsResults}
+            setResults={setDiagnosticsResults}
+          />
+        )}
+
+        {editTagsModal && (
+          <EditTagsForm
+            tags={feature.tags || []}
+            save={async (tags) => {
+              await apiCall(`/feature/${feature.id}`, {
+                method: "PUT",
+                body: JSON.stringify({ tags }),
+              });
+            }}
+            cancel={() => setEditTagsModal(false)}
+            mutate={refreshData}
+          />
+        )}
+
+        {editFeatureInfoModal && (
+          <EditFeatureInfoModal
+            source="feature-header"
+            dependents={dependents}
+            feature={feature}
+            revisionList={data.revisionList || []}
+            cancel={() => setEditFeatureInfoModal(false)}
+            mutate={refreshData}
+            setVersion={setVersion}
+          />
+        )}
+      </FeatureUsageProvider>
     </FeatureRevisionsContext.Provider>
   );
 }
