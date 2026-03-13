@@ -2,6 +2,7 @@ export interface TagInterface {
   id: string;
   color: string;
   description: string;
+  label: string;
 }
 
 export interface TagDBInterface {
@@ -13,4 +14,5 @@ export interface TagDBInterface {
 export interface TagSettings {
   color: string;
   description: string;
+  label?: string;
 }
