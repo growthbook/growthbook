@@ -169,7 +169,7 @@ const SelectInitialPlan: FC = () => {
   return (
     <WelcomeFrame leftside={leftside} pathName="/select-initial-plan">
       <Flex direction="column" gap="4" width="100%">
-        <Heading as="h1">Plan Options</Heading>
+        <Heading as="h1">Plan options</Heading>
         <RadioCards
           options={[
             {
@@ -202,8 +202,8 @@ const SelectInitialPlan: FC = () => {
                     <li>Unlimited feature flags</li>
                     <li>Unlimited experiments</li>
                     <li>Add up to 3 seats</li>
-                    <li>1M CDN Requests/month included</li>
-                    <li>5GB Bandwidth/month included</li>
+                    <li>1M CDN Requests/month</li>
+                    <li>5GB Bandwidth/month</li>
                   </ul>
                   <Button
                     color="primary"
@@ -245,8 +245,8 @@ const SelectInitialPlan: FC = () => {
                     <li>Advanced statistics</li>
                     <li>Add up to 50 seats</li>
                     <li>Advanced permissions</li>
-                    <li>2M CDN Requests/month included</li>
-                    <li>20GB Bandwidth/month included</li>
+                    <li>2M CDN Requests/month</li>
+                    <li>20GB Bandwidth/month</li>
                   </ul>
                   <Button
                     color="primary"
@@ -265,17 +265,6 @@ const SelectInitialPlan: FC = () => {
           columns="2"
           width="100%"
         />
-        {/* <Flex gap="2" justify="end">
-          <Button
-            color="primary"
-            onClick={plan === "starter" ? handleStarter : handleProContinue}
-            disabled={loading}
-          >
-            {plan === "starter"
-              ? "Get Started for Free"
-              : "Next: Add Payment Details"}
-          </Button>
-        </Flex> */}
         {error && <div className="alert alert-danger mt-3">{error}</div>}
       </Flex>
     </WelcomeFrame>
@@ -500,7 +489,7 @@ const ProPaymentFormInner: FC<ProPaymentFormProps> = ({
         <PaymentElement />
         <p className="pt-3 text-muted" style={{ fontSize: "14px" }}>
           You will be charged a pro-rated amount for the remainder of this
-          month, and $40 per month per seat thereafter. Cancel anytime
+          month, and $40 per month per seat thereafter. Cancel anytime.
         </p>
       </div>
       <div className="mb-4">
