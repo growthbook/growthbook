@@ -69,7 +69,7 @@ export interface UseExperimentDimensionRowsParams {
   dimensionValuesFilter?: string[];
   showErrorsOnQuantileMetrics?: boolean;
   shouldShowMetricSlices?: boolean;
-  expandedMetrics?: Record<string, boolean>;
+  expandedDimensionRows?: Record<string, boolean>;
 }
 
 export interface UseExperimentDimensionRowsReturn {
@@ -77,10 +77,11 @@ export interface UseExperimentDimensionRowsReturn {
     metric: ExperimentMetricInterface;
     isGuardrail: boolean;
     rows: ExperimentTableRow[];
-    sliceRows: ExperimentTableRow[];
-    numSlices: number;
   }>;
-  getChildRowCounts: (metricId: string) => number;
+  getSliceCountForDimensionRow: (
+    metricId: string,
+    dimensionValue: string,
+  ) => number;
 }
 
 export function useExperimentDimensionRows({
@@ -104,7 +105,7 @@ export function useExperimentDimensionRows({
   dimensionValuesFilter,
   showErrorsOnQuantileMetrics = false,
   shouldShowMetricSlices = false,
-  expandedMetrics,
+  expandedDimensionRows,
 }: UseExperimentDimensionRowsParams): UseExperimentDimensionRowsReturn {
   const {
     getExperimentMetricById,
@@ -388,22 +389,10 @@ export function useExperimentDimensionRows({
             };
           }
 
-          const rows = generateDimensionRowsForMetric({
-            metricId,
-            resultGroup,
-            results,
-            dimensionValuesFilter,
-            overrideFields,
-            metricSnapshotSettings: _metricSnapshotSettings,
-            newMetric,
-          });
-
-          // Generate slice rows if enabled
-          const sliceRows: ExperimentTableRow[] = [];
-          let numSlices = 0;
-
+          // Generate slice data for the metric (if applicable)
+          let sliceData: SliceDataForMetric[] = [];
           if (shouldShowMetricSlices && isFactMetric(metric)) {
-            const sliceData = generateSliceDataForMetric({
+            sliceData = generateSliceDataForMetric({
               metricId,
               metric,
               newMetric,
@@ -413,135 +402,31 @@ export function useExperimentDimensionRows({
                 getExperimentMetricById,
               getFactTableById,
             });
-
-            numSlices = sliceData.length;
-
-            sliceData.forEach((slice) => {
-              // Check if slice matches filter
-              let sliceMatches = true;
-
-              if (sliceTagsFilter && sliceTagsFilter.length > 0) {
-                const hasSelectAllFilter = slice.sliceLevels.some(
-                  (sliceLevel) => {
-                    const selectAllTag = generateSelectAllSliceString(
-                      sliceLevel.column,
-                    );
-                    return sliceTagsFilter.includes(selectAllTag);
-                  },
-                );
-
-                if (hasSelectAllFilter) {
-                  sliceMatches = true;
-                } else {
-                  const sliceTags: string[] = [];
-                  slice.sliceLevels.forEach((sliceLevel) => {
-                    const value = sliceLevel.levels[0] || "";
-                    const tag = generateSliceString({
-                      [sliceLevel.column]: value,
-                    });
-                    sliceTags.push(tag);
-                  });
-                  if (slice.sliceLevels.length > 1) {
-                    const slices: Record<string, string> = {};
-                    slice.sliceLevels.forEach((sl) => {
-                      slices[sl.column] = sl.levels[0] || "";
-                    });
-                    const comboTag = generateSliceString(slices);
-                    sliceTags.push(comboTag);
-                  }
-                  sliceMatches = sliceTags.some((tag) =>
-                    sliceTagsFilter.includes(tag),
-                  );
-                }
-              }
-
-              // Check expansion state
-              const expandedKey = `${metricId}:${resultGroup}`;
-              const hasFilter = sliceTagsFilter && sliceTagsFilter.length > 0;
-              const isExpanded = hasFilter
-                ? true
-                : !!expandedMetrics?.[expandedKey];
-
-              const shouldShowLevel = hasFilter
-                ? isExpanded && sliceMatches
-                : isExpanded;
-
-              const label = slice.sliceLevels
-                .map((dl) => {
-                  if (dl.levels.length === 0) {
-                    const emptyValue =
-                      dl.datatype === "string" ? "other" : "null";
-                    return `${dl.column}: ${emptyValue}`;
-                  }
-                  const value = dl.levels[0];
-                  if (dl.datatype === "boolean") {
-                    return `${dl.column}: ${value}`;
-                  }
-                  return value;
-                })
-                .join(" + ");
-
-              // Get slice data from the first result (overall)
-              const sliceRow: ExperimentTableRow = {
-                label,
-                metric: {
-                  ...newMetric,
-                  name: slice.name,
-                },
-                metricOverrideFields: overrideFields,
-                rowClass: `${newMetric?.inverse ? "inverse" : ""} slice-row`,
-                sliceId: slice.id,
-                variations:
-                  results[0]?.variations.map((v) => {
-                    return (
-                      v.metrics?.[slice.id] || {
-                        users: 0,
-                        value: 0,
-                        cr: 0,
-                        errorMessage: "No data",
-                      }
-                    );
-                  }) || [],
-                metricSnapshotSettings: _metricSnapshotSettings,
-                resultGroup,
-                numSlices: 0,
-                isSliceRow: true,
-                parentRowId: metricId,
-                sliceLevels: slice.sliceLevels.map((dl) => ({
-                  column: dl.column,
-                  datatype: dl.datatype,
-                  levels: dl.levels,
-                })),
-                allSliceLevels: slice.allSliceLevels,
-                isHiddenByFilter: hasFilter ? !shouldShowLevel : false,
-              };
-
-              // Skip "other" slice rows with no data
-              if (
-                slice.sliceLevels.every((dl) => dl.levels.length === 0) &&
-                sliceRow.variations.every((v) => v.value === 0)
-              ) {
-                return;
-              }
-
-              sliceRows.push(sliceRow);
-            });
           }
+
+          const rows = generateDimensionRowsWithSlices({
+            metricId,
+            resultGroup,
+            results,
+            dimensionValuesFilter,
+            overrideFields,
+            metricSnapshotSettings: _metricSnapshotSettings,
+            newMetric,
+            sliceData,
+            sliceTagsFilter,
+            expandedDimensionRows,
+          });
 
           return {
             metric: newMetric,
             isGuardrail: resultGroup === "guardrail",
             rows,
-            sliceRows,
-            numSlices,
           };
         })
         .filter((table) => table?.metric) as Array<{
         metric: ExperimentMetricInterface;
         isGuardrail: boolean;
         rows: ExperimentTableRow[];
-        sliceRows: ExperimentTableRow[];
-        numSlices: number;
       }>;
     }
 
@@ -593,18 +478,27 @@ export function useExperimentDimensionRows({
     expandedGuardrails,
     showErrorsOnQuantileMetrics,
     shouldShowMetricSlices,
-    expandedMetrics,
+    expandedDimensionRows,
   ]);
 
-  const getChildRowCounts = (metricId: string) => {
+  const getSliceCountForDimensionRow = (
+    metricId: string,
+    dimensionValue: string,
+  ) => {
     const table = tables.find((t) => t.metric.id === metricId);
     if (!table) return 0;
-    return table.sliceRows.filter((row) => !row.isHiddenByFilter).length;
+    // Count the slice rows that are children of this dimension row
+    return table.rows.filter(
+      (row) =>
+        row.isSliceRow &&
+        row.parentRowId === `${metricId}:${dimensionValue}` &&
+        !row.isHiddenByFilter,
+    ).length;
   };
 
   return {
     tables,
-    getChildRowCounts,
+    getSliceCountForDimensionRow,
   };
 }
 
@@ -633,7 +527,8 @@ function includeVariation(
 }
 
 // Specialized row generation for dimension mode - creates one row per dimension result
-export function generateDimensionRowsForMetric({
+// with slice rows underneath when expanded
+function generateDimensionRowsWithSlices({
   metricId,
   resultGroup,
   results,
@@ -641,6 +536,9 @@ export function generateDimensionRowsForMetric({
   overrideFields,
   metricSnapshotSettings,
   newMetric,
+  sliceData,
+  sliceTagsFilter,
+  expandedDimensionRows,
 }: {
   metricId: string;
   resultGroup: "goal" | "secondary" | "guardrail";
@@ -649,33 +547,160 @@ export function generateDimensionRowsForMetric({
   overrideFields: string[];
   metricSnapshotSettings: MetricSnapshotSettings | undefined;
   newMetric: ExperimentMetricInterface;
+  sliceData: SliceDataForMetric[];
+  sliceTagsFilter?: string[];
+  expandedDimensionRows?: Record<string, boolean>;
 }): ExperimentTableRow[] {
   const filteredResults = includeVariation(results, dimensionValuesFilter);
 
   const rows: ExperimentTableRow[] = [];
+  const numSlices = sliceData.length;
+  const hasFilter = sliceTagsFilter && sliceTagsFilter.length > 0;
 
   // Create a row for each dimension result
   filteredResults.forEach((dimensionResult) => {
-    const row: ExperimentTableRow = {
-      label: dimensionResult.name,
+    const dimensionValue = dimensionResult.name;
+    const expandedKey = `${metricId}:${dimensionValue}:${resultGroup}`;
+    const isExpanded = hasFilter
+      ? true
+      : !!expandedDimensionRows?.[expandedKey];
+
+    // Determine if this dimension row should show as label-only when filter is active
+    const isLabelOnly =
+      hasFilter && numSlices > 0 && !sliceTagsFilter.includes("overall");
+
+    const dimensionRow: ExperimentTableRow = {
+      label: dimensionValue,
       metric: newMetric,
       metricOverrideFields: overrideFields,
       rowClass: newMetric?.inverse ? "inverse" : "",
-      variations: dimensionResult.variations.map((v) => {
-        return (
-          v.metrics?.[metricId] || {
+      variations: isLabelOnly
+        ? dimensionResult.variations.map(() => ({
             users: 0,
             value: 0,
             cr: 0,
             errorMessage: "No data",
-          }
-        );
-      }),
+          }))
+        : dimensionResult.variations.map((v) => {
+            return (
+              v.metrics?.[metricId] || {
+                users: 0,
+                value: 0,
+                cr: 0,
+                errorMessage: "No data",
+              }
+            );
+          }),
       metricSnapshotSettings,
       resultGroup,
+      numSlices,
+      labelOnly: isLabelOnly,
+      dimensionValue,
     };
 
-    rows.push(row);
+    rows.push(dimensionRow);
+
+    // Generate slice rows for this dimension value if expanded
+    if (numSlices > 0) {
+      sliceData.forEach((slice) => {
+        // Check if slice matches filter
+        let sliceMatches = true;
+
+        if (hasFilter) {
+          const hasSelectAllFilter = slice.sliceLevels.some((sliceLevel) => {
+            const selectAllTag = generateSelectAllSliceString(
+              sliceLevel.column,
+            );
+            return sliceTagsFilter.includes(selectAllTag);
+          });
+
+          if (hasSelectAllFilter) {
+            sliceMatches = true;
+          } else {
+            const sliceTags: string[] = [];
+            slice.sliceLevels.forEach((sliceLevel) => {
+              const value = sliceLevel.levels[0] || "";
+              const tag = generateSliceString({ [sliceLevel.column]: value });
+              sliceTags.push(tag);
+            });
+            if (slice.sliceLevels.length > 1) {
+              const slices: Record<string, string> = {};
+              slice.sliceLevels.forEach((sl) => {
+                slices[sl.column] = sl.levels[0] || "";
+              });
+              const comboTag = generateSliceString(slices);
+              sliceTags.push(comboTag);
+            }
+            sliceMatches = sliceTags.some((tag) =>
+              sliceTagsFilter.includes(tag),
+            );
+          }
+        }
+
+        const shouldShowLevel = hasFilter
+          ? isExpanded && sliceMatches
+          : isExpanded;
+
+        const label = slice.sliceLevels
+          .map((dl) => {
+            if (dl.levels.length === 0) {
+              const emptyValue = dl.datatype === "string" ? "other" : "null";
+              return `${dl.column}: ${emptyValue}`;
+            }
+            const value = dl.levels[0];
+            if (dl.datatype === "boolean") {
+              return `${dl.column}: ${value}`;
+            }
+            return value;
+          })
+          .join(" + ");
+
+        // Get slice data from this specific dimension result
+        const sliceRow: ExperimentTableRow = {
+          label,
+          metric: {
+            ...newMetric,
+            name: slice.name,
+          },
+          metricOverrideFields: overrideFields,
+          rowClass: `${newMetric?.inverse ? "inverse" : ""} slice-row`,
+          sliceId: slice.id,
+          variations: dimensionResult.variations.map((v) => {
+            return (
+              v.metrics?.[slice.id] || {
+                users: 0,
+                value: 0,
+                cr: 0,
+                errorMessage: "No data",
+              }
+            );
+          }),
+          metricSnapshotSettings,
+          resultGroup,
+          numSlices: 0,
+          isSliceRow: true,
+          parentRowId: `${metricId}:${dimensionValue}`,
+          sliceLevels: slice.sliceLevels.map((dl) => ({
+            column: dl.column,
+            datatype: dl.datatype,
+            levels: dl.levels,
+          })),
+          allSliceLevels: slice.allSliceLevels,
+          isHiddenByFilter: hasFilter ? !shouldShowLevel : !isExpanded,
+          dimensionValue,
+        };
+
+        // Skip "other" slice rows with no data
+        if (
+          slice.sliceLevels.every((dl) => dl.levels.length === 0) &&
+          sliceRow.variations.every((v) => v.value === 0)
+        ) {
+          return;
+        }
+
+        rows.push(sliceRow);
+      });
+    }
   });
 
   return rows;
