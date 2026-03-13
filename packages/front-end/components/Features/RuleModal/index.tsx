@@ -64,7 +64,9 @@ import BanditRefFields from "@/components/Features/RuleModal/BanditRefFields";
 import BanditRefNewFields from "@/components/Features/RuleModal/BanditRefNewFields";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import HelperText from "@/ui/HelperText";
-import DraftRevisionCallout from "@/components/Features/DraftRevisionCallout";
+import DraftSelectorForChanges, {
+  DraftMode,
+} from "@/components/Features/DraftSelectorForChanges";
 import { useTemplates } from "@/hooks/useTemplates";
 import { useBatchPrerequisiteStates } from "@/hooks/usePrerequisiteStates";
 import SafeRolloutFields from "@/components/Features/RuleModal/SafeRolloutFields";
@@ -142,23 +144,35 @@ export default function RuleModal({
   const settings = useOrgSettings();
   const { settings: scopedSettings } = getScopedSettings({ organization });
 
-  const activeDraft = useMemo(
+  const viewingActiveDraft = useMemo(
     () =>
-      revisionList
-        .filter((r) =>
-          (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status),
-        )
-        .sort((a, b) => b.version - a.version)[0] ?? null,
-    [revisionList],
+      (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(
+        revisionList.find((r) => r.version === version)?.status ?? "",
+      ),
+    [revisionList, version],
   );
 
-  const requiresApproval = useMemo(() => {
-    const requireReviewSettings = settings?.requireReviews;
-    if (!requireReviewSettings || typeof requireReviewSettings === "boolean") {
-      return !!requireReviewSettings;
-    }
-    const reviewSetting = getReviewSetting(requireReviewSettings, feature);
-    return !!reviewSetting?.requireReviewOn;
+  const [draftMode, setDraftMode] = useState<DraftMode>(
+    viewingActiveDraft ? "existing" : "new",
+  );
+  const [selectedDraft, setSelectedDraft] = useState<number | null>(
+    viewingActiveDraft ? version : null,
+  );
+
+  // Determines which draft/revision to target in the API call.
+  const targetVersion =
+    draftMode === "existing" && selectedDraft != null
+      ? selectedDraft
+      : feature.version;
+
+  const gatedEnvSet: Set<string> | "all" | "none" = useMemo(() => {
+    const raw = settings?.requireReviews;
+    if (raw === true) return "all";
+    if (!Array.isArray(raw)) return "none";
+    const reviewSetting = getReviewSetting(raw, feature);
+    if (!reviewSetting?.requireReviewOn) return "none";
+    const envList = reviewSetting.environments ?? [];
+    return envList.length === 0 ? "all" : new Set(envList);
   }, [settings?.requireReviews, feature]);
 
   const isSafeRolloutRampUpEnabled = growthbook.isOn("safe-rollout-ramp-up");
@@ -707,7 +721,7 @@ export default function RuleModal({
             safeRolloutRuleHasChanges(values as SafeRolloutRuleCreateFields))
         ) {
           res = await apiCall<{ version: number }>(
-            `/feature/${feature.id}/${version}/rule`,
+            `/feature/${feature.id}/${targetVersion}/rule`,
             {
               method: "PUT",
               body: JSON.stringify({
@@ -720,7 +734,7 @@ export default function RuleModal({
         }
       } else {
         res = await apiCall<{ version: number }>(
-          `/feature/${feature.id}/${version}/rule`,
+          `/feature/${feature.id}/${targetVersion}/rule`,
           {
             method: "POST",
             body: JSON.stringify({
@@ -775,9 +789,15 @@ export default function RuleModal({
         submit={submitOverview}
         autoCloseOnSubmit={false}
       >
-        <DraftRevisionCallout
-          activeDraft={activeDraft}
-          requiresApproval={requiresApproval}
+        <DraftSelectorForChanges
+          feature={feature}
+          revisionList={revisionList}
+          mode={draftMode}
+          setMode={setDraftMode}
+          selectedDraft={selectedDraft}
+          setSelectedDraft={setSelectedDraft}
+          canAutoPublish={false}
+          gatedEnvSet={gatedEnvSet}
         />
         <div className="bg-highlight rounded p-3 mb-3">
           <Text size="4" weight="bold" as="div" mb="4">
@@ -1022,9 +1042,15 @@ export default function RuleModal({
         }
         submit={submit}
         bodyPrefix={
-          <DraftRevisionCallout
-            activeDraft={activeDraft}
-            requiresApproval={requiresApproval}
+          <DraftSelectorForChanges
+            feature={feature}
+            revisionList={revisionList}
+            mode={draftMode}
+            setMode={setDraftMode}
+            selectedDraft={selectedDraft}
+            setSelectedDraft={setSelectedDraft}
+            canAutoPublish={false}
+            gatedEnvSet={gatedEnvSet}
           />
         }
       >

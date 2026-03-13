@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Tooltip } from "@radix-ui/themes";
 import { FeatureInterface } from "shared/types/feature";
-import { FeatureRevisionInterface, MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import Switch from "@/ui/Switch";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import KillSwitchModal from "@/components/Features/KillSwitchModal";
@@ -18,8 +18,6 @@ export interface Props {
   currentVersion: number;
   /** All known revisions (sparse) — used to populate the draft dropdown. */
   revisionList: MinimalFeatureRevisionInterface[];
-  /** Full revision objects — used to compute affected environments per draft. */
-  allRevisions?: FeatureRevisionInterface[];
   id?: string;
   /** When true, the toggle is disabled with a tooltip. */
   isLocked?: boolean;
@@ -33,7 +31,6 @@ export default function EnvironmentToggle({
   setVersion,
   currentVersion,
   revisionList,
-  allRevisions,
   id = "",
   isLocked = false,
 }: Props) {
@@ -71,7 +68,6 @@ export default function EnvironmentToggle({
           desiredState={confirmingState}
           currentVersion={currentVersion}
           revisionList={revisionList}
-          allRevisions={allRevisions}
           mutate={async () => {
             setToggling(false);
             await mutate();

@@ -2,13 +2,10 @@ import { useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiToggleLeft, PiToggleRight } from "react-icons/pi";
 import { FeatureInterface } from "shared/types/feature";
-import {
-  FeatureRevisionInterface,
-  MinimalFeatureRevisionInterface,
-} from "shared/types/feature-revision";
+import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
-import { getReviewSetting, getDraftAffectedEnvironments } from "shared/util";
+import { getReviewSetting } from "shared/util";
 import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
@@ -18,7 +15,9 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useEnvironments } from "@/services/features";
 import track from "@/services/track";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
-import DraftSelectorForChanges from "@/components/Features/DraftSelectorForChanges";
+import DraftSelectorForChanges, {
+  DraftMode,
+} from "@/components/Features/DraftSelectorForChanges";
 
 function ToggleIcon({ enabled, muted }: { enabled: boolean; muted: boolean }) {
   const Icon = enabled ? PiToggleRight : PiToggleLeft;
@@ -175,8 +174,6 @@ export interface KillSwitchModalProps {
   /** Revision currently being viewed — pre-selected in the draft dropdown. */
   currentVersion: number;
   revisionList: MinimalFeatureRevisionInterface[];
-  /** Full revision objects for computing affected environments per draft. */
-  allRevisions?: FeatureRevisionInterface[];
   mutate: () => Promise<unknown>;
   setVersion: (version: number) => void;
   close: () => void;
@@ -189,7 +186,6 @@ export default function KillSwitchModal({
   desiredState,
   currentVersion,
   revisionList,
-  allRevisions,
   mutate,
   setVersion,
   close,
@@ -207,19 +203,9 @@ export default function KillSwitchModal({
   // the array format allows per-project/env configuration.
   const rawRequireReviews = settings?.requireReviews;
 
-  // Badge display: reflects env filtering only (no kill-switch-specific checks).
-  // "all" if no env list, a Set if specific envs are listed, "none" if approvals off.
-  const gatedEnvSet: Set<string> | "all" | "none" = (() => {
-    if (rawRequireReviews === true) return "all";
-    if (!Array.isArray(rawRequireReviews)) return "none";
-    const reviewSetting = getReviewSetting(rawRequireReviews, feature);
-    if (!reviewSetting?.requireReviewOn) return "none";
-    const gatedEnvs = reviewSetting.environments ?? [];
-    return gatedEnvs.length === 0 ? "all" : new Set(gatedEnvs);
-  })();
-
-  // Approval requirement for this specific kill-switch action: also checks
-  // featureRequireEnvironmentReview, which can disable kill-switch gating.
+  // Approval requirement for this specific kill-switch action.
+  // featureRequireEnvironmentReview=false disables kill-switch gating even when
+  // general env approvals are on.
   const envIsGated: boolean = (() => {
     if (rawRequireReviews === true) return true;
     if (!Array.isArray(rawRequireReviews)) return false;
@@ -228,6 +214,18 @@ export default function KillSwitchModal({
     if (reviewSetting.featureRequireEnvironmentReview === false) return false;
     const gatedEnvs = reviewSetting.environments ?? [];
     return gatedEnvs.length === 0 || gatedEnvs.includes(environment);
+  })();
+
+  // gatedEnvSet reflects whether this kill-switch action is actually gated and
+  // which environments are in scope. "none" when kill-switch approvals are off,
+  // even if other change types are gated in this org.
+  const gatedEnvSet: Set<string> | "all" | "none" = (() => {
+    if (!envIsGated) return "none";
+    if (rawRequireReviews === true) return "all";
+    if (!Array.isArray(rawRequireReviews)) return "none";
+    const reviewSetting = getReviewSetting(rawRequireReviews, feature);
+    const gatedEnvs = reviewSetting?.environments ?? [];
+    return gatedEnvs.length === 0 ? "all" : new Set(gatedEnvs);
   })();
 
   // Admins can always auto-publish. Non-admins can only auto-publish if not gated.
@@ -242,25 +240,6 @@ export default function KillSwitchModal({
     [revisionList],
   );
 
-  // Compute affected environments per draft version for badge display
-  const affectedEnvsByVersion = useMemo(() => {
-    if (!allRevisions || allRevisions.length === 0) return undefined;
-    const allEnvIds = allOrgEnvironments.map((e) => e.id);
-    const revisionsMap = new Map(allRevisions.map((r) => [r.version, r]));
-    const baseRevision = revisionsMap.get(feature.version);
-    if (!baseRevision) return undefined;
-    const map = new Map<number, string[] | "all">();
-    for (const draft of activeDrafts) {
-      const full = revisionsMap.get(draft.version);
-      if (full) {
-        map.set(
-          draft.version,
-          getDraftAffectedEnvironments(full, baseRevision, allEnvIds),
-        );
-      }
-    }
-    return map;
-  }, [allRevisions, activeDrafts, feature.version, allOrgEnvironments]);
 
   // Whether we're already viewing an active draft
   const viewingActiveDraft = activeDrafts.some(
@@ -270,10 +249,6 @@ export default function KillSwitchModal({
   // Pre-check auto-publish only when not already on a draft and we have permission.
   // If on a draft: pre-select that draft instead.
   // If not on a draft and cannot auto-publish: pre-select the most recent draft (or null).
-  const [autoPublish, setAutoPublish] = useState(
-    !viewingActiveDraft && canAutoPublish,
-  );
-
   // Pre-select: currentVersion if it's an active draft, else newest owned by
   // the current user, else newest overall, else null (= new draft).
   const userId = organization?.ownerEmail;
@@ -292,58 +267,37 @@ export default function KillSwitchModal({
     return null;
   }, [activeDrafts, currentVersion, userId]);
 
-  // null = "New Draft" sentinel
+  const [mode, setMode] = useState<DraftMode>(
+    viewingActiveDraft ? "existing" : "new",
+  );
+  // Always pre-populated so switching to "existing draft" immediately shows the current draft.
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
   );
 
-  // When autoPublish is on, show "New Draft" in the selector;
-  // toggling it off restores the previous selection.
-  const displayedDraft = autoPublish ? null : selectedDraft;
-
   const submit = async () => {
-    if (autoPublish) {
-      const res = await apiCall<{ status: 200; draftVersion?: number }>(
-        `/feature/${feature.id}/toggle`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            environment,
-            state: desiredState,
-            autoPublish: true,
-          }),
-        },
-      );
-      track("Feature Environment Toggle", {
-        environment,
-        enabled: desiredState,
-        autoPublish: true,
-      });
-      await mutate();
-      if (res?.draftVersion) setVersion(res.draftVersion);
-    } else {
-      const res = await apiCall<{ status: 200; draftVersion?: number }>(
-        `/feature/${feature.id}/toggle`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            environment,
-            state: desiredState,
-            // null selectedDraft = create a brand-new draft
-            ...(selectedDraft != null
+    const res = await apiCall<{ status: 200; draftVersion?: number }>(
+      `/feature/${feature.id}/toggle`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          environment,
+          state: desiredState,
+          ...(mode === "publish"
+            ? { autoPublish: true }
+            : mode === "existing"
               ? { draftVersion: selectedDraft }
               : { forceNewDraft: true }),
-          }),
-        },
-      );
-      track("Feature Environment Toggle", {
-        environment,
-        enabled: desiredState,
-        autoPublish: false,
-      });
-      await mutate();
-      if (res?.draftVersion) setVersion(res.draftVersion);
-    }
+        }),
+      },
+    );
+    track("Feature Environment Toggle", {
+      environment,
+      enabled: desiredState,
+      autoPublish: mode === "publish",
+    });
+    await mutate();
+    if (res?.draftVersion) setVersion(res.draftVersion);
   };
 
   const actionLabel = desiredState ? "Enable" : "Disable";
@@ -354,26 +308,20 @@ export default function KillSwitchModal({
       header={`${actionLabel} ${environment}`}
       close={close}
       open={true}
-      cta={autoPublish ? `${actionLabel} now` : "Save to draft"}
+      cta={mode === "publish" ? `${actionLabel} now` : "Save to draft"}
       submit={submit}
       useRadixButton={true}
     >
       <DraftSelectorForChanges
         feature={feature}
+        baseFeature={baseFeature}
         revisionList={revisionList}
-        autoPublish={autoPublish}
-        setAutoPublish={setAutoPublish}
+        mode={mode}
+        setMode={setMode}
         selectedDraft={selectedDraft}
         setSelectedDraft={setSelectedDraft}
         canAutoPublish={canAutoPublish}
         gatedEnvSet={gatedEnvSet}
-        affectedEnvs={(() => {
-          if (autoPublish || displayedDraft === null) return null;
-          const affected = affectedEnvsByVersion?.get(displayedDraft);
-          if (!affected || (Array.isArray(affected) && affected.length === 0))
-            return null;
-          return affected;
-        })()}
       />
 
       <Text as="p" mb="2">
@@ -392,16 +340,18 @@ export default function KillSwitchModal({
           // applying the toggle on top of that specific draft. For "new draft"
           // or any other existing draft we don't have merged state for, fall
           // back to live so the grid shows only the proposed toggle change.
-          displayedDraft === currentVersion ? feature : (baseFeature ?? feature)
+          mode === "existing" && selectedDraft === currentVersion
+            ? feature
+            : (baseFeature ?? feature)
         }
         allOrgEnvironments={allOrgEnvironments}
         changedEnv={environment}
         desiredState={desiredState}
         liveVersion={(baseFeature ?? feature).version}
         afterChangeSubtext={
-          displayedDraft != null
-            ? `revision ${displayedDraft}`
-            : autoPublish
+          mode === "existing" && selectedDraft != null
+            ? `revision ${selectedDraft}`
+            : mode === "publish"
               ? "new revision"
               : "new draft"
         }

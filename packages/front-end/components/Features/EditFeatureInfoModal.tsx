@@ -1,9 +1,8 @@
-import { FC, useMemo, useState } from "react";
+import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { getReviewSetting } from "shared/util";
-import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import { Box } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import Modal from "@/components/Modal";
@@ -18,7 +17,10 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import { useAuth } from "@/services/auth";
-import DraftSelectorForChanges from "@/components/Features/DraftSelectorForChanges";
+import DraftSelectorForChanges, {
+  DraftMode,
+} from "@/components/Features/DraftSelectorForChanges";
+import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 
 const EditFeatureInfoModal: FC<{
   feature: FeatureInterface;
@@ -58,24 +60,14 @@ const EditFeatureInfoModal: FC<{
 
   const canAutoPublish = isAdmin || !metadataGated;
 
-  const activeDrafts = useMemo(
-    () =>
-      revisionList.filter((r) =>
-        (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status),
-      ),
-    [revisionList],
+  const defaultDraft = useDefaultDraft(revisionList);
+
+  // mode drives the CTA and API call; selectedDraft is always pre-populated
+  // so switching to "existing draft" immediately shows the current draft.
+  const [mode, setMode] = useState<DraftMode>(
+    canAutoPublish ? "publish" : defaultDraft != null ? "existing" : "new",
   );
-
-  const [autoPublish, setAutoPublish] = useState(canAutoPublish);
-
-  const defaultDraft = useMemo((): number | null => {
-    if (activeDrafts.length > 0) return activeDrafts[0].version;
-    return null;
-  }, [activeDrafts]);
-
-  const [selectedDraft, setSelectedDraft] = useState<number | null>(
-    defaultDraft,
-  );
+  const [selectedDraft, setSelectedDraft] = useState<number | null>(defaultDraft);
 
   const form = useForm({
     defaultValues: {
@@ -105,9 +97,9 @@ const EditFeatureInfoModal: FC<{
             method: "PUT",
             body: JSON.stringify({
               ...data,
-              ...(autoPublish
+              ...(mode === "publish"
                 ? { autoPublish: true }
-                : selectedDraft != null
+                : mode === "existing"
                   ? { targetDraftVersion: selectedDraft }
                   : { forceNewDraft: true }),
             }),
@@ -118,11 +110,21 @@ const EditFeatureInfoModal: FC<{
           setVersion(res.draftVersion);
         }
       })}
-      cta={autoPublish ? "Save" : "Save to draft"}
+      cta={mode === "publish" ? "Save" : "Save to draft"}
       useRadixButton={true}
       size="lg"
     >
       <Box>
+        <DraftSelectorForChanges
+          feature={feature}
+          revisionList={revisionList}
+          mode={mode}
+          setMode={setMode}
+          selectedDraft={selectedDraft}
+          setSelectedDraft={setSelectedDraft}
+          canAutoPublish={canAutoPublish}
+          gatedEnvSet={metadataGated ? "all" : "none"}
+        />
         <Field
           label="Feature Key"
           value={feature.id}
@@ -196,18 +198,6 @@ const EditFeatureInfoModal: FC<{
           )}
         </Box>
 
-        <Box mb="3">
-          <DraftSelectorForChanges
-            feature={feature}
-            revisionList={revisionList}
-            autoPublish={autoPublish}
-            setAutoPublish={setAutoPublish}
-            selectedDraft={selectedDraft}
-            setSelectedDraft={setSelectedDraft}
-            canAutoPublish={canAutoPublish}
-            gatedEnvSet={metadataGated ? "all" : "none"}
-          />
-        </Box>
       </Box>
     </Modal>
   );

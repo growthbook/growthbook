@@ -239,7 +239,7 @@ export default function FeatureRules({
                   </Box>
                 )}
 
-                {canEditDrafts && !isLocked && (
+                {canEditDrafts && (
                   <>
                     <Flex pt="4" justify="between" align="center">
                       <Text weight="bold" size="3">

@@ -1341,6 +1341,11 @@ export function getDraftAffectedEnvironments(
   revision: RulesAndValues,
   baseRevision: RulesAndValues,
   allEnvironments: string[],
+  // Fallback env enabled state for environments missing from baseRevision.
+  // Revisions are sparse — envs added after publish won't appear in older
+  // revisions. Pass the live feature's environmentSettings-derived map here
+  // to avoid false-positive "affected" entries for unchanged envs.
+  liveFeatureEnvs?: Record<string, boolean>,
 ): string[] | "all" {
   // Global changes affect every environment
   if (
@@ -1371,10 +1376,11 @@ export function getDraftAffectedEnvironments(
     if (!isEqual(revision.rules[env] || [], baseRevision.rules[env] || [])) {
       envs.add(env);
     }
+    const effectiveBaseEnvVal =
+      baseRevision.environmentsEnabled?.[env] ?? liveFeatureEnvs?.[env];
     if (
       revision.environmentsEnabled?.[env] !== undefined &&
-      revision.environmentsEnabled[env] !==
-        baseRevision.environmentsEnabled?.[env]
+      revision.environmentsEnabled[env] !== effectiveBaseEnvVal
     ) {
       envs.add(env);
     }

@@ -30,10 +30,8 @@ export interface Props {
   setVersion: (version: number) => void;
   variant?: "slim" | "select";
   menuPlacement?: "start" | "center" | "end";
-  /** When true, only active drafts are shown. Use `onVersionChange` instead of `setVersion`. */
+  /** When true, only active drafts are shown. */
   draftsOnly?: boolean;
-  /** Local onChange for draftsOnly mode. Does NOT mutate the page-level version state. */
-  onVersionChange?: (version: number) => void;
   disabled?: boolean;
   /**
    * When provided, replaces the built-in trigger entirely. The element must
@@ -101,7 +99,6 @@ export default function RevisionDropdown({
   variant = "slim",
   menuPlacement = "end",
   draftsOnly = false,
-  onVersionChange,
   disabled = false,
   customTrigger,
 }: Props) {
@@ -187,11 +184,7 @@ export default function RevisionDropdown({
       : selectedMeta?.dateUpdated;
 
   const handleSelect = (v: number) => {
-    if (onVersionChange) {
-      onVersionChange(v);
-    } else {
-      setVersion(v);
-    }
+    setVersion(v);
     setOpen(false);
   };
 

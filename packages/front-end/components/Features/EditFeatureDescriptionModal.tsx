@@ -1,11 +1,11 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { PiArrowSquareOutFill } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { getReviewSetting } from "shared/util";
-import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
+import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
 import Link from "@/ui/Link";
@@ -13,7 +13,9 @@ import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import Modal from "@/components/Modal";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import DraftSelectorForChanges from "@/components/Features/DraftSelectorForChanges";
+import DraftSelectorForChanges, {
+  DraftMode,
+} from "@/components/Features/DraftSelectorForChanges";
 
 interface Props {
   close: () => void;
@@ -47,24 +49,12 @@ export default function EditFeatureDescriptionModal({
 
   const canAutoPublish = isAdmin || !metadataGated;
 
-  const activeDrafts = useMemo(
-    () =>
-      revisionList.filter((r) =>
-        (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status),
-      ),
-    [revisionList],
+  const defaultDraft = useDefaultDraft(revisionList);
+
+  const [mode, setMode] = useState<DraftMode>(
+    canAutoPublish ? "publish" : defaultDraft != null ? "existing" : "new",
   );
-
-  const [autoPublish, setAutoPublish] = useState(canAutoPublish);
-
-  const defaultDraft = useMemo((): number | null => {
-    if (activeDrafts.length > 0) return activeDrafts[0].version;
-    return null;
-  }, [activeDrafts]);
-
-  const [selectedDraft, setSelectedDraft] = useState<number | null>(
-    defaultDraft,
-  );
+  const [selectedDraft, setSelectedDraft] = useState<number | null>(defaultDraft);
 
   const form = useForm<{ description: string }>({
     defaultValues: {
@@ -86,9 +76,9 @@ export default function EditFeatureDescriptionModal({
             method: "PUT",
             body: JSON.stringify({
               description,
-              ...(autoPublish
+              ...(mode === "publish"
                 ? { autoPublish: true }
-                : selectedDraft != null
+                : mode === "existing"
                   ? { targetDraftVersion: selectedDraft }
                   : { forceNewDraft: true }),
             }),
@@ -99,9 +89,19 @@ export default function EditFeatureDescriptionModal({
           setVersion(res.draftVersion);
         }
       })}
-      cta={autoPublish ? "Save" : "Save to draft"}
+      cta={mode === "publish" ? "Save" : "Save to draft"}
       useRadixButton={true}
     >
+      <DraftSelectorForChanges
+        feature={feature}
+        revisionList={revisionList}
+        mode={mode}
+        setMode={setMode}
+        selectedDraft={selectedDraft}
+        setSelectedDraft={setSelectedDraft}
+        canAutoPublish={canAutoPublish}
+        gatedEnvSet={metadataGated ? "all" : "none"}
+      />
       <Flex align="center" wrap="wrap" width="auto" mb="2">
         <Box as="div">
           <span className="pr-1">
@@ -124,18 +124,6 @@ export default function EditFeatureDescriptionModal({
         placeholder="Add context about this feature for your team"
       />
 
-      <Box mt="4" mb="3">
-        <DraftSelectorForChanges
-          feature={feature}
-          revisionList={revisionList}
-          autoPublish={autoPublish}
-          setAutoPublish={setAutoPublish}
-          selectedDraft={selectedDraft}
-          setSelectedDraft={setSelectedDraft}
-          canAutoPublish={canAutoPublish}
-          gatedEnvSet={metadataGated ? "all" : "none"}
-        />
-      </Box>
     </Modal>
   );
 }

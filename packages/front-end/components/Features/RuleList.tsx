@@ -105,7 +105,6 @@ export default function RuleList({
   const activeRule = activeId ? items[getRuleIndex(activeId)] : null;
 
   const canEdit =
-    !locked &&
     permissionsUtil.canViewFeatureModal(feature.project) &&
     permissionsUtil.canManageFeatureDrafts(feature);
 

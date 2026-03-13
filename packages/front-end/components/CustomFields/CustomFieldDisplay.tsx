@@ -1,9 +1,11 @@
-import React, { FC, useState } from "react";
+import React, { FC, useMemo, useState } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useForm } from "react-hook-form";
 import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
 import { FeatureInterface } from "shared/types/feature";
 import { Box, Flex, Heading } from "@radix-ui/themes";
+import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import DraftControlBadge from "@/components/Features/DraftControlBadge";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
@@ -17,15 +19,16 @@ import Modal from "@/components/Modal";
 import DataList, { DataListItem } from "@/ui/DataList";
 import Button from "@/ui/Button";
 import Frame from "@/ui/Frame";
-import DraftRevisionCallout from "@/components/Features/DraftRevisionCallout";
+import DraftSelectorForChanges, {
+  DraftMode,
+} from "@/components/Features/DraftSelectorForChanges";
 import CustomFieldInput from "./CustomFieldInput";
 
 /** Optional draft-mode context for feature metadata approval flows. */
 export interface CustomFieldDraftInfo {
-  /** Version of the existing active draft to bundle changes into, or undefined to create new. */
-  targetDraftVersion: number | undefined;
-  /** Active draft revision, if any, for the callout message. */
-  activeDraft: { version: number; status: string } | null;
+  feature: FeatureInterface;
+  revisionList: MinimalFeatureRevisionInterface[];
+  gatedEnvSet: Set<string> | "all" | "none";
   /** Called with the new/updated draft version after save so the UI can switch to it. */
   onDraftCreated: (version: number) => void;
 }
@@ -54,6 +57,25 @@ const CustomFieldDisplay: FC<{
   showApprovalBadge = false,
 }) => {
   const [editModal, setEditModal] = useState(false);
+
+  const canAutoPublish = !draftInfo || draftInfo.gatedEnvSet === "none";
+
+  const latestActiveDraft = useMemo(
+    () =>
+      (draftInfo?.revisionList ?? [])
+        .filter((r) =>
+          (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status),
+        )
+        .sort((a, b) => b.version - a.version)[0] ?? null,
+    [draftInfo],
+  );
+
+  const [mode, setMode] = useState<DraftMode>(
+    canAutoPublish ? "publish" : latestActiveDraft != null ? "existing" : "new",
+  );
+  const [selectedDraft, setSelectedDraft] = useState<number | null>(
+    latestActiveDraft?.version ?? null,
+  );
   const customFields = filterCustomFieldsForSectionAndProject(
     useCustomFields(),
     section,
@@ -92,8 +114,14 @@ const CustomFieldDisplay: FC<{
       });
     } else if (section === "feature") {
       const body: Record<string, unknown> = { ...value };
-      if (draftInfo?.targetDraftVersion !== undefined) {
-        body.targetDraftVersion = draftInfo.targetDraftVersion;
+      if (draftInfo) {
+        if (mode === "publish") {
+          body.autoPublish = true;
+        } else if (mode === "existing") {
+          body.targetDraftVersion = selectedDraft;
+        } else {
+          body.forceNewDraft = true;
+        }
       }
       const res = await apiCall<{ draftVersion?: number }>(
         `/feature/${target.id}`,
@@ -170,11 +198,26 @@ const CustomFieldDisplay: FC<{
           submit={form.handleSubmit(async (value) => {
             await submitForm(value);
           })}
-          cta={draftInfo ? "Save to Draft" : "Save"}
+          cta={
+            draftInfo
+              ? mode === "publish"
+                ? "Publish"
+                : "Save to Draft"
+              : "Save"
+          }
           useRadixButton={!!draftInfo}
         >
           {draftInfo && (
-            <DraftRevisionCallout activeDraft={draftInfo.activeDraft} />
+            <DraftSelectorForChanges
+              feature={draftInfo.feature}
+              revisionList={draftInfo.revisionList}
+              mode={mode}
+              setMode={setMode}
+              selectedDraft={selectedDraft}
+              setSelectedDraft={setSelectedDraft}
+              canAutoPublish={canAutoPublish}
+              gatedEnvSet={draftInfo.gatedEnvSet}
+            />
           )}
           {hasCustomFieldAccess ? (
             <CustomFieldInput
@@ -205,7 +248,7 @@ const CustomFieldDisplay: FC<{
                 </Heading>
                 {showApprovalBadge && (
                   <DraftControlBadge
-                    gated={!!draftInfo}
+                    gated={draftInfo?.gatedEnvSet !== "none"}
                     approvalsEnabled={showApprovalBadge}
                   />
                 )}

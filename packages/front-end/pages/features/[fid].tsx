@@ -18,6 +18,7 @@ import { useFeaturePageData } from "@/hooks/useFeaturePageData";
 import { useFeatureDependents } from "@/hooks/useFeatureDependents";
 import Callout from "@/ui/Callout";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import { FeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 
 const featureTabs = ["overview", "stats", "test", "diagnostics"] as const;
 export type FeatureTab = (typeof featureTabs)[number];
@@ -99,6 +100,13 @@ export default function FeaturePage() {
   }
 
   return (
+    <FeatureRevisionsContext.Provider
+      value={{
+        revisions: data.revisions,
+        baseFeature,
+        currentVersion: version ?? baseFeature.version,
+      }}
+    >
     <FeatureUsageProvider feature={feature}>
       <PageHead
         breadcrumb={[
@@ -191,5 +199,6 @@ export default function FeaturePage() {
         />
       )}
     </FeatureUsageProvider>
+    </FeatureRevisionsContext.Provider>
   );
 }

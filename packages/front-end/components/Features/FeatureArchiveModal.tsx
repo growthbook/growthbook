@@ -2,7 +2,7 @@ import { FeatureInterface } from "shared/types/feature";
 import { useState } from "react";
 import { filterEnvironmentsByFeature, getReviewSetting } from "shared/util";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
-import { Box } from "@radix-ui/themes";
+import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 import Text from "@/ui/Text";
 import { useFeatureDependents } from "@/hooks/useFeatureDependents";
 import { getEnabledEnvironments, useEnvironments } from "@/services/features";
@@ -13,7 +13,9 @@ import Checkbox from "@/ui/Checkbox";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import DraftSelectorForChanges from "@/components/Features/DraftSelectorForChanges";
+import DraftSelectorForChanges, {
+  DraftMode,
+} from "@/components/Features/DraftSelectorForChanges";
 import FeatureReferencesList from "./FeatureReferencesList";
 
 interface FeatureArchiveModalProps {
@@ -63,9 +65,12 @@ export default function FeatureArchiveModal({
 
   const canAutoPublish = isAdmin || !archiveGated;
 
-  const [autoPublish, setAutoPublish] = useState(canAutoPublish);
+  const defaultDraft = useDefaultDraft(revisionList);
 
-  const [selectedDraft, setSelectedDraft] = useState<number | null>(null);
+  const [mode, setMode] = useState<DraftMode>(
+    defaultDraft != null ? "existing" : "new",
+  );
+  const [selectedDraft, setSelectedDraft] = useState<number | null>(defaultDraft);
 
   const canSubmit =
     !loading && totalDependents === 0 && (confirmEnvBypass || !hasActiveEnvs);
@@ -77,9 +82,13 @@ export default function FeatureArchiveModal({
       close={close}
       open={true}
       cta={
-        autoPublish ? (isArchived ? "Unarchive" : "Archive") : "Save to draft"
+        mode === "publish"
+          ? isArchived
+            ? "Unarchive"
+            : "Archive"
+          : "Save to draft"
       }
-      submitColor={autoPublish ? "danger" : "primary"}
+      submitColor={mode === "publish" ? "danger" : "primary"}
       submit={async () => {
         // Desired new archived state — explicit so the endpoint never has to
         // guess by toggling `feature.archived` (which may differ from the
@@ -91,9 +100,9 @@ export default function FeatureArchiveModal({
             method: "POST",
             body: JSON.stringify({
               archived: desiredArchived,
-              ...(autoPublish
+              ...(mode === "publish"
                 ? { autoPublish: true }
-                : selectedDraft != null
+                : mode === "existing"
                   ? { draftVersion: selectedDraft }
                   : { forceNewDraft: true }),
             }),
@@ -108,6 +117,16 @@ export default function FeatureArchiveModal({
       ctaEnabled={canSubmit}
       useRadixButton={true}
     >
+      <DraftSelectorForChanges
+        feature={feature}
+        revisionList={revisionList}
+        mode={mode}
+        setMode={setMode}
+        selectedDraft={selectedDraft}
+        setSelectedDraft={setSelectedDraft}
+        canAutoPublish={canAutoPublish}
+        gatedEnvSet={archiveGated ? "all" : "none"}
+      />
       {loading ? (
         <Text color="text-disabled">
           <LoadingSpinner /> Checking feature dependencies...
@@ -159,18 +178,6 @@ export default function FeatureArchiveModal({
         </p>
       )}
 
-      <Box mt="4" mb="3">
-        <DraftSelectorForChanges
-          feature={feature}
-          revisionList={revisionList}
-          autoPublish={autoPublish}
-          setAutoPublish={setAutoPublish}
-          selectedDraft={selectedDraft}
-          setSelectedDraft={setSelectedDraft}
-          canAutoPublish={canAutoPublish}
-          gatedEnvSet={archiveGated ? "all" : "none"}
-        />
-      </Box>
     </Modal>
   );
 }

@@ -1447,13 +1447,17 @@ main.main {
     .chevron-right {
       transform: rotate(90deg);
     }
+    .draft-selector-collapsible-trigger {
+      border-radius: var(--radius-4) var(--radius-4) 0 0;
+    }
   }
 }
 
 .draft-selector-collapsible-trigger {
-  background-color: var(--violet-a2);
+  background-color: var(--violet-a3);
+  border-radius: var(--radius-4);
   &:hover {
-    background-color: var(--violet-a3);
+    background-color: var(--violet-a4);
   }
 }
 

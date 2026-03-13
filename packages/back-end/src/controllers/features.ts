@@ -1984,7 +1984,14 @@ export async function postFeatureDefaultValue(
 }
 
 export async function postFeatureSchema(
-  req: AuthRequest<Omit<JSONSchemaDef, "date">, { id: string }>,
+  req: AuthRequest<
+    Omit<JSONSchemaDef, "date"> & {
+      targetDraftVersion?: number;
+      autoPublish?: boolean;
+      forceNewDraft?: boolean;
+    },
+    { id: string }
+  >,
   res: Response<
     { status: 200; draftVersion?: number },
     EventUserForResponseLocals
@@ -1992,7 +1999,12 @@ export async function postFeatureSchema(
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
-  const schemaDef = req.body;
+  const {
+    targetDraftVersion,
+    autoPublish,
+    forceNewDraft,
+    ...schemaDef
+  } = req.body;
   const feature = await getFeature(context, id);
 
   if (!feature) {
@@ -2020,7 +2032,12 @@ export async function postFeatureSchema(
       subject: "json schema",
       value: JSON.stringify({ schemaType: schemaDef.schemaType }),
     },
+    autoPublish ? undefined : targetDraftVersion,
+    autoPublish ? true : forceNewDraft,
   );
+  if (autoPublish) {
+    await publishRevision(context, feature, draft, { metadata: { jsonSchema } });
+  }
   return res.status(200).json({ status: 200, draftVersion: draft.version });
 }
 
@@ -3626,49 +3643,32 @@ export async function toggleStaleFFDetectionForFeature(
   return res.status(200).json({ status: 200, draftVersion: draft.version });
 }
 
-export async function postPrerequisite(
-  req: AuthRequest<{ prerequisite: FeaturePrerequisite }, { id: string }>,
-  res: Response<
-    { status: 200; draftVersion?: number },
-    EventUserForResponseLocals
-  >,
-) {
-  const context = getContextFromReq(req);
-  const { id } = req.params;
-  const { prerequisite } = req.body;
-
-  const feature = await getFeature(context, id);
-  if (!feature) {
-    throw new Error("Could not find feature");
+/** Resolves the base draft for prerequisite mutations based on caller-provided hints. */
+async function resolvePrerequisiteBaseDraft(
+  context: ReqContext,
+  feature: FeatureInterface,
+  targetDraftVersion?: number,
+  forceNewDraft?: boolean,
+): Promise<FeatureRevisionInterface | null> {
+  if (forceNewDraft) return null;
+  if (targetDraftVersion) {
+    return await getRevision({
+      context,
+      organization: feature.organization,
+      featureId: feature.id,
+      version: targetDraftVersion,
+    });
   }
-
-  if (!context.permissions.canUpdateFeature(feature, {})) {
-    context.permissions.throwPermissionError();
-  }
-
-  // Always route prerequisites through the revision system
-  const existingDraft = await getActiveDraft(context, feature);
-  const basePrerequisitesAdd =
-    existingDraft?.prerequisites ?? feature.prerequisites ?? [];
-  const newPrerequisitesAdd = [...basePrerequisitesAdd, prerequisite];
-  const draft = await createOrUpdateDraftWithChanges(
-    context,
-    feature,
-    { prerequisites: newPrerequisitesAdd },
-    {
-      user: context.auditUser,
-      action: "update",
-      subject: "add prerequisite",
-      value: JSON.stringify({ prerequisite }),
-    },
-    existingDraft?.version,
-  );
-  return res.status(200).json({ status: 200, draftVersion: draft.version });
+  return await getActiveDraft(context, feature);
 }
 
-export async function putPrerequisite(
+export async function postPrerequisite(
   req: AuthRequest<
-    { prerequisite: FeaturePrerequisite; i: number },
+    {
+      prerequisite: FeaturePrerequisite;
+      targetDraftVersion?: number;
+      forceNewDraft?: boolean;
+    },
     { id: string }
   >,
   res: Response<
@@ -3678,7 +3678,7 @@ export async function putPrerequisite(
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
-  const { prerequisite, i } = req.body;
+  const { prerequisite, targetDraftVersion, forceNewDraft } = req.body;
 
   const feature = await getFeature(context, id);
   if (!feature) {
@@ -3689,32 +3689,40 @@ export async function putPrerequisite(
     context.permissions.throwPermissionError();
   }
 
-  // Always route prerequisites through the revision system
-  const existingDraftPut = await getActiveDraft(context, feature);
-  const basePrerequisitesPut =
-    existingDraftPut?.prerequisites ?? feature.prerequisites ?? [];
-  const newPrerequisitesPut = [...basePrerequisitesPut];
-  if (!newPrerequisitesPut[i]) {
-    throw new Error("Unknown prerequisite");
-  }
-  newPrerequisitesPut[i] = prerequisite;
-  const putDraft = await createOrUpdateDraftWithChanges(
+  const baseDraft = await resolvePrerequisiteBaseDraft(
     context,
     feature,
-    { prerequisites: newPrerequisitesPut },
+    targetDraftVersion,
+    forceNewDraft,
+  );
+  const basePrerequisites = baseDraft?.prerequisites ?? feature.prerequisites ?? [];
+  const newPrerequisites = [...basePrerequisites, prerequisite];
+  const draft = await createOrUpdateDraftWithChanges(
+    context,
+    feature,
+    { prerequisites: newPrerequisites },
     {
       user: context.auditUser,
       action: "update",
-      subject: `update prerequisite ${i}`,
+      subject: "add prerequisite",
       value: JSON.stringify({ prerequisite }),
     },
-    existingDraftPut?.version,
+    baseDraft?.version,
+    forceNewDraft,
   );
-  return res.status(200).json({ status: 200, draftVersion: putDraft.version });
+  return res.status(200).json({ status: 200, draftVersion: draft.version });
 }
 
-export async function deletePrerequisite(
-  req: AuthRequest<{ i: number }, { id: string }>,
+export async function putPrerequisite(
+  req: AuthRequest<
+    {
+      prerequisite: FeaturePrerequisite;
+      i: number;
+      targetDraftVersion?: number;
+      forceNewDraft?: boolean;
+    },
+    { id: string }
+  >,
   res: Response<
     { status: 200; draftVersion?: number },
     EventUserForResponseLocals
@@ -3722,7 +3730,7 @@ export async function deletePrerequisite(
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
-  const { i } = req.body;
+  const { prerequisite, i, targetDraftVersion, forceNewDraft } = req.body;
 
   const feature = await getFeature(context, id);
   if (!feature) {
@@ -3733,26 +3741,81 @@ export async function deletePrerequisite(
     context.permissions.throwPermissionError();
   }
 
-  // Always route prerequisites through the revision system
-  const existingDraftDel = await getActiveDraft(context, feature);
-  const basePrerequisitesDel =
-    existingDraftDel?.prerequisites ?? feature.prerequisites ?? [];
-  const newPrerequisitesDel = [...basePrerequisitesDel];
-  if (!newPrerequisitesDel[i]) {
+  const baseDraftPut = await resolvePrerequisiteBaseDraft(
+    context,
+    feature,
+    targetDraftVersion,
+    forceNewDraft,
+  );
+  const basePrerequisites = baseDraftPut?.prerequisites ?? feature.prerequisites ?? [];
+  const newPrerequisites = [...basePrerequisites];
+  if (!newPrerequisites[i]) {
     throw new Error("Unknown prerequisite");
   }
-  newPrerequisitesDel.splice(i, 1);
+  newPrerequisites[i] = prerequisite;
+  const putDraft = await createOrUpdateDraftWithChanges(
+    context,
+    feature,
+    { prerequisites: newPrerequisites },
+    {
+      user: context.auditUser,
+      action: "update",
+      subject: `update prerequisite ${i}`,
+      value: JSON.stringify({ prerequisite }),
+    },
+    baseDraftPut?.version,
+    forceNewDraft,
+  );
+  return res.status(200).json({ status: 200, draftVersion: putDraft.version });
+}
+
+export async function deletePrerequisite(
+  req: AuthRequest<
+    { i: number; targetDraftVersion?: number; forceNewDraft?: boolean },
+    { id: string }
+  >,
+  res: Response<
+    { status: 200; draftVersion?: number },
+    EventUserForResponseLocals
+  >,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const { i, targetDraftVersion, forceNewDraft } = req.body;
+
+  const feature = await getFeature(context, id);
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  if (!context.permissions.canUpdateFeature(feature, {})) {
+    context.permissions.throwPermissionError();
+  }
+
+  const baseDraftDel = await resolvePrerequisiteBaseDraft(
+    context,
+    feature,
+    targetDraftVersion,
+    forceNewDraft,
+  );
+  const basePrerequisites = baseDraftDel?.prerequisites ?? feature.prerequisites ?? [];
+  const newPrerequisites = [...basePrerequisites];
+  if (!newPrerequisites[i]) {
+    throw new Error("Unknown prerequisite");
+  }
+  newPrerequisites.splice(i, 1);
   const deleteDraft = await createOrUpdateDraftWithChanges(
     context,
     feature,
-    { prerequisites: newPrerequisitesDel },
+    { prerequisites: newPrerequisites },
     {
       user: context.auditUser,
       action: "update",
       subject: `delete prerequisite ${i}`,
       value: JSON.stringify({ index: i }),
     },
-    existingDraftDel?.version,
+    baseDraftDel?.version,
+    forceNewDraft,
   );
   return res.status(200).json({ status: 200, draftVersion: deleteDraft.version });
 }

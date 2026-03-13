@@ -1,20 +1,23 @@
 import { FeatureInterface, FeaturePrerequisite } from "shared/types/feature";
 import { FaExclamationCircle, FaQuestion } from "react-icons/fa";
 import { Environment } from "shared/types/organization";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   FaRegCircleCheck,
   FaRegCircleQuestion,
   FaRegCircleXmark,
 } from "react-icons/fa6";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { IconButton } from "@radix-ui/themes";
+import { Box, IconButton } from "@radix-ui/themes";
+import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import Modal from "@/components/Modal";
 import {
   PrerequisiteStateResult,
   usePrerequisiteStates,
@@ -24,6 +27,9 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
 } from "@/ui/DropdownMenu";
+import DraftSelectorForChanges, {
+  DraftMode,
+} from "@/components/Features/DraftSelectorForChanges";
 
 interface Props {
   i: number;
@@ -34,8 +40,8 @@ interface Props {
   mutate: () => Promise<unknown>;
   setVersion: (version: number) => void;
   setPrerequisiteModal: (prerequisite: { i: number }) => void;
-  /** When true, hides edit/delete controls (active draft required for prereq changes). */
-  isLocked?: boolean;
+  revisionList: MinimalFeatureRevisionInterface[];
+  gatedEnvSet: Set<string> | "all" | "none";
 }
 
 export default function PrerequisiteStatusRow({
@@ -47,12 +53,30 @@ export default function PrerequisiteStatusRow({
   mutate,
   setVersion,
   setPrerequisiteModal,
-  isLocked = false,
+  revisionList,
+  gatedEnvSet,
 }: Props) {
   const permissionsUtil = usePermissionsUtil();
   const canEdit = permissionsUtil.canViewFeatureModal(feature.project);
   const { apiCall } = useAuth();
   const [open, setOpen] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  const latestActiveDraft = useMemo(
+    () =>
+      revisionList
+        .filter((r) =>
+          (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status),
+        )
+        .sort((a, b) => b.version - a.version)[0] ?? null,
+    [revisionList],
+  );
+  const [deleteMode, setDeleteMode] = useState<DraftMode>(
+    latestActiveDraft != null ? "existing" : "new",
+  );
+  const [deleteSelectedDraft, setDeleteSelectedDraft] = useState<number | null>(
+    latestActiveDraft?.version ?? null,
+  );
 
   const envs = environments.map((e) => e.id);
 
@@ -71,6 +95,47 @@ export default function PrerequisiteStatusRow({
       : undefined;
 
   return (
+    <>
+      {showDeleteModal && (
+        <Modal
+          trackingEventModalType="delete-prerequisite"
+          header="Delete Prerequisite"
+          open={true}
+          close={() => setShowDeleteModal(false)}
+          cta="Delete"
+          ctaColor="danger"
+          submit={async () => {
+            track("Delete Prerequisite", { prerequisiteIndex: i });
+            const draftBody =
+              deleteMode === "existing"
+                ? { targetDraftVersion: deleteSelectedDraft }
+                : { forceNewDraft: true };
+            const res = await apiCall<{ version: number }>(
+              `/feature/${feature.id}/prerequisite`,
+              {
+                method: "DELETE",
+                body: JSON.stringify({ i, ...draftBody }),
+              },
+            );
+            await mutate();
+            if (res?.version) setVersion(res.version);
+          }}
+        >
+          <Box style={{ minHeight: 300 }}>
+            <DraftSelectorForChanges
+              feature={feature}
+              revisionList={revisionList}
+              mode={deleteMode}
+              setMode={setDeleteMode}
+              selectedDraft={deleteSelectedDraft}
+              setSelectedDraft={setDeleteSelectedDraft}
+              canAutoPublish={false}
+              gatedEnvSet={gatedEnvSet}
+            />
+            <p>Are you sure you want to delete this prerequisite?</p>
+          </Box>
+        </Modal>
+      )}
     <tr>
       <td className="align-middle pl-3 border-right">
         <div className="d-flex">
@@ -91,7 +156,7 @@ export default function PrerequisiteStatusRow({
             </a>
           </div>
           <div>
-            {canEdit && !isLocked && (
+            {canEdit && (
               <DropdownMenu
                 trigger={
                   <IconButton
@@ -121,23 +186,9 @@ export default function PrerequisiteStatusRow({
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     color="red"
-                    confirmation={{
-                      confirmationTitle: "Delete Prerequisite",
-                      cta: "Delete",
-                      submit: async () => {
-                        track("Delete Prerequisite", {
-                          prerequisiteIndex: i,
-                        });
-                        const res = await apiCall<{ version: number }>(
-                          `/feature/${feature.id}/prerequisite`,
-                          {
-                            method: "DELETE",
-                            body: JSON.stringify({ i }),
-                          },
-                        );
-                        await mutate();
-                        if (res?.version) setVersion(res.version);
-                      },
+                    onClick={() => {
+                      setOpen(false);
+                      setShowDeleteModal(true);
                     }}
                   >
                     Delete
@@ -158,6 +209,7 @@ export default function PrerequisiteStatusRow({
       )}
       <td />
     </tr>
+    </>
   );
 }
 

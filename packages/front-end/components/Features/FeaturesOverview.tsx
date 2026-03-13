@@ -105,12 +105,6 @@ import RequestReviewModal from "./RequestReviewModal";
 import { FeatureUsageContainer, useFeatureUsage } from "./FeatureUsageGraph";
 import FeatureRules from "./FeatureRules";
 
-/**
- * Small inline indicator shown next to section headings that are under
- * revision / approval control. `gated` = requires org approval; otherwise
- * it's just always tracked in revision history (rules/default value).
- */
-
 export default function FeaturesOverview({
   baseFeature,
   feature,
@@ -189,14 +183,30 @@ export default function FeaturesOverview({
     );
     const liveRevision = revisions.find((r) => r.version === feature.version);
     if (!revision || !baseRevision || !liveRevision) return null;
+
+    // Revisions only record environmentsEnabled at publish time. Environments
+    // added to the org afterwards won't be present in older revisions, causing
+    // false-positive diffs. Fill in missing envs from baseFeature (the raw live
+    // feature with no draft changes applied) — not `feature`, which is draft-merged
+    // and would cause the base to reflect draft values, hiding real diffs.
+    const featureEnvs: Record<string, boolean> = Object.fromEntries(
+      Object.entries(baseFeature.environmentSettings ?? {}).map(
+        ([env, val]) => [env, !!val.enabled],
+      ),
+    );
+    const fillEnvs = (r: typeof liveRevision) => ({
+      ...r,
+      environmentsEnabled: { ...featureEnvs, ...(r.environmentsEnabled ?? {}) },
+    });
+
     return autoMerge(
-      liveRevision,
-      baseRevision,
+      fillEnvs(liveRevision),
+      fillEnvs(baseRevision),
       revision,
       environments.map((e) => e.id),
       {},
     );
-  }, [revisions, revision, feature, environments]);
+  }, [revisions, revision, feature, baseFeature, environments]);
 
   const prerequisites = feature?.prerequisites || [];
 
@@ -266,8 +276,18 @@ export default function FeaturesOverview({
     const liveRevision = revisions.find((r) => r.version === feature.version);
     if (!revision || !liveRevision) return null;
     const allEnvIds = allEnvironments.map((e) => e.id);
-    return getDraftAffectedEnvironments(revision, liveRevision, allEnvIds);
-  }, [revision, revisions, feature.version, allEnvironments]);
+    const liveFeatureEnvs = Object.fromEntries(
+      Object.entries(baseFeature?.environmentSettings ?? {}).map(
+        ([env, val]) => [env, !!val.enabled],
+      ),
+    );
+    return getDraftAffectedEnvironments(
+      revision,
+      liveRevision,
+      allEnvIds,
+      liveFeatureEnvs,
+    );
+  }, [revision, revisions, feature.version, allEnvironments, baseFeature]);
 
   if (!baseFeature || !feature || !revision) return null;
 
@@ -330,34 +350,37 @@ export default function FeaturesOverview({
     (revision.status === "published" || revision.status === "discarded") &&
     (!isLive || drafts.length > 0);
 
-  // Derive review settings from org settings.
-  // requiresApproval = top-level boolean opt-in (gates rules, default value,
-  // archiving, etc. regardless of per-environment settings).
-  // requireReviewSettings = the modern per-project/env RequireReview[] array.
-  const requiresApproval = settings?.requireReviews === true;
-  const requireReviewSettings = Array.isArray(settings?.requireReviews)
-    ? settings.requireReviews
-    : [];
-  const reviewSetting = getReviewSetting(requireReviewSettings, feature);
-  const rulesGated = requiresApproval || !!reviewSetting?.requireReviewOn;
+  // todo: implement multiple array entries for multiple per-project(s) approval configurations
+  const featureReviewConfig = getReviewSetting(
+    Array.isArray(settings?.requireReviews)
+      ? settings.requireReviews
+      : settings?.requireReviews === true
+        ? [
+            {
+              requireReviewOn: true,
+              resetReviewOnChange: false,
+              environments: [],
+              projects: [],
+            },
+          ]
+        : [],
+    feature,
+  );
+  const approvalsEngaged = !!featureReviewConfig?.requireReviewOn;
   const killSwitchGated =
-    requiresApproval ||
-    (!!reviewSetting?.requireReviewOn &&
-      reviewSetting.featureRequireEnvironmentReview !== false);
-  const prereqGated = requiresApproval || !!reviewSetting?.requireReviewOn;
+    approvalsEngaged &&
+    featureReviewConfig?.featureRequireEnvironmentReview !== false;
+  const prereqGated = approvalsEngaged;
 
   // Mirrors RevisionDropdown's gatedEnvs — used for badge coloring in the affected-envs widget.
   const gatedEnvSet: Set<string> | "all" | "none" = (() => {
-    if (requiresApproval) return "all";
-    if (!reviewSetting?.requireReviewOn) return "none";
-    const envList = reviewSetting.environments ?? [];
+    if (!approvalsEngaged) return "none";
+    const envList = featureReviewConfig?.environments ?? [];
     return envList.length === 0 ? "all" : new Set(envList);
   })();
-  const prereqIsLocked = prereqGated && isLocked;
   const metadataReviewRequired =
-    requiresApproval ||
-    (!!reviewSetting?.requireReviewOn &&
-      reviewSetting.featureRequireMetadataReview !== false);
+    approvalsEngaged &&
+    featureReviewConfig?.featureRequireMetadataReview !== false;
   const gatedEnvNames: string[] | "all" =
     gatedEnvSet === "all" || gatedEnvSet === "none"
       ? gatedEnvSet === "all"
@@ -775,7 +798,7 @@ export default function FeaturesOverview({
                 live and cannot be modified.
               </Callout>
             ) : null}
-            {!rulesGated && (
+            {!approvalsEngaged && (
               <Callout
                 status="info"
                 color="gray"
@@ -787,7 +810,7 @@ export default function FeaturesOverview({
                 Approvals are <em>not</em> required to publish changes.
               </Callout>
             )}
-            {rulesGated &&
+            {approvalsEngaged &&
               (killSwitchGated || prereqGated || metadataReviewRequired) && (
                 <Callout
                   status="info"
@@ -797,7 +820,7 @@ export default function FeaturesOverview({
                   size="sm"
                 >
                   <Flex direction="column" gap="1">
-                    {rulesGated && (
+                    {approvalsEngaged && (
                       <div>
                         {killSwitchGated
                           ? "Rule, value, and kill switch changes"
@@ -824,13 +847,13 @@ export default function FeaturesOverview({
                   </Flex>
                 </Callout>
               )}
-            {(rulesGated ||
+            {(approvalsEngaged ||
               killSwitchGated ||
               prereqGated ||
               metadataReviewRequired) &&
               (() => {
                 const exempt = [
-                  !rulesGated && "rule and value",
+                  !approvalsEngaged && "rule and value",
                   !killSwitchGated && "kill switch",
                   !prereqGated && "prerequisite",
                   !metadataReviewRequired && "metadata",
@@ -867,7 +890,7 @@ export default function FeaturesOverview({
               </Heading>
               <DraftControlBadge
                 gated={metadataReviewRequired}
-                approvalsEnabled={rulesGated}
+                approvalsEnabled={approvalsEngaged}
               />
             </Flex>
             {canEdit && canEditDrafts && (
@@ -896,15 +919,14 @@ export default function FeaturesOverview({
             mutate={mutate}
             section={"feature"}
             mt="6"
-            showApprovalBadge={rulesGated}
+            showApprovalBadge={approvalsEngaged}
             draftInfo={
-              metadataReviewRequired
-                ? ({
-                    activeDraft: drafts[0] ?? null,
-                    targetDraftVersion: drafts[0]?.version,
-                    onDraftCreated: (v) => setVersion(v),
-                  } satisfies CustomFieldDraftInfo)
-                : undefined
+              {
+                feature,
+                revisionList: revisionList || [],
+                gatedEnvSet: metadataReviewRequired ? "all" : "none",
+                onDraftCreated: (v) => setVersion(v),
+              } satisfies CustomFieldDraftInfo
             }
           />
         </Frame>
@@ -975,7 +997,7 @@ export default function FeaturesOverview({
               </Heading>
               <DraftControlBadge
                 gated={killSwitchGated}
-                approvalsEnabled={rulesGated}
+                approvalsEnabled={approvalsEngaged}
               />
             </Flex>
             <div className="mb-4">
@@ -1053,7 +1075,6 @@ export default function FeaturesOverview({
                               setVersion={setVersion}
                               currentVersion={currentVersion}
                               revisionList={revisionList || []}
-                              allRevisions={revisions}
                               id={`${env}_toggle`}
                               isLocked={false}
                             />
@@ -1074,7 +1095,8 @@ export default function FeaturesOverview({
                           mutate={mutate}
                           setVersion={setVersion}
                           setPrerequisiteModal={setPrerequisiteModal}
-                          isLocked={prereqIsLocked}
+                          revisionList={revisionList || []}
+                          gatedEnvSet={gatedEnvSet}
                         />
                       );
                     })}
@@ -1129,7 +1151,6 @@ export default function FeaturesOverview({
                         setVersion={setVersion}
                         currentVersion={currentVersion}
                         revisionList={revisionList || []}
-                        allRevisions={revisions}
                         id={`${en.id}_toggle`}
                         isLocked={false}
                       />
@@ -1161,7 +1182,7 @@ export default function FeaturesOverview({
               />
             )}
 
-            {canEdit && canEditDrafts && !prereqIsLocked && (
+            {canEdit && canEditDrafts && (
               <PremiumTooltip
                 commercialFeature="prerequisites"
                 className="d-inline-flex align-items-center mt-3"
@@ -1302,12 +1323,12 @@ export default function FeaturesOverview({
                     Default Value
                   </Heading>
                   <DraftControlBadge
-                    gated={rulesGated}
+                    gated={approvalsEngaged}
                     alwaysDrafted
-                    approvalsEnabled={rulesGated}
+                    approvalsEnabled={approvalsEngaged}
                   />
                 </Flex>
-                {canEdit && !isLocked && canEditDrafts && (
+                {canEdit && canEditDrafts && (
                   <Button
                     variant="ghost"
                     size="sm"
@@ -1339,9 +1360,9 @@ export default function FeaturesOverview({
                       Rules
                     </Heading>
                     <DraftControlBadge
-                      gated={rulesGated}
+                      gated={approvalsEngaged}
                       alwaysDrafted
-                      approvalsEnabled={rulesGated}
+                      approvalsEnabled={approvalsEngaged}
                     />
                   </Flex>
                   <label className="font-weight-semibold">
@@ -1636,6 +1657,7 @@ export default function FeaturesOverview({
         {prerequisiteModal !== null && (
           <PrerequisiteModal
             feature={feature}
+            revisionList={revisionList || []}
             close={() => setPrerequisiteModal(null)}
             i={prerequisiteModal.i}
             mutate={mutate}

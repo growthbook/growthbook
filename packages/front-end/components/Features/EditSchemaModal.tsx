@@ -16,7 +16,7 @@ import {
 } from "shared/util";
 import { FaAngleDown, FaAngleRight, FaRegTrashAlt } from "react-icons/fa";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
-import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
+import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Field from "@/components/Forms/Field";
@@ -28,7 +28,9 @@ import { GBAddCircle } from "@/components/Icons";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import Checkbox from "@/ui/Checkbox";
-import DraftRevisionCallout from "@/components/Features/DraftRevisionCallout";
+import DraftSelectorForChanges, {
+  DraftMode,
+} from "@/components/Features/DraftSelectorForChanges";
 
 export interface Props {
   feature: FeatureInterface;
@@ -461,30 +463,31 @@ export default function EditSchemaModal({
   const { apiCall } = useAuth();
   const settings = useOrgSettings();
 
-  const activeDraft = useMemo(
-    () =>
-      revisionList
-        .filter((r) =>
-          (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status),
-        )
-        .sort((a, b) => b.version - a.version)[0] ?? null,
-    [revisionList],
-  );
-
-  const requiresApproval = useMemo(() => {
-    const requireReviewSettings = settings?.requireReviews;
-    if (!requireReviewSettings || typeof requireReviewSettings === "boolean") {
-      return !!requireReviewSettings;
-    }
-    const reviewSetting = getReviewSetting(requireReviewSettings, feature);
-    return !!reviewSetting?.requireReviewOn;
+  const gatedEnvSet: Set<string> | "all" | "none" = useMemo(() => {
+    const raw = settings?.requireReviews;
+    if (raw === true) return "all";
+    if (!Array.isArray(raw)) return "none";
+    const reviewSetting = getReviewSetting(raw, feature);
+    if (!reviewSetting?.requireReviewOn) return "none";
+    const envList = reviewSetting.environments ?? [];
+    return envList.length === 0 ? "all" : new Set(envList);
   }, [settings?.requireReviews, feature]);
+
+  const canAutoPublish = gatedEnvSet === "none";
+
+  const defaultDraft = useDefaultDraft(revisionList);
+
+  const [mode, setMode] = useState<DraftMode>(
+    canAutoPublish ? "publish" : defaultDraft != null ? "existing" : "new",
+  );
+  // Always pre-populated so switching to "existing draft" immediately shows the current draft.
+  const [selectedDraft, setSelectedDraft] = useState<number | null>(defaultDraft);
 
   return (
     <Modal
       trackingEventModalType=""
       header="Edit Feature Validation"
-      cta="Save to Draft"
+      cta={mode === "publish" ? "Publish" : "Save to Draft"}
       size="lg"
       submit={form.handleSubmit(async (value) => {
         if (value.enabled && value.schemaType === "schema") {
@@ -531,11 +534,19 @@ export default function EditSchemaModal({
           }
         }
 
+        const body: Record<string, unknown> = {
+          ...value,
+          ...(mode === "publish"
+            ? { autoPublish: true }
+            : mode === "existing"
+              ? { targetDraftVersion: selectedDraft }
+              : { forceNewDraft: true }),
+        };
         const res = await apiCall<{ draftVersion?: number }>(
           `/feature/${feature.id}/schema`,
           {
             method: "POST",
-            body: JSON.stringify(value),
+            body: JSON.stringify(body),
           },
         );
         mutate();
@@ -547,9 +558,15 @@ export default function EditSchemaModal({
       close={close}
       open={true}
     >
-      <DraftRevisionCallout
-        activeDraft={activeDraft}
-        requiresApproval={requiresApproval}
+      <DraftSelectorForChanges
+        feature={feature}
+        revisionList={revisionList}
+        mode={mode}
+        setMode={setMode}
+        selectedDraft={selectedDraft}
+        setSelectedDraft={setSelectedDraft}
+        canAutoPublish={canAutoPublish}
+        gatedEnvSet={gatedEnvSet}
       />
       <Switch
         id={"schemaEnabled"}

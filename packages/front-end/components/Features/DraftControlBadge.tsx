@@ -24,6 +24,7 @@ export default function DraftControlBadge({
           : notGatedTooltip
       }
       tipMinWidth="180px"
+      tipPosition="top"
     >
       <span
         style={{

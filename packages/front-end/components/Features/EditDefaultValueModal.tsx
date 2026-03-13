@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
@@ -8,7 +8,9 @@ import { useAuth } from "@/services/auth";
 import { getFeatureDefaultValue } from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "@/components/Modal";
-import DraftRevisionCallout from "@/components/Features/DraftRevisionCallout";
+import DraftSelectorForChanges, {
+  DraftMode,
+} from "@/components/Features/DraftSelectorForChanges";
 import FeatureValueField from "./FeatureValueField";
 
 export interface Props {
@@ -35,31 +37,41 @@ export default function EditDefaultValueModal({
   });
   const { apiCall } = useAuth();
   const settings = useOrgSettings();
+  // Rules/values gating: env filtering without kill-switch-specific checks.
+  const gatedEnvSet: Set<string> | "all" | "none" = useMemo(() => {
+    const raw = settings?.requireReviews;
+    if (raw === true) return "all";
+    if (!Array.isArray(raw)) return "none";
+    const reviewSetting = getReviewSetting(raw, feature);
+    if (!reviewSetting?.requireReviewOn) return "none";
+    const envList = reviewSetting.environments ?? [];
+    return envList.length === 0 ? "all" : new Set(envList);
+  }, [settings?.requireReviews, feature]);
 
-  const activeDraft = useMemo(
+  const viewingActiveDraft = useMemo(
     () =>
-      revisionList
-        .filter((r) =>
-          (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status),
-        )
-        .sort((a, b) => b.version - a.version)[0] ?? null,
-    [revisionList],
+      (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(
+        revisionList.find((r) => r.version === version)?.status ?? "",
+      ),
+    [revisionList, version],
   );
 
-  const requiresApproval = useMemo(() => {
-    const requireReviewSettings = settings?.requireReviews;
-    if (!requireReviewSettings || typeof requireReviewSettings === "boolean") {
-      return !!requireReviewSettings;
-    }
-    const reviewSetting = getReviewSetting(requireReviewSettings, feature);
-    return !!(reviewSetting?.requireReviewOn);
-  }, [settings?.requireReviews, feature]);
+  const [mode, setMode] = useState<DraftMode>(
+    viewingActiveDraft ? "existing" : "new",
+  );
+  const [selectedDraft, setSelectedDraft] = useState<number | null>(
+    viewingActiveDraft ? version : null,
+  );
+
+  // URL version drives draft behavior: feature.version = new draft, draft version = modify existing.
+  const targetVersion =
+    mode === "existing" && selectedDraft != null ? selectedDraft : feature.version;
 
   return (
     <Modal
       trackingEventModalType=""
       header="Edit Default Value"
-      cta="Save to Draft"
+      cta="Save to draft"
       useRadixButton={true}
       submit={form.handleSubmit(async (value) => {
         const newDefaultValue = validateFeatureValue(
@@ -75,7 +87,7 @@ export default function EditDefaultValueModal({
         }
 
         const res = await apiCall<{ version: number }>(
-          `/feature/${feature.id}/${version}/defaultvalue`,
+          `/feature/${feature.id}/${targetVersion}/defaultvalue`,
           {
             method: "POST",
             body: JSON.stringify(value),
@@ -88,7 +100,16 @@ export default function EditDefaultValueModal({
       open={true}
       size={feature.valueType === "json" ? "lg" : "md"}
     >
-      <DraftRevisionCallout activeDraft={activeDraft} requiresApproval={requiresApproval} />
+      <DraftSelectorForChanges
+        feature={feature}
+        revisionList={revisionList}
+        mode={mode}
+        setMode={setMode}
+        selectedDraft={selectedDraft}
+        setSelectedDraft={setSelectedDraft}
+        canAutoPublish={false}
+        gatedEnvSet={gatedEnvSet}
+      />
       <FeatureValueField
         label="Value When Enabled"
         id="defaultValue"

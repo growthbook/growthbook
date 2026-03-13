@@ -86,10 +86,25 @@ export default function RequestReviewModal({
 
   const envIds = environments.map((e) => e.id);
 
+  const liveFeatureEnvs = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(feature.environmentSettings ?? {}).map(([env, val]) => [
+          env,
+          !!val.enabled,
+        ]),
+      ),
+    [feature],
+  );
   const affectedEnvs = useMemo(() => {
     if (!revision || !liveRevision) return null;
-    return getDraftAffectedEnvironments(revision, liveRevision, envIds);
-  }, [revision, liveRevision, envIds]);
+    return getDraftAffectedEnvironments(
+      revision,
+      liveRevision,
+      envIds,
+      liveFeatureEnvs,
+    );
+  }, [revision, liveRevision, envIds, liveFeatureEnvs]);
 
   const requiresApproval = settings?.requireReviews === true;
   const requireReviewSettings = Array.isArray(settings?.requireReviews)
