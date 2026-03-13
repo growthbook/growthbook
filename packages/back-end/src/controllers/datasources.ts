@@ -808,13 +808,15 @@ export async function testLimitedQuery(
     query: string;
     datasourceId: string;
     templateVariables?: TemplateVariables;
+    timestampColumn?: string;
     limit?: number;
   }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
 
-  const { query, datasourceId, templateVariables, limit } = req.body;
+  const { query, datasourceId, templateVariables, timestampColumn, limit } =
+    req.body;
 
   // Sanity check to prevent potential abuse
   if (limit && limit > SQL_ROW_LIMIT) {
@@ -840,6 +842,7 @@ export async function testLimitedQuery(
     query,
     templateVariables,
     maxLimit,
+    timestampColumn,
   );
 
   res.status(200).json({

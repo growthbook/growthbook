@@ -104,6 +104,7 @@ export interface SourceIntegrationInterface {
     query: string,
     testDays?: number,
     templateVariables?: TemplateVariables,
+    timestampColumn?: string,
   ): string;
   getTestQuery?(params: TestQueryParams): string;
   getFreeFormQuery?(query: string, limit?: number): string;
