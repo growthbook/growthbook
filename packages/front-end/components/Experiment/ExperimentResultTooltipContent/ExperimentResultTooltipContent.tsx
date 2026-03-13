@@ -37,6 +37,15 @@ interface ExperimentResultTooltipContentProps {
   pValueAdjustmentEnabled?: boolean;
 }
 
+const numberFormatter = Intl.NumberFormat(undefined, {
+  maximumFractionDigits: 1,
+});
+
+const percentFormatter = new Intl.NumberFormat(undefined, {
+  style: "percent",
+  maximumFractionDigits: 2,
+});
+
 export default function ExperimentResultTooltipContent({
   stats,
   metric,
@@ -80,25 +89,15 @@ export default function ExperimentResultTooltipContent({
     ...(differenceType === "relative" ? { maximumFractionDigits: 1 } : {}),
     ...(differenceType === "scaled" ? { notation: "compact" } : {}),
   };
-
-  const percentFormatter = new Intl.NumberFormat(undefined, {
-    style: "percent",
-    maximumFractionDigits: 2,
-  });
-
   // Formatter for numerator values (minSampleSize, currentMetricTotal)
   // Uses metric-specific formatting (e.g., currency for revenue metrics)
   const numeratorFormatter = isFactMetric(metric)
     ? getColumnRefFormatter(metric.numerator, getFactTableById)
     : getMetricFormatter(metric.type === "binomial" ? "count" : metric.type);
 
-  const numberFormatter = Intl.NumberFormat(undefined, {
-    maximumFractionDigits: 1,
-  });
   const ciWidthDisplay =
     numberFormatter.format(100 * (1 - pValueThreshold)) + "%";
 
-  console.log(pValueAdjustmentEnabled);
   const ciLabel =
     statsEngine === "bayesian"
       ? "95% CI"
