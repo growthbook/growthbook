@@ -11,7 +11,7 @@ import { useForm } from "react-hook-form";
 import { TaxIdType, StripeAddress } from "shared/types/subscriptions";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
-import { useAuth } from "@/services/auth";
+import { InitialPlanSelection, useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import { StripeProvider } from "@/enterprise/components/Billing/StripeProvider";
 import { useStripeContext } from "@/hooks/useStripeContext";
@@ -33,9 +33,9 @@ const leftside = (
   </>
 );
 
-type PlanChoice = "starter" | "pro";
+type Step = "plan" | "proBilling" | "proPayment" | "proSuccess";
 
-export type ProBillingData = {
+type ProBillingData = {
   email: string;
   taxIdType?: TaxIdType;
   taxIdValue?: string;
@@ -45,17 +45,14 @@ const SelectInitialPlan: FC = () => {
   const router = useRouter();
   const { initialPlanSelection, setInitialPlanSelection } = useAuth();
   const { email } = useUser();
-  const plan: PlanChoice =
+  const plan: InitialPlanSelection =
     initialPlanSelection === "pro" || initialPlanSelection === "starter"
       ? initialPlanSelection
       : "starter";
   const setPlan = setInitialPlanSelection ?? (() => {});
+  const [step, setStep] = useState<Step>("plan");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
-  const [proSuccess, setProSuccess] = useState(false);
-  const [proPaymentReady, setProPaymentReady] = useState(false);
-  const [proStep, setProStep] = useState<"billing" | "payment">("billing");
   const [proBillingData, setProBillingData] = useState<ProBillingData | null>(
     null,
   );
@@ -78,28 +75,23 @@ const SelectInitialPlan: FC = () => {
 
   const handleProContinue = () => {
     setError(null);
-    if (plan === "pro") {
-      setProPaymentReady(true);
-      setProStep("billing");
-    }
+    if (plan === "pro") setStep("proBilling");
   };
 
   const handleBackToPlanSelection = () => {
-    setProPaymentReady(false);
-    setProStep("billing");
+    setStep("plan");
     setProBillingData(null);
     setError(null);
   };
 
   const handleBackToBilling = () => {
-    setProStep("billing");
-    setClientSecret(null);
+    setStep("proBilling");
     setError(null);
   };
 
-  if (proSuccess) {
-    return (
-      <WelcomeFrame leftside={leftside} pathName="/select-initial-plan">
+  return (
+    <WelcomeFrame leftside={leftside} pathName="/select-initial-plan">
+      {step === "proSuccess" && (
         <div style={{ maxWidth: "500px" }}>
           <h2 className="h3 mb-1">Welcome to GrowthBook Pro!</h2>
           <p className="text-muted mb-3">
@@ -110,163 +102,130 @@ const SelectInitialPlan: FC = () => {
             Get started
           </Button>
         </div>
-      </WelcomeFrame>
-    );
-  }
-
-  if (plan === "pro" && proPaymentReady && proStep === "billing") {
-    return (
-      <WelcomeFrame leftside={leftside} pathName="/select-initial-plan">
+      )}
+      {step === "proBilling" && (
         <ProBillingStep
           initialData={proBillingData}
           defaultEmail={email || ""}
           onNext={(data) => {
             setProBillingData(data);
-            setProStep("payment");
+            setStep("proPayment");
             setError(null);
           }}
           onBack={handleBackToPlanSelection}
           setError={setError}
         />
-      </WelcomeFrame>
-    );
-  }
-
-  if (
-    plan === "pro" &&
-    proPaymentReady &&
-    proStep === "payment" &&
-    clientSecret &&
-    proBillingData
-  ) {
-    return (
-      <WelcomeFrame leftside={leftside} pathName="/select-initial-plan">
-        <ProPaymentForm
-          clientSecret={clientSecret}
+      )}
+      {step === "proPayment" && proBillingData && (
+        <ProPaymentStep
           billingData={proBillingData}
-          onSuccess={() => setProSuccess(true)}
-          onCompleteFlow={completeFlow}
+          onSuccess={() => setStep("proSuccess")}
           onBack={handleBackToBilling}
           setLoading={setLoading}
           setError={setError}
         />
-      </WelcomeFrame>
-    );
-  }
-
-  if (plan === "pro" && proPaymentReady && proStep === "payment") {
-    return (
-      <WelcomeFrame leftside={leftside} pathName="/select-initial-plan">
-        <ProSetupStep
-          onClientSecret={(secret) => setClientSecret(secret)}
-          setLoading={setLoading}
-          setError={setError}
-        />
-      </WelcomeFrame>
-    );
-  }
-
-  return (
-    <WelcomeFrame leftside={leftside} pathName="/select-initial-plan">
-      <Flex direction="column" gap="4" width="100%">
-        <Heading as="h1">Plan options</Heading>
-        <RadioCards
-          options={[
-            {
-              value: "starter",
-              label: (
-                <Flex
-                  direction="row"
-                  align="baseline"
-                  justify="between"
-                  gap="2"
-                >
-                  <Heading as="h2" size="small">
-                    Starter
-                  </Heading>
-                  <Text color="text-low">Free</Text>
-                </Flex>
-              ),
-              description: (
-                <Flex direction="column" gap="3" className="mt-3">
-                  <Text color="text-low">
-                    Basic flags and experiments for solo devs and small teams
-                  </Text>
-                  <ul
-                    style={{
-                      paddingLeft: 0,
-                      marginLeft: 0,
-                      listStylePosition: "inside",
-                    }}
+      )}
+      {step === "plan" && (
+        <Flex direction="column" gap="4" width="100%">
+          <Heading as="h1">Plan options</Heading>
+          <RadioCards
+            options={[
+              {
+                value: "starter",
+                label: (
+                  <Flex
+                    direction="row"
+                    align="baseline"
+                    justify="between"
+                    gap="2"
                   >
-                    <li>Unlimited feature flags</li>
-                    <li>Unlimited experiments</li>
-                    <li>Add up to 3 seats</li>
-                    <li>1M CDN Requests/month</li>
-                    <li>5GB Bandwidth/month</li>
-                  </ul>
-                  <Button
-                    color="primary"
-                    onClick={handleStarter}
-                    disabled={loading || plan !== "starter"}
+                    <Heading as="h2" size="small">
+                      Starter
+                    </Heading>
+                    <Text color="text-low">Free</Text>
+                  </Flex>
+                ),
+                description: (
+                  <Flex direction="column" gap="3" className="mt-3">
+                    <Text color="text-low">
+                      Basic flags and experiments for solo devs and small teams
+                    </Text>
+                    <ul
+                      style={{
+                        paddingLeft: 0,
+                        marginLeft: 0,
+                        listStylePosition: "inside",
+                      }}
+                    >
+                      <li>Unlimited feature flags</li>
+                      <li>Unlimited experiments</li>
+                      <li>Add up to 3 seats</li>
+                      <li>1M CDN Requests/month</li>
+                      <li>5GB Bandwidth/month</li>
+                    </ul>
+                    <Button
+                      color="primary"
+                      onClick={handleStarter}
+                      disabled={loading || plan !== "starter"}
+                    >
+                      Get Started for Free
+                    </Button>
+                  </Flex>
+                ),
+              },
+              {
+                value: "pro",
+                label: (
+                  <Flex
+                    direction="row"
+                    align="baseline"
+                    justify="between"
+                    gap="2"
                   >
-                    Get Started for Free
-                  </Button>
-                </Flex>
-              ),
-            },
-            {
-              value: "pro",
-              label: (
-                <Flex
-                  direction="row"
-                  align="baseline"
-                  justify="between"
-                  gap="2"
-                >
-                  <Heading as="h2" size="small">
-                    Pro
-                  </Heading>
-                  <Text color="text-low">Starts at $40/month</Text>
-                </Flex>
-              ),
-              description: (
-                <Flex direction="column" gap="3" className="mt-3">
-                  <Text color="text-low">
-                    Full featured experimentation and growth platform
-                  </Text>
-                  <ul
-                    style={{
-                      paddingLeft: 0,
-                      marginLeft: 0,
-                      listStylePosition: "inside",
-                    }}
-                  >
-                    <li>Advanced statistics</li>
-                    <li>Add up to 50 seats</li>
-                    <li>Advanced permissions</li>
-                    <li>2M CDN Requests/month</li>
-                    <li>20GB Bandwidth/month</li>
-                  </ul>
-                  <Button
-                    color="primary"
-                    onClick={handleProContinue}
-                    disabled={loading || plan !== "pro"}
-                  >
-                    Next: Add Payment Details
-                  </Button>
-                </Flex>
-              ),
-            },
-          ]}
-          value={plan}
-          align="start"
-          setValue={(v) => setPlan(v as PlanChoice)}
-          columns="2"
-          width="100%"
-        />
-        {error && <div className="alert alert-danger mt-3">{error}</div>}
-      </Flex>
+                    <Heading as="h2" size="small">
+                      Pro
+                    </Heading>
+                    <Text color="text-low">Starts at $40/month</Text>
+                  </Flex>
+                ),
+                description: (
+                  <Flex direction="column" gap="3" className="mt-3">
+                    <Text color="text-low">
+                      Full featured experimentation and growth platform
+                    </Text>
+                    <ul
+                      style={{
+                        paddingLeft: 0,
+                        marginLeft: 0,
+                        listStylePosition: "inside",
+                      }}
+                    >
+                      <li>Advanced statistics</li>
+                      <li>Add up to 50 seats</li>
+                      <li>Advanced permissions</li>
+                      <li>2M CDN Requests/month</li>
+                      <li>20GB Bandwidth/month</li>
+                    </ul>
+                    <Button
+                      color="primary"
+                      onClick={handleProContinue}
+                      disabled={loading || plan !== "pro"}
+                    >
+                      Next: Add Payment Details
+                    </Button>
+                  </Flex>
+                ),
+              },
+            ]}
+            value={plan}
+            align="start"
+            setValue={(v) => setPlan(v as InitialPlanSelection)}
+            columns="2"
+            width="100%"
+          />
+          {error && <div className="alert alert-danger mt-3">{error}</div>}
+        </Flex>
+      )}
     </WelcomeFrame>
   );
 };
@@ -363,18 +322,23 @@ const ProBillingStep: FC<ProBillingStepProps> = ({
   );
 };
 
-type ProSetupStepProps = {
-  onClientSecret: (secret: string) => void;
+type ProPaymentStepProps = {
+  billingData: ProBillingData;
+  onSuccess: () => void;
+  onBack: () => void;
   setLoading: (v: boolean) => void;
   setError: (v: string | null) => void;
 };
 
-const ProSetupStep: FC<ProSetupStepProps> = ({
-  onClientSecret,
+const ProPaymentStep: FC<ProPaymentStepProps> = ({
+  billingData,
+  onSuccess,
+  onBack,
   setLoading,
   setError,
 }) => {
   const { apiCall } = useAuth();
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -385,7 +349,7 @@ const ProSetupStep: FC<ProSetupStepProps> = ({
     })
       .then((res) => {
         if (!cancelled && res?.clientSecret) {
-          onClientSecret(res.clientSecret);
+          setClientSecret(res.clientSecret);
         }
       })
       .catch((e) => {
@@ -397,16 +361,28 @@ const ProSetupStep: FC<ProSetupStepProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [apiCall, onClientSecret, setLoading, setError]);
+  }, [apiCall, setLoading, setError]);
 
-  return <LoadingOverlay />;
+  if (!clientSecret) {
+    return <LoadingOverlay />;
+  }
+
+  return (
+    <StripeProvider initialClientSecret={clientSecret}>
+      <ProPaymentFormInner
+        billingData={billingData}
+        onSuccess={onSuccess}
+        onBack={onBack}
+        setLoading={setLoading}
+        setError={setError}
+      />
+    </StripeProvider>
+  );
 };
 
 type ProPaymentFormProps = {
-  clientSecret: string;
   billingData: ProBillingData;
   onSuccess: () => void;
-  onCompleteFlow: () => void;
   onBack: () => void;
   setLoading: (v: boolean) => void;
   setError: (v: string | null) => void;
@@ -521,14 +497,6 @@ const ProPaymentFormInner: FC<ProPaymentFormProps> = ({
         </Button>
       </Flex>
     </div>
-  );
-};
-
-const ProPaymentForm: FC<ProPaymentFormProps> = (props) => {
-  return (
-    <StripeProvider initialClientSecret={props.clientSecret}>
-      <ProPaymentFormInner {...props} />
-    </StripeProvider>
   );
 };
 
