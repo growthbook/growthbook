@@ -4,6 +4,8 @@ import { OrganizationSettings, RequireReview } from "shared/types/organization";
 import {
   autoMerge,
   checkIfRevisionNeedsReview,
+  fillRevisionFromFeature,
+  getDraftAffectedEnvironments,
   mergeResultHasChanges,
   mergeRevision,
   RevisionFields,
@@ -608,5 +610,633 @@ describe("backward compatibility — old revisions without envelopes", () => {
         settings,
       }),
     ).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// fillRevisionFromFeature
+// ---------------------------------------------------------------------------
+
+describe("fillRevisionFromFeature", () => {
+  it("backfills environmentsEnabled for environments not present in revision", () => {
+    const feature: FeatureInterface = {
+      ...baseFeature,
+      environmentSettings: {
+        production: { enabled: true, rules: [] },
+        staging: { enabled: false, rules: [] },
+        canary: { enabled: true, rules: [] },
+      },
+    };
+    const revision: RevisionFields = {
+      version: 4,
+      defaultValue: "false",
+      rules: {},
+      // revision only knows about production
+      environmentsEnabled: { production: false },
+    };
+    const filled = fillRevisionFromFeature(revision, feature);
+    // revision's explicit value wins
+    expect(filled.environmentsEnabled?.production).toBe(false);
+    // missing envs are back-filled from the live feature
+    expect(filled.environmentsEnabled?.staging).toBe(false);
+    expect(filled.environmentsEnabled?.canary).toBe(true);
+  });
+
+  it("does not mutate the original revision", () => {
+    const feature: FeatureInterface = {
+      ...baseFeature,
+      environmentSettings: {
+        production: { enabled: true, rules: [] },
+      },
+    };
+    const revision: RevisionFields = {
+      version: 4,
+      defaultValue: "false",
+      rules: {},
+    };
+    const original = JSON.stringify(revision);
+    fillRevisionFromFeature(revision, feature);
+    expect(JSON.stringify(revision)).toBe(original);
+  });
+
+  it("leaves fields without a filler untouched", () => {
+    const revision: RevisionFields = {
+      version: 4,
+      defaultValue: "custom",
+      rules: {
+        production: [{ type: "force", id: "r1", description: "", value: "x" }],
+      },
+      metadata: { description: "keep me" },
+    };
+    const filled = fillRevisionFromFeature(revision, baseFeature);
+    expect(filled.defaultValue).toBe("custom");
+    expect(filled.metadata?.description).toBe("keep me");
+    expect(filled.rules.production).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getDraftAffectedEnvironments
+// ---------------------------------------------------------------------------
+
+describe("getDraftAffectedEnvironments", () => {
+  const base: RevisionFields = {
+    version: 3,
+    defaultValue: "false",
+    rules: { production: [], staging: [] },
+    environmentsEnabled: { production: true, staging: false },
+    prerequisites: [],
+  };
+
+  it("returns [] when nothing changed", () => {
+    const revision: RevisionFields = { ...base, version: 4 };
+    expect(
+      getDraftAffectedEnvironments(revision, base, ["production", "staging"]),
+    ).toEqual([]);
+  });
+
+  it("returns specific envs when only rules for those envs changed", () => {
+    const revision: RevisionFields = {
+      ...base,
+      version: 4,
+      rules: {
+        ...base.rules,
+        production: [{ type: "force", id: "r1", description: "", value: "x" }],
+      },
+    };
+    expect(
+      getDraftAffectedEnvironments(revision, base, ["production", "staging"]),
+    ).toEqual(["production"]);
+  });
+
+  it("returns specific env when only its kill switch changed", () => {
+    const revision: RevisionFields = {
+      ...base,
+      version: 4,
+      environmentsEnabled: { production: false }, // changed
+    };
+    expect(
+      getDraftAffectedEnvironments(revision, base, ["production", "staging"]),
+    ).toEqual(["production"]);
+  });
+
+  it('returns "all" for defaultValue change', () => {
+    const revision: RevisionFields = {
+      ...base,
+      version: 4,
+      defaultValue: "true",
+    };
+    expect(
+      getDraftAffectedEnvironments(revision, base, ["production", "staging"]),
+    ).toBe("all");
+  });
+
+  it('returns "all" for prerequisites change', () => {
+    const revision: RevisionFields = {
+      ...base,
+      version: 4,
+      prerequisites: [{ id: "dep", condition: '{"value":true}' }],
+    };
+    expect(
+      getDraftAffectedEnvironments(revision, base, ["production", "staging"]),
+    ).toBe("all");
+  });
+
+  it('returns "all" for archived change', () => {
+    const revision: RevisionFields = {
+      ...base,
+      version: 4,
+      archived: true,
+    };
+    expect(
+      getDraftAffectedEnvironments(revision, base, ["production", "staging"]),
+    ).toBe("all");
+  });
+
+  it('returns "all" for holdout add', () => {
+    const revision: RevisionFields = {
+      ...base,
+      version: 4,
+      holdout: { id: "holdout-1", value: "holdout" },
+    };
+    expect(
+      getDraftAffectedEnvironments(revision, base, ["production", "staging"]),
+    ).toBe("all");
+  });
+
+  it('returns "all" for holdout removal (null vs undefined)', () => {
+    const baseWithHoldout: RevisionFields = {
+      ...base,
+      holdout: { id: "holdout-1", value: "holdout" },
+    };
+    const revision: RevisionFields = {
+      ...base,
+      version: 4,
+      holdout: null,
+    };
+    expect(
+      getDraftAffectedEnvironments(revision, baseWithHoldout, [
+        "production",
+        "staging",
+      ]),
+    ).toBe("all");
+  });
+
+  it('collapses to "all" when every environment is affected', () => {
+    const revision: RevisionFields = {
+      ...base,
+      version: 4,
+      rules: {
+        production: [{ type: "force", id: "r1", description: "", value: "x" }],
+        staging: [{ type: "force", id: "r2", description: "", value: "y" }],
+      },
+    };
+    expect(
+      getDraftAffectedEnvironments(revision, base, ["production", "staging"]),
+    ).toBe("all");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// autoMerge — archived + holdout fields
+// ---------------------------------------------------------------------------
+
+describe("autoMerge with archived field", () => {
+  const base: RevisionFields = {
+    version: 3,
+    defaultValue: "false",
+    rules: {},
+    archived: false,
+  };
+  const live: RevisionFields = { ...base };
+
+  it("no-divergence: includes archived change", () => {
+    const revision: RevisionFields = { ...base, version: 4, archived: true };
+    const result = autoMerge(live, base, revision, [], {});
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.result.archived).toBe(true);
+  });
+
+  it("no-divergence: omits archived when unchanged", () => {
+    const revision: RevisionFields = { ...base, version: 4, archived: false };
+    const result = autoMerge(live, base, revision, [], {});
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.result.archived).toBeUndefined();
+  });
+
+  it("diverged: applies non-conflicting archived change when only revision changed it", () => {
+    const divergedLive: RevisionFields = {
+      ...live,
+      version: 5,
+    };
+    const revision: RevisionFields = { ...base, version: 4, archived: true };
+    const result = autoMerge(divergedLive, base, revision, [], {});
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.result.archived).toBe(true);
+  });
+
+  it("diverged: detects conflict when live and revision both changed archived differently", () => {
+    const divergedLive: RevisionFields = {
+      ...live,
+      version: 5,
+      archived: true, // live set it to true
+    };
+    const revision: RevisionFields = {
+      ...base,
+      version: 4,
+      // archived stays false → same as base → no conflict (revision === base)
+    };
+    const result = autoMerge(divergedLive, base, revision, [], {});
+    expect(result.success).toBe(true);
+    expect(result.conflicts.some((c) => c.key === "archived")).toBe(false);
+  });
+});
+
+describe("autoMerge with holdout field", () => {
+  const holdout1 = { id: "h-1", value: "holdout" };
+  const holdout2 = { id: "h-2", value: "holdout" };
+
+  const base: RevisionFields = {
+    version: 3,
+    defaultValue: "false",
+    rules: {},
+  };
+  const live: RevisionFields = { ...base };
+
+  it("no-divergence: includes holdout add", () => {
+    const revision: RevisionFields = { ...base, version: 4, holdout: holdout1 };
+    const result = autoMerge(live, base, revision, [], {});
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.result.holdout).toEqual(holdout1);
+  });
+
+  it("no-divergence: includes holdout removal (null)", () => {
+    const baseWithHoldout: RevisionFields = { ...base, holdout: holdout1 };
+    const liveWithHoldout: RevisionFields = { ...live, holdout: holdout1 };
+    const revision: RevisionFields = { ...base, version: 4, holdout: null };
+    const result = autoMerge(
+      liveWithHoldout,
+      baseWithHoldout,
+      revision,
+      [],
+      {},
+    );
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.result.holdout).toBeNull();
+  });
+
+  it("no-divergence: omits holdout when absent from revision (field not set)", () => {
+    const revision: RevisionFields = { ...base, version: 4 }; // no holdout key
+    const result = autoMerge(live, base, revision, [], {});
+    expect(result.success).toBe(true);
+    if (result.success) expect("holdout" in result.result).toBe(false);
+  });
+
+  it("no-divergence: omits holdout when value unchanged (same id)", () => {
+    const baseWithHoldout: RevisionFields = { ...base, holdout: holdout1 };
+    const liveWithHoldout: RevisionFields = { ...live, holdout: holdout1 };
+    const revision: RevisionFields = {
+      ...base,
+      version: 4,
+      holdout: holdout1,
+    };
+    const result = autoMerge(
+      liveWithHoldout,
+      baseWithHoldout,
+      revision,
+      [],
+      {},
+    );
+    expect(result.success).toBe(true);
+    if (result.success) expect("holdout" in result.result).toBe(false);
+  });
+
+  it("diverged: detects conflict when live and revision both changed holdout to different values", () => {
+    const divergedLive: RevisionFields = {
+      ...live,
+      version: 5,
+      holdout: holdout2, // live picked a different holdout
+    };
+    const revision: RevisionFields = {
+      ...base,
+      version: 4,
+      holdout: holdout1, // revision wants holdout1
+    };
+    const result = autoMerge(divergedLive, base, revision, [], {});
+    expect(result.success).toBe(false);
+    expect(result.conflicts.some((c) => c.key === "holdout")).toBe(true);
+  });
+
+  it("diverged: resolves holdout conflict with overwrite strategy", () => {
+    const holdout2b = { id: "h-2", value: "holdout" };
+    const divergedLive: RevisionFields = {
+      ...live,
+      version: 5,
+      holdout: holdout2b,
+    };
+    const revision: RevisionFields = { ...base, version: 4, holdout: holdout1 };
+    const result = autoMerge(divergedLive, base, revision, [], {
+      holdout: "overwrite",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.result.holdout).toEqual(holdout1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// mergeResultHasChanges — archived + holdout
+// ---------------------------------------------------------------------------
+
+describe("mergeResultHasChanges — archived and holdout", () => {
+  it("returns true when archived is present", () => {
+    expect(
+      mergeResultHasChanges({
+        success: true,
+        result: { archived: true },
+        conflicts: [],
+      }),
+    ).toBe(true);
+  });
+
+  it("returns true when holdout is present (even null = removal)", () => {
+    expect(
+      mergeResultHasChanges({
+        success: true,
+        result: { holdout: null },
+        conflicts: [],
+      }),
+    ).toBe(true);
+    expect(
+      mergeResultHasChanges({
+        success: true,
+        result: { holdout: { id: "h-1", value: "holdout" } },
+        conflicts: [],
+      }),
+    ).toBe(true);
+  });
+
+  it("returns false when holdout key is absent from result", () => {
+    expect(
+      mergeResultHasChanges({
+        success: true,
+        result: {},
+        conflicts: [],
+      }),
+    ).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// mergeRevision — archived + holdout
+// ---------------------------------------------------------------------------
+
+describe("mergeRevision with archived and holdout fields", () => {
+  it("applies archived=true from revision to feature", () => {
+    const revision = makeRevision({ archived: true });
+    const merged = mergeRevision(baseFeature, revision, []);
+    expect(merged.archived).toBe(true);
+  });
+
+  it("does not set archived when absent from revision", () => {
+    const revision = makeRevision(); // no archived field
+    const merged = mergeRevision(baseFeature, revision, []);
+    // baseFeature has no archived field; merged should not add one either
+    expect(merged.archived).toBeUndefined();
+  });
+
+  it("applies holdout from revision", () => {
+    const revision = makeRevision({
+      holdout: { id: "h-1", value: "holdout" },
+    });
+    const merged = mergeRevision(baseFeature, revision, []);
+    expect(merged.holdout).toEqual({ id: "h-1", value: "holdout" });
+  });
+
+  it("removes holdout when revision sets it to null", () => {
+    const featureWithHoldout: FeatureInterface = {
+      ...baseFeature,
+      holdout: { id: "h-1", value: "holdout" },
+    };
+    const revision = makeRevision({ holdout: null });
+    const merged = mergeRevision(featureWithHoldout, revision, []);
+    expect(merged.holdout).toBeNull();
+  });
+
+  it("leaves holdout unchanged when revision does not include it", () => {
+    const featureWithHoldout: FeatureInterface = {
+      ...baseFeature,
+      holdout: { id: "h-1", value: "holdout" },
+    };
+    const revision = makeRevision(); // no holdout key
+    const merged = mergeRevision(featureWithHoldout, revision, []);
+    expect(merged.holdout).toEqual({ id: "h-1", value: "holdout" });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// checkIfRevisionNeedsReview — holdout + archived + metadata normalization
+// ---------------------------------------------------------------------------
+
+describe("checkIfRevisionNeedsReview — holdout changes", () => {
+  const allEnvironments = ["production", "staging"];
+  const settings = makeSettings(makeReviewSetting());
+
+  it("requires review when holdout is added", () => {
+    const base = makeRevision({ version: 3 });
+    const revision = makeRevision({
+      holdout: { id: "h-1", value: "holdout" },
+    });
+    expect(
+      checkIfRevisionNeedsReview({
+        feature: baseFeature,
+        baseRevision: base,
+        revision,
+        allEnvironments,
+        settings,
+      }),
+    ).toBe(true);
+  });
+
+  it("requires review when holdout is removed", () => {
+    const base = makeRevision({
+      version: 3,
+      holdout: { id: "h-1", value: "holdout" },
+    });
+    const revision = makeRevision({ holdout: null });
+    expect(
+      checkIfRevisionNeedsReview({
+        feature: baseFeature,
+        baseRevision: base,
+        revision,
+        allEnvironments,
+        settings,
+      }),
+    ).toBe(true);
+  });
+
+  it("does NOT require review when holdout is unchanged", () => {
+    const base = makeRevision({
+      version: 3,
+      holdout: { id: "h-1", value: "holdout" },
+    });
+    const revision = makeRevision({
+      holdout: { id: "h-1", value: "holdout" },
+    });
+    expect(
+      checkIfRevisionNeedsReview({
+        feature: baseFeature,
+        baseRevision: base,
+        revision,
+        allEnvironments,
+        settings,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("checkIfRevisionNeedsReview — archived changes", () => {
+  const allEnvironments = ["production"];
+  const settings = makeSettings(makeReviewSetting());
+
+  it("requires review when feature is archived", () => {
+    const base = makeRevision({ version: 3, archived: false });
+    const revision = makeRevision({ archived: true });
+    expect(
+      checkIfRevisionNeedsReview({
+        feature: baseFeature,
+        baseRevision: base,
+        revision,
+        allEnvironments,
+        settings,
+      }),
+    ).toBe(true);
+  });
+
+  it("does NOT require review when archived is unchanged", () => {
+    const base = makeRevision({ version: 3, archived: false });
+    const revision = makeRevision({ archived: false });
+    expect(
+      checkIfRevisionNeedsReview({
+        feature: baseFeature,
+        baseRevision: base,
+        revision,
+        allEnvironments,
+        settings,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("checkIfRevisionNeedsReview — metadata normalization (no false positives)", () => {
+  const allEnvironments = ["production"];
+
+  it("does NOT require review when description changes from undefined to empty string", () => {
+    const settings = makeSettings(
+      makeReviewSetting({ featureRequireMetadataReview: true }),
+    );
+    const base = makeRevision({
+      version: 3,
+      metadata: { description: undefined },
+    });
+    const revision = makeRevision({ metadata: { description: "" } });
+    expect(
+      checkIfRevisionNeedsReview({
+        feature: baseFeature,
+        baseRevision: base,
+        revision,
+        allEnvironments,
+        settings,
+      }),
+    ).toBe(false);
+  });
+
+  it("does NOT require review when tags changes from undefined to empty array", () => {
+    const settings = makeSettings(
+      makeReviewSetting({ featureRequireMetadataReview: true }),
+    );
+    const base = makeRevision({ version: 3, metadata: {} });
+    const revision = makeRevision({ metadata: { tags: [] } });
+    expect(
+      checkIfRevisionNeedsReview({
+        feature: baseFeature,
+        baseRevision: base,
+        revision,
+        allEnvironments,
+        settings,
+      }),
+    ).toBe(false);
+  });
+
+  it("DOES require review when tags actually change", () => {
+    const settings = makeSettings(
+      makeReviewSetting({ featureRequireMetadataReview: true }),
+    );
+    const base = makeRevision({ version: 3, metadata: { tags: ["a"] } });
+    const revision = makeRevision({ metadata: { tags: ["a", "b"] } });
+    expect(
+      checkIfRevisionNeedsReview({
+        feature: baseFeature,
+        baseRevision: base,
+        revision,
+        allEnvironments,
+        settings,
+      }),
+    ).toBe(true);
+  });
+});
+
+describe("checkIfRevisionNeedsReview — metadata-only vs non-metadata global changes", () => {
+  const allEnvironments = ["production"];
+
+  it("routes metadata-only change through featureRequireMetadataReview gate", () => {
+    const settingsNoMetaReview = makeSettings(
+      makeReviewSetting({ featureRequireMetadataReview: false }),
+    );
+    const settingsWithMetaReview = makeSettings(
+      makeReviewSetting({ featureRequireMetadataReview: true }),
+    );
+    const base = makeRevision({ version: 3, metadata: { description: "old" } });
+    const revision = makeRevision({ metadata: { description: "new" } });
+
+    expect(
+      checkIfRevisionNeedsReview({
+        feature: baseFeature,
+        baseRevision: base,
+        revision,
+        allEnvironments,
+        settings: settingsNoMetaReview,
+      }),
+    ).toBe(false);
+
+    expect(
+      checkIfRevisionNeedsReview({
+        feature: baseFeature,
+        baseRevision: base,
+        revision,
+        allEnvironments,
+        settings: settingsWithMetaReview,
+      }),
+    ).toBe(true);
+  });
+
+  it("non-metadata global changes (defaultValue) always require review regardless of featureRequireMetadataReview", () => {
+    const settings = makeSettings(
+      makeReviewSetting({ featureRequireMetadataReview: false }),
+    );
+    const base = makeRevision({ version: 3, metadata: { description: "old" } });
+    // combine a metadata change with a defaultValue change → NOT metadata-only
+    const revision = makeRevision({
+      defaultValue: "true",
+      metadata: { description: "new" },
+    });
+    expect(
+      checkIfRevisionNeedsReview({
+        feature: baseFeature,
+        baseRevision: base,
+        revision,
+        allEnvironments,
+        settings,
+      }),
+    ).toBe(true);
   });
 });
