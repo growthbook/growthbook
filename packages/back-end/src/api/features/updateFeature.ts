@@ -318,7 +318,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       : undefined;
     const hasHoldoutChange =
       holdoutFieldProvided &&
-      (newHoldout?.id ?? null) !== (feature.holdout?.id ?? null);
+      !isEqual(newHoldout ?? null, feature.holdout ?? null);
 
     // Determine whether any revision-tracked change exists
     const hasEnvEnabledChanges = Object.keys(changedEnvEnabled).length > 0;

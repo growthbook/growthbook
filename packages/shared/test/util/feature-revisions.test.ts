@@ -870,6 +870,26 @@ describe("autoMerge with holdout field", () => {
     if (result.success) expect(result.result.holdout).toEqual(holdout1);
   });
 
+  it("no-divergence: includes holdout value-only change (same id, different value)", () => {
+    const holdout1v2 = { id: "h-1", value: "updated-value" };
+    const baseWithHoldout: RevisionFields = { ...base, holdout: holdout1 };
+    const liveWithHoldout: RevisionFields = { ...live, holdout: holdout1 };
+    const revision: RevisionFields = {
+      ...base,
+      version: 4,
+      holdout: holdout1v2,
+    };
+    const result = autoMerge(
+      liveWithHoldout,
+      baseWithHoldout,
+      revision,
+      [],
+      {},
+    );
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.result.holdout).toEqual(holdout1v2);
+  });
+
   it("no-divergence: includes holdout removal (null)", () => {
     const baseWithHoldout: RevisionFields = { ...base, holdout: holdout1 };
     const liveWithHoldout: RevisionFields = { ...live, holdout: holdout1 };
