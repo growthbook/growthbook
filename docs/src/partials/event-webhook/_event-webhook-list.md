@@ -295,6 +295,12 @@ Triggered when a feature is created
                 publishedBy: string;
             };
             customFields?: Record<string, any> | undefined;
+            holdout?: ({
+                /** Holdout ID */
+                id: string;
+                /** The feature value assigned to users in the holdout treatment group */
+                value: string;
+            } | null) | undefined;
         };
     };
     user: {
@@ -593,6 +599,12 @@ Triggered when a feature is updated
                 publishedBy: string;
             };
             customFields?: Record<string, any> | undefined;
+            holdout?: ({
+                /** Holdout ID */
+                id: string;
+                /** The feature value assigned to users in the holdout treatment group */
+                value: string;
+            } | null) | undefined;
         };
         previous_attributes: {
             id?: string | undefined;
@@ -857,6 +869,12 @@ Triggered when a feature is updated
                 publishedBy: string;
             } | undefined;
             customFields?: Record<string, any> | undefined;
+            holdout?: ({
+                /** Holdout ID */
+                id: string;
+                /** The feature value assigned to users in the holdout treatment group */
+                value: string;
+            } | null) | undefined;
         };
         changes?: {
             added: Record<string, unknown>;
@@ -1160,6 +1178,12 @@ Triggered when a feature is deleted
                 publishedBy: string;
             };
             customFields?: Record<string, any> | undefined;
+            holdout?: ({
+                /** Holdout ID */
+                id: string;
+                /** The feature value assigned to users in the holdout treatment group */
+                value: string;
+            } | null) | undefined;
         };
     };
     user: {
