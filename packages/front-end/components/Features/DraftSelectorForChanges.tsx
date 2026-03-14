@@ -13,7 +13,11 @@ import {
   MinimalFeatureRevisionInterface,
 } from "shared/types/feature-revision";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
-import { getDraftAffectedEnvironments, getReviewSetting } from "shared/util";
+import {
+  getDraftAffectedEnvironments,
+  fillRevisionFromFeature,
+  getReviewSetting,
+} from "shared/util";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
 import { revisionLabelText } from "@/components/Features/RevisionLabel";
@@ -113,17 +117,10 @@ export default function DraftSelectorForChanges({
     // Use baseFeature (if provided, or from context) as the source of truth for
     // environment enabled state — it's the raw live doc, not draft-merged.
     const liveDoc = baseFeature ?? ctx?.baseFeature ?? feature;
-    const liveFeatureEnvs = Object.fromEntries(
-      Object.entries(liveDoc.environmentSettings ?? {}).map(([env, val]) => [
-        env,
-        !!val.enabled,
-      ]),
-    );
     const result = getDraftAffectedEnvironments(
       draftRevision,
-      liveRevision,
+      fillRevisionFromFeature(liveRevision, liveDoc),
       allEnvIds,
-      liveFeatureEnvs,
     );
     if (Array.isArray(result) && result.length === 0) return null;
     return result;

@@ -41,10 +41,12 @@ export default function FeatureRules({
   isDraft,
   safeRolloutsMap,
   holdout,
+  baseFeature,
   revisionList,
 }: {
   environments: Environment[];
   feature: FeatureInterface;
+  baseFeature: FeatureInterface;
   isLocked: boolean;
   canEditDrafts: boolean;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
@@ -211,8 +213,14 @@ export default function FeatureRules({
           </Flex>
         </Container>
         {environments.map((e) => {
-          const includeHoldoutRule =
+          const liveHoldoutActive =
             !!holdout && !!holdout?.environmentSettings?.[e.id]?.enabled;
+          // Also show as deleted if the draft removes the holdout but it's still live
+          const draftDeletesHoldout =
+            !feature.holdout?.id &&
+            !!baseFeature.holdout?.id &&
+            !!holdout?.environmentSettings?.[e.id]?.enabled;
+          const includeHoldoutRule = liveHoldoutActive || draftDeletesHoldout;
           return (
             <TabsContent key={e.id} value={e.id}>
               <div className="mt-2">
@@ -220,6 +228,7 @@ export default function FeatureRules({
                   <RuleList
                     environment={e.id}
                     feature={feature}
+                    baseFeature={baseFeature}
                     mutate={mutate}
                     setRuleModal={setRuleModal}
                     setCopyRuleModal={setCopyRuleModal}
@@ -230,8 +239,10 @@ export default function FeatureRules({
                     hideInactive={hideInactive}
                     isDraft={isDraft}
                     safeRolloutsMap={safeRolloutsMap}
-                    holdout={includeHoldoutRule ? holdout : undefined}
+                    holdout={liveHoldoutActive ? holdout : undefined}
+                    holdoutIsDeleted={draftDeletesHoldout}
                     openHoldoutModal={() => setHoldoutModal(true)}
+                    revisionList={revisionList}
                   />
                 ) : (
                   <Box py="4" className="text-muted">
@@ -342,8 +353,10 @@ export default function FeatureRules({
       {holdoutModal && (
         <HoldoutValueModal
           feature={feature}
+          revisionList={revisionList}
           close={() => setHoldoutModal(false)}
           mutate={mutate}
+          setVersion={setVersion}
         />
       )}
     </>

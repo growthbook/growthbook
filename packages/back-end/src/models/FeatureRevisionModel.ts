@@ -12,6 +12,7 @@ import {
   MinimalFeatureRevisionInterface,
   ActiveDraftStatus,
   ACTIVE_DRAFT_STATUSES,
+  RevisionMetadata,
 } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
@@ -40,6 +41,7 @@ const featureRevisionSchema = new mongoose.Schema({
   prerequisites: [{}],
   archived: Boolean,
   metadata: {},
+  holdout: {},
   status: String,
   requiresReview: Boolean,
   log: [
@@ -444,11 +446,35 @@ export async function createRevision({
     }
   });
 
-  // Envelope fields — only included in the revision when explicitly provided in changes
-  const environmentsEnabled = changes?.environmentsEnabled;
-  const prerequisites = changes?.prerequisites;
-  const archived = changes?.archived;
-  const metadata = changes?.metadata;
+  // All fields are always written as a complete snapshot so revisions are
+  // self-contained and HEAD can be set to any revision without base traversal.
+  // Legacy documents missing these fields are handled defensively at read/apply time.
+  const environmentsEnabled: Record<string, boolean> = Object.fromEntries(
+    environments.map((env) => [
+      env,
+      changes?.environmentsEnabled?.[env] ??
+        feature.environmentSettings?.[env]?.enabled ??
+        false,
+    ]),
+  );
+  const prerequisites =
+    changes?.prerequisites ?? feature.prerequisites ?? [];
+  const archived = changes?.archived ?? feature.archived ?? false;
+  const metadata: RevisionMetadata = changes?.metadata ?? {
+    description: feature.description,
+    owner: feature.owner,
+    project: feature.project,
+    tags: feature.tags,
+    neverStale: feature.neverStale,
+    customFields: feature.customFields,
+    jsonSchema: feature.jsonSchema,
+    valueType: feature.valueType,
+  };
+  // holdout: explicit null in changes = remove; undefined/absent = carry forward from live
+  const holdout =
+    "holdout" in (changes ?? {})
+      ? changes!.holdout ?? null
+      : feature.holdout ?? null;
 
   if (!baseVersion) baseVersion = lastRevision?.version;
   if (!baseVersion) {
@@ -484,10 +510,11 @@ export async function createRevision({
     ...(title ? { title } : {}),
     defaultValue,
     rules,
-    ...(environmentsEnabled !== undefined && { environmentsEnabled }),
-    ...(prerequisites !== undefined && { prerequisites }),
-    ...(archived !== undefined && { archived }),
-    ...(metadata !== undefined && { metadata }),
+    environmentsEnabled,
+    prerequisites,
+    archived,
+    metadata,
+    holdout,
   } as FeatureRevisionInterface;
   const requiresReview = checkIfRevisionNeedsReview({
     feature,
@@ -526,10 +553,11 @@ export async function createRevision({
         comment: comment || "",
         defaultValue,
         rules,
-        ...(environmentsEnabled !== undefined && { environmentsEnabled }),
-        ...(prerequisites !== undefined && { prerequisites }),
-        ...(archived !== undefined && { archived }),
-        ...(metadata !== undefined && { metadata }),
+        environmentsEnabled,
+        prerequisites,
+        archived,
+        metadata,
+        holdout,
       }),
     })
     .catch((e) => {
@@ -555,6 +583,7 @@ export async function updateRevision(
       | "prerequisites"
       | "archived"
       | "metadata"
+      | "holdout"
     >
   >,
   log: Omit<RevisionLog, "timestamp">,

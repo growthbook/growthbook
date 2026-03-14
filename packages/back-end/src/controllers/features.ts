@@ -176,7 +176,7 @@ async function createOrUpdateDraftWithChanges(
   envelopeChanges: Partial<
     Pick<
       FeatureRevisionInterface,
-      "environmentsEnabled" | "prerequisites" | "archived" | "metadata"
+      "environmentsEnabled" | "prerequisites" | "archived" | "metadata" | "holdout"
     >
   >,
   logEntry: Omit<RevisionLog, "timestamp">,
@@ -221,6 +221,9 @@ async function createOrUpdateDraftWithChanges(
         ...(existingDraft.metadata || {}),
         ...envelopeChanges.metadata,
       };
+    }
+    if ("holdout" in envelopeChanges) {
+      merged.holdout = envelopeChanges.holdout;
     }
     await updateRevision(
       context,
@@ -804,6 +807,7 @@ export async function postFeatureRebase(
   const fillEnvs = (r: typeof live) => ({
     ...r,
     environmentsEnabled: { ...featureEnvs, ...(r.environmentsEnabled ?? {}) },
+    holdout: feature.holdout ?? null,
   });
   const mergeResult = autoMerge(
     fillEnvs(live),
@@ -1053,6 +1057,7 @@ export async function postFeaturePublish(
   const fillEnvs = (r: typeof live) => ({
     ...r,
     environmentsEnabled: { ...featureEnvs, ...(r.environmentsEnabled ?? {}) },
+    holdout: feature.holdout ?? null,
   });
   const mergeResult = autoMerge(
     fillEnvs(live),
@@ -2342,7 +2347,9 @@ export async function putSafeRolloutStatus(
     settings: org.settings,
   });
   if (!requiresReview) {
-    const mergeResult = autoMerge(live, base, revision, environmentIds, {});
+    const patchedLive = { ...live, holdout: feature.holdout ?? null };
+    const patchedBase = { ...base, holdout: feature.holdout ?? null };
+    const mergeResult = autoMerge(patchedLive, patchedBase, revision, environmentIds, {});
 
     if (!mergeResult.success) {
       throw new Error("Please resolve conflicts before publishing");
@@ -2946,15 +2953,17 @@ export async function putFeature(
       metadataKeys.includes(k as keyof FeatureInterface),
     ),
   ) as Partial<FeatureInterface>;
-  const nonMetadataUpdates = Object.fromEntries(
-    Object.entries(updates).filter(
-      ([k]) => !metadataKeys.includes(k as keyof FeatureInterface),
-    ),
-  ) as Partial<FeatureInterface>;
+  const holdoutUpdate = "holdout" in updates ? updates.holdout : undefined;
 
-  if (Object.keys(metadataUpdates).length > 0) {
-    const metadataChanges = {
-      metadata: {
+  if (
+    Object.keys(metadataUpdates).length > 0 ||
+    holdoutUpdate !== undefined
+  ) {
+    const envelopeChanges: Parameters<typeof createOrUpdateDraftWithChanges>[2] =
+      {};
+
+    if (Object.keys(metadataUpdates).length > 0) {
+      envelopeChanges.metadata = {
         ...(metadataUpdates.description !== undefined && {
           description: metadataUpdates.description,
         }),
@@ -2970,8 +2979,17 @@ export async function putFeature(
         ...(metadataUpdates.customFields !== undefined && {
           customFields: metadataUpdates.customFields as Record<string, unknown>,
         }),
-      },
-    };
+      };
+    }
+
+    if (holdoutUpdate !== undefined) {
+      envelopeChanges.holdout = holdoutUpdate ?? null;
+    }
+
+    const changedKeys = [
+      ...Object.keys(metadataUpdates),
+      ...(holdoutUpdate !== undefined ? ["holdout"] : []),
+    ] as (keyof FeatureInterface)[];
     const metadataFieldLabels: Partial<Record<keyof FeatureInterface, string>> =
       {
         description: "description",
@@ -2979,28 +2997,33 @@ export async function putFeature(
         owner: "owner",
         project: "project",
         customFields: "custom fields",
+        holdout: "holdout",
       };
-    const changedMetaKeys = Object.keys(
-      metadataUpdates,
-    ) as (keyof FeatureInterface)[];
-    const metadataTitle = autoPublish
-      ? changedMetaKeys.length === 1
-        ? `Update ${metadataFieldLabels[changedMetaKeys[0]] ?? changedMetaKeys[0]}`
-        : "Update feature metadata"
+    const draftTitle = autoPublish
+      ? changedKeys.length === 1
+        ? `Update ${metadataFieldLabels[changedKeys[0]] ?? changedKeys[0]}`
+        : "Update feature"
       : undefined;
     const draft = await createOrUpdateDraftWithChanges(
       context,
       feature,
-      metadataChanges,
+      envelopeChanges,
       {
         user: context.auditUser,
         action: "update",
-        subject: "metadata",
-        value: JSON.stringify(metadataUpdates),
+        subject:
+          holdoutUpdate !== undefined &&
+          Object.keys(metadataUpdates).length === 0
+            ? "holdout"
+            : "metadata",
+        value: JSON.stringify({
+          ...metadataUpdates,
+          ...(holdoutUpdate !== undefined && { holdout: holdoutUpdate }),
+        }),
       },
       autoPublish ? undefined : targetDraftVersion,
       autoPublish ? true : forceNewDraft,
-      metadataTitle,
+      draftTitle,
     );
     let updatedFeature: FeatureInterface = feature;
     if (autoPublish) {
@@ -3008,15 +3031,16 @@ export async function putFeature(
         context,
         feature,
         draft,
-        metadataChanges,
+        envelopeChanges,
       );
     }
-    // Still apply non-metadata fields (holdout) directly
-    if (Object.keys(nonMetadataUpdates).length > 0) {
-      updatedFeature = await updateFeature(
-        context,
-        updatedFeature,
-        nonMetadataUpdates,
+    // If there are new tags to add, keep the tag autocomplete table in sync.
+    // This is a side-effect only; the revision already captures the tag values.
+    if (metadataUpdates.tags !== undefined) {
+      await addTagsDiff(
+        org.id,
+        feature.tags || [],
+        metadataUpdates.tags as string[],
       );
     }
     await req.audit({
@@ -3034,106 +3058,10 @@ export async function putFeature(
     });
   }
 
-  const updatedFeature = await updateFeature(context, feature, updates);
-
-  if (updates.holdout && updates.holdout?.id !== feature.holdout?.id) {
-    const hasNonDraftExperimentsOrBandits = feature.linkedExperiments?.some(
-      async (experimentId) => {
-        const experiment = await getExperimentById(context, experimentId);
-        return (
-          experiment?.status !== "draft" ||
-          experiment?.type === "multi-armed-bandit"
-        );
-      },
-    );
-    const hasSafeRollouts = Object.values(feature.environmentSettings).some(
-      (env) => {
-        return env.rules.some((rule) => rule.type === "safe-rollout");
-      },
-    );
-    if (hasNonDraftExperimentsOrBandits || hasSafeRollouts) {
-      throw new Error(
-        "Cannot change holdout when there are running linked experiments, safe rollout rules, or multi-armed bandit rules",
-      );
-    }
-  }
-
-  if (
-    updates.holdout &&
-    updates.holdout.id !== feature.holdout?.id &&
-    feature.holdout?.id
-  ) {
-    await context.models.holdout.removeFeatureFromHoldout(
-      feature.holdout.id,
-      feature.id,
-    );
-  }
-
-  if (updates.holdout && updates.holdout.id) {
-    const holdoutObj = await context.models.holdout.getById(updates.holdout.id);
-    if (!holdoutObj) {
-      throw new Error("Holdout not found");
-    }
-
-    await context.models.holdout.updateById(updates.holdout.id, {
-      // Add new entry for the feature only if it is not already linked to the holdout
-      linkedFeatures: {
-        [id]: { id, dateAdded: new Date() },
-        ...holdoutObj.linkedFeatures,
-      },
-      ...(feature.linkedExperiments?.length
-        ? {
-            // Add new entries for feature linked experiments only if they are not already linked to the holdout
-            linkedExperiments: {
-              ...Object.fromEntries(
-                feature.linkedExperiments.map((experimentId) => [
-                  experimentId,
-                  { id: experimentId, dateAdded: new Date() },
-                ]),
-              ),
-              ...holdoutObj.linkedExperiments,
-            },
-          }
-        : {}),
-    });
-    if (feature.linkedExperiments?.length) {
-      const linkedExperiments = await Promise.all(
-        feature.linkedExperiments.map(async (experimentId) => {
-          return getExperimentById(context, experimentId);
-        }),
-      );
-
-      await Promise.all(
-        linkedExperiments.map(async (exp) => {
-          if (!exp) return;
-          return updateExperiment({
-            context,
-            experiment: exp,
-            changes: {
-              holdoutId: updates.holdout?.id,
-            },
-          });
-        }),
-      );
-    }
-  }
-
-  // If there are new tags to add
-  await addTagsDiff(org.id, feature.tags || [], updates.tags || []);
-
-  await req.audit({
-    event: "feature.update",
-    entity: {
-      object: "feature",
-      id: feature.id,
-    },
-    details: auditDetailsUpdate(feature, updatedFeature),
-  });
-
-  res.status(200).json({
-    feature: updatedFeature,
-    status: 200,
-  });
+  // All allowed update keys (tags, description, project, owner, customFields, holdout)
+  // are handled above via the draft/revision path. If we reach here, the request had
+  // no valid fields — this is a programming error but guard anyway.
+  throw new Error("No valid update fields for feature");
 }
 
 export async function deleteFeatureById(

@@ -5,6 +5,7 @@ import { FaAngleDown, FaAngleRight, FaArrowLeft } from "react-icons/fa";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   autoMerge,
+  fillRevisionFromFeature,
   filterEnvironmentsByFeature,
   getAffectedEnvsForExperiment,
   getDraftAffectedEnvironments,
@@ -120,25 +121,14 @@ export default function DraftModal({
   const liveRevision = revisions.find((r) => r.version === feature.version);
   const envIds = environments.map((e) => e.id);
 
-  const liveFeatureEnvs = useMemo(
-    () =>
-      Object.fromEntries(
-        Object.entries(feature.environmentSettings ?? {}).map(([env, val]) => [
-          env,
-          !!val.enabled,
-        ]),
-      ),
-    [feature],
-  );
   const affectedEnvs = useMemo(() => {
     if (!revision || !liveRevision) return null;
     return getDraftAffectedEnvironments(
       revision,
-      liveRevision,
+      fillRevisionFromFeature(liveRevision, feature),
       envIds,
-      liveFeatureEnvs,
     );
-  }, [revision, liveRevision, envIds, liveFeatureEnvs]);
+  }, [revision, liveRevision, envIds, feature]);
 
   const requiresApproval = settings?.requireReviews === true;
   const requireReviewSettings = Array.isArray(settings?.requireReviews)
@@ -155,12 +145,14 @@ export default function DraftModal({
 
   const mergeResult = useMemo(() => {
     if (!revision || !baseRevision || !liveRevision) return null;
-    const fillEnvs = (r: typeof liveRevision) => ({
-      ...r,
-      environmentsEnabled: { ...liveFeatureEnvs, ...(r.environmentsEnabled ?? {}) },
-    });
-    return autoMerge(fillEnvs(liveRevision), fillEnvs(baseRevision), revision, envIds, {});
-  }, [revision, baseRevision, liveRevision, envIds, liveFeatureEnvs]);
+    return autoMerge(
+      fillRevisionFromFeature(liveRevision, feature),
+      fillRevisionFromFeature(baseRevision, feature),
+      revision,
+      envIds,
+      {},
+    );
+  }, [revision, baseRevision, liveRevision, envIds, feature]);
 
   const [comment, setComment] = useState(revision?.comment || "");
 
@@ -185,21 +177,23 @@ export default function DraftModal({
             mergeResult.result.defaultValue ?? currentRevisionData.defaultValue,
           rules: mergeResult.result.rules ?? currentRevisionData.rules,
           // Only include envelope fields if they were part of the merge result
-          environmentsEnabled:
-            mergeResult.result.environmentsEnabled !== undefined
-              ? mergeResult.result.environmentsEnabled
-              : undefined,
-          prerequisites:
-            mergeResult.result.prerequisites !== undefined
-              ? mergeResult.result.prerequisites
-              : undefined,
-          metadata:
-            mergeResult.result.metadata !== undefined
-              ? {
+          ...(mergeResult.result.environmentsEnabled !== undefined
+            ? { environmentsEnabled: mergeResult.result.environmentsEnabled }
+            : {}),
+          ...(mergeResult.result.prerequisites !== undefined
+            ? { prerequisites: mergeResult.result.prerequisites }
+            : {}),
+          ...("holdout" in mergeResult.result
+            ? { holdout: mergeResult.result.holdout }
+            : {}),
+          ...(mergeResult.result.metadata !== undefined
+            ? {
+                metadata: {
                   ...currentRevisionData.metadata,
                   ...mergeResult.result.metadata,
-                }
-              : undefined,
+                },
+              }
+            : {}),
         }
       : currentRevisionData,
   });

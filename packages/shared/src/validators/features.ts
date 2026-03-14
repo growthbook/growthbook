@@ -275,6 +275,10 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
     prerequisites: z.array(featurePrerequisite).optional(),
     archived: z.boolean().optional(),
     metadata: revisionMetadataSchema.optional(),
+    holdout: z
+      .object({ id: z.string(), value: z.string() })
+      .nullable()
+      .optional(),
     log: z.array(revisionLog).optional(), // This is deprecated in favor of using FeatureRevisionLog due to it being too large
   })
   .strict();

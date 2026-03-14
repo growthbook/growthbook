@@ -103,7 +103,6 @@ export default function PrerequisiteStatusRow({
           open={true}
           close={() => setShowDeleteModal(false)}
           cta="Delete"
-          ctaColor="danger"
           submit={async () => {
             track("Delete Prerequisite", { prerequisiteIndex: i });
             const draftBody =

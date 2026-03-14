@@ -62,8 +62,10 @@ import {
 } from "./EventModel";
 import {
   addLinkedFeatureToExperiment,
+  getExperimentById,
   getExperimentMapForFeature,
   removeLinkedFeatureFromExperiment,
+  updateExperiment,
 } from "./ExperimentModel";
 import {
   createInitialRevision,
@@ -1165,6 +1167,12 @@ export async function applyRevisionChanges(
     hasChanges = true;
   }
 
+  if (result.holdout !== undefined) {
+    // null means remove from holdout; object means set/change holdout
+    changes.holdout = result.holdout ?? undefined;
+    hasChanges = true;
+  }
+
   if (result.metadata) {
     const m = result.metadata;
     if (m.description !== undefined) changes.description = m.description;
@@ -1199,6 +1207,98 @@ export async function applyRevisionChanges(
   return await updateFeature(context, feature, changes);
 }
 
+/**
+ * Run HoldoutModel / Experiment side-effects when a feature's holdout membership
+ * changes at publish time. Called automatically by publishRevision when result.holdout
+ * is defined, so all publish paths (direct, approval flow, revert, etc.) are covered.
+ *
+ * @param feature     The feature's state *before* the publish (used for prevHoldout).
+ * @param newHoldout  The incoming holdout value, or null to remove from holdout.
+ */
+export async function applyHoldoutSideEffects(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  newHoldout: { id: string; value: string } | null,
+) {
+  const prevHoldoutId = feature.holdout?.id;
+  const newHoldoutId = newHoldout?.id;
+
+  if (newHoldoutId === prevHoldoutId) return;
+
+  // Guard: cannot change holdout id when there are running experiments/bandits/safe rollouts
+  if (newHoldout !== null) {
+    const hasNonDraftExperimentsOrBandits = feature.linkedExperiments?.some(
+      async (experimentId) => {
+        const experiment = await getExperimentById(context, experimentId);
+        return (
+          experiment?.status !== "draft" ||
+          experiment?.type === "multi-armed-bandit"
+        );
+      },
+    );
+    const hasSafeRollouts = Object.values(feature.environmentSettings).some(
+      (env) => env.rules.some((rule) => rule.type === "safe-rollout"),
+    );
+    if (hasNonDraftExperimentsOrBandits || hasSafeRollouts) {
+      throw new Error(
+        "Cannot change holdout when there are running linked experiments, safe rollout rules, or multi-armed bandit rules",
+      );
+    }
+  }
+
+  // Remove feature from the old holdout
+  if (prevHoldoutId) {
+    await context.models.holdout.removeFeatureFromHoldout(
+      prevHoldoutId,
+      feature.id,
+    );
+  }
+
+  // Link feature (and its experiments) to the new holdout
+  if (newHoldoutId) {
+    const holdoutObj = await context.models.holdout.getById(newHoldoutId);
+    if (!holdoutObj) {
+      throw new Error("Holdout not found");
+    }
+
+    await context.models.holdout.updateById(newHoldoutId, {
+      linkedFeatures: {
+        [feature.id]: { id: feature.id, dateAdded: new Date() },
+        ...holdoutObj.linkedFeatures,
+      },
+      ...(feature.linkedExperiments?.length
+        ? {
+            linkedExperiments: {
+              ...Object.fromEntries(
+                feature.linkedExperiments.map((experimentId) => [
+                  experimentId,
+                  { id: experimentId, dateAdded: new Date() },
+                ]),
+              ),
+              ...holdoutObj.linkedExperiments,
+            },
+          }
+        : {}),
+    });
+
+    if (feature.linkedExperiments?.length) {
+      const linkedExperiments = await Promise.all(
+        feature.linkedExperiments.map((eid) => getExperimentById(context, eid)),
+      );
+      await Promise.all(
+        linkedExperiments.map(async (exp) => {
+          if (!exp) return;
+          return updateExperiment({
+            context,
+            experiment: exp,
+            changes: { holdoutId: newHoldoutId },
+          });
+        }),
+      );
+    }
+  }
+}
+
 export async function publishRevision(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -1217,6 +1317,11 @@ export async function publishRevision(
     revision,
     result,
   );
+
+  // Run holdout side-effects for every publish path (approval flow, revert, direct publish, etc.)
+  if (result.holdout !== undefined) {
+    await applyHoldoutSideEffects(context, feature, result.holdout);
+  }
 
   await markRevisionAsPublished(
     context,

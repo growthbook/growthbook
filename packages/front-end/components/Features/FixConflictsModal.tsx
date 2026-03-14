@@ -10,6 +10,7 @@ import {
   MergeConflict,
   MergeStrategy,
   autoMerge,
+  fillRevisionFromFeature,
   mergeResultHasChanges,
   filterEnvironmentsByFeature,
 } from "shared/util";
@@ -29,6 +30,7 @@ import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAu
 import {
   useFeatureRevisionDiff,
   featureToFeatureRevisionDiffInput,
+  mergeResultToDiffInput,
 } from "@/hooks/useFeatureRevisionDiff";
 import { ExpandableDiff } from "./DraftModal";
 import Callout from "@/ui/Callout";
@@ -240,35 +242,19 @@ export default function FixConflictsModal({
   const mergeResult = useMemo(() => {
     if (!revision || !baseRevision || !liveRevision) return null;
     return autoMerge(
-      liveRevision,
-      baseRevision,
+      fillRevisionFromFeature(liveRevision, feature),
+      fillRevisionFromFeature(baseRevision, feature),
       revision,
       envIds,
       strategies,
     );
-  }, [revision, baseRevision, liveRevision, envIds, strategies]);
+  }, [revision, baseRevision, liveRevision, envIds, strategies, feature]);
 
   const currentRevisionData = featureToFeatureRevisionDiffInput(feature);
   const resultDiffs = useFeatureRevisionDiff({
     current: currentRevisionData,
     draft: mergeResult?.success
-      ? {
-          defaultValue:
-            mergeResult.result.defaultValue ?? currentRevisionData.defaultValue,
-          rules: mergeResult.result.rules ?? currentRevisionData.rules,
-          environmentsEnabled:
-            mergeResult.result.environmentsEnabled !== undefined
-              ? mergeResult.result.environmentsEnabled
-              : undefined,
-          prerequisites:
-            mergeResult.result.prerequisites !== undefined
-              ? mergeResult.result.prerequisites
-              : undefined,
-          metadata:
-            mergeResult.result.metadata !== undefined
-              ? mergeResult.result.metadata
-              : undefined,
-        }
+      ? mergeResultToDiffInput(mergeResult.result, currentRevisionData)
       : currentRevisionData,
   });
 

@@ -1,19 +1,15 @@
 import { useMemo, useState } from "react";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
-import { PiInfo } from "react-icons/pi";
-import { Box, Text } from "@radix-ui/themes";
 import { getReviewSetting } from "shared/util";
 import { useAuth } from "@/services/auth";
-import Callout from "@/ui/Callout";
 import Modal from "@/components/Modal";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Callout from "@/ui/Callout";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
-import FeatureValueField from "./FeatureValueField";
 
 interface Props {
   feature: FeatureInterface;
@@ -23,20 +19,16 @@ interface Props {
   setVersion: (version: number) => void;
 }
 
-const HoldoutValueModal = ({
+export default function RemoveFromHoldoutModal({
   feature,
   revisionList,
   close,
   mutate,
   setVersion,
-}: Props) => {
+}: Props) {
   const { apiCall } = useAuth();
-  const [holdoutValue, setHoldoutValue] = useState(
-    feature.holdout?.value ?? "",
-  );
 
   const settings = useOrgSettings();
-  // Holdout changes are global-scope (like prerequisites/archived)
   const gatedEnvSet: Set<string> | "all" | "none" = useMemo(() => {
     const raw = settings?.requireReviews;
     if (raw === true) return "all";
@@ -55,12 +47,6 @@ const HoldoutValueModal = ({
     defaultDraft,
   );
 
-  if (!feature.holdout) {
-    return null;
-  }
-
-  const holdout = feature.holdout;
-
   const handleSubmit = async () => {
     const isPublish = mode === "publish";
     const res = await apiCall<{
@@ -69,10 +55,7 @@ const HoldoutValueModal = ({
     }>(`/feature/${feature.id}`, {
       method: "PUT",
       body: JSON.stringify({
-        holdout: {
-          id: holdout.id,
-          value: holdoutValue,
-        },
+        holdout: null,
         ...(isPublish
           ? { autoPublish: true }
           : mode === "existing" && selectedDraft != null
@@ -87,56 +70,30 @@ const HoldoutValueModal = ({
 
   return (
     <Modal
-      header="Change Holdout Value"
+      header="Remove from holdout"
       open={true}
       close={close}
       size="md"
-      trackingEventModalType="holdout-value-modal"
+      trackingEventModalType="remove-from-holdout-modal"
+      cta="Remove"
       submit={handleSubmit}
     >
-      <DraftSelectorForChanges
-        feature={feature}
-        revisionList={revisionList}
-        mode={mode}
-        setMode={setMode}
-        selectedDraft={selectedDraft}
-        setSelectedDraft={setSelectedDraft}
-        canAutoPublish={false}
-        gatedEnvSet={gatedEnvSet}
-      />
-      <Box>
-        <Callout status="warning" mb="4">
-          <Text>
-            If this feature has been implemented, units may be exposed to
-            different feature values upon changing the holdout value.
-          </Text>
-        </Callout>
-        <FeatureValueField
-          label={
-            <>
-              Holdout Value{" "}
-              <Tooltip
-                body={
-                  <>
-                    Units that are held out for measurement in the holdout will
-                    receive this value.
-                  </>
-                }
-              >
-                <PiInfo style={{ color: "var(--violet-11)" }} />
-              </Tooltip>
-            </>
-          }
-          id="holdoutValue"
-          value={holdoutValue}
-          setValue={setHoldoutValue}
-          valueType={feature.valueType}
-          useCodeInput={true}
-          showFullscreenButton={true}
+      <div style={{ minHeight: 300 }}>
+        <DraftSelectorForChanges
+          feature={feature}
+          revisionList={revisionList}
+          mode={mode}
+          setMode={setMode}
+          selectedDraft={selectedDraft}
+          setSelectedDraft={setSelectedDraft}
+          canAutoPublish={false}
+          gatedEnvSet={gatedEnvSet}
         />
-      </Box>
+        <Callout status="warning">
+          Removing this feature from its holdout will expose all previously
+          held-out units to the feature on next publish.
+        </Callout>
+      </div>
     </Modal>
   );
-};
-
-export default HoldoutValueModal;
+}

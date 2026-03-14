@@ -15,7 +15,6 @@ import FeatureValueField from "./FeatureValueField";
 
 export interface Props {
   feature: FeatureInterface;
-  version: number;
   revisionList: MinimalFeatureRevisionInterface[];
   close: () => void;
   mutate: () => void;
@@ -24,7 +23,6 @@ export interface Props {
 
 export default function EditDefaultValueModal({
   feature,
-  version,
   revisionList,
   close,
   mutate,
@@ -53,11 +51,15 @@ export default function EditDefaultValueModal({
   const [mode, setMode] = useState<DraftMode>(
     defaultDraft != null ? "existing" : "new",
   );
-  const [selectedDraft, setSelectedDraft] = useState<number | null>(defaultDraft);
+  const [selectedDraft, setSelectedDraft] = useState<number | null>(
+    defaultDraft,
+  );
 
   // URL version drives draft behavior: feature.version = new draft, draft version = modify existing.
   const targetVersion =
-    mode === "existing" && selectedDraft != null ? selectedDraft : feature.version;
+    mode === "existing" && selectedDraft != null
+      ? selectedDraft
+      : feature.version;
 
   return (
     <Modal
@@ -92,27 +94,29 @@ export default function EditDefaultValueModal({
       open={true}
       size={feature.valueType === "json" ? "lg" : "md"}
     >
-      <DraftSelectorForChanges
-        feature={feature}
-        revisionList={revisionList}
-        mode={mode}
-        setMode={setMode}
-        selectedDraft={selectedDraft}
-        setSelectedDraft={setSelectedDraft}
-        canAutoPublish={false}
-        gatedEnvSet={gatedEnvSet}
-      />
-      <FeatureValueField
-        label="Value When Enabled"
-        id="defaultValue"
-        value={form.watch("defaultValue")}
-        setValue={(v) => form.setValue("defaultValue", v)}
-        valueType={feature.valueType}
-        feature={feature}
-        renderJSONInline={true}
-        useCodeInput={true}
-        showFullscreenButton={true}
-      />
+      <div style={{ minHeight: 300 }}>
+        <DraftSelectorForChanges
+          feature={feature}
+          revisionList={revisionList}
+          mode={mode}
+          setMode={setMode}
+          selectedDraft={selectedDraft}
+          setSelectedDraft={setSelectedDraft}
+          canAutoPublish={false}
+          gatedEnvSet={gatedEnvSet}
+        />
+        <FeatureValueField
+          label="Value When Enabled"
+          id="defaultValue"
+          value={form.watch("defaultValue")}
+          setValue={(v) => form.setValue("defaultValue", v)}
+          valueType={feature.valueType}
+          feature={feature}
+          renderJSONInline={true}
+          useCodeInput={true}
+          showFullscreenButton={true}
+        />
+      </div>
     </Modal>
   );
 }

@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, ReactElement } from "react";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import isEqual from "lodash/isEqual";
 import { Box, Flex } from "@radix-ui/themes";
@@ -19,6 +19,7 @@ import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Badge from "@/ui/Badge";
 import { useExperiments } from "@/hooks/useExperiments";
+import { useHoldouts } from "@/hooks/useHoldouts";
 import {
   ChangeField,
   toConditionString,
@@ -998,7 +999,7 @@ export function renderFeatureMetadataSection(
     );
   }
 
-  if (!isEqual(pre?.owner, post.owner) && post.owner !== undefined) {
+  if ((pre?.owner || "") !== (post.owner || "") && post.owner !== undefined) {
     rows.push(
       <ChangeField
         key="owner"
@@ -1010,7 +1011,10 @@ export function renderFeatureMetadataSection(
     );
   }
 
-  if (!isEqual(pre?.project, post.project) && post.project !== undefined) {
+  if (
+    (pre?.project || "") !== (post.project || "") &&
+    post.project !== undefined
+  ) {
     rows.push(
       <ChangeField
         key="project"
@@ -1052,7 +1056,8 @@ export function renderFeatureMetadataSection(
 
   if (
     !isEqual(pre?.description, post.description) &&
-    post.description !== undefined
+    post.description !== undefined &&
+    (pre?.description || "") !== (post.description || "")
   ) {
     rows.push(
       <ValueChangedField
@@ -1079,17 +1084,27 @@ export function getFeatureMetadataBadges(
       action: "archive",
     });
   }
-  if (!isEqual(pre?.owner, post.owner) && post.owner !== undefined) {
+  if ((pre?.owner || "") !== (post.owner || "") && post.owner !== undefined) {
     badges.push({ label: "Edit owner", action: "edit owner" });
   }
-  if (!isEqual(pre?.project, post.project) && post.project !== undefined) {
+  if (
+    (pre?.project || "") !== (post.project || "") &&
+    post.project !== undefined
+  ) {
     badges.push({ label: "Edit project", action: "edit project" });
   }
   if (!isEqual(pre?.tags, post.tags) && post.tags !== undefined) {
-    badges.push({ label: "Edit tags", action: "edit tags" });
+    const preTags = pre?.tags ?? [];
+    const postTags = post.tags ?? [];
+    if (
+      postTags.some((t) => !preTags.includes(t)) ||
+      preTags.some((t) => !postTags.includes(t))
+    ) {
+      badges.push({ label: "Edit tags", action: "edit tags" });
+    }
   }
   if (
-    !isEqual(pre?.description, post.description) &&
+    (pre?.description || "") !== (post.description || "") &&
     post.description !== undefined
   ) {
     badges.push({ label: "Edit description", action: "edit description" });
@@ -1311,12 +1326,119 @@ export function renderEnvironmentsEnabled(
 ): ReactNode {
   const toLabel = (v: boolean | undefined) =>
     v === undefined ? null : v ? "enabled" : "disabled";
+  return <ValueChangedField pre={toLabel(current)} post={toLabel(draft)} />;
+}
+
+// Resolves a holdout ID to its display name and links to the holdout page.
+// Falls back to the raw ID, matching the ExperimentLink pattern.
+function HoldoutName({ id }: { id: string }): ReactElement {
+  const { holdoutsMap } = useHoldouts();
   return (
-    <ValueChangedField
-      pre={toLabel(current)}
-      post={toLabel(draft)}
-    />
+    <Link href={`/holdout/${id}`} target="_blank">
+      {holdoutsMap.get(id)?.name ?? id}
+      <PiArrowSquareOut style={{ marginLeft: 3, verticalAlign: "middle" }} />
+    </Link>
   );
+}
+
+type HoldoutValue = { id: string; value: string } | null | undefined;
+
+export function renderFeatureHoldoutSection(
+  pre: Partial<FeatureInterface> | null,
+  post: Partial<FeatureInterface>,
+): ReactNode | null {
+  const preHoldout = (pre?.holdout ?? null) as HoldoutValue;
+  const postHoldout = (post.holdout ?? null) as HoldoutValue;
+
+  // Added to a holdout
+  if (!preHoldout && postHoldout) {
+    return (
+      <div>
+        <ChangeField
+          label="Holdout"
+          changed
+          oldNode={<em>none</em>}
+          newNode={<HoldoutName id={postHoldout.id} />}
+        />
+        <ValueChangedField
+          label="Value"
+          pre={null}
+          post={formatValue(postHoldout.value)}
+        />
+      </div>
+    );
+  }
+
+  // Removed from a holdout
+  if (preHoldout && !postHoldout) {
+    return (
+      <ChangeField
+        label="Holdout"
+        changed
+        oldNode={<HoldoutName id={preHoldout.id} />}
+        newNode={<em>none</em>}
+      />
+    );
+  }
+
+  if (!preHoldout || !postHoldout) return null;
+
+  const rows: ReactNode[] = [];
+
+  // Moved to a different holdout
+  if (preHoldout.id !== postHoldout.id) {
+    rows.push(
+      <ChangeField
+        key="holdout-id"
+        label="Holdout"
+        changed
+        oldNode={<HoldoutName id={preHoldout.id} />}
+        newNode={<HoldoutName id={postHoldout.id} />}
+      />,
+    );
+  }
+
+  if (preHoldout.value !== postHoldout.value) {
+    rows.push(
+      <ValueChangedField
+        key="holdout-value"
+        label="Value"
+        pre={formatValue(preHoldout.value)}
+        post={formatValue(postHoldout.value)}
+      />,
+    );
+  }
+
+  if (!rows.length) return null;
+
+  // Show which holdout this refers to as context above the changes.
+  return (
+    <div>
+      <div className="mb-2">
+        <HoldoutName id={postHoldout.id} />
+      </div>
+      {rows}
+    </div>
+  );
+}
+
+export function getFeatureHoldoutBadges(
+  pre: Partial<FeatureInterface> | null,
+  post: Partial<FeatureInterface>,
+): DiffBadge[] {
+  const preHoldout = (pre?.holdout ?? null) as HoldoutValue;
+  const postHoldout = (post.holdout ?? null) as HoldoutValue;
+
+  if (!isEqual(preHoldout, postHoldout)) {
+    if (!preHoldout && postHoldout)
+      return [{ label: "Added to holdout", action: "add holdout" }];
+    if (preHoldout && !postHoldout)
+      return [{ label: "Removed from holdout", action: "remove holdout" }];
+    if (preHoldout?.id !== postHoldout?.id)
+      return [{ label: "Changed holdout", action: "change holdout" }];
+    return [{ label: "Edit holdout value", action: "edit holdout value" }];
+  }
+  return [];
 }
 
 export function renderRevisionMetadata(
@@ -1331,7 +1453,7 @@ export function renderRevisionMetadata(
     pre: string | undefined,
     post: string | undefined,
   ) => {
-    if (!isEqual(pre, post)) {
+    if ((pre || "") !== (post || "")) {
       rows.push(
         <ValueChangedField
           key={key}
@@ -1352,7 +1474,10 @@ export function renderRevisionMetadata(
     );
   }
 
-  if (!isEqual(current?.owner, draft.owner) && draft.owner !== undefined) {
+  if (
+    (current?.owner || "") !== (draft.owner || "") &&
+    draft.owner !== undefined
+  ) {
     rows.push(
       <ChangeField
         key="owner"
@@ -1367,7 +1492,7 @@ export function renderRevisionMetadata(
   }
 
   if (
-    !isEqual(current?.project, draft.project) &&
+    (current?.project || "") !== (draft.project || "") &&
     draft.project !== undefined
   ) {
     rows.push(
@@ -1390,31 +1515,41 @@ export function renderRevisionMetadata(
   }
 
   if (!isEqual(current?.tags, draft.tags) && draft.tags !== undefined) {
-    rows.push(
-      <ChangeField
-        key="tags"
-        label="Tags"
-        changed
-        oldNode={
-          current?.tags?.length ? (
-            <SortedTags
-              tags={current.tags}
-              useFlex
-              shouldShowEllipsis={false}
-            />
-          ) : (
-            <em>unset</em>
-          )
-        }
-        newNode={
-          draft.tags?.length ? (
-            <SortedTags tags={draft.tags} useFlex shouldShowEllipsis={false} />
-          ) : (
-            <em>unset</em>
-          )
-        }
-      />,
-    );
+    const preTags = current?.tags ?? [];
+    const postTags = draft.tags ?? [];
+    const added = postTags.filter((t) => !preTags.includes(t));
+    const removed = preTags.filter((t) => !postTags.includes(t));
+    if (added.length || removed.length) {
+      rows.push(
+        <ChangeField
+          key="tags"
+          label="Tags"
+          changed
+          oldNode={
+            current?.tags?.length ? (
+              <SortedTags
+                tags={current.tags}
+                useFlex
+                shouldShowEllipsis={false}
+              />
+            ) : (
+              <em>unset</em>
+            )
+          }
+          newNode={
+            draft.tags?.length ? (
+              <SortedTags
+                tags={draft.tags}
+                useFlex
+                shouldShowEllipsis={false}
+              />
+            ) : (
+              <em>unset</em>
+            )
+          }
+        />,
+      );
+    }
   }
 
   if (

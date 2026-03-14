@@ -313,75 +313,77 @@ export default function KillSwitchModal({
       submit={submit}
       useRadixButton={true}
     >
-      <DraftSelectorForChanges
-        feature={feature}
-        baseFeature={baseFeature}
-        revisionList={revisionList}
-        mode={mode}
-        setMode={setMode}
-        selectedDraft={selectedDraft}
-        setSelectedDraft={setSelectedDraft}
-        canAutoPublish={canAutoPublish}
-        gatedEnvSet={gatedEnvSet}
-      />
+      <div style={{ minHeight: 300 }}>
+        <DraftSelectorForChanges
+          feature={feature}
+          baseFeature={baseFeature}
+          revisionList={revisionList}
+          mode={mode}
+          setMode={setMode}
+          selectedDraft={selectedDraft}
+          setSelectedDraft={setSelectedDraft}
+          canAutoPublish={canAutoPublish}
+          gatedEnvSet={gatedEnvSet}
+        />
 
-      <Text as="p" mb="2">
-        You are about to set the <strong>{environment}</strong> environment to{" "}
-        <strong
-          style={{ color: desiredState ? "var(--green-9)" : "var(--red-9)" }}
-        >
-          {desiredState ? "enabled" : "disabled"}
-        </strong>
-        .
-      </Text>
-      <EnvStateGrid
-        liveFeature={baseFeature ?? feature}
-        draftFeature={
-          // Use the current draft's merged state only when we're actually
-          // applying the toggle on top of that specific draft. For "new draft"
-          // or any other existing draft we don't have merged state for, fall
-          // back to live so the grid shows only the proposed toggle change.
-          mode === "existing" && selectedDraft === currentVersion
-            ? feature
-            : (baseFeature ?? feature)
-        }
-        allOrgEnvironments={allOrgEnvironments}
-        changedEnv={environment}
-        desiredState={desiredState}
-        liveVersion={(baseFeature ?? feature).version}
-        afterChangeSubtext={
-          mode === "existing" && selectedDraft != null
-            ? `revision ${selectedDraft}`
-            : mode === "publish"
-              ? "new revision"
-              : "new draft"
-        }
-      />
-      {noNetChange && (
-        <Box mt="2">
-          <Text as="p" size="small" color="text-low">
-            <em>
-              {mode === "existing" ? (
-                <>
-                  This undoes a pending draft change —{" "}
-                  <strong>{environment}</strong> will match live with no net
-                  change.
-                </>
-              ) : mode === "publish" ? (
-                <>
-                  <strong>{environment}</strong> already matches live — nothing
-                  will be published.
-                </>
-              ) : (
-                <>
-                  <strong>{environment}</strong> already matches live — this
-                  will have no effect.
-                </>
-              )}
-            </em>
-          </Text>
-        </Box>
-      )}
+        <Text as="p" mb="2">
+          You are about to set the <strong>{environment}</strong> environment to{" "}
+          <strong
+            style={{ color: desiredState ? "var(--green-9)" : "var(--red-9)" }}
+          >
+            {desiredState ? "enabled" : "disabled"}
+          </strong>
+          .
+        </Text>
+        <EnvStateGrid
+          liveFeature={baseFeature ?? feature}
+          draftFeature={
+            // Use the current draft's merged state only when we're actually
+            // applying the toggle on top of that specific draft. For "new draft"
+            // or any other existing draft we don't have merged state for, fall
+            // back to live so the grid shows only the proposed toggle change.
+            mode === "existing" && selectedDraft === currentVersion
+              ? feature
+              : (baseFeature ?? feature)
+          }
+          allOrgEnvironments={allOrgEnvironments}
+          changedEnv={environment}
+          desiredState={desiredState}
+          liveVersion={(baseFeature ?? feature).version}
+          afterChangeSubtext={
+            mode === "existing" && selectedDraft != null
+              ? `revision ${selectedDraft}`
+              : mode === "publish"
+                ? "new revision"
+                : "new draft"
+          }
+        />
+        {noNetChange && (
+          <Box mt="2">
+            <Text as="p" size="small" color="text-low">
+              <em>
+                {mode === "existing" ? (
+                  <>
+                    This undoes a pending draft change —{" "}
+                    <strong>{environment}</strong> will match live with no net
+                    change.
+                  </>
+                ) : mode === "publish" ? (
+                  <>
+                    <strong>{environment}</strong> already matches live —
+                    nothing will be published.
+                  </>
+                ) : (
+                  <>
+                    <strong>{environment}</strong> already matches live — this
+                    will have no effect.
+                  </>
+                )}
+              </em>
+            </Text>
+          </Box>
+        )}
+      </div>
     </Modal>
   );
 }

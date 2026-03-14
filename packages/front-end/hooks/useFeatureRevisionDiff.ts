@@ -12,8 +12,12 @@ import {
   renderPrerequisites,
   renderRevisionMetadata,
   prerequisiteChangeBadges,
+  renderFeatureHoldoutSection,
+  getFeatureHoldoutBadges,
 } from "@/components/Features/FeatureDiffRenders";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
+
+import type { MergeResultChanges } from "shared/util";
 
 // Helper
 // Normalize nullable metadata fields to canonical empty values so that
@@ -51,6 +55,7 @@ export const featureToFeatureRevisionDiffInput = (
     ),
     environmentsEnabled,
     prerequisites: feature.prerequisites,
+    holdout: feature.holdout ?? null,
     metadata: normalizeRevisionMetadata({
       description: feature.description,
       owner: feature.owner,
@@ -89,6 +94,7 @@ export type FeatureRevisionDiffInput = Pick<
   | "environmentsEnabled"
   | "prerequisites"
   | "metadata"
+  | "holdout"
 >;
 
 export type FeatureRevisionDiff = {
@@ -222,7 +228,24 @@ export function useFeatureRevisionDiff({
       }
     }
 
-    // 4. Default value
+    // 4. Holdout
+    if ("holdout" in draft) {
+      const currentHoldout = current.holdout ?? null;
+      const draftHoldout = draft.holdout ?? null;
+      if (!isEqual(currentHoldout, draftHoldout)) {
+        const pre = { holdout: currentHoldout ?? undefined };
+        const post = { holdout: draftHoldout ?? undefined };
+        diffs.push({
+          title: "Holdout",
+          a: JSON.stringify(currentHoldout, null, 2),
+          b: JSON.stringify(draftHoldout, null, 2),
+          customRender: renderFeatureHoldoutSection(pre, post),
+          badges: getFeatureHoldoutBadges(pre, post),
+        });
+      }
+    }
+
+    // 5. Default value
     const currentDefault = current.defaultValue ?? "";
     const draftDefault = draft.defaultValue ?? "";
     const aValue = parseDefaultValue(currentDefault);
@@ -242,7 +265,7 @@ export function useFeatureRevisionDiff({
       });
     }
 
-    // 5. Rules (per environment)
+    // 6. Rules (per environment)
     const draftEnvironments = Object.keys(draft.rules || {});
     draftEnvironments.forEach((envId) => {
       const currentRules = current.rules?.[envId] || [];
@@ -262,3 +285,36 @@ export function useFeatureRevisionDiff({
     return diffs;
   }, [current, draft]);
 }
+
+/**
+ * Converts a successful `autoMerge` result into a `FeatureRevisionDiffInput`
+ * for `useFeatureRevisionDiff`.  Falls back to `current` for fields not
+ * present in the merge result (i.e. fields that were not part of the draft).
+ * Fields that carry change semantics through their *presence* (holdout, envs,
+ * prerequisites, metadata) are only included when they appear in `result`.
+ */
+export function mergeResultToDiffInput(
+  result: MergeResultChanges,
+  current: FeatureRevisionDiffInput,
+): FeatureRevisionDiffInput {
+  return {
+    defaultValue: result.defaultValue ?? current.defaultValue,
+    rules: result.rules ?? current.rules,
+    ...(result.environmentsEnabled !== undefined
+      ? { environmentsEnabled: result.environmentsEnabled }
+      : {}),
+    ...(result.prerequisites !== undefined
+      ? { prerequisites: result.prerequisites }
+      : {}),
+    ...("holdout" in result ? { holdout: result.holdout } : {}),
+    ...(result.metadata !== undefined
+      ? {
+          metadata: {
+            ...current.metadata,
+            ...result.metadata,
+          },
+        }
+      : {}),
+  };
+}
+

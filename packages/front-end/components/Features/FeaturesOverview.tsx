@@ -16,6 +16,7 @@ import { ago, datetime } from "shared/dates";
 import {
   autoMerge,
   checkIfRevisionNeedsReview,
+  fillRevisionFromFeature,
   filterEnvironmentsByFeature,
   getDraftAffectedEnvironments,
   getReviewSetting,
@@ -189,19 +190,9 @@ export default function FeaturesOverview({
     // false-positive diffs. Fill in missing envs from baseFeature (the raw live
     // feature with no draft changes applied) — not `feature`, which is draft-merged
     // and would cause the base to reflect draft values, hiding real diffs.
-    const featureEnvs: Record<string, boolean> = Object.fromEntries(
-      Object.entries(baseFeature.environmentSettings ?? {}).map(
-        ([env, val]) => [env, !!val.enabled],
-      ),
-    );
-    const fillEnvs = (r: typeof liveRevision) => ({
-      ...r,
-      environmentsEnabled: { ...featureEnvs, ...(r.environmentsEnabled ?? {}) },
-    });
-
     return autoMerge(
-      fillEnvs(liveRevision),
-      fillEnvs(baseRevision),
+      fillRevisionFromFeature(liveRevision, baseFeature),
+      fillRevisionFromFeature(baseRevision, baseFeature),
       revision,
       environments.map((e) => e.id),
       {},
@@ -276,18 +267,12 @@ export default function FeaturesOverview({
     const liveRevision = revisions.find((r) => r.version === feature.version);
     if (!revision || !liveRevision) return null;
     const allEnvIds = allEnvironments.map((e) => e.id);
-    const liveFeatureEnvs = Object.fromEntries(
-      Object.entries(baseFeature?.environmentSettings ?? {}).map(
-        ([env, val]) => [env, !!val.enabled],
-      ),
-    );
     return getDraftAffectedEnvironments(
       revision,
-      liveRevision,
+      fillRevisionFromFeature(liveRevision, baseFeature ?? feature),
       allEnvIds,
-      liveFeatureEnvs,
     );
-  }, [revision, revisions, feature.version, allEnvironments, baseFeature]);
+  }, [revision, revisions, allEnvironments, baseFeature, feature]);
 
   if (!baseFeature || !feature || !revision) return null;
 
@@ -837,6 +822,7 @@ export default function FeaturesOverview({
                   mt="2"
                   mb="0"
                   size="sm"
+                  contentsAs="div"
                 >
                   <Flex direction="column" gap="1">
                     {approvalsEngaged && (
@@ -1406,6 +1392,7 @@ export default function FeaturesOverview({
                     <FeatureRules
                       environments={environments}
                       feature={feature}
+                      baseFeature={baseFeature}
                       isLocked={isLocked}
                       canEditDrafts={canEditDrafts}
                       experimentsMap={experimentsMap}
@@ -1460,7 +1447,6 @@ export default function FeaturesOverview({
             feature={feature}
             revisionList={revisionList || []}
             mutate={mutate}
-            version={currentVersion}
             setVersion={setVersion}
           />
         )}
@@ -1711,7 +1697,11 @@ export default function FeaturesOverview({
             backgroundColor: "var(--color-panel-solid)",
           }}
         >
-          <Callout status="warning" icon={<PiPencil size={18} />}>
+          <Callout
+            status="warning"
+            contentsAs="div"
+            icon={<PiPencil size={18} />}
+          >
             <Box mb="3">
               Viewing a <strong>draft</strong> —{" "}
               {isPendingReview

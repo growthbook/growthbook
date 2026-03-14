@@ -85,6 +85,7 @@ function revisionToDiffInput(
     rules: r.rules ?? {},
     environmentsEnabled: r.environmentsEnabled,
     prerequisites: r.prerequisites,
+    holdout: r.holdout ?? null,
     metadata: normalizeRevisionMetadata(r.metadata),
   };
 }

@@ -6,7 +6,7 @@ import {
   checkIfRevisionNeedsReview,
   mergeResultHasChanges,
   mergeRevision,
-  RulesAndValues,
+  RevisionFields,
 } from "../../src/util";
 
 // ---------------------------------------------------------------------------
@@ -267,19 +267,19 @@ describe("checkIfRevisionNeedsReview", () => {
 
 describe("autoMerge with new envelopes", () => {
   describe("no-divergence path (live.version === base.version)", () => {
-    const live: RulesAndValues = {
+    const live: RevisionFields = {
       version: 3,
       defaultValue: "false",
       rules: {},
     };
-    const base: RulesAndValues = {
+    const base: RevisionFields = {
       version: 3,
       defaultValue: "false",
       rules: {},
     };
 
     it("includes environmentsEnabled changes", () => {
-      const revision: RulesAndValues = {
+      const revision: RevisionFields = {
         version: 4,
         defaultValue: "false",
         rules: {},
@@ -301,7 +301,7 @@ describe("autoMerge with new envelopes", () => {
     });
 
     it("includes prerequisites changes", () => {
-      const revision: RulesAndValues = {
+      const revision: RevisionFields = {
         version: 4,
         defaultValue: "false",
         rules: {},
@@ -315,7 +315,7 @@ describe("autoMerge with new envelopes", () => {
     });
 
     it("includes metadata changes", () => {
-      const revision: RulesAndValues = {
+      const revision: RevisionFields = {
         version: 4,
         defaultValue: "false",
         rules: {},
@@ -330,15 +330,15 @@ describe("autoMerge with new envelopes", () => {
     });
 
     it("omits metadata fields that did not change vs base", () => {
-      const liveWithMeta: RulesAndValues = {
+      const liveWithMeta: RevisionFields = {
         ...live,
         metadata: { description: "same" },
       };
-      const baseWithMeta: RulesAndValues = {
+      const baseWithMeta: RevisionFields = {
         ...base,
         metadata: { description: "same" },
       };
-      const revision: RulesAndValues = {
+      const revision: RevisionFields = {
         version: 4,
         defaultValue: "false",
         rules: {},
@@ -353,14 +353,14 @@ describe("autoMerge with new envelopes", () => {
   });
 
   describe("diverged path (live.version !== base.version)", () => {
-    const base: RulesAndValues = {
+    const base: RevisionFields = {
       version: 2,
       defaultValue: "false",
       rules: {},
       environmentsEnabled: { production: true },
       metadata: { description: "original" },
     };
-    const live: RulesAndValues = {
+    const live: RevisionFields = {
       version: 3,
       defaultValue: "false",
       rules: {},
@@ -369,7 +369,7 @@ describe("autoMerge with new envelopes", () => {
     };
 
     it("applies non-conflicting environmentsEnabled change", () => {
-      const revision: RulesAndValues = {
+      const revision: RevisionFields = {
         version: 4,
         defaultValue: "false",
         rules: {},
@@ -384,11 +384,11 @@ describe("autoMerge with new envelopes", () => {
     });
 
     it("detects conflict when live AND revision both changed environmentsEnabled differently", () => {
-      const liveConflict: RulesAndValues = {
+      const liveConflict: RevisionFields = {
         ...live,
         environmentsEnabled: { production: false }, // live changed
       };
-      const revision: RulesAndValues = {
+      const revision: RevisionFields = {
         version: 4,
         defaultValue: "false",
         rules: {},
@@ -406,7 +406,7 @@ describe("autoMerge with new envelopes", () => {
     });
 
     it("applies non-conflicting metadata change", () => {
-      const revision: RulesAndValues = {
+      const revision: RevisionFields = {
         version: 4,
         defaultValue: "false",
         rules: {},
@@ -559,18 +559,18 @@ describe("backward compatibility — old revisions without envelopes", () => {
     expect(merged.description).toBe("A feature");
   });
 
-  it("autoMerge works on RulesAndValues without new envelope fields", () => {
-    const live: RulesAndValues = {
+  it("autoMerge works on RevisionFields without new envelope fields", () => {
+    const live: RevisionFields = {
       version: 3,
       defaultValue: "false",
       rules: {},
     };
-    const base: RulesAndValues = {
+    const base: RevisionFields = {
       version: 3,
       defaultValue: "false",
       rules: {},
     };
-    const revision: RulesAndValues = {
+    const revision: RevisionFields = {
       version: 4,
       defaultValue: "true",
       rules: {},

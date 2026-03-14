@@ -3,6 +3,7 @@ import { useState, useMemo, useRef } from "react";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   autoMerge,
+  fillRevisionFromFeature,
   filterEnvironmentsByFeature,
   getAffectedEnvsForExperiment,
   getDraftAffectedEnvironments,
@@ -30,6 +31,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import {
   useFeatureRevisionDiff,
   featureToFeatureRevisionDiffInput,
+  mergeResultToDiffInput,
 } from "@/hooks/useFeatureRevisionDiff";
 import Badge from "@/ui/Badge";
 import { logBadgeColor } from "@/components/Features/FeatureDiffRenders";
@@ -86,25 +88,14 @@ export default function RequestReviewModal({
 
   const envIds = environments.map((e) => e.id);
 
-  const liveFeatureEnvs = useMemo(
-    () =>
-      Object.fromEntries(
-        Object.entries(feature.environmentSettings ?? {}).map(([env, val]) => [
-          env,
-          !!val.enabled,
-        ]),
-      ),
-    [feature],
-  );
   const affectedEnvs = useMemo(() => {
     if (!revision || !liveRevision) return null;
     return getDraftAffectedEnvironments(
       revision,
-      liveRevision,
+      fillRevisionFromFeature(liveRevision, feature),
       envIds,
-      liveFeatureEnvs,
     );
-  }, [revision, liveRevision, envIds, liveFeatureEnvs]);
+  }, [revision, liveRevision, envIds, feature]);
 
   const requiresApproval = settings?.requireReviews === true;
   const requireReviewSettings = Array.isArray(settings?.requireReviews)
@@ -121,12 +112,14 @@ export default function RequestReviewModal({
 
   const mergeResult = useMemo(() => {
     if (!revision || !baseRevision || !liveRevision) return null;
-    const fillEnvs = (r: typeof liveRevision) => ({
-      ...r,
-      environmentsEnabled: { ...liveFeatureEnvs, ...(r.environmentsEnabled ?? {}) },
-    });
-    return autoMerge(fillEnvs(liveRevision), fillEnvs(baseRevision), revision, envIds, {});
-  }, [revision, baseRevision, liveRevision, envIds, liveFeatureEnvs]);
+    return autoMerge(
+      fillRevisionFromFeature(liveRevision, feature),
+      fillRevisionFromFeature(baseRevision, feature),
+      revision,
+      envIds,
+      {},
+    );
+  }, [revision, baseRevision, liveRevision, envIds, feature]);
 
   const [comment, setComment] = useState("");
 
@@ -145,26 +138,7 @@ export default function RequestReviewModal({
   const resultDiffs = useFeatureRevisionDiff({
     current: currentRevisionData,
     draft: mergeResult?.success
-      ? {
-          defaultValue:
-            mergeResult.result.defaultValue ?? currentRevisionData.defaultValue,
-          rules: mergeResult.result.rules ?? currentRevisionData.rules,
-          environmentsEnabled:
-            mergeResult.result.environmentsEnabled !== undefined
-              ? mergeResult.result.environmentsEnabled
-              : undefined,
-          prerequisites:
-            mergeResult.result.prerequisites !== undefined
-              ? mergeResult.result.prerequisites
-              : undefined,
-          metadata:
-            mergeResult.result.metadata !== undefined
-              ? {
-                  ...currentRevisionData.metadata,
-                  ...mergeResult.result.metadata,
-                }
-              : undefined,
-        }
+      ? mergeResultToDiffInput(mergeResult.result, currentRevisionData)
       : currentRevisionData,
   });
 
@@ -236,7 +210,6 @@ export default function RequestReviewModal({
   };
 
   if (!revision || !mergeResult) return null;
-
   const hasChanges = mergeResultHasChanges(mergeResult);
   let ctaCopy = "Request Review";
   if (approved && !hasNextStep) {

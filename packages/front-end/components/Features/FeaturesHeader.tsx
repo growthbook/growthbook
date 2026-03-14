@@ -601,7 +601,9 @@ export default function FeaturesHeader({
         <AddToHoldoutModal
           close={() => setAddToHoldoutModal(false)}
           feature={feature}
+          revisionList={revisions}
           mutate={mutate}
+          setVersion={setVersion}
         />
       )}
       {archiveModal && (

@@ -108,6 +108,10 @@ export function mergeRevision(
     newFeature.archived = revision.archived;
   }
 
+  if ("holdout" in revision) {
+    newFeature.holdout = revision.holdout ?? undefined;
+  }
+
   if (revision.metadata) {
     const m = revision.metadata;
     if (m.description !== undefined) newFeature.description = m.description;
@@ -618,6 +622,7 @@ export type MergeResultChanges = {
   prerequisites?: FeaturePrerequisite[];
   archived?: boolean;
   metadata?: RevisionMetadata;
+  holdout?: { id: string; value: string } | null;
 };
 export type AutoMergeResult =
   | {
@@ -630,7 +635,7 @@ export type AutoMergeResult =
       conflicts: MergeConflict[];
     };
 
-export type RulesAndValues = Pick<
+export type RevisionFields = Pick<
   FeatureRevisionInterface,
   | "defaultValue"
   | "rules"
@@ -639,39 +644,61 @@ export type RulesAndValues = Pick<
   | "prerequisites"
   | "archived"
   | "metadata"
+  | "holdout"
 >;
+
+// Per-field backfill strategies for fillRevisionFromFeature.
+// Each filler receives the live feature and the revision's current field value
+// (possibly undefined for a sparse/legacy revision) and returns the normalized value.
+// Fields without an entry are left as-is — sparse absence is meaningful for those.
+// Add an entry here whenever a new revision envelope field needs backfill logic.
+const revisionFieldFillers: Partial<{
+  [K in keyof RevisionFields]: (
+    feature: FeatureInterface,
+    current: RevisionFields[K],
+  ) => RevisionFields[K];
+}> = {
+  // Revisions only record environmentsEnabled at publish time. Environments
+  // added to the org afterwards won't appear in older revisions — fill from
+  // the live feature so autoMerge doesn't produce false diffs for new envs.
+  environmentsEnabled: (feature, current) => ({
+    ...Object.fromEntries(
+      Object.entries(feature.environmentSettings ?? {}).map(([env, val]) => [
+        env,
+        !!val.enabled,
+      ]),
+    ),
+    ...(current ?? {}),
+  }),
+};
+
+// Normalize a revision's stale/missing fields from the live feature before passing
+// to autoMerge. Only fields in revisionFieldFillers are touched; all others are left
+// as-is so that sparse absence remains meaningful.
+export function fillRevisionFromFeature(
+  revision: RevisionFields,
+  feature: FeatureInterface,
+): RevisionFields {
+  const result = { ...revision } as RevisionFields;
+  for (const k of Object.keys(revisionFieldFillers) as (keyof RevisionFields)[]) {
+    (result[k] as unknown) = revisionFieldFillers[k]!(feature, result[k] as never);
+  }
+  return result;
+}
 
 export function mergeResultHasChanges(mergeResult: AutoMergeResult): boolean {
   if (!mergeResult.success) return true;
-
   const r = mergeResult.result;
   if (r.defaultValue !== undefined) return true;
   if (Object.keys(r.rules || {}).length > 0) return true;
   if (Object.keys(r.environmentsEnabled || {}).length > 0) return true;
   if (r.prerequisites !== undefined) return true;
   if (r.archived !== undefined) return true;
+  if ("holdout" in r) return true;
   if (r.metadata !== undefined && Object.keys(r.metadata).length > 0)
     return true;
-
   return false;
 }
-export function listChangedEnvironments(
-  base: RulesAndValues,
-  revision: RulesAndValues,
-  allEnviroments: string[],
-) {
-  const environmentsList: string[] = [];
-  allEnviroments?.forEach((env) => {
-    const rules = revision.rules[env];
-    if (!rules) return;
-    if (isEqual(rules, base.rules[env] || [])) {
-      return;
-    }
-    environmentsList.push(env);
-  });
-  return environmentsList;
-}
-
 // Normalize a metadata field value for comparison so that semantic equivalents
 // (null vs "" for strings, null vs [] for tags) don't produce false-positive deltas.
 function normalizeMetadataValue(
@@ -684,10 +711,71 @@ function normalizeMetadataValue(
   return v;
 }
 
+// Returns true if the revision contains a change that affects all environments
+// (prerequisites, archived, holdout, defaultValue, or metadata).
+// Used by getDraftAffectedEnvironments and checkIfRevisionNeedsReview.
+function revisionHasGlobalChange(
+  revision: RevisionFields,
+  base: RevisionFields,
+): boolean {
+  if (
+    revision.prerequisites !== undefined &&
+    !isEqual(revision.prerequisites, base.prerequisites || [])
+  )
+    return true;
+  if (revision.archived !== undefined && revision.archived !== base.archived)
+    return true;
+  if (
+    "holdout" in revision &&
+    !isEqual(revision.holdout, base.holdout ?? null)
+  )
+    return true;
+  if (revision.defaultValue !== base.defaultValue) return true;
+  if (
+    revision.metadata &&
+    (Object.keys(revision.metadata) as (keyof RevisionMetadata)[]).some(
+      (k) =>
+        !isEqual(
+          normalizeMetadataValue(k, revision.metadata![k]),
+          normalizeMetadataValue(k, base.metadata?.[k]),
+        ),
+    )
+  )
+    return true;
+  return false;
+}
+
+// Returns true if the revision has a metadata-only global change (no
+// prerequisites, archived, holdout, or defaultValue changes).
+function revisionHasMetadataOnlyGlobalChange(
+  revision: RevisionFields,
+  base: RevisionFields,
+): boolean {
+  const hasNonMetadata =
+    (revision.prerequisites !== undefined &&
+      !isEqual(revision.prerequisites, base.prerequisites || [])) ||
+    (revision.archived !== undefined &&
+      revision.archived !== base.archived) ||
+    ("holdout" in revision &&
+      !isEqual(revision.holdout, base.holdout ?? null)) ||
+    revision.defaultValue !== base.defaultValue;
+  if (hasNonMetadata) return false;
+  return (
+    !!revision.metadata &&
+    (Object.keys(revision.metadata) as (keyof RevisionMetadata)[]).some(
+      (k) =>
+        !isEqual(
+          normalizeMetadataValue(k, revision.metadata![k]),
+          normalizeMetadataValue(k, base.metadata?.[k]),
+        ),
+    )
+  );
+}
+
 export function autoMerge(
-  live: RulesAndValues,
-  base: RulesAndValues,
-  revision: RulesAndValues,
+  live: RevisionFields,
+  base: RevisionFields,
+  revision: RevisionFields,
   environments: string[],
   strategies: Record<string, MergeStrategy>,
 ): AutoMergeResult {
@@ -733,6 +821,14 @@ export function autoMerge(
       revision.archived !== base.archived
     ) {
       result.archived = revision.archived;
+    }
+
+    // holdout
+    if (
+      "holdout" in revision &&
+      !isEqual(revision.holdout, base.holdout ?? null)
+    ) {
+      result.holdout = revision.holdout;
     }
 
     // metadata — per-field comparison
@@ -912,6 +1008,35 @@ export function autoMerge(
         conflicts.push(conflictInfo);
       } else {
         result.archived = revVal;
+      }
+    }
+  }
+
+  // holdout (nullable object, same conflict pattern as archived)
+  if ("holdout" in revision) {
+    const revVal = revision.holdout;
+    const baseVal = base.holdout ?? null;
+    const liveVal = live.holdout ?? null;
+    if (!isEqual(revVal, baseVal) && !isEqual(revVal, liveVal)) {
+      if (!isEqual(liveVal, baseVal) && !isEqual(liveVal, revVal)) {
+        const conflictInfo: MergeConflict = {
+          name: "Holdout",
+          key: "holdout",
+          base: JSON.stringify(baseVal),
+          live: JSON.stringify(liveVal),
+          revision: JSON.stringify(revVal),
+          resolved: false,
+        };
+        const strategy = strategies["holdout"];
+        if (strategy === "overwrite") {
+          conflictInfo.resolved = true;
+          result.holdout = revVal;
+        } else if (strategy === "discard") {
+          conflictInfo.resolved = true;
+        }
+        conflicts.push(conflictInfo);
+      } else {
+        result.holdout = revVal;
       }
     }
   }
@@ -1330,45 +1455,16 @@ export function resetReviewOnChange({
   return checkEnvironmentsMatch(changedEnvironments, reviewSetting);
 }
 
-/**
- * Returns which environments a revision affects relative to its base revision.
- * - Per-env changes (rules, environmentsEnabled) return the specific env IDs.
- * - Global changes (prerequisites, archived, metadata) return "all".
- * - Default value changes return all environments in the feature.
- * Used for both UI display and approval-gate determination.
- */
+// Returns which environments a revision affects relative to its base revision.
+// Per-env changes (rules, environmentsEnabled) return specific env IDs.
+// Global changes (prerequisites, archived, holdout, defaultValue, metadata) return "all".
+// Used for both UI display and approval-gate determination.
 export function getDraftAffectedEnvironments(
-  revision: RulesAndValues,
-  baseRevision: RulesAndValues,
+  revision: RevisionFields,
+  baseRevision: RevisionFields,
   allEnvironments: string[],
-  // Fallback env enabled state for environments missing from baseRevision.
-  // Revisions are sparse — envs added after publish won't appear in older
-  // revisions. Pass the live feature's environmentSettings-derived map here
-  // to avoid false-positive "affected" entries for unchanged envs.
-  liveFeatureEnvs?: Record<string, boolean>,
 ): string[] | "all" {
-  // Global changes affect every environment
-  if (
-    (revision.prerequisites !== undefined &&
-      !isEqual(revision.prerequisites, baseRevision.prerequisites || [])) ||
-    (revision.archived !== undefined &&
-      revision.archived !== baseRevision.archived) ||
-    (revision.metadata &&
-      (Object.keys(revision.metadata) as (keyof RevisionMetadata)[]).some(
-        (k) =>
-          !isEqual(
-            normalizeMetadataValue(k, revision.metadata![k]),
-            normalizeMetadataValue(k, baseRevision.metadata?.[k]),
-          ),
-      ))
-  ) {
-    return "all";
-  }
-
-  // Default value change: treat as affecting all environments in the feature
-  if (revision.defaultValue !== baseRevision.defaultValue) {
-    return "all";
-  }
+  if (revisionHasGlobalChange(revision, baseRevision)) return "all";
 
   // Per-environment changes
   const envs = new Set<string>();
@@ -1376,8 +1472,7 @@ export function getDraftAffectedEnvironments(
     if (!isEqual(revision.rules[env] || [], baseRevision.rules[env] || [])) {
       envs.add(env);
     }
-    const effectiveBaseEnvVal =
-      baseRevision.environmentsEnabled?.[env] ?? liveFeatureEnvs?.[env];
+    const effectiveBaseEnvVal = baseRevision.environmentsEnabled?.[env];
     if (
       revision.environmentsEnabled?.[env] !== undefined &&
       revision.environmentsEnabled[env] !== effectiveBaseEnvVal
@@ -1418,22 +1513,10 @@ export function checkIfRevisionNeedsReview({
   );
 
   if (affected === "all") {
-    // Check whether the only "global" change is metadata — prerequisites, archived,
-    // and defaultValue always require approval. Metadata only requires approval when
-    // featureRequireMetadataReview is true (default: true when unset).
-    const hasNonMetadataGlobalChange =
-      (revision.prerequisites !== undefined &&
-        !isEqual(revision.prerequisites, baseRevision.prerequisites || [])) ||
-      (revision.archived !== undefined &&
-        revision.archived !== baseRevision.archived) ||
-      revision.defaultValue !== baseRevision.defaultValue;
-
-    if (hasNonMetadataGlobalChange) return true;
-
-    // Only metadata changed — respect the metadata gate.
-    const metadataReviewEnabled =
-      reviewSetting.featureRequireMetadataReview !== false;
-    return metadataReviewEnabled;
+    // Metadata-only changes respect the featureRequireMetadataReview gate;
+    // all other global changes (prerequisites, archived, holdout, defaultValue) always require review.
+    if (!revisionHasMetadataOnlyGlobalChange(revision, baseRevision)) return true;
+    return reviewSetting.featureRequireMetadataReview !== false;
   }
   if (affected.length === 0) return false;
 
