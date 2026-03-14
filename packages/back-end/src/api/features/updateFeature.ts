@@ -1,5 +1,4 @@
 import {
-  featureRequiresReview,
   checkIfRevisionNeedsReview,
   validateFeatureValue,
   validateScheduleRules,
@@ -13,6 +12,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   getFeature,
   updateFeature as updateFeatureToDb,
+  applyRevisionChanges,
 } from "back-end/src/models/FeatureModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import {
@@ -208,16 +208,19 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
 
     const apiBypassesReviews =
       req.context.org.settings?.restApiBypassesReviews !== false;
-
-    // All envelope changes (environmentsEnabled, prerequisites) always go through a revision.
-    // Check if the affected environments require review.
     const canBypass =
       apiBypassesReviews ||
       req.context.permissions.canBypassApprovalChecks(feature);
 
-    // Handle environmentsEnabled (kill switch changes) — always via revision
+    // Capture tags before stripping them from updates (they go into the revision
+    // metadata but updateFeatureToDb doesn't need them directly).
+    const newTagsForDiff = updates.tags;
+
+    // --- Build a single combined revision for all change types ---
+
+    // 1. environmentsEnabled (kill switches)
+    const changedEnvEnabled: Record<string, boolean> = {};
     if (updates.environmentSettings) {
-      const changedEnvEnabled: Record<string, boolean> = {};
       for (const [env, settings] of Object.entries(
         updates.environmentSettings,
       )) {
@@ -226,89 +229,135 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
           settings.enabled !== feature.environmentSettings?.[env]?.enabled
         ) {
           changedEnvEnabled[env] = settings.enabled;
-          // Keep current enabled state in the direct write so it is not applied twice
+          // Neutralise enabled in the direct-write path so it isn't applied twice.
           updates.environmentSettings[env] = {
             ...updates.environmentSettings[env],
             enabled: feature.environmentSettings?.[env]?.enabled ?? true,
           };
         }
       }
-      if (Object.keys(changedEnvEnabled).length > 0) {
-        const liveRevision = await (
-          await import("back-end/src/models/FeatureRevisionModel")
-        ).getRevision({
-          context: req.context,
-          organization: feature.organization,
-          featureId: feature.id,
-          version: feature.version,
-        });
-        if (!liveRevision) throw new Error("Could not load live revision");
-        const fakeRevision = {
-          ...liveRevision,
-          environmentsEnabled: changedEnvEnabled,
-        };
-        const reviewRequired = checkIfRevisionNeedsReview({
-          feature,
-          baseRevision: liveRevision,
-          revision: fakeRevision,
-          allEnvironments: orgEnvs,
-          settings: req.organization.settings,
-        });
-        if (reviewRequired && !canBypass) {
-          throw new Error(
-            "This feature requires a review for kill switch changes and the API key being used does not have permission to bypass reviews.",
-          );
+    }
+
+    // 2. rules / defaultValue
+    const revisedRules: RevisionRules = {};
+    Object.entries(feature.environmentSettings).forEach(([env, settings]) => {
+      revisedRules[env] = settings.rules;
+    });
+    const changedRuleEnvironments: string[] = [];
+    let defaultValueChanged = false;
+
+    if (
+      updates.defaultValue !== undefined &&
+      updates.defaultValue !== feature.defaultValue
+    ) {
+      defaultValueChanged = true;
+    }
+    if (updates.environmentSettings) {
+      Object.entries(updates.environmentSettings).forEach(([env, settings]) => {
+        if (
+          !isEqual(
+            settings.rules,
+            feature.environmentSettings?.[env]?.rules || [],
+          )
+        ) {
+          changedRuleEnvironments.push(env);
+          revisedRules[env] = settings.rules;
         }
-        const envEnabledRevision = await createRevision({
-          context: req.context,
-          feature,
-          user: req.eventAudit,
-          baseVersion: feature.version,
-          comment: "Created via REST API",
-          environments: orgEnvs,
-          publish: true,
-          changes: { environmentsEnabled: changedEnvEnabled },
-          org: req.organization,
-          canBypassApprovalChecks: canBypass,
-        });
-        const featureWithToggle = await (
-          await import("back-end/src/models/FeatureModel")
-        ).applyRevisionChanges(req.context, feature, envEnabledRevision, {
-          environmentsEnabled: changedEnvEnabled,
-        });
-        Object.assign(feature, featureWithToggle);
-        updates.version = envEnabledRevision.version;
+      });
+    }
+
+    // 3. metadata
+    const metadataChanges: Record<string, unknown> = {};
+    const metadataFields = [
+      "owner",
+      "description",
+      "project",
+      "tags",
+      "customFields",
+      "jsonSchema",
+    ] as const;
+    for (const key of metadataFields) {
+      if (key in updates && updates[key] !== undefined) {
+        metadataChanges[key] = updates[key];
+        delete (updates as Record<string, unknown>)[key];
       }
     }
 
-    // prerequisites — always via revision
-    if (updates.prerequisites) {
-      const liveRevision2 = await (
-        await import("back-end/src/models/FeatureRevisionModel")
-      ).getRevision({
+    // 4. prerequisites
+    const newPrerequisites = updates.prerequisites ?? null;
+    if (newPrerequisites) {
+      delete updates.prerequisites;
+    }
+
+    // Determine whether any revision-tracked change exists
+    const hasEnvEnabledChanges = Object.keys(changedEnvEnabled).length > 0;
+    const hasRuleChanges =
+      defaultValueChanged || changedRuleEnvironments.length > 0;
+    const hasMetadataChanges = Object.keys(metadataChanges).length > 0;
+    const hasPrereqChanges = newPrerequisites !== null;
+
+    const hasRevisionChanges =
+      hasEnvEnabledChanges ||
+      hasRuleChanges ||
+      hasMetadataChanges ||
+      hasPrereqChanges;
+
+    if (hasRevisionChanges) {
+      // Build a combined revision object for the approval check.
+      const liveRevision = await getRevision({
         context: req.context,
         organization: feature.organization,
         featureId: feature.id,
         version: feature.version,
       });
-      if (!liveRevision2) throw new Error("Could not load live revision");
-      const fakeRevision2 = {
-        ...liveRevision2,
-        prerequisites: updates.prerequisites,
+      if (!liveRevision) throw new Error("Could not load live revision");
+
+      const combinedRevision: FeatureRevisionInterface = {
+        ...liveRevision,
+        ...(hasEnvEnabledChanges
+          ? { environmentsEnabled: changedEnvEnabled }
+          : {}),
+        ...(hasRuleChanges
+          ? {
+              defaultValue: updates.defaultValue ?? liveRevision.defaultValue,
+              rules: revisedRules,
+            }
+          : {}),
+        ...(hasMetadataChanges ? { metadata: metadataChanges } : {}),
+        ...(hasPrereqChanges ? { prerequisites: newPrerequisites } : {}),
       };
-      const reviewRequired2 = checkIfRevisionNeedsReview({
+
+      const reviewRequired = checkIfRevisionNeedsReview({
         feature,
-        baseRevision: liveRevision2,
-        revision: fakeRevision2,
+        baseRevision: liveRevision,
+        revision: combinedRevision,
         allEnvironments: orgEnvs,
         settings: req.organization.settings,
       });
-      if (reviewRequired2 && !canBypass) {
+
+      if (reviewRequired && !canBypass) {
         throw new Error(
-          "This feature requires a review for prerequisite changes and the API key being used does not have permission to bypass reviews.",
+          "This feature requires a review and the API key being used does not have permission to bypass reviews.",
         );
       }
-      const prereqRevision = await createRevision({
+
+      const revisionChanges: Partial<FeatureRevisionInterface> = {
+        ...(hasEnvEnabledChanges
+          ? { environmentsEnabled: changedEnvEnabled }
+          : {}),
+        ...(hasRuleChanges || hasEnvEnabledChanges
+          ? {
+              rules: revisedRules,
+              ...(updates.defaultValue !== undefined
+                ? { defaultValue: updates.defaultValue }
+                : {}),
+            }
+          : {}),
+        ...(hasMetadataChanges ? { metadata: metadataChanges } : {}),
+        ...(hasPrereqChanges ? { prerequisites: newPrerequisites } : {}),
+      };
+
+      const revision = await createRevision({
         context: req.context,
         feature,
         user: req.eventAudit,
@@ -316,154 +365,30 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         comment: "Created via REST API",
         environments: orgEnvs,
         publish: true,
-        changes: { prerequisites: updates.prerequisites },
+        changes: revisionChanges,
         org: req.organization,
         canBypassApprovalChecks: canBypass,
       });
-      const featureWithPrereqs = await (
-        await import("back-end/src/models/FeatureModel")
-      ).applyRevisionChanges(req.context, feature, prereqRevision, {
-        prerequisites: updates.prerequisites,
-      });
-      Object.assign(feature, featureWithPrereqs);
-      updates.version = prereqRevision.version;
-      delete updates.prerequisites;
-    }
 
-    // metadata — always via revision
-    // Capture tags before they get moved into metadataChanges and deleted from updates.
-    const newTagsForDiff = updates.tags;
-    {
-      const metadataChanges: Record<string, unknown> = {};
-      const metadataFields = [
-        "owner",
-        "description",
-        "project",
-        "tags",
-        "customFields",
-        "jsonSchema",
-      ] as const;
-      for (const key of metadataFields) {
-        if (key in updates && updates[key] !== undefined) {
-          metadataChanges[key] = updates[key];
-          delete (updates as Record<string, unknown>)[key];
-        }
-      }
-      if (Object.keys(metadataChanges).length > 0) {
-        const liveRevision3 = await (
-          await import("back-end/src/models/FeatureRevisionModel")
-        ).getRevision({
-          context: req.context,
-          organization: feature.organization,
-          featureId: feature.id,
-          version: feature.version,
-        });
-        if (!liveRevision3) throw new Error("Could not load live revision");
-        const fakeRevision3 = { ...liveRevision3, metadata: metadataChanges };
-        const reviewRequired3 = checkIfRevisionNeedsReview({
-          feature,
-          baseRevision: liveRevision3,
-          revision: fakeRevision3,
-          allEnvironments: orgEnvs,
-          settings: req.organization.settings,
-        });
-        if (reviewRequired3 && !canBypass) {
-          throw new Error(
-            "This feature requires a review for metadata changes and the API key being used does not have permission to bypass reviews.",
-          );
-        }
-        const metaRevision = await createRevision({
-          context: req.context,
-          feature,
-          user: req.eventAudit,
-          baseVersion: feature.version,
-          comment: "Created via REST API",
-          environments: orgEnvs,
-          publish: true,
-          changes: { metadata: metadataChanges },
-          org: req.organization,
-          canBypassApprovalChecks: canBypass,
-        });
-        const featureWithMeta = await (
-          await import("back-end/src/models/FeatureModel")
-        ).applyRevisionChanges(req.context, feature, metaRevision, {
-          metadata: metadataChanges,
-        });
-        Object.assign(feature, featureWithMeta);
-        updates.version = metaRevision.version;
-      }
-    }
+      // Build a MergeResultChanges-compatible object for applyRevisionChanges.
+      const mergeResult = {
+        ...(hasEnvEnabledChanges
+          ? { environmentsEnabled: changedEnvEnabled }
+          : {}),
+        ...(defaultValueChanged ? { defaultValue: updates.defaultValue } : {}),
+        ...(changedRuleEnvironments.length > 0 ? { rules: revisedRules } : {}),
+        ...(hasMetadataChanges ? { metadata: metadataChanges } : {}),
+        ...(hasPrereqChanges ? { prerequisites: newPrerequisites } : {}),
+      };
 
-    // Create a revision for the changes and publish them immediately
-    let defaultValueChanged = false;
-    const changedEnvironments: string[] = [];
-    if ("defaultValue" in updates || "environmentSettings" in updates) {
-      const revisionChanges: Partial<FeatureRevisionInterface> = {};
-      const revisedRules: RevisionRules = {};
-
-      // Copy over current envSettings to revision as this endpoint support partial updates
-      Object.entries(feature.environmentSettings).forEach(([env, settings]) => {
-        revisedRules[env] = settings.rules;
-      });
-
-      let hasChanges = false;
-      if (
-        "defaultValue" in updates &&
-        updates.defaultValue !== feature.defaultValue
-      ) {
-        revisionChanges.defaultValue = updates.defaultValue;
-        hasChanges = true;
-        defaultValueChanged = true;
-      }
-      if (updates.environmentSettings) {
-        Object.entries(updates.environmentSettings).forEach(
-          ([env, settings]) => {
-            if (
-              !isEqual(
-                settings.rules,
-                feature.environmentSettings?.[env]?.rules || [],
-              )
-            ) {
-              hasChanges = true;
-              changedEnvironments.push(env);
-              // if the rule is different from the current feature value, update revisionChanges
-              revisedRules[env] = settings.rules;
-            }
-          },
-        );
-      }
-
-      revisionChanges.rules = revisedRules;
-
-      if (hasChanges) {
-        const reviewRequired = featureRequiresReview(
-          feature,
-          changedEnvironments,
-          defaultValueChanged,
-          req.organization.settings,
-        );
-        if (reviewRequired) {
-          if (!req.context.permissions.canBypassApprovalChecks(feature)) {
-            throw new Error(
-              "This feature requires a review and the API key being used does not have permission to bypass reviews.",
-            );
-          }
-        }
-
-        const revision = await createRevision({
-          context: req.context,
-          feature,
-          user: req.eventAudit,
-          baseVersion: feature.version,
-          comment: "Created via REST API",
-          environments: orgEnvs,
-          publish: true,
-          changes: revisionChanges,
-          org: req.organization,
-          canBypassApprovalChecks: true,
-        });
-        updates.version = revision.version;
-      }
+      const updatedFeatureFromRevision = await applyRevisionChanges(
+        req.context,
+        feature,
+        revision,
+        mergeResult,
+      );
+      Object.assign(feature, updatedFeatureFromRevision);
+      updates.version = revision.version;
     }
 
     const updatedFeature = await updateFeatureToDb(
