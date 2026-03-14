@@ -1,6 +1,9 @@
 import { ToggleFeatureResponse } from "shared/types/openapi";
 import { toggleFeatureValidator } from "shared/validators";
-import { checkIfRevisionNeedsReview, getDraftAffectedEnvironments } from "shared/util";
+import {
+  checkIfRevisionNeedsReview,
+  getDraftAffectedEnvironments,
+} from "shared/util";
 import {
   createRevision,
   getRevision,
@@ -113,7 +116,8 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
           liveRevision,
           environmentIds,
         );
-        const envList = affectedEnvs === "all" ? "all environments" : affectedEnvs.join(", ");
+        const envList =
+          affectedEnvs === "all" ? "all environments" : affectedEnvs.join(", ");
         throw new Error(
           `This feature requires a review before publishing changes to: ${envList}. ` +
             "Use an admin-scoped API key or enable 'API keys bypass review requirements' in organization settings.",
@@ -131,7 +135,9 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
       publish: true,
       changes: { environmentsEnabled: changedToggles },
       org: req.organization,
-      canBypassApprovalChecks: apiBypassesReviews || req.context.permissions.canBypassApprovalChecks(feature),
+      canBypassApprovalChecks:
+        apiBypassesReviews ||
+        req.context.permissions.canBypassApprovalChecks(feature),
     });
 
     const updatedFeature = await applyRevisionChanges(

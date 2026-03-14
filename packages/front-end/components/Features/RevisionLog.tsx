@@ -134,9 +134,7 @@ function RevisionLogRow({ log, first }: { log: RevisionLog; first: boolean }) {
               {comment}
             </Text>
           )}
-          {open && !comment && (
-            <Code language="json" code={value} />
-          )}
+          {open && !comment && <Code language="json" code={value} />}
         </Box>
       )}
     </Box>
@@ -188,7 +186,9 @@ const Revisionlog: React.ForwardRefRenderFunction<MutateLog, Props> = (
     return (
       <Text as="p" color="text-low" size="small">
         <em>
-          {reviewOnly ? "No review activity yet" : "No history for this revision"}
+          {reviewOnly
+            ? "No review activity yet"
+            : "No history for this revision"}
         </em>
       </Text>
     );

@@ -3,6 +3,7 @@ import isEqual from "lodash/isEqual";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { RevisionMetadata } from "shared/src/validators/features";
+import type { MergeResultChanges } from "shared/util";
 import {
   renderFeatureDefaultValue,
   renderFeatureRules,
@@ -16,8 +17,6 @@ import {
   getFeatureHoldoutBadges,
 } from "@/components/Features/FeatureDiffRenders";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
-
-import type { MergeResultChanges } from "shared/util";
 
 // Helper
 // Normalize nullable metadata fields to canonical empty values so that
@@ -317,4 +316,3 @@ export function mergeResultToDiffInput(
       : {}),
   };
 }
-

@@ -21,7 +21,9 @@ import Heading from "@/ui/Heading";
 import { useEnvironments } from "@/services/features";
 import EventUser from "@/components/Avatar/EventUser";
 import RevisionStatusBadge from "@/components/Features/RevisionStatusBadge";
-import RevisionLabel, { revisionLabelText } from "@/components/Features/RevisionLabel";
+import RevisionLabel, {
+  revisionLabelText,
+} from "@/components/Features/RevisionLabel";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import { useAuth } from "@/services/auth";
 import PagedModal from "@/components/Modal/PagedModal";
@@ -32,8 +34,8 @@ import {
   featureToFeatureRevisionDiffInput,
   mergeResultToDiffInput,
 } from "@/hooks/useFeatureRevisionDiff";
-import { ExpandableDiff } from "./DraftModal";
 import Callout from "@/ui/Callout";
+import { ExpandableDiff } from "./DraftModal";
 
 export interface Props {
   feature: FeatureInterface;
@@ -113,9 +115,22 @@ export function ExpandableConflict({
               <Flex align="center" justify="between" gap="2" mb="2">
                 <Flex align="center" gap="2" wrap="wrap">
                   <Heading as="h4" size="x-small" mb="0">
-                    {liveRevision
-                      ? <OverflowText maxWidth={200} title={revisionLabelText(liveRevision.version, liveRevision.title)}><RevisionLabel version={liveRevision.version} title={liveRevision.title} /></OverflowText>
-                      : "External Change"}
+                    {liveRevision ? (
+                      <OverflowText
+                        maxWidth={200}
+                        title={revisionLabelText(
+                          liveRevision.version,
+                          liveRevision.title,
+                        )}
+                      >
+                        <RevisionLabel
+                          version={liveRevision.version}
+                          title={liveRevision.title}
+                        />
+                      </OverflowText>
+                    ) : (
+                      "External Change"
+                    )}
                   </Heading>
                   {liveRevision && (
                     <RevisionStatusBadge
@@ -125,10 +140,7 @@ export function ExpandableConflict({
                   )}
                   {liveRevision?.createdBy && (
                     <Text size="small" color="text-low">
-                      <EventUser
-                        user={liveRevision.createdBy}
-                        display="name"
-                      />
+                      <EventUser user={liveRevision.createdBy} display="name" />
                     </Text>
                   )}
                   {liveRevision && (
@@ -163,9 +175,22 @@ export function ExpandableConflict({
               <Flex align="center" justify="between" gap="2" mb="2">
                 <Flex align="center" gap="2" wrap="wrap">
                   <Heading as="h4" size="x-small" mb="0">
-                    {draftRevision
-                      ? <OverflowText maxWidth={200} title={revisionLabelText(draftRevision.version, draftRevision.title)}><RevisionLabel version={draftRevision.version} title={draftRevision.title} /></OverflowText>
-                      : "Your Change"}
+                    {draftRevision ? (
+                      <OverflowText
+                        maxWidth={200}
+                        title={revisionLabelText(
+                          draftRevision.version,
+                          draftRevision.title,
+                        )}
+                      >
+                        <RevisionLabel
+                          version={draftRevision.version}
+                          title={draftRevision.title}
+                        />
+                      </OverflowText>
+                    ) : (
+                      "Your Change"
+                    )}
                   </Heading>
                   {draftRevision && (
                     <RevisionStatusBadge
@@ -300,50 +325,124 @@ export default function FixConflictsModal({
         }}
       >
         <Box mb="4" style={{ maxWidth: 800, margin: "0 auto var(--space-4)" }}>
-        <Callout
-          status="info"
-          contentsAs="div"
-          icon={<PiGitMergeBold size={18} />}
-        >
-          <Text as="p">
-            Your changes {" "}(
-            <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)", whiteSpace: "nowrap" }}>
-              <Text as="span" size="medium" weight="semibold" color="text-high"><OverflowText maxWidth={200} title={revisionLabelText(revision.version, revision.title)}><RevisionLabel version={revision.version} title={revision.title} /></OverflowText></Text>
-              <RevisionStatusBadge
-                revision={revision}
-                liveVersion={liveRevision?.version ?? -1}
-              />
-            </span>
-            ){" "}are based on{" "}
-            <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)", whiteSpace: "nowrap" }}>
-              <Text as="span" size="medium" weight="semibold" color="text-high"><OverflowText maxWidth={200} title={revisionLabelText(baseRevision?.version ?? 0, baseRevision?.title)}><RevisionLabel version={baseRevision?.version ?? 0} title={baseRevision?.title} /></OverflowText></Text>
-              {baseRevision && (
+          <Callout
+            status="info"
+            contentsAs="div"
+            icon={<PiGitMergeBold size={18} />}
+          >
+            <Text as="p">
+              Your changes (
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "var(--space-1)",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <Text
+                  as="span"
+                  size="medium"
+                  weight="semibold"
+                  color="text-high"
+                >
+                  <OverflowText
+                    maxWidth={200}
+                    title={revisionLabelText(revision.version, revision.title)}
+                  >
+                    <RevisionLabel
+                      version={revision.version}
+                      title={revision.title}
+                    />
+                  </OverflowText>
+                </Text>
                 <RevisionStatusBadge
-                  revision={baseRevision}
+                  revision={revision}
                   liveVersion={liveRevision?.version ?? -1}
                 />
-              )}
-            </span>
-            {", but "}
-            <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)", whiteSpace: "nowrap" }}>
-              <Text as="span" size="medium" weight="semibold" color="text-high"><OverflowText maxWidth={200} title={revisionLabelText(liveRevision?.version ?? 0, liveRevision?.title)}><RevisionLabel version={liveRevision?.version ?? 0} title={liveRevision?.title} /></OverflowText></Text>
-              {liveRevision && (
-                <RevisionStatusBadge
-                  revision={liveRevision}
-                  liveVersion={liveRevision.version}
-                />
-              )}
-            </span>
-            {" "}has since been published with conflicting changes.
-          </Text>
-          <Text as="p">
-            Resolve each conflict below, then click{" "}
-            <Text as="span" weight="medium">Update Draft</Text>{" "}
-            to rebase your draft onto the current live version.
-          </Text>
-        </Callout>
+              </span>
+              ) are based on{" "}
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "var(--space-1)",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <Text
+                  as="span"
+                  size="medium"
+                  weight="semibold"
+                  color="text-high"
+                >
+                  <OverflowText
+                    maxWidth={200}
+                    title={revisionLabelText(
+                      baseRevision?.version ?? 0,
+                      baseRevision?.title,
+                    )}
+                  >
+                    <RevisionLabel
+                      version={baseRevision?.version ?? 0}
+                      title={baseRevision?.title}
+                    />
+                  </OverflowText>
+                </Text>
+                {baseRevision && (
+                  <RevisionStatusBadge
+                    revision={baseRevision}
+                    liveVersion={liveRevision?.version ?? -1}
+                  />
+                )}
+              </span>
+              {", but "}
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "var(--space-1)",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <Text
+                  as="span"
+                  size="medium"
+                  weight="semibold"
+                  color="text-high"
+                >
+                  <OverflowText
+                    maxWidth={200}
+                    title={revisionLabelText(
+                      liveRevision?.version ?? 0,
+                      liveRevision?.title,
+                    )}
+                  >
+                    <RevisionLabel
+                      version={liveRevision?.version ?? 0}
+                      title={liveRevision?.title}
+                    />
+                  </OverflowText>
+                </Text>
+                {liveRevision && (
+                  <RevisionStatusBadge
+                    revision={liveRevision}
+                    liveVersion={liveRevision.version}
+                  />
+                )}
+              </span>{" "}
+              has since been published with conflicting changes.
+            </Text>
+            <Text as="p">
+              Resolve each conflict below, then click{" "}
+              <Text as="span" weight="medium">
+                Update Draft
+              </Text>{" "}
+              to rebase your draft onto the current live version.
+            </Text>
+          </Callout>
         </Box>
-        
+
         {mergeResult.conflicts.map((conflict) => (
           <ExpandableConflict
             conflict={conflict}
@@ -363,19 +462,60 @@ export default function FixConflictsModal({
 
       <Page display="Review Changes">
         <Box mb="4" style={{ maxWidth: 800, margin: "0 auto var(--space-4)" }}>
-          <Callout status="info" contentsAs="div" icon={<PiGitMergeBold size={18} />}>
+          <Callout
+            status="info"
+            contentsAs="div"
+            icon={<PiGitMergeBold size={18} />}
+          >
             <Text as="p">
               Almost done —{" "}
-              <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)", whiteSpace: "nowrap" }}>
-                <Text as="span" weight="semibold" color="text-high"><OverflowText maxWidth={200} title={revisionLabelText(revision.version, revision.title)}><RevisionLabel version={revision.version} title={revision.title} /></OverflowText></Text>
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "var(--space-1)",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <Text as="span" weight="semibold" color="text-high">
+                  <OverflowText
+                    maxWidth={200}
+                    title={revisionLabelText(revision.version, revision.title)}
+                  >
+                    <RevisionLabel
+                      version={revision.version}
+                      title={revision.title}
+                    />
+                  </OverflowText>
+                </Text>
                 <RevisionStatusBadge
                   revision={revision}
                   liveVersion={liveRevision?.version ?? -1}
                 />
-              </span>
-              {" "}has been successfully rebased onto{" "}
-              <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)", whiteSpace: "nowrap" }}>
-                <Text as="span" weight="semibold" color="text-high"><OverflowText maxWidth={200} title={revisionLabelText(liveRevision?.version ?? 0, liveRevision?.title)}><RevisionLabel version={liveRevision?.version ?? 0} title={liveRevision?.title} /></OverflowText></Text>
+              </span>{" "}
+              has been successfully rebased onto{" "}
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "var(--space-1)",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <Text as="span" weight="semibold" color="text-high">
+                  <OverflowText
+                    maxWidth={200}
+                    title={revisionLabelText(
+                      liveRevision?.version ?? 0,
+                      liveRevision?.title,
+                    )}
+                  >
+                    <RevisionLabel
+                      version={liveRevision?.version ?? 0}
+                      title={liveRevision?.title}
+                    />
+                  </OverflowText>
+                </Text>
                 {liveRevision && (
                   <RevisionStatusBadge
                     revision={liveRevision}
@@ -384,7 +524,9 @@ export default function FixConflictsModal({
                 )}
               </span>
               . Review the changes below, then click{" "}
-              <Text as="span" weight="medium">Update Draft</Text>{" "}
+              <Text as="span" weight="medium">
+                Update Draft
+              </Text>{" "}
               to apply them.
             </Text>
           </Callout>
@@ -400,8 +542,29 @@ export default function FixConflictsModal({
                   defaultOpen
                   styles={COMPACT_DIFF_STYLES}
                   leftTitle={
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)", fontFamily: "var(--default-font-family)", marginBottom: "var(--space-2)" }}>
-                      <Text as="span" weight="semibold" color="text-high"><OverflowText maxWidth={200} title={revisionLabelText(liveRevision?.version ?? 0, liveRevision?.title)}><RevisionLabel version={liveRevision?.version ?? 0} title={liveRevision?.title} /></OverflowText></Text>
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "var(--space-1)",
+                        fontFamily: "var(--default-font-family)",
+                        marginBottom: "var(--space-2)",
+                      }}
+                    >
+                      <Text as="span" weight="semibold" color="text-high">
+                        <OverflowText
+                          maxWidth={200}
+                          title={revisionLabelText(
+                            liveRevision?.version ?? 0,
+                            liveRevision?.title,
+                          )}
+                        >
+                          <RevisionLabel
+                            version={liveRevision?.version ?? 0}
+                            title={liveRevision?.title}
+                          />
+                        </OverflowText>
+                      </Text>
                       {liveRevision && (
                         <RevisionStatusBadge
                           revision={liveRevision}
@@ -411,8 +574,29 @@ export default function FixConflictsModal({
                     </span>
                   }
                   rightTitle={
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)", fontFamily: "var(--default-font-family)", marginBottom: "var(--space-2)" }}>
-                      <Text as="span" weight="semibold" color="text-high"><OverflowText maxWidth={200} title={revisionLabelText(revision.version, revision.title)}><RevisionLabel version={revision.version} title={revision.title} /></OverflowText></Text>
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "var(--space-1)",
+                        fontFamily: "var(--default-font-family)",
+                        marginBottom: "var(--space-2)",
+                      }}
+                    >
+                      <Text as="span" weight="semibold" color="text-high">
+                        <OverflowText
+                          maxWidth={200}
+                          title={revisionLabelText(
+                            revision.version,
+                            revision.title,
+                          )}
+                        >
+                          <RevisionLabel
+                            version={revision.version}
+                            title={revision.title}
+                          />
+                        </OverflowText>
+                      </Text>
                       <RevisionStatusBadge
                         revision={revision}
                         liveVersion={liveRevision?.version ?? -1}

@@ -33,7 +33,6 @@ export * from "./errors";
 
 export const DEFAULT_ENVIRONMENT_IDS = ["production", "dev", "staging", "test"];
 
-
 export function getAffectedEnvsForExperiment({
   experiment,
   orgEnvironments,

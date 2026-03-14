@@ -41,7 +41,9 @@ import Badge from "@/ui/Badge";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import EventUser from "@/components/Avatar/EventUser";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
-import RevisionLabel, { revisionLabelText } from "@/components/Features/RevisionLabel";
+import RevisionLabel, {
+  revisionLabelText,
+} from "@/components/Features/RevisionLabel";
 import {
   useFeatureRevisionDiff,
   FeatureRevisionDiffInput,
@@ -124,7 +126,12 @@ function RevisionCompareLabel({
               </Tooltip>
             )}
             <Text weight="semibold" size="medium">
-              <OverflowText maxWidth={250} title={revisionLabelText(versionA, revA?.title)}><RevisionLabel version={versionA} title={revA?.title} /></OverflowText>
+              <OverflowText
+                maxWidth={250}
+                title={revisionLabelText(versionA, revA?.title)}
+              >
+                <RevisionLabel version={versionA} title={revA?.title} />
+              </OverflowText>
             </Text>
           </Flex>
           <RevisionStatusBadge revision={revA} liveVersion={liveVersion} />
@@ -165,7 +172,12 @@ function RevisionCompareLabel({
               </Tooltip>
             )}
             <Text weight="semibold" size="medium">
-              <OverflowText maxWidth={250} title={revisionLabelText(versionB, revB?.title)}><RevisionLabel version={versionB} title={revB?.title} /></OverflowText>
+              <OverflowText
+                maxWidth={250}
+                title={revisionLabelText(versionB, revB?.title)}
+              >
+                <RevisionLabel version={versionB} title={revB?.title} />
+              </OverflowText>
             </Text>
           </Flex>
           <RevisionStatusBadge revision={revB} liveVersion={liveVersion} />
@@ -267,7 +279,13 @@ function RevisionCommentItem({
     <Box>
       <Flex align="center" gap="2" mb="1" wrap="wrap">
         <Text size="medium" weight="medium" color="text-mid">
-          <OverflowText maxWidth={200} title={revisionLabelText(version, title)}><RevisionLabel version={version} title={title} /></OverflowText> comment
+          <OverflowText
+            maxWidth={200}
+            title={revisionLabelText(version, title)}
+          >
+            <RevisionLabel version={version} title={title} />
+          </OverflowText>{" "}
+          comment
         </Text>
         {logEntry?.user && (
           <Text size="small" color="text-low">
@@ -290,7 +308,11 @@ function RevisionCommentSection({
   versions,
 }: {
   featureId: string;
-  versions: Array<{ version: number; revisionComment?: string | null; title?: string | null }>;
+  versions: Array<{
+    version: number;
+    revisionComment?: string | null;
+    title?: string | null;
+  }>;
 }) {
   if (versions.length === 0) return null;
   return (
@@ -315,7 +337,11 @@ function DiffContent({
   outOfOrderWarning,
 }: {
   diffs: FeatureRevisionDiff[];
-  commentVersions: Array<{ version: number; revisionComment?: string | null; title?: string | null }>;
+  commentVersions: Array<{
+    version: number;
+    revisionComment?: string | null;
+    title?: string | null;
+  }>;
   feature: FeatureInterface;
   outOfOrderWarning: boolean;
 }) {
@@ -453,7 +479,6 @@ export default function CompareRevisionsModal({
     return list.map((r) => r.version);
   }, [filteredRevisionList]);
 
-
   const defaultAdjacentVersion = useMemo(() => {
     if (versionsDesc.length < 2) return null;
     const idx = versionsDesc.indexOf(currentVersion);
@@ -472,7 +497,8 @@ export default function CompareRevisionsModal({
         .filter((r) => r.status === "published")
         .map((r) => r.version)
         .sort((a, b) => a - b);
-      const prevLive = publishedAsc.filter((v) => v < liveVersion).at(-1) ?? null;
+      const prevLive =
+        publishedAsc.filter((v) => v < liveVersion).at(-1) ?? null;
       if (prevLive !== null) return [prevLive, liveVersion];
     }
     if (!defaultAdjacentVersion) return [currentVersion];
@@ -615,9 +641,9 @@ export default function CompareRevisionsModal({
     [selectedSorted],
   );
 
-  const [previewDraftVersion, setPreviewDraftVersion] = useState<
-    number | null
-  >(initialPreviewDraft ?? null);
+  const [previewDraftVersion, setPreviewDraftVersion] = useState<number | null>(
+    initialPreviewDraft ?? null,
+  );
 
   const neededVersions = useMemo(() => {
     const set = new Set(selectedSortedSet);
@@ -867,8 +893,7 @@ export default function CompareRevisionsModal({
   const quickActionRanges = useMemo(() => {
     // Draft: enter preview mode for the most recent draft vs live.
     const draftPreviewVersion =
-      mostRecentDraftVersion !== null &&
-      mostRecentDraftVersion !== liveVersion
+      mostRecentDraftVersion !== null && mostRecentDraftVersion !== liveVersion
         ? mostRecentDraftVersion
         : null;
 
@@ -881,7 +906,10 @@ export default function CompareRevisionsModal({
     // All: oldest published → current live.
     const allRange: [number, number] | null =
       publishedVersionsAsc.length >= 2
-        ? [publishedVersionsAsc[0], publishedVersionsAsc[publishedVersionsAsc.length - 1]]
+        ? [
+            publishedVersionsAsc[0],
+            publishedVersionsAsc[publishedVersionsAsc.length - 1],
+          ]
         : null;
 
     return { draftPreviewVersion, liveRange, allRange };
@@ -934,18 +962,17 @@ export default function CompareRevisionsModal({
   const previewLiveRev =
     previewDraftVersion !== null ? getFullRevision(liveVersion) : null;
   const previewDraftRev =
-    previewDraftVersion !== null
-      ? getFullRevision(previewDraftVersion)
-      : null;
+    previewDraftVersion !== null ? getFullRevision(previewDraftVersion) : null;
   const liveBase = baseFeature ?? feature;
   const liveBaseInput = useMemo(
     () => featureToFeatureRevisionDiffInput(liveBase),
     [liveBase],
   );
   const previewDiffs = useFeatureRevisionDiff({
-    current: previewDraftVersion !== null
-      ? liveBaseInput
-      : { defaultValue: "", rules: {} },
+    current:
+      previewDraftVersion !== null
+        ? liveBaseInput
+        : { defaultValue: "", rules: {} },
     draft: previewDraftRev
       ? {
           // Use the revision's own defaultValue/rules/prerequisites (full per-revision data),
@@ -1004,7 +1031,9 @@ export default function CompareRevisionsModal({
                     className={`${styles.row} ${previewDraftVersion === quickActionRanges.draftPreviewVersion ? styles.rowPreviewDraft : ""}`}
                     onClick={() => {
                       setShowDrafts(true);
-                      setPreviewDraftVersion(quickActionRanges.draftPreviewVersion);
+                      setPreviewDraftVersion(
+                        quickActionRanges.draftPreviewVersion,
+                      );
                       setDiffPage(0);
                     }}
                   >
@@ -1012,9 +1041,48 @@ export default function CompareRevisionsModal({
                     <Flex direction="column" gap="1" style={{ minWidth: 0 }}>
                       <Text weight="semibold">Most recent draft changes</Text>
                       <Text size="small" color="text-low">
-                        <OverflowText maxWidth={160} title={revisionLabelText(quickActionRanges.draftPreviewVersion, revisionListByVersion.get(quickActionRanges.draftPreviewVersion)?.title ?? getFullRevision(quickActionRanges.draftPreviewVersion)?.title)}><RevisionLabel version={quickActionRanges.draftPreviewVersion} title={revisionListByVersion.get(quickActionRanges.draftPreviewVersion)?.title ?? getFullRevision(quickActionRanges.draftPreviewVersion)?.title} /></OverflowText>{" "}
-                        <PiArrowsLeftRightBold />{" "}
-                        live (<OverflowText maxWidth={160} title={revisionLabelText(liveVersion, revisionListByVersion.get(liveVersion)?.title ?? getFullRevision(liveVersion)?.title)}><RevisionLabel version={liveVersion} title={revisionListByVersion.get(liveVersion)?.title ?? getFullRevision(liveVersion)?.title} /></OverflowText>)
+                        <OverflowText
+                          maxWidth={160}
+                          title={revisionLabelText(
+                            quickActionRanges.draftPreviewVersion,
+                            revisionListByVersion.get(
+                              quickActionRanges.draftPreviewVersion,
+                            )?.title ??
+                              getFullRevision(
+                                quickActionRanges.draftPreviewVersion,
+                              )?.title,
+                          )}
+                        >
+                          <RevisionLabel
+                            version={quickActionRanges.draftPreviewVersion}
+                            title={
+                              revisionListByVersion.get(
+                                quickActionRanges.draftPreviewVersion,
+                              )?.title ??
+                              getFullRevision(
+                                quickActionRanges.draftPreviewVersion,
+                              )?.title
+                            }
+                          />
+                        </OverflowText>{" "}
+                        <PiArrowsLeftRightBold /> live (
+                        <OverflowText
+                          maxWidth={160}
+                          title={revisionLabelText(
+                            liveVersion,
+                            revisionListByVersion.get(liveVersion)?.title ??
+                              getFullRevision(liveVersion)?.title,
+                          )}
+                        >
+                          <RevisionLabel
+                            version={liveVersion}
+                            title={
+                              revisionListByVersion.get(liveVersion)?.title ??
+                              getFullRevision(liveVersion)?.title
+                            }
+                          />
+                        </OverflowText>
+                        )
                       </Text>
                     </Flex>
                   </Box>
@@ -1022,8 +1090,12 @@ export default function CompareRevisionsModal({
                 {quickActionRanges.liveRange && (
                   <Box
                     className={`${styles.row} ${
-                      isRangeEqual(selectedSorted, quickActionRanges.liveRange) &&
-                      !showDrafts && !showDiscarded
+                      isRangeEqual(
+                        selectedSorted,
+                        quickActionRanges.liveRange,
+                      ) &&
+                      !showDrafts &&
+                      !showDiscarded
                         ? styles.rowSelected
                         : ""
                     }`}
@@ -1046,8 +1118,12 @@ export default function CompareRevisionsModal({
                 {quickActionRanges.allRange && (
                   <Box
                     className={`${styles.row} ${
-                      isRangeEqual(selectedSorted, quickActionRanges.allRange) &&
-                      !showDrafts && !showDiscarded
+                      isRangeEqual(
+                        selectedSorted,
+                        quickActionRanges.allRange,
+                      ) &&
+                      !showDrafts &&
+                      !showDiscarded
                         ? styles.rowSelected
                         : ""
                     }`}
@@ -1199,8 +1275,7 @@ export default function CompareRevisionsModal({
                     ? v === previewDraftVersion || v === liveVersion
                     : isSelected;
                 const isDraftRevision =
-                  !!minRev &&
-                  DRAFT_REVISION_STATUSES.includes(minRev.status);
+                  !!minRev && DRAFT_REVISION_STATUSES.includes(minRev.status);
                 const rowId = `compare-rev-${v}`;
                 return (
                   <Box key={v} className={styles.rowWrapper}>
@@ -1232,7 +1307,11 @@ export default function CompareRevisionsModal({
                           gap="2"
                           width="100%"
                         >
-                          <Flex align="center" gap="1" style={{ minWidth: 0, flex: 1, overflow: "hidden" }}>
+                          <Flex
+                            align="center"
+                            gap="1"
+                            style={{ minWidth: 0, flex: 1, overflow: "hidden" }}
+                          >
                             {checkboxChecked && isVersionFailed(v) && (
                               <Tooltip body="Could not load revision">
                                 <PiWarningBold
@@ -1243,8 +1322,23 @@ export default function CompareRevisionsModal({
                                 />
                               </Tooltip>
                             )}
-                            <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0, fontWeight: "bold" }} title={revisionLabelText(v, minRev?.title ?? fullRev?.title)}>
-                              <RevisionLabel version={v} title={minRev?.title ?? fullRev?.title} />
+                            <div
+                              style={{
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                                minWidth: 0,
+                                fontWeight: "bold",
+                              }}
+                              title={revisionLabelText(
+                                v,
+                                minRev?.title ?? fullRev?.title,
+                              )}
+                            >
+                              <RevisionLabel
+                                version={v}
+                                title={minRev?.title ?? fullRev?.title}
+                              />
                             </div>
                           </Flex>
                           {minRev ? (
@@ -1315,7 +1409,6 @@ export default function CompareRevisionsModal({
                       Draft content vs live (two-way)
                     </Text>
                   </Flex>
-
                 </Flex>
                 <RevisionCompareLabel
                   versionA={liveVersion}

@@ -53,7 +53,11 @@ export default forwardRef<HTMLDivElement, Props>(function RadioGroup(
     : "violet";
 
   return (
-    <Flex style={width != null ? { width } : undefined} {...containerProps} ref={ref}>
+    <Flex
+      style={width != null ? { width } : undefined}
+      {...containerProps}
+      ref={ref}
+    >
       <Flex direction={"column"} style={width != null ? { width } : undefined}>
         <Text size="2" color={disabled ? "gray" : undefined}>
           <RadixRadioGroup.Root
@@ -81,7 +85,9 @@ export default forwardRef<HTMLDivElement, Props>(function RadioGroup(
                       disabled={disabled}
                       className={disabled ? "disabled" : undefined}
                     >
-                      <Text className={disabled ? "rt-TextDisabled" : undefined}>
+                      <Text
+                        className={disabled ? "rt-TextDisabled" : undefined}
+                      >
                         <Flex direction="column" gap={gap}>
                           <Text
                             weight="medium"

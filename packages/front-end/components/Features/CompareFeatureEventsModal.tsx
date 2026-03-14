@@ -62,11 +62,7 @@ const FEATURE_DIFF_CONFIG: AuditDiffConfig<FeatureInterface> = {
       if (preHoldout && !postHoldout) return "Removed from holdout";
       return "Changed holdout";
     }
-    if (
-      preHoldout &&
-      postHoldout &&
-      preHoldout.value !== postHoldout.value
-    ) {
+    if (preHoldout && postHoldout && preHoldout.value !== postHoldout.value) {
       return "Changed holdout value";
     }
     return null;

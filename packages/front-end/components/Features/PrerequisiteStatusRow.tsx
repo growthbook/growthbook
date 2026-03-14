@@ -135,79 +135,81 @@ export default function PrerequisiteStatusRow({
           </Box>
         </Modal>
       )}
-    <tr>
-      <td className="align-middle pl-3 border-right">
-        <div className="d-flex">
-          <div className="d-flex flex-1 align-items-center mr-2">
-            <span className="uppercase-title text-muted mt-1 mr-2">Prereq</span>
-            <a
-              className="d-flex align-items-center"
-              href={`/features/${prerequisite.id}`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <span
-                className="d-inline-block text-ellipsis"
-                style={{ maxWidth: 240 }}
-              >
-                {prerequisite.id}
+      <tr>
+        <td className="align-middle pl-3 border-right">
+          <div className="d-flex">
+            <div className="d-flex flex-1 align-items-center mr-2">
+              <span className="uppercase-title text-muted mt-1 mr-2">
+                Prereq
               </span>
-            </a>
-          </div>
-          <div>
-            {canEdit && (
-              <DropdownMenu
-                trigger={
-                  <IconButton
-                    variant="ghost"
-                    color="gray"
-                    radius="full"
-                    size="2"
-                    highContrast
-                    mt="1"
-                  >
-                    <BsThreeDotsVertical size={18} />
-                  </IconButton>
-                }
-                open={open}
-                onOpenChange={setOpen}
-                menuPlacement="end"
-                variant="soft"
+              <a
+                className="d-flex align-items-center"
+                href={`/features/${prerequisite.id}`}
+                target="_blank"
+                rel="noreferrer"
               >
-                <DropdownMenuGroup>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setPrerequisiteModal({ i });
-                      setOpen(false);
-                    }}
-                  >
-                    Edit
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    color="red"
-                    onClick={() => {
-                      setOpen(false);
-                      setShowDeleteModal(true);
-                    }}
-                  >
-                    Delete
-                  </DropdownMenuItem>
-                </DropdownMenuGroup>
-              </DropdownMenu>
-            )}
+                <span
+                  className="d-inline-block text-ellipsis"
+                  style={{ maxWidth: 240 }}
+                >
+                  {prerequisite.id}
+                </span>
+              </a>
+            </div>
+            <div>
+              {canEdit && (
+                <DropdownMenu
+                  trigger={
+                    <IconButton
+                      variant="ghost"
+                      color="gray"
+                      radius="full"
+                      size="2"
+                      highContrast
+                      mt="1"
+                    >
+                      <BsThreeDotsVertical size={18} />
+                    </IconButton>
+                  }
+                  open={open}
+                  onOpenChange={setOpen}
+                  menuPlacement="end"
+                  variant="soft"
+                >
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setPrerequisiteModal({ i });
+                        setOpen(false);
+                      }}
+                    >
+                      Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      color="red"
+                      onClick={() => {
+                        setOpen(false);
+                        setShowDeleteModal(true);
+                      }}
+                    >
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                </DropdownMenu>
+              )}
+            </div>
           </div>
-        </div>
-      </td>
-      {envs.length > 0 && (
-        <PrerequisiteStatesCols
-          prereqStates={prereqStates ?? undefined}
-          defaultValues={defaultValues}
-          envs={envs}
-          loading={prereqStatesLoading}
-        />
-      )}
-      <td />
-    </tr>
+        </td>
+        {envs.length > 0 && (
+          <PrerequisiteStatesCols
+            prereqStates={prereqStates ?? undefined}
+            defaultValues={defaultValues}
+            envs={envs}
+            loading={prereqStatesLoading}
+          />
+        )}
+        <td />
+      </tr>
     </>
   );
 }

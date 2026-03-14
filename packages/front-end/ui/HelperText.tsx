@@ -76,7 +76,10 @@ export default forwardRef<
     size?: "sm" | "md";
     icon?: ReactNode | null;
   } & MarginProps
->(function HelperText({ children, status, size = "md", icon, ...otherProps }, ref) {
+>(function HelperText(
+  { children, status, size = "md", icon, ...otherProps },
+  ref,
+) {
   const renderedIcon = (() => {
     if (icon === null) return null;
     if (icon !== undefined) return icon;
