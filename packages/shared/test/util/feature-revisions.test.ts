@@ -1039,7 +1039,7 @@ describe("mergeRevision with archived and holdout fields", () => {
     };
     const revision = makeRevision({ holdout: null });
     const merged = mergeRevision(featureWithHoldout, revision, []);
-    expect(merged.holdout).toBeNull();
+    expect(merged.holdout).toBeUndefined();
   });
 
   it("leaves holdout unchanged when revision does not include it", () => {

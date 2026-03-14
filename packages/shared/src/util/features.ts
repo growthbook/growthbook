@@ -109,7 +109,7 @@ export function mergeRevision(
   }
 
   if ("holdout" in revision) {
-    newFeature.holdout = revision.holdout ?? null;
+    newFeature.holdout = revision.holdout ?? undefined;
   }
 
   if (revision.metadata) {
