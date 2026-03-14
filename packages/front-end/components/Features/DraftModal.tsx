@@ -8,8 +8,6 @@ import {
   fillRevisionFromFeature,
   filterEnvironmentsByFeature,
   getAffectedEnvsForExperiment,
-  getDraftAffectedEnvironments,
-  getReviewSetting,
   mergeResultHasChanges,
 } from "shared/util";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -20,7 +18,6 @@ import {
   useFeatureExperimentChecklists,
 } from "@/services/features";
 import { useAuth } from "@/services/auth";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "@/components/Modal";
 import Button from "@/components/Button";
 import Field from "@/components/Forms/Field";
@@ -110,7 +107,6 @@ export default function DraftModal({
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const permissionsUtil = usePermissionsUtil();
-  const settings = useOrgSettings();
 
   const { apiCall } = useAuth();
 
@@ -120,28 +116,6 @@ export default function DraftModal({
   );
   const liveRevision = revisions.find((r) => r.version === feature.version);
   const envIds = environments.map((e) => e.id);
-
-  const affectedEnvs = useMemo(() => {
-    if (!revision || !liveRevision) return null;
-    return getDraftAffectedEnvironments(
-      revision,
-      fillRevisionFromFeature(liveRevision, feature),
-      envIds,
-    );
-  }, [revision, liveRevision, envIds, feature]);
-
-  const requiresApproval = settings?.requireReviews === true;
-  const requireReviewSettings = Array.isArray(settings?.requireReviews)
-    ? settings.requireReviews
-    : [];
-  const reviewSetting = getReviewSetting(requireReviewSettings, feature);
-  const gatedEnvSet: Set<string> | "all" | "none" = requiresApproval
-    ? "all"
-    : !reviewSetting?.requireReviewOn
-      ? "none"
-      : (reviewSetting.environments ?? []).length === 0
-        ? "all"
-        : new Set(reviewSetting.environments ?? []);
 
   const mergeResult = useMemo(() => {
     if (!revision || !baseRevision || !liveRevision) return null;
@@ -332,34 +306,6 @@ export default function DraftModal({
         ) : (
           <div>
             <h3>Review &amp; Publish</h3>
-            {affectedEnvs && (
-              <Flex align="center" gap="2" mb="3" wrap="wrap">
-                <span
-                  style={{
-                    fontSize: "var(--font-size-2)",
-                    color: "var(--color-text-low)",
-                  }}
-                >
-                  Affected environments:
-                </span>
-                {(affectedEnvs === "all" ? envIds : affectedEnvs).map(
-                  (envId) => {
-                    const isGated =
-                      gatedEnvSet === "all" ||
-                      (gatedEnvSet !== "none" && gatedEnvSet.has(envId));
-                    return (
-                      <Badge
-                        key={envId}
-                        label={envId}
-                        color={isGated ? "amber" : "sky"}
-                        variant="soft"
-                        radius="small"
-                      />
-                    );
-                  },
-                )}
-              </Flex>
-            )}
             <p>
               The changes below will go live when this draft revision is
               published. You will be able to revert later if needed.

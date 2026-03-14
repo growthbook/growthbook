@@ -6,8 +6,6 @@ import {
   fillRevisionFromFeature,
   filterEnvironmentsByFeature,
   getAffectedEnvsForExperiment,
-  getDraftAffectedEnvironments,
-  getReviewSetting,
   mergeResultHasChanges,
 } from "shared/util";
 import { useForm } from "react-hook-form";
@@ -21,12 +19,12 @@ import {
   useEnvironments,
   useFeatureExperimentChecklists,
 } from "@/services/features";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import Button from "@/components/Button";
 import { ExpandableDiff } from "@/components/Features/DraftModal";
 import Revisionlog, { MutateLog } from "@/components/Features/RevisionLog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import {
   useFeatureRevisionDiff,
@@ -34,6 +32,7 @@ import {
   mergeResultToDiffInput,
 } from "@/hooks/useFeatureRevisionDiff";
 import Badge from "@/ui/Badge";
+import HelperText from "@/ui/HelperText";
 import { logBadgeColor } from "@/components/Features/FeatureDiffRenders";
 import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
@@ -65,7 +64,6 @@ export default function RequestReviewModal({
   const [adminPublish, setAdminPublish] = useState(false);
   const revisionLogRef = useRef<MutateLog>(null);
   const commentInputRef = useRef<HTMLInputElement>(null);
-  const settings = useOrgSettings();
 
   const { apiCall } = useAuth();
   const user = getCurrentUser();
@@ -87,28 +85,6 @@ export default function RequestReviewModal({
   const liveRevision = revisions.find((r) => r.version === feature.version);
 
   const envIds = environments.map((e) => e.id);
-
-  const affectedEnvs = useMemo(() => {
-    if (!revision || !liveRevision) return null;
-    return getDraftAffectedEnvironments(
-      revision,
-      fillRevisionFromFeature(liveRevision, feature),
-      envIds,
-    );
-  }, [revision, liveRevision, envIds, feature]);
-
-  const requiresApproval = settings?.requireReviews === true;
-  const requireReviewSettings = Array.isArray(settings?.requireReviews)
-    ? settings.requireReviews
-    : [];
-  const reviewSetting = getReviewSetting(requireReviewSettings, feature);
-  const gatedEnvSet: Set<string> | "all" | "none" = requiresApproval
-    ? "all"
-    : !reviewSetting?.requireReviewOn
-      ? "none"
-      : (reviewSetting.environments ?? []).length === 0
-        ? "all"
-        : new Set(reviewSetting.environments ?? []);
 
   const mergeResult = useMemo(() => {
     if (!revision || !baseRevision || !liveRevision) return null;
@@ -135,11 +111,12 @@ export default function RequestReviewModal({
   const [experimentsStep, setExperimentsStep] = useState(false);
 
   const currentRevisionData = featureToFeatureRevisionDiffInput(feature);
+  const draftDiffInput = mergeResult?.success
+    ? mergeResultToDiffInput(mergeResult.result, currentRevisionData)
+    : currentRevisionData;
   const resultDiffs = useFeatureRevisionDiff({
     current: currentRevisionData,
-    draft: mergeResult?.success
-      ? mergeResultToDiffInput(mergeResult.result, currentRevisionData)
-      : currentRevisionData,
+    draft: draftDiffInput,
   });
 
   // Exclude no-op diffs (e.g. semantic equality but different raw strings)
@@ -314,34 +291,6 @@ export default function RequestReviewModal({
               </div>
             ) : (
               <>
-                {affectedEnvs && (
-                  <Flex align="center" gap="2" mb="3" wrap="wrap">
-                    <span
-                      style={{
-                        fontSize: "var(--font-size-2)",
-                        color: "var(--color-text-low)",
-                      }}
-                    >
-                      Affected environments:
-                    </span>
-                    {(affectedEnvs === "all" ? envIds : affectedEnvs).map(
-                      (envId) => {
-                        const isGated =
-                          gatedEnvSet === "all" ||
-                          (gatedEnvSet !== "none" && gatedEnvSet.has(envId));
-                        return (
-                          <Badge
-                            key={envId}
-                            label={envId}
-                            color={isGated ? "amber" : "sky"}
-                            variant="soft"
-                            radius="small"
-                          />
-                        );
-                      },
-                    )}
-                  </Flex>
-                )}
                 {approved && experimentData.length > 0 ? (
                   <div className="mb-3">
                     <h4>Start running experiments upon publishing:</h4>
@@ -403,22 +352,45 @@ export default function RequestReviewModal({
                 )}
                 <h4 className="mb-3">Change details</h4>
                 <div className="list-group mb-4">
-                  {resultDiffsWithChanges.map((diff) => (
-                    <ExpandableDiff
-                      key={diff.title}
-                      title={diff.title}
-                      a={diff.a}
-                      b={diff.b}
-                      styles={COMPACT_DIFF_STYLES}
-                    />
-                  ))}
+                  {resultDiffsWithChanges.length > 0 ? (
+                    resultDiffsWithChanges.map((diff) => (
+                      <ExpandableDiff
+                        key={diff.title}
+                        title={diff.title}
+                        a={diff.a}
+                        b={diff.b}
+                        styles={COMPACT_DIFF_STYLES}
+                      />
+                    ))
+                  ) : (
+                    <HelperText status="info">
+                      No material changes detected
+                    </HelperText>
+                  )}
                 </div>
-                <h4 className="mb-3"> Change Request Log</h4>
-                <Revisionlog
-                  feature={feature}
-                  revision={revision}
-                  ref={revisionLogRef}
-                />
+                {(isPendingReview || revision.status === "approved") && (
+                  <div className="mb-4">
+                    <Tabs defaultValue="review">
+                      <TabsList size="2" mb="2">
+                        <TabsTrigger value="review">
+                          Review Activity
+                        </TabsTrigger>
+                        <TabsTrigger value="full">Change Log</TabsTrigger>
+                      </TabsList>
+                      <TabsContent value="review">
+                        <Revisionlog
+                          feature={feature}
+                          revision={revision}
+                          ref={revisionLogRef}
+                          reviewOnly
+                        />
+                      </TabsContent>
+                      <TabsContent value="full">
+                        <Revisionlog feature={feature} revision={revision} />
+                      </TabsContent>
+                    </Tabs>
+                  </div>
+                )}
                 {(!canReview || approved) && (
                   <div className="mt-3" id="comment-section">
                     <Field
