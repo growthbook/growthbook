@@ -176,7 +176,11 @@ async function createOrUpdateDraftWithChanges(
   envelopeChanges: Partial<
     Pick<
       FeatureRevisionInterface,
-      "environmentsEnabled" | "prerequisites" | "archived" | "metadata" | "holdout"
+      | "environmentsEnabled"
+      | "prerequisites"
+      | "archived"
+      | "metadata"
+      | "holdout"
     >
   >,
   logEntry: Omit<RevisionLog, "timestamp">,
@@ -250,6 +254,40 @@ async function createOrUpdateDraftWithChanges(
   });
   await updateFeature(context, feature, { hasDrafts: true });
   return newRevision;
+}
+
+/**
+ * Throws a permission error if the given draft revision requires approval and
+ * the current user cannot bypass the approval flow. Call this before every
+ * unconditional publishRevision() when the caller passed autoPublish: true.
+ */
+async function assertCanAutoPublish(
+  context: ReqContext,
+  feature: FeatureInterface,
+  draft: FeatureRevisionInterface,
+): Promise<void> {
+  const { org } = context;
+  const allEnvironments = getEnvironmentIdsFromOrg(org);
+
+  const baseRevision = await getRevision({
+    context,
+    organization: feature.organization,
+    featureId: feature.id,
+    version: draft.baseVersion,
+  });
+  if (!baseRevision) return; // can't determine — allow (legacy/missing base)
+
+  const requiresReview = checkIfRevisionNeedsReview({
+    feature,
+    baseRevision,
+    revision: draft,
+    allEnvironments,
+    settings: org.settings,
+  });
+
+  if (requiresReview && !context.permissions.canBypassApprovalChecks(feature)) {
+    context.permissions.throwPermissionError();
+  }
 }
 
 export type SDKPayloadParams = Pick<
@@ -2261,6 +2299,7 @@ export async function postFeatureSchema(
     autoPublish ? "Update JSON schema" : undefined,
   );
   if (autoPublish) {
+    await assertCanAutoPublish(context, feature, draft);
     await publishRevision(context, feature, draft, {
       metadata: { jsonSchema },
     });
@@ -2349,7 +2388,13 @@ export async function putSafeRolloutStatus(
   if (!requiresReview) {
     const patchedLive = { ...live, holdout: feature.holdout ?? null };
     const patchedBase = { ...base, holdout: feature.holdout ?? null };
-    const mergeResult = autoMerge(patchedLive, patchedBase, revision, environmentIds, {});
+    const mergeResult = autoMerge(
+      patchedLive,
+      patchedBase,
+      revision,
+      environmentIds,
+      {},
+    );
 
     if (!mergeResult.success) {
       throw new Error("Please resolve conflicts before publishing");
@@ -2625,6 +2670,7 @@ export async function postFeatureToggle(
     });
 
     // Step 2: publish it (applies changes to the feature document)
+    await assertCanAutoPublish(context, feature, revision);
     await publishRevision(context, feature, revision, {
       environmentsEnabled: { [environment]: state },
     });
@@ -2955,12 +3001,10 @@ export async function putFeature(
   ) as Partial<FeatureInterface>;
   const holdoutUpdate = "holdout" in updates ? updates.holdout : undefined;
 
-  if (
-    Object.keys(metadataUpdates).length > 0 ||
-    holdoutUpdate !== undefined
-  ) {
-    const envelopeChanges: Parameters<typeof createOrUpdateDraftWithChanges>[2] =
-      {};
+  if (Object.keys(metadataUpdates).length > 0 || holdoutUpdate !== undefined) {
+    const envelopeChanges: Parameters<
+      typeof createOrUpdateDraftWithChanges
+    >[2] = {};
 
     if (Object.keys(metadataUpdates).length > 0) {
       envelopeChanges.metadata = {
@@ -3027,6 +3071,7 @@ export async function putFeature(
     );
     let updatedFeature: FeatureInterface = feature;
     if (autoPublish) {
+      await assertCanAutoPublish(context, feature, draft);
       updatedFeature = await publishRevision(
         context,
         feature,
@@ -3287,6 +3332,7 @@ export async function postFeatureArchive(
   );
 
   if (autoPublish) {
+    await assertCanAutoPublish(context, feature, draft);
     await publishRevision(context, feature, draft, archiveChanges);
   }
 

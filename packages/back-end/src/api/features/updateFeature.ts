@@ -211,7 +211,9 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
 
     // All envelope changes (environmentsEnabled, prerequisites) always go through a revision.
     // Check if the affected environments require review.
-    const canBypass = apiBypassesReviews || req.context.permissions.canBypassApprovalChecks(feature);
+    const canBypass =
+      apiBypassesReviews ||
+      req.context.permissions.canBypassApprovalChecks(feature);
 
     // Handle environmentsEnabled (kill switch changes) — always via revision
     if (updates.environmentSettings) {
@@ -232,14 +234,19 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         }
       }
       if (Object.keys(changedEnvEnabled).length > 0) {
-        const liveRevision = await (await import("back-end/src/models/FeatureRevisionModel")).getRevision({
+        const liveRevision = await (
+          await import("back-end/src/models/FeatureRevisionModel")
+        ).getRevision({
           context: req.context,
           organization: feature.organization,
           featureId: feature.id,
           version: feature.version,
         });
         if (!liveRevision) throw new Error("Could not load live revision");
-        const fakeRevision = { ...liveRevision, environmentsEnabled: changedEnvEnabled };
+        const fakeRevision = {
+          ...liveRevision,
+          environmentsEnabled: changedEnvEnabled,
+        };
         const reviewRequired = checkIfRevisionNeedsReview({
           feature,
           baseRevision: liveRevision,
@@ -276,14 +283,19 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
 
     // prerequisites — always via revision
     if (updates.prerequisites) {
-      const liveRevision2 = await (await import("back-end/src/models/FeatureRevisionModel")).getRevision({
+      const liveRevision2 = await (
+        await import("back-end/src/models/FeatureRevisionModel")
+      ).getRevision({
         context: req.context,
         organization: feature.organization,
         featureId: feature.id,
         version: feature.version,
       });
       if (!liveRevision2) throw new Error("Could not load live revision");
-      const fakeRevision2 = { ...liveRevision2, prerequisites: updates.prerequisites };
+      const fakeRevision2 = {
+        ...liveRevision2,
+        prerequisites: updates.prerequisites,
+      };
       const reviewRequired2 = checkIfRevisionNeedsReview({
         feature,
         baseRevision: liveRevision2,
@@ -319,6 +331,8 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     }
 
     // metadata — always via revision
+    // Capture tags before they get moved into metadataChanges and deleted from updates.
+    const newTagsForDiff = updates.tags;
     {
       const metadataChanges: Record<string, unknown> = {};
       const metadataFields = [
@@ -336,7 +350,9 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         }
       }
       if (Object.keys(metadataChanges).length > 0) {
-        const liveRevision3 = await (await import("back-end/src/models/FeatureRevisionModel")).getRevision({
+        const liveRevision3 = await (
+          await import("back-end/src/models/FeatureRevisionModel")
+        ).getRevision({
           context: req.context,
           organization: feature.organization,
           featureId: feature.id,
@@ -459,7 +475,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     await addTagsDiff(
       req.context.org.id,
       feature.tags || [],
-      updates.tags || [],
+      newTagsForDiff || [],
     );
 
     await req.audit({
