@@ -55,7 +55,6 @@ export default function AssignmentTester({
   const { apiCall } = useAuth();
 
   const hasPrerequisites = useMemo(() => {
-    return true;
     if (feature?.prerequisites?.length) return true;
     if (
       Object.values(feature?.environmentSettings ?? {}).some((env) =>
