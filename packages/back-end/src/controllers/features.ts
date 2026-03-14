@@ -2386,11 +2386,20 @@ export async function putSafeRolloutStatus(
     settings: org.settings,
   });
   if (!requiresReview) {
-    const patchedLive = { ...live, holdout: feature.holdout ?? null };
-    const patchedBase = { ...base, holdout: feature.holdout ?? null };
+    const featureEnvs: Record<string, boolean> = Object.fromEntries(
+      Object.entries(feature.environmentSettings ?? {}).map(([envId, env]) => [
+        envId,
+        env.enabled,
+      ]),
+    );
+    const fillEnvs = (r: typeof live) => ({
+      ...r,
+      environmentsEnabled: { ...featureEnvs, ...(r.environmentsEnabled ?? {}) },
+      holdout: feature.holdout ?? null,
+    });
     const mergeResult = autoMerge(
-      patchedLive,
-      patchedBase,
+      fillEnvs(live),
+      fillEnvs(base),
       revision,
       environmentIds,
       {},
