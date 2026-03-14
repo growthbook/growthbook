@@ -1670,6 +1670,7 @@ export function getApiFeatureObj({
     },
     revisions: revisionDefs,
     customFields: feature.customFields ?? {},
+    ...(feature.holdout != null ? { holdout: feature.holdout } : {}),
   };
 
   return featureRecord;

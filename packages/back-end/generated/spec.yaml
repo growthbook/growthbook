@@ -781,6 +781,21 @@ paths:
                   type: object
                   additionalProperties:
                     type: string
+                holdout:
+                  nullable: true
+                  description: |
+                    Holdout to assign this feature to. Pass `null` to remove the feature from its current holdout. Omit the field entirely to leave the holdout unchanged.
+                  type: object
+                  required:
+                    - id
+                    - value
+                  properties:
+                    id:
+                      type: string
+                      description: Holdout ID
+                    value:
+                      type: string
+                      description: The feature value assigned to users in the holdout treatment group
       responses:
         '200':
           content:
@@ -20429,6 +20444,19 @@ components:
         customFields:
           type: object
           additionalProperties: true
+        holdout:
+          nullable: true
+          type: object
+          required:
+            - id
+            - value
+          properties:
+            id:
+              type: string
+              description: Holdout ID
+            value:
+              type: string
+              description: The feature value assigned to users in the holdout treatment group
     FeatureWithRevisions:
       allOf:
         - $ref: '#/components/schemas/Feature'

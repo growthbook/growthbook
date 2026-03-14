@@ -156,6 +156,16 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
           }))
         : null;
 
+    // Validate holdout ID if provided
+    if (req.body.holdout !== undefined && req.body.holdout !== null) {
+      const holdoutObj = await req.context.models.holdout.getById(
+        req.body.holdout.id,
+      );
+      if (!holdoutObj) {
+        throw new Error(`Holdout id '${req.body.holdout.id}' not found.`);
+      }
+    }
+
     const jsonSchema =
       feature.valueType === "json" && req.body.jsonSchema != null
         ? parseJsonSchemaForEnterprise(req.organization, req.body.jsonSchema)
@@ -285,9 +295,30 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
 
     // 4. prerequisites
     const newPrerequisites = updates.prerequisites ?? null;
-    if (newPrerequisites) {
+    if (newPrerequisites !== null) {
       delete updates.prerequisites;
     }
+
+    // 5. archived
+    const newArchived =
+      updates.archived !== undefined && updates.archived !== feature.archived
+        ? updates.archived
+        : null;
+    if (newArchived !== null) {
+      delete updates.archived;
+    }
+
+    // 6. holdout — undefined means "no change"; null means "remove from holdout"
+    // req.body.holdout is absent (field not sent) → leave as-is
+    // req.body.holdout === null → remove from holdout
+    // req.body.holdout === { id, value } → add/change holdout
+    const holdoutFieldProvided = "holdout" in req.body;
+    const newHoldout = holdoutFieldProvided
+      ? (req.body.holdout ?? null)
+      : undefined;
+    const hasHoldoutChange =
+      holdoutFieldProvided &&
+      (newHoldout?.id ?? null) !== (feature.holdout?.id ?? null);
 
     // Determine whether any revision-tracked change exists
     const hasEnvEnabledChanges = Object.keys(changedEnvEnabled).length > 0;
@@ -295,12 +326,15 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       defaultValueChanged || changedRuleEnvironments.length > 0;
     const hasMetadataChanges = Object.keys(metadataChanges).length > 0;
     const hasPrereqChanges = newPrerequisites !== null;
+    const hasArchivedChange = newArchived !== null;
 
     const hasRevisionChanges =
       hasEnvEnabledChanges ||
       hasRuleChanges ||
       hasMetadataChanges ||
-      hasPrereqChanges;
+      hasPrereqChanges ||
+      hasArchivedChange ||
+      hasHoldoutChange;
 
     if (hasRevisionChanges) {
       // Build a combined revision object for the approval check.
@@ -325,6 +359,8 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
           : {}),
         ...(hasMetadataChanges ? { metadata: metadataChanges } : {}),
         ...(hasPrereqChanges ? { prerequisites: newPrerequisites } : {}),
+        ...(hasArchivedChange ? { archived: newArchived } : {}),
+        ...(hasHoldoutChange ? { holdout: newHoldout ?? null } : {}),
       };
 
       const reviewRequired = checkIfRevisionNeedsReview({
@@ -355,6 +391,8 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
           : {}),
         ...(hasMetadataChanges ? { metadata: metadataChanges } : {}),
         ...(hasPrereqChanges ? { prerequisites: newPrerequisites } : {}),
+        ...(hasArchivedChange ? { archived: newArchived } : {}),
+        ...(hasHoldoutChange ? { holdout: newHoldout ?? null } : {}),
       };
 
       const revision = await createRevision({
@@ -379,6 +417,8 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         ...(changedRuleEnvironments.length > 0 ? { rules: revisedRules } : {}),
         ...(hasMetadataChanges ? { metadata: metadataChanges } : {}),
         ...(hasPrereqChanges ? { prerequisites: newPrerequisites } : {}),
+        ...(hasArchivedChange ? { archived: newArchived } : {}),
+        ...(hasHoldoutChange ? { holdout: newHoldout ?? null } : {}),
       };
 
       const updatedFeatureFromRevision = await applyRevisionChanges(

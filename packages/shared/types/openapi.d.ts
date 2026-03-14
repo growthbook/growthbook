@@ -1644,6 +1644,12 @@ export interface components {
       customFields?: {
         [key: string]: unknown | undefined;
       };
+      holdout?: {
+        /** @description Holdout ID */
+        id: string;
+        /** @description The feature value assigned to users in the holdout treatment group */
+        value: string;
+      } | null;
     };
     FeatureWithRevisions: ({
       id: string;
@@ -2094,6 +2100,12 @@ export interface components {
       customFields?: {
         [key: string]: unknown | undefined;
       };
+      holdout?: {
+        /** @description Holdout ID */
+        id: string;
+        /** @description The feature value assigned to users in the holdout treatment group */
+        value: string;
+      } | null;
     }) & ({
       revisions?: ({
           baseVersion: number;
@@ -5135,6 +5147,12 @@ export interface operations {
                 customFields?: {
                   [key: string]: unknown | undefined;
                 };
+                holdout?: {
+                  /** @description Holdout ID */
+                  id: string;
+                  /** @description The feature value assigned to users in the holdout treatment group */
+                  value: string;
+                } | null;
               })[];
           }) & {
             limit: number;
@@ -6016,6 +6034,12 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
+              holdout?: {
+                /** @description Holdout ID */
+                id: string;
+                /** @description The feature value assigned to users in the holdout treatment group */
+                value: string;
+              } | null;
             };
           };
         };
@@ -6487,6 +6511,12 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
+              holdout?: {
+                /** @description Holdout ID */
+                id: string;
+                /** @description The feature value assigned to users in the holdout treatment group */
+                value: string;
+              } | null;
             }) & ({
               revisions?: ({
                   baseVersion: number;
@@ -7164,6 +7194,13 @@ export interface operations {
           customFields?: {
             [key: string]: string | undefined;
           };
+          /** @description Holdout to assign this feature to. Pass `null` to remove the feature from its current holdout. Omit the field entirely to leave the holdout unchanged. */
+          holdout?: {
+            /** @description Holdout ID */
+            id: string;
+            /** @description The feature value assigned to users in the holdout treatment group */
+            value: string;
+          } | null;
         };
       };
     };
@@ -7620,6 +7657,12 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
+              holdout?: {
+                /** @description Holdout ID */
+                id: string;
+                /** @description The feature value assigned to users in the holdout treatment group */
+                value: string;
+              } | null;
             };
           };
         };
@@ -8113,6 +8156,12 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
+              holdout?: {
+                /** @description Holdout ID */
+                id: string;
+                /** @description The feature value assigned to users in the holdout treatment group */
+                value: string;
+              } | null;
             };
           };
         };
@@ -8582,6 +8631,12 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
+              holdout?: {
+                /** @description Holdout ID */
+                id: string;
+                /** @description The feature value assigned to users in the holdout treatment group */
+                value: string;
+              } | null;
             };
           };
         };
