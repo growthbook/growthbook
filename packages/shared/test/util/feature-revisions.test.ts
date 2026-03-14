@@ -217,7 +217,7 @@ describe("checkIfRevisionNeedsReview", () => {
     it("requires review when featureRequireMetadataReview is true and metadata changed", () => {
       const settings = makeSettings(
         makeReviewSetting({
-          requireReviewOn: false,
+          requireReviewOn: true,
           featureRequireMetadataReview: true,
         }),
       );
@@ -242,7 +242,7 @@ describe("checkIfRevisionNeedsReview", () => {
     it("does NOT require review when metadata is unchanged", () => {
       const settings = makeSettings(
         makeReviewSetting({
-          requireReviewOn: false,
+          requireReviewOn: true,
           featureRequireMetadataReview: true,
         }),
       );

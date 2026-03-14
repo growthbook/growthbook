@@ -680,8 +680,13 @@ export function fillRevisionFromFeature(
   feature: FeatureInterface,
 ): RevisionFields {
   const result = { ...revision } as RevisionFields;
-  for (const k of Object.keys(revisionFieldFillers) as (keyof RevisionFields)[]) {
-    (result[k] as unknown) = revisionFieldFillers[k]!(feature, result[k] as never);
+  for (const k of Object.keys(
+    revisionFieldFillers,
+  ) as (keyof RevisionFields)[]) {
+    (result[k] as unknown) = revisionFieldFillers[k]!(
+      feature,
+      result[k] as never,
+    );
   }
   return result;
 }
@@ -725,10 +730,7 @@ function revisionHasGlobalChange(
     return true;
   if (revision.archived !== undefined && revision.archived !== base.archived)
     return true;
-  if (
-    "holdout" in revision &&
-    !isEqual(revision.holdout, base.holdout ?? null)
-  )
+  if ("holdout" in revision && !isEqual(revision.holdout, base.holdout ?? null))
     return true;
   if (revision.defaultValue !== base.defaultValue) return true;
   if (
@@ -754,8 +756,7 @@ function revisionHasMetadataOnlyGlobalChange(
   const hasNonMetadata =
     (revision.prerequisites !== undefined &&
       !isEqual(revision.prerequisites, base.prerequisites || [])) ||
-    (revision.archived !== undefined &&
-      revision.archived !== base.archived) ||
+    (revision.archived !== undefined && revision.archived !== base.archived) ||
     ("holdout" in revision &&
       !isEqual(revision.holdout, base.holdout ?? null)) ||
     revision.defaultValue !== base.defaultValue;
@@ -1501,7 +1502,8 @@ export function checkIfRevisionNeedsReview({
   settings?: OrganizationSettings;
 }) {
   const requireReviews = settings?.requireReviews;
-  if (!Array.isArray(requireReviews)) return false;
+  // Boolean format: true = all changes require review, false/undefined = none do.
+  if (!Array.isArray(requireReviews)) return !!requireReviews;
 
   const reviewSetting = getReviewSetting(requireReviews, feature);
   if (!reviewSetting?.requireReviewOn) return false;
@@ -1515,7 +1517,8 @@ export function checkIfRevisionNeedsReview({
   if (affected === "all") {
     // Metadata-only changes respect the featureRequireMetadataReview gate;
     // all other global changes (prerequisites, archived, holdout, defaultValue) always require review.
-    if (!revisionHasMetadataOnlyGlobalChange(revision, baseRevision)) return true;
+    if (!revisionHasMetadataOnlyGlobalChange(revision, baseRevision))
+      return true;
     return reviewSetting.featureRequireMetadataReview !== false;
   }
   if (affected.length === 0) return false;
@@ -1523,8 +1526,9 @@ export function checkIfRevisionNeedsReview({
   // Environment-specific changes: split into rules/values vs kill switches.
   // Rules/values always require approval. Kill switches only require approval
   // when featureRequireEnvironmentReview is true (default: true when unset).
-  const envsWithRuleChanges = affected.filter((env) =>
-    !isEqual(revision.rules?.[env] || [], baseRevision.rules?.[env] || []),
+  const envsWithRuleChanges = affected.filter(
+    (env) =>
+      !isEqual(revision.rules?.[env] || [], baseRevision.rules?.[env] || []),
   );
   const envKillSwitchChanges = affected.filter(
     (env) =>
@@ -1547,7 +1551,8 @@ export function checkIfRevisionNeedsReview({
     reviewSetting.featureRequireEnvironmentReview !== false
   ) {
     if (gatedEnvs.length === 0) return true;
-    if (envKillSwitchChanges.some((env) => gatedEnvs.includes(env))) return true;
+    if (envKillSwitchChanges.some((env) => gatedEnvs.includes(env)))
+      return true;
   }
 
   return false;
