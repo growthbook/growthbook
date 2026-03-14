@@ -2653,7 +2653,7 @@ export async function postFeatureToggle(
       return res.status(200).json({ status: 200 });
     }
 
-    const environments = getEnvironmentIdsFromOrg(context.org);
+    const orgEnvironments = getEnvironmentIdsFromOrg(context.org);
     const toggleTitle = `Toggle ${environment} ${state ? "on" : "off"}`;
     // Step 1: create draft
     const revision = await createRevision({
@@ -2663,7 +2663,7 @@ export async function postFeatureToggle(
       baseVersion: feature.version,
       comment: "",
       title: toggleTitle,
-      environments,
+      environments: orgEnvironments,
       publish: false,
       changes: { environmentsEnabled: { [environment]: state } },
       org: context.org,
