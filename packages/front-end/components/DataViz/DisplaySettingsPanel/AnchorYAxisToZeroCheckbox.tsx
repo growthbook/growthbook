@@ -1,4 +1,4 @@
-import { DataVizConfig, LineChart, ScatterChart } from "shared/validators";
+import { BarChart, DataVizConfig, LineChart, ScatterChart } from "shared/validators";
 import { chartTypeSupportsAnchorYAxisToZero } from "shared/enterprise";
 import Checkbox from "@/ui/Checkbox";
 
@@ -18,7 +18,7 @@ export default function AnchorYAxisToZeroCheckbox({
 
   // We know the chart type supports anchorYAxisToZero, so we can cast the dataVizConfig to the appropriate type.
   const configWithDisplaySettings = dataVizConfig as Partial<
-    LineChart | ScatterChart
+    BarChart | LineChart | ScatterChart
   >;
   return (
     <Checkbox
