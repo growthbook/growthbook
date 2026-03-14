@@ -1246,15 +1246,17 @@ export async function applyHoldoutSideEffects(
 
   // Guard: cannot change holdout id when there are running experiments/bandits/safe rollouts
   if (newHoldout !== null) {
-    const hasNonDraftExperimentsOrBandits = feature.linkedExperiments?.some(
-      async (experimentId) => {
-        const experiment = await getExperimentById(context, experimentId);
-        return (
-          experiment?.status !== "draft" ||
-          experiment?.type === "multi-armed-bandit"
-        );
-      },
-    );
+    let hasNonDraftExperimentsOrBandits = false;
+    for (const experimentId of feature.linkedExperiments ?? []) {
+      const experiment = await getExperimentById(context, experimentId);
+      if (
+        experiment?.status !== "draft" ||
+        experiment?.type === "multi-armed-bandit"
+      ) {
+        hasNonDraftExperimentsOrBandits = true;
+        break;
+      }
+    }
     const hasSafeRollouts = Object.values(feature.environmentSettings).some(
       (env) => env.rules.some((rule) => rule.type === "safe-rollout"),
     );

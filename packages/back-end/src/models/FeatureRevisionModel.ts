@@ -457,10 +457,9 @@ export async function createRevision({
         false,
     ]),
   );
-  const prerequisites =
-    changes?.prerequisites ?? feature.prerequisites ?? [];
+  const prerequisites = changes?.prerequisites ?? feature.prerequisites ?? [];
   const archived = changes?.archived ?? feature.archived ?? false;
-  const metadata: RevisionMetadata = changes?.metadata ?? {
+  const featureMetadataSnapshot: RevisionMetadata = {
     description: feature.description,
     owner: feature.owner,
     project: feature.project,
@@ -470,11 +469,16 @@ export async function createRevision({
     jsonSchema: feature.jsonSchema,
     valueType: feature.valueType,
   };
+  // Always store a complete snapshot. Partial changes (e.g. { neverStale: true })
+  // are merged on top so other metadata fields aren't silently dropped.
+  const metadata: RevisionMetadata = changes?.metadata
+    ? { ...featureMetadataSnapshot, ...changes.metadata }
+    : featureMetadataSnapshot;
   // holdout: explicit null in changes = remove; undefined/absent = carry forward from live
   const holdout =
     "holdout" in (changes ?? {})
-      ? changes!.holdout ?? null
-      : feature.holdout ?? null;
+      ? (changes!.holdout ?? null)
+      : (feature.holdout ?? null);
 
   if (!baseVersion) baseVersion = lastRevision?.version;
   if (!baseVersion) {
