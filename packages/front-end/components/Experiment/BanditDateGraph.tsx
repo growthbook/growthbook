@@ -16,7 +16,10 @@ import {
 import { date, datetime } from "shared/dates";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { ScaleLinear, ScaleTime } from "d3-scale";
-import { ExperimentMetricInterface } from "shared/experiments";
+import {
+  ExperimentMetricInterface,
+  getLatestPhaseVariations,
+} from "shared/experiments";
 import { BanditEvent } from "shared/validators";
 import { BiCheckbox, BiCheckboxSquare } from "react-icons/bi";
 import { useForm } from "react-hook-form";
@@ -286,7 +289,9 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
   const displayCurrency = ssrPolyfills?.useCurrency() || _displayCurrency;
   const metricFormatterOptions = { currency: displayCurrency };
 
-  const variationNames = experiment.variations.map((v) => v.name);
+  const variationNames = getLatestPhaseVariations(experiment).map(
+    (v) => v.name,
+  );
   const { containerRef, containerBounds } = useTooltipInPortal({
     scroll: true,
     detectBounds: true,

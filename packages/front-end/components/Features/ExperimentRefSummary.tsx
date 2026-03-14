@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import React from "react";
 import { includeExperimentInPayload } from "shared/util";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { getVariationColor } from "@/services/features";
@@ -227,7 +228,7 @@ export default function ExperimentRefSummary({
           >
             <Table>
               <TableBody>
-                {experiment.variations.map((variation, j) => {
+                {getLatestPhaseVariations(experiment).map((variation, j) => {
                   const value =
                     variations.find((v) => v.variationId === variation.id)
                       ?.value ?? "null";
@@ -289,15 +290,17 @@ export default function ExperimentRefSummary({
           <Box mt="3">
             {!isBandit && (
               <ExperimentSplitVisual
-                values={experiment.variations.map((variation, j) => {
-                  return {
-                    name: variation.name,
-                    value:
-                      variations.find((v) => v.variationId === variation.id)
-                        ?.value ?? "null",
-                    weight: phase.variationWeights?.[j] || 0,
-                  };
-                })}
+                values={getLatestPhaseVariations(experiment).map(
+                  (variation, j) => {
+                    return {
+                      name: variation.name,
+                      value:
+                        variations.find((v) => v.variationId === variation.id)
+                          ?.value ?? "null",
+                      weight: phase.variationWeights?.[j] || 0,
+                    };
+                  },
+                )}
                 coverage={effectiveCoverage}
                 label="Traffic split"
                 unallocated="Not included (skips this rule)"

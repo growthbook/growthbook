@@ -470,6 +470,10 @@ export interface paths {
     /** Delete a single team */
     delete: operations["deleteTeam"];
   };
+  "/experiment-templates": {
+    /** Get all experimentTemplates */
+    get: operations["listExperimentTemplates"];
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -932,6 +936,59 @@ export interface components {
         resourceId: string;
       };
       defaultProject?: string;
+    };
+    ExperimentTemplate: {
+      id: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      project?: string;
+      owner: string;
+      templateMetadata: {
+        name: string;
+        description?: string;
+      };
+      /** @enum {string} */
+      type: "standard";
+      hypothesis?: string;
+      description?: string;
+      tags?: (string)[];
+      customFields?: {
+        [key: string]: string | undefined;
+      };
+      datasource: string;
+      exposureQueryId: string;
+      hashAttribute?: string;
+      fallbackAttribute?: string;
+      disableStickyBucketing?: boolean;
+      goalMetrics?: (string)[];
+      secondaryMetrics?: (string)[];
+      guardrailMetrics?: (string)[];
+      activationMetric?: string;
+      /** @enum {string} */
+      statsEngine: "bayesian" | "frequentist";
+      segment?: string;
+      skipPartialData?: boolean;
+      targeting: {
+        coverage: number;
+        savedGroups?: ({
+            /** @enum {string} */
+            match: "all" | "none" | "any";
+            ids: (string)[];
+          })[];
+        prerequisites?: ({
+            id: string;
+            condition: string;
+          })[];
+        condition: string;
+      };
+      customMetricSlices?: ({
+          slices: ({
+              column: string;
+              levels: (string)[];
+            })[];
+        })[];
     };
     PaginationFields: {
       limit: number;
@@ -10708,7 +10765,18 @@ export interface operations {
           disableStickyBucketing?: boolean;
           bucketVersion?: number;
           minBucketVersion?: number;
+          /**
+           * @description The result status of the experiment. Maps to resultSummary.status in the GET response. 
+           * @enum {string}
+           */
+          results?: "dnf" | "won" | "lost" | "inconclusive";
+          /** @description The index of the winning variation (0-indexed). Maps to resultSummary.winner (variation ID) in the GET response. */
+          winner?: number;
+          /** @description Analysis summary or conclusions for the experiment. Maps to resultSummary.conclusions in the GET response. */
+          analysis?: string;
+          /** @description The ID of the released variation. Maps to resultSummary.releasedVariationId in the GET response. */
           releasedVariationId?: string;
+          /** @description If true, the experiment is excluded from the SDK payload. Maps to resultSummary.excludeFromPayload in the GET response. */
           excludeFromPayload?: boolean;
           /** @enum {string} */
           inProgressConversions?: "loose" | "strict";
@@ -18655,6 +18723,75 @@ export interface operations {
         content: {
           "application/json": {
             deletedId: string;
+          };
+        };
+      };
+    };
+  };
+  listExperimentTemplates: {
+    /** Get all experimentTemplates */
+    parameters: {
+      query: {
+        projectId?: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            experimentTemplates: ({
+                id: string;
+                /** Format: date-time */
+                dateCreated: string;
+                /** Format: date-time */
+                dateUpdated: string;
+                project?: string;
+                owner: string;
+                templateMetadata: {
+                  name: string;
+                  description?: string;
+                };
+                /** @enum {string} */
+                type: "standard";
+                hypothesis?: string;
+                description?: string;
+                tags?: (string)[];
+                customFields?: {
+                  [key: string]: string | undefined;
+                };
+                datasource: string;
+                exposureQueryId: string;
+                hashAttribute?: string;
+                fallbackAttribute?: string;
+                disableStickyBucketing?: boolean;
+                goalMetrics?: (string)[];
+                secondaryMetrics?: (string)[];
+                guardrailMetrics?: (string)[];
+                activationMetric?: string;
+                /** @enum {string} */
+                statsEngine: "bayesian" | "frequentist";
+                segment?: string;
+                skipPartialData?: boolean;
+                targeting: {
+                  coverage: number;
+                  savedGroups?: ({
+                      /** @enum {string} */
+                      match: "all" | "none" | "any";
+                      ids: (string)[];
+                    })[];
+                  prerequisites?: ({
+                      id: string;
+                      condition: string;
+                    })[];
+                  condition: string;
+                };
+                customMetricSlices?: ({
+                    slices: ({
+                        column: string;
+                        levels: (string)[];
+                      })[];
+                  })[];
+              })[];
           };
         };
       };

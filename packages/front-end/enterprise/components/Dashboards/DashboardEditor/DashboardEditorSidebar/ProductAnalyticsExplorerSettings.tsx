@@ -53,15 +53,23 @@ export default function ProductAnalyticsExplorerSettings({
     );
   }
 
+  const initialConfig =
+    data?.exploration?.config && block.config
+      ? { ...data.exploration.config, ...block.config }
+      : data?.exploration?.config || block.config;
+
   return (
     <ExplorerProvider
-      initialConfig={data?.exploration?.config || block.config}
+      initialConfig={initialConfig}
       hasExistingResults={!!block.explorerAnalysisId}
       onRunComplete={(exploration) => {
         setBlock({
           ...block,
           explorerAnalysisId: exploration.id,
-          config: exploration.config,
+          config: {
+            ...exploration.config,
+            chartType: block.config?.chartType || exploration.config?.chartType,
+          },
         } as
           | MetricExplorationBlockInterface
           | FactTableExplorationBlockInterface

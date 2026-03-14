@@ -300,7 +300,7 @@ export async function postManagedWarehouse(
 
   // Start out with some default materialized columns
   // These can be changed by the user later
-  const identifiers = ["device_id", "user_id"];
+  const identifiers = ["device_id"];
   const dimensions = [
     "geo_country",
     "ua_browser",
@@ -1601,22 +1601,13 @@ function generateManagedWarehouseExposureQueries(
     .map((c) => c.columnName);
 
   return identifiers.map((identifier) => {
-    const cols = [
-      identifier,
-      "timestamp",
-      "experiment_id",
-      "variation_id",
-      ...dimensions,
-    ];
-
     return {
       id: identifier,
       dimensions,
       name: identifier,
       userIdType: identifier,
       query: `
-SELECT 
-  ${cols.join(",\n  ")}
+SELECT *
 FROM experiment_views
 WHERE
   experiment_id LIKE '{{ experimentId }}'

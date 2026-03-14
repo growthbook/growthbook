@@ -15,6 +15,7 @@ import {
   toExperimentApiInterface,
   updateExperimentApiPayloadToInterface,
 } from "back-end/src/services/experiments";
+import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { getMetricMap } from "back-end/src/models/MetricModel";
@@ -217,6 +218,16 @@ export const updateExperiment = createApiRequestHandler(
   if (updatedExperiment === null) {
     throw new Error("Error happened during updating experiment.");
   }
+
+  await req.audit({
+    event: "experiment.update",
+    entity: {
+      object: "experiment",
+      id: experiment.id,
+    },
+    details: auditDetailsUpdate(experiment, updatedExperiment),
+  });
+
   const apiExperiment = await toExperimentApiInterface(
     req.context,
     updatedExperiment as ExperimentInterfaceExcludingHoldouts,

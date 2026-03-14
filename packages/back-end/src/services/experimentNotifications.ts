@@ -8,6 +8,7 @@ import {
   getMetricResultStatus,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
+  getLatestPhaseVariations,
 } from "shared/experiments";
 import cloneDeep from "lodash/cloneDeep";
 import {
@@ -392,7 +393,8 @@ export const computeExperimentChanges = async ({
 
       if (winning === null) continue;
 
-      const { id: variationId, name: variationName } = experiment.variations[i];
+      const { id: variationId, name: variationName } =
+        getLatestPhaseVariations(experiment)[i];
 
       experimentChanges.push({
         experimentId: experiment.id,
