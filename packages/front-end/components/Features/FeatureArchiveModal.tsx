@@ -70,7 +70,9 @@ export default function FeatureArchiveModal({
   const [mode, setMode] = useState<DraftMode>(
     defaultDraft != null ? "existing" : "new",
   );
-  const [selectedDraft, setSelectedDraft] = useState<number | null>(defaultDraft);
+  const [selectedDraft, setSelectedDraft] = useState<number | null>(
+    defaultDraft,
+  );
 
   const canSubmit =
     !loading && totalDependents === 0 && (confirmEnvBypass || !hasActiveEnvs);
@@ -177,7 +179,6 @@ export default function FeatureArchiveModal({
           payloads.
         </p>
       )}
-
     </Modal>
   );
 }

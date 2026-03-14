@@ -6,8 +6,11 @@ import { Box, Flex } from "@radix-ui/themes";
 import { FeatureInterface, FeatureMetaInfo } from "shared/types/feature";
 import { date, datetime } from "shared/dates";
 import { featureHasEnvironment } from "shared/util";
-import { FaTriangleExclamation } from "react-icons/fa6";
-import { FaRegCircleCheck, FaRegCircleXmark } from "react-icons/fa6";
+import {
+  FaTriangleExclamation,
+  FaRegCircleCheck,
+  FaRegCircleXmark,
+} from "react-icons/fa6";
 import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import LoadingOverlay from "@/components/LoadingOverlay";

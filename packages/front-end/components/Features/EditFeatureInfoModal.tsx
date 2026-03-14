@@ -67,7 +67,9 @@ const EditFeatureInfoModal: FC<{
   const [mode, setMode] = useState<DraftMode>(
     canAutoPublish ? "publish" : defaultDraft != null ? "existing" : "new",
   );
-  const [selectedDraft, setSelectedDraft] = useState<number | null>(defaultDraft);
+  const [selectedDraft, setSelectedDraft] = useState<number | null>(
+    defaultDraft,
+  );
 
   const form = useForm({
     defaultValues: {
@@ -197,7 +199,6 @@ const EditFeatureInfoModal: FC<{
             </>
           )}
         </Box>
-
       </Box>
     </Modal>
   );

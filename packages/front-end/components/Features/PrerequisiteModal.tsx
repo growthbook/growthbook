@@ -84,7 +84,9 @@ export default function PrerequisiteModal({
   const [mode, setMode] = useState<DraftMode>(
     defaultDraft != null ? "existing" : "new",
   );
-  const [selectedDraft, setSelectedDraft] = useState<number | null>(defaultDraft);
+  const [selectedDraft, setSelectedDraft] = useState<number | null>(
+    defaultDraft,
+  );
 
   const { data: sdkConnectionsData } = useSDKConnections();
   const hasSDKWithPrerequisites = getConnectionsSDKCapabilities({
@@ -302,7 +304,7 @@ export default function PrerequisiteModal({
         canAutoPublish={false}
         gatedEnvSet={gatedEnvSet}
       />
-      <Text as="div"mt="2" mb="3">
+      <Text as="div" mt="2" mb="3">
         Prerequisite features must evaluate to{" "}
         <span className="rounded px-1 bg-light">
           <ValueDisplay value={"true"} type="boolean" />

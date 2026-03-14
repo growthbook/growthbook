@@ -54,7 +54,9 @@ export default function EditFeatureDescriptionModal({
   const [mode, setMode] = useState<DraftMode>(
     canAutoPublish ? "publish" : defaultDraft != null ? "existing" : "new",
   );
-  const [selectedDraft, setSelectedDraft] = useState<number | null>(defaultDraft);
+  const [selectedDraft, setSelectedDraft] = useState<number | null>(
+    defaultDraft,
+  );
 
   const form = useForm<{ description: string }>({
     defaultValues: {
@@ -123,7 +125,6 @@ export default function EditFeatureDescriptionModal({
         setValue={(value) => form.setValue("description", value)}
         placeholder="Add context about this feature for your team"
       />
-
     </Modal>
   );
 }
