@@ -4,6 +4,8 @@ import {
   createFeature,
   getFeature,
   updateFeature,
+  applyRevisionChanges,
+  applyHoldoutSideEffects,
 } from "back-end/src/models/FeatureModel";
 import {
   createRevision,
@@ -24,6 +26,8 @@ jest.mock("back-end/src/models/FeatureModel", () => ({
   getFeature: jest.fn(),
   createFeature: jest.fn(),
   updateFeature: jest.fn(),
+  applyRevisionChanges: jest.fn(),
+  applyHoldoutSideEffects: jest.fn(),
 }));
 
 jest.mock("back-end/src/models/TagModel", () => ({
@@ -60,7 +64,85 @@ describe("features API", () => {
     (getApiFeatureObj as jest.Mock).mockImplementation((v) => v);
     (getSavedGroupMap as jest.Mock).mockResolvedValue("savedGroupMap");
     (getExperimentMapForFeature as jest.Mock).mockResolvedValue(new Map());
-    (getRevision as jest.Mock).mockResolvedValue(null);
+    (getRevision as jest.Mock).mockImplementation(({ version }) => {
+      // Return a mock revision that matches the feature's current version
+      if (version !== undefined) {
+        return Promise.resolve({
+          version,
+          status: "published",
+          createdBy: { id: "user", email: "user@test.com", name: "Test User" },
+          dateCreated: new Date(),
+          featureId: "test-feature",
+          organization: "org",
+          baseVersion: version - 1,
+          publishedBy: null,
+          comment: "",
+          defaultValue: "defaultValue",
+          rules: {},
+        });
+      }
+      return Promise.resolve(null);
+    });
+    (createRevision as jest.Mock).mockImplementation(({ feature, changes }) => {
+      // Return a new revision with incremented version
+      return Promise.resolve({
+        version: (feature.version || 1) + 1,
+        status: "published",
+        createdBy: { id: "user", email: "user@test.com", name: "Test User" },
+        dateCreated: new Date(),
+        featureId: feature.id,
+        organization: feature.organization,
+        baseVersion: feature.version || 1,
+        publishedBy: null,
+        comment: "",
+        defaultValue: changes.defaultValue || feature.defaultValue,
+        rules: changes.rules || {},
+        ...changes,
+      });
+    });
+    (applyRevisionChanges as jest.Mock).mockImplementation(
+      (context, feature, revision, mergeResult) => {
+        // Return the feature with merged changes
+        const changes: Record<string, unknown> = {
+          ...feature,
+          version: revision.version,
+        };
+        
+        // Apply direct fields from mergeResult
+        if (mergeResult.defaultValue !== undefined) {
+          changes.defaultValue = mergeResult.defaultValue;
+        }
+        if (mergeResult.rules !== undefined) {
+          changes.rules = mergeResult.rules;
+        }
+        if (mergeResult.environmentsEnabled !== undefined) {
+          changes.environmentsEnabled = mergeResult.environmentsEnabled;
+        }
+        if (mergeResult.prerequisites !== undefined) {
+          changes.prerequisites = mergeResult.prerequisites;
+        }
+        if (mergeResult.archived !== undefined) {
+          changes.archived = mergeResult.archived;
+        }
+        if (mergeResult.holdout !== undefined) {
+          changes.holdout = mergeResult.holdout;
+        }
+        
+        // Extract metadata fields to top level (matching real implementation)
+        if (mergeResult.metadata) {
+          const m = mergeResult.metadata;
+          if (m.description !== undefined) changes.description = m.description;
+          if (m.owner !== undefined) changes.owner = m.owner;
+          if (m.project !== undefined) changes.project = m.project;
+          if (m.tags !== undefined) changes.tags = m.tags;
+          if (m.customFields !== undefined) changes.customFields = m.customFields;
+          if (m.jsonSchema !== undefined) changes.jsonSchema = m.jsonSchema;
+        }
+        
+        return Promise.resolve(changes);
+      },
+    );
+    (applyHoldoutSideEffects as jest.Mock).mockResolvedValue(undefined);
     (getNextScheduledUpdate as jest.Mock).mockReturnValue(null);
   });
 
@@ -394,7 +476,7 @@ describe("features API", () => {
               project: "", // Still empty
               tags: ["tag"],
               valueType: "string",
-              version: 1,
+              version: 2, // Version incremented due to metadata change going through revision system
             }),
             groupMap: "savedGroupMap",
           }),
@@ -1083,6 +1165,7 @@ describe("features API", () => {
         Promise.resolve({ ...feature, ...updates }),
       );
 
+      const originalVersion = existingFeature.version;
       const response = await request(app)
         .post(`/api/v1/features/${existingFeature.id}`)
         .send({
@@ -1090,13 +1173,13 @@ describe("features API", () => {
         });
 
       expect(response.status).toBe(200);
-      expect(updateFeature).toHaveBeenCalledWith(
-        expect.anything(),
-        existingFeature,
-        {
-          project: "project_2",
-        },
-      );
+      // With the new revision system, metadata changes (like project) go through
+      // revisions. The feature object is updated via applyRevisionChanges, then
+      // updateFeature is called with just the version update
+      expect(updateFeature).toHaveBeenCalled();
+      const updateFeatureCall = (updateFeature as jest.Mock).mock.calls[0];
+      const updatesArg = updateFeatureCall[2];
+      expect(updatesArg).toEqual({ version: originalVersion + 1 });
     });
   });
 });
