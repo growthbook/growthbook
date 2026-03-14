@@ -18,7 +18,6 @@ import {
   checkIfRevisionNeedsReview,
   fillRevisionFromFeature,
   filterEnvironmentsByFeature,
-  getDraftAffectedEnvironments,
   getReviewSetting,
   mergeResultHasChanges,
 } from "shared/util";
@@ -92,7 +91,6 @@ import Link from "@/ui/Link";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import JSONValidation from "@/components/Features/JSONValidation";
 import DraftControlBadge from "@/components/Features/DraftControlBadge";
-import AffectedEnvironmentsBadges from "@/components/Features/AffectedEnvironmentsBadges";
 import {
   PrerequisiteStateResult,
   usePrerequisiteStates,
@@ -105,6 +103,99 @@ import PrerequisiteModal from "./PrerequisiteModal";
 import RequestReviewModal from "./RequestReviewModal";
 import { FeatureUsageContainer, useFeatureUsage } from "./FeatureUsageGraph";
 import FeatureRules from "./FeatureRules";
+
+function ApprovalStatusIndicator({
+  approvalsEngaged,
+  killSwitchGated,
+  prereqGated,
+  metadataReviewRequired,
+  gatedEnvNames,
+}: {
+  approvalsEngaged: boolean;
+  killSwitchGated: boolean;
+  prereqGated: boolean;
+  metadataReviewRequired: boolean;
+  gatedEnvNames: string[] | "all";
+}) {
+  const noneGated = !approvalsEngaged;
+  const allGated =
+    approvalsEngaged && killSwitchGated && metadataReviewRequired;
+  const icon = noneGated ? (
+    <PiShieldSlashBold size={14} />
+  ) : (
+    <PiShieldCheckBold size={14} />
+  );
+  const label = noneGated
+    ? "Approvals not required"
+    : allGated
+      ? "Approvals required"
+      : "Approvals partially required";
+
+  const requiredLines: string[] = [];
+  const exemptLines: string[] = [];
+  if (!noneGated) {
+    requiredLines.push(
+      `${killSwitchGated ? "Rule, value, and kill switch" : "Rule and value"} changes require approval in ${gatedEnvNames === "all" ? "all environments" : gatedEnvNames.join(", ")}.`,
+    );
+    if (prereqGated)
+      requiredLines.push("Prerequisite changes require approval.");
+    if (metadataReviewRequired)
+      requiredLines.push("Metadata changes require approval.");
+    const exempt = [
+      !approvalsEngaged && "rule and value",
+      !killSwitchGated && "kill switch",
+      !prereqGated && "prerequisite",
+      !metadataReviewRequired && "metadata",
+    ].filter(Boolean) as string[];
+    if (exempt.length) {
+      const exemptLabel =
+        exempt.length === 1
+          ? exempt[0]
+          : exempt.slice(0, -1).join(", ") +
+            " and " +
+            exempt[exempt.length - 1];
+      exemptLines.push(
+        `${exemptLabel.charAt(0).toUpperCase() + exemptLabel.slice(1)} changes do not require approval.`,
+      );
+    }
+  }
+
+  const inner = (
+    <Flex align="center" gap="1" display="inline-flex">
+      <Text
+        size="1"
+        color={noneGated ? "gray" : "violet"}
+        style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
+      >
+        {icon}
+        {label}
+      </Text>
+    </Flex>
+  );
+
+  if (!requiredLines.length && !exemptLines.length) return inner;
+
+  return (
+    <Tooltip
+      body={
+        <Flex direction="column" gap="2">
+          {requiredLines.map((line, i) => (
+            <Text key={i} as="div" size="1" color="violet">
+              · {line}
+            </Text>
+          ))}
+          {exemptLines.map((line, i) => (
+            <Text key={i} as="div" size="1">
+              · {line}
+            </Text>
+          ))}
+        </Flex>
+      }
+    >
+      {inner}
+    </Tooltip>
+  );
+}
 
 export default function FeaturesOverview({
   baseFeature,
@@ -262,17 +353,6 @@ export default function FeaturesOverview({
 
   const { showFeatureUsage, featureUsage, lookback, setLookback } =
     useFeatureUsage();
-
-  const affectedEnvs = useMemo<string[] | "all" | null>(() => {
-    const liveRevision = revisions.find((r) => r.version === feature.version);
-    if (!revision || !liveRevision) return null;
-    const allEnvIds = allEnvironments.map((e) => e.id);
-    return getDraftAffectedEnvironments(
-      revision,
-      fillRevisionFromFeature(liveRevision, baseFeature ?? feature),
-      allEnvIds,
-    );
-  }, [revision, revisions, allEnvironments, baseFeature, feature]);
 
   if (!baseFeature || !feature || !revision) return null;
 
@@ -786,104 +866,23 @@ export default function FeaturesOverview({
                 {revisionCTA}
               </Flex>
             </Flex>
-            {affectedEnvs !== null && (
-              <Flex mt="1" mb="2">
-                <AffectedEnvironmentsBadges
-                  affectedEnvs={affectedEnvs}
-                  gatedEnvSet={gatedEnvSet}
-                />
-              </Flex>
-            )}
+            <Flex justify="end">
+              <ApprovalStatusIndicator
+                approvalsEngaged={approvalsEngaged}
+                killSwitchGated={killSwitchGated}
+                prereqGated={prereqGated}
+                metadataReviewRequired={metadataReviewRequired}
+                gatedEnvNames={gatedEnvNames}
+              />
+            </Flex>
             <Separator size="4" my="3" />
             {renderRevisionInfo()}
             {isLocked && !isLive ? (
-              <Callout status="info" mt="2" mb="0">
+              <Callout status="info" mt="2" mb="0" size="sm">
                 This revision has been <strong>locked</strong>. It is no longer
                 live and cannot be modified.
               </Callout>
             ) : null}
-            {!approvalsEngaged && (
-              <Callout
-                status="info"
-                color="gray"
-                icon={<PiShieldSlashBold size={16} />}
-                mt="2"
-                mb="0"
-                size="sm"
-              >
-                Approvals are <em>not</em> required to publish changes.
-              </Callout>
-            )}
-            {approvalsEngaged &&
-              (killSwitchGated || prereqGated || metadataReviewRequired) && (
-                <Callout
-                  status="info"
-                  icon={<PiShieldCheckBold size={16} />}
-                  mt="2"
-                  mb="0"
-                  size="sm"
-                  contentsAs="div"
-                >
-                  <Flex direction="column" gap="1">
-                    {approvalsEngaged && (
-                      <div>
-                        {killSwitchGated
-                          ? "Rule, value, and kill switch changes"
-                          : "Rule and value changes"}{" "}
-                        require approval in{" "}
-                        <strong>
-                          {gatedEnvNames === "all"
-                            ? "all environments"
-                            : gatedEnvNames.join(", ")}
-                        </strong>
-                        .
-                      </div>
-                    )}
-                    {(prereqGated || metadataReviewRequired) && (
-                      <div>
-                        {prereqGated && metadataReviewRequired
-                          ? "Prerequisite and metadata changes"
-                          : prereqGated
-                            ? "Prerequisite changes"
-                            : "Metadata changes"}{" "}
-                        require approvals.
-                      </div>
-                    )}
-                  </Flex>
-                </Callout>
-              )}
-            {(approvalsEngaged ||
-              killSwitchGated ||
-              prereqGated ||
-              metadataReviewRequired) &&
-              (() => {
-                const exempt = [
-                  !approvalsEngaged && "rule and value",
-                  !killSwitchGated && "kill switch",
-                  !prereqGated && "prerequisite",
-                  !metadataReviewRequired && "metadata",
-                ].filter(Boolean) as string[];
-                if (!exempt.length) return null;
-                const label =
-                  exempt.length === 1
-                    ? exempt[0]
-                    : exempt.slice(0, -1).join(", ") +
-                      " and " +
-                      exempt[exempt.length - 1];
-                return (
-                  <Callout
-                    status="info"
-                    color="gray"
-                    icon={<PiShieldSlashBold size={16} />}
-                    mt="2"
-                    mb="0"
-                    size="sm"
-                  >
-                    {label.charAt(0).toUpperCase() + label.slice(1)} changes do{" "}
-                    <em>not</em> require approval.
-                  </Callout>
-                );
-              })()}
           </Frame>
         )}
 
