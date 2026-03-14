@@ -13,6 +13,7 @@ import {
   getFeature,
   updateFeature as updateFeatureToDb,
   applyRevisionChanges,
+  applyHoldoutSideEffects,
 } from "back-end/src/models/FeatureModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import {
@@ -427,6 +428,13 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         revision,
         mergeResult,
       );
+      if (hasHoldoutChange) {
+        await applyHoldoutSideEffects(
+          req.context,
+          feature, // pre-update state — needed to know the previous holdout
+          newHoldout ?? null,
+        );
+      }
       Object.assign(feature, updatedFeatureFromRevision);
       updates.version = revision.version;
     }
