@@ -1204,6 +1204,7 @@ export async function buildImportedData(
             if (tagImport.tag) {
               const transformed: TagInterface = {
                 id: tagImport.tag.name,
+                label: tagImport.tag.name,
                 description: tagImport.tag.description || "",
                 color: tagImport.tag.isCore ? "purple" : "blue",
               };
@@ -2061,6 +2062,7 @@ export async function runImport(options: RunImportOptions) {
           // Create or update tag (POST endpoint handles upserts automatically)
           const tagPayload = {
             id: tag.name,
+            label: tag.name,
             description: tag.description || "",
             color: tag.isCore ? "purple" : "blue",
           };
