@@ -107,6 +107,8 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
       revision: fakeRevision,
       allEnvironments: environmentIds,
       settings: req.organization.settings,
+      requireApprovalsLicensed:
+        req.context.hasPremiumFeature("require-approvals"),
     });
 
     if (reviewRequired && !apiBypassesReviews) {

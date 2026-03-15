@@ -1409,6 +1409,7 @@ export async function createAndPublishRevision({
     revision: syntheticRevision,
     allEnvironments,
     settings: org.settings,
+    requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
   });
 
   if (requiresReview && !canBypassApprovalChecks) {

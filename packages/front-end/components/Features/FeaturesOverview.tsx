@@ -117,6 +117,9 @@ function ApprovalStatusIndicator({
   metadataReviewRequired: boolean;
   gatedEnvNames: string[] | "all";
 }) {
+  const { hasCommercialFeature } = useUser();
+  const hasApprovalsFeature = hasCommercialFeature("require-approvals");
+  if (!hasApprovalsFeature) return null;
   const noneGated = !approvalsEngaged;
   const allGated =
     approvalsEngaged && killSwitchGated && metadataReviewRequired;
@@ -258,7 +261,6 @@ export default function FeaturesOverview({
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
 
-  const featureProject = feature.project;
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const envs = environments.map((e) => e.id);
@@ -875,14 +877,8 @@ export default function FeaturesOverview({
                 gatedEnvNames={gatedEnvNames}
               />
             </Flex>
-            <Separator size="4" my="3" />
+            <Separator size="4" mt="1" mb="2" />
             {renderRevisionInfo()}
-            {isLocked && !isLive ? (
-              <Callout status="info" mt="2" mb="0" size="sm">
-                This revision has been <strong>locked</strong>. It is no longer
-                live and cannot be modified.
-              </Callout>
-            ) : null}
           </Frame>
         )}
 
@@ -1219,7 +1215,7 @@ export default function FeaturesOverview({
             )}
           </Box>
         </Frame>
-        {(dependents > 0 || featureProject) && (
+        {dependents > 0 && (
           <Frame mb="4" px="6" py="4">
             <Flex mb="2" gap="2" align="center">
               <Heading size="4" as="h3" mb="0">
@@ -1227,7 +1223,7 @@ export default function FeaturesOverview({
               </Heading>
               <Badge label={dependents + ""} color="gray" />
             </Flex>
-            {dependents > 0 ? (
+            {dependents > 0 && (
               <>
                 <Text as="p" size="2" mb="2">
                   {dependents === 1
@@ -1301,8 +1297,6 @@ export default function FeaturesOverview({
                   </>
                 )}
               </>
-            ) : (
-              <Text size="2">No dependents found.</Text>
             )}
           </Frame>
         )}

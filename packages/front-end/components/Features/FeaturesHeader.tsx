@@ -6,9 +6,8 @@ import { Box, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
 import { FeatureInterface } from "shared/types/feature";
 import { filterEnvironmentsByFeature, isDefined } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import { FaExclamationTriangle } from "react-icons/fa";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { PiLink, PiCheck, PiEye } from "react-icons/pi";
+import { PiLink, PiCheck, PiEye, PiWarning } from "react-icons/pi";
 import { HoldoutInterface } from "shared/validators";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
@@ -33,7 +32,8 @@ import UserAvatar from "@/components/Avatar/UserAvatar";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import RevisionDropdown from "@/components/Features/RevisionDropdown";
 import Callout from "@/ui/Callout";
-import ProjectBadges from "@/components/ProjectBadges";
+import Metadata from "@/ui/Metadata";
+import metaDataStyles from "@/ui/Metadata.module.scss";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import Link from "@/ui/Link";
 import {
@@ -441,46 +441,63 @@ export default function FeaturesHeader({
             )}
 
             {(projects.length > 0 || projectIsDeReferenced) && (
-              <Box>
-                <Text weight="medium">Project: </Text>
-                {projectIsDeReferenced ? (
-                  <Tooltip
-                    body={
-                      <>
-                        Project <code>{projectId}</code> not found
-                      </>
-                    }
-                  >
-                    <span className="text-danger">
-                      <FaExclamationTriangle /> Invalid project
-                    </span>
-                  </Tooltip>
-                ) : currentProject && currentProject !== feature.project ? (
-                  <Tooltip
-                    body={<>This feature is not in your current project.</>}
-                  >
-                    {projectId ? <strong>{projectName}</strong> : null}{" "}
-                    <FaExclamationTriangle className="text-warning" />
-                  </Tooltip>
-                ) : projectId ? (
-                  <ProjectBadges
-                    resourceType="feature"
-                    projectIds={projectId ? [projectId] : []}
-                  />
-                ) : null}
-                {canEdit && canPublish && !projectId && (
-                  <a
-                    role="button"
-                    className="cursor-pointer button-link"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setEditFeatureInfoModal(true);
-                    }}
-                  >
-                    +Add
-                  </a>
-                )}
-              </Box>
+              <Metadata
+                label="Project"
+                value={
+                  <Flex gap="1">
+                    {projectIsDeReferenced ? (
+                      <Tooltip
+                        body={
+                          <>
+                            Project <code>{projectId}</code> not found
+                          </>
+                        }
+                      >
+                        <span className="text-danger">
+                          <PiWarning /> Invalid project
+                        </span>
+                      </Tooltip>
+                    ) : currentProject && currentProject !== feature.project ? (
+                      <Tooltip
+                        body={<>This feature is not in your current project.</>}
+                      >
+                        {projectId && (
+                          <Text
+                            weight="regular"
+                            className={metaDataStyles.valueColor}
+                          >
+                            {projectName}
+                          </Text>
+                        )}{" "}
+                        <PiWarning className="text-warning" />
+                      </Tooltip>
+                    ) : projectId ? (
+                      <Text
+                        weight="regular"
+                        className={metaDataStyles.valueColor}
+                      >
+                        {projectName}
+                      </Text>
+                    ) : canEdit && canPublish ? (
+                      <Link
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setEditFeatureInfoModal(true);
+                        }}
+                      >
+                        +Add
+                      </Link>
+                    ) : (
+                      <Text
+                        weight="regular"
+                        className={metaDataStyles.valueColor}
+                      >
+                        None
+                      </Text>
+                    )}
+                  </Flex>
+                }
+              />
             )}
 
             <Box>

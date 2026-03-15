@@ -18,6 +18,7 @@ import {
   fillRevisionFromFeature,
   getReviewSetting,
 } from "shared/util";
+import { useUser } from "@/services/UserContext";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
 import { revisionLabelText } from "@/components/Features/RevisionLabel";
@@ -66,8 +67,7 @@ export default function DraftSelectorForChanges({
   );
 
   // Prefer revisions already loaded on the feature page (via context) to avoid
-  // an extra network round-trip. Fall back to fetching the two specific
-  // revisions we need when used outside FeaturesOverview (e.g. storybook, tests).
+  // an extra network round-trip. Fall back to fetching when used outside FeaturesOverview.
   const ctx = useFeatureRevisionsContext();
   const draftVersionForFetch =
     mode === "existing" && !ctx
@@ -114,8 +114,6 @@ export default function DraftSelectorForChanges({
     if (!liveRevision || !draftRevision) return null;
 
     const allEnvIds = allEnvironments.map((e) => e.id);
-    // Use baseFeature (if provided, or from context) as the source of truth for
-    // environment enabled state — it's the raw live doc, not draft-merged.
     const liveDoc = baseFeature ?? ctx?.baseFeature ?? feature;
     const result = getDraftAffectedEnvironments(
       draftRevision,
@@ -220,20 +218,18 @@ export default function DraftSelectorForChanges({
     );
 
   const approvalsGloballyEnabled = !!settings?.requireReviews;
+  const { hasCommercialFeature } = useUser();
+  const hasApprovalsFeature = hasCommercialFeature("require-approvals");
 
-  // gatedEnvSet is the authoritative signal for whether this specific action
-  // is approval-gated. Callers are responsible for passing "none" when their
-  // action-type-specific approval is disabled (e.g. kill switch approvals off).
-  // canAutoPublish is intentionally NOT used here — admins can bypass approvals
-  // but the icon should still reflect the change's gating status.
-  const triggerIcon =
-    gatedEnvSet !== "none" ? (
-      <PiShieldCheckBold size={16} />
-    ) : approvalsGloballyEnabled ? (
-      <PiShieldSlashBold size={16} />
-    ) : (
-      <PiInfoFill size={16} />
-    );
+  const triggerIcon = !hasApprovalsFeature ? (
+    <PiInfoFill size={16} />
+  ) : gatedEnvSet !== "none" ? (
+    <PiShieldCheckBold size={16} />
+  ) : approvalsGloballyEnabled ? (
+    <PiShieldSlashBold size={16} />
+  ) : (
+    <PiInfoFill size={16} />
+  );
 
   const trigger = (
     <Flex

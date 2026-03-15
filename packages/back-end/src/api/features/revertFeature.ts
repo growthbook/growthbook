@@ -190,6 +190,8 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
         revision,
         allEnvironments: allEnvironmentIds,
         settings: req.organization.settings,
+        requireApprovalsLicensed:
+          req.context.hasPremiumFeature("require-approvals"),
       });
       if (reviewRequired) {
         throw new PermissionError(

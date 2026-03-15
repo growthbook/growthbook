@@ -1494,13 +1494,16 @@ export function checkIfRevisionNeedsReview({
   revision,
   allEnvironments,
   settings,
+  requireApprovalsLicensed = true,
 }: {
   feature: FeatureInterface;
   baseRevision: FeatureRevisionInterface;
   revision: FeatureRevisionInterface;
   allEnvironments: string[];
   settings?: OrganizationSettings;
+  requireApprovalsLicensed?: boolean;
 }) {
+  if (!requireApprovalsLicensed) return false;
   const requireReviews = settings?.requireReviews;
   // Boolean format: true = all changes require review, false/undefined = none do.
   if (!Array.isArray(requireReviews)) return !!requireReviews;

@@ -6,11 +6,12 @@ import { Flex, Box } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
 import {
   PiCaretRightBold,
+  PiInfoFill,
   PiShieldCheckBold,
-  PiWarningBold,
 } from "react-icons/pi";
 import { getAffectedRevisionEnvs, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import {
@@ -55,6 +56,8 @@ export default function RevertModal({
   // Previously-published revisions the user can revert to, newest-published
   // first. Computed before targetVersion state so the initial value can use
   // publishedRevisions[0] (most recently published before live).
+  const { hasCommercialFeature } = useUser();
+  const hasApprovalsFeature = hasCommercialFeature("require-approvals");
   const publishedRevisions = useMemo(
     () =>
       allRevisions
@@ -152,14 +155,16 @@ export default function RevertModal({
         will be added to <Text weight="semibold">a new draft</Text>
       </>
     ) : (
-      <Text weight="semibold">published immediately</Text>
+      <>
+        will be <Text weight="semibold">applied immediately</Text>
+      </>
     );
 
   const triggerIcon =
-    strategy === "publish" ? (
-      <PiWarningBold size={16} />
-    ) : (
+    hasApprovalsFeature && strategy !== "publish" ? (
       <PiShieldCheckBold size={16} />
+    ) : (
+      <PiInfoFill size={16} />
     );
 
   const strategyTrigger = (
@@ -172,10 +177,7 @@ export default function RevertModal({
       style={{ cursor: "pointer", userSelect: "none" }}
       className="draft-selector-collapsible-trigger"
     >
-      <HelperText
-        status={strategy === "publish" ? "warning" : "info"}
-        icon={triggerIcon}
-      >
+      <HelperText status="info" icon={triggerIcon}>
         <div className="ml-1">Revert {triggerLabel}</div>
       </HelperText>
       <PiCaretRightBold className="chevron-right" style={{ flexShrink: 0 }} />

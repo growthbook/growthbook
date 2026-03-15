@@ -526,6 +526,7 @@ export async function createRevision({
     revision,
     allEnvironments: environments,
     settings: org.settings,
+    requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
   });
   if (publish && (!requiresReview || canBypassApprovalChecks)) {
     revision.status = "published";

@@ -283,6 +283,7 @@ async function assertCanAutoPublish(
     revision: draft,
     allEnvironments,
     settings: org.settings,
+    requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
   });
 
   if (requiresReview && !context.permissions.canBypassApprovalChecks(feature)) {
@@ -1070,6 +1071,7 @@ export async function postFeaturePublish(
     revision,
     allEnvironments: environmentIds,
     settings: org.settings,
+    requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
   });
   if (!adminOverride && requiresReview && revision.status !== "approved") {
     throw new Error("needs review before publishing");
@@ -2384,6 +2386,7 @@ export async function putSafeRolloutStatus(
     revision,
     allEnvironments: environmentIds,
     settings: org.settings,
+    requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
   });
   if (!requiresReview) {
     const featureEnvs: Record<string, boolean> = Object.fromEntries(
