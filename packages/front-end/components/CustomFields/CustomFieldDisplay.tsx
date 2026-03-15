@@ -243,7 +243,7 @@ const CustomFieldDisplay: FC<{
           <>
             <Flex justify="between" align="center" mt={mt}>
               <Flex align="center" gap="1">
-                <Heading as="h3" size="4" mb="0">
+                <Heading as="h4" size="3" mb="0">
                   {label ? label : ""}
                 </Heading>
                 {showApprovalBadge && (

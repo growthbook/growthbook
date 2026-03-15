@@ -9,6 +9,8 @@ import {
   mergeResultHasChanges,
   mergeRevision,
   RevisionFields,
+  draftDiffersFromLive,
+  liveRevisionFromFeature,
 } from "../../src/util";
 
 // ---------------------------------------------------------------------------
@@ -835,6 +837,76 @@ describe("fillRevisionFromFeature", () => {
     expect(filled.defaultValue).toBe("custom");
     expect(filled.metadata?.description).toBe("keep me");
     expect(filled.rules.production).toHaveLength(1);
+  });
+
+  it("backfills metadata.valueType for old revisions that lack it", () => {
+    const feature: FeatureInterface = { ...baseFeature, valueType: "string" };
+    const revision: RevisionFields = {
+      version: 4,
+      defaultValue: "x",
+      rules: {},
+      metadata: { description: "hi" },
+    };
+    const filled = fillRevisionFromFeature(revision, feature);
+    expect(filled.metadata?.valueType).toBe("string");
+    // existing field is preserved
+    expect(filled.metadata?.description).toBe("hi");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// draftDiffersFromLive
+// ---------------------------------------------------------------------------
+
+describe("draftDiffersFromLive", () => {
+  const feature: FeatureInterface = {
+    ...baseFeature,
+    defaultValue: "false",
+    environmentSettings: {
+      production: { enabled: true, rules: [] },
+      staging: { enabled: false, rules: [] },
+    },
+  };
+  const liveRevision: RevisionFields = {
+    version: 3,
+    defaultValue: "false",
+    rules: { production: [], staging: [] },
+    environmentsEnabled: { production: true, staging: false },
+  };
+
+  it("returns false when draft has no effective changes vs live", () => {
+    const filledLive = liveRevisionFromFeature(liveRevision, feature);
+    // draft is a clone of the live baseline
+    const draft: RevisionFields = { ...filledLive };
+    expect(
+      draftDiffersFromLive(draft, liveRevision, feature, [
+        "production",
+        "staging",
+      ]),
+    ).toBe(false);
+  });
+
+  it("returns true when defaultValue differs", () => {
+    const draft: RevisionFields = { ...liveRevision, defaultValue: "true" };
+    expect(
+      draftDiffersFromLive(draft, liveRevision, feature, [
+        "production",
+        "staging",
+      ]),
+    ).toBe(true);
+  });
+
+  it("returns true when an env toggle differs", () => {
+    const draft: RevisionFields = {
+      ...liveRevision,
+      environmentsEnabled: { production: false, staging: false },
+    };
+    expect(
+      draftDiffersFromLive(draft, liveRevision, feature, [
+        "production",
+        "staging",
+      ]),
+    ).toBe(true);
   });
 });
 

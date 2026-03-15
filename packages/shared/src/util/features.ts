@@ -647,20 +647,15 @@ export type RevisionFields = Pick<
   | "holdout"
 >;
 
-// Per-field backfill strategies for fillRevisionFromFeature.
-// Each filler receives the live feature and the revision's current field value
-// (possibly undefined for a sparse/legacy revision) and returns the normalized value.
-// Fields without an entry are left as-is — sparse absence is meaningful for those.
-// Add an entry here whenever a new revision envelope field needs backfill logic.
+// Per-field backfill for old/sparse revisions before passing to autoMerge.
+// Fields not listed here are left as-is; sparse absence is meaningful for those.
 const revisionFieldFillers: Partial<{
   [K in keyof RevisionFields]: (
     feature: FeatureInterface,
     current: RevisionFields[K],
   ) => RevisionFields[K];
 }> = {
-  // Revisions only record environmentsEnabled at publish time. Environments
-  // added to the org afterwards won't appear in older revisions — fill from
-  // the live feature so autoMerge doesn't produce false diffs for new envs.
+  // Fill missing envs from the live feature so new envs don't produce false diffs.
   environmentsEnabled: (feature, current) => ({
     ...Object.fromEntries(
       Object.entries(feature.environmentSettings ?? {}).map(([env, val]) => [
@@ -670,11 +665,14 @@ const revisionFieldFillers: Partial<{
     ),
     ...(current ?? {}),
   }),
+  // Backfill valueType for old revisions that predate this field.
+  metadata: (feature, current) =>
+    current?.valueType != null
+      ? current
+      : { ...current, valueType: feature.valueType },
 };
 
-// Normalize a revision's stale/missing fields from the live feature before passing
-// to autoMerge. Only fields in revisionFieldFillers are touched; all others are left
-// as-is so that sparse absence remains meaningful.
+// Backfills stale/missing fields on a revision before passing to autoMerge.
 export function fillRevisionFromFeature(
   revision: RevisionFields,
   feature: FeatureInterface,
@@ -691,6 +689,120 @@ export function fillRevisionFromFeature(
   return result;
 }
 
+// Builds a canonical RevisionFields snapshot from the live feature document.
+// Use this (not fillRevisionFromFeature) when constructing the live baseline for diffs.
+export function liveRevisionFromFeature(
+  liveRevision: RevisionFields,
+  feature: FeatureInterface,
+): RevisionFields {
+  return {
+    ...liveRevision,
+    defaultValue: feature.defaultValue,
+    rules: Object.fromEntries(
+      Object.entries(feature.environmentSettings ?? {}).map(([env, val]) => [
+        env,
+        val.rules ?? [],
+      ]),
+    ),
+    environmentsEnabled: Object.fromEntries(
+      Object.entries(feature.environmentSettings ?? {}).map(([env, val]) => [
+        env,
+        !!val.enabled,
+      ]),
+    ),
+    archived: feature.archived ?? false,
+    prerequisites: feature.prerequisites ?? [],
+    holdout:
+      "holdout" in (feature as object)
+        ? ((feature as { holdout?: RevisionFields["holdout"] }).holdout ?? null)
+        : liveRevision.holdout,
+    metadata: {
+      description: feature.description ?? "",
+      owner: feature.owner ?? "",
+      project: feature.project ?? "",
+      tags: feature.tags ?? [],
+      jsonSchema: feature.jsonSchema,
+      valueType: feature.valueType,
+      ...(liveRevision.metadata ?? {}),
+    },
+  };
+}
+
+// Overlays a draft's stored fields onto the live baseline.
+export function buildEffectiveDraft(
+  draftRevision: RevisionFields,
+  filledLive: RevisionFields,
+): RevisionFields {
+  return {
+    ...filledLive,
+    defaultValue: draftRevision.defaultValue,
+    rules: draftRevision.rules,
+    ...(draftRevision.environmentsEnabled !== undefined && {
+      environmentsEnabled: draftRevision.environmentsEnabled,
+    }),
+    ...(draftRevision.prerequisites !== undefined && {
+      prerequisites: draftRevision.prerequisites,
+    }),
+    ...(draftRevision.archived !== undefined && {
+      archived: draftRevision.archived,
+    }),
+    ...(draftRevision.metadata !== undefined && {
+      metadata: { ...filledLive.metadata, ...draftRevision.metadata },
+    }),
+  };
+}
+
+// Returns true if the draft differs from live across any tracked field.
+export function draftDiffersFromLive(
+  draftRevision: RevisionFields,
+  liveRevision: RevisionFields,
+  feature: FeatureInterface,
+  envIds: string[],
+): boolean {
+  const filledLive = liveRevisionFromFeature(liveRevision, feature);
+  const draft = buildEffectiveDraft(draftRevision, filledLive);
+
+  if (draft.defaultValue !== filledLive.defaultValue) return true;
+  if (draft.archived !== filledLive.archived) return true;
+  if (
+    envIds.some(
+      (env) =>
+        JSON.stringify(draft.rules[env] ?? []) !==
+        JSON.stringify(filledLive.rules[env] ?? []),
+    )
+  )
+    return true;
+  if (
+    envIds.some(
+      (env) =>
+        (draft.environmentsEnabled?.[env] ?? false) !==
+        (filledLive.environmentsEnabled?.[env] ?? false),
+    )
+  )
+    return true;
+  if (
+    JSON.stringify(draft.prerequisites ?? []) !==
+    JSON.stringify(filledLive.prerequisites ?? [])
+  )
+    return true;
+  if (draft.metadata) {
+    const keys = new Set([
+      ...Object.keys(draft.metadata),
+      ...Object.keys(filledLive.metadata ?? {}),
+    ]) as Set<keyof RevisionMetadata>;
+    for (const k of keys) {
+      if (
+        !isEqual(
+          normalizeMetadataValue(k, draft.metadata[k]),
+          normalizeMetadataValue(k, filledLive.metadata?.[k]),
+        )
+      )
+        return true;
+    }
+  }
+  return false;
+}
+
 export function mergeResultHasChanges(mergeResult: AutoMergeResult): boolean {
   if (!mergeResult.success) return true;
   const r = mergeResult.result;
@@ -704,9 +816,8 @@ export function mergeResultHasChanges(mergeResult: AutoMergeResult): boolean {
     return true;
   return false;
 }
-// Normalize a metadata field value for comparison so that semantic equivalents
-// (null vs "" for strings, null vs [] for tags) don't produce false-positive deltas.
-function normalizeMetadataValue(
+// Normalize a metadata field value for comparison.
+export function normalizeMetadataValue(
   k: keyof RevisionMetadata,
   v: RevisionMetadata[keyof RevisionMetadata],
 ): unknown {

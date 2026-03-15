@@ -11,6 +11,7 @@ import {
   MergeStrategy,
   autoMerge,
   fillRevisionFromFeature,
+  liveRevisionFromFeature,
   mergeResultHasChanges,
   filterEnvironmentsByFeature,
 } from "shared/util";
@@ -267,7 +268,7 @@ export default function FixConflictsModal({
   const mergeResult = useMemo(() => {
     if (!revision || !baseRevision || !liveRevision) return null;
     return autoMerge(
-      fillRevisionFromFeature(liveRevision, feature),
+      liveRevisionFromFeature(liveRevision, feature),
       fillRevisionFromFeature(baseRevision, feature),
       revision,
       envIds,

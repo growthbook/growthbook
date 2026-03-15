@@ -6,6 +6,7 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   autoMerge,
   fillRevisionFromFeature,
+  liveRevisionFromFeature,
   filterEnvironmentsByFeature,
   getAffectedEnvsForExperiment,
   mergeResultHasChanges,
@@ -120,7 +121,7 @@ export default function DraftModal({
   const mergeResult = useMemo(() => {
     if (!revision || !baseRevision || !liveRevision) return null;
     return autoMerge(
-      fillRevisionFromFeature(liveRevision, feature),
+      liveRevisionFromFeature(liveRevision, feature),
       fillRevisionFromFeature(baseRevision, feature),
       revision,
       envIds,

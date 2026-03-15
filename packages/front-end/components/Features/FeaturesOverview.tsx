@@ -1,6 +1,6 @@
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import {
   PiPlusCircleBold,
@@ -9,6 +9,7 @@ import {
   PiShieldSlashBold,
   PiPencilSimpleFill,
   PiCaretDownBold,
+  PiCaretRightBold,
   PiPencil,
 } from "react-icons/pi";
 import { FaBoltLightning } from "react-icons/fa6";
@@ -17,12 +18,14 @@ import {
   autoMerge,
   checkIfRevisionNeedsReview,
   fillRevisionFromFeature,
+  liveRevisionFromFeature,
   filterEnvironmentsByFeature,
   getReviewSetting,
-  mergeResultHasChanges,
+  draftDiffersFromLive,
 } from "shared/util";
 import { MdRocketLaunch } from "react-icons/md";
 import { BiHide, BiShow } from "react-icons/bi";
+import Collapsible from "react-collapsible";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { BsClock } from "react-icons/bs";
 import { FeatureUsageLookback } from "shared/types/integrations";
@@ -81,6 +84,10 @@ import EditFeatureDescriptionModal from "@/components/Features/EditFeatureDescri
 import CustomFieldDisplay, {
   CustomFieldDraftInfo,
 } from "@/components/CustomFields/CustomFieldDisplay";
+import {
+  useCustomFields,
+  filterCustomFieldsForSectionAndProject,
+} from "@/hooks/useCustomFields";
 import SelectField from "@/components/Forms/SelectField";
 import Callout from "@/ui/Callout";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
@@ -245,6 +252,10 @@ export default function FeaturesOverview({
     `hide-disabled-rules`,
     false,
   );
+  const [descriptionExpanded, setDescriptionExpanded] = useLocalStorage(
+    `feature-description-expanded`,
+    false,
+  );
   const [prerequisiteModal, setPrerequisiteModal] = useState<{
     i: number;
   } | null>(null);
@@ -254,6 +265,10 @@ export default function FeaturesOverview({
   const [revertIndex, setRevertIndex] = useState(0);
 
   const [editCommentModel, setEditCommentModal] = useState(false);
+  const [commentExpanded, setCommentExpanded] = useState(false);
+  useEffect(() => {
+    setCommentExpanded(false);
+  }, [revision?.version]);
   const [showDescriptionModal, setShowDescriptionModal] = useState(false);
   const [compareRevisionsModalOpen, setCompareRevisionsModalOpen] =
     useState(false);
@@ -283,13 +298,14 @@ export default function FeaturesOverview({
     // false-positive diffs. Fill in missing envs from baseFeature (the raw live
     // feature with no draft changes applied) — not `feature`, which is draft-merged
     // and would cause the base to reflect draft values, hiding real diffs.
-    return autoMerge(
-      fillRevisionFromFeature(liveRevision, baseFeature),
+    const result = autoMerge(
+      liveRevisionFromFeature(liveRevision, baseFeature),
       fillRevisionFromFeature(baseRevision, baseFeature),
       revision,
       environments.map((e) => e.id),
       {},
     );
+    return result;
   }, [revisions, revision, feature, baseFeature, environments]);
 
   const prerequisites = feature?.prerequisites || [];
@@ -356,6 +372,25 @@ export default function FeaturesOverview({
   const { showFeatureUsage, featureUsage, lookback, setLookback } =
     useFeatureUsage();
 
+  const allCustomFields = useCustomFields();
+
+  const revisionHasChanges = useMemo(() => {
+    if (
+      !revision ||
+      revision.status === "published" ||
+      revision.status === "discarded"
+    )
+      return false;
+    const liveRevision = revisions.find((r) => r.version === feature.version);
+    if (!liveRevision) return false;
+    return draftDiffersFromLive(
+      revision,
+      liveRevision,
+      baseFeature,
+      environments.map((e) => e.id),
+    );
+  }, [revision, revisions, feature, baseFeature, environments]);
+
   if (!baseFeature || !feature || !revision) return null;
 
   const hasConditionalState =
@@ -372,10 +407,37 @@ export default function FeaturesOverview({
   let requireReviews = false;
   //dont require review when we cant find a base version to compare
   if (baseRevision) {
+    // Apply the same env-backfill that autoMerge uses so that environments
+    // added after a revision was created don't produce false-positive diffs.
+    const filledBaseRevision = {
+      ...baseRevision,
+      ...fillRevisionFromFeature(baseRevision, baseFeature),
+    };
+    const filledRevision = {
+      ...revision,
+      ...fillRevisionFromFeature(revision, baseFeature),
+    };
+
+    // When the draft has diverged from its base (live has moved on), the raw
+    // revision-vs-base diff overstates what will actually be published. The
+    // merge result already resolved what will land on the feature — use that
+    // as the effective "what's changing" by diffing merged-result against live.
+    let effectiveRevision: typeof filledRevision = filledRevision;
+    let effectiveBase: typeof filledBaseRevision = filledBaseRevision;
+    const liveRevision = revisions.find((r) => r.version === feature.version);
+    if (mergeResult?.success && liveRevision) {
+      const filledLive = {
+        ...liveRevision,
+        ...liveRevisionFromFeature(liveRevision, baseFeature),
+      };
+      effectiveRevision = { ...filledLive, ...mergeResult.result };
+      effectiveBase = filledLive;
+    }
+
     requireReviews = checkIfRevisionNeedsReview({
       feature,
-      baseRevision,
-      revision,
+      baseRevision: effectiveBase,
+      revision: effectiveRevision,
       allEnvironments: environments.map((e) => e.id),
       settings,
     });
@@ -387,9 +449,6 @@ export default function FeaturesOverview({
   const approved = revision?.status === "approved";
 
   const isDraft = revision?.status === "draft" || isPendingReview || approved;
-
-  const revisionHasChanges =
-    !!mergeResult && mergeResultHasChanges(mergeResult);
 
   const projectId = feature.project;
 
@@ -459,6 +518,13 @@ export default function FeaturesOverview({
 
   const canEdit = permissionsUtil.canViewFeatureModal(projectId);
   const canEditDrafts = permissionsUtil.canManageFeatureDrafts(feature);
+
+  const featureCustomFields = filterCustomFieldsForSectionAndProject(
+    allCustomFields,
+    "feature",
+    feature.project,
+  );
+  const hasCustomFields = (featureCustomFields?.length ?? 0) > 0;
 
   // loop through each environment and see if there are any rules or disabled rules
   let hasRules = false;
@@ -693,7 +759,22 @@ export default function FeaturesOverview({
         </Flex>
         <Flex align="center" gap="2">
           <span className="text-muted">Comment:</span>{" "}
-          {revision.comment || (
+          {revision.comment ? (
+            <>
+              {!commentExpanded && revision.comment.length > 80
+                ? revision.comment.slice(0, 80) + "…"
+                : revision.comment}
+              {revision.comment.length > 80 && (
+                <Link
+                  onClick={() => setCommentExpanded((v) => !v)}
+                  ml="1"
+                  style={{ whiteSpace: "nowrap" }}
+                >
+                  {commentExpanded ? "show less" : "show more"}
+                </Link>
+              )}
+            </>
+          ) : (
             <em style={{ color: "var(--color-text-mid)" }}>none</em>
           )}
           {canEditDrafts && (
@@ -838,7 +919,8 @@ export default function FeaturesOverview({
                     )}
                   </>
                 )}
-                {isDraft && !isLive && (
+                {((isDraft && !isLive) ||
+                  (isLocked && !isDraft && drafts.length === 0 && !isLive)) && (
                   <>
                     <Separator
                       orientation="vertical"
@@ -849,6 +931,7 @@ export default function FeaturesOverview({
                     </Link>
                   </>
                 )}
+
                 {onCompareRevisions && (
                   <>
                     <Separator
@@ -882,53 +965,83 @@ export default function FeaturesOverview({
           </Frame>
         )}
 
-        <Frame mt="2" mb="4" px="6" py="4">
-          <Flex align="center" justify="between" mb="2">
-            <Flex align="center" gap="1">
-              <Heading as="h3" size="4" mb="0">
-                Description
-              </Heading>
-              <DraftControlBadge
-                gated={metadataReviewRequired}
-                approvalsEnabled={approvalsEngaged}
-              />
-            </Flex>
-            {canEdit && canEditDrafts && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowDescriptionModal(true)}
-              >
-                Edit
-              </Button>
-            )}
-          </Flex>
-          <Box className="mh-350px" style={{ overflowY: "auto" }}>
-            {feature.description ? (
-              <Markdown className="card-text">{feature.description}</Markdown>
-            ) : (
-              <Box as="div" className="font-italic text-muted">
-                Add context about this feature for your team
-              </Box>
-            )}
-          </Box>
-
-          <CustomFieldDisplay
-            target={feature}
-            canEdit={canEdit}
-            mutate={mutate}
-            section={"feature"}
-            mt="6"
-            showApprovalBadge={approvalsEngaged}
-            draftInfo={
-              {
-                feature,
-                revisionList: revisionList || [],
-                gatedEnvSet: metadataReviewRequired ? "all" : "none",
-                onDraftCreated: (v) => setVersion(v),
-              } satisfies CustomFieldDraftInfo
+        <Frame mt="2" mb="4" px="0" py="0" style={{ overflow: "hidden" }}>
+          <Collapsible
+            open={descriptionExpanded}
+            handleTriggerClick={() =>
+              setDescriptionExpanded(!descriptionExpanded)
             }
-          />
+            transitionTime={100}
+            trigger={
+              <Flex
+                align="center"
+                justify="between"
+                px="6"
+                py="4"
+                style={{ cursor: "pointer", userSelect: "none" }}
+              >
+                <Flex align="center" gap="1">
+                  <Heading as="h4" size="3" mb="0">
+                    {hasCustomFields && !descriptionExpanded
+                      ? "Description & Additional Fields"
+                      : "Description"}
+                  </Heading>
+                  <DraftControlBadge
+                    gated={metadataReviewRequired}
+                    approvalsEnabled={approvalsEngaged}
+                  />
+                </Flex>
+                <Flex align="center" gap="2">
+                  {canEdit && canEditDrafts && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={async (e) => {
+                        e?.stopPropagation();
+                        setShowDescriptionModal(true);
+                      }}
+                    >
+                      Edit
+                    </Button>
+                  )}
+                  <PiCaretRightBold
+                    className="chevron-right"
+                    style={{ flexShrink: 0 }}
+                  />
+                </Flex>
+              </Flex>
+            }
+          >
+            <Box px="6" pb="4">
+              <Box className="mh-350px" style={{ overflowY: "auto" }} mb="2">
+                {feature.description ? (
+                  <Markdown className="card-text">
+                    {feature.description}
+                  </Markdown>
+                ) : (
+                  <Box as="div" className="font-italic text-muted">
+                    Add context about this feature for your team
+                  </Box>
+                )}
+              </Box>
+              <CustomFieldDisplay
+                target={feature}
+                canEdit={canEdit}
+                mutate={mutate}
+                section={"feature"}
+                mt="4"
+                showApprovalBadge={approvalsEngaged}
+                draftInfo={
+                  {
+                    feature,
+                    revisionList: revisionList || [],
+                    gatedEnvSet: metadataReviewRequired ? "all" : "none",
+                    onDraftCreated: (v) => setVersion(v),
+                  } satisfies CustomFieldDraftInfo
+                }
+              />
+            </Box>
+          </Collapsible>
         </Frame>
 
         <Box mt="3">
@@ -937,7 +1050,7 @@ export default function FeaturesOverview({
           {showFeatureUsage && (
             <Frame mt="2" mb="4" px="6" py="4">
               <Flex align="center" justify="between" mb="2">
-                <Heading as="h3" size="4" mb="0">
+                <Heading as="h4" size="3" mb="0">
                   Usage Analytics
                 </Heading>
                 <SelectField
@@ -992,7 +1105,7 @@ export default function FeaturesOverview({
         <Frame mb="4" px="6" py="4">
           <Box>
             <Flex align="center" gap="1" mb="2">
-              <Heading as="h3" size="4" mb="0">
+              <Heading as="h4" size="3" mb="0">
                 Environment Status
               </Heading>
               <DraftControlBadge
@@ -1218,7 +1331,7 @@ export default function FeaturesOverview({
         {dependents > 0 && (
           <Frame mb="4" px="6" py="4">
             <Flex mb="2" gap="2" align="center">
-              <Heading size="4" as="h3" mb="0">
+              <Heading size="3" as="h4" mb="0">
                 Dependents
               </Heading>
               <Badge label={dependents + ""} color="gray" />
@@ -1317,7 +1430,7 @@ export default function FeaturesOverview({
             <Frame mt="4" px="6" py="4">
               <Flex align="center" justify="between">
                 <Flex align="center" gap="1" mb="3">
-                  <Heading as="h3" size="4" mb="0">
+                  <Heading as="h4" size="3" mb="0">
                     Default Value
                   </Heading>
                   <DraftControlBadge
@@ -1354,7 +1467,7 @@ export default function FeaturesOverview({
               >
                 <Flex align="center" justify="between" mb="2">
                   <Flex align="center" gap="1">
-                    <Heading as="h3" size="4" mb="0">
+                    <Heading as="h4" size="3" mb="0">
                       Rules
                     </Heading>
                     <DraftControlBadge
@@ -1412,7 +1525,7 @@ export default function FeaturesOverview({
         )}
 
         <Frame mb="4" px="6" py="4">
-          <Heading as="h3" size="4" mb="3">
+          <Heading as="h4" size="3" mb="3">
             Comments
           </Heading>
           <DiscussionThread

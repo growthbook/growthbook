@@ -15,8 +15,9 @@ import {
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import {
   getDraftAffectedEnvironments,
-  fillRevisionFromFeature,
+  liveRevisionFromFeature,
   getReviewSetting,
+  buildEffectiveDraft,
 } from "shared/util";
 import { useUser } from "@/services/UserContext";
 import HelperText from "@/ui/HelperText";
@@ -97,9 +98,6 @@ export default function DraftSelectorForChanges({
     return envs.length === 0 ? "all" : new Set(envs);
   }, [settings?.requireReviews, feature]);
 
-  // Compute affected environments by comparing the selected draft vs. live revision.
-  // Uses context revisions when available (instant, no fetch), otherwise falls
-  // back to the lazily-fetched data.
   const allEnvironments = useEnvironments();
   const affectedEnvs = useMemo<string[] | "all" | null>(() => {
     if (mode !== "existing") return null;
@@ -115,9 +113,12 @@ export default function DraftSelectorForChanges({
 
     const allEnvIds = allEnvironments.map((e) => e.id);
     const liveDoc = baseFeature ?? ctx?.baseFeature ?? feature;
+    const filledLive = liveRevisionFromFeature(liveRevision, liveDoc);
+    const effectiveDraft = buildEffectiveDraft(draftRevision, filledLive);
+
     const result = getDraftAffectedEnvironments(
-      draftRevision,
-      fillRevisionFromFeature(liveRevision, liveDoc),
+      effectiveDraft,
+      filledLive,
       allEnvIds,
     );
     if (Array.isArray(result) && result.length === 0) return null;
