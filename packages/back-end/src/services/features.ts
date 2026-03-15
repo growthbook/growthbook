@@ -1991,13 +1991,13 @@ export const updateInterfaceEnvSettingsFromApiEnvSettings = (
     return {
       ...acc,
       [k]: {
-        enabled: incomingEnvs[k].enabled ?? existing[k].enabled,
+        enabled: incomingEnvs[k].enabled ?? existing[k]?.enabled ?? false,
         rules: incomingEnvs[k].rules
           ? fromApiEnvSettingsRulesToFeatureEnvSettingsRules(
               feature,
               incomingEnvs[k].rules,
             )
-          : existing[k].rules,
+          : (existing[k]?.rules ?? []),
       },
     };
   }, existing);
