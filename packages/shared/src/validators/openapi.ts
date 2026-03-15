@@ -129,7 +129,7 @@ export const toggleFeatureValidator = {
 };
 
 export const revertFeatureValidator = {
-  bodySchema: z.object({ "revision": z.number(), "comment": z.string().optional() }).strict(),
+  bodySchema: z.object({ "revision": z.number(), "comment": z.string().optional(), "strategy": z.enum(["head","new-revision"]).describe("Controls how the revert is recorded.\n`head` (default) re-applies the target revision directly as the new HEAD — the revision history shows the old revision promoted.\n`new-revision` creates a fresh revision whose values match the target, leaving a clear audit trail of the revert action.\n").default("head") }).strict(),
   querySchema: z.never(),
   paramsSchema: z.object({ "id": z.string() }).strict(),
 };

@@ -1,4 +1,9 @@
-import { filterEnvironmentsByFeature, MergeResultChanges } from "shared/util";
+import {
+  filterEnvironmentsByFeature,
+  MergeResultChanges,
+  PermissionError,
+  checkIfRevisionNeedsReview,
+} from "shared/util";
 import { isEqual } from "lodash";
 import { ToggleFeatureResponse } from "shared/types/openapi";
 import { revertFeatureValidator } from "shared/validators";
@@ -9,6 +14,7 @@ import {
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import {
   applyRevisionChanges,
+  createAndPublishRevision,
   getFeature,
 } from "back-end/src/models/FeatureModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
@@ -19,6 +25,7 @@ import {
 import { getEnvironments } from "back-end/src/services/organizations";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getEnabledEnvironments } from "back-end/src/util/features";
+import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 
 export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
   async (req): Promise<ToggleFeatureResponse> => {
@@ -32,12 +39,13 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
     const allEnvironments = getEnvironments(context.org);
     const environments = filterEnvironmentsByFeature(allEnvironments, feature);
     const environmentIds = environments.map((e) => e.id);
+    const allEnvironmentIds = getEnvironmentIdsFromOrg(req.organization);
 
     if (!req.context.permissions.canUpdateFeature(feature, {})) {
       req.context.permissions.throwPermissionError();
     }
 
-    const { revision: version, comment } = req.body;
+    const { revision: version, comment, strategy } = req.body;
 
     const revision = await getRevision({
       context,
@@ -56,6 +64,7 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
       throw new Error("Can only revert to previously published revisions");
     }
 
+    // Build the set of changes this revert would apply.
     const changes: MergeResultChanges = {};
 
     if (revision.defaultValue !== feature.defaultValue) {
@@ -84,7 +93,6 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
         changes.rules[env] = revision.rules[env];
       }
 
-      // environmentsEnabled
       if (
         revision.environmentsEnabled &&
         env in revision.environmentsEnabled &&
@@ -103,7 +111,6 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
       }
     }
 
-    // prerequisites
     if (
       revision.prerequisites !== undefined &&
       !isEqual(revision.prerequisites, feature.prerequisites || [])
@@ -111,7 +118,6 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
       changes.prerequisites = revision.prerequisites;
     }
 
-    // metadata — only include fields present in the revision that differ from live
     if (revision.metadata) {
       const metadataChanges: typeof changes.metadata = {};
       let hasMetaChange = false;
@@ -160,20 +166,75 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
       if (hasMetaChange) changes.metadata = metadataChanges;
     }
 
-    const updatedFeature = await applyRevisionChanges(
-      context,
-      feature,
-      revision,
-      changes,
-    );
+    const apiBypassesReviews =
+      !!req.context.org.settings?.restApiBypassesReviews;
 
-    await markRevisionAsPublished(
-      context,
-      feature,
-      revision,
-      req.eventAudit,
-      comment,
-    );
+    // Shared approval gate — runs for both strategies.
+    // For "head" we check against the target revision directly (it already
+    // carries the exact diff that would be applied). For "new-revision"
+    // createAndPublishRevision runs the same check internally, but we do it
+    // here first so we can give a consistent error before any DB writes.
+    if (!apiBypassesReviews) {
+      const liveRevision = await getRevision({
+        context,
+        organization: feature.organization,
+        featureId: feature.id,
+        version: feature.version,
+      });
+      if (!liveRevision) {
+        throw new Error("Could not load live revision for feature");
+      }
+      const reviewRequired = checkIfRevisionNeedsReview({
+        feature,
+        baseRevision: liveRevision,
+        revision,
+        allEnvironments: allEnvironmentIds,
+        settings: req.organization.settings,
+      });
+      if (reviewRequired) {
+        throw new PermissionError(
+          "This revert requires approval before changes can be published. " +
+            "Enable 'REST API always bypasses approval requirements' in organization settings.",
+        );
+      }
+    }
+
+    let updatedFeature: typeof feature;
+    let publishedRevisionVersion: number;
+
+    if (strategy === "new-revision") {
+      // Create a new revision whose values match the target. This leaves an
+      // explicit revert commit in the revision history.
+      const { revision: newRevision, updatedFeature: newFeature } =
+        await createAndPublishRevision({
+          context,
+          feature,
+          user: req.eventAudit,
+          org: req.organization,
+          changes,
+          comment: comment ?? `Reverted to revision #${version}`,
+          canBypassApprovalChecks: apiBypassesReviews,
+        });
+      updatedFeature = newFeature;
+      publishedRevisionVersion = newRevision.version;
+    } else {
+      // "head" strategy (default): re-apply the existing revision directly,
+      // promoting it to HEAD without adding a new entry to the revision chain.
+      updatedFeature = await applyRevisionChanges(
+        context,
+        feature,
+        revision,
+        changes,
+      );
+      await markRevisionAsPublished(
+        context,
+        feature,
+        revision,
+        req.eventAudit,
+        comment,
+      );
+      publishedRevisionVersion = revision.version;
+    }
 
     await req.audit({
       event: "feature.revert",
@@ -182,7 +243,7 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
         id: feature.id,
       },
       details: auditDetailsUpdate(feature, updatedFeature, {
-        revision: revision.version,
+        revision: publishedRevisionVersion,
       }),
     });
 
@@ -191,6 +252,12 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
       req.context,
       feature.id,
     );
+    const latestRevision = await getRevision({
+      context: req.context,
+      organization: updatedFeature.organization,
+      featureId: updatedFeature.id,
+      version: updatedFeature.version,
+    });
     const safeRolloutMap =
       await req.context.models.safeRollout.getAllPayloadSafeRollouts();
 
@@ -200,7 +267,7 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
         organization: req.organization,
         groupMap,
         experimentMap,
-        revision,
+        revision: latestRevision,
         safeRolloutMap,
       }),
     };

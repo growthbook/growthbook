@@ -1761,6 +1761,7 @@ describe("Organization Migration", () => {
           limitAccessByEnvironment: false,
         },
         statsEngine: DEFAULT_STATS_ENGINE,
+        restApiBypassesReviews: true,
         environments: [
           {
             id: "dev",
@@ -1775,6 +1776,53 @@ describe("Organization Migration", () => {
         ],
       },
     });
+  });
+
+  it("backfills restApiBypassesReviews=true for orgs missing the setting", () => {
+    const testOrg: OrganizationInterface = {
+      id: "org_test",
+      name: "Test",
+      ownerEmail: "test@test.com",
+      url: "",
+      dateCreated: new Date(),
+      invites: [],
+      members: [],
+      settings: {},
+    };
+    const result = upgradeOrganizationDoc(testOrg);
+    expect(result.settings.restApiBypassesReviews).toBe(true);
+  });
+
+  it("preserves restApiBypassesReviews=false when explicitly set", () => {
+    const testOrg: OrganizationInterface = {
+      id: "org_test",
+      name: "Test",
+      ownerEmail: "test@test.com",
+      url: "",
+      dateCreated: new Date(),
+      invites: [],
+      members: [],
+      settings: { restApiBypassesReviews: false },
+    };
+    const result = upgradeOrganizationDoc(testOrg);
+    expect(result.settings.restApiBypassesReviews).toBe(false);
+  });
+
+  it("new orgs with restApiBypassesReviews=false set at creation are not backfilled to true", () => {
+    // Simulates an org created after the field was introduced — it has false stored
+    // in the DB and the migration must not overwrite it.
+    const testOrg: OrganizationInterface = {
+      id: "org_new",
+      name: "New Org",
+      ownerEmail: "owner@test.com",
+      url: "",
+      dateCreated: new Date(),
+      invites: [],
+      members: [],
+      settings: { restApiBypassesReviews: false },
+    };
+    const result = upgradeOrganizationDoc(testOrg);
+    expect(result.settings.restApiBypassesReviews).toBe(false);
   });
 
   it("migrate approval flow settings", () => {

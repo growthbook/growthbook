@@ -6,6 +6,10 @@ import {
   MergeResultChanges,
   getApiFeatureEnabledEnvs,
   getApiFeatureAllEnvs,
+  checkIfRevisionNeedsReview,
+  autoMerge,
+  fillRevisionFromFeature,
+  PermissionError,
 } from "shared/util";
 import {
   SafeRolloutInterface,
@@ -21,6 +25,7 @@ import {
   LegacyFeatureInterface,
 } from "shared/types/feature";
 import { EventUser } from "shared/types/events/event-types";
+import { OrganizationInterface } from "shared/types/organization";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { ResourceEvents } from "shared/types/events/base-types";
 import { DiffResult } from "shared/types/events/diff";
@@ -75,6 +80,7 @@ import {
   hasDraft,
   markRevisionAsPublished,
   updateRevision,
+  createRevision,
 } from "./FeatureRevisionModel";
 
 const featureSchema = new mongoose.Schema({
@@ -1353,6 +1359,120 @@ export async function publishRevision(
   );
 
   return updatedFeature;
+}
+
+// Create a new revision from the given changes and immediately publish it.
+// Either the revision is published and the updated feature is returned, or an
+// error is thrown — a pending-review draft is never silently left behind.
+// canBypassApprovalChecks should be true when the org-level restApiBypassesReviews
+// setting is on; individual role permissions do not bypass on the REST path.
+export async function createAndPublishRevision({
+  context,
+  feature,
+  user,
+  org,
+  changes,
+  comment,
+  canBypassApprovalChecks,
+}: {
+  context: ReqContext | ApiReqContext;
+  feature: FeatureInterface;
+  user: EventUser;
+  org: OrganizationInterface;
+  changes: Parameters<typeof createRevision>[0]["changes"];
+  comment?: string;
+  canBypassApprovalChecks: boolean;
+}): Promise<{
+  revision: FeatureRevisionInterface;
+  updatedFeature: FeatureInterface;
+}> {
+  const allEnvironments = getEnvironmentIdsFromOrg(org);
+
+  // Determine whether the revision would require review before we create anything.
+  // We need a synthetic revision to check against, mirroring what createRevision would build.
+  const liveRevision = await getRevision({
+    context,
+    organization: feature.organization,
+    featureId: feature.id,
+    version: feature.version,
+  });
+  if (!liveRevision) throw new Error("Could not load live revision");
+
+  // Build a temporary revision shape for the review check (same logic as createRevision).
+  const syntheticRevision: FeatureRevisionInterface = {
+    ...liveRevision,
+    ...(changes ?? {}),
+  };
+  const requiresReview = checkIfRevisionNeedsReview({
+    feature,
+    baseRevision: liveRevision,
+    revision: syntheticRevision,
+    allEnvironments,
+    settings: org.settings,
+  });
+
+  if (requiresReview && !canBypassApprovalChecks) {
+    throw new PermissionError(
+      "This feature requires approval before changes can be published. " +
+        "Enable 'REST API always bypasses approval requirements' in organization settings.",
+    );
+  }
+
+  // Create the draft revision (never auto-publishes; publish=false).
+  const revision = await createRevision({
+    context,
+    feature,
+    user,
+    baseVersion: feature.version,
+    comment: comment ?? "Created via REST API",
+    environments: allEnvironments,
+    publish: false,
+    changes,
+    org,
+    canBypassApprovalChecks,
+  });
+
+  // Compute the merge result the same way postFeaturePublish does —
+  // filling sparse environmentsEnabled + holdout from the live feature.
+  const featureEnvs: Record<string, boolean> = Object.fromEntries(
+    Object.entries(feature.environmentSettings ?? {}).map(([envId, env]) => [
+      envId,
+      !!env.enabled,
+    ]),
+  );
+  const fillEnvs = (r: FeatureRevisionInterface) => ({
+    ...fillRevisionFromFeature(r, feature),
+    environmentsEnabled: {
+      ...featureEnvs,
+      ...(r.environmentsEnabled ?? {}),
+    },
+    holdout: feature.holdout ?? null,
+  });
+
+  const mergeResult = autoMerge(
+    fillEnvs(liveRevision),
+    fillEnvs(liveRevision), // base === live for a fresh revision off HEAD
+    revision,
+    allEnvironments,
+    {},
+  );
+
+  if (!mergeResult.success) {
+    // Shouldn't happen for a brand-new revision off HEAD, but guard anyway.
+    throw new Error(
+      "Merge conflict detected while publishing revision. Please retry.",
+    );
+  }
+
+  const updatedFeature = await publishRevision(
+    context,
+    feature,
+    revision,
+    mergeResult.result,
+    comment,
+  );
+
+  return { revision, updatedFeature };
 }
 
 function getLinkedExperiments(

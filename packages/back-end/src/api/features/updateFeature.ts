@@ -1,8 +1,4 @@
-import {
-  checkIfRevisionNeedsReview,
-  validateFeatureValue,
-  validateScheduleRules,
-} from "shared/util";
+import { validateFeatureValue, validateScheduleRules } from "shared/util";
 import { isEqual } from "lodash";
 import type { UpdateFeatureResponse } from "shared/types/openapi";
 import { updateFeatureValidator, RevisionRules } from "shared/validators";
@@ -12,8 +8,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   getFeature,
   updateFeature as updateFeatureToDb,
-  applyRevisionChanges,
-  applyHoldoutSideEffects,
+  createAndPublishRevision,
 } from "back-end/src/models/FeatureModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import {
@@ -26,10 +21,7 @@ import {
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
-import {
-  createRevision,
-  getRevision,
-} from "back-end/src/models/FeatureRevisionModel";
+import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { parseJsonSchemaForEnterprise, validateEnvKeys } from "./postFeature";
@@ -217,11 +209,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       );
     }
 
-    const apiBypassesReviews =
-      req.context.org.settings?.restApiBypassesReviews !== false;
-    const canBypass =
-      apiBypassesReviews ||
-      req.context.permissions.canBypassApprovalChecks(feature);
+    const canBypass = !!req.context.org.settings?.restApiBypassesReviews;
 
     // Capture tags before stripping them from updates (they go into the revision
     // metadata but updateFeatureToDb doesn't need them directly).
@@ -338,46 +326,6 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       hasHoldoutChange;
 
     if (hasRevisionChanges) {
-      // Build a combined revision object for the approval check.
-      const liveRevision = await getRevision({
-        context: req.context,
-        organization: feature.organization,
-        featureId: feature.id,
-        version: feature.version,
-      });
-      if (!liveRevision) throw new Error("Could not load live revision");
-
-      const combinedRevision: FeatureRevisionInterface = {
-        ...liveRevision,
-        ...(hasEnvEnabledChanges
-          ? { environmentsEnabled: changedEnvEnabled }
-          : {}),
-        ...(hasRuleChanges
-          ? {
-              defaultValue: updates.defaultValue ?? liveRevision.defaultValue,
-              rules: revisedRules,
-            }
-          : {}),
-        ...(hasMetadataChanges ? { metadata: metadataChanges } : {}),
-        ...(hasPrereqChanges ? { prerequisites: newPrerequisites } : {}),
-        ...(hasArchivedChange ? { archived: newArchived } : {}),
-        ...(hasHoldoutChange ? { holdout: newHoldout ?? null } : {}),
-      };
-
-      const reviewRequired = checkIfRevisionNeedsReview({
-        feature,
-        baseRevision: liveRevision,
-        revision: combinedRevision,
-        allEnvironments: orgEnvs,
-        settings: req.organization.settings,
-      });
-
-      if (reviewRequired && !canBypass) {
-        throw new Error(
-          "This feature requires a review and the API key being used does not have permission to bypass reviews.",
-        );
-      }
-
       const revisionChanges: Partial<FeatureRevisionInterface> = {
         ...(hasEnvEnabledChanges
           ? { environmentsEnabled: changedEnvEnabled }
@@ -396,45 +344,20 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         ...(hasHoldoutChange ? { holdout: newHoldout ?? null } : {}),
       };
 
-      const revision = await createRevision({
-        context: req.context,
-        feature,
-        user: req.eventAudit,
-        baseVersion: feature.version,
-        comment: "Created via REST API",
-        environments: orgEnvs,
-        publish: true,
-        changes: revisionChanges,
-        org: req.organization,
-        canBypassApprovalChecks: canBypass,
-      });
+      // createAndPublishRevision throws if the revision requires approval and
+      // the caller cannot bypass — guaranteeing the REST API never silently
+      // leaves an unpublished draft behind.
+      const { revision, updatedFeature: updatedFeatureFromRevision } =
+        await createAndPublishRevision({
+          context: req.context,
+          feature,
+          user: req.eventAudit,
+          org: req.organization,
+          changes: revisionChanges,
+          comment: "Created via REST API",
+          canBypassApprovalChecks: canBypass,
+        });
 
-      // Build a MergeResultChanges-compatible object for applyRevisionChanges.
-      const mergeResult = {
-        ...(hasEnvEnabledChanges
-          ? { environmentsEnabled: changedEnvEnabled }
-          : {}),
-        ...(defaultValueChanged ? { defaultValue: updates.defaultValue } : {}),
-        ...(changedRuleEnvironments.length > 0 ? { rules: revisedRules } : {}),
-        ...(hasMetadataChanges ? { metadata: metadataChanges } : {}),
-        ...(hasPrereqChanges ? { prerequisites: newPrerequisites } : {}),
-        ...(hasArchivedChange ? { archived: newArchived } : {}),
-        ...(hasHoldoutChange ? { holdout: newHoldout ?? null } : {}),
-      };
-
-      const updatedFeatureFromRevision = await applyRevisionChanges(
-        req.context,
-        feature,
-        revision,
-        mergeResult,
-      );
-      if (hasHoldoutChange) {
-        await applyHoldoutSideEffects(
-          req.context,
-          feature, // pre-update state — needed to know the previous holdout
-          newHoldout ?? null,
-        );
-      }
       Object.assign(feature, updatedFeatureFromRevision);
       updates.version = revision.version;
     }

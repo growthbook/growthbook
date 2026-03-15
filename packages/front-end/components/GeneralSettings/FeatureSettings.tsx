@@ -375,19 +375,11 @@ export default function FeatureSettings() {
                                 label="Rules, values, and prerequisites"
                                 value={true}
                                 disabled={true}
-                                disabledMessage="Rules, values, and prerequisites always require approval"
                                 setValue={() => undefined}
                               />
                               <Checkbox
                                 id={`toggle-env-review-${i}`}
                                 label="Kill switch changes"
-                                description={
-                                  form.watch(
-                                    `requireReviews.${i}.featureRequireEnvironmentReview`,
-                                  ) !== false
-                                    ? "Kill switch changes open a draft/publish modal. Gated by the environments selected above."
-                                    : "Kill switch changes auto-publish as a standalone revision."
-                                }
                                 value={
                                   form.watch(
                                     `requireReviews.${i}.featureRequireEnvironmentReview`,
@@ -403,13 +395,6 @@ export default function FeatureSettings() {
                               <Checkbox
                                 id={`toggle-metadata-review-${i}`}
                                 label="Metadata changes (description, owner, project, tags, etc.)"
-                                description={
-                                  form.watch(
-                                    `requireReviews.${i}.featureRequireMetadataReview`,
-                                  ) !== false
-                                    ? "Metadata changes require approval before publishing."
-                                    : "Metadata changes auto-publish as a standalone revision."
-                                }
                                 value={
                                   form.watch(
                                     `requireReviews.${i}.featureRequireMetadataReview`,
@@ -430,8 +415,8 @@ export default function FeatureSettings() {
                             <Box mt="2">
                               <Checkbox
                                 id="toggle-restApiBypassesReviews"
-                                label="API keys bypass review requirements"
-                                description="When enabled, changes made via the REST API are auto-published even for protected environments. Disable to require approval for API changes (admins with admin-scoped API keys can still bypass)."
+                                label="REST API always bypasses approval requirements"
+                                description="When disabled, API changes that would require review are blocked with an error."
                                 value={
                                   form.watch("restApiBypassesReviews") !== false
                                 }

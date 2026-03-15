@@ -261,6 +261,169 @@ describe("checkIfRevisionNeedsReview", () => {
       ).toBe(false);
     });
   });
+
+  describe("environment scoping (gatedEnvs non-empty)", () => {
+    // Review rule only covers "production"; changes to "dev" should never trigger it.
+    const allEnvs = ["production", "dev"];
+
+    it("does NOT require review for rule change localized to non-gated env (dev)", () => {
+      const settings = makeSettings(
+        makeReviewSetting({
+          requireReviewOn: true,
+          environments: ["production"],
+        }),
+      );
+      const base = makeRevision({ version: 3, rules: { dev: [] } });
+      const revision = makeRevision({
+        rules: {
+          dev: [
+            {
+              id: "r1",
+              type: "force",
+              value: "true",
+              enabled: true,
+              condition: "",
+            },
+          ],
+        },
+      });
+      expect(
+        checkIfRevisionNeedsReview({
+          feature: baseFeature,
+          baseRevision: base,
+          revision,
+          allEnvironments: allEnvs,
+          settings,
+        }),
+      ).toBe(false);
+    });
+
+    it("DOES require review for rule change touching gated env (production)", () => {
+      const settings = makeSettings(
+        makeReviewSetting({
+          requireReviewOn: true,
+          environments: ["production"],
+        }),
+      );
+      const base = makeRevision({ version: 3, rules: { production: [] } });
+      const revision = makeRevision({
+        rules: {
+          production: [
+            {
+              id: "r1",
+              type: "force",
+              value: "true",
+              enabled: true,
+              condition: "",
+            },
+          ],
+        },
+      });
+      expect(
+        checkIfRevisionNeedsReview({
+          feature: baseFeature,
+          baseRevision: base,
+          revision,
+          allEnvironments: allEnvs,
+          settings,
+        }),
+      ).toBe(true);
+    });
+
+    it("DOES require review when changes span both gated and non-gated envs", () => {
+      const settings = makeSettings(
+        makeReviewSetting({
+          requireReviewOn: true,
+          environments: ["production"],
+        }),
+      );
+      const base = makeRevision({
+        version: 3,
+        rules: { production: [], dev: [] },
+      });
+      const revision = makeRevision({
+        rules: {
+          production: [
+            {
+              id: "r1",
+              type: "force",
+              value: "true",
+              enabled: true,
+              condition: "",
+            },
+          ],
+          dev: [
+            {
+              id: "r2",
+              type: "force",
+              value: "true",
+              enabled: true,
+              condition: "",
+            },
+          ],
+        },
+      });
+      expect(
+        checkIfRevisionNeedsReview({
+          feature: baseFeature,
+          baseRevision: base,
+          revision,
+          allEnvironments: allEnvs,
+          settings,
+        }),
+      ).toBe(true);
+    });
+
+    it("does NOT require review for kill-switch change on non-gated env", () => {
+      const settings = makeSettings(
+        makeReviewSetting({
+          requireReviewOn: true,
+          environments: ["production"],
+          featureRequireEnvironmentReview: true,
+        }),
+      );
+      const base = makeRevision({
+        version: 3,
+        environmentsEnabled: { dev: true },
+      });
+      const revision = makeRevision({ environmentsEnabled: { dev: false } });
+      expect(
+        checkIfRevisionNeedsReview({
+          feature: baseFeature,
+          baseRevision: base,
+          revision,
+          allEnvironments: allEnvs,
+          settings,
+        }),
+      ).toBe(false);
+    });
+
+    it("DOES require review for kill-switch change on gated env", () => {
+      const settings = makeSettings(
+        makeReviewSetting({
+          requireReviewOn: true,
+          environments: ["production"],
+          featureRequireEnvironmentReview: true,
+        }),
+      );
+      const base = makeRevision({
+        version: 3,
+        environmentsEnabled: { production: true },
+      });
+      const revision = makeRevision({
+        environmentsEnabled: { production: false },
+      });
+      expect(
+        checkIfRevisionNeedsReview({
+          feature: baseFeature,
+          baseRevision: base,
+          revision,
+          allEnvironments: allEnvs,
+          settings,
+        }),
+      ).toBe(true);
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------

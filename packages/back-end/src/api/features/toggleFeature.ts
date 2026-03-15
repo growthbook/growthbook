@@ -3,6 +3,7 @@ import { toggleFeatureValidator } from "shared/validators";
 import {
   checkIfRevisionNeedsReview,
   getDraftAffectedEnvironments,
+  PermissionError,
 } from "shared/util";
 import {
   createRevision,
@@ -85,8 +86,7 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
     }
 
     const apiBypassesReviews =
-      req.context.org.settings?.restApiBypassesReviews !== false;
-
+      !!req.context.org.settings?.restApiBypassesReviews;
     // Build a minimal fake revision to check whether these toggle changes need review
     const liveRevision = await getRevision({
       context: req.context,
@@ -110,19 +110,17 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
     });
 
     if (reviewRequired && !apiBypassesReviews) {
-      if (!req.context.permissions.canBypassApprovalChecks(feature)) {
-        const affectedEnvs = getDraftAffectedEnvironments(
-          fakeRevision,
-          liveRevision,
-          environmentIds,
-        );
-        const envList =
-          affectedEnvs === "all" ? "all environments" : affectedEnvs.join(", ");
-        throw new Error(
-          `This feature requires a review before publishing changes to: ${envList}. ` +
-            "Use an admin-scoped API key or enable 'API keys bypass review requirements' in organization settings.",
-        );
-      }
+      const affectedEnvs = getDraftAffectedEnvironments(
+        fakeRevision,
+        liveRevision,
+        environmentIds,
+      );
+      const envList =
+        affectedEnvs === "all" ? "all environments" : affectedEnvs.join(", ");
+      throw new PermissionError(
+        `This feature requires a review before publishing changes to: ${envList}. ` +
+          "Enable 'REST API always bypasses approval requirements' in organization settings.",
+      );
     }
 
     const revision = await createRevision({
@@ -135,9 +133,7 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
       publish: true,
       changes: { environmentsEnabled: changedToggles },
       org: req.organization,
-      canBypassApprovalChecks:
-        apiBypassesReviews ||
-        req.context.permissions.canBypassApprovalChecks(feature),
+      canBypassApprovalChecks: true, // review gate already enforced above
     });
 
     const updatedFeature = await applyRevisionChanges(
