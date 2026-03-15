@@ -88,7 +88,7 @@ import {
   useCustomFields,
   filterCustomFieldsForSectionAndProject,
 } from "@/hooks/useCustomFields";
-import SelectField from "@/components/Forms/SelectField";
+import { Select, SelectItem } from "@/ui/Select";
 import Callout from "@/ui/Callout";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Badge from "@/ui/Badge";
@@ -757,37 +757,68 @@ export default function FeaturesOverview({
             )}
           </Flex>
         </Flex>
-        <Flex align="center" gap="2">
+        <Flex align="start" gap="2" style={{ width: "fit-content" }}>
           <span className="text-muted">Comment:</span>{" "}
           {revision.comment ? (
-            <>
-              {!commentExpanded && revision.comment.length > 80
-                ? revision.comment.slice(0, 80) + "…"
-                : revision.comment}
-              {revision.comment.length > 80 && (
-                <Link
-                  onClick={() => setCommentExpanded((v) => !v)}
-                  ml="1"
-                  style={{ whiteSpace: "nowrap" }}
+            <Flex align="start" gap="1">
+              <Box>
+                {!commentExpanded && revision.comment.length > 80
+                  ? revision.comment.slice(0, 80) + "…"
+                  : revision.comment}
+                {revision.comment.length > 80 && !commentExpanded && (
+                  <Link
+                    onClick={() => setCommentExpanded((v) => !v)}
+                    ml="1"
+                    style={{ whiteSpace: "nowrap" }}
+                  >
+                    show more
+                  </Link>
+                )}
+                {revision.comment.length > 80 && commentExpanded && (
+                  <Box mt="1">
+                    <Link
+                      onClick={() => setCommentExpanded((v) => !v)}
+                      style={{ whiteSpace: "nowrap" }}
+                    >
+                      show less
+                    </Link>
+                  </Box>
+                )}
+              </Box>
+              {canEditDrafts && (
+                <IconButton
+                  variant="ghost"
+                  color="violet"
+                  size="2"
+                  radius="full"
+                  onClick={() => setEditCommentModal(true)}
+                  style={{
+                    flexShrink: 0,
+                    marginTop: -2,
+                    marginBottom: -2,
+                    marginLeft: 4,
+                    marginRight: 0,
+                  }}
                 >
-                  {commentExpanded ? "show less" : "show more"}
-                </Link>
+                  <PiPencilSimpleFill />
+                </IconButton>
+              )}
+            </Flex>
+          ) : (
+            <>
+              <em style={{ color: "var(--color-text-mid)" }}>none</em>
+              {canEditDrafts && (
+                <IconButton
+                  variant="ghost"
+                  color="violet"
+                  size="2"
+                  radius="full"
+                  onClick={() => setEditCommentModal(true)}
+                >
+                  <PiPencilSimpleFill />
+                </IconButton>
               )}
             </>
-          ) : (
-            <em style={{ color: "var(--color-text-mid)" }}>none</em>
-          )}
-          {canEditDrafts && (
-            <IconButton
-              variant="ghost"
-              color="violet"
-              size="2"
-              radius="full"
-              onClick={() => setEditCommentModal(true)}
-              ml="1"
-            >
-              <PiPencilSimpleFill />
-            </IconButton>
           )}
         </Flex>
       </Flex>
@@ -977,7 +1008,7 @@ export default function FeaturesOverview({
                 align="center"
                 justify="between"
                 px="6"
-                py="4"
+                py="2"
                 style={{ cursor: "pointer", userSelect: "none" }}
               >
                 <Flex align="center" gap="1">
@@ -1053,38 +1084,31 @@ export default function FeaturesOverview({
                 <Heading as="h4" size="3" mb="0">
                   Usage Analytics
                 </Heading>
-                <SelectField
+                <Select
+                  size="2"
                   value={lookback}
-                  onChange={(lookback) => {
-                    setLookback(lookback as FeatureUsageLookback);
-                  }}
-                  options={[
-                    { value: "15minute", label: "Past 15 Minutes" },
-                    { value: "hour", label: "Past Hour" },
-                    { value: "day", label: "Past Day" },
-                    { value: "week", label: "Past Week" },
-                  ]}
-                  sort={false}
-                  formatOptionLabel={(o) => {
-                    if (o.value !== "15minute") return o.label;
-                    return (
-                      <div>
-                        {o.label}
-                        <Badge
-                          label={
-                            <>
-                              <FaBoltLightning /> Live
-                            </>
-                          }
-                          color="teal"
-                          variant="solid"
-                          radius="full"
-                          ml="3"
-                        />
-                      </div>
-                    );
-                  }}
-                />
+                  setValue={(v) => setLookback(v as FeatureUsageLookback)}
+                  align="end"
+                >
+                  <SelectItem value="15minute">
+                    <Flex align="center" gap="2">
+                      Past 15 Minutes
+                      <Badge
+                        label={
+                          <>
+                            <FaBoltLightning /> Live
+                          </>
+                        }
+                        color="teal"
+                        variant="solid"
+                        radius="full"
+                      />
+                    </Flex>
+                  </SelectItem>
+                  <SelectItem value="hour">Past Hour</SelectItem>
+                  <SelectItem value="day">Past Day</SelectItem>
+                  <SelectItem value="week">Past Week</SelectItem>
+                </Select>
               </Flex>
               {!featureUsage ? (
                 <Flex align="center" justify="center">

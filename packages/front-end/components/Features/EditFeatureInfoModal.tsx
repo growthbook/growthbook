@@ -4,7 +4,6 @@ import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { getReviewSetting } from "shared/util";
 import { Box } from "@radix-ui/themes";
-import Text from "@/ui/Text";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import TagsInput from "@/components/Tags/TagsInput";
@@ -139,31 +138,10 @@ const EditFeatureInfoModal: FC<{
           disabled={true}
           helpText="Feature types cannot be changed"
         />
-        <Box mb="4">
-          <Text as="label" weight="medium" size="small">
-            Description
-          </Text>
-          <Box mt="1">
-            <MarkdownInput
-              value={form.watch("description")}
-              setValue={(v) => form.setValue("description", v)}
-              placeholder="Short human-readable description"
-              showButtons={false}
-              hidePreview={false}
-            />
-          </Box>
-        </Box>
         <SelectOwner
           value={form.watch("owner")}
           onChange={(v) => form.setValue("owner", v)}
         />
-        <Box mb="4">
-          <label>Tags</label>
-          <TagsInput
-            value={form.watch("tags")}
-            onChange={(tags) => form.setValue("tags", tags)}
-          />
-        </Box>
         <Box mb="4">
           <SelectField
             label="Project"
@@ -198,6 +176,25 @@ const EditFeatureInfoModal: FC<{
               )}
             </>
           )}
+        </Box>
+        <Box mb="4">
+          <label>Tags</label>
+          <TagsInput
+            value={form.watch("tags")}
+            onChange={(tags) => form.setValue("tags", tags)}
+          />
+        </Box>
+        <Box mb="4">
+          <label>Description</label>
+          <Box>
+            <MarkdownInput
+              value={form.watch("description")}
+              setValue={(v) => form.setValue("description", v)}
+              placeholder="Short human-readable description"
+              showButtons={false}
+              hidePreview={false}
+            />
+          </Box>
         </Box>
       </Box>
     </Modal>
