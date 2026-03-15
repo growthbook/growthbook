@@ -104,7 +104,6 @@ export default function FeaturesStats({
 
   return (
     <div className="contents container-fluid pagecontents">
-      <h3>Code References</h3>
       <div className="mb-1">
         References to this feature flag found in your codebase.
       </div>

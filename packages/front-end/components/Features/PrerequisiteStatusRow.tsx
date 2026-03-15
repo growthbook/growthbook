@@ -1,20 +1,23 @@
 import { FeatureInterface, FeaturePrerequisite } from "shared/types/feature";
 import { FaExclamationCircle, FaQuestion } from "react-icons/fa";
 import { Environment } from "shared/types/organization";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   FaRegCircleCheck,
   FaRegCircleQuestion,
   FaRegCircleXmark,
 } from "react-icons/fa6";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { IconButton } from "@radix-ui/themes";
+import { Box, IconButton } from "@radix-ui/themes";
+import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import Modal from "@/components/Modal";
 import {
   PrerequisiteStateResult,
   usePrerequisiteStates,
@@ -24,6 +27,9 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
 } from "@/ui/DropdownMenu";
+import DraftSelectorForChanges, {
+  DraftMode,
+} from "@/components/Features/DraftSelectorForChanges";
 
 interface Props {
   i: number;
@@ -31,8 +37,11 @@ interface Props {
   feature: FeatureInterface;
   prereqDefaultValue?: string;
   environments: Environment[];
-  mutate: () => void;
+  mutate: () => Promise<unknown>;
+  setVersion: (version: number) => void;
   setPrerequisiteModal: (prerequisite: { i: number }) => void;
+  revisionList: MinimalFeatureRevisionInterface[];
+  gatedEnvSet: Set<string> | "all" | "none";
 }
 
 export default function PrerequisiteStatusRow({
@@ -42,12 +51,32 @@ export default function PrerequisiteStatusRow({
   prereqDefaultValue,
   environments,
   mutate,
+  setVersion,
   setPrerequisiteModal,
+  revisionList,
+  gatedEnvSet,
 }: Props) {
   const permissionsUtil = usePermissionsUtil();
   const canEdit = permissionsUtil.canViewFeatureModal(feature.project);
   const { apiCall } = useAuth();
   const [open, setOpen] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  const latestActiveDraft = useMemo(
+    () =>
+      revisionList
+        .filter((r) =>
+          (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status),
+        )
+        .sort((a, b) => b.version - a.version)[0] ?? null,
+    [revisionList],
+  );
+  const [deleteMode, setDeleteMode] = useState<DraftMode>(
+    latestActiveDraft != null ? "existing" : "new",
+  );
+  const [deleteSelectedDraft, setDeleteSelectedDraft] = useState<number | null>(
+    latestActiveDraft?.version ?? null,
+  );
 
   const envs = environments.map((e) => e.id);
 
@@ -66,92 +95,122 @@ export default function PrerequisiteStatusRow({
       : undefined;
 
   return (
-    <tr>
-      <td className="align-middle pl-3 border-right">
-        <div className="d-flex">
-          <div className="d-flex flex-1 align-items-center mr-2">
-            <span className="uppercase-title text-muted mt-1 mr-2">Prereq</span>
-            <a
-              className="d-flex align-items-center"
-              href={`/features/${prerequisite.id}`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <span
-                className="d-inline-block text-ellipsis"
-                style={{ maxWidth: 240 }}
-              >
-                {prerequisite.id}
-              </span>
-            </a>
-          </div>
-          <div>
-            {canEdit && (
-              <DropdownMenu
-                trigger={
-                  <IconButton
-                    variant="ghost"
-                    color="gray"
-                    radius="full"
-                    size="2"
-                    highContrast
-                    mt="1"
-                  >
-                    <BsThreeDotsVertical size={18} />
-                  </IconButton>
-                }
-                open={open}
-                onOpenChange={setOpen}
-                menuPlacement="end"
-                variant="soft"
-              >
-                <DropdownMenuGroup>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setPrerequisiteModal({ i });
-                      setOpen(false);
-                    }}
-                  >
-                    Edit
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    color="red"
-                    confirmation={{
-                      confirmationTitle: "Delete Prerequisite",
-                      cta: "Delete",
-                      submit: async () => {
-                        track("Delete Prerequisite", {
-                          prerequisiteIndex: i,
-                        });
-                        await apiCall<{ version: number }>(
-                          `/feature/${feature.id}/prerequisite`,
-                          {
-                            method: "DELETE",
-                            body: JSON.stringify({ i }),
-                          },
-                        );
-                        mutate();
-                      },
-                    }}
-                  >
-                    Delete
-                  </DropdownMenuItem>
-                </DropdownMenuGroup>
-              </DropdownMenu>
-            )}
-          </div>
-        </div>
-      </td>
-      {envs.length > 0 && (
-        <PrerequisiteStatesCols
-          prereqStates={prereqStates ?? undefined}
-          defaultValues={defaultValues}
-          envs={envs}
-          loading={prereqStatesLoading}
-        />
+    <>
+      {showDeleteModal && (
+        <Modal
+          trackingEventModalType="delete-prerequisite"
+          header="Delete Prerequisite"
+          open={true}
+          close={() => setShowDeleteModal(false)}
+          cta="Delete"
+          submit={async () => {
+            track("Delete Prerequisite", { prerequisiteIndex: i });
+            const draftBody =
+              deleteMode === "existing"
+                ? { targetDraftVersion: deleteSelectedDraft }
+                : { forceNewDraft: true };
+            const res = await apiCall<{ version: number }>(
+              `/feature/${feature.id}/prerequisite`,
+              {
+                method: "DELETE",
+                body: JSON.stringify({ i, ...draftBody }),
+              },
+            );
+            await mutate();
+            if (res?.version) setVersion(res.version);
+          }}
+        >
+          <Box style={{ minHeight: 300 }}>
+            <DraftSelectorForChanges
+              feature={feature}
+              revisionList={revisionList}
+              mode={deleteMode}
+              setMode={setDeleteMode}
+              selectedDraft={deleteSelectedDraft}
+              setSelectedDraft={setDeleteSelectedDraft}
+              canAutoPublish={false}
+              gatedEnvSet={gatedEnvSet}
+            />
+            <p>Are you sure you want to delete this prerequisite?</p>
+          </Box>
+        </Modal>
       )}
-      <td />
-    </tr>
+      <tr>
+        <td className="align-middle pl-3 border-right">
+          <div className="d-flex">
+            <div className="d-flex flex-1 align-items-center mr-2">
+              <span className="uppercase-title text-muted mt-1 mr-2">
+                Prereq
+              </span>
+              <a
+                className="d-flex align-items-center"
+                href={`/features/${prerequisite.id}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <span
+                  className="d-inline-block text-ellipsis"
+                  style={{ maxWidth: 240 }}
+                >
+                  {prerequisite.id}
+                </span>
+              </a>
+            </div>
+            <div>
+              {canEdit && (
+                <DropdownMenu
+                  trigger={
+                    <IconButton
+                      variant="ghost"
+                      color="gray"
+                      radius="full"
+                      size="2"
+                      highContrast
+                      mt="1"
+                    >
+                      <BsThreeDotsVertical size={18} />
+                    </IconButton>
+                  }
+                  open={open}
+                  onOpenChange={setOpen}
+                  menuPlacement="end"
+                  variant="soft"
+                >
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setPrerequisiteModal({ i });
+                        setOpen(false);
+                      }}
+                    >
+                      Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      color="red"
+                      onClick={() => {
+                        setOpen(false);
+                        setShowDeleteModal(true);
+                      }}
+                    >
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                </DropdownMenu>
+              )}
+            </div>
+          </div>
+        </td>
+        {envs.length > 0 && (
+          <PrerequisiteStatesCols
+            prereqStates={prereqStates ?? undefined}
+            defaultValues={defaultValues}
+            envs={envs}
+            loading={prereqStatesLoading}
+          />
+        )}
+        <td />
+      </tr>
+    </>
   );
 }
 

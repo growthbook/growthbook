@@ -1627,6 +1627,24 @@ export function getApiFeatureObj({
       publishedBy,
       rules: environmentRules,
       definitions: environmentDefinitions,
+      defaultValue: rev.defaultValue,
+      ...(rev.environmentsEnabled !== undefined && {
+        environmentsEnabled: rev.environmentsEnabled,
+      }),
+      ...(rev.prerequisites !== undefined && {
+        prerequisites: rev.prerequisites,
+      }),
+      ...(rev.metadata !== undefined && {
+        metadata: {
+          ...rev.metadata,
+          jsonSchema: rev.metadata.jsonSchema
+            ? {
+                ...rev.metadata.jsonSchema,
+                date: rev.metadata.jsonSchema.date.toISOString(),
+              }
+            : undefined,
+        },
+      }),
     };
   });
 
@@ -1652,6 +1670,7 @@ export function getApiFeatureObj({
     },
     revisions: revisionDefs,
     customFields: feature.customFields ?? {},
+    ...(feature.holdout != null ? { holdout: feature.holdout } : {}),
   };
 
   return featureRecord;

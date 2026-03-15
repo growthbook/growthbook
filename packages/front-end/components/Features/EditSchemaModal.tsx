@@ -5,16 +5,20 @@ import {
   SchemaField,
   SimpleSchema,
 } from "shared/types/feature";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import dJSON from "dirty-json";
 import stringify from "json-stringify-pretty-compact";
 import {
   getJSONValidator,
   inferSimpleSchemaFromValue,
   simpleToJSONSchema,
+  getReviewSetting,
 } from "shared/util";
 import { FaAngleDown, FaAngleRight, FaRegTrashAlt } from "react-icons/fa";
+import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 import { useAuth } from "@/services/auth";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import Field from "@/components/Forms/Field";
 import Switch from "@/ui/Switch";
 import Modal from "@/components/Modal";
@@ -24,11 +28,16 @@ import { GBAddCircle } from "@/components/Icons";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import Checkbox from "@/ui/Checkbox";
+import DraftSelectorForChanges, {
+  DraftMode,
+} from "@/components/Features/DraftSelectorForChanges";
 
 export interface Props {
   feature: FeatureInterface;
   close: () => void;
   mutate: () => void;
+  setVersion?: (version: number) => void;
+  revisionList?: MinimalFeatureRevisionInterface[];
   defaultEnable?: boolean;
   onEnable?: () => void;
 }
@@ -426,6 +435,8 @@ export default function EditSchemaModal({
   feature,
   close,
   mutate,
+  setVersion,
+  revisionList = [],
   defaultEnable,
   onEnable,
 }: Props) {
@@ -450,12 +461,35 @@ export default function EditSchemaModal({
     },
   });
   const { apiCall } = useAuth();
+  const settings = useOrgSettings();
+
+  const gatedEnvSet: Set<string> | "all" | "none" = useMemo(() => {
+    const raw = settings?.requireReviews;
+    if (raw === true) return "all";
+    if (!Array.isArray(raw)) return "none";
+    const reviewSetting = getReviewSetting(raw, feature);
+    if (!reviewSetting?.requireReviewOn) return "none";
+    const envList = reviewSetting.environments ?? [];
+    return envList.length === 0 ? "all" : new Set(envList);
+  }, [settings?.requireReviews, feature]);
+
+  const canAutoPublish = gatedEnvSet === "none";
+
+  const defaultDraft = useDefaultDraft(revisionList);
+
+  const [mode, setMode] = useState<DraftMode>(
+    canAutoPublish ? "publish" : defaultDraft != null ? "existing" : "new",
+  );
+  // Always pre-populated so switching to "existing draft" immediately shows the current draft.
+  const [selectedDraft, setSelectedDraft] = useState<number | null>(
+    defaultDraft,
+  );
 
   return (
     <Modal
       trackingEventModalType=""
       header="Edit Feature Validation"
-      cta="Save"
+      cta={mode === "publish" ? "Publish" : "Save to Draft"}
       size="lg"
       submit={form.handleSubmit(async (value) => {
         if (value.enabled && value.schemaType === "schema") {
@@ -502,16 +536,40 @@ export default function EditSchemaModal({
           }
         }
 
-        await apiCall(`/feature/${feature.id}/schema`, {
-          method: "POST",
-          body: JSON.stringify(value),
-        });
+        const body: Record<string, unknown> = {
+          ...value,
+          ...(mode === "publish"
+            ? { autoPublish: true }
+            : mode === "existing"
+              ? { targetDraftVersion: selectedDraft }
+              : { forceNewDraft: true }),
+        };
+        const res = await apiCall<{ draftVersion?: number }>(
+          `/feature/${feature.id}/schema`,
+          {
+            method: "POST",
+            body: JSON.stringify(body),
+          },
+        );
         mutate();
+        if (res?.draftVersion && setVersion) {
+          setVersion(res.draftVersion);
+        }
         onEnable && value.enabled && onEnable();
       })}
       close={close}
       open={true}
     >
+      <DraftSelectorForChanges
+        feature={feature}
+        revisionList={revisionList}
+        mode={mode}
+        setMode={setMode}
+        selectedDraft={selectedDraft}
+        setSelectedDraft={setSelectedDraft}
+        canAutoPublish={canAutoPublish}
+        gatedEnvSet={gatedEnvSet}
+      />
       <Switch
         id={"schemaEnabled"}
         label="Enable Validation"

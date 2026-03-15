@@ -780,6 +780,7 @@ app.get("/feature", featuresController.getFeatures);
 app.get("/feature/:id", featuresController.getFeatureById);
 app.get("/feature/:id/revisions", featuresController.getFeatureRevisions);
 app.get("/feature/:id/usage", featuresController.getFeatureUsage);
+app.get("/feature/:id/watchers", featuresController.getFeatureWatchers);
 app.post("/feature", featuresController.postFeatures);
 app.put("/feature/:id", featuresController.putFeature);
 app.delete("/feature/:id", featuresController.deleteFeatureById);
@@ -808,15 +809,21 @@ app.post(
 app.get("/feature/:id/:version/log", featuresController.getRevisionLog);
 app.post("/feature/:id/archive", featuresController.postFeatureArchive);
 app.post("/feature/:id/toggle", featuresController.postFeatureToggle);
+app.post("/feature/:id/draft", featuresController.postFeatureCreateDraft);
 app.post("/feature/:id/:version/fork", featuresController.postFeatureFork);
 app.post("/feature/:id/:version/rebase", featuresController.postFeatureRebase);
 app.post("/feature/:id/:version/revert", featuresController.postFeatureRevert);
+app.post(
+  "/feature/:id/:version/revert-draft",
+  featuresController.postFeatureRevertDraft,
+);
 app.post("/feature/:id/:version/rule", featuresController.postFeatureRule);
 app.post(
   "/feature/:id/:version/experiment",
   featuresController.postFeatureExperimentRefRule,
 );
 app.put("/feature/:id/:version/comment", featuresController.putRevisionComment);
+app.put("/feature/:id/:version/title", featuresController.putRevisionTitle);
 app.put("/feature/:id/:version/rule", featuresController.putFeatureRule);
 app.put(
   "/feature/:id/safeRollout/status",

@@ -1,6 +1,8 @@
 import { FeatureInterface } from "shared/types/feature";
 import { useState } from "react";
-import { filterEnvironmentsByFeature } from "shared/util";
+import { filterEnvironmentsByFeature, getReviewSetting } from "shared/util";
+import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 import Text from "@/ui/Text";
 import { useFeatureDependents } from "@/hooks/useFeatureDependents";
 import { getEnabledEnvironments, useEnvironments } from "@/services/features";
@@ -8,19 +10,33 @@ import Callout from "@/ui/Callout";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Modal from "@/components/Modal";
 import Checkbox from "@/ui/Checkbox";
+import { useAuth } from "@/services/auth";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import DraftSelectorForChanges, {
+  DraftMode,
+} from "@/components/Features/DraftSelectorForChanges";
 import FeatureReferencesList from "./FeatureReferencesList";
 
 interface FeatureArchiveModalProps {
   feature: FeatureInterface;
   close: () => void;
-  onArchive: () => Promise<void>;
+  revisionList: MinimalFeatureRevisionInterface[];
+  mutate: () => void;
+  setVersion?: (v: number) => void;
 }
 
 export default function FeatureArchiveModal({
   feature,
   close,
-  onArchive,
+  revisionList,
+  mutate,
+  setVersion,
 }: FeatureArchiveModalProps) {
+  const { apiCall } = useAuth();
+  const settings = useOrgSettings();
+  const permissionsUtil = usePermissionsUtil();
+
   const { dependents, loading } = useFeatureDependents(feature.id);
   const totalDependents =
     (dependents?.features.length ?? 0) + (dependents?.experiments.length ?? 0);
@@ -33,8 +49,33 @@ export default function FeatureArchiveModal({
     : getEnabledEnvironments(feature, environments);
   const hasActiveEnvs = enabledEnvs.length > 0;
 
-  // If there are active environments, must explicitly confirm with a checkbox to enable the CTA
   const [confirmEnvBypass, setConfirmEnvBypass] = useState(!hasActiveEnvs);
+
+  const isAdmin = permissionsUtil.canBypassApprovalChecks(feature);
+
+  // Archive approval is gated by the top-level requireReviewOn setting only —
+  // not by featureRequireMetadataReview or featureRequireEnvironmentReview.
+  const archiveGated: boolean = (() => {
+    const raw = settings?.requireReviews;
+    if (raw === true) return true;
+    if (!Array.isArray(raw)) return false;
+    const reviewSetting = getReviewSetting(raw, feature);
+    return !!reviewSetting?.requireReviewOn;
+  })();
+
+  const canAutoPublish = isAdmin || !archiveGated;
+
+  const defaultDraft = useDefaultDraft(revisionList);
+
+  const [mode, setMode] = useState<DraftMode>(
+    defaultDraft != null ? "existing" : "new",
+  );
+  const [selectedDraft, setSelectedDraft] = useState<number | null>(
+    defaultDraft,
+  );
+
+  const canSubmit =
+    !loading && totalDependents === 0 && (confirmEnvBypass || !hasActiveEnvs);
 
   return (
     <Modal
@@ -42,19 +83,52 @@ export default function FeatureArchiveModal({
       header={isArchived ? "Unarchive Feature" : "Archive Feature"}
       close={close}
       open={true}
-      cta={isArchived ? "Unarchive" : "Archive"}
-      submitColor="danger"
+      cta={
+        mode === "publish"
+          ? isArchived
+            ? "Unarchive"
+            : "Archive"
+          : "Save to draft"
+      }
+      submitColor={mode === "publish" ? "danger" : "primary"}
       submit={async () => {
-        await onArchive();
+        // Desired new archived state — explicit so the endpoint never has to
+        // guess by toggling `feature.archived` (which may differ from the
+        // draft's current archived field).
+        const desiredArchived = !isArchived;
+        const res = await apiCall<{ draftVersion?: number }>(
+          `/feature/${feature.id}/archive`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              archived: desiredArchived,
+              ...(mode === "publish"
+                ? { autoPublish: true }
+                : mode === "existing"
+                  ? { draftVersion: selectedDraft }
+                  : { forceNewDraft: true }),
+            }),
+          },
+        );
+        mutate();
+        if (res?.draftVersion && setVersion) {
+          setVersion(res.draftVersion);
+        }
         close();
       }}
-      ctaEnabled={
-        !loading &&
-        totalDependents === 0 &&
-        (confirmEnvBypass || !hasActiveEnvs)
-      }
+      ctaEnabled={canSubmit}
       useRadixButton={true}
     >
+      <DraftSelectorForChanges
+        feature={feature}
+        revisionList={revisionList}
+        mode={mode}
+        setMode={setMode}
+        selectedDraft={selectedDraft}
+        setSelectedDraft={setSelectedDraft}
+        canAutoPublish={canAutoPublish}
+        gatedEnvSet={archiveGated ? "all" : "none"}
+      />
       {loading ? (
         <Text color="text-disabled">
           <LoadingSpinner /> Checking feature dependencies...

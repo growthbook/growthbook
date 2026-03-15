@@ -6,6 +6,10 @@ import {
   MergeResultChanges,
   getApiFeatureEnabledEnvs,
   getApiFeatureAllEnvs,
+  checkIfRevisionNeedsReview,
+  autoMerge,
+  fillRevisionFromFeature,
+  PermissionError,
 } from "shared/util";
 import {
   SafeRolloutInterface,
@@ -21,6 +25,7 @@ import {
   LegacyFeatureInterface,
 } from "shared/types/feature";
 import { EventUser } from "shared/types/events/event-types";
+import { OrganizationInterface } from "shared/types/organization";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { ResourceEvents } from "shared/types/events/base-types";
 import { DiffResult } from "shared/types/events/diff";
@@ -62,8 +67,10 @@ import {
 } from "./EventModel";
 import {
   addLinkedFeatureToExperiment,
+  getExperimentById,
   getExperimentMapForFeature,
   removeLinkedFeatureFromExperiment,
+  updateExperiment,
 } from "./ExperimentModel";
 import {
   createInitialRevision,
@@ -73,6 +80,7 @@ import {
   hasDraft,
   markRevisionAsPublished,
   updateRevision,
+  createRevision,
 } from "./FeatureRevisionModel";
 
 const featureSchema = new mongoose.Schema({
@@ -1154,7 +1162,9 @@ export async function applyRevisionChanges(
 
   environments.forEach((env) => {
     const rules = result.rules?.[env];
-    if (!rules) return;
+    const envEnabled = result.environmentsEnabled?.[env];
+
+    if (rules === undefined && envEnabled === undefined) return;
 
     changes.environmentSettings =
       changes.environmentSettings ||
@@ -1162,9 +1172,44 @@ export async function applyRevisionChanges(
     changes.environmentSettings[env] = changes.environmentSettings[env] || {};
     changes.environmentSettings[env].enabled =
       changes.environmentSettings[env].enabled || false;
-    changes.environmentSettings[env].rules = rules;
+
+    if (rules !== undefined) {
+      changes.environmentSettings[env].rules = rules;
+    }
+    if (envEnabled !== undefined) {
+      changes.environmentSettings[env].enabled = envEnabled;
+    }
     hasChanges = true;
   });
+
+  if (result.prerequisites !== undefined) {
+    changes.prerequisites = result.prerequisites;
+    hasChanges = true;
+  }
+
+  if (result.archived !== undefined) {
+    changes.archived = result.archived;
+    hasChanges = true;
+  }
+
+  if (result.holdout !== undefined) {
+    // null means remove from holdout; object means set/change holdout
+    changes.holdout = result.holdout ?? undefined;
+    hasChanges = true;
+  }
+
+  if (result.metadata) {
+    const m = result.metadata;
+    if (m.description !== undefined) changes.description = m.description;
+    if (m.owner !== undefined) changes.owner = m.owner;
+    if (m.project !== undefined) changes.project = m.project;
+    if (m.tags !== undefined) changes.tags = m.tags;
+    if (m.neverStale !== undefined) changes.neverStale = m.neverStale;
+    if (m.customFields !== undefined)
+      changes.customFields = m.customFields as Record<string, unknown>;
+    if (m.jsonSchema !== undefined) changes.jsonSchema = m.jsonSchema;
+    hasChanges = true;
+  }
 
   if (!hasChanges) {
     throw new Error("No changes to publish");
@@ -1187,6 +1232,100 @@ export async function applyRevisionChanges(
   return await updateFeature(context, feature, changes);
 }
 
+/**
+ * Run HoldoutModel / Experiment side-effects when a feature's holdout membership
+ * changes at publish time. Called automatically by publishRevision when result.holdout
+ * is defined, so all publish paths (direct, approval flow, revert, etc.) are covered.
+ *
+ * @param feature     The feature's state *before* the publish (used for prevHoldout).
+ * @param newHoldout  The incoming holdout value, or null to remove from holdout.
+ */
+export async function applyHoldoutSideEffects(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  newHoldout: { id: string; value: string } | null,
+) {
+  const prevHoldoutId = feature.holdout?.id;
+  const newHoldoutId = newHoldout?.id;
+
+  if (newHoldoutId === prevHoldoutId) return;
+
+  // Guard: cannot change holdout id when there are running experiments/bandits/safe rollouts
+  if (newHoldout !== null) {
+    let hasNonDraftExperimentsOrBandits = false;
+    for (const experimentId of feature.linkedExperiments ?? []) {
+      const experiment = await getExperimentById(context, experimentId);
+      if (
+        experiment?.status !== "draft" ||
+        experiment?.type === "multi-armed-bandit"
+      ) {
+        hasNonDraftExperimentsOrBandits = true;
+        break;
+      }
+    }
+    const hasSafeRollouts = Object.values(feature.environmentSettings).some(
+      (env) => env.rules.some((rule) => rule.type === "safe-rollout"),
+    );
+    if (hasNonDraftExperimentsOrBandits || hasSafeRollouts) {
+      throw new Error(
+        "Cannot change holdout when there are running linked experiments, safe rollout rules, or multi-armed bandit rules",
+      );
+    }
+  }
+
+  // Remove feature from the old holdout
+  if (prevHoldoutId) {
+    await context.models.holdout.removeFeatureFromHoldout(
+      prevHoldoutId,
+      feature.id,
+    );
+  }
+
+  // Link feature (and its experiments) to the new holdout
+  if (newHoldoutId) {
+    const holdoutObj = await context.models.holdout.getById(newHoldoutId);
+    if (!holdoutObj) {
+      throw new Error("Holdout not found");
+    }
+
+    await context.models.holdout.updateById(newHoldoutId, {
+      linkedFeatures: {
+        [feature.id]: { id: feature.id, dateAdded: new Date() },
+        ...holdoutObj.linkedFeatures,
+      },
+      ...(feature.linkedExperiments?.length
+        ? {
+            linkedExperiments: {
+              ...Object.fromEntries(
+                feature.linkedExperiments.map((experimentId) => [
+                  experimentId,
+                  { id: experimentId, dateAdded: new Date() },
+                ]),
+              ),
+              ...holdoutObj.linkedExperiments,
+            },
+          }
+        : {}),
+    });
+
+    if (feature.linkedExperiments?.length) {
+      const linkedExperiments = await Promise.all(
+        feature.linkedExperiments.map((eid) => getExperimentById(context, eid)),
+      );
+      await Promise.all(
+        linkedExperiments.map(async (exp) => {
+          if (!exp) return;
+          return updateExperiment({
+            context,
+            experiment: exp,
+            changes: { holdoutId: newHoldoutId },
+          });
+        }),
+      );
+    }
+  }
+}
+
 export async function publishRevision(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -1206,6 +1345,11 @@ export async function publishRevision(
     result,
   );
 
+  // Run holdout side-effects for every publish path (approval flow, revert, direct publish, etc.)
+  if (result.holdout !== undefined) {
+    await applyHoldoutSideEffects(context, feature, result.holdout);
+  }
+
   await markRevisionAsPublished(
     context,
     feature,
@@ -1215,6 +1359,121 @@ export async function publishRevision(
   );
 
   return updatedFeature;
+}
+
+// Create a new revision from the given changes and immediately publish it.
+// Either the revision is published and the updated feature is returned, or an
+// error is thrown — a pending-review draft is never silently left behind.
+// canBypassApprovalChecks should be true when the org-level restApiBypassesReviews
+// setting is on; individual role permissions do not bypass on the REST path.
+export async function createAndPublishRevision({
+  context,
+  feature,
+  user,
+  org,
+  changes,
+  comment,
+  canBypassApprovalChecks,
+}: {
+  context: ReqContext | ApiReqContext;
+  feature: FeatureInterface;
+  user: EventUser;
+  org: OrganizationInterface;
+  changes: Parameters<typeof createRevision>[0]["changes"];
+  comment?: string;
+  canBypassApprovalChecks: boolean;
+}): Promise<{
+  revision: FeatureRevisionInterface;
+  updatedFeature: FeatureInterface;
+}> {
+  const allEnvironments = getEnvironmentIdsFromOrg(org);
+
+  // Determine whether the revision would require review before we create anything.
+  // We need a synthetic revision to check against, mirroring what createRevision would build.
+  const liveRevision = await getRevision({
+    context,
+    organization: feature.organization,
+    featureId: feature.id,
+    version: feature.version,
+  });
+  if (!liveRevision) throw new Error("Could not load live revision");
+
+  // Build a temporary revision shape for the review check (same logic as createRevision).
+  const syntheticRevision: FeatureRevisionInterface = {
+    ...liveRevision,
+    ...(changes ?? {}),
+  };
+  const requiresReview = checkIfRevisionNeedsReview({
+    feature,
+    baseRevision: liveRevision,
+    revision: syntheticRevision,
+    allEnvironments,
+    settings: org.settings,
+    requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
+  });
+
+  if (requiresReview && !canBypassApprovalChecks) {
+    throw new PermissionError(
+      "This feature requires approval before changes can be published. " +
+        "Enable 'REST API always bypasses approval requirements' in organization settings.",
+    );
+  }
+
+  // Create the draft revision (never auto-publishes; publish=false).
+  const revision = await createRevision({
+    context,
+    feature,
+    user,
+    baseVersion: feature.version,
+    comment: comment ?? "Created via REST API",
+    environments: allEnvironments,
+    publish: false,
+    changes,
+    org,
+    canBypassApprovalChecks,
+  });
+
+  // Compute the merge result the same way postFeaturePublish does —
+  // filling sparse environmentsEnabled + holdout from the live feature.
+  const featureEnvs: Record<string, boolean> = Object.fromEntries(
+    Object.entries(feature.environmentSettings ?? {}).map(([envId, env]) => [
+      envId,
+      !!env.enabled,
+    ]),
+  );
+  const fillEnvs = (r: FeatureRevisionInterface) => ({
+    ...fillRevisionFromFeature(r, feature),
+    environmentsEnabled: {
+      ...featureEnvs,
+      ...(r.environmentsEnabled ?? {}),
+    },
+    holdout: feature.holdout ?? null,
+  });
+
+  const mergeResult = autoMerge(
+    fillEnvs(liveRevision),
+    fillEnvs(liveRevision), // base === live for a fresh revision off HEAD
+    revision,
+    allEnvironments,
+    {},
+  );
+
+  if (!mergeResult.success) {
+    // Shouldn't happen for a brand-new revision off HEAD, but guard anyway.
+    throw new Error(
+      "Merge conflict detected while publishing revision. Please retry.",
+    );
+  }
+
+  const updatedFeature = await publishRevision(
+    context,
+    feature,
+    revision,
+    mergeResult.result,
+    comment,
+  );
+
+  return { revision, updatedFeature };
 }
 
 function getLinkedExperiments(

@@ -68,6 +68,8 @@ export type RequireReview = {
   resetReviewOnChange: boolean;
   environments: string[];
   projects: string[];
+  featureRequireEnvironmentReview?: boolean;
+  featureRequireMetadataReview?: boolean;
 };
 
 export type OwnerJobTitle = keyof typeof OWNER_JOB_TITLES;
@@ -215,8 +217,10 @@ export interface OrganizationSettings {
   sequentialTestingTuningParameter?: number;
   displayCurrency?: string;
   secureAttributeSalt?: string;
+  /** @deprecated */
   killswitchConfirmation?: boolean;
   requireReviews?: boolean | RequireReview[];
+  restApiBypassesReviews?: boolean;
   defaultDataSource?: string;
   testQueryDays?: number;
   disableMultiMetricQueries?: boolean;

@@ -5,9 +5,10 @@ import stringify from "json-stringify-pretty-compact";
 import cloneDeep from "lodash/cloneDeep";
 import isEqual from "lodash/isEqual";
 import { evalCondition } from "@growthbook/growthbook";
-import { ExperimentRefRule } from "shared/validators";
+import { ExperimentRefRule, RevisionMetadata } from "shared/validators";
 import {
   FeatureInterface,
+  FeaturePrerequisite,
   FeatureRule,
   ForceRule,
   RolloutRule,
@@ -93,7 +94,37 @@ export function mergeRevision(
     envSettings[env].enabled = envSettings[env].enabled || false;
     envSettings[env].rules =
       revision.rules?.[env] || envSettings[env].rules || [];
+
+    if (revision.environmentsEnabled && env in revision.environmentsEnabled) {
+      envSettings[env].enabled = revision.environmentsEnabled[env];
+    }
   });
+
+  if (revision.prerequisites !== undefined) {
+    newFeature.prerequisites = revision.prerequisites;
+  }
+
+  if (revision.archived !== undefined) {
+    newFeature.archived = revision.archived;
+  }
+
+  if ("holdout" in revision) {
+    newFeature.holdout = revision.holdout ?? undefined;
+  }
+
+  if (revision.metadata) {
+    const m = revision.metadata;
+    if (m.description !== undefined) newFeature.description = m.description;
+    if (m.owner !== undefined) newFeature.owner = m.owner;
+    if (m.project !== undefined) newFeature.project = m.project;
+    if (m.tags !== undefined) newFeature.tags = m.tags;
+    if (m.neverStale !== undefined) newFeature.neverStale = m.neverStale;
+    if (m.customFields !== undefined)
+      newFeature.customFields = m.customFields as Record<string, unknown>;
+    if (m.jsonSchema !== undefined) newFeature.jsonSchema = m.jsonSchema;
+    // Use draft valueType for preview so rule/defaultValue validation is accurate
+    if (m.valueType !== undefined) newFeature.valueType = m.valueType;
+  }
 
   return newFeature;
 }
@@ -587,6 +618,11 @@ export type MergeStrategy = "" | "overwrite" | "discard";
 export type MergeResultChanges = {
   defaultValue?: string;
   rules?: Record<string, FeatureRule[]>;
+  environmentsEnabled?: Record<string, boolean>;
+  prerequisites?: FeaturePrerequisite[];
+  archived?: boolean;
+  metadata?: RevisionMetadata;
+  holdout?: { id: string; value: string } | null;
 };
 export type AutoMergeResult =
   | {
@@ -599,52 +635,156 @@ export type AutoMergeResult =
       conflicts: MergeConflict[];
     };
 
-export type RulesAndValues = Pick<
+export type RevisionFields = Pick<
   FeatureRevisionInterface,
-  "defaultValue" | "rules" | "version"
+  | "defaultValue"
+  | "rules"
+  | "version"
+  | "environmentsEnabled"
+  | "prerequisites"
+  | "archived"
+  | "metadata"
+  | "holdout"
 >;
+
+// Per-field backfill strategies for fillRevisionFromFeature.
+// Each filler receives the live feature and the revision's current field value
+// (possibly undefined for a sparse/legacy revision) and returns the normalized value.
+// Fields without an entry are left as-is — sparse absence is meaningful for those.
+// Add an entry here whenever a new revision envelope field needs backfill logic.
+const revisionFieldFillers: Partial<{
+  [K in keyof RevisionFields]: (
+    feature: FeatureInterface,
+    current: RevisionFields[K],
+  ) => RevisionFields[K];
+}> = {
+  // Revisions only record environmentsEnabled at publish time. Environments
+  // added to the org afterwards won't appear in older revisions — fill from
+  // the live feature so autoMerge doesn't produce false diffs for new envs.
+  environmentsEnabled: (feature, current) => ({
+    ...Object.fromEntries(
+      Object.entries(feature.environmentSettings ?? {}).map(([env, val]) => [
+        env,
+        !!val.enabled,
+      ]),
+    ),
+    ...(current ?? {}),
+  }),
+};
+
+// Normalize a revision's stale/missing fields from the live feature before passing
+// to autoMerge. Only fields in revisionFieldFillers are touched; all others are left
+// as-is so that sparse absence remains meaningful.
+export function fillRevisionFromFeature(
+  revision: RevisionFields,
+  feature: FeatureInterface,
+): RevisionFields {
+  const result = { ...revision } as RevisionFields;
+  for (const k of Object.keys(
+    revisionFieldFillers,
+  ) as (keyof RevisionFields)[]) {
+    (result[k] as unknown) = revisionFieldFillers[k]!(
+      feature,
+      result[k] as never,
+    );
+  }
+  return result;
+}
 
 export function mergeResultHasChanges(mergeResult: AutoMergeResult): boolean {
   if (!mergeResult.success) return true;
-
-  if (Object.keys(mergeResult.result.rules || {}).length > 0) return true;
-
-  if (mergeResult.result.defaultValue !== undefined) return true;
-
+  const r = mergeResult.result;
+  if (r.defaultValue !== undefined) return true;
+  if (Object.keys(r.rules || {}).length > 0) return true;
+  if (Object.keys(r.environmentsEnabled || {}).length > 0) return true;
+  if (r.prerequisites !== undefined) return true;
+  if (r.archived !== undefined) return true;
+  if ("holdout" in r) return true;
+  if (r.metadata !== undefined && Object.keys(r.metadata).length > 0)
+    return true;
   return false;
 }
-export function listChangedEnvironments(
-  base: RulesAndValues,
-  revision: RulesAndValues,
-  allEnviroments: string[],
-) {
-  const environmentsList: string[] = [];
-  allEnviroments?.forEach((env) => {
-    const rules = revision.rules[env];
-    if (!rules) return;
-    if (isEqual(rules, base.rules[env] || [])) {
-      return;
-    }
-    environmentsList.push(env);
-  });
-  return environmentsList;
+// Normalize a metadata field value for comparison so that semantic equivalents
+// (null vs "" for strings, null vs [] for tags) don't produce false-positive deltas.
+function normalizeMetadataValue(
+  k: keyof RevisionMetadata,
+  v: RevisionMetadata[keyof RevisionMetadata],
+): unknown {
+  if (k === "tags") return (v as string[] | null | undefined) ?? [];
+  if (k === "description" || k === "owner" || k === "project")
+    return (v as string | null | undefined) ?? "";
+  return v;
+}
+
+// Returns true if the revision contains a change that affects all environments
+// (prerequisites, archived, holdout, defaultValue, or metadata).
+// Used by getDraftAffectedEnvironments and checkIfRevisionNeedsReview.
+function revisionHasGlobalChange(
+  revision: RevisionFields,
+  base: RevisionFields,
+): boolean {
+  if (
+    revision.prerequisites !== undefined &&
+    !isEqual(revision.prerequisites, base.prerequisites || [])
+  )
+    return true;
+  if (revision.archived !== undefined && revision.archived !== base.archived)
+    return true;
+  if ("holdout" in revision && !isEqual(revision.holdout, base.holdout ?? null))
+    return true;
+  if (revision.defaultValue !== base.defaultValue) return true;
+  if (
+    revision.metadata &&
+    (Object.keys(revision.metadata) as (keyof RevisionMetadata)[]).some(
+      (k) =>
+        !isEqual(
+          normalizeMetadataValue(k, revision.metadata![k]),
+          normalizeMetadataValue(k, base.metadata?.[k]),
+        ),
+    )
+  )
+    return true;
+  return false;
+}
+
+// Returns true if the revision has a metadata-only global change (no
+// prerequisites, archived, holdout, or defaultValue changes).
+function revisionHasMetadataOnlyGlobalChange(
+  revision: RevisionFields,
+  base: RevisionFields,
+): boolean {
+  const hasNonMetadata =
+    (revision.prerequisites !== undefined &&
+      !isEqual(revision.prerequisites, base.prerequisites || [])) ||
+    (revision.archived !== undefined && revision.archived !== base.archived) ||
+    ("holdout" in revision &&
+      !isEqual(revision.holdout, base.holdout ?? null)) ||
+    revision.defaultValue !== base.defaultValue;
+  if (hasNonMetadata) return false;
+  return (
+    !!revision.metadata &&
+    (Object.keys(revision.metadata) as (keyof RevisionMetadata)[]).some(
+      (k) =>
+        !isEqual(
+          normalizeMetadataValue(k, revision.metadata![k]),
+          normalizeMetadataValue(k, base.metadata?.[k]),
+        ),
+    )
+  );
 }
 
 export function autoMerge(
-  live: RulesAndValues,
-  base: RulesAndValues,
-  revision: RulesAndValues,
+  live: RevisionFields,
+  base: RevisionFields,
+  revision: RevisionFields,
   environments: string[],
   strategies: Record<string, MergeStrategy>,
 ): AutoMergeResult {
-  const result: {
-    defaultValue?: string;
-    rules?: Record<string, FeatureRule[]>;
-  } = {};
+  const result: MergeResultChanges = {};
+  const diverged = live.version !== base.version;
 
-  // If the base and feature have not diverged, no need to merge anything
-  if (live.version === base.version) {
-    // Only add changes to result if it's different from the base
+  // No divergence path: only include revision changes that differ from base
+  if (!diverged) {
     if (revision.defaultValue !== base.defaultValue) {
       result.defaultValue = revision.defaultValue;
     }
@@ -652,68 +792,101 @@ export function autoMerge(
     environments.forEach((env) => {
       const rules = revision.rules?.[env];
       if (!rules) return;
-      if (isEqual(rules, base.rules[env] || [])) {
-        return;
-      }
+      if (isEqual(rules, base.rules[env] || [])) return;
       result.rules = result.rules || {};
       result.rules[env] = rules;
     });
 
-    return {
-      success: true,
-      result,
-      conflicts: [],
-    };
+    // environmentsEnabled
+    if (revision.environmentsEnabled) {
+      for (const env of Object.keys(revision.environmentsEnabled)) {
+        const revVal = revision.environmentsEnabled[env];
+        if (revVal !== base.environmentsEnabled?.[env]) {
+          result.environmentsEnabled = result.environmentsEnabled || {};
+          result.environmentsEnabled[env] = revVal;
+        }
+      }
+    }
+
+    // prerequisites
+    if (
+      revision.prerequisites !== undefined &&
+      !isEqual(revision.prerequisites, base.prerequisites || [])
+    ) {
+      result.prerequisites = revision.prerequisites;
+    }
+
+    // archived
+    if (
+      revision.archived !== undefined &&
+      revision.archived !== base.archived
+    ) {
+      result.archived = revision.archived;
+    }
+
+    // holdout
+    if (
+      "holdout" in revision &&
+      !isEqual(revision.holdout, base.holdout ?? null)
+    ) {
+      result.holdout = revision.holdout;
+    }
+
+    // metadata — per-field comparison
+    if (revision.metadata) {
+      const metadataResult: RevisionMetadata = {};
+      let hasMetadataChanges = false;
+      for (const k of Object.keys(
+        revision.metadata,
+      ) as (keyof RevisionMetadata)[]) {
+        const revNorm = normalizeMetadataValue(k, revision.metadata[k]);
+        const baseNorm = normalizeMetadataValue(k, base.metadata?.[k]);
+        if (!isEqual(revNorm, baseNorm)) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (metadataResult as any)[k] = revision.metadata[k];
+          hasMetadataChanges = true;
+        }
+      }
+      if (hasMetadataChanges) result.metadata = metadataResult;
+    }
+
+    return { success: true, result, conflicts: [] };
   }
 
+  // Diverged path: three-way merge with conflict detection
   const conflicts: MergeConflict[] = [];
 
-  // If the revision's defaultValue has been changed
+  // defaultValue
   if (
     revision.defaultValue !== base.defaultValue &&
-    live.defaultValue !== revision.defaultValue
+    revision.defaultValue !== live.defaultValue
   ) {
-    // If there's a conflict with the live version
     if (live.defaultValue !== base.defaultValue) {
-      const conflictInfo = {
+      const conflictInfo: MergeConflict = {
         name: "Default Value",
         key: "defaultValue",
         base: base.defaultValue,
         live: live.defaultValue,
         revision: revision.defaultValue,
+        resolved: false,
       };
-      const strategy = strategies[conflictInfo.key];
-
+      const strategy = strategies["defaultValue"];
       if (strategy === "overwrite") {
-        conflicts.push({
-          ...conflictInfo,
-          resolved: true,
-        });
+        conflictInfo.resolved = true;
         result.defaultValue = revision.defaultValue;
       } else if (strategy === "discard") {
-        conflicts.push({
-          ...conflictInfo,
-          resolved: true,
-        });
-      } else {
-        conflicts.push({
-          ...conflictInfo,
-          resolved: false,
-        });
+        conflictInfo.resolved = true;
       }
-    }
-    // Otherwise, there's no conflict and it's safe to update
-    else {
+      conflicts.push(conflictInfo);
+    } else {
       result.defaultValue = revision.defaultValue;
     }
   }
 
-  // Check for conflicts in rules
+  // rules (per-env)
   environments.forEach((env) => {
     const rules = revision.rules?.[env];
     if (!rules) return;
-
-    // If the revision doesn't have changes in this environment, skip
     if (
       isEqual(rules, base.rules[env] || []) ||
       isEqual(rules, live.rules[env] || [])
@@ -723,58 +896,200 @@ export function autoMerge(
 
     result.rules = result.rules || {};
 
-    // If there's a conflict
-    // TODO: be smarter about this - it's only really a conflict if the same rule is being changed in both
     if (
       env in live.rules &&
       !isEqual(live.rules[env] || [], base.rules[env] || []) &&
       !isEqual(live.rules[env] || [], rules)
     ) {
-      const conflictInfo = {
+      const conflictInfo: MergeConflict = {
         name: `Rules - ${env}`,
         key: `rules.${env}`,
         base: JSON.stringify(base.rules[env], null, 2),
         live: JSON.stringify(live.rules[env], null, 2),
         revision: JSON.stringify(rules, null, 2),
+        resolved: false,
       };
       const strategy = strategies[conflictInfo.key];
-
       if (strategy === "overwrite") {
-        conflicts.push({
-          ...conflictInfo,
-          resolved: true,
-        });
+        conflictInfo.resolved = true;
         result.rules[env] = rules;
       } else if (strategy === "discard") {
-        conflicts.push({
-          ...conflictInfo,
-          resolved: true,
-        });
-      } else {
-        conflicts.push({
-          ...conflictInfo,
-          resolved: false,
-        });
+        conflictInfo.resolved = true;
       }
-    }
-    // No conflict
-    else {
+      conflicts.push(conflictInfo);
+    } else {
       result.rules[env] = rules;
     }
   });
 
-  if (conflicts.some((c) => !c.resolved)) {
-    return {
-      success: false,
-      conflicts,
-    };
+  // environmentsEnabled (per-env boolean)
+  if (revision.environmentsEnabled) {
+    for (const env of Object.keys(revision.environmentsEnabled)) {
+      const revVal = revision.environmentsEnabled[env];
+      const baseVal = base.environmentsEnabled?.[env];
+      const liveVal = live.environmentsEnabled?.[env];
+      if (revVal === baseVal || revVal === liveVal) continue;
+
+      if (liveVal !== baseVal && !isEqual(liveVal, revVal)) {
+        const conflictInfo: MergeConflict = {
+          name: `Env Enabled - ${env}`,
+          key: `environmentsEnabled.${env}`,
+          base: JSON.stringify(baseVal),
+          live: JSON.stringify(liveVal),
+          revision: JSON.stringify(revVal),
+          resolved: false,
+        };
+        const strategy = strategies[conflictInfo.key];
+        if (strategy === "overwrite") {
+          conflictInfo.resolved = true;
+          result.environmentsEnabled = result.environmentsEnabled || {};
+          result.environmentsEnabled[env] = revVal;
+        } else if (strategy === "discard") {
+          conflictInfo.resolved = true;
+        }
+        conflicts.push(conflictInfo);
+      } else {
+        result.environmentsEnabled = result.environmentsEnabled || {};
+        result.environmentsEnabled[env] = revVal;
+      }
+    }
   }
 
-  return {
-    success: true,
-    conflicts,
-    result,
-  };
+  // prerequisites (flat array)
+  if (revision.prerequisites !== undefined) {
+    const revVal = revision.prerequisites;
+    const baseVal = base.prerequisites || [];
+    const liveVal = live.prerequisites || [];
+    if (!isEqual(revVal, baseVal) && !isEqual(revVal, liveVal)) {
+      if (!isEqual(liveVal, baseVal) && !isEqual(liveVal, revVal)) {
+        const conflictInfo: MergeConflict = {
+          name: "Prerequisites",
+          key: "prerequisites",
+          base: JSON.stringify(baseVal, null, 2),
+          live: JSON.stringify(liveVal, null, 2),
+          revision: JSON.stringify(revVal, null, 2),
+          resolved: false,
+        };
+        const strategy = strategies["prerequisites"];
+        if (strategy === "overwrite") {
+          conflictInfo.resolved = true;
+          result.prerequisites = revVal;
+        } else if (strategy === "discard") {
+          conflictInfo.resolved = true;
+        }
+        conflicts.push(conflictInfo);
+      } else {
+        result.prerequisites = revVal;
+      }
+    }
+  }
+
+  // archived (simple boolean, same conflict pattern as environmentsEnabled)
+  if (revision.archived !== undefined) {
+    const revVal = revision.archived;
+    const baseVal = base.archived;
+    const liveVal = live.archived;
+    if (revVal !== baseVal && revVal !== liveVal) {
+      if (liveVal !== baseVal && liveVal !== revVal) {
+        const conflictInfo: MergeConflict = {
+          name: "Archived",
+          key: "archived",
+          base: JSON.stringify(baseVal),
+          live: JSON.stringify(liveVal),
+          revision: JSON.stringify(revVal),
+          resolved: false,
+        };
+        const strategy = strategies["archived"];
+        if (strategy === "overwrite") {
+          conflictInfo.resolved = true;
+          result.archived = revVal;
+        } else if (strategy === "discard") {
+          conflictInfo.resolved = true;
+        }
+        conflicts.push(conflictInfo);
+      } else {
+        result.archived = revVal;
+      }
+    }
+  }
+
+  // holdout (nullable object, same conflict pattern as archived)
+  if ("holdout" in revision) {
+    const revVal = revision.holdout;
+    const baseVal = base.holdout ?? null;
+    const liveVal = live.holdout ?? null;
+    if (!isEqual(revVal, baseVal) && !isEqual(revVal, liveVal)) {
+      if (!isEqual(liveVal, baseVal) && !isEqual(liveVal, revVal)) {
+        const conflictInfo: MergeConflict = {
+          name: "Holdout",
+          key: "holdout",
+          base: JSON.stringify(baseVal),
+          live: JSON.stringify(liveVal),
+          revision: JSON.stringify(revVal),
+          resolved: false,
+        };
+        const strategy = strategies["holdout"];
+        if (strategy === "overwrite") {
+          conflictInfo.resolved = true;
+          result.holdout = revVal;
+        } else if (strategy === "discard") {
+          conflictInfo.resolved = true;
+        }
+        conflicts.push(conflictInfo);
+      } else {
+        result.holdout = revVal;
+      }
+    }
+  }
+
+  // metadata (per-field)
+  if (revision.metadata) {
+    const metadataResult: RevisionMetadata = {};
+    let hasMetadataChanges = false;
+    for (const k of Object.keys(
+      revision.metadata,
+    ) as (keyof RevisionMetadata)[]) {
+      const revVal = revision.metadata[k];
+      const baseVal = base.metadata?.[k];
+      const liveVal = live.metadata?.[k];
+      const revNorm = normalizeMetadataValue(k, revVal);
+      const baseNorm = normalizeMetadataValue(k, baseVal);
+      const liveNorm = normalizeMetadataValue(k, liveVal);
+      if (isEqual(revNorm, baseNorm) || isEqual(revNorm, liveNorm)) continue;
+
+      if (!isEqual(liveNorm, baseNorm) && !isEqual(liveNorm, revNorm)) {
+        const conflictInfo: MergeConflict = {
+          name: `Metadata - ${k}`,
+          key: `metadata.${k}`,
+          base: JSON.stringify(baseVal),
+          live: JSON.stringify(liveVal),
+          revision: JSON.stringify(revVal),
+          resolved: false,
+        };
+        const strategy = strategies[conflictInfo.key];
+        if (strategy === "overwrite") {
+          conflictInfo.resolved = true;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (metadataResult as any)[k] = revVal;
+          hasMetadataChanges = true;
+        } else if (strategy === "discard") {
+          conflictInfo.resolved = true;
+        }
+        conflicts.push(conflictInfo);
+      } else {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (metadataResult as any)[k] = revVal;
+        hasMetadataChanges = true;
+      }
+    }
+    if (hasMetadataChanges) result.metadata = metadataResult;
+  }
+
+  if (conflicts.some((c) => !c.resolved)) {
+    return { success: false, conflicts };
+  }
+
+  return { success: true, conflicts, result };
 }
 
 export type ValidateConditionReturn = {
@@ -1141,33 +1456,109 @@ export function resetReviewOnChange({
   return checkEnvironmentsMatch(changedEnvironments, reviewSetting);
 }
 
+// Returns which environments a revision affects relative to its base revision.
+// Per-env changes (rules, environmentsEnabled) return specific env IDs.
+// Global changes (prerequisites, archived, holdout, defaultValue, metadata) return "all".
+// Used for both UI display and approval-gate determination.
+export function getDraftAffectedEnvironments(
+  revision: RevisionFields,
+  baseRevision: RevisionFields,
+  allEnvironments: string[],
+): string[] | "all" {
+  if (revisionHasGlobalChange(revision, baseRevision)) return "all";
+
+  // Per-environment changes
+  const envs = new Set<string>();
+  for (const env of allEnvironments) {
+    if (!isEqual(revision.rules[env] || [], baseRevision.rules[env] || [])) {
+      envs.add(env);
+    }
+    const effectiveBaseEnvVal = baseRevision.environmentsEnabled?.[env];
+    if (
+      revision.environmentsEnabled?.[env] !== undefined &&
+      revision.environmentsEnabled[env] !== effectiveBaseEnvVal
+    ) {
+      envs.add(env);
+    }
+  }
+  // Collapse to "all" when every environment is affected
+  if (allEnvironments.length > 0 && envs.size === allEnvironments.length) {
+    return "all";
+  }
+  return [...envs];
+}
+
 export function checkIfRevisionNeedsReview({
   feature,
   baseRevision,
   revision,
   allEnvironments,
   settings,
+  requireApprovalsLicensed = true,
 }: {
   feature: FeatureInterface;
   baseRevision: FeatureRevisionInterface;
   revision: FeatureRevisionInterface;
   allEnvironments: string[];
   settings?: OrganizationSettings;
+  requireApprovalsLicensed?: boolean;
 }) {
-  const changedEnvironments = listChangedEnvironments(
-    baseRevision,
+  if (!requireApprovalsLicensed) return false;
+  const requireReviews = settings?.requireReviews;
+  // Boolean format: true = all changes require review, false/undefined = none do.
+  if (!Array.isArray(requireReviews)) return !!requireReviews;
+
+  const reviewSetting = getReviewSetting(requireReviews, feature);
+  if (!reviewSetting?.requireReviewOn) return false;
+
+  const affected = getDraftAffectedEnvironments(
     revision,
+    baseRevision,
     allEnvironments,
   );
-  const defaultValueChanged =
-    baseRevision.defaultValue !== revision.defaultValue;
 
-  return featureRequiresReview(
-    feature,
-    changedEnvironments,
-    defaultValueChanged,
-    settings,
+  if (affected === "all") {
+    // Metadata-only changes respect the featureRequireMetadataReview gate;
+    // all other global changes (prerequisites, archived, holdout, defaultValue) always require review.
+    if (!revisionHasMetadataOnlyGlobalChange(revision, baseRevision))
+      return true;
+    return reviewSetting.featureRequireMetadataReview !== false;
+  }
+  if (affected.length === 0) return false;
+
+  // Environment-specific changes: split into rules/values vs kill switches.
+  // Rules/values always require approval. Kill switches only require approval
+  // when featureRequireEnvironmentReview is true (default: true when unset).
+  const envsWithRuleChanges = affected.filter(
+    (env) =>
+      !isEqual(revision.rules?.[env] || [], baseRevision.rules?.[env] || []),
   );
+  const envKillSwitchChanges = affected.filter(
+    (env) =>
+      revision.environmentsEnabled?.[env] !== undefined &&
+      revision.environmentsEnabled[env] !==
+        baseRevision.environmentsEnabled?.[env],
+  );
+
+  const gatedEnvs = reviewSetting.environments;
+
+  // Rules/values always gate
+  if (envsWithRuleChanges.length > 0) {
+    if (gatedEnvs.length === 0) return true;
+    if (envsWithRuleChanges.some((env) => gatedEnvs.includes(env))) return true;
+  }
+
+  // Kill switch changes only gate when featureRequireEnvironmentReview is enabled
+  if (
+    envKillSwitchChanges.length > 0 &&
+    reviewSetting.featureRequireEnvironmentReview !== false
+  ) {
+    if (gatedEnvs.length === 0) return true;
+    if (envKillSwitchChanges.some((env) => gatedEnvs.includes(env)))
+      return true;
+  }
+
+  return false;
 }
 
 export function filterProjectsByEnvironment(

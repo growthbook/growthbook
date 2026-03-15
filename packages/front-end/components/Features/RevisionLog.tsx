@@ -13,12 +13,13 @@ import React, {
   useState,
 } from "react";
 import stringify from "json-stringify-pretty-compact";
-import clsx from "clsx";
+import { Box, Flex } from "@radix-ui/themes";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Avatar from "@/components/Avatar/Avatar";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { useUser } from "@/services/UserContext";
+import Text from "@/ui/Text";
 
 export type MutateLog = {
   mutateLog: () => Promise<void>;
@@ -28,6 +29,24 @@ export interface Props {
   feature: FeatureInterface;
   revision: FeatureRevisionInterface;
   ref?: MutableRefObject<unknown>;
+  reviewOnly?: boolean;
+}
+
+const REVIEW_ACTIONS = new Set([
+  "Review Requested",
+  "Approved",
+  "Requested Changes",
+  "Comment",
+  "edit comment",
+]);
+
+function actionColor(action: string): string {
+  if (action === "Approved") return "green";
+  if (action === "Requested Changes") return "red";
+  if (action === "Review Requested") return "orange";
+  if (action === "Comment") return "blue";
+  if (action === "edit comment") return "blue";
+  return "gray";
 }
 
 function RevisionLogRow({ log, first }: { log: RevisionLog; first: boolean }) {
@@ -41,77 +60,89 @@ function RevisionLogRow({ log, first }: { log: RevisionLog; first: boolean }) {
     value = stringify(valueAsJson);
     valueContainsData = Object.keys(valueAsJson).length > 0;
   } catch (e) {
-    // Ignore
     valueContainsData = value.length > 0;
   }
   let comment: string | undefined;
   try {
     comment = JSON.parse(log.value)?.comment;
   } catch (e) {
-    // Ignore
+    // not JSON
   }
-  const openContent = () => {
-    if (comment) {
-      return <div>{comment}</div>;
-    } else {
-      return valueContainsData ? <Code language="json" code={value} /> : null;
-    }
-  };
-  const statusBackGround = clsx("d-flex p-2 pl-3", {
-    "approval-flow-accepted": log.action === "Approved",
-    "approval-flow-changes-requested": log.action === "Requested Changes",
-    "revision-log-header":
-      log.action !== "Approved" && log.action !== "Requested Changes",
-    "cursor-pointer ": !(!!comment || !valueContainsData),
-  });
+
+  const hasExpandable = !comment && valueContainsData;
 
   let name = "API";
   if (log.user?.type === "dashboard") {
     name = users.get(log.user.id)?.name ?? "";
   }
 
+  const color = actionColor(log.action);
+
   return (
-    <div className={`appbox mb-0 ${first ? "" : "mt-3"} revision-log`}>
-      <div
-        className={statusBackGround}
-        onClick={(e) => {
-          e.preventDefault();
-          if (!(!valueContainsData || !!comment)) {
-            setOpen(!open);
-          }
+    <Box
+      mt={first ? "0" : "4"}
+      style={{
+        border: `1px solid var(--${color}-a4)`,
+        borderRadius: "var(--radius-2)",
+        overflow: "hidden",
+      }}
+    >
+      {/* Header row */}
+      <Flex
+        align="center"
+        gap="2"
+        px="2"
+        py="2"
+        style={{
+          background: `var(--${color}-a3)`,
+          cursor: hasExpandable ? "pointer" : "default",
+        }}
+        onClick={() => {
+          if (hasExpandable) setOpen((o) => !o);
         }}
       >
-        <h6 className="mb-0">
-          {log.action} {log.subject}
-        </h6>
-        {!(!valueContainsData || !!comment) && (
-          <div className="ml-auto">
-            {open ? <FaAngleDown /> : <FaAngleRight />}
-          </div>
+        <Text size="small" weight="semibold">
+          {log.action}
+        </Text>
+        {log.subject && (
+          <Text size="small" color="text-mid">
+            {log.subject}
+          </Text>
         )}
-      </div>
-      <div className="p-3">
-        {!valueContainsData ||
-          (!!comment && <div className="mb-3 ">{openContent()}</div>)}
-        {open && openContent()}
-        <div className="d-flex">
+        <Flex align="center" gap="1" ml="auto">
           {log.user?.type === "dashboard" && (
-            <div className="mr-2">
-              <Avatar email={log.user.email} size={20} name={name} />
-            </div>
+            <Avatar email={log.user.email} size={16} name={name} />
           )}
-          <div>
-            {log.user?.type === "dashboard" ? log.user.name : "API"}{" "}
-            <span className="text-muted">{ago(log.timestamp)}</span>
-          </div>
-        </div>
-      </div>
-    </div>
+          <Text size="small" color="text-low">
+            {log.user?.type === "dashboard" ? log.user.name : "API"}
+            {" · "}
+            {ago(log.timestamp)}
+          </Text>
+          {hasExpandable && (
+            <Text size="small" color="text-low">
+              {open ? <FaAngleDown /> : <FaAngleRight />}
+            </Text>
+          )}
+        </Flex>
+      </Flex>
+
+      {/* Body: comment always visible; JSON expandable on click */}
+      {(comment || open) && (
+        <Box p="2">
+          {comment && (
+            <Text size="small" as="div">
+              {comment}
+            </Text>
+          )}
+          {open && !comment && <Code language="json" code={value} />}
+        </Box>
+      )}
+    </Box>
   );
 }
 
 const Revisionlog: React.ForwardRefRenderFunction<MutateLog, Props> = (
-  { feature, revision },
+  { feature, revision, reviewOnly },
   ref,
 ) => {
   const { data, error, mutate } = useApi<{ log: RevisionLog[] }>(
@@ -124,23 +155,25 @@ const Revisionlog: React.ForwardRefRenderFunction<MutateLog, Props> = (
   }));
 
   const logs = useMemo(() => {
-    if (!data) return [];
-    const logs = [...data.log];
-    logs.sort((a, b) =>
+    if (!data) return {};
+    const filtered = reviewOnly
+      ? data.log.filter((l) => REVIEW_ACTIONS.has(l.action))
+      : data.log;
+    const sorted = [...filtered].sort((a, b) =>
       (b.timestamp as unknown as string).localeCompare(
         a.timestamp as unknown as string,
       ),
     );
 
     const byDate: Record<string, RevisionLog[]> = {};
-    logs.forEach((log) => {
+    sorted.forEach((log) => {
       const d = date(log.timestamp);
       byDate[d] = byDate[d] || [];
       byDate[d].push(log);
     });
 
     return byDate;
-  }, [data]);
+  }, [data, reviewOnly]);
 
   if (error) {
     return <div className="alert alert-danger">{error.message}</div>;
@@ -149,33 +182,49 @@ const Revisionlog: React.ForwardRefRenderFunction<MutateLog, Props> = (
     return <LoadingOverlay />;
   }
 
-  if (!data.log.length) {
+  if (!Object.keys(logs).length) {
     return (
-      <p>
-        <em>No history for this revision</em>
-      </p>
+      <Text as="p" color="text-low" size="small">
+        <em>
+          {reviewOnly
+            ? "No review activity yet"
+            : "No history for this revision"}
+        </em>
+      </Text>
     );
   }
 
   return (
-    <div className="pl-2">
-      {Object.entries(logs).map(([date, logs]) => (
-        <div className="position-relative pl-3 border-left pt-3" key={date}>
-          <div
+    <Box pl="2">
+      {Object.entries(logs).map(([d, entries]) => (
+        <Box
+          key={d}
+          pl="3"
+          pt="3"
+          style={{
+            position: "relative",
+            borderLeft: "2px solid var(--gray-4)",
+          }}
+        >
+          <Box
             style={{
               position: "absolute",
               left: -7,
+              top: 8,
+              color: "var(--gray-8)",
             }}
           >
             <FaCodeCommit />
-          </div>
-          <div className="mb-1">{date}</div>
-          {logs.map((log, i) => (
+          </Box>
+          <Text size="small" weight="semibold" color="text-mid" mb="2" as="div">
+            {d}
+          </Text>
+          {entries.map((log, i) => (
             <RevisionLogRow log={log} key={i} first={i === 0} />
           ))}
-        </div>
+        </Box>
       ))}
-    </div>
+    </Box>
   );
 };
 export default React.forwardRef(Revisionlog);

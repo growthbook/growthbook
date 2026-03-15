@@ -4,7 +4,6 @@ import { FaChevronRight } from "react-icons/fa";
 import { ArchetypeInterface } from "shared/types/archetype";
 import { FiAlertTriangle } from "react-icons/fi";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
-import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { useAuth } from "@/services/auth";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -19,7 +18,6 @@ import { useArchetype } from "@/hooks/useArchetype";
 import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 import DatePicker from "@/components/DatePicker";
 import Button from "@/ui/Button";
-import RevisionDropdown from "@/components/Features/RevisionDropdown";
 import Frame from "@/ui/Frame";
 import Switch from "@/ui/Switch";
 import styles from "./AssignmentTester.module.scss";
@@ -29,9 +27,6 @@ export interface Props {
   version: number;
   project?: string;
   startOpen?: boolean;
-  setVersion: (v: number) => void;
-  revisions?: MinimalFeatureRevisionInterface[];
-  baseFeature: FeatureInterface;
 }
 
 export default function AssignmentTester({
@@ -39,9 +34,6 @@ export default function AssignmentTester({
   version,
   project,
   startOpen = true,
-  setVersion,
-  revisions,
-  baseFeature,
 }: Props) {
   const [open, setOpen] = useState(startOpen);
   const [formValues, setFormValues] = useState({});
@@ -60,11 +52,9 @@ export default function AssignmentTester({
     skipRulesWithPrerequisites,
   });
 
-  const currentVersion = version || baseFeature.version;
   const { apiCall } = useAuth();
 
   const hasPrerequisites = useMemo(() => {
-    return true;
     if (feature?.prerequisites?.length) return true;
     if (
       Object.values(feature?.environmentSettings ?? {}).some((env) =>
@@ -281,26 +271,18 @@ export default function AssignmentTester({
 
   return (
     <>
-      <Box>
-        <Heading mb="1" size="5" as="h2">
-          Simulate Feature Rules
-        </Heading>
-        <Text mb="0">
-          Test how your rules will apply to users.{" "}
-          <Tooltip body="Enter attributes and see how Growthbook would evaluate this feature for the different environments. Will use draft rules."></Tooltip>
-        </Text>
-      </Box>
-      <Flex align="end" justify="between" mb="5" mt="3">
-        <Box width={{ initial: "98%", sm: "70%", md: "60%", lg: "50%" }}>
-          <RevisionDropdown
-            feature={feature}
-            version={currentVersion}
-            setVersion={setVersion}
-            revisions={revisions || []}
-          />
+      <Flex align="start" justify="between" mb="5" gap="4">
+        <Box flexShrink="1">
+          <Heading mb="1" size="5" as="h2">
+            Simulate Feature Rules
+          </Heading>
+          <Text mb="0">
+            Test how your rules will apply to users.{" "}
+            <Tooltip body="Enter attributes and see how Growthbook would evaluate this feature for the different environments. Will use draft rules."></Tooltip>
+          </Text>
         </Box>
-        <Flex align="end" justify="end">
-          <Box>
+        {(hasPrerequisites || hasScheduled) && (
+          <Box flexShrink="0">
             {hasPrerequisites && (
               <Flex align="center" justify="end" mb="2" gap="3">
                 <span className="font-weight-bold">Prereq evaluation:</span>{" "}
@@ -320,14 +302,12 @@ export default function AssignmentTester({
             )}
             <Flex align="center">
               {hasPrerequisites && (
-                <>
-                  <Switch
-                    label="Skip rules with prerequisite targeting"
-                    id="skipRulesWithPrerequisites"
-                    value={skipRulesWithPrerequisites}
-                    onChange={(c) => setSkipRulesWithPrerequisites(c)}
-                  />
-                </>
+                <Switch
+                  label="Skip rules with prerequisite targeting"
+                  id="skipRulesWithPrerequisites"
+                  value={skipRulesWithPrerequisites}
+                  onChange={(c) => setSkipRulesWithPrerequisites(c)}
+                />
               )}
               {hasScheduled && (
                 <Box ml="2">
@@ -351,7 +331,7 @@ export default function AssignmentTester({
               )}
             </Flex>
           </Box>
-        </Flex>
+        )}
       </Flex>
 
       <div>

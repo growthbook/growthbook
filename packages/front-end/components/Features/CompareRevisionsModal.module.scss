@@ -14,7 +14,12 @@
   }
 }
 
+.rowWrapper {
+  width: 100%;
+}
+
 .row {
+  position: relative;
   width: 100%;
   padding: var(--space-2);
   border-radius: var(--radius-2);
@@ -25,8 +30,15 @@
   transition: background-color 0.15s ease;
   box-sizing: border-box;
 
+  .previewButtonWrapper {
+    opacity: 0;
+  }
+
   &:hover {
     background-color: var(--violet-2);
+    .previewButtonWrapper {
+      opacity: 1;
+    }
   }
 }
 
@@ -35,6 +47,45 @@
 
   &:hover {
     background-color: var(--violet-4);
+  }
+}
+
+.rowPreviewDraft {
+  background-color: var(--teal-3);
+
+  &:hover {
+    background-color: var(--teal-4);
+  }
+}
+
+.rowLiveInPreview {
+  background-color: var(--gray-3);
+
+  &:hover {
+    background-color: var(--gray-4);
+  }
+}
+
+.previewButtonWrapper {
+  position: absolute;
+  top: -8px;
+  right: -4px;
+  background-color: var(--color-background) !important;
+  border-radius: var(--radius-2);
+  transition: opacity 0.15s ease;
+
+  &:hover {
+    opacity: 1;
+  }
+
+  .previewButton {
+    background-color: var(--color-background) !important;
+    opacity: 0.5;
+
+    &:hover {
+      opacity: 1;
+      background-color: unset !important;
+    }
   }
 }
 

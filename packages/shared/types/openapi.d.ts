@@ -24,13 +24,28 @@ export interface paths {
   "/features/{id}": {
     /** Get a single feature */
     get: operations["getFeature"];
-    /** Partially update a feature */
+    /**
+     * Partially update a feature 
+     * @description Updates any combination of a feature's metadata (description, owner, tags, project), default value, environment settings (rules, kill switches, enabled state), prerequisites, holdout assignment, or JSON schema validation. All provided fields are merged into the existing feature and the result is immediately published as a new revision.
+     * 
+     * Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
+     */
     post: operations["updateFeature"];
-    /** Deletes a single feature */
+    /**
+     * Deletes a single feature 
+     * @description Permanently deletes a feature and all of its revisions.
+     * 
+     * Archived features can be deleted freely. Deleting a live (non-archived) feature returns 403 unless the org setting "REST API always bypasses approval requirements" is enabled, or the API key lacks delete permission.
+     */
     delete: operations["deleteFeature"];
   };
   "/features/{id}/toggle": {
-    /** Toggle a feature in one or more environments */
+    /**
+     * Toggle a feature in one or more environments 
+     * @description Enables or disables a feature in one or more environments simultaneously. Accepts a map of environment name → boolean and immediately publishes the change.
+     * 
+     * Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
+     */
     post: operations["toggleFeature"];
     parameters: {
         /** @description The id of the requested resource */
@@ -40,7 +55,12 @@ export interface paths {
     };
   };
   "/features/{id}/revert": {
-    /** Revert a feature to a specific revision */
+    /**
+     * Revert a feature to a specific revision 
+     * @description Publishes the rules and values from a previous revision as the current live state of the feature. Use `strategy: "head"` (default) to promote the target revision directly, or `strategy: "new-revision"` to record the revert as a new revision for a cleaner audit trail.
+     * 
+     * Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
+     */
     post: operations["revertFeature"];
     parameters: {
         /** @description The id of the requested resource */
@@ -1644,6 +1664,12 @@ export interface components {
       customFields?: {
         [key: string]: unknown | undefined;
       };
+      holdout?: {
+        /** @description Holdout ID */
+        id: string;
+        /** @description The feature value assigned to users in the holdout treatment group */
+        value: string;
+      } | null;
     };
     FeatureWithRevisions: ({
       id: string;
@@ -2094,6 +2120,12 @@ export interface components {
       customFields?: {
         [key: string]: unknown | undefined;
       };
+      holdout?: {
+        /** @description Holdout ID */
+        id: string;
+        /** @description The feature value assigned to users in the holdout treatment group */
+        value: string;
+      } | null;
     }) & ({
       revisions?: ({
           baseVersion: number;
@@ -2104,6 +2136,8 @@ export interface components {
           status: string;
           createdBy?: string;
           publishedBy?: string;
+          /** @description The default value at the time this revision was created */
+          defaultValue?: string;
           rules: {
             [key: string]: ((({
                 description: string;
@@ -2312,6 +2346,47 @@ export interface components {
           };
           definitions?: {
             [key: string]: string | undefined;
+          };
+          /** @description Per-environment enabled state captured in this revision (only present when kill-switch gating is enabled) */
+          environmentsEnabled?: {
+            [key: string]: boolean | undefined;
+          };
+          /** @description Per-environment prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+          envPrerequisites?: {
+            [key: string]: ({
+                /** @description Feature ID */
+                id: string;
+                condition: string;
+              })[] | undefined;
+          };
+          /** @description Feature-level prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+          prerequisites?: ({
+              /** @description Feature ID */
+              id: string;
+              condition: string;
+            })[];
+          /** @description Metadata fields captured in this revision (only present when metadata gating is enabled) */
+          metadata?: {
+            description?: string;
+            owner?: string;
+            project?: string;
+            tags?: (string)[];
+            neverStale?: boolean;
+            valueType?: string;
+            jsonSchema?: {
+              /** @enum {string} */
+              schemaType?: "schema" | "simple";
+              schema?: string;
+              simple?: {
+                [key: string]: unknown | undefined;
+              };
+              /** Format: date-time */
+              date?: string;
+              enabled?: boolean;
+            };
+            customFields?: {
+              [key: string]: unknown | undefined;
+            };
           };
         })[];
     });
@@ -3171,6 +3246,8 @@ export interface components {
       status: string;
       createdBy?: string;
       publishedBy?: string;
+      /** @description The default value at the time this revision was created */
+      defaultValue?: string;
       rules: {
         [key: string]: ((({
             description: string;
@@ -3379,6 +3456,47 @@ export interface components {
       };
       definitions?: {
         [key: string]: string | undefined;
+      };
+      /** @description Per-environment enabled state captured in this revision (only present when kill-switch gating is enabled) */
+      environmentsEnabled?: {
+        [key: string]: boolean | undefined;
+      };
+      /** @description Per-environment prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+      envPrerequisites?: {
+        [key: string]: ({
+            /** @description Feature ID */
+            id: string;
+            condition: string;
+          })[] | undefined;
+      };
+      /** @description Feature-level prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+      prerequisites?: ({
+          /** @description Feature ID */
+          id: string;
+          condition: string;
+        })[];
+      /** @description Metadata fields captured in this revision (only present when metadata gating is enabled) */
+      metadata?: {
+        description?: string;
+        owner?: string;
+        project?: string;
+        tags?: (string)[];
+        neverStale?: boolean;
+        valueType?: string;
+        jsonSchema?: {
+          /** @enum {string} */
+          schemaType?: "schema" | "simple";
+          schema?: string;
+          simple?: {
+            [key: string]: unknown | undefined;
+          };
+          /** Format: date-time */
+          date?: string;
+          enabled?: boolean;
+        };
+        customFields?: {
+          [key: string]: unknown | undefined;
+        };
       };
     };
     SdkConnection: {
@@ -4471,12 +4589,17 @@ export interface components {
       loseRisk: number;
       secureAttributeSalt: string;
       killswitchConfirmation: boolean;
+      /** @enum {string} */
+      featureKillSwitchBehavior?: "off" | "warn";
       requireReviews: ({
           requireReviewOn?: boolean;
           resetReviewOnChange?: boolean;
           environments?: (string)[];
           projects?: (string)[];
+          featureRequireEnvironmentReview?: boolean;
+          featureRequireMetadataReview?: boolean;
         })[];
+      restApiBypassesReviews?: boolean;
       featureKeyExample: string;
       featureRegexValidator: string;
       banditScheduleValue: number;
@@ -5044,6 +5167,12 @@ export interface operations {
                 customFields?: {
                   [key: string]: unknown | undefined;
                 };
+                holdout?: {
+                  /** @description Holdout ID */
+                  id: string;
+                  /** @description The feature value assigned to users in the holdout treatment group */
+                  value: string;
+                } | null;
               })[];
           }) & {
             limit: number;
@@ -5925,6 +6054,12 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
+              holdout?: {
+                /** @description Holdout ID */
+                id: string;
+                /** @description The feature value assigned to users in the holdout treatment group */
+                value: string;
+              } | null;
             };
           };
         };
@@ -6396,6 +6531,12 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
+              holdout?: {
+                /** @description Holdout ID */
+                id: string;
+                /** @description The feature value assigned to users in the holdout treatment group */
+                value: string;
+              } | null;
             }) & ({
               revisions?: ({
                   baseVersion: number;
@@ -6406,6 +6547,8 @@ export interface operations {
                   status: string;
                   createdBy?: string;
                   publishedBy?: string;
+                  /** @description The default value at the time this revision was created */
+                  defaultValue?: string;
                   rules: {
                     [key: string]: ((({
                         description: string;
@@ -6615,6 +6758,47 @@ export interface operations {
                   definitions?: {
                     [key: string]: string | undefined;
                   };
+                  /** @description Per-environment enabled state captured in this revision (only present when kill-switch gating is enabled) */
+                  environmentsEnabled?: {
+                    [key: string]: boolean | undefined;
+                  };
+                  /** @description Per-environment prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+                  envPrerequisites?: {
+                    [key: string]: ({
+                        /** @description Feature ID */
+                        id: string;
+                        condition: string;
+                      })[] | undefined;
+                  };
+                  /** @description Feature-level prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+                  prerequisites?: ({
+                      /** @description Feature ID */
+                      id: string;
+                      condition: string;
+                    })[];
+                  /** @description Metadata fields captured in this revision (only present when metadata gating is enabled) */
+                  metadata?: {
+                    description?: string;
+                    owner?: string;
+                    project?: string;
+                    tags?: (string)[];
+                    neverStale?: boolean;
+                    valueType?: string;
+                    jsonSchema?: {
+                      /** @enum {string} */
+                      schemaType?: "schema" | "simple";
+                      schema?: string;
+                      simple?: {
+                        [key: string]: unknown | undefined;
+                      };
+                      /** Format: date-time */
+                      date?: string;
+                      enabled?: boolean;
+                    };
+                    customFields?: {
+                      [key: string]: unknown | undefined;
+                    };
+                  };
                 })[];
             });
           };
@@ -6623,7 +6807,12 @@ export interface operations {
     };
   };
   updateFeature: {
-    /** Partially update a feature */
+    /**
+     * Partially update a feature 
+     * @description Updates any combination of a feature's metadata (description, owner, tags, project), default value, environment settings (rules, kill switches, enabled state), prerequisites, holdout assignment, or JSON schema validation. All provided fields are merged into the existing feature and the result is immediately published as a new revision.
+     * 
+     * Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
+     */
     parameters: {
         /** @description The id of the requested resource */
       path: {
@@ -7030,6 +7219,13 @@ export interface operations {
           customFields?: {
             [key: string]: string | undefined;
           };
+          /** @description Holdout to assign this feature to. Pass `null` to remove the feature from its current holdout. Omit the field entirely to leave the holdout unchanged. */
+          holdout?: {
+            /** @description Holdout ID */
+            id: string;
+            /** @description The feature value assigned to users in the holdout treatment group */
+            value: string;
+          } | null;
         };
       };
     };
@@ -7486,6 +7682,12 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
+              holdout?: {
+                /** @description Holdout ID */
+                id: string;
+                /** @description The feature value assigned to users in the holdout treatment group */
+                value: string;
+              } | null;
             };
           };
         };
@@ -7493,7 +7695,12 @@ export interface operations {
     };
   };
   deleteFeature: {
-    /** Deletes a single feature */
+    /**
+     * Deletes a single feature 
+     * @description Permanently deletes a feature and all of its revisions.
+     * 
+     * Archived features can be deleted freely. Deleting a live (non-archived) feature returns 403 unless the org setting "REST API always bypasses approval requirements" is enabled, or the API key lacks delete permission.
+     */
     parameters: {
         /** @description The id of the requested resource */
       path: {
@@ -7515,7 +7722,12 @@ export interface operations {
     };
   };
   toggleFeature: {
-    /** Toggle a feature in one or more environments */
+    /**
+     * Toggle a feature in one or more environments 
+     * @description Enables or disables a feature in one or more environments simultaneously. Accepts a map of environment name → boolean and immediately publishes the change.
+     * 
+     * Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
+     */
     requestBody: {
       content: {
         "application/json": {
@@ -7979,6 +8191,12 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
+              holdout?: {
+                /** @description Holdout ID */
+                id: string;
+                /** @description The feature value assigned to users in the holdout treatment group */
+                value: string;
+              } | null;
             };
           };
         };
@@ -7986,12 +8204,26 @@ export interface operations {
     };
   };
   revertFeature: {
-    /** Revert a feature to a specific revision */
+    /**
+     * Revert a feature to a specific revision 
+     * @description Publishes the rules and values from a previous revision as the current live state of the feature. Use `strategy: "head"` (default) to promote the target revision directly, or `strategy: "new-revision"` to record the revert as a new revision for a cleaner audit trail.
+     * 
+     * Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
+     */
     requestBody: {
       content: {
         "application/json": {
           revision: number;
           comment?: string;
+          /**
+           * @description Controls how the revert is recorded.
+           * `head` (default) re-applies the target revision directly as the new HEAD — the revision history shows the old revision promoted.
+           * `new-revision` creates a fresh revision whose values match the target, leaving a clear audit trail of the revert action.
+           *  
+           * @default head 
+           * @enum {string}
+           */
+          strategy?: "head" | "new-revision";
         };
       };
     };
@@ -8448,6 +8680,12 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
+              holdout?: {
+                /** @description Holdout ID */
+                id: string;
+                /** @description The feature value assigned to users in the holdout treatment group */
+                value: string;
+              } | null;
             };
           };
         };
@@ -8481,6 +8719,8 @@ export interface operations {
                 status: string;
                 createdBy?: string;
                 publishedBy?: string;
+                /** @description The default value at the time this revision was created */
+                defaultValue?: string;
                 rules: {
                   [key: string]: ((({
                       description: string;
@@ -8689,6 +8929,47 @@ export interface operations {
                 };
                 definitions?: {
                   [key: string]: string | undefined;
+                };
+                /** @description Per-environment enabled state captured in this revision (only present when kill-switch gating is enabled) */
+                environmentsEnabled?: {
+                  [key: string]: boolean | undefined;
+                };
+                /** @description Per-environment prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+                envPrerequisites?: {
+                  [key: string]: ({
+                      /** @description Feature ID */
+                      id: string;
+                      condition: string;
+                    })[] | undefined;
+                };
+                /** @description Feature-level prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+                prerequisites?: ({
+                    /** @description Feature ID */
+                    id: string;
+                    condition: string;
+                  })[];
+                /** @description Metadata fields captured in this revision (only present when metadata gating is enabled) */
+                metadata?: {
+                  description?: string;
+                  owner?: string;
+                  project?: string;
+                  tags?: (string)[];
+                  neverStale?: boolean;
+                  valueType?: string;
+                  jsonSchema?: {
+                    /** @enum {string} */
+                    schemaType?: "schema" | "simple";
+                    schema?: string;
+                    simple?: {
+                      [key: string]: unknown | undefined;
+                    };
+                    /** Format: date-time */
+                    date?: string;
+                    enabled?: boolean;
+                  };
+                  customFields?: {
+                    [key: string]: unknown | undefined;
+                  };
                 };
               })[];
           }) & {
@@ -15164,12 +15445,17 @@ export interface operations {
               loseRisk: number;
               secureAttributeSalt: string;
               killswitchConfirmation: boolean;
+              /** @enum {string} */
+              featureKillSwitchBehavior?: "off" | "warn";
               requireReviews: ({
                   requireReviewOn?: boolean;
                   resetReviewOnChange?: boolean;
                   environments?: (string)[];
                   projects?: (string)[];
+                  featureRequireEnvironmentReview?: boolean;
+                  featureRequireMetadataReview?: boolean;
                 })[];
+              restApiBypassesReviews?: boolean;
               featureKeyExample: string;
               featureRegexValidator: string;
               banditScheduleValue: number;

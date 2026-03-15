@@ -182,7 +182,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const permissionsUtil = usePermissionsUtil();
 
     const canEdit =
-      !locked &&
       permissionsUtil.canViewFeatureModal(feature.project) &&
       permissionsUtil.canManageFeatureDrafts(feature);
 
