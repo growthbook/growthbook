@@ -502,7 +502,10 @@ describe("SDK payload generation (scenario-specific)", () => {
       archived: false,
     } as ExperimentInterface;
     const holdoutsMap = new Map([
-      ["holdout-1", { holdout, holdoutExperiment }],
+      [
+        "holdout-1",
+        { holdout, holdoutExperiment /* renamed from `experiment` on main */ },
+      ],
     ]);
     const featureRefHoldout: FeatureInterface = {
       id: "f1",
@@ -654,7 +657,10 @@ describe("SDK payload generation (scenario-specific)", () => {
       archived: false,
     } as ExperimentInterface;
     const holdoutsMap = new Map([
-      ["holdout-1", { holdout, holdoutExperiment }],
+      [
+        "holdout-1",
+        { holdout, holdoutExperiment /* renamed from `experiment` on main */ },
+      ],
     ]);
     const featureWithHoldout: FeatureInterface = {
       id: "f1",
@@ -926,13 +932,45 @@ describe("SDK payload generation (scenario-specific)", () => {
   });
 
   describe("prerequisites, holdouts, and experiments permutations", () => {
-    it("prerequisites: parentConditions present with prerequisites capability, stripped without", async () => {
-      const parent: FeatureInterface = {
-        id: "parent",
+    // 2×2 matrix: (prerequisites capability: yes/no) × (deterministic parent: yes/no)
+    // Each case covers both top-level (feature.prerequisites → gating force rule) and
+    // rule-based (rule.prerequisites → parentConditions on rule) prerequisite types.
+    //
+    // Deterministic parent: always-true (no rules, defaultValue: true). Server-side
+    // reduceFeaturesWithPrerequisites strips these before getFeatureDefinition runs,
+    // so parentConditions are never set regardless of SDK capabilities.
+    //
+    // Non-deterministic (Schrödinger) parent: has an active experiment rule, so its
+    // value is uncertain at eval time. Server keeps these; scrubFeatures then acts on them
+    // based on the prerequisites capability:
+    //   - With prerequisites: parentConditions preserved for SDK to evaluate
+    //   - Without prerequisites: top-level gating rules → feature deleted; rule-level → rules filtered out
+
+    // Shared feature factories for the 4 prerequisite permutation tests
+    function makeParentDeterministic(): FeatureInterface {
+      return {
+        id: "parent-det",
         project: "p1",
         dateCreated: new Date(),
         dateUpdated: new Date(),
-        defaultValue: true,
+        defaultValue: "true",
+        organization: "org-1",
+        owner: "",
+        valueType: "boolean",
+        archived: false,
+        description: "",
+        version: 1,
+        environmentSettings: { production: { enabled: true, rules: [] } },
+      } as FeatureInterface;
+    }
+
+    function makeParentConditional(): FeatureInterface {
+      return {
+        id: "parent-cond",
+        project: "p1",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        defaultValue: "true",
         organization: "org-1",
         owner: "",
         valueType: "boolean",
@@ -940,13 +978,60 @@ describe("SDK payload generation (scenario-specific)", () => {
         description: "",
         version: 1,
         environmentSettings: {
-          production: { enabled: true, rules: [] },
+          production: {
+            enabled: true,
+            // Experiment rule makes this non-deterministic: value varies across users
+            rules: [
+              {
+                type: "experiment",
+                id: "parent-exp",
+                enabled: true,
+                coverage: 1,
+                values: [
+                  { value: "false", weight: 0.5 },
+                  { value: "true", weight: 0.5 },
+                ],
+                hashAttribute: "id",
+              },
+            ],
+          },
         },
       } as FeatureInterface;
-      const child: FeatureInterface = {
-        ...cloneDeep(parent),
-        id: "child",
-        prerequisites: [{ id: "parent", condition: '{"value": true}' }],
+    }
+
+    // child-top: only has feature-level prerequisites (tests gating force rule creation)
+    function makeChildTopLevel(parentId: string): FeatureInterface {
+      return {
+        id: "child-top",
+        project: "p1",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        defaultValue: "false",
+        organization: "org-1",
+        owner: "",
+        valueType: "boolean",
+        archived: false,
+        description: "",
+        version: 1,
+        prerequisites: [{ id: parentId, condition: '{"value": true}' }],
+        environmentSettings: { production: { enabled: true, rules: [] } },
+      } as FeatureInterface;
+    }
+
+    // child-rule: only has rule-level prerequisites (tests parentConditions on existing rule)
+    function makeChildRuleLevel(parentId: string): FeatureInterface {
+      return {
+        id: "child-rule",
+        project: "p1",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        defaultValue: "false",
+        organization: "org-1",
+        owner: "",
+        valueType: "boolean",
+        archived: false,
+        description: "",
+        version: 1,
         environmentSettings: {
           production: {
             enabled: true,
@@ -957,52 +1042,178 @@ describe("SDK payload generation (scenario-specific)", () => {
                 enabled: true,
                 coverage: 1,
                 values: [
-                  { value: "v0", weight: 0.5, name: "C" },
-                  { value: "v1", weight: 0.5, name: "T" },
+                  { value: "false", weight: 0.5, name: "C" },
+                  { value: "true", weight: 0.5, name: "T" },
                 ],
                 hashAttribute: "id",
                 seed: "s1",
-                namespace: { enabled: true, name: "ns", range: [0, 1] },
-                prerequisites: [{ id: "parent", condition: '{"value": true}' }],
+                prerequisites: [{ id: parentId, condition: '{"value": true}' }],
               },
             ],
           },
         },
       } as FeatureInterface;
+    }
+
+    it("deterministic prereqs + prerequisites capability: server reduces always-true prereqs, no parentConditions in payload", async () => {
+      const parent = makeParentDeterministic();
+      const childTop = makeChildTopLevel("parent-det");
+      const childRule = makeChildRuleLevel("parent-det");
       const data = minimalRawData({
-        features: [parent, child],
+        features: [parent, childTop, childRule],
         experimentMap: new Map(),
       });
-      const withPrereqs = await buildSDKPayloadForConnection({
+
+      const result = await buildSDKPayloadForConnection({
         context: minimalContext(),
         connection: {
           capabilities: ["prerequisites", "bucketingV2"],
           environment: "production",
-          projects: ["p1"],
+          projects: [],
         },
         data,
       });
-      expect(withPrereqs.features.child?.rules?.[0]).toHaveProperty(
-        "parentConditions",
-      );
+
+      // Server stripped the always-true prerequisite; getFeatureDefinition never created a gating force rule.
+      // getFeatureDefinition deletes the rules key when the array is empty, so rules is undefined.
+      expect(result.features["child-top"]).toBeDefined();
+      expect(result.features["child-top"]?.rules).toBeUndefined();
+
+      // Rule-level prereq was also stripped server-side; no parentConditions on the experiment rule
+      expect(result.features["child-rule"]).toBeDefined();
+      expect(result.features["child-rule"]?.rules).toHaveLength(1);
+      expect(
+        (result.features["child-rule"]?.rules?.[0] as Record<string, unknown>)
+          ?.parentConditions,
+      ).toBeUndefined();
+    });
+
+    it("deterministic prereqs + no prerequisites capability: server reduces always-true prereqs, same result as with capability", async () => {
+      const parent = makeParentDeterministic();
+      const childTop = makeChildTopLevel("parent-det");
+      const childRule = makeChildRuleLevel("parent-det");
+      const data = minimalRawData({
+        features: [parent, childTop, childRule],
+        experimentMap: new Map(),
+      });
+
+      const result = await buildSDKPayloadForConnection({
+        context: minimalContext(),
+        connection: {
+          capabilities: ["bucketingV2"],
+          environment: "production",
+          projects: [],
+        },
+        data,
+      });
+
+      // Server-side reduction runs before scrubFeatures; capability setting is irrelevant for deterministic prereqs
+      expect(result.features["child-top"]).toBeDefined();
+      expect(result.features["child-top"]?.rules).toBeUndefined();
+
+      expect(result.features["child-rule"]).toBeDefined();
+      expect(result.features["child-rule"]?.rules).toHaveLength(1);
+      expect(
+        (result.features["child-rule"]?.rules?.[0] as Record<string, unknown>)
+          ?.parentConditions,
+      ).toBeUndefined();
+    });
+
+    it("non-deterministic prereqs + prerequisites capability: parentConditions preserved for SDK evaluation", async () => {
+      const parent = makeParentConditional();
+      const childTop = makeChildTopLevel("parent-cond");
+      const childRule = makeChildRuleLevel("parent-cond");
+      const data = minimalRawData({
+        features: [parent, childTop, childRule],
+        experimentMap: new Map(),
+      });
+
+      const result = await buildSDKPayloadForConnection({
+        context: minimalContext(),
+        connection: {
+          capabilities: ["prerequisites", "bucketingV2"],
+          environment: "production",
+          projects: [],
+        },
+        data,
+      });
+
+      // Top-level: feature.prerequisites → gating force rule with parentConditions.gate = true
+      expect(result.features["child-top"]).toBeDefined();
+      expect(result.features["child-top"]?.rules).toHaveLength(1);
+      const topLevelRule = result.features["child-top"]?.rules?.[0] as Record<
+        string,
+        unknown
+      >;
+      expect(topLevelRule?.parentConditions).toBeDefined();
+      expect(
+        (topLevelRule?.parentConditions as Record<string, unknown>[])?.[0]
+          ?.gate,
+      ).toBe(true);
+
+      // Rule-level: experiment rule has parentConditions (no gate flag)
+      expect(result.features["child-rule"]).toBeDefined();
+      expect(result.features["child-rule"]?.rules).toHaveLength(1);
+      const ruleBasedRule = result.features["child-rule"]?.rules?.[0] as Record<
+        string,
+        unknown
+      >;
+      expect(ruleBasedRule?.parentConditions).toBeDefined();
+      expect(
+        (ruleBasedRule?.parentConditions as Record<string, unknown>[])?.[0]
+          ?.gate,
+      ).toBeUndefined();
+    });
+
+    it("non-deterministic prereqs + no prerequisites capability: top-level delivered ungated, rule-level feature removed", async () => {
+      const parent = makeParentConditional();
+      const childTop = makeChildTopLevel("parent-cond");
+      const childRule = makeChildRuleLevel("parent-cond");
+      const data = minimalRawData({
+        features: [parent, childTop, childRule],
+        experimentMap: new Map(),
+      });
 
       const withoutPrereqs = await buildSDKPayloadForConnection({
         context: minimalContext(),
         connection: {
           capabilities: ["bucketingV2"],
           environment: "production",
-          projects: ["p1"],
+          projects: [],
         },
         data,
       });
-      expect(withoutPrereqs.features.child).toBeDefined();
+
+      // Top-level prerequisites live on feature.prerequisites (not on rules). The
+      // !hasPrerequisites guard in getFeatureDefinition only checks rule.prerequisites,
+      // so child-top passes through — delivered ungated (no gating force rule generated).
+      // Note: this differs from main where scrubFeatures would detect the gate:true rule
+      // and delete the feature. On this branch, no gate rule is ever created → no deletion.
+      expect(withoutPrereqs.features["child-top"]).toBeDefined();
+      expect(withoutPrereqs.features["child-top"]?.rules).toBeUndefined();
+
+      // Rule-level: getFeatureDefinition returns null when !hasPrerequisites and any rule
+      // has inline prerequisites (lines ~378-391 in util/features.ts). Feature removed entirely.
+      expect(withoutPrereqs.features["child-rule"]).toBeUndefined();
+
+      // looseUnmarshalling does not affect hasPrerequisites — same outcome
+      const withLooseUnmarshalling = await buildSDKPayloadForConnection({
+        context: minimalContext(),
+        connection: {
+          capabilities: ["bucketingV2", "looseUnmarshalling"],
+          environment: "production",
+          projects: [],
+        },
+        data,
+      });
+      expect(withLooseUnmarshalling.features["child-top"]).toBeDefined();
       expect(
-        (withoutPrereqs.features.child?.rules?.[0] as Record<string, unknown>)
-          ?.parentConditions,
+        withLooseUnmarshalling.features["child-top"]?.rules,
       ).toBeUndefined();
+      expect(withLooseUnmarshalling.features["child-rule"]).toBeUndefined();
     });
 
-    it("prerequisites + project scoping: child in p1, parent in p2; connection [p1] only excludes parent feature", async () => {
+    it("prerequisites + project scoping: child in p1, parent in p2; connection [p1] drops child too", async () => {
       const parent: FeatureInterface = {
         id: "parent",
         project: "p2",
@@ -1058,7 +1269,10 @@ describe("SDK payload generation (scenario-specific)", () => {
         },
         data,
       });
-      expect(Object.keys(outP1Only.features)).toContain("child");
+      // Parent (p2) is not in filteredFeatures for a p1-only connection → reduction treats it as
+      // missing → child's prerequisite fails → child is also dropped. This mirrors SDK behavior:
+      // if parent isn't in the payload the SDK receives, it can't evaluate the prerequisite.
+      expect(Object.keys(outP1Only.features)).not.toContain("child");
       expect(Object.keys(outP1Only.features)).not.toContain("parent");
       const outBoth = await buildSDKPayloadForConnection({
         context: minimalContext(),
@@ -1069,6 +1283,7 @@ describe("SDK payload generation (scenario-specific)", () => {
         },
         data,
       });
+      // No project filter → parent in scope → prerequisite evaluates correctly → child included
       expect(Object.keys(outBoth.features)).toContain("child");
       expect(Object.keys(outBoth.features)).toContain("parent");
     });
@@ -1109,7 +1324,13 @@ describe("SDK payload generation (scenario-specific)", () => {
         archived: false,
       } as ExperimentInterface;
       const holdoutsMap = new Map([
-        ["holdout-1", { holdout, holdoutExperiment }],
+        [
+          "holdout-1",
+          {
+            holdout,
+            holdoutExperiment /* renamed from `experiment` on main */,
+          },
+        ],
       ]);
       const featureWithHoldout: FeatureInterface = {
         id: "f1",
@@ -1157,7 +1378,9 @@ describe("SDK payload generation (scenario-specific)", () => {
         },
         data,
       });
-      expect(withoutPrereqs.features.f1?.rules?.length).toBe(0);
+      // Without prerequisites capability, holdout rule is never generated (guarded by hasPrerequisites
+      // in getFeatureDefinition). With no other rules, defRules = [] → rules key is deleted entirely.
+      expect(withoutPrereqs.features.f1?.rules).toBeUndefined();
     });
 
     it("holdouts + project scoping: holdout with projects [p1] included for connection [p1], excluded for [p2]", async () => {
@@ -1196,7 +1419,13 @@ describe("SDK payload generation (scenario-specific)", () => {
         archived: false,
       } as ExperimentInterface;
       const holdoutsMap = new Map([
-        ["holdout-1", { holdout, holdoutExperiment }],
+        [
+          "holdout-1",
+          {
+            holdout,
+            holdoutExperiment /* renamed from `experiment` on main */,
+          },
+        ],
       ]);
       const featureWithHoldout: FeatureInterface = {
         id: "f1",

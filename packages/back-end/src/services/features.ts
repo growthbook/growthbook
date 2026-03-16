@@ -201,7 +201,7 @@ export function generateHoldoutsPayload({
 }): Record<string, FeatureDefinition> {
   const holdoutDefs: Record<string, FeatureDefinition> = {};
   holdoutsMap.forEach((holdoutWithExperiment) => {
-    const exp = holdoutWithExperiment.holdoutExperiment;
+    const exp = holdoutWithExperiment.holdoutExperiment; // renamed from `experiment` on main
     const holdout = holdoutWithExperiment.holdout;
     if (!exp) return;
     if (
@@ -926,6 +926,7 @@ export type SDKPayloadRawData = {
   savedGroups: SavedGroupInterface[];
   holdoutsMap: Map<
     string, // holdout id
+    // holdoutExperiment was named `experiment` on main; renamed here to be explicit
     { holdout: HoldoutInterface; holdoutExperiment: ExperimentInterface }
   >;
   visualExperiments?: VisualExperiment[];
