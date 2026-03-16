@@ -1,4 +1,4 @@
-import { FC, useState, useCallback, useEffect } from "react";
+import { FC, useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
 import { Box, Flex } from "@radix-ui/themes";
 import {
@@ -197,9 +197,11 @@ const SelectInitialPlan: FC = () => {
       )}
       {step === 3 && (
         <ProPaymentStep
+          error={error}
           getBillingData={() => billingForm.getValues()}
           onSuccess={() => handleNext()}
           onBack={handleBack}
+          loading={loading}
           setLoading={setLoading}
           setError={setError}
         />
@@ -297,7 +299,9 @@ type ProPaymentStepProps = {
   onSuccess: () => void;
   onBack: () => void;
   setLoading: (v: boolean) => void;
+  loading: boolean;
   setError: (v: string | null) => void;
+  error: string | null;
 };
 
 const ProPaymentStep: FC<ProPaymentStepProps> = ({
@@ -305,36 +309,82 @@ const ProPaymentStep: FC<ProPaymentStepProps> = ({
   onSuccess,
   onBack,
   setLoading,
+  loading,
   setError,
+  error,
 }) => {
   const { apiCall } = useAuth();
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [clientSecret, setClientSecret] = useState<string | undefined>(
+    undefined,
+  );
+  const cancelledRef = useRef(false);
 
-  useEffect(() => {
-    let cancelled = false;
+  const fetchSetupIntent = useCallback(() => {
+    cancelledRef.current = false;
     setLoading(true);
     setError(null);
     apiCall<{ clientSecret: string }>("/subscription/setup-intent", {
       method: "POST",
     })
       .then((res) => {
-        if (!cancelled && res?.clientSecret) {
+        if (!cancelledRef.current && res?.clientSecret) {
           setClientSecret(res.clientSecret);
         }
       })
       .catch((e) => {
-        if (!cancelled) setError(e?.message || "Failed to start setup");
+        if (!cancelledRef.current) {
+          const message =
+            e instanceof Error
+              ? e.message
+              : typeof e === "string"
+                ? e
+                : "Failed to start setup";
+          setError(message);
+        }
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelledRef.current) setLoading(false);
       });
-    return () => {
-      cancelled = true;
-    };
   }, [apiCall, setLoading, setError]);
 
-  if (!clientSecret) {
+  useEffect(() => {
+    fetchSetupIntent();
+    return () => {
+      cancelledRef.current = true;
+    };
+  }, [fetchSetupIntent]);
+
+  if (loading && !clientSecret) {
     return <LoadingOverlay />;
+  }
+
+  if (!clientSecret) {
+    return (
+      <div style={{ maxWidth: "500px" }}>
+        <Heading as="h2" mb="3">
+          Add payment method
+        </Heading>
+        {error && (
+          <div className="alert alert-danger mb-4" role="alert">
+            {error}
+          </div>
+        )}
+        <Flex gap="2" width="100%" justify="between">
+          <Button color="secondary" onClick={onBack}>
+            Back
+          </Button>
+          <Button
+            color="primary"
+            onClick={() => {
+              setError(null);
+              fetchSetupIntent();
+            }}
+          >
+            Retry
+          </Button>
+        </Flex>
+      </div>
+    );
   }
 
   return (
@@ -345,6 +395,7 @@ const ProPaymentStep: FC<ProPaymentStepProps> = ({
         onBack={onBack}
         setLoading={setLoading}
         setError={setError}
+        error={error}
       />
     </StripeProvider>
   );
@@ -356,6 +407,7 @@ type ProPaymentFormProps = {
   onBack: () => void;
   setLoading: (v: boolean) => void;
   setError: (v: string | null) => void;
+  error: string | null;
 };
 
 const ProPaymentFormInner: FC<ProPaymentFormProps> = ({
@@ -364,6 +416,7 @@ const ProPaymentFormInner: FC<ProPaymentFormProps> = ({
   onBack,
   setLoading,
   setError,
+  error,
 }) => {
   const { apiCall } = useAuth();
   const { organization, refreshOrganization } = useUser();
@@ -423,7 +476,8 @@ const ProPaymentFormInner: FC<ProPaymentFormProps> = ({
       onSuccess();
     } catch (e) {
       setLoading(false);
-      setError(e?.message || "Something went wrong");
+      const message = e instanceof Error ? e.message : "Something went wrong";
+      setError(message);
     }
   };
 
@@ -459,12 +513,17 @@ const ProPaymentFormInner: FC<ProPaymentFormProps> = ({
           />
         </div>
       )}
+      {error && (
+        <div className="alert alert-danger mb-4" role="alert">
+          {error}
+        </div>
+      )}
       <Flex gap="2" width="100%" justify="between">
         <Button color="secondary" onClick={onBack}>
           Back
         </Button>
         <Button color="primary" onClick={handleSubmit}>
-          Next
+          {error ? "Retry" : "Next"}
         </Button>
       </Flex>
     </div>
