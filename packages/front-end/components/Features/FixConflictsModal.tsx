@@ -332,13 +332,17 @@ export default function FixConflictsModal({
             icon={<PiGitMergeBold size={18} />}
           >
             <Text as="p">
-              Your changes (
+              Your changes{" "}
               <span
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
                   gap: "var(--space-1)",
                   whiteSpace: "nowrap",
+                  backgroundColor: "var(--gray-a2)",
+                  padding: "1px 4px",
+                  margin: "2px",
+                  borderRadius: "var(--radius-2)",
                 }}
               >
                 <Text
@@ -361,14 +365,18 @@ export default function FixConflictsModal({
                   revision={revision}
                   liveVersion={liveRevision?.version ?? -1}
                 />
-              </span>
-              ) are based on{" "}
+              </span>{" "}
+              are based on{" "}
               <span
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
                   gap: "var(--space-1)",
                   whiteSpace: "nowrap",
+                  backgroundColor: "var(--gray-a2)",
+                  padding: "1px 4px",
+                  margin: "2px",
+                  borderRadius: "var(--radius-2)",
                 }}
               >
                 <Text
@@ -404,6 +412,10 @@ export default function FixConflictsModal({
                   alignItems: "center",
                   gap: "var(--space-1)",
                   whiteSpace: "nowrap",
+                  backgroundColor: "var(--gray-a2)",
+                  padding: "1px 4px",
+                  margin: "2px",
+                  borderRadius: "var(--radius-2)",
                 }}
               >
                 <Text
@@ -476,6 +488,10 @@ export default function FixConflictsModal({
                   alignItems: "center",
                   gap: "var(--space-1)",
                   whiteSpace: "nowrap",
+                  backgroundColor: "var(--gray-a2)",
+                  padding: "1px 4px",
+                  margin: "2px",
+                  borderRadius: "var(--radius-2)",
                 }}
               >
                 <Text as="span" weight="semibold" color="text-high">
@@ -501,6 +517,10 @@ export default function FixConflictsModal({
                   alignItems: "center",
                   gap: "var(--space-1)",
                   whiteSpace: "nowrap",
+                  backgroundColor: "var(--gray-a2)",
+                  padding: "1px 4px",
+                  margin: "2px",
+                  borderRadius: "var(--radius-2)",
                 }}
               >
                 <Text as="span" weight="semibold" color="text-high">
@@ -525,7 +545,7 @@ export default function FixConflictsModal({
                 )}
               </span>
               . Review the changes below, then click{" "}
-              <Text as="span" weight="medium">
+              <Text as="span" weight="semibold">
                 Update Draft
               </Text>{" "}
               to apply them.
