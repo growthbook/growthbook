@@ -606,7 +606,7 @@ describe("SDK payload generation (scenario-specific)", () => {
       archived: false,
     } as ExperimentInterface;
     const holdoutsMap = new Map([
-      ["holdout-1", { holdout, holdoutExperiment }],
+      ["holdout-1", { holdout, experiment: holdoutExperiment }],
     ]);
     const featureRefHoldout: FeatureInterface = {
       id: "f1",
@@ -760,7 +760,7 @@ describe("SDK payload generation (scenario-specific)", () => {
       archived: false,
     } as ExperimentInterface;
     const holdoutsMap = new Map([
-      ["holdout-1", { holdout, holdoutExperiment }],
+      ["holdout-1", { holdout, experiment: holdoutExperiment }],
     ]);
     const featureWithHoldout: FeatureInterface = {
       id: "f1",
@@ -1425,7 +1425,7 @@ describe("SDK payload generation (scenario-specific)", () => {
         archived: false,
       } as ExperimentInterface;
       const holdoutsMap = new Map([
-        ["holdout-1", { holdout, holdoutExperiment }],
+        ["holdout-1", { holdout, experiment: holdoutExperiment }],
       ]);
       const featureWithHoldout: FeatureInterface = {
         id: "f1",
@@ -1513,7 +1513,7 @@ describe("SDK payload generation (scenario-specific)", () => {
         archived: false,
       } as ExperimentInterface;
       const holdoutsMap = new Map([
-        ["holdout-1", { holdout, holdoutExperiment }],
+        ["holdout-1", { holdout, experiment: holdoutExperiment }],
       ]);
       const featureWithHoldout: FeatureInterface = {
         id: "f1",
