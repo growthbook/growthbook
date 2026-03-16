@@ -1018,14 +1018,15 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
             r.namespace &&
             r.namespace.enabled,
         )
-        .forEach((r: ExperimentRule) => {
-          const { name, range } = r.namespace as NamespaceValue;
+        .forEach((r) => {
+          const expRule = r as ExperimentRule;
+          const { name, range } = expRule.namespace as NamespaceValue;
           namespaces[name] = namespaces[name] || [];
           namespaces[name].push({
             link: `/features/${f.id}`,
             name: f.id,
             id: f.id,
-            trackingKey: r.trackingKey || f.id,
+            trackingKey: expRule.trackingKey || f.id,
             start: range[0],
             end: range[1],
             environment: env,
@@ -1523,7 +1524,7 @@ export async function putOrganization(
     }
   }
   if (settings) {
-    Object.keys(settings).forEach((k: keyof OrganizationSettings) => {
+    (Object.keys(settings) as (keyof OrganizationSettings)[]).forEach((k) => {
       if (k === "environments") {
         throw new Error(
           "Not supported: Updating organization environments not supported via this route.",

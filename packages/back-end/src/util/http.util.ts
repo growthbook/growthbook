@@ -88,7 +88,8 @@ export const cancellableFetch = async (
 
   try {
     response = await fetch(url, {
-      signal: abortController.signal,
+      signal:
+        abortController.signal as import("node-fetch").RequestInit["signal"],
       ...getHttpOptions(url),
       ...fetchOptions,
     });

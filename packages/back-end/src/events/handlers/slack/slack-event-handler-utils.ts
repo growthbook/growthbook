@@ -1588,7 +1588,7 @@ export function formatDiffForSlack(
           }
 
           if (value.modified && value.modified.length > 0) {
-            value.modified.forEach((change: ModificationItem) => {
+            (value.modified as ModificationItem[]).forEach((change) => {
               if (isSimpleModification(change)) {
                 sections.push(
                   `\t⊳ *modified ${change.key}:* ${getItemLabel(change.oldValue)} → ${getItemLabel(change.newValue)}`,

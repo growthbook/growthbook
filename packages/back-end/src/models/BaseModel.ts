@@ -909,8 +909,8 @@ export abstract class BaseModel<
 
     docs.forEach((doc) => {
       const foreignKeys = this.getForeignKeys(doc);
-      Object.entries(foreignKeys).forEach(
-        ([type, id]: [keyof ForeignKeys, string]) => {
+      (Object.entries(foreignKeys) as [keyof ForeignKeys, string][]).forEach(
+        ([type, id]) => {
           mergedKeys[type] = mergedKeys[type] || [];
           mergedKeys[type]?.push(id);
         },

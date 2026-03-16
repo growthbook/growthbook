@@ -1,5 +1,7 @@
 {
   "compilerOptions": {
+    "skipLibCheck": true,
+    "useUnknownInCatchVariables": false,
     "module": "commonjs",
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
@@ -12,7 +14,6 @@
     "strictNullChecks": true,
     "strictBindCallApply": true,
     "strictPropertyInitialization": true,
-    "baseUrl": "./",
     "paths": {
       "back-end/*": ["./*"]
     },

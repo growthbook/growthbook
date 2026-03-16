@@ -74,14 +74,12 @@ const updateStaleInformationSchemaTable = async (
       return;
     }
 
-    const columns: Column[] = tableData.map(
-      (row: { column_name: string; data_type: string }) => {
-        return {
-          columnName: row.column_name,
-          dataType: row.data_type,
-        };
-      },
-    );
+    const columns: Column[] = (
+      tableData as { column_name: string; data_type: string }[]
+    ).map((row) => ({
+      columnName: row.column_name,
+      dataType: row.data_type,
+    }));
 
     // update the information schema table
     await updateInformationSchemaTableById(

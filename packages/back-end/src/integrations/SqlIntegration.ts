@@ -5259,8 +5259,8 @@ export default abstract class SqlIntegration
             return `event_time BETWEEN '${start}' AND '${end}'`;
           },
           getAdditionalEvents: () => [],
-          getEventFilterWhereClause: (eventName: string) =>
-            `event_name = '${eventName}'`,
+          getEventFilterWhereClause: (eventName?: string) =>
+            eventName !== undefined ? `event_name = '${eventName}'` : "",
         };
       }
       case "rudderstack":
@@ -6755,12 +6755,12 @@ ORDER BY column_name, count DESC
         partialAggregationFunction: (_column: string) => {
           throw new Error("Not implemented");
         },
-        reAggregationFunction: (_column: string, _quantileColumn: string) => {
+        reAggregationFunction: (_column: string, _quantileColumn?: string) => {
           throw new Error("Not implemented");
         },
         finalDataType: "integer",
-        fullAggregationFunction: (column: string, quantileColumn: string) =>
-          `SUM(${this.ifElse(`${column} <= ${quantileColumn}`, "1", "0")})`,
+        fullAggregationFunction: (column: string, quantileColumn?: string) =>
+          `SUM(${this.ifElse(`${column} <= ${quantileColumn ?? ""}`, "1", "0")})`,
       };
     }
 

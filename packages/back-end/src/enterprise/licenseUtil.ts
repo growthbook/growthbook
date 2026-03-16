@@ -19,7 +19,10 @@ import {
   SubscriptionInfo,
 } from "shared/enterprise";
 import { StripeAddress, TaxIdType } from "shared/types/subscriptions";
-import { OrganizationInterface } from "shared/types/organization";
+import {
+  OrganizationInterface,
+  OrgMemberInfo,
+} from "shared/types/organization";
 import { fetch } from "back-end/src/util/http.util";
 import { LicenseServerError } from "back-end/src/util/errors";
 import { getLicenseByKey, LicenseModel } from "./models/licenseModel";
@@ -69,7 +72,7 @@ export function getSubscriptionFromLicense(
   };
 }
 
-type MinimalOrganization = {
+export type MinimalOrganization = {
   id: string;
   licenseKey?: string;
   enterprise?: boolean;
@@ -639,8 +642,8 @@ async function getLicenseDataFromServer(
 
 async function updateLicenseFromServer(
   licenseKey: string,
-  org: MinimalOrganization,
-  getUserCodesForOrg: (org: MinimalOrganization) => Promise<LicenseUserCodes>,
+  org: OrgMemberInfo,
+  getUserCodesForOrg: (org: OrgMemberInfo) => Promise<LicenseUserCodes>,
   getLicenseMetaData: () => Promise<LicenseMetaData>,
   mongoCache: LicenseInterface | null,
 ) {
@@ -688,8 +691,8 @@ const keyToCacheDate: Record<string, Date> = {};
 export let backgroundUpdateLicenseFromServerForTests: Promise<void | LicenseInterface>;
 
 export async function licenseInit(
-  org?: MinimalOrganization,
-  getUserCodesForOrg?: (org: MinimalOrganization) => Promise<LicenseUserCodes>,
+  org?: OrgMemberInfo,
+  getUserCodesForOrg?: (org: OrgMemberInfo) => Promise<LicenseUserCodes>,
   getLicenseMetaData?: () => Promise<LicenseMetaData>,
   forceRefresh = false,
 ): Promise<Partial<LicenseInterface> | undefined> {

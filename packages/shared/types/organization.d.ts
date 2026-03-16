@@ -281,6 +281,7 @@ export type OrganizationMessage = {
 // The type used to get member data to calculate usage counts for licenses
 export type OrgMemberInfo = {
   id: string;
+  licenseKey?: string;
   invites: { email: string }[];
   members: {
     id: string;

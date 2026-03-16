@@ -180,7 +180,7 @@ export async function getUserCodesForOrg(
       // an orphaned user, skip
       continue;
     }
-    const isReadOnly = roles.every(isReadOnlyRole);
+    const isReadOnly = (roles as DefaultMemberRole[]).every(isReadOnlyRole);
     const emailHash = userIdsToEmailHash[userId];
 
     if (isReadOnly) {

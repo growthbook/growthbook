@@ -286,11 +286,11 @@ importers:
         specifier: ^2.15.0
         version: 2.29.3
       date-fns-tz:
-        specifier: ^1.3.7
-        version: 1.3.7(date-fns@2.29.3)
+        specifier: ^2.0.1
+        version: 2.0.1(date-fns@2.29.3)
       dotenv:
-        specifier: ^8.2.0
-        version: 8.6.0
+        specifier: ^17.3.1
+        version: 17.3.1
       errorhandler:
         specifier: ^1.5.1
         version: 1.5.1
@@ -538,6 +538,9 @@ importers:
       '@types/uuid':
         specifier: ^9.0.2
         version: 9.0.2
+      '@typescript/native-preview':
+        specifier: 7.0.0-dev.20260309.1
+        version: 7.0.0-dev.20260309.1
       chokidar:
         specifier: ^3.5.3
         version: 3.6.0
@@ -738,8 +741,8 @@ importers:
         specifier: ^2.15.0
         version: 2.29.3
       date-fns-tz:
-        specifier: ^1.3.7
-        version: 1.3.7(date-fns@2.29.3)
+        specifier: ^2.0.1
+        version: 2.0.1(date-fns@2.29.3)
       decimal.js:
         specifier: ^10.5.0
         version: 10.5.0
@@ -942,6 +945,9 @@ importers:
       '@types/react-transition-group':
         specifier: ^4.4.6
         version: 4.4.6
+      '@typescript/native-preview':
+        specifier: 7.0.0-dev.20260309.1
+        version: 7.0.0-dev.20260309.1
       eslint-plugin-react-hooks:
         specifier: ^4.6.0
         version: 4.6.0(eslint@9.39.2)
@@ -1010,6 +1016,9 @@ importers:
       '@types/node':
         specifier: ^22.8.6
         version: 22.8.6
+      '@typescript/native-preview':
+        specifier: 7.0.0-dev.20260309.1
+        version: 7.0.0-dev.20260309.1
       babel-plugin-minify-replace:
         specifier: ^0.5.0
         version: 0.5.0
@@ -1110,6 +1119,9 @@ importers:
       '@types/react-dom':
         specifier: ^18.0.6
         version: 18.0.6
+      '@typescript/native-preview':
+        specifier: 7.0.0-dev.20260309.1
+        version: 7.0.0-dev.20260309.1
       gzip-size-cli:
         specifier: ^5.0.0
         version: 5.1.0
@@ -1153,8 +1165,8 @@ importers:
         specifier: ^2.15.0
         version: 2.29.3
       date-fns-tz:
-        specifier: ^1.3.7
-        version: 1.3.7(date-fns@2.29.3)
+        specifier: ^2.0.1
+        version: 2.0.1(date-fns@2.29.3)
       dirty-json:
         specifier: ^0.9.2
         version: 0.9.2
@@ -1210,6 +1222,9 @@ importers:
       '@types/uniqid':
         specifier: 5.3.0
         version: 5.3.0
+      '@typescript/native-preview':
+        specifier: 7.0.0-dev.20260309.1
+        version: 7.0.0-dev.20260309.1
       chokidar:
         specifier: ^3.5.3
         version: 3.6.0
@@ -6774,6 +6789,45 @@ packages:
     resolution: {integrity: sha512-q+SL+b+05Ud6LbEE35qe4A99P+htKTKVbyiNEe45eCbJFyh/HVK9QXwlrbz+Q4L8SOW4roxSVwXYj4DMBT7Ieg==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
 
+  '@typescript/native-preview-darwin-arm64@7.0.0-dev.20260309.1':
+    resolution: {integrity: sha512-Vszk6vbONyyT47mUTEFNAXk+bJisM8F0pI+MyNPM8i2oorex7Gbp7ivFUGzdZHRFPDXMrlw6AXmgx1U2tZxiHw==}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@typescript/native-preview-darwin-x64@7.0.0-dev.20260309.1':
+    resolution: {integrity: sha512-UmmW/L1fW6URMILx5HqxcL2kElOyTYbY6M8yRMQK7gmBzsbkGj37JYN+WZgPkz/PQCVsxwIFcot6WmKRRXeBxQ==}
+    cpu: [x64]
+    os: [darwin]
+
+  '@typescript/native-preview-linux-arm64@7.0.0-dev.20260309.1':
+    resolution: {integrity: sha512-sN5rQRvqre8JHUISJhybUQ1e4a+mb/Ifa+uWHJawJ2tojTXWkU1rJTZBnAN3/XeoIJgeSdaZQAZRDlW9B7zbvw==}
+    cpu: [arm64]
+    os: [linux]
+
+  '@typescript/native-preview-linux-arm@7.0.0-dev.20260309.1':
+    resolution: {integrity: sha512-G5zgoOZP2NjZ1kga9mend2in1e3C+Mm3XufelVZ9RwWRka744s6KxAsen853LizCrxBh58foj9pPVnH6gKUJvg==}
+    cpu: [arm]
+    os: [linux]
+
+  '@typescript/native-preview-linux-x64@7.0.0-dev.20260309.1':
+    resolution: {integrity: sha512-ZuHu9Sg4/akGSrO49hKLNKwrFXx7AZ2CS3PcTd85cC4nKudqB1aGD9rHxZZZyClj++e0qcNQ+4eTMn1sxDA9VQ==}
+    cpu: [x64]
+    os: [linux]
+
+  '@typescript/native-preview-win32-arm64@7.0.0-dev.20260309.1':
+    resolution: {integrity: sha512-RNIidoGPsRaALc1znXiWfNARkGptm9e55qYnaz11YPvMrqbRKP9Y6Ipx4Oh/diIeF7y9UYiikeyk7EsyKe//sw==}
+    cpu: [arm64]
+    os: [win32]
+
+  '@typescript/native-preview-win32-x64@7.0.0-dev.20260309.1':
+    resolution: {integrity: sha512-/rEvAKowcoEdL2VeNju8apkGHEmbat10jIn1Sncny1zIaWvaMFw6bhmny+kKwX+9deitMfo9ihLlo5GCPJuMPQ==}
+    cpu: [x64]
+    os: [win32]
+
+  '@typescript/native-preview@7.0.0-dev.20260309.1':
+    resolution: {integrity: sha512-ZK+ExK7scBzUCAXCTtAwUm6QENJ+l3tCDQXNCly4WcGUvbIAWdaiNns4brganGN9nrxxRkC9Rx0CrxvIsn9zHA==}
+    hasBin: true
+
   '@typespec/ts-http-runtime@0.3.1':
     resolution: {integrity: sha512-SnbaqayTVFEA6/tYumdF0UmybY0KHyKwGPBXnyckFlrrKdhWFrL3a2HIPXHjht5ZOElKGcXfD2D63P36btb+ww==}
     engines: {node: '>=20.0.0'}
@@ -8139,10 +8193,10 @@ packages:
     resolution: {integrity: sha512-BS8PfmtDGnrgYdOonGZQdLZslWIeCGFP9tpan0hi1Co2Zr2NKADsvGYA8XxuG/4UWgJ6Cjtv+YJnB6MM69QGlQ==}
     engines: {node: '>= 0.4'}
 
-  date-fns-tz@1.3.7:
-    resolution: {integrity: sha512-1t1b8zyJo+UI8aR+g3iqr5fkUHWpd58VBx8J/ZSQ+w7YrGlw80Ag4sA86qkfCXRBLmMc4I2US+aPMd4uKvwj5g==}
+  date-fns-tz@2.0.1:
+    resolution: {integrity: sha512-fJCG3Pwx8HUoLhkepdsP7Z5RsucUi+ZBOxyM5d0ZZ6c4SdYustq0VMmOu6Wf7bli+yS/Jwp91TOCqn9jMcVrUA==}
     peerDependencies:
-      date-fns: '>=2.0.0'
+      date-fns: 2.x
 
   date-fns@2.29.3:
     resolution: {integrity: sha512-dDCnyH2WnnKusqvZZ6+jA1O51Ibt8ZMRNkDZdyAyK4YfbDwa/cEmuztzG5pk6hqlp9aSBPYcjOlktquahGwGeA==}
@@ -8427,9 +8481,9 @@ packages:
     resolution: {integrity: sha512-uBq4egWHTcTt33a72vpSG0z3HnPuIl6NqYcTrKEg2azoEyl2hpW0zqlxysq2pK9HlDIHyHyakeYaYnSAwd8bow==}
     engines: {node: '>=12'}
 
-  dotenv@8.6.0:
-    resolution: {integrity: sha512-IrPdXQsk2BbzvCBGBOTmmSH5SodmqZNt4ERAZDmW4CT+tL8VtvinqywuANaFu4bOMWki16nqf0e4oC0QIaDr/g==}
-    engines: {node: '>=10'}
+  dotenv@17.3.1:
+    resolution: {integrity: sha512-IO8C/dzEb6O3F9/twg6ZLXz164a2fhTnEWb95H23Dm4OuN+92NmEAlTrupP9VW6Jm3sO26tQlqyvyi4CsnY9GA==}
+    engines: {node: '>=12'}
 
   dunder-proto@1.0.1:
     resolution: {integrity: sha512-KIN/nDJBQRcXw0MLVhZE9iQHmG68qAVIBg9CqmUYjmQIhgij9U5MFvrqkUL5FbtyyzZuOeOt0zdeRe4UY7ct+A==}
@@ -21638,6 +21692,37 @@ snapshots:
       '@typescript-eslint/types': 8.56.0
       eslint-visitor-keys: 5.0.0
 
+  '@typescript/native-preview-darwin-arm64@7.0.0-dev.20260309.1':
+    optional: true
+
+  '@typescript/native-preview-darwin-x64@7.0.0-dev.20260309.1':
+    optional: true
+
+  '@typescript/native-preview-linux-arm64@7.0.0-dev.20260309.1':
+    optional: true
+
+  '@typescript/native-preview-linux-arm@7.0.0-dev.20260309.1':
+    optional: true
+
+  '@typescript/native-preview-linux-x64@7.0.0-dev.20260309.1':
+    optional: true
+
+  '@typescript/native-preview-win32-arm64@7.0.0-dev.20260309.1':
+    optional: true
+
+  '@typescript/native-preview-win32-x64@7.0.0-dev.20260309.1':
+    optional: true
+
+  '@typescript/native-preview@7.0.0-dev.20260309.1':
+    optionalDependencies:
+      '@typescript/native-preview-darwin-arm64': 7.0.0-dev.20260309.1
+      '@typescript/native-preview-darwin-x64': 7.0.0-dev.20260309.1
+      '@typescript/native-preview-linux-arm': 7.0.0-dev.20260309.1
+      '@typescript/native-preview-linux-arm64': 7.0.0-dev.20260309.1
+      '@typescript/native-preview-linux-x64': 7.0.0-dev.20260309.1
+      '@typescript/native-preview-win32-arm64': 7.0.0-dev.20260309.1
+      '@typescript/native-preview-win32-x64': 7.0.0-dev.20260309.1
+
   '@typespec/ts-http-runtime@0.3.1':
     dependencies:
       http-proxy-agent: 7.0.2
@@ -23195,7 +23280,7 @@ snapshots:
       es-errors: 1.3.0
       is-data-view: 1.0.2
 
-  date-fns-tz@1.3.7(date-fns@2.29.3):
+  date-fns-tz@2.0.1(date-fns@2.29.3):
     dependencies:
       date-fns: 2.29.3
 
@@ -23439,7 +23524,7 @@ snapshots:
 
   dotenv@16.6.1: {}
 
-  dotenv@8.6.0: {}
+  dotenv@17.3.1: {}
 
   dunder-proto@1.0.1:
     dependencies:
