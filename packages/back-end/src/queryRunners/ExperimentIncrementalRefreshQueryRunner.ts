@@ -59,7 +59,7 @@ import {
   RowsType,
   StartQueryParams,
 } from "./QueryRunner";
-import { shouldRunHealthTrafficQuery } from "./shouldRunHealthTrafficQuery";
+import { shouldRunHealthTrafficQuery } from "./snapshotQueryHelpers";
 
 export const INCREMENTAL_UNITS_TABLE_PREFIX = "gb_units";
 export const INCREMENTAL_METRICS_TABLE_PREFIX = "gb_metrics";

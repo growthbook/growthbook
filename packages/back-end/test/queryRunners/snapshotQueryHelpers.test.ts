@@ -1,4 +1,4 @@
-import { shouldRunHealthTrafficQuery } from "back-end/src/queryRunners/shouldRunHealthTrafficQuery";
+import { shouldRunHealthTrafficQuery } from "back-end/src/queryRunners/snapshotQueryHelpers";
 
 describe("shouldRunHealthTrafficQuery", () => {
   it("returns true for standard snapshots when health traffic is enabled", () => {

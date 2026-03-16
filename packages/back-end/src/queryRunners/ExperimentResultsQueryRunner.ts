@@ -60,7 +60,7 @@ import {
   RowsType,
   StartQueryParams,
 } from "./QueryRunner";
-import { shouldRunHealthTrafficQuery } from "./shouldRunHealthTrafficQuery";
+import { shouldRunHealthTrafficQuery } from "./snapshotQueryHelpers";
 export type SnapshotResult = {
   unknownVariations: string[];
   multipleExposures: number;
