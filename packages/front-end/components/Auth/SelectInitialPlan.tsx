@@ -452,11 +452,21 @@ const ProPaymentFormInner: FC<ProPaymentFormProps> = ({
         }
       }
       const billingData = getBillingData();
-      await stripe.confirmSetup({
-        elements,
-        clientSecret,
-        redirect: "if_required",
-      });
+      const { setupIntent, error: setupIntentError } =
+        await stripe.confirmSetup({
+          elements,
+          clientSecret,
+          redirect: "if_required",
+        });
+
+      if (setupIntentError) {
+        throw new Error(setupIntentError.message);
+      }
+
+      if (!setupIntent || !setupIntent.payment_method) {
+        throw new Error("Unable to save new payment method");
+      }
+
       await apiCall("/subscription/start-new-pro", {
         method: "POST",
         body: JSON.stringify({
