@@ -11,7 +11,6 @@ import { useForm, UseFormReturn } from "react-hook-form";
 import { TaxIdType, StripeAddress } from "shared/types/subscriptions";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
-import type { InitialPlanSelection } from "@/services/auth";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import { StripeProvider } from "@/enterprise/components/Billing/StripeProvider";
@@ -26,6 +25,8 @@ import Checkbox from "@/ui/Checkbox";
 import Button from "@/components/Button";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import WelcomeFrame from "./WelcomeFrame";
+
+type InitialPlanSelection = "" | "starter" | "pro";
 
 const leftside = (
   <>
