@@ -26,7 +26,7 @@ import Button from "@/components/Button";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import WelcomeFrame from "./WelcomeFrame";
 
-type InitialPlanSelection = "" | "starter" | "pro";
+export type InitialPlanOptions = "" | "starter" | "pro";
 
 const leftside = (
   <>
@@ -44,7 +44,7 @@ const SelectInitialPlan: FC = () => {
   const router = useRouter();
   const { initialPlanSelection, setInitialPlanSelection } = useAuth();
   const { email } = useUser();
-  const plan: InitialPlanSelection =
+  const plan: InitialPlanOptions =
     initialPlanSelection === "pro" || initialPlanSelection === "starter"
       ? initialPlanSelection
       : "starter";
@@ -182,7 +182,7 @@ const SelectInitialPlan: FC = () => {
             ]}
             value={plan}
             align="start"
-            setValue={(v) => setPlan(v as InitialPlanSelection)}
+            setValue={(v) => setPlan(v as InitialPlanOptions)}
             columns="2"
             width="100%"
           />

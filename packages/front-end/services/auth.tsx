@@ -21,6 +21,7 @@ import Modal from "@/components/Modal";
 import { DocLink } from "@/components/DocLink";
 import Welcome from "@/components/Auth/Welcome";
 import { useSessionStorage } from "@/hooks/useSessionStorage";
+import type { InitialPlanOptions } from "@/components/Auth/SelectInitialPlan";
 import { getApiHost, getAppOrigin, isCloud, isSentryEnabled } from "./env";
 import { useProject, LOCALSTORAGE_PROJECT_KEY } from "./DefinitionsContext";
 
@@ -49,8 +50,8 @@ export interface AuthContextValue {
   specialOrg?: null | Partial<OrganizationInterface>;
   setOrgName?: (name: string) => void;
   setSpecialOrg?: (org: null | Partial<OrganizationInterface>) => void;
-  initialPlanSelection?: "" | "starter" | "pro";
-  setInitialPlanSelection?: (value: "" | "starter" | "pro") => void;
+  initialPlanSelection?: InitialPlanOptions;
+  setInitialPlanSelection?: (value: InitialPlanOptions) => void;
 }
 
 export const AuthContext = React.createContext<AuthContextValue>({
@@ -216,9 +217,11 @@ export const AuthProvider: React.FC<{
   const [authComponent, setAuthComponent] = useState<ReactElement | null>(null);
   const [initError, setInitError] = useState("");
   const [sessionError, setSessionError] = useState(false);
-  const [initialPlanSelection, setInitialPlanSelection] = useSessionStorage<
-    "" | "starter" | "pro"
-  >(INITIAL_PLAN_SELECTION_SESSION_KEY, "");
+  const [initialPlanSelection, setInitialPlanSelection] =
+    useSessionStorage<InitialPlanOptions>(
+      INITIAL_PLAN_SELECTION_SESSION_KEY,
+      "",
+    );
   const router = useRouter();
   const initialOrgId = router.query.org ? router.query.org + "" : null;
 
