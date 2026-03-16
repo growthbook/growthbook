@@ -414,8 +414,8 @@ export default function FeaturesHeader({
             </Callout>
           )}
 
-          <Flex align="start" justify="between">
-            <Flex align="center" mb="2" gap="3">
+          <Flex align="start" justify="between" gap="2">
+            <Flex align="center" mb="2" gap="3" style={{ marginTop: "-4px" }}>
               <Heading size="7" as="h1" mb="0">
                 {feature.id}
               </Heading>
@@ -528,14 +528,16 @@ export default function FeaturesHeader({
             </Box>
           </Flex>
           <Box mt="1" mb="3">
-            <Box>
-              <Text weight="medium">Tags: </Text>
-              <SortedTags
-                tags={feature.tags || []}
-                useFlex
-                shouldShowEllipsis={false}
-              />
-            </Box>
+            {feature.tags?.length ? (
+              <Box>
+                <Text weight="medium">Tags: </Text>
+                <SortedTags
+                  tags={feature.tags || []}
+                  useFlex
+                  shouldShowEllipsis={false}
+                />
+              </Box>
+            ) : null}
           </Box>
           <div>
             {isArchived && (
