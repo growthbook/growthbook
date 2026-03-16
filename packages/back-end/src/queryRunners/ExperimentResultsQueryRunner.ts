@@ -60,6 +60,7 @@ import {
   RowsType,
   StartQueryParams,
 } from "./QueryRunner";
+import { shouldRunHealthTrafficQuery } from "./snapshotQueryHelpers";
 export type SnapshotResult = {
   unknownVariations: string[];
   multipleExposures: number;
@@ -153,8 +154,11 @@ export const startExperimentResultQueries = async (
       : "";
 
   // Settings for health query
-  const runTrafficQuery =
-    snapshotType === "standard" && org.settings?.runHealthTrafficQuery;
+  const runTrafficQuery = shouldRunHealthTrafficQuery({
+    snapshotType,
+    snapshotDimensions: snapshotSettings.dimensions,
+    runHealthTrafficQuery: org.settings?.runHealthTrafficQuery,
+  });
 
   const { eligibleDimensionsWithSlices: dimensionsForTraffic } = exposureQuery
     ? getExposureQueryEligibleDimensions({
