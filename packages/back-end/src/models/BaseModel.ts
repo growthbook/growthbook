@@ -260,6 +260,7 @@ export abstract class BaseModel<
   }
   protected async customValidation(
     doc: z.infer<T>,
+    previousDoc?: z.infer<T>,
     writeOptions?: WriteOptions,
   ) {
     // Do nothing by default
@@ -715,7 +716,7 @@ export abstract class BaseModel<
     }
 
     await this.validateProjectFields(doc);
-    await this.customValidation(doc, writeOptions);
+    await this.customValidation(doc, undefined, writeOptions);
 
     if (this.useConfigFile()) {
       throw new Error(
@@ -812,7 +813,7 @@ export abstract class BaseModel<
 
     await this.beforeUpdate(doc, allUpdates, newDoc, options?.writeOptions);
 
-    await this.customValidation(newDoc, options?.writeOptions);
+    await this.customValidation(newDoc, doc, options?.writeOptions);
 
     await this._dangerousGetCollection().updateOne(
       {

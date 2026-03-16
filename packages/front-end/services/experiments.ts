@@ -1,7 +1,7 @@
 import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
 import {
-  ExperimentReportVariationWithIndex,
+  ExperimentReportVariation,
   MetricSnapshotSettings,
 } from "shared/types/report";
 import { MetricDefaults, SDKAttributeSchema } from "shared/types/organization";
@@ -25,6 +25,7 @@ import {
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
   getEqualWeights,
+  getLatestPhaseVariations,
   getMetricResultStatus,
   getMetricSampleSize,
   hasEnoughData,
@@ -188,7 +189,7 @@ export type ExperimentTableRow = {
 };
 
 export function useDomain(
-  variations: ExperimentReportVariationWithIndex[], // must be ordered, baseline first
+  variations: ExperimentReportVariation[], // must be ordered, baseline first
   rows: ExperimentTableRow[],
   differenceType: DifferenceType,
 ): [number, number] {
@@ -204,7 +205,7 @@ export function useDomain(
 
     const baseline = row.variations[variations[0].index];
     if (!baseline) return;
-    variations?.forEach((v: ExperimentReportVariationWithIndex, i) => {
+    variations?.forEach((v: ExperimentReportVariation, i) => {
       // Skip for baseline
       if (!i) return;
 
@@ -424,7 +425,9 @@ export function useExperimentSearch({
         if (item.linkedFeatures?.length) has.push("features", "feature");
         if (item.hypothesis?.trim()?.length) has.push("hypothesis");
         if (item.description?.trim()?.length) has.push("description");
-        if (item.variations.some((v) => !!v.screenshots?.length)) {
+        if (
+          getLatestPhaseVariations(item).some((v) => !!v.screenshots?.length)
+        ) {
           has.push("screenshots");
         }
         if (
@@ -438,8 +441,8 @@ export function useExperimentSearch({
         }
         return has;
       },
-      variations: (item) => item.variations.length,
-      variation: (item) => item.variations.map((v) => v.name),
+      variations: (item) => getLatestPhaseVariations(item).length,
+      variation: (item) => getLatestPhaseVariations(item).map((v) => v.name),
       created: (item) => new Date(item.dateCreated),
       updated: (item) => new Date(item.dateUpdated),
       name: (item) => item.name,

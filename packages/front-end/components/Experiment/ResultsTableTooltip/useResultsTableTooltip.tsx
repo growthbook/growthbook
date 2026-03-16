@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTooltip, useTooltipInPortal } from "@visx/tooltip";
-import { ExperimentReportVariationWithIndex } from "shared/types/report";
+import { ExperimentReportVariation } from "shared/types/report";
 import {
   StatsEngine,
   PValueCorrection,
@@ -28,7 +28,7 @@ export function useResultsTableTooltip({
   pValueCorrection,
   noTooltip,
 }: {
-  orderedVariations: ExperimentReportVariationWithIndex[];
+  orderedVariations: ExperimentReportVariation[];
   rows: ExperimentTableRow[];
   rowsResults: (RowResults | "query error" | RowError | null)[][];
   dimension?: string;
