@@ -32,7 +32,7 @@ export default function RevisionLabel({
           </Text>
         </span>
       )}
-      {title ?? `Revision ${version}`}
+      {title ? title : `Revision ${version}`}
     </>
   );
 }
