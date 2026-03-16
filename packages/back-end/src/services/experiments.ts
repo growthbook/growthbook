@@ -1077,12 +1077,14 @@ export function getSnapshotQueryRunnerKind({
   datasource,
   experiment,
   snapshotType,
+  hasSnapshotDimensions,
 }: {
   allowIncrementalRefresh: boolean;
   isExperimentCompatibleWithIncrementalRefresh: boolean;
   datasource: DataSourceInterface;
   experiment: ExperimentInterface;
   snapshotType: SnapshotType;
+  hasSnapshotDimensions: boolean;
 }): SnapshotQueryRunnerKind {
   if (
     allowIncrementalRefresh &&
@@ -1090,6 +1092,10 @@ export function getSnapshotQueryRunnerKind({
     (experiment.type === undefined || experiment.type === "standard") &&
     isExperimentCompatibleWithIncrementalRefresh
   ) {
+    if (snapshotType === "exploratory" && !hasSnapshotDimensions) {
+      return "incremental";
+    }
+
     return snapshotType === "exploratory"
       ? "incremental-exploratory"
       : "incremental";
@@ -1154,6 +1160,7 @@ async function planSnapshotQueryRunner({
     datasource,
     experiment,
     snapshotType,
+    hasSnapshotDimensions: snapshotSettings.dimensions.length > 0,
   });
 }
 

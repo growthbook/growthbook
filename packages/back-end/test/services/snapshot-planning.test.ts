@@ -143,6 +143,7 @@ describe("snapshot planning", () => {
         datasource: incrementalDatasource,
         experiment,
         snapshotType: "standard",
+        hasSnapshotDimensions: false,
       }),
     ).toBe("results");
   });
@@ -157,6 +158,7 @@ describe("snapshot planning", () => {
         datasource: incrementalDatasource,
         experiment,
         snapshotType: "standard",
+        hasSnapshotDimensions: false,
       }),
     ).toBe("incremental");
   });
@@ -171,8 +173,24 @@ describe("snapshot planning", () => {
         datasource: incrementalDatasource,
         experiment,
         snapshotType: "exploratory",
+        hasSnapshotDimensions: true,
       }),
     ).toBe("incremental-exploratory");
+  });
+
+  it("uses the incremental runner for exploratory snapshots with no dimensions", () => {
+    const experiment = { type: "standard" } as unknown as ExperimentInterface;
+
+    expect(
+      getSnapshotQueryRunnerKind({
+        allowIncrementalRefresh: true,
+        isExperimentCompatibleWithIncrementalRefresh: true,
+        datasource: incrementalDatasource,
+        experiment,
+        snapshotType: "exploratory",
+        hasSnapshotDimensions: false,
+      }),
+    ).toBe("incremental");
   });
 
   it("falls back to the standard results runner for unsupported experiment types", () => {
@@ -187,6 +205,7 @@ describe("snapshot planning", () => {
         datasource: incrementalDatasource,
         experiment,
         snapshotType: "standard",
+        hasSnapshotDimensions: false,
       }),
     ).toBe("results");
   });
