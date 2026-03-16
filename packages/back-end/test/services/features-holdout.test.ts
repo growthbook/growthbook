@@ -82,9 +82,7 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
     (getAllURLRedirectExperiments as jest.Mock).mockResolvedValue([]);
   });
 
-  // todo: holdout injection into features map not yet on main; unskip after bryce/single-pass-payload-generation merges
-  it.skip("should include holdout and holdout rule when holdout has the requested project", async () => {
-    // Mock features
+  it("should include holdout and holdout rule when holdout has the requested project", async () => {
     (getAllFeatures as jest.Mock).mockResolvedValue([
       {
         id: "feature-with-holdout",
@@ -111,7 +109,6 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
       },
     ]);
 
-    // Mock holdouts
     (
       mockContext.models.holdout.getAllPayloadHoldouts as jest.Mock
     ).mockResolvedValue(
@@ -122,22 +119,23 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
             holdout: {
               id: "hld_test_holdout",
               name: "Test Holdout",
-              projects: ["project-2"], // Same project as feature
+              projects: ["project-2"],
               environment: "production",
               environmentSettings: {
-                production: {
-                  enabled: true,
-                },
+                production: { enabled: true },
               },
             },
-            holdoutExperiment: {
+            experiment: {
               id: "exp_holdout",
               name: "Holdout Experiment",
+              hashAttribute: "user_id",
+              trackingKey: "holdout-tracking-key",
               phases: [
                 {
                   dateStarted: new Date("2023-01-01"),
                   dateEnded: null,
                   coverage: 0.1,
+                  seed: "holdout-seed",
                   variationWeights: [0.5, 0.5],
                 },
               ],
@@ -161,13 +159,37 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
       },
     });
 
-    // Verify holdout is included
-    expect(result.features).toHaveProperty("$holdout:hld_test_holdout");
-    expect(result.features["$holdout:hld_test_holdout"].defaultValue).toBe(
-      "genpop",
-    );
-    // Verify feature has holdout rule
+    // Verify holdout feature def is present and its rule is populated from experiment data
+    // (generateHoldoutsPayload derives coverage/hashAttribute/key/seed from experiment.phases[0] and experiment fields)
+    expect(result.features["$holdout:hld_test_holdout"]).toMatchObject({
+      defaultValue: "genpop",
+      rules: [
+        expect.objectContaining({
+          coverage: 0.1,
+          hashAttribute: "user_id",
+          key: "holdout-tracking-key",
+          seed: "holdout-seed",
+          hashVersion: 2,
+          variations: ["holdoutcontrol", "holdouttreatment"],
+          weights: [0.5, 0.5],
+        }),
+      ],
+    });
+
+    // Verify feature has 2 rules: holdout gate rule first, then original force rule
     expect(result.features["feature-with-holdout"].rules).toHaveLength(2);
+    expect(result.features["feature-with-holdout"].rules?.[0]).toMatchObject({
+      parentConditions: [
+        {
+          id: "$holdout:hld_test_holdout",
+          condition: { value: "holdoutcontrol" },
+        },
+      ],
+      force: "default_value",
+    });
+    expect(result.features["feature-with-holdout"].rules?.[1]).toMatchObject({
+      force: "sample_value",
+    });
   });
 
   it("should NOT include holdout and holdout rule when holdout doesn't have the requested project", async () => {
@@ -217,14 +239,17 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
                 },
               },
             },
-            holdoutExperiment: {
+            experiment: {
               id: "exp_holdout",
               name: "Holdout Experiment",
+              hashAttribute: "user_id",
+              trackingKey: "holdout-tracking-key",
               phases: [
                 {
                   dateStarted: new Date("2023-01-01"),
                   dateEnded: null,
                   coverage: 0.1,
+                  seed: "holdout-seed",
                   variationWeights: [0.5, 0.5],
                 },
               ],
@@ -254,9 +279,7 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
     expect(result.features["feature-with-holdout"].rules).toHaveLength(1);
   });
 
-  // todo: holdout injection into features map not yet on main; unskip after bryce/single-pass-payload-generation merges
-  it.skip("should include holdout and holdout rule when requested project is in holdout projects array", async () => {
-    // Mock features
+  it("should include holdout and holdout rule when requested project is in holdout projects array", async () => {
     (getAllFeatures as jest.Mock).mockResolvedValue([
       {
         id: "feature-with-holdout",
@@ -283,7 +306,6 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
       },
     ]);
 
-    // Mock holdouts
     (
       mockContext.models.holdout.getAllPayloadHoldouts as jest.Mock
     ).mockResolvedValue(
@@ -297,19 +319,20 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
               projects: ["project-2", "project-3"],
               environment: "production",
               environmentSettings: {
-                production: {
-                  enabled: true,
-                },
+                production: { enabled: true },
               },
             },
-            holdoutExperiment: {
+            experiment: {
               id: "exp_holdout",
               name: "Holdout Experiment",
+              hashAttribute: "user_id",
+              trackingKey: "holdout-tracking-key",
               phases: [
                 {
                   dateStarted: new Date("2023-01-01"),
                   dateEnded: null,
                   coverage: 0.1,
+                  seed: "holdout-seed",
                   variationWeights: [0.5, 0.5],
                 },
               ],
@@ -333,13 +356,35 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
       },
     });
 
-    // Verify holdout is included
-    expect(result.features).toHaveProperty("$holdout:hld_test_holdout");
-    expect(result.features["$holdout:hld_test_holdout"].defaultValue).toBe(
-      "genpop",
-    );
-    // Verify feature has holdout rule
+    // Holdout projects ["project-2", "project-3"] includes the requested "project-2"
+    expect(result.features["$holdout:hld_test_holdout"]).toMatchObject({
+      defaultValue: "genpop",
+      rules: [
+        expect.objectContaining({
+          coverage: 0.1,
+          hashAttribute: "user_id",
+          key: "holdout-tracking-key",
+          seed: "holdout-seed",
+          hashVersion: 2,
+          variations: ["holdoutcontrol", "holdouttreatment"],
+          weights: [0.5, 0.5],
+        }),
+      ],
+    });
+
     expect(result.features["feature-with-holdout"].rules).toHaveLength(2);
+    expect(result.features["feature-with-holdout"].rules?.[0]).toMatchObject({
+      parentConditions: [
+        {
+          id: "$holdout:hld_test_holdout",
+          condition: { value: "holdoutcontrol" },
+        },
+      ],
+      force: "default_value",
+    });
+    expect(result.features["feature-with-holdout"].rules?.[1]).toMatchObject({
+      force: "sample_value",
+    });
   });
 
   it("should NOT include holdout rule when holdout feature definition is missing", async () => {
@@ -436,14 +481,17 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
                 },
               },
             },
-            holdoutExperiment: {
+            experiment: {
               id: "exp_holdout",
               name: "Holdout Experiment",
+              hashAttribute: "user_id",
+              trackingKey: "holdout-tracking-key",
               phases: [
                 {
                   dateStarted: new Date("2023-01-01"),
                   dateEnded: null,
                   coverage: 0.1,
+                  seed: "holdout-seed",
                   variationWeights: [0.5, 0.5],
                 },
               ],
