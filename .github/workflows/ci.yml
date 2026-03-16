@@ -37,7 +37,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ github.workspace }}/.eslintcache
-          key: ${{ runner.os }}-eslint-${{ hashFiles('eslint.config.mjs') }}-${{ hashFiles('**/pnpm-lock.yaml') }}-${{ hashFiles('**/*.ts', '**/*.tsx') }}
+          key: ${{ runner.os }}-eslint-${{ hashFiles('eslint.config.mjs', 'eslint-suppressions.json', 'pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-eslint-
 
