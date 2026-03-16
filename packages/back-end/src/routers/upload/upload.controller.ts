@@ -5,6 +5,7 @@ import {
   SignedUploadUrlResponse,
   UploadResponse,
 } from "shared/types/upload";
+import { getAllVariations } from "shared/experiments";
 import {
   uploadFile,
   getSignedImageUrl,
@@ -318,7 +319,7 @@ export async function getSignedPublicImageToken(
 
   if (shareType === "experiment" && experiment) {
     // For experiments, check variation screenshots and description
-    for (const variation of experiment.variations) {
+    for (const variation of getAllVariations(experiment)) {
       if (variation.screenshots) {
         for (const screenshot of variation.screenshots) {
           // Extract the path from the screenshot URL if it's a full URL
