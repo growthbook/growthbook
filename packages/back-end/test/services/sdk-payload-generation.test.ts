@@ -1373,7 +1373,17 @@ describe("SDK payload generation (scenario-specific)", () => {
         },
         data,
       });
-      expect(Object.keys(outP1Only.features)).toContain("child");
+      // todo: THIS ASSERTION REFLECTS A BUG ON MAIN.
+      // The shim calls generateFeaturesPayload with ALL features (no project filter), so parent (p2)
+      // is present during reduceFeaturesWithPrerequisites → evaluates as deterministic-pass → child's
+      // prereq is stripped → child is served ungated to the p1 connection.
+      // This violates project scoping: if parent is out of scope, the prerequisite relationship
+      // should be severed and child should be dropped regardless of parent's current state.
+      // For a conditional parent, main is even more broken: child would be delivered with
+      // parentConditions referencing a feature not in the SDK's payload (unevaluable at runtime).
+      // bryce/single-pass-payload-generation fixes this by filtering BEFORE reduction, so parent is
+      // absent → prereq fails → child is correctly dropped.
+      expect(Object.keys(outP1Only.features)).toContain("child"); // bug: should not contain "child"
       expect(Object.keys(outP1Only.features)).not.toContain("parent");
       const outBoth = await buildSDKPayloadForConnectionShim({
         context: minimalContext(),
