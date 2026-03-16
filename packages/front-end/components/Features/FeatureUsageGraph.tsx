@@ -476,6 +476,7 @@ export default function FeatureUsageGraph({
 
   // Stack order: defaultValue (base) → otherKey/restKeys → topKeys (top)
   const stackRank = (k: string) => {
+    if (isBoolean) return k === "true" ? 1 : 0; // false at bottom, true on top
     if (k === "defaultValue") return 0;
     if (k === OTHER_KEY) return 1;
     if (restKeys.includes(k)) return 2;
@@ -522,6 +523,7 @@ export default function FeatureUsageGraph({
   // Shared sort for tooltip rows and legend items:
   // topKeys first (desc volume) → restKeys (desc volume) → otherKey → defaultValue
   const legendRank = (k: string) => {
+    if (isBoolean) return k === "true" ? 0 : 1; // true first in legend, false second
     if (k === "defaultValue") return 3;
     if (k === OTHER_KEY) return 2;
     if (restKeys.includes(k)) return 1;
