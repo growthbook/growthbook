@@ -271,9 +271,9 @@ export default function AssignmentTester({
 
   return (
     <>
-      <Flex align="start" justify="between" mb="5" gap="4">
+      <Flex align="start" justify="between" mt="4" mb="5" gap="4">
         <Box flexShrink="1">
-          <Heading mb="1" size="5" as="h2">
+          <Heading mb="1" size="4" as="h3">
             Simulate Feature Rules
           </Heading>
           <Text mb="0">
