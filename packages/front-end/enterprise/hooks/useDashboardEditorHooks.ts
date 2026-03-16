@@ -82,8 +82,7 @@ export function useDashboardEditorHooks<
   // Empty array means "show all", so variationFilter should be undefined
   const variationFilter = useMemo(() => {
     if (!variations || variationIds.length === 0) return undefined;
-    const indexedVariations = variations.map((v, i) => ({ ...v, index: i }));
-    return indexedVariations
+    return variations
       .filter((v) => !variationIds.includes(v.id))
       .map((v) => v.index);
   }, [variations, variationIds]);
@@ -181,14 +180,13 @@ export function useDashboardEditorHooks<
     (filter: number[]) => {
       if (!setBlock || !variations) return;
       const currentBlock = blockRef.current;
-      const indexedVariations = variations.map((v, i) => ({ ...v, index: i }));
-      const filteredVariationIds = indexedVariations
+      const filteredVariationIds = variations
         .filter((v) => !filter.includes(v.index))
         .map((v) => v.id);
 
       // If all variations are selected (filter is empty or contains all indices),
       // store empty array to represent "select all"
-      const allVariationIds = indexedVariations.map((v) => v.id);
+      const allVariationIds = variations.map((v) => v.id);
       const normalizedVariationIds =
         filteredVariationIds.length === allVariationIds.length
           ? []

@@ -55,6 +55,10 @@ import {
 import HelperText from "@/ui/HelperText";
 import { getExposureQuery } from "@/services/datasources";
 import Text from "@/ui/Text";
+import {
+  AttributeOptionWithTooltip,
+  type AttributeOptionForTooltip,
+} from "@/components/Features/AttributeOptionTooltip";
 
 export default function ExperimentRefNewFields({
   step,
@@ -367,11 +371,19 @@ export default function ExperimentRefNewFields({
         <>
           <div className="mb-4">
             <SelectField
+              withRadixThemedPortal
               label="Assign Variation by Attribute"
               containerClassName="flex-1"
               options={attributeSchema
                 .filter((s) => !hasHashAttributes || s.hashAttribute)
-                .map((s) => ({ label: s.property, value: s.property }))}
+                .map((s) => ({
+                  label: s.property,
+                  value: s.property,
+                  description: s.description,
+                  tags: s.tags,
+                  datatype: s.datatype,
+                  hashAttribute: s.hashAttribute,
+                }))}
               value={hashAttribute}
               onChange={(v) => {
                 form.setValue("hashAttribute", v);
@@ -380,6 +392,16 @@ export default function ExperimentRefNewFields({
                 if (exposureQueryId) {
                   form.setValue("exposureQueryId", exposureQueryId);
                 }
+              }}
+              formatOptionLabel={(o, meta) => {
+                return (
+                  <AttributeOptionWithTooltip
+                    option={o as AttributeOptionForTooltip}
+                    context={meta.context}
+                  >
+                    {o.label}
+                  </AttributeOptionWithTooltip>
+                );
               }}
               helpText={
                 "Will be hashed together with the Tracking Key to determine which variation to assign"

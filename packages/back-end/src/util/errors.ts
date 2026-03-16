@@ -79,3 +79,10 @@ export class InternalServerError extends Error {
     this.name = "InternalServerError";
   }
 }
+
+export class ConcurrentIncrementalRefreshError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ConcurrentIncrementalRefreshError";
+  }
+}

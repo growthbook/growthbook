@@ -757,6 +757,24 @@ export async function updateFeature(
   return updatedFeature;
 }
 
+// Targeted write for the scheduled-features cron job. Bypasses onFeatureUpdate
+// to avoid generating an audit event for this system-driven housekeeping change.
+export async function updateNextScheduledDate(
+  feature: FeatureInterface,
+  nextScheduledUpdate: Date | null,
+): Promise<FeatureInterface> {
+  const dateUpdated = new Date();
+  await FeatureModel.updateOne(
+    { organization: feature.organization, id: feature.id },
+    { $set: { nextScheduledUpdate, dateUpdated } },
+  );
+  return {
+    ...feature,
+    nextScheduledUpdate: nextScheduledUpdate ?? undefined,
+    dateUpdated,
+  };
+}
+
 export async function addLinkedExperiment(
   feature: FeatureInterface,
   experimentId: string,
@@ -777,6 +795,7 @@ export async function getScheduledFeaturesToUpdate() {
   const features = await FeatureModel.find({
     nextScheduledUpdate: {
       $exists: true,
+      $ne: null,
       $lt: new Date(),
     },
   });

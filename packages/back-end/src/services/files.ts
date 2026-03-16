@@ -15,6 +15,30 @@ import {
 let s3: AWS.S3;
 let awsTempCredentials: AWS.TemporaryCredentials | null = null;
 
+function shouldRefreshCredentials(): boolean {
+  if (!awsTempCredentials) return false;
+
+  // Check if credentials need refresh using the SDK's built-in method
+  if (awsTempCredentials.needsRefresh()) return true;
+
+  // Additional safety check: if expireTime is not set, credentials may not have been loaded
+  if (!awsTempCredentials.expireTime) return true;
+
+  // Proactively refresh if credentials expire within 5 minutes to avoid edge cases
+  const bufferMs = 5 * 60 * 1000; // 5 minutes
+  return awsTempCredentials.expireTime.getTime() - Date.now() < bufferMs;
+}
+
+async function refreshCredentials(): Promise<void> {
+  if (!awsTempCredentials) return;
+  return new Promise<void>((resolve, reject) => {
+    awsTempCredentials!.refresh((err) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
+}
+
 async function getS3(): Promise<AWS.S3> {
   if (!s3) {
     AWS.config.update({ region: S3_REGION });
@@ -26,6 +50,11 @@ async function getS3(): Promise<AWS.S3> {
         RoleSessionName: "growthbook-uploads",
       });
 
+      // Eagerly load credentials for the first time so that masterCredentials
+      // is populated before any synchronous SDK operations (e.g. getSignedUrl,
+      // createPresignedPost) attempt to access it.
+      await refreshCredentials();
+
       s3 = new AWS.S3({
         signatureVersion: "v4",
         credentials: awsTempCredentials,
@@ -36,13 +65,8 @@ async function getS3(): Promise<AWS.S3> {
   }
   // Eagerly refresh expired/expiring credentials before returning the client.
   // This ensures even synchronous operations like getSignedUrl use valid creds.
-  if (awsTempCredentials && awsTempCredentials.needsRefresh()) {
-    await new Promise<void>((resolve, reject) => {
-      awsTempCredentials!.refresh((err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
+  if (shouldRefreshCredentials()) {
+    await refreshCredentials();
   }
   return s3;
 }

@@ -659,6 +659,7 @@ export async function analyzeExperimentResults({
     ),
     variations: snapshotSettings.variations.map((v, i) => ({
       ...v,
+      index: i,
       name: variationNames[i] || v.id,
     })),
     analyses: analysisSettings,

@@ -395,6 +395,16 @@
   --tab-inner-border-radius: var(--radius-2);
 }
 
+// Link: when .hover-underline is applied, no underline by default—only on hover (e.g. AttributeBadge)
+.rt-Link.hover-underline,
+.hover-underline.rt-Link {
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
 // Tooltip
 p.rt-TooltipText {
   margin-bottom: 0;
