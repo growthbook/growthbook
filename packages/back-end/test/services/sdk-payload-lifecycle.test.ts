@@ -35,8 +35,10 @@ jest.mock("back-end/src/models/SdkConnectionModel", () => ({
   markSDKConnectionUsed: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock("back-end/src/models/OrganizationModel", () => ({}));
-jest.mock("back-end/src/models/ApiKeyModel", () => ({
-  lookupOrganizationByApiKey: jest.fn(),
+jest.mock("back-end/src/models/ApiKeyModel", () => ({}));
+jest.mock("back-end/src/util/api-key.util", () => ({
+  ...jest.requireActual("back-end/src/util/api-key.util"),
+  dangerousLookupOrganizationByApiKey: jest.fn(),
 }));
 jest.mock("back-end/src/models/SdkConnectionCacheModel", () => ({
   ...jest.requireActual("back-end/src/models/SdkConnectionCacheModel"),
@@ -77,8 +79,8 @@ const findSDKConnectionByKey = jest.requireMock(
   "back-end/src/models/SdkConnectionModel",
 ).findSDKConnectionByKey as jest.Mock;
 const lookupOrganizationByApiKey = jest.requireMock(
-  "back-end/src/models/ApiKeyModel",
-).lookupOrganizationByApiKey as jest.Mock;
+  "back-end/src/util/api-key.util",
+).dangerousLookupOrganizationByApiKey as jest.Mock;
 const getSDKPayloadCacheLocationMock = jest.requireMock(
   "back-end/src/models/SdkConnectionCacheModel",
 ).getSDKPayloadCacheLocation as jest.Mock;
