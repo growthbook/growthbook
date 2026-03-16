@@ -1,8 +1,6 @@
 import { PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES } from "shared/enterprise";
 import type { DataSourceType } from "shared/types/datasource";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import RadioGroup from "@/ui/RadioGroup";
-import { AppFeatures } from "@/types/app-features";
 
 export type PipelineModeValue = "disabled" | "ephemeral" | "incremental";
 
@@ -19,10 +17,6 @@ const PipelineModeSelector = ({
   disabled,
   dataSourceType,
 }: Props) => {
-  const gb = useGrowthBook<AppFeatures>();
-  const isIncrementalPipelineAvailable =
-    gb?.isOn("incremental-refresh") ?? false;
-
   const isModeSupported = (mode: PipelineModeValue): boolean => {
     if (mode === "disabled") return true;
     return (
@@ -46,7 +40,7 @@ const PipelineModeSelector = ({
     },
   ];
 
-  if (isIncrementalPipelineAvailable || value === "incremental") {
+  if (value === "incremental") {
     options.push({
       value: "incremental",
       label: "Incremental",

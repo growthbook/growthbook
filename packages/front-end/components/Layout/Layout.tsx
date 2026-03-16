@@ -9,7 +9,6 @@ import {
   BsHouse,
   BsSearch,
 } from "react-icons/bs";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Flex } from "@radix-ui/themes";
 import { getGrowthBookBuild } from "@/services/env";
 import { useUser } from "@/services/UserContext";
@@ -23,7 +22,6 @@ import {
 } from "@/components/Icons";
 import { inferDocUrl } from "@/components/DocLink";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
-import { AppFeatures } from "@/types/app-features";
 import { WhiteButton } from "@/ui/Button";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ProjectSelector from "./ProjectSelector";
@@ -64,13 +62,11 @@ const navlinks: SidebarLinkProps[] = [
         href: "/bandits",
         //Icon: GBBandit,
         path: /^bandit/,
-        filter: ({ gb }) => !!gb?.isOn("bandits"),
       },
       {
         name: "Holdouts",
         href: "/holdouts",
         path: /^holdouts/,
-        filter: ({ gb }) => !!gb?.isOn("holdouts_feature"),
       },
       {
         name: "Templates",
@@ -190,7 +186,6 @@ const navlinks: SidebarLinkProps[] = [
         path: /^presentation/,
       },
     ],
-    filter: ({ gb }) => !!gb?.isOn("insights"),
   },
   {
     name: "Management",
@@ -215,7 +210,6 @@ const navlinks: SidebarLinkProps[] = [
         path: /^presentation/,
       },
     ],
-    filter: ({ gb }) => !gb?.isOn("insights"),
   },
   {
     name: "SDK Configuration",
@@ -321,9 +315,8 @@ const navlinks: SidebarLinkProps[] = [
         name: "Slack",
         href: "/integrations/slack",
         path: /^integrations\/slack/,
-        filter: ({ permissionsUtils, gb }) =>
-          permissionsUtils.canManageIntegrations() &&
-          !!gb?.isOn("slack-integration"),
+        filter: ({ permissionsUtils }) =>
+          permissionsUtils.canManageIntegrations(),
       },
       {
         name: "GitHub",
@@ -337,23 +330,20 @@ const navlinks: SidebarLinkProps[] = [
         name: "Import your data",
         href: "/importing",
         path: /^importing/,
-        filter: ({ permissionsUtils, gb }) =>
+        filter: ({ permissionsUtils }) =>
           permissionsUtils.canViewFeatureModal() &&
           permissionsUtils.canCreateEnvironment({
             projects: [],
             id: "",
           }) &&
-          permissionsUtils.canCreateProjects() &&
-          !!gb?.isOn("import-from-x"),
+          permissionsUtils.canCreateProjects(),
       },
       {
         name: "Usage",
         href: "/settings/usage",
         path: /^settings\/usage/,
-        filter: ({ permissionsUtils, isCloud, gb }) =>
-          permissionsUtils.canViewUsage() &&
-          isCloud &&
-          !!gb?.isOn("cdn-usage-data"),
+        filter: ({ permissionsUtils, isCloud }) =>
+          permissionsUtils.canViewUsage() && isCloud,
       },
       {
         name: "Custom Hooks",
@@ -436,11 +426,6 @@ const Layout = (): React.ReactElement => {
   const settings = useOrgSettings();
   const permissionsUtil = usePermissionsUtil();
   const { organization, canSubscribe } = useUser();
-  const growthbook = useGrowthBook<AppFeatures>();
-
-  // holdout aa-test, dogfooding
-  growthbook?.isOn("aa-test-holdout");
-
   const { breadcrumb } = usePageHead();
 
   const [upgradeModal, setUpgradeModal] = useState(false);

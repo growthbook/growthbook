@@ -11,8 +11,6 @@ import {
 } from "shared/util";
 import clsx from "clsx";
 import type { SDKLanguage } from "shared/types/sdk-connection";
-import { useGrowthBook } from "@growthbook/growthbook-react";
-import { Box, Flex, Heading, Separator, Text } from "@radix-ui/themes";
 import { getLatestSDKVersion } from "shared/sdk-versioning";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -28,21 +26,8 @@ import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import { capitalizeFirstLetter } from "@/services/utils";
 import Callout from "@/ui/Callout";
-import SDKLanguageLogo, {
-  getLanguagesByFilter,
-  languageMapping,
-} from "./SDKLanguageLogo";
+import SDKLanguageLogo from "./SDKLanguageLogo";
 import SDKConnectionForm from "./SDKConnectionForm";
-import { SDKLanguageOption } from "./SDKLanguageSelector";
-
-function popularLanguagesFirst(a: SDKLanguage, b: SDKLanguage) {
-  const isAPopular = languageMapping[a].filters.includes("popular");
-  const isBPopular = languageMapping[b].filters.includes("popular");
-
-  if (isAPopular && !isBPopular) return -1;
-  if (!isAPopular && isBPopular) return 1;
-  return 0;
-}
 
 export default function SDKConnectionsList() {
   const { data, mutate, error } = useSDKConnections();
@@ -60,19 +45,7 @@ export default function SDKConnectionsList() {
   const canCreateSDKConnections =
     permissionsUtil.canViewCreateSDKConnectionModal(project);
 
-  const gb = useGrowthBook();
-
-  let useNewEmptyStateLayout = false;
-  if (data && connections.length === 0 && canCreateSDKConnections) {
-    useNewEmptyStateLayout = gb.isOn("sdk-connections-new-empty-state");
-  }
-
-  const [initialModalSelectedLanguage, setInitialModalSelectedLanguage] =
-    useState<SDKLanguage | null>(null);
-  const [showAllSdkLanguages, setShowAllSdkLanguages] = useState(false);
-  const sdkLanguagesToShow = getLanguagesByFilter(
-    showAllSdkLanguages ? "all" : "popular",
-  ).sort(popularLanguagesFirst);
+  const [initialModalSelectedLanguage] = useState<SDKLanguage | null>(null);
 
   if (error) {
     return <div className="alert alert-danger">{error.message}</div>;
@@ -80,80 +53,6 @@ export default function SDKConnectionsList() {
   if (!data) {
     return <LoadingOverlay />;
   }
-
-  const emptyStateContentControl = (
-    <div className="appbox p-5 text-center">
-      <p>
-        <strong>SDK Connections</strong> make it easy to integrate GrowthBook
-        into your front-end, back-end, or mobile application.
-      </p>
-      <button
-        className="btn btn-primary"
-        onClick={(e) => {
-          e.preventDefault();
-          setModalOpen(true);
-        }}
-      >
-        <GBAddCircle /> Create New SDK Connection
-      </button>
-    </div>
-  );
-
-  const emptyStateContentExperiment = (
-    <Box
-      pt="9"
-      pb="7"
-      px="10%"
-      mb="4"
-      style={{ backgroundColor: "var(--color-panel-solid)" }}
-    >
-      <Flex direction="column" align="center">
-        <Heading as="h2" size="6" align="center">
-          Easily integrate GrowthBook into your app or website
-        </Heading>
-        <Text size="3" align="center">
-          Select one of our SDKs to connect your front-end, back-end or mobile
-          app.
-        </Text>
-      </Flex>
-
-      <Separator size="4" mt="7" mb="6" />
-
-      <Flex
-        justify="start"
-        direction={{
-          initial: "column",
-          xs: "row",
-        }}
-        wrap="wrap"
-        gapX="5"
-        gapY="4"
-        mb="7"
-      >
-        {sdkLanguagesToShow.map((language) => (
-          <SDKLanguageOption
-            key={language}
-            language={language}
-            selected={false}
-            onClick={() => {
-              setInitialModalSelectedLanguage(language);
-              setModalOpen(true);
-            }}
-          />
-        ))}
-      </Flex>
-
-      <Flex justify="center">
-        <Button
-          variant="ghost"
-          onClick={() => setShowAllSdkLanguages(!showAllSdkLanguages)}
-          size="sm"
-        >
-          {showAllSdkLanguages ? "Show less" : "Show all"}
-        </Button>
-      </Flex>
-    </Box>
-  );
 
   return (
     <div>
@@ -181,8 +80,7 @@ export default function SDKConnectionsList() {
         <div className="col-auto">
           <h1 className="mb-0">SDK Connections</h1>
         </div>
-        {canCreateSDKConnections &&
-        (useNewEmptyStateLayout || connections.length > 0) ? (
+        {canCreateSDKConnections && connections.length > 0 ? (
           <div className="col-auto ml-auto">
             <Button onClick={() => setModalOpen(true)}>
               Add SDK Connection
@@ -200,10 +98,22 @@ export default function SDKConnectionsList() {
                 contact your account administrator
               </p>
             </div>
-          ) : useNewEmptyStateLayout ? (
-            emptyStateContentExperiment
           ) : (
-            emptyStateContentControl
+            <div className="appbox p-5 text-center">
+              <p>
+                <strong>SDK Connections</strong> make it easy to integrate
+                GrowthBook into your front-end, back-end, or mobile application.
+              </p>
+              <button
+                className="btn btn-primary"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setModalOpen(true);
+                }}
+              >
+                <GBAddCircle /> Create New SDK Connection
+              </button>
+            </div>
           )}
         </>
       ) : null}

@@ -7,7 +7,6 @@ import {
 import React, { ReactElement, useState } from "react";
 import { validateFeatureValue } from "shared/util";
 import { PiInfo } from "react-icons/pi";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
@@ -164,8 +163,6 @@ export default function FeatureModal({
     "feature",
     project,
   );
-
-  const holdoutsEnabled = useFeatureIsOn("holdouts_feature");
 
   const defaultValues = genFormDefaultValues({
     environments,
@@ -369,16 +366,14 @@ export default function FeatureModal({
           </>
         )}
 
-        {holdoutsEnabled && (
-          <HoldoutSelect
-            selectedProject={selectedProject}
-            selectedHoldoutId={form.watch("holdout")?.id}
-            setHoldout={(holdoutId) => {
-              form.setValue("holdout", { id: holdoutId, value: "" });
-            }}
-            formType="feature"
-          />
-        )}
+        <HoldoutSelect
+          selectedProject={selectedProject}
+          selectedHoldoutId={form.watch("holdout")?.id}
+          setHoldout={(holdoutId) => {
+            form.setValue("holdout", { id: holdoutId, value: "" });
+          }}
+          formType="feature"
+        />
 
         {hasCommercialFeature("custom-metadata") &&
           customFields &&
