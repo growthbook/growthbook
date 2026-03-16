@@ -303,7 +303,7 @@ function DashboardEditor({
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [queriesModalOpen, setQueriesModalOpen] = useState(false);
   const { apiCall } = useAuth();
-  const { userId, getUserDisplay } = useUser();
+  const { userId, getOwnerDisplay } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const { allQueries, savedQueriesMap, snapshotError } = useContext(
     DashboardSnapshotContext,
@@ -327,7 +327,7 @@ function DashboardEditor({
   if (initialEditLevel === "private" && !isOwner && !isAdmin) {
     canEdit = false;
   }
-  const ownerName = getUserDisplay(dashboardOwnerId, false) || "";
+  const ownerName = getOwnerDisplay(dashboardOwnerId);
 
   const savedQueryIds = [...savedQueriesMap.keys()];
   const queryStrings = useMemo(() => {

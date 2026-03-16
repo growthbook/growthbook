@@ -12,9 +12,6 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
 }) => {
   const { apiCall } = useAuth();
   const [open, setOpen] = useState(false);
-  const [modalApiKeyType, setModalApiKeyType] = useState<
-    "readonly" | "admin" | "user" | undefined
-  >();
 
   const permissionsUtils = usePermissionsUtil();
   const canCreateKeys = permissionsUtils.canCreateApiKey();
@@ -64,7 +61,7 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
         <ApiKeysModal
           close={() => setOpen(false)}
           onCreate={mutate}
-          type={modalApiKeyType}
+          personalAccessToken={false}
         />
       )}
 
@@ -86,7 +83,6 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
         {canCreateKeys && (
           <Button
             onClick={() => {
-              setModalApiKeyType("admin");
               setOpen(true);
             }}
           >

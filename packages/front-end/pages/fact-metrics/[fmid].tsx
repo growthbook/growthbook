@@ -12,6 +12,7 @@ import {
   isBinomialMetric,
   isRatioMetric,
   quantileMetricType,
+  getRowFilterSQL,
 } from "shared/experiments";
 
 import { useGrowthBook } from "@growthbook/growthbook-react";
@@ -19,7 +20,6 @@ import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import { getRowFilterSQL } from "shared/src/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBBandit, GBCuped, GBEdit, GBExperiment } from "@/components/Icons";
@@ -193,7 +193,7 @@ export default function FactMetricPage() {
   );
   const { apiCall } = useAuth();
 
-  const { hasCommercialFeature, organization } = useUser();
+  const { hasCommercialFeature, organization, getOwnerDisplay } = useUser();
 
   const permissionsUtil = usePermissionsUtil();
 
@@ -476,7 +476,6 @@ export default function FactMetricPage() {
       )}
       {editOwnerModal && (
         <EditOwnerModal
-          resourceType="factMetric"
           cancel={() => setEditOwnerModal(false)}
           owner={factMetric.owner}
           save={async (owner) => {
@@ -658,7 +657,7 @@ export default function FactMetricPage() {
           )}
         </div>
         <div className="col-auto">
-          Owner:{` ${factMetric.owner ?? ""}`}
+          Owner: {getOwnerDisplay(factMetric.owner) || "None"}
           {canEdit && (
             <a
               className="ml-1 cursor-pointer"

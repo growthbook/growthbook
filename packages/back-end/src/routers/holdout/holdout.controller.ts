@@ -39,7 +39,6 @@ import {
 import { logger } from "back-end/src/util/logger";
 import {
   createExperimentSnapshot,
-  SNAPSHOT_TIMEOUT,
   validateVariationIds,
 } from "back-end/src/controllers/experiments";
 import {
@@ -260,10 +259,6 @@ export const createHoldout = async (
     }
 
     if (datasource && req.query.autoRefreshResults && metricIds.length > 0) {
-      // This is doing an expensive analytics SQL query, so may take a long time
-      // Set timeout to 30 minutes
-      req.setTimeout(SNAPSHOT_TIMEOUT);
-
       try {
         await createExperimentSnapshot({
           context,

@@ -54,6 +54,7 @@ type ComputedFeaturesAndRevisions = FeaturesAndRevisions & {
   creator: string | undefined;
   comment: string;
   owner: string | undefined;
+  ownerNameDisplay: string;
   dateAndStatus: number;
 };
 
@@ -81,7 +82,8 @@ const NeedingAttention = (): React.ReactElement | null => {
     return items;
   }, []);
 
-  const { hasCommercialFeature, organization, user } = useUser();
+  const { hasCommercialFeature, organization, user, getOwnerDisplay } =
+    useUser();
   const {
     items: experimentsNeedingAttention,
     SortableTH: SortableTHExperiments,
@@ -215,38 +217,43 @@ const NeedingAttention = (): React.ReactElement | null => {
     return result;
   }, []);
 
-  const revisions = useAddComputedFields(featuresAndRevisions, (revision) => {
-    const createdBy = revision?.createdBy as EventUserLoggedIn | null;
-    let dateAndStatus = new Date(revision?.dateUpdated).getTime();
-    switch (revision?.status) {
-      case "draft":
-        dateAndStatus = parseInt(`0${dateAndStatus}`);
-        break;
-      case "approved":
-        dateAndStatus = parseInt(`0${dateAndStatus}`);
-        break;
-      case "pending-review":
-        dateAndStatus = parseInt(`1${dateAndStatus}`);
-        break;
-      case "changes-requested":
-        dateAndStatus = parseInt(`1${dateAndStatus}`);
-        break;
-    }
-    return {
-      // Need a unique id for each item
-      id: revision.featureId + ":::" + revision?.version,
-      tags: revision.featureMeta?.tags || [],
-      status: revision?.status,
-      version: revision?.version,
-      dateCreated: revision?.dateCreated,
-      dateUpdated: revision?.dateUpdated,
-      project: revision.featureMeta?.project,
-      creator: createdBy?.name,
-      comment: revision?.comment,
-      owner: revision.featureMeta?.owner,
-      dateAndStatus,
-    };
-  });
+  const revisions = useAddComputedFields(
+    featuresAndRevisions,
+    (revision) => {
+      const createdBy = revision?.createdBy as EventUserLoggedIn | null;
+      let dateAndStatus = new Date(revision?.dateUpdated).getTime();
+      switch (revision?.status) {
+        case "draft":
+          dateAndStatus = parseInt(`0${dateAndStatus}`);
+          break;
+        case "approved":
+          dateAndStatus = parseInt(`0${dateAndStatus}`);
+          break;
+        case "pending-review":
+          dateAndStatus = parseInt(`1${dateAndStatus}`);
+          break;
+        case "changes-requested":
+          dateAndStatus = parseInt(`1${dateAndStatus}`);
+          break;
+      }
+      return {
+        // Need a unique id for each item
+        id: revision.featureId + ":::" + revision?.version,
+        tags: revision.featureMeta?.tags || [],
+        status: revision?.status,
+        version: revision?.version,
+        dateCreated: revision?.dateCreated,
+        dateUpdated: revision?.dateUpdated,
+        project: revision.featureMeta?.project,
+        creator: createdBy?.name,
+        comment: revision?.comment,
+        owner: revision.featureMeta?.owner,
+        ownerNameDisplay: getOwnerDisplay(revision.featureMeta?.owner),
+        dateAndStatus,
+      };
+    },
+    [getOwnerDisplay],
+  );
   const {
     items: featureFlagsNeedingAttention,
     SortableTH: SortableTHFeatureFlags,
@@ -512,7 +519,7 @@ const NeedingAttention = (): React.ReactElement | null => {
                 <SortableTHFeatureFlags field="project">
                   Project
                 </SortableTHFeatureFlags>
-                <SortableTHFeatureFlags field="owner">
+                <SortableTHFeatureFlags field="ownerNameDisplay">
                   Owner
                 </SortableTHFeatureFlags>
                 <SortableTHFeatureFlags field="status">
@@ -540,7 +547,7 @@ const NeedingAttention = (): React.ReactElement | null => {
                     {getProjectById(item.featureMeta?.project || "")?.name}
                   </td>
                   <td className={styles.ownerTd}>
-                    {getAvatarAndName(item.featureMeta?.owner || "")}
+                    {getAvatarAndName(item.ownerNameDisplay)}
                   </td>
                   <td className="text-truncate">{renderStatusCopy(item)}</td>
                 </tr>

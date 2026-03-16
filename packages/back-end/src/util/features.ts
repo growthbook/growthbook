@@ -9,6 +9,7 @@ import {
   isDefined,
   recursiveWalk,
 } from "shared/util";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { GroupMap } from "shared/types/saved-group";
 import { cloneDeep, isNil } from "lodash";
 import md5 from "md5";
@@ -481,7 +482,7 @@ export function getFeatureDefinition({
           }
           // Running experiment
           else {
-            rule.variations = exp.variations.map((v) => {
+            rule.variations = getLatestPhaseVariations(exp).map((v) => {
               const variation = r.variations.find(
                 (ruleVariation) => v.id === ruleVariation.variationId,
               );
@@ -491,7 +492,7 @@ export function getFeatureDefinition({
             });
             rule.weights = phase.variationWeights;
             rule.key = exp.trackingKey;
-            rule.meta = exp.variations.map((v) => ({
+            rule.meta = getLatestPhaseVariations(exp).map((v) => ({
               key: v.key,
               name: v.name,
             }));

@@ -74,7 +74,6 @@ export default function EditHoldoutInfoModal({
         required
       />
       <SelectOwner
-        resourceType="experiment"
         value={form.watch("owner")}
         onChange={(v) => form.setValue("owner", v)}
       />

@@ -1,3 +1,4 @@
+import { getLatestPhaseVariations } from "shared/experiments";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
@@ -230,7 +231,7 @@ export default function ExperimentHeader({
 
   const hasUpdatePermissions = !holdout
     ? permissionsUtil.canViewExperimentModal(experiment.project)
-    : permissionsUtil.canViewHoldoutModal(holdout.projects);
+    : permissionsUtil.canUpdateHoldout(holdout, { projects: holdout.projects });
   const canDeleteExperiment = !holdout
     ? permissionsUtil.canDeleteExperiment(experiment)
     : permissionsUtil.canDeleteHoldout(holdout);
@@ -244,7 +245,7 @@ export default function ExperimentHeader({
   }
   const canRunExperiment = canEditExperiment && hasRunExperimentsPermission;
   const canCreateTemplate =
-    permissionsUtil.canViewExperimentTemplateModal() &&
+    permissionsUtil.canViewExperimentTemplateModal(experiment.project) &&
     hasCommercialFeature("templates");
 
   const isUsingHealthUnsupportDatasource =
@@ -512,18 +513,19 @@ export default function ExperimentHeader({
                     <li>
                       Experiment variations will begin with{" "}
                       <strong>equal weights</strong> (
-                      {experiment.variations
-                        .map((_, i) =>
-                          i < 3
-                            ? formatPercent(
-                                1 / (experiment.variations.length ?? 2),
-                              )
-                            : i === 3
-                              ? "..."
-                              : null,
-                        )
-                        .filter(Boolean)
-                        .join(", ")}
+                      {(() => {
+                        const variations = getLatestPhaseVariations(experiment);
+                        return variations
+                          .map((_, i) =>
+                            i < 3
+                              ? formatPercent(1 / (variations.length ?? 2))
+                              : i === 3
+                                ? "..."
+                                : null,
+                          )
+                          .filter(Boolean)
+                          .join(", ");
+                      })()}
                       ).
                     </li>
                     <li>
