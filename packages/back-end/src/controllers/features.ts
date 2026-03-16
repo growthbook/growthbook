@@ -1708,7 +1708,7 @@ export async function postFeatureExperimentRefRule(
   });
 }
 
-async function getDraftRevision(
+export async function getDraftRevision(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   version: number,

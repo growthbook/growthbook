@@ -7,7 +7,10 @@ import { getValidDate } from "shared/dates";
 import {
   getAffectedEnvsForExperiment,
   getSnapshotAnalysis,
+  getMatchingRules,
   isDefined,
+  MatchingRule,
+  resetReviewOnChange,
 } from "shared/util";
 import {
   expandAllSliceMetricsInMap,
@@ -42,6 +45,7 @@ import {
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { OrganizationSettings } from "shared/types/organization";
 import { CreateURLRedirectProps } from "shared/types/url-redirect";
+import { ExperimentRefVariation, FeatureRule } from "shared/types/feature";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
   AuthRequest,
@@ -123,7 +127,10 @@ import { PastExperimentsQueryRunner } from "back-end/src/queryRunners/PastExperi
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
-import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
+import {
+  editFeatureRules,
+  getFeaturesByIds,
+} from "back-end/src/models/FeatureModel";
 import { generateExperimentReportSSRData } from "back-end/src/services/reports";
 import {
   cosineSimilarity,
@@ -135,6 +142,7 @@ import {
   shouldValidateCustomFieldsOnUpdate,
   validateCustomFieldsForSection,
 } from "back-end/src/util/custom-fields";
+import { getDraftRevision } from "./features";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
 
@@ -3949,4 +3957,127 @@ export async function getExperimentTimeSeries(
     status: 200,
     timeSeries,
   });
+}
+
+export async function postExperimentFeatureValues(
+  req: AuthRequest<
+    {
+      variations: Variation[];
+      variationWeights: number[];
+      features: Record<string, ExperimentRefVariation[]>;
+    },
+    { id: string }
+  >,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const { variations, variationWeights, features } = req.body;
+  const { org } = context;
+  const experiment = await getExperimentById(context, id);
+  if (!experiment) {
+    res.status(404).json({
+      status: 404,
+      message: "Experiment not found",
+    });
+    return;
+  }
+
+  if (experiment.status !== "draft") {
+    res.status(400).json({
+      status: 400,
+      message:
+        "Editing feature values from an experiment is only allowed for experiments in draft. To edit feature values for a running experiment, edit the values from the feature flags directly.",
+    });
+    return;
+  }
+
+  // Check that variations and variationWeights are the same length
+  if (variations.length !== variationWeights.length) {
+    res.status(400).json({
+      status: 400,
+      message: "Variations and variationWeights must be the same length.",
+    });
+    return;
+  }
+
+  const changes: Changeset = {};
+
+  if (!context.permissions.canUpdateExperiment(experiment, changes)) {
+    context.permissions.throwPermissionError();
+  }
+
+  // Hydrate the feature keys in feature with the feature objects
+  const hydratedFeatures = await getFeaturesByIds(
+    context,
+    Object.keys(features),
+  );
+
+  if (hydratedFeatures.length !== Object.keys(features).length) {
+    res.status(400).json({
+      status: 400,
+      message: "One or more features not found",
+    });
+    return;
+  }
+
+  // Check for permission to update each feature
+  for (const feature of hydratedFeatures) {
+    if (
+      !context.permissions.canUpdateFeature(feature, {}) ||
+      !context.permissions.canManageFeatureDrafts(feature)
+    ) {
+      context.permissions.throwPermissionError();
+    }
+  }
+
+  // TODO: Create new variations for the experiment if there are more variations than the experiment has
+
+  // Go through features and create revisions
+  for (const feature of hydratedFeatures) {
+    const revision = await getDraftRevision(context, feature, feature.version);
+    const orgEnvIds = context.environments;
+    // Get existing experiment-ref rules for this experiment across all environments
+    const matchingRules = getMatchingRules(
+      feature,
+      (r: FeatureRule) =>
+        r.type === "experiment-ref" && r.experimentId === experiment.id,
+      orgEnvIds,
+      revision,
+      false,
+    );
+
+    if (!matchingRules.length) {
+      // If there are no existing experiment-ref rules for this experiment
+      // on this feature, skip it. Creating new rules/environments is
+      // explicitly out of scope here. To add new rules, use the feature
+      // controllers directly.
+      continue;
+    }
+
+    const changedEnvironments = matchingRules.map(
+      (m: MatchingRule) => m.environmentId,
+    );
+    const resetReview = resetReviewOnChange({
+      feature,
+      changedEnvironments,
+      defaultValueChanged: false,
+      settings: org?.settings,
+    });
+
+    const updatedVariations = features[feature.id];
+
+    await editFeatureRules(
+      context,
+      feature,
+      revision,
+      matchingRules.map((m) => ({
+        environmentId: m.environmentId,
+        i: m.i,
+      })),
+      { variations: updatedVariations },
+      res.locals.eventAudit,
+      resetReview,
+    );
+  }
 }
