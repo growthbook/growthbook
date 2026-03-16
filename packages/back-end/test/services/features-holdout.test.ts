@@ -217,7 +217,7 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
                 },
               },
             },
-            holdoutExperiment: {
+            experiment: {
               id: "exp_holdout",
               name: "Holdout Experiment",
               phases: [
@@ -436,7 +436,7 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
                 },
               },
             },
-            holdoutExperiment: {
+            experiment: {
               id: "exp_holdout",
               name: "Holdout Experiment",
               phases: [
