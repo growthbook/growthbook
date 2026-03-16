@@ -45,6 +45,7 @@ import {
 } from "@/ui/DropdownMenu";
 import { useFeatureStaleStates } from "@/hooks/useFeatureStaleStates";
 import { useScrollPosition } from "@/hooks/useScrollPosition";
+import { FeatureUsageSparkline } from "./FeatureUsageGraph";
 import FeatureArchiveModal from "./FeatureArchiveModal";
 import FeatureDeleteModal from "./FeatureDeleteModal";
 import AddToHoldoutModal from "./AddToHoldoutModal";
@@ -426,6 +427,10 @@ export default function FeaturesHeader({
                 onDisable={canEdit ? () => setStaleFFModal(true) : undefined}
                 open={staleStatusOpen}
                 onOpenChange={setStaleStatusOpen}
+              />
+              <FeatureUsageSparkline
+                valueType={feature.valueType}
+                environments={environments.map((e) => e.id)}
               />
             </Flex>
             {/* Slot: revisionAndSettingsGroup portal mounts here when not scrolled (>20px → tabs bar) */}

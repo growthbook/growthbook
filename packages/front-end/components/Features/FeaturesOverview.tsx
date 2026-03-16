@@ -12,7 +12,6 @@ import {
   PiCaretRightBold,
   PiPencil,
 } from "react-icons/pi";
-import { FaBoltLightning } from "react-icons/fa6";
 import { ago, datetime } from "shared/dates";
 import {
   autoMerge,
@@ -28,7 +27,6 @@ import { BiHide, BiShow } from "react-icons/bi";
 import Collapsible from "react-collapsible";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { BsClock } from "react-icons/bs";
-import { FeatureUsageLookback } from "shared/types/integrations";
 import {
   Box,
   Flex,
@@ -88,14 +86,12 @@ import {
   useCustomFields,
   filterCustomFieldsForSectionAndProject,
 } from "@/hooks/useCustomFields";
-import { Select, SelectItem } from "@/ui/Select";
 import Callout from "@/ui/Callout";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Badge from "@/ui/Badge";
 import Frame from "@/ui/Frame";
 import Switch from "@/ui/Switch";
 import Link from "@/ui/Link";
-import LoadingSpinner from "@/components/LoadingSpinner";
 import JSONValidation from "@/components/Features/JSONValidation";
 import DraftControlBadge from "@/components/Features/DraftControlBadge";
 import {
@@ -108,7 +104,6 @@ import PrerequisiteStatusRow, {
 import PrerequisiteAlerts from "./PrerequisiteAlerts";
 import PrerequisiteModal from "./PrerequisiteModal";
 import RequestReviewModal from "./RequestReviewModal";
-import { FeatureUsageContainer, useFeatureUsage } from "./FeatureUsageGraph";
 import FeatureRules from "./FeatureRules";
 
 function ApprovalStatusIndicator({
@@ -368,9 +363,6 @@ export default function FeaturesOverview({
     if (!safeRollouts) return new Map();
     return new Map(safeRollouts.map((rollout) => [rollout.id, rollout]));
   }, [safeRollouts]);
-
-  const { showFeatureUsage, featureUsage, lookback, setLookback } =
-    useFeatureUsage();
 
   const allCustomFields = useCustomFields();
 
@@ -1077,54 +1069,6 @@ export default function FeaturesOverview({
 
         <Box mt="3">
           <CustomMarkdown page={"feature"} variables={variables} />
-
-          {showFeatureUsage && (
-            <Frame mt="2" mb="4" px="6" py="4">
-              <Flex align="center" justify="between" mb="2">
-                <Heading as="h4" size="3" mb="0">
-                  Usage Analytics
-                </Heading>
-                <Select
-                  size="2"
-                  value={lookback}
-                  setValue={(v) => setLookback(v as FeatureUsageLookback)}
-                  align="end"
-                >
-                  <SelectItem value="15minute">
-                    <Flex align="center" gap="2">
-                      Past 15 Minutes
-                      <Badge
-                        label={
-                          <>
-                            <FaBoltLightning /> Live
-                          </>
-                        }
-                        color="teal"
-                        variant="solid"
-                        radius="full"
-                      />
-                    </Flex>
-                  </SelectItem>
-                  <SelectItem value="hour">Past Hour</SelectItem>
-                  <SelectItem value="day">Past Day</SelectItem>
-                  <SelectItem value="week">Past Week</SelectItem>
-                </Select>
-              </Flex>
-              {!featureUsage ? (
-                <Flex align="center" justify="center">
-                  <LoadingSpinner /> <Text ml="2">Loading...</Text>
-                </Flex>
-              ) : featureUsage.total === 0 ? (
-                <em>No usage detected in the selected time frame</em>
-              ) : (
-                <FeatureUsageContainer
-                  revision={revision}
-                  environments={envs}
-                  valueType={feature.valueType}
-                />
-              )}
-            </Frame>
-          )}
         </Box>
         <Frame mb="4" px="6" py="4">
           <Box>
