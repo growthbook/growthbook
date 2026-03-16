@@ -24,6 +24,7 @@ import { GBInfo } from "@/components/Icons";
 import Checkbox from "@/ui/Checkbox";
 import Button from "@/components/Button";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import track from "@/services/track";
 import WelcomeFrame from "./WelcomeFrame";
 
 export type InitialPlanOptions = "" | "starter" | "pro";
@@ -61,9 +62,10 @@ const SelectInitialPlan: FC = () => {
   });
 
   const completeFlow = useCallback(() => {
+    track("Initial signup: flow completed", { plan });
     setInitialPlanSelection?.("");
     router.push("/");
-  }, [router, setInitialPlanSelection]);
+  }, [plan, router, setInitialPlanSelection]);
 
   const handleStarter = async () => {
     if (loading) return;
@@ -128,7 +130,10 @@ const SelectInitialPlan: FC = () => {
                     </ul>
                     <Button
                       color="primary"
-                      onClick={handleStarter}
+                      onClick={() => {
+                        track("Initial signup: selected Starter plan");
+                        handleStarter();
+                      }}
                       disabled={loading || plan !== "starter"}
                     >
                       Get Started for Free
@@ -171,7 +176,10 @@ const SelectInitialPlan: FC = () => {
                     </ul>
                     <Button
                       color="primary"
-                      onClick={() => handleNext()}
+                      onClick={() => {
+                        track("Initial signup: selected Pro plan");
+                        handleNext();
+                      }}
                       disabled={loading || plan !== "pro"}
                     >
                       Next: Add Payment Details
@@ -292,7 +300,13 @@ const ProBillingStep: FC<ProBillingStepProps> = ({
         <Button color="secondary" onClick={onBack}>
           Back
         </Button>
-        <Button color="primary" onClick={handleNext}>
+        <Button
+          color="primary"
+          onClick={() => {
+            track("Initial signup: submitted tax details");
+            handleNext();
+          }}
+        >
           Next
         </Button>
       </Flex>
@@ -377,6 +391,7 @@ const ProPaymentStep: FC<ProPaymentStepProps> = ({
           <Button
             color="primary"
             onClick={() => {
+              track("Initial signup: retry setup intent");
               setError(null);
               fetchSetupIntent();
             }}
@@ -430,6 +445,7 @@ const ProPaymentFormInner: FC<ProPaymentFormProps> = ({
   });
 
   const handleSubmit = async () => {
+    track("Initial signup: submitted payment method");
     if (!stripe || !elements || !clientSecret) return;
     setError(null);
     setLoading(true);
