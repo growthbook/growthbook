@@ -57,6 +57,7 @@ import {
   getAdditionalExperimentAnalysisSettings,
   getChangesToStartExperiment,
   getDefaultExperimentAnalysisSettings,
+  getEffectiveCoverage,
   getLinkedFeatureInfo,
   PlannedExperimentSnapshot,
   planSnapshot,
@@ -3365,8 +3366,10 @@ function addCoverageToSnapshotIfMissing(
 ): ExperimentSnapshotInterface {
   if (snapshot.settings.coverage === undefined) {
     const latestPhase = experiment.phases.length - 1;
-    snapshot.settings.coverage =
-      experiment.phases[phase ?? latestPhase]?.coverage ?? 1;
+    const experimentPhase = experiment.phases[phase ?? latestPhase];
+    snapshot.settings.coverage = experimentPhase
+      ? getEffectiveCoverage(experimentPhase)
+      : 1;
   }
   return snapshot;
 }
