@@ -184,7 +184,6 @@ const SelectInitialPlan: FC = () => {
             columns="2"
             width="100%"
           />
-          {error && <div className="alert alert-danger mt-3">{error}</div>}
         </Flex>
       )}
       {step === 2 && (
@@ -216,6 +215,11 @@ const SelectInitialPlan: FC = () => {
           <Button color="primary" onClick={completeFlow} disabled={loading}>
             Get started
           </Button>
+        </div>
+      )}
+      {error && (
+        <div className="alert alert-danger mt-3" role="alert">
+          {error}
         </div>
       )}
     </WelcomeFrame>
@@ -295,23 +299,23 @@ const ProBillingStep: FC<ProBillingStepProps> = ({
 };
 
 type ProPaymentStepProps = {
+  error: string | null;
   getBillingData: () => ProBillingData;
   onSuccess: () => void;
   onBack: () => void;
   setLoading: (v: boolean) => void;
   loading: boolean;
   setError: (v: string | null) => void;
-  error: string | null;
 };
 
 const ProPaymentStep: FC<ProPaymentStepProps> = ({
+  error,
   getBillingData,
   onSuccess,
   onBack,
   setLoading,
   loading,
   setError,
-  error,
 }) => {
   const { apiCall } = useAuth();
   const [clientSecret, setClientSecret] = useState<string | undefined>(
@@ -364,11 +368,6 @@ const ProPaymentStep: FC<ProPaymentStepProps> = ({
         <Heading as="h2" mb="3">
           Add payment method
         </Heading>
-        {error && (
-          <div className="alert alert-danger mb-4" role="alert">
-            {error}
-          </div>
-        )}
         <Flex gap="2" width="100%" justify="between">
           <Button color="secondary" onClick={onBack}>
             Back
@@ -511,11 +510,6 @@ const ProPaymentFormInner: FC<ProPaymentFormProps> = ({
               defaultValues: { name: organization?.name || "" },
             }}
           />
-        </div>
-      )}
-      {error && (
-        <div className="alert alert-danger mb-4" role="alert">
-          {error}
         </div>
       )}
       <Flex gap="2" width="100%" justify="between">
