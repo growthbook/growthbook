@@ -87,7 +87,11 @@ async function testFilterQuery(
   });
 
   try {
-    const results = await integration.runTestQuery(sql);
+    const results = await integration.runTestQuery(
+      sql,
+      undefined,
+      "factTableValidation",
+    );
     return {
       sql,
       ...results,
@@ -188,7 +192,11 @@ export async function refreshColumns(
       limit: 0,
     });
 
-    const result = await integration.runTestQuery(sql, ["timestamp"]);
+    const result = await integration.runTestQuery(
+      sql,
+      ["timestamp"],
+      "factTableValidation",
+    );
 
     if (!result.columns?.length) {
       throw new Error("SQL did not return any columns");

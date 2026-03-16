@@ -57,7 +57,11 @@ import {
   DataSourceProperties,
   SchemaFormat,
 } from "shared/types/datasource";
-import { AdditionalQueryMetadata, QueryDocMetadata } from "shared/types/query";
+import {
+  AdditionalQueryMetadata,
+  QueryDocMetadata,
+  QueryType,
+} from "shared/types/query";
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { DimensionInterface } from "shared/types/dimension";
 import { FactMetricInterface } from "shared/types/fact-table";
@@ -110,6 +114,7 @@ export interface SourceIntegrationInterface {
   runTestQuery?(
     sql: string,
     timestampCols?: string[],
+    queryType?: QueryType,
   ): Promise<TestQueryResult>;
   getMetricAnalysisQuery(
     metric: FactMetricInterface,
