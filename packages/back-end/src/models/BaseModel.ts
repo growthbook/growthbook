@@ -182,9 +182,8 @@ export abstract class BaseModel<
     this.createValidator = this.getCreateValidator();
     this.updateValidator = this.getUpdateValidator();
     this._auditLogger = this.config.auditLog
-      ? createModelAuditLogger(
-          this.config.auditLog,
-          this.getEntityId.bind(this),
+      ? createModelAuditLogger(this.config.auditLog, (doc: object) =>
+          this.getEntityId(doc as z.infer<T>),
         )
       : null;
     this.updateIndexes();
@@ -994,11 +993,14 @@ export abstract class BaseModel<
     const promises = [];
 
     const pKey = this.getPKey();
-    const pKeyIndex = pKey.reduce(
-      (acc, k) => ({ ...acc, [k]: 1 }),
-      {} as Record<string, 1>,
+    const pKeyIndex = pKey.reduce<Record<string, 1>>(
+      (acc, k) => ({ ...acc, [String(k)]: 1 as const }),
+      {},
     );
-    const orgPKeyIndex = { ...pKeyIndex, organization: 1 };
+    const orgPKeyIndex: Record<string, 1> = {
+      ...pKeyIndex,
+      organization: 1,
+    };
 
     // Always create a unique index for organization and primary key
     promises.push(
@@ -1016,7 +1018,7 @@ export abstract class BaseModel<
     if (this.config.globallyUniquePrimaryKeys) {
       promises.push(
         this._dangerousGetCollection()
-          .createIndex(pKeyIndex, { unique: true })
+          .createIndex(pKeyIndex as Record<string, 1 | -1>, { unique: true })
           .catch((err) => {
             logger.error(
               err,
