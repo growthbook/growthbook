@@ -14,7 +14,8 @@
     "strictBindCallApply": true,
     "strictPropertyInitialization": true,
     "rootDir": "src",
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "incremental": true
   },
   "include": ["src/**/*", "typings.d.ts", "types", "types.js"]
 }

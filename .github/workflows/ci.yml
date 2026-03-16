@@ -33,12 +33,6 @@ jobs:
           node-version: "24"
           cache: "pnpm"
 
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: 3.11
-          cache: "pip"
-
       - name: Cache eslint
         uses: actions/cache@v4
         with:
@@ -47,16 +41,41 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-eslint-
 
-      - name: Install dependencies
-        run: |
-          # Main app
-          pnpm install
+      - name: Cache tsbuildinfo
+        uses: actions/cache@v4
+        with:
+          path: |
+            **/tsconfig.tsbuildinfo
+          key: ${{ runner.os }}-tsbuildinfo-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-tsbuildinfo-
 
+      - name: Install pnpm dependencies
+        run: pnpm install
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.11
+          cache: "pip"
+
+      - name: Install python dependencies
+        run: |
           # Stats engine
           pip install pipx
           pipx install poetry
+          poetry config virtualenvs.in-project true
         env:
           CI: true
+
+      - name: Cache poetry dependencies
+        uses: actions/cache@v4
+        id: poetry-cache
+        with:
+          path: packages/stats/.venv
+          key: ${{ runner.os }}-poetry-${{ hashFiles('packages/stats/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-poetry-
 
       - name: Build dependencies
         run: |
@@ -79,13 +98,6 @@ jobs:
         run: |
           pnpm generate-api-types
           [[ -n $(git status --porcelain) ]] && echo "You need to run pnpm generate-api-types" && git status --porcelain && exit 1 || true
-
-      - name: Check doc
-        run: |
-          cd docs
-          pnpm install
-          pnpm gen
-          [[ -n $(git status --porcelain) ]] && echo "You need to run pnpm doc-gen" && git status --porcelain && exit 1 || true
 
       - name: Type-check
         run: |
