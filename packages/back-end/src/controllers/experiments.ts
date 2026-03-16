@@ -4007,6 +4007,20 @@ export async function postExperimentFeatureValues(
     context.permissions.throwPermissionError();
   }
 
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
+  const envs = getAffectedEnvsForExperiment({
+    experiment,
+    orgEnvironments: context.org.settings?.environments || [],
+    linkedFeatures,
+  });
+
+  if (!context.permissions.canRunExperiment(experiment, envs)) {
+    context.permissions.throwPermissionError();
+  }
+
   // Hydrate the feature keys in feature with the feature objects
   const hydratedFeatures = await getFeaturesByIds(
     context,
