@@ -201,6 +201,7 @@ const CustomFieldDisplay: FC<{
                 : "Save to Draft"
               : "Save"
           }
+          ctaEnabled={form.formState.isDirty}
           useRadixButton={!!draftInfo}
         >
           {draftInfo && (
@@ -221,7 +222,7 @@ const CustomFieldDisplay: FC<{
               section={section}
               project={target.project}
               setCustomFields={(value) => {
-                form.setValue("customFields", value);
+                form.setValue("customFields", value, { shouldDirty: true });
               }}
               currentCustomFields={form.watch("customFields") || {}}
             />

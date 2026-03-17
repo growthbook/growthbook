@@ -92,6 +92,7 @@ export default function EditFeatureDescriptionModal({
         }
       })}
       cta={mode === "publish" ? "Save" : "Save to draft"}
+      ctaEnabled={form.formState.isDirty}
       useRadixButton={true}
     >
       <DraftSelectorForChanges
@@ -122,7 +123,9 @@ export default function EditFeatureDescriptionModal({
       </Flex>
       <MarkdownInput
         value={form.watch("description")}
-        setValue={(value) => form.setValue("description", value)}
+        setValue={(value) =>
+          form.setValue("description", value, { shouldDirty: true })
+        }
         placeholder="Add context about this feature for your team"
       />
     </Modal>

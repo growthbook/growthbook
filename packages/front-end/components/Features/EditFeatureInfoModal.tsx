@@ -109,6 +109,7 @@ const EditFeatureInfoModal: FC<{
         }
       })}
       cta={mode === "publish" ? "Save" : "Save to draft"}
+      ctaEnabled={form.formState.isDirty}
       useRadixButton={true}
       size="lg"
     >
@@ -137,14 +138,14 @@ const EditFeatureInfoModal: FC<{
         />
         <SelectOwner
           value={form.watch("owner")}
-          onChange={(v) => form.setValue("owner", v)}
+          onChange={(v) => form.setValue("owner", v, { shouldDirty: true })}
         />
         <Box mb="4">
           <SelectField
             label="Project"
             value={form.watch("project")}
             onChange={(v) => {
-              form.setValue("project", v);
+              form.setValue("project", v, { shouldDirty: true });
               setShowProjectWarningMsg(v !== feature.project);
             }}
             options={useProjectOptions(
@@ -178,7 +179,9 @@ const EditFeatureInfoModal: FC<{
           <label>Tags</label>
           <TagsInput
             value={form.watch("tags")}
-            onChange={(tags) => form.setValue("tags", tags)}
+            onChange={(tags) =>
+              form.setValue("tags", tags, { shouldDirty: true })
+            }
           />
         </Box>
         <Box mb="4">
@@ -186,7 +189,9 @@ const EditFeatureInfoModal: FC<{
           <Box>
             <MarkdownInput
               value={form.watch("description")}
-              setValue={(v) => form.setValue("description", v)}
+              setValue={(v) =>
+                form.setValue("description", v, { shouldDirty: true })
+              }
               placeholder="Short human-readable description"
               showButtons={false}
               hidePreview={false}
