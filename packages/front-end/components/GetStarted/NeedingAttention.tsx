@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { Container, Flex, Grid, Text } from "@radix-ui/themes";
+import { Box, Container, Flex, Grid, Text } from "@radix-ui/themes";
 import {
   PiFlag,
   PiFlagBold,
@@ -36,6 +36,7 @@ import {
 } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import UserAvatar from "@/components/Avatar/UserAvatar";
 import LinkButton from "@/ui/LinkButton";
+import Table, { TableHeader, TableBody, TableRow, TableCell } from "@/ui/Table";
 import styles from "./NeedingAttention.module.scss";
 
 type FeaturesAndRevisions = FeatureRevisionInterface & {
@@ -86,7 +87,7 @@ const NeedingAttention = (): React.ReactElement | null => {
     useUser();
   const {
     items: experimentsNeedingAttention,
-    SortableTH: SortableTHExperiments,
+    SortableTableColumnHeader: SortableTableColumnHeaderExperiments,
   } = useExperimentSearch({
     allExperiments: experiments,
     defaultSortField: "id",
@@ -256,7 +257,7 @@ const NeedingAttention = (): React.ReactElement | null => {
   );
   const {
     items: featureFlagsNeedingAttention,
-    SortableTH: SortableTHFeatureFlags,
+    SortableTableColumnHeader: SortableTableColumnHeaderFeatureFlags,
   } = useSearch<ComputedFeaturesAndRevisions>({
     items: revisions,
     localStorageKey: "featureFlagsNeedingAttention",
@@ -371,7 +372,7 @@ const NeedingAttention = (): React.ReactElement | null => {
     );
 
     return (
-      <Container className="mt-5">
+      <Container mt="5">
         <Flex direction="row" align="center">
           <Text size="4" weight="medium">
             Experiments requiring attention
@@ -385,50 +386,69 @@ const NeedingAttention = (): React.ReactElement | null => {
           />
         </Flex>
         {experimentsNeedingAttention.length > 0 ? (
-          <table className="table gbtable needs-attentions-table mt-3 rounded-table">
-            <thead>
-              <tr>
-                <SortableTHExperiments field="name">Name</SortableTHExperiments>
-                <SortableTHExperiments field="project">
-                  Project
-                </SortableTHExperiments>
-                <SortableTHExperiments field="id">Owner</SortableTHExperiments>
-                <SortableTHExperiments field="status">
-                  Status
-                </SortableTHExperiments>
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedExperiments.map((item: ComputedExperimentInterface) => (
-                <tr key={item.id} className="hover-highlight">
-                  <td className={styles.nameTd}>
-                    <Link
-                      href={`/experiment/${item.id}`}
-                      style={{
-                        textDecoration: "none",
-                        color: "inherit",
-                        display: "block",
-                        padding: "0px",
-                      }}
-                    >
-                      {item.name}
-                    </Link>
-                  </td>
-                  <td className="text-truncate">
-                    {getProjectById(item?.project || "")?.name}
-                  </td>
-                  <td className={styles.ownerTd}>
-                    {getAvatarAndName(item.ownerName)}
-                  </td>
-                  <td className="text-truncate">
-                    <ExperimentStatusDetailsWithDot
-                      statusIndicatorData={item.statusIndicator}
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <Box mt="3">
+            <Table
+              variant="list"
+              stickyHeader={false}
+              roundedCorners
+              className="needs-attentions-table rounded-table"
+            >
+              <TableHeader>
+                <TableRow>
+                  <SortableTableColumnHeaderExperiments field="name">
+                    Name
+                  </SortableTableColumnHeaderExperiments>
+                  <SortableTableColumnHeaderExperiments field="project">
+                    Project
+                  </SortableTableColumnHeaderExperiments>
+                  <SortableTableColumnHeaderExperiments field="id">
+                    Owner
+                  </SortableTableColumnHeaderExperiments>
+                  <SortableTableColumnHeaderExperiments field="status">
+                    Status
+                  </SortableTableColumnHeaderExperiments>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginatedExperiments.map(
+                  (item: ComputedExperimentInterface) => (
+                    <TableRow key={item.id} className="hover-highlight">
+                      <TableCell className={styles.nameTd}>
+                        <Link
+                          href={`/experiment/${item.id}`}
+                          style={{
+                            textDecoration: "none",
+                            color: "inherit",
+                            display: "block",
+                            padding: 0,
+                          }}
+                        >
+                          {item.name}
+                        </Link>
+                      </TableCell>
+                      <TableCell
+                        className="text-truncate"
+                        style={{ overflow: "hidden", textOverflow: "ellipsis" }}
+                      >
+                        {getProjectById(item?.project || "")?.name}
+                      </TableCell>
+                      <TableCell className={styles.ownerTd}>
+                        {getAvatarAndName(item.ownerName)}
+                      </TableCell>
+                      <TableCell
+                        className="text-truncate"
+                        style={{ overflow: "hidden", textOverflow: "ellipsis" }}
+                      >
+                        <ExperimentStatusDetailsWithDot
+                          statusIndicatorData={item.statusIndicator}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ),
+                )}
+              </TableBody>
+            </Table>
+          </Box>
         ) : (
           <Container mt="3" width="100%">
             <Flex direction="column">
@@ -471,7 +491,11 @@ const NeedingAttention = (): React.ReactElement | null => {
           </Flex>
         );
       case "draft":
-        return <span className="mr-3">Draft</span>;
+        return (
+          <Box as="span" mr="3">
+            Draft
+          </Box>
+        );
       case "changes-requested":
         return (
           <Flex gap="1" align="center">
@@ -508,52 +532,65 @@ const NeedingAttention = (): React.ReactElement | null => {
           />
         </Flex>
         {featureFlagsNeedingAttention.length > 0 ? (
-          <table
-            className={`table gbtable mt-3 needs-attentions-table rounded-table`}
-          >
-            <thead>
-              <tr>
-                <SortableTHFeatureFlags field="featureId">
-                  Feature Key
-                </SortableTHFeatureFlags>
-                <SortableTHFeatureFlags field="project">
-                  Project
-                </SortableTHFeatureFlags>
-                <SortableTHFeatureFlags field="ownerNameDisplay">
-                  Owner
-                </SortableTHFeatureFlags>
-                <SortableTHFeatureFlags field="status">
-                  Status
-                </SortableTHFeatureFlags>
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedFeatureFlags.map((item) => (
-                <tr key={item.featureId} className="hover-highlight">
-                  <td className={styles.nameTd}>
-                    <Link
-                      href={`/features/${item.featureId}`}
-                      style={{
-                        textDecoration: "none",
-                        color: "inherit",
-                        display: "block",
-                        padding: "0px",
-                      }}
+          <Box mt="3">
+            <Table
+              variant="list"
+              stickyHeader={false}
+              roundedCorners
+              className="needs-attentions-table rounded-table"
+            >
+              <TableHeader>
+                <TableRow>
+                  <SortableTableColumnHeaderFeatureFlags field="featureId">
+                    Feature Key
+                  </SortableTableColumnHeaderFeatureFlags>
+                  <SortableTableColumnHeaderFeatureFlags field="project">
+                    Project
+                  </SortableTableColumnHeaderFeatureFlags>
+                  <SortableTableColumnHeaderFeatureFlags field="ownerNameDisplay">
+                    Owner
+                  </SortableTableColumnHeaderFeatureFlags>
+                  <SortableTableColumnHeaderFeatureFlags field="status">
+                    Status
+                  </SortableTableColumnHeaderFeatureFlags>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginatedFeatureFlags.map((item) => (
+                  <TableRow key={item.featureId} className="hover-highlight">
+                    <TableCell className={styles.nameTd}>
+                      <Link
+                        href={`/features/${item.featureId}`}
+                        style={{
+                          textDecoration: "none",
+                          color: "inherit",
+                          display: "block",
+                          padding: 0,
+                        }}
+                      >
+                        {item.featureId}
+                      </Link>
+                    </TableCell>
+                    <TableCell
+                      className="text-truncate"
+                      style={{ overflow: "hidden", textOverflow: "ellipsis" }}
                     >
-                      {item.featureId}
-                    </Link>
-                  </td>
-                  <td className="text-truncate">
-                    {getProjectById(item.featureMeta?.project || "")?.name}
-                  </td>
-                  <td className={styles.ownerTd}>
-                    {getAvatarAndName(item.ownerNameDisplay)}
-                  </td>
-                  <td className="text-truncate">{renderStatusCopy(item)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                      {getProjectById(item.featureMeta?.project || "")?.name}
+                    </TableCell>
+                    <TableCell className={styles.ownerTd}>
+                      {getAvatarAndName(item.ownerNameDisplay)}
+                    </TableCell>
+                    <TableCell
+                      className="text-truncate"
+                      style={{ overflow: "hidden", textOverflow: "ellipsis" }}
+                    >
+                      {renderStatusCopy(item)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Box>
         ) : (
           <Container mt="3" width="100%">
             <Flex direction="column">

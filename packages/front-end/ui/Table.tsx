@@ -11,7 +11,7 @@ export type TableProps = Omit<
 > & {
   /** "list" enables list-table wrapper, scroll, and styling; "surface" | "ghost" are passed to Radix */
   variant?: "list" | "surface" | "ghost";
-  /** When true (or when variant="list"), header row is sticky with downward-only shadow */
+  /** When true (or when variant="list"), header row is sticky; when false, list variant keeps styling but header does not stick */
   stickyHeader?: boolean;
   /** Top offset in px for sticky header (default DEFAULT_STICKY_TOP_OFFSET_PX). Used as CSS var --table-sticky-top. */
   stickyTopOffset?: number;
@@ -30,11 +30,13 @@ export default function Table({
 }: TableProps) {
   const isListVariant =
     variant === "list" || stickyHeader === true || roundedCorners === true;
+  const useStickyHeader =
+    (variant === "list" && stickyHeader !== false) || stickyHeader === true;
 
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!isListVariant) return;
+    if (!isListVariant || !useStickyHeader) return;
     const wrapper = wrapperRef.current;
     if (!wrapper) return;
     const header = wrapper.querySelector(".rt-TableHeader");
@@ -53,7 +55,7 @@ export default function Table({
     check();
     window.addEventListener("scroll", check, { passive: true });
     return () => window.removeEventListener("scroll", check);
-  }, [isListVariant, stickyTopOffset]);
+  }, [isListVariant, useStickyHeader, stickyTopOffset]);
 
   const radixVariant = variant === "list" ? "surface" : variant;
 
@@ -76,11 +78,12 @@ export default function Table({
       ref={wrapperRef}
       className="table-list-wrapper"
       style={
-        {
-          "--table-sticky-top": `${stickyTopOffset}px`,
-        } as React.CSSProperties
+        useStickyHeader
+          ? ({ "--table-sticky-top": `${stickyTopOffset}px` } as React.CSSProperties)
+          : undefined
       }
       data-table-list
+      data-sticky-header={useStickyHeader ? "true" : "false"}
     >
       {tableElement}
     </div>
