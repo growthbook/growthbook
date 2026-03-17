@@ -4,12 +4,12 @@ import { load, dump } from "js-yaml";
 import { capitalizeFirstCharacter } from "shared/util";
 import { z } from "zod";
 import {
+  OpenApiModelSpec,
   generateYamlForPath,
   getCrudConfig,
   getDefaultCrudActionSummary,
 } from "back-end/src/api/ApiModel";
 import { HttpVerb, apiHttpVerbs } from "back-end/src/api/apiModelHandlers";
-import { apiSpecs } from "back-end/src/api/specs";
 
 type ApiTag = {
   name: string;
@@ -129,6 +129,18 @@ async function run() {
     .readdirSync(path.join(__dirname, "../api/openapi/schemas"))
     .filter((fileName) => !fileName.includes("index"))
     .map((fileName) => fileName.replace(".yaml", ""));
+
+  // Dynamically discover and import all API spec files (each must have a default export)
+  const specsDir = path.join(__dirname, "../api/specs");
+  const specFiles = fs.readdirSync(specsDir).filter((f) => f.endsWith(".ts"));
+  const apiSpecs: OpenApiModelSpec[] = [];
+  for (const file of specFiles) {
+    const modelSpec = await import(path.join(specsDir, file));
+    if (!modelSpec.default) {
+      throw new Error(`Spec file ${file} is missing a default export`);
+    }
+    apiSpecs.push(modelSpec.default as OpenApiModelSpec);
+  }
 
   // Set up references for ApiModel specs
   apiSpecs.forEach((spec) => {

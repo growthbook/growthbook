@@ -32,3 +32,4 @@ export const customFieldApiSpec = {
   crudActions: ["create", "delete", "get", "update"],
   customEndpoints: [listCustomFieldsEndpoint],
 } satisfies OpenApiModelSpec;
+export default customFieldApiSpec;

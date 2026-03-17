@@ -53,3 +53,4 @@ export const teamApiSpec = {
     deleteTeamEndpoint,
   ],
 } satisfies OpenApiModelSpec;
+export default teamApiSpec;

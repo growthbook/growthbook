@@ -19,3 +19,4 @@ export const experimentTemplateApiSpec = {
     list: apiListExperimentTemplatesValidator,
   },
 } satisfies OpenApiModelSpec;
+export default experimentTemplateApiSpec;

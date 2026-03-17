@@ -16,3 +16,4 @@ export const metricGroupApiSpec = {
   },
   includeDefaultCrud: true,
 } satisfies OpenApiModelSpec;
+export default metricGroupApiSpec;

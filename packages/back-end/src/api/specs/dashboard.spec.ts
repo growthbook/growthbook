@@ -28,3 +28,4 @@ export const dashboardApiSpec = {
   includeDefaultCrud: true,
   customEndpoints: [getDashboardsForExperimentEndpoint],
 } satisfies OpenApiModelSpec;
+export default dashboardApiSpec;
