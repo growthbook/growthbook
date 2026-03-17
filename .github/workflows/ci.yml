@@ -20,6 +20,9 @@ jobs:
   # Linting, type-checking, and tests
   ci:
     runs-on: ubuntu-latest
+    env:
+      ACTIONS_STEP_DEBUG: true
+      ACTIONS_RUNNER_DEBUG: true
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -54,7 +57,7 @@ jobs:
         run: pnpm install
 
       - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: 3.11
           cache: "pip"
