@@ -6,7 +6,7 @@ has_changes() {
 }
 
 # API type generation: hash all input files and skip if unchanged
-api_spec_inputs="packages/back-end/src/api/specs packages/back-end/src/api/openapi packages/back-end/src/scripts/generate-doc-models-for-openapi-schemas.ts packages/back-end/src/scripts/generate-openapi.mjs"
+api_spec_inputs="packages/back-end/src/api/specs packages/back-end/src/api/openapi packages/back-end/src/api/api.router.ts packages/back-end/src/scripts/generate-doc-models-for-openapi-schemas.ts packages/back-end/src/scripts/generate-openapi.mjs"
 api_spec_hash_file="packages/back-end/generated/.api-spec-hash"
 current_api_hash=$(find $api_spec_inputs -type f 2>/dev/null | sort | xargs cat 2>/dev/null | shasum | cut -d' ' -f1)
 stored_api_hash=$(cat "$api_spec_hash_file" 2>/dev/null || echo "")
