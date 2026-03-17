@@ -38,16 +38,13 @@ const PipelineModeSelector = ({
       description: "Create short-lived intermediate tables per analysis",
       disabled: !isModeSupported("ephemeral"),
     },
-  ];
-
-  if (value === "incremental") {
-    options.push({
+    {
       value: "incremental",
       label: "Incremental",
       description: "Scan only new rows and reuse persisted tables",
       disabled: !isModeSupported("incremental"),
-    });
-  }
+    },
+  ];
 
   return (
     <RadioGroup

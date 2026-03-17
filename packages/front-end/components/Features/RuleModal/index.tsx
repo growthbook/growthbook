@@ -193,6 +193,8 @@ export default function RuleModal({
     "multi-armed-bandits",
   );
 
+  const hasSafeRolloutsFeature = hasCommercialFeature("safe-rollout");
+
   const experimentId = form.watch("experimentId");
   const selectedExperiment = experimentsMap.get(experimentId) || null;
 
@@ -785,7 +787,7 @@ export default function RuleModal({
             options={[
               {
                 value: "safe-rollout",
-                disabled: datasources.length === 0,
+                disabled: !hasSafeRolloutsFeature || datasources.length === 0,
                 label: (
                   <PremiumTooltip
                     commercialFeature="safe-rollout"

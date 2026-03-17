@@ -2,13 +2,7 @@ import Link from "next/link";
 import { useState } from "react";
 import clsx from "clsx";
 import { useRouter } from "next/router";
-import {
-  BsFlag,
-  BsClipboardCheck,
-  BsCodeSlash,
-  BsHouse,
-  BsSearch,
-} from "react-icons/bs";
+import { BsFlag, BsCodeSlash, BsHouse, BsSearch } from "react-icons/bs";
 import { Flex } from "@radix-ui/themes";
 import { getGrowthBookBuild } from "@/services/env";
 import { useUser } from "@/services/UserContext";
@@ -179,30 +173,6 @@ const navlinks: SidebarLinkProps[] = [
         name: "Metric Correlations",
         href: "/correlations",
         path: /^(correlations)/,
-      },
-      {
-        name: "Presentations",
-        href: "/presentations",
-        path: /^presentation/,
-      },
-    ],
-  },
-  {
-    name: "Management",
-    href: "/dashboard",
-    Icon: BsClipboardCheck,
-    path: /^(dashboard|idea|presentation)/,
-    autoClose: true,
-    subLinks: [
-      {
-        name: "Dashboard",
-        href: "/dashboard",
-        path: /^dashboard/,
-      },
-      {
-        name: "Ideas",
-        href: "/ideas",
-        path: /^idea/,
       },
       {
         name: "Presentations",
