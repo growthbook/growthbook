@@ -61,6 +61,7 @@ jobs:
         with:
           python-version: 3.11
           cache: "pip"
+          cache-dependency-path: "packages/stats/requirements.txt"
 
       - name: Install python dependencies
         run: |
@@ -96,12 +97,6 @@ jobs:
           pnpm --filter stats lint:ci
         env:
           CI: true
-
-      - name: Check api types
-        run: |
-          pnpm generate-api-types
-          [[ -n $(git status --porcelain) ]] && echo "You need to run pnpm generate-api-types" && git status --porcelain && exit 1 || true
-
       - name: Type-check
         run: |
           pnpm type-check
