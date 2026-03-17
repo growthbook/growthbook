@@ -256,11 +256,7 @@ async function createOrUpdateDraftWithChanges(
   return newRevision;
 }
 
-/**
- * Throws a permission error if the given draft revision requires approval and
- * the current user cannot bypass the approval flow. Call this before every
- * unconditional publishRevision() when the caller passed autoPublish: true.
- */
+// Throws if the draft requires approval and the caller cannot bypass.
 async function assertCanAutoPublish(
   context: ReqContext,
   feature: FeatureInterface,
@@ -1415,13 +1411,7 @@ export async function postFeatureRevert(
   });
 }
 
-/**
- * Creates a new draft that, when published, will revert the feature back to
- * the state of a previously-published revision. The diff is computed between
- * the current live state and the target revision and stored as a draft whose
- * baseVersion is the current live revision. This means the revert is subject
- * to the normal approval flow before going live.
- */
+// Creates a draft that, when published, reverts the feature to the state of a previously-published revision.
 export async function postFeatureRevertDraft(
   req: AuthRequest<{ comment?: string }, { id: string; version: string }>,
   res: Response<{ status: 200; version: number }, EventUserForResponseLocals>,
@@ -1463,8 +1453,7 @@ export async function postFeatureRevertDraft(
     context.permissions.throwPermissionError();
   }
 
-  // Build changes that represent the full state of the target revision so the
-  // resulting draft, when published, will match the target revision exactly.
+  // Build changes representing the full state of the target revision.
   const changes: Partial<FeatureRevisionInterface> = {
     defaultValue: revision.defaultValue,
     rules: Object.fromEntries(
@@ -2656,8 +2645,7 @@ export async function postFeatureToggle(
   }
 
   if (autoPublish) {
-    // Create a draft revision then immediately publish it (bypasses approval).
-    // Permissible for admins or when the environment is not gated.
+    // Create and immediately publish a draft; only permissible when approvals are not required.
     const liveState =
       feature.environmentSettings?.[environment]?.enabled || false;
     if (liveState === state) {
@@ -2665,7 +2653,6 @@ export async function postFeatureToggle(
     }
 
     const orgEnvironments = getEnvironmentIdsFromOrg(context.org);
-    // Step 1: create draft
     const revision = await createRevision({
       context,
       feature,
@@ -2678,7 +2665,6 @@ export async function postFeatureToggle(
       org: context.org,
     });
 
-    // Step 2: publish it (applies changes to the feature document)
     await assertCanAutoPublish(context, feature, revision);
     await publishRevision(context, feature, revision, {
       environmentsEnabled: { [environment]: state },
@@ -2700,9 +2686,7 @@ export async function postFeatureToggle(
     });
   }
 
-  // All other toggles go through the revision/draft system.
-  // When forceNewDraft is true the user explicitly chose "New Draft" — don't
-  // reuse any existing active draft.
+  // Non-autoPublish path: write to a draft (new or existing).
   const existingDraft = forceNewDraft
     ? null
     : draftVersion
@@ -2932,7 +2916,7 @@ export async function putFeature(
     context.permissions.throwPermissionError();
   }
 
-  // For a feature created before requireProjectForFeatures was enabled, allow updates to happen until the feature is associated with a project
+  // Allow project-less features (created before requireProjectForFeatures) to be updated without a project
   if (
     org.settings?.requireProjectForFeatures &&
     feature.project &&
@@ -2945,9 +2929,8 @@ export async function putFeature(
     await context.models.projects.ensureProjectsExist([updates.project]);
   }
 
-  // Changing the project can affect whether or not it's published if using project-scoped api keys
+  // Changing the project can affect SDK payload visibility; require publish permission in both old and new project
   if ("project" in updates) {
-    // Make sure they have access in both the old and new environments
     if (
       !context.permissions.canPublishFeature(
         feature,
@@ -2979,9 +2962,7 @@ export async function putFeature(
     throw new Error("Invalid update fields for feature");
   }
 
-  // FIXME: We skip validation because project is updated in a different place than where
-  // we define custom fields, and that would prevent the user from doing either update.
-  // Ideally we validate custom fields everytime, but we need to update our UI to support that.
+  // FIXME: Only validate when customFields changed, not on project changes, to avoid blocking the user from doing either update independently.
   if (
     shouldValidateCustomFieldsOnUpdate({
       existingCustomFieldValues: feature.customFields,
@@ -3088,8 +3069,7 @@ export async function putFeature(
         envelopeChanges,
       );
     }
-    // If there are new tags to add, keep the tag autocomplete table in sync.
-    // This is a side-effect only; the revision already captures the tag values.
+    // Keep the tag autocomplete table in sync (side-effect; revision already captures the values).
     if (metadataUpdates.tags !== undefined) {
       await addTagsDiff(
         org.id,
@@ -3112,9 +3092,7 @@ export async function putFeature(
     });
   }
 
-  // All allowed update keys (tags, description, project, owner, customFields, holdout)
-  // are handled above via the draft/revision path. If we reach here, the request had
-  // no valid fields — this is a programming error but guard anyway.
+  // All allowed keys are handled above; reaching here means no valid fields were sent.
   throw new Error("No valid update fields for feature");
 }
 

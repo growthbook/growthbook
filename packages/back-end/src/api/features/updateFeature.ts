@@ -211,11 +211,10 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
 
     const canBypass = !!req.context.org.settings?.restApiBypassesReviews;
 
-    // Capture tags before stripping them from updates (they go into the revision
-    // metadata but updateFeatureToDb doesn't need them directly).
+    // Tags go into the revision metadata; capture them before stripping from updates.
     const newTagsForDiff = updates.tags;
 
-    // --- Build a single combined revision for all change types ---
+    // Build a single combined revision for all change types.
 
     // 1. environmentsEnabled (kill switches)
     const changedEnvEnabled: Record<string, boolean> = {};
@@ -228,7 +227,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
           settings.enabled !== feature.environmentSettings?.[env]?.enabled
         ) {
           changedEnvEnabled[env] = settings.enabled;
-          // Neutralise enabled in the direct-write path so it isn't applied twice.
+          // Exclude enabled from the direct-write path to avoid applying it twice.
           updates.environmentSettings[env] = {
             ...updates.environmentSettings[env],
             enabled: feature.environmentSettings?.[env]?.enabled ?? true,
@@ -297,10 +296,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       delete updates.archived;
     }
 
-    // 6. holdout — undefined means "no change"; null means "remove from holdout"
-    // req.body.holdout is absent (field not sent) → leave as-is
-    // req.body.holdout === null → remove from holdout
-    // req.body.holdout === { id, value } → add/change holdout
+    // 6. holdout — absent: no change; null: remove; { id, value }: add/change
     const holdoutFieldProvided = "holdout" in req.body;
     const newHoldout = holdoutFieldProvided
       ? (req.body.holdout ?? null)
@@ -344,9 +340,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         ...(hasHoldoutChange ? { holdout: newHoldout ?? null } : {}),
       };
 
-      // createAndPublishRevision throws if the revision requires approval and
-      // the caller cannot bypass — guaranteeing the REST API never silently
-      // leaves an unpublished draft behind.
+      // Throws if the revision requires approval and the caller cannot bypass.
       const { revision, updatedFeature: updatedFeatureFromRevision } =
         await createAndPublishRevision({
           context: req.context,
