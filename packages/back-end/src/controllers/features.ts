@@ -2962,7 +2962,9 @@ export async function putFeature(
     throw new Error("Invalid update fields for feature");
   }
 
-  // FIXME: Only validate when customFields changed, not on project changes, to avoid blocking the user from doing either update independently.
+  // FIXME: We skip validation because project is updated in a different place than where
+  // we define custom fields, and that would prevent the user from doing either update.
+  // Ideally we validate custom fields everytime, but we need to update our UI to support that.
   if (
     shouldValidateCustomFieldsOnUpdate({
       existingCustomFieldValues: feature.customFields,

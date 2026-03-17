@@ -45,6 +45,17 @@
   animation: sparkLivePulse 6s linear infinite;
 }
 
+.legendItem {
+  cursor: pointer;
+  border-radius: var(--radius-2);
+  padding: 2px 4px;
+  transition: background 120ms;
+
+  &:hover {
+    background: var(--violet-a3);
+  }
+}
+
 .otherSwatch {
   background-color: var(--violet-a8) !important;
   background-image: repeating-linear-gradient(

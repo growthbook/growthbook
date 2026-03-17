@@ -28,7 +28,7 @@ import { localPoint } from "@visx/event";
 import { datetime } from "shared/dates";
 import stringify from "json-stringify-pretty-compact";
 import { FaBoltLightning } from "react-icons/fa6";
-import { PiCaretRightBold } from "react-icons/pi";
+import { PiCaretRightBold, PiXBold } from "react-icons/pi";
 import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { growthbook } from "@/services/utils";
@@ -628,26 +628,61 @@ export default function FeatureUsageGraph({
                       yScale={yScale}
                       color={colorScale}
                     >
-                      {(barStacks) =>
-                        barStacks.map((barStack) =>
-                          barStack.bars.map((bar) => (
-                            <rect
-                              key={`bar-stack-${barStack.index}-${bar.index}`}
-                              x={bar.x}
-                              y={bar.y}
-                              height={bar.height}
-                              width={bar.width}
-                              fill={
-                                barStack.key === OTHER_KEY
-                                  ? "url(#other-stripe)"
-                                  : bar.color
-                              }
-                              data-test={bar.key}
-                              style={{ pointerEvents: "none" }}
-                            />
-                          )),
-                        )
-                      }
+                      {(barStacks) => {
+                        const numCols = barStacks[0]?.bars.length ?? 0;
+                        return Array.from({ length: numCols }, (_, colIdx) => {
+                          const colBars = barStacks
+                            .map((stack) => ({
+                              bar: stack.bars[colIdx],
+                              stackKey: stack.key,
+                            }))
+                            .filter(({ bar }) => bar && bar.height > 0);
+                          if (!colBars.length) return null;
+                          const { bar: first } = colBars[0];
+                          const topY = Math.min(
+                            ...colBars.map(({ bar }) => bar.y),
+                          );
+                          const totalH =
+                            Math.max(
+                              ...colBars.map(({ bar }) => bar.y + bar.height),
+                            ) - topY;
+                          if (totalH <= 0) return null;
+                          const clipId = `bar-clip-${colIdx}`;
+                          return (
+                            <g key={`col-${colIdx}`}>
+                              <defs>
+                                <clipPath id={clipId}>
+                                  <rect
+                                    x={first.x}
+                                    y={topY}
+                                    width={first.width}
+                                    height={totalH}
+                                    rx={4}
+                                  />
+                                </clipPath>
+                              </defs>
+                              <g clipPath={`url(#${clipId})`}>
+                                {colBars.map(({ bar, stackKey }) => (
+                                  <rect
+                                    key={`bar-stack-${stackKey}-${colIdx}`}
+                                    x={bar.x}
+                                    y={bar.y}
+                                    height={bar.height}
+                                    width={bar.width}
+                                    fill={
+                                      stackKey === OTHER_KEY
+                                        ? "url(#other-stripe)"
+                                        : bar.color
+                                    }
+                                    data-test={bar.key}
+                                    style={{ pointerEvents: "none" }}
+                                  />
+                                ))}
+                              </g>
+                            </g>
+                          );
+                        });
+                      }}
                     </BarStack>
                     {(() => {
                       if (hoveredT === null) return null;
@@ -660,14 +695,14 @@ export default function FeatureUsageGraph({
                       }, 0);
                       return (
                         <rect
-                          x={barX - 2}
-                          y={yMax - totalH - 2}
-                          width={barW + 4}
-                          height={totalH + 4}
+                          x={barX - 2.5}
+                          y={yMax - totalH - 2.5}
+                          width={barW + 5}
+                          height={totalH + 5}
                           fill="none"
-                          stroke="var(--violet-9)"
-                          strokeWidth={1.5}
-                          rx={3}
+                          stroke="var(--violet-a8)"
+                          strokeWidth={2}
+                          rx={5}
                           style={{ pointerEvents: "none" }}
                         />
                       );
@@ -723,11 +758,11 @@ export default function FeatureUsageGraph({
                         left={margin[3] + 5}
                         scale={yScale}
                         tickFormat={(v) => formatter.format(v as number)}
-                        stroke={"var(--violet-a4)"}
+                        stroke={"var(--gray-7)"}
                         numTicks={4}
-                        tickStroke={"var(--violet-a4)"}
+                        tickStroke={"var(--gray-7)"}
                         tickLabelProps={() => ({
-                          fill: "var(--violet-11)",
+                          fill: "var(--gray-11)",
                           fontSize: 11,
                           textAnchor: "end",
                         })}
@@ -737,11 +772,11 @@ export default function FeatureUsageGraph({
                         left={margin[3]}
                         scale={xScale}
                         tickFormat={formatDate}
-                        stroke={"var(--violet-a4)"}
+                        stroke={"var(--gray-7)"}
                         numTicks={4}
-                        tickStroke={"var(--violet-a4)"}
+                        tickStroke={"var(--gray-7)"}
                         tickLabelProps={() => ({
-                          fill: "var(--violet-11)",
+                          fill: "var(--gray-11)",
                           fontSize: 11,
                           textAnchor: "middle",
                         })}
@@ -911,22 +946,40 @@ export default function FeatureUsageGraph({
                                 if (next.size === displayKeys.length) return;
                                 setDisabledKeys(next);
                               }}
-                              style={{ cursor: "pointer" }}
+                              className={styles.legendItem}
                             >
                               <div
-                                className={
-                                  label.text === OTHER_KEY
-                                    ? styles.otherSwatch
-                                    : undefined
-                                }
                                 style={{
-                                  ...swatchStyle(label.text),
+                                  position: "relative",
                                   marginRight: 5,
-                                  opacity: disabledKeys.has(label.text)
-                                    ? 0.4
-                                    : 1,
+                                  flexShrink: 0,
                                 }}
-                              />
+                              >
+                                <div
+                                  className={
+                                    label.text === OTHER_KEY
+                                      ? styles.otherSwatch
+                                      : undefined
+                                  }
+                                  style={{
+                                    ...swatchStyle(label.text),
+                                    opacity: disabledKeys.has(label.text)
+                                      ? 0.25
+                                      : 1,
+                                  }}
+                                />
+                                {disabledKeys.has(label.text) && (
+                                  <PiXBold
+                                    style={{
+                                      position: "absolute",
+                                      inset: 0,
+                                      margin: "auto",
+                                      color: "var(--gray-11)",
+                                      pointerEvents: "none",
+                                    }}
+                                  />
+                                )}
+                              </div>
                               <OverflowText
                                 maxWidth={150}
                                 className={
@@ -1051,11 +1104,11 @@ export function FeatureUsageSparkline({
 
   const W = 90;
   const BOTTOM_PAD = 2;
-  const H = 20;
+  const H = 28;
   const AXIS_H = 1;
   const CHART_H = H - AXIS_H;
 
-  const xScale = scaleBand({ domain: xDomain, range: [0, W], padding: 0.25 });
+  const xScale = scaleBand({ domain: xDomain, range: [0, W], padding: 0.2 });
   const yScale = scaleLinear<number>({
     domain: [0, maxValue],
     range: [CHART_H, 0],
@@ -1129,20 +1182,55 @@ export function FeatureUsageSparkline({
                 yScale={yScale}
                 color={colorScale}
               >
-                {(barStacks) =>
-                  barStacks.map((barStack) =>
-                    barStack.bars.map((bar) => (
-                      <rect
-                        key={`spark-${barStack.index}-${bar.index}`}
-                        x={bar.x + 0.5}
-                        y={bar.y}
-                        height={bar.height}
-                        width={Math.max(0, bar.width - 1)}
-                        fill={bar.color}
-                      />
-                    )),
-                  )
-                }
+                {(barStacks) => {
+                  const numCols = barStacks[0]?.bars.length ?? 0;
+                  return Array.from({ length: numCols }, (_, colIdx) => {
+                    const colBars = barStacks
+                      .map((stack) => ({
+                        bar: stack.bars[colIdx],
+                        color: stack.bars[colIdx]?.color,
+                      }))
+                      .filter(({ bar }) => bar && bar.height > 0);
+                    if (!colBars.length) return null;
+                    const { bar: first } = colBars[0];
+                    const x = first.x + 0.5;
+                    const w = Math.max(0, first.width - 1);
+                    const topY = Math.min(...colBars.map(({ bar }) => bar.y));
+                    const totalH =
+                      Math.max(
+                        ...colBars.map(({ bar }) => bar.y + bar.height),
+                      ) - topY;
+                    if (totalH <= 0) return null;
+                    const clipId = `spark-clip-${colIdx}`;
+                    return (
+                      <g key={`spark-col-${colIdx}`}>
+                        <defs>
+                          <clipPath id={clipId}>
+                            <rect
+                              x={x}
+                              y={topY}
+                              width={w}
+                              height={totalH}
+                              rx={1.5}
+                            />
+                          </clipPath>
+                        </defs>
+                        <g clipPath={`url(#${clipId})`}>
+                          {colBars.map(({ bar, color }) => (
+                            <rect
+                              key={`spark-${colIdx}-${bar.y}`}
+                              x={x}
+                              y={bar.y}
+                              height={bar.height}
+                              width={w}
+                              fill={color}
+                            />
+                          ))}
+                        </g>
+                      </g>
+                    );
+                  });
+                }}
               </BarStack>
             )}
             <rect
