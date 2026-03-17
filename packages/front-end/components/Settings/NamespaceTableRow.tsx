@@ -1,3 +1,4 @@
+import { Box } from "@radix-ui/themes";
 import { Namespaces, NamespaceUsage } from "shared/types/organization";
 import Link from "next/link";
 import { MouseEventHandler, useState } from "react";
@@ -6,6 +7,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import NamespaceUsageGraph from "@/components/Features/NamespaceUsageGraph";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
+import { TableRow, TableCell } from "@/ui/Table";
 
 export interface Props {
   i: number;
@@ -45,42 +47,56 @@ export default function NamespaceTableRow({
 
   return (
     <>
-      <tr
-        className={`${status === "inactive" ? "text-muted" : ""}`}
-        style={{ cursor: "pointer" }}
+      <TableRow
+        style={{
+          cursor: "pointer",
+          color: status === "inactive" ? "var(--gray-11)" : undefined,
+        }}
       >
-        <td onClick={expandRow}>
+        <TableCell onClick={expandRow}>
           {namespace.label}
           {status === "inactive" && (
-            <div
-              className={`badge badge-secondary ml-2`}
-              style={{ fontSize: "0.9em" }}
+            <Box
+              as="span"
+              ml="2"
+              style={{
+                fontSize: "0.9em",
+                padding: "2px 6px",
+                backgroundColor: "var(--gray-a4)",
+                borderRadius: "var(--radius-1)",
+                color: "var(--gray-11)",
+              }}
               title="This namespace is hidden and cannot be used for new experiments"
             >
               Disabled
-            </div>
+            </Box>
           )}
-        </td>
-        <td onClick={expandRow} className="text-muted small">
+        </TableCell>
+        <TableCell
+          onClick={expandRow}
+          style={{
+            color: "var(--gray-11)",
+            fontSize: "var(--font-size-1)",
+          }}
+        >
           {namespace.name}
-        </td>
-        <td onClick={expandRow}>{namespace.description}</td>
-        <td onClick={expandRow}>{experiments.length}</td>
-        <td onClick={expandRow}>
+        </TableCell>
+        <TableCell onClick={expandRow}>{namespace.description}</TableCell>
+        <TableCell onClick={expandRow}>{experiments.length}</TableCell>
+        <TableCell onClick={expandRow}>
           {percentFormatter.format(
             findGaps(usage, namespace.name).reduce(
               (sum, range) => sum + (range.end - range.start),
               0,
             ),
           )}
-        </td>
-        <td>
+        </TableCell>
+        <TableCell>
           <MoreMenu>
             {canEdit ? (
               <>
                 <a
                   href="#"
-                  className="dropdown-item"
                   onClick={(e) => {
                     e.preventDefault();
                     onEdit();
@@ -90,7 +106,6 @@ export default function NamespaceTableRow({
                 </a>
                 <a
                   href="#"
-                  className="dropdown-item"
                   onClick={async (e) => {
                     e.preventDefault();
                     await onArchive();
@@ -103,7 +118,6 @@ export default function NamespaceTableRow({
             {experiments.length === 0 && canDelete ? (
               <DeleteButton
                 displayName="Namespace"
-                className="dropdown-item text-danger"
                 useIcon={false}
                 text="Delete"
                 title="Delete Namespace"
@@ -111,18 +125,18 @@ export default function NamespaceTableRow({
               />
             ) : null}
           </MoreMenu>
-        </td>
-      </tr>
-      <tr
+        </TableCell>
+      </TableRow>
+      <TableRow
         className="appbox"
         style={{
           display: open ? "" : "none",
         }}
       >
-        <td
+        <TableCell
           colSpan={6}
-          className="px-4"
           style={{
+            padding: "var(--space-4)",
             boxShadow: "rgba(0, 0, 0, 0.06) 0px 2px 4px 0px inset",
           }}
         >
@@ -175,8 +189,8 @@ export default function NamespaceTableRow({
           ) : (
             <em>No active experiments are using this namespace</em>
           )}
-        </td>
-      </tr>
+        </TableCell>
+      </TableRow>
     </>
   );
 }
