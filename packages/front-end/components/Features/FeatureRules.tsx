@@ -201,15 +201,17 @@ export default function FeatureRules({
                 )}
               </Flex>
             </TabsList>
-            <Link
-              ml="2"
-              onClick={() => setCompareEnvModal({ sourceEnv: env })}
-              underline="none"
-              wrap="nowrap"
-              size="1"
-            >
-              Compare environments
-            </Link>
+            {!isLocked && (
+              <Link
+                ml="2"
+                onClick={() => setCompareEnvModal({ sourceEnv: env })}
+                underline="none"
+                wrap="nowrap"
+                size="1"
+              >
+                Compare environments
+              </Link>
+            )}
           </Flex>
         </Container>
         {environments.map((e) => {
@@ -250,7 +252,7 @@ export default function FeatureRules({
                   </Box>
                 )}
 
-                {canEditDrafts && (
+                {canEditDrafts && !isLocked && (
                   <>
                     <Flex pt="4" justify="between" align="center">
                       <Text weight="bold" size="3">

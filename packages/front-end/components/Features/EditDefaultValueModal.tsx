@@ -88,7 +88,8 @@ export default function EditDefaultValueModal({
           },
         );
         await mutate();
-        res.version && setVersion(res.version);
+        const resolvedVersion = res?.version ?? targetVersion;
+        setVersion(resolvedVersion);
       })}
       close={close}
       open={true}

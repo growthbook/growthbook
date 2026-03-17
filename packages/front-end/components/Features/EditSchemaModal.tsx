@@ -548,9 +548,9 @@ export default function EditSchemaModal({
           },
         );
         mutate();
-        if (res?.draftVersion && setVersion) {
-          setVersion(res.draftVersion);
-        }
+        const resolvedVersion =
+          res?.draftVersion ?? (mode === "existing" ? selectedDraft : null);
+        if (resolvedVersion != null && setVersion) setVersion(resolvedVersion);
         onEnable && value.enabled && onEnable();
       })}
       close={close}

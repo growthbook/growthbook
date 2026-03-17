@@ -171,6 +171,7 @@ export default function RuleList({
           ruleCount={items.length}
           revisionList={revisionList}
           setVersion={setVersion}
+          isLocked={locked}
         />
       )}
       <SortableContext items={items} strategy={verticalListSortingStrategy}>

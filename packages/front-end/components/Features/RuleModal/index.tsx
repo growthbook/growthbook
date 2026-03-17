@@ -743,9 +743,7 @@ export default function RuleModal({
       }
 
       await mutate();
-      if (res && res?.version) {
-        setVersion(res.version);
-      }
+      setVersion(res?.version ?? targetVersion);
     } catch (e) {
       track("Feature Rule Error", {
         source: ruleAction,

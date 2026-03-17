@@ -291,7 +291,9 @@ export default function PrerequisiteModal({
           },
         );
         await mutate();
-        if (res?.version) setVersion(res.version);
+        const resolvedVersion =
+          res?.version ?? (mode === "existing" ? selectedDraft : null);
+        if (resolvedVersion != null) setVersion(resolvedVersion);
       })}
     >
       <DraftSelectorForChanges

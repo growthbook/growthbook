@@ -232,7 +232,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             ></div>
             <Flex align="start" justify="between" gap="3" p="1" px="2">
               <Box>
-                {rules.length > 1 && canEdit && (
+                {rules.length > 1 && canEdit && !locked && (
                   <div
                     {...handle}
                     title="Drag and drop to re-order rules"
@@ -331,7 +331,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     </Heading>
                     {info.pill}
                   </Flex>
-                  {canEdit && (
+                  {canEdit && !locked && (
                     <DropdownMenu
                       trigger={
                         <IconButton

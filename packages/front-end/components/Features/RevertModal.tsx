@@ -59,9 +59,14 @@ export default function RevertModal({
     [allRevisions, feature.version],
   );
 
-  const [targetVersion, setTargetVersion] = useState(
-    () => publishedRevisions[0]?.version ?? revision.version,
-  );
+  const [targetVersion, setTargetVersion] = useState(() => {
+    const inList = publishedRevisions.some(
+      (r) => r.version === revision.version,
+    );
+    return inList
+      ? revision.version
+      : (publishedRevisions[0]?.version ?? revision.version);
+  });
   const [comment, setComment] = useState(`Revert from #${feature.version}`);
   const [mode, setMode] = useState<DraftMode>("new");
 

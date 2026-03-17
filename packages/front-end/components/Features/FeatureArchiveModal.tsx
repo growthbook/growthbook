@@ -108,9 +108,9 @@ export default function FeatureArchiveModal({
           },
         );
         mutate();
-        if (res?.draftVersion && setVersion) {
-          setVersion(res.draftVersion);
-        }
+        const resolvedVersion =
+          res?.draftVersion ?? (mode === "existing" ? selectedDraft : null);
+        if (resolvedVersion != null && setVersion) setVersion(resolvedVersion);
         close();
       }}
       ctaEnabled={canSubmit}

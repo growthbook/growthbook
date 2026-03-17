@@ -359,6 +359,10 @@ export default function FeaturesOverview({
     (revision.status === "published" || revision.status === "discarded") &&
     (!isLive || drafts.length > 0);
   const isDiscarded = revision.status === "discarded";
+  // True when browsing a read-only historical snapshot: an old published revision or a discarded one.
+  // Distinct from isLocked, which also fires for the live revision when active drafts exist.
+  const isReadOnly =
+    isDiscarded || (revision.status === "published" && !isLive);
 
   // TODO: support multiple per-project approval configs
   const featureReviewConfig = getReviewSetting(
@@ -1086,7 +1090,7 @@ export default function FeaturesOverview({
                               currentVersion={currentVersion}
                               revisionList={revisionList || []}
                               id={`${env}_toggle`}
-                              isLocked={false}
+                              isLocked={isReadOnly}
                             />
                           </Flex>
                         </td>
@@ -1107,6 +1111,7 @@ export default function FeaturesOverview({
                           setPrerequisiteModal={setPrerequisiteModal}
                           revisionList={revisionList || []}
                           gatedEnvSet={gatedEnvSet}
+                          isLocked={isReadOnly}
                         />
                       );
                     })}
@@ -1162,7 +1167,7 @@ export default function FeaturesOverview({
                         currentVersion={currentVersion}
                         revisionList={revisionList || []}
                         id={`${en.id}_toggle`}
-                        isLocked={false}
+                        isLocked={isReadOnly}
                       />
                     </Flex>
                   ))
@@ -1192,7 +1197,7 @@ export default function FeaturesOverview({
               />
             )}
 
-            {canEdit && canEditDrafts && (
+            {canEdit && canEditDrafts && !isReadOnly && (
               <PremiumTooltip
                 commercialFeature="prerequisites"
                 className="d-inline-flex align-items-center mt-3"
@@ -1331,7 +1336,7 @@ export default function FeaturesOverview({
                     Default Value
                   </Heading>
                 </Flex>
-                {canEdit && canEditDrafts && (
+                {canEdit && canEditDrafts && !isReadOnly && (
                   <Button
                     variant="ghost"
                     size="sm"
@@ -1386,7 +1391,7 @@ export default function FeaturesOverview({
                       environments={environments}
                       feature={feature}
                       baseFeature={baseFeature}
-                      isLocked={isLocked}
+                      isLocked={isReadOnly}
                       canEditDrafts={canEditDrafts}
                       experimentsMap={experimentsMap}
                       mutate={mutate}

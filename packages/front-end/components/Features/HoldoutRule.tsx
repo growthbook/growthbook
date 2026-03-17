@@ -31,6 +31,7 @@ interface Props {
   setVersion: (version: number) => void;
   ruleCount: number;
   isDeleted?: boolean;
+  isLocked?: boolean;
 }
 
 // eslint-disable-next-line
@@ -44,6 +45,7 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
       setVersion,
       ruleCount,
       isDeleted = false,
+      isLocked = false,
       ...props
     },
     ref,
@@ -141,7 +143,7 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                       />
                     )}
                   </Flex>
-                  {canEdit && (
+                  {canEdit && !isLocked && (
                     <DropdownMenu
                       trigger={
                         <IconButton

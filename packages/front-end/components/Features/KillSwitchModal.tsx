@@ -273,7 +273,9 @@ export default function KillSwitchModal({
       autoPublish: mode === "publish",
     });
     await mutate();
-    if (res?.draftVersion) setVersion(res.draftVersion);
+    const resolvedVersion =
+      res?.draftVersion ?? (mode === "existing" ? selectedDraft : null);
+    if (resolvedVersion != null) setVersion(resolvedVersion);
   };
 
   const actionLabel = desiredState ? "Enable" : "Disable";

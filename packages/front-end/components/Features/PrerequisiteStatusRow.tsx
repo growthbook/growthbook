@@ -42,6 +42,7 @@ interface Props {
   setPrerequisiteModal: (prerequisite: { i: number }) => void;
   revisionList: MinimalFeatureRevisionInterface[];
   gatedEnvSet: Set<string> | "all" | "none";
+  isLocked?: boolean;
 }
 
 export default function PrerequisiteStatusRow({
@@ -55,6 +56,7 @@ export default function PrerequisiteStatusRow({
   setPrerequisiteModal,
   revisionList,
   gatedEnvSet,
+  isLocked = false,
 }: Props) {
   const permissionsUtil = usePermissionsUtil();
   const canEdit = permissionsUtil.canViewFeatureModal(feature.project);
@@ -117,7 +119,10 @@ export default function PrerequisiteStatusRow({
               },
             );
             await mutate();
-            if (res?.version) setVersion(res.version);
+            const resolvedVersion =
+              res?.version ??
+              (deleteMode === "existing" ? deleteSelectedDraft : null);
+            if (resolvedVersion != null) setVersion(resolvedVersion);
           }}
         >
           <Box style={{ minHeight: 300 }}>
@@ -157,7 +162,7 @@ export default function PrerequisiteStatusRow({
               </a>
             </div>
             <div>
-              {canEdit && (
+              {canEdit && !isLocked && (
                 <DropdownMenu
                   trigger={
                     <IconButton
