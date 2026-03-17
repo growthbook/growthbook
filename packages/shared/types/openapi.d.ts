@@ -57,7 +57,7 @@ export interface paths {
   "/features/{id}/revert": {
     /**
      * Revert a feature to a specific revision 
-     * @description Publishes the rules and values from a previous revision as the current live state of the feature. Use `strategy: "head"` (default) to promote the target revision directly, or `strategy: "new-revision"` to record the revert as a new revision for a cleaner audit trail.
+     * @description Creates a new revision whose rules and values match a previously-published revision, then immediately publishes it. This leaves a clear audit trail of the revert action in the revision history.
      * 
      * Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
      */
@@ -8206,7 +8206,7 @@ export interface operations {
   revertFeature: {
     /**
      * Revert a feature to a specific revision 
-     * @description Publishes the rules and values from a previous revision as the current live state of the feature. Use `strategy: "head"` (default) to promote the target revision directly, or `strategy: "new-revision"` to record the revert as a new revision for a cleaner audit trail.
+     * @description Creates a new revision whose rules and values match a previously-published revision, then immediately publishes it. This leaves a clear audit trail of the revert action in the revision history.
      * 
      * Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
      */
@@ -8215,15 +8215,6 @@ export interface operations {
         "application/json": {
           revision: number;
           comment?: string;
-          /**
-           * @description Controls how the revert is recorded.
-           * `head` (default) re-applies the target revision directly as the new HEAD — the revision history shows the old revision promoted.
-           * `new-revision` creates a fresh revision whose values match the target, leaving a clear audit trail of the revert action.
-           *  
-           * @default head 
-           * @enum {string}
-           */
-          strategy?: "head" | "new-revision";
         };
       };
     };

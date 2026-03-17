@@ -47,6 +47,8 @@ export default function DraftSelectorForChanges({
   canAutoPublish,
   gatedEnvSet,
   defaultExpanded = false,
+  hideExisting = false,
+  triggerPrefix = "Changes will be",
 }: {
   feature: FeatureInterface;
   // Raw live feature document (un-merged); fallback for env state missing from old sparse live revisions.
@@ -59,6 +61,8 @@ export default function DraftSelectorForChanges({
   canAutoPublish: boolean;
   gatedEnvSet: Set<string> | "all" | "none";
   defaultExpanded?: boolean;
+  hideExisting?: boolean;
+  triggerPrefix?: string;
 }) {
   const [isOpen, setIsOpen] = useState(defaultExpanded ?? false);
 
@@ -161,7 +165,7 @@ export default function DraftSelectorForChanges({
   );
 
   const options = [
-    ...(activeDrafts.length > 0
+    ...(!hideExisting && activeDrafts.length > 0
       ? [
           {
             value: "existing",
@@ -243,7 +247,9 @@ export default function DraftSelectorForChanges({
       className="draft-selector-collapsible-trigger"
     >
       <HelperText status="info" icon={triggerIcon}>
-        <div className="ml-1">Changes will be {triggerLabel}</div>
+        <div className="ml-1">
+          {triggerPrefix} {triggerLabel}
+        </div>
       </HelperText>
       <Button
         variant="ghost"

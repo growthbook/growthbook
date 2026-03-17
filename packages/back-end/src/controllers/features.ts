@@ -70,7 +70,6 @@ import {
 import {
   addFeatureRule,
   addLinkedExperiment,
-  applyRevisionChanges,
   copyFeatureEnvironmentRules,
   createFeature,
   deleteFeature,
@@ -121,7 +120,6 @@ import {
   getLatestRevisions,
   getRevisionsByStatus,
   hasDraft,
-  markRevisionAsPublished,
   markRevisionAsReviewRequested,
   ReviewSubmittedType,
   submitReviewAndComments,
@@ -1224,16 +1222,15 @@ export async function postFeaturePublish(
 }
 
 export async function postFeatureRevert(
-  req: AuthRequest<{ comment: string }, { id: string; version: string }>,
+  req: AuthRequest<{ comment?: string }, { id: string; version: string }>,
   res: Response<{ status: 200; version: number }, EventUserForResponseLocals>,
 ) {
   const context = getContextFromReq(req);
-  const { org } = context;
+  const { org, environments: contextEnvironments } = context;
   const { id, version } = req.params;
   const { comment } = req.body;
 
   const feature = await getFeature(context, id);
-
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -1260,8 +1257,8 @@ export async function postFeatureRevert(
     context.permissions.throwPermissionError();
   }
 
-  const changes: MergeResultChanges = {};
-
+  // Compute the diff (what actually changes on the feature doc) and check publish permissions per-change.
+  const mergeChanges: MergeResultChanges = {};
   const allEnabledEnvs = Array.from(
     getEnabledEnvironments(feature, environmentIds),
   );
@@ -1270,7 +1267,7 @@ export async function postFeatureRevert(
     if (!context.permissions.canPublishFeature(feature, allEnabledEnvs)) {
       context.permissions.throwPermissionError();
     }
-    changes.defaultValue = revision.defaultValue;
+    mergeChanges.defaultValue = revision.defaultValue;
   }
 
   const changedEnvs: string[] = [];
@@ -1283,8 +1280,8 @@ export async function postFeatureRevert(
       )
     ) {
       changedEnvs.push(env);
-      changes.rules = changes.rules || {};
-      changes.rules[env] = revision.rules[env];
+      mergeChanges.rules = mergeChanges.rules || {};
+      mergeChanges.rules[env] = revision.rules[env];
     }
 
     // Kill switches — sparse: only revert if this revision explicitly set them
@@ -1296,8 +1293,9 @@ export async function postFeatureRevert(
       const liveEnabled = feature.environmentSettings?.[env]?.enabled ?? false;
       if (revEnabled !== liveEnabled) {
         if (!changedEnvs.includes(env)) changedEnvs.push(env);
-        changes.environmentsEnabled = changes.environmentsEnabled || {};
-        changes.environmentsEnabled[env] = revEnabled;
+        mergeChanges.environmentsEnabled =
+          mergeChanges.environmentsEnabled || {};
+        mergeChanges.environmentsEnabled[env] = revEnabled;
       }
     }
   });
@@ -1315,7 +1313,7 @@ export async function postFeatureRevert(
     if (!context.permissions.canPublishFeature(feature, allEnabledEnvs)) {
       context.permissions.throwPermissionError();
     }
-    changes.prerequisites = revision.prerequisites;
+    mergeChanges.prerequisites = revision.prerequisites;
   }
 
   // Archived state — sparse: only revert if this revision explicitly changed it
@@ -1326,7 +1324,7 @@ export async function postFeatureRevert(
     if (!context.permissions.canPublishFeature(feature, allEnabledEnvs)) {
       context.permissions.throwPermissionError();
     }
-    changes.archived = revision.archived;
+    mergeChanges.archived = revision.archived;
   }
 
   // Metadata — sparse: revert only the fields this revision explicitly changed
@@ -1375,23 +1373,50 @@ export async function postFeatureRevert(
       if (!context.permissions.canPublishFeature(feature, allEnabledEnvs)) {
         context.permissions.throwPermissionError();
       }
-      changes.metadata = metadataChanges;
+      mergeChanges.metadata = metadataChanges;
     }
   }
 
-  const updatedFeature = await applyRevisionChanges(
-    context,
-    feature,
-    revision,
-    changes,
-  );
+  // Build the full state of the target revision for the new revision document.
+  const revisionChanges: Partial<FeatureRevisionInterface> = {
+    defaultValue: revision.defaultValue,
+    rules: Object.fromEntries(
+      environmentIds.map((env) => [
+        env,
+        revision.rules[env] ?? feature.environmentSettings?.[env]?.rules ?? [],
+      ]),
+    ),
+  };
+  if (revision.environmentsEnabled !== undefined) {
+    revisionChanges.environmentsEnabled = revision.environmentsEnabled;
+  }
+  if (revision.prerequisites !== undefined) {
+    revisionChanges.prerequisites = revision.prerequisites;
+  }
+  if (revision.archived !== undefined) {
+    revisionChanges.archived = revision.archived;
+  }
+  if (revision.metadata !== undefined) {
+    revisionChanges.metadata = revision.metadata;
+  }
 
-  await markRevisionAsPublished(
+  const newRevision = await createRevision({
     context,
     feature,
-    revision,
-    res.locals.eventAudit,
-    comment,
+    user: res.locals.eventAudit,
+    baseVersion: feature.version,
+    changes: revisionChanges,
+    environments: contextEnvironments,
+    org,
+    comment: comment || `Revert to revision #${revision.version}`,
+  });
+
+  await assertCanAutoPublish(context, feature, newRevision);
+  const updatedFeature = await publishRevision(
+    context,
+    feature,
+    newRevision,
+    mergeChanges,
   );
 
   await req.audit({
@@ -1401,13 +1426,13 @@ export async function postFeatureRevert(
       id: feature.id,
     },
     details: auditDetailsUpdate(feature, updatedFeature, {
-      revision: revision.version,
+      revision: newRevision.version,
     }),
   });
 
   res.status(200).json({
     status: 200,
-    version: revision.version,
+    version: newRevision.version,
   });
 }
 

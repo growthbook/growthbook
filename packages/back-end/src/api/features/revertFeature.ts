@@ -7,13 +7,9 @@ import {
 import { isEqual } from "lodash";
 import { ToggleFeatureResponse } from "shared/types/openapi";
 import { revertFeatureValidator } from "shared/validators";
-import {
-  getRevision,
-  markRevisionAsPublished,
-} from "back-end/src/models/FeatureRevisionModel";
+import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import {
-  applyRevisionChanges,
   createAndPublishRevision,
   getFeature,
 } from "back-end/src/models/FeatureModel";
@@ -45,7 +41,7 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
       req.context.permissions.throwPermissionError();
     }
 
-    const { revision: version, comment, strategy } = req.body;
+    const { revision: version, comment } = req.body;
 
     const revision = await getRevision({
       context,
@@ -169,11 +165,6 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
     const apiBypassesReviews =
       !!req.context.org.settings?.restApiBypassesReviews;
 
-    // Shared approval gate — runs for both strategies.
-    // For "head" we check against the target revision directly (it already
-    // carries the exact diff that would be applied). For "new-revision"
-    // createAndPublishRevision runs the same check internally, but we do it
-    // here first so we can give a consistent error before any DB writes.
     if (!apiBypassesReviews) {
       const liveRevision = await getRevision({
         context,
@@ -201,42 +192,16 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
       }
     }
 
-    let updatedFeature: typeof feature;
-    let publishedRevisionVersion: number;
-
-    if (strategy === "new-revision") {
-      // Create a new revision whose values match the target. This leaves an
-      // explicit revert commit in the revision history.
-      const { revision: newRevision, updatedFeature: newFeature } =
-        await createAndPublishRevision({
-          context,
-          feature,
-          user: req.eventAudit,
-          org: req.organization,
-          changes,
-          comment: comment ?? `Reverted to revision #${version}`,
-          canBypassApprovalChecks: apiBypassesReviews,
-        });
-      updatedFeature = newFeature;
-      publishedRevisionVersion = newRevision.version;
-    } else {
-      // "head" strategy (default): re-apply the existing revision directly,
-      // promoting it to HEAD without adding a new entry to the revision chain.
-      updatedFeature = await applyRevisionChanges(
+    const { revision: newRevision, updatedFeature } =
+      await createAndPublishRevision({
         context,
         feature,
-        revision,
+        user: req.eventAudit,
+        org: req.organization,
         changes,
-      );
-      await markRevisionAsPublished(
-        context,
-        feature,
-        revision,
-        req.eventAudit,
-        comment,
-      );
-      publishedRevisionVersion = revision.version;
-    }
+        comment: comment ?? `Reverted to revision #${version}`,
+        canBypassApprovalChecks: apiBypassesReviews,
+      });
 
     await req.audit({
       event: "feature.revert",
@@ -245,7 +210,7 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
         id: feature.id,
       },
       details: auditDetailsUpdate(feature, updatedFeature, {
-        revision: publishedRevisionVersion,
+        revision: newRevision.version,
       }),
     });
 

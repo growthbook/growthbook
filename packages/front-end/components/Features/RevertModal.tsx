@@ -3,15 +3,8 @@ import { useState, useMemo } from "react";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { filterEnvironmentsByFeature, getReviewSetting } from "shared/util";
 import { Flex, Box } from "@radix-ui/themes";
-import Collapsible from "react-collapsible";
-import {
-  PiCaretRightBold,
-  PiInfoFill,
-  PiShieldCheckBold,
-} from "react-icons/pi";
 import { getAffectedRevisionEnvs, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
-import { useUser } from "@/services/UserContext";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import {
@@ -21,13 +14,11 @@ import {
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import RevisionDropdown from "@/components/Features/RevisionDropdown";
 import Text from "@/ui/Text";
-import RadioGroup from "@/ui/RadioGroup";
-import Callout from "@/ui/Callout";
-import HelperText from "@/ui/HelperText";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import DraftSelectorForChanges, {
+  DraftMode,
+} from "@/components/Features/DraftSelectorForChanges";
 import { ExpandableDiff } from "./DraftModal";
-
-export type RevertStrategy = "draft" | "publish";
 
 export interface Props {
   feature: FeatureInterface;
@@ -53,11 +44,7 @@ export default function RevertModal({
 
   const { apiCall } = useAuth();
 
-  // Previously-published revisions the user can revert to, newest-published
-  // first. Computed before targetVersion state so the initial value can use
-  // publishedRevisions[0] (most recently published before live).
-  const { hasCommercialFeature } = useUser();
-  const hasApprovalsFeature = hasCommercialFeature("require-approvals");
+  // Previously-published revisions the user can revert to, newest-published first.
   const publishedRevisions = useMemo(
     () =>
       allRevisions
@@ -76,7 +63,7 @@ export default function RevertModal({
     () => publishedRevisions[0]?.version ?? revision.version,
   );
   const [comment, setComment] = useState(`Revert from #${feature.version}`);
-  const [strategy, setStrategy] = useState<RevertStrategy>("draft");
+  const [mode, setMode] = useState<DraftMode>("new");
 
   const targetRevision =
     allRevisions.find((r) => r.version === targetVersion) ?? revision;
@@ -108,81 +95,10 @@ export default function RevertModal({
     return !!reviewSetting?.requireReviewOn;
   }, [settings?.requireReviews, feature]);
 
-  const canUsePublishStrategy = approvalsRequired
-    ? canBypassApprovals
-    : canPublish;
+  const canAutoPublish = approvalsRequired ? canBypassApprovals : canPublish;
+  const gatedEnvSet: "all" | "none" = approvalsRequired ? "all" : "none";
 
-  const strategyOptions = [
-    {
-      value: "draft" as RevertStrategy,
-      label: "Create a revert draft",
-      description:
-        "Computes the diff and creates a new draft based on the current live revision." +
-        (approvalsRequired ? " Subject to approval requirements." : ""),
-      disabled: !canCreateDraft,
-    },
-    {
-      value: "publish" as RevertStrategy,
-      label: (
-        <span>
-          Set a prior revision live{" "}
-          {approvalsRequired && (
-            <span style={{ color: "var(--red-11)" }}>(admin only)</span>
-          )}
-        </span>
-      ),
-      description:
-        "Immediately makes the selected revision the live version" +
-        (approvalsRequired ? ", bypassing any approval requirements." : "."),
-      disabled: !canUsePublishStrategy,
-      error: !canUsePublishStrategy
-        ? approvalsRequired
-          ? "You do not have permission to bypass approvals"
-          : "You do not have permission to publish this feature"
-        : undefined,
-    },
-  ];
-
-  const canSubmit =
-    strategy === "draft" ? canCreateDraft : canUsePublishStrategy;
-
-  const ctaLabel =
-    strategy === "draft" ? "Create Revert Draft" : "Set Revision Live";
-
-  const triggerLabel =
-    strategy === "draft" ? (
-      <>
-        will be added to <Text weight="semibold">a new draft</Text>
-      </>
-    ) : (
-      <>
-        will be <Text weight="semibold">applied immediately</Text>
-      </>
-    );
-
-  const triggerIcon =
-    hasApprovalsFeature && strategy !== "publish" ? (
-      <PiShieldCheckBold size={16} />
-    ) : (
-      <PiInfoFill size={16} />
-    );
-
-  const strategyTrigger = (
-    <Flex
-      align="center"
-      justify="between"
-      gap="3"
-      px="3"
-      py="4"
-      style={{ cursor: "pointer", userSelect: "none" }}
-      className="draft-selector-collapsible-trigger"
-    >
-      <HelperText status="info" icon={triggerIcon}>
-        <div className="ml-1">Revert {triggerLabel}</div>
-      </HelperText>
-      <PiCaretRightBold className="chevron-right" style={{ flexShrink: 0 }} />
-    </Flex>
-  );
+  const canSubmit = mode === "new" ? canCreateDraft : canAutoPublish;
 
   return (
     <Modal
@@ -192,7 +108,7 @@ export default function RevertModal({
       submit={
         canSubmit
           ? async () => {
-              if (strategy === "draft") {
+              if (mode === "new") {
                 const res = await apiCall<{ version: number }>(
                   `/feature/${feature.id}/${targetRevision.version}/revert-draft`,
                   {
@@ -216,37 +132,24 @@ export default function RevertModal({
             }
           : undefined
       }
-      cta={ctaLabel}
+      cta={mode === "publish" ? "Publish Now" : "Create Revert Draft"}
       close={close}
       closeCta="Cancel"
       size="lg"
     >
-      <Box
-        mb="5"
-        style={{ overflow: "hidden", borderRadius: "var(--radius-4)" }}
-      >
-        <Collapsible
-          trigger={strategyTrigger}
-          transitionTime={75}
-          contentInnerClassName="draft-selector-collapsible-content"
-        >
-          <Box px="3" py="3" style={{ backgroundColor: "var(--violet-a3)" }}>
-            <RadioGroup
-              options={strategyOptions}
-              value={strategy}
-              setValue={(v) => setStrategy(v as RevertStrategy)}
-              width="100%"
-            />
-            {strategy === "publish" && !canUsePublishStrategy && (
-              <Callout status="error" mt="2">
-                {approvalsRequired
-                  ? "You need admin permissions to bypass approvals and publish immediately."
-                  : "You do not have permission to publish this feature."}
-              </Callout>
-            )}
-          </Box>
-        </Collapsible>
-      </Box>
+      <DraftSelectorForChanges
+        feature={feature}
+        revisionList={allRevisions}
+        mode={mode}
+        setMode={setMode}
+        selectedDraft={null}
+        setSelectedDraft={() => undefined}
+        canAutoPublish={canAutoPublish}
+        gatedEnvSet={gatedEnvSet}
+        hideExisting={true}
+        triggerPrefix="Revert will be"
+        defaultExpanded
+      />
 
       <h3>Review Changes</h3>
       <Flex align="center" gap="2" mb="3" wrap="wrap">
