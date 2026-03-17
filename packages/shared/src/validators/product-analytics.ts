@@ -265,3 +265,94 @@ export type ProductAnalyticsResultRow = z.infer<
 export type ProductAnalyticsExploration = z.infer<
   typeof productAnalyticsExplorationValidator
 >;
+
+// User Journey validators
+
+const minuteTimeframeValidator = z.object({
+  value: z.number().int().min(1).max(1440),
+  unit: z.literal("minute"),
+});
+
+const hourTimeframeValidator = z.object({
+  value: z.number().int().min(1).max(24),
+  unit: z.literal("hour"),
+});
+
+const pathStepValidator = z.object({
+  event: z.string(),
+  topEvents: z.array(z.string()), // This will be used to display the top events for the step
+  filters: z.array(rowFilterValidator),
+});
+
+export const userJourneyConfigValidator = z.object({
+  dimensions: z.discriminatedUnion("dimensionType", [
+    // I don't think date dimensions make sense here?
+    dynamicDimensionValidator,
+    staticDimensionValidator,
+    sliceDimensionValidator,
+  ]),
+  factTableId: z.string(),
+  startingEvent: z.string(), // Not sure if we should keep this, or infer it from the first index of the forwardPath instead
+  userIdType: z.string(),
+  filters: z.array(
+    z.object({
+      rowFilters: z.array(rowFilterValidator),
+      applyFiltersToAllEvents: z.boolean(), // If false, only applies to the startingEvent
+    }),
+  ),
+  conversionWindow: z.discriminatedUnion("unit", [
+    minuteTimeframeValidator,
+    hourTimeframeValidator,
+  ]),
+  measurementType: z.enum(["count", "sum"]),
+  dateRange: z.object({
+    predefined: z.enum(dateRangePredefined),
+    lookbackValue: z.number().nullable(),
+    startDate: z.string().nullable(),
+    endDate: z.string().nullable(),
+  }),
+  forwardPath: z.array(pathStepValidator),
+  numOfEventsPerStep: z.number().int().min(1).max(10), // Controls how many paths are rendered per step
+  // Additional properties to consider:
+  // - backwardPath: z.array(pathStepValidator),
+  // - sampling: z.object({
+  // enabled: z.boolean(),
+  // percentage: z.number().int().min(1).max(100),
+  //})
+  // - excludePathsWithTheseEvents: z.array(z.string()),
+  // - cohorts - I think this can be accomplished with our filters, but would probably be good eventually so a user can define a cohort, and then use filters to exclude
+});
+
+// Would be good to add detail to this if possible
+const userJourneyResultValidator = z.object({
+  rows: z.array(z.string()),
+});
+
+export const userJourneyValidator = z.object({
+  id: z.string(),
+  organization: z.string(),
+  dateCreated: z.date(),
+  dateUpdated: z.date(),
+  datasource: z.string(),
+  config: userJourneyConfigValidator,
+  result: userJourneyResultValidator,
+  dateStart: z.string(),
+  dateEnd: z.string(),
+  runStarted: z.date().nullable(),
+  status: z.enum(["running", "success", "error"]),
+  error: z.string().nullable().optional(),
+  queries: z.array(queryPointerValidator), // Placeholder for now - not sure if we'll need this
+});
+
+export type UserJourneyConfig = z.infer<typeof userJourneyConfigValidator>;
+type UserJourneyResult = z.infer<typeof userJourneyResultValidator>;
+type UserJourney = z.infer<typeof userJourneyValidator>;
+
+// The above is a roughed out set of validators for the user journey feature.
+
+// These validators are based on the following assumptions:
+// - We are using the fact table for the user journey
+// - We want to be able to run a full config as a single query
+// - When a user is building a journey, they'll start with a starting event, and we'll run a query to get the paths for that event + 2 steps forward
+// the user can then add additional steps, and we'll run a query to get the next 2 steps for that full path.
+// -

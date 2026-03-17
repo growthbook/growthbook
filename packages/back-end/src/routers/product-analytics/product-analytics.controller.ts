@@ -2,6 +2,7 @@ import type { Response } from "express";
 import {
   ExplorationConfig,
   ProductAnalyticsExploration,
+  UserJourneyConfig,
 } from "shared/validators";
 import { QueryInterface } from "shared/types/query";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -63,5 +64,68 @@ export const getExplorationById = async (
     status: 200,
     exploration,
     query,
+  });
+};
+
+export const getUserJourneyById = async (
+  req: AuthRequest<never, { id: string }, never>,
+  res: Response<{
+    status: 200;
+    // Polish return types
+  }>,
+) => {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+
+  // Fetch user journey by id
+  // Fetch query?
+  // return user journey and query
+
+  return res.status(200).json({
+    status: 200,
+  });
+};
+
+export const postUserJourneyRun = async (
+  req: AuthRequest<
+    { config: UserJourneyConfig },
+    unknown,
+    { cache?: "preferred" | "required" | "never" }
+  >,
+  res: Response<{
+    status: 200;
+    // Polish return types
+  }>,
+) => {
+  const context = getContextFromReq(req);
+
+  // Get the user journey by calling the query runner with the config
+  // const userJourney = await runUserJourney(context, req.body.config);
+  // Return the user journey
+
+  return res.status(200).json({
+    status: 200,
+  });
+};
+
+export const extendUserJourney = async (
+  req: AuthRequest<
+    { config: UserJourneyConfig; pathToExtend: string[]; stepToExtend: number },
+    unknown,
+    { cache?: "preferred" | "required" | "never" }
+  >,
+  res: Response<{
+    status: 200;
+    // Polish return types
+  }>,
+) => {
+  const context = getContextFromReq(req);
+
+  // Extend the user journey by calling the query runner with the config
+  // const userJourney = await extendUserJourney(context, req.body.config);
+  // Return the user journey
+
+  return res.status(200).json({
+    status: 200,
   });
 };
