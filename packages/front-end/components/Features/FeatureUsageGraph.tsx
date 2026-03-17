@@ -743,10 +743,16 @@ export default function FeatureUsageGraph({
                         if (!d) return;
                         const barX = xScale(t) ?? 0;
                         setHoveredT(t);
+
+                        const TOOLTIP_W = 280; // padding (40) + max content (~240)
+                        const rawLeft = barX + margin[3] + bandwidth / 2;
                         showTooltip({
                           tooltipData: { bar: { data: d } },
                           tooltipTop: margin[0] - 70,
-                          tooltipLeft: barX + margin[3] + bandwidth / 2,
+                          tooltipLeft:
+                            rawLeft + TOOLTIP_W > width
+                              ? Math.max(0, rawLeft - TOOLTIP_W)
+                              : rawLeft,
                         });
                       }}
                     />
