@@ -1,14 +1,12 @@
 import { FeatureInterface } from "shared/types/feature";
-import { getValidation, getReviewSetting } from "shared/util";
-import { useMemo, useState } from "react";
+import { getValidation } from "shared/util";
+import { useState } from "react";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiCaretDown, PiCaretRight } from "react-icons/pi";
 import { ago, datetime } from "shared/dates";
 import { useRouter } from "next/router";
-import DraftControlBadge from "@/components/Features/DraftControlBadge";
 import { useUser } from "@/services/UserContext";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
 import Badge from "@/ui/Badge";
@@ -31,16 +29,6 @@ export default function JSONValidation({
   revisionList,
 }: Props) {
   const { hasCommercialFeature } = useUser();
-  const settings = useOrgSettings();
-
-  const requiresApproval = useMemo(() => {
-    const requireReviewSettings = settings?.requireReviews;
-    if (!requireReviewSettings || typeof requireReviewSettings === "boolean") {
-      return !!requireReviewSettings;
-    }
-    const reviewSetting = getReviewSetting(requireReviewSettings, feature);
-    return !!reviewSetting?.requireReviewOn;
-  }, [settings?.requireReviews, feature]);
 
   const router = useRouter();
   const isNew = router?.query && "new" in router.query;
@@ -88,10 +76,6 @@ export default function JSONValidation({
         <Heading as="h3" size="medium" mb="0">
           JSON Validation
         </Heading>
-        <DraftControlBadge
-          gated={requiresApproval}
-          approvalsEnabled={requiresApproval}
-        />
         {hasJsonValidator && (
           <Badge
             label={validationEnabled ? "Enabled" : "Not enabled"}

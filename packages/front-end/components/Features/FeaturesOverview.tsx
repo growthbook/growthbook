@@ -5,8 +5,6 @@ import { FaExclamationTriangle } from "react-icons/fa";
 import {
   PiPlusCircleBold,
   PiArrowsLeftRightBold,
-  PiShieldCheckBold,
-  PiShieldSlashBold,
   PiPencilSimpleFill,
   PiCaretDownBold,
   PiCaretRightBold,
@@ -93,7 +91,6 @@ import Frame from "@/ui/Frame";
 import Switch from "@/ui/Switch";
 import Link from "@/ui/Link";
 import JSONValidation from "@/components/Features/JSONValidation";
-import DraftControlBadge from "@/components/Features/DraftControlBadge";
 import {
   PrerequisiteStateResult,
   usePrerequisiteStates,
@@ -105,102 +102,6 @@ import PrerequisiteAlerts from "./PrerequisiteAlerts";
 import PrerequisiteModal from "./PrerequisiteModal";
 import RequestReviewModal from "./RequestReviewModal";
 import FeatureRules from "./FeatureRules";
-
-function ApprovalStatusIndicator({
-  approvalsEngaged,
-  killSwitchGated,
-  prereqGated,
-  metadataReviewRequired,
-  gatedEnvNames,
-}: {
-  approvalsEngaged: boolean;
-  killSwitchGated: boolean;
-  prereqGated: boolean;
-  metadataReviewRequired: boolean;
-  gatedEnvNames: string[] | "all";
-}) {
-  const { hasCommercialFeature } = useUser();
-  const hasApprovalsFeature = hasCommercialFeature("require-approvals");
-  if (!hasApprovalsFeature) return null;
-  const noneGated = !approvalsEngaged;
-  const allGated =
-    approvalsEngaged && killSwitchGated && metadataReviewRequired;
-  const icon = noneGated ? (
-    <PiShieldSlashBold size={14} />
-  ) : (
-    <PiShieldCheckBold size={14} />
-  );
-  const label = noneGated
-    ? "Approvals not required"
-    : allGated
-      ? "Approvals required"
-      : "Approvals partially required";
-
-  const requiredLines: string[] = [];
-  const exemptLines: string[] = [];
-  if (!noneGated) {
-    requiredLines.push(
-      `${killSwitchGated ? "Rule, value, and kill switch" : "Rule and value"} changes require approval in ${gatedEnvNames === "all" ? "all environments" : gatedEnvNames.join(", ")}.`,
-    );
-    if (prereqGated)
-      requiredLines.push("Prerequisite changes require approval.");
-    if (metadataReviewRequired)
-      requiredLines.push("Metadata changes require approval.");
-    const exempt = [
-      !approvalsEngaged && "rule and value",
-      !killSwitchGated && "kill switch",
-      !prereqGated && "prerequisite",
-      !metadataReviewRequired && "metadata",
-    ].filter(Boolean) as string[];
-    if (exempt.length) {
-      const exemptLabel =
-        exempt.length === 1
-          ? exempt[0]
-          : exempt.slice(0, -1).join(", ") +
-            " and " +
-            exempt[exempt.length - 1];
-      exemptLines.push(
-        `${exemptLabel.charAt(0).toUpperCase() + exemptLabel.slice(1)} changes do not require approval.`,
-      );
-    }
-  }
-
-  const inner = (
-    <Flex align="center" gap="1" display="inline-flex">
-      <Text
-        size="1"
-        color={noneGated ? "gray" : "violet"}
-        style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
-      >
-        {icon}
-        {label}
-      </Text>
-    </Flex>
-  );
-
-  if (!requiredLines.length && !exemptLines.length) return inner;
-
-  return (
-    <Tooltip
-      body={
-        <Flex direction="column" gap="2">
-          {requiredLines.map((line, i) => (
-            <Text key={i} as="div" size="1" color="violet">
-              · {line}
-            </Text>
-          ))}
-          {exemptLines.map((line, i) => (
-            <Text key={i} as="div" size="1">
-              · {line}
-            </Text>
-          ))}
-        </Flex>
-      }
-    >
-      {inner}
-    </Tooltip>
-  );
-}
 
 export default function FeaturesOverview({
   baseFeature,
@@ -493,12 +394,6 @@ export default function FeaturesOverview({
     feature,
   );
   const approvalsEngaged = !!featureReviewConfig?.requireReviewOn;
-  const killSwitchGated =
-    approvalsEngaged &&
-    featureReviewConfig?.featureRequireEnvironmentReview !== false;
-  const prereqGated = approvalsEngaged;
-
-  // Mirrors RevisionDropdown's gatedEnvs — used for badge coloring in the affected-envs widget.
   const gatedEnvSet: Set<string> | "all" | "none" = (() => {
     if (!approvalsEngaged) return "none";
     const envList = featureReviewConfig?.environments ?? [];
@@ -507,14 +402,6 @@ export default function FeaturesOverview({
   const metadataReviewRequired =
     approvalsEngaged &&
     featureReviewConfig?.featureRequireMetadataReview !== false;
-  const gatedEnvNames: string[] | "all" =
-    gatedEnvSet === "all" || gatedEnvSet === "none"
-      ? gatedEnvSet === "all"
-        ? "all"
-        : []
-      : environments
-          .filter((e) => (gatedEnvSet as Set<string>).has(e.id))
-          .map((e) => e.id);
 
   const canEdit = permissionsUtil.canViewFeatureModal(projectId);
   const canEditDrafts = permissionsUtil.canManageFeatureDrafts(feature);
@@ -836,31 +723,41 @@ export default function FeaturesOverview({
               top: 110,
               zIndex: 920,
               marginBottom: 12,
-              backgroundColor: "var(--color-panel-solid)",
-              borderRadius: "var(--radius-3)",
-              overflow: "hidden",
-              boxShadow: bannerPinned ? "var(--shadow-3)" : undefined,
+              display: "flex",
+              justifyContent: "center",
             }}
           >
-            <Flex
-              align="center"
-              justify="center"
-              gap="2"
-              px="4"
-              py="3"
+            <div
               style={{
-                color: "var(--amber-11)",
-                backgroundColor: "var(--amber-a3)",
+                width: "100%",
+                backgroundColor: "var(--color-panel-solid)",
+                borderRadius: "var(--radius-3)",
+                overflow: "hidden",
+                maxWidth: bannerPinned ? "580px" : "2000px",
+                boxShadow: bannerPinned ? "var(--shadow-4)" : undefined,
+                transition: "all 200ms ease",
               }}
             >
-              <PiPencil size={18} />
-              <span style={{ fontSize: "var(--font-size-2)" }}>
-                Viewing a <strong>draft</strong> —{" "}
-                {isPendingReview
-                  ? "changes will not go live until approved and published"
-                  : "changes will not go live until published"}
-              </span>
-            </Flex>
+              <Flex
+                align="center"
+                justify="center"
+                gap="2"
+                px="4"
+                py="3"
+                style={{
+                  color: "var(--amber-11)",
+                  backgroundColor: "var(--amber-a3)",
+                }}
+              >
+                <PiPencil size={18} />
+                <span style={{ fontSize: "var(--font-size-2)" }}>
+                  Viewing a <strong>draft</strong> —{" "}
+                  {isPendingReview
+                    ? "changes will not go live until approved and published"
+                    : "changes will not go live until published"}
+                </span>
+              </Flex>
+            </div>
           </div>
         )}
         {revision && (
@@ -1017,15 +914,6 @@ export default function FeaturesOverview({
                 {revisionCTA}
               </Flex>
             </Flex>
-            <Flex justify="end">
-              <ApprovalStatusIndicator
-                approvalsEngaged={approvalsEngaged}
-                killSwitchGated={killSwitchGated}
-                prereqGated={prereqGated}
-                metadataReviewRequired={metadataReviewRequired}
-                gatedEnvNames={gatedEnvNames}
-              />
-            </Flex>
             <Separator size="4" mt="1" mb="2" />
             {renderRevisionInfo()}
           </Frame>
@@ -1052,10 +940,6 @@ export default function FeaturesOverview({
                       ? "Description & Additional Fields"
                       : "Description"}
                   </Heading>
-                  <DraftControlBadge
-                    gated={metadataReviewRequired}
-                    approvalsEnabled={approvalsEngaged}
-                  />
                 </Flex>
                 <Flex align="center" gap="2">
                   {canEdit && canEditDrafts && (
@@ -1096,7 +980,6 @@ export default function FeaturesOverview({
                 mutate={mutate}
                 section={"feature"}
                 mt="4"
-                showApprovalBadge={approvalsEngaged}
                 draftInfo={
                   {
                     feature,
@@ -1119,10 +1002,6 @@ export default function FeaturesOverview({
               <Heading as="h4" size="3" mb="0">
                 Environment Status
               </Heading>
-              <DraftControlBadge
-                gated={killSwitchGated}
-                approvalsEnabled={approvalsEngaged}
-              />
             </Flex>
             <div className="mb-4">
               When disabled, this feature will evaluate to <code>null</code>.
@@ -1444,11 +1323,6 @@ export default function FeaturesOverview({
                   <Heading as="h4" size="3" mb="0">
                     Default Value
                   </Heading>
-                  <DraftControlBadge
-                    gated={approvalsEngaged}
-                    alwaysDrafted
-                    approvalsEnabled={approvalsEngaged}
-                  />
                 </Flex>
                 {canEdit && canEditDrafts && (
                   <Button
@@ -1481,11 +1355,6 @@ export default function FeaturesOverview({
                     <Heading as="h4" size="3" mb="0">
                       Rules
                     </Heading>
-                    <DraftControlBadge
-                      gated={approvalsEngaged}
-                      alwaysDrafted
-                      approvalsEnabled={approvalsEngaged}
-                    />
                   </Flex>
                   <label className="font-weight-semibold">
                     <Switch

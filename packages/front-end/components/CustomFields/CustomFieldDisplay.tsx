@@ -6,7 +6,6 @@ import { FeatureInterface } from "shared/types/feature";
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
-import DraftControlBadge from "@/components/Features/DraftControlBadge";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -43,8 +42,6 @@ const CustomFieldDisplay: FC<{
   mt?: "1" | "2" | "3" | "4" | "5" | "6";
   /** When provided, the edit modal shows a draft callout and "Save to Draft" CTA. */
   draftInfo?: CustomFieldDraftInfo;
-  /** When true, always show the approval shield badge (gated or not). */
-  showApprovalBadge?: boolean;
 }> = ({
   label = "Additional Fields",
   canEdit = true,
@@ -54,7 +51,6 @@ const CustomFieldDisplay: FC<{
   target,
   mt,
   draftInfo,
-  showApprovalBadge = false,
 }) => {
   const [editModal, setEditModal] = useState(false);
 
@@ -246,12 +242,6 @@ const CustomFieldDisplay: FC<{
                 <Heading as="h4" size="3" mb="0">
                   {label ? label : ""}
                 </Heading>
-                {showApprovalBadge && (
-                  <DraftControlBadge
-                    gated={draftInfo?.gatedEnvSet !== "none"}
-                    approvalsEnabled={showApprovalBadge}
-                  />
-                )}
               </Flex>
               <div className="flex-1" />
               {canEdit && hasCustomFieldAccess && (
