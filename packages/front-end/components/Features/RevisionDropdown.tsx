@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { datetime, date as formatDate } from "shared/dates";
@@ -11,7 +11,11 @@ import RevisionLabel, {
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Switch from "@/ui/Switch";
 import Text from "@/ui/Text";
-import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/ui/DropdownMenu";
 import Link from "@/ui/Link";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import EventUser from "@/components/Avatar/EventUser";
@@ -27,8 +31,6 @@ export interface Props {
   draftsOnly?: boolean;
   // Show only previously-published revisions
   publishedOnly?: boolean;
-  disabled?: boolean;
-  customTrigger?: React.ReactNode;
 }
 
 // Like date() but omits the year when it matches the current year
@@ -128,8 +130,6 @@ export default function RevisionDropdown({
   menuPlacement = "end",
   draftsOnly = false,
   publishedOnly = false,
-  disabled = false,
-  customTrigger,
 }: Props) {
   const liveVersion = feature.version;
   const initialPageSize = 10;
@@ -170,6 +170,21 @@ export default function RevisionDropdown({
         : allSorted.filter(
             (r) => r.status !== "discarded" || r.version === version,
           );
+
+  // Pinned quick-access section: live revision + up to 3 most recent drafts.
+  // Only shown in the default (non-draftsOnly, non-publishedOnly) mode.
+  const showPinnedSection =
+    !draftsOnly && !publishedOnly && allSorted.length > 5;
+  const pinnedLive = showPinnedSection
+    ? (allSorted.find((r) => r.version === liveVersion) ?? null)
+    : null;
+  const pinnedDrafts = showPinnedSection
+    ? allSorted.filter(activeDrafts).slice(0, 3)
+    : [];
+  const pinnedRevisions: MinimalFeatureRevisionInterface[] = [
+    ...(pinnedLive ? [pinnedLive] : []),
+    ...pinnedDrafts,
+  ];
 
   const selectedIndex =
     draftsOnly || publishedOnly
@@ -220,17 +235,12 @@ export default function RevisionDropdown({
     (r) => r.status === "discarded",
   ).length;
 
-  const builtInTrigger = (
+  const trigger = (
     <Flex
       align="center"
       justify="between"
       gap="3"
-      style={{
-        width: "100%",
-        overflow: "hidden",
-        opacity: disabled ? 0.5 : 1,
-        cursor: disabled ? "not-allowed" : undefined,
-      }}
+      style={{ width: "100%", overflow: "hidden" }}
     >
       {variant === "select" ? (
         // In select mode: grow to fill space so badge + caret stay visible on the right
@@ -281,21 +291,18 @@ export default function RevisionDropdown({
         style={{ textOverflow: "ellipsis", whiteSpace: "nowrap" }}
       >
         {publishedOnly
-          ? triggerDate &&
-            !disabled && (
+          ? triggerDate && (
               <Text size="small" color="text-low" whiteSpace="nowrap">
                 Published: {dateNoCurrentYear(triggerDate)}
               </Text>
             )
-          : (selectedMeta?.createdBy || (triggerDate && !disabled)) && (
+          : (selectedMeta?.createdBy || triggerDate) && (
               <Text size="small" color="text-low" whiteSpace="nowrap">
                 {selectedMeta?.createdBy && (
                   <EventUser user={selectedMeta.createdBy} display="name" />
                 )}
-                {selectedMeta?.createdBy && triggerDate && !disabled && (
-                  <> &middot; </>
-                )}
-                {triggerDate && !disabled && dateNoCurrentYear(triggerDate)}
+                {selectedMeta?.createdBy && triggerDate && <> &middot; </>}
+                {triggerDate && dateNoCurrentYear(triggerDate)}
               </Text>
             )}
       </Box>
@@ -314,32 +321,54 @@ export default function RevisionDropdown({
   return (
     <DropdownMenu
       variant="soft"
-      open={disabled ? false : open}
-      onOpenChange={disabled ? undefined : setOpen}
-      trigger={customTrigger ?? builtInTrigger}
+      open={open}
+      onOpenChange={setOpen}
+      trigger={trigger}
       triggerClassName={
-        customTrigger
-          ? undefined
-          : variant === "select"
-            ? "dropdown-trigger-select-style"
-            : "dropdown-trigger-slim-style"
+        variant === "select"
+          ? "dropdown-trigger-select-style"
+          : "dropdown-trigger-slim-style"
       }
       menuWidth="full"
       menuPlacement={menuPlacement}
     >
-      {!draftsOnly && !publishedOnly && discardedCount > 0 && (
-        <RadixDropdownMenu.Label>
-          <Flex justify="end" align="center" gap="2" style={{ width: "100%" }}>
-            <Text size="small" color="text-low">
-              Show discarded ({discardedCount})
-            </Text>
-            <Switch
-              size="1"
-              value={showDiscarded}
-              onChange={setShowDiscarded}
-            />
-          </Flex>
-        </RadixDropdownMenu.Label>
+      {pinnedRevisions.map((r) => (
+        <DropdownMenuItem
+          key={`pinned-${r.version}`}
+          className="multiline-item"
+          onClick={() => handleSelect(r.version)}
+        >
+          <RevisionRow r={r} liveVersion={liveVersion} />
+        </DropdownMenuItem>
+      ))}
+      {showPinnedSection && (
+        <>
+          {pinnedRevisions.length > 0 && <DropdownMenuSeparator />}
+          <RadixDropdownMenu.Label>
+            <Flex
+              justify="between"
+              align="center"
+              gap="2"
+              style={{ width: "100%" }}
+            >
+              <Text size="medium" color="text-mid">
+                All revisions
+              </Text>
+              {!draftsOnly && !publishedOnly && discardedCount > 0 && (
+                <Flex align="center" gap="2">
+                  <Text size="small" color="text-low">
+                    Show discarded ({discardedCount})
+                  </Text>
+                  <Switch
+                    size="1"
+                    value={showDiscarded}
+                    onChange={setShowDiscarded}
+                  />
+                </Flex>
+              )}
+            </Flex>
+          </RadixDropdownMenu.Label>
+        </>
       )}
       {menuItems}
       {remaining > 0 && (

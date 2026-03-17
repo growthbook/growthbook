@@ -7,7 +7,6 @@ import {
   PiPlus,
   PiArrowsLeftRightBold,
   PiPencilSimpleFill,
-  PiCaretDownBold,
   PiCaretRightBold,
   PiPencil,
 } from "react-icons/pi";
@@ -63,7 +62,6 @@ import EditRevisionCommentModal from "@/components/Features/EditRevisionCommentM
 import FixConflictsModal from "@/components/Features/FixConflictsModal";
 import CompareRevisionsModal from "@/components/Features/CompareRevisionsModal";
 import RevisionStatusBadge from "@/components/Features/RevisionStatusBadge";
-import RevisionDropdown from "@/components/Features/RevisionDropdown";
 import RevisionLabel, {
   revisionLabelText,
 } from "@/components/Features/RevisionLabel";
@@ -863,48 +861,6 @@ export default function FeaturesOverview({
                       </Text>
                     )}
                 </Flex>
-                {drafts.length > 0 && isLocked && !isDraft && (
-                  <>
-                    <Separator
-                      orientation="vertical"
-                      style={{ marginTop: 2 }}
-                    />
-                    {drafts.length === 1 ? (
-                      <Link onClick={() => setVersion(drafts[0].version)}>
-                        Switch to active draft
-                      </Link>
-                    ) : (
-                      <RevisionDropdown
-                        feature={feature}
-                        revisions={revisionList || []}
-                        version={version ?? feature.version}
-                        setVersion={setVersion}
-                        draftsOnly
-                        menuPlacement="start"
-                        customTrigger={
-                          <Link>
-                            Switch to active draft
-                            <PiCaretDownBold
-                              style={{ marginLeft: 4, verticalAlign: "middle" }}
-                            />
-                          </Link>
-                        }
-                      />
-                    )}
-                  </>
-                )}
-                {((isDraft && !isLive) ||
-                  (isLocked && !isDraft && drafts.length === 0 && !isLive)) && (
-                  <>
-                    <Separator
-                      orientation="vertical"
-                      style={{ marginTop: 2 }}
-                    />
-                    <Link onClick={() => setVersion(feature.version)}>
-                      See live revision
-                    </Link>
-                  </>
-                )}
 
                 {onCompareRevisions && (
                   <>
