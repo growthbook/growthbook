@@ -188,29 +188,20 @@ function buildHoldoutsMapForProjects(
   return result;
 }
 
-// Holdout defs are merged without capability pick or includeRuleIds. Fine in practice: SDKs with holdout support have bucketingV2.
+// Caller must pass holdouts map already filtered by project (e.g. buildHoldoutsMapForProjects).
 export function generateHoldoutsPayload({
   holdoutsMap,
-  projects = [],
 }: {
   holdoutsMap: Map<
     string,
     { holdout: HoldoutInterface; holdoutExperiment: ExperimentInterface }
   >;
-  projects?: string[];
 }): Record<string, FeatureDefinition> {
   const holdoutDefs: Record<string, FeatureDefinition> = {};
   holdoutsMap.forEach((holdoutWithExperiment) => {
-    const exp = holdoutWithExperiment.holdoutExperiment; // renamed from `experiment` on main
+    const exp = holdoutWithExperiment.holdoutExperiment;
     const holdout = holdoutWithExperiment.holdout;
     if (!exp) return;
-    if (
-      projects.length > 0 &&
-      holdout.projects.length > 0 &&
-      !holdout.projects.some((p) => projects.includes(p))
-    ) {
-      return;
-    }
 
     const def: FeatureDefinition = {
       defaultValue: "genpop",
@@ -565,7 +556,6 @@ export function queueSDKPayloadRefresh(data: {
   });
 }
 
-/** Exported for testing lifecycle (cache refresh, webhooks, bulk immutability). */
 export async function refreshSDKPayloadCache({
   context: baseContext,
   payloadKeys,
@@ -1060,7 +1050,6 @@ export async function buildSDKPayloadForConnection(
 
   const holdoutFeatureDefinitions = generateHoldoutsPayload({
     holdoutsMap: holdoutsMapForConnection,
-    projects: projectList,
   });
 
   const experimentsDefinitions = generateAutoExperimentsPayload({

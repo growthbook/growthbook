@@ -618,9 +618,8 @@ describe("SDK payload generation (scenario-specific)", () => {
       includeRuleIds: false,
       includeExperimentNames: false,
     });
-    expect(
-      (withoutPrereqs.rules?.[0] as Record<string, unknown>).parentConditions,
-    ).toBeUndefined();
+    // Feature has top-level + rule-level gates; excluded entirely when connection lacks prerequisites.
+    expect(withoutPrereqs).toBeNull();
   });
 
   it("includeRuleIds controls holdout rule id", () => {
@@ -1184,19 +1183,10 @@ describe("SDK payload generation (scenario-specific)", () => {
         data,
       });
 
-      // Top-level prerequisites live on feature.prerequisites (not on rules). The
-      // !hasPrerequisites guard in getFeatureDefinition only checks rule.prerequisites,
-      // so child-top passes through — delivered ungated (no gating force rule generated).
-      // Note: this differs from main where scrubFeatures would detect the gate:true rule
-      // and delete the feature. On this branch, no gate rule is ever created → no deletion.
-      expect(withoutPrereqs.features["child-top"]).toBeDefined();
-      expect(withoutPrereqs.features["child-top"]?.rules).toBeUndefined();
-
-      // Rule-level: getFeatureDefinition returns null when !hasPrerequisites and any rule
-      // has inline prerequisites (lines ~378-391 in util/features.ts). Feature removed entirely.
+      // When connection lacks prerequisites, features with any gates (top-level or rule-level) are excluded.
+      expect(withoutPrereqs.features["child-top"]).toBeUndefined();
       expect(withoutPrereqs.features["child-rule"]).toBeUndefined();
 
-      // looseUnmarshalling does not affect hasPrerequisites — same outcome
       const withLooseUnmarshalling = await buildSDKPayloadForConnection({
         context: minimalContext(),
         connection: {
@@ -1206,10 +1196,7 @@ describe("SDK payload generation (scenario-specific)", () => {
         },
         data,
       });
-      expect(withLooseUnmarshalling.features["child-top"]).toBeDefined();
-      expect(
-        withLooseUnmarshalling.features["child-top"]?.rules,
-      ).toBeUndefined();
+      expect(withLooseUnmarshalling.features["child-top"]).toBeUndefined();
       expect(withLooseUnmarshalling.features["child-rule"]).toBeUndefined();
     });
 

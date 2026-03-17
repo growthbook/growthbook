@@ -365,29 +365,26 @@ export function getFeatureDefinition({
     !!savedGroupsMap &&
     (savedGroupReferencesEnabled === false ||
       !capabilities.includes("savedGroupReferences"));
-  // looseUnmarshalling = no capability-based strip (emit full rule shape). It is
-  // necessary but not sufficient for connection-controlled fields (rule ids,
-  // feature/experiment/variation names, etc.)—we only add those when the corresponding
-  // SDK Connection setting is true (includeRuleIds, includeExperimentNames, etc.).
+  // looseUnmarshalling => no capability-based strip. Connection settings still gate rule id, names, etc.
   const allowedKeys =
     capabilities !== undefined && !capabilities.includes("looseUnmarshalling")
       ? getPayloadAllowedKeys(capabilities)
       : null;
 
-  // Exclude whole feature when connection lacks prerequisites and any rule has a gate
-  if (
-    capabilities !== undefined &&
-    !hasPrerequisites &&
-    rules?.some((r) => {
+  // Exclude feature when connection lacks prerequisites and feature has any gates (top-level or rule-level).
+  if (capabilities !== undefined && !hasPrerequisites) {
+    const hasTopLevelPrereqs = !!feature.prerequisites?.length;
+    const hasRuleLevelGates = rules?.some((r) => {
       if (r.type === "experiment-ref") {
         const exp = experimentMap.get(r.experimentId);
         const phase = exp?.phases?.slice(-1)?.[0];
         return !!phase?.prerequisites?.length;
       }
       return !!(r as { prerequisites?: unknown[] }).prerequisites?.length;
-    })
-  ) {
-    return null;
+    });
+    if (hasTopLevelPrereqs || hasRuleLevelGates) {
+      return null;
+    }
   }
 
   // If the feature has a holdout and it's enabled for the environment, add holdout as a
