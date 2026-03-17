@@ -8,11 +8,14 @@ has_changes() {
 # API type generation: hash all input files and skip if unchanged
 api_spec_inputs="packages/back-end/src/api/specs packages/back-end/src/api/openapi packages/back-end/src/api/api.router.ts packages/back-end/src/scripts/generate-doc-models-for-openapi-schemas.ts packages/back-end/src/scripts/generate-openapi.mjs"
 api_spec_hash_file="packages/back-end/generated/.api-spec-hash"
-current_api_hash=$(find $api_spec_inputs -type f 2>/dev/null | sort | xargs cat 2>/dev/null | shasum | cut -d' ' -f1)
+current_api_hash=$(git ls-files $api_spec_inputs 2>/dev/null | sort | xargs cat 2>/dev/null | shasum | cut -d' ' -f1)
 stored_api_hash=$(cat "$api_spec_hash_file" 2>/dev/null || echo "")
 if [ "$current_api_hash" != "$stored_api_hash" ]; then
   echo "#### API spec inputs changed, running generate-api-types"
-  pnpm generate-api-types
+  if ! pnpm generate-api-types; then
+    echo "#### generate-api-types failed, not updating API spec hash"
+    exit 1
+  fi
   echo "$current_api_hash" > "$api_spec_hash_file"
   git add packages/shared/types/openapi.d.ts
   git add packages/back-end/generated/spec.yaml
