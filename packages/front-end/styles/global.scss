@@ -3660,6 +3660,15 @@ input:disabled {
   background-color: var(--color-surface-solid) !important;
 }
 
+// Ace autocomplete is appended to body (outside .radix-themes), so it doesn't
+// see theme variables. Set explicit backgrounds by theme so the list is readable.
+.light-theme .ace_editor.ace_autocomplete {
+  background-color: #ffffff !important;
+}
+.dark-theme .ace_editor.ace_autocomplete {
+  background-color: #0c1122 !important;
+}
+
 /* Radix-style pagination for ReactPaginate */
 .pagination-radix-container {
   display: flex;
