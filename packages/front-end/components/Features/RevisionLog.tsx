@@ -101,9 +101,7 @@ function RevisionLogRow({ log, first }: { log: RevisionLog; first: boolean }) {
         }}
       >
         <Text size="small" weight="semibold">
-          {log.action === "edit comment"
-            ? "Edit revision description"
-            : log.action}
+          {log.action === "edit comment" ? "Edit revision notes" : log.action}
         </Text>
         {log.subject && (
           <Text size="small" color="text-mid">

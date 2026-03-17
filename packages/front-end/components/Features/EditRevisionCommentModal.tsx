@@ -26,7 +26,7 @@ export default function EditRevisionCommentModal({
       trackingEventModalType=""
       open={true}
       close={close}
-      header="Edit Revision Description"
+      header="Edit Revision Notes"
       cta={"Save"}
       submit={async () => {
         await apiCall(`/feature/${feature.id}/${revision.version}/comment`, {
@@ -39,7 +39,7 @@ export default function EditRevisionCommentModal({
       }}
     >
       <Field
-        label="Revision Description"
+        label="Revision Notes"
         value={comment}
         onChange={(e) => {
           setComment(e.target.value);

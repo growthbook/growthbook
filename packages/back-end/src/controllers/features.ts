@@ -2565,14 +2565,14 @@ export async function putFeatureRule(
 }
 
 export async function postFeatureCreateDraft(
-  req: AuthRequest<{ title?: string }, { id: string }>,
+  req: AuthRequest<{ title?: string; comment?: string }, { id: string }>,
   res: Response<
     { status: 200; draftVersion: number },
     EventUserForResponseLocals
   >,
 ) {
   const { id } = req.params;
-  const { title } = req.body ?? {};
+  const { title, comment } = req.body ?? {};
   const context = getContextFromReq(req);
   const feature = await getFeature(context, id);
 
@@ -2602,7 +2602,7 @@ export async function postFeatureCreateDraft(
     feature,
     user: context.auditUser,
     baseVersion: feature.version,
-    comment: "",
+    comment: comment ?? "",
     title,
     environments,
     publish: false,

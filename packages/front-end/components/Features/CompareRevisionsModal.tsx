@@ -285,7 +285,7 @@ function RevisionCommentItem({
           >
             <RevisionLabel version={version} title={title} />
           </OverflowText>{" "}
-          description
+          notes
         </Text>
         {logEntry?.user && (
           <Text size="small" color="text-low">
