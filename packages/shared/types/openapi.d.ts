@@ -10020,6 +10020,8 @@ export interface operations {
           type?: "standard" | "multi-armed-bandit";
           /** @description Project ID which the experiment belongs to */
           project?: string;
+          /** @description ID of the [ExperimentTemplate](#tag/ExperimentTemplate_model) this experiment was created from. This is a reference only and does not apply template settings server-side. */
+          templateId?: string;
           /** @description Hypothesis of the experiment */
           hypothesis?: string;
           /** @description Description of the experiment */

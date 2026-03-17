@@ -22,11 +22,25 @@ import { validateCustomFields } from "./validations";
 
 export const postExperiment = createApiRequestHandler(postExperimentValidator)(
   async (req): Promise<PostExperimentResponse> => {
-    const { datasourceId, owner: ownerEmail, project, customFields } = req.body;
+    const {
+      datasourceId,
+      owner: ownerEmail,
+      project,
+      customFields,
+      templateId,
+    } = req.body;
 
     // Validate projects - We can remove this validation when FeatureModel is migrated to BaseModel
     if (project) {
       await req.context.models.projects.ensureProjectsExist([project]);
+    }
+
+    if (templateId) {
+      const template =
+        await req.context.models.experimentTemplates.getById(templateId);
+      if (!template) {
+        throw new Error(`Invalid template: ${templateId}`);
+      }
     }
 
     if (!req.context.permissions.canCreateExperiment(req.body)) {

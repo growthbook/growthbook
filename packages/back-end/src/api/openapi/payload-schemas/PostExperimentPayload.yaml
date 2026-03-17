@@ -27,6 +27,9 @@ properties:
   project:
     type: string
     description: Project ID which the experiment belongs to
+  templateId:
+    type: string
+    description: ID of the [ExperimentTemplate](#tag/ExperimentTemplate_model) this experiment was created from. This is a reference only and does not apply template settings server-side.
   hypothesis:
     type: string
     description: Hypothesis of the experiment
