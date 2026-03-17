@@ -58,6 +58,10 @@ import { useUser } from "@/services/UserContext";
 import EventUser from "@/components/Avatar/EventUser";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import RevertModal from "@/components/Features/RevertModal";
+import {
+  FeatureUsageSparkline,
+  useFeatureUsage,
+} from "@/components/Features/FeatureUsageGraph";
 import EditRevisionCommentModal from "@/components/Features/EditRevisionCommentModal";
 import FixConflictsModal from "@/components/Features/FixConflictsModal";
 import CompareRevisionsModal from "@/components/Features/CompareRevisionsModal";
@@ -168,6 +172,7 @@ export default function FeaturesOverview({
 
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
+  const { showFeatureUsage } = useFeatureUsage();
 
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
@@ -965,10 +970,16 @@ export default function FeaturesOverview({
         </Box>
         <Frame mb="4" px="6" py="4">
           <Box>
-            <Flex align="center" gap="1" mb="2">
+            <Flex align="center" justify="between" gap="2" mb="2">
               <Heading as="h4" size="3" mb="0">
                 Environment Status
               </Heading>
+              {showFeatureUsage && (
+                <FeatureUsageSparkline
+                  valueType={feature.valueType}
+                  environments={envs}
+                />
+              )}
             </Flex>
             <div className="mb-4">
               When disabled, this feature will evaluate to <code>null</code>.

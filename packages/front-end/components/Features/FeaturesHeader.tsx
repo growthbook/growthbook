@@ -45,7 +45,6 @@ import {
 } from "@/ui/DropdownMenu";
 import { useFeatureStaleStates } from "@/hooks/useFeatureStaleStates";
 import { useScrollPosition } from "@/hooks/useScrollPosition";
-import { FeatureUsageSparkline, useFeatureUsage } from "./FeatureUsageGraph";
 import FeatureArchiveModal from "./FeatureArchiveModal";
 import FeatureDeleteModal from "./FeatureDeleteModal";
 import AddToHoldoutModal from "./AddToHoldoutModal";
@@ -90,7 +89,6 @@ export default function FeaturesHeader({
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [staleStatusOpen, setStaleStatusOpen] = useState(false);
   const [showImplementation, setShowImplementation] = useState(firstFeature);
-  const { showFeatureUsage } = useFeatureUsage();
   const { organization, hasCommercialFeature, getOwnerDisplay, users } =
     useUser();
   const ownerDisplay = getOwnerDisplay(feature.owner);
@@ -429,12 +427,6 @@ export default function FeaturesHeader({
                 open={staleStatusOpen}
                 onOpenChange={setStaleStatusOpen}
               />
-              {showFeatureUsage && (
-                <FeatureUsageSparkline
-                  valueType={feature.valueType}
-                  environments={environments.map((e) => e.id)}
-                />
-              )}
             </Flex>
             {/* Slot: revisionAndSettingsGroup portal mounts here when not scrolled (>20px → tabs bar) */}
             <div ref={headerSlotRef} />
