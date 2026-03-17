@@ -53,8 +53,7 @@ export default function FeatureArchiveModal({
 
   const isAdmin = permissionsUtil.canBypassApprovalChecks(feature);
 
-  // Archive approval is gated by the top-level requireReviewOn setting only —
-  // not by featureRequireMetadataReview or featureRequireEnvironmentReview.
+  // Gated by requireReviewOn only, not by metadata or environment review flags
   const archiveGated: boolean = (() => {
     const raw = settings?.requireReviews;
     if (raw === true) return true;
@@ -92,9 +91,7 @@ export default function FeatureArchiveModal({
       }
       submitColor={mode === "publish" ? "danger" : "primary"}
       submit={async () => {
-        // Desired new archived state — explicit so the endpoint never has to
-        // guess by toggling `feature.archived` (which may differ from the
-        // draft's current archived field).
+        // Explicit so the endpoint doesn't have to guess by toggling feature.archived
         const desiredArchived = !isArchived;
         const res = await apiCall<{ draftVersion?: number }>(
           `/feature/${feature.id}/archive`,

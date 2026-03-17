@@ -45,9 +45,9 @@ function EnvStateGrid({
   liveVersion,
   afterChangeSubtext,
 }: {
-  /** Pure live document — used for the "Live" row. */
+  // Pure live document, used for the "Live" row
   liveFeature: FeatureInterface;
-  /** Draft-merged document — used as the base for the "After change" row. */
+  // Draft-merged document, used for the "After change" row
   draftFeature: FeatureInterface;
   allOrgEnvironments: Environment[];
   changedEnv: string;
@@ -59,9 +59,7 @@ function EnvStateGrid({
   const LABEL_W = 156;
   const ROW_PY = 6;
 
-  // liveFeature.environmentSettings is filtered server-side to only environments
-  // relevant to this feature's project — use that as the source of truth for
-  // which environments to display, ordered by the org environment list.
+  // environmentSettings is project-filtered server-side; use it as the source of truth for display order
   const liveEnvSettings = liveFeature.environmentSettings ?? {};
   const draftEnvSettings = draftFeature.environmentSettings ?? {};
   const visibleEnvs = allOrgEnvironments.filter(
@@ -71,7 +69,6 @@ function EnvStateGrid({
   return (
     <Box my="4" style={{ overflowX: "auto" }}>
       <Flex direction="column" style={{ minWidth: "max-content" }}>
-        {/* Header row */}
         <Flex
           align="center"
           pb="2"
@@ -95,7 +92,6 @@ function EnvStateGrid({
           ))}
         </Flex>
 
-        {/* Live row */}
         <Flex
           align="center"
           style={{ paddingTop: ROW_PY, paddingBottom: ROW_PY }}
@@ -124,7 +120,6 @@ function EnvStateGrid({
           })}
         </Flex>
 
-        {/* After-change row */}
         <Flex
           align="center"
           style={{ paddingTop: ROW_PY, paddingBottom: ROW_PY }}
@@ -161,14 +156,14 @@ function EnvStateGrid({
 }
 
 export interface KillSwitchModalProps {
-  /** Merged feature (may reflect draft state) — used for toggle preselection. */
+  // Merged feature (may reflect draft state), used for toggle preselection
   feature: FeatureInterface;
-  /** Live base feature document — used for the live-state row in the grid. */
+  // Live base feature document, used for the live-state row in the grid
   baseFeature?: FeatureInterface;
   environment: string;
-  /** The desired new state (true = enable, false = disable). */
+  // true = enable, false = disable
   desiredState: boolean;
-  /** Revision currently being viewed — pre-selected in the draft dropdown. */
+  // Pre-selected in the draft dropdown
   currentVersion: number;
   revisionList: MinimalFeatureRevisionInterface[];
   mutate: () => Promise<unknown>;
@@ -195,14 +190,9 @@ export default function KillSwitchModal({
 
   const isAdmin = permissionsUtil.canBypassApprovalChecks(feature);
 
-  // Determine per-environment approval gating.
-  // requireReviews === true is the top-level opt-in (all envs gated);
-  // the array format allows per-project/env configuration.
   const rawRequireReviews = settings?.requireReviews;
 
-  // Approval requirement for this specific kill-switch action.
-  // featureRequireEnvironmentReview=false disables kill-switch gating even when
-  // general env approvals are on.
+  // featureRequireEnvironmentReview=false disables kill-switch gating even when general env approvals are on
   const envIsGated: boolean = (() => {
     if (rawRequireReviews === true) return true;
     if (!Array.isArray(rawRequireReviews)) return false;
@@ -213,9 +203,7 @@ export default function KillSwitchModal({
     return gatedEnvs.length === 0 || gatedEnvs.includes(environment);
   })();
 
-  // gatedEnvSet reflects whether this kill-switch action is actually gated and
-  // which environments are in scope. "none" when kill-switch approvals are off,
-  // even if other change types are gated in this org.
+  // "none" when kill-switch approvals are off, even if other change types are gated
   const gatedEnvSet: Set<string> | "all" | "none" = (() => {
     if (!envIsGated) return "none";
     if (rawRequireReviews === true) return "all";
@@ -225,10 +213,8 @@ export default function KillSwitchModal({
     return gatedEnvs.length === 0 ? "all" : new Set(gatedEnvs);
   })();
 
-  // Admins can always auto-publish. Non-admins can only auto-publish if not gated.
   const canAutoPublish = isAdmin || !envIsGated;
 
-  // Active drafts for the dropdown
   const activeDrafts = useMemo(
     () =>
       revisionList.filter((r) =>
@@ -237,16 +223,11 @@ export default function KillSwitchModal({
     [revisionList],
   );
 
-  // Whether we're already viewing an active draft
   const viewingActiveDraft = activeDrafts.some(
     (r) => r.version === currentVersion,
   );
 
-  // Pre-check auto-publish only when not already on a draft and we have permission.
-  // If on a draft: pre-select that draft instead.
-  // If not on a draft and cannot auto-publish: pre-select the most recent draft (or null).
-  // Pre-select: currentVersion if it's an active draft, else newest owned by
-  // the current user, else newest overall, else null (= new draft).
+  // Pre-select: currentVersion if it's an active draft, else newest by current user, else newest, else null
   const userId = organization?.ownerEmail;
   const defaultDraft = useMemo((): number | null => {
     if (activeDrafts.find((r) => r.version === currentVersion)) {
@@ -266,7 +247,6 @@ export default function KillSwitchModal({
   const [mode, setMode] = useState<DraftMode>(
     viewingActiveDraft ? "existing" : "new",
   );
-  // Always pre-populated so switching to "existing draft" immediately shows the current draft.
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
   );
@@ -339,10 +319,7 @@ export default function KillSwitchModal({
         <EnvStateGrid
           liveFeature={baseFeature ?? feature}
           draftFeature={
-            // Use the current draft's merged state only when we're actually
-            // applying the toggle on top of that specific draft. For "new draft"
-            // or any other existing draft we don't have merged state for, fall
-            // back to live so the grid shows only the proposed toggle change.
+            // Use merged draft state only when applying the toggle to that specific draft; otherwise fall back to live
             mode === "existing" && selectedDraft === currentVersion
               ? feature
               : (baseFeature ?? feature)

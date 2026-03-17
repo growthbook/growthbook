@@ -46,8 +46,7 @@ const EditFeatureInfoModal: FC<{
 
   const isAdmin = permissionsUtil.canBypassApprovalChecks(feature);
 
-  // Metadata changes are gated when requireReviewOn is true AND
-  // featureRequireMetadataReview is not explicitly disabled.
+  // Gated when requireReviewOn is true and featureRequireMetadataReview is not disabled
   const metadataGated: boolean = (() => {
     const raw = settings?.requireReviews;
     if (raw === true) return true;
@@ -61,8 +60,6 @@ const EditFeatureInfoModal: FC<{
 
   const defaultDraft = useDefaultDraft(revisionList);
 
-  // mode drives the CTA and API call; selectedDraft is always pre-populated
-  // so switching to "existing draft" immediately shows the current draft.
   const [mode, setMode] = useState<DraftMode>(
     canAutoPublish ? "publish" : "new",
   );

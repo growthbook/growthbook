@@ -67,15 +67,14 @@ const STORAGE_KEY_PREFIX = "feature:compare-revisions";
 
 export interface Props {
   feature: FeatureInterface;
-  /** The live (published) feature — used as the authoritative baseline for preview-mode diffs. */
+  // Live feature, used as authoritative baseline for preview-mode diffs
   baseFeature?: FeatureInterface;
   revisionList: MinimalFeatureRevisionInterface[];
   revisions: FeatureRevisionInterface[];
   currentVersion: number;
   onClose: () => void;
-  /** When set, the modal opens directly in "preview draft vs live" mode for this version. */
+  // Opens directly in "preview draft vs live" mode for this version
   initialPreviewDraft?: number;
-  /** When set, the modal opens in the given quick-action mode. */
   initialMode?: "most-recent-live";
 }
 
@@ -213,8 +212,7 @@ function RevisionCompareLabel({
 function badgesFromDiffs(diffs: FeatureRevisionDiff[]): DiffBadge[] {
   const all = diffs.flatMap((d) => d.badges ?? []);
 
-  // For env-toggle badges (action = "toggle environment <envId>"), keep only
-  // the last occurrence so we show the net result across multiple steps.
+  // For env-toggle badges, keep only the last occurrence to show the net result
   const envTogglePrefix = "toggle environment ";
   const envFinal = new Map<string, DiffBadge>();
   const nonEnvBadges: DiffBadge[] = [];
@@ -230,8 +228,6 @@ function badgesFromDiffs(diffs: FeatureRevisionDiff[]): DiffBadge[] {
   return dedupeDiffBadges([...nonEnvBadges, ...envFinal.values()]);
 }
 
-// Renders the comment for a single revision version. Returns null if there is
-// no comment on either the revision object or any "edit comment" log entry.
 function RevisionCommentItem({
   featureId,
   version,
@@ -491,8 +487,7 @@ export default function CompareRevisionsModal({
 
   const [selectedVersions, setSelectedVersions] = useState<number[]>(() => {
     if (initialMode === "most-recent-live") {
-      // Compute the live range inline (published-only) so we get the right
-      // initial selection without a post-render flash.
+      // Compute inline to avoid a post-render flash
       const publishedAsc = revisionList
         .filter((r) => r.status === "published")
         .map((r) => r.version)
@@ -537,13 +532,13 @@ export default function CompareRevisionsModal({
 
   const fetchRevisions = useCallback(
     async (versions: number[]) => {
-      // Filter out already cached or currently in-flight versions
+      // Skip already cached or in-flight versions
       const toFetch = versions.filter(
         (v) => !getFullRevision(v) && !fetchingRef.current.has(v),
       );
       if (!toFetch.length) return;
 
-      // Clear any previous failures for versions we're about to (re)fetch
+      // Clear prior failures for versions being (re)fetched
       setFailedVersions((prev) => {
         if (!toFetch.some((v) => prev.has(v))) return prev;
         const next = new Set(prev);
@@ -574,7 +569,7 @@ export default function CompareRevisionsModal({
             return next;
           });
         }
-        // Versions that were requested but not returned are definitively missing
+        // Versions not returned are definitively missing
         const missing = toFetch.filter((v) => !returnedVersions.has(v));
         if (missing.length) {
           setFailedVersions((prev) => {
@@ -603,8 +598,7 @@ export default function CompareRevisionsModal({
   );
 
   const selectedSorted = useMemo(() => {
-    // selectedVersions holds exactly 2 endpoints [lo, hi]; expand to all
-    // visible (non-filtered) versions between them for stepped diffing.
+    // Expand 2 endpoints to all visible versions between them for stepped diffing
     if (selectedVersions.length < 2) {
       return [...selectedVersions]
         .filter((v) => filteredRevisionList.some((r) => r.version === v))
@@ -618,7 +612,7 @@ export default function CompareRevisionsModal({
       .sort((a, b) => a - b);
   }, [selectedVersions, filteredRevisionList]);
 
-  // Compare ranges by their endpoints only (both arrays are sorted ascending).
+  // Compares ranges by endpoints only
   const isRangeEqual = useCallback(
     (a: number[], b: number[] | null) =>
       !!b &&
@@ -667,7 +661,6 @@ export default function CompareRevisionsModal({
   );
 
   const [diffPage, setDiffPage] = useState(0);
-  // Helper: reset endpoints to the two newest visible versions.
   const resetToTopTwo = useCallback(
     (prev: number[]) => {
       const top2 = [...filteredRevisionList]
@@ -692,7 +685,6 @@ export default function CompareRevisionsModal({
         return resetToTopTwo(prev);
       });
     }
-    // When showing discarded: selectedSorted auto-expands to include them.
   }, [showDiscarded, filteredRevisionList, resetToTopTwo]);
 
   const prevShowDraftsRef = useRef(showDrafts);
@@ -714,8 +706,7 @@ export default function CompareRevisionsModal({
     );
   }, [steps.length]);
 
-  // Live/All quick actions hide drafts & discarded so the range only spans
-  // published revisions — matching what the user actually sees in production.
+  // Hide drafts & discarded so the range spans only published revisions
   const applyLiveQuickAction = useCallback(
     (range: number[]) => {
       setPreviewDraftVersion(null);
@@ -746,9 +737,7 @@ export default function CompareRevisionsModal({
       const startIdx = prevIndices[0] ?? -1; // newest selected (lowest display index)
       const endIdx = prevIndices[prevIndices.length - 1] ?? -1; // oldest selected
 
-      // Clicking an endpoint shrinks the range to the nearest visible item inward.
-      // versionsDesc[startIdx] is the newer (top) endpoint; versionsDesc[endIdx] is the older.
-      // Visibility = presence in filteredRevisionList (respects draft/discarded filters).
+      // Clicking an endpoint shrinks the range to the nearest visible item inward
       if (prev.includes(version)) {
         if (startIdx === -1 || endIdx === -1 || endIdx - startIdx <= 1)
           return prev;
@@ -783,8 +772,7 @@ export default function CompareRevisionsModal({
       }
 
       if (prevIndices.length > 0) {
-        // Count visible revisions (in filteredRevisionList) strictly between
-        // two indices in versionsDesc (exclusive of endpoints).
+        // Count visible revisions strictly between two indices (exclusive of endpoints)
         const visibleVersionSet = new Set(
           filteredRevisionList.map((r) => r.version),
         );
@@ -797,9 +785,7 @@ export default function CompareRevisionsModal({
           return count;
         };
 
-        // Clicking within the range: shorten by moving the nearer endpoint.
-        // versionsDesc is newest-first, so startIdx (lower) = newer, endIdx (higher) = older.
-        // Tiebreaker: move the newer (top) endpoint.
+        // Shorten range by moving the nearer endpoint; tiebreaker: move the newer one
         if (idx > startIdx && idx < endIdx) {
           const distToNewer = idx - startIdx;
           const distToOlder = endIdx - idx;
@@ -814,8 +800,7 @@ export default function CompareRevisionsModal({
           }
         }
 
-        // If 4+ visible items outside the current range, clear and pair with
-        // the item immediately below (older) instead of expanding.
+        // If 8+ visible items outside the range, pair with the adjacent item instead of expanding
         if (
           (idx < startIdx && visibleBetween(idx, startIdx) >= 8) ||
           (idx > endIdx && visibleBetween(endIdx, idx) >= 8)
@@ -851,9 +836,7 @@ export default function CompareRevisionsModal({
     [revisionList],
   );
 
-  // Returns true when a revision is a draft whose base is not the current live
-  // version — publishing it would use a 3-way merge, so the diff shown may
-  // not match the actual published result.
+  // True when a draft's base is not the current live version (3-way merge on publish; diff may not match result)
   const isOutOfOrderDraft = useCallback(
     (rev: FeatureRevisionInterface | null): boolean => {
       if (!rev) return false;
@@ -870,8 +853,7 @@ export default function CompareRevisionsModal({
     [filteredRevisionList],
   );
 
-  // Always computed from the full unfiltered list so quick actions are
-  // independent of whatever the user has toggled in the filter checkboxes.
+  // Use full unfiltered list so quick actions are independent of filter checkboxes
   const mostRecentDraftVersion = useMemo(() => {
     const drafts = revisionList.filter((r) =>
       DRAFT_REVISION_STATUSES.includes(r.status),
@@ -880,7 +862,6 @@ export default function CompareRevisionsModal({
     return Math.max(...drafts.map((r) => r.version));
   }, [revisionList]);
 
-  // Ascending list of published-only versions — used for live/all ranges.
   const publishedVersionsAsc = useMemo(
     () =>
       revisionList
@@ -891,19 +872,16 @@ export default function CompareRevisionsModal({
   );
 
   const quickActionRanges = useMemo(() => {
-    // Draft: enter preview mode for the most recent draft vs live.
     const draftPreviewVersion =
       mostRecentDraftVersion !== null && mostRecentDraftVersion !== liveVersion
         ? mostRecentDraftVersion
         : null;
 
-    // Live: previous published → current live (published-only range).
     const prevLiveVersion =
       publishedVersionsAsc.filter((v) => v < liveVersion).at(-1) ?? null;
     const liveRange: [number, number] | null =
       prevLiveVersion !== null ? [prevLiveVersion, liveVersion] : null;
 
-    // All: oldest published → current live.
     const allRange: [number, number] | null =
       publishedVersionsAsc.length >= 2
         ? [
@@ -919,7 +897,6 @@ export default function CompareRevisionsModal({
   const stepRevA = currentStep ? getFullRevision(currentStep[0]) : null;
   const stepRevB = currentStep ? getFullRevision(currentStep[1]) : null;
 
-  // Versions needed by whichever diff view is currently shown
   const displayVersions =
     steps.length === 0
       ? []
@@ -954,11 +931,7 @@ export default function CompareRevisionsModal({
       : { defaultValue: "", rules: {} },
   });
 
-  // Preview draft mode: always live (left) vs draft (right).
-  // Use the fully-merged live feature (baseFeature) for the left side so that
-  // environmentsEnabled is dense (every env has an explicit true/false) rather
-  // than the sparse delta stored on the live revision object. Without this,
-  // envs that weren't touched in the most-recent publish show as "unset".
+  // Use baseFeature for the left side so environmentsEnabled is dense rather than the sparse delta on the live revision
   const previewLiveRev =
     previewDraftVersion !== null ? getFullRevision(liveVersion) : null;
   const previewDraftRev =
@@ -975,8 +948,7 @@ export default function CompareRevisionsModal({
         : { defaultValue: "", rules: {} },
     draft: previewDraftRev
       ? {
-          // Use the revision's own defaultValue/rules/prerequisites (full per-revision data),
-          // but merge environmentsEnabled on top of the live base so every env is explicit.
+          // Merge environmentsEnabled on top of the live base so every env is explicit
           ...revisionToDiffInput(previewDraftRev),
           environmentsEnabled: {
             ...liveBaseInput.environmentsEnabled,
@@ -1268,8 +1240,7 @@ export default function CompareRevisionsModal({
                     : minRev?.dateUpdated;
                 const isSelected = selectedSortedSet.has(v);
                 const isPreviewDraft = v === previewDraftVersion;
-                // In preview mode: check both the draft and the live revision;
-                // suppress the normal range selection entirely.
+                // In preview mode: check both draft and live; suppress normal range selection
                 const checkboxChecked =
                   previewDraftVersion !== null
                     ? v === previewDraftVersion || v === liveVersion
@@ -1393,7 +1364,7 @@ export default function CompareRevisionsModal({
           style={{ minHeight: 0 }}
         >
           {previewDraftVersion !== null ? (
-            // ── Preview Draft mode ──────────────────────────────────────────
+            // Preview draft mode
             <>
               <Box
                 pb="3"
@@ -1468,7 +1439,7 @@ export default function CompareRevisionsModal({
               Select at least two revisions in the list to see the diff.
             </Text>
           ) : (
-            // ── Standard range comparison mode ──────────────────────────────
+            // Standard range comparison mode
             <>
               <Box
                 pb="3"

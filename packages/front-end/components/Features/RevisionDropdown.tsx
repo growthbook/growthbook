@@ -25,13 +25,13 @@ export interface Props {
   variant?: "slim" | "select";
   menuPlacement?: "start" | "center" | "end";
   draftsOnly?: boolean;
-  /** Show only previously-published revisions; hides draft tabs and live pin. */
+  // Show only previously-published revisions
   publishedOnly?: boolean;
   disabled?: boolean;
   customTrigger?: React.ReactNode;
 }
 
-/** Like `date()` but omits the year when it matches the current calendar year. */
+// Like date() but omits the year when it matches the current year
 function dateNoCurrentYear(d: string | Date): string {
   const str = formatDate(d);
   const currentYear = new Date().getFullYear().toString();
@@ -51,9 +51,7 @@ function RevisionRow({
   fullWidth?: boolean;
   publishedOnly?: boolean;
 }) {
-  // In publishedOnly context always show datePublished (falling back to
-  // dateUpdated for revisions that pre-date the field). In normal context
-  // show datePublished for published revisions, dateUpdated for drafts.
+  // publishedOnly: datePublished (fallback: dateUpdated); otherwise: datePublished for published, dateUpdated for drafts
   const revDate = publishedOnly
     ? (r.datePublished ?? r.dateUpdated)
     : r.status === "published"
@@ -93,7 +91,6 @@ function RevisionRow({
           <Box flexGrow="1" />
         </>
       )}
-      {/* Right: metadata + status, vertically centered */}
       <Box
         flexShrink="1"
         overflow="hidden"
@@ -113,7 +110,6 @@ function RevisionRow({
               </Text>
             )}
       </Box>
-      {/* Status badge is redundant when all items are known to be published */}
       {!publishedOnly && (
         <Box flexShrink="0">
           <RevisionStatusBadge revision={r} liveVersion={liveVersion} />
@@ -194,8 +190,6 @@ export default function RevisionDropdown({
       : null;
 
   const selectedMeta = selectedRevision;
-  // In publishedOnly context always show datePublished (with dateUpdated
-  // fallback for old revisions). Otherwise use the normal status-based logic.
   const triggerDate = publishedOnly
     ? (selectedMeta?.datePublished ?? selectedMeta?.dateUpdated)
     : selectedMeta?.status === "published"
@@ -238,10 +232,8 @@ export default function RevisionDropdown({
         cursor: disabled ? "not-allowed" : undefined,
       }}
     >
-      {/* Left: revision label */}
       {variant === "select" ? (
-        // In select (full-width) context: grow to fill space and truncate with CSS
-        // so the badge + caret are always visible on the right.
+        // In select mode: grow to fill space so badge + caret stay visible on the right
         <Box style={{ flex: 1, minWidth: 0 }}>
           <Text weight="semibold">
             {version != null ? (
@@ -281,7 +273,6 @@ export default function RevisionDropdown({
         </Box>
       )}
       {variant !== "slim" && variant !== "select" && <Box flexGrow="1" />}
-      {/* Right: metadata + status + caret, vertically centered */}
       <Box
         flexShrink="1"
         overflow="hidden"

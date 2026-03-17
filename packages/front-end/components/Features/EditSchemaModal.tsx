@@ -480,7 +480,6 @@ export default function EditSchemaModal({
   const [mode, setMode] = useState<DraftMode>(
     canAutoPublish ? "publish" : "new",
   );
-  // Always pre-populated so switching to "existing draft" immediately shows the current draft.
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
   );
@@ -493,20 +492,17 @@ export default function EditSchemaModal({
       size="lg"
       submit={form.handleSubmit(async (value) => {
         if (value.enabled && value.schemaType === "schema") {
-          // make sure the json schema is valid json schema
           let schemaString = value.schema;
           let parsedSchema;
           try {
             if (schemaString !== "") {
-              // first see if it is valid json:
               try {
                 parsedSchema = JSON.parse(schemaString);
               } catch (e) {
-                // If the JSON is invalid, try to parse it with 'dirty-json' instead
+                // Fall back to dirty-json for lenient parsing
                 parsedSchema = dJSON.parse(schemaString);
                 schemaString = stringify(parsedSchema);
               }
-              // make sure it is valid json schema:
               const ajv = getJSONValidator();
               ajv.compile(parsedSchema);
             }
