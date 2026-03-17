@@ -32,6 +32,7 @@ import {
 } from "@/components/Forms/SelectField";
 import Field, { FieldProps } from "@/components/Forms/Field";
 import { ColorOption } from "@/components/Tags/TagsInput";
+import { VirtualizedMenuList } from "@/components/Forms/VirtualizedMenuList";
 
 const SortableMultiValue = SortableElement(
   (props: MultiValueProps<SingleValue>) => {
@@ -211,6 +212,7 @@ export type MultiSelectFieldProps = Omit<
   isOptionDisabled?: (_: Option) => boolean;
   noMenu?: boolean;
   showCopyButton?: boolean;
+  virtualized?: boolean;
 };
 
 const MultiSelectField: FC<MultiSelectFieldProps> = ({
@@ -234,6 +236,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
   required,
   pattern,
   showCopyButton = true,
+  virtualized = false,
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
@@ -374,6 +377,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
                 Input,
                 ClearIndicator: CustomClearIndicator,
                 GroupHeading,
+                ...(virtualized ? { MenuList: VirtualizedMenuList } : {}),
                 ...(showCopyButton
                   ? { IndicatorsContainer: IndicatorsContainerWithCopyButton }
                   : {}),
