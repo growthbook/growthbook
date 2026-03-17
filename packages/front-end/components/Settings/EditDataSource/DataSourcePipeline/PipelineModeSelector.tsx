@@ -40,14 +40,12 @@ const PipelineModeSelector = ({
     },
   ];
 
-  if (value === "incremental") {
-    options.push({
-      value: "incremental",
-      label: "Incremental",
-      description: "Scan only new rows and reuse persisted tables",
-      disabled: !isModeSupported("incremental"),
-    });
-  }
+  options.push({
+    value: "incremental",
+    label: "Incremental",
+    description: "Scan only new rows and reuse persisted tables",
+    disabled: !isModeSupported("incremental"),
+  });
 
   return (
     <RadioGroup

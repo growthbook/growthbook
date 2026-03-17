@@ -189,6 +189,7 @@ export default function RuleModal({
     useState(defaultHasSchedule);
 
   const orgStickyBucketing = !!settings.useStickyBucketing;
+  const hasSafeRolloutsFeature = hasCommercialFeature("safe-rollout");
   const hasMultiArmedBanditFeature = hasCommercialFeature(
     "multi-armed-bandits",
   );
@@ -785,7 +786,7 @@ export default function RuleModal({
             options={[
               {
                 value: "safe-rollout",
-                disabled: datasources.length === 0,
+                disabled: !hasSafeRolloutsFeature || datasources.length === 0,
                 label: (
                   <PremiumTooltip
                     commercialFeature="safe-rollout"
