@@ -10,8 +10,6 @@ import {
   getDisallowedProjects,
 } from "shared/util";
 import clsx from "clsx";
-import type { SDKLanguage } from "shared/types/sdk-connection";
-import { getLatestSDKVersion } from "shared/sdk-versioning";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBAddCircle, GBHashLock, GBRemoteEvalIcon } from "@/components/Icons";
@@ -45,8 +43,6 @@ export default function SDKConnectionsList() {
   const canCreateSDKConnections =
     permissionsUtil.canViewCreateSDKConnectionModal(project);
 
-  const [initialModalSelectedLanguage] = useState<SDKLanguage | null>(null);
-
   if (error) {
     return <div className="alert alert-danger">{error.message}</div>;
   }
@@ -59,12 +55,7 @@ export default function SDKConnectionsList() {
       {modalOpen && (
         <SDKConnectionForm
           initialValue={{
-            languages: initialModalSelectedLanguage
-              ? [initialModalSelectedLanguage]
-              : [],
-            sdkVersion: initialModalSelectedLanguage
-              ? getLatestSDKVersion(initialModalSelectedLanguage)
-              : undefined,
+            languages: [],
             includeRuleIds: true,
           }}
           close={() => setModalOpen(false)}
