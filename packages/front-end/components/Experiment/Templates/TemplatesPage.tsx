@@ -198,6 +198,7 @@ export const TemplatesPage = ({
                   <MoreMenu>
                     {canEdit(t) ? (
                       <button
+                        className="dropdown-item"
                         onClick={() => {
                           setOpenTemplateModal(t);
                         }}
@@ -207,6 +208,7 @@ export const TemplatesPage = ({
                     ) : null}
                     {canCreate ? (
                       <button
+                        className="dropdown-item"
                         onClick={() => {
                           setOpenDuplicateTemplateModal(t);
                         }}
@@ -217,6 +219,7 @@ export const TemplatesPage = ({
                     <hr style={{ margin: "var(--space-1) 0" }} />
                     {canDelete(t) ? (
                       <DeleteButton
+                        className="dropdown-item text-danger"
                         displayName="Template"
                         text="Delete"
                         useIcon={false}

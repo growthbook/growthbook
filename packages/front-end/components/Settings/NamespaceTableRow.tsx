@@ -97,6 +97,7 @@ export default function NamespaceTableRow({
               <>
                 <a
                   href="#"
+                  className="dropdown-item"
                   onClick={(e) => {
                     e.preventDefault();
                     onEdit();
@@ -106,6 +107,7 @@ export default function NamespaceTableRow({
                 </a>
                 <a
                   href="#"
+                  className="dropdown-item"
                   onClick={async (e) => {
                     e.preventDefault();
                     await onArchive();
@@ -117,6 +119,7 @@ export default function NamespaceTableRow({
             ) : null}
             {experiments.length === 0 && canDelete ? (
               <DeleteButton
+                className="dropdown-item text-danger"
                 displayName="Namespace"
                 useIcon={false}
                 text="Delete"

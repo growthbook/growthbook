@@ -435,6 +435,7 @@ p.rt-TooltipText {
     }
     .rt-TableBody .rt-TableRow .rt-TableCell {
       box-sizing: border-box;
+      overflow: visible;
     }
     .rt-TableBody .rt-TableRow:hover .rt-TableCell {
       background-color: var(--accent-a2);
