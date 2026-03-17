@@ -20,9 +20,6 @@ jobs:
   # Linting, type-checking, and tests
   ci:
     runs-on: ubuntu-latest
-    env:
-      ACTIONS_STEP_DEBUG: true
-      ACTIONS_RUNNER_DEBUG: true
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
