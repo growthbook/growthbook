@@ -798,13 +798,14 @@ export async function getFeatureDefinitionsResponse({
     );
   }
 
-  // Inline saved groups: expand $inGroup to $in so values can be hashed (when not using savedGroupReferences)
-  const expandSavedGroupsInline =
+  // Inline saved groups: expand $inGroup to $in when not using savedGroupReferences.
+  // When called from buildSDKPayloadForConnection, getFeatureDefinition already expanded; this pass is a no-op.
+  if (
     (!capabilities.includes("savedGroupReferences") ||
       !savedGroupReferencesEnabled) &&
     usedSavedGroups?.length > 0 &&
-    organization;
-  if (expandSavedGroupsInline) {
+    organization
+  ) {
     const savedGroupsMap = Object.fromEntries(
       usedSavedGroups.map((sg) => [sg.id, sg]),
     );
