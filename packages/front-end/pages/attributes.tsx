@@ -24,6 +24,7 @@ import SortedTags from "@/components/Tags/SortedTags";
 import Markdown from "@/components/Markdown/Markdown";
 import Link from "@/ui/Link";
 import { useAttributeReferences } from "@/hooks/useAttributeReferences";
+import { TruncateMiddleWithTooltip } from "@/ui/TruncateMiddleWithTooltip";
 import Table, {
   TableHeader,
   TableBody,
@@ -32,6 +33,9 @@ import Table, {
   TableCell,
 } from "@/ui/Table";
 import Heading from "@/ui/Heading";
+
+const ATTRIBUTE_NAME_COLUMN_MAX_WIDTH = 200;
+const TAGS_COLUMN_MAX_WIDTH = 160;
 
 const FeatureAttributesPage = (): React.ReactElement => {
   const permissionsUtil = usePermissionsUtil();
@@ -141,10 +145,14 @@ const FeatureAttributesPage = (): React.ReactElement => {
       >
         <TableCell
           className="text-gray font-weight-bold"
-          style={{ width: "17%", minWidth: 90 }}
+          style={{ maxWidth: ATTRIBUTE_NAME_COLUMN_MAX_WIDTH }}
         >
           <Link href={`/attributes/${encodeURIComponent(v.property)}`}>
-            {v.property}
+            <TruncateMiddleWithTooltip
+              text={v.property}
+              maxChars={23}
+              maxWidth={ATTRIBUTE_NAME_COLUMN_MAX_WIDTH}
+            />
           </Link>{" "}
           {v.archived && (
             <span className="badge badge-secondary" style={{ marginLeft: 8 }}>
@@ -152,15 +160,15 @@ const FeatureAttributesPage = (): React.ReactElement => {
             </span>
           )}
         </TableCell>
-        <TableCell className="text-gray" style={{ minWidth: 120 }}>
+        <TableCell
+          className="text-gray"
+          style={{ maxWidth: 200, overflow: "hidden" }}
+        >
           {v.description ? (
             <Markdown className="mb-0">{v.description}</Markdown>
           ) : null}
         </TableCell>
-        <TableCell
-          className="text-gray"
-          style={{ width: "15%", minWidth: 90, wordWrap: "break-word" }}
-        >
+        <TableCell className="text-gray" style={{ wordWrap: "break-word" }}>
           {v.datatype}
           {v.datatype === "enum" && <>: ({v.enum})</>}
           {v.format && (
@@ -169,16 +177,36 @@ const FeatureAttributesPage = (): React.ReactElement => {
             </p>
           )}
         </TableCell>
-        <TableCell style={{ paddingRight: "1rem", minWidth: 80 }}>
+        <TableCell style={{ paddingRight: "1rem" }}>
           <ProjectBadges
             resourceType="attribute"
             projectIds={(v.projects || []).length > 0 ? v.projects : undefined}
           />
         </TableCell>
-        <TableCell style={{ minWidth: 100 }}>
-          <SortedTags tags={v.tags || []} useFlex={true} />
+        <TableCell
+          style={{
+            maxWidth: TAGS_COLUMN_MAX_WIDTH,
+            overflow: "hidden",
+          }}
+        >
+          <div
+            className="tags-cell-content"
+            style={{
+              minWidth: 0,
+              maxWidth: "100%",
+              overflow: "hidden",
+            }}
+          >
+            <SortedTags
+              tags={v.tags || []}
+              useFlex={true}
+              showEllipsisAtIndex={1}
+              truncateTagChars={15}
+              ellipsisFormat={(count) => `+${count}`}
+            />
+          </div>
         </TableCell>
-        <TableCell className="text-gray" style={{ minWidth: 85 }}>
+        <TableCell className="text-gray">
           {numReferences > 0 ? (
             <Link
               onClick={() => {
@@ -206,10 +234,10 @@ const FeatureAttributesPage = (): React.ReactElement => {
             </Tooltip>
           )}
         </TableCell>
-        <TableCell className="text-gray" style={{ minWidth: 70 }}>
+        <TableCell className="text-gray">
           <Flex justify="center">{v.hashAttribute && <>yes</>}</Flex>
         </TableCell>
-        <TableCell style={{ minWidth: 44 }}>
+        <TableCell>
           {permissionsUtil.canCreateAttribute(v) ? (
             <Flex justify="center">
               <MoreMenu>
@@ -324,43 +352,33 @@ const FeatureAttributesPage = (): React.ReactElement => {
             variant="list"
             stickyHeader
             roundedCorners
-            style={{ tableLayout: "fixed", minWidth: 900 }}
+            style={{ tableLayout: "auto" }}
           >
             <TableHeader>
               <TableRow>
                 <SortableTableColumnHeader
                   field="property"
-                  style={{ width: "17%", minWidth: 90 }}
+                  style={{ maxWidth: ATTRIBUTE_NAME_COLUMN_MAX_WIDTH }}
                 >
                   Attribute
                 </SortableTableColumnHeader>
                 <SortableTableColumnHeader
                   field="description"
-                  style={{ minWidth: 120 }}
+                  style={{ maxWidth: 200 }}
                 >
                   Description
                 </SortableTableColumnHeader>
-                <SortableTableColumnHeader
-                  field="datatype"
-                  style={{ width: "15%", minWidth: 90 }}
-                >
+                <SortableTableColumnHeader field="datatype">
                   Data Type
                 </SortableTableColumnHeader>
-                <TableColumnHeader
-                  style={{ width: "15%", minWidth: 80, paddingRight: "1rem" }}
-                >
+                <TableColumnHeader style={{ paddingRight: "1rem" }}>
                   Projects
                 </TableColumnHeader>
-                <TableColumnHeader style={{ width: "15%", minWidth: 100 }}>
+                <TableColumnHeader style={{ maxWidth: TAGS_COLUMN_MAX_WIDTH }}>
                   Tags
                 </TableColumnHeader>
-                <TableColumnHeader style={{ width: "10%", minWidth: 85 }}>
-                  References
-                </TableColumnHeader>
-                <TableColumnHeader
-                  style={{ width: "10%", minWidth: 70 }}
-                  className="text-center"
-                >
+                <TableColumnHeader>References</TableColumnHeader>
+                <TableColumnHeader className="text-center">
                   Identifier{" "}
                   <Tooltip body="Any attribute that uniquely identifies a user, account, device, or similar.">
                     <FaQuestionCircle
@@ -368,10 +386,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                     />
                   </Tooltip>
                 </TableColumnHeader>
-                <TableColumnHeader
-                  style={{ width: 44, minWidth: 44 }}
-                  className="text-center"
-                />
+                <TableColumnHeader className="text-center" />
               </TableRow>
             </TableHeader>
             <TableBody>

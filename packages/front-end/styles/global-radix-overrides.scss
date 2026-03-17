@@ -442,7 +442,7 @@ p.rt-TooltipText {
       background-color: var(--accent-a2);
     }
     .rt-TableHeader {
-      width: 100%;
+      // width: 100%;
       background-color: var(--color-panel-solid);
       border-top-left-radius: var(--radius-4);
       border-top-right-radius: var(--radius-4);
@@ -487,9 +487,9 @@ p.rt-TooltipText {
       border-radius: var(--radius-4);
       background-color: var(--color-panel-solid);
       box-sizing: border-box;
-      // Size to content so wrapper scroll matches table width; header row is part of same table so it aligns
-      width: max-content;
-      min-width: 100%;
+      // // Size to content so wrapper scroll matches table width; header row is part of same table so it aligns
+      // width: max-content;
+      // min-width: 100%;
 
       .rt-TableHeader
         .rt-TableRow:first-child
