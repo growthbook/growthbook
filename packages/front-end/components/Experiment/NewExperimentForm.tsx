@@ -23,7 +23,7 @@ import {
   FaExclamationCircle,
   FaExternalLinkAlt,
 } from "react-icons/fa";
-import { useFeatureIsOn, useGrowthBook } from "@growthbook/growthbook-react";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { PiCaretDownFill } from "react-icons/pi";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useWatching } from "@/services/WatchProvider";
@@ -84,7 +84,6 @@ import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
 import Link from "@/ui/Link";
 import Markdown from "@/components/Markdown/Markdown";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
-import { AppFeatures } from "@/types/app-features";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
@@ -199,8 +198,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const { datasources, getDatasourceById, refreshTags, project, projects } =
     useDefinitions();
   const { aiEnabled } = useAISettings();
-  const gb = useGrowthBook<AppFeatures>();
-  const useCheckForSimilar = gb?.isOn("similar-experiments") || true;
+  const useCheckForSimilar = true;
   const [similarExperiments, setSimilarExperiments] = useState<
     { experiment: ExperimentInterfaceStringDates; similarity: number }[]
   >([]);
