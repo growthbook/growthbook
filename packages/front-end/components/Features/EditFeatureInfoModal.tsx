@@ -64,7 +64,7 @@ const EditFeatureInfoModal: FC<{
   // mode drives the CTA and API call; selectedDraft is always pre-populated
   // so switching to "existing draft" immediately shows the current draft.
   const [mode, setMode] = useState<DraftMode>(
-    canAutoPublish ? "publish" : defaultDraft != null ? "existing" : "new",
+    canAutoPublish ? "publish" : "new",
   );
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,

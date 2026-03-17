@@ -324,6 +324,7 @@ export default function KillSwitchModal({
           setSelectedDraft={setSelectedDraft}
           canAutoPublish={canAutoPublish}
           gatedEnvSet={gatedEnvSet}
+          defaultExpanded
         />
 
         <Text as="p" mb="2">

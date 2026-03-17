@@ -478,7 +478,7 @@ export default function EditSchemaModal({
   const defaultDraft = useDefaultDraft(revisionList);
 
   const [mode, setMode] = useState<DraftMode>(
-    canAutoPublish ? "publish" : defaultDraft != null ? "existing" : "new",
+    canAutoPublish ? "publish" : "new",
   );
   // Always pre-populated so switching to "existing draft" immediately shows the current draft.
   const [selectedDraft, setSelectedDraft] = useState<number | null>(

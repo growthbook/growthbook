@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
 import {
@@ -34,8 +34,7 @@ import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 
 export type DraftMode = "existing" | "new" | "publish";
 
-// Controlled UI for selecting where to apply a feature change.
-// State init and API calls remain in the parent modal.
+// Controlled UI for selecting where to apply a feature change; state and API calls stay in the parent.
 export default function DraftSelectorForChanges({
   feature,
   baseFeature,
@@ -46,10 +45,10 @@ export default function DraftSelectorForChanges({
   setSelectedDraft,
   canAutoPublish,
   gatedEnvSet,
+  defaultExpanded = false,
 }: {
   feature: FeatureInterface;
-  /** Raw live feature document (un-merged). When provided, used as a fallback
-   *  for environment state missing from old (sparse) live revisions. */
+  // Raw live feature document (un-merged); fallback for env state missing from old sparse live revisions.
   baseFeature?: FeatureInterface;
   revisionList: MinimalFeatureRevisionInterface[];
   mode: DraftMode;
@@ -58,7 +57,10 @@ export default function DraftSelectorForChanges({
   setSelectedDraft: (v: number | null) => void;
   canAutoPublish: boolean;
   gatedEnvSet: Set<string> | "all" | "none";
+  defaultExpanded?: boolean;
 }) {
+  const [isOpen, setIsOpen] = useState(defaultExpanded ?? false);
+
   const activeDrafts = useMemo(
     () =>
       revisionList.filter((r) =>
@@ -67,8 +69,7 @@ export default function DraftSelectorForChanges({
     [revisionList],
   );
 
-  // Prefer revisions already loaded on the feature page (via context) to avoid
-  // an extra network round-trip. Fall back to fetching when used outside FeaturesOverview.
+  // Use context revisions if available; fetch only when used outside FeaturesOverview.
   const ctx = useFeatureRevisionsContext();
   const draftVersionForFetch =
     mode === "existing" && !ctx
@@ -82,10 +83,7 @@ export default function DraftSelectorForChanges({
     { shouldRun: () => draftVersionForFetch != null },
   );
 
-  // Org-level approval scope for badge coloring — reflects which environments
-  // generally require approval for any change, independent of this specific
-  // action's gating. This keeps production yellow even when toggling a dev
-  // kill switch (where the action-level gatedEnvSet might be "none").
+  // Org-level env scope for badge coloring, independent of this action's gating.
   const settings = useOrgSettings();
   const approvalScopedEnvSet = useMemo<Set<string> | "all" | "none">(() => {
     const raw = settings?.requireReviews;
@@ -255,6 +253,8 @@ export default function DraftSelectorForChanges({
         trigger={trigger}
         transitionTime={75}
         contentInnerClassName="draft-selector-collapsible-content"
+        open={isOpen}
+        handleTriggerClick={() => setIsOpen((v) => !v)}
       >
         <Box px="3" py="3" style={{ backgroundColor: "var(--violet-a3)" }}>
           <RadioGroup

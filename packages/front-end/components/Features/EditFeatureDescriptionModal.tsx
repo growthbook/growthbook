@@ -52,7 +52,7 @@ export default function EditFeatureDescriptionModal({
   const defaultDraft = useDefaultDraft(revisionList);
 
   const [mode, setMode] = useState<DraftMode>(
-    canAutoPublish ? "publish" : defaultDraft != null ? "existing" : "new",
+    canAutoPublish ? "publish" : "new",
   );
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
