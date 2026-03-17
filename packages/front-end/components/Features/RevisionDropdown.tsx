@@ -248,6 +248,7 @@ export default function RevisionDropdown({
                 title={revisionLabelText(version, selectedRevision?.title)}
               >
                 <RevisionLabel
+                  numbered={!!selectedRevision?.title}
                   version={version}
                   title={selectedRevision?.title}
                 />
@@ -264,6 +265,7 @@ export default function RevisionDropdown({
                 title={revisionLabelText(version, selectedRevision?.title)}
               >
                 <RevisionLabel
+                  numbered={!!selectedRevision?.title}
                   version={version}
                   title={selectedRevision?.title}
                 />

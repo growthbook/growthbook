@@ -3,8 +3,9 @@ import Text from "@/ui/Text";
 export function revisionLabelText(
   version: number,
   title?: string | null,
+  numbered?: boolean,
 ): string {
-  return `${version}. ${title ?? "Revision"}`;
+  return `${numbered ? `${version}. ` : ""}${title ?? `Revision ${version}`}`;
 }
 
 export default function RevisionLabel({

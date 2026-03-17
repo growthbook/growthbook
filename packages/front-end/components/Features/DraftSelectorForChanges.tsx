@@ -20,6 +20,7 @@ import {
   buildEffectiveDraft,
 } from "shared/util";
 import { useUser } from "@/services/UserContext";
+import Button from "@/ui/Button";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
 import { revisionLabelText } from "@/components/Features/RevisionLabel";
@@ -202,10 +203,11 @@ export default function DraftSelectorForChanges({
       <>
         added to draft:{" "}
         <Text weight="semibold">
-          <OverflowText maxWidth={160}>
+          <OverflowText maxWidth={140}>
             {revisionLabelText(
               selectedRevision.version,
               selectedRevision.title,
+              !!selectedRevision.title,
             )}
           </OverflowText>
         </Text>
@@ -243,7 +245,24 @@ export default function DraftSelectorForChanges({
       <HelperText status="info" icon={triggerIcon}>
         <div className="ml-1">Changes will be {triggerLabel}</div>
       </HelperText>
-      <PiCaretRightBold className="chevron-right" style={{ flexShrink: 0 }} />
+      <Button
+        variant="ghost"
+        size="xs"
+        onClick={async (e) => {
+          e?.stopPropagation();
+          setIsOpen((v) => !v);
+        }}
+        style={{ marginLeft: -5 }}
+      >
+        <Flex align="center" gap="1">
+          {!isOpen && <span style={{ marginRight: 4 }}>edit</span>}
+          <PiCaretRightBold
+            className="chevron-right"
+            size={14}
+            style={{ margin: "0 -4px" }}
+          />
+        </Flex>
+      </Button>
     </Flex>
   );
 
