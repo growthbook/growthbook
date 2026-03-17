@@ -2,23 +2,28 @@ import React, { useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { PiDatabase, PiCheck } from "react-icons/pi";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
-import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 
-export default function DataSourceDropdown() {
+interface DataSourceDropdownProps {
+  value: string;
+  setValue: (datasourceId: string) => void;
+  isSubmittable: boolean;
+}
+
+export default function DataSourceDropdown({
+  value: datasourceId,
+  setValue,
+  isSubmittable,
+}: DataSourceDropdownProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const { draftExploreState, clearAllDatasets, isSubmittable } =
-    useExplorerContext();
   const { datasources } = useDefinitions();
 
   const triggerLabel =
-    datasources.find((ds) => ds.id === draftExploreState?.datasource)?.name ||
-    "Data Source";
+    datasources.find((ds) => ds.id === datasourceId)?.name || "Data Source";
 
-  const isCurrentDatasource = (dsId: string) =>
-    dsId === draftExploreState?.datasource;
+  const isCurrentDatasource = (dsId: string) => dsId === datasourceId;
 
   return (
     <DropdownMenu
@@ -50,7 +55,7 @@ export default function DataSourceDropdown() {
               isSubmittable
                 ? undefined
                 : () => {
-                    clearAllDatasets(ds.id);
+                    setValue(ds.id);
                     setDropdownOpen(false);
                   }
             }
@@ -60,7 +65,7 @@ export default function DataSourceDropdown() {
                     confirmationTitle: "Change data source",
                     cta: "Change",
                     submitColor: "primary",
-                    submit: () => clearAllDatasets(ds.id),
+                    submit: () => setValue(ds.id),
                     getConfirmationContent: async () =>
                       `Changing the data source will clear your current exploration. Are you sure you want to switch to "${ds.name}"?`,
                   }

@@ -278,6 +278,8 @@ const hourTimeframeValidator = z.object({
   unit: z.literal("hour"),
 });
 
+// Path spine step. Alternative: forwardPath could be z.array(z.string()) (spine only);
+// topEvents would then come from result.rows (retained when extending) rather than config.
 const pathStepValidator = z.object({
   event: z.string(),
   topEvents: z.array(z.string()), // This will be used to display the top events for the step
@@ -285,14 +287,20 @@ const pathStepValidator = z.object({
 });
 
 export const userJourneyConfigValidator = z.object({
-  dimensions: z.discriminatedUnion("dimensionType", [
-    // I don't think date dimensions make sense here?
-    dynamicDimensionValidator,
-    staticDimensionValidator,
-    sliceDimensionValidator,
-  ]),
+  datasource: z.string(),
+  dimensions: z
+    .discriminatedUnion("dimensionType", [
+      // I don't think date dimensions make sense here?
+      dynamicDimensionValidator,
+      staticDimensionValidator,
+      sliceDimensionValidator,
+    ])
+    .optional(),
   factTableId: z.string(),
-  startingEvent: z.string(), // Not sure if we should keep this, or infer it from the first index of the forwardPath instead
+  startingEvent: z.object({
+    column: z.string(),
+    value: z.string(),
+  }),
   userIdType: z.string(),
   filters: z.array(
     z.object({
@@ -304,7 +312,7 @@ export const userJourneyConfigValidator = z.object({
     minuteTimeframeValidator,
     hourTimeframeValidator,
   ]),
-  measurementType: z.enum(["count", "sum"]),
+  measurementType: z.enum(["total", "unique"]),
   dateRange: z.object({
     predefined: z.enum(dateRangePredefined),
     lookbackValue: z.number().nullable(),
@@ -323,9 +331,17 @@ export const userJourneyConfigValidator = z.object({
   // - cohorts - I think this can be accomplished with our filters, but would probably be good eventually so a user can define a cohort, and then use filters to exclude
 });
 
-// Would be good to add detail to this if possible
+// Path row shape that scales to N steps: ordered sequence of events + count + optional timing between steps
+export const userJourneyPathRowValidator = z.object({
+  steps: z.array(z.string()).min(2),
+  unit_count: z.number(),
+  avg_secs_between_steps: z.array(z.number()).optional(), // length = steps.length - 1
+});
+
+export type UserJourneyPathRow = z.infer<typeof userJourneyPathRowValidator>;
+
 const userJourneyResultValidator = z.object({
-  rows: z.array(z.string()),
+  rows: z.array(userJourneyPathRowValidator),
 });
 
 export const userJourneyValidator = z.object({
@@ -333,7 +349,6 @@ export const userJourneyValidator = z.object({
   organization: z.string(),
   dateCreated: z.date(),
   dateUpdated: z.date(),
-  datasource: z.string(),
   config: userJourneyConfigValidator,
   result: userJourneyResultValidator,
   dateStart: z.string(),
@@ -345,8 +360,8 @@ export const userJourneyValidator = z.object({
 });
 
 export type UserJourneyConfig = z.infer<typeof userJourneyConfigValidator>;
-type UserJourneyResult = z.infer<typeof userJourneyResultValidator>;
-type UserJourney = z.infer<typeof userJourneyValidator>;
+export type UserJourneyResult = z.infer<typeof userJourneyResultValidator>;
+export type UserJourney = z.infer<typeof userJourneyValidator>;
 
 // The above is a roughed out set of validators for the user journey feature.
 
