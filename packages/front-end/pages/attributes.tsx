@@ -24,8 +24,14 @@ import SortedTags from "@/components/Tags/SortedTags";
 import Markdown from "@/components/Markdown/Markdown";
 import Link from "@/ui/Link";
 import { useAttributeReferences } from "@/hooks/useAttributeReferences";
-
-const HEADER_HEIGHT_PX = 55;
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
+import Heading from "@/ui/Heading";
 
 const FeatureAttributesPage = (): React.ReactElement => {
   const permissionsUtil = usePermissionsUtil();
@@ -89,7 +95,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
     setSearchValue,
     syntaxFilters,
     isFiltered,
-    SortableTH,
+    SortableTableColumnHeader,
   } = useSearch({
     items: attributesWithIndex,
     localStorageKey: "attributes",
@@ -129,11 +135,11 @@ const FeatureAttributesPage = (): React.ReactElement => {
       (refs?.savedGroups.length ?? 0);
 
     return (
-      <tr
+      <TableRow
         className={v.archived ? "disabled" : ""}
         key={"attr-row-" + v.property}
       >
-        <td
+        <TableCell
           className="text-gray font-weight-bold"
           style={{ width: "17%", minWidth: 90 }}
         >
@@ -141,15 +147,17 @@ const FeatureAttributesPage = (): React.ReactElement => {
             {v.property}
           </Link>{" "}
           {v.archived && (
-            <span className="badge badge-secondary ml-2">archived</span>
+            <span className="badge badge-secondary" style={{ marginLeft: 8 }}>
+              archived
+            </span>
           )}
-        </td>
-        <td className="text-gray" style={{ minWidth: 120 }}>
+        </TableCell>
+        <TableCell className="text-gray" style={{ minWidth: 120 }}>
           {v.description ? (
             <Markdown className="mb-0">{v.description}</Markdown>
           ) : null}
-        </td>
-        <td
+        </TableCell>
+        <TableCell
           className="text-gray"
           style={{ width: "15%", minWidth: 90, wordWrap: "break-word" }}
         >
@@ -160,17 +168,17 @@ const FeatureAttributesPage = (): React.ReactElement => {
               <small>(format: {v.format})</small>
             </p>
           )}
-        </td>
-        <td className="" style={{ paddingRight: "1rem", minWidth: 80 }}>
+        </TableCell>
+        <TableCell style={{ paddingRight: "1rem", minWidth: 80 }}>
           <ProjectBadges
             resourceType="attribute"
             projectIds={(v.projects || []).length > 0 ? v.projects : undefined}
           />
-        </td>
-        <td style={{ minWidth: 100 }}>
+        </TableCell>
+        <TableCell style={{ minWidth: 100 }}>
           <SortedTags tags={v.tags || []} useFlex={true} />
-        </td>
-        <td className="text-gray" style={{ minWidth: 85 }}>
+        </TableCell>
+        <TableCell className="text-gray" style={{ minWidth: 85 }}>
           {numReferences > 0 ? (
             <Link
               onClick={() => {
@@ -179,7 +187,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                 );
                 if (schemaIndex >= 0) setShowReferencesModal(schemaIndex);
               }}
-              className="nowrap"
+              style={{ whiteSpace: "nowrap" }}
             >
               <BiShow /> {numReferences} reference
               {numReferences === 1 ? "" : "s"}
@@ -187,28 +195,23 @@ const FeatureAttributesPage = (): React.ReactElement => {
           ) : (
             <Tooltip body="No features, experiments, or condition groups reference this attribute.">
               <span
-                className="nowrap"
-                style={{ color: "var(--gray-10)", cursor: "not-allowed" }}
+                style={{
+                  whiteSpace: "nowrap",
+                  color: "var(--gray-10)",
+                  cursor: "not-allowed",
+                }}
               >
                 <BiShow /> 0 references
               </span>
             </Tooltip>
           )}
-        </td>
-        <td className="text-gray" style={{ minWidth: 70 }}>
-          <div
-            style={{ display: "flex", justifyContent: "center" }}
-            className="w-100"
-          >
-            {v.hashAttribute && <>yes</>}
-          </div>
-        </td>
-        <td style={{ minWidth: 44 }}>
+        </TableCell>
+        <TableCell className="text-gray" style={{ minWidth: 70 }}>
+          <Flex justify="center">{v.hashAttribute && <>yes</>}</Flex>
+        </TableCell>
+        <TableCell style={{ minWidth: 44 }}>
           {permissionsUtil.canCreateAttribute(v) ? (
-            <div
-              style={{ display: "flex", justifyContent: "center" }}
-              className="w-100"
-            >
+            <Flex justify="center">
               <MoreMenu>
                 {!v.archived && (
                   <button
@@ -273,38 +276,32 @@ const FeatureAttributesPage = (): React.ReactElement => {
                   useIcon={false}
                 />
               </MoreMenu>
-            </div>
+            </Flex>
           ) : null}
-        </td>
-      </tr>
+        </TableCell>
+      </TableRow>
     );
   };
 
   return (
     <>
-      <div className="contents container-fluid pagecontents">
-        <div className="mb-5">
-          <div className="row mb-3 align-items-center">
-            <div className="col">
-              <div className="d-flex mb-1">
-                <h1>Targeting Attributes</h1>
-                {canCreateAttributes && (
-                  <div className="ml-auto">
-                    <Button onClick={() => setModalData("")}>
-                      Add Attribute
-                    </Button>
-                  </div>
-                )}
-              </div>
-              <p className="text-gray">
-                These attributes can be used when targeting feature flags and
-                experiments. Attributes set here must also be passed in through
-                the SDK.
-              </p>
-            </div>
-          </div>
+      <Box className="contents container-fluid pagecontents">
+        <Box mb="5">
+          <Flex direction="column" gap="2" mb="3">
+            <Flex justify="between" align="center" mb="1">
+              <Heading size="x-large">Targeting Attributes</Heading>
+              {canCreateAttributes && (
+                <Button onClick={() => setModalData("")}>Add Attribute</Button>
+              )}
+            </Flex>
+            <Text as="p" color="text-low">
+              These attributes can be used when targeting feature flags and
+              experiments. Attributes set here must also be passed in through
+              the SDK.
+            </Text>
+          </Flex>
           {attributeSchema?.length > 0 && (
-            <Box className="mb-3">
+            <Box mb="3">
               <Flex justify="between" gap="3" align="center">
                 <Box className="relative" style={{ width: "40%" }}>
                   <Field
@@ -323,38 +320,44 @@ const FeatureAttributesPage = (): React.ReactElement => {
               </Flex>
             </Box>
           )}
-          <table
-            className="table gbtable appbox table-hover"
+          <Table
+            variant="list"
+            stickyHeader
+            roundedCorners
             style={{ tableLayout: "fixed", minWidth: 900 }}
           >
-            <thead
-              className="sticky-top shadow-sm"
-              style={{ top: HEADER_HEIGHT_PX + "px", zIndex: 900 }}
-            >
-              <tr>
-                <SortableTH
+            <TableHeader>
+              <TableRow>
+                <SortableTableColumnHeader
                   field="property"
                   style={{ width: "17%", minWidth: 90 }}
                 >
                   Attribute
-                </SortableTH>
-                <SortableTH field="description" style={{ minWidth: 120 }}>
+                </SortableTableColumnHeader>
+                <SortableTableColumnHeader
+                  field="description"
+                  style={{ minWidth: 120 }}
+                >
                   Description
-                </SortableTH>
-                <SortableTH
+                </SortableTableColumnHeader>
+                <SortableTableColumnHeader
                   field="datatype"
                   style={{ width: "15%", minWidth: 90 }}
                 >
                   Data Type
-                </SortableTH>
-                <th
+                </SortableTableColumnHeader>
+                <TableColumnHeader
                   style={{ width: "15%", minWidth: 80, paddingRight: "1rem" }}
                 >
                   Projects
-                </th>
-                <th style={{ width: "15%", minWidth: 100 }}>Tags</th>
-                <th style={{ width: "10%", minWidth: 85 }}>References</th>
-                <th
+                </TableColumnHeader>
+                <TableColumnHeader style={{ width: "15%", minWidth: 100 }}>
+                  Tags
+                </TableColumnHeader>
+                <TableColumnHeader style={{ width: "10%", minWidth: 85 }}>
+                  References
+                </TableColumnHeader>
+                <TableColumnHeader
                   style={{ width: "10%", minWidth: 70 }}
                   className="text-center"
                 >
@@ -364,38 +367,36 @@ const FeatureAttributesPage = (): React.ReactElement => {
                       style={{ position: "relative", top: "-1px" }}
                     />
                   </Tooltip>
-                </th>
-                <th
+                </TableColumnHeader>
+                <TableColumnHeader
                   style={{ width: 44, minWidth: 44 }}
                   className="text-center"
-                ></th>
-              </tr>
-            </thead>
-            <tbody>
+                />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {attributeSchema?.length > 0 ? (
                 <>
                   {filteredAttributes.map((v) => drawRow(v))}
                   {!filteredAttributes.length && isFiltered && (
-                    <tr>
-                      <td colSpan={8} className="text-center text-gray">
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center text-gray">
                         No matching attributes found.
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   )}
                 </>
               ) : (
-                <>
-                  <tr>
-                    <td colSpan={8} className="text-center text-gray">
-                      <em>No attributes defined.</em>
-                    </td>
-                  </tr>
-                </>
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center text-gray">
+                    <em>No attributes defined.</em>
+                  </TableCell>
+                </TableRow>
               )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+            </TableBody>
+          </Table>
+        </Box>
+      </Box>
       {showReferencesModal !== null &&
         attributeSchema?.[showReferencesModal] && (
           <Modal
