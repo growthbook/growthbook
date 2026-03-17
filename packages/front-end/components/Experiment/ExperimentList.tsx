@@ -15,6 +15,13 @@ import { useExperimentSearch } from "@/services/experiments";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { ExperimentStatusDetailsWithDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import SortedTags from "@/components/Tags/SortedTags";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 export default function ExperimentList({
   num,
@@ -38,7 +45,7 @@ export default function ExperimentList({
     },
     [status],
   );
-  const { items, SortableTH } = useExperimentSearch({
+  const { items, SortableTableColumnHeader } = useExperimentSearch({
     allExperiments: experiments,
     filterResults,
   });
@@ -46,61 +53,64 @@ export default function ExperimentList({
   if (as === "table") {
     // create a sortable table with the following columns: experiment name, project, type, tags, date started, owner, status
     return (
-      <table className="table experiment-table gbtable">
-        <thead>
-          <tr>
-            <SortableTH field="name">Experiment</SortableTH>
-            <SortableTH field="projectName">Project</SortableTH>
-            <th>Type</th>
-            <th>Tags</th>
-            <SortableTH field="date">Date Started</SortableTH>
-            <SortableTH field="ownerName">Owner</SortableTH>
-            <SortableTH field="status">Status</SortableTH>
-          </tr>
-        </thead>
-        <tbody>
+      <Table variant="list" stickyHeader={false} roundedCorners>
+        <TableHeader>
+          <TableRow>
+            <SortableTableColumnHeader field="name">
+              Experiment
+            </SortableTableColumnHeader>
+            <SortableTableColumnHeader field="projectName">
+              Project
+            </SortableTableColumnHeader>
+            <TableColumnHeader>Type</TableColumnHeader>
+            <TableColumnHeader>Tags</TableColumnHeader>
+            <SortableTableColumnHeader field="date">
+              Date Started
+            </SortableTableColumnHeader>
+            <SortableTableColumnHeader field="ownerName">
+              Owner
+            </SortableTableColumnHeader>
+            <SortableTableColumnHeader field="status">
+              Status
+            </SortableTableColumnHeader>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {items.slice(0, num).map((test, i) => {
             const currentPhase = test.phases[test.phases.length - 1];
             return (
-              <tr key={i}>
-                <td>
+              <TableRow key={i}>
+                <TableCell>
                   <Link href={`/experiment/${test.id}`}>{test.name}</Link>
-                </td>
-                <td>{test.projectName}</td>
-                <td>
+                </TableCell>
+                <TableCell>{test.projectName}</TableCell>
+                <TableCell>
                   <Flex gap="1" align="center">
                     {test.hasVisualChangesets ? (
-                      <Tooltip
-                        className="d-flex align-items-center"
-                        body="Visual experiment"
-                      >
+                      <Tooltip body="Visual experiment">
                         <RxDesktop className="text-blue" />
                       </Tooltip>
                     ) : null}
                     {(test.linkedFeatures || []).length > 0 ? (
-                      <Tooltip
-                        className="d-flex align-items-center"
-                        body="Linked Feature Flag"
-                      >
+                      <Tooltip body="Linked Feature Flag">
                         <BsFlag className="text-blue" />
                       </Tooltip>
                     ) : null}
                     {test.hasURLRedirects ? (
-                      <Tooltip
-                        className="d-flex align-items-center"
-                        body="URL Redirect experiment"
-                      >
+                      <Tooltip body="URL Redirect experiment">
                         <PiShuffle className="text-blue" />
                       </Tooltip>
                     ) : null}
                   </Flex>
-                </td>
-                <td>
+                </TableCell>
+                <TableCell>
                   <SortedTags tags={Object.values(test.tags)} useFlex={true} />
-                </td>
-                <td title={datetime(test.date)}>{date(test.date)}</td>
-                <td>{test.ownerName}</td>
-                <td className="text-nowrap">
+                </TableCell>
+                <TableCell title={datetime(test.date)}>
+                  {date(test.date)}
+                </TableCell>
+                <TableCell>{test.ownerName}</TableCell>
+                <TableCell style={{ whiteSpace: "nowrap" }}>
                   {phaseSummary(
                     currentPhase,
                     test.type === "multi-armed-bandit",
@@ -108,12 +118,12 @@ export default function ExperimentList({
                   <ExperimentStatusDetailsWithDot
                     statusIndicatorData={test.statusIndicator}
                   />
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             );
           })}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     );
   } else {
     let exps = experiments.filter((e) => e.status === status);
