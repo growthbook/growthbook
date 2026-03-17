@@ -1,6 +1,6 @@
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import {
   PiPlusCircleBold,
@@ -86,8 +86,8 @@ import {
   useCustomFields,
   filterCustomFieldsForSectionAndProject,
 } from "@/hooks/useCustomFields";
-import Callout from "@/ui/Callout";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { useScrollPosition } from "@/hooks/useScrollPosition";
 import Badge from "@/ui/Badge";
 import Frame from "@/ui/Frame";
 import Switch from "@/ui/Switch";
@@ -382,6 +382,14 @@ export default function FeaturesOverview({
       environments.map((e) => e.id),
     );
   }, [revision, revisions, feature, baseFeature, environments]);
+
+  const bannerRef = useRef<HTMLDivElement>(null);
+  const [bannerPinned, setBannerPinned] = useState(false);
+  const { scrollY } = useScrollPosition();
+  useEffect(() => {
+    if (!bannerRef.current) return;
+    setBannerPinned(bannerRef.current.getBoundingClientRect().top <= 110);
+  }, [scrollY]);
 
   if (!baseFeature || !feature || !revision) return null;
 
@@ -820,6 +828,41 @@ export default function FeaturesOverview({
   return (
     <>
       <Box className="contents container-fluid pagecontents">
+        {(isDraft || isPendingReview) && (
+          <div
+            ref={bannerRef}
+            style={{
+              position: "sticky",
+              top: 110,
+              zIndex: 920,
+              marginBottom: 12,
+              backgroundColor: "var(--color-panel-solid)",
+              borderRadius: "var(--radius-3)",
+              overflow: "hidden",
+              boxShadow: bannerPinned ? "var(--shadow-3)" : undefined,
+            }}
+          >
+            <Flex
+              align="center"
+              justify="center"
+              gap="2"
+              px="4"
+              py="3"
+              style={{
+                color: "var(--amber-11)",
+                backgroundColor: "var(--amber-a3)",
+              }}
+            >
+              <PiPencil size={18} />
+              <span style={{ fontSize: "var(--font-size-2)" }}>
+                Viewing a <strong>draft</strong> —{" "}
+                {isPendingReview
+                  ? "changes will not go live until approved and published"
+                  : "changes will not go live until published"}
+              </span>
+            </Flex>
+          </div>
+        )}
         {revision && (
           <Frame mt="2" mb="4" px="6" py="4">
             <Flex align="start" justify="between" mb="2" wrap="wrap" gap="2">
@@ -1757,34 +1800,6 @@ export default function FeaturesOverview({
           />
         )}
       </Box>
-      {(isDraft || isPendingReview) && (
-        <div
-          style={{
-            position: "fixed",
-            bottom: -10,
-            left: "50%",
-            transform: "translateX(-50%)",
-            zIndex: 1000,
-            whiteSpace: "nowrap",
-            boxShadow: "var(--shadow-3)",
-            borderRadius: "var(--radius-4)",
-            backgroundColor: "var(--color-panel-solid)",
-          }}
-        >
-          <Callout
-            status="warning"
-            contentsAs="div"
-            icon={<PiPencil size={18} />}
-          >
-            <Box mb="3">
-              Viewing a <strong>draft</strong> —{" "}
-              {isPendingReview
-                ? "changes will not go live until approved and published"
-                : "changes will not go live until published"}
-            </Box>
-          </Callout>
-        </div>
-      )}
     </>
   );
 }
