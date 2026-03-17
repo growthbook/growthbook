@@ -25,14 +25,7 @@ import { BiHide, BiShow } from "react-icons/bi";
 import Collapsible from "react-collapsible";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { BsClock } from "react-icons/bs";
-import {
-  Box,
-  Flex,
-  Heading,
-  IconButton,
-  Separator,
-  Text,
-} from "@radix-ui/themes";
+import { Box, Flex, Heading, IconButton, Separator } from "@radix-ui/themes";
 import {
   SafeRolloutInterface,
   HoldoutInterface,
@@ -88,6 +81,7 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useScrollPosition } from "@/hooks/useScrollPosition";
 import Badge from "@/ui/Badge";
 import Frame from "@/ui/Frame";
+import Text from "@/ui/Text";
 import Switch from "@/ui/Switch";
 import Link from "@/ui/Link";
 import JSONValidation from "@/components/Features/JSONValidation";
@@ -773,6 +767,17 @@ export default function FeaturesOverview({
               <Flex align="start" gap="3" style={{ marginTop: 6 }}>
                 <Flex direction="column" gap="1">
                   <Flex align="center" gap="2">
+                    <span
+                      style={{
+                        display: "inline-block",
+                        fontVariantNumeric: "tabular-nums",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Text as="span" color="text-mid" size="small">
+                        {revision.version}.
+                      </Text>
+                    </span>
                     {editingTitle ? (
                       <input
                         autoFocus
@@ -812,7 +817,7 @@ export default function FeaturesOverview({
                         }}
                       />
                     ) : (
-                      <Text weight="bold">
+                      <Text weight="semibold">
                         <OverflowText
                           maxWidth={250}
                           title={revisionLabelText(
@@ -851,9 +856,9 @@ export default function FeaturesOverview({
                   {isDraft &&
                     baseRevision &&
                     baseRevision.version !== feature.version && (
-                      <Text as="span" size="1" color="gray">
+                      <Text as="span" size="small" color="text-low">
                         based on{" "}
-                        <Text as="span" size="1" weight="medium">
+                        <Text as="span" size="small" weight="medium">
                           Revision {baseRevision.version}
                         </Text>
                       </Text>
@@ -1216,7 +1221,7 @@ export default function FeaturesOverview({
                       : "pointer",
                   }}
                 >
-                  <Text weight="bold">
+                  <Text weight="semibold">
                     <PiPlusCircleBold className="mr-1" />
                     Add prerequisite targeting
                   </Text>
@@ -1235,7 +1240,7 @@ export default function FeaturesOverview({
             </Flex>
             {dependents > 0 && (
               <>
-                <Text as="p" size="2" mb="2">
+                <Text as="p" mb="2">
                   {dependents === 1
                     ? `Another ${
                         dependentFeatures.length ? "feature" : "experiment"
@@ -1609,7 +1614,7 @@ export default function FeaturesOverview({
                     }}
                   />
                 ) : (
-                  <Text weight="bold">
+                  <Text weight="semibold">
                     {newDraftTitle.trim()
                       ? newDraftTitle.trim()
                       : `Revision ${Math.max(0, ...revisionList.map((r) => r.version)) + 1}`}

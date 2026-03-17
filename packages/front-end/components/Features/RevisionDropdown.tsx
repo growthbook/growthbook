@@ -11,14 +11,8 @@ import RevisionLabel, {
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Switch from "@/ui/Switch";
 import Text from "@/ui/Text";
-import {
-  DropdownMenu,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from "@/ui/DropdownMenu";
-import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Link from "@/ui/Link";
-import { useUser } from "@/services/UserContext";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import EventUser from "@/components/Avatar/EventUser";
 import RevisionStatusBadge from "@/components/Features/RevisionStatusBadge";
@@ -144,8 +138,6 @@ export default function RevisionDropdown({
   const liveVersion = feature.version;
   const initialPageSize = 10;
 
-  const { userId } = useUser();
-
   const [open, setOpen] = useState(false);
   const [extraShown, setExtraShown] = useState(0);
 
@@ -162,46 +154,27 @@ export default function RevisionDropdown({
     }
   }, [open]);
 
-  type RevisionTab = "all-drafts" | "my-drafts" | "all-revisions";
-  const [revisionTab, setRevisionTab] = useLocalStorage<RevisionTab>(
-    "revisionDropdown__tab",
-    "all-drafts",
-  );
   const [showDiscarded, setShowDiscarded] = useLocalStorage(
     `revisionDropdown__showDiscarded__${feature.id}`,
     false,
   );
 
   const allSorted = [...revisions].sort((a, b) => b.version - a.version);
-
-  // Live revision is always pinned at the top; exclude from the scrollable list.
-  const liveRevision = allSorted.find((r) => r.version === liveVersion) ?? null;
   const withoutLive = allSorted.filter((r) => r.version !== liveVersion);
-
-  const isMyRevision = (r: MinimalFeatureRevisionInterface) =>
-    r.createdBy != null &&
-    "id" in r.createdBy &&
-    (r.createdBy as { id?: string }).id === userId;
 
   const activeDrafts = (r: MinimalFeatureRevisionInterface) =>
     (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status);
 
-  // In draftsOnly/publishedOnly mode show filtered set; no pagination/tab/discard toggle.
   const displayList = publishedOnly
     ? withoutLive.filter((r) => r.status === "published")
     : draftsOnly
       ? withoutLive.filter(activeDrafts)
-      : revisionTab === "all-drafts"
-        ? withoutLive.filter(activeDrafts)
-        : revisionTab === "my-drafts"
-          ? withoutLive.filter((r) => activeDrafts(r) && isMyRevision(r))
-          : showDiscarded
-            ? withoutLive
-            : withoutLive.filter(
-                (r) => r.status !== "discarded" || r.version === version,
-              );
+      : showDiscarded
+        ? allSorted
+        : allSorted.filter(
+            (r) => r.status !== "discarded" || r.version === version,
+          );
 
-  // In filtered modes apply no sliding window; normal mode applies pagination.
   const selectedIndex =
     draftsOnly || publishedOnly
       ? -1
@@ -233,21 +206,6 @@ export default function RevisionDropdown({
     setVersion(v);
     setOpen(false);
   };
-
-  const liveItem =
-    !draftsOnly && !publishedOnly && liveRevision ? (
-      <DropdownMenuItem
-        key={liveRevision.version}
-        className={`multiline-item${liveRevision.version === version ? " selected-item" : ""}`}
-        onClick={() => handleSelect(liveRevision.version)}
-      >
-        <RevisionRow
-          r={liveRevision}
-          liveVersion={liveVersion}
-          fullWidth={variant === "select"}
-        />
-      </DropdownMenuItem>
-    ) : null;
 
   const menuItems: React.ReactNode[] = shown.map((r) => (
     <DropdownMenuItem
@@ -376,67 +334,20 @@ export default function RevisionDropdown({
       menuWidth="full"
       menuPlacement={menuPlacement}
     >
-      {!draftsOnly && !publishedOnly && (
-        <Box pb="2">
-          <Tabs
-            value={revisionTab}
-            onValueChange={(v) => {
-              setRevisionTab(v as RevisionTab);
-              setExtraShown(0);
-            }}
-            style={{ width: "100%" }}
-          >
-            <TabsList size="1" style={{ width: "100%" }}>
-              <TabsTrigger
-                value="all-drafts"
-                style={{ paddingInline: "var(--space-3)" }}
-              >
-                All drafts
-              </TabsTrigger>
-              <TabsTrigger
-                value="my-drafts"
-                style={{ paddingInline: "var(--space-3)" }}
-              >
-                My drafts
-              </TabsTrigger>
-              <TabsTrigger
-                value="all-revisions"
-                style={{ paddingInline: "var(--space-3)" }}
-              >
-                All revisions
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </Box>
+      {!draftsOnly && !publishedOnly && discardedCount > 0 && (
+        <RadixDropdownMenu.Label>
+          <Flex justify="end" align="center" gap="2" style={{ width: "100%" }}>
+            <Text size="small" color="text-low">
+              Show discarded ({discardedCount})
+            </Text>
+            <Switch
+              size="1"
+              value={showDiscarded}
+              onChange={setShowDiscarded}
+            />
+          </Flex>
+        </RadixDropdownMenu.Label>
       )}
-      {liveItem}
-      {(menuItems.length > 0 ||
-        (!draftsOnly &&
-          revisionTab === "all-revisions" &&
-          discardedCount > 0)) &&
-        liveItem && <DropdownMenuSeparator />}
-      {!draftsOnly &&
-        !publishedOnly &&
-        revisionTab === "all-revisions" &&
-        discardedCount > 0 && (
-          <RadixDropdownMenu.Label>
-            <Flex
-              justify="end"
-              align="center"
-              gap="2"
-              style={{ width: "100%" }}
-            >
-              <Text size="small" color="text-low">
-                Show discarded ({discardedCount})
-              </Text>
-              <Switch
-                size="1"
-                value={showDiscarded}
-                onChange={setShowDiscarded}
-              />
-            </Flex>
-          </RadixDropdownMenu.Label>
-        )}
       {menuItems}
       {remaining > 0 && (
         <RadixDropdownMenu.Label>
