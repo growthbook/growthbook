@@ -45,7 +45,6 @@ function actionColor(action: string): string {
   if (action === "Requested Changes") return "red";
   if (action === "Review Requested") return "orange";
   if (action === "Comment") return "blue";
-  if (action === "edit comment") return "blue";
   return "gray";
 }
 
@@ -102,7 +101,9 @@ function RevisionLogRow({ log, first }: { log: RevisionLog; first: boolean }) {
         }}
       >
         <Text size="small" weight="semibold">
-          {log.action}
+          {log.action === "edit comment"
+            ? "Edit revision description"
+            : log.action}
         </Text>
         {log.subject && (
           <Text size="small" color="text-mid">

@@ -645,7 +645,7 @@ export default function FeaturesOverview({
           </Flex>
         </Flex>
         <Flex align="start" gap="2" style={{ width: "fit-content" }}>
-          <span className="text-muted">Comment:</span>{" "}
+          <span className="text-muted">Revision description:</span>{" "}
           {revision.comment ? (
             <Flex align="start" gap="1">
               <Box>
@@ -701,6 +701,13 @@ export default function FeaturesOverview({
                   size="2"
                   radius="full"
                   onClick={() => setEditCommentModal(true)}
+                  style={{
+                    flexShrink: 0,
+                    marginTop: -2,
+                    marginBottom: -2,
+                    marginLeft: 4,
+                    marginRight: 0,
+                  }}
                 >
                   <PiPencilSimpleFill />
                 </IconButton>

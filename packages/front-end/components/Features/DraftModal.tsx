@@ -384,7 +384,7 @@ export default function DraftModal({
             </div>
             {hasPermission ? (
               <Field
-                label="Add a Comment (optional)"
+                label="Description (optional)"
                 textarea
                 placeholder="Summary of changes..."
                 value={comment}
