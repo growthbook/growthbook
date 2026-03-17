@@ -186,7 +186,7 @@ async function createOrUpdateDraftWithChanges(
   logEntry: Omit<RevisionLog, "timestamp">,
   targetDraftVersion?: number,
   forceNewDraft?: boolean,
-  newDraftTitle?: string,
+  autoComment?: string,
 ): Promise<FeatureRevisionInterface> {
   const { org } = context;
   const environments = getEnvironmentIdsFromOrg(context.org);
@@ -249,7 +249,7 @@ async function createOrUpdateDraftWithChanges(
     baseVersion: feature.version,
     changes: envelopeChanges as Partial<FeatureRevisionInterface>,
     publish: false,
-    ...(newDraftTitle ? { title: newDraftTitle } : {}),
+    comment: autoComment || "",
     org,
   });
   await updateFeature(context, feature, { hasDrafts: true });
@@ -1497,7 +1497,6 @@ export async function postFeatureRevertDraft(
     environments: contextEnvironments,
     org,
     comment: comment || `Revert to revision #${revision.version}`,
-    title: `Revert to #${revision.version}`,
   });
   await updateFeature(context, feature, { hasDrafts: true });
 
@@ -2666,15 +2665,13 @@ export async function postFeatureToggle(
     }
 
     const orgEnvironments = getEnvironmentIdsFromOrg(context.org);
-    const toggleTitle = `Toggle ${environment} ${state ? "on" : "off"}`;
     // Step 1: create draft
     const revision = await createRevision({
       context,
       feature,
       user: context.auditUser,
       baseVersion: feature.version,
-      comment: "",
-      title: toggleTitle,
+      comment: `Toggle ${environment} ${state ? "on" : "off"}`,
       environments: orgEnvironments,
       publish: false,
       changes: { environmentsEnabled: { [environment]: state } },
@@ -3055,7 +3052,7 @@ export async function putFeature(
         customFields: "custom fields",
         holdout: "holdout",
       };
-    const draftTitle = autoPublish
+    const draftComment = autoPublish
       ? changedKeys.length === 1
         ? `Update ${metadataFieldLabels[changedKeys[0]] ?? changedKeys[0]}`
         : "Update feature"
@@ -3079,7 +3076,7 @@ export async function putFeature(
       },
       autoPublish ? undefined : targetDraftVersion,
       autoPublish ? true : forceNewDraft,
-      draftTitle,
+      draftComment,
     );
     let updatedFeature: FeatureInterface = feature;
     if (autoPublish) {
@@ -3324,7 +3321,7 @@ export async function postFeatureArchive(
   // Use the explicitly requested state if provided; fall back to toggling.
   const newArchivedState = archivedParam ?? !feature.archived;
   const archiveChanges = { archived: newArchivedState };
-  const archiveTitle = newArchivedState
+  const archiveComment = newArchivedState
     ? "Archive feature"
     : "Unarchive feature";
 
@@ -3340,7 +3337,7 @@ export async function postFeatureArchive(
     },
     autoPublish ? undefined : draftVersion,
     autoPublish ? true : forceNewDraft,
-    archiveTitle,
+    archiveComment,
   );
 
   if (autoPublish) {
