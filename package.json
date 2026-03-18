@@ -94,7 +94,7 @@
       "form-data@3": "^3.0.4",
       "form-data@4": "^4.0.5",
       "fast-xml-parser@4": "^4.5.4",
-      "fast-xml-parser@5": "^5.4.2",
+      "fast-xml-parser@5": "^5.5.6",
       "jws@4": "^4.0.1",
       "mdast-util-to-hast@13": "^13.2.1",
       "nan@2": "2.25.0",
@@ -149,5 +149,5 @@
   "engines": {
     "node": ">=24"
   },
-  "packageManager": "pnpm@10.28.2"
+  "packageManager": "pnpm@10.32.1"
 }
