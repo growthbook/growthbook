@@ -90,7 +90,7 @@ jobs:
 
       - name: Lint
         run: |
-          pnpm exec eslint './**/*.{ts,tsx,js,jsx}' --max-warnings 0 --cache --cache-strategy content
+          pnpm lint:ci
           pnpm --filter stats lint:ci
         env:
           CI: true

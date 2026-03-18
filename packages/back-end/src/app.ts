@@ -2,7 +2,12 @@ import path from "path";
 import { existsSync, readFileSync } from "fs";
 import bodyParser from "body-parser";
 import cookieParser from "cookie-parser";
-import express, { ErrorRequestHandler, Request, Response } from "express";
+import express, {
+  ErrorRequestHandler,
+  Request,
+  RequestHandler,
+  Response,
+} from "express";
 import cors from "cors";
 import asyncHandler from "express-async-handler";
 import compression from "compression";
@@ -414,10 +419,10 @@ app.get("/auth/hasorgs", authController.getHasOrganizations);
 
 // All other routes require a valid JWT
 const auth = getAuthConnection();
-app.use(auth.middleware as express.RequestHandler);
+app.use(auth.middleware as RequestHandler);
 
 // Add logged in user props to the request
-app.use(asyncHandler(processJWT as unknown as express.RequestHandler));
+app.use(asyncHandler(processJWT as unknown as RequestHandler));
 
 // Add logged in user props to the logger
 app.use(((
@@ -427,7 +432,7 @@ app.use(((
 ) => {
   res.log = req.log = req.log.child(getCustomLogProps(req as Request));
   next();
-}) as express.RequestHandler);
+}) as RequestHandler);
 
 // Add logged in user to Sentry if configured
 if (SENTRY_DSN) {
@@ -445,7 +450,7 @@ if (SENTRY_DSN) {
       Sentry.setTag("organization", req.organization.id);
     }
     next();
-  }) as express.RequestHandler);
+  }) as RequestHandler);
 }
 
 // Logged-in auth requests
@@ -456,7 +461,7 @@ if (!useSSO) {
 app.use("/user", usersRouter);
 
 // Every other route requires a userId to be set
-const requireUserIdHandler: express.RequestHandler = async (req, res, next) => {
+const requireUserIdHandler: RequestHandler = async (req, res, next) => {
   const authReq = req as AuthRequest;
   if (!authReq.userId) {
     throw new Error("Must be authenticated.  Try refreshing the page.");
@@ -1042,7 +1047,7 @@ app.get("/generated-hypothesis/:uuid", (async (
     authReq.params.uuid,
   );
   return res.json({ generatedHypothesis });
-}) as unknown as express.RequestHandler);
+}) as unknown as RequestHandler);
 
 // Dashboards
 app.use("/dashboards", dashboardsRouter);

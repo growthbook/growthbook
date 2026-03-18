@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "fs";
 import path from "path";
-import express, { Router, Request } from "express";
+import { Router, Request, RequestHandler } from "express";
 import rateLimit from "express-rate-limit";
 import bodyParser from "body-parser";
 import * as Sentry from "@sentry/node";
@@ -76,7 +76,7 @@ router.get("/openapi.yaml", (req, res) => {
 router.use(bodyParser.json({ limit: "2mb" }));
 router.use(bodyParser.urlencoded({ limit: "2mb", extended: true }));
 
-router.use(authenticateApiRequestMiddleware as express.RequestHandler);
+router.use(authenticateApiRequestMiddleware as RequestHandler);
 
 // Add API user to Sentry if configured
 if (SENTRY_DSN) {
@@ -92,7 +92,7 @@ if (SENTRY_DSN) {
       Sentry.setTag("organization", req.context.org.id);
     }
     next();
-  }) as express.RequestHandler);
+  }) as RequestHandler);
 }
 
 const API_RATE_LIMIT_MAX = Number(process.env.API_RATE_LIMIT_MAX) || 60;
