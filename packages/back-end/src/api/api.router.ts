@@ -5,6 +5,12 @@ import rateLimit from "express-rate-limit";
 import bodyParser from "body-parser";
 import * as Sentry from "@sentry/node";
 import authenticateApiRequestMiddleware from "back-end/src/middleware/authenticateApiRequestMiddleware";
+import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";
+import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
+import { MetricGroupModel } from "back-end/src/models/MetricGroupModel";
+import { TeamModel } from "back-end/src/models/TeamModel";
+import { ExperimentTemplatesModel } from "back-end/src/models/ExperimentTemplateModel";
+import { ModelClass } from "back-end/src/services/context";
 import { getBuild } from "back-end/src/util/build";
 import { ApiRequestLocals } from "back-end/types/api";
 import { IS_CLOUD, SENTRY_DSN } from "back-end/src/util/secrets";
@@ -37,7 +43,15 @@ import archetypesRouter from "./archetypes/archetypes.router";
 import { getExperimentNames } from "./experiments/getExperimentNames";
 import queryRouter from "./queries/queries.router";
 import settingsRouter from "./settings/settings.router";
-import { API_MODELS, defineRouterForApiConfig } from "./ApiModel";
+import { defineRouterForApiConfig } from "./ApiModel";
+
+const API_MODELS: ModelClass[] = [
+  DashboardModel,
+  CustomFieldModel,
+  MetricGroupModel,
+  TeamModel,
+  ExperimentTemplatesModel,
+];
 
 const router = Router();
 let openapiSpec: string;
@@ -141,7 +155,7 @@ API_MODELS.forEach((modelClass) => {
   if (!apiConfig) return;
   const r = defineRouterForApiConfig(apiConfig);
   if (r) {
-    router.use(apiConfig.pathBase, r);
+    router.use(apiConfig.openApiSpec.pathBase, r);
   }
 });
 
