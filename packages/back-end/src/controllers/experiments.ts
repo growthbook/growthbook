@@ -4001,10 +4001,77 @@ export async function postExperimentFeatureValues(
     return;
   }
 
+  // Ensure variation ids + keys are present and unique.
+  validateVariationIds(variations);
+
+  if (!experiment.phases?.length) {
+    res.status(400).json({
+      status: 400,
+      message: "Experiment must have at least one phase",
+    });
+    return;
+  }
+
+  const variationsChanged =
+    JSON.stringify(variations) !== JSON.stringify(experiment.variations);
+
   const changes: Changeset = {};
+
+  if (variationsChanged) {
+    changes.variations = variations;
+  }
+
+  // Mirror `postExperiment`: variationWeights are updated on the last phase only.
+  const phases = [...experiment.phases];
+  const lastIndex = phases.length - 1;
+  phases[lastIndex] = {
+    ...phases[lastIndex],
+    variationWeights,
+  };
+  changes.phases = phases;
 
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
+  }
+
+  // If variations have changed, update the experiment and sync visual changesets and url redirects
+  if (changes.variations) {
+    const updated = await updateExperiment({
+      context,
+      experiment,
+      changes,
+    });
+
+    const visualChangesets = await findVisualChangesetsByExperiment(
+      experiment.id,
+      org.id,
+    );
+
+    if (visualChangesets.length) {
+      await Promise.all(
+        visualChangesets.map((vc) =>
+          syncVisualChangesWithVariations({
+            visualChangeset: vc,
+            experiment: updated,
+            context,
+          }),
+        ),
+      );
+    }
+
+    const urlRedirects = await context.models.urlRedirects.findByExperiment(
+      experiment.id,
+    );
+    if (urlRedirects.length) {
+      await Promise.all(
+        urlRedirects.map((urlRedirect) =>
+          context.models.urlRedirects.syncURLRedirectsWithVariations(
+            urlRedirect,
+            updated,
+          ),
+        ),
+      );
+    }
   }
 
   const linkedFeatureIds = experiment.linkedFeatures || [];
@@ -4045,8 +4112,6 @@ export async function postExperimentFeatureValues(
     }
   }
 
-  // TODO: Create new variations for the experiment if there are more variations than the experiment has
-
   // Go through features and create revisions
   for (const feature of hydratedFeatures) {
     const revision = await getDraftRevision(context, feature, feature.version);
@@ -4063,9 +4128,7 @@ export async function postExperimentFeatureValues(
 
     if (!matchingRules.length) {
       // If there are no existing experiment-ref rules for this experiment
-      // on this feature, skip it. Creating new rules/environments is
-      // explicitly out of scope here. To add new rules, use the feature
-      // controllers directly.
+      // on this feature, skip it
       continue;
     }
 
