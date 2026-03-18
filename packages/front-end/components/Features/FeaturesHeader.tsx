@@ -7,7 +7,6 @@ import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasourc
 import { FaExclamationTriangle } from "react-icons/fa";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { HoldoutInterface } from "shared/validators";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useUser } from "@/services/UserContext";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
@@ -80,9 +79,7 @@ export default function FeaturesHeader({
     projects,
   } = useDefinitions();
   const { holdouts } = useHoldouts(feature.project);
-  const hasHoldoutsFeature = hasCommercialFeature("holdouts");
-  const holdoutsEnabled =
-    useFeatureIsOn("holdouts_feature") && hasHoldoutsFeature;
+  const holdoutsEnabled = hasCommercialFeature("holdouts");
 
   const staleHook = useFeatureStaleStates();
   const staleData = staleHook.getStaleState(feature.id);

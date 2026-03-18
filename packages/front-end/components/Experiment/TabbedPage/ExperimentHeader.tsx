@@ -6,11 +6,10 @@ import {
 import { FaAngleRight, FaExclamationTriangle } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { experimentHasLiveLinkedChanges } from "shared/util";
-import React, { ReactNode, useEffect, useRef, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { MdRocketLaunch } from "react-icons/md";
 import clsx from "clsx";
 import Collapsible from "react-collapsible";
-import { useFeatureIsOn, useGrowthBook } from "@growthbook/growthbook-react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiCheck, PiEye, PiLink } from "react-icons/pi";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
@@ -35,7 +34,6 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { formatPercent } from "@/services/metrics";
-import { AppFeatures } from "@/types/app-features";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import {
   DropdownMenu,
@@ -154,8 +152,6 @@ export default function ExperimentHeader({
   showDashboardView,
   editHoldoutSchedule,
 }: Props) {
-  const growthbook = useGrowthBook<AppFeatures>();
-
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
   const { watchedExperiments, refreshWatching } = useWatching();
@@ -224,9 +220,7 @@ export default function ExperimentHeader({
   const hasMultiArmedBanditFeature = hasCommercialFeature(
     "multi-armed-bandits",
   );
-  const hasHoldoutsFeature = hasCommercialFeature("holdouts");
-  const holdoutsEnabled =
-    useFeatureIsOn("holdouts_feature") && hasHoldoutsFeature;
+  const holdoutsEnabled = hasCommercialFeature("holdouts");
   const { holdouts } = useHoldouts(experiment.project);
 
   const hasUpdatePermissions = !holdout
@@ -386,10 +380,7 @@ export default function ExperimentHeader({
     );
 
   const showConvertButton =
-    canRunExperiment &&
-    growthbook.isOn("bandits") &&
-    experiment.status === "draft" &&
-    !isHoldout;
+    canRunExperiment && experiment.status === "draft" && !isHoldout;
 
   const showShareableReportButton =
     permissionsUtil.canCreateReport(experiment) && snapshot;
@@ -1146,11 +1137,9 @@ export default function ExperimentHeader({
                     {isBandit ? (
                       <TabsTrigger value="explore">Explore</TabsTrigger>
                     ) : null}
-                    {growthbook.isOn("experiment-dashboards-enabled") &&
-                      !isBandit &&
-                      !isHoldout && (
-                        <TabsTrigger value="dashboards">Dashboards</TabsTrigger>
-                      )}
+                    {!isBandit && !isHoldout && (
+                      <TabsTrigger value="dashboards">Dashboards</TabsTrigger>
+                    )}
                     {disableHealthTab ? (
                       <DisabledHealthTabTooltip reason="UNSUPPORTED_DATASOURCE">
                         <TabsTrigger disabled value="health">
