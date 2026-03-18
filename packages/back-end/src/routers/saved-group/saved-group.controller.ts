@@ -507,10 +507,18 @@ export const putSavedGroup = async (
     }
   }
 
-  // Helper to check if a value actually changed, treating null and undefined as equivalent
+  // Helper to check if a value actually changed
+  // If newVal is null/undefined, don't treat it as a change (form sends null for untouched fields)
   const hasChanged = (newVal: unknown, oldVal: unknown): boolean => {
-    // Treat null and undefined as equivalent
-    if (newVal == null && oldVal == null) return false;
+    // If new value is null/undefined, assume field wasn't intentionally changed
+    if (newVal == null) {
+      return false;
+    }
+    // If old value is null/undefined but new value exists, that's a change
+    if (oldVal == null) {
+      return true;
+    }
+    // Otherwise use deep equality
     return !isEqual(newVal, oldVal);
   };
 

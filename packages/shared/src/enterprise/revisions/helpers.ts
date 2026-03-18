@@ -105,10 +105,11 @@ export function checkMergeConflicts(
   const fieldsChanged: string[] = [];
   const mergedChanges: Record<string, unknown> = { ...liveState };
 
-  // Helper to check if values are different, treating null and undefined as equivalent
+  // Helper to check if values are different
+  // If val1 is null/undefined, treat as "no change" (form sends null for untouched fields)
   const hasChanged = (val1: unknown, val2: unknown): boolean => {
-    // Treat null and undefined as equivalent
-    if (val1 == null && val2 == null) return false;
+    if (val1 == null) return false;
+    if (val2 == null) return true;
     return !isEqual(val1, val2);
   };
 
@@ -116,6 +117,11 @@ export function checkMergeConflicts(
     const baseValue = baseState[field];
     const liveValue = liveState[field];
     const proposedValue = proposedChanges[field];
+
+    // If proposed value is null/undefined, user didn't change it - skip entirely
+    if (proposedValue == null) {
+      continue;
+    }
 
     // Check if the user actually changed this field from the base
     const proposedChanged = hasChanged(proposedValue, baseValue);

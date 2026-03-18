@@ -555,7 +555,10 @@ export const postRebase = async (
   for (const conflict of conflicts) {
     const strategy = strategies[conflict.field];
     if (strategy === "overwrite") {
-      resolvedChanges[conflict.field] = conflict.proposedValue;
+      // Only apply overwrite if the proposed value is not null/undefined
+      if (conflict.proposedValue != null) {
+        resolvedChanges[conflict.field] = conflict.proposedValue;
+      }
     } else if (strategy === "discard") {
       // Keep the live value (do nothing)
     } else {
@@ -565,18 +568,23 @@ export const postRebase = async (
     }
   }
 
-  // Include non-conflicting proposed changes
+  // Include non-conflicting proposed changes (skip null/undefined values)
   Object.keys(proposedChanges).forEach((field) => {
-    if (!conflicts.find((c) => c.field === field)) {
-      resolvedChanges[field] = proposedChanges[field];
+    const value = proposedChanges[field];
+    // Skip null/undefined - these represent untouched fields
+    if (value != null && !conflicts.find((c) => c.field === field)) {
+      resolvedChanges[field] = value;
     }
   });
 
   // Calculate new proposed changes relative to live state
+  // Skip null/undefined values - only include actual changes
   const newProposedChanges: Record<string, unknown> = {};
   Object.keys(resolvedChanges).forEach((field) => {
-    if (!isEqual(resolvedChanges[field], liveSnapshot[field])) {
-      newProposedChanges[field] = resolvedChanges[field];
+    const value = resolvedChanges[field];
+    // Skip null/undefined values
+    if (value != null && !isEqual(value, liveSnapshot[field])) {
+      newProposedChanges[field] = value;
     }
   });
 
