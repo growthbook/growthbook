@@ -1,9 +1,12 @@
 /**
- * Fields that are managed by BaseModel and must never be set directly
- * in create or update operations.
+ * Fields that are always managed by BaseModel and must never be set
+ * directly in create or update operations.
+ *
+ * Note: `id` is intentionally NOT included here — it is forbidden via the
+ * model's primary-key type parameter (PK) so that models with a non-`id`
+ * primary key (e.g. WatchModel) don't needlessly forbid `id`.
  */
 type ProtectedBaseFields =
-  | "id"
   | "uid"
   | "organization"
   | "dateCreated"
@@ -16,11 +19,15 @@ type ProtectedBaseFields =
  */
 type Forbid<Keys extends string> = { [K in Keys]?: never };
 
-export type CreateProps<T extends object> = Omit<T, ProtectedBaseFields> & {
+export type CreateProps<T extends object> = Omit<
+  T,
+  ProtectedBaseFields | "id"
+> & {
   id?: string;
 };
 
-export type UpdateProps<T extends object> = Partial<
-  Omit<T, ProtectedBaseFields>
-> &
-  Forbid<ProtectedBaseFields>;
+export type UpdateProps<
+  T extends object,
+  ExtraForbidden extends string = "id",
+> = Partial<Omit<T, ProtectedBaseFields | ExtraForbidden>> &
+  Forbid<ProtectedBaseFields | ExtraForbidden>;
