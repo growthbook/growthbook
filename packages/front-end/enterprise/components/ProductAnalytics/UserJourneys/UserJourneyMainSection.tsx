@@ -1,12 +1,15 @@
-import { Flex } from "@radix-ui/themes";
-import { PiTreeStructure } from "react-icons/pi";
+import { Box, Flex } from "@radix-ui/themes";
+import { PiDotsSix, PiTreeStructure } from "react-icons/pi";
+import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import Text from "@/ui/Text";
 import { useUserJourneyContext } from "./UserJourneyContext";
 import Toolbar from "./Toolbar";
+import UserJourneyDataTable from "./UserJourneyDataTable";
 import UserJourneySankeyChart from "./UserJourneySankeyChart";
 
 export default function UserJourneyMainSection() {
-  const { userJourney } = useUserJourneyContext();
+  const { userJourney, handleExtendPath, loading, error, query } =
+    useUserJourneyContext();
   return (
     <Flex
       direction="column"
@@ -25,7 +28,54 @@ export default function UserJourneyMainSection() {
       >
         {userJourney?.result?.rows?.length &&
         userJourney?.result?.rows?.length > 0 ? (
-          <UserJourneySankeyChart rows={userJourney.result.rows} />
+          <PanelGroup direction="vertical" id="visualization-group">
+            <Panel
+              id="chart"
+              order={1}
+              defaultSize={90}
+              minSize={30}
+              style={{ display: "flex", flexDirection: "column", minHeight: 0 }}
+            >
+              <UserJourneySankeyChart
+                rows={userJourney.result.rows}
+                onExtendPath={handleExtendPath}
+                extending={loading}
+              />
+            </Panel>
+            <PanelResizeHandle
+              style={{
+                height: "20px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Box
+                flexGrow="1"
+                mx="3"
+                style={{ backgroundColor: "var(--gray-a3)", height: "1px" }}
+              ></Box>
+              <PiDotsSix size={16} />
+              <Box
+                flexGrow="1"
+                mx="3"
+                style={{ backgroundColor: "var(--gray-a3)", height: "1px" }}
+              ></Box>
+            </PanelResizeHandle>
+            <Panel
+              id="table"
+              order={2}
+              defaultSize={10}
+              minSize={10}
+              style={{ display: "flex", flexDirection: "column", minHeight: 0 }}
+            >
+              <UserJourneyDataTable
+                rows={userJourney.result.rows}
+                error={error}
+                query={query}
+              />
+            </Panel>
+          </PanelGroup>
         ) : (
           <Flex
             align="center"
