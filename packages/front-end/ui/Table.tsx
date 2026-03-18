@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { forwardRef, useEffect, useRef } from "react";
 import { Table as RadixTable } from "@radix-ui/themes";
 import clsx from "clsx";
 
@@ -79,7 +79,9 @@ export default function Table({
       className="table-list-wrapper"
       style={
         useStickyHeader
-          ? ({ "--table-sticky-top": `${stickyTopOffset}px` } as React.CSSProperties)
+          ? ({
+              "--table-sticky-top": `${stickyTopOffset}px`,
+            } as React.CSSProperties)
           : undefined
       }
       data-table-list
@@ -104,12 +106,16 @@ export function TableBody({
   return <RadixTable.Body {...props}>{children}</RadixTable.Body>;
 }
 
-export function TableRow({
-  children,
-  ...props
-}: React.ComponentProps<typeof RadixTable.Row>) {
-  return <RadixTable.Row {...props}>{children}</RadixTable.Row>;
-}
+export const TableRow = forwardRef<
+  HTMLTableRowElement,
+  React.ComponentProps<typeof RadixTable.Row>
+>(function TableRow({ children, ...props }, ref) {
+  return (
+    <RadixTable.Row ref={ref} {...props}>
+      {children}
+    </RadixTable.Row>
+  );
+});
 
 export function TableRowHeaderCell({
   children,
