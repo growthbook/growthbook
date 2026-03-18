@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
-import { date } from "shared/dates";
+import { dateNoYear } from "shared/dates";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import { DropdownMenu as RadixDropdownMenu, Box, Flex } from "@radix-ui/themes";
 import { PiCaretDownBold } from "react-icons/pi";
@@ -92,14 +92,14 @@ function RevisionRow({
         {publishedOnly
           ? revDate && (
               <Text size="small" color="text-low" whiteSpace="nowrap">
-                Published: {date(revDate)}
+                Published: {dateNoYear(revDate)}
               </Text>
             )
           : (r.createdBy || revDate) && (
               <Text size="small" color="text-low" whiteSpace="nowrap">
                 {r.createdBy && <EventUser user={r.createdBy} display="name" />}
                 {r.createdBy && revDate && <> &middot; </>}
-                {revDate && date(revDate)}
+                {revDate && dateNoYear(revDate)}
               </Text>
             )}
       </Box>
