@@ -23,7 +23,6 @@ import {
   FaExclamationCircle,
   FaExternalLinkAlt,
 } from "react-icons/fa";
-import { useFeatureIsOn, useGrowthBook } from "@growthbook/growthbook-react";
 import { PiCaretDownFill } from "react-icons/pi";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useWatching } from "@/services/WatchProvider";
@@ -84,7 +83,6 @@ import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
 import Link from "@/ui/Link";
 import Markdown from "@/components/Markdown/Markdown";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
-import { AppFeatures } from "@/types/app-features";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
@@ -199,8 +197,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const { datasources, getDatasourceById, refreshTags, project, projects } =
     useDefinitions();
   const { aiEnabled } = useAISettings();
-  const gb = useGrowthBook<AppFeatures>();
-  const useCheckForSimilar = gb?.isOn("similar-experiments") || true;
   const [similarExperiments, setSimilarExperiments] = useState<
     { experiment: ExperimentInterfaceStringDates; similarity: number }[]
   >([]);
@@ -213,7 +209,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const [expandSimilarResults, setExpandSimilarResults] = useState(false);
   const environments = useEnvironments();
   const { experiments } = useExperiments();
-  const holdoutsEnabled = useFeatureIsOn("holdouts_feature");
 
   const {
     templates: allTemplates,
@@ -602,7 +597,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const trackingKeyFieldHandlers = form.register("trackingKey");
 
   const checkForSimilar = useCallback(async () => {
-    if (!aiEnabled || !useCheckForSimilar) return;
+    if (!aiEnabled) return;
 
     // Check if we have the API key for the embedding model provider
     const embeddingModel = settings.embeddingModel || "text-embedding-ada-002";
@@ -810,19 +805,17 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               </div>
             )}
 
-            {holdoutsEnabled && (
-              <>
-                <HoldoutSelect
-                  selectedProject={selectedProject}
-                  selectedHoldoutId={form.watch("holdoutId")}
-                  setHoldout={(holdoutId) => {
-                    form.setValue("holdoutId", holdoutId);
-                  }}
-                  formType="experiment"
-                />
-                <Separator size="4" mt="5" mb="5" />
-              </>
-            )}
+            <>
+              <HoldoutSelect
+                selectedProject={selectedProject}
+                selectedHoldoutId={form.watch("holdoutId")}
+                setHoldout={(holdoutId) => {
+                  form.setValue("holdoutId", holdoutId);
+                }}
+                formType="experiment"
+              />
+              <Separator size="4" mt="5" mb="5" />
+            </>
 
             <Field
               label={isBandit ? "Bandit Name" : "Experiment Name"}
@@ -901,158 +894,154 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 }`}
               />
             )}
-            {useCheckForSimilar && (
-              <>
-                {missingEmbeddingKey ? (
-                  <Box my="4">
-                    <Callout status="warning">
-                      {missingEmbeddingKey.provider} API key is required for
-                      checking similar experiments. Please set{" "}
-                      <code>{missingEmbeddingKey.envVar}</code> in your
-                      environment variables.
-                    </Callout>
-                  </Box>
-                ) : !enoughWords ? (
-                  <Box my="4">
-                    <Flex gap="2" className="text-muted" align="center">
-                      <FaExclamationCircle />
-                      <Text size="2" weight="light">
-                        Enter more details to check for similar experiments
-                      </Text>
-                    </Flex>
-                  </Box>
-                ) : (
-                  <>
-                    {aiLoading ? (
+            <>
+              {missingEmbeddingKey ? (
+                <Box my="4">
+                  <Callout status="warning">
+                    {missingEmbeddingKey.provider} API key is required for
+                    checking similar experiments. Please set{" "}
+                    <code>{missingEmbeddingKey.envVar}</code> in your
+                    environment variables.
+                  </Callout>
+                </Box>
+              ) : !enoughWords ? (
+                <Box my="4">
+                  <Flex gap="2" className="text-muted" align="center">
+                    <FaExclamationCircle />
+                    <Text size="2" weight="light">
+                      Enter more details to check for similar experiments
+                    </Text>
+                  </Flex>
+                </Box>
+              ) : (
+                <>
+                  {aiLoading ? (
+                    <Box my="4">
+                      <Flex gap="2" className="text-muted">
+                        <LoadingSpinner />
+                        <Text size="2">
+                          Checking for similar experiments...
+                        </Text>
+                      </Flex>
+                    </Box>
+                  ) : (
+                    <>
                       <Box my="4">
-                        <Flex gap="2" className="text-muted">
-                          <LoadingSpinner />
-                          <Text size="2">
-                            Checking for similar experiments...
-                          </Text>
-                        </Flex>
-                      </Box>
-                    ) : (
-                      <>
-                        <Box my="4">
-                          <Text size="2" color="violet">
-                            {similarExperiments.length > 0 ? (
-                              <Flex
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  setExpandSimilarResults(
-                                    !expandSimilarResults,
-                                  );
-                                }}
-                                gap="2"
-                                align="center"
-                              >
-                                <PiCaretDownFill
-                                  style={{
-                                    transition: "transform 0.3s ease",
-                                    transform: expandSimilarResults
-                                      ? "none"
-                                      : "rotate(-90deg)",
-                                  }}
-                                />
-                                <Text
-                                  weight="medium"
-                                  style={{
-                                    cursor: "pointer",
-                                    color: "violet-11",
-                                  }}
-                                >
-                                  Similar experiment
-                                  {similarExperiments.length === 1 ? "" : "s"} (
-                                  {similarExperiments.length})
-                                </Text>
-                              </Flex>
-                            ) : (
-                              <Flex gap="2" align="center">
-                                <FaCheckCircle />
-                                No similar experiments found
-                              </Flex>
-                            )}
-                          </Text>
-                          {expandSimilarResults && (
+                        <Text size="2" color="violet">
+                          {similarExperiments.length > 0 ? (
                             <Flex
-                              gap="3"
-                              direction="column"
-                              my="3"
-                              p="4"
-                              style={{
-                                backgroundColor: "var(--accent-a3)",
-                                borderRadius: "4px",
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setExpandSimilarResults(!expandSimilarResults);
                               }}
+                              gap="2"
+                              align="center"
                             >
-                              {similarExperiments.map((s, i) => (
-                                <Box
-                                  key={`similar-${i}`}
-                                  className="appbox"
-                                  p="3"
-                                  width="100%"
-                                  style={{
-                                    marginBottom: 0,
-                                    maxHeight: "430px",
-                                    overflowY: "auto",
-                                    color: "var(--text-color-main)",
-                                  }}
-                                >
-                                  <Flex
-                                    direction="column"
-                                    gap="3"
-                                    justify="start"
-                                  >
-                                    <Flex gap="3" justify="between">
-                                      <Flex gap="3" align="start">
-                                        <Link
-                                          href="/experiment/[id]"
-                                          as={`/experiment/${s.experiment.id}`}
-                                          target="_blank"
-                                        >
-                                          <Heading size="2">
-                                            {s.experiment.name}
-                                          </Heading>
-                                        </Link>
-                                        <span style={{ fontSize: "0.8rem" }}>
-                                          <FaExternalLinkAlt />
-                                        </span>
-                                      </Flex>
-                                      <Flex gap="3" align="center">
-                                        <Text size="1" className="text-muted">
-                                          {date(s.experiment.dateCreated)}
-                                        </Text>
-                                        <ExperimentStatusIndicator
-                                          experimentData={s.experiment}
-                                        />
-                                      </Flex>
-                                    </Flex>
-                                    {s.experiment.description && (
-                                      <Box style={{ fontSize: "0.9em" }}>
-                                        <strong>Description:</strong>{" "}
-                                        <Markdown>
-                                          {s.experiment.description}
-                                        </Markdown>
-                                      </Box>
-                                    )}
-                                    <Box style={{ fontSize: "0.9em" }}>
-                                      <strong>Hypothesis:</strong>{" "}
-                                      <Markdown>
-                                        {s.experiment.hypothesis}
-                                      </Markdown>
-                                    </Box>
-                                  </Flex>
-                                </Box>
-                              ))}
+                              <PiCaretDownFill
+                                style={{
+                                  transition: "transform 0.3s ease",
+                                  transform: expandSimilarResults
+                                    ? "none"
+                                    : "rotate(-90deg)",
+                                }}
+                              />
+                              <Text
+                                weight="medium"
+                                style={{
+                                  cursor: "pointer",
+                                  color: "violet-11",
+                                }}
+                              >
+                                Similar experiment
+                                {similarExperiments.length === 1 ? "" : "s"} (
+                                {similarExperiments.length})
+                              </Text>
+                            </Flex>
+                          ) : (
+                            <Flex gap="2" align="center">
+                              <FaCheckCircle />
+                              No similar experiments found
                             </Flex>
                           )}
-                        </Box>
-                      </>
-                    )}
-                  </>
-                )}
-              </>
-            )}
+                        </Text>
+                        {expandSimilarResults && (
+                          <Flex
+                            gap="3"
+                            direction="column"
+                            my="3"
+                            p="4"
+                            style={{
+                              backgroundColor: "var(--accent-a3)",
+                              borderRadius: "4px",
+                            }}
+                          >
+                            {similarExperiments.map((s, i) => (
+                              <Box
+                                key={`similar-${i}`}
+                                className="appbox"
+                                p="3"
+                                width="100%"
+                                style={{
+                                  marginBottom: 0,
+                                  maxHeight: "430px",
+                                  overflowY: "auto",
+                                  color: "var(--text-color-main)",
+                                }}
+                              >
+                                <Flex
+                                  direction="column"
+                                  gap="3"
+                                  justify="start"
+                                >
+                                  <Flex gap="3" justify="between">
+                                    <Flex gap="3" align="start">
+                                      <Link
+                                        href="/experiment/[id]"
+                                        as={`/experiment/${s.experiment.id}`}
+                                        target="_blank"
+                                      >
+                                        <Heading size="2">
+                                          {s.experiment.name}
+                                        </Heading>
+                                      </Link>
+                                      <span style={{ fontSize: "0.8rem" }}>
+                                        <FaExternalLinkAlt />
+                                      </span>
+                                    </Flex>
+                                    <Flex gap="3" align="center">
+                                      <Text size="1" className="text-muted">
+                                        {date(s.experiment.dateCreated)}
+                                      </Text>
+                                      <ExperimentStatusIndicator
+                                        experimentData={s.experiment}
+                                      />
+                                    </Flex>
+                                  </Flex>
+                                  {s.experiment.description && (
+                                    <Box style={{ fontSize: "0.9em" }}>
+                                      <strong>Description:</strong>{" "}
+                                      <Markdown>
+                                        {s.experiment.description}
+                                      </Markdown>
+                                    </Box>
+                                  )}
+                                  <Box style={{ fontSize: "0.9em" }}>
+                                    <strong>Hypothesis:</strong>{" "}
+                                    <Markdown>
+                                      {s.experiment.hypothesis}
+                                    </Markdown>
+                                  </Box>
+                                </Flex>
+                              </Box>
+                            ))}
+                          </Flex>
+                        )}
+                      </Box>
+                    </>
+                  )}
+                </>
+              )}
+            </>
             <div className="form-group">
               <label>Tags</label>
               <TagsInput

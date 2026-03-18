@@ -1,7 +1,6 @@
 import React from "react";
 import { NextPage } from "next";
 import { ImportYourData } from "@/components/importing/ImportYourData/ImportYourData";
-import { useFeatureDisabledRedirect } from "@/hooks/useFeatureDisabledRedirect";
 
 /**
  * A page to host all "Import from X" sections. To start, since we only have one,
@@ -9,12 +8,6 @@ import { useFeatureDisabledRedirect } from "@/hooks/useFeatureDisabledRedirect";
  * it may make sense to nest each service on its own page.
  */
 const ImportingFromExternalServicesPage: NextPage = () => {
-  const { shouldRender } = useFeatureDisabledRedirect("import-from-x");
-
-  if (!shouldRender) {
-    return null;
-  }
-
   return (
     <div className="contents container pagecontents">
       <ImportYourData />
