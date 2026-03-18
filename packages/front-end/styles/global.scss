@@ -2164,6 +2164,10 @@ main.main {
   tr:hover .tr-hover {
     visibility: visible;
   }
+  // Radix Table rows may not be native <tr>; show row-hover actions in list tables
+  .rt-TableBody .rt-TableRow:hover .tr-hover {
+    visibility: visible;
+  }
 
   .card-hover {
     visibility: hidden;
