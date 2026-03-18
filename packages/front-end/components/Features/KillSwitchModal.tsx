@@ -369,7 +369,7 @@ export default function KillSwitchModal({
           liveVersion={liveDoc.version}
           afterChangeSubtext={
             mode === "existing" && selectedDraft != null
-              ? `revision ${selectedDraft}`
+              ? `draft ${selectedDraft}`
               : mode === "publish"
                 ? "new revision"
                 : "new draft"
