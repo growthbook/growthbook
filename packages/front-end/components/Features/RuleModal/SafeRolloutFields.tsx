@@ -9,7 +9,6 @@ import {
   PiLockOpenBold,
 } from "react-icons/pi";
 import { useState } from "react";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import SelectField from "@/components/Forms/SelectField";
 import { FIVE_LINES_HEIGHT } from "@/components/Forms/CodeTextArea";
@@ -28,8 +27,6 @@ import {
   AttributeOptionWithTooltip,
   type AttributeOptionForTooltip,
 } from "@/components/Features/AttributeOptionTooltip";
-import { AppFeatures } from "@/types/app-features";
-
 export default function SafeRolloutFields({
   feature,
   environment,
@@ -78,10 +75,6 @@ export default function SafeRolloutFields({
 
   const durationValue = form.watch("safeRolloutFields.maxDuration.amount");
   const unit = form.watch("safeRolloutFields.maxDuration.unit") || "days";
-  const growthbook = useGrowthBook<AppFeatures>();
-  const isSafeRolloutAutoRollbackEnabled = growthbook.isOn(
-    "safe-rollout-auto-rollback",
-  );
   const unitMultipliers = {
     days: 24 * 60 * 60 * 1000,
     hours: 60 * 60 * 1000,
@@ -469,18 +462,16 @@ export default function SafeRolloutFields({
         scheduleToggleEnabled={scheduleToggleEnabled}
         setScheduleToggleEnabled={setScheduleToggleEnabled}
       />
-      {isSafeRolloutAutoRollbackEnabled && (
-        <Checkbox
-          id="autoRollback"
-          value={form.watch("safeRolloutFields.autoRollback")}
-          setValue={(v) => form.setValue("safeRolloutFields.autoRollback", v)}
-          disabled={disableFields}
-          label="Auto Rollback"
-          weight="bold"
-          description="Automatically rollback when unhealthy or a guardrail fails"
-          mb="4"
-        />
-      )}
+      <Checkbox
+        id="autoRollback"
+        value={form.watch("safeRolloutFields.autoRollback")}
+        setValue={(v) => form.setValue("safeRolloutFields.autoRollback", v)}
+        disabled={disableFields}
+        label="Auto Rollback"
+        weight="bold"
+        description="Automatically rollback when unhealthy or a guardrail fails"
+        mb="4"
+      />
 
       <div className="mt-3">{renderTargeting()}</div>
     </>

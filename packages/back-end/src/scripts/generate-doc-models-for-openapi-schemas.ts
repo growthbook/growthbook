@@ -4,7 +4,7 @@ import { load, dump } from "js-yaml";
 import { capitalizeFirstCharacter } from "shared/util";
 import { z } from "zod";
 import {
-  API_MODELS,
+  OpenApiModelSpec,
   generateYamlForPath,
   getCrudConfig,
   getDefaultCrudActionSummary,
@@ -130,21 +130,28 @@ async function run() {
     .filter((fileName) => !fileName.includes("index"))
     .map((fileName) => fileName.replace(".yaml", ""));
 
-  // Set up references for ApiModel classes
-  API_MODELS.forEach((modelClass) => {
-    const modelConfig = modelClass.getModelConfig();
-    if (!modelConfig.apiConfig) return;
-    const apiConfig = modelConfig.apiConfig;
-    const singularCapitalized = capitalizeFirstCharacter(
-      apiConfig.modelSingular,
-    );
-    const pluralCapitalized = capitalizeFirstCharacter(apiConfig.modelPlural);
+  // Dynamically discover and import all API spec files (each must have a default export)
+  const specsDir = path.join(__dirname, "../api/specs");
+  const specFiles = fs.readdirSync(specsDir).filter((f) => f.endsWith(".ts"));
+  const apiSpecs: OpenApiModelSpec[] = [];
+  for (const file of specFiles) {
+    const modelSpec = await import(path.join(specsDir, file));
+    if (!modelSpec.default) {
+      throw new Error(`Spec file ${file} is missing a default export`);
+    }
+    apiSpecs.push(modelSpec.default as OpenApiModelSpec);
+  }
+
+  // Set up references for ApiModel specs
+  apiSpecs.forEach((spec) => {
+    const singularCapitalized = capitalizeFirstCharacter(spec.modelSingular);
+    const pluralCapitalized = capitalizeFirstCharacter(spec.modelPlural);
     models.push(singularCapitalized);
     endpointTags.push(pluralCapitalized);
-    const crudConfig = getCrudConfig(apiConfig);
+    const crudConfig = getCrudConfig(spec);
     crudConfig.forEach(
       ({ action, verb, pathFragment, validator, returnKey, plural }) => {
-        const fullPath = apiConfig.pathBase + formatPathVariables(pathFragment);
+        const fullPath = spec.pathBase + formatPathVariables(pathFragment);
         const pathRecord = getOrCreatePathRecord(api, fullPath, verb);
         const returnSchema =
           action === "delete"
@@ -160,9 +167,7 @@ async function run() {
                 required: [returnKey],
                 properties: {
                   [returnKey]: z.toJSONSchema(
-                    plural
-                      ? z.array(apiConfig.apiInterface)
-                      : apiConfig.apiInterface,
+                    plural ? z.array(spec.apiInterface) : spec.apiInterface,
                   ),
                 },
               };
@@ -174,15 +179,15 @@ async function run() {
           operationId: `${action}${plural ? pluralCapitalized : singularCapitalized}`,
           summary: getDefaultCrudActionSummary(
             action,
-            apiConfig.modelSingular,
-            apiConfig.modelPlural,
+            spec.modelSingular,
+            spec.modelPlural,
           ),
           tags: [pluralCapitalized],
         });
         api.paths[fullPath] = pathRecord;
       },
     );
-    (apiConfig.customHandlers ?? []).forEach(
+    (spec.customEndpoints ?? []).forEach(
       ({
         pathFragment,
         verb,
@@ -191,7 +196,7 @@ async function run() {
         summary,
         zodReturnObject,
       }) => {
-        const fullPath = apiConfig.pathBase + formatPathVariables(pathFragment);
+        const fullPath = spec.pathBase + formatPathVariables(pathFragment);
         const pathRecord = getOrCreatePathRecord(api, fullPath, verb);
         pathRecord[verb] = generateYamlForPath({
           path: fullPath,
@@ -205,7 +210,7 @@ async function run() {
         api.paths[fullPath] = pathRecord;
       },
     );
-    const schema = z.toJSONSchema(apiConfig.apiInterface);
+    const schema = z.toJSONSchema(spec.apiInterface);
     schema.$skipValidatorGeneration = true;
     api.components.schemas[singularCapitalized] = schema;
   });

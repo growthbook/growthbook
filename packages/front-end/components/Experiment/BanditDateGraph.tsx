@@ -89,9 +89,11 @@ type TooltipData = {
 const height = 300;
 const margin = [15, 30, 50, 80];
 
+type GraphVariation = { name: string; index: number };
+
 const getTooltipContents = (
   data: TooltipData,
-  variationNames: string[],
+  variations: GraphVariation[],
   mode: "values" | "probabilities" | "weights",
   metric: ExperimentMetricInterface | null,
   getFactTableById: any,
@@ -119,7 +121,7 @@ const getTooltipContents = (
             </tr>
           </thead>
           <tbody>
-            {variationNames.map((v, i) => {
+            {variations.map((v, i) => {
               if (!showVariations[i]) return null;
               const val = d[i];
               const meta = d.meta;
@@ -130,12 +132,12 @@ const getTooltipContents = (
                   )
                 : val;
               return (
-                <tr key={i}>
+                <tr key={v.index}>
                   <td
                     className="text-ellipsis"
-                    style={{ color: getVariationColor(i, true) }}
+                    style={{ color: getVariationColor(v.index, true) }}
                   >
-                    {v}
+                    {v.name}
                   </td>
                   <td>
                     {mode === "values" && crFormatted !== undefined
@@ -289,8 +291,8 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
   const displayCurrency = ssrPolyfills?.useCurrency() || _displayCurrency;
   const metricFormatterOptions = { currency: displayCurrency };
 
-  const variationNames = getLatestPhaseVariations(experiment).map(
-    (v) => v.name,
+  const variations: GraphVariation[] = getLatestPhaseVariations(experiment).map(
+    (v) => ({ name: v.name, index: v.index }),
   );
   const { containerRef, containerBounds } = useTooltipInPortal({
     scroll: true,
@@ -304,7 +306,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
   });
   const filterVariations = form.watch("filterVariations");
   const [showVariations, setShowVariations] = useState<boolean[]>(
-    variationNames.map(() => true),
+    variations.map(() => true),
   );
 
   const {
@@ -322,18 +324,18 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
 
     const stackedData: any[] = [];
 
-    let lastVal = variationNames.map(() => 1 / (variationNames.length || 2));
+    let lastVal = variations.map(() => 1 / (variations.length || 2));
     events.forEach((event, eventNo) => {
       const bestArmProbabilities =
         event.banditResult?.bestArmProbabilities ?? [];
 
       const weights = event.banditResult.updatedWeights;
 
-      const users = variationNames.map(
+      const users = variations.map(
         (_, i) => event.banditResult?.singleVariationResults?.[i]?.users ?? 0,
       );
 
-      const crs = variationNames.map(
+      const crs = variations.map(
         (_, i) => event.banditResult?.singleVariationResults?.[i]?.cr ?? 0,
       );
 
@@ -359,7 +361,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
       };
 
       let allEmpty = true;
-      variationNames.forEach((_, i) => {
+      variations.forEach((_, i) => {
         let val = 0;
         if (mode === "values") {
           val = crs[i];
@@ -382,12 +384,12 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
         };
       });
       if (allEmpty) {
-        variationNames.forEach((_, i) => {
+        variations.forEach((_, i) => {
           dataPoint[i] = lastVal[i];
         });
         dataPoint.empty = true;
       } else {
-        lastVal = variationNames.map((_, i) => dataPoint[i]);
+        lastVal = variations.map((_, i) => dataPoint[i]);
       }
 
       stackedData.push(dataPoint);
@@ -400,7 +402,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
       now > stackedData[stackedData.length - 1].date
     ) {
       const dataPoint: BanditDateGraphDataPoint = { date: now, meta: {} };
-      variationNames.forEach((_, i) => {
+      variations.forEach((_, i) => {
         dataPoint[i] = stackedData[stackedData.length - 1][i];
       });
       dataPoint.initial = stackedData[stackedData.length - 1].initial;
@@ -411,7 +413,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
     }
 
     return stackedData;
-  }, [experiment, phase, mode, variationNames]);
+  }, [experiment, phase, mode, variations]);
 
   const filteredStackedData: BanditDateGraphDataPoint[] = useMemo(() => {
     const filtered = cloneDeep(stackedData);
@@ -428,7 +430,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
     () => {
       let sv = [...showVariations];
       if (filterVariations === "all") {
-        sv = variationNames.map(() => true);
+        sv = variations.map(() => true);
         setShowVariations(sv);
         return;
       }
@@ -436,9 +438,9 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
       const probabilities = (() => {
         let probs: number[] = [];
         let totalUsers = 0;
-        for (let i = 0; i < variationNames.length; i++) {
+        for (let i = 0; i < variations.length; i++) {
           let prob =
-            latestMeta?.[i]?.probability ?? 1 / (variationNames.length || 2);
+            latestMeta?.[i]?.probability ?? 1 / (variations.length || 2);
           const users = latestMeta?.[i]?.users ?? 0;
           totalUsers += users;
           if (users < 100) {
@@ -447,8 +449,8 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
 
           probs.push(prob);
         }
-        if (totalUsers < 100 * variationNames.length) {
-          probs = probs.map(() => 1 / (variationNames.length || 2));
+        if (totalUsers < 100 * variations.length) {
+          probs = probs.map(() => 1 / (variations.length || 2));
         }
         return probs;
       })();
@@ -468,11 +470,11 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
       const variationRanks = rankArray(probabilities);
 
       if (filterVariations === "5") {
-        sv = variationNames.map((_, i) => variationRanks[i] <= 5);
+        sv = variations.map((_, i) => variationRanks[i] <= 5);
       } else if (filterVariations === "3") {
-        sv = variationNames.map((_, i) => variationRanks[i] <= 3);
+        sv = variations.map((_, i) => variationRanks[i] <= 3);
       } else if (filterVariations === "1") {
-        sv = variationNames.map((_, i) => variationRanks[i] <= 1);
+        sv = variations.map((_, i) => variationRanks[i] <= 1);
       }
       setShowVariations(sv);
     },
@@ -490,7 +492,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
               Math.min(
                 ...stackedData.map((d) =>
                   Math.min(
-                    ...variationNames
+                    ...variations
                       .map((_, i) => d?.meta?.[i]?.ci?.[0] ?? 0)
                       .filter(
                         (_, i) =>
@@ -507,7 +509,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
               Math.max(
                 ...stackedData.map((d) =>
                   Math.max(
-                    ...variationNames
+                    ...variations
                       .map((_, i) => d?.meta?.[i]?.ci?.[1] ?? 0)
                       .filter(
                         (_, i) =>
@@ -529,7 +531,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
             domain: [0, 1],
             range: [yMax, 0],
           }),
-    [variationNames, mode, stackedData, yMax, showVariations],
+    [variations, mode, stackedData, yMax, showVariations],
   );
 
   // Get x-axis domain
@@ -542,10 +544,10 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
       ? Math.max(...stackedData.map((d) => d.date.getTime()))
       : 0;
 
-  const gradients = variationNames.map((_, i) => (
+  const gradients = variations.map((v) => (
     <linearGradient
-      key={`gradient-${i}`}
-      id={`gradient-${i}`}
+      key={`gradient-${v.index}`}
+      id={`gradient-${v.index}`}
       x1="0%"
       y1="0%"
       x2="0%"
@@ -553,12 +555,12 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
     >
       <stop
         offset="0%"
-        stopColor={getVariationColor(i, true)}
+        stopColor={getVariationColor(v.index, true)}
         stopOpacity={0.75}
       />
       <stop
         offset="100%"
-        stopColor={getVariationColor(i, true)}
+        stopColor={getVariationColor(v.index, true)}
         stopOpacity={0.65}
       />
     </linearGradient>
@@ -668,7 +670,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
               >
                 {getTooltipContents(
                   tooltipData,
-                  variationNames,
+                  variations,
                   mode,
                   metric,
                   getFactTableById,
@@ -693,7 +695,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                       label: "All variations",
                       value: "all",
                     },
-                    ...(variationNames.length > 5
+                    ...(variations.length > 5
                       ? [
                           {
                             label: "Top 5",
@@ -701,7 +703,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                           },
                         ]
                       : []),
-                    ...(variationNames.length > 3
+                    ...(variations.length > 3
                       ? [
                           {
                             label: "Top 3",
@@ -734,20 +736,20 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                 className="d-flex flex-wrap px-3 mb-2"
                 style={{ gap: "0.25rem 1rem" }}
               >
-                {variationNames.map((v, i) => {
+                {variations.map((v, i) => {
                   return (
                     <div
-                      key={i}
+                      key={v.index}
                       className="nowrap text-ellipsis cursor-pointer hover-highlight py-1 pr-1 rounded user-select-none"
                       style={{
                         maxWidth: 200,
-                        color: getVariationColor(i, true),
+                        color: getVariationColor(v.index, true),
                       }}
                       onClick={() => {
                         let sv = [...showVariations];
                         sv[i] = !sv[i];
                         if (sv.every((v) => !v)) {
-                          sv = variationNames.map((_, j) => i !== j);
+                          sv = variations.map((_, j) => i !== j);
                         }
                         setShowVariations(sv);
                         if (sv.every((v) => v)) {
@@ -762,7 +764,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                       ) : (
                         <BiCheckbox size={24} />
                       )}
-                      {v}
+                      {v.name}
                     </div>
                   );
                 })}
@@ -783,8 +785,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
               {tooltipOpen && (
                 <>
                   {type === "line" &&
-                    variationNames.map((_, i) => {
-                      // Render a dot at the current x location for each variation
+                    variations.map((v, i) => {
                       if (!showVariations[i]) return null;
                       const y = tooltipData?.d?.[i];
                       if (y === undefined) return;
@@ -792,13 +793,13 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                       if (users === 0 && mode === "values") return;
                       return (
                         <div
-                          key={i}
+                          key={v.index}
                           className={styles.positionIndicator}
                           style={{
                             transform: `translate(${tooltipLeft}px, ${yScale(
                               y,
                             )}px)`,
-                            background: getVariationColor(i, true),
+                            background: getVariationColor(v.index, true),
                           }}
                         />
                       );
@@ -854,7 +855,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                 <Group clipPath="url(#bandit-date-graph-clip)">
                   {type === "area" && (
                     <AreaStack
-                      keys={variationNames.map((_, i) => i)}
+                      keys={variations.map((_, i) => i)}
                       data={filteredStackedData}
                       x={(d) => xScale(d.data.date)}
                       y0={(d) => yScale(d[0])}
@@ -874,12 +875,13 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                       {({ stacks, path }) =>
                         stacks.map((stack, i) => {
                           if (!showVariations[i]) return null;
+                          const vIndex = variations[i]?.index ?? i;
                           return (
                             <path
                               key={`stack-${stack.key}`}
                               d={path(stack) || ""}
-                              stroke={getVariationColor(i, true)}
-                              fill={`url(#gradient-${i})`}
+                              stroke={getVariationColor(vIndex, true)}
+                              fill={`url(#gradient-${vIndex})`}
                               mask="url(#stripe-mask)"
                             />
                           );
@@ -889,17 +891,17 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                   )}
 
                   {mode === "values" &&
-                    variationNames.map((_, i) => {
+                    variations.map((v, i) => {
                       if (!showVariations[i]) return null;
                       return (
                         <AreaClosed
-                          key={`ci_${i}`}
+                          key={`ci_${v.index}`}
                           yScale={yScale}
                           data={stackedData}
                           x={(d) => xScale(d.date)}
                           y0={(d) => yScale(d?.meta?.[i]?.ci?.[0] ?? 0) ?? 0}
                           y1={(d) => yScale(d?.meta?.[i]?.ci?.[1] ?? 0) ?? 0}
-                          fill={getVariationColor(i, true)}
+                          fill={getVariationColor(v.index, true)}
                           opacity={0.12}
                           curve={curveMonotoneX}
                           defined={(d) =>
@@ -911,15 +913,15 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                     })}
 
                   {type === "line" &&
-                    variationNames.map((_, i) => {
+                    variations.map((v, i) => {
                       if (!showVariations[i]) return null;
                       return (
                         <LinePath
-                          key={`linepath-${i}`}
+                          key={`linepath-${v.index}`}
                           data={stackedData}
                           x={(d) => xScale(d.date)}
                           y={(d) => yScale(d[i])}
-                          stroke={getVariationColor(i, true)}
+                          stroke={getVariationColor(v.index, true)}
                           strokeWidth={2}
                           curve={
                             mode === "values"
