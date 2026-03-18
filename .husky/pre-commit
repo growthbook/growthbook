@@ -5,25 +5,22 @@ has_changes() {
   git status --porcelain | grep '^[MADRC]' | grep -E "$1" || true
 }
 
-openapi=$(has_changes "back-end/src/api/openapi")
-if [ -n "$openapi" ]
-  then
-    echo "#### OpenAPI spec changed"
-fi
-
-modelschanged=$(has_changes "back-end/src/models")
-if [ -n "$modelschanged" ]
-  then
-    echo "#### Backend models changed"
-fi
-
-if [ -n "$openapi" ] || [ -n "$modelschanged" ]
-  then
-    echo "#### Running generate-api-types and adding changes"
-    pnpm generate-api-types
-    git add packages/shared/types/openapi.d.ts
-    git add packages/back-end/generated/spec.yaml
-    git add packages/shared/src/validators/openapi.ts
+# API type generation: hash all input files and skip if unchanged
+api_spec_inputs="packages/back-end/src/api/specs packages/back-end/src/api/openapi packages/back-end/src/api/api.router.ts packages/back-end/src/scripts/generate-doc-models-for-openapi-schemas.ts packages/back-end/src/scripts/generate-openapi.mjs"
+api_spec_hash_file="packages/back-end/generated/.api-spec-hash"
+current_api_hash=$(git ls-files $api_spec_inputs 2>/dev/null | sort | xargs cat 2>/dev/null | shasum | cut -d' ' -f1)
+stored_api_hash=$(cat "$api_spec_hash_file" 2>/dev/null || echo "")
+if [ "$current_api_hash" != "$stored_api_hash" ]; then
+  echo "#### API spec inputs changed, running generate-api-types"
+  if ! pnpm generate-api-types; then
+    echo "#### generate-api-types failed, not updating API spec hash"
+    exit 1
+  fi
+  echo "$current_api_hash" > "$api_spec_hash_file"
+  git add packages/shared/types/openapi.d.ts
+  git add packages/back-end/generated/spec.yaml
+  git add packages/shared/src/validators/openapi.ts
+  git add "$api_spec_hash_file"
 fi
 
 eslintconfigchanged=$(has_changes "eslint.config.mjs")

@@ -2,13 +2,16 @@ import { z } from "zod";
 import {
   customFieldsPropsValidator,
   customFieldsValidator,
-  apiCustomFieldInterface,
   apiCreateCustomFieldBody,
   apiUpdateCustomFieldBody,
   ApiCustomField,
 } from "shared/validators";
 import { ApiRequest } from "back-end/src/util/handler";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
+import {
+  customFieldApiSpec,
+  listCustomFieldsEndpoint,
+} from "back-end/src/api/specs/custom-field.spec";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -24,28 +27,10 @@ const BaseClass = MakeModelClass({
   globallyUniquePrimaryKeys: false,
   apiConfig: {
     modelKey: "customFields",
-    modelSingular: "customField",
-    modelPlural: "customFields",
-    apiInterface: apiCustomFieldInterface,
-    schemas: {
-      createBody: apiCreateCustomFieldBody,
-      updateBody: apiUpdateCustomFieldBody,
-    },
-    pathBase: "/custom-fields",
-    includeDefaultCrud: false,
-    crudActions: ["create", "delete", "get", "update"],
+    openApiSpec: customFieldApiSpec,
     customHandlers: [
       defineCustomApiHandler({
-        pathFragment: "",
-        verb: "get",
-        operationId: "listCustomFields",
-        validator: {
-          bodySchema: z.never(),
-          querySchema: z.strictObject({ projectId: z.string().optional() }),
-          paramsSchema: z.never(),
-        },
-        zodReturnObject: z.array(apiCustomFieldInterface),
-        summary: "Get all custom fields",
+        ...listCustomFieldsEndpoint,
         reqHandler: async (req): Promise<ApiCustomField[]> => {
           const projectId = req.query.projectId;
           const fields = projectId

@@ -170,9 +170,7 @@ export function FeatureUsageProvider({
     ? true
     : false;
 
-  const showFeatureUsage =
-    useDummyData ||
-    (growthbook.isOn("feature-usage") && hasGrowthbookClickhouseDatasource);
+  const showFeatureUsage = useDummyData || hasGrowthbookClickhouseDatasource;
 
   const { data, mutate: mutateFeatureUsage } = useApi<{
     usage: FeatureUsageData;
@@ -185,10 +183,7 @@ export function FeatureUsageProvider({
 
   const featureUsageAutoRefreshInterval = growthbook.getFeatureValue(
     "feature-usage-auto-refresh-interval",
-    {
-      withData: 0,
-      withoutData: 0,
-    },
+    { withData: 5000, withoutData: 15000 },
   );
 
   useEffect(() => {
