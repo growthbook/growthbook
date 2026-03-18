@@ -14,11 +14,13 @@ type SetDraftUserJourneyStateAction =
   | ((prevState: UserJourneyConfig) => UserJourneyConfig);
 
 export interface UserJourneyContextValue {
-  draftUserJourneyState: UserJourneyConfig; // I think this should be draftConfig
-  submittedUserJourneyState: UserJourneyConfig | null; // this should be submittedConfig
-  userJourney: UserJourney | null; // userJourneyData?
+  draftUserJourneyState: UserJourneyConfig;
+  submittedUserJourneyState: UserJourneyConfig | null;
+  userJourney: UserJourney | null;
   loading: boolean;
   error: string | null;
+  query: QueryInterface | null;
+  isStale: boolean;
   setDraftUserJourneyState: (action: SetDraftUserJourneyStateAction) => void;
   handleSubmit: () => Promise<void>;
 }
@@ -49,15 +51,14 @@ export function UserJourneyProvider({
     query: null,
   });
 
-  console.log("userJourneyState", userJourneyState);
-
   const handleSubmit = useCallback(async () => {
-    const { data, error } = await fetchData(userJourneyState.draftState);
+    const { data, error, query } = await fetchData(userJourneyState.draftState);
     setUserJourneyState((prev) => ({
       ...prev,
       submittedState: prev.draftState,
       userJourney: data,
       error,
+      query: query ?? null,
     }));
   }, [fetchData, userJourneyState.draftState]);
 
@@ -77,6 +78,14 @@ export function UserJourneyProvider({
     },
     [],
   );
+  const isStale = useMemo(() => {
+    if (!userJourneyState.submittedState) return false;
+    return (
+      JSON.stringify(userJourneyState.draftState) !==
+      JSON.stringify(userJourneyState.submittedState)
+    );
+  }, [userJourneyState.draftState, userJourneyState.submittedState]);
+
   const value = useMemo<UserJourneyContextValue>(
     () => ({
       draftUserJourneyState: userJourneyState.draftState,
@@ -84,6 +93,8 @@ export function UserJourneyProvider({
       userJourney: userJourneyState.userJourney,
       loading,
       error: userJourneyState.error,
+      query: userJourneyState.query,
+      isStale,
       setDraftUserJourneyState,
       handleSubmit,
     }),
@@ -91,10 +102,12 @@ export function UserJourneyProvider({
       setDraftUserJourneyState,
       handleSubmit,
       loading,
+      isStale,
       userJourneyState.draftState,
       userJourneyState.submittedState,
       userJourneyState.userJourney,
       userJourneyState.error,
+      userJourneyState.query,
     ],
   );
   return (

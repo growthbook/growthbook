@@ -204,6 +204,7 @@ export const postUserJourneyRun = async (
   res: Response<{
     status: 200;
     userJourney: UserJourney;
+    query: QueryInterface | null;
   }>,
 ) => {
   const context = getContextFromReq(req);
@@ -219,6 +220,18 @@ export const postUserJourneyRun = async (
   return res.status(200).json({
     status: 200,
     userJourney,
+    query: {
+      id: "qry_123",
+      organization: "org_123",
+      datasource: "ds_123",
+      language: "sql",
+      query: "SELECT * FROM users",
+      status: "succeeded",
+      createdAt: new Date(),
+      startedAt: new Date(),
+      finishedAt: new Date(),
+      heartbeat: new Date(),
+    },
   });
 };
 

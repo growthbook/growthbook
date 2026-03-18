@@ -217,7 +217,6 @@ export default function SideBar({
           forceUndefinedValueToNull
         />
       </Flex>
-
       <Flex
         width="100%"
         direction="column"
@@ -230,9 +229,6 @@ export default function SideBar({
         }}
       >
         <>
-          <Text weight="medium" mt="2">
-            Starting Event
-          </Text>
           <SelectField
             label="Event column"
             value={draftUserJourneyState.startingEvent.column}
@@ -250,6 +246,8 @@ export default function SideBar({
             placeholder="Select column..."
             forceUndefinedValueToNull
           />
+        </>
+        <>
           <SelectField
             label="Starting event"
             value={draftUserJourneyState.startingEvent.value}
@@ -276,7 +274,7 @@ export default function SideBar({
             }
             forceUndefinedValueToNull
           />
-          <Flex justify="between" align="center" mt="2">
+          <Flex justify="between" align="center">
             <Button
               size="xs"
               variant="ghost"
@@ -291,7 +289,6 @@ export default function SideBar({
                 Add Filter
               </Flex>
             </Button>
-
             <DropdownMenu
               open={unitDropdownOpen}
               onOpenChange={setUnitDropdownOpen}
@@ -321,6 +318,18 @@ export default function SideBar({
             </DropdownMenu>
           </Flex>
         </>
+      </Flex>
+      <Flex
+        width="100%"
+        direction="column"
+        p="3"
+        gap="2"
+        style={{
+          border: "1px solid var(--gray-a3)",
+          borderRadius: "var(--radius-4)",
+          backgroundColor: "var(--color-panel-translucent)",
+        }}
+      >
         <>
           <Text weight="medium" mt="2">
             Measured As
