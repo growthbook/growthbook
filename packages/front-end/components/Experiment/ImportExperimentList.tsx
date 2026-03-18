@@ -556,6 +556,9 @@ const ImportExperimentList: FC<{
                           className={`btn btn-primary`}
                           onClick={(ev) => {
                             ev.preventDefault();
+                            const varIds = e.variationKeys.map(() =>
+                              generateVariationId(),
+                            );
                             const importObj: Partial<ExperimentInterfaceStringDates> =
                               {
                                 name: e.experimentName || e.trackingKey,
@@ -564,7 +567,6 @@ const ImportExperimentList: FC<{
                                 exposureQueryId: e.exposureQueryId || "",
                                 variations: e.variationKeys.map((vKey, i) => {
                                   let vName = e.variationNames?.[i] || vKey;
-                                  // If the name is an integer, rename 0 to "Control" and anything else to "Variation {name}"
                                   if (vName.match(/^[0-9]{1,2}$/)) {
                                     vName =
                                       vName === "0"
@@ -576,7 +578,7 @@ const ImportExperimentList: FC<{
                                     screenshots: [],
                                     description: "",
                                     key: vKey,
-                                    id: generateVariationId(),
+                                    id: varIds[i],
                                   };
                                 }),
                                 phases: [
@@ -585,6 +587,10 @@ const ImportExperimentList: FC<{
                                     name: "Main",
                                     reason: "",
                                     variationWeights: e.weights,
+                                    variations: varIds.map((id) => ({
+                                      id,
+                                      status: "active" as const,
+                                    })),
                                     dateStarted:
                                       getValidDate(e.startDate)
                                         .toISOString()

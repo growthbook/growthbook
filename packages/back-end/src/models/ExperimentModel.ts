@@ -94,6 +94,12 @@ const banditResultObject = {
   weightsWereUpdated: Boolean,
 };
 
+const phaseVariation = {
+  _id: false,
+  id: String,
+  status: String,
+};
+
 const experimentSchema = new mongoose.Schema({
   id: String,
   uid: String,
@@ -242,6 +248,7 @@ const experimentSchema = new mongoose.Schema({
       namespace: {},
       seed: String,
       variationWeights: [Number],
+      variations: [phaseVariation],
       groups: [String],
       banditEvents: [
         {
@@ -1740,6 +1747,7 @@ const getExperimentChanges = (
     "phases",
   ];
 
+  // TODO: check variations logic here
   return {
     ...pick(experiment, importantKeys),
     variations: getLatestPhaseVariations(experiment).map((v) =>

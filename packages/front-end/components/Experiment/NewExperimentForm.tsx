@@ -89,6 +89,16 @@ import { useHoldouts } from "@/hooks/useHoldouts";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 
+export type FormVariation = {
+  id: string;
+  name: string;
+  key: string;
+  description?: string;
+  screenshots: { path: string }[];
+  weight: number;
+  status: "active";
+};
+
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
 
@@ -270,6 +280,15 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const lastPhase = (initialValue?.phases?.length ?? 1) - 1;
   const initialHashAttribute = initialValue?.hashAttribute || hashAttribute;
 
+  const initialExpVariations =
+    initialValue?.variations ?? getDefaultVariations(initialNumVariations);
+  const toPhaseVariations = (vars: Variation[]) =>
+    vars.map((v) => ({
+      id: v.id || "",
+      status: "active" as const,
+    }));
+  const toEqualWeights = (vars: Variation[]) => getEqualWeights(vars.length);
+
   const form = useForm<Partial<ExperimentInterfaceStringDates>>({
     defaultValues: {
       project: initialValue?.project || project || "",
@@ -299,9 +318,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       targetURLRegex: initialValue?.targetURLRegex || "",
       description: initialValue?.description || "",
       guardrailMetrics: initialValue?.guardrailMetrics || [],
-      variations: initialValue?.variations
-        ? initialValue.variations
-        : getDefaultVariations(initialNumVariations),
+      variations: initialExpVariations,
       phases: [
         ...(initialValue?.phases?.[lastPhase]
           ? [
@@ -321,12 +338,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 name: initialValue.phases?.[lastPhase]?.name || "Main",
                 reason: "",
                 variationWeights:
-                  initialValue.phases?.[lastPhase]?.variationWeights ||
-                  getEqualWeights(
-                    initialValue.variations
-                      ? initialValue.variations.length
-                      : 2,
-                  ),
+                  initialValue.phases?.[lastPhase]?.variationWeights ??
+                  toEqualWeights(initialExpVariations),
+                variations:
+                  initialValue.phases?.[lastPhase]?.variations ??
+                  toPhaseVariations(initialExpVariations),
               },
             ]
           : [
@@ -336,12 +352,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 dateEnded: new Date().toISOString().substr(0, 16),
                 name: "Main",
                 reason: "",
-                variationWeights: getEqualWeights(
-                  (initialValue?.variations
-                    ? initialValue.variations
-                    : getDefaultVariations(initialNumVariations)
-                  )?.length || 2,
-                ),
+                variationWeights: toEqualWeights(initialExpVariations),
+                variations: toPhaseVariations(initialExpVariations),
               },
             ]),
       ],
@@ -379,6 +391,75 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const willExperimentBeIncludedInIncrementalRefresh =
     isPipelineIncrementalEnabledForDatasource &&
     datasource?.settings.pipelineSettings?.includedExperimentIds === undefined;
+
+  // Combined variations: merges experiment-level Variation metadata
+  // (name, key, screenshots) with phase-level variationWeights.
+  const watchedExpVariations = form.watch("variations") ?? [];
+  const watchedWeights = form.watch("phases.0.variationWeights") ?? [];
+  const combinedVariations: FormVariation[] = watchedExpVariations.map(
+    (v, i) => ({
+      id: v.id || "",
+      name: v.name,
+      key: v.key || "",
+      description: v.description,
+      screenshots: v.screenshots,
+      weight: watchedWeights[i] ?? 1 / (watchedExpVariations.length || 2),
+      status: "active" as const,
+    }),
+  );
+
+  const setCombinedVariations = useCallback(
+    (
+      v: {
+        value?: string;
+        id?: string;
+        name?: string;
+        weight: number;
+        description?: string;
+        screenshots?: { path: string }[];
+      }[],
+    ) => {
+      form.setValue(
+        "variations",
+        v.map((data, i) => ({
+          name: data.name ?? "",
+          description: data.description ?? "",
+          screenshots: data.screenshots ?? [],
+          key: data.value ?? `${i}`,
+          id: data.id || generateVariationId(),
+        })),
+      );
+      form.setValue(
+        "phases.0.variationWeights",
+        v.map((data) => data.weight),
+      );
+      form.setValue(
+        "phases.0.variations",
+        v.map((data) => ({
+          id: data.id || generateVariationId(),
+          status: "active" as const,
+        })),
+      );
+    },
+    [form],
+  );
+
+  const setVariationWeight = useCallback(
+    (i: number, weight: number) => {
+      form.setValue(`phases.0.variationWeights.${i}`, weight);
+    },
+    [form],
+  );
+
+  // Props for FeatureVariationsInput derived from the combined variations
+  const variationsForInput = combinedVariations.map((v) => ({
+    value: v.key || "",
+    name: v.name,
+    weight: v.weight,
+    id: v.id,
+    description: v.description,
+    screenshots: v.screenshots,
+  }));
 
   const { apiCall } = useAuth();
 
@@ -1159,39 +1240,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                       setCoverage={(coverage) =>
                         form.setValue("phases.0.coverage", coverage)
                       }
-                      setWeight={(i, weight) =>
-                        form.setValue(`phases.0.variationWeights.${i}`, weight)
-                      }
-                      variations={
-                        form.watch("variations")?.map((v, i) => {
-                          return {
-                            value: v.key || "",
-                            name: v.name,
-                            weight: form.watch(
-                              `phases.0.variationWeights.${i}`,
-                            ),
-                            id: v.id,
-                          };
-                        }) ?? []
-                      }
-                      setVariations={(v) => {
-                        form.setValue(
-                          "variations",
-                          v.map((data, i) => {
-                            return {
-                              // default values
-                              name: "",
-                              screenshots: [],
-                              ...data,
-                              key: data.value || `${i}` || "",
-                            };
-                          }),
-                        );
-                        form.setValue(
-                          "phases.0.variationWeights",
-                          v.map((v) => v.weight),
-                        );
-                      }}
+                      setWeight={setVariationWeight}
+                      variations={variationsForInput}
+                      setVariations={setCombinedVariations}
                       variationValuesAsIds={true}
                       hideVariationIds={!isImport}
                       orgStickyBucketing={orgStickyBucketing}
@@ -1241,39 +1292,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                       setCoverage={(coverage) =>
                         form.setValue("phases.0.coverage", coverage)
                       }
-                      setWeight={(i, weight) =>
-                        form.setValue(`phases.0.variationWeights.${i}`, weight)
-                      }
-                      variations={
-                        form.watch("variations")?.map((v, i) => {
-                          return {
-                            value: v.key || "",
-                            name: v.name,
-                            weight: form.watch(
-                              `phases.0.variationWeights.${i}`,
-                            ),
-                            id: v.id,
-                          };
-                        }) ?? []
-                      }
-                      setVariations={(v) => {
-                        form.setValue(
-                          "variations",
-                          v.map((data, i) => {
-                            return {
-                              // default values
-                              name: "",
-                              screenshots: [],
-                              ...data,
-                              key: data.value || `${i}` || "",
-                            };
-                          }),
-                        );
-                        form.setValue(
-                          "phases.0.variationWeights",
-                          v.map((v) => v.weight),
-                        );
-                      }}
+                      setWeight={setVariationWeight}
+                      variations={variationsForInput}
+                      setVariations={setCombinedVariations}
                       disableBanditConversionWindow={
                         disableBanditConversionWindow
                       }
@@ -1399,39 +1420,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     ? "This can be changed later"
                     : "This is just for documentation purposes and has no effect on the analysis."
                 }
-                setWeight={(i, weight) =>
-                  form.setValue(`phases.0.variationWeights.${i}`, weight)
-                }
+                setWeight={setVariationWeight}
                 valueAsId={false}
                 startEditingIndexes={true}
-                variations={
-                  form.watch("variations")?.map((v, i) => {
-                    return {
-                      value: v.key || "",
-                      name: v.name,
-                      weight: form.watch(`phases.0.variationWeights.${i}`),
-                      id: v.id,
-                    };
-                  }) ?? []
-                }
-                setVariations={(v) => {
-                  form.setValue(
-                    "variations",
-                    v.map((data, i) => {
-                      return {
-                        name: "",
-                        screenshots: [],
-                        ...data,
-                        // use value as key if provided to maintain backwards compatibility
-                        key: data.value || `${i}` || "",
-                      };
-                    }),
-                  );
-                  form.setValue(
-                    "phases.0.variationWeights",
-                    v.map((v) => v.weight),
-                  );
-                }}
+                variations={variationsForInput}
+                setVariations={setCombinedVariations}
                 hideVariationIds={false}
                 showPreview={!!isNewExperiment}
                 disableCustomSplit={type === "multi-armed-bandit"}

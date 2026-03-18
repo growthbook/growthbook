@@ -2100,6 +2100,7 @@ export async function postExperimentStatus(
         namespace: clonedPhase.namespace,
         reason: "",
         variationWeights: clonedPhase.variationWeights,
+        variations: clonedPhase.variations,
         seed: uuidv4(),
       });
 
@@ -2478,6 +2479,7 @@ export async function postExperimentTargeting(
     namespace,
     trackingKey,
     variationWeights,
+    variations,
     seed,
     newPhase,
     reseed,
@@ -2534,6 +2536,7 @@ export async function postExperimentTargeting(
         coverage,
         namespace,
         variationWeights,
+        variations,
         seed,
       };
     } else {
@@ -2560,6 +2563,7 @@ export async function postExperimentTargeting(
       namespace,
       reason: "",
       variationWeights,
+      variations,
       seed: phases.length && reseed ? uuidv4() : seed,
     });
   }

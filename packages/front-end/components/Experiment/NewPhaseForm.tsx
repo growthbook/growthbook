@@ -40,6 +40,12 @@ const NewPhaseForm: FC<{
       variationWeights:
         prevPhase.variationWeights ||
         getEqualWeights(getLatestPhaseVariations(experiment).length),
+      variations:
+        prevPhase.variations ??
+        getLatestPhaseVariations(experiment).map((v) => ({
+          id: v.id,
+          status: "active" as const,
+        })),
       reason: "",
       dateStarted: new Date().toISOString().substr(0, 16),
       condition: prevPhase.condition || "",

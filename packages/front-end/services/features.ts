@@ -1377,6 +1377,7 @@ export function getExperimentDefinitionFromFeature(
     return null;
   }
 
+  const varIds = expRule.values.map(() => generateVariationId());
   const expDefinition: Partial<ExperimentInterfaceStringDates> = {
     trackingKey: trackingKey,
     name: trackingKey + " experiment",
@@ -1392,7 +1393,7 @@ export function getExperimentDefinitionFromFeature(
       return {
         name,
         key: i + "",
-        id: generateVariationId(),
+        id: varIds[i],
         screenshots: [],
         description: v.value,
       };
@@ -1401,6 +1402,10 @@ export function getExperimentDefinitionFromFeature(
       {
         coverage: expRule.coverage || 1,
         variationWeights: expRule.values.map((v) => v.weight),
+        variations: expRule.values.map((v, i) => ({
+          id: varIds[i],
+          status: "active" as const,
+        })),
         name: "Main",
         reason: "",
         dateStarted: new Date().toISOString(),

@@ -118,6 +118,12 @@ export default function EditTargetingModal({
     variationWeights:
       lastPhase?.variationWeights ??
       getEqualWeights(getLatestPhaseVariations(experiment).length, 4),
+    variations:
+      lastPhase?.variations ??
+      getLatestPhaseVariations(experiment).map((v) => ({
+        id: v.id,
+        status: "active" as const,
+      })),
     newPhase: false,
     reseed: true,
   };

@@ -746,9 +746,10 @@ export function convertTemplateToExperiment(
     "templateMetadata",
     "targeting",
   ]);
+  const defaultVariations = getDefaultVariations(2);
   return {
     ...templateWithoutTemplateFields,
-    variations: getDefaultVariations(2),
+    variations: defaultVariations,
     phases: [
       {
         dateStarted: new Date().toISOString().substr(0, 16),
@@ -756,6 +757,10 @@ export function convertTemplateToExperiment(
         name: "Main",
         reason: "",
         variationWeights: getEqualWeights(2),
+        variations: defaultVariations.map((v) => ({
+          id: v.id || "",
+          status: "active" as const,
+        })),
         ...template.targeting,
       },
     ],

@@ -2904,6 +2904,14 @@ export function postExperimentApiPayloadToInterface(
   organization: OrganizationInterface,
   datasource: DataSourceInterface | null,
 ): Omit<ExperimentInterface, "dateCreated" | "dateUpdated" | "id"> {
+  const variationIds = payload.variations.map(() => generateVariationId());
+
+  const toPhaseVariations = () =>
+    variationIds.map((id) => ({
+      id,
+      status: "active" as const,
+    }));
+
   const phases: ExperimentPhase[] = payload.phases?.map((p) => {
     const conditionRes = validateCondition(p.condition);
     if (!conditionRes.success) {
@@ -2938,6 +2946,7 @@ export function postExperimentApiPayloadToInterface(
       variationWeights:
         p.variationWeights ||
         payload.variations.map(() => 1 / payload.variations.length),
+      variations: toPhaseVariations(),
     };
   }) || [
     {
@@ -2948,6 +2957,7 @@ export function postExperimentApiPayloadToInterface(
       variationWeights: payload.variations.map(
         () => 1 / payload.variations.length,
       ),
+      variations: toPhaseVariations(),
       condition: "",
       savedGroups: [],
       namespace: {
@@ -3004,9 +3014,9 @@ export function postExperimentApiPayloadToInterface(
     ...(payload.statsEngine ? { statsEngine: payload.statsEngine } : {}),
     // Note: attributionModel + lookbackOverride consistency is validated by the controller
     variations:
-      payload.variations.map((v) => ({
+      payload.variations.map((v, i) => ({
         ...v,
-        id: generateVariationId(),
+        id: variationIds[i],
         screenshots: v.screenshots || [],
       })) || [],
     // Legacy field, no longer used when creating experiments
@@ -3168,18 +3178,20 @@ export function updateExperimentApiPayloadToInterface(
     ...(sequentialTestingTuningParameter !== undefined
       ? { sequentialTestingTuningParameter }
       : {}),
-    ...(variations
-      ? {
-          variations: variations?.map((v) => ({
-            id: generateVariationId(),
-            screenshots: [],
+    ...(() => {
+      const resolvedVariationIds = variations
+        ? // TODO what if variation already exists?
+          variations.map(() => generateVariationId())
+        : experiment.variations.map((v) => v.id);
+      const resolvedVariations = variations
+        ? variations.map((v, i) => ({
+            id: resolvedVariationIds[i],
+            screenshots: [] as { path: string }[],
             ...v,
-          })),
-        }
-      : {}),
-    ...(phases
-      ? {
-          phases: phases.map((p) => {
+          }))
+        : undefined;
+      const resolvedPhases = phases
+        ? phases.map((p) => {
             const conditionRes = validateCondition(p.condition);
             if (!conditionRes.success) {
               throw new Error(
@@ -3218,10 +3230,18 @@ export function updateExperimentApiPayloadToInterface(
                 (
                   payload.variations || getLatestPhaseVariations(experiment)
                 )?.map((_v, _i, arr) => 1 / arr.length),
+              variations: resolvedVariationIds.map((id) => ({
+                id,
+                status: "active" as const,
+              })),
             };
-          }),
-        }
-      : {}),
+          })
+        : undefined;
+      return {
+        ...(resolvedVariations ? { variations: resolvedVariations } : {}),
+        ...(resolvedPhases ? { phases: resolvedPhases } : {}),
+      };
+    })(),
     ...(shareLevel !== undefined ? { shareLevel } : {}),
     ...(customMetricSlices !== undefined ? { customMetricSlices } : {}),
     ...(customFields !== undefined ? { customFields } : {}),
@@ -3242,6 +3262,8 @@ export function updateExperimentApiPayloadToInterface(
   const { settings } = getScopedSettings({
     organization,
   });
+
+  // TODO validate variations?
 
   // Clean up some vars for bandits, but only if safe to do so...
   // If it's a draft, hasn't been run as a bandit before, and is/will be a MAB:
