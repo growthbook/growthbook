@@ -4,6 +4,7 @@ import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { v4 as uuidv4 } from "uuid";
 import { generateVariationId } from "shared/util";
 import { omit } from "lodash";
+import { UpdateProps } from "shared/types/base-model";
 import {
   HoldoutInterface,
   HoldoutNextScheduledStatusUpdate,
@@ -455,7 +456,10 @@ export const updateHoldout = async (
     }
   }
 
-  const updatedHoldout = await context.models.holdout.update(holdout, updates);
+  const updatedHoldout = await context.models.holdout.update(
+    holdout,
+    updates as UpdateProps<HoldoutInterface>,
+  );
   return res.status(200).json({ status: 200, holdout: updatedHoldout });
 };
 

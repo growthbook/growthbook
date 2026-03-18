@@ -380,7 +380,7 @@ export abstract class BaseModel<
     req: ApiRequest<
       unknown,
       z.ZodType<{ id: string }>,
-      z.ZodType<UpdateProps<z.infer<T>>>,
+      z.ZodTypeAny,
       z.ZodTypeAny
     >,
   ): Promise<z.infer<ApiT>> {
@@ -757,7 +757,7 @@ export abstract class BaseModel<
     const updatedFields = Object.entries(updates)
       .filter(([k, v]) => !isEqual(doc[k as keyof z.infer<T>], v))
       .map(([k]) => k) as (keyof z.infer<T>)[];
-    updates = pick(updates, updatedFields);
+    updates = pick(updates, updatedFields) as UpdateProps<z.infer<T>>;
 
     // If no updates are needed, return immediately
     if (!updatedFields.length) {
@@ -810,7 +810,11 @@ export abstract class BaseModel<
       );
     }
 
-    await this.beforeUpdate(doc, allUpdates, newDoc, options?.writeOptions);
+    // allUpdates may contain dateUpdated which is managed internally by BaseModel,
+    // so it won't match the public UpdateProps type. Cast is safe here.
+    const typedUpdates = allUpdates as UpdateProps<z.infer<T>>;
+
+    await this.beforeUpdate(doc, typedUpdates, newDoc, options?.writeOptions);
 
     await this.customValidation(newDoc, doc, options?.writeOptions);
 
@@ -833,7 +837,7 @@ export abstract class BaseModel<
       );
     }
 
-    await this.afterUpdate(doc, allUpdates, newDoc, options?.writeOptions);
+    await this.afterUpdate(doc, typedUpdates, newDoc, options?.writeOptions);
     await this.afterCreateOrUpdate(newDoc, options?.writeOptions);
 
     // Update tags if needed

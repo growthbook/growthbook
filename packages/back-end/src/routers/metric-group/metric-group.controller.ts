@@ -3,6 +3,7 @@ import {
   CreateMetricGroupProps,
   MetricGroupInterface,
 } from "shared/types/metric-groups";
+import { UpdateProps } from "shared/types/base-model";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
@@ -88,7 +89,10 @@ export const putMetricGroup = async (
   if (!datasourceDoc) {
     context.throwBadRequestError("Invalid data source");
   }
-  await context.models.metricGroups.updateById(req.params.id, data);
+  await context.models.metricGroups.updateById(
+    req.params.id,
+    data as UpdateProps<MetricGroupInterface>,
+  );
 
   res.status(200).json({
     status: 200,

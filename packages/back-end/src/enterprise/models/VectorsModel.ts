@@ -1,3 +1,4 @@
+import { UpdateProps } from "shared/types/base-model";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
 import { vectors, Vectors } from "back-end/src/validators/vectors";
 
@@ -77,7 +78,10 @@ export class VectorsModel extends BaseClass {
     });
     if (existingVector) {
       // Update the existing vector
-      return await this.update(existingVector, obj);
+      return await this.update(
+        existingVector,
+        obj as UpdateProps<Vectors>,
+      );
     }
     if (!obj.embeddings || obj.embeddings.length === 0) {
       throw new Error(

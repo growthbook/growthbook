@@ -1,5 +1,6 @@
 import type { Response } from "express";
 import { z } from "zod";
+import { UpdateProps } from "shared/types/base-model";
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import {
   createTemplateValidator,
@@ -139,7 +140,7 @@ export const putTemplate = async (
 
   const updatedTemplate = await context.models.experimentTemplates.updateById(
     req.params.id,
-    templateUpdates,
+    templateUpdates as UpdateProps<ExperimentTemplateInterface>,
   );
 
   res.status(200).json({

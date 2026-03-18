@@ -1,5 +1,6 @@
 import { SegmentInterface } from "shared/types/segment";
 import { UpdateSegmentResponse } from "shared/types/openapi";
+import { UpdateProps } from "shared/types/base-model";
 import { updateSegmentValidator } from "shared/validators";
 import { toSegmentApiInterface } from "back-end/src/services/segments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -70,7 +71,7 @@ export const updateSegment = createApiRequestHandler(updateSegmentValidator)(
       }
     }
 
-    const updates: Partial<SegmentInterface> = {};
+    const updates: UpdateProps<SegmentInterface> = {};
     if (req.body.name) updates.name = req.body.name;
     if (req.body.description !== undefined) {
       updates.description = req.body.description;
