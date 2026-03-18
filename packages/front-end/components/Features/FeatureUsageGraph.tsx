@@ -986,36 +986,38 @@ export default function FeatureUsageGraph({
                                   />
                                 )}
                               </div>
-                              <OverflowText
-                                maxWidth={150}
-                                className={
-                                  disabledKeys.has(label.text)
-                                    ? "text-muted"
-                                    : ""
-                                }
-                                title={keyLabel(label.text)}
+                              <Flex
+                                align="end"
+                                gap="1"
+                                flexGrow="1"
+                                style={{
+                                  minWidth: 0,
+                                  opacity: disabledKeys.has(label.text)
+                                    ? 0.4
+                                    : 1,
+                                }}
                               >
-                                {keyLabel(label.text)}
-                              </OverflowText>
-                              {grandTotal > 0 && (
-                                <Flex
-                                  gap="1"
-                                  align="center"
-                                  style={{ whiteSpace: "nowrap" }}
+                                <OverflowText
+                                  maxWidth={150}
+                                  title={keyLabel(label.text)}
                                 >
-                                  <strong style={{ fontSize: 11 }}>
-                                    {formatter.format(keyTotal)}
-                                  </strong>
-                                  <span
-                                    style={{
-                                      fontSize: 11,
-                                      color: "var(--slate-10)",
-                                    }}
+                                  {keyLabel(label.text)}
+                                </OverflowText>
+                                {grandTotal > 0 && (
+                                  <Flex
+                                    gap="1"
+                                    align="center"
+                                    style={{ whiteSpace: "nowrap" }}
                                   >
-                                    ({pct}%)
-                                  </span>
-                                </Flex>
-                              )}
+                                    <Text size="small" weight="semibold">
+                                      {formatter.format(keyTotal)}
+                                    </Text>
+                                    <Text size="small" color="text-low">
+                                      ({pct}%)
+                                    </Text>
+                                  </Flex>
+                                )}
+                              </Flex>
                             </Flex>
                           </LegendLabel>
                         </LegendItem>
