@@ -22,19 +22,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v5
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "24"
           cache: "pnpm"
 
       - name: Cache eslint
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ github.workspace }}/.eslintcache
           key: ${{ runner.os }}-eslint-${{ hashFiles('eslint.config.mjs', 'eslint-suppressions.json', 'pnpm-lock.yaml') }}
@@ -42,7 +42,7 @@ jobs:
             ${{ runner.os }}-eslint-
 
       - name: Cache tsbuildinfo
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             **/tsconfig.tsbuildinfo
@@ -70,7 +70,7 @@ jobs:
           CI: true
 
       - name: Cache poetry dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         id: poetry-cache
         with:
           path: packages/stats/.venv
