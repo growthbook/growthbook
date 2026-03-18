@@ -1430,7 +1430,7 @@ export default function FactMetricModal({
         factMetric={defaultValues}
         datasource={selectedDataSource}
         onSave={(metric) => {
-          form.reset(metric as CreateFactMetricProps);
+          form.reset(metric);
         }}
         close={close}
       />

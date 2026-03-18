@@ -51,14 +51,14 @@ export class VectorsModel extends BaseClass {
 
   public async addOrUpdateExperimentVector(
     experimentId: string,
-    obj: Partial<Vectors>,
+    obj: UpdateProps<Vectors>,
   ) {
     return await this.addOrUpdate(experimentId, "experiment", obj);
   }
 
   public async addOrUpdateMetricVector(
     metricId: string,
-    obj: Partial<Vectors>,
+    obj: UpdateProps<Vectors>,
   ) {
     return await this.addOrUpdate(metricId, "metric", obj);
   }
@@ -66,7 +66,7 @@ export class VectorsModel extends BaseClass {
   public async addOrUpdate(
     joinId: string,
     type: "experiment" | "metric",
-    obj: Partial<Vectors>,
+    obj: UpdateProps<Vectors>,
   ) {
     if (!joinId) {
       throw new Error("JoinId is required.");
@@ -78,10 +78,7 @@ export class VectorsModel extends BaseClass {
     });
     if (existingVector) {
       // Update the existing vector
-      return await this.update(
-        existingVector,
-        obj as UpdateProps<Vectors>,
-      );
+      return await this.update(existingVector, obj);
     }
     if (!obj.embeddings || obj.embeddings.length === 0) {
       throw new Error(

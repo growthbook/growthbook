@@ -59,7 +59,7 @@ export const postMetricGroup = async (
 };
 
 export const putMetricGroup = async (
-  req: AuthRequest<CreateMetricGroupProps, { id: string }>,
+  req: AuthRequest<UpdateProps<MetricGroupInterface>, { id: string }>,
   res: Response<{ status: 200 }>,
 ) => {
   const data = req.body;
@@ -89,10 +89,7 @@ export const putMetricGroup = async (
   if (!datasourceDoc) {
     context.throwBadRequestError("Invalid data source");
   }
-  await context.models.metricGroups.updateById(
-    req.params.id,
-    data as UpdateProps<MetricGroupInterface>,
-  );
+  await context.models.metricGroups.updateById(req.params.id, data);
 
   res.status(200).json({
     status: 200,
