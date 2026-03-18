@@ -53,33 +53,6 @@ There are some restrictions that limit when this optimization can be performed:
 
 In all other cases, this optimization is enabled by default. It can be disabled under **Settings → General → Experiment Settings**. When disabled, a separate SQL query will always be run for every individual metric.
 
-## Fact Table Optimal Design
-
-<CommercialFeature feature="multi-metric-queries" />
-
-On the enterprise plan, the best fact table design depends on how different teams use metrics in experiments.
-
-In general:
-
-- Keep events in one shared fact table when teams usually analyze the same set of metrics.
-- Split events across multiple fact tables when teams mostly analyze different metric groups, so each experiment scans fewer irrelevant rows.
-- A hybrid approach could work best: one shared fact table for common metrics, plus team-specific fact tables for specialized metrics.
-
-This is because we scan almost all rows in a fact table for metrics that come from that fact table, as often some metrics require aggregating across all events in the fact table. So, if you have a team that only needs a subset of metrics from a fact table, it's better to split them into a separate fact table. That way, other teams who do not see those
-
-This is a tradeoff:
-
-- Splitting can make experiments faster for teams that only need a subset of metrics.
-- Splitting can make experiments slightly slower when a single experiment needs metrics from multiple fact tables, since GrowthBook has to perform additional joins.
-
-As a rule of thumb, partition by _experiment metric usage patterns_, not by every individual event name.
-
-### Identifier Types in One Fact Table
-
-It is reasonable to include multiple identifier types in one fact table when they map cleanly to the same event model.
-
-For example, if `organization_id` naturally contains many `user_id` rows, having both identifiers in the same fact table can be the right design. This lets GrowthBook aggregate at the appropriate level for different experiment types (for example, organization-level vs user-level experiments) without duplicating event pipelines.
-
 ## Data Pipeline Mode
 
 <CommercialFeature feature="pipeline-mode" />

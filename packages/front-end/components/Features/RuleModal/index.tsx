@@ -473,14 +473,15 @@ export default function RuleModal({
           ideaSource: "",
           project: feature.project,
           ...(() => {
-            const varIds = values.values.map(() => uniqId("var_"));
+            const variations = values.values.map((v, i) => ({
+              id: uniqId("var_"),
+              key: i + "",
+              name: v.name || (i ? `Variation ${i}` : "Control"),
+              screenshots: [],
+            }));
+            const variationWeights = values.values.map((v) => v.weight);
             return {
-              variations: values.values.map((v, i) => ({
-                id: varIds[i],
-                key: i + "",
-                name: v.name || (i ? `Variation ${i}` : "Control"),
-                screenshots: [],
-              })),
+              variations,
               phases: [
                 {
                   condition: values.condition || "",
@@ -495,9 +496,9 @@ export default function RuleModal({
                     range: [0, 1],
                   },
                   reason: "",
-                  variationWeights: values.values.map((v) => v.weight),
-                  variations: values.values.map((_, i) => ({
-                    id: varIds[i],
+                  variationWeights,
+                  variations: variations.map((v) => ({
+                    id: v.id,
                     status: "active" as const,
                   })),
                 },

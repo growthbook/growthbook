@@ -129,7 +129,7 @@ export function transformStatsigExperimentToGB(
   // Create phases
   const phases = [
     {
-      coverage: allocation / 100,
+      coverage: allocation / 100, // Convert percentage to decimal
       dateStarted: startTime
         ? new Date(startTime).toISOString().substr(0, 16)
         : "",

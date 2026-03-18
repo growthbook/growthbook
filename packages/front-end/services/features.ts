@@ -1377,33 +1377,34 @@ export function getExperimentDefinitionFromFeature(
     return null;
   }
 
-  const varIds = expRule.values.map(() => generateVariationId());
+  const variations = expRule.values.map((v, i) => {
+    let name = i ? `Variation ${i}` : "Control";
+    if (v?.name) {
+      name = v.name;
+    } else if (feature.valueType === "boolean") {
+      name = v.value === "true" ? "On" : "Off";
+    }
+    return {
+      id: generateVariationId(),
+      name,
+      key: v.value,
+      screenshots: [],
+      description: v.value,
+    };
+  });
+  const variationWeights = expRule.values.map((v) => v.weight);
   const expDefinition: Partial<ExperimentInterfaceStringDates> = {
     trackingKey: trackingKey,
     name: trackingKey + " experiment",
     hypothesis: expRule.description || "",
     description: `Experiment analysis for the feature [**${feature.id}**](/features/${feature.id})`,
-    variations: expRule.values.map((v, i) => {
-      let name = i ? `Variation ${i}` : "Control";
-      if (v?.name) {
-        name = v.name;
-      } else if (feature.valueType === "boolean") {
-        name = v.value === "true" ? "On" : "Off";
-      }
-      return {
-        name,
-        key: i + "",
-        id: varIds[i],
-        screenshots: [],
-        description: v.value,
-      };
-    }),
+    variations,
     phases: [
       {
         coverage: expRule.coverage || 1,
-        variationWeights: expRule.values.map((v) => v.weight),
-        variations: expRule.values.map((v, i) => ({
-          id: varIds[i],
+        variationWeights,
+        variations: variations.map((v) => ({
+          id: v.id,
           status: "active" as const,
         })),
         name: "Main",

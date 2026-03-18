@@ -2906,11 +2906,8 @@ export function postExperimentApiPayloadToInterface(
 ): Omit<ExperimentInterface, "dateCreated" | "dateUpdated" | "id"> {
   const variationIds = payload.variations.map(() => generateVariationId());
 
-  const toPhaseVariations = () =>
-    variationIds.map((id) => ({
-      id,
-      status: "active" as const,
-    }));
+  const toPhaseVariations = (variationIds: string[]) =>
+    variationIds.map((id) => ({ id, status: "active" as const }));
 
   const phases: ExperimentPhase[] = payload.phases?.map((p) => {
     const conditionRes = validateCondition(p.condition);
@@ -2946,7 +2943,7 @@ export function postExperimentApiPayloadToInterface(
       variationWeights:
         p.variationWeights ||
         payload.variations.map(() => 1 / payload.variations.length),
-      variations: toPhaseVariations(),
+      variations: toPhaseVariations(variationIds),
     };
   }) || [
     {
@@ -2957,7 +2954,7 @@ export function postExperimentApiPayloadToInterface(
       variationWeights: payload.variations.map(
         () => 1 / payload.variations.length,
       ),
-      variations: toPhaseVariations(),
+      variations: toPhaseVariations(variationIds),
       condition: "",
       savedGroups: [],
       namespace: {
@@ -3132,6 +3129,7 @@ export function updateExperimentApiPayloadToInterface(
     banditBurnInValue,
     banditBurnInUnit,
   } = payload;
+
   let changes: ExperimentInterface = {
     ...(trackingKey ? { trackingKey } : {}),
     ...(project !== undefined ? { project } : {}),
@@ -3179,17 +3177,14 @@ export function updateExperimentApiPayloadToInterface(
       ? { sequentialTestingTuningParameter }
       : {}),
     ...(() => {
-      const resolvedVariationIds = variations
-        ? // TODO what if variation already exists?
-          variations.map(() => generateVariationId())
-        : experiment.variations.map((v) => v.id);
       const resolvedVariations = variations
-        ? variations.map((v, i) => ({
-            id: resolvedVariationIds[i],
-            screenshots: [] as { path: string }[],
+        ? variations.map((v) => ({
+            id: v.id,
+            screenshots: v.screenshots || [],
             ...v,
           }))
         : undefined;
+
       const resolvedPhases = phases
         ? phases.map((p) => {
             const conditionRes = validateCondition(p.condition);
@@ -3230,10 +3225,15 @@ export function updateExperimentApiPayloadToInterface(
                 (
                   payload.variations || getLatestPhaseVariations(experiment)
                 )?.map((_v, _i, arr) => 1 / arr.length),
-              variations: resolvedVariationIds.map((id) => ({
-                id,
-                status: "active" as const,
-              })),
+              variations: resolvedVariations
+                ? resolvedVariations.map((v) => ({
+                    id: v.id,
+                    status: "active" as const,
+                  }))
+                : experiment.variations.map((v) => ({
+                    id: v.id,
+                    status: "active" as const,
+                  })),
             };
           })
         : undefined;

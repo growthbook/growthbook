@@ -279,7 +279,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     initialValue?.variations ?? getDefaultVariations(initialNumVariations);
   const toPhaseVariations = (vars: Variation[]) =>
     vars.map((v) => ({
-      id: v.id || "",
+      id: v.id,
       status: "active" as const,
     }));
   const toEqualWeights = (vars: Variation[]) => getEqualWeights(vars.length);
@@ -324,27 +324,27 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   initialValue.phases?.[lastPhase]?.dateStarted ?? "",
                 )
                   .toISOString()
-                  .substr(0, 16),
+                  .substring(0, 16),
                 dateEnded: getValidDate(
                   initialValue.phases?.[lastPhase]?.dateEnded ?? "",
                 )
                   .toISOString()
-                  .substr(0, 16),
+                  .substring(0, 16),
                 name: initialValue.phases?.[lastPhase]?.name || "Main",
                 reason: "",
                 variationWeights:
-                  initialValue.phases?.[lastPhase]?.variationWeights ??
+                  initialValue.phases[lastPhase].variationWeights ??
                   toEqualWeights(initialExpVariations),
                 variations:
-                  initialValue.phases?.[lastPhase]?.variations ??
+                  initialValue.phases[lastPhase].variations ??
                   toPhaseVariations(initialExpVariations),
               },
             ]
           : [
               {
                 coverage: 1,
-                dateStarted: new Date().toISOString().substr(0, 16),
-                dateEnded: new Date().toISOString().substr(0, 16),
+                dateStarted: new Date().toISOString().substring(0, 16),
+                dateEnded: new Date().toISOString().substring(0, 16),
                 name: "Main",
                 reason: "",
                 variationWeights: toEqualWeights(initialExpVariations),

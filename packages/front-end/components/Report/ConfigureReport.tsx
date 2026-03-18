@@ -875,7 +875,7 @@ export default function ConfigureReport({
                 form.setValue(
                   `experimentMetadata.phases.${latestPhaseIndex}.variations`,
                   v.map((data) => ({
-                    id: data.id || "",
+                    id: data.id,
                     status: "active" as const,
                   })),
                 );

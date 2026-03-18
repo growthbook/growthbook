@@ -758,7 +758,7 @@ export function convertTemplateToExperiment(
         reason: "",
         variationWeights: getEqualWeights(2),
         variations: defaultVariations.map((v) => ({
-          id: v.id || "",
+          id: v.id,
           status: "active" as const,
         })),
         ...template.targeting,
