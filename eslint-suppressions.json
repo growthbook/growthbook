@@ -654,11 +654,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/SavedGroups/IdLists.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/SavedGroups/SavedGroupDeleteModal.tsx": {
     "no-restricted-imports": {
       "count": 1
