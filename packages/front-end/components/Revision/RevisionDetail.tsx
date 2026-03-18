@@ -2,15 +2,13 @@ import React, { useEffect, useState } from "react";
 import { Box, Flex, Popover } from "@radix-ui/themes";
 import { PiCaretDown } from "react-icons/pi";
 import { date, ago } from "shared/dates";
-import {
-  ApprovalFlow,
-  checkMergeConflicts,
-  MergeResult,
-} from "shared/enterprise";
+import { Revision, checkMergeConflicts, MergeResult } from "shared/enterprise";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import Text from "@/ui/Text";
+import Link from "@/ui/Link";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
+import UserAvatar from "@/components/Avatar/UserAvatar";
 import Button from "@/ui/Button";
 import RadioGroup from "@/ui/RadioGroup";
 import Field from "@/components/Forms/Field";
@@ -19,60 +17,43 @@ import Modal from "@/components/Modal";
 import Tooltip from "@/ui/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { ExpandableDiff } from "@/components/Features/DraftModal";
-interface ApprovalFlowDetailProps {
-  approvalFlow: ApprovalFlow;
-  currentState: ApprovalFlow["target"]["snapshot"];
+import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
+import Badge from "@/ui/Badge";
+import Heading from "@/ui/Heading";
+import { useRevisionDiff, RevisionDiffConfig } from "./useRevisionDiff";
+import FixRevisionConflictsModal from "./FixRevisionConflictsModal";
+
+interface RevisionDetailProps<T> {
+  revision: Revision;
+  currentState: Revision["target"]["snapshot"];
   mutate?: () => void;
-  setCurrentApprovalFlow: (flow: ApprovalFlow | null) => void;
-  onDiscard: (flowId: string) => Promise<void>;
+  setCurrentRevision: (revision: Revision | null) => void;
+  onDiscard: (revisionId: string) => Promise<void>;
+  onPublish: (revisionId: string) => Promise<void>;
+  onReopen?: (revisionId: string) => Promise<void>;
+  diffConfig: RevisionDiffConfig<T>;
+  allRevisions?: Revision[];
 }
 
-const flattenObject = (obj: unknown, prefix = ""): Record<string, unknown> => {
-  if (obj === null || obj === undefined || typeof obj !== "object") {
-    return { [prefix]: obj };
-  }
-  if (Array.isArray(obj)) {
-    return { [prefix]: obj };
-  }
-  const flattened: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(obj)) {
-    const newPrefix = prefix ? `${prefix}.${key}` : key;
-    if (
-      value === null ||
-      value === undefined ||
-      typeof value !== "object" ||
-      Array.isArray(value) ||
-      Object.keys(value).length === 0
-    ) {
-      flattened[newPrefix] = value;
-    } else {
-      Object.assign(flattened, flattenObject(value, newPrefix));
-    }
-  }
-  return flattened;
-};
-
-const formatValue = (value: unknown): string => {
-  if (value === null || value === undefined) return "null";
-  if (typeof value === "boolean") return value ? "true" : "false";
-  if (Array.isArray(value)) return JSON.stringify(value, null, 2);
-  if (typeof value === "object") return JSON.stringify(value, null, 2);
-  return String(value);
-};
-
-const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
-  approvalFlow,
+function RevisionDetail<T>({
+  revision,
   currentState,
   mutate,
-  setCurrentApprovalFlow,
+  setCurrentRevision,
   onDiscard,
-}) => {
-  const { getUserDisplay, userId } = useUser();
+  onPublish,
+  onReopen,
+  diffConfig,
+  allRevisions = [],
+}: RevisionDetailProps<T>) {
+  const { getUserDisplay, userId, user } = useUser();
   const { apiCall } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [confirmPublish, setConfirmPublish] = useState(false);
   const [confirmBypass, setConfirmBypass] = useState(false);
+  const [confirmReopen, setConfirmReopen] = useState(false);
+  const [showFixConflicts, setShowFixConflicts] = useState(false);
   const [reviewDropdownOpen, setReviewDropdownOpen] = useState(false);
   const [reviewComment, setReviewComment] = useState("");
   const [reviewDecision, setReviewDecision] = useState<
@@ -81,33 +62,40 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [mergeError, setMergeError] = useState<string | null>(null);
   const [mergeResult, setMergeResult] = useState<MergeResult | null>(null);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [titleInput, setTitleInput] = useState(revision.title || "");
   const permissionsUtil = usePermissionsUtil();
+
+  // Update titleInput when revision changes
+  useEffect(() => {
+    setTitleInput(revision.title || "");
+  }, [revision.id, revision.title]);
 
   useEffect(() => {
     if (
-      !approvalFlow.target.snapshot ||
-      !approvalFlow.target.proposedChanges ||
+      !revision.target.snapshot ||
+      !revision.target.proposedChanges ||
       !currentState
     ) {
       setMergeResult(null);
       return;
     }
     const result = checkMergeConflicts(
-      approvalFlow.target.snapshot as unknown as Record<string, unknown>,
+      revision.target.snapshot as unknown as Record<string, unknown>,
       currentState as unknown as Record<string, unknown>,
-      approvalFlow.target.proposedChanges as Record<string, unknown>,
+      revision.target.proposedChanges as Record<string, unknown>,
     );
     setMergeResult(result);
   }, [
-    approvalFlow.id,
-    approvalFlow.target.snapshot,
-    approvalFlow.target.proposedChanges,
+    revision.id,
+    revision.target.snapshot,
+    revision.target.proposedChanges,
     currentState,
   ]);
   // Group activity by date
 
   const allActivity = [
-    ...approvalFlow.reviews.map((r) => ({
+    ...revision.reviews.map((r) => ({
       type: "review" as const,
       id: r.id,
       userId: r.userId,
@@ -115,7 +103,7 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
       decision: r.decision,
       details: r.comment,
     })),
-    ...approvalFlow.activityLog
+    ...revision.activityLog
       .filter(
         (a) =>
           !["reviewed", "commented", "approved", "requested-changes"].includes(
@@ -141,8 +129,34 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
     groupedActivity[dateKey].push(item);
   });
 
-  const isOpen =
-    approvalFlow.status !== "merged" && approvalFlow.status !== "closed";
+  const isOpen = revision.status !== "merged" && revision.status !== "closed";
+
+  const handleSaveTitle = async () => {
+    if (!titleInput.trim() || titleInput === revision.title) {
+      setIsEditingTitle(false);
+      setTitleInput(revision.title || "");
+      return;
+    }
+
+    try {
+      const res = await apiCall<{ revision: Revision }>(
+        `/revision/${revision.id}/title`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ title: titleInput.trim() }),
+        },
+      );
+      if (res?.revision) {
+        setCurrentRevision(res.revision);
+        if (mutate) mutate();
+      }
+      setIsEditingTitle(false);
+    } catch (err) {
+      console.error("Failed to update title:", err);
+      setTitleInput(revision.title || "");
+      setIsEditingTitle(false);
+    }
+  };
 
   const canUserReview =
     !!userId &&
@@ -150,24 +164,24 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
       currentState as SavedGroupInterface,
       {},
     );
-  const isFlowAuthor = !!userId && approvalFlow.authorId === userId;
+  const isRevisionAuthor = !!userId && revision.authorId === userId;
   const approveOwnChangesMessage =
     "You cannot approve your own proposed changes.";
   const requestOwnChangesMessage =
     "You cannot request changes on your own proposed changes.";
 
   useEffect(() => {
-    if (isFlowAuthor && reviewDecision !== "comment") {
+    if (isRevisionAuthor && reviewDecision !== "comment") {
       setReviewDecision("comment");
     }
-  }, [isFlowAuthor, reviewDecision]);
+  }, [isRevisionAuthor, reviewDecision]);
 
   // Handle submitting a review
   const handleSubmitReview = async (
     decision: "approve" | "request-changes" | "comment",
     reviewCommentText: string,
   ) => {
-    if (isFlowAuthor && decision !== "comment") {
+    if (isRevisionAuthor && decision !== "comment") {
       setReviewError(
         decision === "approve"
           ? approveOwnChangesMessage
@@ -179,8 +193,8 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
     setIsSubmitting(true);
     setReviewError(null);
     try {
-      const response = await apiCall<{ approvalFlow: ApprovalFlow }>(
-        `/approval-flow/${approvalFlow.id}/review`,
+      const response = await apiCall<{ revision: Revision }>(
+        `/revision/${revision.id}/review`,
         {
           method: "POST",
           body: JSON.stringify({
@@ -190,9 +204,9 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
         },
       );
 
-      // Update the current approval flow with the response
-      if (response.approvalFlow) {
-        setCurrentApprovalFlow(response.approvalFlow);
+      // Update the current revision with the response
+      if (response.revision) {
+        setCurrentRevision(response.revision);
       }
 
       // Also refresh the list in the background
@@ -210,44 +224,29 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
     }
   };
 
-  // Calculate diff
-  const flatProposed = flattenObject(approvalFlow.target.proposedChanges);
-  const flatCurrent: Record<string, unknown> = {};
-  for (const key of Object.keys(flatProposed)) {
-    const keys = key.split(".");
-    let value: unknown =
-      approvalFlow.status === "merged"
-        ? approvalFlow.target.snapshot
-        : currentState;
-    for (const k of keys) {
-      value = (value as Record<string, unknown>)?.[k];
-      if (value === undefined) break;
-    }
-    flatCurrent[key] = value;
-  }
+  // Prepare diff data
+  const baseSnapshot =
+    revision.status === "merged"
+      ? (revision.target.snapshot as T)
+      : (currentState as T);
 
-  const changedFields = Object.keys(flatProposed).filter(
-    (key) => formatValue(flatCurrent[key]) !== formatValue(flatProposed[key]),
+  const proposedSnapshot = {
+    ...baseSnapshot,
+    ...(revision.target.proposedChanges as Partial<T>),
+  } as T;
+
+  // Use custom hook to compute diffs
+  const { diffs, badges, customRenderGroups } = useRevisionDiff<T>(
+    baseSnapshot,
+    proposedSnapshot,
+    diffConfig,
   );
 
   const handleMerge = async () => {
     setIsSubmitting(true);
     setMergeError(null);
     try {
-      const response = await apiCall<{ approvalFlow: ApprovalFlow }>(
-        `/approval-flow/${approvalFlow.id}/merge`,
-        {
-          method: "POST",
-        },
-      );
-
-      // Update the current approval flow with the response
-      if (response.approvalFlow) {
-        setCurrentApprovalFlow(response.approvalFlow);
-      }
-
-      // Also refresh the list in the background
-      mutate?.();
+      await onPublish(revision.id);
     } catch (error) {
       setMergeError(error instanceof Error ? error.message : "Failed to merge");
     } finally {
@@ -255,16 +254,20 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
     }
   };
 
+  const savedGroupProjects = (currentState as SavedGroupInterface).projects;
   const canBypass =
     isOpen &&
-    permissionsUtil.canBypassApprovalChecks({
-      project: (currentState as SavedGroupInterface).projects?.[0] || "",
-    });
+    (user?.role === "admin" ||
+      (savedGroupProjects?.length
+        ? savedGroupProjects.every((project) =>
+            permissionsUtil.canBypassApprovalChecks({ project: project || "" }),
+          )
+        : permissionsUtil.canBypassApprovalChecks({ project: "" })));
 
   const canMerge = (): boolean => {
     if (!isOpen) return false;
     if (!!mergeResult && !mergeResult.success) return false;
-    if (approvalFlow.status !== "approved" && !canBypass) return false;
+    if (revision.status !== "approved" && !canBypass) return false;
     return permissionsUtil.canUpdateSavedGroup(
       currentState as SavedGroupInterface,
       {},
@@ -350,7 +353,7 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
           cta="Discard"
           submitColor="danger"
           submit={async () => {
-            await onDiscard(approvalFlow.id);
+            await onDiscard(revision.id);
           }}
         >
           Are you sure you want to discard this proposed change? This action
@@ -387,12 +390,46 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
           sure you want to continue?
         </Modal>
       )}
+      {confirmReopen && onReopen && (
+        <Modal
+          trackingEventModalType=""
+          header="Reopen Revision"
+          close={() => setConfirmReopen(false)}
+          open={true}
+          dismissible
+          cta="Reopen"
+          submitColor="primary"
+          submit={async () => {
+            await onReopen(revision.id);
+            setConfirmReopen(false);
+          }}
+        >
+          This will reopen the revision and allow you to make further changes or
+          request review again.
+        </Modal>
+      )}
+      {showFixConflicts && mergeResult && !mergeResult.success && (
+        <FixRevisionConflictsModal
+          revision={revision}
+          currentState={currentState as Record<string, unknown>}
+          close={() => setShowFixConflicts(false)}
+          mutate={() => {
+            setShowFixConflicts(false);
+            mutate?.();
+          }}
+        />
+      )}
       {mergeResult && !mergeResult.success && (
         <Callout status="error" mb="4">
-          <Text size="medium">
-            You have conflicts with the current state of the entity. Please
-            resolve the conflicts before merging.
-          </Text>
+          <Flex justify="between" align="center">
+            <Text size="medium">
+              You have conflicts with the current state of the entity. Please
+              resolve the conflicts before merging.
+            </Text>
+            <Button onClick={() => setShowFixConflicts(true)} variant="outline">
+              Fix Conflicts
+            </Button>
+          </Flex>
         </Callout>
       )}
       {mergeError && (
@@ -400,15 +437,96 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
           <Text size="medium">{mergeError}</Text>
         </Callout>
       )}
-      {approvalFlow.status === "merged" && (
-        <Callout status="info" mb="4">
-          <Text size="medium">This approval flow has been merged.</Text>
+      {revision.status === "merged" && (
+        <Callout status="success" mb="4">
+          <Flex justify="between" align="center">
+            <Text size="medium">
+              This revision has been merged and published.
+            </Text>
+          </Flex>
         </Callout>
       )}
+      {revision.status === "closed" && (
+        <Callout status="warning" mb="4">
+          <Flex justify="between" align="center">
+            <Text size="medium">This revision has been closed.</Text>
+            {onReopen && (
+              <Button
+                variant="solid"
+                color="violet"
+                size="sm"
+                onClick={() => setConfirmReopen(true)}
+              >
+                Reopen
+              </Button>
+            )}
+          </Flex>
+        </Callout>
+      )}
+      {(revision.title || isEditingTitle || (isRevisionAuthor && isOpen)) && (
+        <Box mb="2">
+          {isEditingTitle ? (
+            <input
+              type="text"
+              value={titleInput}
+              onChange={(e) => setTitleInput(e.target.value)}
+              onBlur={handleSaveTitle}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  handleSaveTitle();
+                } else if (e.key === "Escape") {
+                  setIsEditingTitle(false);
+                  setTitleInput(revision.title || "");
+                }
+              }}
+              autoFocus
+              placeholder="Add a title to this revision (optional)"
+              style={{
+                fontSize: "1.5rem",
+                fontWeight: 600,
+                border: "1px solid var(--gray-6)",
+                borderRadius: "var(--radius-2)",
+                padding: "4px 8px",
+                width: "100%",
+                maxWidth: "500px",
+              }}
+            />
+          ) : revision.title ? (
+            <Flex align="center" gap="2">
+              <Heading as="h3">{revision.title}</Heading>
+              {isRevisionAuthor && isOpen && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsEditingTitle(true)}
+                  style={{ padding: "4px" }}
+                >
+                  Edit
+                </Button>
+              )}
+            </Flex>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsEditingTitle(true)}
+            >
+              + Add title
+            </Button>
+          )}
+        </Box>
+      )}
       <Flex justify="between" align="center" mb="4">
-        <Text size="large" weight="medium">
-          {date(approvalFlow.dateCreated)}
-        </Text>
+        <Flex align="center" gap="2">
+          <UserAvatar
+            name={getUserDisplay(revision.authorId)}
+            size="sm"
+            variant="soft"
+          />
+          <Text size="large" weight="medium">
+            {`${getUserDisplay(revision.authorId)} on ${date(revision.dateCreated)}`}
+          </Text>
+        </Flex>
         <Flex gap="2">
           {isOpen && (
             <Button
@@ -429,8 +547,7 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
                 variant="solid"
                 preventDefault={false}
                 disabled={
-                  approvalFlow.status === "closed" ||
-                  approvalFlow.status === "merged"
+                  revision.status === "closed" || revision.status === "merged"
                 }
               >
                 Submit review <PiCaretDown style={{ marginLeft: "4px" }} />
@@ -465,14 +582,14 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
                       value: "request-changes",
                       label: "Request Changes",
                       description: "Submit feedback that must be addressed",
-                      disabled: isFlowAuthor,
+                      disabled: isRevisionAuthor,
                       disabledReason: requestOwnChangesMessage,
                     },
                     {
                       value: "approve",
                       label: "Approve",
                       description: "Approve and allow merging",
-                      disabled: isFlowAuthor,
+                      disabled: isRevisionAuthor,
                       disabledReason: approveOwnChangesMessage,
                     },
                   ]}
@@ -529,29 +646,78 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
       </Flex>
 
       <Box mb="6">
-        {changedFields.length === 0 ? (
+        {diffs.length === 0 ? (
           <Text size="medium" color="text-low">
             No changes to display.
           </Text>
         ) : (
-          <Box>
-            {changedFields.map((field, i) => (
-              <ExpandableDiff
-                key={field}
-                title={field}
-                a={formatValue(flatCurrent[field])}
-                b={formatValue(flatProposed[field])}
-                defaultOpen={i === 0}
-              />
-            ))}
-          </Box>
+          <>
+            {/* Summary of changes */}
+            {(badges.length > 0 || customRenderGroups.length > 0) && (
+              <Box mb="4">
+                <Heading as="h5" size="small" mb="3">
+                  Summary of changes
+                </Heading>
+
+                {badges.length > 0 && (
+                  <Flex wrap="wrap" gap="2" mb="3">
+                    {badges.map(({ label }, i) => (
+                      <Badge
+                        key={`${label}-${i}`}
+                        color="gray"
+                        variant="soft"
+                        label={label}
+                      />
+                    ))}
+                  </Flex>
+                )}
+
+                {customRenderGroups.map(
+                  ({ label, renders, suppressCardLabel }) => (
+                    <Box key={label} p="3" mb="3" className="rounded bg-light">
+                      {!suppressCardLabel && (
+                        <Heading as="h6" size="small" mb="2">
+                          {label}
+                        </Heading>
+                      )}
+                      {renders.map((r, i) => (
+                        <Box key={i}>{r}</Box>
+                      ))}
+                    </Box>
+                  ),
+                )}
+              </Box>
+            )}
+
+            {/* Change details */}
+            {diffs.length > 0 && (
+              <Box>
+                <Heading as="h5" size="small" mb="3">
+                  Change details
+                </Heading>
+                <Flex direction="column" gap="4">
+                  {diffs.map((d, i) => (
+                    <Box key={i}>
+                      <ExpandableDiff
+                        title={d.label}
+                        a={d.a}
+                        b={d.b}
+                        defaultOpen={true}
+                        styles={COMPACT_DIFF_STYLES}
+                      />
+                    </Box>
+                  ))}
+                </Flex>
+              </Box>
+            )}
+          </>
         )}
       </Box>
 
       {/* Comments Section */}
       <Box mb="4">
         <Text size="large" weight="medium">
-          Comments ({approvalFlow.reviews.length})
+          Comments ({revision.reviews.length})
         </Text>
       </Box>
       <Box
@@ -602,11 +768,42 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
                         whiteSpace="nowrap"
                         ml="4"
                       >
-                        {ago(item.createdAt)}
+                        {`${ago(item.createdAt)}`}
                       </Text>
                     </Flex>
 
-                    {hasComment && <Text size="medium">{item.details}</Text>}
+                    {hasComment && (
+                      <Text size="medium">
+                        {/* Check if this is a revert description with a revision number */}
+                        {item.details?.includes(
+                          "reverts changes from Revision",
+                        ) && revision.revertedFrom ? (
+                          <>
+                            This revision reverts changes from{" "}
+                            <Link
+                              onClick={(e) => {
+                                e.preventDefault();
+                                // Use the revertedFrom ID to find and switch to that revision
+                                if (revision.revertedFrom) {
+                                  const revertedRevision = (
+                                    allRevisions || []
+                                  ).find((r) => r.id === revision.revertedFrom);
+                                  if (revertedRevision) {
+                                    setCurrentRevision(revertedRevision);
+                                  }
+                                }
+                              }}
+                              style={{ cursor: "pointer" }}
+                            >
+                              {item.details?.match(/Revision (\d+)/)?.[0] ||
+                                "that revision"}
+                            </Link>
+                          </>
+                        ) : (
+                          item.details
+                        )}
+                      </Text>
+                    )}
                   </Box>
                 );
               })}
@@ -616,6 +813,6 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
       </Box>
     </Box>
   );
-};
+}
 
-export default ApprovalFlowDetail;
+export default RevisionDetail;

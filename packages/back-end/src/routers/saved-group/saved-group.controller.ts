@@ -13,14 +13,14 @@ import {
   CreateSavedGroupProps,
   UpdateSavedGroupProps,
 } from "shared/types/saved-group";
-import { ApprovalFlow } from "shared/enterprise";
+import { Revision } from "shared/enterprise";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
-  isApprovalFlowRequired,
-  createOrUpdateSavedGroupApprovalFlow,
-} from "back-end/src/enterprise/approval-flows/util";
+  isRevisionRequired,
+  createOrUpdateSavedGroupRevision,
+} from "back-end/src/enterprise/revisions/util";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 
@@ -182,7 +182,7 @@ type PostSavedGroupAddItemsRequest = AuthRequest<
 
 type PostSavedGroupAddItemsResponse =
   | { status: 200 }
-  | { status: 202; requiresApproval: true; approvalFlow: ApprovalFlow };
+  | { status: 202; requiresApproval: true; revision: Revision };
 
 /**
  * POST /saved-groups/:id/add-items
@@ -238,21 +238,23 @@ export const postSavedGroupAddItems = async (
     );
   }
 
-  const shouldCreateApprovalFlow = isApprovalFlowRequired(
+  const shouldCreateApprovalFlow = isRevisionRequired(
     context,
     "saved-group",
     id,
   );
 
   if (shouldCreateApprovalFlow) {
-    const existingFlow =
-      await context.models.approvalFlows.getOpenByTargetAndAuthor(
+    const existingRevision =
+      await context.models.revisions.getOpenByTargetAndAuthor(
         "saved-group",
         id,
         context.userId,
       );
     const baseValues =
-      existingFlow?.target.proposedChanges?.values ?? savedGroup.values ?? [];
+      existingRevision?.target.proposedChanges?.values ??
+      savedGroup.values ??
+      [];
     const newValues = [...new Set([...baseValues, ...items])];
     validateListSize(
       newValues,
@@ -260,7 +262,7 @@ export const postSavedGroupAddItems = async (
       context.permissions.canBypassSavedGroupSizeLimit(savedGroup.projects),
     );
 
-    const approvalFlow = await createOrUpdateSavedGroupApprovalFlow(
+    const revision = await createOrUpdateSavedGroupRevision(
       context,
       savedGroup,
       { values: newValues },
@@ -269,7 +271,7 @@ export const postSavedGroupAddItems = async (
     return res.status(202).json({
       status: 202,
       requiresApproval: true,
-      approvalFlow,
+      revision,
     });
   }
 
@@ -301,7 +303,7 @@ type PostSavedGroupRemoveItemsRequest = AuthRequest<
 
 type PostSavedGroupRemoveItemsResponse =
   | { status: 200 }
-  | { status: 202; requiresApproval: true; approvalFlow: ApprovalFlow };
+  | { status: 202; requiresApproval: true; revision: Revision };
 
 /**
  * POST /saved-groups/:id/remove-items
@@ -357,21 +359,23 @@ export const postSavedGroupRemoveItems = async (
     );
   }
 
-  const shouldCreateApprovalFlow = isApprovalFlowRequired(
+  const shouldCreateApprovalFlow = isRevisionRequired(
     context,
     "saved-group",
     id,
   );
 
   if (shouldCreateApprovalFlow) {
-    const existingFlow =
-      await context.models.approvalFlows.getOpenByTargetAndAuthor(
+    const existingRevision =
+      await context.models.revisions.getOpenByTargetAndAuthor(
         "saved-group",
         id,
         context.userId,
       );
     const baseValues =
-      existingFlow?.target.proposedChanges?.values ?? savedGroup.values ?? [];
+      existingRevision?.target.proposedChanges?.values ??
+      savedGroup.values ??
+      [];
     const toRemove = new Set(items);
     const newValues = baseValues.filter(
       (value: string) => !toRemove.has(value),
@@ -382,7 +386,7 @@ export const postSavedGroupRemoveItems = async (
       context.permissions.canBypassSavedGroupSizeLimit(savedGroup.projects),
     );
 
-    const approvalFlow = await createOrUpdateSavedGroupApprovalFlow(
+    const revision = await createOrUpdateSavedGroupRevision(
       context,
       savedGroup,
       { values: newValues },
@@ -391,7 +395,7 @@ export const postSavedGroupRemoveItems = async (
     return res.status(202).json({
       status: 202,
       requiresApproval: true,
-      approvalFlow,
+      revision,
     });
   }
 
@@ -421,7 +425,14 @@ export const postSavedGroupRemoveItems = async (
 type PutSavedGroupRequest = AuthRequest<
   UpdateSavedGroupProps,
   { id: string },
-  { skipCycleCheck?: string; bypassApproval?: string }
+  {
+    skipCycleCheck?: string;
+    bypassApproval?: string;
+    revisionId?: string;
+    forceCreateRevision?: string;
+    title?: string;
+    revertedFrom?: string;
+  }
 >;
 
 type PutSavedGroupResponse =
@@ -432,7 +443,7 @@ type PutSavedGroupResponse =
   | {
       status: 202;
       requiresApproval: true;
-      approvalFlow: ApprovalFlow;
+      revision: Revision;
     };
 
 /**
@@ -468,7 +479,7 @@ export const putSavedGroup = async (
   }
 
   const bypassApproval = req.query.bypassApproval === "1";
-  const approvalRequired = isApprovalFlowRequired(context, "saved-group", id);
+  const approvalRequired = isRevisionRequired(context, "saved-group", id);
   const shouldCreateApprovalFlowRequest =
     approvalRequired &&
     !(
@@ -478,18 +489,46 @@ export const putSavedGroup = async (
       })
     );
 
+  // If updating a specific revision, fetch it to compare against merged state
+  const revisionId = req.query.revisionId;
+  let targetRevision: Revision | null = null;
+  let comparisonBase: SavedGroupInterface = savedGroup;
+
+  if (revisionId) {
+    targetRevision = await context.models.revisions.getById(revisionId);
+    if (targetRevision && targetRevision.target.type === "saved-group") {
+      // Merge snapshot with proposed changes to get the current state of this revision
+      comparisonBase = {
+        ...savedGroup,
+        ...(targetRevision.target.snapshot as SavedGroupInterface),
+        ...(targetRevision.target
+          .proposedChanges as Partial<SavedGroupInterface>),
+      };
+    }
+  }
+
+  // Helper to check if a value actually changed, treating null and undefined as equivalent
+  const hasChanged = (newVal: unknown, oldVal: unknown): boolean => {
+    // Treat null and undefined as equivalent
+    if (newVal == null && oldVal == null) return false;
+    return !isEqual(newVal, oldVal);
+  };
+
   const fieldsToUpdate: UpdateSavedGroupProps = {};
 
-  if (typeof groupName !== "undefined" && groupName !== savedGroup.groupName) {
+  if (
+    typeof groupName !== "undefined" &&
+    hasChanged(groupName, comparisonBase.groupName)
+  ) {
     fieldsToUpdate.groupName = groupName;
   }
-  if (typeof owner !== "undefined" && owner !== savedGroup.owner) {
+  if (typeof owner !== "undefined" && hasChanged(owner, comparisonBase.owner)) {
     fieldsToUpdate.owner = owner;
   }
   if (
     savedGroup.type === "list" &&
     values &&
-    !isEqual(values, savedGroup.values)
+    hasChanged(values, comparisonBase.values)
   ) {
     fieldsToUpdate.values = values;
     // Check that the size is within the global limit as well as any limit imposed by the organization
@@ -502,7 +541,7 @@ export const putSavedGroup = async (
   if (
     savedGroup.type === "condition" &&
     condition &&
-    condition !== savedGroup.condition
+    hasChanged(condition, comparisonBase.condition)
   ) {
     // Validate condition to make sure it's valid. When skipCycleCheck=1 (used by
     // importers), still validate general JSON/syntax but skip saved-group
@@ -531,43 +570,55 @@ export const putSavedGroup = async (
 
     fieldsToUpdate.condition = condition;
   }
-  if (description !== savedGroup.description) {
+  if (hasChanged(description, comparisonBase.description)) {
     if (typeof description === "string" && description.length > 100) {
       throw new Error("Description must be at most 100 characters");
     }
     fieldsToUpdate.description = description;
   }
-  if (!isEqual(savedGroup.projects, projects)) {
+  if (hasChanged(projects, comparisonBase.projects)) {
     if (projects) {
       await context.models.projects.ensureProjectsExist(projects);
     }
     fieldsToUpdate.projects = projects;
   }
 
-  // If there are no changes, return early
-  if (Object.keys(fieldsToUpdate).length === 0) {
+  // Check if forcing creation of a new empty revision
+  const forceCreateRevision = req.query.forceCreateRevision === "1";
+  const title = req.query.title;
+  const revertedFrom = req.query.revertedFrom;
+
+  // If there are no changes and not creating a new empty revision, return early
+  if (Object.keys(fieldsToUpdate).length === 0 && !forceCreateRevision) {
     return res.status(200).json({
       status: 200,
     });
   }
 
-  if (!shouldCreateApprovalFlowRequest) {
-    await context.models.savedGroups.update(savedGroup, fieldsToUpdate);
-    return res.status(200).json({
-      status: 200,
+  // If forcing a new revision or approval is required, create/update revision
+  if (shouldCreateApprovalFlowRequest || forceCreateRevision) {
+    // When updating a specific revision, replace changes instead of merging
+    const revision = await createOrUpdateSavedGroupRevision(
+      context,
+      savedGroup,
+      fieldsToUpdate,
+      !!revisionId, // replaceChanges = true when revisionId is provided
+      forceCreateRevision, // forceCreate = true when forceCreateRevision query param is set
+      title, // optional title for the revision
+      revertedFrom, // optional ID of the revision this is reverting
+    );
+
+    return res.status(202).json({
+      status: 202,
+      requiresApproval: true,
+      revision,
     });
   }
 
-  const approvalFlow = await createOrUpdateSavedGroupApprovalFlow(
-    context,
-    savedGroup,
-    fieldsToUpdate,
-  );
-
-  return res.status(202).json({
-    status: 202,
-    requiresApproval: true,
-    approvalFlow,
+  // Direct update (no approval required)
+  await context.models.savedGroups.update(savedGroup, fieldsToUpdate);
+  return res.status(200).json({
+    status: 200,
   });
 };
 

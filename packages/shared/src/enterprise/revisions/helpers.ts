@@ -1,19 +1,19 @@
 import isEqual from "lodash/isEqual";
-import type { ApprovalFlowConfigurations } from "shared/types/organization";
+import type { RevisionConfigurations } from "shared/types/organization";
 import type { TeamInterface } from "shared/types/team";
 import type {
-  ApprovalFlowTargetType,
-  ApprovalFlow,
-  ApprovalFlowEntity,
+  RevisionTargetType,
+  Revision,
+  RevisionEntity,
   Conflict,
   MergeResult,
-} from "../validators/approval-flows";
+} from "../validators/revisions";
 
 /**
  * Map entity types to a key used for logging/identification.
  */
-export const getApprovalFlowKey = (
-  entityType: ApprovalFlowTargetType,
+export const getRevisionKey = (
+  entityType: RevisionTargetType,
 ): string | null => {
   switch (entityType) {
     case "saved-group":
@@ -24,7 +24,7 @@ export const getApprovalFlowKey = (
 };
 
 /**
- * Check if a user can review (approve/request-changes) an approval flow.
+ * Check if a user can review (approve/request-changes) a revision.
  *
  * For saved-group: anyone who can edit can review (except the author)
  * For managedBy: "team" → user must be on teamOwner team (and not the author)
@@ -32,7 +32,7 @@ export const getApprovalFlowKey = (
  */
 export const canUserReviewEntity = ({
   entityType,
-  approvalFlow,
+  revision,
   entity,
   approvalFlowSettings: _approvalFlowSettings,
   userId,
@@ -40,20 +40,20 @@ export const canUserReviewEntity = ({
   userPermissions,
   canEditEntity,
 }: {
-  entityType: ApprovalFlowTargetType;
-  approvalFlow: ApprovalFlow;
-  entity: ApprovalFlowEntity | Record<string, unknown>;
-  approvalFlowSettings: ApprovalFlowConfigurations | undefined;
+  entityType: RevisionTargetType;
+  revision: Revision;
+  entity: RevisionEntity | Record<string, unknown>;
+  approvalFlowSettings: RevisionConfigurations | undefined;
   userId: string;
   teams?: TeamInterface[];
   userPermissions?: Record<string, boolean>;
   canEditEntity?: boolean;
 }): boolean => {
-  // Can't review merged/closed flows or own changes
+  // Can't review merged/closed revisions or own changes
   if (
-    approvalFlow.status === "merged" ||
-    approvalFlow.status === "closed" ||
-    approvalFlow.authorId === userId
+    revision.status === "merged" ||
+    revision.status === "closed" ||
+    revision.authorId === userId
   ) {
     return false;
   }
@@ -64,13 +64,13 @@ export const canUserReviewEntity = ({
   }
 
   // Legacy team/admin logic for other entity types (FactMetric, FactTable)
-  const typedEntity = entity as ApprovalFlowEntity;
+  const typedEntity = entity as RevisionEntity;
   const proposedManagedBy = (
-    approvalFlow.target.proposedChanges as Record<string, unknown>
+    revision.target.proposedChanges as Record<string, unknown>
   )?.managedBy as string | undefined;
   const managedBy = proposedManagedBy ?? typedEntity.managedBy;
   const proposedOwnerTeam = (
-    approvalFlow.target.proposedChanges as Record<string, unknown>
+    revision.target.proposedChanges as Record<string, unknown>
   )?.ownerTeam as string | undefined;
   const ownerTeamId = proposedOwnerTeam ?? typedEntity.ownerTeam;
 
@@ -91,7 +91,10 @@ export const canUserReviewEntity = ({
 
 /**
  * Check for merge conflicts on-the-fly.
- * Unchanged from previous implementation.
+ * Only fields that were actually changed by the user are checked.
+ * If the proposed value equals the base value, it's not considered a change
+ * and won't trigger a conflict even if live has changed.
+ * Treats null and undefined as equivalent when comparing.
  */
 export function checkMergeConflicts(
   baseState: Record<string, unknown>,
@@ -102,21 +105,39 @@ export function checkMergeConflicts(
   const fieldsChanged: string[] = [];
   const mergedChanges: Record<string, unknown> = { ...liveState };
 
+  // Helper to check if values are different, treating null and undefined as equivalent
+  const hasChanged = (val1: unknown, val2: unknown): boolean => {
+    // Treat null and undefined as equivalent
+    if (val1 == null && val2 == null) return false;
+    return !isEqual(val1, val2);
+  };
+
   for (const field of Object.keys(proposedChanges)) {
     const baseValue = baseState[field];
     const liveValue = liveState[field];
     const proposedValue = proposedChanges[field];
 
-    const liveChanged = !isEqual(baseValue, liveValue);
-    const proposedChanged = !isEqual(baseValue, proposedValue);
+    // Check if the user actually changed this field from the base
+    const proposedChanged = hasChanged(proposedValue, baseValue);
 
+    // If the user didn't change it, skip - no conflict possible
+    if (!proposedChanged) {
+      continue;
+    }
+
+    // Check if live has also changed this field from the base
+    const liveChanged = hasChanged(liveValue, baseValue);
+
+    // Conflict only if both changed AND they changed to different values
     if (liveChanged && proposedChanged) {
-      if (!isEqual(liveValue, proposedValue)) {
+      if (hasChanged(proposedValue, liveValue)) {
         conflicts.push({ field, baseValue, liveValue, proposedValue });
       } else {
+        // Both changed to the same value - no conflict
         fieldsChanged.push(field);
       }
     } else if (proposedChanged) {
+      // Only the user changed it - safe to apply
       mergedChanges[field] = proposedValue;
       fieldsChanged.push(field);
     }

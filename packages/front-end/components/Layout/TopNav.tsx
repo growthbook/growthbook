@@ -44,7 +44,7 @@ import Checkbox from "@/ui/Checkbox";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import AccountPlanNotices from "@/components/Layout/AccountPlanNotices";
 import AccountPlanBadge from "@/components/Layout/AccountPlanBadge";
-import { useApprovalFlows } from "@/hooks/useApprovalFlows";
+import { useRevisions } from "@/hooks/useRevisions";
 import styles from "./TopNav.module.scss";
 import { usePageHead } from "./PageHead";
 
@@ -68,12 +68,12 @@ const TopNav: FC<{
   const { apiCall, logout, organizations, orgId, setOrgId } = useAuth();
 
   const hasApprovalFlows = hasCommercialFeature("require-approvals");
-  const { approvalFlows } = useApprovalFlows();
+  const { revisions } = useRevisions();
   const pendingReviewCount = useMemo(() => {
     if (!hasApprovalFlows) return 0;
-    return approvalFlows.filter((f) => !["merged", "closed"].includes(f.status))
+    return revisions.filter((f) => !["merged", "closed"].includes(f.status))
       .length;
-  }, [hasApprovalFlows, approvalFlows]);
+  }, [hasApprovalFlows, revisions]);
 
   // The current org might not be in the organizations list if the user is a superAdmin
   // and selected the org from the /admin page. So we add it here.

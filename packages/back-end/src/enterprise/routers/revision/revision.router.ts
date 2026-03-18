@@ -1,71 +1,68 @@
 import express from "express";
 import { z } from "zod";
-import {
-  approvalFlowTargetType,
-  approvalFlowCreateValidator,
-} from "shared/enterprise";
+import { revisionTargetType, revisionCreateValidator } from "shared/enterprise";
 import { putSavedGroupBodyValidator } from "shared/validators";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
-import * as rawApprovalFlowController from "./approval-flow.controller";
+import * as rawRevisionController from "./revision.controller";
 
 const router = express.Router();
 
-const approvalFlowController = wrapController(rawApprovalFlowController);
+const revisionController = wrapController(rawRevisionController);
 
-// Get all approval flows for the organization
-router.get("/", approvalFlowController.getAllApprovalFlows);
+// Get all revisions for the organization
+router.get("/", revisionController.getAllRevisions);
 
-// Create a new approval flow (or update existing one if user has an open draft)
+// Create a new revision (or update existing one if user has an open draft)
 router.post(
   "/",
   validateRequestMiddleware({
-    body: approvalFlowCreateValidator.strict(),
+    body: revisionCreateValidator.strict(),
   }),
-  approvalFlowController.postApprovalFlow,
+  revisionController.postRevision,
 );
 
-// Lightweight beacon: returns target IDs with open flows (no full documents)
+// Lightweight beacon: returns target IDs with open revisions (no full documents)
 router.get(
   "/entity/:entityType/beacon",
   validateRequestMiddleware({
     params: z
       .object({
-        entityType: z.enum(approvalFlowTargetType),
+        entityType: z.enum(revisionTargetType),
       })
       .strict(),
   }),
-  approvalFlowController.getApprovalFlowBeacon,
+  revisionController.getRevisionBeacon,
 );
 
-// Get approval flows for an entity
+// Get revisions for an entity
 router.get(
   "/entity/:entityType/:entityId",
   validateRequestMiddleware({
     params: z
       .object({
-        entityType: z.enum(approvalFlowTargetType),
+        entityType: z.enum(revisionTargetType),
         entityId: z.string(),
       })
       .strict(),
   }),
-  approvalFlowController.getApprovalFlowsByEntity,
+  revisionController.getRevisionsByEntity,
 );
 
-// Get all approval flows for a specific entity type
+// Get all revisions for a specific entity type
 router.get(
   "/entity/:entityType",
   validateRequestMiddleware({
     params: z
       .object({
-        entityType: z.enum(approvalFlowTargetType),
+        entityType: z.enum(revisionTargetType),
       })
       .strict(),
   }),
-  approvalFlowController.getApprovalFlowsByEntityType,
+  revisionController.getRevisionsByEntityType,
 );
 
-// Get a specific approval flow
+// Get a specific revision
 router.get(
   "/:id",
   validateRequestMiddleware({
@@ -75,10 +72,10 @@ router.get(
       })
       .strict(),
   }),
-  approvalFlowController.getApprovalFlow,
+  revisionController.getRevision,
 );
 
-// Add a review to an approval flow
+// Add a review to a revision
 router.post(
   "/:id/review",
   validateRequestMiddleware({
@@ -94,10 +91,10 @@ router.post(
       })
       .strict(),
   }),
-  approvalFlowController.postReview,
+  revisionController.postReview,
 );
 
-// Update proposed changes in an approval flow
+// Update proposed changes in a revision
 router.put(
   "/:id/proposed-changes",
   validateRequestMiddleware({
@@ -112,10 +109,28 @@ router.put(
       })
       .strict(),
   }),
-  approvalFlowController.putProposedChanges,
+  revisionController.putProposedChanges,
 );
 
-// Merge an approval flow
+// Update title of a revision
+router.patch(
+  "/:id/title",
+  validateRequestMiddleware({
+    params: z
+      .object({
+        id: z.string(),
+      })
+      .strict(),
+    body: z
+      .object({
+        title: z.string(),
+      })
+      .strict(),
+  }),
+  revisionController.patchTitle,
+);
+
+// Merge a revision
 router.post(
   "/:id/merge",
   validateRequestMiddleware({
@@ -125,10 +140,10 @@ router.post(
       })
       .strict(),
   }),
-  approvalFlowController.postMerge,
+  revisionController.postMerge,
 );
 
-// Close an approval flow
+// Close a revision
 router.post(
   "/:id/close",
   validateRequestMiddleware({
@@ -143,10 +158,10 @@ router.post(
       })
       .strict(),
   }),
-  approvalFlowController.postClose,
+  revisionController.postClose,
 );
 
-// Reopen a closed approval flow
+// Reopen a closed revision
 router.post(
   "/:id/reopen",
   validateRequestMiddleware({
@@ -156,7 +171,7 @@ router.post(
       })
       .strict(),
   }),
-  approvalFlowController.postReopen,
+  revisionController.postReopen,
 );
 
 // Get revision history for an entity
@@ -165,12 +180,12 @@ router.get(
   validateRequestMiddleware({
     params: z
       .object({
-        entityType: z.enum(approvalFlowTargetType),
+        entityType: z.enum(revisionTargetType),
         entityId: z.string(),
       })
       .strict(),
   }),
-  approvalFlowController.getRevisionHistory,
+  revisionController.getRevisionHistory,
 );
 
 // Check current merge conflict status
@@ -179,7 +194,22 @@ router.get(
   validateRequestMiddleware({
     params: z.object({ id: z.string() }).strict(),
   }),
-  approvalFlowController.getConflicts,
+  revisionController.getConflicts,
 );
 
-export { router as approvalFlowRouter };
+// Rebase a revision on top of current live state
+router.post(
+  "/:id/rebase",
+  validateRequestMiddleware({
+    params: z.object({ id: z.string() }).strict(),
+    body: z
+      .object({
+        strategies: z.record(z.string(), z.enum(["discard", "overwrite"])),
+        mergeResultSerialized: z.string(),
+      })
+      .strict(),
+  }),
+  revisionController.postRebase,
+);
+
+export { router as revisionRouter };

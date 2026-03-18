@@ -1,10 +1,10 @@
 import React from "react";
-import { ApprovalFlowStatus } from "shared/enterprise";
+import { RevisionStatus } from "shared/enterprise";
 import Badge from "@/ui/Badge";
 import Tooltip from "@/ui/Tooltip";
 
 export const STATUS_CONFIG: Record<
-  ApprovalFlowStatus,
+  RevisionStatus,
   { color: "gray" | "yellow" | "green" | "orange" | "purple"; label: string }
 > = {
   draft: { color: "gray", label: "Draft" },
@@ -15,17 +15,17 @@ export const STATUS_CONFIG: Record<
   closed: { color: "gray", label: "Closed" },
 };
 
-export function getStatusBadge(status: ApprovalFlowStatus) {
+export function getStatusBadge(status: RevisionStatus) {
   const config = STATUS_CONFIG[status];
   return <Badge label={config.label} color={config.color} variant="soft" />;
 }
 
-export function ApprovalFlowStatusDot({
-  hasOpenFlows,
+export function RevisionStatusDot({
+  hasOpenRevisions,
 }: {
-  hasOpenFlows?: boolean;
+  hasOpenRevisions?: boolean;
 }) {
-  if (!hasOpenFlows) return null;
+  if (!hasOpenRevisions) return null;
   const { color, label } = STATUS_CONFIG["pending-review"];
   return (
     <Tooltip content={label}>

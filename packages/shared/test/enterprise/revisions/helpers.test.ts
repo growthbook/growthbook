@@ -1,20 +1,18 @@
-import type { ApprovalFlowConfigurations } from "../../../types/organization";
+import type { RevisionConfigurations } from "../../../types/organization";
 import {
-  getApprovalFlowKey,
+  getRevisionKey,
   canUserReviewEntity,
   checkMergeConflicts,
-} from "../../../src/enterprise/approval-flows/helpers";
+} from "../../../src/enterprise/revisions/helpers";
 import type {
-  ApprovalFlowTargetType,
-  ApprovalFlow,
-} from "../../../src/enterprise/validators/approval-flows";
+  RevisionTargetType,
+  Revision,
+} from "../../../src/enterprise/validators/revisions";
 
-// Helper to create a mock approval flow
-const createApprovalFlow = (
-  overrides: Partial<ApprovalFlow> = {},
-): ApprovalFlow =>
+// Helper to create a mock revision
+const createRevision = (overrides: Partial<Revision> = {}): Revision =>
   ({
-    id: "af-1",
+    id: "rev-1",
     target: {
       type: "saved-group" as const,
       id: "sg-1",
@@ -29,22 +27,20 @@ const createApprovalFlow = (
     dateUpdated: new Date(),
     organization: "org-1",
     ...overrides,
-  }) as ApprovalFlow;
+  }) as Revision;
 
-describe("approval-flows helpers", () => {
-  describe("getApprovalFlowKey", () => {
+describe("revisions helpers", () => {
+  describe("getRevisionKey", () => {
     it("maps saved-group to saved-groups", () => {
-      expect(getApprovalFlowKey("saved-group")).toBe("saved-groups");
+      expect(getRevisionKey("saved-group")).toBe("saved-groups");
     });
     it("returns null for unsupported type", () => {
-      expect(
-        getApprovalFlowKey("unknown" as ApprovalFlowTargetType),
-      ).toBeNull();
+      expect(getRevisionKey("unknown" as RevisionTargetType)).toBeNull();
     });
   });
 
   describe("canUserReviewEntity - saved-group", () => {
-    const baseApprovalFlow = createApprovalFlow({
+    const baseRevision = createRevision({
       authorId: "user-author",
     });
 
@@ -52,7 +48,7 @@ describe("approval-flows helpers", () => {
       expect(
         canUserReviewEntity({
           entityType: "saved-group",
-          approvalFlow: baseApprovalFlow,
+          revision: baseRevision,
           entity: {},
           approvalFlowSettings: { savedGroups: { required: true } },
           userId: "user-reviewer",
@@ -65,7 +61,7 @@ describe("approval-flows helpers", () => {
       expect(
         canUserReviewEntity({
           entityType: "saved-group",
-          approvalFlow: baseApprovalFlow,
+          revision: baseRevision,
           entity: {},
           approvalFlowSettings: { savedGroups: { required: true } },
           userId: "user-author",
@@ -78,7 +74,7 @@ describe("approval-flows helpers", () => {
       expect(
         canUserReviewEntity({
           entityType: "saved-group",
-          approvalFlow: baseApprovalFlow,
+          revision: baseRevision,
           entity: {},
           approvalFlowSettings: { savedGroups: { required: true } },
           userId: "user-reviewer",
@@ -87,15 +83,15 @@ describe("approval-flows helpers", () => {
       ).toBe(false);
     });
 
-    it("returns false when flow is already merged", () => {
-      const mergedFlow = createApprovalFlow({
+    it("returns false when revision is already merged", () => {
+      const mergedFlow = createRevision({
         authorId: "user-author",
         status: "merged",
       });
       expect(
         canUserReviewEntity({
           entityType: "saved-group",
-          approvalFlow: mergedFlow,
+          revision: mergedFlow,
           entity: {},
           approvalFlowSettings: { savedGroups: { required: true } },
           userId: "user-reviewer",
@@ -104,15 +100,15 @@ describe("approval-flows helpers", () => {
       ).toBe(false);
     });
 
-    it("returns false when flow is closed", () => {
-      const closedFlow = createApprovalFlow({
+    it("returns false when revision is closed", () => {
+      const closedFlow = createRevision({
         authorId: "user-author",
         status: "closed",
       });
       expect(
         canUserReviewEntity({
           entityType: "saved-group",
-          approvalFlow: closedFlow,
+          revision: closedFlow,
           entity: {},
           approvalFlowSettings: { savedGroups: { required: true } },
           userId: "user-reviewer",
@@ -125,10 +121,9 @@ describe("approval-flows helpers", () => {
       expect(
         canUserReviewEntity({
           entityType: "saved-group",
-          approvalFlow: baseApprovalFlow,
+          revision: baseRevision,
           entity: {},
-          approvalFlowSettings:
-            undefined as unknown as ApprovalFlowConfigurations,
+          approvalFlowSettings: undefined as unknown as RevisionConfigurations,
           userId: "user-reviewer",
           canEditEntity: true,
         }),

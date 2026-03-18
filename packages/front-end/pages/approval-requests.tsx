@@ -2,7 +2,7 @@ import { FC, useEffect, useMemo, useRef, useState } from "react";
 import { Flex, Box } from "@radix-ui/themes";
 import { useRouter } from "next/router";
 import { datetime } from "shared/dates";
-import { ApprovalFlow } from "shared/enterprise";
+import { Revision } from "shared/enterprise";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -16,16 +16,16 @@ import {
   FilterDropdown,
   useSearchFiltersBase,
 } from "@/components/Search/SearchFilters";
-import { getStatusBadge } from "@/components/ApprovalFlow/approvalFlowUtils";
-import { useApprovalFlows } from "@/hooks/useApprovalFlows";
+import { getStatusBadge } from "@/components/Revision/revisionUtils";
+import { useRevisions } from "@/hooks/useRevisions";
 
 const ITEMS_PER_PAGE = 10;
 
-function getEntityName(flow: ApprovalFlow): string {
-  if (flow.target.type === "saved-group") {
-    return flow.target.snapshot?.groupName || flow.target.id;
+function getEntityName(revision: Revision): string {
+  if (revision.target.type === "saved-group") {
+    return revision.target.snapshot?.groupName || revision.target.id;
   }
-  return flow.target.id;
+  return revision.target.id;
 }
 
 function getEntityTypeLabel(entityType: string): string {
@@ -35,9 +35,9 @@ function getEntityTypeLabel(entityType: string): string {
   return labels[entityType] || entityType;
 }
 
-function getEntityUrl(flow: ApprovalFlow): string {
-  if (flow.target.type === "saved-group") {
-    return `/saved-groups/${flow.target.id}`;
+function getEntityUrl(revision: Revision): string {
+  if (revision.target.type === "saved-group") {
+    return `/saved-groups/${revision.target.id}`;
   }
   return "#";
 }
@@ -46,19 +46,19 @@ const ApprovalRequests: FC = () => {
   const router = useRouter();
   const { getUserDisplay, hasCommercialFeature } = useUser();
   const hasFeature = hasCommercialFeature("require-approvals");
-  const { approvalFlows, isLoading } = useApprovalFlows();
+  const { revisions, isLoading } = useRevisions();
 
   const entityTypes = useMemo(() => {
-    const types = new Set(approvalFlows.map((f) => f.target.type));
+    const types = new Set(revisions.map((f) => f.target.type));
     return Array.from(types);
-  }, [approvalFlows]);
+  }, [revisions]);
 
   const authors = useMemo(() => {
-    const authorSet = new Set(approvalFlows.map((f) => f.authorId));
+    const authorSet = new Set(revisions.map((f) => f.authorId));
     return Array.from(authorSet).filter(Boolean);
-  }, [approvalFlows]);
+  }, [revisions]);
 
-  const approvalItems = useAddComputedFields(approvalFlows, (item) => ({
+  const approvalItems = useAddComputedFields(revisions, (item) => ({
     ...item,
     entityName: getEntityName(item),
     entityType: item.target.type,
@@ -202,31 +202,31 @@ const ApprovalRequests: FC = () => {
               </tr>
             </thead>
             <tbody>
-              {paginatedItems.map((flow) => (
+              {paginatedItems.map((revision) => (
                 <tr
-                  key={flow.id}
-                  onClick={() => router.push(getEntityUrl(flow))}
+                  key={revision.id}
+                  onClick={() => router.push(getEntityUrl(revision))}
                   style={{ cursor: "pointer" }}
                   className="hover-highlight"
                 >
-                  <td>{getEntityName(flow)}</td>
-                  <td>{getEntityTypeLabel(flow.target.type)}</td>
+                  <td>{getEntityName(revision)}</td>
+                  <td>{getEntityTypeLabel(revision.target.type)}</td>
                   <td>
-                    {flow.authorId ? (
+                    {revision.authorId ? (
                       <Flex align="center" gap="2">
                         <UserAvatar
-                          name={getUserDisplay(flow.authorId)}
+                          name={getUserDisplay(revision.authorId)}
                           size="sm"
                           variant="soft"
                         />
-                        <span>{getUserDisplay(flow.authorId)}</span>
+                        <span>{getUserDisplay(revision.authorId)}</span>
                       </Flex>
                     ) : (
                       "--"
                     )}
                   </td>
-                  <td>{datetime(flow.dateCreated)}</td>
-                  <td>{getStatusBadge(flow.status)}</td>
+                  <td>{datetime(revision.dateCreated)}</td>
+                  <td>{getStatusBadge(revision.status)}</td>
                 </tr>
               ))}
             </tbody>

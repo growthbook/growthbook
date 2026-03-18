@@ -1,22 +1,24 @@
 import React, { useState } from "react";
 import { Flex } from "@radix-ui/themes";
-import { ApprovalFlow } from "shared/enterprise";
+import { Revision } from "shared/enterprise";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import Modal from "@/components/Modal";
 
-interface ApprovalFlowBannerProps {
-  approvalFlow: ApprovalFlow;
-  onDiscard: (flowId: string) => Promise<void>;
-  onPublish: (flowId: string) => Promise<void>;
+interface RevisionBannerProps {
+  revision: Revision;
+  onDiscard: (revisionId: string) => Promise<void>;
+  onPublish: (revisionId: string) => Promise<void>;
+  onReopen?: (revisionId: string) => Promise<void>;
   canPublish: boolean;
   canDiscard: boolean;
+  canReopen?: boolean;
 }
 
 const STATUS_BANNER_CONFIG: Record<
   string,
-  { status: "info" | "success" | "warning"; text: string }
+  { status: "info" | "success" | "warning" | "error"; text: string }
 > = {
   "pending-review": {
     status: "info",
@@ -30,20 +32,31 @@ const STATUS_BANNER_CONFIG: Record<
     status: "warning",
     text: "Changes have been requested on this proposal.",
   },
+  closed: {
+    status: "error",
+    text: "This revision has been closed and is in read-only mode.",
+  },
+  merged: {
+    status: "success",
+    text: "This revision has been merged and published. Changes have been applied.",
+  },
 };
 
-export default function ApprovalFlowBanner({
-  approvalFlow,
+export default function RevisionBanner({
+  revision,
   onDiscard,
   onPublish,
+  onReopen,
   canPublish,
   canDiscard,
-}: ApprovalFlowBannerProps) {
+  canReopen,
+}: RevisionBannerProps) {
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [confirmPublish, setConfirmPublish] = useState(false);
+  const [confirmReopen, setConfirmReopen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const config = STATUS_BANNER_CONFIG[approvalFlow.status];
+  const config = STATUS_BANNER_CONFIG[revision.status];
   if (!config) return null;
 
   return (
@@ -58,7 +71,7 @@ export default function ApprovalFlowBanner({
           submitColor="danger"
           submit={async () => {
             try {
-              await onDiscard(approvalFlow.id);
+              await onDiscard(revision.id);
             } catch (e) {
               setError(
                 e instanceof Error ? e.message : "Failed to discard draft",
@@ -81,7 +94,7 @@ export default function ApprovalFlowBanner({
           submitColor="primary"
           submit={async () => {
             try {
-              await onPublish(approvalFlow.id);
+              await onPublish(revision.id);
             } catch (e) {
               setError(
                 e instanceof Error ? e.message : "Failed to publish changes",
@@ -92,6 +105,28 @@ export default function ApprovalFlowBanner({
         >
           These changes will go live immediately. Are you sure you want to
           publish?
+        </Modal>
+      )}
+      {confirmReopen && onReopen && (
+        <Modal
+          trackingEventModalType=""
+          header="Reopen Revision"
+          close={() => setConfirmReopen(false)}
+          open={true}
+          cta="Reopen"
+          submitColor="primary"
+          submit={async () => {
+            try {
+              await onReopen(revision.id);
+            } catch (e) {
+              setError(
+                e instanceof Error ? e.message : "Failed to reopen revision",
+              );
+              throw e;
+            }
+          }}
+        >
+          This will reopen the revision and allow you to make further changes.
         </Modal>
       )}
       <Callout status={config.status} mb="4" contentsAs="div">
@@ -105,10 +140,14 @@ export default function ApprovalFlowBanner({
             )}
           </span>
           <Flex gap="2" align="center">
-            {canDiscard && (
-              <Link onClick={() => setConfirmDiscard(true)}>Discard draft</Link>
-            )}
-            {approvalFlow.status === "approved" && canPublish && (
+            {canDiscard &&
+              revision.status !== "closed" &&
+              revision.status !== "merged" && (
+                <Link onClick={() => setConfirmDiscard(true)}>
+                  Discard draft
+                </Link>
+              )}
+            {revision.status === "approved" && canPublish && (
               <Button
                 variant="solid"
                 color="violet"
@@ -116,6 +155,16 @@ export default function ApprovalFlowBanner({
                 onClick={() => setConfirmPublish(true)}
               >
                 Publish Changes
+              </Button>
+            )}
+            {revision.status === "closed" && canReopen && onReopen && (
+              <Button
+                variant="solid"
+                color="violet"
+                size="sm"
+                onClick={() => setConfirmReopen(true)}
+              >
+                Reopen
               </Button>
             )}
           </Flex>

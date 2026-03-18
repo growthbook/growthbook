@@ -198,22 +198,24 @@ const NeedingAttention = (): React.ReactElement | null => {
     return recentlyUsed;
   }, [historyData?.events, experiments, getDatasourceById, getMetricById]);
 
-  const featuresAndRevisions = revisionsData?.revisions.reduce<
-    FeaturesAndRevisions[]
-  >((result, revision) => {
-    if (
-      revision.featureMeta &&
-      revision.featureMeta.dateCreated <= revision.dateCreated
-    ) {
-      result.push({
-        ...revision,
-        safeRollout: safeRollouts?.find(
-          (sr) => sr.featureId === revision.featureId,
-        ),
-      });
-    }
-    return result;
-  }, []);
+  const featuresAndRevisions =
+    revisionsData?.revisions?.reduce<FeaturesAndRevisions[]>(
+      (result, revision) => {
+        if (
+          revision.featureMeta &&
+          revision.featureMeta.dateCreated <= revision.dateCreated
+        ) {
+          result.push({
+            ...revision,
+            safeRollout: safeRollouts?.find(
+              (sr) => sr.featureId === revision.featureId,
+            ),
+          });
+        }
+        return result;
+      },
+      [],
+    ) || [];
 
   const revisions = useAddComputedFields(featuresAndRevisions, (revision) => {
     const createdBy = revision?.createdBy as EventUserLoggedIn | null;

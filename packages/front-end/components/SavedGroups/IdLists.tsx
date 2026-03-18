@@ -19,7 +19,8 @@ import LargeSavedGroupPerformanceWarning, {
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
-import { ApprovalFlowStatusDot } from "@/components/ApprovalFlow/approvalFlowUtils";
+import Badge from "@/ui/Badge";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import SavedGroupForm from "./SavedGroupForm";
 import SavedGroupDeleteModal from "./SavedGroupDeleteModal";
 import SavedGroupRowMenu from "./SavedGroupRowMenu";
@@ -27,15 +28,23 @@ import SavedGroupRowMenu from "./SavedGroupRowMenu";
 export interface Props {
   groups: SavedGroupWithoutValues[];
   mutate: () => void;
-  openFlowTargetIds?: Set<string>;
+  openRevisionTargetIds?: Set<string>;
 }
 
-export default function IdLists({ groups, mutate, openFlowTargetIds }: Props) {
+export default function IdLists({
+  groups,
+  mutate,
+  openRevisionTargetIds,
+}: Props) {
   const [savedGroupForm, setSavedGroupForm] =
     useState<null | Partial<SavedGroupInterface>>(null);
   const [deleteModal, setDeleteModal] =
     useState<SavedGroupWithoutValues | null>(null);
   const { project } = useDefinitions();
+  const settings = useOrgSettings();
+
+  const approvalFlowRequired =
+    settings.approvalFlows?.savedGroups?.required ?? false;
 
   const permissionsUtil = usePermissionsUtil();
   const canCreate = permissionsUtil.canViewSavedGroupModal(project);
@@ -100,6 +109,7 @@ export default function IdLists({ groups, mutate, openFlowTargetIds }: Props) {
             close={() => setSavedGroupForm(null)}
             current={savedGroupForm}
             type="list"
+            approvalFlowRequired={approvalFlowRequired}
           />
         )}
         <Flex align="center" justify="between" mb="1">
@@ -145,6 +155,7 @@ export default function IdLists({ groups, mutate, openFlowTargetIds }: Props) {
                   <th>Description</th>
                   <th>Projects</th>
                   <SortableTH field={"owner"}>Owner</SortableTH>
+                  <th>Approval Flows</th>
                   <SortableTH field={"dateUpdated"}>Date Updated</SortableTH>
                   <th />
                 </tr>
@@ -155,9 +166,6 @@ export default function IdLists({ groups, mutate, openFlowTargetIds }: Props) {
                     <tr key={s.id}>
                       <td>
                         <Flex align="center" gap="2">
-                          <ApprovalFlowStatusDot
-                            hasOpenFlows={openFlowTargetIds?.has(s.id)}
-                          />
                           <Link
                             className="link-purple"
                             key={s.id}
@@ -180,6 +188,15 @@ export default function IdLists({ groups, mutate, openFlowTargetIds }: Props) {
                         )}
                       </td>
                       <td>{s.owner}</td>
+                      <td>
+                        {openRevisionTargetIds?.has(s.id) && (
+                          <Badge
+                            label="Pending review"
+                            color="yellow"
+                            variant="soft"
+                          />
+                        )}
+                      </td>
                       <td>{ago(s.dateUpdated)}</td>
                       <td style={{ width: 30 }}>
                         <SavedGroupRowMenu

@@ -5,7 +5,7 @@ import {
   SavedGroupInterface,
   SavedGroupType,
 } from "shared/types/saved-group";
-import { ApprovalFlow } from "shared/enterprise";
+import { Revision } from "shared/enterprise";
 import { useForm } from "react-hook-form";
 import {
   isIdListSupportedAttribute,
@@ -19,18 +19,21 @@ import { useAuth } from "@/services/auth";
 import { useAttributeSchema } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useUser } from "@/services/UserContext";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import ConditionInput from "@/components/Features/ConditionInput";
 import { IdListItemInput } from "@/components/SavedGroups/IdListItemInput";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Link from "@/ui/Link";
 import SelectOwner from "@/components/Owner/SelectOwner";
 import Checkbox from "@/ui/Checkbox";
+import Callout from "@/ui/Callout";
+import Badge from "@/ui/Badge";
 
 type SavedGroupFormValues = CreateSavedGroupProps;
 
@@ -40,30 +43,72 @@ const SavedGroupForm: FC<{
   type: SavedGroupType;
   approvalFlowRequired?: boolean;
   hasExistingRevision?: boolean;
-  onApprovalFlowCreated?: (flow: ApprovalFlow) => void;
+  onRevisionCreated?: (revision: Revision) => void;
+  openRevisions?: Revision[];
+  allRevisions?: Revision[];
+  selectedRevision?: Revision | null;
+  onSelectRevision?: (revision: Revision | null) => void;
+  liveVersion?: SavedGroupInterface;
+  isCreatingNewRevision?: boolean;
 }> = ({
   close,
   current,
   type,
   approvalFlowRequired,
   hasExistingRevision,
-  onApprovalFlowCreated,
+  onRevisionCreated,
+  openRevisions = [],
+  allRevisions,
+  selectedRevision,
+  onSelectRevision,
+  liveVersion,
+  isCreatingNewRevision = false,
 }) => {
   const { apiCall } = useAuth();
-  const { savedGroupSizeLimit } = useOrgSettings();
+  const settings = useOrgSettings();
+  const { savedGroupSizeLimit } = settings;
+  const { user, getUserDisplay } = useUser();
   const permissionsUtil = usePermissionsUtil();
 
+  // Compute approvalFlowRequired from settings if not provided as prop
+  const isApprovalFlowRequired =
+    approvalFlowRequired ??
+    settings.approvalFlows?.savedGroups?.required ??
+    false;
+
   const canAdminPublish =
-    !!approvalFlowRequired &&
+    !!isApprovalFlowRequired &&
     !!current.id &&
-    permissionsUtil.canBypassApprovalChecks({
-      project: current.projects?.[0] ?? "",
-    });
+    (user?.role === "admin" ||
+      (current.projects?.length
+        ? current.projects.every((project) =>
+            permissionsUtil.canBypassApprovalChecks({ project: project || "" }),
+          )
+        : permissionsUtil.canBypassApprovalChecks({ project: "" })));
 
   const [bypassApproval, setBypassApproval] = useState(false);
   const [conditionKey, forceConditionRender] = useIncrementer();
+  const [internalSelectedRevision, _setInternalSelectedRevision] =
+    useState<Revision | null>(selectedRevision ?? null);
 
   const attributeSchema = useAttributeSchema();
+
+  // Use controlled or internal state for selected revision
+  const currentRevision =
+    onSelectRevision !== undefined
+      ? (selectedRevision ?? null)
+      : internalSelectedRevision;
+
+  // Check if editing is blocked
+  // 1. Editing live version while there are open revisions (unless creating new)
+  // 2. Viewing a closed/merged revision (read-only)
+  const isEditBlocked =
+    (!!current.id &&
+      openRevisions.length > 0 &&
+      !currentRevision &&
+      !isCreatingNewRevision) ||
+    currentRevision?.status === "closed" ||
+    currentRevision?.status === "merged";
 
   const { mutateDefinitions, savedGroups, projects, project } =
     useDefinitions();
@@ -91,6 +136,41 @@ const SavedGroupForm: FC<{
       projects: current.projects || (project ? [project] : []),
     },
   });
+
+  // Update form values when selected revision changes
+  useEffect(() => {
+    let baseData: Partial<SavedGroupInterface>;
+
+    if (currentRevision) {
+      // If a draft revision is selected, use its snapshot + proposed changes
+      baseData = {
+        ...(currentRevision.target.snapshot as SavedGroupInterface),
+        ...(currentRevision.target
+          .proposedChanges as Partial<SavedGroupInterface>),
+      };
+    } else if (liveVersion) {
+      // If "Live" is selected, use the live version
+      baseData = liveVersion;
+    } else {
+      // Fallback to current
+      baseData = current;
+    }
+
+    form.reset({
+      groupName: baseData.groupName || "",
+      owner: baseData.owner || "",
+      attributeKey: baseData.attributeKey || "",
+      condition: baseData.condition || "",
+      type,
+      values: baseData.values || [],
+      description: baseData.description || "",
+      projects: baseData.projects || (project ? [project] : []),
+    });
+
+    if (baseData.description) {
+      setShowDescription(true);
+    }
+  }, [currentRevision, liveVersion, type, project, form, current]);
 
   const projectsOptions = projects.map((p) => ({
     label: p.name,
@@ -132,26 +212,30 @@ const SavedGroupForm: FC<{
       cta={
         <>
           {current.id
-            ? approvalFlowRequired
+            ? isApprovalFlowRequired
               ? bypassApproval
                 ? "Publish"
-                : hasExistingRevision
-                  ? "Update"
-                  : "Propose changes"
+                : currentRevision
+                  ? "Update revision"
+                  : hasExistingRevision
+                    ? "Propose changes"
+                    : "Propose changes"
               : "Save"
             : "Submit"}
         </>
       }
-      ctaEnabled={isValid}
+      ctaEnabled={isValid && !isEditBlocked}
       backCTA={
         <div className="mt-3 mb-2">
-          <Checkbox
-            label="Bypass approval requirement to publish (optional for Admins only)"
-            value={bypassApproval}
-            setValue={(val) => setBypassApproval(!!val)}
-            disabled={!canAdminPublish}
-            disabledMessage="You don't have permission to bypass approval"
-          />
+          {current.id && (
+            <Checkbox
+              label="Bypass approval requirement to publish (optional for Admins only)"
+              value={bypassApproval}
+              setValue={(val) => setBypassApproval(!!val)}
+              disabled={!canAdminPublish}
+              disabledMessage="You don't have permission to bypass approval"
+            />
+          )}
         </div>
       }
       submit={form.handleSubmit(async (value) => {
@@ -180,21 +264,33 @@ const SavedGroupForm: FC<{
             description: value.description,
             projects: value.projects,
           };
-          const url = bypassApproval
-            ? `/saved-groups/${current.id}?bypassApproval=1`
-            : `/saved-groups/${current.id}`;
+
+          // Build URL with query params
+          const params = new URLSearchParams();
+          if (bypassApproval) {
+            params.set("bypassApproval", "1");
+          }
+          if (currentRevision?.id) {
+            params.set("revisionId", currentRevision.id);
+          }
+          if (isCreatingNewRevision && !currentRevision) {
+            params.set("forceCreateRevision", "1");
+          }
+          const queryString = params.toString();
+          const url = `/saved-groups/${current.id}${queryString ? `?${queryString}` : ""}`;
+
           const res = await apiCall<{
             status: number;
             requiresApproval?: boolean;
-            approvalFlow?: ApprovalFlow;
+            revision?: Revision;
           }>(url, {
             method: "PUT",
             body: JSON.stringify(payload),
           });
           if (res?.requiresApproval) {
             mutateDefinitions({});
-            if (res.approvalFlow) {
-              onApprovalFlowCreated?.(res.approvalFlow);
+            if (res.revision) {
+              onRevisionCreated?.(res.revision);
             }
             close();
             return;
@@ -225,6 +321,62 @@ const SavedGroupForm: FC<{
       })}
       error={errorMessage}
     >
+      {isEditBlocked && (
+        <Callout status="warning" mb="4">
+          <Text size="2">
+            {currentRevision?.status === "closed" ||
+            currentRevision?.status === "merged"
+              ? `This revision is ${currentRevision.status} and cannot be edited. You can view it here in read-only mode.`
+              : "You cannot edit this saved group directly because there are open draft revisions. Please select a draft revision from the main page to edit, or wait for all drafts to be published or discarded."}
+          </Text>
+        </Callout>
+      )}
+      {current.id &&
+        openRevisions.length > 0 &&
+        currentRevision &&
+        (() => {
+          const allFlows = allRevisions ?? openRevisions;
+          const sortedFlows = [...allFlows].sort(
+            (a, b) =>
+              new Date(a.dateCreated).getTime() -
+              new Date(b.dateCreated).getTime(),
+          );
+          const revisionNum =
+            sortedFlows.findIndex((f) => f.id === currentRevision.id) + 1;
+
+          const statusLabels = {
+            pending: "Pending Review",
+            approved: "Approved",
+            "changes-requested": "Changes Requested",
+            rejected: "Rejected",
+          };
+
+          const tooltipContent = (
+            <Flex direction="column" gap="1">
+              <Text size="2">
+                <strong>Created by:</strong>{" "}
+                {getUserDisplay(currentRevision.authorId)}
+              </Text>
+              <Text size="2">
+                <strong>Status:</strong>{" "}
+                {statusLabels[currentRevision.status] || currentRevision.status}
+              </Text>
+            </Flex>
+          );
+
+          return (
+            <Callout status="info" mb="4">
+              <Flex direction="row" gap="2" align="center">
+                <Text size="2" weight="medium">
+                  Editing revision:
+                </Text>
+                <Tooltip body={tooltipContent}>
+                  <Badge label={`Revision ${revisionNum}`} color="indigo" />
+                </Tooltip>
+              </Flex>
+            </Callout>
+          );
+        })()}
       {current.type === "condition" && (
         <div className="form-group">
           Updating this group will automatically update any associated Features

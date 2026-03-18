@@ -67,7 +67,7 @@ import { CustomHookModel } from "back-end/src/models/CustomHookModel";
 import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
 import { TeamModel } from "back-end/src/models/TeamModel";
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
-import { ApprovalFlowModel } from "back-end/src/enterprise/models/ApprovalFlowModel";
+import { RevisionModel } from "back-end/src/enterprise/models/RevisionModel";
 import { PresentationThemeModel } from "back-end/src/models/PresentationThemeModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
@@ -109,7 +109,7 @@ export type ModelName =
   | "teams"
   | "analyticsExplorations"
   | "presentationThemes"
-  | "approvalFlows";
+  | "revisions";
 
 export const modelClasses = {
   agreements: AgreementModel,
@@ -141,7 +141,7 @@ export const modelClasses = {
   savedGroups: SavedGroupModel,
   teams: TeamModel,
   analyticsExplorations: AnalyticsExplorationModel,
-  approvalFlows: ApprovalFlowModel,
+  revisions: RevisionModel,
   presentationThemes: PresentationThemeModel,
 };
 export type ModelClass = (typeof modelClasses)[ModelName];
@@ -183,7 +183,7 @@ export class ReqContextClass {
       savedGroups: new SavedGroupModel(this),
       teams: new TeamModel(this),
       analyticsExplorations: new AnalyticsExplorationModel(this),
-      approvalFlows: new ApprovalFlowModel(this),
+      revisions: new RevisionModel(this),
       presentationThemes: new PresentationThemeModel(this),
     };
   }

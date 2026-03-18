@@ -91,7 +91,16 @@ export function renderSavedGroupTargeting(
     ...renderFallback(
       pre as Record<string, unknown>,
       post as Record<string, unknown>,
-      new Set(["condition"]),
+      new Set([
+        "condition",
+        "type",
+        "groupName",
+        "owner",
+        "description",
+        "attributeKey",
+        "values",
+        "projects",
+      ]),
     ),
   );
 
@@ -162,7 +171,16 @@ export function renderSavedGroupValues(pre: Pre, post: Post): ReactNode | null {
     ...renderFallback(
       pre as Record<string, unknown>,
       post as Record<string, unknown>,
-      new Set(["attributeKey", "values"]),
+      new Set([
+        "attributeKey",
+        "values",
+        "groupName",
+        "owner",
+        "description",
+        "condition",
+        "type",
+        "projects",
+      ]),
     ),
   );
 
@@ -196,7 +214,16 @@ export function renderSavedGroupSettings(
     ...renderFallback(
       pre as Record<string, unknown>,
       post as Record<string, unknown>,
-      new Set(["groupName"]),
+      new Set([
+        "groupName",
+        "owner",
+        "description",
+        "condition",
+        "type",
+        "attributeKey",
+        "values",
+        "projects",
+      ]),
     ),
   );
 
@@ -253,7 +280,16 @@ export function renderSavedGroupProjects(
     ...renderFallback(
       pre as Record<string, unknown>,
       post as Record<string, unknown>,
-      new Set(["projects"]),
+      new Set([
+        "projects",
+        "groupName",
+        "owner",
+        "description",
+        "condition",
+        "type",
+        "attributeKey",
+        "values",
+      ]),
     ),
   );
 

@@ -57,13 +57,13 @@ export default function SavedGroupsPage() {
     settings.approvalFlows?.savedGroups?.required ?? false;
 
   const { data: beaconData } = useApi<{
-    openFlowTargetIds: string[];
-  }>("/approval-flow/entity/saved-group/beacon", {
+    openRevisionTargetIds: string[];
+  }>("/revision/entity/saved-group/beacon", {
     shouldRun: () => approvalFlowRequired,
   });
 
-  const openFlowTargetIds = useMemo(
-    () => new Set(beaconData?.openFlowTargetIds ?? []),
+  const openRevisionTargetIds = useMemo(
+    () => new Set(beaconData?.openRevisionTargetIds ?? []),
     [beaconData],
   );
 
@@ -204,7 +204,7 @@ export default function SavedGroupsPage() {
               <ConditionGroups
                 groups={savedGroups}
                 mutate={mutateDefinitions}
-                openFlowTargetIds={openFlowTargetIds}
+                openRevisionTargetIds={openRevisionTargetIds}
               />
             </TabsContent>
 
@@ -212,7 +212,7 @@ export default function SavedGroupsPage() {
               <IdLists
                 groups={savedGroups}
                 mutate={mutateDefinitions}
-                openFlowTargetIds={openFlowTargetIds}
+                openRevisionTargetIds={openRevisionTargetIds}
               />
             </TabsContent>
           </Tabs>

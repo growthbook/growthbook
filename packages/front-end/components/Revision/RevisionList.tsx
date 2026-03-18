@@ -1,9 +1,9 @@
 import React, { useMemo } from "react";
 import { Flex, Box } from "@radix-ui/themes";
 import { datetime } from "shared/dates";
-import { ApprovalFlow } from "shared/enterprise";
+import { Revision } from "shared/enterprise";
 import Heading from "@/ui/Heading";
-import { getStatusBadge } from "@/components/ApprovalFlow/approvalFlowUtils";
+import { getStatusBadge } from "@/components/Revision/revisionUtils";
 import Text from "@/ui/Text";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Callout from "@/ui/Callout";
@@ -17,20 +17,20 @@ import {
   useSearchFiltersBase,
 } from "@/components/Search/SearchFilters";
 
-interface ApprovalFlowListProps {
-  approvalFlows: ApprovalFlow[];
+interface RevisionListProps {
+  revisions: Revision[];
   isLoading?: boolean;
-  setApprovalFlow: (flow: ApprovalFlow) => void;
+  setRevision: (revision: Revision) => void;
   showEntityType?: boolean;
   showHistory?: boolean;
 }
 
 const ITEMS_PER_PAGE = 7;
 
-const ApprovalFlowList: React.FC<ApprovalFlowListProps> = ({
-  approvalFlows,
+const RevisionList: React.FC<RevisionListProps> = ({
+  revisions,
   isLoading = false,
-  setApprovalFlow,
+  setRevision,
   showEntityType = false,
   showHistory = true,
 }) => {
@@ -38,15 +38,15 @@ const ApprovalFlowList: React.FC<ApprovalFlowListProps> = ({
 
   // Get unique entity types for the filter
   const entityTypes = useMemo(() => {
-    const types = new Set(approvalFlows.map((f) => f.target.type));
+    const types = new Set(revisions.map((f) => f.target.type));
     return Array.from(types);
-  }, [approvalFlows]);
+  }, [revisions]);
 
   // Get unique authors for the filter
   const authors = useMemo(() => {
-    const authorSet = new Set(approvalFlows.map((f) => f.authorId));
+    const authorSet = new Set(revisions.map((f) => f.authorId));
     return Array.from(authorSet).filter(Boolean);
-  }, [approvalFlows]);
+  }, [revisions]);
 
   const getEntityTypeLabel = (entityType: string) => {
     const labels: Record<"fact-metric" | "saved-group", string> = {
@@ -55,15 +55,15 @@ const ApprovalFlowList: React.FC<ApprovalFlowListProps> = ({
     };
     return labels[entityType as "fact-metric" | "saved-group"] || entityType;
   };
-  const approvalItems = useAddComputedFields(approvalFlows, (item) => ({
+  const revisionItems = useAddComputedFields(revisions, (item) => ({
     ...item,
     entityType: item.target.type,
   }));
 
   const { items, searchInputProps, SortableTH, syntaxFilters, setSearchValue } =
     useSearch({
-      items: approvalItems,
-      localStorageKey: "approvalFlowList",
+      items: revisionItems,
+      localStorageKey: "revisionList",
       defaultSortField: "dateCreated",
       defaultSortDir: -1,
       searchFields: ["authorId"],
@@ -82,7 +82,7 @@ const ApprovalFlowList: React.FC<ApprovalFlowListProps> = ({
     });
 
   // Split into requests (open) and history (merged)
-  const { openFlows, historyFlows } = useMemo(() => {
+  const { openRevisions, historyRevisions } = useMemo(() => {
     // Get status filter from syntax filters
     const statusFilter = syntaxFilters.find((f) => f.field === "status");
     const statusValues = statusFilter?.values || [];
@@ -104,7 +104,7 @@ const ApprovalFlowList: React.FC<ApprovalFlowListProps> = ({
         }
         return statusValues.includes(f.status);
       }
-      // Default: show open flows
+      // Default: show open revisions
       return !["merged", "closed"].includes(f.status);
     });
 
@@ -116,7 +116,7 @@ const ApprovalFlowList: React.FC<ApprovalFlowListProps> = ({
         new Date(a.resolution?.dateCreated || a.dateCreated).getTime(),
     );
 
-    return { openFlows: open, historyFlows: history };
+    return { openRevisions: open, historyRevisions: history };
   }, [items, syntaxFilters]);
 
   const [requestsPage, setRequestsPage] = React.useState(1);
@@ -124,15 +124,15 @@ const ApprovalFlowList: React.FC<ApprovalFlowListProps> = ({
 
   const paginatedRequests = useMemo(() => {
     const start = (requestsPage - 1) * ITEMS_PER_PAGE;
-    return openFlows.slice(start, start + ITEMS_PER_PAGE);
-  }, [openFlows, requestsPage]);
+    return openRevisions.slice(start, start + ITEMS_PER_PAGE);
+  }, [openRevisions, requestsPage]);
 
   const paginatedHistory = useMemo(() => {
     const start = (historyPage - 1) * ITEMS_PER_PAGE;
-    return historyFlows.slice(start, start + ITEMS_PER_PAGE);
-  }, [historyFlows, historyPage]);
+    return historyRevisions.slice(start, start + ITEMS_PER_PAGE);
+  }, [historyRevisions, historyPage]);
 
-  const approvalFlowStatusItems = [
+  const revisionStatusItems = [
     {
       name: "Pending review",
       id: "pending-review",
@@ -150,10 +150,8 @@ const ApprovalFlowList: React.FC<ApprovalFlowListProps> = ({
     return <LoadingOverlay />;
   }
 
-  if (!approvalFlows || approvalFlows.length === 0) {
-    return (
-      <Callout status="info">No approval flows found for this entity</Callout>
-    );
+  if (!revisions || revisions.length === 0) {
+    return <Callout status="info">No revisions found for this entity</Callout>;
   }
 
   return (
@@ -198,7 +196,7 @@ const ApprovalFlowList: React.FC<ApprovalFlowListProps> = ({
             syntaxFilters={syntaxFilters}
             open={dropdownFilterOpen}
             setOpen={setDropdownFilterOpen}
-            items={approvalFlowStatusItems}
+            items={revisionStatusItems}
             updateQuery={updateQuery}
           />
         </Flex>
@@ -229,41 +227,41 @@ const ApprovalFlowList: React.FC<ApprovalFlowListProps> = ({
                 </tr>
               </thead>
               <tbody>
-                {paginatedRequests.map((flow) => (
+                {paginatedRequests.map((revision) => (
                   <tr
-                    key={flow.id}
-                    onClick={() => setApprovalFlow(flow)}
+                    key={revision.id}
+                    onClick={() => setRevision(revision)}
                     style={{ cursor: "pointer" }}
                     className="hover-highlight"
                   >
-                    <td>{datetime(flow.dateCreated)}</td>
-                    <td>{flow.reviews.length}</td>
+                    <td>{datetime(revision.dateCreated)}</td>
+                    <td>{revision.reviews.length}</td>
                     <td>
-                      {flow.authorId ? (
+                      {revision.authorId ? (
                         <Flex align="center" gap="2">
                           <UserAvatar
-                            name={getUserDisplay(flow.authorId)}
+                            name={getUserDisplay(revision.authorId)}
                             size="sm"
                             variant="soft"
                           />
-                          <span>{getUserDisplay(flow.authorId)}</span>
+                          <span>{getUserDisplay(revision.authorId)}</span>
                         </Flex>
                       ) : (
                         "--"
                       )}
                     </td>
                     {showEntityType && (
-                      <td>{getEntityTypeLabel(flow.target.type)}</td>
+                      <td>{getEntityTypeLabel(revision.target.type)}</td>
                     )}
-                    <td>{getStatusBadge(flow.status)}</td>
+                    <td>{getStatusBadge(revision.status)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
 
-            {openFlows.length > ITEMS_PER_PAGE && (
+            {openRevisions.length > ITEMS_PER_PAGE && (
               <Pagination
-                numItemsTotal={openFlows.length}
+                numItemsTotal={openRevisions.length}
                 perPage={ITEMS_PER_PAGE}
                 currentPage={requestsPage}
                 onPageChange={setRequestsPage}
@@ -296,20 +294,23 @@ const ApprovalFlowList: React.FC<ApprovalFlowListProps> = ({
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedHistory.map((flow) => (
+                  {paginatedHistory.map((revision) => (
                     <tr
-                      key={flow.id}
-                      onClick={() => setApprovalFlow(flow)}
+                      key={revision.id}
+                      onClick={() => setRevision(revision)}
                       style={{ cursor: "pointer" }}
                       className="hover-highlight"
                     >
                       <td>
                         {datetime(
-                          flow.resolution?.dateCreated || flow.dateCreated,
+                          revision.resolution?.dateCreated ||
+                            revision.dateCreated,
                         )}
                       </td>
                       <td>
-                        {flow.reviews.length > 0 ? flow.reviews.length : "--"}
+                        {revision.reviews.length > 0
+                          ? revision.reviews.length
+                          : "--"}
                       </td>
                       <td>
                         <span
@@ -322,18 +323,20 @@ const ApprovalFlowList: React.FC<ApprovalFlowListProps> = ({
                         </span>
                       </td>
                       <td>
-                        {flow.resolution?.userId || flow.authorId ? (
+                        {revision.resolution?.userId || revision.authorId ? (
                           <Flex align="center" gap="2">
                             <UserAvatar
                               name={getUserDisplay(
-                                flow.resolution?.userId || flow.authorId,
+                                revision.resolution?.userId ||
+                                  revision.authorId,
                               )}
                               size="sm"
                               variant="soft"
                             />
                             <span>
                               {getUserDisplay(
-                                flow.resolution?.userId || flow.authorId,
+                                revision.resolution?.userId ||
+                                  revision.authorId,
                               )}
                             </span>
                           </Flex>
@@ -346,9 +349,9 @@ const ApprovalFlowList: React.FC<ApprovalFlowListProps> = ({
                 </tbody>
               </table>
 
-              {historyFlows.length > ITEMS_PER_PAGE && (
+              {historyRevisions.length > ITEMS_PER_PAGE && (
                 <Pagination
-                  numItemsTotal={historyFlows.length}
+                  numItemsTotal={historyRevisions.length}
                   perPage={ITEMS_PER_PAGE}
                   currentPage={historyPage}
                   onPageChange={setHistoryPage}
@@ -362,4 +365,4 @@ const ApprovalFlowList: React.FC<ApprovalFlowListProps> = ({
   );
 };
 
-export default ApprovalFlowList;
+export default RevisionList;

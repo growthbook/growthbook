@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { SavedGroupInterface } from "shared/types/saved-group";
+import { Revision } from "shared/enterprise";
 import { ago } from "shared/dates";
 import { FaPlusCircle } from "react-icons/fa";
 import { PiArrowsDownUp } from "react-icons/pi";
@@ -50,10 +51,11 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
-import ApprovalFlowDetail from "@/components/ApprovalFlow/ApprovalFlowDetail";
-import ApprovalFlowVersionSelector from "@/components/ApprovalFlow/ApprovalFlowVersionSelector";
-import { useSavedGroupApprovalFlow } from "@/hooks/useSavedGroupApprovalFlow";
+import RevisionDetail from "@/components/Revision/RevisionDetail";
+import RevisionVersionSelector from "@/components/Revision/RevisionVersionSelector";
+import { useSavedGroupRevision } from "@/hooks/useSavedGroupRevision";
 import { useSavedGroupReferences } from "@/hooks/useSavedGroupReferences";
+import { REVISION_SAVED_GROUP_DIFF_CONFIG } from "@/components/Revision/RevisionDiffConfig";
 
 const NUM_PER_PAGE = 10;
 
@@ -75,6 +77,12 @@ export default function EditSavedGroupPage() {
   const [showChangesModal, setShowChangesModal] = useState<boolean>(false);
   const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
   const [adminBypassSizeLimit, setAdminBypassSizeLimit] = useState(false);
+  const [isCreatingNewRevision, setIsCreatingNewRevision] =
+    useState<boolean>(false);
+  const [confirmRevert, setConfirmRevert] = useState<boolean>(false);
+  const [revisionToRevert, setRevisionToRevert] = useState<Revision | null>(
+    null,
+  );
   const settings = useOrgSettings();
   const { savedGroupSizeLimit, attributeSchema } = settings;
 
@@ -97,40 +105,42 @@ export default function EditSavedGroupPage() {
   );
   const { projects } = useDefinitions();
 
-  const approvalFlowRequired =
+  const revisionRequired =
     settings.approvalFlows?.savedGroups?.required ?? false;
 
-  const approvalFlowState = useSavedGroupApprovalFlow(savedGroup?.id, mutate);
+  const revisionState = useSavedGroupRevision(savedGroup?.id, mutate);
   const {
-    selectedApprovalFlow,
-    selectedApprovalFlowId,
-    openApprovalFlows,
-    allApprovalFlows,
+    selectedApprovalFlow: selectedRevision,
+    selectedApprovalFlowId: selectedRevisionId,
+    openApprovalFlows: openRevisions,
+    allApprovalFlows: allRevisions,
     selectFlow,
-    onApprovalFlowCreated,
+    onApprovalFlowCreated: onRevisionCreated,
     handleDiscard,
-    mutateApprovalFlows,
-    userOpenFlow,
-  } = approvalFlowState;
+    handlePublish,
+    handleReopen,
+    mutateApprovalFlows: mutateRevisions,
+    userOpenFlow: userOpenRevision,
+  } = revisionState;
 
-  // When the user already has an open flow, block edits to the live version
-  const editBlocked = approvalFlowRequired && !!userOpenFlow;
+  // When the user already has an open revision, block edits to the live version
+  const editBlocked = revisionRequired && !!userOpenRevision;
 
-  // Close the changes modal when the selected flow is deselected (e.g. after publish/discard)
+  // Close the changes modal when the selected revision is deselected (e.g. after publish/discard)
   useEffect(() => {
-    if (!selectedApprovalFlow) {
+    if (!selectedRevision) {
       setShowChangesModal(false);
     }
-  }, [selectedApprovalFlow]);
+  }, [selectedRevision]);
 
   // When a revision is selected, show its proposed state in the overview
   const displayedSavedGroup = useMemo(() => {
-    if (!selectedApprovalFlow) return savedGroup;
+    if (!selectedRevision) return savedGroup;
     return {
-      ...selectedApprovalFlow.target.snapshot,
-      ...selectedApprovalFlow.target.proposedChanges,
+      ...selectedRevision.target.snapshot,
+      ...selectedRevision.target.proposedChanges,
     } as SavedGroupInterface;
-  }, [selectedApprovalFlow, savedGroup]);
+  }, [selectedRevision, savedGroup]);
 
   const displayedValues = useMemo(
     () => displayedSavedGroup?.values ?? [],
@@ -178,6 +188,11 @@ export default function EditSavedGroupPage() {
         : false,
     [savedGroupSizeLimit, itemsToAdd, values],
   );
+  const revisionNumber = useMemo(() => {
+    if (!selectedRevision)
+      return allRevisions.findIndex((f) => f.id === userOpenRevision?.id) + 1;
+    return allRevisions.findIndex((f) => f.id === selectedRevision.id) + 1;
+  }, [selectedRevision, allRevisions, userOpenRevision]);
 
   if (!data || !savedGroup) {
     return <LoadingOverlay />;
@@ -306,8 +321,8 @@ export default function EditSavedGroupPage() {
               : "Overwrite List Contents"
           }
           cta={
-            approvalFlowRequired
-              ? userOpenFlow
+            revisionRequired
+              ? userOpenRevision
                 ? "Update"
                 : "Propose changes"
               : "Save"
@@ -321,7 +336,7 @@ export default function EditSavedGroupPage() {
               const res = await apiCall<{
                 status: number;
                 requiresApproval?: boolean;
-                approvalFlow?: import("shared/enterprise").ApprovalFlow;
+                revision?: import("shared/enterprise").Revision;
               }>(`/saved-groups/${savedGroup.id}/add-items`, {
                 method: "POST",
                 body: JSON.stringify({
@@ -329,8 +344,8 @@ export default function EditSavedGroupPage() {
                 }),
               });
               if (res?.requiresApproval) {
-                if (res.approvalFlow) {
-                  onApprovalFlowCreated(res.approvalFlow);
+                if (res.revision) {
+                  onRevisionCreated(res.revision);
                 }
                 setItemsToAdd([]);
                 return;
@@ -341,7 +356,7 @@ export default function EditSavedGroupPage() {
               const res = await apiCall<{
                 status: number;
                 requiresApproval?: boolean;
-                approvalFlow?: import("shared/enterprise").ApprovalFlow;
+                revision?: import("shared/enterprise").Revision;
               }>(`/saved-groups/${savedGroup.id}`, {
                 method: "PUT",
                 body: JSON.stringify({
@@ -349,8 +364,8 @@ export default function EditSavedGroupPage() {
                 }),
               });
               if (res?.requiresApproval) {
-                if (res.approvalFlow) {
-                  onApprovalFlowCreated(res.approvalFlow);
+                if (res.revision) {
+                  onRevisionCreated(res.revision);
                 }
                 setItemsToAdd([]);
                 return;
@@ -382,13 +397,20 @@ export default function EditSavedGroupPage() {
         <SavedGroupForm
           close={() => {
             setSavedGroupForm(null);
+            setIsCreatingNewRevision(false);
             mutate();
           }}
           current={savedGroupForm}
           type={savedGroup.type}
-          approvalFlowRequired={approvalFlowRequired}
-          hasExistingRevision={!!userOpenFlow}
-          onApprovalFlowCreated={onApprovalFlowCreated}
+          approvalFlowRequired={revisionRequired}
+          hasExistingRevision={!!userOpenRevision}
+          onRevisionCreated={onRevisionCreated}
+          openRevisions={openRevisions}
+          allRevisions={allRevisions}
+          selectedRevision={selectedRevision}
+          onSelectRevision={selectFlow}
+          liveVersion={savedGroup}
+          isCreatingNewRevision={isCreatingNewRevision}
         />
       )}
       {showReferencesModal && (
@@ -411,10 +433,10 @@ export default function EditSavedGroupPage() {
           />
         </Modal>
       )}
-      {showChangesModal && selectedApprovalFlow && (
+      {showChangesModal && selectedRevision && (
         <Modal
           header="Revision Changes"
-          trackingEventModalType="saved-group-approval-flow-changes"
+          trackingEventModalType="saved-group-revision-changes"
           close={() => setShowChangesModal(false)}
           open={showChangesModal}
           dismissible
@@ -423,16 +445,100 @@ export default function EditSavedGroupPage() {
           closeCta="Close"
           useRadixButton={true}
         >
-          <ApprovalFlowDetail
-            approvalFlow={selectedApprovalFlow}
+          <RevisionDetail<SavedGroupInterface>
+            diffConfig={REVISION_SAVED_GROUP_DIFF_CONFIG}
+            revision={selectedRevision}
             currentState={savedGroup}
-            mutate={mutateApprovalFlows}
-            setCurrentApprovalFlow={(f) => selectFlow(f)}
-            onDiscard={async (flowId) => {
-              await handleDiscard(flowId);
+            mutate={() => {
+              mutateRevisions();
+              mutate();
+            }}
+            setCurrentRevision={(f) => selectFlow(f)}
+            onDiscard={async (revisionId) => {
+              await handleDiscard(revisionId);
               setShowChangesModal(false);
             }}
+            onPublish={async (revisionId) => {
+              await handlePublish(revisionId);
+              setShowChangesModal(false);
+            }}
+            onReopen={async (revisionId) => {
+              await handleReopen(revisionId);
+            }}
+            allRevisions={allRevisions}
           />
+        </Modal>
+      )}
+      {confirmRevert && revisionToRevert && (
+        <Modal
+          header="Revert Merged Revision"
+          trackingEventModalType="revert-revision"
+          close={() => {
+            setConfirmRevert(false);
+            setRevisionToRevert(null);
+          }}
+          open={confirmRevert}
+          cta="Create Revert Revision"
+          submitColor="primary"
+          submit={async () => {
+            // Create a new revision that reverts the merged changes
+            const snapshot = revisionToRevert.target
+              .snapshot as SavedGroupInterface;
+            const proposedChanges = revisionToRevert.target
+              .proposedChanges as Record<string, unknown>;
+
+            // Calculate reverse changes: from current live state back to the snapshot
+            const reverseChanges: Record<string, unknown> = {};
+
+            // For each field that was changed in the merged revision,
+            // create a reverse change that goes back to the original value
+            Object.keys(proposedChanges).forEach((key) => {
+              const originalValue = snapshot[key as keyof SavedGroupInterface];
+              reverseChanges[key] = originalValue;
+            });
+
+            // Get the revision number for the title
+            const sortedRevisions = [...allRevisions].sort(
+              (a, b) =>
+                new Date(a.dateCreated).getTime() -
+                new Date(b.dateCreated).getTime(),
+            );
+            const revisionNumber =
+              sortedRevisions.findIndex((r) => r.id === revisionToRevert.id) +
+              1;
+            const title = `Revert to Revision ${revisionNumber}`;
+
+            // Create a new revision with the reverse changes, title, and link back to original
+            const res = await apiCall<{
+              status: number;
+              requiresApproval?: boolean;
+              revision?: Revision;
+            }>(
+              `/saved-groups/${savedGroup.id}?forceCreateRevision=1&title=${encodeURIComponent(title)}&revertedFrom=${revisionToRevert.id}`,
+              {
+                method: "PUT",
+                body: JSON.stringify(reverseChanges),
+              },
+            );
+
+            if (res?.revision) {
+              onRevisionCreated(res.revision);
+              selectFlow(res.revision);
+            }
+
+            setConfirmRevert(false);
+            setRevisionToRevert(null);
+          }}
+        >
+          <Text>
+            This will create a new revision that reverts all changes from the
+            selected merged revision, restoring the saved group to its state
+            before that revision was merged.
+          </Text>
+          <Text mt="3" weight="medium">
+            The new revision will need to be reviewed and approved before being
+            published.
+          </Text>
         </Modal>
       )}
       <PageHead
@@ -446,14 +552,20 @@ export default function EditSavedGroupPage() {
           <Heading size="7" as="h1">
             {savedGroup.groupName}
           </Heading>
-          <Flex gap="2" align="center">
-            {approvalFlowRequired && (
-              <ApprovalFlowVersionSelector
-                openApprovalFlows={openApprovalFlows}
-                allApprovalFlows={allApprovalFlows}
-                selectedFlowId={selectedApprovalFlowId}
-                onSelectFlow={selectFlow}
-                showOpenFlowIndicator={openApprovalFlows.length > 0}
+          <Flex gap="6" direction="row" align="center">
+            {revisionRequired && (
+              <RevisionVersionSelector
+                openRevisions={openRevisions}
+                allRevisions={allRevisions}
+                selectedRevisionId={selectedRevisionId}
+                onSelectRevision={selectFlow}
+                onCreateNewRevision={() => {
+                  // Create a new revision based on the LIVE version
+                  // Old revisions will remain unchanged
+                  setIsCreatingNewRevision(true);
+                  setSavedGroupForm(savedGroup);
+                  selectFlow(null);
+                }}
               />
             )}
             <DropdownMenu
@@ -462,7 +574,7 @@ export default function EditSavedGroupPage() {
                   variant="ghost"
                   color="gray"
                   radius="full"
-                  size="3"
+                  size="2"
                   highContrast
                 >
                   <BsThreeDotsVertical size={18} />
@@ -475,12 +587,13 @@ export default function EditSavedGroupPage() {
               <DropdownMenuGroup>
                 <DropdownMenuItem
                   onClick={() => {
-                    if (!selectedApprovalFlow && userOpenFlow) {
+                    setIsCreatingNewRevision(false);
+                    if (!selectedRevision && userOpenRevision) {
                       // Switch to the user's open revision so edits stack on it
-                      selectFlow(userOpenFlow);
+                      selectFlow(userOpenRevision);
                       setSavedGroupForm({
-                        ...userOpenFlow.target.snapshot,
-                        ...userOpenFlow.target.proposedChanges,
+                        ...userOpenRevision.target.snapshot,
+                        ...userOpenRevision.target.proposedChanges,
                       } as SavedGroupInterface);
                     } else {
                       setSavedGroupForm(displayedSavedGroup ?? savedGroup);
@@ -488,7 +601,7 @@ export default function EditSavedGroupPage() {
                     setDropdownOpen(false);
                   }}
                 >
-                  Edit Information
+                  Edit {selectedRevision && `Revision ${revisionNumber}`}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => {
@@ -564,37 +677,73 @@ export default function EditSavedGroupPage() {
             instead
           </Callout>
         )}
-        {!selectedApprovalFlow && userOpenFlow && (
+        {!selectedRevision && userOpenRevision && (
           <Callout status="info" mb="3">
             You are seeing the live version, but you have a revision in
             progress.{" "}
-            <Link href={`/saved-groups/${sgid}?flow=${userOpenFlow.id}`}>
+            <Link href={`/saved-groups/${sgid}?flow=${userOpenRevision.id}`}>
               View your open revision
             </Link>
           </Callout>
         )}
-        {selectedApprovalFlow && (
+        {selectedRevision && (
           <Callout
             status={
-              selectedApprovalFlow.status === "approved"
+              selectedRevision.status === "approved"
                 ? "success"
-                : selectedApprovalFlow.status === "changes-requested"
+                : selectedRevision.status === "changes-requested"
                   ? "warning"
-                  : "info"
+                  : selectedRevision.status === "closed"
+                    ? "warning"
+                    : selectedRevision.status === "merged"
+                      ? "success"
+                      : "info"
             }
             mb="3"
           >
             <Flex align="center" justify="between" gap="3">
               <Box flexGrow="1">
-                {selectedApprovalFlow.status === "approved"
+                {selectedRevision.status === "approved"
                   ? "This revision has been approved and is ready to publish."
-                  : selectedApprovalFlow.status === "changes-requested"
+                  : selectedRevision.status === "changes-requested"
                     ? "Changes have been requested on this revision."
-                    : "This revision is pending review."}
+                    : selectedRevision.status === "closed"
+                      ? "This revision was closed."
+                      : selectedRevision.status === "merged"
+                        ? "This revision has been merged and published."
+                        : "This revision is pending review."}
               </Box>
-              <Button onClick={() => setShowChangesModal(true)} my="-2">
-                See changes
-              </Button>
+              {selectedRevision.status === "closed" ? (
+                <Button
+                  onClick={() => handleReopen(selectedRevision.id)}
+                  my="-2"
+                >
+                  Reopen
+                </Button>
+              ) : selectedRevision.status === "merged" ? (
+                <Flex gap="2">
+                  <Button
+                    onClick={() => setShowChangesModal(true)}
+                    my="-2"
+                    variant="ghost"
+                  >
+                    See changes
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setRevisionToRevert(selectedRevision);
+                      setConfirmRevert(true);
+                    }}
+                    my="-2"
+                  >
+                    Revert
+                  </Button>
+                </Flex>
+              ) : (
+                <Button onClick={() => setShowChangesModal(true)} my="-2">
+                  See changes
+                </Button>
+              )}
             </Flex>
           </Callout>
         )}
@@ -649,14 +798,14 @@ export default function EditSavedGroupPage() {
                       const res = await apiCall<{
                         status: number;
                         requiresApproval?: boolean;
-                        approvalFlow?: import("shared/enterprise").ApprovalFlow;
+                        revision?: import("shared/enterprise").Revision;
                       }>(`/saved-groups/${savedGroup.id}/remove-items`, {
                         method: "POST",
                         body: JSON.stringify({ items: [...selected] }),
                       });
                       if (res?.requiresApproval) {
-                        if (res.approvalFlow) {
-                          onApprovalFlowCreated(res.approvalFlow);
+                        if (res.revision) {
+                          onRevisionCreated(res.revision);
                         }
                         setSelected(new Set());
                         return;
@@ -678,8 +827,8 @@ export default function EditSavedGroupPage() {
                   variant="ghost"
                   color="red"
                   onClick={() => {
-                    if (!selectedApprovalFlow && userOpenFlow) {
-                      selectFlow(userOpenFlow);
+                    if (!selectedRevision && userOpenRevision) {
+                      selectFlow(userOpenRevision);
                     }
                     setImportOperation("replace");
                     setAddItems(true);
@@ -690,8 +839,8 @@ export default function EditSavedGroupPage() {
                 <Button
                   variant="outline"
                   onClick={() => {
-                    if (!selectedApprovalFlow && userOpenFlow) {
-                      selectFlow(userOpenFlow);
+                    if (!selectedRevision && userOpenRevision) {
+                      selectFlow(userOpenRevision);
                     }
                     setImportOperation("append");
                     setAddItems(true);

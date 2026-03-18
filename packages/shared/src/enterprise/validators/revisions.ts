@@ -4,7 +4,7 @@ import {
   putSavedGroupBodyValidator,
 } from "../../validators/saved-group";
 
-export const approvalFlowStatus = [
+export const revisionStatus = [
   "draft",
   "pending-review",
   "approved",
@@ -12,7 +12,7 @@ export const approvalFlowStatus = [
   "merged",
   "closed",
 ] as const;
-export type ApprovalFlowStatus = (typeof approvalFlowStatus)[number];
+export type RevisionStatus = (typeof revisionStatus)[number];
 
 export const reviewDecision = [
   "approve",
@@ -50,29 +50,31 @@ export const activityLogEntryValidator = z.object({
 });
 export type ActivityLogEntry = z.infer<typeof activityLogEntryValidator>;
 
-export const approvalFlowTargetType = ["saved-group"] as const;
-export type ApprovalFlowTargetType = (typeof approvalFlowTargetType)[number];
+export const revisionTargetType = ["saved-group"] as const;
+export type RevisionTargetType = (typeof revisionTargetType)[number];
 
-export const approvalFlowSavedGroupTargetValidator = z.object({
+export const revisionSavedGroupTargetValidator = z.object({
   type: z.literal("saved-group"),
   id: z.string(),
   snapshot: savedGroupValidator,
   proposedChanges: putSavedGroupBodyValidator.partial(),
 });
-export type ApprovalFlowSavedGroupTarget = z.infer<
-  typeof approvalFlowSavedGroupTargetValidator
+export type RevisionSavedGroupTarget = z.infer<
+  typeof revisionSavedGroupTargetValidator
 >;
 
-export const approvalFlowTargetValidator = z.discriminatedUnion("type", [
-  approvalFlowSavedGroupTargetValidator,
+export const revisionTargetValidator = z.discriminatedUnion("type", [
+  revisionSavedGroupTargetValidator,
 ]);
-export type ApprovalFlowTarget = z.infer<typeof approvalFlowTargetValidator>;
+export type RevisionTarget = z.infer<typeof revisionTargetValidator>;
 
-export const approvalFlowValidator = z.object({
+export const revisionValidator = z.object({
   id: z.string(),
   authorId: z.string(),
-  target: approvalFlowTargetValidator,
-  status: z.enum(approvalFlowStatus),
+  title: z.string().optional(),
+  revertedFrom: z.string().optional(), // ID of the revision this is reverting
+  target: revisionTargetValidator,
+  status: z.enum(revisionStatus),
   reviews: z.array(reviewValidator),
   activityLog: z.array(activityLogEntryValidator),
   resolution: z
@@ -87,17 +89,17 @@ export const approvalFlowValidator = z.object({
   dateUpdated: z.date(),
   organization: z.string(),
 });
-export type ApprovalFlow = z.infer<typeof approvalFlowValidator>;
+export type Revision = z.infer<typeof revisionValidator>;
 
-export const approvalFlowCreateValidator = z.object({
+export const revisionCreateValidator = z.object({
   target: z.object({
-    type: z.enum(approvalFlowTargetType),
+    type: z.enum(revisionTargetType),
     id: z.string(),
     proposedChanges: putSavedGroupBodyValidator.partial(),
   }),
 });
 
-export type ApprovalFlowEntity = {
+export type RevisionEntity = {
   managedBy?: string;
   ownerTeam?: string;
   [key: string]: unknown;

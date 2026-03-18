@@ -15,7 +15,8 @@ import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
-import { ApprovalFlowStatusDot } from "@/components/ApprovalFlow/approvalFlowUtils";
+import Badge from "@/ui/Badge";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import TruncatedConditionDisplay from "./TruncatedConditionDisplay";
 import SavedGroupForm from "./SavedGroupForm";
 import SavedGroupDeleteModal from "./SavedGroupDeleteModal";
@@ -24,19 +25,23 @@ import SavedGroupRowMenu from "./SavedGroupRowMenu";
 export interface Props {
   groups: SavedGroupWithoutValues[];
   mutate: () => void;
-  openFlowTargetIds?: Set<string>;
+  openRevisionTargetIds?: Set<string>;
 }
 
 export default function ConditionGroups({
   groups,
   mutate,
-  openFlowTargetIds,
+  openRevisionTargetIds,
 }: Props) {
   const [savedGroupForm, setSavedGroupForm] =
     useState<null | Partial<SavedGroupInterface>>(null);
   const [deleteModal, setDeleteModal] =
     useState<SavedGroupWithoutValues | null>(null);
   const { project } = useDefinitions();
+  const settings = useOrgSettings();
+
+  const approvalFlowRequired =
+    settings.approvalFlows?.savedGroups?.required ?? false;
 
   const permissionsUtil = usePermissionsUtil();
   const canCreate = permissionsUtil.canViewSavedGroupModal(project);
@@ -90,6 +95,7 @@ export default function ConditionGroups({
             close={() => setSavedGroupForm(null)}
             current={savedGroupForm}
             type="condition"
+            approvalFlowRequired={approvalFlowRequired}
           />
         )}
         <div className="row align-items-center mb-1">
@@ -133,6 +139,7 @@ export default function ConditionGroups({
                       <th>Description</th>
                       <th className="col-2">Projects</th>
                       <SortableTH field="owner">Owner</SortableTH>
+                      <th>Approval Flows</th>
                       <SortableTH field="dateUpdated">Date Updated</SortableTH>
                       <th />
                     </tr>
@@ -143,9 +150,6 @@ export default function ConditionGroups({
                         <tr key={s.id}>
                           <td style={{ width: "250px" }}>
                             <Flex align="center" gap="2">
-                              <ApprovalFlowStatusDot
-                                hasOpenFlows={openFlowTargetIds?.has(s.id)}
-                              />
                               <Link
                                 href={`/saved-groups/${s.id}`}
                                 className="link-purple"
@@ -186,6 +190,15 @@ export default function ConditionGroups({
                             )}
                           </td>
                           <td>{s.owner}</td>
+                          <td>
+                            {openRevisionTargetIds?.has(s.id) && (
+                              <Badge
+                                label="Pending review"
+                                color="yellow"
+                                variant="soft"
+                              />
+                            )}
+                          </td>
                           <td>{ago(s.dateUpdated)}</td>
                           <td style={{ width: 30 }}>
                             <SavedGroupRowMenu
