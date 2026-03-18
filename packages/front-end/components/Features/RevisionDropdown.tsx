@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
-import { datetime, date as formatDate } from "shared/dates";
+import { date } from "shared/dates";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import { DropdownMenu as RadixDropdownMenu, Box, Flex } from "@radix-ui/themes";
 import { PiCaretDownBold } from "react-icons/pi";
@@ -31,15 +31,6 @@ export interface Props {
   draftsOnly?: boolean;
   // Show only previously-published revisions
   publishedOnly?: boolean;
-}
-
-// Like date() but omits the year when it matches the current year
-function dateNoCurrentYear(d: string | Date): string {
-  const str = formatDate(d);
-  const currentYear = new Date().getFullYear().toString();
-  return str.endsWith(`, ${currentYear}`)
-    ? str.slice(0, -`, ${currentYear}`.length)
-    : str;
 }
 
 function RevisionRow({
@@ -101,14 +92,14 @@ function RevisionRow({
         {publishedOnly
           ? revDate && (
               <Text size="small" color="text-low" whiteSpace="nowrap">
-                Published: {datetime(revDate)}
+                Published: {date(revDate)}
               </Text>
             )
           : (r.createdBy || revDate) && (
               <Text size="small" color="text-low" whiteSpace="nowrap">
                 {r.createdBy && <EventUser user={r.createdBy} display="name" />}
                 {r.createdBy && revDate && <> &middot; </>}
-                {revDate && datetime(revDate)}
+                {revDate && date(revDate)}
               </Text>
             )}
       </Box>
@@ -204,19 +195,12 @@ export default function RevisionDropdown({
         allSorted.find((r) => r.version === version))
       : null;
 
-  const selectedMeta = selectedRevision;
-  const triggerDate = publishedOnly
-    ? (selectedMeta?.datePublished ?? selectedMeta?.dateUpdated)
-    : selectedMeta?.status === "published"
-      ? selectedMeta?.datePublished
-      : selectedMeta?.dateUpdated;
-
   const handleSelect = (v: number) => {
     setVersion(v);
     setOpen(false);
   };
 
-  const menuItems: React.ReactNode[] = shown.map((r) => (
+  const menuItems = shown.map((r) => (
     <DropdownMenuItem
       key={r.version}
       className={`multiline-item${r.version === version ? " selected-item" : ""}`}
@@ -284,32 +268,10 @@ export default function RevisionDropdown({
           </Text>
         </Box>
       )}
-      {variant !== "slim" && variant !== "select" && <Box flexGrow="1" />}
-      <Box
-        flexShrink="1"
-        overflow="hidden"
-        style={{ textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-      >
-        {publishedOnly
-          ? triggerDate && (
-              <Text size="small" color="text-low" whiteSpace="nowrap">
-                Published: {dateNoCurrentYear(triggerDate)}
-              </Text>
-            )
-          : (selectedMeta?.createdBy || triggerDate) && (
-              <Text size="small" color="text-low" whiteSpace="nowrap">
-                {selectedMeta?.createdBy && (
-                  <EventUser user={selectedMeta.createdBy} display="name" />
-                )}
-                {selectedMeta?.createdBy && triggerDate && <> &middot; </>}
-                {triggerDate && dateNoCurrentYear(triggerDate)}
-              </Text>
-            )}
-      </Box>
-      {!publishedOnly && (selectedMeta || !draftsOnly) && (
+      {!publishedOnly && (selectedRevision || !draftsOnly) && (
         <Box flexShrink="0">
           <RevisionStatusBadge
-            revision={selectedMeta}
+            revision={selectedRevision}
             liveVersion={liveVersion}
           />
         </Box>
@@ -354,7 +316,7 @@ export default function RevisionDropdown({
               <Text size="medium" color="text-mid">
                 All revisions
               </Text>
-              {!draftsOnly && !publishedOnly && discardedCount > 0 && (
+              {discardedCount > 0 && (
                 <Flex align="center" gap="2">
                   <Text size="small" color="text-low">
                     Show discarded ({discardedCount})
