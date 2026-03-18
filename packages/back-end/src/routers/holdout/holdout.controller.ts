@@ -353,7 +353,7 @@ export const getHoldouts = async (
 // region PUT /holdout/:id
 
 export const updateHoldout = async (
-  req: AuthRequest<Partial<HoldoutInterface>, { id: string }>,
+  req: AuthRequest<UpdateProps<HoldoutInterface>, { id: string }>,
   res: Response<
     | { status: 200; holdout?: HoldoutInterface }
     | { status: 404; message?: string }
@@ -456,10 +456,7 @@ export const updateHoldout = async (
     }
   }
 
-  const updatedHoldout = await context.models.holdout.update(
-    holdout,
-    updates as UpdateProps<HoldoutInterface>,
-  );
+  const updatedHoldout = await context.models.holdout.update(holdout, updates);
   return res.status(200).json({ status: 200, holdout: updatedHoldout });
 };
 

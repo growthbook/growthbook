@@ -110,6 +110,8 @@ export const createTemplateValidator = experimentTemplateInterface.omit({
 });
 export type CreateTemplateProps = z.infer<typeof createTemplateValidator>;
 
-export const updateTemplateValidator = experimentTemplateInterface.partial();
+export const updateTemplateValidator = experimentTemplateInterface
+  .omit({ id: true, organization: true, dateCreated: true, dateUpdated: true })
+  .partial();
 
 export type UpdateTemplateProps = z.infer<typeof updateTemplateValidator>;
