@@ -2,10 +2,18 @@ import { useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiToggleLeft, PiToggleRight } from "react-icons/pi";
 import { FeatureInterface } from "shared/types/feature";
-import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import {
+  FeatureRevisionInterface,
+  MinimalFeatureRevisionInterface,
+} from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
-import { getReviewSetting } from "shared/util";
+import {
+  getReviewSetting,
+  liveRevisionFromFeature,
+  buildEffectiveDraft,
+  filterEnvironmentsByFeature,
+} from "shared/util";
 import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
@@ -15,6 +23,8 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useEnvironments } from "@/services/features";
 import track from "@/services/track";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+import useApi from "@/hooks/useApi";
+import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
@@ -38,17 +48,16 @@ function ToggleIcon({ enabled, muted }: { enabled: boolean; muted: boolean }) {
 
 function EnvStateGrid({
   liveFeature,
-  draftFeature,
+  baseEnvEnabled,
   allOrgEnvironments,
   changedEnv,
   desiredState,
   liveVersion,
   afterChangeSubtext,
 }: {
-  // Pure live document, used for the "Live" row
   liveFeature: FeatureInterface;
-  // Draft-merged document, used for the "After change" row
-  draftFeature: FeatureInterface;
+  // Per-env enabled state of the base revision the change will be applied on top of
+  baseEnvEnabled: Record<string, boolean>;
   allOrgEnvironments: Environment[];
   changedEnv: string;
   desiredState: boolean;
@@ -59,11 +68,11 @@ function EnvStateGrid({
   const LABEL_W = 156;
   const ROW_PY = 6;
 
-  // environmentSettings is project-filtered server-side; use it as the source of truth for display order
   const liveEnvSettings = liveFeature.environmentSettings ?? {};
-  const draftEnvSettings = draftFeature.environmentSettings ?? {};
-  const visibleEnvs = allOrgEnvironments.filter(
-    (env) => env.id in liveEnvSettings,
+  // Filter by project membership, not just by stored settings keys
+  const visibleEnvs = filterEnvironmentsByFeature(
+    allOrgEnvironments,
+    liveFeature,
   );
 
   return (
@@ -136,7 +145,7 @@ function EnvStateGrid({
             const enabled =
               env.id === changedEnv
                 ? desiredState
-                : (draftEnvSettings[env.id]?.enabled ?? false);
+                : (baseEnvEnabled[env.id] ?? false);
             const isChanged = env.id === changedEnv;
             return (
               <Flex
@@ -156,14 +165,12 @@ function EnvStateGrid({
 }
 
 export interface KillSwitchModalProps {
-  // Merged feature (may reflect draft state), used for toggle preselection
+  // Merged feature (may reflect draft state)
   feature: FeatureInterface;
-  // Live base feature document, used for the live-state row in the grid
+  // Raw live feature document (un-merged)
   baseFeature?: FeatureInterface;
   environment: string;
-  // true = enable, false = disable
   desiredState: boolean;
-  // Pre-selected in the draft dropdown
   currentVersion: number;
   revisionList: MinimalFeatureRevisionInterface[];
   mutate: () => Promise<unknown>;
@@ -187,16 +194,19 @@ export default function KillSwitchModal({
   const settings = useOrgSettings();
   const { organization } = useUser();
   const allOrgEnvironments = useEnvironments();
+  const ctx = useFeatureRevisionsContext();
 
+  const liveDoc = baseFeature ?? ctx?.baseFeature ?? feature;
   const isAdmin = permissionsUtil.canBypassApprovalChecks(feature);
 
   const rawRequireReviews = settings?.requireReviews;
+  const reviewSetting = Array.isArray(rawRequireReviews)
+    ? getReviewSetting(rawRequireReviews, feature)
+    : null;
 
-  // featureRequireEnvironmentReview=false disables kill-switch gating even when general env approvals are on
+  // featureRequireEnvironmentReview=false bypasses kill-switch gating even when env approvals are on
   const envIsGated: boolean = (() => {
     if (rawRequireReviews === true) return true;
-    if (!Array.isArray(rawRequireReviews)) return false;
-    const reviewSetting = getReviewSetting(rawRequireReviews, feature);
     if (!reviewSetting?.requireReviewOn) return false;
     if (reviewSetting.featureRequireEnvironmentReview === false) return false;
     const gatedEnvs = reviewSetting.environments ?? [];
@@ -207,8 +217,6 @@ export default function KillSwitchModal({
   const gatedEnvSet: Set<string> | "all" | "none" = (() => {
     if (!envIsGated) return "none";
     if (rawRequireReviews === true) return "all";
-    if (!Array.isArray(rawRequireReviews)) return "none";
-    const reviewSetting = getReviewSetting(rawRequireReviews, feature);
     const gatedEnvs = reviewSetting?.environments ?? [];
     return gatedEnvs.length === 0 ? "all" : new Set(gatedEnvs);
   })();
@@ -227,12 +235,11 @@ export default function KillSwitchModal({
     (r) => r.version === currentVersion,
   );
 
-  // Pre-select: currentVersion if it's an active draft, else newest by current user, else newest, else null
+  // Pre-select: currentVersion if active draft, else mine, else most recent, else null
   const userId = organization?.ownerEmail;
   const defaultDraft = useMemo((): number | null => {
-    if (activeDrafts.find((r) => r.version === currentVersion)) {
+    if (activeDrafts.find((r) => r.version === currentVersion))
       return currentVersion;
-    }
     const byMe = activeDrafts.find(
       (r) =>
         r.createdBy &&
@@ -240,8 +247,7 @@ export default function KillSwitchModal({
         (r.createdBy as { id?: string }).id === userId,
     );
     if (byMe) return byMe.version;
-    if (activeDrafts.length > 0) return activeDrafts[0].version;
-    return null;
+    return activeDrafts[0]?.version ?? null;
   }, [activeDrafts, currentVersion, userId]);
 
   const [mode, setMode] = useState<DraftMode>(
@@ -250,6 +256,43 @@ export default function KillSwitchModal({
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
   );
+
+  const draftVersionForFetch = !ctx ? selectedDraft : null;
+  const { data: fetchedRevisionsData } = useApi<{
+    status: 200;
+    revisions: FeatureRevisionInterface[];
+  }>(
+    `/feature/${feature.id}/revisions?versions=${feature.version},${draftVersionForFetch ?? 0}`,
+    { shouldRun: () => draftVersionForFetch != null },
+  );
+  const revisions = ctx?.revisions ?? fetchedRevisionsData?.revisions;
+
+  // Base enabled state per env: live (filled) for new/publish, effective draft for existing.
+  const baseEnvEnabled = useMemo<Record<string, boolean>>(() => {
+    const liveRevision = revisions?.find((r) => r.version === feature.version);
+    if (liveRevision) {
+      const filledLive = liveRevisionFromFeature(liveRevision, liveDoc);
+      if (mode === "existing" && selectedDraft != null) {
+        const draftRevision = revisions?.find(
+          (r) => r.version === selectedDraft,
+        );
+        if (draftRevision) {
+          return (
+            buildEffectiveDraft(draftRevision, filledLive)
+              .environmentsEnabled ?? {}
+          );
+        }
+      }
+      return filledLive.environmentsEnabled ?? {};
+    }
+    // Fallback before revisions load
+    return Object.fromEntries(
+      Object.entries(liveDoc.environmentSettings ?? {}).map(([env, val]) => [
+        env,
+        !!val.enabled,
+      ]),
+    );
+  }, [revisions, liveDoc, feature.version, mode, selectedDraft]);
 
   const submit = async () => {
     const res = await apiCall<{ status: 200; draftVersion?: number }>(
@@ -280,10 +323,9 @@ export default function KillSwitchModal({
 
   const actionLabel = desiredState ? "Enable" : "Disable";
 
-  const liveEnvState =
-    (baseFeature ?? feature).environmentSettings?.[environment]?.enabled ??
-    false;
-  const noNetChange = desiredState === liveEnvState;
+  const noNetChange =
+    desiredState ===
+    (liveDoc.environmentSettings?.[environment]?.enabled ?? false);
 
   return (
     <Modal
@@ -319,17 +361,12 @@ export default function KillSwitchModal({
           .
         </Text>
         <EnvStateGrid
-          liveFeature={baseFeature ?? feature}
-          draftFeature={
-            // Use merged draft state only when applying the toggle to that specific draft; otherwise fall back to live
-            mode === "existing" && selectedDraft === currentVersion
-              ? feature
-              : (baseFeature ?? feature)
-          }
+          liveFeature={liveDoc}
+          baseEnvEnabled={baseEnvEnabled}
           allOrgEnvironments={allOrgEnvironments}
           changedEnv={environment}
           desiredState={desiredState}
-          liveVersion={(baseFeature ?? feature).version}
+          liveVersion={liveDoc.version}
           afterChangeSubtext={
             mode === "existing" && selectedDraft != null
               ? `revision ${selectedDraft}`

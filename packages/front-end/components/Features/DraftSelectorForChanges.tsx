@@ -18,6 +18,7 @@ import {
   liveRevisionFromFeature,
   getReviewSetting,
   buildEffectiveDraft,
+  filterEnvironmentsByFeature,
 } from "shared/util";
 import { useUser } from "@/services/UserContext";
 import Button from "@/ui/Button";
@@ -114,7 +115,9 @@ export default function DraftSelectorForChanges({
     const draftRevision = revisions.find((r) => r.version === draftVersion);
     if (!liveRevision || !draftRevision) return null;
 
-    const allEnvIds = allEnvironments.map((e) => e.id);
+    const allEnvIds = filterEnvironmentsByFeature(allEnvironments, feature).map(
+      (e) => e.id,
+    );
     const liveDoc = baseFeature ?? ctx?.baseFeature ?? feature;
     const filledLive = liveRevisionFromFeature(liveRevision, liveDoc);
     const effectiveDraft = buildEffectiveDraft(draftRevision, filledLive);
@@ -158,6 +161,10 @@ export default function DraftSelectorForChanges({
         <AffectedEnvironmentsBadges
           label="Affected in this draft:"
           affectedEnvs={affectedEnvs}
+          allEnvironments={filterEnvironmentsByFeature(
+            allEnvironments,
+            feature,
+          )}
           gatedEnvSet={approvalScopedEnvSet}
         />
       )}
