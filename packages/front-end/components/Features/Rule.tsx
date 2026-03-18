@@ -478,8 +478,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       ) : null}
                     </>
                   ) : null}
-                  {hasCondition && rule.type !== "experiment-ref" && (
-                    <Box mb="3">
+                  <Box mb="3">
+                    {hasCondition && rule.type !== "experiment-ref" ? (
                       <TruncatedConditionDisplay
                         condition={rule.condition || ""}
                         savedGroups={rule.savedGroups}
@@ -487,8 +487,12 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         maxLength={500}
                         prefix={<Text weight="medium">IF</Text>}
                       />
-                    </Box>
-                  )}
+                    ) : rule.type !== "experiment-ref" &&
+                      rule.type !== "rollout" &&
+                      rule.type !== "safe-rollout" ? (
+                      <em>No targeting (all traffic will be included)</em>
+                    ) : null}
+                  </Box>
                   {rule.type === "force" && (
                     <ForceSummary value={rule.value} feature={feature} />
                   )}
@@ -743,7 +747,7 @@ export function getRuleMetaInfo({
         />
       ),
       callout: (
-        <Callout status="warning">
+        <Callout status="warning" size="sm">
           Rules above will serve 100% of traffic and this rule will never be
           used
         </Callout>
