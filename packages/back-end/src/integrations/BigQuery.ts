@@ -47,11 +47,13 @@ export default class BigQuery extends SqlIntegration {
   private getClient() {
     // If pull credentials from env or the metadata server
     if (!IS_CLOUD && this.params.authType === "auto") {
-      return new bq.BigQuery();
+      return new bq.BigQuery({
+        projectId: this.params.defaultProject,
+      });
     }
 
     return new bq.BigQuery({
-      projectId: this.params.projectId,
+      projectId: this.params.defaultProject,
       credentials: {
         client_email: this.params.clientEmail,
         private_key: this.params.privateKey,
