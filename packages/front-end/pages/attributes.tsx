@@ -200,9 +200,8 @@ const FeatureAttributesPage = (): React.ReactElement => {
             <SortedTags
               tags={v.tags || []}
               useFlex={true}
-              showEllipsisAtIndex={1}
+              maxVisibleTags={1}
               truncateTagChars={15}
-              ellipsisFormat={(count) => `+${count}`}
             />
           </div>
         </TableCell>

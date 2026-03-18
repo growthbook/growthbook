@@ -368,7 +368,7 @@ export default function FeaturesPage() {
                         <SortedTags
                           tags={feature?.tags || []}
                           useFlex={true}
-                          showEllipsisAtIndex={1}
+                          maxVisibleTags={1}
                           truncateTagChars={15}
                         />
                       </div>

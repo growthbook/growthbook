@@ -1,6 +1,7 @@
 import React, { FC, useState } from "react";
 import { ArchetypeInterface } from "shared/types/archetype";
 import Link from "next/link";
+import { Box, Flex } from "@radix-ui/themes";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -11,8 +12,17 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import ArchetypeAttributesModal from "@/components/Archetype/ArchetypeAttributesModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/ui/Button";
+import Heading from "@/ui/Heading";
+import Callout from "@/ui/Callout";
 import { useUser } from "@/services/UserContext";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 export const ArchetypeList: FC<{
   archetypes: ArchetypeInterface[];
@@ -33,193 +43,194 @@ export const ArchetypeList: FC<{
 
   if (archetypeErrors) {
     return (
-      <div className="alert alert-danger">
+      <Callout status="error" mb="3">
         An error occurred fetching the lists of archetypes.
-      </div>
+      </Callout>
     );
   }
 
   if (!hasArchetypeFeature) {
     return (
-      <div className="mb-3">
+      <Box mb="3">
         <PremiumEmptyState
           title="Create Reusable Archetypes"
           description="Archetypes are named sets of attributes that help you test your features."
           commercialFeature="archetypes"
           learnMoreLink="https://docs.growthbook.io/features/rules#archetype"
         />
-      </div>
+      </Box>
     );
   }
 
   return (
     <>
-      <div className="row mb-3">
-        <div className="col">
-          <h1>Archetypes</h1>
-        </div>
-        {canCreateGlobal && (
-          <div className="col-auto">
-            <Button
-              onClick={() => {
-                setEditArchetype({});
-              }}
-            >
-              Add Archetype
-            </Button>
-          </div>
-        )}
-      </div>
-      <p className="text-gray mb-3">
-        Archetypes are named sets of attributes that help you test your
-        features.
-      </p>
-      <div className="mb-3">
-        <div className={`mb-3`}>
-          <table className="table gbtable appbox ">
-            <thead>
-              <tr>
-                <th>Archetype</th>
-                <th>Projects</th>
-                <th>Owner</th>
-                <th>Public</th>
-                <th style={{ width: "40px" }}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {archetypes.length === 0 ? (
-                <tr>
-                  <td colSpan={3}>
-                    <div className="text-center p-3 ">
-                      No archetypes created. Click the &ldquo;Add
-                      Archetype&rdquo; button to create one.
-                      {!canCreateGlobal && (
-                        <div className="text-muted small">
-                          (You do not have permissions to create archetypes)
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                <></>
-              )}
-              {archetypes.map((archetype: ArchetypeInterface) => {
-                const canEdit = permissionsUtil.canUpdateArchetype(
-                  archetype,
-                  {},
-                );
-                let parsedAttributes = {};
-                try {
-                  parsedAttributes = JSON.parse(archetype.attributes);
-                } catch {
-                  console.error(
-                    "Failed to parse attributes. Invalid JSON string: " +
-                      archetype.attributes,
-                  );
-                }
-                const canDelete = permissionsUtil.canDeleteArchetype(archetype);
-                return (
-                  <tr key={archetype.id} className={``}>
-                    <td>
-                      <Tooltip
-                        body={
-                          <>
-                            <Code
-                              code={JSON.stringify(parsedAttributes, null, 2)}
-                              language="json"
-                            />
-                          </>
-                        }
+      <Flex align="center" justify="between" mb="3" gap="3" wrap="wrap">
+        <Heading as="h1" size="2x-large">
+          Archetypes
+        </Heading>
+        {canCreateGlobal ? (
+          <Button
+            onClick={() => {
+              setEditArchetype({});
+            }}
+          >
+            Add Archetype
+          </Button>
+        ) : null}
+      </Flex>
+      <Box mb="3" style={{ color: "var(--gray-11)" }}>
+        <p style={{ margin: 0 }}>
+          Archetypes are named sets of attributes that help you test your
+          features.
+        </p>
+      </Box>
+      <Box mb="3">
+        <Table variant="list" stickyHeader={false} roundedCorners>
+          <TableHeader>
+            <TableRow>
+              <TableColumnHeader>Archetype</TableColumnHeader>
+              <TableColumnHeader>Projects</TableColumnHeader>
+              <TableColumnHeader>Owner</TableColumnHeader>
+              <TableColumnHeader>Public</TableColumnHeader>
+              <TableColumnHeader style={{ width: 40 }} />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {archetypes.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5}>
+                  <Box py="3" style={{ textAlign: "center" }}>
+                    No archetypes created. Click the &ldquo;Add Archetype&rdquo;
+                    button to create one.
+                    {!canCreateGlobal && (
+                      <Box
+                        mt="2"
+                        className="text-muted"
+                        style={{ fontSize: "var(--font-size-2)" }}
                       >
-                        {archetype.name}
-                        {archetype.description && (
-                          <>
-                            <br />
-                            <span className="small text-muted">
-                              {archetype.description}
-                            </span>
-                          </>
-                        )}
-                      </Tooltip>
-                    </td>
-                    <td>
-                      {archetype?.projects ? (
-                        archetype.projects.map((project) => {
-                          const pObj = getProjectById(project);
+                        (You do not have permissions to create archetypes)
+                      </Box>
+                    )}
+                  </Box>
+                </TableCell>
+              </TableRow>
+            ) : null}
+            {archetypes.map((archetype: ArchetypeInterface) => {
+              const canEdit = permissionsUtil.canUpdateArchetype(archetype, {});
+              let parsedAttributes = {};
+              try {
+                parsedAttributes = JSON.parse(archetype.attributes);
+              } catch {
+                console.error(
+                  "Failed to parse attributes. Invalid JSON string: " +
+                    archetype.attributes,
+                );
+              }
+              const canDelete = permissionsUtil.canDeleteArchetype(archetype);
+              return (
+                <TableRow key={archetype.id}>
+                  <TableCell>
+                    <Tooltip
+                      body={
+                        <>
+                          <Code
+                            code={JSON.stringify(parsedAttributes, null, 2)}
+                            language="json"
+                          />
+                        </>
+                      }
+                    >
+                      {archetype.name}
+                      {archetype.description && (
+                        <>
+                          <br />
+                          <span
+                            className="text-muted"
+                            style={{ fontSize: "var(--font-size-2)" }}
+                          >
+                            {archetype.description}
+                          </span>
+                        </>
+                      )}
+                    </Tooltip>
+                  </TableCell>
+                  <TableCell>
+                    {archetype?.projects
+                      ? archetype.projects.map((projId) => {
+                          const pObj = getProjectById(projId);
                           if (!pObj) {
                             return null;
                           }
                           return (
-                            <div key={pObj.id} className="small">
+                            <Box
+                              key={pObj.id}
+                              style={{ fontSize: "var(--font-size-2)" }}
+                            >
                               <Link href={`/project/${pObj.id}`}>
                                 {pObj.name}
                               </Link>
-                            </div>
+                            </Box>
                           );
                         })
-                      ) : (
-                        <></>
-                      )}
-                    </td>
-                    <td>{getOwnerDisplay(archetype.owner)}</td>
-                    <td>
-                      {archetype.isPublic ? (
-                        <span className="text-muted">Yes</span>
-                      ) : (
-                        <span className="text-muted">No</span>
-                      )}
-                    </td>
-                    <td className={styles.showOnHover}>
-                      <MoreMenu>
-                        {canEdit ? (
-                          <button
-                            className="dropdown-item"
-                            onClick={() => {
-                              setEditArchetype(archetype);
-                            }}
-                          >
-                            Edit
-                          </button>
-                        ) : null}
-                        {canDelete ? (
-                          <DeleteButton
-                            className="dropdown-item"
-                            displayName="Archetype"
-                            text="Delete"
-                            useIcon={false}
-                            onClick={async () => {
-                              await apiCall(`/archetype/${archetype.id}`, {
-                                method: "DELETE",
-                              });
-                              await mutate();
-                            }}
-                          />
-                        ) : null}
-                      </MoreMenu>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          {editArchetype && (
-            <ArchetypeAttributesModal
-              close={async () => {
-                setEditArchetype(null);
-                await mutate();
-              }}
-              initialValues={editArchetype}
-              header={
-                Object.keys(editArchetype).length === 0
-                  ? "Create Archetype"
-                  : "Edit Archetype"
-              }
-              source={"archetype-list"}
-            />
-          )}
-        </div>
-      </div>
+                      : null}
+                  </TableCell>
+                  <TableCell>{getOwnerDisplay(archetype.owner)}</TableCell>
+                  <TableCell>
+                    {archetype.isPublic ? (
+                      <span className="text-muted">Yes</span>
+                    ) : (
+                      <span className="text-muted">No</span>
+                    )}
+                  </TableCell>
+                  <TableCell className={styles.showOnHover}>
+                    <MoreMenu>
+                      {canEdit ? (
+                        <button
+                          className="dropdown-item"
+                          onClick={() => {
+                            setEditArchetype(archetype);
+                          }}
+                        >
+                          Edit
+                        </button>
+                      ) : null}
+                      {canDelete ? (
+                        <DeleteButton
+                          className="dropdown-item"
+                          displayName="Archetype"
+                          text="Delete"
+                          useIcon={false}
+                          onClick={async () => {
+                            await apiCall(`/archetype/${archetype.id}`, {
+                              method: "DELETE",
+                            });
+                            await mutate();
+                          }}
+                        />
+                      ) : null}
+                    </MoreMenu>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+        {editArchetype && (
+          <ArchetypeAttributesModal
+            close={async () => {
+              setEditArchetype(null);
+              await mutate();
+            }}
+            initialValues={editArchetype}
+            header={
+              Object.keys(editArchetype).length === 0
+                ? "Create Archetype"
+                : "Edit Archetype"
+            }
+            source={"archetype-list"}
+          />
+        )}
+      </Box>
     </>
   );
 };
