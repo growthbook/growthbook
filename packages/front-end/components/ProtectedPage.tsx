@@ -82,11 +82,20 @@ const ProtectedPage: React.FC<{
   organizationRequired: boolean;
   children: ReactNode;
 }> = ({ children, organizationRequired }) => {
+  const { effectiveAccountPlan } = useUser();
   const { orgId, initialPlanSelection } = useAuth();
   const initialPlanSelectionEnabled = useFeatureIsOn("pro-signup-flow");
 
+  const paidPlans = ["pro", "pro_sso", "enterprise"];
+  const hasExistingPaidPlan =
+    !!effectiveAccountPlan && paidPlans.includes(effectiveAccountPlan);
+
   const showSelectPlanFlow =
-    orgId && initialPlanSelectionEnabled && initialPlanSelection && isCloud();
+    orgId &&
+    initialPlanSelectionEnabled &&
+    initialPlanSelection &&
+    isCloud() &&
+    !hasExistingPaidPlan;
 
   return (
     <UserContextProvider key={orgId}>
