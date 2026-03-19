@@ -1,5 +1,8 @@
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Tuple, Union
+from pydantic import ConfigDict
 from pydantic.dataclasses import dataclass
+from dataclasses import field
+import numpy as np
 
 # Types
 DifferenceType = Literal["relative", "absolute", "scaled"]
@@ -39,7 +42,7 @@ class BanditWeightsSinglePeriod:
     total_users: int  # sample size across all variations
 
 
-@dataclass
+@dataclass(config=ConfigDict(arbitrary_types_allowed=True))
 class BanditSettingsForStatsEngine:
     var_names: List[str]
     var_ids: List[str]
@@ -47,9 +50,32 @@ class BanditSettingsForStatsEngine:
     reweight: bool = True
     decision_metric: str = ""
     bandit_weights_seed: int = 100
+    bandit_weights_rng: np.random.Generator = field(
+        default_factory=lambda: np.random.default_rng()
+    )
     # we can delete the bottom two attributes, which are currently used in sim study testing
     weight_by_period: bool = True
     top_two: bool = False
+
+
+# Context key: single context (str) or multi-dimension context (tuple of dimension values)
+ContextKey = Union[str, Tuple[str, ...]]
+
+
+@dataclass
+class ContextualBanditSettingsForStatsEngine(BanditSettingsForStatsEngine):
+    # default_factory so this subclass can add fields after BanditSettingsForStatsEngine's defaulted fields
+    current_contextual_weights: Dict[ContextKey, List[float]] = field(
+        default_factory=dict
+    )
+    contexts: List[str] = field(default_factory=list)
+
+
+@dataclass
+class ContextualTreeBanditSettingsForStatsEngine(
+    ContextualBanditSettingsForStatsEngine
+):
+    max_leaf_nodes: int = 12
 
 
 ExperimentMetricQueryResponseRows = List[Dict[str, Union[str, int, float]]]

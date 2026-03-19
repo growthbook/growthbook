@@ -1156,9 +1156,10 @@ def preprocess_bandits(
             metric_data[0].data.iloc[0], metric, len(bandit_settings.var_names)
         )
     bandit_prior = GaussianPrior(mean=0, variance=float(1e4), proper=True)
+    bandit_weights_rng = bandit_settings.bandit_weights_rng
     bandit_config = BanditConfig(
         prior_distribution=bandit_prior,
-        bandit_weights_seed=bandit_settings.bandit_weights_seed,
+        bandit_weights_rng=bandit_weights_rng,
         weight_by_period=bandit_settings.weight_by_period,
         top_two=bandit_settings.top_two,
         alpha=alpha,
@@ -1228,7 +1229,7 @@ def get_bandit_result(
                         else bandit_settings.current_weights
                     ),
                     bestArmProbabilities=bandit_result.best_arm_probabilities,
-                    seed=bandit_result.seed,
+                    seed=0,
                     updateMessage=bandit_result.bandit_update_message,
                     error="",
                     reweight=bandit_settings.reweight,
