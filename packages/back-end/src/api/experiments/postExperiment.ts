@@ -90,6 +90,12 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
         throw new Error(`Invalid template: ${templateId}`);
       }
 
+      if (req.body.datasourceId !== undefined) {
+        throw new Error(
+          "datasourceId cannot be set when templateId is provided",
+        );
+      }
+
       if (req.body.assignmentQueryId !== undefined) {
         throw new Error(
           "assignmentQueryId cannot be set when templateId is provided",
@@ -100,6 +106,12 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
         ...templateToPostExperimentDefaults(template),
         ...req.body,
       };
+    }
+
+    if (!payload.datasourceId) {
+      throw new Error(
+        "datasourceId is required unless provided by the template",
+      );
     }
 
     if (!payload.assignmentQueryId) {
