@@ -7,7 +7,6 @@ import {
 } from "shared/validators";
 import { omit } from "lodash";
 import { PostExperimentResponse } from "shared/types/openapi";
-import { z } from "zod";
 import {
   createExperiment,
   getExperimentByTrackingKey,
@@ -80,7 +79,7 @@ function templateToPostExperimentDefaults(
 export const postExperiment = createApiRequestHandler(postExperimentValidator)(
   async (req): Promise<PostExperimentResponse> => {
     const { owner: ownerEmail, templateId } = req.body;
-    let payload: z.infer<typeof postExperimentValidator.bodySchema> = req.body;
+    let payload = req.body;
 
     // Apply template defaults if a templateId is provided
     if (templateId) {

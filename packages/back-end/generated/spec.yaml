@@ -1999,10 +1999,10 @@ paths:
               properties:
                 datasourceId:
                   type: string
-                  description: 'ID for the [DataSource](#tag/DataSource_model)'
+                  description: 'ID for the [DataSource](#tag/DataSource_model). Can only be set if a templateId is not provided.'
                 assignmentQueryId:
                   type: string
-                  description: The ID property of one of the assignment query objects associated with the datasource. Required unless provided by templateId.
+                  description: The ID property of one of the assignment query objects associated with the datasource. Can only be set if a templateId is not provided.
                 trackingKey:
                   type: string
                 bypassDuplicateKeyCheck:
@@ -21237,6 +21237,8 @@ components:
             required:
               - slices
           description: Custom slices that apply to ALL applicable metrics in the experiment
+        templateId:
+          type: string
     ExperimentSnapshot:
       type: object
       required:

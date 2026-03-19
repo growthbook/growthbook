@@ -3579,6 +3579,7 @@ export interface components {
               levels: (string)[];
             })[];
         })[];
+      templateId?: string;
     };
     ExperimentSnapshot: {
       id: string;
@@ -3976,6 +3977,7 @@ export interface components {
               levels: (string)[];
             })[];
         })[];
+      templateId?: string;
     }) & ({
       enhancedStatus?: {
         /** @enum {string} */
@@ -9989,6 +9991,7 @@ export interface operations {
                         levels: (string)[];
                       })[];
                   })[];
+                templateId?: string;
               })[];
           }) & {
             limit: number;
@@ -10007,9 +10010,9 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
-          /** @description ID for the [DataSource](#tag/DataSource_model) */
+          /** @description ID for the [DataSource](#tag/DataSource_model). Can only be set if a templateId is not provided. */
           datasourceId?: string;
-          /** @description The ID property of one of the assignment query objects associated with the datasource. Required unless provided by templateId. */
+          /** @description The ID property of one of the assignment query objects associated with the datasource. Can only be set if a templateId is not provided. */
           assignmentQueryId?: string;
           trackingKey: string;
           /** @description If true, allow creating an experiment even if another experiment with the same tracking key already exists */
@@ -10321,6 +10324,7 @@ export interface operations {
                       levels: (string)[];
                     })[];
                 })[];
+              templateId?: string;
             };
           };
         };
@@ -10528,6 +10532,7 @@ export interface operations {
                       levels: (string)[];
                     })[];
                 })[];
+              templateId?: string;
             }) & ({
               enhancedStatus?: {
                 /** @enum {string} */
@@ -10873,6 +10878,7 @@ export interface operations {
                       levels: (string)[];
                     })[];
                 })[];
+              templateId?: string;
             };
           };
         };
@@ -12126,6 +12132,7 @@ export interface operations {
                       levels: (string)[];
                     })[];
                 })[];
+              templateId?: string;
             };
           };
         };
