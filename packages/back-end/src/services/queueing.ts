@@ -30,12 +30,9 @@ export const getAgendaInstance = (): Agenda => {
       originalDefine.call(
         this,
         name,
-        options,
-        trackJob(
-          name,
-          // @ts-expect-error Some weird typing going on with Agenda. T should extend JobAttributesData
-          addJobLifecycleChecks(processor),
-        ),
+        options as DefineOptions | Processor<unknown>,
+        // @ts-expect-error Agenda's Processor<T> is incompatible with Processor<JobAttributesData> - T may not extend JobAttributesData
+        trackJob(name, addJobLifecycleChecks(processor)),
       );
     };
   }

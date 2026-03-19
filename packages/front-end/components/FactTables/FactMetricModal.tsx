@@ -30,7 +30,6 @@ import {
 } from "shared/experiments";
 import { PiArrowSquareOut, PiPlus } from "react-icons/pi";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   formatNumber,
@@ -1281,8 +1280,6 @@ export default function FactMetricModal({
   const { hasCommercialFeature, permissionsUtil } = useUser();
   const { disableLegacyMetricCreation } = settings;
 
-  const growthbook = useGrowthBook();
-  const isMetricSlicesFeatureEnabled = growthbook?.isOn("metric-slices");
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
 
   // TODO: We may want to hide this from non-technical users in the future
@@ -2141,8 +2138,7 @@ export default function FactMetricModal({
                 ]}
               />
 
-              {isMetricSlicesFeatureEnabled &&
-                hasMetricSlicesFeature &&
+              {hasMetricSlicesFeature &&
                 (() => {
                   const factTableId = form.watch("numerator.factTableId");
                   const factTable = getFactTableById(factTableId);

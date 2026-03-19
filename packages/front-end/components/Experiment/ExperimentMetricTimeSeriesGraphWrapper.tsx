@@ -16,6 +16,7 @@ import {
 } from "@/services/metrics";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useCurrency } from "@/hooks/useCurrency";
+import { GraphVariation } from "./ExperimentDateGraph";
 import ExperimentTimeSeriesGraph, {
   ExperimentTimeSeriesGraphDataPoint,
 } from "./ExperimentTimeSeriesGraph";
@@ -25,7 +26,7 @@ interface ExperimentMetricTimeSeriesGraphWrapperProps {
   phase: number;
   metric: ExperimentMetricInterface;
   differenceType: DifferenceType;
-  variationNames: string[];
+  variations: GraphVariation[];
   showVariations: boolean[];
   statsEngine: StatsEngine;
   pValueAdjustmentEnabled: boolean;
@@ -57,7 +58,7 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   phase,
   metric,
   differenceType,
-  variationNames,
+  variations,
   showVariations,
   statsEngine,
   pValueAdjustmentEnabled,
@@ -150,9 +151,8 @@ function ExperimentMetricTimeSeriesGraphWrapper({
 
   const dataPoints = [
     ...timeSeries.dataPoints.map((point, idx) => {
-      // Preprocess variations to match variationNames order exactly with indices
-      const variations = variationNames.map((vName) => {
-        const variation = point.variations.find((v) => v.name === vName);
+      const pointVariations = variations.map((gv) => {
+        const variation = point.variations.find((v) => v.name === gv.name);
         if (!variation) return null;
 
         // compute adjusted CI if we have all the data and adjustment exists
@@ -188,7 +188,7 @@ function ExperimentMetricTimeSeriesGraphWrapper({
 
       const parsedPoint: ExperimentTimeSeriesGraphDataPoint = {
         d: new Date(point.date),
-        variations,
+        variations: pointVariations,
         helperText:
           idx < lastIndexInvalidConfiguration
             ? "Analysis or metric settings do not match current version"
@@ -214,7 +214,7 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   return (
     <ExperimentTimeSeriesGraph
       yaxis="effect"
-      variationNames={variationNames}
+      variations={variations}
       label={labelText}
       datapoints={dataPoints}
       showVariations={showVariations}
