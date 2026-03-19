@@ -8,9 +8,49 @@ Object.keys(helpers).forEach((helperName) => {
   Handlebars.registerHelper(helperName, helpers[helperName]);
 });
 
+/**
+ * Check if two ID types can be joined using the available join tables.
+ * Returns true if there's a direct join between them.
+ */
+function canJoinIdTypes(
+  idType1: string,
+  idType2: string,
+  availableIdJoins: string[][],
+): boolean {
+  if (idType1 === idType2) return true;
+  return availableIdJoins.some(
+    (join) => join.includes(idType1) && join.includes(idType2),
+  );
+}
+
+/**
+ * Check if an ID type can be reached from the base ID type, either directly
+ * or through intermediate joins that are already required.
+ */
+function canReachFromBase(
+  idType: string,
+  baseIdType: string,
+  joinsRequired: Set<string>,
+  availableIdJoins: string[][],
+): boolean {
+  // Direct match with base
+  if (idType === baseIdType) return true;
+
+  // Direct join to base
+  if (canJoinIdTypes(idType, baseIdType, availableIdJoins)) return true;
+
+  // Can join to any of the already required joins
+  for (const requiredJoin of joinsRequired) {
+    if (canJoinIdTypes(idType, requiredJoin, availableIdJoins)) return true;
+  }
+
+  return false;
+}
+
 export function getBaseIdTypeAndJoins(
   objects: string[][],
   forcedBaseIdType?: string,
+  availableIdJoins?: string[][],
 ) {
   // Get rid of empty ids, sort from least to most ids
   const sorted = objects
@@ -42,11 +82,36 @@ export function getBaseIdTypeAndJoins(
     // Object supports one of the join types already
     if (types.filter((type) => joinsRequired.has(type)).length > 0) return;
 
-    // Add id type that is most frequent to help minimize N joins needed
-    joinsRequired.add(
-      idTypesSortedByFrequency.find((x) => types.includes(x[0]))?.[0] ||
-        types[0],
-    );
+    // If we have available joins info, only consider types that can actually be joined
+    if (availableIdJoins && availableIdJoins.length > 0) {
+      // Filter to only ID types that have a valid join path to base or existing joins
+      const joinableTypes = types.filter((type) =>
+        canReachFromBase(type, baseIdType, joinsRequired, availableIdJoins),
+      );
+
+      if (joinableTypes.length > 0) {
+        // Add the most frequent joinable type
+        joinsRequired.add(
+          idTypesSortedByFrequency.find((x) => joinableTypes.includes(x[0]))?.[0] ||
+            joinableTypes[0],
+        );
+      } else {
+        // No joinable types found - fall back to the most frequent type
+        // This will likely cause an error later, but preserves existing behavior
+        // for cases where joins might be implicitly available
+        joinsRequired.add(
+          idTypesSortedByFrequency.find((x) => types.includes(x[0]))?.[0] ||
+            types[0],
+        );
+      }
+    } else {
+      // No available joins info provided - use original behavior
+      // Add id type that is most frequent to help minimize N joins needed
+      joinsRequired.add(
+        idTypesSortedByFrequency.find((x) => types.includes(x[0]))?.[0] ||
+          types[0],
+      );
+    }
   });
 
   return {
