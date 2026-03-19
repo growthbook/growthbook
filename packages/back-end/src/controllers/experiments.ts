@@ -4180,7 +4180,7 @@ export async function postExperimentFeatureValues(
 
     const revision = await getDraftRevision(context, feature, feature.version);
 
-    await editFeatureRules(
+    const updatedRevision = await editFeatureRules(
       context,
       feature,
       revision,
@@ -4192,6 +4192,12 @@ export async function postExperimentFeatureValues(
       res.locals.eventAudit,
       resetReview,
     );
+
+    if (!updatedRevision) {
+      throw new Error(
+        "Failed to update experiment feature rules on the draft revision",
+      );
+    }
 
     const live = await getRevision({
       context,
@@ -4219,12 +4225,13 @@ export async function postExperimentFeatureValues(
     const requiresReview = checkIfRevisionNeedsReview({
       feature,
       baseRevision: base,
-      revision,
+      revision: updatedRevision,
       allEnvironments: orgEnvIds,
       settings: org.settings,
     });
+
     if (!requiresReview) {
-      const mergeResult = autoMerge(live, base, revision, orgEnvIds, {});
+      const mergeResult = autoMerge(live, base, updatedRevision, orgEnvIds, {});
 
       if (!mergeResult.success) {
         throw new Error(

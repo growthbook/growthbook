@@ -985,7 +985,7 @@ export async function editFeatureRules(
     } as FeatureRule;
   });
 
-  await updateRevision(
+  const updatedRevision = await updateRevision(
     context,
     feature,
     revision,
@@ -998,6 +998,7 @@ export async function editFeatureRules(
     },
     resetReview,
   );
+  return updatedRevision;
 }
 
 export async function copyFeatureEnvironmentRules(

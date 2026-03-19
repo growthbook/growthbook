@@ -484,7 +484,7 @@ export async function updateRevision(
     original: revision,
   });
 
-  await FeatureRevisionModel.updateOne(
+  const doc = await FeatureRevisionModel.findOneAndUpdate(
     {
       organization: revision.organization,
       featureId: revision.featureId,
@@ -493,6 +493,7 @@ export async function updateRevision(
     {
       $set: { ...changes, status, dateUpdated: new Date() },
     },
+    { new: true },
   );
 
   // Fire and forget - no route that updates the revision expects the log to be there immediately
@@ -505,6 +506,8 @@ export async function updateRevision(
     .catch((e) => {
       logger.error(e, "Error creating revisionlog");
     });
+
+  return doc ? toInterface(doc, context) : null;
 }
 
 export async function markRevisionAsPublished(
