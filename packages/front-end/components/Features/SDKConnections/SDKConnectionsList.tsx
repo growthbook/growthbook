@@ -79,6 +79,10 @@ export default function SDKConnectionsList() {
   const [initialModalSelectedLanguage, setInitialModalSelectedLanguage] =
     useState<SDKLanguage | null>(null);
   const [showAllSdkLanguages, setShowAllSdkLanguages] = useState(false);
+  const openAddSDKConnectionModal = () => {
+    setInitialModalSelectedLanguage(null);
+    setModalOpen(true);
+  };
   const sdkLanguagesToShow = getLanguagesByFilter(
     showAllSdkLanguages ? "all" : "popular",
   ).sort(popularLanguagesFirst);
@@ -103,7 +107,7 @@ export default function SDKConnectionsList() {
       <Button
         onClick={(e) => {
           e.preventDefault();
-          setModalOpen(true);
+          openAddSDKConnectionModal();
         }}
       >
         <GBAddCircle /> Create New SDK Connection
@@ -180,7 +184,10 @@ export default function SDKConnectionsList() {
               : undefined,
             includeRuleIds: true,
           }}
-          close={() => setModalOpen(false)}
+          close={() => {
+            setModalOpen(false);
+            setInitialModalSelectedLanguage(null);
+          }}
           mutate={() => {
             mutate();
             mutateWebhooks();
@@ -195,7 +202,9 @@ export default function SDKConnectionsList() {
         </Heading>
         {canCreateSDKConnections &&
         (useNewEmptyStateLayout || connections.length > 0) ? (
-          <Button onClick={() => setModalOpen(true)}>Add SDK Connection</Button>
+          <Button onClick={openAddSDKConnectionModal}>
+            Add SDK Connection
+          </Button>
         ) : null}
       </Flex>
 
