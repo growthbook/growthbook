@@ -97,6 +97,12 @@ export type DefaultMemberRole =
   | "gbDefault_projectAdmin"
   | "admin";
 
+/** Custom role IDs defined by orgs in org.customRoles */
+export type CustomRole = string;
+
+/** A member's role is either a built-in default or a custom role ID */
+export type MemberRole = DefaultMemberRole | CustomRole;
+
 export type Role = {
   id: string;
   description: string;
