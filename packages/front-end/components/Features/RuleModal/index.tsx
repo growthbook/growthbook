@@ -472,29 +472,39 @@ export default function RuleModal({
           targetURLRegex: "",
           ideaSource: "",
           project: feature.project,
-          variations: values.values.map((v, i) => ({
-            id: uniqId("var_"),
-            key: i + "",
-            name: v.name || (i ? `Variation ${i}` : "Control"),
-            screenshots: [],
-          })),
-          phases: [
-            {
-              condition: values.condition || "",
-              savedGroups: values.savedGroups || [],
-              prerequisites: values.prerequisites || [],
-              coverage: values.coverage ?? 1,
-              dateStarted: new Date().toISOString().substr(0, 16),
-              name: "Main",
-              namespace: values.namespace || {
-                enabled: false,
-                name: "",
-                range: [0, 1],
-              },
-              reason: "",
-              variationWeights: values.values.map((v) => v.weight),
-            },
-          ],
+          ...(() => {
+            const variations = values.values.map((v, i) => ({
+              id: uniqId("var_"),
+              key: i + "",
+              name: v.name || (i ? `Variation ${i}` : "Control"),
+              screenshots: [],
+            }));
+            const variationWeights = values.values.map((v) => v.weight);
+            return {
+              variations,
+              phases: [
+                {
+                  condition: values.condition || "",
+                  savedGroups: values.savedGroups || [],
+                  prerequisites: values.prerequisites || [],
+                  coverage: values.coverage ?? 1,
+                  dateStarted: new Date().toISOString().substr(0, 16),
+                  name: "Main",
+                  namespace: values.namespace || {
+                    enabled: false,
+                    name: "",
+                    range: [0, 1],
+                  },
+                  reason: "",
+                  variationWeights,
+                  variations: variations.map((v) => ({
+                    id: v.id,
+                    status: "active" as const,
+                  })),
+                },
+              ],
+            };
+          })(),
           sequentialTestingEnabled:
             values.experimentType === "multi-armed-bandit"
               ? false

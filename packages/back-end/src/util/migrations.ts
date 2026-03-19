@@ -42,6 +42,7 @@ import { SdkWebHookLogDocument } from "back-end/src/models/SdkWebhookLogModel";
 import { getAccountPlan } from "back-end/src/enterprise";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets";
 
+
 function roundVariationWeight(num: number): number {
   return Math.round(num * 1000) / 1000;
 }
@@ -595,6 +596,18 @@ export function upgradeExperimentDoc(
                 srm: event.banditResult.srm,
               },
             }),
+        }));
+      }
+    });
+  }
+
+  // Populate phase-level variation status from top-level variations
+  if (experiment.phases) {
+    experiment.phases.forEach((phase) => {
+      if (!phase.variations) {
+        phase.variations = experiment.variations.map((v) => ({
+          id: v.id,
+          status: "active" as const,
         }));
       }
     });

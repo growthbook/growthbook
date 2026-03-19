@@ -71,6 +71,7 @@ export type ExperimentReportPhase = Pick<
   | "dateEnded"
   | "name"
   | "variationWeights"
+  | "variations"
   | "banditEvents"
   | "coverage"
 >;

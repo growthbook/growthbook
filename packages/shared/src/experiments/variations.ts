@@ -1,10 +1,24 @@
-import { Variation } from "shared/types/experiment";
+import {
+  ExperimentPhase,
+  Variation,
+  VariationStatus,
+} from "shared/types/experiment";
 
 type ExperimentWithVariations = {
   variations: Variation[];
 };
 
+type ExperimentWithVariationsAndPhases = {
+  variations: Variation[];
+  phases: Pick<ExperimentPhase, "variations">[];
+};
+
 type VariationWithIndex = Variation & {
+  index: number;
+};
+
+type VariationWithIndexAndStatus = Variation & {
+  status: VariationStatus;
   index: number;
 };
 
@@ -14,38 +28,37 @@ type VariationWithIndex = Variation & {
  * this will merge phase-level variation status with top-level metadata.
  */
 export function getLatestPhaseVariations(
-  experiment: ExperimentWithVariations,
-): VariationWithIndex[] {
+  experiment: ExperimentWithVariationsAndPhases,
+): VariationWithIndexAndStatus[] {
   const allVariations = getAllVariations(experiment);
 
-  // TODO change to come from phase
-  const phaseVariations = experiment.variations;
+  const latestPhase = experiment.phases[experiment.phases.length - 1];
+  const phaseVariations = latestPhase.variations;
 
   let hasMissing = false;
-  const result: VariationWithIndex[] = phaseVariations.map((v, i) => {
+  const foundVariations: VariationWithIndexAndStatus[] = [];
+  phaseVariations.forEach((v) => {
     const foundVariation = allVariations.find((allV) => allV.id === v.id);
     if (foundVariation === undefined) {
       hasMissing = true;
-      return {
-        ...v,
-        index: i,
-      };
+      return;
     }
-    return {
+    foundVariations.push({
       ...foundVariation,
-      // override experiment variation metadata with phase variation metadata, if present
-      ...v,
-    };
+      // Add status from phase variation, if present
+      status: v.status,
+    });
   });
+  // If any missing, fall back to all variations with status "active"
   if (!hasMissing) {
-    return result;
+    return allVariations.map((v, i) => ({
+      ...v,
+      index: i,
+      status: "active",
+    }));
   }
 
-  // Otherwise, return all variations with the index as the position in the array
-  return result.map((v, i) => ({
-    ...v,
-    index: i,
-  }));
+  return foundVariations;
 }
 
 /**

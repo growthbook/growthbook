@@ -33,13 +33,20 @@ const NewPhaseForm: FC<{
   const prevPhase: Partial<ExperimentPhaseStringDates> =
     experiment.phases[experiment.phases.length - 1] || {};
 
+  const lastPhaseVariations = getLatestPhaseVariations(experiment);
   const form = useForm<ExperimentPhaseStringDates>({
     defaultValues: {
       name: prevPhase.name || "Main",
       coverage: prevPhase.coverage || 1,
       variationWeights:
         prevPhase.variationWeights ||
-        getEqualWeights(getLatestPhaseVariations(experiment).length),
+        getEqualWeights(lastPhaseVariations.length),
+      variations:
+        prevPhase.variations ??
+        lastPhaseVariations.map((v) => ({
+          id: v.id,
+          status: "active" as const,
+        })),
       reason: "",
       dateStarted: new Date().toISOString().substr(0, 16),
       condition: prevPhase.condition || "",
