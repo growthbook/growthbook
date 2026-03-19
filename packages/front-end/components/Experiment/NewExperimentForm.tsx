@@ -395,7 +395,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     (v, i) => ({
       id: v.id || "",
       name: v.name,
-      key: v.key || "",
+      key: v.key || `${i}`,
       description: v.description,
       screenshots: v.screenshots,
       weight: watchedWeights[i] ?? 1 / (watchedExpVariations.length || 2),

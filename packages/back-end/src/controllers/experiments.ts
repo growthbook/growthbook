@@ -119,7 +119,6 @@ import {
 import { ApiReqContext, PrivateApiErrorResponse } from "back-end/types/api";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { PastExperimentsQueryRunner } from "back-end/src/queryRunners/PastExperimentsQueryRunner";
-
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
@@ -1723,6 +1722,20 @@ export async function postExperiment(
     phases[lastIndex] = {
       ...phases[lastIndex],
       variationWeights: data.variationWeights,
+    };
+    changes.phases = phases;
+  }
+
+  // Re-order variations to match the order of the experiment.variations
+  if (data.variations) {
+    const phases = changes.phases || [...experiment.phases];
+    const lastIndex = phases.length - 1;
+    phases[lastIndex] = {
+      ...phases[lastIndex],
+      variations: data.variations.map((v) => ({
+        id: v.id,
+        status: "active" as const,
+      })),
     };
     changes.phases = phases;
   }
