@@ -128,7 +128,7 @@ export function validateJSONFeatureValue(
           return {
             valid: false,
             enabled: validationEnabled,
-            errors: [e.message],
+            errors: [e instanceof Error ? e.message : String(e)],
           };
         }
       }
@@ -156,7 +156,11 @@ export function validateJSONFeatureValue(
         }) ?? [],
     };
   } catch (e) {
-    return { valid: false, enabled: validationEnabled, errors: [e.message] };
+    return {
+      valid: false,
+      enabled: validationEnabled,
+      errors: [e instanceof Error ? e.message : String(e)],
+    };
   }
 }
 
@@ -186,7 +190,7 @@ export function validateFeatureValue(
       try {
         parsedValue = dJSON.parse(value);
       } catch (e) {
-        throw new Error(prefix + e.message);
+        throw new Error(prefix + (e instanceof Error ? e.message : String(e)));
       }
     }
     // validate with JSON schema if set and enabled
@@ -810,6 +814,7 @@ export function validateCondition(
     // TODO: validate beyond just making sure it's valid JSON
     return { success: true, empty: false };
   } catch (e) {
+    const errMsg = e instanceof Error ? e.message : String(e);
     // Try parsing with dJSON and see if it can be fixed automatically
     try {
       const fixed = dJSON.parse(condition);
@@ -817,10 +822,10 @@ export function validateCondition(
         success: false,
         empty: false,
         suggestedValue: JSON.stringify(fixed),
-        error: e.message,
+        error: errMsg,
       };
-    } catch (e2) {
-      return { success: false, empty: false, error: e.message };
+    } catch {
+      return { success: false, empty: false, error: errMsg };
     }
   }
 }
