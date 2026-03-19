@@ -118,9 +118,7 @@ export async function getTableData(
     return;
   }
 
-  const columns: Column[] = (
-    tableData as { column_name: string; data_type: string }[]
-  ).map((row) => {
+  const columns: Column[] = tableData.map((row) => {
     return {
       columnName: row.column_name,
       dataType: row.data_type,
