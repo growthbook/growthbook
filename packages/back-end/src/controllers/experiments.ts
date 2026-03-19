@@ -11,6 +11,8 @@ import {
   isDefined,
   MatchingRule,
   resetReviewOnChange,
+  autoMerge,
+  checkIfRevisionNeedsReview,
 } from "shared/util";
 import {
   expandAllSliceMetricsInMap,
@@ -130,6 +132,7 @@ import { logger } from "back-end/src/util/logger";
 import {
   editFeatureRules,
   getFeaturesByIds,
+  publishRevision,
 } from "back-end/src/models/FeatureModel";
 import { generateExperimentReportSSRData } from "back-end/src/services/reports";
 import {
@@ -142,6 +145,7 @@ import {
   shouldValidateCustomFieldsOnUpdate,
   validateCustomFieldsForSection,
 } from "back-end/src/util/custom-fields";
+import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getDraftRevision } from "./features";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
@@ -4188,6 +4192,73 @@ export async function postExperimentFeatureValues(
       res.locals.eventAudit,
       resetReview,
     );
+
+    const live = await getRevision({
+      context,
+      organization: org.id,
+      featureId: feature.id,
+      version: feature.version,
+    });
+    if (!live) {
+      throw new Error("Could not lookup feature history");
+    }
+
+    const base =
+      revision.baseVersion === live.version
+        ? live
+        : await getRevision({
+            context,
+            organization: org.id,
+            featureId: feature.id,
+            version: revision.baseVersion,
+          });
+    if (!base) {
+      throw new Error("Could not lookup feature history");
+    }
+
+    const requiresReview = checkIfRevisionNeedsReview({
+      feature,
+      baseRevision: base,
+      revision,
+      allEnvironments: orgEnvIds,
+      settings: org.settings,
+    });
+    if (!requiresReview) {
+      const mergeResult = autoMerge(live, base, revision, orgEnvIds, {});
+
+      if (!mergeResult.success) {
+        throw new Error(
+          "Unable to auto-publish feature values. Please resolve conflicts before publishing.",
+        );
+      }
+
+      const changedEnvs = Object.keys(mergeResult.result.rules || {});
+      if (changedEnvs.length > 0) {
+        if (!context.permissions.canPublishFeature(feature, changedEnvs)) {
+          context.permissions.throwPermissionError();
+        }
+      }
+
+      const updatedFeature = await publishRevision(
+        context,
+        feature,
+        revision,
+        mergeResult.result,
+        "auto-publish experiment variation values change",
+      );
+
+      await req.audit({
+        event: "feature.publish",
+        entity: {
+          object: "feature",
+          id: feature.id,
+        },
+        details: auditDetailsUpdate(feature, updatedFeature, {
+          revision: revision.version,
+          comment: "auto-publish experiment variation values change",
+        }),
+      });
+    }
   }
 
   res.status(200).json({
