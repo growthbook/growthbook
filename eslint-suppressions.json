@@ -389,11 +389,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/SDKConnections/SDKConnectionsList.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/Features/SafeRollout/SafeRolloutStatusModal.tsx": {
     "no-restricted-imports": {
       "count": 1
