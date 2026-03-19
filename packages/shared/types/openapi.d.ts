@@ -10009,8 +10009,8 @@ export interface operations {
         "application/json": {
           /** @description ID for the [DataSource](#tag/DataSource_model) */
           datasourceId?: string;
-          /** @description The ID property of one of the assignment query objects associated with the datasource */
-          assignmentQueryId: string;
+          /** @description The ID property of one of the assignment query objects associated with the datasource. Required unless provided by templateId. */
+          assignmentQueryId?: string;
           trackingKey: string;
           /** @description If true, allow creating an experiment even if another experiment with the same tracking key already exists */
           bypassDuplicateKeyCheck?: boolean;
@@ -10020,7 +10020,7 @@ export interface operations {
           type?: "standard" | "multi-armed-bandit";
           /** @description Project ID which the experiment belongs to */
           project?: string;
-          /** @description ID of the [ExperimentTemplate](#tag/ExperimentTemplate_model) this experiment was created from. This is a reference only and does not apply template settings server-side. */
+          /** @description ID of the [ExperimentTemplate](#tag/ExperimentTemplate_model) this experiment was created from. Template fields are applied by default and overridden by explicitly provided payload fields. */
           templateId?: string;
           /** @description Hypothesis of the experiment */
           hypothesis?: string;

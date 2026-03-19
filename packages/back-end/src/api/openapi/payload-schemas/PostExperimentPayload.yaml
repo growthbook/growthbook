@@ -3,14 +3,13 @@ required:
   - name
   - variations
   - trackingKey
-  - assignmentQueryId
 properties:
   datasourceId:
     type: string
     description: ID for the [DataSource](#tag/DataSource_model)
   assignmentQueryId:
     type: string
-    description: The ID property of one of the assignment query objects associated with the datasource
+    description: The ID property of one of the assignment query objects associated with the datasource. Required unless provided by templateId.
   trackingKey:
     type: string
   bypassDuplicateKeyCheck:
@@ -29,7 +28,7 @@ properties:
     description: Project ID which the experiment belongs to
   templateId:
     type: string
-    description: ID of the [ExperimentTemplate](#tag/ExperimentTemplate_model) this experiment was created from. This is a reference only and does not apply template settings server-side.
+    description: ID of the [ExperimentTemplate](#tag/ExperimentTemplate_model) this experiment was created from. Template fields are applied by default and overridden by explicitly provided payload fields.
   hypothesis:
     type: string
     description: Hypothesis of the experiment

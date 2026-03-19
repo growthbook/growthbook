@@ -1,9 +1,11 @@
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import {
   ExperimentInterfaceExcludingHoldouts,
+  ExperimentTemplateInterface,
   Variation,
   postExperimentValidator,
 } from "shared/validators";
+import { omit } from "lodash";
 import { PostExperimentResponse } from "shared/types/openapi";
 import {
   createExperiment,
@@ -20,66 +22,129 @@ import { getMetricMap } from "back-end/src/models/MetricModel";
 import { validateVariationIds } from "back-end/src/controllers/experiments";
 import { validateCustomFields } from "./validations";
 
+function templateToPostExperimentDefaults(
+  template: ExperimentTemplateInterface,
+) {
+  const templateWithoutTranslatedFields = omit(template, [
+    "id",
+    "organization",
+    "owner",
+    "dateCreated",
+    "dateUpdated",
+    "templateMetadata",
+    "targeting",
+    "datasource",
+    "exposureQueryId",
+    "goalMetrics",
+    "segment",
+    "skipPartialData",
+    "targeting",
+  ]);
+
+  return {
+    ...templateWithoutTranslatedFields,
+    datasourceId: template.datasource || undefined,
+    assignmentQueryId: template.exposureQueryId || undefined,
+    metrics: template.goalMetrics,
+    segmentId: template.segment,
+    inProgressConversions:
+      template.skipPartialData === undefined
+        ? undefined
+        : template.skipPartialData
+          ? ("strict" as const)
+          : ("loose" as const),
+    phases: [
+      {
+        name: "Main",
+        dateStarted: new Date().toISOString(),
+        coverage: template.targeting.coverage,
+        condition: template.targeting.condition,
+        prerequisites: template.targeting.prerequisites,
+        savedGroupTargeting: template.targeting.savedGroups?.map((s) => ({
+          matchType: s.match,
+          savedGroups: s.ids,
+        })),
+      },
+    ],
+  };
+}
+
 export const postExperiment = createApiRequestHandler(postExperimentValidator)(
   async (req): Promise<PostExperimentResponse> => {
-    const {
-      datasourceId,
-      owner: ownerEmail,
-      project,
-      customFields,
-      templateId,
-    } = req.body;
+    const { owner: ownerEmail, templateId } = req.body;
+    let payload = req.body;
 
     // Validate projects - We can remove this validation when FeatureModel is migrated to BaseModel
-    if (project) {
-      await req.context.models.projects.ensureProjectsExist([project]);
-    }
-
     if (templateId) {
       const template =
         await req.context.models.experimentTemplates.getById(templateId);
       if (!template) {
         throw new Error(`Invalid template: ${templateId}`);
       }
+
+      if (req.body.assignmentQueryId !== undefined) {
+        throw new Error(
+          "assignmentQueryId cannot be set when templateId is provided",
+        );
+      }
+
+      payload = {
+        ...templateToPostExperimentDefaults(template),
+        ...req.body,
+      };
     }
 
-    if (!req.context.permissions.canCreateExperiment(req.body)) {
+    if (!payload.assignmentQueryId) {
+      throw new Error(
+        "assignmentQueryId is required unless provided by the template",
+      );
+    }
+
+    if (payload.project) {
+      await req.context.models.projects.ensureProjectsExist([payload.project]);
+    }
+
+    if (!req.context.permissions.canCreateExperiment(payload)) {
       req.context.permissions.throwPermissionError();
     }
 
-    const datasource = datasourceId
-      ? await getDataSourceById(req.context, datasourceId)
+    const datasource = payload.datasourceId
+      ? await getDataSourceById(req.context, payload.datasourceId)
       : null;
-    if (datasourceId && !datasource) {
-      throw new Error(`Invalid data source: ${datasourceId}`);
+    if (payload.datasourceId && !datasource) {
+      throw new Error(`Invalid data source: ${payload.datasourceId}`);
     }
 
     // check for associated assignment query id
     if (
       datasource &&
       !datasource.settings.queries?.exposure?.some(
-        (q) => q.id === req.body.assignmentQueryId,
+        (q) => q.id === payload.assignmentQueryId,
       )
     ) {
       throw new Error(
-        `Unrecognized assignment query ID: ${req.body.assignmentQueryId}`,
+        `Unrecognized assignment query ID: ${payload.assignmentQueryId}`,
       );
     }
 
     // check if tracking key is unique
-    if (!req.body.bypassDuplicateKeyCheck) {
+    if (!payload.bypassDuplicateKeyCheck) {
       const existingByTrackingKey = await getExperimentByTrackingKey(
         req.context,
-        req.body.trackingKey,
+        payload.trackingKey,
       );
       if (existingByTrackingKey) {
         throw new Error(
-          `Experiment with tracking key already exists: ${req.body.trackingKey}`,
+          `Experiment with tracking key already exists: ${payload.trackingKey}`,
         );
       }
     }
 
-    await validateCustomFields(customFields, req.context, project);
+    await validateCustomFields(
+      payload.customFields,
+      req.context,
+      payload.project,
+    );
 
     const ownerId = await (async () => {
       if (!ownerEmail) return req.context.userId;
@@ -98,10 +163,10 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
     const metricGroups = await req.context.models.metricGroups.getAll();
     const metricIds = getAllMetricIdsFromExperiment(
       {
-        goalMetrics: req.body.metrics,
-        secondaryMetrics: req.body.secondaryMetrics,
-        guardrailMetrics: req.body.guardrailMetrics,
-        activationMetric: req.body.activationMetric,
+        goalMetrics: payload.metrics,
+        secondaryMetrics: payload.secondaryMetrics,
+        guardrailMetrics: payload.guardrailMetrics,
+        activationMetric: payload.activationMetric,
       },
       true,
       metricGroups,
@@ -141,14 +206,14 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
         }
       }
     }
-    if (req.body.variations) {
-      validateVariationIds(req.body.variations as Variation[]);
+    if (payload.variations) {
+      validateVariationIds(payload.variations as Variation[]);
     }
 
     // Validate attributionModel + lookbackOverride consistency
     if (
-      req.body.attributionModel === "lookbackOverride" &&
-      !req.body.lookbackOverride
+      payload.attributionModel === "lookbackOverride" &&
+      !payload.lookbackOverride
     ) {
       throw new Error(
         "lookbackOverride is required when attributionModel is 'lookbackOverride'",
@@ -158,8 +223,8 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
     // If lookbackOverride is provided in the payload, it must have the right
     // attribution model
     if (
-      (req.body.attributionModel ?? "firstExposure") !== "lookbackOverride" &&
-      req.body.lookbackOverride !== undefined
+      (payload.attributionModel ?? "firstExposure") !== "lookbackOverride" &&
+      payload.lookbackOverride !== undefined
     ) {
       throw new Error(
         "lookbackOverride is only allowed when attributionModel is 'lookbackOverride'",
@@ -169,7 +234,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
     // transform into exp interface; set sane defaults
     const newExperiment = postExperimentApiPayloadToInterface(
       {
-        ...req.body,
+        ...payload,
         ...(ownerId ? { owner: ownerId } : {}),
       },
       req.organization,
