@@ -3351,20 +3351,6 @@ export default abstract class SqlIntegration
           , ${timestampColumn} AS timestamp
           , ${this.dateTrunc("first_exposure_timestamp")} AS first_exposure_date
           ${banditDates?.length ? this.getBanditCaseWhen(banditDates) : ""}
-          ${
-            raMetricSettings.length > 0
-              ? `
-              , ${this.addHours(
-                "first_exposure_timestamp",
-                Math.min(...raMetricSettings.map((s) => s.minDelay - s.hours)),
-              )} as min_preexposure_start
-              , ${this.addHours(
-                "first_exposure_timestamp",
-                Math.max(...raMetricSettings.map((s) => s.minDelay)),
-              )} as max_preexposure_end
-            `
-              : ""
-          }
       ${raMetricSettings
         .map(
           ({ alias, hours, minDelay }) => `
