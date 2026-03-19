@@ -63,7 +63,7 @@
     "@opentelemetry/semantic-conventions": "~1.30.0",
     "@opentelemetry/winston-transport": "~0.21.0",
     "@sentry/cli-linux-x64": "^2.58.4",
-    "@sentry/node": "^10.42.0",
+    "@sentry/node": "^10.44.0",
     "@stdlib/random": "^0.1.1",
     "@stdlib/stats": "^0.1.1",
     "@types/handlebars": "^4.1.0",
