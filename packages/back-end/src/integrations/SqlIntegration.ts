@@ -3016,24 +3016,33 @@ export default abstract class SqlIntegration
     regressionAdjustedMetrics: FactMetricData[];
     sourceIndex: number;
   }): string {
+    // Aggregates pre-exposure covariate columns that were emitted inline in
+    // __userMetricJoin (see getExperimentFactMetricsQuery). Reading from
+    // __userMetricJoin instead of re-joining __distinctUsers JOIN __factTable
+    // avoids a second scan of the fact table: CTEs are inlined (not
+    // materialized) on most warehouses, so referencing __factTable twice
+    // scans the underlying data twice.
+    //
+    // The original INNER JOIN + WHERE (m.timestamp in preexposure window)
+    // dropped users with zero pre-exposure rows. This version keeps them
+    // (they appear in __userMetricJoin via LEFT JOIN with all-NULL covariate
+    // columns, and fullAggregationFunction over all-NULLs yields 0/NULL).
+    // This is semantically equivalent: downstream, __userCovariateMetric is
+    // itself LEFT JOINed and wrapped in COALESCE(c.X, 0) via capCoalesceValue.
     const suffix = `${sourceIndex === 0 ? "" : sourceIndex}`;
 
     return `
-      SELECT 
-        d.variation AS variation
-        ${dimensionCols.map((c) => `, d.${c.alias} AS ${c.alias}`).join("")}
-        , d.${baseIdType} AS ${baseIdType}
+      SELECT
+        umj.variation AS variation
+        ${dimensionCols.map((c) => `, umj.${c.alias} AS ${c.alias}`).join("")}
+        , umj.${baseIdType} AS ${baseIdType}
         ${regressionAdjustedMetrics
           .map(
             (metric) =>
               `${
                 metric.numeratorSourceIndex === sourceIndex
                   ? `, ${metric.covariateNumeratorAggFns.fullAggregationFunction(
-                      this.ifElse(
-                        `m.timestamp >= d.${metric.alias}_preexposure_start AND m.timestamp < d.${metric.alias}_preexposure_end`,
-                        `${metric.alias}_value`,
-                        "NULL",
-                      ),
+                      `umj.${metric.alias}_covariate_value`,
                     )} as ${metric.alias}_value`
                   : ""
               }
@@ -3041,28 +3050,18 @@ export default abstract class SqlIntegration
                   metric.ratioMetric &&
                   metric.denominatorSourceIndex === sourceIndex
                     ? `, ${metric.covariateDenominatorAggFns.fullAggregationFunction(
-                        this.ifElse(
-                          `m.timestamp >= d.${metric.alias}_preexposure_start AND m.timestamp < d.${metric.alias}_preexposure_end`,
-                          `${metric.alias}_denominator`,
-                          "NULL",
-                        ),
+                        `umj.${metric.alias}_covariate_denominator`,
                       )} AS ${metric.alias}_denominator`
                     : ""
                 }`,
           )
           .join("\n")}
       FROM
-        __distinctUsers d
-      JOIN __factTable${suffix} m ON (
-        m.${baseIdType} = d.${baseIdType}
-      )
-      WHERE 
-        m.timestamp >= d.min_preexposure_start
-        AND m.timestamp < d.max_preexposure_end
+        __userMetricJoin${suffix} umj
       GROUP BY
-        d.variation
-        ${dimensionCols.map((c) => `, d.${c.alias}`).join("")}
-        , d.${baseIdType}`;
+        umj.variation
+        ${dimensionCols.map((c) => `, umj.${c.alias}`).join("")}
+        , umj.${baseIdType}`;
   }
 
   getFactTablesForMetrics(
@@ -3449,6 +3448,36 @@ export default abstract class SqlIntegration
                   `,
               )
               .join("\n")}
+            ${
+              // CUPED pre-exposure covariate columns: emitted here so that
+              // __userCovariateMetric can aggregate them from __userMetricJoin
+              // instead of re-scanning __factTable. See getCovariateMetricCTE.
+              regressionAdjustedTableIndices.has(f.index)
+                ? regressionAdjustedMetrics
+                    .map(
+                      (metric) =>
+                        `${
+                          metric.numeratorSourceIndex === f.index
+                            ? `, ${this.ifElse(
+                                `m.timestamp >= d.${metric.alias}_preexposure_start AND m.timestamp < d.${metric.alias}_preexposure_end`,
+                                `m.${metric.alias}_value`,
+                                "NULL",
+                              )} AS ${metric.alias}_covariate_value`
+                            : ""
+                        }${
+                          metric.ratioMetric &&
+                          metric.denominatorSourceIndex === f.index
+                            ? `, ${this.ifElse(
+                                `m.timestamp >= d.${metric.alias}_preexposure_start AND m.timestamp < d.${metric.alias}_preexposure_end`,
+                                `m.${metric.alias}_denominator`,
+                                "NULL",
+                              )} AS ${metric.alias}_covariate_denominator`
+                            : ""
+                        }`,
+                    )
+                    .join("\n")
+                : ""
+            }
           FROM
             __distinctUsers d
           LEFT JOIN __factTable${f.index === 0 ? "" : f.index} m ON (
