@@ -16,7 +16,14 @@ import {
   SafeRolloutDecisionNotificationPayload,
   SafeRolloutUnhealthyNotificationPayload,
 } from "shared/validators";
-import { DiffResult } from "shared/types/events/diff";
+import {
+  DiffResult,
+  HierarchicalValue,
+  HierarchicalModification,
+  SimpleModification,
+  ItemFieldChange,
+  type ModificationItem,
+} from "shared/types/events/diff";
 import {
   FilterDataForNotificationEvent,
   getFilterDataForNotificationEvent,
@@ -999,76 +1006,6 @@ export interface FormatOptions {
   fieldFormatters?: Record<string, (value: unknown) => string>;
 }
 
-interface ItemFieldChange {
-  field: string;
-  oldValue: unknown;
-  newValue: unknown;
-}
-
-interface HierarchicalValue {
-  key: string;
-  changes?: {
-    added?: Record<string, unknown>[];
-    removed?: Record<string, unknown>[];
-    modified?: Array<{
-      id: string;
-      oldValue?: unknown;
-      newValue: unknown;
-      fieldChanges?: ItemFieldChange[];
-      oldIndex?: number;
-      newIndex?: number;
-      steps?: number;
-    }>;
-    orderSummaries?: Array<
-      | {
-          type: "insertShift";
-          insertIndex: number;
-          direction: "down" | "up";
-          affectedCount: number;
-        }
-      | {
-          type: "reorderShift";
-          movedId: string;
-          fromIndex: number;
-          toIndex: number;
-          direction: "down" | "up";
-          affectedCount: number;
-        }
-      | {
-          type: "deleteShift";
-          deleteIndex: number;
-          direction: "up" | "down";
-          affectedCount: number;
-        }
-    >;
-  };
-  added?: Record<string, unknown>;
-  removed?: Record<string, unknown>;
-  modified?: Array<{
-    key: string;
-    oldValue?: unknown;
-    newValue?: unknown;
-    values?: HierarchicalValue[];
-  }>;
-  values?: HierarchicalValue[];
-}
-
-interface SimpleModification {
-  key: string;
-  oldValue: unknown;
-  newValue: unknown;
-}
-
-interface HierarchicalModification {
-  key: string;
-  values: HierarchicalValue[];
-  added: Record<string, unknown>;
-  removed: Record<string, unknown>;
-  modified: Array<SimpleModification | HierarchicalModification>;
-}
-
-type ModificationItem = SimpleModification | HierarchicalModification;
-
 const isSimpleModification = (
   mod: ModificationItem,
 ): mod is SimpleModification => {
@@ -1588,7 +1525,7 @@ export function formatDiffForSlack(
           }
 
           if (value.modified && value.modified.length > 0) {
-            (value.modified as ModificationItem[]).forEach((change) => {
+            value.modified.forEach((change) => {
               if (isSimpleModification(change)) {
                 sections.push(
                   `\t⊳ *modified ${change.key}:* ${getItemLabel(change.oldValue)} → ${getItemLabel(change.newValue)}`,
