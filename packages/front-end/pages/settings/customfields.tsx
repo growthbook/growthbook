@@ -1,4 +1,5 @@
 import React from "react";
+import { Box } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
 import CustomFields from "@/components/CustomFields/CustomFields";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
@@ -9,7 +10,7 @@ const CustomFieldsPage = (): React.ReactElement => {
 
   if (!hasCustomFieldAccess) {
     return (
-      <div className="contents container-fluid pagecontents">
+      <Box className="contents container-fluid pagecontents">
         <PremiumEmptyState
           title="Custom Fields"
           description="Custom fields allow you to add additional meta data to
@@ -18,14 +19,14 @@ const CustomFieldsPage = (): React.ReactElement => {
           commercialFeature="custom-metadata"
           learnMoreLink="https://docs.growthbook.io/using/growthbook-best-practices#custom-fields"
         />
-      </div>
+      </Box>
     );
   }
 
   return (
-    <div className="contents container-fluid pagecontents">
+    <Box className="contents container-fluid pagecontents">
       <CustomFields />
-    </div>
+    </Box>
   );
 };
 

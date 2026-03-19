@@ -5,6 +5,7 @@ import Link from "next/link";
 import { BsFlag } from "react-icons/bs";
 import clsx from "clsx";
 import { PiShuffle } from "react-icons/pi";
+import { Box, Flex } from "@radix-ui/themes";
 import { ComputedExperimentInterface } from "shared/types/experiment";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import WatchButton from "@/components/WatchButton";
@@ -30,6 +31,14 @@ import Button from "@/ui/Button";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import LinkButton from "@/ui/LinkButton";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
+import Callout from "@/ui/Callout";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 import { useExperimentSearch } from "@/services/experiments";
 
 const NUM_PER_PAGE = 20;
@@ -76,7 +85,7 @@ const ExperimentsPage = (): React.ReactElement => {
     [showMineOnly, userId, tagsFilter.tags, watchedExperiments],
   );
 
-  const { items, searchInputProps, isFiltered, SortableTH } =
+  const { items, searchInputProps, isFiltered, SortableTableColumnHeader } =
     useExperimentSearch({
       allExperiments,
       filterResults,
@@ -111,9 +120,9 @@ const ExperimentsPage = (): React.ReactElement => {
 
   if (error) {
     return (
-      <div className="alert alert-danger">
+      <Callout status="error" mb="3">
         An error occurred: {error.message}
-      </div>
+      </Callout>
     );
   }
   if (loading || !ready) {
@@ -138,7 +147,7 @@ const ExperimentsPage = (): React.ReactElement => {
 
   if (!hasMultiArmedBanditFeature) {
     return (
-      <div className="contents container-fluid pagecontents">
+      <Box className="contents pagecontents">
         <PremiumEmptyState
           h1="Bandits"
           title="Run Adaptive Experiments with Bandits"
@@ -146,23 +155,61 @@ const ExperimentsPage = (): React.ReactElement => {
           commercialFeature="multi-armed-bandits"
           learnMoreLink="https://docs.growthbook.io/bandits/overview"
         />
-      </div>
+      </Box>
     );
   }
 
   return (
     <>
-      <div className="contents experiments container-fluid pagecontents">
-        <div className="mb-3 mt-2">
-          <div className="filters md-form row mb-3 align-items-center">
-            <div className="col d-flex align-items-center">
-              <h1>Bandits</h1>
-            </div>
-            <div style={{ flex: 1 }} />
-            {canAdd && (
-              <div className="col-auto">
+      <Box className="contents pagecontents" mb="3" mt="2">
+        <Flex
+          className="filters md-form"
+          mb="3"
+          align="center"
+          gap="3"
+          wrap="wrap"
+        >
+          <Flex align="center">
+            <h1>Bandits</h1>
+          </Flex>
+          <Box style={{ flex: 1 }} />
+          {canAdd && (
+            <Box>
+              <PremiumTooltip
+                tipPosition="left"
+                commercialFeature="multi-armed-bandits"
+              >
+                <Button
+                  onClick={() => {
+                    setOpenNewExperimentModal(true);
+                  }}
+                  disabled={!hasMultiArmedBanditFeature}
+                >
+                  Add Bandit
+                </Button>
+              </PremiumTooltip>
+            </Box>
+          )}
+        </Flex>
+        <CustomMarkdown page={"experimentList"} />
+        {!hasExperiments ? (
+          <Box className="box" py="5" style={{ textAlign: "center" }}>
+            <Box style={{ maxWidth: 650, margin: "0 auto" }}>
+              <h1>Adaptively experiment with bandits.</h1>
+              <p className="">Run adaptive experiments with Bandits.</p>
+            </Box>
+            <Flex justify="center" pt="2" gap="3">
+              <LinkButton
+                href="/getstarted/experiment-guide"
+                variant="outline"
+                mr="4"
+              >
+                Setup Instructions
+              </LinkButton>
+              {canAdd && (
                 <PremiumTooltip
                   tipPosition="left"
+                  popperStyle={{ top: 15 }}
                   commercialFeature="multi-armed-bandits"
                 >
                   <Button
@@ -174,258 +221,245 @@ const ExperimentsPage = (): React.ReactElement => {
                     Add Bandit
                   </Button>
                 </PremiumTooltip>
-              </div>
-            )}
-          </div>
-          <CustomMarkdown page={"experimentList"} />
-          {!hasExperiments ? (
-            <div className="box py-5 text-center">
-              <div className="mx-auto" style={{ maxWidth: 650 }}>
-                <h1>Adaptively experiment with bandits.</h1>
-                <p className="">Run adaptive experiments with Bandits.</p>
-              </div>
-              <div className="d-flex justify-content-center pt-2">
-                <LinkButton
-                  href="/getstarted/experiment-guide"
-                  variant="outline"
-                  mr="4"
-                >
-                  Setup Instructions
-                </LinkButton>
-                {canAdd && (
-                  <PremiumTooltip
-                    tipPosition="left"
-                    popperStyle={{ top: 15 }}
-                    commercialFeature="multi-armed-bandits"
-                  >
-                    <Button
-                      onClick={() => {
-                        setOpenNewExperimentModal(true);
-                      }}
-                      disabled={!hasMultiArmedBanditFeature}
-                    >
-                      Add Bandit
-                    </Button>
-                  </PremiumTooltip>
-                )}
-              </div>
-              <div className="mt-5">
-                <img
-                  src="/images/empty-states/bandits.png"
-                  alt="Bandits"
-                  style={{ width: "100%", maxWidth: "740px", height: "auto" }}
-                />
-              </div>
-            </div>
-          ) : (
-            <>
-              <div className="row align-items-center mb-3">
-                <div className="col-auto d-flex">
-                  {["running", "drafts", "stopped", "archived"].map(
-                    (tab, i) => {
-                      const active = tabs.includes(tab);
-
-                      if (tab === "archived" && !hasArchived) return null;
-
-                      return (
-                        <button
-                          key={tab}
-                          className={clsx("border mb-0", {
-                            "badge-purple font-weight-bold": active,
-                            "text-secondary": !active,
-                            "rounded-left": i === 0,
-                            "rounded-right":
-                              tab === "archived" ||
-                              (tab === "stopped" && !hasArchived),
-                          })}
-                          style={{
-                            fontSize: "1em",
-                            opacity: active ? 1 : 0.8,
-                            padding: "6px 12px",
-                            backgroundColor: active ? "" : "var(--color-panel)",
-                          }}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            onToggleTab(tab)();
-                          }}
-                          title={
-                            active && tabs.length > 1
-                              ? `Hide ${tab} experiments`
-                              : active
-                                ? `Remove filter`
-                                : tabs.length === 0
-                                  ? `View only ${tab} experiments`
-                                  : `Include ${tab} experiments`
-                          }
-                        >
-                          <span className="mr-1">
-                            {tab.slice(0, 1).toUpperCase()}
-                            {tab.slice(1)}
-                          </span>
-                          {tab !== "archived" && (
-                            <span className="badge bg-white border text-dark mr-2">
-                              {tabCounts[tab] || 0}
-                            </span>
-                          )}
-                        </button>
-                      );
-                    },
-                  )}
-                </div>
-                <div className="col-auto">
-                  <Field
-                    placeholder="Search..."
-                    type="search"
-                    {...searchInputProps}
-                  />
-                </div>
-                <div className="col-auto">
-                  <TagsFilter filter={tagsFilter} items={items} />
-                </div>
-                <div className="col-auto ml-auto">
-                  <Switch
-                    id="my-experiments-toggle"
-                    label="My Bandits Only"
-                    value={showMineOnly}
-                    onChange={(value) => {
-                      setShowMineOnly(value);
-                    }}
-                  />
-                </div>
-              </div>
-
-              <table className="appbox table experiment-table gbtable responsive-table">
-                <thead>
-                  <tr>
-                    <th></th>
-                    <SortableTH field="name" className="w-100">
-                      Bandit
-                    </SortableTH>
-                    {showProjectColumn && (
-                      <SortableTH field="projectName">Project</SortableTH>
-                    )}
-                    <SortableTH field="tags">Tags</SortableTH>
-                    <SortableTH field="ownerName">Owner</SortableTH>
-                    <SortableTH field="date">Date</SortableTH>
-                    <SortableTH field="status">Status</SortableTH>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.slice(start, end).map((e) => {
-                    return (
-                      <tr key={e.id} className="hover-highlight">
-                        <td data-title="Watching status:" className="watching">
-                          <WatchButton
-                            item={e.id}
-                            itemType="experiment"
-                            type="icon"
-                          />
-                        </td>
-                        <td data-title="Bandit name:" className="p-0">
-                          <Link
-                            href={`/bandit/${e.id}`}
-                            className="d-block p-2"
-                          >
-                            <div className="d-flex flex-column">
-                              <div className="d-flex">
-                                <span className="testname">{e.name}</span>
-                                {e.hasVisualChangesets ? (
-                                  <Tooltip
-                                    className="d-flex align-items-center ml-2"
-                                    body="Visual experiment"
-                                  >
-                                    <RxDesktop className="text-blue" />
-                                  </Tooltip>
-                                ) : null}
-                                {(e.linkedFeatures || []).length > 0 ? (
-                                  <Tooltip
-                                    className="d-flex align-items-center ml-2"
-                                    body="Linked Feature Flag"
-                                  >
-                                    <BsFlag className="text-blue" />
-                                  </Tooltip>
-                                ) : null}
-                                {e.hasURLRedirects ? (
-                                  <Tooltip
-                                    className="d-flex align-items-center ml-2"
-                                    body="URL Redirect experiment"
-                                  >
-                                    <PiShuffle className="text-blue" />
-                                  </Tooltip>
-                                ) : null}
-                              </div>
-                              {isFiltered && e.trackingKey && (
-                                <span
-                                  className="testid text-muted small"
-                                  title="Experiment Id"
-                                >
-                                  {e.trackingKey}
-                                </span>
-                              )}
-                            </div>
-                          </Link>
-                        </td>
-                        {showProjectColumn && (
-                          <td className="nowrap" data-title="Project:">
-                            {e.projectIsDeReferenced ? (
-                              <Tooltip
-                                body={
-                                  <>
-                                    Project <code>{e.project}</code> not found
-                                  </>
-                                }
-                              >
-                                <span className="text-danger">
-                                  Invalid project
-                                </span>
-                              </Tooltip>
-                            ) : (
-                              (e.projectName ?? <em>None</em>)
-                            )}
-                          </td>
-                        )}
-
-                        <td data-title="Tags:" className="table-tags">
-                          <SortedTags
-                            tags={Object.values(e.tags)}
-                            useFlex={true}
-                          />
-                        </td>
-                        <td className="nowrap" data-title="Owner:">
-                          {e.ownerName}
-                        </td>
-                        <td className="nowrap" title={datetime(e.date)}>
-                          {e.tab === "running"
-                            ? "started"
-                            : e.tab === "drafts"
-                              ? "created"
-                              : e.tab === "stopped"
-                                ? "ended"
-                                : e.tab === "archived"
-                                  ? "updated"
-                                  : ""}{" "}
-                          {date(e.date)}
-                        </td>
-                        <td className="nowrap" data-title="Status:">
-                          <ExperimentStatusIndicator experimentData={e} />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              {filtered.length > NUM_PER_PAGE && (
-                <Pagination
-                  numItemsTotal={filtered.length}
-                  currentPage={currentPage}
-                  perPage={NUM_PER_PAGE}
-                  onPageChange={setCurrentPage}
-                />
               )}
-            </>
-          )}
-        </div>
-      </div>
+            </Flex>
+            <Box mt="5">
+              <img
+                src="/images/empty-states/bandits.png"
+                alt="Bandits"
+                style={{ width: "100%", maxWidth: "740px", height: "auto" }}
+              />
+            </Box>
+          </Box>
+        ) : (
+          <>
+            <Flex align="center" mb="3" gap="3" wrap="wrap">
+              <Flex gap="2">
+                {["running", "drafts", "stopped", "archived"].map((tab, i) => {
+                  const active = tabs.includes(tab);
+
+                  if (tab === "archived" && !hasArchived) return null;
+
+                  return (
+                    <button
+                      key={tab}
+                      className={clsx("border mb-0", {
+                        "badge-purple font-weight-bold": active,
+                        "text-secondary": !active,
+                        "rounded-left": i === 0,
+                        "rounded-right":
+                          tab === "archived" ||
+                          (tab === "stopped" && !hasArchived),
+                      })}
+                      style={{
+                        fontSize: "1em",
+                        opacity: active ? 1 : 0.8,
+                        padding: "6px 12px",
+                        backgroundColor: active ? "" : "var(--color-panel)",
+                      }}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        onToggleTab(tab)();
+                      }}
+                      title={
+                        active && tabs.length > 1
+                          ? `Hide ${tab} experiments`
+                          : active
+                            ? `Remove filter`
+                            : tabs.length === 0
+                              ? `View only ${tab} experiments`
+                              : `Include ${tab} experiments`
+                      }
+                    >
+                      <span className="mr-1">
+                        {tab.slice(0, 1).toUpperCase()}
+                        {tab.slice(1)}
+                      </span>
+                      {tab !== "archived" && (
+                        <span className="badge bg-white border text-dark mr-2">
+                          {tabCounts[tab] || 0}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </Flex>
+              <Box>
+                <Field
+                  placeholder="Search..."
+                  type="search"
+                  {...searchInputProps}
+                />
+              </Box>
+              <Box>
+                <TagsFilter filter={tagsFilter} items={items} />
+              </Box>
+              <Box style={{ marginLeft: "auto" }}>
+                <Switch
+                  id="my-experiments-toggle"
+                  label="My Bandits Only"
+                  value={showMineOnly}
+                  onChange={(value) => {
+                    setShowMineOnly(value);
+                  }}
+                />
+              </Box>
+            </Flex>
+
+            <Table
+              variant="list"
+              stickyHeader
+              roundedCorners
+              className="responsive-table"
+            >
+              <TableHeader>
+                <TableRow>
+                  <TableColumnHeader />
+                  <SortableTableColumnHeader field="name" className="w-100">
+                    Bandit
+                  </SortableTableColumnHeader>
+                  {showProjectColumn && (
+                    <SortableTableColumnHeader field="projectName">
+                      Project
+                    </SortableTableColumnHeader>
+                  )}
+                  <SortableTableColumnHeader field="tags">
+                    Tags
+                  </SortableTableColumnHeader>
+                  <SortableTableColumnHeader field="ownerName">
+                    Owner
+                  </SortableTableColumnHeader>
+                  <SortableTableColumnHeader field="date">
+                    Date
+                  </SortableTableColumnHeader>
+                  <SortableTableColumnHeader field="status">
+                    Status
+                  </SortableTableColumnHeader>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.slice(start, end).map((e) => {
+                  return (
+                    <TableRow key={e.id} className="hover-highlight">
+                      <TableCell
+                        data-title="Watching status:"
+                        className="watching"
+                      >
+                        <WatchButton
+                          item={e.id}
+                          itemType="experiment"
+                          type="icon"
+                        />
+                      </TableCell>
+                      <TableCell
+                        data-title="Bandit name:"
+                        className="p-0"
+                        style={{ maxWidth: 320 }}
+                      >
+                        <Link
+                          href={`/bandit/${e.id}`}
+                          className="d-block"
+                          style={{ padding: "var(--space-3)" }}
+                        >
+                          <Flex direction="column" gap="1">
+                            <Flex align="center" gap="2">
+                              <span className="testname">{e.name}</span>
+                              {e.hasVisualChangesets ? (
+                                <Tooltip
+                                  className="d-flex align-items-center ml-2"
+                                  body="Visual experiment"
+                                >
+                                  <RxDesktop className="text-blue" />
+                                </Tooltip>
+                              ) : null}
+                              {(e.linkedFeatures || []).length > 0 ? (
+                                <Tooltip
+                                  className="d-flex align-items-center ml-2"
+                                  body="Linked Feature Flag"
+                                >
+                                  <BsFlag className="text-blue" />
+                                </Tooltip>
+                              ) : null}
+                              {e.hasURLRedirects ? (
+                                <Tooltip
+                                  className="d-flex align-items-center ml-2"
+                                  body="URL Redirect experiment"
+                                >
+                                  <PiShuffle className="text-blue" />
+                                </Tooltip>
+                              ) : null}
+                            </Flex>
+                            {isFiltered && e.trackingKey && (
+                              <span
+                                className="testid text-muted small"
+                                title="Experiment Id"
+                              >
+                                {e.trackingKey}
+                              </span>
+                            )}
+                          </Flex>
+                        </Link>
+                      </TableCell>
+                      {showProjectColumn && (
+                        <TableCell className="nowrap" data-title="Project:">
+                          {e.projectIsDeReferenced ? (
+                            <Tooltip
+                              body={
+                                <>
+                                  Project <code>{e.project}</code> not found
+                                </>
+                              }
+                            >
+                              <span className="text-danger">
+                                Invalid project
+                              </span>
+                            </Tooltip>
+                          ) : (
+                            (e.projectName ?? <em>None</em>)
+                          )}
+                        </TableCell>
+                      )}
+
+                      <TableCell data-title="Tags:" className="table-tags">
+                        <SortedTags
+                          tags={Object.values(e.tags)}
+                          useFlex={true}
+                        />
+                      </TableCell>
+                      <TableCell className="nowrap" data-title="Owner:">
+                        {e.ownerName}
+                      </TableCell>
+                      <TableCell className="nowrap" title={datetime(e.date)}>
+                        {e.tab === "running"
+                          ? "started"
+                          : e.tab === "drafts"
+                            ? "created"
+                            : e.tab === "stopped"
+                              ? "ended"
+                              : e.tab === "archived"
+                                ? "updated"
+                                : ""}{" "}
+                        {date(e.date)}
+                      </TableCell>
+                      <TableCell className="nowrap" data-title="Status:">
+                        <ExperimentStatusIndicator experimentData={e} />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+            {filtered.length > NUM_PER_PAGE && (
+              <Pagination
+                numItemsTotal={filtered.length}
+                currentPage={currentPage}
+                perPage={NUM_PER_PAGE}
+                onPageChange={setCurrentPage}
+              />
+            )}
+          </>
+        )}
+      </Box>
       {openNewExperimentModal && (
         <NewExperimentForm
           onClose={() => setOpenNewExperimentModal(false)}

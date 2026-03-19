@@ -128,7 +128,7 @@
     }
     .rdp-day_button {
       position: relative;
-      border-radius: 8px;
+      border-radius: var(--radius-4);
     }
     &:not(.rdp-disabled) .rdp-day_button {
       &::after {
@@ -182,7 +182,7 @@
       display: block;
       width: 28px;
       height: 28px;
-      border-radius: 8px;
+      border-radius: var(--radius-4);
     }
     &.originalDate,
     &.originalDate2 {
@@ -414,6 +414,97 @@ p.rt-TooltipText {
 .rt-TableRootTable {
   .rt-TableBody > .rt-TableRow:last-child > .rt-TableCell {
     box-shadow: none;
+  }
+}
+
+// List table variant: sticky header, row hover (use same solid surface as surface variant)
+.table-list-wrapper {
+  &[data-table-list] {
+    max-width: 100%;
+    overflow: visible;
+    background-color: transparent;
+    border: none !important;
+    border-radius: 0;
+    .rt-TableRoot.table-list {
+      border: none;
+      background-color: transparent;
+    }
+    .rt-ScrollAreaRoot,
+    .rt-ScrollAreaViewport {
+      overflow: visible !important;
+    }
+    .rt-TableBody .rt-TableRow .rt-TableCell {
+      box-sizing: border-box;
+      overflow: visible;
+      vertical-align: middle;
+    }
+    .rt-TableBody .rt-TableRow:hover .rt-TableCell {
+      background-color: var(--accent-a2);
+    }
+    .rt-TableHeader {
+      // width: 100%;
+      background-color: var(--color-panel-solid);
+      border-top-left-radius: var(--radius-4);
+      border-top-right-radius: var(--radius-4);
+      // Inset top line; downward shadow for separation
+      box-shadow:
+        inset 0 1px 0 0 var(--slate-a5, rgba(0, 9, 50, 0.12)),
+        0 4px 6px -2px rgba(0, 0, 0, 0.1);
+      overflow: visible;
+      box-sizing: border-box;
+      .rt-TableRow .rt-TableColumnHeaderCell {
+        white-space: nowrap;
+        box-sizing: border-box;
+        padding: var(--space-3);
+      }
+    }
+    // Sticky only when explicitly enabled (avoids broken sticky in some layouts)
+    &[data-sticky-header="true"] .rt-TableHeader {
+      position: sticky;
+      top: var(--table-sticky-top, var(--sticky-header-top));
+      z-index: 900;
+    }
+
+    // When sticky, square the header corners
+    &[data-sticky-header="true"][data-sticky-active="true"] .rt-TableHeader {
+      border-top-left-radius: 0;
+      border-top-right-radius: 0;
+
+      .rt-TableRow:first-child .rt-TableColumnHeaderCell:first-child {
+        border-top-left-radius: 0;
+      }
+      .rt-TableRow:first-child .rt-TableColumnHeaderCell:last-child {
+        border-top-right-radius: 0;
+      }
+    }
+
+    .rt-TableRootTable {
+      overflow: visible !important;
+      border-collapse: separate;
+      border-spacing: 0;
+      border: 1px solid var(--slate-a5, rgba(0, 9, 50, 0.12));
+      border-top: none; // top border is on sticky header so it isn't clipped when scrolling
+      border-radius: var(--radius-4);
+      background-color: var(--color-panel-solid);
+      box-sizing: border-box;
+      // // Size to content so wrapper scroll matches table width; header row is part of same table so it aligns
+      // width: max-content;
+      // min-width: 100%;
+
+      .rt-TableHeader
+        .rt-TableRow:first-child
+        .rt-TableColumnHeaderCell:first-child {
+        border-top-left-radius: var(--radius-4);
+        overflow: visible;
+      }
+
+      .rt-TableHeader
+        .rt-TableRow:first-child
+        .rt-TableColumnHeaderCell:last-child {
+        border-top-right-radius: var(--radius-4);
+        overflow: visible;
+      }
+    }
   }
 }
 

@@ -1,9 +1,11 @@
 import React, { FC, useCallback, useMemo, useState } from "react";
 import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
+import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { ApiKeysTable } from "@/components/ApiKeysTable/ApiKeysTable";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
+import Heading from "@/ui/Heading";
 import ApiKeysModal from "./ApiKeysModal";
 
 const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
@@ -56,7 +58,7 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
   );
 
   return (
-    <div className="mb-4">
+    <Box mb="4">
       {open && canCreateKeys && (
         <ApiKeysModal
           close={() => setOpen(false)}
@@ -65,12 +67,14 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
         />
       )}
 
-      <div>
-        <h1>Secret API Keys</h1>
-        <p className="text-gray">
-          Secret keys have access to your organization. They{" "}
-          <strong>must not be exposed to users</strong>.
-        </p>
+      <Box>
+        <Heading as="h1">Secret API Keys</Heading>
+        <Box mb="3" style={{ color: "var(--gray-11)" }}>
+          <p style={{ margin: 0 }}>
+            Secret keys have access to your organization. They{" "}
+            <strong>must not be exposed to users</strong>.
+          </p>
+        </Box>
         {organizationSecretKeys.length > 0 && (
           <ApiKeysTable
             onDelete={onDelete}
@@ -89,8 +93,8 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
             New Secret Key
           </Button>
         )}
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 };
 

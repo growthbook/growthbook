@@ -1,5 +1,6 @@
 import React, { FC, useState } from "react";
 import { datetime } from "shared/dates";
+import { Box } from "@radix-ui/themes";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { EventWebHookListContainer } from "@/components/EventWebHooks/EventWebHookList/EventWebHookList";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -9,6 +10,15 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import WebhookSecretModal from "@/components/EventWebHooks/WebhookSecretModal";
+import Callout from "@/ui/Callout";
+import Heading from "@/ui/Heading";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 const WebhooksPage: FC = () => {
   const permissionsUtil = usePermissionsUtil();
@@ -31,57 +41,62 @@ const WebhooksPage: FC = () => {
 
   if (!canManageWebhooks) {
     return (
-      <div className="container pagecontents">
-        <div className="alert alert-danger">
+      <Box className="container pagecontents">
+        <Callout status="error">
           You do not have access to view this page.
-        </div>
-      </div>
+        </Callout>
+      </Box>
     );
   }
 
   return (
-    <div className="container-fluid pagecontents">
-      <div className="pagecontents">
+    <Box className="container-fluid pagecontents">
+      <Box className="pagecontents">
         <EventWebHookListContainer />
 
-        <div className="mt-5">
-          <h2>Webhook Secrets</h2>
-          <p>
-            Define secret variables that can be used within your webhook
-            endpoints or headers. Simply reference them using Handlebars syntax.
-            For example, <code>{"{{ MY_SECRET }}"}</code>.
-          </p>
-          <table className="table gbtable appbox">
-            <thead>
-              <tr>
-                <th>Key</th>
-                <th>Description</th>
-                <th>Allowed Origins</th>
-                <th>Created</th>
-                <th>Updated</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
+        <Box mt="5">
+          <Heading as="h2">Webhook Secrets</Heading>
+          <Box mb="3">
+            <p style={{ margin: 0 }}>
+              Define secret variables that can be used within your webhook
+              endpoints or headers. Simply reference them using Handlebars
+              syntax. For example, <code>{"{{ MY_SECRET }}"}</code>.
+            </p>
+          </Box>
+          <Table variant="list" stickyHeader roundedCorners className="mb-3">
+            <TableHeader>
+              <TableRow>
+                <TableColumnHeader>Key</TableColumnHeader>
+                <TableColumnHeader>Description</TableColumnHeader>
+                <TableColumnHeader>Allowed Origins</TableColumnHeader>
+                <TableColumnHeader>Created</TableColumnHeader>
+                <TableColumnHeader>Updated</TableColumnHeader>
+                <TableColumnHeader style={{ width: 40 }} />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {webhookSecrets.map((secret) => (
-                <tr key={secret.id}>
-                  <td>
+                <TableRow key={secret.id}>
+                  <TableCell>
                     <ClickToCopy>{secret.key}</ClickToCopy>
-                  </td>
-                  <td>{secret.description}</td>
-                  <td>
+                  </TableCell>
+                  <TableCell>{secret.description}</TableCell>
+                  <TableCell>
                     {secret.allowedOrigins?.length ? (
                       secret.allowedOrigins.join(", ")
                     ) : (
                       <em>Any</em>
                     )}
-                  </td>
-                  <td>{datetime(secret.dateCreated)}</td>
-                  <td>{datetime(secret.dateUpdated)}</td>
-                  <td>
+                  </TableCell>
+                  <TableCell>{datetime(secret.dateCreated)}</TableCell>
+                  <TableCell>{datetime(secret.dateUpdated)}</TableCell>
+                  <TableCell
+                    style={{ cursor: "initial" }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <MoreMenu>
-                      <a
-                        href="#"
+                      <button
+                        type="button"
                         className="dropdown-item"
                         onClick={(e) => {
                           e.preventDefault();
@@ -89,7 +104,7 @@ const WebhooksPage: FC = () => {
                         }}
                       >
                         Edit
-                      </a>
+                      </button>
                       <DeleteButton
                         onClick={async () => {
                           await apiCall<void>(`/webhook-secrets/${secret.id}`, {
@@ -102,16 +117,16 @@ const WebhooksPage: FC = () => {
                         text="Delete Secret"
                       />
                     </MoreMenu>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
           <Button variant="solid" onClick={() => setNewSecretOpen(true)}>
             Add Webhook Secret
           </Button>
-        </div>
-      </div>
+        </Box>
+      </Box>
       {newSecretOpen && (
         <WebhookSecretModal
           close={() => {
@@ -127,7 +142,7 @@ const WebhooksPage: FC = () => {
           }}
         />
       )}
-    </div>
+    </Box>
   );
 };
 export default WebhooksPage;

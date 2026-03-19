@@ -3,6 +3,7 @@ import { ProjectInterface } from "shared/types/project";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { date } from "shared/dates";
+import { Box, Flex } from "@radix-ui/themes";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import ProjectModal from "@/components/Projects/ProjectModal";
 import { useAuth } from "@/services/auth";
@@ -15,6 +16,14 @@ import Badge from "@/ui/Badge";
 import { capitalizeFirstLetter } from "@/services/utils";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
+import Heading from "@/ui/Heading";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 const ProjectsPage: FC = () => {
   const { projects, mutateDefinitions } = useDefinitions();
@@ -32,8 +41,10 @@ const ProjectsPage: FC = () => {
   const [deleteProjectResources, setDeleteProjectResources] =
     useState<boolean>(true);
 
+  const projectList = projects ?? [];
+
   return (
-    <div className="container-fluid  pagecontents">
+    <Box className="container-fluid pagecontents">
       {modalOpen && (
         <ProjectModal
           existing={modalOpen}
@@ -42,50 +53,54 @@ const ProjectsPage: FC = () => {
         />
       )}
 
-      <div className="filters md-form row mb-1 align-items-center">
-        <div className="col-auto d-flex">
-          <h1 className="mb-0">Projects</h1>
-        </div>
-        <div style={{ flex: 1 }} />
-        <div className="col-auto">
-          <Tooltip
-            body="You don't have permission to create projects"
-            shouldDisplay={!canCreateProjects}
+      <Flex align="center" justify="between" mb="1" gap="3" wrap="wrap">
+        <Heading as="h1">Projects</Heading>
+        <Tooltip
+          body="You don't have permission to create projects"
+          shouldDisplay={!canCreateProjects}
+        >
+          <Button
+            disabled={!canCreateProjects}
+            onClick={() => setModalOpen({})}
           >
-            <Button
-              disabled={!canCreateProjects}
-              onClick={() => setModalOpen({})}
-            >
-              Create Project
-            </Button>
-          </Tooltip>
-        </div>
-      </div>
+            Create Project
+          </Button>
+        </Tooltip>
+      </Flex>
 
-      <p className="text-gray mb-3">
-        Group your ideas and experiments into <strong>Projects</strong> to keep
-        things organized and easy to manage.
-      </p>
-      {projects.length > 0 ? (
-        <table className="table appbox gbtable table-hover">
-          <thead>
-            <tr>
-              <th className="col-3">Project Name</th>
-              <th className="col-3">Description</th>
-              <th className="col-2">Id</th>
-              <th className="col-2">Date Created</th>
-              <th className="col-2">Date Updated</th>
-              <th className="w-50"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {projects.map((p) => {
+      <Box mb="3" style={{ color: "var(--gray-11)" }}>
+        <p style={{ margin: 0 }}>
+          Group your ideas and experiments into <strong>Projects</strong> to
+          keep things organized and easy to manage.
+        </p>
+      </Box>
+      {projectList.length > 0 ? (
+        <Table variant="list" stickyHeader roundedCorners>
+          <TableHeader>
+            <TableRow>
+              <TableColumnHeader style={{ width: "22%" }}>
+                Project Name
+              </TableColumnHeader>
+              <TableColumnHeader style={{ width: "22%" }}>
+                Description
+              </TableColumnHeader>
+              <TableColumnHeader style={{ width: "14%" }}>Id</TableColumnHeader>
+              <TableColumnHeader style={{ width: "14%" }}>
+                Date Created
+              </TableColumnHeader>
+              <TableColumnHeader style={{ width: "14%" }}>
+                Date Updated
+              </TableColumnHeader>
+              <TableColumnHeader style={{ width: 50 }} />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {projectList.map((p) => {
               const canEdit = permissionsUtil.canUpdateProject(p.id);
               const canDelete =
-                // If the project has the `managedBy` property, we block deletion.
                 permissionsUtil.canDeleteProject(p.id) && !p.managedBy?.type;
               return (
-                <tr
+                <TableRow
                   key={p.id}
                   onClick={
                     canEdit
@@ -94,9 +109,9 @@ const ProjectsPage: FC = () => {
                         }
                       : undefined
                   }
-                  style={canEdit ? { cursor: "pointer" } : {}}
+                  style={canEdit ? { cursor: "pointer" } : undefined}
                 >
-                  <td>
+                  <TableCell>
                     {canEdit ? (
                       <Link
                         href={`/project/${p.id}`}
@@ -108,22 +123,28 @@ const ProjectsPage: FC = () => {
                       <span className="font-weight-bold">{p.name}</span>
                     )}
                     {p.managedBy?.type ? (
-                      <div>
+                      <Box>
                         <Badge
                           label={`Managed by ${capitalizeFirstLetter(
                             p.managedBy.type,
                           )}`}
                         />
-                      </div>
+                      </Box>
                     ) : null}
-                  </td>
-                  <td className="pr-5 text-gray" style={{ fontSize: 12 }}>
+                  </TableCell>
+                  <TableCell
+                    className="pr-5"
+                    style={{
+                      fontSize: 12,
+                      color: "var(--gray-11)",
+                    }}
+                  >
                     {p.description}
-                  </td>
-                  <td>{p.id}</td>
-                  <td>{date(p.dateCreated)}</td>
-                  <td>{date(p.dateUpdated)}</td>
-                  <td
+                  </TableCell>
+                  <TableCell>{p.id}</TableCell>
+                  <TableCell>{date(p.dateCreated)}</TableCell>
+                  <TableCell>{date(p.dateUpdated)}</TableCell>
+                  <TableCell
                     style={{ cursor: "initial" }}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -132,6 +153,7 @@ const ProjectsPage: FC = () => {
                     <MoreMenu>
                       {canEdit ? (
                         <button
+                          type="button"
                           className="btn dropdown-item"
                           onClick={() => {
                             setModalOpen(p);
@@ -176,16 +198,16 @@ const ProjectsPage: FC = () => {
                         />
                       ) : null}
                     </MoreMenu>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               );
             })}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       ) : (
         <p>Click the button in the top right to create your first project!</p>
       )}
-    </div>
+    </Box>
   );
 };
 export default ProjectsPage;

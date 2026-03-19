@@ -29,7 +29,7 @@ const MetricsPage = (): React.ReactElement => {
   const [showNewModal, setShowNewModal] = React.useState(false);
 
   return (
-    <div className="container pagecontents">
+    <Box className="pagecontents">
       {showNewModal && (
         <NewMetricModal
           close={() => setShowNewModal(false)}
@@ -37,15 +37,17 @@ const MetricsPage = (): React.ReactElement => {
         />
       )}
       <CreateMetricFromTemplate />
-      <h1 className="mb-4">Metrics</h1>
+      <Box mb="4">
+        <h1 style={{ margin: 0 }}>Metrics</h1>
+      </Box>
       {!hasMetrics ? (
-        <div className="appbox p-5 text-center">
+        <Box className="appbox" p="5" style={{ textAlign: "center" }}>
           <h2>Define What Success Looks Like</h2>
           <p>
             Metrics are defined with SQL on top of your data warehouse. Use them
             as goals and guardrails in experiments to measure success.
           </p>
-          <div className="mt-3">
+          <Box mt="3">
             {!hasDatasource ? (
               <LinkButton href="/datasources">Connect Data Source</LinkButton>
             ) : !hasFactTables ? (
@@ -53,8 +55,8 @@ const MetricsPage = (): React.ReactElement => {
             ) : (
               <Button onClick={() => setShowNewModal(true)}>Add Metric</Button>
             )}
-          </div>
-        </div>
+          </Box>
+        </Box>
       ) : (
         <Tabs defaultValue="metrics" persistInURL={true}>
           <TabsList>
@@ -75,7 +77,7 @@ const MetricsPage = (): React.ReactElement => {
           </Box>
         </Tabs>
       )}
-    </div>
+    </Box>
   );
 };
 

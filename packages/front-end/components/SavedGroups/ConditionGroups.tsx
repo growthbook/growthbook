@@ -6,16 +6,24 @@ import {
   SavedGroupWithoutValues,
 } from "shared/types/saved-group";
 import { isProjectListValidForProject, truncateString } from "shared/util";
-import { Box } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/ui/Button";
+import Heading from "@/ui/Heading";
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import ProjectBadges from "@/components/ProjectBadges";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 import TruncatedConditionDisplay from "./TruncatedConditionDisplay";
 import SavedGroupForm from "./SavedGroupForm";
 import SavedGroupDeleteModal from "./SavedGroupDeleteModal";
@@ -61,16 +69,21 @@ export default function ConditionGroups({ groups, mutate }: Props) {
     [getOwnerDisplay],
   );
 
-  const { items, searchInputProps, isFiltered, SortableTH, pagination } =
-    useSearch({
-      items: conditionGroupsWithOwners,
-      localStorageKey: "savedGroupsRuntime",
-      defaultSortField: "dateCreated",
-      defaultSortDir: -1,
-      searchFields: ["groupName^3", "condition^2", "ownerNameDisplay"],
-      pageSize: 50,
-      updateSearchQueryOnChange: true,
-    });
+  const {
+    items,
+    searchInputProps,
+    isFiltered,
+    SortableTableColumnHeader,
+    pagination,
+  } = useSearch({
+    items: conditionGroupsWithOwners,
+    localStorageKey: "savedGroupsRuntime",
+    defaultSortField: "dateCreated",
+    defaultSortDir: -1,
+    searchFields: ["groupName^3", "condition^2", "ownerNameDisplay"],
+    pageSize: 50,
+    updateSearchQueryOnChange: true,
+  });
 
   if (!conditionGroups) return <LoadingOverlay />;
 
@@ -96,26 +109,27 @@ export default function ConditionGroups({ groups, mutate }: Props) {
             type="condition"
           />
         )}
-        <div className="row align-items-center mb-1">
-          <div className="col-auto">
-            <h2 className="mb-0">Condition Groups</h2>
-          </div>
-          <div className="flex-1"></div>
+        <Flex align="center" justify="between" mb="1">
+          <Heading as="h2" size="x-large">
+            Condition Groups
+          </Heading>
           {canCreate ? (
-            <div className="col-auto">
-              <Button onClick={() => setSavedGroupForm({})}>
-                Add Condition Group
-              </Button>
-            </div>
+            <Button onClick={() => setSavedGroupForm({})}>
+              Add Condition Group
+            </Button>
           ) : null}
-        </div>
-        <p className="text-gray mb-1">
-          Set up advanced targeting rules based on user attributes.
-        </p>
-        <p className="text-gray">
-          For example, target users located in the US <b>and</b> on a mobile
-          device.
-        </p>
+        </Flex>
+        <Box mb="1" style={{ color: "var(--gray-11)" }}>
+          <p style={{ margin: 0 }}>
+            Set up advanced targeting rules based on user attributes.
+          </p>
+        </Box>
+        <Box style={{ color: "var(--gray-11)" }}>
+          <p style={{ margin: 0 }}>
+            For example, target users located in the US <b>and</b> on a mobile
+            device.
+          </p>
+        </Box>
         {filteredConditionGroups.length > 0 && (
           <>
             <Box className="relative" width="40%" mb="4">
@@ -125,90 +139,110 @@ export default function ConditionGroups({ groups, mutate }: Props) {
                 {...searchInputProps}
               />
             </Box>
-            <div className="row mb-0">
-              <div className="col-12">
-                <table className="table gbtable table-valign-top">
-                  <thead>
-                    <tr>
-                      <SortableTH field="groupName" style={{ maxWidth: 200 }}>
-                        Name
-                      </SortableTH>
-                      <SortableTH field="condition">Condition</SortableTH>
-                      <th>Description</th>
-                      <th className="col-2">Projects</th>
-                      <SortableTH field="ownerNameDisplay">Owner</SortableTH>
-                      <SortableTH field="dateUpdated">Date Updated</SortableTH>
-                      <th />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {items.map((s) => {
-                      return (
-                        <tr key={s.id}>
-                          <td style={{ width: "250px" }}>
-                            <Link
-                              href={`/saved-groups/${s.id}`}
-                              className="link-purple"
-                              style={{
-                                display: "-webkit-box",
-                                WebkitLineClamp: 3,
-                                WebkitBoxOrient: "vertical",
-                                textOverflow: "ellipsis",
-                                overflow: "hidden",
-                                lineHeight: "1.2em",
-                                wordBreak: "break-word",
-                                overflowWrap: "anywhere",
-                              }}
-                            >
-                              {s.groupName}
-                            </Link>
-                          </td>
-                          <td style={{ width: 400 }}>
-                            <TruncatedConditionDisplay
-                              condition={s.condition || ""}
-                              savedGroups={[]}
+            <Box>
+              <Table variant="list" stickyHeader={false} roundedCorners>
+                <TableHeader>
+                  <TableRow>
+                    <SortableTableColumnHeader
+                      field="groupName"
+                      style={{ maxWidth: 200 }}
+                    >
+                      Name
+                    </SortableTableColumnHeader>
+                    <SortableTableColumnHeader field="condition">
+                      Condition
+                    </SortableTableColumnHeader>
+                    <TableColumnHeader>Description</TableColumnHeader>
+                    <TableColumnHeader style={{ width: "16%" }}>
+                      Projects
+                    </TableColumnHeader>
+                    <SortableTableColumnHeader field="ownerNameDisplay">
+                      Owner
+                    </SortableTableColumnHeader>
+                    <SortableTableColumnHeader field="dateUpdated">
+                      Date Updated
+                    </SortableTableColumnHeader>
+                    <TableColumnHeader style={{ width: 30 }} />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {items.map((s) => {
+                    return (
+                      <TableRow key={s.id}>
+                        <TableCell
+                          style={{
+                            width: "250px",
+                            verticalAlign: "top",
+                          }}
+                        >
+                          <Link
+                            href={`/saved-groups/${s.id}`}
+                            className="link-purple"
+                            style={{
+                              display: "-webkit-box",
+                              WebkitLineClamp: 3,
+                              WebkitBoxOrient: "vertical",
+                              textOverflow: "ellipsis",
+                              overflow: "hidden",
+                              lineHeight: "1.2em",
+                              wordBreak: "break-word",
+                              overflowWrap: "anywhere",
+                            }}
+                          >
+                            {s.groupName}
+                          </Link>
+                        </TableCell>
+                        <TableCell style={{ width: 400, verticalAlign: "top" }}>
+                          <TruncatedConditionDisplay
+                            condition={s.condition || ""}
+                            savedGroups={[]}
+                          />
+                        </TableCell>
+                        <TableCell
+                          style={{ minWidth: 200, verticalAlign: "top" }}
+                        >
+                          <Flex wrap="wrap">
+                            {truncateString(s.description || "", 40)}
+                          </Flex>
+                        </TableCell>
+                        <TableCell style={{ verticalAlign: "top" }}>
+                          {(s?.projects?.length || 0) > 0 ? (
+                            <ProjectBadges
+                              resourceType="saved group"
+                              projectIds={s.projects}
                             />
-                          </td>
-                          <td style={{ minWidth: 200 }}>
-                            <div className="d-flex flex-wrap">
-                              {truncateString(s.description || "", 40)}
-                            </div>
-                          </td>
-                          <td>
-                            {(s?.projects?.length || 0) > 0 ? (
-                              <ProjectBadges
-                                resourceType="saved group"
-                                projectIds={s.projects}
-                              />
-                            ) : (
-                              <ProjectBadges resourceType="saved group" />
-                            )}
-                          </td>
-                          <td>{s.ownerNameDisplay}</td>
-                          <td>{ago(s.dateUpdated)}</td>
-                          <td style={{ width: 30 }}>
-                            <SavedGroupRowMenu
-                              canUpdate={canUpdate(s)}
-                              canDelete={canDeleteSavedGroup(s)}
-                              onEdit={() => setSavedGroupForm(s)}
-                              onDelete={() => setDeleteModal(s)}
-                            />
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {!items.length && isFiltered && (
-                      <tr>
-                        <td colSpan={7} align={"center"}>
-                          No matching saved groups
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-                {pagination}
-              </div>
-            </div>
+                          ) : (
+                            <ProjectBadges resourceType="saved group" />
+                          )}
+                        </TableCell>
+                        <TableCell style={{ verticalAlign: "top" }}>
+                          {s.ownerNameDisplay}
+                        </TableCell>
+                        <TableCell style={{ verticalAlign: "top" }}>
+                          {ago(s.dateUpdated)}
+                        </TableCell>
+                        <TableCell style={{ width: 30, verticalAlign: "top" }}>
+                          <SavedGroupRowMenu
+                            canUpdate={canUpdate(s)}
+                            canDelete={canDeleteSavedGroup(s)}
+                            onEdit={() => setSavedGroupForm(s)}
+                            onDelete={() => setDeleteModal(s)}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  {!items.length && isFiltered && (
+                    <TableRow>
+                      <TableCell colSpan={7} style={{ textAlign: "center" }}>
+                        No matching saved groups
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+              {pagination}
+            </Box>
           </>
         )}
       </Box>

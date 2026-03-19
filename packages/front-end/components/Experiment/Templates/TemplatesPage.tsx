@@ -21,6 +21,14 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import EmptyState from "@/components/EmptyState";
+import Callout from "@/ui/Callout";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 interface Props {
   setOpenTemplateModal: (
@@ -80,7 +88,7 @@ export const TemplatesPage = ({
     [templateExperimentMap, allTemplates],
   );
 
-  const { items, SortableTH } = useSearch({
+  const { items, SortableTableColumnHeader } = useSearch({
     items: flattenedTemplates,
     defaultSortField: "templateName",
     localStorageKey: "templates",
@@ -95,7 +103,11 @@ export const TemplatesPage = ({
   }
 
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return (
+      <Callout status="error" mb="3">
+        {error.message}
+      </Callout>
+    );
   }
 
   if (!hasTemplatesFeature) {
@@ -113,25 +125,37 @@ export const TemplatesPage = ({
   }
   return hasTemplates ? (
     <Box>
-      <table className="appbox table gbtable">
-        <thead>
-          <tr>
-            <SortableTH field="templateName">Template Name</SortableTH>
-            <SortableTH field="templateDescription">Description</SortableTH>
-            <SortableTH field="tags">Tags</SortableTH>
+      <Table variant="list" stickyHeader roundedCorners>
+        <TableHeader>
+          <TableRow>
+            <SortableTableColumnHeader field="templateName">
+              Template Name
+            </SortableTableColumnHeader>
+            <SortableTableColumnHeader field="templateDescription">
+              Description
+            </SortableTableColumnHeader>
+            <SortableTableColumnHeader field="tags">
+              Tags
+            </SortableTableColumnHeader>
             {showProjectColumn && (
-              <SortableTH field="project">Project</SortableTH>
+              <SortableTableColumnHeader field="project">
+                Project
+              </SortableTableColumnHeader>
             )}
-            <SortableTH field="dateCreated">Created</SortableTH>
-            <SortableTH field="usage">Usage</SortableTH>
-            <th style={{ width: 50 }} />
-          </tr>
-        </thead>
-        <tbody>
+            <SortableTableColumnHeader field="dateCreated">
+              Created
+            </SortableTableColumnHeader>
+            <SortableTableColumnHeader field="usage">
+              Usage
+            </SortableTableColumnHeader>
+            <TableColumnHeader style={{ width: 50 }} />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {items.map((t) => {
             const templateUsage = t.usage;
             return (
-              <tr
+              <TableRow
                 key={t.id}
                 className="hover-highlight"
                 onClick={(e) => {
@@ -140,31 +164,33 @@ export const TemplatesPage = ({
                 }}
                 style={{ cursor: "pointer" }}
               >
-                <td data-title="Template Name" className="col-2">
+                <TableCell data-title="Template Name">
                   <Link href={`/experiments/template/${t.id}`}>
                     {t.templateName}
                   </Link>
-                </td>
-                <td data-title="Description" className="col-3">
+                </TableCell>
+                <TableCell data-title="Description">
                   {t.templateDescription}
-                </td>
-                <td data-title="Tags">
+                </TableCell>
+                <TableCell data-title="Tags">
                   <SortedTags
                     tags={Object.values(t.tags ?? [])}
                     useFlex={true}
                   />
-                </td>
+                </TableCell>
                 {showProjectColumn && (
-                  <td className="text-gray col-2">
+                  <TableCell
+                    data-title="Project"
+                    style={{ color: "var(--gray-11)" }}
+                  >
                     {t.project ? getProjectById(t.project)?.name : ""}
-                  </td>
+                  </TableCell>
                 )}
-                <td data-title="Created" className="col-2">
+                <TableCell data-title="Created">
                   {date(t.dateCreated)}
-                </td>
-                <td data-title="Usage">{templateUsage}</td>
-                <td
-                  // style={{ cursor: "initial" }}
+                </TableCell>
+                <TableCell data-title="Usage">{templateUsage}</TableCell>
+                <TableCell
                   onClick={(e) => {
                     e.stopPropagation();
                   }}
@@ -190,7 +216,7 @@ export const TemplatesPage = ({
                         Duplicate
                       </button>
                     ) : null}
-                    <hr className="my-1" />
+                    <hr style={{ margin: "var(--space-1) 0" }} />
                     {canDelete(t) ? (
                       <DeleteButton
                         className="dropdown-item text-danger"
@@ -206,12 +232,12 @@ export const TemplatesPage = ({
                       />
                     ) : null}
                   </MoreMenu>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             );
           })}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </Box>
   ) : (
     <>

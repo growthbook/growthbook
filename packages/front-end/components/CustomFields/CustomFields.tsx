@@ -15,7 +15,7 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Box } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import {
@@ -27,6 +27,14 @@ import CustomFieldModal from "@/components/CustomFields/CustomFieldModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
+import Heading from "@/ui/Heading";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import useURLHash from "@/hooks/useURLHash";
 
@@ -67,35 +75,56 @@ function CustomFieldsTable({
     );
 
   return (
-    <table
-      className="table gbtable table-valign-top"
+    <Table
+      variant="list"
+      stickyHeader={false}
+      roundedCorners
       style={{ tableLayout: "fixed", width: "100%" }}
     >
-      <colgroup>
-        <col style={{ width: W.dragHandle }} />
-        <col style={{ width: W.name }} />
-        <col style={{ width: W.key }} />
-        <col style={{ width: W.description }} />
-        {showAppliesTo && <col style={{ width: W.appliesTo }} />}
-        <col style={{ width: W.valueType }} />
-        <col style={{ width: W.projects }} />
-        {showRequired && <col style={{ width: W.required }} />}
-        <col style={{ width: W.menu }} />
-      </colgroup>
-      <thead>
-        <tr>
-          <th style={{ padding: "0.5rem 0", textAlign: "center" }} />
-          <th>Field Name</th>
-          <th>Field Key</th>
-          <th>Description</th>
-          {showAppliesTo && <th>Applies To</th>}
-          <th>Value Type</th>
-          <th>Projects</th>
-          {showRequired && <th>Required</th>}
-          <th style={{ padding: "0.5rem 0", textAlign: "center" }} />
-        </tr>
-      </thead>
-      <tbody>
+      <TableHeader>
+        <TableRow>
+          <TableColumnHeader
+            style={{
+              width: W.dragHandle,
+              minWidth: W.dragHandle,
+              padding: "0.5rem 0",
+              textAlign: "center",
+            }}
+          />
+          <TableColumnHeader style={{ width: W.name }}>
+            Field Name
+          </TableColumnHeader>
+          <TableColumnHeader style={{ width: W.key }}>
+            Field Key
+          </TableColumnHeader>
+          <TableColumnHeader style={{ width: W.description }}>
+            Description
+          </TableColumnHeader>
+          {showAppliesTo && (
+            <TableColumnHeader style={{ width: W.appliesTo }}>
+              Applies To
+            </TableColumnHeader>
+          )}
+          <TableColumnHeader>Value Type</TableColumnHeader>
+          <TableColumnHeader style={{ width: W.projects }}>
+            Projects
+          </TableColumnHeader>
+          {showRequired && (
+            <TableColumnHeader style={{ width: W.required }}>
+              Required
+            </TableColumnHeader>
+          )}
+          <TableColumnHeader
+            style={{
+              width: W.menu,
+              minWidth: W.menu,
+              padding: "0.5rem 0",
+              textAlign: "center",
+            }}
+          />
+        </TableRow>
+      </TableHeader>
+      <TableBody>
         {filteredItems.length > 0 ? (
           <SortableContext
             items={filteredItems}
@@ -122,8 +151,12 @@ function CustomFieldsTable({
             ))}
           </SortableContext>
         ) : (
-          <tr>
-            <td colSpan={colSpan} className="text-center text-gray">
+          <TableRow>
+            <TableCell
+              colSpan={colSpan}
+              className="text-gray"
+              style={{ textAlign: "center" }}
+            >
               <em>
                 No custom fields in this view.{" "}
                 {canManage ? (
@@ -138,11 +171,11 @@ function CustomFieldsTable({
                   </a>
                 ) : null}
               </em>
-            </td>
-          </tr>
+            </TableCell>
+          </TableRow>
         )}
-      </tbody>
-    </table>
+      </TableBody>
+    </Table>
   );
 }
 
@@ -230,28 +263,25 @@ const CustomFields: FC = () => {
   return (
     <>
       <Box mt="4" mb="5">
-        <div className="row align-items-center mb-1">
-          <div className="col-auto">
-            <h2 className="mb-0">Custom Fields</h2>
-          </div>
-          <div className="flex-1" />
-          {canManage && (
-            <div className="col-auto">
-              <Button
-                onClick={() => {
-                  setModalOpen({});
-                }}
-              >
-                Add Custom Field
-              </Button>
-            </div>
-          )}
-        </div>
-        <p className="text-gray mb-4">
-          Add custom metadata to feature flags and experiments. Choose whether
-          each field applies to features, experiments, or both (separate
-          entries).
-        </p>
+        <Flex align="center" justify="between" mb="1" gap="3" wrap="wrap">
+          <Heading as="h2">Custom Fields</Heading>
+          {canManage ? (
+            <Button
+              onClick={() => {
+                setModalOpen({});
+              }}
+            >
+              Add Custom Field
+            </Button>
+          ) : null}
+        </Flex>
+        <Box mb="4" style={{ color: "var(--gray-11)" }}>
+          <p style={{ margin: 0 }}>
+            Add custom metadata to feature flags and experiments. Choose whether
+            each field applies to features, experiments, or both (separate
+            entries).
+          </p>
+        </Box>
         <DndContext
           sensors={sensors}
           onDragEnd={handleDragEnd}
@@ -268,7 +298,7 @@ const CustomFields: FC = () => {
               </TabsList>
             </Box>
             <TabsContent value="all">
-              <Box className="appbox">
+              <Box>
                 <CustomFieldsTable
                   filter="all"
                   items={items}
@@ -283,7 +313,7 @@ const CustomFields: FC = () => {
               </Box>
             </TabsContent>
             <TabsContent value="feature">
-              <Box className="appbox">
+              <Box>
                 <CustomFieldsTable
                   filter="feature"
                   items={items}
@@ -298,7 +328,7 @@ const CustomFields: FC = () => {
               </Box>
             </TabsContent>
             <TabsContent value="experiment">
-              <Box className="appbox">
+              <Box>
                 <CustomFieldsTable
                   filter="experiment"
                   items={items}
