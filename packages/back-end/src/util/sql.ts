@@ -92,8 +92,9 @@ export function getBaseIdTypeAndJoins(
       if (joinableTypes.length > 0) {
         // Add the most frequent joinable type
         joinsRequired.add(
-          idTypesSortedByFrequency.find((x) => joinableTypes.includes(x[0]))?.[0] ||
-            joinableTypes[0],
+          idTypesSortedByFrequency.find((x) =>
+            joinableTypes.includes(x[0]),
+          )?.[0] || joinableTypes[0],
         );
       } else {
         // No joinable types found - fall back to the most frequent type

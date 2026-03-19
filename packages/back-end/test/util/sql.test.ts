@@ -399,11 +399,7 @@ describe("backend", () => {
     it("handles empty available joins array", () => {
       // Empty array should fall back to original behavior
       expect(
-        getBaseIdTypeAndJoins(
-          [["base_id"], ["other_id"]],
-          "base_id",
-          [],
-        ),
+        getBaseIdTypeAndJoins([["base_id"], ["other_id"]], "base_id", []),
       ).toEqual({
         baseIdType: "base_id",
         joinsRequired: ["other_id"],
