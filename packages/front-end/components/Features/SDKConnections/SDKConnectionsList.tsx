@@ -100,12 +100,7 @@ export default function SDKConnectionsList() {
         <strong>SDK Connections</strong> make it easy to integrate GrowthBook
         into your front-end, back-end, or mobile application.
       </p>
-      <Button
-        onClick={(e) => {
-          e.preventDefault();
-          setModalOpen(true);
-        }}
-      >
+      <Button onClick={() => setModalOpen(true)}>
         <GBAddCircle /> Create New SDK Connection
       </Button>
     </Box>

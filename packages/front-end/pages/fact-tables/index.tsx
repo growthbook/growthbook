@@ -5,6 +5,7 @@ import { date } from "shared/dates";
 import { FaArrowRight } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { Box, Flex, Separator } from "@radix-ui/themes";
+import Heading from "@/ui/Heading";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import FactTableModal from "@/components/FactTables/FactTableModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -182,9 +183,9 @@ export default function FactTablesPage() {
         <FactTableModal close={() => setCreateFactOpen(false)} />
       )}
       <PageHead breadcrumb={[{ display: "Fact Tables" }]} />
-      <Box as="h1" mb="4">
+      <Heading as="h1" size="x-large" mb="4">
         Fact Tables
-      </Box>
+      </Heading>
 
       {!filteredFactTables.length ? (
         <Box className="appbox" p="5" style={{ textAlign: "center" }}>

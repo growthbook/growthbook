@@ -316,7 +316,9 @@ const FeatureAttributesPage = (): React.ReactElement => {
         <Box mb="5">
           <Flex direction="column" gap="2" mb="3">
             <Flex justify="between" align="center" mb="1">
-              <Heading size="x-large">Targeting Attributes</Heading>
+              <Heading as="h1" size="x-large">
+                Targeting Attributes
+              </Heading>
               {canCreateAttributes && (
                 <Button onClick={() => setModalData("")}>Add Attribute</Button>
               )}
