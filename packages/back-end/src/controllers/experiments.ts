@@ -3975,6 +3975,7 @@ export async function postExperimentFeatureValues(
   const { variations, variationWeights, features } = req.body;
   const { org } = context;
   const experiment = await getExperimentById(context, id);
+
   if (!experiment) {
     res.status(404).json({
       status: 404,
@@ -3996,13 +3997,31 @@ export async function postExperimentFeatureValues(
   if (variations.length !== variationWeights.length) {
     res.status(400).json({
       status: 400,
-      message: "Variations and variationWeights must be the same length.",
+      message: "variations and variationWeights must be the same length.",
     });
     return;
   }
 
-  // Ensure variation ids + keys are present and unique.
   validateVariationIds(variations);
+  const variationWeightSum = variationWeights.reduce(
+    (acc, weight) => acc + weight,
+    0,
+  );
+  if (variationWeightSum !== 1) {
+    res.status(400).json({
+      status: 400,
+      message: "variationWeights must add up to 1.",
+    });
+    return;
+  }
+
+  if (Object.values(features).some((v) => v.length !== variations.length)) {
+    res.status(400).json({
+      status: 400,
+      message: "All features must specify values for all variations.",
+    });
+    return;
+  }
 
   if (!experiment.phases?.length) {
     res.status(400).json({
@@ -4032,6 +4051,38 @@ export async function postExperimentFeatureValues(
 
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
+  }
+
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
+  const envs = getAffectedEnvsForExperiment({
+    experiment,
+    orgEnvironments: context.org.settings?.environments || [],
+    linkedFeatures,
+  });
+
+  if (!context.permissions.canRunExperiment(experiment, envs)) {
+    context.permissions.throwPermissionError();
+  }
+
+  if (linkedFeatures.length !== Object.keys(features).length) {
+    res.status(400).json({
+      status: 400,
+      message: "One or more features not found",
+    });
+    return;
+  }
+
+  // Check for permission to update each feature
+  for (const feature of linkedFeatures) {
+    if (
+      !context.permissions.canUpdateFeature(feature, {}) ||
+      !context.permissions.canManageFeatureDrafts(feature)
+    ) {
+      context.permissions.throwPermissionError();
+    }
   }
 
   // If variations have changed, update the experiment and sync visual changesets and url redirects
@@ -4074,47 +4125,8 @@ export async function postExperimentFeatureValues(
     }
   }
 
-  const linkedFeatureIds = experiment.linkedFeatures || [];
-
-  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
-
-  const envs = getAffectedEnvsForExperiment({
-    experiment,
-    orgEnvironments: context.org.settings?.environments || [],
-    linkedFeatures,
-  });
-
-  if (!context.permissions.canRunExperiment(experiment, envs)) {
-    context.permissions.throwPermissionError();
-  }
-
-  // Hydrate the feature keys in feature with the feature objects
-  const hydratedFeatures = await getFeaturesByIds(
-    context,
-    Object.keys(features),
-  );
-
-  if (hydratedFeatures.length !== Object.keys(features).length) {
-    res.status(400).json({
-      status: 400,
-      message: "One or more features not found",
-    });
-    return;
-  }
-
-  // Check for permission to update each feature
-  for (const feature of hydratedFeatures) {
-    if (
-      !context.permissions.canUpdateFeature(feature, {}) ||
-      !context.permissions.canManageFeatureDrafts(feature)
-    ) {
-      context.permissions.throwPermissionError();
-    }
-  }
-
   // Go through features and create revisions
-  for (const feature of hydratedFeatures) {
-    const revision = await getDraftRevision(context, feature, feature.version);
+  for (const feature of linkedFeatures) {
     const orgEnvIds = context.environments;
     // Get existing experiment-ref rules for this experiment across all environments
     const matchingRules = getMatchingRules(
@@ -4122,13 +4134,33 @@ export async function postExperimentFeatureValues(
       (r: FeatureRule) =>
         r.type === "experiment-ref" && r.experimentId === experiment.id,
       orgEnvIds,
-      revision,
-      false,
     );
 
     if (!matchingRules.length) {
       // If there are no existing experiment-ref rules for this experiment
       // on this feature, skip it
+      logger.error(
+        "No experiment-ref rules found for this experiment on this feature",
+        {
+          featureId: feature.id,
+          experimentId: experiment.id,
+        },
+      );
+      continue;
+    }
+
+    const updatedVariationValues = features[feature.id];
+
+    const featureNeedsUpdate = matchingRules.some((m: MatchingRule) => {
+      // This should never happen, but needed for type safety to access the rule variations
+      if (m.rule.type !== "experiment-ref") return false;
+      return (
+        JSON.stringify(m.rule.variations) !==
+        JSON.stringify(updatedVariationValues)
+      );
+    });
+
+    if (!featureNeedsUpdate) {
       continue;
     }
 
@@ -4142,7 +4174,7 @@ export async function postExperimentFeatureValues(
       settings: org?.settings,
     });
 
-    const updatedVariations = features[feature.id];
+    const revision = await getDraftRevision(context, feature, feature.version);
 
     await editFeatureRules(
       context,
@@ -4152,9 +4184,14 @@ export async function postExperimentFeatureValues(
         environmentId: m.environmentId,
         i: m.i,
       })),
-      { variations: updatedVariations },
+      { variations: updatedVariationValues },
       res.locals.eventAudit,
       resetReview,
     );
   }
+
+  res.status(200).json({
+    status: 200,
+    experiment,
+  });
 }

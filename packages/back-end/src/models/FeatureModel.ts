@@ -992,7 +992,7 @@ export async function editFeatureRules(
     changes,
     {
       user,
-      action: "edit experiment rule",
+      action: "edit rule",
       subject: `in ${matches.map((m) => m.environmentId).join(", ")}`,
       value: JSON.stringify(updates),
     },
