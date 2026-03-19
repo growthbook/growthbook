@@ -145,8 +145,10 @@ import {
   shouldValidateCustomFieldsOnUpdate,
   validateCustomFieldsForSection,
 } from "back-end/src/util/custom-fields";
-import { getRevision } from "back-end/src/models/FeatureRevisionModel";
-import { getDraftRevision } from "./features";
+import {
+  getDraftRevision,
+  getLiveAndBaseRevisionsForFeature,
+} from "./features";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
 
@@ -4202,36 +4204,13 @@ export async function postExperimentFeatureValues(
       return;
     }
 
-    const live = await getRevision({
+    const { live, base } = await getLiveAndBaseRevisionsForFeature({
       context,
-      organization: org.id,
+      organizationId: org.id,
       featureId: feature.id,
-      version: feature.version,
+      liveVersion: feature.version,
+      baseVersion: revision.baseVersion,
     });
-    if (!live) {
-      res.status(400).json({
-        status: 400,
-        message: "Could not lookup feature history",
-      });
-      return;
-    }
-
-    const base =
-      revision.baseVersion === live.version
-        ? live
-        : await getRevision({
-            context,
-            organization: org.id,
-            featureId: feature.id,
-            version: revision.baseVersion,
-          });
-    if (!base) {
-      res.status(400).json({
-        status: 400,
-        message: "Could not lookup feature history",
-      });
-      return;
-    }
 
     const requiresReview = checkIfRevisionNeedsReview({
       feature,
