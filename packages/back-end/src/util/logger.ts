@@ -89,7 +89,7 @@ export const httpLogger = pinoHttp({
 /**
  * Wrapper for our logger
  */
-export const logger = {
+export const logger: BaseLogger = {
   debug: (...args: unknown[]) => {
     httpLogger.logger.debug(...(args as Parameters<BaseLogger["debug"]>));
   },
@@ -114,7 +114,7 @@ export const logger = {
   warn: (...args: unknown[]) => {
     httpLogger.logger.warn(...(args as Parameters<BaseLogger["warn"]>));
   },
-} as BaseLogger;
+};
 
 function logToSentry(...args: Parameters<BaseLogger["error" | "fatal"]>) {
   // Ideally Pino typing would be better, but it's not

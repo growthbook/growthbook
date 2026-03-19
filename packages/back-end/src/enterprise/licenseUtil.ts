@@ -72,7 +72,7 @@ export function getSubscriptionFromLicense(
   };
 }
 
-export type MinimalOrganization = {
+type MinimalOrganization = {
   id: string;
   licenseKey?: string;
   enterprise?: boolean;

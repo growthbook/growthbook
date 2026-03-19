@@ -1018,7 +1018,7 @@ export abstract class BaseModel<
     if (this.config.globallyUniquePrimaryKeys) {
       promises.push(
         this._dangerousGetCollection()
-          .createIndex(pKeyIndex as Record<string, 1 | -1>, { unique: true })
+          .createIndex(pKeyIndex, { unique: true })
           .catch((err) => {
             logger.error(
               err,

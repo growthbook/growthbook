@@ -5260,8 +5260,8 @@ export default abstract class SqlIntegration
             return `event_time BETWEEN '${start}' AND '${end}'`;
           },
           getAdditionalEvents: () => [],
-          getEventFilterWhereClause: (eventName?: string) =>
-            eventName !== undefined ? `event_name = '${eventName}'` : "",
+          getEventFilterWhereClause: (eventName: string) =>
+            `event_name = '${eventName}'`,
         };
       }
       case "rudderstack":
@@ -5301,7 +5301,7 @@ export default abstract class SqlIntegration
               groupBy: "event",
             },
           ],
-          getEventFilterWhereClause: () => "",
+          getEventFilterWhereClause: (_eventName: string) => "",
         };
     }
   }

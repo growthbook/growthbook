@@ -1,4 +1,4 @@
-import nodeFetch, { RequestInit, Response } from "node-fetch";
+import nodeFetch, { type RequestInit, type Response } from "node-fetch";
 import { ProxyAgent } from "proxy-agent";
 import { logger } from "./logger";
 import { API_USER_AGENT, USE_PROXY, WEBHOOK_PROXY } from "./secrets";
@@ -88,8 +88,7 @@ export const cancellableFetch = async (
 
   try {
     response = await fetch(url, {
-      signal:
-        abortController.signal as import("node-fetch").RequestInit["signal"],
+      signal: abortController.signal as RequestInit["signal"],
       ...getHttpOptions(url),
       ...fetchOptions,
     });
