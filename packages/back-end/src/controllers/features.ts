@@ -2392,8 +2392,8 @@ export async function putFeature(
   ];
 
   if (
-    Object.keys(updates).filter(
-      (key: keyof FeatureInterface) => !allowedKeys.includes(key),
+    (Object.keys(updates) as (keyof FeatureInterface)[]).filter(
+      (key) => !allowedKeys.includes(key),
     ).length > 0
   ) {
     throw new Error("Invalid update fields for feature");
