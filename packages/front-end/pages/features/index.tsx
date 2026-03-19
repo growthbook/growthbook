@@ -1,7 +1,6 @@
 import Link from "next/link";
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
-import { useFeature } from "@growthbook/growthbook-react";
 import { Box, Flex } from "@radix-ui/themes";
 import { FeatureInterface, FeatureMetaInfo } from "shared/types/feature";
 import { date, datetime } from "shared/dates";
@@ -42,7 +41,6 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import EmptyState from "@/components/EmptyState";
 import ProjectBadges from "@/components/ProjectBadges";
 import FeatureSearchFilters from "@/components/Search/FeatureSearchFilters";
-import { useAuth } from "@/services/auth";
 import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useFeaturesStatus } from "@/hooks/useFeaturesStatus";
 import { useFeatureDraftStates } from "@/hooks/useFeatureDraftStates";
@@ -64,9 +62,6 @@ export default function FeaturesPage() {
   const [featureToToggleStaleDetection, setFeatureToToggleStaleDetection] =
     useState<FeatureMetaInfo | null>(null);
 
-  const showGraphs = useFeature("feature-list-realtime-graphs").on;
-
-  const { apiCall } = useAuth();
   const { project, projects } = useDefinitions();
   const environments = useEnvironments();
 
@@ -87,7 +82,6 @@ export default function FeaturesPage() {
   const { usage, usageDomain } = useRealtimeData(
     allFeatures as unknown as FeatureInterface[],
     !!router?.query?.mockdata,
-    showGraphs,
   );
 
   const statusHook = useFeaturesStatus();
@@ -225,12 +219,10 @@ export default function FeaturesPage() {
                 <th>Type</th>
                 <th>Version</th>
                 <SortableTH field="dateUpdated">Last Updated</SortableTH>
-                {showGraphs && (
-                  <th>
-                    Recent Usage{" "}
-                    <Tooltip body="Client-side feature evaluations for the past 30 minutes. Blue means the feature was 'on', Gray means it was 'off'." />
-                  </th>
-                )}
+                <th>
+                  Recent Usage{" "}
+                  <Tooltip body="Client-side feature evaluations for the past 30 minutes. Blue means the feature was 'on', Gray means it was 'off'." />
+                </th>
                 <th>Stale</th>
                 <th style={{ width: 30 }}></th>
               </tr>
@@ -333,14 +325,12 @@ export default function FeaturesPage() {
                     <td title={datetime(feature.dateUpdated)}>
                       {date(feature.dateUpdated)}
                     </td>
-                    {showGraphs && (
-                      <td style={{ width: 170 }}>
-                        <RealTimeFeatureGraph
-                          data={usage?.[feature.id]?.realtime || []}
-                          yDomain={usageDomain}
-                        />
-                      </td>
-                    )}
+                    <td style={{ width: 170 }}>
+                      <RealTimeFeatureGraph
+                        data={usage?.[feature.id]?.realtime || []}
+                        yDomain={usageDomain}
+                      />
+                    </td>
                     <td>
                       <StaleFeatureIcon
                         context="list"
@@ -384,7 +374,7 @@ export default function FeaturesPage() {
               })}
               {!items.length && (
                 <tr>
-                  <td colSpan={showGraphs ? 7 : 6}>No matching features</td>
+                  <td colSpan={7}>No matching features</td>
                 </tr>
               )}
             </tbody>

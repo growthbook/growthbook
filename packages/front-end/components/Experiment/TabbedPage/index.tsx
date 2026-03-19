@@ -13,7 +13,6 @@ import { URLRedirectInterface } from "shared/types/url-redirect";
 import { FaChartBar } from "react-icons/fa";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Text } from "@radix-ui/themes";
 import {
   getAvailableMetricsFilters,
@@ -112,8 +111,6 @@ export default function TabbedPage({
   setChecklistItemsRemaining,
   editHoldoutSchedule,
 }: Props) {
-  const growthbook = useGrowthBook();
-  const dashboardsEnabled = growthbook.isOn("experiment-dashboards-enabled");
   const [tab, setTab] = useLocalStorage<ExperimentTab>(
     `tabbedPageTab__${experiment.id}`,
     "overview",
@@ -191,15 +188,11 @@ export default function TabbedPage({
 
     const handler = () => {
       const hash = getHash() as ExperimentTab;
-      let [tabName, ...tabPathSegments] = hash.split("/") as [
+      const [tabName, ...tabPathSegments] = hash.split("/") as [
         ExperimentTabName,
         ...string[],
       ];
       if (experimentTabs.includes(tabName)) {
-        if (tabName === "dashboards" && !dashboardsEnabled) {
-          tabName = "overview";
-          tabPathSegments = [];
-        }
         const tabPath = tabPathSegments.join("/");
         setTab(tabName);
         setTabPath(tabPath);
@@ -217,7 +210,7 @@ export default function TabbedPage({
     handler();
     window.addEventListener("hashchange", handler, false);
     return () => window.removeEventListener("hashchange", handler, false);
-  }, [setTab, dashboardsEnabled, router]);
+  }, [setTab, router]);
 
   const { dashboards } = useExperimentDashboards(experiment.id);
 

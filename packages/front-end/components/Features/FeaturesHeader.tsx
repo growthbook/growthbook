@@ -9,7 +9,6 @@ import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasourc
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiLink, PiCheck, PiEye, PiWarning } from "react-icons/pi";
 import { HoldoutInterface } from "shared/validators";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { useUser } from "@/services/UserContext";
 import useApi from "@/hooks/useApi";
@@ -122,9 +121,7 @@ export default function FeaturesHeader({
     projects,
   } = useDefinitions();
   const { holdouts } = useHoldouts(feature.project);
-  const hasHoldoutsFeature = hasCommercialFeature("holdouts");
-  const holdoutsEnabled =
-    useFeatureIsOn("holdouts_feature") && hasHoldoutsFeature;
+  const holdoutsEnabled = hasCommercialFeature("holdouts");
 
   const staleHook = useFeatureStaleStates();
   const staleData = staleHook.getStaleState(feature.id);

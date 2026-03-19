@@ -7,7 +7,6 @@ import {
 import React, { ReactElement } from "react";
 import { validateFeatureValue } from "shared/util";
 import { PiInfo } from "react-icons/pi";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { Box } from "@radix-ui/themes";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
 import { useAuth } from "@/services/auth";
@@ -167,8 +166,6 @@ export default function FeatureModal({
     project,
   );
 
-  const holdoutsEnabled = useFeatureIsOn("holdouts_feature");
-
   const defaultValues = genFormDefaultValues({
     environments,
     permissions: permissionsUtil,
@@ -325,16 +322,14 @@ export default function FeatureModal({
           onChange={(tags) => form.setValue("tags", tags)}
         />
 
-        {holdoutsEnabled && (
-          <HoldoutSelect
-            selectedProject={selectedProject}
-            selectedHoldoutId={form.watch("holdout")?.id}
-            setHoldout={(holdoutId) => {
-              form.setValue("holdout", { id: holdoutId, value: "" });
-            }}
-            formType="feature"
-          />
-        )}
+        <HoldoutSelect
+          selectedProject={selectedProject}
+          selectedHoldoutId={form.watch("holdout")?.id}
+          setHoldout={(holdoutId) => {
+            form.setValue("holdout", { id: holdoutId, value: "" });
+          }}
+          formType="feature"
+        />
 
         {!featureToDuplicate && (
           <ValueTypeField

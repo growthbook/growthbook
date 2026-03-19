@@ -1418,11 +1418,9 @@ export function getExperimentDefinitionFromFeature(
 export function useRealtimeData(
   features: FeatureInterface[] = [],
   mock = false,
-  update = false,
 ): { usage: FeatureUsageRecords; usageDomain: [number, number] } {
   const { data, mutate } = useApi<{ usage: FeatureUsageRecords }>(
     `/usage/features`,
-    { shouldRun: () => !!update },
   );
 
   // Mock data
@@ -1449,7 +1447,6 @@ export function useRealtimeData(
 
   // Update usage data every 10 seconds
   useEffect(() => {
-    if (!update) return;
     let timer = 0;
     const cb = async () => {
       await mutate();
@@ -1459,7 +1456,7 @@ export function useRealtimeData(
     return () => {
       window.clearTimeout(timer);
     };
-  }, [update]);
+  }, []);
 
   const max = useMemo(() => {
     return Math.max(

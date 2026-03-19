@@ -19,7 +19,6 @@ import {
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { OrganizationSettings } from "shared/types/organization";
 import Link from "next/link";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import { PRESET_DECISION_CRITERIA } from "shared/enterprise";
 import { CUSTOMIZABLE_PROMPT_TYPES } from "shared/ai";
@@ -44,7 +43,6 @@ import DatasourceSettings from "@/components/GeneralSettings/DatasourceSettings"
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import AISettings from "@/components/GeneralSettings/AISettings";
 import HelperText from "@/ui/HelperText";
-import { AppFeatures } from "@/types/app-features";
 import { StickyTabsList, Tabs, TabsContent, TabsTrigger } from "@/ui/Tabs";
 import Frame from "@/ui/Frame";
 import SavedGroupSettings from "@/components/GeneralSettings/SavedGroupSettings";
@@ -64,8 +62,6 @@ function hasChanges(
 }
 
 const GeneralSettingsPage = (): React.ReactElement => {
-  const growthbook = useGrowthBook<AppFeatures>();
-
   const { refreshOrganization, settings, organization, hasCommercialFeature } =
     useUser();
   const [saveMsg, setSaveMsg] = useState(false);
@@ -440,11 +436,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 cronString={cronString}
                 updateCronString={updateCronString}
               />
-              {growthbook.isOn("bandits") && (
-                <Frame mb="4">
-                  <BanditSettings page="org-settings" />
-                </Frame>
-              )}
+              <Frame mb="4">
+                <BanditSettings page="org-settings" />
+              </Frame>
             </TabsContent>
 
             <TabsContent value="feature">

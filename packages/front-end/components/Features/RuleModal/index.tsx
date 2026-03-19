@@ -14,7 +14,6 @@ import {
   isProjectListValidForProject,
   getReviewSetting,
 } from "shared/util";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { PiCaretRight } from "react-icons/pi";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
@@ -50,7 +49,6 @@ import { allConnectionsSupportBucketingV2 } from "@/components/Experiment/HashVe
 import Modal from "@/components/Modal";
 import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import { AppFeatures } from "@/types/app-features";
 import { useUser } from "@/services/UserContext";
 import RadioCards from "@/ui/RadioCards";
 import RadioGroup from "@/ui/RadioGroup";
@@ -117,7 +115,6 @@ export default function RuleModal({
   safeRolloutsMap,
   revisionList = [],
 }: Props) {
-  const growthbook = useGrowthBook<AppFeatures>();
   const { hasCommercialFeature, organization } = useUser();
   const { apiCall } = useAuth();
 
@@ -168,16 +165,11 @@ export default function RuleModal({
     return envList.length === 0 ? "all" : new Set(envList);
   }, [settings?.requireReviews, feature]);
 
-  const isSafeRolloutRampUpEnabled = growthbook.isOn("safe-rollout-ramp-up");
-  const isSafeRolloutAutoRollbackEnabled = growthbook.isOn(
-    "safe-rollout-auto-rollback",
-  );
-
   const defaultRuleValues = getDefaultRuleValue({
     defaultValue: getFeatureDefaultValue(feature),
     ruleType: defaultType,
     attributeSchema,
-    isSafeRolloutAutoRollbackEnabled,
+    isSafeRolloutAutoRollbackEnabled: true,
   });
 
   const convertRuleToFormValues = (rule: FeatureRule) => {
@@ -310,7 +302,7 @@ export default function RuleModal({
         attributeSchema,
         settings,
         datasources,
-        isSafeRolloutAutoRollbackEnabled,
+        isSafeRolloutAutoRollbackEnabled: true,
       }),
       description: form.watch("description"),
     };
@@ -642,15 +634,12 @@ export default function RuleModal({
         delete (values as any).value;
       } else if (values.type === "safe-rollout") {
         safeRolloutFields = values.safeRolloutFields;
-        // sanity check that the auto rollback and ramp up schedule are enabled
-        safeRolloutFields.autoRollback = isSafeRolloutAutoRollbackEnabled
-          ? safeRolloutFields.autoRollback
-          : false;
+        // Ensure we pass the ramp up schedule enabled flag to the backend (it builds the rest)
         const rampUpSchedule = safeRolloutFields["rampUpSchedule"] || {};
         // backend deals with the rest
         safeRolloutFields["rampUpSchedule"] = {};
         safeRolloutFields["rampUpSchedule"]["enabled"] =
-          rampUpSchedule["enabled"] ?? isSafeRolloutRampUpEnabled;
+          rampUpSchedule["enabled"] ?? true;
 
         // eslint-disable-next-line
         delete (values as any).safeRolloutFields;
@@ -867,30 +856,27 @@ export default function RuleModal({
                 description:
                   "Measure the impact of this feature on your key metrics",
               },
-              ...(growthbook.isOn("bandits")
-                ? [
-                    {
-                      value: "bandit",
-                      disabled: !hasMultiArmedBanditFeature,
-                      label: (
-                        <PremiumTooltip
-                          commercialFeature="multi-armed-bandits"
-                          usePortal={true}
-                        >
-                          Bandit
-                        </PremiumTooltip>
-                      ),
-                      description: (
-                        <>
-                          <div>
-                            Find a winner among many variations on one goal
-                            metric
-                          </div>
-                        </>
-                      ),
-                    },
-                  ]
-                : []),
+              ...[
+                {
+                  value: "bandit",
+                  disabled: !hasMultiArmedBanditFeature,
+                  label: (
+                    <PremiumTooltip
+                      commercialFeature="multi-armed-bandits"
+                      usePortal={true}
+                    >
+                      Bandit
+                    </PremiumTooltip>
+                  ),
+                  description: (
+                    <>
+                      <div>
+                        Find a winner among many variations on one goal metric
+                      </div>
+                    </>
+                  ),
+                },
+              ],
             ]}
             value={overviewRadioSelectorRuleType}
             setValue={(
