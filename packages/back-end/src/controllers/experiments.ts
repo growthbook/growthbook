@@ -4194,9 +4194,12 @@ export async function postExperimentFeatureValues(
     );
 
     if (!updatedRevision) {
-      throw new Error(
-        "Failed to update experiment feature rules on the draft revision",
-      );
+      res.status(400).json({
+        status: 400,
+        message:
+          "Failed to update experiment feature rules on the draft revision",
+      });
+      return;
     }
 
     const live = await getRevision({
@@ -4206,7 +4209,11 @@ export async function postExperimentFeatureValues(
       version: feature.version,
     });
     if (!live) {
-      throw new Error("Could not lookup feature history");
+      res.status(400).json({
+        status: 400,
+        message: "Could not lookup feature history",
+      });
+      return;
     }
 
     const base =
@@ -4219,7 +4226,11 @@ export async function postExperimentFeatureValues(
             version: revision.baseVersion,
           });
     if (!base) {
-      throw new Error("Could not lookup feature history");
+      res.status(400).json({
+        status: 400,
+        message: "Could not lookup feature history",
+      });
+      return;
     }
 
     const requiresReview = checkIfRevisionNeedsReview({
@@ -4234,9 +4245,12 @@ export async function postExperimentFeatureValues(
       const mergeResult = autoMerge(live, base, updatedRevision, orgEnvIds, {});
 
       if (!mergeResult.success) {
-        throw new Error(
-          "Unable to auto-publish feature values. Please resolve conflicts before publishing.",
-        );
+        res.status(400).json({
+          status: 400,
+          message:
+            "Unable to auto-publish feature values. Please resolve conflicts before publishing.",
+        });
+        return;
       }
 
       const changedEnvs = Object.keys(mergeResult.result.rules || {});
