@@ -108,12 +108,6 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       };
     }
 
-    if (!payload.datasourceId) {
-      throw new Error(
-        "datasourceId is required unless provided by the template",
-      );
-    }
-
     if (!payload.assignmentQueryId) {
       throw new Error(
         "assignmentQueryId is required unless provided by the template",
