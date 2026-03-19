@@ -7,6 +7,7 @@ import {
 } from "shared/validators";
 import { omit } from "lodash";
 import { PostExperimentResponse } from "shared/types/openapi";
+import { z } from "zod";
 import {
   createExperiment,
   getExperimentByTrackingKey,
@@ -22,27 +23,34 @@ import { getMetricMap } from "back-end/src/models/MetricModel";
 import { validateVariationIds } from "back-end/src/controllers/experiments";
 import { validateCustomFields } from "./validations";
 
+const TEMPLATE_FIELDS_TO_OMIT = [
+  "id",
+  "organization",
+  "owner",
+  "dateCreated",
+  "dateUpdated",
+  "templateMetadata",
+];
+
+const TEMPLATE_FIELDS_TO_TRANSLATE = [
+  "targeting",
+  "datasource",
+  "exposureQueryId",
+  "goalMetrics",
+  "segment",
+  "skipPartialData",
+];
+
 function templateToPostExperimentDefaults(
   template: ExperimentTemplateInterface,
 ) {
-  const templateWithoutTranslatedFields = omit(template, [
-    "id",
-    "organization",
-    "owner",
-    "dateCreated",
-    "dateUpdated",
-    "templateMetadata",
-    "targeting",
-    "datasource",
-    "exposureQueryId",
-    "goalMetrics",
-    "segment",
-    "skipPartialData",
-    "targeting",
+  const templateWithoutFieldsToTranslate = omit(template, [
+    ...TEMPLATE_FIELDS_TO_OMIT,
+    ...TEMPLATE_FIELDS_TO_TRANSLATE,
   ]);
 
   return {
-    ...templateWithoutTranslatedFields,
+    ...templateWithoutFieldsToTranslate,
     datasourceId: template.datasource || undefined,
     assignmentQueryId: template.exposureQueryId || undefined,
     metrics: template.goalMetrics,
@@ -72,9 +80,9 @@ function templateToPostExperimentDefaults(
 export const postExperiment = createApiRequestHandler(postExperimentValidator)(
   async (req): Promise<PostExperimentResponse> => {
     const { owner: ownerEmail, templateId } = req.body;
-    let payload = req.body;
+    let payload: z.infer<typeof postExperimentValidator.bodySchema> = req.body;
 
-    // Validate projects - We can remove this validation when FeatureModel is migrated to BaseModel
+    // Apply template defaults if a templateId is provided
     if (templateId) {
       const template =
         await req.context.models.experimentTemplates.getById(templateId);
@@ -100,6 +108,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       );
     }
 
+    // Validate projects - We can remove this validation when ExperimentModel is migrated to BaseModel
     if (payload.project) {
       await req.context.models.projects.ensureProjectsExist([payload.project]);
     }
