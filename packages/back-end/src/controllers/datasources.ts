@@ -47,6 +47,8 @@ import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import {
   getQueriesByDatasource,
   getQueriesByIds,
+  getQueryById,
+  updateQuery,
 } from "back-end/src/models/QueryModel";
 import { findDimensionsByDataSource } from "back-end/src/models/DimensionModel";
 import {
@@ -67,6 +69,7 @@ import {
 } from "back-end/src/models/DimensionSlicesModel";
 import { DimensionSlicesQueryRunner } from "back-end/src/queryRunners/DimensionSlicesQueryRunner";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import { logger } from "back-end/src/util/logger";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   _dangerousRecreateClickhouseTables,
@@ -1018,6 +1021,58 @@ export async function getDataSourceQueries(
     status: 200,
     queries,
   });
+}
+
+export async function cancelDataSourceQuery(
+  req: AuthRequest<null, { id: string; queryId: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id: datasourceId, queryId } = req.params;
+
+  const datasource = await getDataSourceById(context, datasourceId);
+  if (!datasource) {
+    throw new Error("Could not find datasource");
+  }
+
+  req.checkPermissions(
+    "readData",
+    datasource?.projects?.length ? datasource.projects : [],
+  );
+
+  const query = await getQueryById(context, queryId);
+  if (!query) {
+    throw new Error("Could not find query");
+  }
+  if (query.datasource !== datasourceId) {
+    throw new Error("Query does not belong to this datasource");
+  }
+  if (query.status !== "running") {
+    throw new Error("Only running queries can be cancelled");
+  }
+
+  const integration = await getIntegrationFromDatasourceId(
+    context,
+    datasourceId,
+    true,
+  );
+
+  if (integration.cancelQuery && query.externalId) {
+    try {
+      await integration.cancelQuery(query.externalId);
+    } catch (e) {
+      // Log but continue - we'll still mark the query as failed
+      logger.debug(e, `Failed to cancel query on warehouse: ${e.message}`);
+    }
+  }
+
+  await updateQuery(context, query, {
+    status: "failed",
+    finishedAt: new Date(),
+    error: "Query cancelled by user",
+  });
+
+  res.status(200).json({ status: 200 });
 }
 
 export async function getDimensionSlices(
