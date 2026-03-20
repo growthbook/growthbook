@@ -10,6 +10,7 @@ import {
 import { ExposureQuery } from "shared/types/datasource";
 import { PartitionSettings } from "shared/types/integrations";
 import BigQuery from "back-end/src/integrations/BigQuery";
+import Presto from "back-end/src/integrations/Presto";
 import { factTableFactory } from "./factories/FactTable.factory";
 import { factMetricFactory } from "./factories/FactMetric.factory";
 
@@ -735,6 +736,119 @@ describe("bigquery integration", () => {
         "WHERE m.timestamp >= '2023-01-01 00:00:00' AND m.timestamp <= '2023-01-31 00:00:00'\n" +
         "",
     );
+  });
+});
+
+describe("presto integration", () => {
+  let prestoIntegration: Presto;
+
+  const normalizeSql = (sql: string) => sql.replace(/\s+/g, " ").trim();
+
+  beforeEach(() => {
+    // @ts-expect-error -- context and datasource params not needed for test
+    prestoIntegration = new Presto("", {
+      id: "ds_123",
+      name: "Presto DS",
+      description: "",
+      organization: "org_123",
+      dateCreated: null,
+      dateUpdated: null,
+      params: "",
+      type: "presto",
+      settings: {
+        queries: {
+          exposure: [
+            {
+              id: "exp_query",
+              name: "Exposure Query",
+              userIdType: "user_id",
+              query: `SELECT
+                user_id,
+                variation_id,
+                timestamp,
+                experiment_id,
+                partition_year,
+                partition_month,
+                partition_day
+              FROM events`,
+              dimensions: [],
+            },
+          ],
+        },
+      },
+    });
+  });
+
+  it("computes ingest watermark before experiment filters in incremental units query", () => {
+    const sql = prestoIntegration.getUpdateExperimentIncrementalUnitsQuery({
+      unitsTableFullName: "analytics.units",
+      unitsTempTableFullName: "analytics.units_temp",
+      settings: {
+        experimentId: "exp_123",
+        exposureQueryId: "exp_query",
+        startDate: new Date("2024-01-01T00:00:00.000Z"),
+        endDate: new Date("2024-01-31T00:00:00.000Z"),
+        skipPartialData: false,
+      } as never,
+      activationMetric: null,
+      dimensions: [],
+      factTableMap: new Map(),
+      segment: null,
+      incrementalRefreshStartTime: new Date("2024-02-01T00:00:00.000Z"),
+      lastMaxTimestamp: null,
+      lastIngestedPartition: "2024-01-10",
+      partitionSettings: {
+        type: "ingestYearMonthDay",
+        yearColumn: "partition_year",
+        monthColumn: "partition_month",
+        dayColumn: "partition_day",
+      },
+    });
+
+    const normalized = normalizeSql(sql);
+
+    expect(normalized).toContain("__scannedExposures AS");
+    expect(normalized).not.toContain("__filteredNewExposures AS");
+    expect(normalized).not.toContain(
+      "FROM __newExposures WHERE experiment_id = 'exp_123'",
+    );
+    expect(normalized).toContain("CASE WHEN experiment_id = 'exp_123'");
+    expect(normalized).toContain(
+      "FROM __newExposures WHERE ( ( ( partition_year = '2024' AND partition_month = '01' AND partition_day > '10' )",
+    );
+    expect(normalized).toContain(
+      "MAX(last_ingested_partition) OVER () AS global_last_ingested_partition",
+    );
+    expect(normalized).toContain(
+      "FROM __experimentUnitsWithGlobalWatermark WHERE has_exposure_row = 1",
+    );
+  });
+
+  it("uses the partitions metadata table for ingest watermark source queries", () => {
+    const sql = prestoIntegration.getMaxIngestedPartitionSourceQuery?.({
+      sourceSql: "SELECT user_id, timestamp FROM events WHERE event = 'viewed'",
+      partitionSettings: {
+        type: "ingestYearMonthDay",
+        yearColumn: "partition_year",
+        monthColumn: "partition_month",
+        dayColumn: "partition_day",
+      },
+      lastIngestedPartition: "2024-01-10",
+      experimentStartDate: new Date("2024-01-01T00:00:00.000Z"),
+    });
+
+    expect(sql).toBeTruthy();
+
+    const normalized = normalizeSql(sql || "");
+    expect(normalized).toContain('FROM "events$partitions" p');
+    expect(normalized).toContain("MAX( format(");
+    expect(normalized).toContain("CAST(p.partition_year AS INTEGER)");
+    expect(normalized).toContain("CAST(p.partition_month AS INTEGER)");
+    expect(normalized).toContain("CAST(p.partition_day AS INTEGER)");
+    expect(normalized).toContain("AS last_ingested_partition");
+    expect(normalized).toContain("p.partition_year = '2024'");
+    expect(normalized).toContain("p.partition_month = '01'");
+    expect(normalized).toContain("p.partition_day > '10'");
   });
 });
 

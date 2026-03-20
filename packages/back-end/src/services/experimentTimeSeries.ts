@@ -28,6 +28,7 @@ import {
   FactTableInterface,
   ColumnRef,
 } from "shared/types/fact-table";
+import type { PartitionSettings } from "shared/types/integrations";
 import { ReqContext } from "back-end/types/request";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
@@ -296,6 +297,7 @@ function getMetricSettingsHash(
 // TODO(incremental-refresh): Reconcile with getExperimentSettingsHash and getMetricSettingsHash
 export function getExperimentSettingsHashForIncrementalRefresh(
   snapshotSettings: ExperimentSnapshotSettings,
+  partitionSettings?: PartitionSettings,
 ): string {
   return hashObject({
     // snapshotSettings
@@ -309,6 +311,7 @@ export function getExperimentSettingsHashForIncrementalRefresh(
     startDate: snapshotSettings.startDate,
     regressionAdjustmentEnabled: snapshotSettings.regressionAdjustmentEnabled,
     experimentId: snapshotSettings.experimentId,
+    partitionSettings: partitionSettings ?? null,
   });
 }
 

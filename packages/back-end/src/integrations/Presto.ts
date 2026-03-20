@@ -1,7 +1,10 @@
 import { Client, ClientOptions, QueryOptions } from "presto-client";
+import {
+  isIngestYearMonthDayPartitionSettings,
+  prestoCreateTablePartitions,
+} from "shared/enterprise";
 import { format } from "shared/sql";
 import { FormatDialect } from "shared/types/sql";
-import { prestoCreateTablePartitions } from "shared/enterprise";
 import {
   QueryResponse,
   MaxTimestampIncrementalUnitsQueryParams,
@@ -231,13 +234,60 @@ export default class Presto extends SqlIntegration {
       : `"${fullTableName}$partitions"`;
   }
 
+  getMaxIngestedPartitionSourceQuery(
+    params: Parameters<SqlIntegration["getMaxIngestedPartitionSourceQuery"]>[0],
+  ): string | null {
+    if (!params) return null;
+    if (!isIngestYearMonthDayPartitionSettings(params.partitionSettings)) {
+      return null;
+    }
+
+    const sourceTableFullName = this.getSimpleSourceTableName(params.sourceSql);
+    if (!sourceTableFullName) {
+      return null;
+    }
+
+    const partitionsTable =
+      this.getTablePartitionsTableName(sourceTableFullName);
+
+    return this.getMaxIngestedPartitionTableQuery({
+      sourceTableFullName: partitionsTable,
+      partitionSettings: params.partitionSettings,
+      lastIngestedPartition: params.lastIngestedPartition,
+      experimentStartDate: params.experimentStartDate,
+      tableAlias: "p",
+    });
+  }
+
   getMaxTimestampIncrementalUnitsQuery(
     params: MaxTimestampIncrementalUnitsQueryParams,
   ): string {
+    const partitionsTable = this.getTablePartitionsTableName(
+      params.unitsTableFullName,
+    );
+
+    // Ensures we scan only the last partition from units table
+    if (params.includeLastIngestedPartition) {
+      return format(
+        `
+        SELECT
+          p.max_timestamp AS max_timestamp,
+          MAX(u.last_ingested_partition) AS last_ingested_partition
+        FROM ${params.unitsTableFullName} u
+        JOIN (
+          SELECT MAX(max_timestamp) AS max_timestamp
+          FROM ${partitionsTable}
+        ) p ON u.max_timestamp = p.max_timestamp
+        GROUP BY p.max_timestamp
+        `,
+        this.getFormatDialect(),
+      );
+    }
+
     return format(
       `
       SELECT MAX(max_timestamp) AS max_timestamp
-      FROM ${this.getTablePartitionsTableName(params.unitsTableFullName)}
+      FROM ${partitionsTable}
       `,
       this.getFormatDialect(),
     );
@@ -246,10 +296,32 @@ export default class Presto extends SqlIntegration {
   getMaxTimestampMetricSourceQuery(
     params: MaxTimestampMetricSourceQueryParams,
   ): string {
+    const partitionsTable = this.getTablePartitionsTableName(
+      params.metricSourceTableFullName,
+    );
+
+    // Ensures we scan only the last partition from metric source table
+    if (params.includeLastIngestedPartition) {
+      return format(
+        `
+        SELECT
+          p.max_timestamp AS max_timestamp,
+          MAX(t.last_ingested_partition) AS last_ingested_partition
+        FROM ${params.metricSourceTableFullName} t
+        JOIN (
+          SELECT MAX(max_timestamp) AS max_timestamp
+          FROM ${partitionsTable}
+        ) p ON t.max_timestamp = p.max_timestamp
+        GROUP BY p.max_timestamp
+        `,
+        this.getFormatDialect(),
+      );
+    }
+
     return format(
       `
       SELECT MAX(max_timestamp) AS max_timestamp
-      FROM ${this.getTablePartitionsTableName(params.metricSourceTableFullName)}
+      FROM ${partitionsTable}
       `,
       this.getFormatDialect(),
     );

@@ -154,6 +154,13 @@ export default function DataSourcePipeline({
   );
 }
 
+function partitionStrategyLabel(settings: PartitionSettings): string {
+  if (settings.type === "ingestYearMonthDay") {
+    return "Ingestion Year/Month/Day";
+  }
+  return settings.type;
+}
+
 function PartitionSettingsSummary({
   settings,
 }: {
@@ -169,7 +176,7 @@ function PartitionSettingsSummary({
 
   return (
     <code>
-      {settings.type}
+      {partitionStrategyLabel(settings)}
       {columns.length > 0 ? ` (${columns.join(", ")})` : ""}
     </code>
   );

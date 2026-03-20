@@ -7,6 +7,7 @@ import {
   getPipelineValidationCreateTableQuery,
   getPipelineValidationDropTableQuery,
   getPipelineValidationInsertQuery,
+  validatePartitionSettingsEngine,
   type PipelineValidationResults,
 } from "shared/enterprise";
 import { TemplateVariables } from "shared/types/sql";
@@ -595,6 +596,11 @@ export async function postValidatePipelineSettings(
       },
     },
   });
+
+  validatePartitionSettingsEngine(
+    pipelineSettings.partitionSettings,
+    integration,
+  );
 
   if (!(integration instanceof SqlIntegration)) {
     return res.status(400).json({

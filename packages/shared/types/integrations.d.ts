@@ -309,6 +309,13 @@ export type PartitionSettings =
       dayColumn: string;
     }
   | {
+      /** NB: Trino-only for now. Ingest-time based. */
+      type: "ingestYearMonthDay";
+      yearColumn: string;
+      monthColumn: string;
+      dayColumn: string;
+    }
+  | {
       type: "timestamp";
     };
 
@@ -318,6 +325,7 @@ export interface CreateExperimentIncrementalUnitsQueryParams {
   dimensions: Dimension[];
   factTableMap: FactTableMap;
   unitsTableFullName: string;
+  partitionSettings?: PartitionSettings;
 }
 
 export interface UpdateExperimentIncrementalUnitsQueryParams
@@ -325,6 +333,7 @@ export interface UpdateExperimentIncrementalUnitsQueryParams
   segment: SegmentInterface | null;
   incrementalRefreshStartTime: Date;
   lastMaxTimestamp: Date | null;
+  lastIngestedPartition: string | null;
   unitsTempTableFullName: string;
   partitionSettings?: PartitionSettings;
 }
@@ -341,11 +350,13 @@ export interface AlterNewIncrementalUnitsQueryParams {
 export interface MaxTimestampIncrementalUnitsQueryParams {
   unitsTableFullName: string;
   lastMaxTimestamp: Date | null;
+  includeLastIngestedPartition?: boolean;
 }
 
 export interface MaxTimestampMetricSourceQueryParams {
   metricSourceTableFullName: string;
   lastMaxTimestamp: Date | null;
+  includeLastIngestedPartition?: boolean;
 }
 
 export interface CreateMetricSourceTableQueryParams {
@@ -364,6 +375,7 @@ export interface InsertMetricSourceDataQueryParams {
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
   lastMaxTimestamp: Date | null;
+  lastIngestedPartition: string | null;
   partitionSettings?: PartitionSettings;
 }
 
@@ -385,6 +397,7 @@ export interface InsertMetricSourceCovariateDataQueryParams {
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
   lastCovariateSuccessfulMaxTimestamp: Date | null;
+  lastIngestedPartition: string | null;
   partitionSettings?: PartitionSettings;
 }
 
@@ -660,6 +673,7 @@ export type DimensionSlicesQueryResponseRows = {
 
 export type MaxTimestampQueryResponseRow = {
   max_timestamp: string;
+  last_ingested_partition?: string;
 };
 
 export type UserExperimentExposuresQueryResponseRows = {

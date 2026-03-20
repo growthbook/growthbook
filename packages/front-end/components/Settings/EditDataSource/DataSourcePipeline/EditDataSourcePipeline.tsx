@@ -7,6 +7,7 @@ import {
   DataSourcePipelineMode,
 } from "shared/types/datasource";
 import type { PartitionSettings } from "shared/types/integrations";
+import type { PrestoConnectionParams } from "shared/types/integrations/presto";
 import {
   UNITS_TABLE_RETENTION_HOURS_DEFAULT,
   type PipelineValidationResults,
@@ -194,7 +195,10 @@ export const EditDataSourcePipeline = ({
                 experimentOptions={experimentOptions}
               />
               {dataSource.type === "presto" ? (
-                <IncrementalPartitionSettingsInputs form={form} />
+                <IncrementalPartitionSettingsInputs
+                  form={form}
+                  dataSource={dataSource}
+                />
               ) : null}
             </>
           ) : null}
@@ -350,14 +354,31 @@ function IncrementalScopeSelector({
 
 function IncrementalPartitionSettingsInputs({
   form,
+  dataSource,
 }: {
   form: ReturnType<typeof useForm<FormValues>>;
+  dataSource: DataSourceInterfaceWithParams;
 }) {
   const partitionSettings = form.watch("partitionSettings");
+  const isTrino =
+    dataSource.type === "presto" &&
+    (dataSource.params as PrestoConnectionParams).engine === "trino";
+
   const partitionType =
-    partitionSettings?.type === "yearMonthDay"
+    partitionSettings?.type === "yearMonthDay" ||
+    partitionSettings?.type === "ingestYearMonthDay"
       ? partitionSettings.type
       : "none";
+
+  const columnValues =
+    partitionSettings?.type === "yearMonthDay" ||
+    partitionSettings?.type === "ingestYearMonthDay"
+      ? {
+          yearColumn: partitionSettings.yearColumn,
+          monthColumn: partitionSettings.monthColumn,
+          dayColumn: partitionSettings.dayColumn,
+        }
+      : { yearColumn: "", monthColumn: "", dayColumn: "" };
 
   return (
     <Box>
@@ -378,18 +399,14 @@ function IncrementalPartitionSettingsInputs({
             if (value === "yearMonthDay") {
               form.setValue("partitionSettings", {
                 type: "yearMonthDay",
-                yearColumn:
-                  partitionSettings?.type === "yearMonthDay"
-                    ? partitionSettings.yearColumn
-                    : "",
-                monthColumn:
-                  partitionSettings?.type === "yearMonthDay"
-                    ? partitionSettings.monthColumn
-                    : "",
-                dayColumn:
-                  partitionSettings?.type === "yearMonthDay"
-                    ? partitionSettings.dayColumn
-                    : "",
+                ...columnValues,
+              });
+              return;
+            }
+            if (value === "ingestYearMonthDay") {
+              form.setValue("partitionSettings", {
+                type: "ingestYearMonthDay",
+                ...columnValues,
               });
               return;
             }
@@ -398,9 +415,13 @@ function IncrementalPartitionSettingsInputs({
         >
           <SelectItem value="none">No additional partition columns</SelectItem>
           <SelectItem value="yearMonthDay">Year / Month / Day</SelectItem>
+          {isTrino ? (
+            <SelectItem value="ingestYearMonthDay">Ingestion Date</SelectItem>
+          ) : null}
         </Select>
 
-        {partitionSettings?.type === "yearMonthDay" ? (
+        {partitionSettings?.type === "yearMonthDay" ||
+        partitionSettings?.type === "ingestYearMonthDay" ? (
           <Flex direction="column" gap="3">
             <Flex direction="column" gap="1">
               <Text size="3" weight="medium">
