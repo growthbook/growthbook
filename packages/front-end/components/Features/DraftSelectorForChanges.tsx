@@ -1,12 +1,7 @@
 import { useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
-import {
-  PiCaretRightBold,
-  PiInfoFill,
-  PiShieldCheckBold,
-  PiShieldSlashBold,
-} from "react-icons/pi";
+import { PiCaretRightBold } from "react-icons/pi";
 import { FeatureInterface } from "shared/types/feature";
 import {
   FeatureRevisionInterface,
@@ -20,7 +15,6 @@ import {
   buildEffectiveDraft,
   filterEnvironmentsByFeature,
 } from "shared/util";
-import { useUser } from "@/services/UserContext";
 import Button from "@/ui/Button";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
@@ -28,7 +22,6 @@ import { revisionLabelText } from "@/components/Features/RevisionLabel";
 import RadioGroup from "@/ui/RadioGroup";
 import RevisionDropdown from "@/components/Features/RevisionDropdown";
 import AffectedEnvironmentsBadges from "@/components/Features/AffectedEnvironmentsBadges";
-import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import useApi from "@/hooks/useApi";
 import { useEnvironments } from "@/services/features";
@@ -36,7 +29,6 @@ import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 
 export type DraftMode = "existing" | "new" | "publish";
 
-// Controlled UI for selecting where to apply a feature change; state and API calls stay in the parent.
 export default function DraftSelectorForChanges({
   feature,
   baseFeature,
@@ -52,7 +44,7 @@ export default function DraftSelectorForChanges({
   triggerPrefix = "Changes will be",
 }: {
   feature: FeatureInterface;
-  // Raw live feature document (un-merged); fallback for env state missing from old sparse live revisions.
+  // Un-merged live feature doc; fallback for env state on old sparse live revisions.
   baseFeature?: FeatureInterface;
   revisionList: MinimalFeatureRevisionInterface[];
   mode: DraftMode;
@@ -75,7 +67,7 @@ export default function DraftSelectorForChanges({
     [revisionList],
   );
 
-  // Use context revisions if available; fetch only when used outside FeaturesOverview.
+  // Use context revisions if available; fetch only when rendered outside FeaturesOverview.
   const ctx = useFeatureRevisionsContext();
   const draftVersionForFetch =
     mode === "existing" && !ctx
@@ -89,7 +81,7 @@ export default function DraftSelectorForChanges({
     { shouldRun: () => draftVersionForFetch != null },
   );
 
-  // Org-level env scope for badge coloring, independent of this action's gating.
+  // Org-level approval scope for badge coloring; independent of this action's gating.
   const settings = useOrgSettings();
   const approvalScopedEnvSet = useMemo<Set<string> | "all" | "none">(() => {
     const raw = settings?.requireReviews;
@@ -211,37 +203,40 @@ export default function DraftSelectorForChanges({
     mode === "publish" ? (
       <Text weight="semibold">published immediately</Text>
     ) : mode === "existing" && selectedRevision != null ? (
-      <>
-        added to draft:{" "}
-        <Text weight="semibold">
-          <OverflowText maxWidth={140}>
-            {revisionLabelText(
-              selectedRevision.version,
-              selectedRevision.title,
-              !!selectedRevision.title,
-            )}
-          </OverflowText>
-        </Text>
-      </>
+      (() => {
+        const label = revisionLabelText(
+          selectedRevision.version,
+          selectedRevision.title,
+          !!selectedRevision.title,
+        );
+        return (
+          <>
+            <span style={{ flexShrink: 0, whiteSpace: "nowrap" }}>
+              added to draft:&nbsp;
+            </span>
+            <span style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
+              <Text weight="semibold" as="span">
+                <span
+                  style={{
+                    display: "block",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                  title={label}
+                >
+                  {label}
+                </span>
+              </Text>
+            </span>
+          </>
+        );
+      })()
     ) : (
       <>
         added to <Text weight="semibold">a new draft</Text>
       </>
     );
-
-  const approvalsGloballyEnabled = !!settings?.requireReviews;
-  const { hasCommercialFeature } = useUser();
-  const hasApprovalsFeature = hasCommercialFeature("require-approvals");
-
-  const triggerIcon = !hasApprovalsFeature ? (
-    <PiInfoFill size={16} />
-  ) : gatedEnvSet !== "none" ? (
-    <PiShieldCheckBold size={16} />
-  ) : approvalsGloballyEnabled ? (
-    <PiShieldSlashBold size={16} />
-  ) : (
-    <PiInfoFill size={16} />
-  );
 
   const trigger = (
     <Flex
@@ -253,11 +248,24 @@ export default function DraftSelectorForChanges({
       style={{ cursor: "pointer", userSelect: "none" }}
       className="draft-selector-collapsible-trigger"
     >
-      <HelperText status="info" icon={triggerIcon}>
-        <div className="ml-1">
-          {triggerPrefix} {triggerLabel}
-        </div>
-      </HelperText>
+      <Box style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
+        <HelperText status="info">
+          <div
+            className="ml-1"
+            style={{
+              display: "flex",
+              alignItems: "baseline",
+              overflow: "hidden",
+              minWidth: 0,
+            }}
+          >
+            <span style={{ flexShrink: 0, whiteSpace: "nowrap" }}>
+              {triggerPrefix}&nbsp;
+            </span>
+            {triggerLabel}
+          </div>
+        </HelperText>
+      </Box>
       <Button
         variant="ghost"
         size="xs"

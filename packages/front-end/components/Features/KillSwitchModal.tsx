@@ -55,20 +55,16 @@ function EnvStateGrid({
   liveVersion: number;
   afterChangeSubtext: string;
 }) {
-  const COL_W = 70;
-  const LABEL_W = 156;
-  const ROW_PY = 6;
+  const COL_W = 100;
+  const LABEL_W = 140;
 
   const liveEnvSettings = liveFeature.environmentSettings ?? {};
 
   return (
-    <Box my="4" style={{ overflowX: "auto" }}>
+    <Box my="4" pb="4" style={{ overflowX: "auto" }}>
       <Flex direction="column" style={{ minWidth: "max-content" }}>
-        <Flex
-          align="center"
-          pb="2"
-          style={{ borderBottom: "1px solid var(--gray-4)" }}
-        >
+        {/* Env name header — outside the outlined area */}
+        <Flex align="center" pb="2">
           <Box style={{ width: LABEL_W, flexShrink: 0 }} />
           {visibleEnvs.map((env) => (
             <Box
@@ -82,60 +78,102 @@ function EnvStateGrid({
           ))}
         </Flex>
 
-        <Flex
-          align="center"
-          style={{ paddingTop: ROW_PY, paddingBottom: ROW_PY }}
-        >
-          <Box style={{ width: LABEL_W, flexShrink: 0 }}>
-            <Text size="small" weight="semibold">
-              Live
-            </Text>
-            <div style={{ fontSize: "0.75em", color: "var(--color-text-low)" }}>
-              revision {liveVersion}
-            </div>
-          </Box>
-          {visibleEnvs.map((env) => (
-            <Flex
-              key={env.id}
-              justify="center"
-              align="center"
-              style={{ width: COL_W, flexShrink: 0 }}
-            >
-              <EnvStateIcon
-                enabled={liveEnvSettings[env.id]?.enabled ?? false}
+        {/* Three data rows wrapped in a relative container so outlines can span all of them */}
+        <Box style={{ position: "relative" }}>
+          {/* Per-column touched outlines */}
+          {visibleEnvs.map((env, i) =>
+            (liveEnvSettings[env.id]?.enabled ?? false) !==
+            getEffectiveState(env.id) ? (
+              <div
+                key={env.id}
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: LABEL_W + i * COL_W + 6,
+                  width: COL_W - 12,
+                  height: "100%",
+                  borderRadius: "var(--radius-3)",
+                  boxShadow: "inset 0 0 0 1.5px var(--violet-7)",
+                  pointerEvents: "none",
+                }}
               />
-            </Flex>
-          ))}
-        </Flex>
+            ) : null,
+          )}
 
-        <Flex
-          align="center"
-          style={{ paddingTop: ROW_PY, paddingBottom: ROW_PY }}
-        >
-          <Box style={{ width: LABEL_W, flexShrink: 0 }}>
-            <Text size="small" weight="semibold">
-              After change
-            </Text>
-            <div style={{ fontSize: "0.75em", color: "var(--color-text-low)" }}>
-              {afterChangeSubtext}
-            </div>
-          </Box>
-          {visibleEnvs.map((env) => (
-            <Flex
-              key={env.id}
-              justify="center"
-              align="center"
-              style={{ width: COL_W, flexShrink: 0 }}
-            >
-              <Switch
-                value={getEffectiveState(env.id)}
-                onChange={(val) => onToggle(env.id, val)}
-                disabled={!canToggle(env.id)}
-                size="2"
-              />
-            </Flex>
-          ))}
-        </Flex>
+          {/* Change State / switches row */}
+          <Flex
+            align="center"
+            py="3"
+            style={{ borderBottom: "1px solid var(--gray-4)" }}
+          >
+            <Box style={{ width: LABEL_W, flexShrink: 0 }} />
+            {visibleEnvs.map((env) => (
+              <Flex
+                key={env.id}
+                justify="center"
+                align="center"
+                style={{ width: COL_W, flexShrink: 0 }}
+              >
+                <Switch
+                  value={getEffectiveState(env.id)}
+                  onChange={(val) => onToggle(env.id, val)}
+                  disabled={!canToggle(env.id)}
+                  size="3"
+                />
+              </Flex>
+            ))}
+          </Flex>
+
+          {/* Live row */}
+          <Flex align="center" py="2">
+            <Box style={{ width: LABEL_W, flexShrink: 0 }}>
+              <Text size="small" weight="semibold">
+                Live
+              </Text>
+              <div
+                style={{ fontSize: "0.75em", color: "var(--color-text-low)" }}
+              >
+                revision {liveVersion}
+              </div>
+            </Box>
+            {visibleEnvs.map((env) => (
+              <Flex
+                key={env.id}
+                justify="center"
+                align="center"
+                style={{ width: COL_W, flexShrink: 0 }}
+              >
+                <EnvStateIcon
+                  enabled={liveEnvSettings[env.id]?.enabled ?? false}
+                />
+              </Flex>
+            ))}
+          </Flex>
+
+          {/* After change row */}
+          <Flex align="center" py="2">
+            <Box style={{ width: LABEL_W, flexShrink: 0 }}>
+              <Text size="small" weight="semibold">
+                After change
+              </Text>
+              <div
+                style={{ fontSize: "0.75em", color: "var(--color-text-low)" }}
+              >
+                {afterChangeSubtext}
+              </div>
+            </Box>
+            {visibleEnvs.map((env) => (
+              <Flex
+                key={env.id}
+                justify="center"
+                align="center"
+                style={{ width: COL_W, flexShrink: 0 }}
+              >
+                <EnvStateIcon enabled={getEffectiveState(env.id)} />
+              </Flex>
+            ))}
+          </Flex>
+        </Box>
       </Flex>
     </Box>
   );
@@ -237,8 +275,29 @@ export default function KillSwitchModal({
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
   );
-  // Per-env overrides applied by the user in the "After change" row
+  // Envs explicitly toggled by the user during this modal session.
+  const [touchedEnvs, setTouchedEnvs] = useState<Set<string>>(new Set());
+  // Per-env overrides applied by the user in the "Change State" row.
   const [envOverrides, setEnvOverrides] = useState<Record<string, boolean>>({});
+
+  // Wrap mode/draft setters so that touched overrides are always preserved
+  // while un-touched envs are free to follow the newly selected base.
+  const handleSetMode = (m: DraftMode) => {
+    setMode(m);
+    setEnvOverrides((prev) =>
+      Object.fromEntries(
+        Object.entries(prev).filter(([k]) => touchedEnvs.has(k)),
+      ),
+    );
+  };
+  const handleSetSelectedDraft = (v: number | null) => {
+    setSelectedDraft(v);
+    setEnvOverrides((prev) =>
+      Object.fromEntries(
+        Object.entries(prev).filter(([k]) => touchedEnvs.has(k)),
+      ),
+    );
+  };
 
   const draftVersionForFetch = !ctx ? selectedDraft : null;
   const { data: fetchedRevisionsData } = useApi<{
@@ -347,6 +406,7 @@ export default function KillSwitchModal({
       close={close}
       open={true}
       cta={mode === "publish" ? "Publish now" : "Save to draft"}
+      size="lg"
       submit={submit}
       useRadixButton={true}
     >
@@ -356,9 +416,9 @@ export default function KillSwitchModal({
           baseFeature={baseFeature}
           revisionList={revisionList}
           mode={mode}
-          setMode={setMode}
+          setMode={handleSetMode}
           selectedDraft={selectedDraft}
-          setSelectedDraft={setSelectedDraft}
+          setSelectedDraft={handleSetSelectedDraft}
           canAutoPublish={canAutoPublish}
           gatedEnvSet={gatedEnvSet}
           defaultExpanded
@@ -367,9 +427,10 @@ export default function KillSwitchModal({
           liveFeature={liveDoc}
           visibleEnvs={visibleEnvs}
           getEffectiveState={getEffectiveState}
-          onToggle={(envId, val) =>
-            setEnvOverrides((prev) => ({ ...prev, [envId]: val }))
-          }
+          onToggle={(envId, val) => {
+            setTouchedEnvs((prev) => new Set([...prev, envId]));
+            setEnvOverrides((prev) => ({ ...prev, [envId]: val }));
+          }}
           canToggle={canToggleEnv}
           liveVersion={liveDoc.version}
           afterChangeSubtext={
@@ -380,7 +441,7 @@ export default function KillSwitchModal({
                 : "new draft"
           }
         />
-        {noNetChange && (
+        {noNetChange && touchedEnvs.size > 0 && (
           <Box mt="2">
             <Text as="p" size="small" color="text-low">
               <em>
