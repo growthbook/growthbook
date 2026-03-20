@@ -5,10 +5,12 @@ import {
   FaExclamationTriangle,
   FaSquare,
 } from "react-icons/fa";
+import { PiXBold } from "react-icons/pi";
 import { useRouter } from "next/router";
 import { ago, datetime } from "shared/dates";
 import { QueryInterface } from "shared/types/query";
 import { capitalize } from "lodash";
+import { IconButton } from "@radix-ui/themes";
 import { useSearch } from "@/services/search";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useApi from "@/hooks/useApi";
@@ -18,9 +20,11 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "@/components/Modal";
 import ExpandableQuery from "@/components/Queries/ExpandableQuery";
 import usePermissions from "@/hooks/usePermissions";
+import { useAuth } from "@/services/auth";
 
 const DataSourceQueries = (): React.ReactElement => {
   const permissions = usePermissions();
+  const { apiCall } = useAuth();
   const [modalData, setModalData] = useState<QueryInterface | null>(null);
   const router = useRouter();
   const { did } = router.query as { did: string };
@@ -28,8 +32,13 @@ const DataSourceQueries = (): React.ReactElement => {
   const d = getDatasourceById(did);
 
   const canView = d && permissions.check("readData", d.projects || []);
+  const canCancel = d && permissions.check("runQueries", d.projects || []);
 
-  const { data, error: queriesError } = useApi<{
+  const {
+    data,
+    error: queriesError,
+    mutate,
+  } = useApi<{
     queries: QueryInterface[];
   }>(`/datasource/${did}/queries`);
 
@@ -180,40 +189,72 @@ const DataSourceQueries = (): React.ReactElement => {
                 </td>
                 <td>{ago(query.finishedAt || "")}</td>
                 <td>
-                  <Tooltip
-                    body={
-                      <div>
-                        <strong>{capitalize(query.status)}</strong>
-                        {query.status === "failed" && (
-                          <p className="mb-0">{query.error}</p>
-                        )}
-                      </div>
-                    }
-                    tipMinWidth="50px"
-                    tipPosition="top"
-                  >
-                    {query.status === "running" && (
-                      <FaCircle className="text-info mr-2" title="Running" />
+                  <span className="d-flex align-items-center">
+                    <Tooltip
+                      body={
+                        <div>
+                          <strong>{capitalize(query.status)}</strong>
+                          {query.status === "failed" && (
+                            <p className="mb-0">{query.error}</p>
+                          )}
+                        </div>
+                      }
+                      tipMinWidth="50px"
+                      tipPosition="top"
+                    >
+                      {query.status === "running" && (
+                        <FaCircle className="text-info mr-2" title="Running" />
+                      )}
+                      {query.status === "queued" && (
+                        <FaSquare
+                          className="text-secondary mr-2"
+                          title="Queued"
+                        />
+                      )}
+                      {query.status === "failed" && (
+                        <FaExclamationTriangle
+                          className="text-danger mr-2"
+                          title="Failed"
+                        />
+                      )}
+                      {query.status === "succeeded" && (
+                        <FaCheck
+                          className="text-success mr-2"
+                          title="Succeeded"
+                        />
+                      )}
+                    </Tooltip>
+                    {query.status === "running" && canCancel && (
+                      <Tooltip
+                        body="Cancel query"
+                        tipPosition="top"
+                        tipMinWidth="50"
+                        flipTheme={false}
+                      >
+                        <IconButton
+                          variant="solid"
+                          color="tomato"
+                          size="2"
+                          style={{ width: 20, height: 20, padding: 2 }}
+                          radius="full"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            try {
+                              await apiCall(
+                                `/datasource/${did}/query/${query.id}/cancel`,
+                                { method: "POST" },
+                              );
+                              await mutate();
+                            } catch (err) {
+                              console.error(err);
+                            }
+                          }}
+                        >
+                          <PiXBold size={14} />
+                        </IconButton>
+                      </Tooltip>
                     )}
-                    {query.status === "queued" && (
-                      <FaSquare
-                        className="text-secondary mr-2"
-                        title="Queued"
-                      />
-                    )}
-                    {query.status === "failed" && (
-                      <FaExclamationTriangle
-                        className="text-danger mr-2"
-                        title="Failed"
-                      />
-                    )}
-                    {query.status === "succeeded" && (
-                      <FaCheck
-                        className="text-success mr-2"
-                        title="Succeeded"
-                      />
-                    )}
-                  </Tooltip>
+                  </span>
                 </td>
                 <td>{query.externalId || "N/A"}</td>
               </tr>
