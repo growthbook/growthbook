@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiToggleLeft, PiToggleRight } from "react-icons/pi";
+import { FaCircleCheck, FaCircleXmark } from "react-icons/fa6";
 import { FeatureInterface } from "shared/types/feature";
 import {
   FeatureRevisionInterface,
@@ -14,6 +14,7 @@ import {
   buildEffectiveDraft,
   filterEnvironmentsByFeature,
 } from "shared/util";
+import Switch from "@/ui/Switch";
 import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
@@ -29,38 +30,28 @@ import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
 
-function ToggleIcon({ enabled, muted }: { enabled: boolean; muted: boolean }) {
-  const Icon = enabled ? PiToggleRight : PiToggleLeft;
-  return (
-    <Icon
-      size={24}
-      style={{
-        color: muted
-          ? "var(--gray-6)"
-          : enabled
-            ? "var(--green-9)"
-            : "var(--red-9)",
-        flexShrink: 0,
-      }}
-    />
+function EnvStateIcon({ enabled }: { enabled: boolean }) {
+  return enabled ? (
+    <FaCircleCheck className="text-success" size={20} />
+  ) : (
+    <FaCircleXmark className="text-muted" size={20} />
   );
 }
 
 function EnvStateGrid({
   liveFeature,
-  baseEnvEnabled,
-  allOrgEnvironments,
-  changedEnv,
-  desiredState,
+  visibleEnvs,
+  getEffectiveState,
+  onToggle,
+  canToggle,
   liveVersion,
   afterChangeSubtext,
 }: {
   liveFeature: FeatureInterface;
-  // Per-env enabled state of the base revision the change will be applied on top of
-  baseEnvEnabled: Record<string, boolean>;
-  allOrgEnvironments: Environment[];
-  changedEnv: string;
-  desiredState: boolean;
+  visibleEnvs: Environment[];
+  getEffectiveState: (envId: string) => boolean;
+  onToggle: (envId: string, val: boolean) => void;
+  canToggle: (envId: string) => boolean;
   liveVersion: number;
   afterChangeSubtext: string;
 }) {
@@ -69,11 +60,6 @@ function EnvStateGrid({
   const ROW_PY = 6;
 
   const liveEnvSettings = liveFeature.environmentSettings ?? {};
-  // Filter by project membership, not just by stored settings keys
-  const visibleEnvs = filterEnvironmentsByFeature(
-    allOrgEnvironments,
-    liveFeature,
-  );
 
   return (
     <Box my="4" style={{ overflowX: "auto" }}>
@@ -87,12 +73,7 @@ function EnvStateGrid({
           {visibleEnvs.map((env) => (
             <Box
               key={env.id}
-              style={{
-                width: COL_W,
-                flexShrink: 0,
-                textAlign: "center",
-                opacity: env.id === changedEnv ? 1 : 0.4,
-              }}
+              style={{ width: COL_W, flexShrink: 0, textAlign: "center" }}
             >
               <Text size="small" weight="semibold" color="text-mid">
                 <OverflowText maxWidth={COL_W}>{env.id}</OverflowText>
@@ -113,20 +94,18 @@ function EnvStateGrid({
               revision {liveVersion}
             </div>
           </Box>
-          {visibleEnvs.map((env) => {
-            const enabled = liveEnvSettings[env.id]?.enabled ?? false;
-            const isChanged = env.id === changedEnv;
-            return (
-              <Flex
-                key={env.id}
-                justify="center"
-                align="center"
-                style={{ width: COL_W, flexShrink: 0 }}
-              >
-                <ToggleIcon enabled={enabled} muted={!isChanged} />
-              </Flex>
-            );
-          })}
+          {visibleEnvs.map((env) => (
+            <Flex
+              key={env.id}
+              justify="center"
+              align="center"
+              style={{ width: COL_W, flexShrink: 0 }}
+            >
+              <EnvStateIcon
+                enabled={liveEnvSettings[env.id]?.enabled ?? false}
+              />
+            </Flex>
+          ))}
         </Flex>
 
         <Flex
@@ -141,23 +120,21 @@ function EnvStateGrid({
               {afterChangeSubtext}
             </div>
           </Box>
-          {visibleEnvs.map((env) => {
-            const enabled =
-              env.id === changedEnv
-                ? desiredState
-                : (baseEnvEnabled[env.id] ?? false);
-            const isChanged = env.id === changedEnv;
-            return (
-              <Flex
-                key={env.id}
-                justify="center"
-                align="center"
-                style={{ width: COL_W, flexShrink: 0 }}
-              >
-                <ToggleIcon enabled={enabled} muted={!isChanged} />
-              </Flex>
-            );
-          })}
+          {visibleEnvs.map((env) => (
+            <Flex
+              key={env.id}
+              justify="center"
+              align="center"
+              style={{ width: COL_W, flexShrink: 0 }}
+            >
+              <Switch
+                value={getEffectiveState(env.id)}
+                onChange={(val) => onToggle(env.id, val)}
+                disabled={!canToggle(env.id)}
+                size="2"
+              />
+            </Flex>
+          ))}
         </Flex>
       </Flex>
     </Box>
@@ -169,8 +146,9 @@ export interface KillSwitchModalProps {
   feature: FeatureInterface;
   // Raw live feature document (un-merged)
   baseFeature?: FeatureInterface;
-  environment: string;
-  desiredState: boolean;
+  // When set, pre-initialises that env to desiredState in the grid
+  environment?: string;
+  desiredState?: boolean;
   currentVersion: number;
   revisionList: MinimalFeatureRevisionInterface[];
   mutate: () => Promise<unknown>;
@@ -210,7 +188,10 @@ export default function KillSwitchModal({
     if (!reviewSetting?.requireReviewOn) return false;
     if (reviewSetting.featureRequireEnvironmentReview === false) return false;
     const gatedEnvs = reviewSetting.environments ?? [];
-    return gatedEnvs.length === 0 || gatedEnvs.includes(environment);
+    return (
+      gatedEnvs.length === 0 ||
+      (environment != null && gatedEnvs.includes(environment))
+    );
   })();
 
   // "none" when kill-switch approvals are off, even if other change types are gated
@@ -256,6 +237,8 @@ export default function KillSwitchModal({
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
   );
+  // Per-env overrides applied by the user in the "After change" row
+  const [envOverrides, setEnvOverrides] = useState<Record<string, boolean>>({});
 
   const draftVersionForFetch = !ctx ? selectedDraft : null;
   const { data: fetchedRevisionsData } = useApi<{
@@ -266,6 +249,11 @@ export default function KillSwitchModal({
     { shouldRun: () => draftVersionForFetch != null },
   );
   const revisions = ctx?.revisions ?? fetchedRevisionsData?.revisions;
+
+  const visibleEnvs = useMemo(
+    () => filterEnvironmentsByFeature(allOrgEnvironments, liveDoc),
+    [allOrgEnvironments, liveDoc],
+  );
 
   // Base enabled state per env: live (filled) for new/publish, effective draft for existing.
   const baseEnvEnabled = useMemo<Record<string, boolean>>(() => {
@@ -294,46 +282,71 @@ export default function KillSwitchModal({
     );
   }, [revisions, liveDoc, feature.version, mode, selectedDraft]);
 
-  const submit = async () => {
-    const res = await apiCall<{ status: 200; draftVersion?: number }>(
-      `/feature/${feature.id}/toggle`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          environment,
-          state: desiredState,
-          ...(mode === "publish"
-            ? { autoPublish: true }
-            : mode === "existing"
-              ? { draftVersion: selectedDraft }
-              : { forceNewDraft: true }),
-        }),
-      },
-    );
-    track("Feature Environment Toggle", {
-      environment,
-      enabled: desiredState,
-      autoPublish: mode === "publish",
-    });
-    await mutate();
-    const resolvedVersion =
-      res?.draftVersion ?? (mode === "existing" ? selectedDraft : null);
-    if (resolvedVersion != null) setVersion(resolvedVersion);
+  const getEffectiveState = (envId: string): boolean => {
+    if (envId in envOverrides) return envOverrides[envId];
+    if (environment === envId && desiredState !== undefined)
+      return desiredState;
+    return baseEnvEnabled[envId] ?? false;
   };
 
-  const actionLabel = desiredState ? "Enable" : "Disable";
+  const canToggleEnv = (envId: string) =>
+    permissionsUtil.canPublishFeature(feature, [envId]);
 
-  const noNetChange =
-    desiredState ===
-    (liveDoc.environmentSettings?.[environment]?.enabled ?? false);
+  const submit = async () => {
+    const modePayload = (resolvedDraftVer?: number) =>
+      mode === "publish"
+        ? { autoPublish: true }
+        : mode === "existing"
+          ? { draftVersion: selectedDraft }
+          : resolvedDraftVer != null
+            ? { draftVersion: resolvedDraftVer }
+            : { forceNewDraft: true };
+
+    let resolvedDraftVersion: number | undefined;
+    for (const env of visibleEnvs) {
+      const effective = getEffectiveState(env.id);
+      if (effective === (baseEnvEnabled[env.id] ?? false)) continue;
+      const res = await apiCall<{ status: 200; draftVersion?: number }>(
+        `/feature/${feature.id}/toggle`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            environment: env.id,
+            state: effective,
+            ...modePayload(resolvedDraftVersion),
+          }),
+        },
+      );
+      if (res?.draftVersion != null) resolvedDraftVersion = res.draftVersion;
+      track("Feature Environment Toggle", {
+        environment: env.id,
+        enabled: effective,
+        autoPublish: mode === "publish",
+      });
+    }
+    await mutate();
+    const finalVersion =
+      resolvedDraftVersion ?? (mode === "existing" ? selectedDraft : null);
+    if (finalVersion != null) setVersion(finalVersion);
+  };
+
+  const noNetChange = visibleEnvs.every(
+    (env) =>
+      getEffectiveState(env.id) ===
+      (liveDoc.environmentSettings?.[env.id]?.enabled ?? false),
+  );
+
+  const modalHeader = environment
+    ? `${desiredState ? "Enable" : "Disable"} ${environment}`
+    : "Manage Kill Switches";
 
   return (
     <Modal
       trackingEventModalType="kill-switch-toggle"
-      header={`${actionLabel} ${environment}`}
+      header={modalHeader}
       close={close}
       open={true}
-      cta={mode === "publish" ? `${actionLabel} now` : "Save to draft"}
+      cta={mode === "publish" ? "Publish now" : "Save to draft"}
       submit={submit}
       useRadixButton={true}
     >
@@ -350,22 +363,14 @@ export default function KillSwitchModal({
           gatedEnvSet={gatedEnvSet}
           defaultExpanded
         />
-
-        <Text as="p" mb="2">
-          You are about to set the <strong>{environment}</strong> environment to{" "}
-          <strong
-            style={{ color: desiredState ? "var(--green-9)" : "var(--red-9)" }}
-          >
-            {desiredState ? "enabled" : "disabled"}
-          </strong>
-          .
-        </Text>
         <EnvStateGrid
           liveFeature={liveDoc}
-          baseEnvEnabled={baseEnvEnabled}
-          allOrgEnvironments={allOrgEnvironments}
-          changedEnv={environment}
-          desiredState={desiredState}
+          visibleEnvs={visibleEnvs}
+          getEffectiveState={getEffectiveState}
+          onToggle={(envId, val) =>
+            setEnvOverrides((prev) => ({ ...prev, [envId]: val }))
+          }
+          canToggle={canToggleEnv}
           liveVersion={liveDoc.version}
           afterChangeSubtext={
             mode === "existing" && selectedDraft != null
@@ -379,23 +384,11 @@ export default function KillSwitchModal({
           <Box mt="2">
             <Text as="p" size="small" color="text-low">
               <em>
-                {mode === "existing" ? (
-                  <>
-                    This undoes a pending draft change —{" "}
-                    <strong>{environment}</strong> will match live with no net
-                    change.
-                  </>
-                ) : mode === "publish" ? (
-                  <>
-                    <strong>{environment}</strong> already matches live —
-                    nothing will be published.
-                  </>
-                ) : (
-                  <>
-                    <strong>{environment}</strong> already matches live — this
-                    will have no effect.
-                  </>
-                )}
+                {mode === "existing"
+                  ? "This undoes pending draft changes — no net change from live."
+                  : mode === "publish"
+                    ? "Already matches live — nothing will be published."
+                    : "Already matches live — this will have no effect."}
               </em>
             </Text>
           </Box>

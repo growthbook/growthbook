@@ -1,7 +1,9 @@
+import dynamic from "next/dynamic";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
+import { FaCircleCheck, FaCircleXmark } from "react-icons/fa6";
 import {
   PiPlusCircleBold,
   PiPlus,
@@ -32,11 +34,12 @@ import {
   MinimalFeatureRevisionInterface,
 } from "shared/validators";
 import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 import { useAuth } from "@/services/auth";
 import ForceSummary from "@/components/Features/ForceSummary";
 import track from "@/services/track";
 import EditDefaultValueModal from "@/components/Features/EditDefaultValueModal";
-import EnvironmentToggle from "@/components/Features/EnvironmentToggle";
+import KillSwitchModal from "@/components/Features/KillSwitchModal";
 import EditProjectForm from "@/components/Experiment/EditProjectForm";
 import {
   getFeatureDefaultValue,
@@ -93,13 +96,73 @@ import {
   PrerequisiteStateResult,
   usePrerequisiteStates,
 } from "@/hooks/usePrerequisiteStates";
-import PrerequisiteStatusRow, {
-  PrerequisiteStatesCols,
-} from "./PrerequisiteStatusRow";
 import PrerequisiteAlerts from "./PrerequisiteAlerts";
 import PrerequisiteModal from "./PrerequisiteModal";
 import RequestReviewModal from "./RequestReviewModal";
 import FeatureRules from "./FeatureRules";
+
+export const featureStatusColors = {
+  on: "var(--green-10)",
+  off: "var(--red-11)",
+  offMuted: "var(--color-text-low)",
+  warning: "var(--amber-11)",
+  danger: "var(--red-9)",
+} as const;
+
+export function NonLiveRevisionTooltipNote({
+  kind,
+}: {
+  kind: "draft" | "inactive";
+}) {
+  return (
+    <Callout status="warning" size="sm" mt="2">
+      You are viewing a{" "}
+      <strong>{kind === "draft" ? "draft" : "inactive revision"}</strong>; it
+      may not reflect the actual state of the feature.
+    </Callout>
+  );
+}
+
+const PrerequisiteStatusRow = dynamic(() => import("./PrerequisiteStatusRow"));
+const PrerequisiteStatesCols = dynamic(() =>
+  import("./PrerequisiteStatusRow").then((mod) => mod.PrerequisiteStatesCols),
+);
+
+function environmentKillSwitchTooltipBody(
+  enabled: boolean,
+  showChangeHint: boolean,
+  nonLiveDisclaimer: false | "draft" | "inactive",
+): JSX.Element {
+  return (
+    <Text as="div" size="small" color="text-high">
+      {enabled ? (
+        <>
+          The current feature is{" "}
+          <strong style={{ color: featureStatusColors.on }}>live</strong> in
+          this environment. Traffic is{" "}
+          <strong style={{ color: featureStatusColors.on }}>on</strong>.
+        </>
+      ) : (
+        <>
+          The current feature is{" "}
+          <strong style={{ color: featureStatusColors.off }}>not live</strong>{" "}
+          in this environment. Traffic is{" "}
+          <strong style={{ color: featureStatusColors.off }}>off</strong>. It
+          will evaluate to <code>null</code>.
+        </>
+      )}
+      {showChangeHint && (
+        <Text as="div" mt="2" size="small" color="text-high">
+          Click <strong>Change</strong> to turn traffic on or off for each
+          environment.
+        </Text>
+      )}
+      {nonLiveDisclaimer !== false && (
+        <NonLiveRevisionTooltipNote kind={nonLiveDisclaimer} />
+      )}
+    </Text>
+  );
+}
 
 export default function FeaturesOverview({
   baseFeature,
@@ -169,6 +232,7 @@ export default function FeaturesOverview({
   const [showDescriptionModal, setShowDescriptionModal] = useState(false);
   const [compareRevisionsModalOpen, setCompareRevisionsModalOpen] =
     useState(false);
+  const [showKillSwitchManager, setShowKillSwitchManager] = useState(false);
 
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
@@ -208,14 +272,52 @@ export default function FeaturesOverview({
     prerequisites.map((p) => p.id),
   );
 
-  const { states: prereqStatesRaw, loading: prereqStatesLoading } =
-    usePrerequisiteStates({
-      featureId: feature?.id || "",
-      environments: envs,
-      enabled: !!feature,
-      skipRootConditions: true,
-      version,
-    });
+  const {
+    states: prereqStatesRaw,
+    loading: prereqStatesLoading,
+    mutate: mutatePrereqStates,
+  } = usePrerequisiteStates({
+    featureId: feature?.id || "",
+    environments: envs,
+    enabled: !!feature,
+    skipRootConditions: true,
+    version,
+  });
+
+  const prerequisitesSignature = useMemo(
+    () =>
+      JSON.stringify(
+        (feature?.prerequisites ?? []).map((p) => ({
+          id: p.id,
+          condition: p.condition,
+        })),
+      ),
+    [feature?.prerequisites],
+  );
+
+  const prereqStatesInvalidateRef = useRef<{
+    featureId: string;
+    signature: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!feature?.id) return;
+    const prev = prereqStatesInvalidateRef.current;
+    if (!prev || prev.featureId !== feature.id) {
+      prereqStatesInvalidateRef.current = {
+        featureId: feature.id,
+        signature: prerequisitesSignature,
+      };
+      return;
+    }
+    if (prev.signature !== prerequisitesSignature) {
+      prereqStatesInvalidateRef.current = {
+        featureId: feature.id,
+        signature: prerequisitesSignature,
+      };
+      void mutatePrereqStates();
+    }
+  }, [feature?.id, prerequisitesSignature, mutatePrereqStates]);
 
   const killSwitchKey = envs
     .map(
@@ -366,6 +468,12 @@ export default function FeaturesOverview({
   // Distinct from isLocked, which also fires for the live revision when active drafts exist.
   const isReadOnly =
     isDiscarded || (revision.status === "published" && !isLive);
+
+  const envAndSummaryTooltipNonLiveDisclaimer = !isLive
+    ? isDraft
+      ? ("draft" as const)
+      : ("inactive" as const)
+    : false;
 
   // TODO: support multiple per-project approval configs
   const featureReviewConfig = getReviewSetting(
@@ -1040,28 +1148,56 @@ export default function FeaturesOverview({
                   <tbody>
                     <tr>
                       <td
-                        className="pl-3 align-bottom font-weight-bold border-right"
+                        className="pl-3 align-bottom border-right py-3"
                         style={{ minWidth: 350 }}
                       >
-                        Kill Switch
+                        <Flex align="center" justify="between" gap="2">
+                          <span className="font-weight-bold">
+                            Enabled Environments
+                          </span>
+                          {!isReadOnly && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setShowKillSwitchManager(true)}
+                            >
+                              Change
+                            </Button>
+                          )}
+                        </Flex>
                       </td>
-                      {envs.map((env) => (
-                        <td key={env} style={{ minWidth: 120 }}>
-                          <Flex align="center" justify="center">
-                            <EnvironmentToggle
-                              feature={feature}
-                              baseFeature={baseFeature}
-                              environment={env}
-                              mutate={mutate}
-                              setVersion={setVersion}
-                              currentVersion={currentVersion}
-                              revisionList={revisionList || []}
-                              id={`${env}_toggle`}
-                              isLocked={isReadOnly}
-                            />
-                          </Flex>
-                        </td>
-                      ))}
+                      {envs.map((env) => {
+                        const enabled =
+                          feature.environmentSettings?.[env]?.enabled ?? false;
+                        return (
+                          <td key={env} style={{ minWidth: 120 }}>
+                            <Flex align="center" justify="center">
+                              <Tooltip
+                                className="cursor-pointer"
+                                popperClassName="text-left"
+                                flipTheme={false}
+                                body={environmentKillSwitchTooltipBody(
+                                  enabled,
+                                  !isReadOnly,
+                                  envAndSummaryTooltipNonLiveDisclaimer,
+                                )}
+                              >
+                                {enabled ? (
+                                  <FaCircleCheck
+                                    className="text-success"
+                                    size={20}
+                                  />
+                                ) : (
+                                  <FaCircleXmark
+                                    className="text-muted"
+                                    size={20}
+                                  />
+                                )}
+                              </Tooltip>
+                            </Flex>
+                          </td>
+                        );
+                      })}
                       <td className="w-100" />
                     </tr>
                     {prerequisites.map(({ ...item }, i) => {
@@ -1094,6 +1230,20 @@ export default function FeaturesOverview({
                           envs={envs}
                           isSummaryRow={true}
                           loading={prereqStatesLoading}
+                          tooltipBodyWrapper={
+                            envAndSummaryTooltipNonLiveDisclaimer
+                              ? (body) => (
+                                  <>
+                                    {body}
+                                    <NonLiveRevisionTooltipNote
+                                      kind={
+                                        envAndSummaryTooltipNonLiveDisclaimer
+                                      }
+                                    />
+                                  </>
+                                )
+                              : undefined
+                          }
                         />
                       )}
                       <td />
@@ -1102,56 +1252,85 @@ export default function FeaturesOverview({
                 </table>
               </div>
             ) : (
-              <Flex
-                mt="4"
-                justify="start"
-                align="center"
-                gapX="4"
-                gapY="3"
-                wrap="wrap"
-              >
-                {environments.length > 0 ? (
-                  environments.map((en) => (
-                    <Flex
-                      wrap="nowrap"
-                      direction="row"
-                      gap="2"
-                      key={en.id}
-                      mr="4"
+              <Box>
+                <Flex align="center" gap="4">
+                  <span className="font-weight-bold">Enabled Environments</span>
+                  {!isReadOnly && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowKillSwitchManager(true)}
                     >
-                      <label
-                        className="font-weight-bold mb-0"
-                        htmlFor={`${en.id}_toggle`}
-                      >
-                        {en.id}:{" "}
-                      </label>
-                      <EnvironmentToggle
-                        feature={feature}
-                        baseFeature={baseFeature}
-                        environment={en.id}
-                        mutate={mutate}
-                        setVersion={setVersion}
-                        currentVersion={currentVersion}
-                        revisionList={revisionList || []}
-                        id={`${en.id}_toggle`}
-                        isLocked={isReadOnly}
-                      />
-                    </Flex>
-                  ))
-                ) : (
-                  <div className="alert alert-warning pt-3 pb-2 w-100">
-                    <div className="h4 mb-3">
-                      <FaExclamationTriangle /> This feature has no associated
-                      environments
+                      Change
+                    </Button>
+                  )}
+                </Flex>
+                <Separator size="4" mt="1" mb="3" />
+                <Flex
+                  mb="4"
+                  justify="start"
+                  align="center"
+                  gapX="4"
+                  gapY="3"
+                  wrap="wrap"
+                >
+                  {environments.length > 0 ? (
+                    <>
+                      {environments.map((en) => {
+                        const enabled =
+                          feature.environmentSettings?.[en.id]?.enabled ??
+                          false;
+                        return (
+                          <Flex
+                            wrap="nowrap"
+                            direction="row"
+                            gap="2"
+                            align="center"
+                            key={en.id}
+                            mr="2"
+                          >
+                            <span className="font-weight-bold">{en.id}:</span>
+                            <Tooltip
+                              className="cursor-pointer"
+                              popperClassName="text-left"
+                              flipTheme={false}
+                              body={environmentKillSwitchTooltipBody(
+                                enabled,
+                                !isReadOnly,
+                                envAndSummaryTooltipNonLiveDisclaimer,
+                              )}
+                            >
+                              {enabled ? (
+                                <FaCircleCheck
+                                  className="text-success"
+                                  size={20}
+                                />
+                              ) : (
+                                <FaCircleXmark
+                                  className="text-muted"
+                                  size={20}
+                                />
+                              )}
+                            </Tooltip>
+                          </Flex>
+                        );
+                      })}
+                    </>
+                  ) : (
+                    <div className="alert alert-warning pt-3 pb-2 w-100">
+                      <div className="h4 mb-3">
+                        <FaExclamationTriangle /> This feature has no associated
+                        environments
+                      </div>
+                      <div className="mb-2">
+                        Ensure that this feature&apos;s project is included in
+                        at least one environment to use it.{" "}
+                        <Link href="/environments">Manage Environments</Link>
+                      </div>
                     </div>
-                    <div className="mb-2">
-                      Ensure that this feature&apos;s project is included in at
-                      least one environment to use it.{" "}
-                      <Link href="/environments">Manage Environments</Link>
-                    </div>
-                  </div>
-                )}
-              </Flex>
+                  )}
+                </Flex>
+              </Box>
             )}
 
             {hasConditionalState && (
@@ -1728,6 +1907,17 @@ export default function FeaturesOverview({
             onClose={() => setCompareRevisionsModalOpen(false)}
             initialPreviewDraft={isDraft ? (version ?? undefined) : undefined}
             initialMode={isLive && !isDraft ? "most-recent-live" : undefined}
+          />
+        )}
+        {showKillSwitchManager && (
+          <KillSwitchModal
+            feature={feature}
+            baseFeature={baseFeature}
+            currentVersion={currentVersion}
+            revisionList={revisionList || []}
+            mutate={mutate}
+            setVersion={setVersion}
+            close={() => setShowKillSwitchManager(false)}
           />
         )}
       </Box>
