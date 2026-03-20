@@ -1181,7 +1181,7 @@ export const MakeModelClass = <
   E extends EntityType,
   ApiT extends ApiBaseSchema,
   PKey extends z.ZodRawShape,
-  const PK extends readonly string[] = typeof DEFAULT_PKEY,
+  PK extends readonly string[] = typeof DEFAULT_PKEY,
 >(
   config: ModelConfig<T, E, ApiT, PKey> & { pKey?: PK },
 ) => {

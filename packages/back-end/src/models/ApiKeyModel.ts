@@ -13,7 +13,7 @@ export const COLLECTION_NAME = "apikeys";
 const BaseClass = MakeModelClass({
   schema: apiKeySchema,
   collectionName: COLLECTION_NAME,
-  pKey: ["key"],
+  pKey: ["key"] as const,
   globallyUniquePrimaryKeys: true,
   idPrefix: "key_",
   additionalIndexes: [{ fields: { id: 1 } }],
