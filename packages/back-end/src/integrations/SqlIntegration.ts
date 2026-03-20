@@ -156,6 +156,7 @@ import {
   AdditionalQueryMetadata,
   QueryDocMetadata,
   QueryMetadata,
+  QueryType,
 } from "shared/types/query";
 import { MissingDatasourceParamsError } from "back-end/src/util/errors";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
@@ -1591,12 +1592,23 @@ export default abstract class SqlIntegration
   async runTestQuery(
     sql: string,
     timestampCols?: string[],
+    queryType?: QueryType,
   ): Promise<TestQueryResult> {
+    // Set queryDocMetadata so wrapRunQuery includes queryType in metadata
+    if (queryType) {
+      this.queryDocMetadata = { queryType };
+    }
+
     // Calculate the run time of the query
     const queryStartTime = Date.now();
     const results = await this.runQuery(sql);
     const queryEndTime = Date.now();
     const duration = queryEndTime - queryStartTime;
+
+    // Clear queryDocMetadata after the query completes
+    if (queryType) {
+      this.queryDocMetadata = undefined;
+    }
 
     if (timestampCols) {
       results.rows.forEach((row) => {

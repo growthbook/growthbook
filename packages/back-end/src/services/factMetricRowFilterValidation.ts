@@ -94,7 +94,7 @@ WHERE ${riskyFilterExpressions.join(" AND ")}`;
   });
 
   try {
-    await integration.runTestQuery(sql);
+    await integration.runTestQuery(sql, undefined, "factTableValidation");
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     throw new Error(`${errorPrefix}${message}`);
