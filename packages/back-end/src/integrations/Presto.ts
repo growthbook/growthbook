@@ -51,10 +51,14 @@ export default class Presto extends SqlIntegration {
       source: this.params?.source || "growthbook",
       schema: this.params.schema,
       catalog: this.params.catalog,
-      // Match presto-client default of 60 seconds when not set; 0 disables
-      timeout: this.params.requestTimeout ?? 60,
       checkInterval: 500,
     };
+    if (
+      this.params.requestTimeout !== undefined &&
+      this.params.requestTimeout !== null
+    ) {
+      configOptions.timeout = this.params.requestTimeout;
+    }
     if (this.params.engine === "trino") {
       if (this.params.trinoUser) {
         configOptions.user = this.params.trinoUser;
