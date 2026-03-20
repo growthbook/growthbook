@@ -18,8 +18,6 @@ import { Popover } from "@/ui/Popover";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import HelperText from "@/ui/HelperText";
 import { useUser } from "@/services/UserContext";
 import MetricName from "@/components/Metrics/MetricName";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -328,7 +326,7 @@ export default function ResultsFilter({
   setSliceTagsFilter,
   showMetricFilter,
   setShowMetricFilter,
-  dimension,
+  dimension: _dimension,
 }: {
   availableMetricTags?: string[];
   metricTagFilter?: string[];
@@ -476,13 +474,7 @@ export default function ResultsFilter({
                 >
                   <Box style={{ width: 80 }}>
                     <Heading size="2" weight="medium" mb="0">
-                      {dimension && (sliceTagsFilter?.length || 0) > 0 ? (
-                        <Tooltip body="Slice filters are ignored when a unit dimension is set">
-                          <HelperText status="warning">Slices</HelperText>
-                        </Tooltip>
-                      ) : (
-                        "Slices"
-                      )}
+                      Slices
                     </Heading>
                   </Box>
                   <MultiSelectField
