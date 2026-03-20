@@ -1290,9 +1290,7 @@ export default function ResultsTable({
                                           phase={phase}
                                           metric={row.metric}
                                           differenceType={differenceType}
-                                          variationNames={orderedVariations.map(
-                                            (v) => v.name,
-                                          )}
+                                          variations={orderedVariations}
                                           showVariations={showVariations}
                                           statsEngine={statsEngine}
                                           pValueAdjustmentEnabled={
