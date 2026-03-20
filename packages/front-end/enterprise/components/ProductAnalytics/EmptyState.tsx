@@ -1,6 +1,12 @@
 import React from "react";
 import { Flex, Box } from "@radix-ui/themes";
-import { PiChartBar, PiCode, PiDatabase, PiTable } from "react-icons/pi";
+import {
+  PiChartBar,
+  PiCode,
+  PiDatabase,
+  PiTable,
+  PiTreeStructure,
+} from "react-icons/pi";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import LinkButton from "@/ui/LinkButton";
@@ -140,6 +146,29 @@ export default function EmptyState() {
               <Flex direction="column" align="center" gap="1">
                 <PiCode size={24} />
                 <Text weight="medium">Custom SQL</Text>
+              </Flex>
+            </LinkButton>
+            <LinkButton
+              href="/product-analytics/explore/user-journey"
+              variant="outline"
+              style={{
+                height: "116px",
+                paddingTop: "16px",
+                paddingBottom: "16px",
+                width: "160px",
+              }}
+              disabled={
+                // If the user can't run custom SQL queries for the current project, or globally, don't show enable the button
+                (!permissionsUtil.canRunFactQueries({
+                  projects: [project],
+                }) &&
+                  !permissionsUtil.canRunFactQueries({ projects: [] })) ||
+                !hasDatasources
+              }
+            >
+              <Flex direction="column" align="center" gap="1">
+                <PiTreeStructure size={24} />
+                <Text weight="medium">User Journey</Text>
               </Flex>
             </LinkButton>
           </Flex>

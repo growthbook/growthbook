@@ -5,7 +5,14 @@ import { getValidDate } from "shared/dates";
 import { Select, SelectItem } from "@/ui/Select";
 import Field from "@/components/Forms/Field";
 import DatePicker from "@/components/DatePicker";
-import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
+
+export type DateRangeValue = {
+  predefined: (typeof dateRangePredefined)[number];
+  lookbackValue: number | null;
+  lookbackUnit?: (typeof lookbackUnit)[number] | null;
+  startDate: string | null;
+  endDate: string | null;
+};
 
 const PREDEFINED_LABELS: Record<(typeof dateRangePredefined)[number], string> =
   {
@@ -18,15 +25,19 @@ const PREDEFINED_LABELS: Record<(typeof dateRangePredefined)[number], string> =
   };
 
 interface DateRangePickerProps {
+  value: DateRangeValue;
+  setValue: (updater: (prev: DateRangeValue) => DateRangeValue) => void;
   shouldWrap?: boolean;
+  /** When true, shows the lookback unit selector (e.g. day/week). Explorer only; User Journey omits. */
+  showLookbackUnit?: boolean;
 }
 
 export default function DateRangePicker({
+  value: dateRange,
+  setValue,
   shouldWrap = false,
-}: DateRangePickerProps = {}) {
-  const { draftExploreState, setDraftExploreState } = useExplorerContext();
-  const { dateRange } = draftExploreState;
-
+  showLookbackUnit = false,
+}: DateRangePickerProps) {
   const [localLookbackValue, setLocalLookbackValue] = useState<string | null>(
     null,
   );
@@ -51,10 +62,7 @@ export default function DateRangePicker({
       return;
     }
 
-    setDraftExploreState((prev) => ({
-      ...prev,
-      dateRange: { ...prev.dateRange, lookbackValue: parsed },
-    }));
+    setValue((prev) => ({ ...prev, lookbackValue: parsed }));
     setLocalLookbackValue(null);
     latestLookbackRef.current = "";
   };
@@ -72,12 +80,9 @@ export default function DateRangePicker({
         value={dateRange.predefined}
         placeholder="Select range"
         setValue={(v) => {
-          setDraftExploreState((prev) => ({
+          setValue((prev) => ({
             ...prev,
-            dateRange: {
-              ...prev.dateRange,
-              predefined: v as (typeof dateRangePredefined)[number],
-            },
+            predefined: v as (typeof dateRangePredefined)[number],
           }));
         }}
       >
@@ -134,25 +139,24 @@ export default function DateRangePicker({
               }
             }}
           />
-          <Select
-            size="2"
-            value={dateRange.lookbackUnit || "day"}
-            setValue={(v) => {
-              setDraftExploreState((prev) => ({
-                ...prev,
-                dateRange: {
-                  ...prev.dateRange,
+          {showLookbackUnit && (
+            <Select
+              size="2"
+              value={(dateRange.lookbackUnit ?? "day") as string}
+              setValue={(v) => {
+                setValue((prev) => ({
+                  ...prev,
                   lookbackUnit: v as (typeof lookbackUnit)[number],
-                },
-              }));
-            }}
-          >
-            {lookbackUnit.map((u) => (
-              <SelectItem key={u} value={u}>
-                {u}(s)
-              </SelectItem>
-            ))}
-          </Select>
+                }));
+              }}
+            >
+              {lookbackUnit.map((u) => (
+                <SelectItem key={u} value={u}>
+                  {u}(s)
+                </SelectItem>
+              ))}
+            </Select>
+          )}
         </>
       )}
 
@@ -168,21 +172,15 @@ export default function DateRangePicker({
             dateRange.endDate ? getValidDate(dateRange.endDate) : undefined
           }
           setDate={(d) => {
-            setDraftExploreState((prev) => ({
+            setValue((prev) => ({
               ...prev,
-              dateRange: {
-                ...prev.dateRange,
-                startDate: d?.toISOString() || null,
-              },
+              startDate: d?.toISOString() || null,
             }));
           }}
           setDate2={(d) => {
-            setDraftExploreState((prev) => ({
+            setValue((prev) => ({
               ...prev,
-              dateRange: {
-                ...prev.dateRange,
-                endDate: d?.toISOString() || null,
-              },
+              endDate: d?.toISOString() || null,
             }));
           }}
           precision="date"

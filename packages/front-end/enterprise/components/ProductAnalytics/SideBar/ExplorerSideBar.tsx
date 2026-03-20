@@ -41,6 +41,7 @@ export default function ExplorerSideBar({
   const {
     draftExploreState,
     setDraftExploreState,
+    clearAllDatasets,
     loading,
     handleSubmit,
     isSubmittable,
@@ -129,7 +130,11 @@ export default function ExplorerSideBar({
           </Tooltip>
         ) : (
           <Flex direction="row" align="center" justify="between" width="100%">
-            <DataSourceDropdown />
+            <DataSourceDropdown
+              value={draftExploreState.datasource}
+              setValue={clearAllDatasets}
+              isSubmittable={isSubmittable}
+            />
             <Tooltip
               body="Configuration has changed. Click to refresh the chart."
               shouldDisplay={isStale}
@@ -184,7 +189,23 @@ export default function ExplorerSideBar({
           <Flex gap="2" wrap="wrap">
             <Flex direction="column" gap="2" style={{ minWidth: 0 }}>
               <Text weight="medium">Date Range</Text>
-              <DateRangePicker shouldWrap />
+              <DateRangePicker
+                value={draftExploreState.dateRange}
+                setValue={(updater) =>
+                  setDraftExploreState((prev) => {
+                    const next = updater(prev.dateRange);
+                    return {
+                      ...prev,
+                      dateRange: {
+                        ...next,
+                        lookbackUnit: next.lookbackUnit ?? null,
+                      },
+                    };
+                  })
+                }
+                shouldWrap
+                showLookbackUnit
+              />
             </Flex>
             {["line", "area", "timeseries-table"].includes(
               draftExploreState.chartType,
