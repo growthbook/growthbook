@@ -99,6 +99,12 @@ export type DefaultMemberRole =
   | "gbDefault_projectAdmin"
   | "admin";
 
+/** Custom role IDs defined by orgs in org.customRoles */
+export type CustomRole = string;
+
+/** A member's role is either a built-in default or a custom role ID */
+export type MemberRole = DefaultMemberRole | CustomRole;
+
 export type Role = {
   id: string;
   description: string;
@@ -285,6 +291,7 @@ export type OrganizationMessage = {
 // The type used to get member data to calculate usage counts for licenses
 export type OrgMemberInfo = {
   id: string;
+  licenseKey?: string;
   invites: { email: string }[];
   members: {
     id: string;

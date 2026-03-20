@@ -2027,14 +2027,13 @@ paths:
                 - name
                 - variations
                 - trackingKey
-                - assignmentQueryId
               properties:
                 datasourceId:
                   type: string
-                  description: 'ID for the [DataSource](#tag/DataSource_model)'
+                  description: 'ID for the [DataSource](#tag/DataSource_model). Can only be set if a templateId is not provided.'
                 assignmentQueryId:
                   type: string
-                  description: The ID property of one of the assignment query objects associated with the datasource
+                  description: The ID property of one of the assignment query objects associated with the datasource. Can only be set if a templateId is not provided.
                 trackingKey:
                   type: string
                 bypassDuplicateKeyCheck:
@@ -2051,6 +2050,9 @@ paths:
                 project:
                   type: string
                   description: Project ID which the experiment belongs to
+                templateId:
+                  type: string
+                  description: 'ID of the [ExperimentTemplate](#tag/ExperimentTemplate_model) this experiment was created from. Template fields are applied by default and overridden by explicitly provided payload fields.'
                 hypothesis:
                   type: string
                   description: Hypothesis of the experiment
@@ -21356,6 +21358,8 @@ components:
             required:
               - slices
           description: Custom slices that apply to ALL applicable metrics in the experiment
+        templateId:
+          type: string
     ExperimentSnapshot:
       type: object
       required:

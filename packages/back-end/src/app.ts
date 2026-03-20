@@ -2,7 +2,12 @@ import path from "path";
 import { existsSync, readFileSync } from "fs";
 import bodyParser from "body-parser";
 import cookieParser from "cookie-parser";
-import express, { ErrorRequestHandler, Request, Response } from "express";
+import express, {
+  ErrorRequestHandler,
+  Request,
+  RequestHandler,
+  Response,
+} from "express";
 import cors from "cors";
 import asyncHandler from "express-async-handler";
 import compression from "compression";
@@ -414,34 +419,38 @@ app.get("/auth/hasorgs", authController.getHasOrganizations);
 
 // All other routes require a valid JWT
 const auth = getAuthConnection();
-app.use(auth.middleware);
+app.use(auth.middleware as RequestHandler);
 
 // Add logged in user props to the request
-app.use(asyncHandler(processJWT));
+app.use(asyncHandler(processJWT as unknown as RequestHandler));
 
 // Add logged in user props to the logger
-app.use(
-  (req: AuthRequest, res: Response & { log: AuthRequest["log"] }, next) => {
-    res.log = req.log = req.log.child(getCustomLogProps(req as Request));
-    next();
-  },
-);
+app.use(((
+  req: AuthRequest,
+  res: Response & { log: AuthRequest["log"] },
+  next,
+) => {
+  res.log = req.log = req.log.child(getCustomLogProps(req as Request));
+  next();
+}) as RequestHandler);
 
 // Add logged in user to Sentry if configured
 if (SENTRY_DSN) {
-  app.use(
-    (req: AuthRequest, res: Response & { log: AuthRequest["log"] }, next) => {
-      Sentry.setUser({
-        id: req.currentUser.id,
-        email: req.currentUser.email,
-        name: req.currentUser.name,
-      });
-      if (req.organization) {
-        Sentry.setTag("organization", req.organization.id);
-      }
-      next();
-    },
-  );
+  app.use(((
+    req: AuthRequest,
+    res: Response & { log: AuthRequest["log"] },
+    next,
+  ) => {
+    Sentry.setUser({
+      id: req.currentUser.id,
+      email: req.currentUser.email,
+      name: req.currentUser.name,
+    });
+    if (req.organization) {
+      Sentry.setTag("organization", req.organization.id);
+    }
+    next();
+  }) as RequestHandler);
 }
 
 // Logged-in auth requests
@@ -452,14 +461,14 @@ if (!useSSO) {
 app.use("/user", usersRouter);
 
 // Every other route requires a userId to be set
-app.use(
-  asyncHandler(async (req: AuthRequest, res, next) => {
-    if (!req.userId) {
-      throw new Error("Must be authenticated.  Try refreshing the page.");
-    }
-    next();
-  }),
-);
+const requireUserIdHandler: RequestHandler = async (req, res, next) => {
+  const authReq = req as AuthRequest;
+  if (!authReq.userId) {
+    throw new Error("Must be authenticated.  Try refreshing the page.");
+  }
+  next();
+};
+app.use(asyncHandler(requireUserIdHandler));
 
 // Organization and Settings
 app.use(organizationsRouter);
@@ -1033,17 +1042,19 @@ app.post(
 );
 app.post("/license/verify-email", licenseController.postVerifyEmail);
 
-app.get(
-  "/generated-hypothesis/:uuid",
-  async (req: AuthRequest<null, { uuid: string }>, res) => {
-    const context = getContextFromReq(req);
-    const generatedHypothesis = await findOrCreateGeneratedHypothesis(
-      context,
-      req.params.uuid,
-    );
-    return res.json({ generatedHypothesis });
-  },
-);
+app.get("/generated-hypothesis/:uuid", (async (
+  req: express.Request,
+  res: express.Response,
+  _next: express.NextFunction,
+) => {
+  const authReq = req as AuthRequest<null, { uuid: string }>;
+  const context = getContextFromReq(authReq);
+  const generatedHypothesis = await findOrCreateGeneratedHypothesis(
+    context,
+    authReq.params.uuid,
+  );
+  return res.json({ generatedHypothesis });
+}) as unknown as RequestHandler);
 
 // Dashboards
 app.use("/dashboards", dashboardsRouter);

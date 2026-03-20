@@ -1478,6 +1478,7 @@ Triggered when an experiment is created
                     levels: string[];
                 }[];
             }[] | undefined;
+            templateId?: string | undefined;
         };
     };
     user: {
@@ -1654,6 +1655,7 @@ Triggered when an experiment is updated
                     levels: string[];
                 }[];
             }[] | undefined;
+            templateId?: string | undefined;
         };
         previous_attributes: {
             id?: string | undefined;
@@ -1796,6 +1798,7 @@ Triggered when an experiment is updated
                     levels: string[];
                 }[];
             }[] | undefined;
+            templateId?: string | undefined;
         };
         changes?: {
             added: Record<string, unknown>;
@@ -1977,6 +1980,7 @@ Triggered when an experiment is deleted
                     levels: string[];
                 }[];
             }[] | undefined;
+            templateId?: string | undefined;
         };
     };
     user: {
