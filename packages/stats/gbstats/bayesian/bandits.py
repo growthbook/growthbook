@@ -1,9 +1,8 @@
 from abc import abstractmethod, ABC
 from dataclasses import field
-from typing import List, Optional
+from typing import List, Optional, Any
 
 import numpy as np
-import random
 from pydantic.dataclasses import dataclass
 
 from gbstats.models.results import ResponseCI, BanditResult, SingleVariationResult
@@ -21,11 +20,13 @@ from gbstats.bayesian.tests import BayesianConfig, GaussianPrior
 
 @dataclass
 class BanditConfig(BayesianConfig):
-    bandit_weights_seed: int = 0
     top_two: bool = True
     prior_distribution: GaussianPrior = field(default_factory=GaussianPrior)
     min_variation_weight: float = 0.01
     weight_by_period: bool = True
+    # look at this later
+    # bandit_weights_rng: np.random.Generator = field(default_factory=lambda: np.random.default_rng())
+    bandit_weights_rng: Any = None
 
 
 @dataclass
@@ -35,7 +36,6 @@ class BanditResponse:
     ci: Optional[List[ResponseCI]]
     bandit_weights: Optional[List[float]]
     best_arm_probabilities: Optional[List[float]]
-    seed: int
     bandit_update_message: str
     enough_units: Optional[bool]
 
@@ -79,10 +79,6 @@ class Bandits(ABC):
         means = np.zeros(sums.shape)
         means[positive_counts] = sums[positive_counts] / counts[positive_counts]
         return means
-
-    @property
-    def bandit_weights_seed(self) -> int:
-        return self.config.bandit_weights_seed
 
     @property
     def num_variations(self) -> int:
@@ -153,12 +149,7 @@ class Bandits(ABC):
 
     # function that computes thompson sampling variation weights
     def compute_result(self) -> BanditResponse:
-        seed = (
-            self.bandit_weights_seed
-            if self.bandit_weights_seed
-            else random.randint(0, 1000000)
-        )
-        rng = np.random.default_rng(seed=seed)
+        rng = self.config.bandit_weights_rng
         y = rng.multivariate_normal(
             mean=self.posterior_mean,
             cov=np.diag(self.posterior_variance),
@@ -187,7 +178,6 @@ class Bandits(ABC):
             ci=credible_intervals,
             bandit_weights=p.tolist() if enough_units else None,
             best_arm_probabilities=best_arm_probabilities.tolist(),
-            seed=seed,
             bandit_update_message=(
                 update_message
                 if enough_units
