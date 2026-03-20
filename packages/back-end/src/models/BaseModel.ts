@@ -66,16 +66,33 @@ export const createSchema = <
   return output.strict() as unknown as CreateZodObject<T, PKey>;
 };
 
+/**
+ * UpdateProps scoped to a specific model's primary key — forbids both the
+ * standard protected base fields AND whatever fields comprise the pKey.
+ *
+ * PK is the literal tuple of primary key field names (e.g. readonly ["id"]
+ * or readonly ["userId", "organization"]).  The tuple passed to MakeModelClass
+ * will be defined with `as const` so that PK[number] resolves to a narrow string
+ * literal union rather than just `string`.
+ */
+type PKeyUpdateProps<
+  T extends BaseSchemaWithPrimaryKey<PKey>,
+  PKey extends z.ZodRawShape,
+  PK extends readonly string[],
+> = UpdateProps<z.infer<T>, PK[number] & string>;
+
 export type UpdateZodObject<
   T extends BaseSchemaWithPrimaryKey<PKey>,
   PKey extends z.ZodRawShape,
-> = z.ZodType<UpdateProps<z.infer<T>>>;
+  PK extends readonly string[],
+> = z.ZodType<PKeyUpdateProps<T, PKey, PK>>;
 
 const updateSchema = <
   T extends BaseSchemaWithPrimaryKey<PKey>,
   PKey extends z.ZodRawShape,
 >(
   schema: T,
+  pKey?: PKeyType<T, PKey>,
 ) => {
   const omitShape: Record<string, true> = {
     organization: true,
@@ -84,10 +101,16 @@ const updateSchema = <
   };
   if ("id" in schema.shape) omitShape.id = true;
   if ("uid" in schema.shape) omitShape.uid = true;
+  // Also omit custom primary key fields
+  if (pKey) {
+    for (const k of pKey) {
+      omitShape[k as string] = true;
+    }
+  }
   return schema
     .omit(omitShape)
     .partial()
-    .strict() as unknown as UpdateZodObject<T, PKey>;
+    .strict() as unknown as UpdateZodObject<T, PKey, readonly string[]>;
 };
 
 // DeepPartial makes all properties (including nested) optional
@@ -166,10 +189,11 @@ export abstract class BaseModel<
   ApiT extends ApiBaseSchema,
   PKey extends z.ZodRawShape,
   WriteOptions = never,
+  PK extends readonly string[] = readonly ["id"],
 > {
   public validator: T;
   public createValidator: CreateZodObject<T, PKey>;
-  public updateValidator: UpdateZodObject<T, PKey>;
+  public updateValidator: UpdateZodObject<T, PKey, PK>;
 
   protected context: Context;
   protected config: ModelConfig<T, E, ApiT, PKey>;
@@ -213,7 +237,7 @@ export abstract class BaseModel<
   protected abstract canCreate(doc: z.infer<T>): boolean;
   protected abstract canUpdate(
     existing: z.infer<T>,
-    updates: UpdateProps<z.infer<T>>,
+    updates: PKeyUpdateProps<T, PKey, PK>,
     newDoc: z.infer<T>,
   ): boolean;
   protected abstract canDelete(existing: z.infer<T>): boolean;
@@ -272,7 +296,7 @@ export abstract class BaseModel<
   }
   protected async beforeUpdate(
     existing: z.infer<T>,
-    updates: UpdateProps<z.infer<T>>,
+    updates: PKeyUpdateProps<T, PKey, PK>,
     newDoc: z.infer<T>,
     writeOptions?: WriteOptions,
   ) {
@@ -280,7 +304,7 @@ export abstract class BaseModel<
   }
   protected async afterUpdate(
     existing: z.infer<T>,
-    updates: UpdateProps<z.infer<T>>,
+    updates: PKeyUpdateProps<T, PKey, PK>,
     newDoc: z.infer<T>,
     writeOptions?: WriteOptions,
   ) {
@@ -380,7 +404,7 @@ export abstract class BaseModel<
     req: ApiRequest<
       unknown,
       z.ZodType<{ id: string }>,
-      z.ZodType<UpdateProps<z.infer<T>>>,
+      z.ZodTypeAny,
       z.ZodTypeAny
     >,
   ): Promise<z.infer<ApiT>> {
@@ -391,8 +415,8 @@ export abstract class BaseModel<
   }
   protected async processApiUpdateBody(
     rawBody: unknown,
-  ): Promise<UpdateProps<z.infer<T>>> {
-    return rawBody as UpdateProps<z.infer<T>>;
+  ): Promise<PKeyUpdateProps<T, PKey, PK>> {
+    return rawBody as PKeyUpdateProps<T, PKey, PK>;
   }
 
   /***************
@@ -400,7 +424,7 @@ export abstract class BaseModel<
    ***************/
   protected abstract getConfig(): ModelConfig<T, E, ApiT, PKey>;
   protected abstract getCreateValidator(): CreateZodObject<T, PKey>;
-  protected abstract getUpdateValidator(): UpdateZodObject<T, PKey>;
+  protected abstract getUpdateValidator(): UpdateZodObject<T, PKey, PK>;
   public static getModelConfig() {
     throw new Error("Method not implemented! Use derived class");
   }
@@ -449,7 +473,7 @@ export abstract class BaseModel<
   }
   public update(
     existing: z.infer<T>,
-    updates: UpdateProps<z.infer<T>>,
+    updates: PKeyUpdateProps<T, PKey, PK>,
     writeOptions?: WriteOptions,
   ): Promise<z.infer<T>> {
     if (!this.hasPremiumFeature()) {
@@ -461,7 +485,7 @@ export abstract class BaseModel<
   }
   public async dangerousUpdateBypassPermission(
     existing: z.infer<T>,
-    updates: UpdateProps<z.infer<T>>,
+    updates: PKeyUpdateProps<T, PKey, PK>,
     writeOptions?: WriteOptions,
   ): Promise<z.infer<T>> {
     return this._updateOne(existing, updates, {
@@ -471,7 +495,7 @@ export abstract class BaseModel<
   }
   public async dangerousUpdateByIdBypassPermission(
     id: string,
-    updates: UpdateProps<z.infer<T>>,
+    updates: PKeyUpdateProps<T, PKey, PK>,
     writeOptions?: WriteOptions,
   ): Promise<z.infer<T>> {
     this._assertHasIdField();
@@ -486,7 +510,7 @@ export abstract class BaseModel<
   }
   public async updateById(
     id: string,
-    updates: UpdateProps<z.infer<T>>,
+    updates: PKeyUpdateProps<T, PKey, PK>,
     writeOptions?: WriteOptions,
   ): Promise<z.infer<T>> {
     this._assertHasIdField();
@@ -744,7 +768,7 @@ export abstract class BaseModel<
 
   protected async _updateOne(
     doc: z.infer<T>,
-    updates: UpdateProps<z.infer<T>>,
+    updates: PKeyUpdateProps<T, PKey, PK>,
     options?: {
       auditEvent?: EventType;
       writeOptions?: WriteOptions;
@@ -810,7 +834,7 @@ export abstract class BaseModel<
       );
     }
 
-    await this.beforeUpdate(doc, allUpdates, newDoc, options?.writeOptions);
+    await this.beforeUpdate(doc, updates, newDoc, options?.writeOptions);
 
     await this.customValidation(newDoc, doc, options?.writeOptions);
 
@@ -833,7 +857,7 @@ export abstract class BaseModel<
       );
     }
 
-    await this.afterUpdate(doc, allUpdates, newDoc, options?.writeOptions);
+    await this.afterUpdate(doc, updates, newDoc, options?.writeOptions);
     await this.afterCreateOrUpdate(newDoc, options?.writeOptions);
 
     // Update tags if needed
@@ -1153,24 +1177,29 @@ export const MakeModelClass = <
   E extends EntityType,
   ApiT extends ApiBaseSchema,
   PKey extends z.ZodRawShape,
+  PK extends readonly string[] = typeof DEFAULT_PKEY,
 >(
-  config: ModelConfig<T, E, ApiT, PKey>,
+  config: ModelConfig<T, E, ApiT, PKey> & { pKey?: PK },
 ) => {
   const createValidator = createSchema<T, PKey>(config.schema);
-  const updateValidator = updateSchema<T, PKey>(config.schema);
+  const updateValidator = updateSchema<T, PKey>(
+    config.schema,
+    config.pKey as PKeyType<T, PKey> | undefined,
+  ) as UpdateZodObject<T, PKey, PK>;
 
   abstract class Model<WriteOptions = never> extends BaseModel<
     T,
     E,
     ApiT,
     PKey,
-    WriteOptions
+    WriteOptions,
+    PK
   > {
     getConfig() {
-      return config;
+      return config as ModelConfig<T, E, ApiT, PKey>;
     }
     static getModelConfig(): ModelConfig<T, E, ApiT, PKey> {
-      return config;
+      return config as ModelConfig<T, E, ApiT, PKey>;
     }
     getCreateValidator() {
       return createValidator;

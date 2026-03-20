@@ -22,7 +22,6 @@ import {
 } from "shared/constants";
 import { AIModel, EmbeddingModel } from "shared/ai";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
-import { SegmentInterface } from "shared/types/segment";
 import {
   MetricCappingSettings,
   MetricPriorSettings,
@@ -947,12 +946,7 @@ export async function importConfig(
         try {
           const existing = await context.models.segments.getById(k);
           if (existing) {
-            const updates: Partial<SegmentInterface> = {
-              ...s,
-            };
-            delete updates.organization;
-
-            await context.models.segments.update(existing, updates);
+            await context.models.segments.update(existing, s);
           } else {
             await context.models.segments.create({
               ...s,

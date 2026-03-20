@@ -1,3 +1,4 @@
+import { UpdateProps } from "shared/types/base-model";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
 import { vectors, Vectors } from "back-end/src/validators/vectors";
 
@@ -50,14 +51,14 @@ export class VectorsModel extends BaseClass {
 
   public async addOrUpdateExperimentVector(
     experimentId: string,
-    obj: Partial<Vectors>,
+    obj: UpdateProps<Vectors>,
   ) {
     return await this.addOrUpdate(experimentId, "experiment", obj);
   }
 
   public async addOrUpdateMetricVector(
     metricId: string,
-    obj: Partial<Vectors>,
+    obj: UpdateProps<Vectors>,
   ) {
     return await this.addOrUpdate(metricId, "metric", obj);
   }
@@ -65,7 +66,7 @@ export class VectorsModel extends BaseClass {
   public async addOrUpdate(
     joinId: string,
     type: "experiment" | "metric",
-    obj: Partial<Vectors>,
+    obj: UpdateProps<Vectors>,
   ) {
     if (!joinId) {
       throw new Error("JoinId is required.");

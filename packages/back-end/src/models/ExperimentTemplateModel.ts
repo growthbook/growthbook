@@ -5,6 +5,7 @@ import {
   experimentTemplateInterface,
   ExperimentTemplateInterface,
 } from "shared/validators";
+import { UpdateProps } from "shared/types/base-model";
 import { ApiRequest } from "back-end/src/util/handler";
 import { experimentTemplateApiSpec } from "back-end/src/api/specs/experiment-template.spec";
 import { MakeModelClass } from "./BaseModel";
@@ -41,11 +42,12 @@ export class ExperimentTemplatesModel extends BaseClass {
   }
   protected canUpdate(
     existing: ExperimentTemplateInterface,
-    updates: ExperimentTemplateInterface,
+    _updates: UpdateProps<ExperimentTemplateInterface>,
+    newDoc: ExperimentTemplateInterface,
   ): boolean {
     return this.context.permissions.canUpdateExperimentTemplate(
       existing,
-      updates,
+      newDoc,
     );
   }
   protected canDelete(doc: ExperimentTemplateInterface): boolean {
