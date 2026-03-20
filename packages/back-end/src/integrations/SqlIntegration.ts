@@ -2813,14 +2813,14 @@ export default abstract class SqlIntegration
       columnRef: metric.denominator,
     });
     const capCoalesceCovariate = this.capCoalesceValue({
-      valueCol: `c${numeratorAlias}.${alias}_value`,
+      valueCol: `m${numeratorAlias}.${alias}_covariate_value`,
       metric,
       capTablePrefix: `cap${numeratorAlias}`,
       capValueCol: `${alias}_value_cap`,
       columnRef: metric.numerator,
     });
     const capCoalesceDenominatorCovariate = this.capCoalesceValue({
-      valueCol: `c${denominatorAlias}.${alias}_denominator`,
+      valueCol: `m${denominatorAlias}.${alias}_covariate_denominator`,
       metric,
       capTablePrefix: `cap${denominatorAlias}`,
       capValueCol: `${alias}_denominator_cap`,
@@ -2848,14 +2848,14 @@ export default abstract class SqlIntegration
       columnRef: metric.denominator,
     });
     const uncappedCoalesceCovariate = this.capCoalesceValue({
-      valueCol: `c${numeratorAlias}.${alias}_value`,
+      valueCol: `m${numeratorAlias}.${alias}_covariate_value`,
       metric: uncappedMetric,
       capTablePrefix: `cap${numeratorAlias}`,
       capValueCol: `${alias}_value_cap`,
       columnRef: metric.numerator,
     });
     const uncappedCoalesceDenominatorCovariate = this.capCoalesceValue({
-      valueCol: `c${denominatorAlias}.${alias}_denominator`,
+      valueCol: `m${denominatorAlias}.${alias}_covariate_denominator`,
       metric: uncappedMetric,
       capTablePrefix: `cap${denominatorAlias}`,
       capValueCol: `${alias}_denominator_cap`,
@@ -3003,66 +3003,6 @@ export default abstract class SqlIntegration
             })
             .join("\n")}
         END AS bandit_period`;
-  }
-
-  getCovariateMetricCTE({
-    dimensionCols,
-    baseIdType,
-    regressionAdjustedMetrics,
-    sourceIndex,
-  }: {
-    dimensionCols: DimensionColumnData[];
-    baseIdType: string;
-    regressionAdjustedMetrics: FactMetricData[];
-    sourceIndex: number;
-  }): string {
-    const suffix = `${sourceIndex === 0 ? "" : sourceIndex}`;
-
-    return `
-      SELECT 
-        d.variation AS variation
-        ${dimensionCols.map((c) => `, d.${c.alias} AS ${c.alias}`).join("")}
-        , d.${baseIdType} AS ${baseIdType}
-        ${regressionAdjustedMetrics
-          .map(
-            (metric) =>
-              `${
-                metric.numeratorSourceIndex === sourceIndex
-                  ? `, ${metric.covariateNumeratorAggFns.fullAggregationFunction(
-                      this.ifElse(
-                        `m.timestamp >= d.${metric.alias}_preexposure_start AND m.timestamp < d.${metric.alias}_preexposure_end`,
-                        `${metric.alias}_value`,
-                        "NULL",
-                      ),
-                    )} as ${metric.alias}_value`
-                  : ""
-              }
-                ${
-                  metric.ratioMetric &&
-                  metric.denominatorSourceIndex === sourceIndex
-                    ? `, ${metric.covariateDenominatorAggFns.fullAggregationFunction(
-                        this.ifElse(
-                          `m.timestamp >= d.${metric.alias}_preexposure_start AND m.timestamp < d.${metric.alias}_preexposure_end`,
-                          `${metric.alias}_denominator`,
-                          "NULL",
-                        ),
-                      )} AS ${metric.alias}_denominator`
-                    : ""
-                }`,
-          )
-          .join("\n")}
-      FROM
-        __distinctUsers d
-      JOIN __factTable${suffix} m ON (
-        m.${baseIdType} = d.${baseIdType}
-      )
-      WHERE 
-        m.timestamp >= d.min_preexposure_start
-        AND m.timestamp < d.max_preexposure_end
-      GROUP BY
-        d.variation
-        ${dimensionCols.map((c) => `, d.${c.alias}`).join("")}
-        , d.${baseIdType}`;
   }
 
   getFactTablesForMetrics(
@@ -3352,20 +3292,6 @@ export default abstract class SqlIntegration
           , ${timestampColumn} AS timestamp
           , ${this.dateTrunc("first_exposure_timestamp")} AS first_exposure_date
           ${banditDates?.length ? this.getBanditCaseWhen(banditDates) : ""}
-          ${
-            raMetricSettings.length > 0
-              ? `
-              , ${this.addHours(
-                "first_exposure_timestamp",
-                Math.min(...raMetricSettings.map((s) => s.minDelay - s.hours)),
-              )} as min_preexposure_start
-              , ${this.addHours(
-                "first_exposure_timestamp",
-                Math.max(...raMetricSettings.map((s) => s.minDelay)),
-              )} as max_preexposure_end
-            `
-              : ""
-          }
       ${raMetricSettings
         .map(
           ({ alias, hours, minDelay }) => `
@@ -3449,6 +3375,36 @@ export default abstract class SqlIntegration
                   `,
               )
               .join("\n")}
+            ${
+              // CUPED pre-exposure covariate columns: emitted here so that
+              // __userCovariateMetric can aggregate them from __userMetricJoin
+              // instead of re-scanning __factTable. See getCovariateMetricCTE.
+              regressionAdjustedTableIndices.has(f.index)
+                ? regressionAdjustedMetrics
+                    .map(
+                      (metric) =>
+                        `${
+                          metric.numeratorSourceIndex === f.index
+                            ? `, ${this.ifElse(
+                                `m.timestamp >= d.${metric.alias}_preexposure_start AND m.timestamp < d.${metric.alias}_preexposure_end`,
+                                `m.${metric.alias}_value`,
+                                "NULL",
+                              )} AS ${metric.alias}_covariate_value`
+                            : ""
+                        }${
+                          metric.ratioMetric &&
+                          metric.denominatorSourceIndex === f.index
+                            ? `, ${this.ifElse(
+                                `m.timestamp >= d.${metric.alias}_preexposure_start AND m.timestamp < d.${metric.alias}_preexposure_end`,
+                                `m.${metric.alias}_denominator`,
+                                "NULL",
+                              )} AS ${metric.alias}_covariate_denominator`
+                            : ""
+                        }`,
+                    )
+                    .join("\n")
+                : ""
+            }
           FROM
             __distinctUsers d
           LEFT JOIN __factTable${f.index === 0 ? "" : f.index} m ON (
@@ -3519,6 +3475,29 @@ export default abstract class SqlIntegration
                 `, COUNT(umj.${data.alias}_value) AS ${data.alias}_n_events`,
             )
             .join("\n")}
+          ${
+            regressionAdjustedTableIndices.has(f.index)
+              ? regressionAdjustedMetrics
+                  .map(
+                    (metric) =>
+                      `${
+                        metric.numeratorSourceIndex === f.index
+                          ? `, ${metric.covariateNumeratorAggFns.fullAggregationFunction(
+                              `umj.${metric.alias}_covariate_value`,
+                            )} AS ${metric.alias}_covariate_value`
+                          : ""
+                      }${
+                        metric.ratioMetric &&
+                        metric.denominatorSourceIndex === f.index
+                          ? `, ${metric.covariateDenominatorAggFns.fullAggregationFunction(
+                              `umj.${metric.alias}_covariate_denominator`,
+                            )} AS ${metric.alias}_covariate_denominator`
+                          : ""
+                      }`,
+                  )
+                  .join("\n")
+              : ""
+          }
         FROM
           __userMetricJoin${f.index === 0 ? "" : f.index} umj
         ${
@@ -3548,15 +3527,7 @@ export default abstract class SqlIntegration
         `
           : ""
       }
-      ${
-        regressionAdjustedTableIndices.has(f.index)
-          ? `
-        , __userCovariateMetric${f.index === 0 ? "" : f.index} as (
-          ${this.getCovariateMetricCTE({ dimensionCols, baseIdType, regressionAdjustedMetrics, sourceIndex: f.index })}
-        )
-        `
-          : ""
-      }`,
+      `,
         )
         .join("\n")}    
       ${
@@ -3578,7 +3549,6 @@ export default abstract class SqlIntegration
         baseIdType,
         joinedMetricTableName: "__userMetricAgg",
         eventQuantileTableName: "__eventQuantileMetric",
-        cupedMetricTableName: "__userCovariateMetric",
         capValueTableName: "__capValue",
         factTablesWithIndices,
         regressionAdjustedTableIndices,
@@ -3597,10 +3567,8 @@ export default abstract class SqlIntegration
     baseIdType,
     joinedMetricTableName,
     eventQuantileTableName,
-    cupedMetricTableName,
     capValueTableName,
     factTablesWithIndices,
-    regressionAdjustedTableIndices,
     percentileTableIndices,
   }: {
     dimensionCols: DimensionColumnData[];
@@ -3609,10 +3577,8 @@ export default abstract class SqlIntegration
     baseIdType: string;
     joinedMetricTableName: string;
     eventQuantileTableName: string;
-    cupedMetricTableName: string;
     capValueTableName: string;
     factTablesWithIndices: { factTable: FactTableInterface; index: number }[];
-    regressionAdjustedTableIndices: Set<number>;
     percentileTableIndices: Set<number>;
   }): string {
     return `SELECT
@@ -3778,15 +3744,6 @@ export default abstract class SqlIntegration
             : `LEFT JOIN ${joinedMetricTableName}${suffix} m${suffix} ON (
           m${suffix}.${baseIdType} = m.${baseIdType}
         )`
-        }
-        ${
-          regressionAdjustedTableIndices.has(index)
-            ? `
-          LEFT JOIN ${cupedMetricTableName}${suffix} c${suffix} ON (
-            c${suffix}.${baseIdType} = m${suffix}.${baseIdType}
-          )
-        `
-            : ""
         }
         ${
           percentileTableIndices.has(index)
@@ -4802,15 +4759,6 @@ export default abstract class SqlIntegration
             : `LEFT JOIN __userMetricAgg${suffix} m${suffix} ON (
           m${suffix}.${baseIdType} = m.${baseIdType}
         )`
-        }
-        ${
-          regressionAdjustedTableIndices.has(index)
-            ? `
-          LEFT JOIN __userCovariateMetric${suffix} c${suffix} ON (
-            c${suffix}.${baseIdType} = m${suffix}.${baseIdType}
-          )
-        `
-            : ""
         }
         ${
           percentileTableIndices.has(index)
@@ -7935,35 +7883,52 @@ ORDER BY column_name, count DESC
                 }`;
               })
               .join("\n")}
+            ${
+              regressionAdjustedMetrics.length > 0
+                ? regressionAdjustedMetrics
+                    .map(
+                      (data) =>
+                        `, c.${data.alias}_covariate_value AS ${data.alias}_covariate_value
+                        ${
+                          data.ratioMetric
+                            ? `, c.${data.alias}_covariate_denominator AS ${data.alias}_covariate_denominator`
+                            : ""
+                        }`,
+                    )
+                    .join("\n")
+                : ""
+            }
           FROM __experimentUnits u
           LEFT JOIN __metricDataAggregated m ON u.${baseIdType} = m.${baseIdType}
+          ${
+            // TODO(incremental-refresh): GROUP BY is not necessary but is a failsafe
+            // against bad insertions into covariate table
+            regressionAdjustedMetrics.length > 0
+              ? `LEFT JOIN (
+                SELECT
+                  ${baseIdType}
+                  ${regressionAdjustedMetrics
+                    .map(
+                      (data) =>
+                        `, MAX(${this.encodeMetricIdForColumnName(data.id)}_value) AS ${data.alias}_covariate_value
+                        ${
+                          data.ratioMetric
+                            ? `, MAX(${this.encodeMetricIdForColumnName(data.id)}_denominator_value) AS ${data.alias}_covariate_denominator`
+                            : ""
+                        }`,
+                    )
+                    .join("\n")}
+                FROM ${params.metricSourceCovariateTableFullName}
+                GROUP BY ${baseIdType}
+              ) c ON u.${baseIdType} = c.${baseIdType}`
+              : ""
+          }
       )
       ${
         percentileData.length > 0
           ? `
         , __capValue AS (
             ${this.percentileCapSelectClause(percentileData, "__joinedData")}
-        )
-        `
-          : ""
-      }
-      ${
-        // TODO(incremental-refresh): GROUP BY is not necessary but is a failsafe
-        // against bad insertions into covariate table
-        regressionAdjustedMetrics.length > 0
-          ? `
-        , __userCovariateMetric AS (
-          SELECT 
-            ${baseIdType}
-            ${regressionAdjustedMetrics
-              .map(
-                (data) =>
-                  `, MAX(${this.encodeMetricIdForColumnName(data.id)}_value) AS ${data.alias}_value
-                ${data.ratioMetric ? `\n, MAX(${this.encodeMetricIdForColumnName(data.id)}_denominator_value) AS ${data.alias}_denominator` : ""}`,
-              )
-              .join("\n")}
-          FROM ${params.metricSourceCovariateTableFullName}
-          GROUP BY ${baseIdType}
         )
         `
           : ""
@@ -7975,7 +7940,6 @@ ORDER BY column_name, count DESC
         baseIdType,
         joinedMetricTableName: "__joinedData",
         eventQuantileTableName: "__eventQuantileMetric",
-        cupedMetricTableName: "__userCovariateMetric",
         capValueTableName: "__capValue",
         factTablesWithIndices: [
           {
