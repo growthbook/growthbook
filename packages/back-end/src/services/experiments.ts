@@ -1938,6 +1938,7 @@ export async function toExperimentApiInterface(
     hasVisualChangesets: experiment.hasVisualChangesets || false,
     hasURLRedirects: experiment.hasURLRedirects || false,
     customFields: experiment.customFields ?? {},
+    templateId: experiment.templateId || undefined,
   };
 }
 
@@ -3032,6 +3033,7 @@ export function postExperimentApiPayloadToInterface(
     shareLevel: payload.shareLevel,
     customMetricSlices: payload.customMetricSlices || [],
     customFields: payload.customFields,
+    templateId: payload.templateId || undefined,
   };
 
   const { settings } = getScopedSettings({
