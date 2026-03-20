@@ -959,6 +959,48 @@ export async function editFeatureRule(
   );
 }
 
+export async function editFeatureRules(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  matches: { environmentId: string; i: number }[],
+  updates: Partial<FeatureRule>,
+  user: EventUser,
+  resetReview: boolean,
+) {
+  const changes = {
+    rules: revision.rules ? cloneDeep(revision.rules) : {},
+    status: revision.status,
+  };
+
+  matches.forEach(({ environmentId, i }) => {
+    changes.rules[environmentId] = changes.rules[environmentId] || [];
+    if (!changes.rules[environmentId][i]) {
+      throw new Error("Unknown rule");
+    }
+
+    changes.rules[environmentId][i] = {
+      ...changes.rules[environmentId][i],
+      ...updates,
+    } as FeatureRule;
+  });
+
+  const updatedRevision = await updateRevision(
+    context,
+    feature,
+    revision,
+    changes,
+    {
+      user,
+      action: "edit rule",
+      subject: `in ${matches.map((m) => m.environmentId).join(", ")}`,
+      value: JSON.stringify(updates),
+    },
+    resetReview,
+  );
+  return updatedRevision;
+}
+
 export async function copyFeatureEnvironmentRules(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,

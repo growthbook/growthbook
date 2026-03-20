@@ -641,6 +641,48 @@ export async function postFeatures(
   });
 }
 
+export async function getLiveAndBaseRevisionsForFeature({
+  context,
+  organizationId,
+  featureId,
+  liveVersion,
+  baseVersion,
+}: {
+  context: ReqContext | ApiReqContext;
+  organizationId: string;
+  featureId: string;
+  liveVersion: number;
+  baseVersion: number;
+}): Promise<{
+  live: FeatureRevisionInterface;
+  base: FeatureRevisionInterface;
+}> {
+  const live = await getRevision({
+    context,
+    organization: organizationId,
+    featureId,
+    version: liveVersion,
+  });
+  if (!live) {
+    throw new Error("Could not lookup feature history");
+  }
+
+  const base =
+    baseVersion === live.version
+      ? live
+      : await getRevision({
+          context,
+          organization: organizationId,
+          featureId,
+          version: baseVersion,
+        });
+  if (!base) {
+    throw new Error("Could not lookup feature history");
+  }
+
+  return { live, base };
+}
+
 export async function postFeatureRebase(
   req: AuthRequest<
     {
@@ -684,29 +726,13 @@ export async function postFeatureRebase(
   if (revision.status !== "draft") {
     throw new Error("Can only fix conflicts for Draft revisions");
   }
-
-  const live = await getRevision({
+  const { live, base } = await getLiveAndBaseRevisionsForFeature({
     context,
-    organization: org.id,
+    organizationId: org.id,
     featureId: feature.id,
-    version: feature.version,
+    liveVersion: feature.version,
+    baseVersion: revision.baseVersion,
   });
-  if (!live) {
-    throw new Error("Could not lookup feature history");
-  }
-
-  const base =
-    revision.baseVersion === live.version
-      ? live
-      : await getRevision({
-          context,
-          organization: org.id,
-          featureId: feature.id,
-          version: revision.baseVersion,
-        });
-  if (!base) {
-    throw new Error("Could not lookup feature history");
-  }
 
   const mergeResult = autoMerge(
     live,
@@ -903,28 +929,13 @@ export async function postFeaturePublish(
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
-  const live = await getRevision({
+  const { live, base } = await getLiveAndBaseRevisionsForFeature({
     context,
-    organization: org.id,
+    organizationId: org.id,
     featureId: feature.id,
-    version: feature.version,
+    liveVersion: feature.version,
+    baseVersion: revision.baseVersion,
   });
-  if (!live) {
-    throw new Error("Could not lookup feature history");
-  }
-
-  const base =
-    revision.baseVersion === live.version
-      ? live
-      : await getRevision({
-          context,
-          organization: org.id,
-          featureId: feature.id,
-          version: revision.baseVersion,
-        });
-  if (!base) {
-    throw new Error("Could not lookup feature history");
-  }
   const requiresReview = checkIfRevisionNeedsReview({
     feature,
     baseRevision: base,
@@ -1709,7 +1720,7 @@ export async function postFeatureExperimentRefRule(
   });
 }
 
-async function getDraftRevision(
+export async function getDraftRevision(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   version: number,
@@ -1928,28 +1939,13 @@ export async function putSafeRolloutStatus(
     resetReview,
   );
 
-  const live = await getRevision({
+  const { live, base } = await getLiveAndBaseRevisionsForFeature({
     context,
-    organization: org.id,
+    organizationId: org.id,
     featureId: feature.id,
-    version: feature.version,
+    liveVersion: feature.version,
+    baseVersion: revision.baseVersion,
   });
-  if (!live) {
-    throw new Error("Could not lookup feature history");
-  }
-
-  const base =
-    revision.baseVersion === live.version
-      ? live
-      : await getRevision({
-          context,
-          organization: org.id,
-          featureId: feature.id,
-          version: revision.baseVersion,
-        });
-  if (!base) {
-    throw new Error("Could not lookup feature history");
-  }
   const allEnvironments = getEnvironments(org);
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const environmentIds = environments.map((e) => e.id);
