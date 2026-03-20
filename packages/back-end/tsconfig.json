@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
     "skipLibCheck": true,
+    "useUnknownInCatchVariables": false,
     "module": "commonjs",
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
@@ -13,13 +14,13 @@
     "strictNullChecks": true,
     "strictBindCallApply": true,
     "strictPropertyInitialization": true,
-    "baseUrl": "./",
     "paths": {
       "back-end/*": ["./*"]
     },
     "resolveJsonModule": true,
     "plugins": [{ "transform": "typescript-transform-paths" }],
     "inlineSources": true,
+    "incremental": true,
     // Set `sourceRoot` to  "/" to strip the build path prefix
     // from generated source code references.
     // This improves issue grouping in Sentry.

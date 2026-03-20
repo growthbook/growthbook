@@ -143,13 +143,18 @@ export async function mergeStaleInformationSchemaWithUpdate(
   return updatedInformationSchema;
 }
 
+export type InformationSchemaTableRow = {
+  column_name: string;
+  data_type: string;
+};
+
 export async function fetchTableData(
   context: ReqContext,
   datasource: DataSourceInterface,
   informationSchema: InformationSchemaInterface,
   tableId: string,
 ): Promise<{
-  tableData: null | unknown[];
+  tableData: null | InformationSchemaTableRow[];
   refreshMS: number;
   databaseName: string;
   tableSchema: string;
@@ -190,7 +195,7 @@ export async function fetchTableData(
   const queryEndTime = Date.now();
 
   return {
-    tableData,
+    tableData: tableData as InformationSchemaTableRow[] | null,
     refreshMS: queryEndTime - queryStartTime,
     databaseName,
     tableSchema,

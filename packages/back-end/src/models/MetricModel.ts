@@ -521,8 +521,8 @@ function addDateUpdatedToUpdates(
   // If any field requires dateUpdated to be set
   if (
     Object.keys(updates).some(
-      (k: keyof MetricInterface) =>
-        !FIELDS_NOT_REQUIRING_DATE_UPDATED.includes(k),
+      (k) =>
+        !FIELDS_NOT_REQUIRING_DATE_UPDATED.includes(k as keyof MetricInterface),
     )
   ) {
     return { ...updates, dateUpdated: new Date() };
@@ -554,8 +554,8 @@ export async function updateMetric(
 ) {
   updates = addDateUpdatedToUpdates(updates);
 
-  const safeUpdates = Object.keys(updates).every((k: keyof MetricInterface) =>
-    FILE_CONFIG_UPDATEABLE_FIELDS.includes(k),
+  const safeUpdates = (Object.keys(updates) as (keyof MetricInterface)[]).every(
+    (k) => FILE_CONFIG_UPDATEABLE_FIELDS.includes(k),
   );
   if (!safeUpdates) {
     if (metric.managedBy === "config") {
