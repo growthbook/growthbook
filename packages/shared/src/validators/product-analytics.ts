@@ -290,24 +290,22 @@ export const userJourneyConfigValidator = z.object({
   datasource: z.string(),
   dimensions: z
     .discriminatedUnion("dimensionType", [
-      // I don't think date dimensions make sense here?
       dynamicDimensionValidator,
       staticDimensionValidator,
       sliceDimensionValidator,
     ])
     .optional(),
   factTableId: z.string(),
-  startingEvent: z.object({
-    column: z.string(),
-    value: z.string(),
-  }),
+  startingEventMode: z.enum(["eventColumn", "filter"]),
+  startingEventEventColumn: z
+    .object({
+      column: z.string(),
+      value: z.string(),
+    })
+    .nullable(),
+  startingEventFilters: z.array(rowFilterValidator),
+  globalFilters: z.array(rowFilterValidator),
   userIdType: z.string(),
-  filters: z.array(
-    z.object({
-      rowFilters: z.array(rowFilterValidator),
-      applyFiltersToAllEvents: z.boolean(), // If false, only applies to the startingEvent
-    }),
-  ),
   conversionWindow: z.discriminatedUnion("unit", [
     minuteTimeframeValidator,
     hourTimeframeValidator,
@@ -344,7 +342,8 @@ const userJourneyResultValidator = z.object({
   rows: z.array(userJourneyPathRowValidator),
 });
 
-export const userJourneyValidator = z.object({
+// This is what we'll persist in the userjourneyexploration collection (once it's built)
+export const userJourneyExplorationValidator = z.object({
   id: z.string(),
   organization: z.string(),
   dateCreated: z.date(),
@@ -361,7 +360,7 @@ export const userJourneyValidator = z.object({
 
 export type UserJourneyConfig = z.infer<typeof userJourneyConfigValidator>;
 export type UserJourneyResult = z.infer<typeof userJourneyResultValidator>;
-export type UserJourney = z.infer<typeof userJourneyValidator>;
+export type UserJourney = z.infer<typeof userJourneyExplorationValidator>;
 
 // The above is a roughed out set of validators for the user journey feature.
 

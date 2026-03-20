@@ -13,10 +13,40 @@ import { NotFoundError } from "back-end/src/util/errors";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
 import { getQueryById } from "back-end/src/models/QueryModel";
 
+const FULL_USER_JOURNEY_ROWS: UserJourneyPathRow[] = [
+  {
+    steps: ["Session Start", "(Other)"],
+    unit_count: 44319,
+    avg_secs_between_steps: [0],
+  },
+  {
+    steps: [
+      "Session Start",
+      "Page View: /features",
+      "Page View: /features/[fid]",
+    ],
+    unit_count: 2092,
+    avg_secs_between_steps: [50.04],
+  },
+  {
+    steps: [
+      "Session Start",
+      "Page View: /experiments",
+      "Page View: /experiment/[eid]",
+    ],
+    unit_count: 469,
+  },
+  {
+    steps: ["Session Start", "Page View: /setup", "Session Start", "/features"],
+    unit_count: 1000,
+    avg_secs_between_steps: [100.0],
+  },
+];
+
 // Stub path rows for postUserJourneyRun: single step (steps 0 → 1). Scalable shape: steps[] + unit_count + optional timing.
 const STUB_SINGLE_STEP_ROWS: UserJourneyPathRow[] = [
   {
-    steps: ["Session Start", "*"],
+    steps: ["Session Start", "(Other)"],
     unit_count: 44319,
     avg_secs_between_steps: [0],
   },
@@ -214,6 +244,7 @@ export const postUserJourneyRun = async (
     context,
     req.body.config,
     STUB_SINGLE_STEP_ROWS,
+    // FULL_USER_JOURNEY_ROWS,
     "uj_stub_run_1",
   );
 

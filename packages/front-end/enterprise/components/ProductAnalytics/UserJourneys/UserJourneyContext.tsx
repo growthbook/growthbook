@@ -23,6 +23,10 @@ export interface UserJourneyContextValue {
   isStale: boolean;
   setDraftUserJourneyState: (action: SetDraftUserJourneyStateAction) => void;
   handleSubmit: () => Promise<void>;
+  handleExtendPath: (
+    pathToExtend: string[],
+    stepToExtend: number,
+  ) => Promise<void>;
 }
 
 const UserJourneyContext = createContext<UserJourneyContextValue | null>(null);
@@ -36,7 +40,7 @@ export function UserJourneyProvider({
   initialConfig: UserJourneyConfig;
   hasExistingResults?: boolean;
 }) {
-  const { loading, fetchData } = useUserJourneyData();
+  const { loading, fetchData, extendPath } = useUserJourneyData();
   const [userJourneyState, setUserJourneyState] = useState<{
     draftState: UserJourneyConfig;
     submittedState: UserJourneyConfig | null;
@@ -61,6 +65,36 @@ export function UserJourneyProvider({
       query: query ?? null,
     }));
   }, [fetchData, userJourneyState.draftState]);
+
+  const handleExtendPath = useCallback(
+    async (pathToExtend: string[], stepToExtend: number) => {
+      const userJourneyId = userJourneyState.userJourney?.id;
+      if (!userJourneyId) return;
+
+      const configToUse =
+        userJourneyState.submittedState ?? userJourneyState.draftState;
+
+      const { data, error } = await extendPath({
+        id: userJourneyId,
+        config: configToUse,
+        pathToExtend,
+        stepToExtend,
+      });
+
+      setUserJourneyState((prev) => ({
+        ...prev,
+        submittedState: configToUse,
+        userJourney: data,
+        error,
+      }));
+    },
+    [
+      extendPath,
+      userJourneyState.userJourney?.id,
+      userJourneyState.submittedState,
+      userJourneyState.draftState,
+    ],
+  );
 
   const setDraftUserJourneyState = useCallback(
     (newStateOrUpdater: SetDraftUserJourneyStateAction) => {
@@ -97,6 +131,7 @@ export function UserJourneyProvider({
       isStale,
       setDraftUserJourneyState,
       handleSubmit,
+      handleExtendPath,
     }),
     [
       setDraftUserJourneyState,
@@ -108,6 +143,7 @@ export function UserJourneyProvider({
       userJourneyState.userJourney,
       userJourneyState.error,
       userJourneyState.query,
+      handleExtendPath,
     ],
   );
   return (
