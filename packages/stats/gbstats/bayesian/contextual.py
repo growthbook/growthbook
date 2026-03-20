@@ -10,7 +10,7 @@ from gbstats.models.settings import (
     ContextualBanditSettingsForStatsEngine,
     ContextualTreeBanditSettingsForStatsEngine,
 )
-from gbstats.gbstats import get_bandit_result, get_dimension_column_name
+from gbstats.gbstats import get_bandit_result, get_dimension_column_name, SUM_COLS
 import numpy as np
 import copy
 from sklearn.preprocessing import OneHotEncoder
@@ -19,6 +19,38 @@ from sklearn.tree import DecisionTreeRegressor
 
 BANDIT_DIMENSION_COLUMN = "dimension"
 BANDIT_DIMENSION_VALUE = "All"
+# Synthetic column for contextual tree: leaf id from DecisionTreeRegressor.apply
+LEAF_ID_COLUMN = "leaf_id"
+
+
+def _zero_like_aggregate(sample: Any) -> Any:
+    """Default for an empty variation group, matching the type of an observed value."""
+    if isinstance(sample, np.ndarray):
+        return np.array([0.0])
+    if isinstance(sample, (bool, np.bool_)):
+        return False
+    if isinstance(sample, (int, np.integer)):
+        return 0
+    if isinstance(sample, (float, np.floating)):
+        return 0.0
+    return 0
+
+
+def _sum_aggregate_field(values: list[Any]) -> Any:
+    """Sum numeric or 0-d / 1-d array values; output type follows the first value."""
+    if not values:
+        return 0
+    total = sum(float(np.asarray(x).flat[0]) for x in values)
+    v0 = values[0]
+    if isinstance(v0, np.ndarray):
+        return np.array([total])
+    if isinstance(v0, (bool, np.bool_)):
+        return bool(round(total))
+    if isinstance(v0, (int, np.integer)):
+        return int(round(total))
+    if isinstance(v0, (float, np.floating)):
+        return float(total)
+    return float(total)
 
 
 def _rows_for_bandit(
@@ -48,7 +80,7 @@ class ContextualTreeBanditResponse(ContextualBanditResponse):
     leaf_map: dict = field(default_factory=dict)  # context -> leaf_id
 
 
-def no_update_result(weights: list) -> BanditResult:
+def no_update_result(weights: list, update_message: str | None = None) -> BanditResult:
     """Build a BanditResult that leaves weights unchanged (no update)."""
     w = weights.copy()
     return BanditResult(
@@ -57,7 +89,7 @@ def no_update_result(weights: list) -> BanditResult:
         updatedWeights=w,
         bestArmProbabilities=w,
         seed=0,
-        updateMessage=None,
+        updateMessage=update_message,
         error=None,
         reweight=False,
         weightsWereUpdated=False,
@@ -98,6 +130,20 @@ class UpdateWeightsContextualBandit:
         self.analysis_settings = analysis_settings
         self.contextual_bandit_settings = contextual_bandit_settings
 
+    @property
+    def default_contextual_weights(self) -> dict[ContextKey, list[float]]:
+        return {
+            ctx: list(self.contextual_bandit_settings.current_contextual_weights[ctx])
+            for ctx in self.contextual_bandit_settings.contexts
+        }
+
+    def default_responses(self, update_message: str) -> dict[ContextKey, BanditResult]:
+        default_weights = self.default_contextual_weights.copy()
+        return {
+            ctx: no_update_result(default_weights[ctx], update_message)
+            for ctx in self.contextual_bandit_settings.contexts
+        }
+
     def compute_result(self) -> ContextualBanditResponse:
         """Derive contexts from rows and contextual_bandit_settings.contexts (list of column names); run bandit per context; return per-context BanditResult. If current_weights is provided per context, use it as prior; otherwise use analysis_settings.weights."""
         num_variations = len(self.contextual_bandit_settings.var_ids)
@@ -112,26 +158,31 @@ class UpdateWeightsContextualBandit:
             context_keys = list(
                 self.contextual_bandit_settings.current_contextual_weights
             ) or [BANDIT_DIMENSION_VALUE]
+            update_message = "no rows"
             responses = {
                 ctx: no_update_result(
-                    self.contextual_bandit_settings.current_contextual_weights.get(ctx)
-                    or default_weights
+                    weights=self.contextual_bandit_settings.current_contextual_weights.get(
+                        ctx
+                    )
+                    or default_weights,
+                    update_message=update_message,
                 )
                 for ctx in context_keys
             }
             return ContextualBanditResponse(
                 responses=cast(dict[ContextKey, BanditResult], responses)
             )
+
         elif not self.contextual_bandit_settings.contexts:
-            # If there are no contexts, return no-update results for all contexts we have weights for.
             context_keys = list(
                 self.contextual_bandit_settings.current_contextual_weights
             ) or [BANDIT_DIMENSION_VALUE]
+            update_message = "no context columns configured"
+            responses = self.default_responses(update_message)
             return ContextualBanditResponse(
-                responses={
-                    ctx: no_update_result(default_weights) for ctx in context_keys
-                }
+                responses=cast(dict[ContextKey, BanditResult], responses)
             )
+
         else:
             # Unique contexts: one tuple per combination of (col0, col1, ...) across rows
             contexts = create_contexts(
@@ -151,7 +202,6 @@ class UpdateWeightsContextualBandit:
                         default_weights.copy()
                     )
 
-            for ctx in contexts:
                 rows_for_bandit = _rows_for_bandit(
                     rows_by_ctx[ctx], BANDIT_DIMENSION_VALUE
                 )
@@ -175,9 +225,127 @@ class UpdateWeightsContextualBandit:
                     bandit_settings=bandit_settings,
                 )
                 result.responses[ctx] = r
+
             return ContextualBanditResponse(
                 responses=cast(dict[ContextKey, BanditResult], result.responses)
             )
+
+
+class BuildClassificationTree:
+    """Fit a decision tree over context tuples using per-context variation means as targets (sklearn DecisionTreeRegressor + one-hot encoded context indices).
+
+    Despite the name, the implementation uses a **regression** tree on continuous mean outcomes per variation.
+    """
+
+    def __init__(
+        self,
+        *,
+        contexts: list[tuple[str, ...]],
+        num_variations: int,
+        max_leaf_nodes: int,
+        rng: np.random.Generator,
+        bandit_settings: ContextualTreeBanditSettingsForStatsEngine,
+    ) -> None:
+        self.contexts = contexts
+        self.num_variations = num_variations
+        self.max_leaf_nodes = max_leaf_nodes
+        self.rng = rng
+        self.bandit_settings = bandit_settings
+        self.leaf_map: dict[tuple[str, ...], int] = {}
+        self.leaf_ids: list[int] = []
+        self.fitted_tree: DecisionTreeRegressor | None = None
+        self.tree_feature_names: list[str] = []
+
+    def build(
+        self, rows_by_context: dict[tuple[str, ...], ExperimentMetricQueryResponseRows]
+    ) -> None:
+        """Populate ``leaf_map``, ``leaf_ids``, ``fitted_tree``, and ``tree_feature_names`` from grouped rows."""
+        rows_by_context = {ctx: r for ctx, r in rows_by_context.items() if r}
+        groups_with_data = [
+            ctx
+            for ctx in self.contexts
+            if ctx in rows_by_context and rows_by_context[ctx]
+        ]
+        if not groups_with_data:
+            self.leaf_map = {}
+            self.leaf_ids = []
+            self.fitted_tree = None
+            self.tree_feature_names = []
+            return
+
+        num_dims = len(self.contexts[0])
+        dimension_names: list[str] = getattr(
+            self.bandit_settings, "dimension", None
+        ) or [f"dimension_{i}" for i in range(num_dims)]
+        if len(dimension_names) != num_dims:
+            dimension_names = [
+                dimension_names[i] if i < len(dimension_names) else f"dimension_{i}"
+                for i in range(num_dims)
+            ]
+        unique_by_dim: list[list[str]] = [
+            sorted(set(c[i] for c in self.contexts)) for i in range(num_dims)
+        ]
+        X_list: list[list[int]] = []
+        Y_list: list[list[float]] = []
+        sample_weight_list: list[int] = []
+        for ctx in groups_with_data:
+            rows = rows_by_context[ctx]
+            means = [0.0] * self.num_variations
+            n_ctx = 0
+            for entry in rows:
+                v = int(entry["variation"])
+                n = int(entry["users"])
+                n_ctx += n
+                s = entry["main_sum"]
+                if isinstance(s, np.ndarray):
+                    s = float(s[0])
+                else:
+                    s = float(s)
+                means[v] = (s / n) if n > 0 else 0.0
+            x_row = [unique_by_dim[i].index(ctx[i]) for i in range(num_dims)]
+            X_list.append(x_row)
+            Y_list.append(means)
+            sample_weight_list.append(n_ctx)
+        X_train = np.array(X_list, dtype=np.float64)
+        transformers = [
+            (
+                f"dim_{i}",
+                OneHotEncoder(
+                    categories=cast(
+                        Any,
+                        [np.arange(len(unique_by_dim[i]), dtype=np.int64)],
+                    ),
+                    sparse_output=False,
+                ),
+                [i],
+            )
+            for i in range(num_dims)
+        ]
+        ct = ColumnTransformer(transformers, remainder="drop")
+        X_train_encoded = ct.fit_transform(X_train)
+        Y_train = np.array(Y_list, dtype=np.float64)
+        tree = DecisionTreeRegressor(
+            max_leaf_nodes=self.max_leaf_nodes,
+            random_state=np.random.RandomState(self.rng.integers(0, 2**31 - 1)),
+        )
+        tree.fit(
+            X_train_encoded,
+            Y_train,
+            sample_weight=np.array(sample_weight_list, dtype=np.float64),
+        )
+
+        def _row(c: tuple[str, ...]) -> list[float]:
+            return [float(unique_by_dim[i].index(c[i])) for i in range(num_dims)]
+
+        X_full = np.array([_row(c) for c in self.contexts], dtype=np.float64)
+        X_full_encoded = ct.transform(X_full)
+        leaf_ids_arr = tree.apply(X_full_encoded)
+        self.leaf_map = {
+            self.contexts[i]: int(leaf_ids_arr[i]) for i in range(len(self.contexts))
+        }
+        self.leaf_ids = sorted(set(self.leaf_map.values()))
+        self.fitted_tree = tree
+        self.tree_feature_names = ct.get_feature_names_out(dimension_names).tolist()
 
 
 class UpdateWeightsContextualTree:
@@ -225,6 +393,38 @@ class UpdateWeightsContextualTree:
         self.leaf_map = {}
         self.merge_combined_rows = lambda a, b: (a or []) + (b or [])
 
+    @staticmethod
+    def contextual_bandit_settings_for_tree(
+        tree_settings: ContextualTreeBanditSettingsForStatsEngine,
+    ) -> ContextualBanditSettingsForStatsEngine:
+        """Copy bandit + contextual fields from tree settings into ContextualBanditSettingsForStatsEngine.
+
+        Omits ``max_leaf_nodes``. Each key in ``current_contextual_weights`` is kept; weights are reset to
+        uniform ``1 / num_variations`` per arm.
+        """
+        num_variations = len(tree_settings.var_ids or tree_settings.var_names or [])
+        if num_variations == 0:
+            raise ValueError(
+                "Cannot derive num_variations: var_ids and var_names are both empty"
+            )
+        uniform = [1.0 / num_variations] * num_variations
+        uniform_weights: dict[ContextKey, list[float]] = {
+            k: uniform.copy() for k in tree_settings.current_contextual_weights
+        }
+        return ContextualBanditSettingsForStatsEngine(
+            var_names=list(tree_settings.var_names),
+            var_ids=list(tree_settings.var_ids),
+            current_weights=list(tree_settings.current_weights),
+            reweight=tree_settings.reweight,
+            decision_metric=tree_settings.decision_metric,
+            bandit_weights_seed=tree_settings.bandit_weights_seed,
+            bandit_weights_rng=tree_settings.bandit_weights_rng,
+            weight_by_period=tree_settings.weight_by_period,
+            top_two=tree_settings.top_two,
+            current_contextual_weights=uniform_weights,
+            contexts=[LEAF_ID_COLUMN],
+        )
+
     @property
     def contexts_by_leaf(self) -> dict:
         """Leaf id -> list of contexts in that leaf. Derived from leaf_map."""
@@ -262,92 +462,18 @@ class UpdateWeightsContextualTree:
         return out
 
     def build_tree(self, rows_by_context: dict):
-        """Fit DecisionTreeRegressor on observed variation means per group. Dimension info and one-hot encoding come from bandit_settings.dimension (arbitrary number of dimensions). Sets leaf_map and leaf_ids."""
-        rows_by_context = {ctx: r for ctx, r in rows_by_context.items() if r}
-        groups_with_data = [
-            ctx
-            for ctx in self.contexts
-            if ctx in rows_by_context and rows_by_context[ctx]
-        ]
-        if not groups_with_data:
-            self.set_leaf_structure({}, [])
-            self._last_fitted_tree = None
-            return
-        num_dims = len(self.contexts[0])
-        dimension_names: list[str] = getattr(
-            self.bandit_settings, "dimension", None
-        ) or [f"dimension_{i}" for i in range(num_dims)]
-        if len(dimension_names) != num_dims:
-            dimension_names = [
-                dimension_names[i] if i < len(dimension_names) else f"dimension_{i}"
-                for i in range(num_dims)
-            ]
-        unique_by_dim: list[list] = [
-            sorted(set(cast(Any, c)[i] for c in self.contexts)) for i in range(num_dims)
-        ]
-        X_list, Y_list, sample_weight_list = [], [], []
-        for ctx in groups_with_data:
-            rows = rows_by_context[ctx]
-            means = [0.0] * self.num_variations
-            n_ctx = 0
-            for entry in rows:
-                v = entry["variation"]
-                n = int(entry["users"])
-                n_ctx += n
-                s = entry["main_sum"]
-                if isinstance(s, np.ndarray):
-                    s = float(s[0])
-                else:
-                    s = float(s)
-                means[v] = (s / n) if n > 0 else 0.0
-            x_row = [unique_by_dim[i].index(ctx[i]) for i in range(num_dims)]
-            X_list.append(x_row)
-            Y_list.append(means)
-            sample_weight_list.append(n_ctx)
-        X_train = np.array(X_list, dtype=np.float64)
-        # Stubs narrow OneHotEncoder.categories; runtime accepts list of category arrays.
-        transformers = [
-            (
-                f"dim_{i}",
-                OneHotEncoder(
-                    categories=cast(
-                        Any,
-                        [np.arange(len(unique_by_dim[i]), dtype=np.int64)],
-                    ),
-                    sparse_output=False,
-                ),
-                [i],
-            )
-            for i in range(num_dims)
-        ]
-        ct = ColumnTransformer(transformers, remainder="drop")
-        X_train_encoded = ct.fit_transform(X_train)
-        Y_train = np.array(Y_list, dtype=np.float64)
-        tree = DecisionTreeRegressor(
+        """Delegate tree fitting to :class:`BuildClassificationTree`."""
+        builder = BuildClassificationTree(
+            contexts=self.contexts,
+            num_variations=self.num_variations,
             max_leaf_nodes=self.max_leaf_nodes,
-            random_state=np.random.RandomState(self.rng.integers(0, 2**31 - 1)),
+            rng=self.rng,
+            bandit_settings=self.bandit_settings,
         )
-        tree.fit(
-            X_train_encoded,
-            Y_train,
-            sample_weight=np.array(sample_weight_list, dtype=np.float64),
-        )
-
-        def _row(c: tuple) -> list[float]:
-            return [float(unique_by_dim[i].index(c[i])) for i in range(num_dims)]
-
-        X_full = np.array([_row(c) for c in self.contexts], dtype=np.float64)
-        X_full_encoded = ct.transform(X_full)
-        leaf_ids_arr = tree.apply(X_full_encoded)
-        leaf_map = {
-            self.contexts[i]: int(leaf_ids_arr[i]) for i in range(len(self.contexts))
-        }
-        leaf_ids_list = sorted(set(leaf_map.values()))
-        self.set_leaf_structure(leaf_map, leaf_ids_list)
-        self._last_fitted_tree = tree
-        self._last_tree_feature_names = ct.get_feature_names_out(
-            dimension_names
-        ).tolist()
+        builder.build(rows_by_context)
+        self.set_leaf_structure(builder.leaf_map, builder.leaf_ids)
+        self._last_fitted_tree = builder.fitted_tree
+        self._last_tree_feature_names = builder.tree_feature_names
 
     def _build_by_leaf_cumulative(self, rows_by_context: dict) -> dict:
         """Aggregate rows_by_context (context -> rows) into per-leaf rows by merging all contexts that map to the same leaf_id. Returns dict mapping leaf_id -> merged list of rows."""
@@ -367,11 +493,16 @@ class UpdateWeightsContextualTree:
         return by_leaf_cumulative
 
     def _aggregate_leaf_rows_for_bandit(
-        self, rows: ExperimentMetricQueryResponseRows
+        self, rows: ExperimentMetricQueryResponseRows, leaf_id: int
     ) -> ExperimentMetricQueryResponseRows:
-        """Merge all rows in a leaf (many contexts × variations) into one row per variation with summed users, main_sum, and main_sum_squares for get_bandit_result."""
+        """Merge all rows in a leaf (many contexts × variations) into one row per variation.
+
+        Sums every field in SUM_COLS that appears on any input row. Sets LEAF_ID_COLUMN for
+        UpdateWeightsContextualBandit (leaf as context).
+        """
         if not rows:
             return []
+        sum_cols_active = [c for c in SUM_COLS if any(c in r for r in rows)]
         by_var: dict[int, list[dict[str, Any]]] = {}
         for r in rows:
             v = int(r["variation"])
@@ -380,102 +511,104 @@ class UpdateWeightsContextualTree:
         out: list[dict[str, Any]] = []
         for v in range(self.num_variations):
             grp = by_var.get(v, [])
-            if not grp:
-                out.append(
-                    {
-                        "dimension": BANDIT_DIMENSION_VALUE,
-                        "bandit_period": bandit_period,
-                        "variation": v,
-                        "users": 0,
-                        "count": 0,
-                        "main_sum": np.array([0.0]),
-                        "main_sum_squares": np.array([0.0]),
-                    }
-                )
-                continue
-            users = sum(int(r["users"]) for r in grp)
-            main_sum = sum(float(np.asarray(r["main_sum"]).flat[0]) for r in grp)
-            main_sum_squares = sum(
-                float(np.asarray(r.get("main_sum_squares", 0)).flat[0]) for r in grp
-            )
-            row = {
+            row: dict[str, Any] = {
+                LEAF_ID_COLUMN: leaf_id,
                 "dimension": BANDIT_DIMENSION_VALUE,
                 "bandit_period": bandit_period,
                 "variation": v,
-                "users": users,
-                "count": users,
-                "main_sum": np.array([main_sum]),
-                "main_sum_squares": np.array([main_sum_squares]),
             }
+            for col in sum_cols_active:
+                sample = next((r[col] for r in rows if col in r), None)
+                if not grp:
+                    row[col] = _zero_like_aggregate(sample) if sample is not None else 0
+                    continue
+                vals = [r[col] for r in grp if col in r]
+                row[col] = (
+                    _sum_aggregate_field(vals)
+                    if vals
+                    else (_zero_like_aggregate(sample) if sample is not None else 0)
+                )
             out.append(row)
         return cast(ExperimentMetricQueryResponseRows, out)
 
     def compute_result(self) -> ContextualTreeBanditResponse:
-        """Call build_tree(rows_by_context derived from self.rows), then for each leaf aggregate rows to one row per variation and run get_bandit_result. Reads and updates current_weights keyed by str(leaf_id). Returns ContextualTreeBanditResponse mapping each context (str) to its leaf's BanditResult."""
+        """Fit tree, aggregate rows per leaf with LEAF_ID_COLUMN, run **one** UpdateWeightsContextualBandit with contexts=[LEAF_ID_COLUMN], then map leaf-level results and weights onto each real context via leaf_map."""
         rows_by_context = self.rows_to_rows_by_context(self.rows)
         self.build_tree(rows_by_context)
         if not self.leaf_ids:
             w = self.initial_weights.copy()
             no_update = no_update_result(w)
             return ContextualTreeBanditResponse(
-                responses={str(ctx): no_update for ctx in self.contexts},
+                responses={ctx: no_update for ctx in self.contexts},
                 leaf_map=copy.copy(self.leaf_map),
             )
         by_leaf_cumulative = self._build_by_leaf_cumulative(rows_by_context)
-        # Per leaf: collapse all context rows to one row per variation, run pooled bandit once,
-        # store updated weights under str(leaf_id); then map each context to its leaf's result.
-        result_by_leaf: dict[int, BanditResult] = {}
+
+        rows_all: ExperimentMetricQueryResponseRows = []
+        leaf_weight_keys: dict[int, tuple[str, ...]] = {}
+        current_leaf_cw: dict[ContextKey, list[float]] = {}
         for leaf_id in self.leaf_ids:
-            key = str(leaf_id)
-            self.bandit_settings.current_contextual_weights.setdefault(
-                key, self.initial_weights.copy()
-            )
             rows_leaf = by_leaf_cumulative.get(leaf_id) or []
             if not rows_leaf:
                 raise ValueError(f"No rows for leaf {leaf_id}")
-            rows_agg = self._aggregate_leaf_rows_for_bandit(rows_leaf)
-            rows_for_bandit = _rows_for_bandit(rows_agg, BANDIT_DIMENSION_VALUE)
-            leaf_weights = list(self.bandit_settings.current_contextual_weights[key])
-            bandit_settings = BanditSettingsForStatsEngine(
-                var_names=self.bandit_settings.var_names,
-                var_ids=self.bandit_settings.var_ids,
-                current_weights=leaf_weights,
-                reweight=self.bandit_settings.reweight,
-                decision_metric=self.bandit_settings.decision_metric,
-                bandit_weights_seed=self.bandit_settings.bandit_weights_seed,
-                bandit_weights_rng=self.bandit_settings.bandit_weights_rng,
-                weight_by_period=self.bandit_settings.weight_by_period,
-                top_two=self.bandit_settings.top_two,
-            )
-            r = get_bandit_result(
-                rows=rows_for_bandit,
-                metric=self.metric_settings,
-                settings=self.analysis_settings,
-                bandit_settings=bandit_settings,
-            )
-            new_weights = (
-                r.updatedWeights
-                if r.updatedWeights is not None
-                else r.bestArmProbabilities
-            )
-            if new_weights is not None:
-                self.bandit_settings.current_contextual_weights[key] = (
-                    new_weights.copy()
+            leaf_key = (str(leaf_id),)
+            leaf_weight_keys[leaf_id] = leaf_key
+            prior = self.bandit_settings.current_contextual_weights.get(str(leaf_id))
+            if prior is None:
+                prior = next(
+                    (
+                        self.bandit_settings.current_contextual_weights[c]
+                        for c in self.contexts
+                        if self.leaf_map.get(c) == leaf_id
+                        and c in self.bandit_settings.current_contextual_weights
+                    ),
+                    None,
                 )
-            result_by_leaf[leaf_id] = r
-        # Map context -> BanditResult (each context gets its leaf's result, or a no-update result if leaf had no data)
+            current_leaf_cw[leaf_key] = list(
+                prior if prior is not None else self.initial_weights
+            )
+            rows_all.extend(
+                self._aggregate_leaf_rows_for_bandit(rows_leaf, leaf_id=leaf_id)
+            )
+
+        leaf_bandit_settings = self.contextual_bandit_settings_for_tree(
+            self.bandit_settings
+        )
+        leaf_bandit = UpdateWeightsContextualBandit(
+            rows_all,
+            self.metric_settings,
+            self.analysis_settings,
+            leaf_bandit_settings,
+        )
+        leaf_response = leaf_bandit.compute_result()
+
         context_to_result: dict[ContextKey, BanditResult] = {}
         for ctx in self.contexts:
             leaf_id = self.leaf_map.get(ctx)
             if leaf_id is None:
                 continue
-            if leaf_id in result_by_leaf:
-                context_to_result[ctx] = result_by_leaf[leaf_id]
-            else:
-                weights = self.bandit_settings.current_contextual_weights.get(
-                    str(leaf_id), self.initial_weights.copy()
+            lkey = leaf_weight_keys.get(leaf_id)
+            if lkey is None:
+                continue
+            r = leaf_response.responses.get(lkey)
+            if r is not None:
+                context_to_result[ctx] = r
+                new_w = (
+                    r.updatedWeights
+                    if r.updatedWeights is not None
+                    else r.bestArmProbabilities
                 )
-                context_to_result[ctx] = no_update_result(weights)
+                if new_w is not None:
+                    wlist = new_w.copy()
+                    self.bandit_settings.current_contextual_weights[ctx] = wlist
+                    self.bandit_settings.current_contextual_weights[str(leaf_id)] = (
+                        wlist
+                    )
+            else:
+                w = leaf_bandit_settings.current_contextual_weights.get(
+                    lkey, self.initial_weights
+                )
+                context_to_result[ctx] = no_update_result(list(w))
 
         return ContextualTreeBanditResponse(
             responses=cast(dict[ContextKey, BanditResult], context_to_result),
