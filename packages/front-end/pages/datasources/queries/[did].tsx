@@ -32,6 +32,7 @@ const DataSourceQueries = (): React.ReactElement => {
   const d = getDatasourceById(did);
 
   const canView = d && permissions.check("readData", d.projects || []);
+  const canCancel = d && permissions.check("runQueries", d.projects || []);
 
   const {
     data,
@@ -223,7 +224,7 @@ const DataSourceQueries = (): React.ReactElement => {
                         />
                       )}
                     </Tooltip>
-                    {query.status === "running" && (
+                    {query.status === "running" && canCancel && (
                       <Tooltip
                         body="Cancel query"
                         tipPosition="top"

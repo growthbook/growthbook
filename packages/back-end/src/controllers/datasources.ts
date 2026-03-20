@@ -1036,7 +1036,7 @@ export async function cancelDataSourceQuery(
   }
 
   req.checkPermissions(
-    "readData",
+    "runQueries",
     datasource?.projects?.length ? datasource.projects : [],
   );
 
