@@ -388,6 +388,20 @@ export function isJoinableMetric({
   return isMetricJoinable(metricIdTypes, experimentIdType, datasource.settings);
 }
 
+/**
+ * Calculates the effective coverage for an experiment phase, accounting for
+ * both the traffic percentage coverage and the namespace range (if enabled).
+ * This is used for scaled impact calculations in the stats engine.
+ */
+export function getEffectiveCoverage(phase: ExperimentPhase): number {
+  const phaseCoverage = phase.coverage ?? 1;
+  const hasNamespace = phase.namespace && phase.namespace.enabled;
+  const namespaceRange = hasNamespace
+    ? phase.namespace!.range[1] - phase.namespace!.range[0]
+    : 1;
+  return namespaceRange * phaseCoverage;
+}
+
 export function getSnapshotSettings({
   experiment,
   phaseIndex,
@@ -681,7 +695,7 @@ export function getSnapshotSettings({
       id: v.key || i + "",
       weight: phase.variationWeights[i] || 0,
     })),
-    coverage: phase.coverage ?? 1,
+    coverage: getEffectiveCoverage(phase),
     banditSettings,
   };
 }
