@@ -71,8 +71,8 @@ export const createSchema = <
  * standard protected base fields AND whatever fields comprise the pKey.
  *
  * PK is the literal tuple of primary key field names (e.g. readonly ["id"]
- * or readonly ["userId", "organization"]).  It is captured as a `const`
- * generic in MakeModelClass so that PK[number] resolves to a narrow string
+ * or readonly ["userId", "organization"]).  The tuple passed to MakeModelClass
+ * will be defined with `as const` so that PK[number] resolves to a narrow string
  * literal union rather than just `string`.
  */
 type PKeyUpdateProps<
@@ -781,7 +781,7 @@ export abstract class BaseModel<
     const updatedFields = Object.entries(updates)
       .filter(([k, v]) => !isEqual(doc[k as keyof z.infer<T>], v))
       .map(([k]) => k) as (keyof z.infer<T>)[];
-    updates = pick(updates, updatedFields) as PKeyUpdateProps<T, PKey, PK>;
+    updates = pick(updates, updatedFields);
 
     // If no updates are needed, return immediately
     if (!updatedFields.length) {
@@ -834,11 +834,7 @@ export abstract class BaseModel<
       );
     }
 
-    // allUpdates may contain dateUpdated which is managed internally by BaseModel,
-    // so it won't match the public UpdateProps type. Cast is safe here.
-    const typedUpdates = allUpdates as PKeyUpdateProps<T, PKey, PK>;
-
-    await this.beforeUpdate(doc, typedUpdates, newDoc, options?.writeOptions);
+    await this.beforeUpdate(doc, updates, newDoc, options?.writeOptions);
 
     await this.customValidation(newDoc, doc, options?.writeOptions);
 
@@ -861,7 +857,7 @@ export abstract class BaseModel<
       );
     }
 
-    await this.afterUpdate(doc, typedUpdates, newDoc, options?.writeOptions);
+    await this.afterUpdate(doc, updates, newDoc, options?.writeOptions);
     await this.afterCreateOrUpdate(newDoc, options?.writeOptions);
 
     // Update tags if needed
