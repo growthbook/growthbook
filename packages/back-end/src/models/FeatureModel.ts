@@ -77,7 +77,6 @@ import {
   createRevisionFromLegacyDraft,
   deleteAllRevisionsForFeature,
   getRevision,
-  hasDraft,
   markRevisionAsPublished,
   updateRevision,
   createRevision,
@@ -157,7 +156,6 @@ const featureSchema = new mongoose.Schema({
   environmentSettings: {},
   draft: {},
   legacyDraftMigrated: Boolean,
-  hasDrafts: Boolean,
   revision: {},
   linkedExperiments: [String],
   jsonSchema: {},
@@ -332,7 +330,6 @@ export async function migrateDraft(
       {
         $set: {
           legacyDraftMigrated: true,
-          hasDrafts: true,
         },
       },
     );
@@ -690,8 +687,8 @@ export async function onFeatureUpdate(
   // Don't fire webhooks if only `dateUpdated` changes (ex: creating/modifying a unpublished draft)
   if (
     !isEqual(
-      omit(feature, ["dateUpdated", "hasDrafts"]),
-      omit(updatedFeature, ["dateUpdated", "hasDrafts"]),
+      omit(feature, ["dateUpdated"]),
+      omit(updatedFeature, ["dateUpdated"]),
     )
   ) {
     // Event-based webhooks
@@ -1224,10 +1221,6 @@ export async function applyRevisionChanges(
 
   changes.version = revision.version;
 
-  // Update the `hasDrafts` field
-  changes.hasDrafts = await hasDraft(context.org.id, feature, [
-    revision.version,
-  ]);
   await updateSafeRolloutStatuses(context, feature, revision);
   return await updateFeature(context, feature, changes);
 }

@@ -1219,7 +1219,6 @@ describe("Feature Migration", () => {
         status: "draft",
         version: 9,
       },
-      hasDrafts: true,
       environmentSettings: {
         dev: {
           enabled: true,

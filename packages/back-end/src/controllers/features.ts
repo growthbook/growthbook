@@ -119,7 +119,6 @@ import {
   getRevisionsByVersions,
   getFeaturePageRevisions,
   getRevisionsByStatus,
-  hasDraft,
   markRevisionAsReviewRequested,
   ReviewSubmittedType,
   submitReviewAndComments,
@@ -250,7 +249,6 @@ async function createOrUpdateDraftWithChanges(
     comment: autoComment || "",
     org,
   });
-  await updateFeature(context, feature, { hasDrafts: true });
   return newRevision;
 }
 
@@ -691,7 +689,6 @@ export async function postFeatures(
     id,
     archived: false,
     version: 1,
-    hasDrafts: false,
     holdout: holdout?.id ? holdout : undefined,
     jsonSchema: {
       schemaType: "schema",
@@ -1513,7 +1510,6 @@ export async function postFeatureRevertDraft(
     org,
     comment: comment || `Revert to revision #${revision.version}`,
   });
-  await updateFeature(context, feature, { hasDrafts: true });
 
   await req.audit({
     event: "feature.update",
@@ -1521,11 +1517,9 @@ export async function postFeatureRevertDraft(
       object: "feature",
       id: feature.id,
     },
-    details: auditDetailsUpdate(
-      feature,
-      { ...feature, hasDrafts: true },
-      { revision: newRevision.version },
-    ),
+    details: auditDetailsUpdate(feature, feature, {
+      revision: newRevision.version,
+    }),
   });
 
   res.status(200).json({
@@ -1574,9 +1568,6 @@ export async function postFeatureFork(
     environments,
     org,
   });
-  await updateFeature(context, feature, {
-    hasDrafts: true,
-  });
 
   res.status(200).json({
     status: 200,
@@ -1620,14 +1611,6 @@ export async function postFeatureDiscard(
   }
 
   await discardRevision(context, revision, res.locals.eventAudit);
-
-  const hasDrafts = await hasDraft(org.id, feature, [revision.version]);
-
-  if (!hasDrafts) {
-    await updateFeature(context, feature, {
-      hasDrafts,
-    });
-  }
 
   res.status(200).json({
     status: 200,
@@ -1918,14 +1901,9 @@ export async function postFeatureSync(
       org,
     });
 
-    // Approval flows not required, was published immediately
     if (revision.status === "published") {
       updates.version = revision.version;
       Object.assign(updates, updatesInRevision);
-    }
-    // Approval flows required
-    else {
-      updates.hasDrafts = true;
     }
   }
 
@@ -2055,10 +2033,7 @@ export async function postFeatureExperimentRefRule(
       }),
     });
   } else {
-    await updateFeature(context, feature, {
-      linkedExperiments,
-      hasDrafts: true,
-    });
+    await updateFeature(context, feature, { linkedExperiments });
   }
 
   await addLinkedFeatureToExperiment(
@@ -2089,10 +2064,6 @@ async function getDraftRevision(
       environments: getEnvironmentIdsFromOrg(context.org),
       baseVersion: version,
       org,
-    });
-
-    await updateFeature(context, feature, {
-      hasDrafts: true,
     });
 
     return newRevision;
@@ -2464,10 +2435,6 @@ export async function putSafeRolloutStatus(
         revision: revision.version,
         comment: "auto-publish status change",
       }),
-    });
-  } else {
-    await updateFeature(context, feature, {
-      hasDrafts: true,
     });
   }
   res.status(200).json({

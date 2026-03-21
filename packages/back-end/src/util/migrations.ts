@@ -408,10 +408,6 @@ export function upgradeFeatureInterface(
     }
   }
 
-  if (newFeature.legacyDraft && !newFeature.legacyDraftMigrated) {
-    newFeature.hasDrafts = true;
-  }
-
   if (newFeature.jsonSchema) {
     newFeature.jsonSchema.schemaType =
       newFeature.jsonSchema.schemaType || "schema";

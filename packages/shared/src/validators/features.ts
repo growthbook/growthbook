@@ -299,7 +299,6 @@ export const featureInterface = z
     valueType: z.enum(featureValueType),
     defaultValue: z.string(),
     version: z.number(),
-    hasDrafts: z.boolean().optional(),
     tags: z.array(z.string()).optional(),
     environmentSettings: z.record(z.string(), featureEnvironment),
     linkedExperiments: z.array(z.string()).optional(),

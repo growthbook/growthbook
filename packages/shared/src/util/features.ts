@@ -364,7 +364,7 @@ interface IsFeatureStaleInterface {
   environments?: string[];
   featuresMap?: Map<string, FeatureInterface>;
   experimentMap?: Map<string, ExperimentInterfaceStringDates>;
-  // Most recent dateUpdated among active drafts; null = no drafts; omit to fall back to feature.hasDrafts.
+  // Most recent dateUpdated among active drafts; null = no active drafts.
   mostRecentDraftDate?: Date | null;
 }
 
@@ -561,16 +561,11 @@ export function isFeatureStale({
       // Active drafts block stale. Abandoned drafts (>1 month) don't force
       // stale on their own — they surface as the reason only if envs are also stale.
       let hasAbandonedDraft = false;
-      if (mostRecentDraftDate !== undefined) {
-        if (mostRecentDraftDate !== null) {
-          if (mostRecentDraftDate >= subMonths(new Date(), 1)) {
-            return { stale: false, reason: "active-draft", envResults };
-          }
-          hasAbandonedDraft = true;
+      if (mostRecentDraftDate !== undefined && mostRecentDraftDate !== null) {
+        if (mostRecentDraftDate >= subMonths(new Date(), 1)) {
+          return { stale: false, reason: "active-draft", envResults };
         }
-        // null = no active drafts
-      } else if (feature.hasDrafts) {
-        return { stale: false, reason: "active-draft", envResults };
+        hasAbandonedDraft = true;
       }
 
       if (nonStaleDependentFeatureIds.length) {
