@@ -1,0 +1,22 @@
+type: object
+required:
+  - name
+  - label
+  - description
+  - status
+properties:
+  name:
+    type: string
+    description: The unique identifier for the namespace (e.g. ns-abc123)
+  label:
+    type: string
+    description: The display name of the namespace
+  description:
+    type: string
+    description: A description of what the namespace is used for
+  status:
+    type: string
+    enum:
+      - active
+      - inactive
+    description: Whether the namespace is active or inactive
