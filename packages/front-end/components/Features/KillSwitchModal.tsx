@@ -32,9 +32,9 @@ import DraftSelectorForChanges, {
 
 function EnvStateIcon({ enabled }: { enabled: boolean }) {
   return enabled ? (
-    <FaCircleCheck className="text-success" size={20} />
+    <FaCircleCheck size={20} style={{ color: "var(--green-10)" }} />
   ) : (
-    <FaCircleXmark className="text-muted" size={20} />
+    <FaCircleXmark size={20} style={{ color: "var(--color-text-low)" }} />
   );
 }
 

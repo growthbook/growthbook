@@ -232,7 +232,11 @@ export default function FeaturesOverview({
   const [showDescriptionModal, setShowDescriptionModal] = useState(false);
   const [compareRevisionsModalOpen, setCompareRevisionsModalOpen] =
     useState(false);
-  const [showKillSwitchManager, setShowKillSwitchManager] = useState(false);
+  const [killSwitchTarget, setKillSwitchTarget] = useState<{
+    envId?: string;
+    desiredState?: boolean;
+  } | null>(null);
+  const showKillSwitchManager = killSwitchTarget !== null;
 
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
@@ -1159,7 +1163,7 @@ export default function FeaturesOverview({
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => setShowKillSwitchManager(true)}
+                              onClick={() => setKillSwitchTarget({})}
                             >
                               Change
                             </Button>
@@ -1173,7 +1177,6 @@ export default function FeaturesOverview({
                           <td key={env} style={{ minWidth: 120 }}>
                             <Flex align="center" justify="center">
                               <Tooltip
-                                className="cursor-pointer"
                                 popperClassName="text-left"
                                 flipTheme={false}
                                 body={environmentKillSwitchTooltipBody(
@@ -1182,29 +1185,38 @@ export default function FeaturesOverview({
                                   envAndSummaryTooltipNonLiveDisclaimer,
                                 )}
                               >
-                                {enabled ? (
-                                  <FaCircleCheck
-                                    size={20}
-                                    style={{ color: featureStatusColors.on }}
-                                    onClick={
-                                      !isReadOnly
-                                        ? () => setShowKillSwitchManager(true)
-                                        : undefined
-                                    }
-                                  />
-                                ) : (
-                                  <FaCircleXmark
-                                    size={20}
-                                    style={{
-                                      color: featureStatusColors.offMuted,
-                                    }}
-                                    onClick={
-                                      !isReadOnly
-                                        ? () => setShowKillSwitchManager(true)
-                                        : undefined
-                                    }
-                                  />
-                                )}
+                                <IconButton
+                                  variant="ghost"
+                                  radius="full"
+                                  aria-label={
+                                    enabled
+                                      ? "Disable environment"
+                                      : "Enable environment"
+                                  }
+                                  onClick={
+                                    !isReadOnly
+                                      ? () =>
+                                          setKillSwitchTarget({
+                                            envId: env,
+                                            desiredState: !enabled,
+                                          })
+                                      : undefined
+                                  }
+                                >
+                                  {enabled ? (
+                                    <FaCircleCheck
+                                      size={20}
+                                      style={{ color: featureStatusColors.on }}
+                                    />
+                                  ) : (
+                                    <FaCircleXmark
+                                      size={20}
+                                      style={{
+                                        color: featureStatusColors.offMuted,
+                                      }}
+                                    />
+                                  )}
+                                </IconButton>
                               </Tooltip>
                             </Flex>
                           </td>
@@ -1271,7 +1283,7 @@ export default function FeaturesOverview({
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => setShowKillSwitchManager(true)}
+                      onClick={() => setKillSwitchTarget({})}
                     >
                       Change
                     </Button>
@@ -1303,7 +1315,6 @@ export default function FeaturesOverview({
                           >
                             <span className="font-weight-bold">{en.id}:</span>
                             <Tooltip
-                              className="cursor-pointer"
                               popperClassName="text-left"
                               flipTheme={false}
                               body={environmentKillSwitchTooltipBody(
@@ -1312,29 +1323,38 @@ export default function FeaturesOverview({
                                 envAndSummaryTooltipNonLiveDisclaimer,
                               )}
                             >
-                              {enabled ? (
-                                <FaCircleCheck
-                                  size={20}
-                                  style={{ color: featureStatusColors.on }}
-                                  onClick={
-                                    !isReadOnly
-                                      ? () => setShowKillSwitchManager(true)
-                                      : undefined
-                                  }
-                                />
-                              ) : (
-                                <FaCircleXmark
-                                  size={20}
-                                  style={{
-                                    color: featureStatusColors.offMuted,
-                                  }}
-                                  onClick={
-                                    !isReadOnly
-                                      ? () => setShowKillSwitchManager(true)
-                                      : undefined
-                                  }
-                                />
-                              )}
+                              <IconButton
+                                variant="ghost"
+                                radius="full"
+                                aria-label={
+                                  enabled
+                                    ? "Disable environment"
+                                    : "Enable environment"
+                                }
+                                onClick={
+                                  !isReadOnly
+                                    ? () =>
+                                        setKillSwitchTarget({
+                                          envId: en.id,
+                                          desiredState: !enabled,
+                                        })
+                                    : undefined
+                                }
+                              >
+                                {enabled ? (
+                                  <FaCircleCheck
+                                    size={20}
+                                    style={{ color: featureStatusColors.on }}
+                                  />
+                                ) : (
+                                  <FaCircleXmark
+                                    size={20}
+                                    style={{
+                                      color: featureStatusColors.offMuted,
+                                    }}
+                                  />
+                                )}
+                              </IconButton>
                             </Tooltip>
                           </Flex>
                         );
@@ -1937,11 +1957,13 @@ export default function FeaturesOverview({
           <KillSwitchModal
             feature={feature}
             baseFeature={baseFeature}
+            environment={killSwitchTarget?.envId}
+            desiredState={killSwitchTarget?.desiredState}
             currentVersion={currentVersion}
             revisionList={revisionList || []}
             mutate={mutate}
             setVersion={setVersion}
-            close={() => setShowKillSwitchManager(false)}
+            close={() => setKillSwitchTarget(null)}
           />
         )}
       </Box>
