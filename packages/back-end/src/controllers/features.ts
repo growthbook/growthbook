@@ -1397,6 +1397,9 @@ export async function postFeatureRevert(
   if (revision.metadata !== undefined) {
     revisionChanges.metadata = revision.metadata;
   }
+  // Holdout intentionally excluded: changes require the dedicated updateHoldout
+  // flow (side effects + guards), and the field is sparse in revisions so
+  // absent !== "no holdout".
 
   const newRevision = await createRevision({
     context,
