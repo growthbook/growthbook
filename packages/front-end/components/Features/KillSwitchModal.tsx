@@ -441,7 +441,7 @@ export default function KillSwitchModal({
                 : "new draft"
           }
         />
-        {noNetChange && touchedEnvs.size > 0 && (
+        {noNetChange && (touchedEnvs.size > 0 || environment !== undefined) && (
           <Box mt="2">
             <Text as="p" size="small" color="text-low">
               <em>
