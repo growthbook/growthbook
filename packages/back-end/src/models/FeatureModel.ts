@@ -1250,23 +1250,23 @@ export async function applyHoldoutSideEffects(
 
   if (newHoldoutId === prevHoldoutId) return;
 
-  // Guard: cannot change holdout id when there are running experiments/bandits/safe rollouts
+  // Guard: cannot change holdout when there are running experiments, bandits, or safe rollouts
   if (newHoldout !== null) {
-    let hasNonDraftExperimentsOrBandits = false;
-    for (const experimentId of feature.linkedExperiments ?? []) {
-      const experiment = await getExperimentById(context, experimentId);
-      if (
-        experiment?.status !== "draft" ||
-        experiment?.type === "multi-armed-bandit"
-      ) {
-        hasNonDraftExperimentsOrBandits = true;
-        break;
-      }
-    }
+    const experiments = await Promise.all(
+      (feature.linkedExperiments ?? []).map((id) =>
+        getExperimentById(context, id),
+      ),
+    );
+    const hasNonDraftExperiments = experiments.some(
+      (exp) => exp?.status !== "draft",
+    );
+    const hasBandits = experiments.some(
+      (exp) => exp?.type === "multi-armed-bandit",
+    );
     const hasSafeRollouts = Object.values(feature.environmentSettings).some(
       (env) => env.rules.some((rule) => rule.type === "safe-rollout"),
     );
-    if (hasNonDraftExperimentsOrBandits || hasSafeRollouts) {
+    if (hasNonDraftExperiments || hasBandits || hasSafeRollouts) {
       throw new Error(
         "Cannot change holdout when there are running linked experiments, safe rollout rules, or multi-armed bandit rules",
       );
