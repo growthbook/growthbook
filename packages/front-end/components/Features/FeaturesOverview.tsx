@@ -1184,13 +1184,25 @@ export default function FeaturesOverview({
                               >
                                 {enabled ? (
                                   <FaCircleCheck
-                                    className="text-success"
                                     size={20}
+                                    style={{ color: featureStatusColors.on }}
+                                    onClick={
+                                      !isReadOnly
+                                        ? () => setShowKillSwitchManager(true)
+                                        : undefined
+                                    }
                                   />
                                 ) : (
                                   <FaCircleXmark
-                                    className="text-muted"
                                     size={20}
+                                    style={{
+                                      color: featureStatusColors.offMuted,
+                                    }}
+                                    onClick={
+                                      !isReadOnly
+                                        ? () => setShowKillSwitchManager(true)
+                                        : undefined
+                                    }
                                   />
                                 )}
                               </Tooltip>
@@ -1302,13 +1314,25 @@ export default function FeaturesOverview({
                             >
                               {enabled ? (
                                 <FaCircleCheck
-                                  className="text-success"
                                   size={20}
+                                  style={{ color: featureStatusColors.on }}
+                                  onClick={
+                                    !isReadOnly
+                                      ? () => setShowKillSwitchManager(true)
+                                      : undefined
+                                  }
                                 />
                               ) : (
                                 <FaCircleXmark
-                                  className="text-muted"
                                   size={20}
+                                  style={{
+                                    color: featureStatusColors.offMuted,
+                                  }}
+                                  onClick={
+                                    !isReadOnly
+                                      ? () => setShowKillSwitchManager(true)
+                                      : undefined
+                                  }
                                 />
                               )}
                             </Tooltip>
