@@ -230,7 +230,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
           // Exclude enabled from the direct-write path to avoid applying it twice.
           updates.environmentSettings[env] = {
             ...updates.environmentSettings[env],
-            enabled: feature.environmentSettings?.[env]?.enabled ?? true,
+            enabled: feature.environmentSettings?.[env]?.enabled ?? false,
           };
         }
       }
