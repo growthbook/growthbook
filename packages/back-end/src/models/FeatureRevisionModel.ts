@@ -136,19 +136,19 @@ export async function getMinimalRevisions(
   }));
 }
 
-export async function getLatestRevisions(
+export async function getFeaturePageRevisions(
   context: ReqContext | ApiReqContext,
   organization: string,
   featureId: string,
 ): Promise<FeatureRevisionInterface[]> {
-  // Fetch the 5 most recent revisions and all active drafts in parallel,
-  // then deduplicate. This ensures the kill-switch modal always has full
-  // revision data for every active draft, not just the most recent 5.
+  // Lean initial load: top-5 recent + all active drafts in parallel, then deduplicate.
   const [recentDocs, activeDraftDocs] = await Promise.all([
+    // Top-5 most recent: covers the revision history UI without fetching everything.
     FeatureRevisionModel.find({ organization, featureId })
       .select("-log")
       .sort({ version: -1 })
       .limit(5),
+    // All active drafts: a draft created from an old revision may fall outside the top-5 window.
     FeatureRevisionModel.find({
       organization,
       featureId,
@@ -165,10 +165,8 @@ export async function getLatestRevisions(
     }
   }
 
-  // Also ensure we have the baseVersion of every active draft — needed for
-  // autoMerge (and thus the publish/review CTAs) on the feature detail page.
-  // If a draft was created off an old revision that fell outside the top-5
-  // window, it would otherwise be missing and mergeResult would be null.
+  // Base versions of active drafts: needed for autoMerge / conflict detection.
+  // If the base falls outside the top-5 window, mergeResult would be null and publish CTAs break.
   const missingBaseVersions = activeDraftDocs
     .map((d) => d.baseVersion)
     .filter((v): v is number => typeof v === "number" && !seen.has(v));

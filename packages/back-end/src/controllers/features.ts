@@ -117,7 +117,7 @@ import {
   getMinimalRevisions,
   getRevision,
   getRevisionsByVersions,
-  getLatestRevisions,
+  getFeaturePageRevisions,
   getRevisionsByStatus,
   hasDraft,
   markRevisionAsReviewRequested,
@@ -3503,7 +3503,7 @@ export async function getFeatureById(
 
   const minimalRevisions = await getMinimalRevisions(context, org.id, id);
 
-  let fullRevisions = await getLatestRevisions(context, org.id, id);
+  let fullRevisions = await getFeaturePageRevisions(context, org.id, id);
 
   // The above only fetches the most recent revisions
   // If we're requesting a specific version that's older than that, fetch it directly

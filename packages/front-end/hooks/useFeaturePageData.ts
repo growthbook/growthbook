@@ -44,8 +44,8 @@ function toMinimalRevision(
   };
 }
 
-// Fetches features and revisions. Loads 5 full revisions + 200 minimal revisions.
-// Auto-fetches and caches additional full revisions as needed.
+// Fetches feature page data. Initial response includes full revisions for the top-5 recent,
+// all active drafts, and their base versions. Auto-fetches and caches additional full revisions as needed.
 export function useFeaturePageData(
   fid: string | string[] | undefined,
   versionQueryParam: string | string[] | undefined,
