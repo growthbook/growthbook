@@ -57,6 +57,7 @@ export default function FeaturesHeader({
   setTab,
   setEditFeatureInfoModal,
   holdout,
+  isReadOnly = false,
   copyLinkHref: _copyLinkHref,
   onCopyLink,
   copyLinkSuccess,
@@ -70,6 +71,7 @@ export default function FeaturesHeader({
   setTab: (tab: FeatureTab) => void;
   setEditFeatureInfoModal: (open: boolean) => void;
   holdout: HoldoutInterface | undefined;
+  isReadOnly?: boolean;
   /** Href for copy-link button (built from current version). */
   copyLinkHref?: string;
   onCopyLink?: () => void;
@@ -234,7 +236,7 @@ export default function FeaturesHeader({
         menuPlacement="end"
       >
         <DropdownMenuGroup>
-          {canEdit && canPublish && (
+          {canEdit && canPublish && !isReadOnly && (
             <DropdownMenuItem
               onClick={() => {
                 setEditFeatureInfoModal(true);
@@ -310,7 +312,8 @@ export default function FeaturesHeader({
           canPublish &&
           holdoutsEnabled &&
           holdouts.length > 0 &&
-          !holdout?.id && (
+          !holdout?.id &&
+          !isReadOnly && (
             <DropdownMenuGroup>
               <DropdownMenuItem
                 onClick={() => {
@@ -332,7 +335,7 @@ export default function FeaturesHeader({
           >
             Check stale status
           </DropdownMenuItem>
-          {canEdit && canPublish && (
+          {canEdit && canPublish && !isReadOnly && (
             <DropdownMenuItem
               onClick={() => {
                 setStaleFFModal(true);
@@ -345,7 +348,7 @@ export default function FeaturesHeader({
             </DropdownMenuItem>
           )}
         </DropdownMenuGroup>
-        {canEdit && canPublish && (
+        {canEdit && canPublish && !isReadOnly && (
           <>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
@@ -476,7 +479,7 @@ export default function FeaturesHeader({
                       >
                         {projectName}
                       </Text>
-                    ) : canEdit && canPublish ? (
+                    ) : canEdit && canPublish && !isReadOnly ? (
                       <Link
                         onClick={(e) => {
                           e.preventDefault();

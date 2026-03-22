@@ -1098,7 +1098,7 @@ export default function FeaturesOverview({
                   </Heading>
                 </Flex>
                 <Flex align="center" gap="2">
-                  {canEdit && canEditDrafts && (
+                  {canEdit && canEditDrafts && !isReadOnly && (
                     <Button
                       variant="ghost"
                       size="sm"
@@ -1132,17 +1132,19 @@ export default function FeaturesOverview({
               </Box>
               <CustomFieldDisplay
                 target={feature}
-                canEdit={canEdit}
+                canEdit={canEdit && !isReadOnly}
                 mutate={mutate}
                 section={"feature"}
                 mt="4"
                 draftInfo={
-                  {
-                    feature,
-                    revisionList: revisionList || [],
-                    gatedEnvSet: metadataReviewRequired ? "all" : "none",
-                    onDraftCreated: (v) => setVersion(v),
-                  } satisfies CustomFieldDraftInfo
+                  !isReadOnly
+                    ? ({
+                        feature,
+                        revisionList: revisionList || [],
+                        gatedEnvSet: metadataReviewRequired ? "all" : "none",
+                        onDraftCreated: (v) => setVersion(v),
+                      } satisfies CustomFieldDraftInfo)
+                    : undefined
                 }
               />
             </Box>

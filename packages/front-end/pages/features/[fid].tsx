@@ -124,6 +124,11 @@ export default function FeaturePage() {
           setTab={setTabAndScroll}
           setEditFeatureInfoModal={setEditFeatureInfoModal}
           holdout={holdout}
+          isReadOnly={
+            revision.status === "discarded" ||
+            (revision.status === "published" &&
+              revision.version !== feature.version)
+          }
           onCopyLink={() => {
             const url =
               window.location.href.replace(/[?#].*/, "") +
