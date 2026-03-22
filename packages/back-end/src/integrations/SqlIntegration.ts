@@ -2357,7 +2357,7 @@ export default abstract class SqlIntegration
           ${
             activationMetric
               ? `, ${this.ifElse(
-                  `first_activation_timestamp IS NULL`,
+                  `first_activation_timestamp IS NULL OR first_activation_timestamp > ${this.toTimestamp(settings.endDate)}`,
                   "'Not Activated'",
                   "'Activated'",
                 )} AS dim_activated`
@@ -3825,7 +3825,7 @@ export default abstract class SqlIntegration
       case "activation":
         return {
           value: this.ifElse(
-            `first_activation_timestamp IS NULL`,
+            `first_activation_timestamp IS NULL OR first_activation_timestamp > first_exposure_timestamp`,
             "'Not Activated'",
             "'Activated'",
           ),
