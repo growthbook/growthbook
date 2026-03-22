@@ -5884,17 +5884,17 @@ ORDER BY column_name, count DESC
       }
     }
 
+    const selectColumns = [
+      `${castIdToString ? this.castToString(userIdCol) : userIdCol} as ${baseIdType}`,
+      `${timestampDateTimeColumn} as timestamp`,
+      ...(additionalSelectExpressions ?? []),
+      ...metricCols,
+    ];
+
     return compileSqlTemplate(
       `-- Fact Table (${factTable.name})
       SELECT
-        ${castIdToString ? this.castToString(userIdCol) : userIdCol} as ${baseIdType},
-        ${timestampDateTimeColumn} as timestamp,
-        ${
-          additionalSelectExpressions?.length
-            ? `${additionalSelectExpressions.join(",\n")},\n`
-            : ""
-        }
-        ${metricCols.join(",\n")}
+        ${selectColumns.join(",\n")}
       FROM(
           ${sql}
         ) m
