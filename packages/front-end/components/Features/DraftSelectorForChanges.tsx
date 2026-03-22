@@ -147,7 +147,6 @@ export default function DraftSelectorForChanges({
         version={selectedDraft ?? activeDrafts[0]?.version ?? null}
         setVersion={setSelectedDraft}
         draftsOnly
-        variant="select"
       />
       {affectedEnvs != null && (
         <AffectedEnvironmentsBadges

@@ -167,7 +167,6 @@ export default function RevertModal({
             revisions={publishedRevisions}
             version={targetVersion}
             setVersion={setTargetVersion}
-            variant="select"
             publishedOnly={true}
             menuPlacement="start"
           />

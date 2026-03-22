@@ -266,29 +266,7 @@
   }
 }
 
-// Revision dropdown trigger — slim variant (used in sticky tabs header).
-.dropdown-trigger-slim-style {
-  box-sizing: border-box;
-  width: 100%;
-  overflow: hidden;
-  color: var(--gray-12);
-  cursor: pointer;
-  text-align: start;
-  user-select: none;
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-2);
-
-  &:where(:hover) {
-    background-color: var(--gray-a3);
-  }
-
-  &:where(:focus-visible) {
-    outline: 2px solid var(--focus-8);
-    outline-offset: -1px;
-  }
-}
-
-// Revision dropdown trigger — select variant (bordered box, for standalone use).
+// Revision dropdown trigger (bordered box).
 .dropdown-trigger-select-style {
   box-sizing: border-box;
   width: 100%;
@@ -310,6 +288,15 @@
   &:where(:focus-visible) {
     outline: 2px solid var(--focus-8);
     outline-offset: -1px;
+  }
+
+  &.dropdown-trigger-header {
+    box-shadow: inset 0 0 0 1px var(--gray-a5);
+
+    &:where(:hover),
+    &:where([data-state="open"]) {
+      box-shadow: inset 0 0 0 1px var(--gray-a7);
+    }
   }
 }
 

@@ -13,7 +13,6 @@ import Switch from "@/ui/Switch";
 import Text from "@/ui/Text";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Link from "@/ui/Link";
-import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import EventUser from "@/components/Avatar/EventUser";
 import RevisionStatusBadge from "@/components/Features/RevisionStatusBadge";
 
@@ -22,7 +21,7 @@ export interface Props {
   revisions: MinimalFeatureRevisionInterface[];
   version: number | null;
   setVersion: (version: number) => void;
-  variant?: "slim" | "select";
+  context?: "header";
   menuPlacement?: "start" | "center" | "end";
   draftsOnly?: boolean;
   // Show only previously-published revisions
@@ -32,12 +31,10 @@ export interface Props {
 function RevisionRow({
   r,
   liveVersion,
-  fullWidth = false,
   publishedOnly = false,
 }: {
   r: MinimalFeatureRevisionInterface;
   liveVersion: number;
-  fullWidth?: boolean;
   publishedOnly?: boolean;
 }) {
   // publishedOnly: datePublished (fallback: dateUpdated); otherwise: datePublished for published, dateUpdated for drafts
@@ -48,38 +45,22 @@ function RevisionRow({
       : r.dateUpdated;
   return (
     <Flex align="center" justify="between" gap="3" style={{ width: "100%" }}>
-      {fullWidth ? (
-        <Box style={{ flex: 1, minWidth: 0 }}>
-          <Text weight="semibold">
-            <span
-              style={{
-                display: "block",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-                maxWidth: 400,
-              }}
-              title={revisionLabelText(r.version, r.title)}
-            >
-              <RevisionLabel version={r.version} title={r.title} />
-            </span>
-          </Text>
-        </Box>
-      ) : (
-        <>
-          <Box flexShrink="0">
-            <Text weight="semibold">
-              <OverflowText
-                maxWidth={250}
-                title={revisionLabelText(r.version, r.title)}
-              >
-                <RevisionLabel version={r.version} title={r.title} />
-              </OverflowText>
-            </Text>
-          </Box>
-          <Box flexGrow="1" />
-        </>
-      )}
+      <Box style={{ flex: 1, minWidth: 0 }}>
+        <Text weight="semibold">
+          <span
+            style={{
+              display: "block",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              maxWidth: 400,
+            }}
+            title={revisionLabelText(r.version, r.title)}
+          >
+            <RevisionLabel version={r.version} title={r.title} />
+          </span>
+        </Text>
+      </Box>
       <Box
         flexShrink="1"
         overflow="hidden"
@@ -113,7 +94,7 @@ export default function RevisionDropdown({
   revisions,
   version,
   setVersion,
-  variant = "slim",
+  context,
   menuPlacement = "end",
   draftsOnly = false,
   publishedOnly = false,
@@ -190,7 +171,6 @@ export default function RevisionDropdown({
       <RevisionRow
         r={r}
         liveVersion={liveVersion}
-        fullWidth={variant === "select"}
         publishedOnly={publishedOnly}
       />
     </DropdownMenuItem>
@@ -200,55 +180,37 @@ export default function RevisionDropdown({
     (r) => r.status === "discarded",
   ).length;
 
+  const triggerWidth = context === "header" ? 250 : "100%";
+
   const trigger = (
     <Flex
       align="center"
       justify="between"
       gap="3"
-      style={{ width: "100%", overflow: "hidden" }}
+      style={{ width: triggerWidth, overflow: "hidden" }}
     >
-      {variant === "select" ? (
-        // In select mode: grow to fill space so badge + caret stay visible on the right
-        <Box style={{ flex: 1, minWidth: 0 }}>
-          <Text weight="semibold">
-            {version != null ? (
-              <span
-                style={{
-                  display: "block",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                  maxWidth: 400,
-                }}
-                title={revisionLabelText(version, selectedRevision?.title)}
-              >
-                <RevisionLabel
-                  numbered={!!selectedRevision?.title}
-                  version={version}
-                  title={selectedRevision?.title}
-                />
-              </span>
-            ) : null}
-          </Text>
-        </Box>
-      ) : (
-        <Box flexShrink="0">
-          <Text weight="semibold">
-            {version != null ? (
-              <OverflowText
-                maxWidth={150}
-                title={revisionLabelText(version, selectedRevision?.title)}
-              >
-                <RevisionLabel
-                  numbered={!!selectedRevision?.title}
-                  version={version}
-                  title={selectedRevision?.title}
-                />
-              </OverflowText>
-            ) : null}
-          </Text>
-        </Box>
-      )}
+      <Box style={{ flex: 1, minWidth: 0 }}>
+        <Text weight="semibold">
+          {version != null ? (
+            <span
+              style={{
+                display: "block",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                maxWidth: 400,
+              }}
+              title={revisionLabelText(version, selectedRevision?.title)}
+            >
+              <RevisionLabel
+                numbered={!!selectedRevision?.title}
+                version={version}
+                title={selectedRevision?.title}
+              />
+            </span>
+          ) : null}
+        </Text>
+      </Box>
       {!publishedOnly && (selectedRevision || !draftsOnly) && (
         <Box flexShrink="0">
           <RevisionStatusBadge
@@ -267,10 +229,9 @@ export default function RevisionDropdown({
       open={open}
       onOpenChange={setOpen}
       trigger={trigger}
-      triggerClassName={
-        variant === "select"
-          ? "dropdown-trigger-select-style"
-          : "dropdown-trigger-slim-style"
+      triggerClassName={`dropdown-trigger-select-style${context === "header" ? " dropdown-trigger-header" : ""}`}
+      triggerStyle={
+        context === "header" ? { paddingTop: 4, paddingBottom: 4 } : undefined
       }
       menuWidth="full"
       menuPlacement={menuPlacement}
