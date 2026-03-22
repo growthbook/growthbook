@@ -104,6 +104,7 @@ export default function PrerequisiteStatusRow({
         <Modal
           trackingEventModalType="delete-prerequisite"
           header="Delete Prerequisite"
+          size="lg"
           open={true}
           close={() => setShowDeleteModal(false)}
           cta="Delete"

@@ -38,7 +38,7 @@ function EnvStateIcon({ enabled }: { enabled: boolean }) {
   );
 }
 
-const COL_W = 100;
+const COL_W = 120;
 const LABEL_W = 140;
 
 function EnvStateGrid({
@@ -48,8 +48,6 @@ function EnvStateGrid({
   getSwitchDisplayState,
   onToggle,
   canToggle,
-  liveVersion,
-  afterChangeSubtext,
 }: {
   liveFeature: FeatureInterface;
   visibleEnvs: Environment[];
@@ -57,13 +55,11 @@ function EnvStateGrid({
   getSwitchDisplayState: (envId: string) => boolean;
   onToggle: (envId: string, val: boolean) => void;
   canToggle: (envId: string) => boolean;
-  liveVersion: number;
-  afterChangeSubtext: string;
 }) {
   const liveEnvSettings = liveFeature.environmentSettings ?? {};
 
   return (
-    <Box my="4" mb="2" style={{ overflowX: "auto", textAlign: "center" }}>
+    <Box style={{ overflowX: "auto", textAlign: "center" }}>
       <Flex
         direction="column"
         style={{
@@ -72,142 +68,133 @@ function EnvStateGrid({
           textAlign: "left",
         }}
       >
-        {/* Env name header — outside the outlined area */}
-        <Flex align="center" pb="2">
+        {/* Env name header */}
+        <Flex align="center" pb="1">
           <Box style={{ width: LABEL_W, flexShrink: 0 }} />
           {visibleEnvs.map((env) => (
             <Box
               key={env.id}
               style={{ width: COL_W, flexShrink: 0, textAlign: "center" }}
             >
-              <Text size="small" weight="semibold" color="text-mid">
+              <Text weight="semibold" color="text-mid">
                 <OverflowText maxWidth={COL_W}>{env.id}</OverflowText>
               </Text>
             </Box>
           ))}
         </Flex>
 
-        {/* Three data rows wrapped in a relative container so outlines can span all of them */}
-        <Box style={{ position: "relative" }}>
-          {/* Per-column touched outlines */}
-          {visibleEnvs.map((env, i) =>
-            (liveEnvSettings[env.id]?.enabled ?? false) !==
-            getEffectiveState(env.id) ? (
-              <div
-                key={env.id}
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: LABEL_W + i * COL_W + 6,
-                  width: COL_W - 12,
-                  height: "100%",
-                  borderRadius: "var(--radius-3)",
-                  boxShadow: "inset 0 0 0 1.5px var(--violet-7)",
-                  pointerEvents: "none",
-                }}
+        {/* Switches row */}
+        <Flex align="center" pt="1" pb="3">
+          <Box style={{ width: LABEL_W, flexShrink: 0 }} />
+          {visibleEnvs.map((env) => (
+            <Flex
+              key={env.id}
+              justify="center"
+              align="center"
+              style={{ width: COL_W, flexShrink: 0 }}
+            >
+              <Switch
+                value={getSwitchDisplayState(env.id)}
+                onChange={(val) => onToggle(env.id, val)}
+                disabled={!canToggle(env.id)}
+                size="3"
               />
-            ) : null,
-          )}
+            </Flex>
+          ))}
+        </Flex>
 
-          {/* Change State / switches row */}
+        {/* Change summary */}
+        <Box mt="2" pb="1">
           <Flex
             align="center"
-            py="3"
+            pb="2"
             style={{ borderBottom: "1px solid var(--gray-4)" }}
           >
-            <Box style={{ width: LABEL_W, flexShrink: 0 }} />
-            {visibleEnvs.map((env) => (
-              <Flex
-                key={env.id}
-                justify="center"
-                align="center"
-                style={{ width: COL_W, flexShrink: 0 }}
-              >
-                <Switch
-                  value={getSwitchDisplayState(env.id)}
-                  onChange={(val) => onToggle(env.id, val)}
-                  disabled={!canToggle(env.id)}
-                  size="3"
+            <Box style={{ width: LABEL_W, flexShrink: 0 }}>
+              <Text color="text-mid">Change summary</Text>
+            </Box>
+          </Flex>
+
+          <Box style={{ position: "relative" }}>
+            {visibleEnvs.map((env, i) =>
+              (liveEnvSettings[env.id]?.enabled ?? false) !==
+              getEffectiveState(env.id) ? (
+                <div
+                  key={env.id}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: LABEL_W + i * COL_W + 6,
+                    width: COL_W - 12,
+                    height: "100%",
+                    borderRadius: "var(--radius-3)",
+                    boxShadow: "inset 0 0 0 1.5px var(--violet-7)",
+                    pointerEvents: "none",
+                  }}
                 />
-              </Flex>
-            ))}
-          </Flex>
+              ) : null,
+            )}
 
-          {/* Live row */}
-          <Flex align="center" my="1">
-            <Box style={{ width: LABEL_W, flexShrink: 0 }}>
-              <Text size="small" weight="semibold">
-                Live
-              </Text>
-              <div
-                style={{ fontSize: "0.75em", color: "var(--color-text-low)" }}
-              >
-                revision {liveVersion}
-              </div>
-            </Box>
-            {visibleEnvs.map((env) => {
-              const unchanged =
-                (liveEnvSettings[env.id]?.enabled ?? false) ===
-                getEffectiveState(env.id);
-              return (
-                <Flex
-                  key={env.id}
-                  justify="center"
-                  align="center"
-                  py="2"
-                  style={{
-                    width: COL_W,
-                    flexShrink: 0,
-                    borderRadius: "var(--radius-2)",
-                    background: unchanged ? "var(--gray-3)" : undefined,
-                  }}
-                >
-                  <span style={{ opacity: unchanged ? 0.5 : 1 }}>
-                    <EnvStateIcon
-                      enabled={liveEnvSettings[env.id]?.enabled ?? false}
-                    />
-                  </span>
-                </Flex>
-              );
-            })}
-          </Flex>
+            <Flex align="center" my="1">
+              <Box style={{ width: LABEL_W, flexShrink: 0 }}>
+                <Text weight="semibold">Live</Text>
+              </Box>
+              {visibleEnvs.map((env) => {
+                const unchanged =
+                  (liveEnvSettings[env.id]?.enabled ?? false) ===
+                  getEffectiveState(env.id);
+                return (
+                  <Box key={env.id} style={{ width: COL_W, flexShrink: 0 }}>
+                    <Flex
+                      justify="center"
+                      align="center"
+                      py="2"
+                      mx="1"
+                      style={{
+                        borderRadius: "var(--radius-2)",
+                        background: unchanged ? "var(--gray-3)" : undefined,
+                      }}
+                    >
+                      <span style={{ opacity: unchanged ? 0.5 : 1 }}>
+                        <EnvStateIcon
+                          enabled={liveEnvSettings[env.id]?.enabled ?? false}
+                        />
+                      </span>
+                    </Flex>
+                  </Box>
+                );
+              })}
+            </Flex>
 
-          {/* After change row */}
-          <Flex align="center" my="1">
-            <Box style={{ width: LABEL_W, flexShrink: 0 }}>
-              <Text size="small" weight="semibold">
-                After change
-              </Text>
-              <div
-                style={{ fontSize: "0.75em", color: "var(--color-text-low)" }}
-              >
-                {afterChangeSubtext}
-              </div>
-            </Box>
-            {visibleEnvs.map((env) => {
-              const unchanged =
-                (liveEnvSettings[env.id]?.enabled ?? false) ===
-                getEffectiveState(env.id);
-              return (
-                <Flex
-                  key={env.id}
-                  justify="center"
-                  align="center"
-                  py="2"
-                  style={{
-                    width: COL_W,
-                    flexShrink: 0,
-                    borderRadius: "var(--radius-2)",
-                    background: unchanged ? "var(--gray-3)" : undefined,
-                  }}
-                >
-                  <span style={{ opacity: unchanged ? 0.5 : 1 }}>
-                    <EnvStateIcon enabled={getEffectiveState(env.id)} />
-                  </span>
-                </Flex>
-              );
-            })}
-          </Flex>
+            <Flex align="center" my="1">
+              <Box style={{ width: LABEL_W, flexShrink: 0 }}>
+                <Text weight="semibold">After change</Text>
+              </Box>
+              {visibleEnvs.map((env) => {
+                const unchanged =
+                  (liveEnvSettings[env.id]?.enabled ?? false) ===
+                  getEffectiveState(env.id);
+                return (
+                  <Box key={env.id} style={{ width: COL_W, flexShrink: 0 }}>
+                    <Flex
+                      justify="center"
+                      align="center"
+                      py="2"
+                      mx="1"
+                      style={{
+                        borderRadius: "var(--radius-2)",
+                        background: unchanged ? "var(--gray-3)" : undefined,
+                      }}
+                    >
+                      <span style={{ opacity: unchanged ? 0.5 : 1 }}>
+                        <EnvStateIcon enabled={getEffectiveState(env.id)} />
+                      </span>
+                    </Flex>
+                  </Box>
+                );
+              })}
+            </Flex>
+          </Box>
         </Box>
       </Flex>
     </Box>
@@ -481,14 +468,6 @@ export default function KillSwitchModal({
             setEnvOverrides((prev) => ({ ...prev, [envId]: val }));
           }}
           canToggle={canToggleEnv}
-          liveVersion={liveDoc.version}
-          afterChangeSubtext={
-            mode === "existing" && selectedDraft != null
-              ? `draft ${selectedDraft}`
-              : mode === "publish"
-                ? "new revision"
-                : "new draft"
-          }
         />
 
         <Box style={{ paddingLeft: LABEL_W, minHeight: 50 }}>

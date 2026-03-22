@@ -11,6 +11,8 @@ import {
   PiPencilSimpleFill,
   PiCaretRightBold,
   PiPencil,
+  PiLockSimple,
+  PiProhibit,
 } from "react-icons/pi";
 import { ago, datetime } from "shared/dates";
 import {
@@ -133,22 +135,44 @@ function environmentKillSwitchTooltipBody(
   showChangeHint: boolean,
   nonLiveDisclaimer: false | "draft" | "inactive",
 ): JSX.Element {
+  const context =
+    nonLiveDisclaimer === "draft"
+      ? "in this draft"
+      : nonLiveDisclaimer === "inactive"
+        ? "in this revision"
+        : "in this environment";
   return (
     <Text as="div" size="small" color="text-high">
       {enabled ? (
         <>
           The current feature is{" "}
-          <strong style={{ color: featureStatusColors.on }}>live</strong> in
-          this environment. Traffic is{" "}
-          <strong style={{ color: featureStatusColors.on }}>on</strong>.
+          <strong style={{ color: featureStatusColors.on }}>
+            {nonLiveDisclaimer ? "enabled" : "live"}
+          </strong>{" "}
+          {context}.
+          {!nonLiveDisclaimer && (
+            <>
+              {" "}
+              Traffic is{" "}
+              <strong style={{ color: featureStatusColors.on }}>on</strong>.
+            </>
+          )}
         </>
       ) : (
         <>
           The current feature is{" "}
-          <strong style={{ color: featureStatusColors.off }}>not live</strong>{" "}
-          in this environment. Traffic is{" "}
-          <strong style={{ color: featureStatusColors.off }}>off</strong>. It
-          will evaluate to <code>null</code>.
+          <strong style={{ color: featureStatusColors.off }}>
+            {nonLiveDisclaimer ? "disabled" : "not live"}
+          </strong>{" "}
+          {context}.
+          {!nonLiveDisclaimer && (
+            <>
+              {" "}
+              Traffic is{" "}
+              <strong style={{ color: featureStatusColors.off }}>off</strong>.
+              It will evaluate to <code>null</code>.
+            </>
+          )}
         </>
       )}
       {showChangeHint && (
@@ -478,6 +502,13 @@ export default function FeaturesOverview({
       ? ("draft" as const)
       : ("inactive" as const)
     : false;
+
+  const enabledEnvsSubtext =
+    isDraft || isPendingReview
+      ? "in this draft"
+      : !isLive
+        ? "in this revision"
+        : null;
 
   // TODO: support multiple per-project approval configs
   const featureReviewConfig = getReviewSetting(
@@ -813,51 +844,92 @@ export default function FeaturesOverview({
   return (
     <>
       <Box className="contents container-fluid pagecontents">
-        {(isDraft || isPendingReview) && (
-          <div
-            ref={bannerRef}
-            style={{
-              position: "sticky",
-              top: 110,
-              zIndex: 920,
-              marginBottom: 12,
-              display: "flex",
-              justifyContent: "center",
-            }}
-          >
+        {(() => {
+          const bannerProps =
+            isDraft || isPendingReview
+              ? {
+                  icon: <PiPencil size={18} />,
+                  color: "var(--amber-11)",
+                  bgColor: "var(--amber-a3)",
+                  message: (
+                    <>
+                      Viewing a <strong>draft</strong> —{" "}
+                      {isPendingReview
+                        ? "changes will not go live until approved and published"
+                        : "changes will not go live until published"}
+                    </>
+                  ),
+                }
+              : isDiscarded
+                ? {
+                    icon: <PiProhibit size={18} />,
+                    color: "var(--gray-11)",
+                    bgColor: "var(--gray-a3)",
+                    message: (
+                      <>
+                        Viewing a <strong>discarded</strong> revision — this was
+                        never published
+                      </>
+                    ),
+                  }
+                : isReadOnly
+                  ? {
+                      icon: <PiLockSimple size={18} />,
+                      color: "var(--gray-11)",
+                      bgColor: "var(--gray-a3)",
+                      message: (
+                        <>
+                          Viewing an old <strong>published</strong> revision —
+                          no longer live
+                        </>
+                      ),
+                    }
+                  : null;
+
+          if (!bannerProps) return null;
+          return (
             <div
+              ref={bannerRef}
               style={{
-                width: "100%",
-                backgroundColor: "var(--color-background)",
-                borderRadius: "var(--radius-3)",
-                overflow: "hidden",
-                maxWidth: bannerPinned ? "580px" : "2000px",
-                boxShadow: bannerPinned ? "var(--shadow-4)" : undefined,
-                transition: "all 200ms ease",
+                position: "sticky",
+                top: 110,
+                zIndex: 920,
+                marginBottom: 12,
+                display: "flex",
+                justifyContent: "center",
               }}
             >
-              <Flex
-                align="center"
-                justify="center"
-                gap="2"
-                px="4"
-                py="3"
+              <div
                 style={{
-                  color: "var(--amber-11)",
-                  backgroundColor: "var(--amber-a3)",
+                  width: "100%",
+                  backgroundColor: "var(--color-background)",
+                  borderRadius: "var(--radius-3)",
+                  overflow: "hidden",
+                  maxWidth: bannerPinned ? "580px" : "2000px",
+                  boxShadow: bannerPinned ? "var(--shadow-4)" : undefined,
+                  transition: "all 200ms ease",
                 }}
               >
-                <PiPencil size={18} />
-                <span style={{ fontSize: "var(--font-size-2)" }}>
-                  Viewing a <strong>draft</strong> —{" "}
-                  {isPendingReview
-                    ? "changes will not go live until approved and published"
-                    : "changes will not go live until published"}
-                </span>
-              </Flex>
+                <Flex
+                  align="center"
+                  justify="center"
+                  gap="2"
+                  px="4"
+                  py="3"
+                  style={{
+                    color: bannerProps.color,
+                    backgroundColor: bannerProps.bgColor,
+                  }}
+                >
+                  {bannerProps.icon}
+                  <span style={{ fontSize: "var(--font-size-2)" }}>
+                    {bannerProps.message}
+                  </span>
+                </Flex>
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
         {revision && (
           <Frame mt="2" mb="4" px="6" py="4">
             <Flex align="start" justify="between" mb="2" wrap="wrap" gap="2">
@@ -1152,12 +1224,19 @@ export default function FeaturesOverview({
                   <tbody>
                     <tr>
                       <td
-                        className="pl-3 align-bottom border-right py-3"
+                        className="pl-3 align-bottom border-right py-2"
                         style={{ minWidth: 350 }}
                       >
                         <Flex align="center" justify="between" gap="2">
-                          <span className="font-weight-bold">
-                            Enabled Environments
+                          <span>
+                            <span className="font-weight-bold">
+                              Enabled Environments
+                            </span>
+                            {enabledEnvsSubtext && (
+                              <Text as="div" size="small" color="text-mid">
+                                {enabledEnvsSubtext}
+                              </Text>
+                            )}
                           </span>
                           {!isReadOnly && (
                             <Button
@@ -1185,38 +1264,51 @@ export default function FeaturesOverview({
                                   envAndSummaryTooltipNonLiveDisclaimer,
                                 )}
                               >
-                                <IconButton
-                                  variant="ghost"
-                                  radius="full"
-                                  aria-label={
-                                    enabled
-                                      ? "Disable environment"
-                                      : "Enable environment"
-                                  }
-                                  onClick={
-                                    !isReadOnly
-                                      ? () =>
-                                          setKillSwitchTarget({
-                                            envId: env,
-                                            desiredState: !enabled,
-                                          })
-                                      : undefined
-                                  }
-                                >
-                                  {enabled ? (
-                                    <FaCircleCheck
-                                      size={20}
-                                      style={{ color: featureStatusColors.on }}
-                                    />
-                                  ) : (
-                                    <FaCircleXmark
-                                      size={20}
-                                      style={{
-                                        color: featureStatusColors.offMuted,
-                                      }}
-                                    />
-                                  )}
-                                </IconButton>
+                                {!isReadOnly ? (
+                                  <IconButton
+                                    variant="ghost"
+                                    radius="full"
+                                    aria-label={
+                                      enabled
+                                        ? "Disable environment"
+                                        : "Enable environment"
+                                    }
+                                    onClick={() =>
+                                      setKillSwitchTarget({
+                                        envId: env,
+                                        desiredState: !enabled,
+                                      })
+                                    }
+                                  >
+                                    {enabled ? (
+                                      <FaCircleCheck
+                                        size={20}
+                                        style={{
+                                          color: featureStatusColors.on,
+                                        }}
+                                      />
+                                    ) : (
+                                      <FaCircleXmark
+                                        size={20}
+                                        style={{
+                                          color: featureStatusColors.offMuted,
+                                        }}
+                                      />
+                                    )}
+                                  </IconButton>
+                                ) : enabled ? (
+                                  <FaCircleCheck
+                                    size={20}
+                                    style={{ color: featureStatusColors.on }}
+                                  />
+                                ) : (
+                                  <FaCircleXmark
+                                    size={20}
+                                    style={{
+                                      color: featureStatusColors.offMuted,
+                                    }}
+                                  />
+                                )}
                               </Tooltip>
                             </Flex>
                           </td>
@@ -1277,13 +1369,26 @@ export default function FeaturesOverview({
               </div>
             ) : (
               <Box>
-                <Flex align="center" gap="4">
-                  <span className="font-weight-bold">Enabled Environments</span>
+                <Flex align="center" gap="4" mb="2">
+                  <span>
+                    <span className="font-weight-bold">
+                      Enabled Environments
+                    </span>
+                    {enabledEnvsSubtext ? (
+                      <Text as="div" size="small" color="text-mid">
+                        {enabledEnvsSubtext}
+                      </Text>
+                    ) : null}
+                  </span>
                   {!isReadOnly && (
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => setKillSwitchTarget({})}
+                      style={{
+                        position: "relative",
+                        top: enabledEnvsSubtext ? -8 : undefined,
+                      }}
                     >
                       Change
                     </Button>
@@ -1323,38 +1428,49 @@ export default function FeaturesOverview({
                                 envAndSummaryTooltipNonLiveDisclaimer,
                               )}
                             >
-                              <IconButton
-                                variant="ghost"
-                                radius="full"
-                                aria-label={
-                                  enabled
-                                    ? "Disable environment"
-                                    : "Enable environment"
-                                }
-                                onClick={
-                                  !isReadOnly
-                                    ? () =>
-                                        setKillSwitchTarget({
-                                          envId: en.id,
-                                          desiredState: !enabled,
-                                        })
-                                    : undefined
-                                }
-                              >
-                                {enabled ? (
-                                  <FaCircleCheck
-                                    size={20}
-                                    style={{ color: featureStatusColors.on }}
-                                  />
-                                ) : (
-                                  <FaCircleXmark
-                                    size={20}
-                                    style={{
-                                      color: featureStatusColors.offMuted,
-                                    }}
-                                  />
-                                )}
-                              </IconButton>
+                              {!isReadOnly ? (
+                                <IconButton
+                                  variant="ghost"
+                                  radius="full"
+                                  aria-label={
+                                    enabled
+                                      ? "Disable environment"
+                                      : "Enable environment"
+                                  }
+                                  onClick={() =>
+                                    setKillSwitchTarget({
+                                      envId: en.id,
+                                      desiredState: !enabled,
+                                    })
+                                  }
+                                >
+                                  {enabled ? (
+                                    <FaCircleCheck
+                                      size={20}
+                                      style={{ color: featureStatusColors.on }}
+                                    />
+                                  ) : (
+                                    <FaCircleXmark
+                                      size={20}
+                                      style={{
+                                        color: featureStatusColors.offMuted,
+                                      }}
+                                    />
+                                  )}
+                                </IconButton>
+                              ) : enabled ? (
+                                <FaCircleCheck
+                                  size={20}
+                                  style={{ color: featureStatusColors.on }}
+                                />
+                              ) : (
+                                <FaCircleXmark
+                                  size={20}
+                                  style={{
+                                    color: featureStatusColors.offMuted,
+                                  }}
+                                />
+                              )}
                             </Tooltip>
                           </Flex>
                         );
