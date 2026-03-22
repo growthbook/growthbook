@@ -100,7 +100,7 @@ export default function RevisionDropdown({
   publishedOnly = false,
 }: Props) {
   const liveVersion = feature.version;
-  const initialPageSize = 10;
+  const initialPageSize = 5;
 
   const [open, setOpen] = useState(false);
   const [extraShown, setExtraShown] = useState(0);
