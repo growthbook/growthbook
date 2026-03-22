@@ -11,11 +11,7 @@ import RevisionLabel, {
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Switch from "@/ui/Switch";
 import Text from "@/ui/Text";
-import {
-  DropdownMenu,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from "@/ui/DropdownMenu";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Link from "@/ui/Link";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import EventUser from "@/components/Avatar/EventUser";
@@ -162,21 +158,6 @@ export default function RevisionDropdown({
             (r) => r.status !== "discarded" || r.version === version,
           );
 
-  // Pinned quick-access section: live revision + up to 3 most recent drafts.
-  // Only shown in the default (non-draftsOnly, non-publishedOnly) mode.
-  const showPinnedSection =
-    !draftsOnly && !publishedOnly && allSorted.length > 5;
-  const pinnedLive = showPinnedSection
-    ? (allSorted.find((r) => r.version === liveVersion) ?? null)
-    : null;
-  const pinnedDrafts = showPinnedSection
-    ? allSorted.filter(activeDrafts).slice(0, 3)
-    : [];
-  const pinnedRevisions: MinimalFeatureRevisionInterface[] = [
-    ...(pinnedLive ? [pinnedLive] : []),
-    ...pinnedDrafts,
-  ];
-
   const selectedIndex =
     draftsOnly || publishedOnly
       ? -1
@@ -294,43 +275,19 @@ export default function RevisionDropdown({
       menuWidth="full"
       menuPlacement={menuPlacement}
     >
-      {pinnedRevisions.map((r) => (
-        <DropdownMenuItem
-          key={`pinned-${r.version}`}
-          className="multiline-item"
-          onClick={() => handleSelect(r.version)}
-        >
-          <RevisionRow r={r} liveVersion={liveVersion} />
-        </DropdownMenuItem>
-      ))}
-      {showPinnedSection && (
-        <>
-          {pinnedRevisions.length > 0 && <DropdownMenuSeparator />}
-          <RadixDropdownMenu.Label>
-            <Flex
-              justify="between"
-              align="center"
-              gap="2"
-              style={{ width: "100%" }}
-            >
-              <Text size="medium" color="text-mid">
-                All revisions
-              </Text>
-              {discardedCount > 0 && (
-                <Flex align="center" gap="2">
-                  <Text size="small" color="text-low">
-                    Show discarded ({discardedCount})
-                  </Text>
-                  <Switch
-                    size="1"
-                    value={showDiscarded}
-                    onChange={setShowDiscarded}
-                  />
-                </Flex>
-              )}
-            </Flex>
-          </RadixDropdownMenu.Label>
-        </>
+      {!draftsOnly && !publishedOnly && discardedCount > 0 && (
+        <RadixDropdownMenu.Label>
+          <Flex align="center" gap="2" justify="end" style={{ width: "100%" }}>
+            <Text size="small" color="text-low">
+              Show discarded ({discardedCount})
+            </Text>
+            <Switch
+              size="1"
+              value={showDiscarded}
+              onChange={setShowDiscarded}
+            />
+          </Flex>
+        </RadixDropdownMenu.Label>
       )}
       {menuItems}
       {remaining > 0 && (
