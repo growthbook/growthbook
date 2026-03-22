@@ -719,6 +719,7 @@ export default function FeatureUsageGraph({
                         );
                       }}
                       onMouseMove={(event) => {
+                        if (!maxValue) return;
                         if (tooltipTimeout.current)
                           clearTimeout(tooltipTimeout.current);
                         const point = localPoint(event);
