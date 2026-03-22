@@ -61,7 +61,7 @@ const EditFeatureInfoModal: FC<{
   const defaultDraft = useDefaultDraft(revisionList);
 
   const [mode, setMode] = useState<DraftMode>(
-    canAutoPublish ? "publish" : "new",
+    metadataGated ? "new" : "publish",
   );
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,

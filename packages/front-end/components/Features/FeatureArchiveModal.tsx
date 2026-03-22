@@ -66,9 +66,7 @@ export default function FeatureArchiveModal({
 
   const defaultDraft = useDefaultDraft(revisionList);
 
-  const [mode, setMode] = useState<DraftMode>(
-    canAutoPublish ? "publish" : "new",
-  );
+  const [mode, setMode] = useState<DraftMode>(archiveGated ? "new" : "publish");
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
   );
@@ -80,6 +78,7 @@ export default function FeatureArchiveModal({
     <Modal
       trackingEventModalType=""
       header={isArchived ? "Unarchive Feature" : "Archive Feature"}
+      size="lg"
       close={close}
       open={true}
       cta={

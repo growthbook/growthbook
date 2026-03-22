@@ -75,7 +75,7 @@ export default function RemoveFromHoldoutModal({
       header="Remove from holdout"
       open={true}
       close={close}
-      size="md"
+      size="lg"
       trackingEventModalType="remove-from-holdout-modal"
       cta="Remove"
       submit={handleSubmit}

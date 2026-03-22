@@ -92,7 +92,7 @@ const HoldoutValueModal = ({
       header="Change Holdout Value"
       open={true}
       close={close}
-      size="md"
+      size="lg"
       trackingEventModalType="holdout-value-modal"
       submit={handleSubmit}
     >

@@ -93,7 +93,7 @@ export default function EditDefaultValueModal({
       })}
       close={close}
       open={true}
-      size={feature.valueType === "json" ? "lg" : "md"}
+      size="lg"
     >
       <div style={{ minHeight: 300 }}>
         <DraftSelectorForChanges

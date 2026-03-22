@@ -201,40 +201,29 @@ export default function DraftSelectorForChanges({
 
   const triggerLabel =
     mode === "publish" ? (
-      <Text weight="semibold">published immediately</Text>
+      <>
+        {" "}
+        <Text weight="semibold" as="span">
+          published immediately
+        </Text>
+      </>
     ) : mode === "existing" && selectedRevision != null ? (
-      (() => {
-        const label = revisionLabelText(
-          selectedRevision.version,
-          selectedRevision.title,
-          !!selectedRevision.title,
-        );
-        return (
-          <>
-            <span style={{ flexShrink: 0, whiteSpace: "nowrap" }}>
-              added to draft:&nbsp;
-            </span>
-            <span style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
-              <Text weight="semibold" as="span">
-                <span
-                  style={{
-                    display: "block",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                  title={label}
-                >
-                  {label}
-                </span>
-              </Text>
-            </span>
-          </>
-        );
-      })()
+      <>
+        {" added to draft: "}
+        <Text weight="semibold" as="span">
+          {revisionLabelText(
+            selectedRevision.version,
+            selectedRevision.title,
+            !!selectedRevision.title,
+          )}
+        </Text>
+      </>
     ) : (
       <>
-        added to <Text weight="semibold">a new draft</Text>
+        {" added to "}
+        <Text weight="semibold" as="span">
+          a new draft
+        </Text>
       </>
     );
 
@@ -253,15 +242,12 @@ export default function DraftSelectorForChanges({
           <div
             className="ml-1"
             style={{
-              display: "flex",
-              alignItems: "baseline",
               overflow: "hidden",
-              minWidth: 0,
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
             }}
           >
-            <span style={{ flexShrink: 0, whiteSpace: "nowrap" }}>
-              {triggerPrefix}&nbsp;
-            </span>
+            {triggerPrefix}
             {triggerLabel}
           </div>
         </HelperText>

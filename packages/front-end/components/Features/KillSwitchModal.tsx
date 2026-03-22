@@ -39,7 +39,7 @@ function EnvStateIcon({ enabled }: { enabled: boolean }) {
 }
 
 const COL_W = 100;
-const LABEL_W = 120;
+const LABEL_W = 140;
 
 function EnvStateGrid({
   liveFeature,
@@ -63,8 +63,15 @@ function EnvStateGrid({
   const liveEnvSettings = liveFeature.environmentSettings ?? {};
 
   return (
-    <Box my="4" mb="2" style={{ overflowX: "auto" }}>
-      <Flex direction="column" style={{ minWidth: "max-content" }}>
+    <Box my="4" mb="2" style={{ overflowX: "auto", textAlign: "center" }}>
+      <Flex
+        direction="column"
+        style={{
+          minWidth: "max-content",
+          display: "inline-flex",
+          textAlign: "left",
+        }}
+      >
         {/* Env name header — outside the outlined area */}
         <Flex align="center" pb="2">
           <Box style={{ width: LABEL_W, flexShrink: 0 }} />
