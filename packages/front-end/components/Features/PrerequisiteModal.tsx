@@ -1,13 +1,14 @@
 import { useForm } from "react-hook-form";
 import { FeatureInterface, FeaturePrerequisite } from "shared/types/feature";
-import React, { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   filterEnvironmentsByFeature,
   getDefaultPrerequisiteCondition,
+  getReviewSetting,
 } from "shared/util";
-import { FaExclamationTriangle } from "react-icons/fa";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { Box } from "@radix-ui/themes";
+import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { MinimalFeatureInfo } from "@/components/Features/PrerequisiteStatesTable";
 import {
   getFeatureDefaultValue,
@@ -18,6 +19,7 @@ import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import track from "@/services/track";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import { useAuth } from "@/services/auth";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import { PrerequisiteStatesCols } from "@/components/Features/PrerequisiteStatusRow";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -25,25 +27,34 @@ import PrerequisiteFeatureSelector from "@/components/Features/PrerequisiteFeatu
 import PrerequisiteAlerts from "@/components/Features/PrerequisiteAlerts";
 import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
 import {
   PrerequisiteStateResult,
   useBatchPrerequisiteStates,
   usePrerequisiteStates,
 } from "@/hooks/usePrerequisiteStates";
+import DraftSelectorForChanges, {
+  DraftMode,
+} from "@/components/Features/DraftSelectorForChanges";
+import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 
 export interface Props {
   close: () => void;
   feature: FeatureInterface;
-  mutate: () => void;
+  revisionList: MinimalFeatureRevisionInterface[];
+  mutate: () => Promise<unknown>;
+  setVersion: (version: number) => void;
   i: number;
 }
 
 export default function PrerequisiteModal({
   close,
   feature,
+  revisionList,
   i,
   mutate,
+  setVersion,
 }: Props) {
   const { features: featureNames } = useFeatureMetaInfo({
     includeDefaultValue: true,
@@ -55,6 +66,27 @@ export default function PrerequisiteModal({
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const envs = environments.map((e) => e.id);
   const { apiCall } = useAuth();
+
+  const settings = useOrgSettings();
+
+  const gatedEnvSet: Set<string> | "all" | "none" = useMemo(() => {
+    const raw = settings?.requireReviews;
+    if (raw === true) return "all";
+    if (!Array.isArray(raw)) return "none";
+    const reviewSetting = getReviewSetting(raw, feature);
+    if (!reviewSetting?.requireReviewOn) return "none";
+    const envList = reviewSetting.environments ?? [];
+    return envList.length === 0 ? "all" : new Set(envList);
+  }, [settings?.requireReviews, feature]);
+
+  const defaultDraft = useDefaultDraft(revisionList);
+
+  const [mode, setMode] = useState<DraftMode>(
+    defaultDraft != null ? "existing" : "new",
+  );
+  const [selectedDraft, setSelectedDraft] = useState<number | null>(
+    defaultDraft,
+  );
 
   const { data: sdkConnectionsData } = useSDKConnections();
   const hasSDKWithPrerequisites = getConnectionsSDKCapabilities({
@@ -247,20 +279,34 @@ export default function PrerequisiteModal({
           prerequisiteIndex: i,
         });
 
-        await apiCall<{ version: number }>(
+        const draftBody =
+          mode === "existing"
+            ? { targetDraftVersion: selectedDraft }
+            : { forceNewDraft: true };
+        const res = await apiCall<{ version: number }>(
           `/feature/${feature.id}/prerequisite`,
           {
             method: action === "add" ? "POST" : "PUT",
-            body: JSON.stringify({
-              prerequisite: values,
-              i,
-            }),
+            body: JSON.stringify({ prerequisite: values, i, ...draftBody }),
           },
         );
-        mutate();
+        await mutate();
+        const resolvedVersion =
+          res?.version ?? (mode === "existing" ? selectedDraft : null);
+        if (resolvedVersion != null) setVersion(resolvedVersion);
       })}
     >
-      <Callout status="info" mt="2" mb="3" contentsAs="div">
+      <DraftSelectorForChanges
+        feature={feature}
+        revisionList={revisionList}
+        mode={mode}
+        setMode={setMode}
+        selectedDraft={selectedDraft}
+        setSelectedDraft={setSelectedDraft}
+        canAutoPublish={false}
+        gatedEnvSet={gatedEnvSet}
+      />
+      <Text as="div" mt="2" mb="3">
         Prerequisite features must evaluate to{" "}
         <span className="rounded px-1 bg-light">
           <ValueDisplay value={"true"} type="boolean" />
@@ -276,7 +322,7 @@ export default function PrerequisiteModal({
             </>
           }
         />
-      </Callout>
+      </Text>
 
       <label className="mt-4 d-block">
         Select prerequisite from boolean features
@@ -353,11 +399,10 @@ export default function PrerequisiteModal({
       ) : null}
 
       {isCyclic && (
-        <div className="alert alert-danger">
-          <FaExclamationTriangle />
+        <Callout status="error" mt="2">
           <code>{cyclicFeatureId}</code> creates a circular dependency. Select a
           different feature.
-        </div>
+        </Callout>
       )}
 
       {hasConditionalState && (
