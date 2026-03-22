@@ -5724,6 +5724,7 @@ ORDER BY column_name, count DESC
     additionalSelectExpressions,
     exclusiveStartDateFilter,
     exclusiveEndDateFilter,
+    skipDateFilter,
     phase,
     customFields,
   }: {
@@ -5743,6 +5744,9 @@ ORDER BY column_name, count DESC
     // new data from AFTER the last seen max timestamp
     exclusiveStartDateFilter?: boolean;
     exclusiveEndDateFilter?: boolean;
+    // When true, skip the timestamp-based WHERE clauses (start/end date).
+    // Used for ingest partition mode where partition filters replace timestamp filters.
+    skipDateFilter?: boolean;
     castIdToString?: boolean;
   }) {
     // Determine if a join is required to match up id types
@@ -5769,22 +5773,25 @@ ORDER BY column_name, count DESC
     const sql = factTable.sql;
     const where: string[] = [];
 
-    // Add a rough date filter to improve query performance
-    if (startDate) {
-      // If exclusive, we need to be more precise with the timestamp
-      const operator = exclusiveStartDateFilter ? ">" : ">=";
-      const timestampFn = exclusiveStartDateFilter
-        ? (d: Date) => this.toTimestampWithMs(d)
-        : (d: Date) => this.toTimestamp(d);
-      where.push(`m.timestamp ${operator} ${timestampFn(startDate)}`);
-    }
-    if (endDate) {
-      // If exclusive, we need to be more precise with the timestamp
-      const operator = exclusiveEndDateFilter ? "<" : "<=";
-      const timestampFn = exclusiveEndDateFilter
-        ? (d: Date) => this.toTimestampWithMs(d)
-        : (d: Date) => this.toTimestamp(d);
-      where.push(`m.timestamp ${operator} ${timestampFn(endDate)}`);
+    // Add a rough date filter to improve query performance.
+    // Skipped for ingest partition mode where partition filters replace timestamp filters.
+    if (!skipDateFilter) {
+      if (startDate) {
+        // If exclusive, we need to be more precise with the timestamp
+        const operator = exclusiveStartDateFilter ? ">" : ">=";
+        const timestampFn = exclusiveStartDateFilter
+          ? (d: Date) => this.toTimestampWithMs(d)
+          : (d: Date) => this.toTimestamp(d);
+        where.push(`m.timestamp ${operator} ${timestampFn(startDate)}`);
+      }
+      if (endDate) {
+        // If exclusive, we need to be more precise with the timestamp
+        const operator = exclusiveEndDateFilter ? "<" : "<=";
+        const timestampFn = exclusiveEndDateFilter
+          ? (d: Date) => this.toTimestampWithMs(d)
+          : (d: Date) => this.toTimestamp(d);
+        where.push(`m.timestamp ${operator} ${timestampFn(endDate)}`);
+      }
     }
     if (additionalWhere?.length) {
       where.push(
@@ -7079,7 +7086,7 @@ ORDER BY column_name, count DESC
     }
 
     if (partitionSettings.type === "ingestYearMonthDay") {
-      return this.getingestYearMonthDayWhereClause({
+      return this.getIngestYearMonthDayWhereClause({
         partitionSettings,
         lastIngestedPartition: lastIngestedPartition ?? null,
         experimentStartDate: experimentStartDate ?? startDate,
@@ -7250,7 +7257,7 @@ ORDER BY column_name, count DESC
    * Ingest-time Y/M/D partition pruning for Trino/Hive: integer tuple compare (no zero-padding assumption).
    * No upper bound on partitions. First run (null cursor): inclusive lower bound at experiment start calendar day.
    */
-  getingestYearMonthDayWhereClause({
+  getIngestYearMonthDayWhereClause({
     partitionSettings,
     lastIngestedPartition,
     experimentStartDate,
@@ -7460,11 +7467,6 @@ ORDER BY column_name, count DESC
             ${this.castToString(`${baseIdType}`)} AS ${baseIdType}
             , ${this.castToString(`variation_id`)} AS variation
             , timestamp AS timestamp
-            ${
-              useIngestPartitions
-                ? `, MAX(${this.getIngestCursorExpression(partitionSettings)}) OVER () AS last_ingested_partition`
-                : ""
-            }
             ${activationMetric ? `, NULL AS activation_timestamp` : ""}
             ${experimentDimensions
               .map((d) => `, ${this.castToString(d.id)} AS dim_exp_${d.id}`)
@@ -7510,7 +7512,6 @@ ORDER BY column_name, count DESC
               , variation
               , timestamp
               , MAX(timestamp) OVER () AS max_timestamp
-              ${useIngestPartitions ? `, last_ingested_partition` : ""}
               ${activationMetric ? `, activation_timestamp` : ""}
               ${experimentDimensions.map((d) => `, dim_exp_${d.id}`).join("\n")}
             FROM __filteredNewExposures
@@ -7815,7 +7816,15 @@ ORDER BY column_name, count DESC
       startDate: factTableWithMetricData.minCovariateStartDate,
       endDate: factTableWithMetricData.maxCovariateEndDate,
       lastIngestedPartition: params.lastIngestedPartition ?? null,
-      experimentStartDate: params.settings.startDate,
+      // For ingest partitions, use the covariate start date as the initial
+      // partition lower bound so the first run scans partitions containing
+      // covariate-window events. On subsequent runs the lastIngestedPartition
+      // watermark takes over (same as units/metrics).
+      experimentStartDate: isIngestYearMonthDayPartitionSettings(
+        params.partitionSettings,
+      )
+        ? factTableWithMetricData.minCovariateStartDate
+        : params.settings.startDate,
       tableAlias: "m",
     });
 
@@ -8213,6 +8222,10 @@ ORDER BY column_name, count DESC
           // or equal to the start date
           exclusiveStartDateFilter:
             factTableWithMetricData.bindingLastMaxTimestamp,
+          // For ingest partitions, skip the timestamp WHERE — partition filters
+          // handle scan boundaries and we need the watermark computed over all
+          // scanned partition rows, not just those passing the timestamp filter.
+          skipDateFilter: useIngestPartitions,
         })})
         , __newMetricRows AS (
           SELECT
