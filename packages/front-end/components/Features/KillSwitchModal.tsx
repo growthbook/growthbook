@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { FaCircleCheck, FaCircleXmark } from "react-icons/fa6";
 import { FeatureInterface } from "shared/types/feature";
@@ -48,6 +48,7 @@ function EnvStateGrid({
   getSwitchDisplayState,
   onToggle,
   canToggle,
+  scrollToEnvId,
 }: {
   liveFeature: FeatureInterface;
   visibleEnvs: Environment[];
@@ -55,11 +56,24 @@ function EnvStateGrid({
   getSwitchDisplayState: (envId: string) => boolean;
   onToggle: (envId: string, val: boolean) => void;
   canToggle: (envId: string) => boolean;
+  scrollToEnvId?: string;
 }) {
   const liveEnvSettings = liveFeature.environmentSettings ?? {};
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!scrollToEnvId || !scrollRef.current) return;
+    const idx = visibleEnvs.findIndex((e) => e.id === scrollToEnvId);
+    if (idx === -1) return;
+    const colLeft = LABEL_W + idx * COL_W;
+    const colRight = colLeft + COL_W;
+    if (colRight > scrollRef.current.clientWidth) {
+      scrollRef.current.scrollLeft = colRight - scrollRef.current.clientWidth;
+    }
+  }, [scrollToEnvId, visibleEnvs]);
 
   return (
-    <Box style={{ overflowX: "auto", textAlign: "center" }}>
+    <Box ref={scrollRef} style={{ overflowX: "auto", textAlign: "center" }}>
       <Flex
         direction="column"
         style={{
@@ -437,9 +451,13 @@ export default function KillSwitchModal({
       (liveDoc.environmentSettings?.[env.id]?.enabled ?? false),
   );
 
-  const modalHeader = environment
-    ? `${desiredState ? "Enable" : "Disable"} ${environment}`
-    : "Manage Kill Switches";
+  const changedEnvs = visibleEnvs.filter(
+    (env) => getEffectiveState(env.id) !== !!liveEnvSettings[env.id]?.enabled,
+  );
+  const modalHeader =
+    changedEnvs.length === 1
+      ? `${getEffectiveState(changedEnvs[0].id) ? "Enable" : "Disable"} ${changedEnvs[0].id}`
+      : "Change Kill Switches";
 
   return (
     <Modal
@@ -475,6 +493,7 @@ export default function KillSwitchModal({
             setEnvOverrides((prev) => ({ ...prev, [envId]: val }));
           }}
           canToggle={canToggleEnv}
+          scrollToEnvId={environment}
         />
 
         <Flex justify="center" style={{ minHeight: 50 }}>
