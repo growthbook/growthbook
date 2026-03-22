@@ -59,6 +59,16 @@ export default function RevertModal({
     [allRevisions, feature.version],
   );
 
+  const settings = useOrgSettings();
+  const approvalsRequired = useMemo(() => {
+    const raw = settings?.requireReviews;
+    if (!raw) return false;
+    if (raw === true) return true;
+    if (!Array.isArray(raw)) return false;
+    const reviewSetting = getReviewSetting(raw, feature);
+    return !!reviewSetting?.requireReviewOn;
+  }, [settings?.requireReviews, feature]);
+
   const [targetVersion, setTargetVersion] = useState(() => {
     const inList = publishedRevisions.some(
       (r) => r.version === revision.version,
@@ -68,7 +78,9 @@ export default function RevertModal({
       : (publishedRevisions[0]?.version ?? revision.version);
   });
   const [comment, setComment] = useState(`Revert from #${feature.version}`);
-  const [mode, setMode] = useState<DraftMode>("new");
+  const [mode, setMode] = useState<DraftMode>(() =>
+    approvalsRequired ? "new" : "publish",
+  );
 
   const targetRevision =
     allRevisions.find((r) => r.version === targetVersion) ?? revision;
@@ -89,16 +101,6 @@ export default function RevertModal({
   const canCreateDraft =
     permissionsUtil.canUpdateFeature(feature, {}) &&
     permissionsUtil.canManageFeatureDrafts(feature);
-
-  const settings = useOrgSettings();
-  const approvalsRequired = useMemo(() => {
-    const raw = settings?.requireReviews;
-    if (!raw) return false;
-    if (raw === true) return true;
-    if (!Array.isArray(raw)) return false;
-    const reviewSetting = getReviewSetting(raw, feature);
-    return !!reviewSetting?.requireReviewOn;
-  }, [settings?.requireReviews, feature]);
 
   const canAutoPublish = approvalsRequired ? canBypassApprovals : canPublish;
   const gatedEnvSet: "all" | "none" = approvalsRequired ? "all" : "none";
