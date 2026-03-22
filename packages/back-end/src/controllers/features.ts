@@ -2605,8 +2605,7 @@ export async function postFeatureCreateDraft(
 export async function postFeatureToggle(
   req: AuthRequest<
     {
-      environment: string;
-      state: boolean;
+      environments: Record<string, boolean>;
       autoPublish?: boolean;
       draftVersion?: number;
       forceNewDraft?: boolean;
@@ -2619,34 +2618,54 @@ export async function postFeatureToggle(
   >,
 ) {
   const context = getContextFromReq(req);
-  const { environments } = context;
+  const { environments: orgEnvIds } = context;
   const { id } = req.params;
-  const { environment, state, autoPublish, draftVersion, forceNewDraft } =
-    req.body;
+  const { environments, autoPublish, draftVersion, forceNewDraft } = req.body;
   const feature = await getFeature(context, id);
 
   if (!feature) {
     throw new Error("Could not find feature");
   }
 
-  if (!environments.includes(environment)) {
-    throw new Error("Invalid environment");
+  const envIds = Object.keys(environments);
+  if (envIds.length === 0) {
+    return res.status(200).json({ status: 200 });
+  }
+
+  for (const env of envIds) {
+    if (!orgEnvIds.includes(env)) {
+      throw new Error(`Invalid environment: ${env}`);
+    }
   }
 
   if (
     !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canPublishFeature(feature, [environment])
+    !context.permissions.canPublishFeature(feature, envIds)
   ) {
     context.permissions.throwPermissionError();
   }
 
   if (autoPublish) {
-    // Create and immediately publish a draft; only permissible when approvals are not required.
-    const liveState =
-      feature.environmentSettings?.[environment]?.enabled || false;
-    if (liveState === state) {
+    // Filter to envs that actually differ from live.
+    const changes: Record<string, boolean> = {};
+    const prevStates: Record<string, boolean> = {};
+    for (const [env, state] of Object.entries(environments)) {
+      const liveState = feature.environmentSettings?.[env]?.enabled || false;
+      if (liveState !== state) {
+        changes[env] = state;
+        prevStates[env] = liveState;
+      }
+    }
+
+    if (Object.keys(changes).length === 0) {
       return res.status(200).json({ status: 200 });
     }
+
+    const changedEnvList = Object.keys(changes);
+    const comment =
+      changedEnvList.length === 1
+        ? `Toggle ${changedEnvList[0]} ${changes[changedEnvList[0]] ? "on" : "off"}`
+        : `Toggle kill switches: ${changedEnvList.join(", ")}`;
 
     const orgEnvironments = getEnvironmentIdsFromOrg(context.org);
     const revision = await createRevision({
@@ -2654,35 +2673,30 @@ export async function postFeatureToggle(
       feature,
       user: context.auditUser,
       baseVersion: feature.version,
-      comment: `Toggle ${environment} ${state ? "on" : "off"}`,
+      comment,
       environments: orgEnvironments,
       publish: false,
-      changes: { environmentsEnabled: { [environment]: state } },
+      changes: { environmentsEnabled: changes },
       org: context.org,
     });
 
     await assertCanAutoPublish(context, feature, revision);
     await publishRevision(context, feature, revision, {
-      environmentsEnabled: { [environment]: state },
+      environmentsEnabled: changes,
     });
 
     await req.audit({
       event: "feature.toggle",
       entity: { object: "feature", id: feature.id },
-      details: auditDetailsUpdate(
-        { on: liveState },
-        { on: state },
-        { environment },
-      ),
+      details: auditDetailsUpdate(prevStates, changes),
     });
 
-    return res.status(200).json({
-      status: 200,
-      draftVersion: revision.version,
-    });
+    return res
+      .status(200)
+      .json({ status: 200, draftVersion: revision.version });
   }
 
-  // Non-autoPublish path: write to a draft (new or existing).
+  // Non-autoPublish path: write all changes to a single draft.
   const existingDraft = forceNewDraft
     ? null
     : draftVersion
@@ -2694,25 +2708,41 @@ export async function postFeatureToggle(
         })
       : await getActiveDraft(context, feature);
 
-  const currentState =
-    existingDraft?.environmentsEnabled != null &&
-    environment in existingDraft.environmentsEnabled
-      ? existingDraft.environmentsEnabled[environment]
-      : feature.environmentSettings?.[environment]?.enabled || false;
-
-  if (currentState === state) {
-    return res.status(200).json({ status: 200 });
+  // Filter to envs that actually change from the current draft/live state.
+  const changes: Record<string, boolean> = {};
+  const prevStates: Record<string, boolean> = {};
+  for (const [env, state] of Object.entries(environments)) {
+    const currentState =
+      existingDraft?.environmentsEnabled != null &&
+      env in existingDraft.environmentsEnabled
+        ? existingDraft.environmentsEnabled[env]
+        : feature.environmentSettings?.[env]?.enabled || false;
+    if (currentState !== state) {
+      changes[env] = state;
+      prevStates[env] = currentState;
+    }
   }
 
+  if (Object.keys(changes).length === 0) {
+    return res.status(200).json({
+      status: 200,
+      draftVersion: existingDraft?.version,
+    });
+  }
+
+  const changedEnvList = Object.keys(changes);
   const draft = await createOrUpdateDraftWithChanges(
     context,
     feature,
-    { environmentsEnabled: { [environment]: state } },
+    { environmentsEnabled: changes },
     {
       user: context.auditUser,
       action: "update",
-      subject: `environment toggle: ${environment}`,
-      value: JSON.stringify({ environment, state }),
+      subject:
+        changedEnvList.length === 1
+          ? `environment toggle: ${changedEnvList[0]}`
+          : `environment toggles: ${changedEnvList.join(", ")}`,
+      value: JSON.stringify(changes),
     },
     existingDraft?.version,
     forceNewDraft,
@@ -2721,11 +2751,7 @@ export async function postFeatureToggle(
   await req.audit({
     event: "feature.toggle",
     entity: { object: "feature", id: feature.id },
-    details: auditDetailsUpdate(
-      { on: currentState },
-      { on: state },
-      { environment, draft: true },
-    ),
+    details: auditDetailsUpdate(prevStates, changes, { draft: true }),
   });
 
   return res.status(200).json({ status: 200, draftVersion: draft.version });

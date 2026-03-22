@@ -217,7 +217,6 @@ export default function FeaturesHeader({
         revisions={revisions}
         version={version ?? feature.version}
         setVersion={setVersion}
-        width={250}
       />
       <DropdownMenu
         trigger={

@@ -167,8 +167,8 @@ const EditFeatureInfoModal: FC<{
             <>
               {showProjectWarningMsg && (
                 <Callout status="warning">
-                  Changing the project may prevent this Feature Flag and any
-                  linked Experiments from being sent to users.{" "}
+                  Changing the project may prevent this Feature and any linked
+                  Experiments from being sent to users.{" "}
                   <Tooltip body="SDK endpoints are linked to specific environments and (optionally) projects. Changing the project of this feature may result in this feature returning in a different payload." />
                 </Callout>
               )}

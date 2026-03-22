@@ -1778,8 +1778,8 @@ export default function FeaturesOverview({
             current={feature.project}
             additionalMessage={
               <div className="alert alert-danger">
-                Changing the project may prevent this Feature Flag and any
-                linked Experiments from being sent to users.
+                Changing the project may prevent this Feature and any linked
+                Experiments from being sent to users.
               </div>
             }
           />

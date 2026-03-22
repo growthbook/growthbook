@@ -31,8 +31,6 @@ export interface Props {
   draftsOnly?: boolean;
   // Show only previously-published revisions
   publishedOnly?: boolean;
-  // Fixed pixel width for the trigger button only
-  width?: number;
 }
 
 function RevisionRow({
@@ -123,7 +121,6 @@ export default function RevisionDropdown({
   menuPlacement = "end",
   draftsOnly = false,
   publishedOnly = false,
-  width,
 }: Props) {
   const liveVersion = feature.version;
   const initialPageSize = 10;
@@ -227,7 +224,7 @@ export default function RevisionDropdown({
       align="center"
       justify="between"
       gap="3"
-      style={{ width: width ?? "100%", overflow: "hidden" }}
+      style={{ width: "100%", overflow: "hidden" }}
     >
       {variant === "select" ? (
         // In select mode: grow to fill space so badge + caret stay visible on the right
@@ -241,29 +238,6 @@ export default function RevisionDropdown({
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",
                   maxWidth: 400,
-                }}
-                title={revisionLabelText(version, selectedRevision?.title)}
-              >
-                <RevisionLabel
-                  numbered={!!selectedRevision?.title}
-                  version={version}
-                  title={selectedRevision?.title}
-                />
-              </span>
-            ) : null}
-          </Text>
-        </Box>
-      ) : width != null ? (
-        // When a fixed width is set, grow to fill and clip instead of using a fixed maxWidth
-        <Box style={{ flex: 1, minWidth: 0 }}>
-          <Text weight="semibold">
-            {version != null ? (
-              <span
-                style={{
-                  display: "block",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
                 }}
                 title={revisionLabelText(version, selectedRevision?.title)}
               >

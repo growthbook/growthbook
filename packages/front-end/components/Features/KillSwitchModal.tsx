@@ -242,27 +242,10 @@ export default function KillSwitchModal({
     ? getReviewSetting(rawRequireReviews, feature)
     : null;
 
-  // featureRequireEnvironmentReview=false bypasses kill-switch gating even when env approvals are on
-  const envIsGated: boolean = (() => {
-    if (rawRequireReviews === true) return true;
-    if (!reviewSetting?.requireReviewOn) return false;
-    if (reviewSetting.featureRequireEnvironmentReview === false) return false;
-    const gatedEnvs = reviewSetting.environments ?? [];
-    return (
-      gatedEnvs.length === 0 ||
-      (environment != null && gatedEnvs.includes(environment))
-    );
-  })();
-
-  // "none" when kill-switch approvals are off, even if other change types are gated
-  const gatedEnvSet: Set<string> | "all" | "none" = (() => {
-    if (!envIsGated) return "none";
-    if (rawRequireReviews === true) return "all";
-    const gatedEnvs = reviewSetting?.environments ?? [];
-    return gatedEnvs.length === 0 ? "all" : new Set(gatedEnvs);
-  })();
-
-  const canAutoPublish = isAdmin || !envIsGated;
+  // Envs explicitly toggled by the user during this modal session.
+  const [touchedEnvs, setTouchedEnvs] = useState<Set<string>>(new Set());
+  // Per-env overrides applied by the user in the "Change State" row.
+  const [envOverrides, setEnvOverrides] = useState<Record<string, boolean>>({});
 
   const activeDrafts = useMemo(
     () =>
@@ -297,10 +280,6 @@ export default function KillSwitchModal({
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
   );
-  // Envs explicitly toggled by the user during this modal session.
-  const [touchedEnvs, setTouchedEnvs] = useState<Set<string>>(new Set());
-  // Per-env overrides applied by the user in the "Change State" row.
-  const [envOverrides, setEnvOverrides] = useState<Record<string, boolean>>({});
 
   // Wrap mode/draft setters so that touched overrides are always preserved
   // while un-touched envs are free to follow the newly selected base.
@@ -370,6 +349,35 @@ export default function KillSwitchModal({
     return baseEnvEnabled[envId] ?? false;
   };
 
+  // Which envs have an approval policy for kill-switch changes (badge coloring).
+  // featureRequireEnvironmentReview=false means kill-switch changes bypass env approvals.
+  const gatedEnvSet: Set<string> | "all" | "none" = (() => {
+    if (rawRequireReviews === true) return "all";
+    if (!reviewSetting?.requireReviewOn) return "none";
+    if (reviewSetting.featureRequireEnvironmentReview === false) return "none";
+    const gatedEnvs = reviewSetting.environments ?? [];
+    return gatedEnvs.length === 0 ? "all" : new Set(gatedEnvs);
+  })();
+
+  // Gated only when the proposal actually flips a gated env's switch from live.
+  const liveEnvSettings = liveDoc.environmentSettings ?? {};
+  const envIsGated =
+    gatedEnvSet !== "none" &&
+    visibleEnvs.some((env) => {
+      const isGated = gatedEnvSet === "all" || gatedEnvSet.has(env.id);
+      if (!isGated) return false;
+      return getEffectiveState(env.id) !== !!liveEnvSettings[env.id]?.enabled;
+    });
+
+  const canAutoPublish = isAdmin || !envIsGated;
+
+  // Reset mode if "publish now" becomes unavailable due to a newly gated change.
+  useEffect(() => {
+    if (!canAutoPublish && mode === "publish") {
+      setMode("new");
+    }
+  }, [canAutoPublish, mode]);
+
   // Delay the switch animation for pre-toggled envs so users see it animate in.
   const [uiReady, setUiReady] = useState(false);
   useEffect(() => {
@@ -387,40 +395,39 @@ export default function KillSwitchModal({
     permissionsUtil.canPublishFeature(feature, [envId]);
 
   const submit = async () => {
-    const modePayload = (resolvedDraftVer?: number) =>
+    const environments: Record<string, boolean> = {};
+    for (const env of visibleEnvs) {
+      const effective = getEffectiveState(env.id);
+      if (effective !== (baseEnvEnabled[env.id] ?? false)) {
+        environments[env.id] = effective;
+      }
+    }
+
+    if (Object.keys(environments).length === 0) return;
+
+    const modePayload =
       mode === "publish"
         ? { autoPublish: true }
         : mode === "existing"
           ? { draftVersion: selectedDraft }
-          : resolvedDraftVer != null
-            ? { draftVersion: resolvedDraftVer }
-            : { forceNewDraft: true };
+          : { forceNewDraft: true };
 
-    let resolvedDraftVersion: number | undefined;
-    for (const env of visibleEnvs) {
-      const effective = getEffectiveState(env.id);
-      if (effective === (baseEnvEnabled[env.id] ?? false)) continue;
-      const res = await apiCall<{ status: 200; draftVersion?: number }>(
-        `/feature/${feature.id}/toggle`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            environment: env.id,
-            state: effective,
-            ...modePayload(resolvedDraftVersion),
-          }),
-        },
-      );
-      if (res?.draftVersion != null) resolvedDraftVersion = res.draftVersion;
-      track("Feature Environment Toggle", {
-        environment: env.id,
-        enabled: effective,
-        autoPublish: mode === "publish",
-      });
-    }
+    const res = await apiCall<{ status: 200; draftVersion?: number }>(
+      `/feature/${feature.id}/toggle`,
+      {
+        method: "POST",
+        body: JSON.stringify({ environments, ...modePayload }),
+      },
+    );
+
+    track("Feature Environment Toggle", {
+      environments,
+      autoPublish: mode === "publish",
+    });
+
     await mutate();
     const finalVersion =
-      resolvedDraftVersion ?? (mode === "existing" ? selectedDraft : null);
+      res?.draftVersion ?? (mode === "existing" ? selectedDraft : null);
     if (finalVersion != null) setVersion(finalVersion);
   };
 
@@ -455,7 +462,7 @@ export default function KillSwitchModal({
           selectedDraft={selectedDraft}
           setSelectedDraft={handleSetSelectedDraft}
           canAutoPublish={canAutoPublish}
-          gatedEnvSet={gatedEnvSet}
+          gatedEnvSet={envIsGated ? gatedEnvSet : "none"}
           defaultExpanded
         />
         <EnvStateGrid
@@ -470,7 +477,7 @@ export default function KillSwitchModal({
           canToggle={canToggleEnv}
         />
 
-        <Box style={{ paddingLeft: LABEL_W, minHeight: 50 }}>
+        <Flex justify="center" style={{ minHeight: 50 }}>
           {noNetChange &&
             (touchedEnvs.size > 0 || environment !== undefined) && (
               <Text as="p" color="text-low">
@@ -483,7 +490,7 @@ export default function KillSwitchModal({
                 </em>
               </Text>
             )}
-        </Box>
+        </Flex>
       </div>
     </Modal>
   );
