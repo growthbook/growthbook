@@ -379,16 +379,16 @@ describe("useSearch", () => {
       act(() => {
         result.current.setSearchValue("secondrowtoken");
       });
-      expect(result.current.unpaginatedItems.map((item) => item.name)).toContain(
-        "secondrowtoken",
-      );
+      expect(
+        result.current.unpaginatedItems.map((item) => item.name),
+      ).toContain("secondrowtoken");
 
       act(() => {
         result.current.setSearchValue("second");
       });
-      expect(result.current.unpaginatedItems.map((item) => item.name)).toContain(
-        "secondrowtoken",
-      );
+      expect(
+        result.current.unpaginatedItems.map((item) => item.name),
+      ).toContain("secondrowtoken");
     });
   });
 
