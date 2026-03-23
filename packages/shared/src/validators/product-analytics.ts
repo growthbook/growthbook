@@ -289,11 +289,14 @@ const pathStepValidator = z.object({
 export const userJourneyConfigValidator = z.object({
   datasource: z.string(),
   dimensions: z
-    .discriminatedUnion("dimensionType", [
-      dynamicDimensionValidator,
-      staticDimensionValidator,
-      sliceDimensionValidator,
-    ])
+    .array(
+      z.discriminatedUnion("dimensionType", [
+        dynamicDimensionValidator,
+        staticDimensionValidator,
+        sliceDimensionValidator,
+      ]),
+    )
+    .max(1)
     .optional(),
   factTableId: z.string(),
   startingEventMode: z.enum(["eventColumn", "filter"]),

@@ -17,6 +17,7 @@ import Field from "@/components/Forms/Field";
 import { getColumnInfo } from "@/components/FactTables/rowFilterUtils";
 import { factTableToColumnSource } from "@/enterprise/components/ProductAnalytics/SideBar/ExplorerFilterRow";
 import { ExplorerRowFilterInput } from "@/enterprise/components/ProductAnalytics/SideBar/ExplorerRowFilterInput";
+import UserJourneyGroupBySection from "./GroupBySection";
 import { useUserJourneyContext } from "./UserJourneyContext";
 
 export default function SideBar({
@@ -563,30 +564,7 @@ export default function SideBar({
               />
             ) : null}
           </Flex>
-          <Flex
-            direction="column"
-            gap="2"
-            p="3"
-            style={{
-              border: "1px solid var(--gray-a3)",
-              borderRadius: "var(--radius-4)",
-              backgroundColor: "var(--color-panel-translucent)",
-            }}
-          >
-            <Flex justify="between" align="center">
-              <Text weight="medium">Group By</Text>
-              <Button
-                size="xs"
-                variant="ghost"
-                disabled={true}
-                onClick={() => alert("This has not been implemented yet")}
-              >
-                <Flex align="center" gap="2">
-                  <PiPlus size={14} /> Add
-                </Flex>
-              </Button>
-            </Flex>
-          </Flex>
+          <UserJourneyGroupBySection />
         </>
       ) : null}
       {/* Add check here */}
