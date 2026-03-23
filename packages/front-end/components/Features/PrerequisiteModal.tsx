@@ -9,18 +9,15 @@ import {
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { Box } from "@radix-ui/themes";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
-import { MinimalFeatureInfo } from "@/components/Features/PrerequisiteStatesTable";
-import {
-  getFeatureDefaultValue,
-  getPrerequisites,
-  useEnvironments,
-} from "@/services/features";
+import PrerequisiteStatesTable, {
+  MinimalFeatureInfo,
+} from "@/components/Features/PrerequisiteStatesTable";
+import { getPrerequisites, useEnvironments } from "@/services/features";
 import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import track from "@/services/track";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { PrerequisiteStatesCols } from "@/components/Features/PrerequisiteStatusRow";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import PrerequisiteFeatureSelector from "@/components/Features/PrerequisiteFeatureSelector";
@@ -354,47 +351,12 @@ export default function PrerequisiteModal({
             </Callout>
           ) : null}
 
-          <Box mb="4" style={{ maxWidth: "100%", overflowX: "auto" }}>
-            <table className="table border mb-0">
-              <thead className="bg-light text-dark">
-                <tr>
-                  <th className="pl-4">Type</th>
-                  <th className="border-right">Default value</th>
-                  {envs.map((env) => (
-                    <th key={env} className="text-center">
-                      {env}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td className="pl-4">
-                    {parentFeature.valueType === "json"
-                      ? "JSON"
-                      : parentFeature.valueType}
-                  </td>
-                  <td className="border-right" style={{ maxWidth: 400 }}>
-                    <ValueDisplay
-                      value={getFeatureDefaultValue(parentFeature)}
-                      type={parentFeature.valueType}
-                      fullStyle={{
-                        maxHeight: 120,
-                        overflowY: "auto",
-                        overflowX: "auto",
-                        maxWidth: "100%",
-                      }}
-                    />
-                  </td>
-                  <PrerequisiteStatesCols
-                    prereqStates={prereqStates ?? undefined}
-                    envs={envs}
-                    loading={prereqStatesLoading}
-                  />
-                </tr>
-              </tbody>
-            </table>
-          </Box>
+          <PrerequisiteStatesTable
+            parentFeature={parentFeature}
+            prereqStates={prereqStates ?? null}
+            environments={envs}
+            loading={prereqStatesLoading}
+          />
         </Box>
       ) : null}
 

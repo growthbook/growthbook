@@ -1,7 +1,7 @@
 import dynamic from "next/dynamic";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { FaCircleCheck, FaCircleXmark } from "react-icons/fa6";
 import {
@@ -29,7 +29,7 @@ import { BiHide, BiShow } from "react-icons/bi";
 import Collapsible from "react-collapsible";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { BsClock } from "react-icons/bs";
-import { Box, Flex, Heading, IconButton, Separator } from "@radix-ui/themes";
+import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
 import {
   SafeRolloutInterface,
   HoldoutInterface,
@@ -60,7 +60,7 @@ import DiscussionThread from "@/components/DiscussionThread";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
-import EventUser from "@/components/Avatar/EventUser";
+import UserAvatar from "@/components/Avatar/UserAvatar";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import RevertModal from "@/components/Features/RevertModal";
 import {
@@ -91,6 +91,9 @@ import { useScrollPosition } from "@/hooks/useScrollPosition";
 import Badge from "@/ui/Badge";
 import Frame from "@/ui/Frame";
 import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
+import Metadata from "@/ui/Metadata";
+import metaDataStyles from "@/ui/Metadata.module.scss";
 import Switch from "@/ui/Switch";
 import Link from "@/ui/Link";
 import JSONValidation from "@/components/Features/JSONValidation";
@@ -263,7 +266,20 @@ export default function FeaturesOverview({
   const showKillSwitchManager = killSwitchTarget !== null;
 
   const { apiCall } = useAuth();
-  const { hasCommercialFeature } = useUser();
+  const { hasCommercialFeature, getOwnerDisplay } = useUser();
+
+  const commitTitleEdit = useCallback(async () => {
+    if (!revision) return;
+    setEditingTitle(false);
+    const next = titleDraft.trim();
+    if (next !== (revision.title ?? "")) {
+      await apiCall(`/feature/${feature.id}/${revision.version}/title`, {
+        method: "PUT",
+        body: JSON.stringify({ title: next }),
+      });
+      await mutate();
+    }
+  }, [titleDraft, revision, feature.id, apiCall, mutate]);
   const { showFeatureUsage } = useFeatureUsage();
 
   const allEnvironments = useEnvironments();
@@ -406,6 +422,16 @@ export default function FeaturesOverview({
 
   const bannerRef = useRef<HTMLDivElement>(null);
   const [bannerPinned, setBannerPinned] = useState(false);
+
+  const [envGridWidth, setEnvGridWidth] = useState(0);
+  const envGridRef = useCallback((el: HTMLDivElement | null) => {
+    if (!el) return;
+    setEnvGridWidth(el.getBoundingClientRect().width);
+    const ro = new ResizeObserver(([entry]) => {
+      setEnvGridWidth(entry.contentRect.width);
+    });
+    ro.observe(el);
+  }, []);
   const { scrollY } = useScrollPosition();
   useEffect(() => {
     if (!bannerRef.current) return;
@@ -735,7 +761,6 @@ export default function FeaturesOverview({
     );
   };
 
-  const revisionCTA = renderRevisionCTA();
   const onCompareRevisions =
     (revisionList?.length ?? 0) >= 2
       ? () => setCompareRevisionsModalOpen(true)
@@ -744,30 +769,55 @@ export default function FeaturesOverview({
   const renderRevisionInfo = () => {
     return (
       <Flex direction="column" gap="1">
-        <Flex align="center" justify="between">
-          <Box>
-            <span className="text-muted">Created by</span>{" "}
-            <EventUser user={revision.createdBy} display="name" />{" "}
-            <span className="text-muted">on</span>{" "}
-            {datetime(revision.dateCreated)}
-          </Box>
-          <Flex align="center" justify="between" gap="3">
-            {revision.status === "published" && revision.datePublished && (
-              <Box>
-                <span className="text-muted">Published on</span>{" "}
-                {datetime(revision.datePublished)}
-              </Box>
-            )}
-            {revision.status === "draft" && (
-              <Box>
-                <span className="text-muted">Last updated</span>{" "}
-                {ago(revision.dateUpdated)}
-              </Box>
-            )}
-          </Flex>
+        <Flex align="center" gap="4" wrap="wrap">
+          {(() => {
+            const cb = revision.createdBy;
+            if (cb?.type === "dashboard") {
+              const name = getOwnerDisplay(cb.id);
+              return (
+                <Metadata
+                  label="Revised by"
+                  value={
+                    name ? (
+                      <span>
+                        <UserAvatar name={name} size="sm" variant="soft" />{" "}
+                        {name}
+                      </span>
+                    ) : (
+                      <em className="text-muted">Unknown</em>
+                    )
+                  }
+                />
+              );
+            }
+            if (cb?.type === "api_key") {
+              return (
+                <Metadata
+                  label="Revised by"
+                  value={<span className="badge badge-secondary">API</span>}
+                />
+              );
+            }
+            return null;
+          })()}
+          <Metadata label="Created" value={datetime(revision.dateCreated)} />
+          {revision.status === "published" && revision.datePublished && (
+            <Metadata
+              label="Published"
+              value={datetime(revision.datePublished)}
+            />
+          )}
+          {revision.status === "draft" && (
+            <Metadata label="Last update" value={ago(revision.dateUpdated)} />
+          )}
         </Flex>
         <Flex align="start" gap="2" style={{ width: "fit-content" }}>
-          <span className="text-muted">Revision notes:</span>{" "}
+          <span
+            className={metaDataStyles.labelColor}
+            style={{ fontWeight: 500 }}
+          >
+            Revision notes:
+          </span>{" "}
           {revision.comment ? (
             <Flex align="start" gap="1">
               <Box>
@@ -933,7 +983,7 @@ export default function FeaturesOverview({
         {revision && (
           <Frame mt="2" mb="4" px="6" py="4">
             <Flex align="start" justify="between" mb="2" wrap="wrap" gap="2">
-              <Flex align="start" gap="3" style={{ marginTop: 6 }}>
+              <Flex align="start" gap="4" style={{ marginTop: 6 }}>
                 <Flex direction="column" gap="1">
                   <Flex align="center" gap="2">
                     {revision.title && (
@@ -944,7 +994,7 @@ export default function FeaturesOverview({
                           flexShrink: 0,
                         }}
                       >
-                        <Text as="span" color="text-mid" size="small">
+                        <Text as="span" color="text-mid" size="medium">
                           {revision.version}.
                         </Text>
                       </span>
@@ -958,37 +1008,13 @@ export default function FeaturesOverview({
                         onKeyDown={async (e) => {
                           if (e.key === "Enter") {
                             e.preventDefault();
-                            setEditingTitle(false);
-                            const next = titleDraft.trim();
-                            if (next !== (revision.title ?? "")) {
-                              await apiCall(
-                                `/feature/${feature.id}/${revision.version}/title`,
-                                {
-                                  method: "PUT",
-                                  body: JSON.stringify({ title: next }),
-                                },
-                              );
-                              await mutate();
-                            }
+                            await commitTitleEdit();
                           } else if (e.key === "Escape") {
                             setEditingTitle(false);
                             setTitleDraft(revision.title || "");
                           }
                         }}
-                        onBlur={async () => {
-                          setEditingTitle(false);
-                          const next = titleDraft.trim();
-                          if (next !== (revision.title ?? "")) {
-                            await apiCall(
-                              `/feature/${feature.id}/${revision.version}/title`,
-                              {
-                                method: "PUT",
-                                body: JSON.stringify({ title: next }),
-                              },
-                            );
-                            await mutate();
-                          }
-                        }}
+                        onBlur={commitTitleEdit}
                         containerStyle={{ maxWidth: 250, marginBottom: 0 }}
                         style={{
                           border: "none",
@@ -1000,10 +1026,12 @@ export default function FeaturesOverview({
                           boxShadow: "none",
                           padding: "0 2px",
                           height: "auto",
+                          fontSize: "var(--font-size-3)",
+                          fontWeight: 700,
                         }}
                       />
                     ) : (
-                      <Text weight="semibold">
+                      <Text weight="semibold" size="large">
                         <OverflowText
                           maxWidth={250}
                           title={revisionLabelText(
@@ -1066,8 +1094,9 @@ export default function FeaturesOverview({
                   </>
                 )}
               </Flex>
-              <Flex align="center" justify="end" gap="2" flexGrow="1">
-                {revisionCTA}
+
+              <Flex align="center" justify="end" gap="4" flexGrow="1">
+                {renderRevisionCTA()}
               </Flex>
             </Flex>
             <Separator size="4" my="3" />
@@ -1090,13 +1119,11 @@ export default function FeaturesOverview({
                 py="2"
                 style={{ cursor: "pointer", userSelect: "none" }}
               >
-                <Flex align="center" gap="1">
-                  <Heading as="h4" size="3" mb="0">
-                    {hasCustomFields && !descriptionExpanded
-                      ? "Description & Additional Fields"
-                      : "Description"}
-                  </Heading>
-                </Flex>
+                <Heading as="h4" size="small" mb="0">
+                  {hasCustomFields && !descriptionExpanded
+                    ? "Description & Additional Fields"
+                    : "Description"}
+                </Heading>
                 <Flex align="center" gap="2">
                   {canEdit && canEditDrafts && !isReadOnly && (
                     <Button
@@ -1155,272 +1182,89 @@ export default function FeaturesOverview({
           <CustomMarkdown page={"feature"} variables={variables} />
         </Box>
         <Frame mb="4" px="6" py="4">
-          <Box>
-            <Flex align="center" justify="between" gap="2" mb="2">
-              <Heading as="h4" size="3" mb="0">
-                Environment Status
-              </Heading>
-              {showFeatureUsage && (
-                <FeatureUsageSparkline
-                  valueType={feature.valueType}
-                  environments={envs}
-                />
-              )}
-            </Flex>
-            <div className="mb-4">
-              When disabled, this feature will evaluate to <code>null</code>.
-              The default value and rules will be ignored.
-            </div>
-            {prerequisites.length > 0 ? (
-              <div style={{ overflowX: "auto" }}>
-                <table className="table border mb-2 w-100">
-                  <thead>
-                    <tr className="bg-light">
-                      <th
-                        className="pl-3 align-bottom font-weight-bold border-right"
-                        style={{ minWidth: 350 }}
-                      />
-                      {envs.map((env) => (
-                        <th
-                          key={env}
-                          className="text-center align-bottom font-weight-bolder"
-                          style={{ minWidth: 120 }}
-                        >
-                          {env}
-                        </th>
-                      ))}
-                      {envs.length === 0 ? (
-                        <th className="text-center align-bottom">
-                          <span className="font-italic">No environments</span>
-                          <Tooltip
-                            className="ml-1"
-                            popperClassName="text-left font-weight-normal"
-                            body={
-                              <>
-                                <div className="text-warning-orange mb-2">
-                                  <FaExclamationTriangle /> This feature has no
-                                  associated environments
-                                </div>
-                                <div>
-                                  Ensure that this feature&apos;s project is
-                                  included in at least one environment to use
-                                  it.
-                                </div>
-                              </>
-                            }
-                          />
-                          <div
-                            className="float-right small position-relative"
-                            style={{ top: 5 }}
-                          >
-                            <Link href="/environments">
-                              Manage Environments
-                            </Link>
-                          </div>
-                        </th>
-                      ) : (
-                        <th className="w-100" />
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td
-                        className="pl-3 align-bottom border-right py-2"
-                        style={{ minWidth: 350 }}
-                      >
-                        <Flex align="center" justify="between" gap="2">
-                          <span>
-                            <span className="font-weight-bold">
-                              Enabled Environments
-                            </span>
-                            {enabledEnvsSubtext && (
-                              <Text as="div" size="small" color="text-mid">
-                                {enabledEnvsSubtext}
-                              </Text>
-                            )}
-                          </span>
-                          {!isReadOnly && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setKillSwitchTarget({})}
-                            >
-                              Change
-                            </Button>
-                          )}
-                        </Flex>
-                      </td>
-                      {envs.map((env) => {
-                        const enabled =
-                          feature.environmentSettings?.[env]?.enabled ?? false;
-                        return (
-                          <td key={env} style={{ minWidth: 120 }}>
-                            <Flex align="center" justify="center">
-                              <Tooltip
-                                popperClassName="text-left"
-                                flipTheme={false}
-                                body={environmentKillSwitchTooltipBody(
-                                  enabled,
-                                  !isReadOnly,
-                                  envAndSummaryTooltipNonLiveDisclaimer,
-                                )}
-                              >
-                                {!isReadOnly ? (
-                                  <IconButton
-                                    variant="ghost"
-                                    radius="full"
-                                    aria-label={
-                                      enabled
-                                        ? "Disable environment"
-                                        : "Enable environment"
-                                    }
-                                    onClick={() =>
-                                      setKillSwitchTarget({
-                                        envId: env,
-                                        desiredState: !enabled,
-                                      })
-                                    }
-                                  >
-                                    {enabled ? (
-                                      <FaCircleCheck
-                                        size={20}
-                                        style={{
-                                          color: featureStatusColors.on,
-                                        }}
-                                      />
-                                    ) : (
-                                      <FaCircleXmark
-                                        size={20}
-                                        style={{
-                                          color: featureStatusColors.offMuted,
-                                        }}
-                                      />
-                                    )}
-                                  </IconButton>
-                                ) : enabled ? (
-                                  <FaCircleCheck
-                                    size={20}
-                                    style={{ color: featureStatusColors.on }}
-                                  />
-                                ) : (
-                                  <FaCircleXmark
-                                    size={20}
-                                    style={{
-                                      color: featureStatusColors.offMuted,
-                                    }}
-                                  />
-                                )}
-                              </Tooltip>
-                            </Flex>
-                          </td>
-                        );
-                      })}
-                      <td className="w-100" />
-                    </tr>
-                    {prerequisites.map(({ ...item }, i) => {
-                      return (
-                        <PrerequisiteStatusRow
-                          key={i}
-                          i={i}
-                          feature={feature}
-                          prereqDefaultValue={prereqDefaultValues[item.id]}
-                          prerequisite={item}
-                          environments={environments}
-                          mutate={mutate}
-                          setVersion={setVersion}
-                          setPrerequisiteModal={setPrerequisiteModal}
-                          revisionList={revisionList || []}
-                          gatedEnvSet={gatedEnvSet}
-                          isLocked={isReadOnly}
-                        />
-                      );
-                    })}
-                  </tbody>
-                  <tbody>
-                    <tr className="bg-light">
-                      <td className="pl-3 font-weight-bold border-right">
-                        Summary
-                      </td>
-                      {envs.length > 0 && (
-                        <PrerequisiteStatesCols
-                          prereqStates={prereqStates ?? undefined}
-                          envs={envs}
-                          isSummaryRow={true}
-                          loading={prereqStatesLoading}
-                          tooltipBodyWrapper={
-                            envAndSummaryTooltipNonLiveDisclaimer
-                              ? (body) => (
-                                  <>
-                                    {body}
-                                    <NonLiveRevisionTooltipNote
-                                      kind={
-                                        envAndSummaryTooltipNonLiveDisclaimer
-                                      }
-                                    />
-                                  </>
-                                )
-                              : undefined
-                          }
-                        />
-                      )}
-                      <td />
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <Box>
-                <Flex align="center" gap="4" mb="2">
-                  <span>
-                    <span className="font-weight-bold">
-                      Enabled Environments
-                    </span>
-                    {enabledEnvsSubtext ? (
-                      <Text as="div" size="small" color="text-mid">
-                        {enabledEnvsSubtext}
-                      </Text>
-                    ) : null}
-                  </span>
-                  {!isReadOnly && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setKillSwitchTarget({})}
-                      style={{
-                        position: "relative",
-                        top: enabledEnvsSubtext ? -8 : undefined,
-                      }}
-                    >
-                      Change
-                    </Button>
-                  )}
-                </Flex>
-                <Separator size="4" mt="1" mb="3" />
+          <Flex align="center" justify="between" gap="2" mb="2">
+            <Heading as="h4" size="small" mb="0">
+              Environment Status
+            </Heading>
+            {showFeatureUsage && (
+              <FeatureUsageSparkline
+                valueType={feature.valueType}
+                environments={envs}
+              />
+            )}
+          </Flex>
+          <div className="mb-4">
+            When disabled, this feature will evaluate to <code>null</code>. The
+            default value and rules will be ignored.
+          </div>
+          {prerequisites.length > 0 ? (
+            /* Grid layout: env icons column-aligned with prereq rows */
+            <>
+              {!isReadOnly && (
                 <Flex
-                  mb="4"
-                  justify="start"
-                  align="center"
-                  gapX="4"
-                  gapY="3"
-                  wrap="wrap"
+                  justify="end"
+                  style={{
+                    marginBottom:
+                      envGridWidth > 0 &&
+                      200 + envs.length * 120 < envGridWidth - 80
+                        ? -26 // align to the env grid's labels' baseline
+                        : undefined,
+                  }}
                 >
-                  {environments.length > 0 ? (
-                    <>
-                      {environments.map((en) => {
-                        const enabled =
-                          feature.environmentSettings?.[en.id]?.enabled ??
-                          false;
-                        return (
-                          <Flex
-                            wrap="nowrap"
-                            direction="row"
-                            gap="2"
-                            align="center"
-                            key={en.id}
-                            mr="2"
-                          >
-                            <span className="font-weight-bold">{en.id}:</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setKillSwitchTarget({})}
+                    style={{ position: "relative", zIndex: 1 }}
+                  >
+                    Change
+                  </Button>
+                </Flex>
+              )}
+              <div
+                ref={envGridRef}
+                style={{ overflowX: "auto", marginBottom: "var(--space-2)" }}
+              >
+                <Flex direction="column" style={{ width: "max-content" }}>
+                  {/* Header row: label in 200px area, env names in columns, top-aligned */}
+                  <Flex align="start" pb="1">
+                    <Box style={{ width: 200, flexShrink: 0 }}>
+                      <span className="font-weight-bold">
+                        Enabled Environments
+                      </span>
+                      {enabledEnvsSubtext ? (
+                        <div style={{ marginBottom: -20 }}>
+                          <Text as="div" size="small" color="text-mid">
+                            {enabledEnvsSubtext}
+                          </Text>
+                        </div>
+                      ) : null}
+                    </Box>
+                    {envs.map((env) => (
+                      <Box
+                        key={env}
+                        style={{
+                          width: 120,
+                          flexShrink: 0,
+                          textAlign: "center",
+                        }}
+                      >
+                        <Text weight="semibold" color="text-mid">
+                          <OverflowText maxWidth={120}>{env}</OverflowText>
+                        </Text>
+                      </Box>
+                    ))}
+                  </Flex>
+
+                  {/* Env icon row */}
+                  <Flex align="center">
+                    <Box style={{ width: 200, flexShrink: 0 }} />
+                    {environments.map((en) => {
+                      const enabled =
+                        feature.environmentSettings?.[en.id]?.enabled ?? false;
+                      return (
+                        <Box key={en.id} style={{ width: 120, flexShrink: 0 }}>
+                          <Flex align="center" justify="center" py="1">
                             <Tooltip
                               popperClassName="text-left"
                               flipTheme={false}
@@ -1475,73 +1319,260 @@ export default function FeaturesOverview({
                               )}
                             </Tooltip>
                           </Flex>
-                        );
-                      })}
-                    </>
-                  ) : (
-                    <div className="alert alert-warning pt-3 pb-2 w-100">
-                      <div className="h4 mb-3">
-                        <FaExclamationTriangle /> This feature has no associated
-                        environments
-                      </div>
-                      <div className="mb-2">
-                        Ensure that this feature&apos;s project is included in
-                        at least one environment to use it.{" "}
-                        <Link href="/environments">Manage Environments</Link>
-                      </div>
-                    </div>
-                  )}
+                        </Box>
+                      );
+                    })}
+                  </Flex>
+
+                  {/* Prerequisites section heading */}
+                  <Flex align="center" mt="1" pb="2">
+                    <Box style={{ width: 200, flexShrink: 0 }}>
+                      <span className="font-weight-bold">Prerequisites</span>
+                    </Box>
+                  </Flex>
+
+                  {/* Prerequisite rows */}
+                  {prerequisites.map(({ ...item }, i) => (
+                    <PrerequisiteStatusRow
+                      key={i}
+                      i={i}
+                      feature={feature}
+                      prereqDefaultValue={prereqDefaultValues[item.id]}
+                      prerequisite={item}
+                      environments={environments}
+                      mutate={mutate}
+                      setVersion={setVersion}
+                      setPrerequisiteModal={setPrerequisiteModal}
+                      revisionList={revisionList || []}
+                      gatedEnvSet={gatedEnvSet}
+                      isLocked={isReadOnly}
+                      labelWidth={200}
+                      colWidth={120}
+                    />
+                  ))}
+
+                  {/* Summary row */}
+                  <Flex
+                    pt="1"
+                    align="center"
+                    style={{ borderTop: "2px solid var(--gray-4)" }}
+                  >
+                    <Box py="2" style={{ width: 200, flexShrink: 0 }}>
+                      <span className="font-weight-bold">Net Status</span>
+                    </Box>
+                    {envs.length > 0 && (
+                      <PrerequisiteStatesCols
+                        prereqStates={prereqStates ?? undefined}
+                        envs={envs}
+                        isSummaryRow={true}
+                        loading={prereqStatesLoading}
+                        tooltipBodyWrapper={
+                          envAndSummaryTooltipNonLiveDisclaimer
+                            ? (body) => (
+                                <>
+                                  {body}
+                                  <NonLiveRevisionTooltipNote
+                                    kind={envAndSummaryTooltipNonLiveDisclaimer}
+                                  />
+                                </>
+                              )
+                            : undefined
+                        }
+                        colWidth={120}
+                      />
+                    )}
+                  </Flex>
                 </Flex>
-              </Box>
-            )}
-
-            {hasConditionalState && (
-              <PrerequisiteAlerts
-                environments={envs}
-                type="feature"
-                project={projectId ?? ""}
-                mt="4"
-                mb="0"
-              />
-            )}
-
-            {canEdit && canEditDrafts && !isReadOnly && (
-              <PremiumTooltip
-                commercialFeature="prerequisites"
-                className="d-inline-flex align-items-center mt-3"
-              >
-                <Link
-                  onClick={() => {
-                    if (!hasPrerequisitesCommercialFeature) {
-                      return;
-                    }
-                    setPrerequisiteModal({
-                      i: getPrerequisites(feature).length,
-                    });
-                    track("Viewed prerequisite feature modal", {
-                      source: "add-prerequisite",
-                    });
-                  }}
-                  style={{
-                    opacity: !hasPrerequisitesCommercialFeature ? 0.5 : 1,
-                    cursor: !hasPrerequisitesCommercialFeature
-                      ? "not-allowed"
-                      : "pointer",
-                  }}
+              </div>
+              {canEdit && canEditDrafts && !isReadOnly && (
+                <PremiumTooltip
+                  commercialFeature="prerequisites"
+                  className="d-inline-flex align-items-center mt-2"
                 >
-                  <Text weight="semibold">
-                    <PiPlusCircleBold className="mr-1" />
-                    Add prerequisite targeting
-                  </Text>
-                </Link>
-              </PremiumTooltip>
-            )}
-          </Box>
+                  <Link
+                    onClick={() => {
+                      if (!hasPrerequisitesCommercialFeature) return;
+                      setPrerequisiteModal({
+                        i: getPrerequisites(feature).length,
+                      });
+                      track("Viewed prerequisite feature modal", {
+                        source: "add-prerequisite",
+                      });
+                    }}
+                    style={{
+                      opacity: !hasPrerequisitesCommercialFeature ? 0.5 : 1,
+                      cursor: !hasPrerequisitesCommercialFeature
+                        ? "not-allowed"
+                        : "pointer",
+                    }}
+                  >
+                    <Text weight="semibold">
+                      <PiPlusCircleBold className="mr-1" />
+                      Add prerequisite
+                    </Text>
+                  </Link>
+                </PremiumTooltip>
+              )}
+            </>
+          ) : (
+            /* Pill layout: simple env name + icon pairs, no grid needed */
+            <Box>
+              <Flex align="center" justify="between" mb="2">
+                <span>
+                  <span className="font-weight-bold">Enabled Environments</span>
+                  {enabledEnvsSubtext ? (
+                    <Text as="div" size="small" color="text-mid">
+                      {enabledEnvsSubtext}
+                    </Text>
+                  ) : null}
+                </span>
+                {!isReadOnly && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setKillSwitchTarget({})}
+                  >
+                    Change
+                  </Button>
+                )}
+              </Flex>
+              <Separator size="4" mt="1" mb="3" />
+              <Flex
+                mb="4"
+                justify="start"
+                align="center"
+                gapX="4"
+                gapY="3"
+                wrap="wrap"
+              >
+                {environments.length > 0 ? (
+                  environments.map((en) => {
+                    const enabled =
+                      feature.environmentSettings?.[en.id]?.enabled ?? false;
+                    return (
+                      <Flex
+                        key={en.id}
+                        wrap="nowrap"
+                        direction="row"
+                        gap="2"
+                        align="center"
+                        mr="2"
+                      >
+                        <span className="font-weight-bold">{en.id}:</span>
+                        <Tooltip
+                          popperClassName="text-left"
+                          flipTheme={false}
+                          body={environmentKillSwitchTooltipBody(
+                            enabled,
+                            !isReadOnly,
+                            envAndSummaryTooltipNonLiveDisclaimer,
+                          )}
+                        >
+                          {!isReadOnly ? (
+                            <IconButton
+                              variant="ghost"
+                              radius="full"
+                              aria-label={
+                                enabled
+                                  ? "Disable environment"
+                                  : "Enable environment"
+                              }
+                              onClick={() =>
+                                setKillSwitchTarget({
+                                  envId: en.id,
+                                  desiredState: !enabled,
+                                })
+                              }
+                            >
+                              {enabled ? (
+                                <FaCircleCheck
+                                  size={20}
+                                  style={{ color: featureStatusColors.on }}
+                                />
+                              ) : (
+                                <FaCircleXmark
+                                  size={20}
+                                  style={{
+                                    color: featureStatusColors.offMuted,
+                                  }}
+                                />
+                              )}
+                            </IconButton>
+                          ) : enabled ? (
+                            <FaCircleCheck
+                              size={20}
+                              style={{ color: featureStatusColors.on }}
+                            />
+                          ) : (
+                            <FaCircleXmark
+                              size={20}
+                              style={{ color: featureStatusColors.offMuted }}
+                            />
+                          )}
+                        </Tooltip>
+                      </Flex>
+                    );
+                  })
+                ) : (
+                  <div className="alert alert-warning pt-3 pb-2 w-100">
+                    <div className="h4 mb-3">
+                      <FaExclamationTriangle /> This feature has no associated
+                      environments
+                    </div>
+                    <div className="mb-2">
+                      Ensure that this feature&apos;s project is included in at
+                      least one environment to use it.{" "}
+                      <Link href="/environments">Manage Environments</Link>
+                    </div>
+                  </div>
+                )}
+              </Flex>
+              {canEdit && canEditDrafts && !isReadOnly && (
+                <PremiumTooltip
+                  commercialFeature="prerequisites"
+                  className="d-inline-flex align-items-center mt-2"
+                >
+                  <Link
+                    onClick={() => {
+                      if (!hasPrerequisitesCommercialFeature) return;
+                      setPrerequisiteModal({
+                        i: getPrerequisites(feature).length,
+                      });
+                      track("Viewed prerequisite feature modal", {
+                        source: "add-prerequisite",
+                      });
+                    }}
+                    style={{
+                      opacity: !hasPrerequisitesCommercialFeature ? 0.5 : 1,
+                      cursor: !hasPrerequisitesCommercialFeature
+                        ? "not-allowed"
+                        : "pointer",
+                    }}
+                  >
+                    <Text weight="semibold">
+                      <PiPlusCircleBold className="mr-1" />
+                      Add prerequisite targeting
+                    </Text>
+                  </Link>
+                </PremiumTooltip>
+              )}
+            </Box>
+          )}
+
+          {hasConditionalState && (
+            <PrerequisiteAlerts
+              environments={envs}
+              type="feature"
+              project={projectId ?? ""}
+              mt="4"
+              mb="0"
+            />
+          )}
         </Frame>
         {dependents > 0 && (
           <Frame mb="4" px="6" py="4">
             <Flex mb="2" gap="2" align="center">
-              <Heading size="3" as="h4" mb="0">
+              <Heading size="small" as="h4" mb="0">
                 Dependents
               </Heading>
               <Badge label={dependents + ""} color="gray" />
@@ -1640,7 +1671,7 @@ export default function FeaturesOverview({
             <Frame mt="4" px="6" py="4">
               <Flex align="center" justify="between">
                 <Flex align="center" gap="1" mb="3">
-                  <Heading as="h4" size="3" mb="0">
+                  <Heading as="h4" size="small" mb="0">
                     Default Value
                   </Heading>
                 </Flex>
@@ -1671,11 +1702,9 @@ export default function FeaturesOverview({
                 style={{ borderTop: "1px solid var(--gray-a4)" }}
               >
                 <Flex align="center" justify="between" mb="2">
-                  <Flex align="center" gap="1">
-                    <Heading as="h4" size="3" mb="0">
-                      Rules
-                    </Heading>
-                  </Flex>
+                  <Heading as="h4" size="small" mb="0">
+                    Rules
+                  </Heading>
                   <label className="font-weight-semibold">
                     <Switch
                       disabled={!hasInactiveRules}
@@ -1725,7 +1754,7 @@ export default function FeaturesOverview({
         )}
 
         <Frame mb="4" px="6" py="4">
-          <Heading as="h4" size="3" mb="3">
+          <Heading as="h4" size="small" mb="3">
             Comments
           </Heading>
           <DiscussionThread
